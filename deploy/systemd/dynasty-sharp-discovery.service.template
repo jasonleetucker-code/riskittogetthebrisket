@@ -1,0 +1,59 @@
+[Unit]
+Description=Dynasty Trade Calculator Sharp Tracker manager-discovery crawl (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Grows the Sharp Tracker manager cohort by walking Sleeper OUTWARD from
+# the seeds in config/sharp/discovery_seeds.json:
+#
+#     league -> members -> their leagues -> those leagues' members -> ...
+#
+# WHY OUTWARD AND NOT A LOOKUP: Sleeper publishes no global directory of
+# users or leagues (verified against docs.sleeper.com and live).  Every
+# read must start from a known id, so a cohort can only be grown, never
+# enumerated.  This crawl is the growth mechanism.
+#
+# SEED ELIGIBILITY IS NOT SIGNAL ELIGIBILITY.  Seeds exist to find
+# MANAGERS; only dynasty/keeper leagues ever feed the trade signal
+# (src/intel/league_filter.py).  The shipped seed — The Megalabowl — is
+# a REDRAFT league, and is one of the highest-yield seeds available
+# precisely because it puts many otherwise-unrelated managers in one
+# place.  Its own trades are never counted.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: the crawl writes the SQLite ledger
+# under data/intel/, which is gitignored repo-wide, so a graph built on
+# a CI runner never reaches the VPS.  The producer has to run where the
+# reader lives — same reasoning as the BDVM and player-context refreshes.
+#
+# Rate discipline: Sleeper documents "stay under 1000 API calls per
+# minute".  The crawl sleeps 0.12s between calls (~500/min, half the
+# stated ceiling) and stops at a hard per-run call budget.
+#
+# Exit codes (scripts/discover_sharp_graph.py):
+#   0 - run completed within budget
+#   1 - hard failure; the ledger is unchanged
+#   2 - budget exhausted with work remaining (NORMAL on a large graph;
+#       the frontier is resumable and the next run continues it)
+# SuccessExitStatus below keeps 2 out of the failure counters, since a
+# partial crawl is the expected steady state rather than an error.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/discover_sharp_graph.py
+SuccessExitStatus=0 2
+StandardOutput=journal
+StandardError=journal
+# Pure background enrichment — never user-facing, and deliberately
+# de-prioritised against request traffic on the same box.
+Nice=10
+IOSchedulingClass=idle
+# A full budget at ~500 calls/min is ~5 min of wall clock; the ceiling
+# is generous so a slow Sleeper response cannot truncate a run.
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

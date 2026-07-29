@@ -20,7 +20,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-from src.intel import aggregate, crawler, store
+from src.intel import aggregate, crawler, ingest, ledger, store
 
 log = logging.getLogger(__name__)
 
@@ -311,6 +311,27 @@ def _refresh_locked(
     store.save_state(merged, league_key)
     invalidate_cache()
 
+    # Feed the normalized ledger.  The snapshot keeps the crawl
+    # bookkeeping (cursor, fetchState, holdings); the ledger owns
+    # history and every window query.  Idempotent — the crawler's
+    # deterministic eventId is the ledger's movement_id, so this
+    # inserts each movement exactly once no matter how often it runs.
+    #
+    # It must never take the refresh down: the crawl succeeded and the
+    # snapshot is already durably written, so a ledger failure is
+    # logged and reported, not raised.
+    ledger_report: dict[str, Any] = {}
+    try:
+        ingested = ingest.ingest_state(merged, league_key=league_key)
+        ledger.prune()
+        ledger_report = {
+            "movementsSeen": ingested.movements_seen,
+            "movementsInserted": ingested.movements_inserted,
+        }
+    except Exception as exc:  # noqa: BLE001 — never fail the refresh
+        log.exception("intel: ledger ingest failed for league=%s", league_key)
+        ledger_report = {"error": str(exc)}
+
     summary = {
         "finishedAt": _utc_now_iso(),
         "durationSeconds": round(time.time() - started, 1),
@@ -323,6 +344,8 @@ def _refresh_locked(
         "memberCount": len(merged.get("members") or {}),
         "leagueCount": len(merged.get("leagues") or {}),
         "eventCount": len(merged.get("events") or []),
+        "excludedLeagues": result.excluded_leagues,
+        "ledger": ledger_report,
         "season": resolved_season,
     }
     log.info("intel refresh done: %s", summary)

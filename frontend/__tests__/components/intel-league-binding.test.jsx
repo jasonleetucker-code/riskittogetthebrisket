@@ -1,7 +1,8 @@
-// League binding for the Sharp Tracker surfaces (Codex round 2 on
-// Phase 5):
-//   1. /intel refetches when the active league changes while mounted,
-//      and always sends the selected leagueKey explicitly.
+// League binding for the Insider Trading surfaces:
+//   1. /league/insider-trading refetches when the active league changes
+//      while mounted, and always sends the selected leagueKey explicitly.
+//      (Insider Trading is league-scoped BY DESIGN; Sharp Tracker at
+//      /market/sharp-tracker deliberately is not, and has no such binding.)
 //   2. PlayerPopup's intel cache is keyed on (leagueKey, asset) so a
 //      league switch never serves the previous league's counts.
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -39,7 +40,7 @@ vi.mock("next/link", () => ({
   default: ({ children, href }) => <a href={href}>{children}</a>,
 }));
 
-import IntelPage from "@/app/intel/page";
+import IntelPage from "@/app/league/insider-trading/page";
 import { _loadPlayerIntel } from "@/components/PlayerPopup";
 
 function emptySummary() {

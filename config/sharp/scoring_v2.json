@@ -1,0 +1,112 @@
+{
+  "_comment": "Sharp Score v2 — see src/sharp/score.py and docs/intel/SHARP_SCORE.md. Weights are PRIORS chosen for defensibility, not values validated against an outcome dataset. Change them here, never in code; methodologyVersion must move with any change.",
+  "methodologyVersion": "sharp-v2",
+
+  "_v2Changes": "v1 -> v2: dynasty-only evidence (keeper no longer counts toward sharp qualification); source leagues must be >= 2 seasons old; hard win-percentage floor added; >= 2 dynasty leagues required; championships promoted to an explicit preference with a bounded bonus; qualification bar loosened from top 15% to top 25% of evaluable managers. No cohort was ever published under v1, so nothing is being restated.",
+
+  "eligibility": {
+    "_comment": "Hard gates. Failing ANY leaves a manager 'evaluable: false' WITH A REASON — never scored badly, never silently dropped. These are minimum-viability filters; the percentile bar below is what actually limits cohort size.",
+
+    "minCompletedSeasons": 2,
+
+    "minDynastyLeagues": 2,
+    "_minDynastyLeagues": "Multi-league is a core requirement: one league's results are mostly luck and league-specific context. KEEPER LEAGUES DO NOT COUNT toward this — only dynasty (src/intel/league_filter.SHARP_ELIGIBLE_TYPES).",
+
+    "minLeagueAgeSeasons": 2,
+    "_minLeagueAgeSeasons": "Only dynasty leagues >= 2 seasons old contribute evidence. A first-year league is startup-draft fallout: huge churn, no established market, no completed season to judge anyone on. Detected free via Sleeper's previous_league_id — no extra API call.",
+
+    "minCompletedGames": 24,
+    "_minCompletedGames": "~2 full seasons. Guards against a manager credited with 2 'seasons' that were actually two partial ones.",
+
+    "minWinPct": 0.52,
+    "_minWinPct": "League win% averages EXACTLY 0.500 by construction, so this is 'demonstrably above average', not 'good'. Deliberately a viability floor and not the selector — set much higher and it would silently become the real cutoff and fight the percentile bar below. Over ~24-40 games, 0.52 sits roughly half a standard deviation above the mean.",
+
+    "maxAbandonedRosterRate": 0.34,
+    "requireRecentActivityDays": 400
+  },
+
+  "weights": {
+    "_comment": "Must sum to 1.0 across the positive components. uncertaintyPenalty and the championship bonus are applied separately and are NOT part of that sum.",
+    "performance": 0.36,
+    "rosterQuality": 0.22,
+    "multiLeagueConsistency": 0.22,
+    "longevity": 0.12,
+    "activity": 0.08
+  },
+
+  "performance": {
+    "_comment": "All inputs are percentile-normalized within the evaluable population before weighting, so no single raw stat can dominate and scales stay comparable across league sizes.",
+    "subWeights": {
+      "winPct": 0.28,
+      "playoffRate": 0.22,
+      "championshipRate": 0.26,
+      "medianFinishPercentile": 0.14,
+      "pointsForPercentile": 0.10
+    },
+    "championshipShrinkage": {
+      "_comment": "Championships are rare and high-variance: one title in one season is mostly luck, not proof. Beta-binomial shrink toward the population base rate with priorN pseudo-seasons.",
+      "priorN": 6.0
+    }
+  },
+
+  "championshipPreference": {
+    "_comment": "'Preferably they have won the league before.' Implemented as a bounded BONUS rather than a hard gate: in a 12-team league only ~1/12 of managers can win per season, so requiring a title would cut the cohort far below the requested top quarter and would bar genuinely strong managers who consistently make deep runs in tough leagues. The bonus is large enough to be decisive at the margin and is always named in `contributors`.",
+    "bonusFirstTitle": 0.06,
+    "bonusPerAdditionalTitle": 0.02,
+    "maxBonus": 0.12
+  },
+
+  "rosterQuality": {
+    "_comment": "Roster value is measured RELATIVE to each league's own average, so a manager in a shallow league cannot look sharp on raw value alone. Age adjustment prevents an old win-now roster from reading as dynasty strength.",
+    "subWeights": {
+      "valueVsLeagueAverage": 0.45,
+      "ageAdjustedValue": 0.25,
+      "depthAdjustedValue": 0.15,
+      "draftPickCapital": 0.15
+    },
+    "clampRatio": [0.4, 2.5]
+  },
+
+  "multiLeagueConsistency": {
+    "_comment": "The core anti-luck signal: repeated success across INDEPENDENT dynasty leagues is far harder to fake than one good run. Scored as the SHARE of leagues finishing above median (so adding mediocre leagues cannot raise it), then penalized for variance across those leagues.",
+    "aboveMedianShare": 0.65,
+    "crossLeagueVariancePenalty": 0.35,
+    "minLeaguesForFullCredit": 4
+  },
+
+  "longevity": {
+    "seasonsForFullCredit": 5,
+    "_comment": "Saturating: seasons 1->3 matter far more than 8->10."
+  },
+
+  "activity": {
+    "_comment": "Sustained participation, NOT raw transaction volume — churn is not skill. Capped so a hyperactive manager cannot buy their way into the cohort.",
+    "tradesPerSeasonForFullCredit": 6,
+    "maxContribution": 1.0,
+    "inactivityPenaltyThresholdDays": 120
+  },
+
+  "uncertaintyPenalty": {
+    "_comment": "Subtracted from the weighted score. Scales with how far short of a full record the evidence falls, so a 2-season manager cannot tie a 6-season manager on equal rates.",
+    "maxPenalty": 0.25,
+    "fullEvidenceSeasons": 5,
+    "fullEvidenceLeagues": 4
+  },
+
+  "qualification": {
+    "_comment": "A manager joins the cohort only by clearing BOTH the score bar and the confidence bar.",
+
+    "minScorePercentile": 0.75,
+    "_minScorePercentile": "Top 25% (top quartile) of the EVALUABLE population — managers who cleared every hard gate above. Note this is NOT top 25% of all discovered users: the gates run first, so the cohort is a quarter of the qualified-to-be-judged pool and a smaller share of everyone found. Both figures are reported in the cohort payload so the distinction is never hidden. Raise toward 0.85 to tighten, lower toward 0.67 for a top-third cohort.",
+
+    "minConfidence": 0.55,
+    "maxCohortSize": 2500
+  },
+
+  "confidence": {
+    "_comment": "Reported separately from the score, never blended into it. 'How much evidence' is a different question from 'how good'.",
+    "seasonsHalfCredit": 3.0,
+    "leaguesHalfCredit": 3.0,
+    "tiers": { "high": 0.75, "medium": 0.5, "low": 0.25 }
+  }
+}

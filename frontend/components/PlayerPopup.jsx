@@ -187,7 +187,7 @@ function RosContextSection({ row }) {
   );
 }
 
-// ── League-mate intel section (Sharp Tracker, Phase 5) ───────────────
+// ── League-mate intel section (Insider Trading) ──────────────────────
 // Cross-league exposure line: how many league-mates hold this player
 // across their other Sleeper leagues, and the recent net add activity.
 // Fetches GET /api/intel/player and degrades SILENTLY when intel is
@@ -1057,7 +1057,7 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
             </div>
           )}
 
-          {/* League-mate intel (Sharp Tracker) — silently absent when
+          {/* League-mate intel (Insider Trading) — silently absent when
               the intel snapshot has nothing for this asset */}
           <IntelContextSection row={row} />
 

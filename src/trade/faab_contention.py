@@ -26,7 +26,7 @@ Factors
 ``need_f``   Positional need from the existing roster-analysis
              helpers (``src.trade.suggestions.analyze_roster``):
              need → 1.0, neutral → 0.55, surplus → 0.25.
-``intel_f``  Cross-league intel from the Phase-5 Sharp Tracker
+``intel_f``  Cross-league intel from the Insider Trading crawl
              snapshot (league-partitioned:
              ``data/intel/snapshot_<leagueKey>.json``), read
              DEFENSIVELY as plain JSON — no import dependency on
@@ -78,7 +78,7 @@ SAFETY_MARGIN = 1.15
 INTEL_WINDOW_MS = 14 * 24 * 3600 * 1000
 
 # Intel snapshot location — SEAM RESOLUTION between #538 (FAAB v2)
-# and #534 (Sharp Tracker): the intel pipeline persists snapshots
+# and #534 (Insider Trading): the intel pipeline persists snapshots
 # LEAGUE-PARTITIONED at ``data/intel/snapshot_<leagueKey>.json``
 # (intel is roster-scoped → league-scoped per CLAUDE.md).  The path
 # derivation here must mirror ``src/intel/store.py::snapshot_path``
@@ -128,7 +128,7 @@ def load_intel_snapshot(
     see the seam note on ``intel_snapshot_path``).  An explicit
     ``path`` wins over ``league_key`` for tests.  Returns ``None``
     when the file is missing, unreadable, or not a JSON object.
-    Never raises and never imports ``src.intel`` — the Sharp Tracker
+    Never raises and never imports ``src.intel`` — the Insider Trading
     may not be merged/deployed alongside this module.
     """
     p = path or intel_snapshot_path(league_key)

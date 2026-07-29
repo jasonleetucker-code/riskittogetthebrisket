@@ -12383,13 +12383,63 @@ async def get_intel_refresh_status(request: Request):
 
 @app.get("/intel", response_class=HTMLResponse)
 async def serve_intel(request: Request):
-    """Sharp Tracker page shell — auth-gated like the other private
-    pages (nginx serves this via Next directly in production; this
-    route covers the backend-fronted dev flow)."""
+    """Retired route — Next redirects it to /league/insider-trading.
+
+    /intel shipped ONE feature under TWO product names: Sharp Tracker's
+    name and board on Insider Trading's cohort (your league-mates).  The
+    league-mate board lives at /league/insider-trading now; the real,
+    cohort-qualified Sharp Tracker is at /market/sharp-tracker.
+    """
     redirect = _require_auth_or_redirect(request, "/intel")
     if redirect is not None:
         return redirect
     return await _serve_app_shell("/intel")
+
+
+@app.get("/league/insider-trading", response_class=HTMLResponse)
+async def serve_insider_trading(request: Request):
+    """Insider Trading page shell — LEAGUE-SCOPED trade leads."""
+    redirect = _require_auth_or_redirect(request, "/league/insider-trading")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/league/insider-trading")
+
+
+# ── SHARP TRACKER ──────────────────────────────────────────────────────
+# A SEPARATE product from Insider Trading above.  Its cohort is
+# skill-qualified and drawn from every league we observe, so it is
+# deliberately NOT league-scoped — no ``_resolve_league_for_request``
+# here, and that omission is the point.  Filtering this board to the
+# caller's league would silently rebuild the merged feature this work
+# exists to undo.
+
+from src.sharp import service as _sharp_service  # noqa: E402
+
+
+@app.get("/api/sharp/cohort")
+async def get_sharp_cohort(request: Request):
+    """Cohort status: observable / evaluable / qualified / uncertain.
+
+    Always 200 with an explicit ``status`` rather than a 503 — "the
+    cohort is still being built" is a real, expected state on a growing
+    network, and the page renders it as an explanation.  The four tiers
+    are always reported separately so "not built yet" can never be
+    mistaken for "nobody qualified".
+    """
+    payload = await run_in_threadpool(_sharp_service.cohort_status)
+    return JSONResponse(
+        content=payload,
+        headers={"Cache-Control": "private, max-age=300, stale-while-revalidate=900"},
+    )
+
+
+@app.get("/market/sharp-tracker", response_class=HTMLResponse)
+async def serve_sharp_tracker(request: Request):
+    """Sharp Tracker page shell — global market intelligence."""
+    redirect = _require_auth_or_redirect(request, "/market/sharp-tracker")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/market/sharp-tracker")
 
 
 # ── PLAYER CONTEXT (contracts / snap share / depth chart) ───────────────

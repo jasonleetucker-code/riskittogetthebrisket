@@ -435,6 +435,57 @@ main() {
     fi
   fi
 
+  # ── Sharp Tracker manager-discovery timer ─────────────────────────────
+  # Grows the Sharp Tracker cohort by walking Sleeper outward from the
+  # seeds in config/sharp/discovery_seeds.json.  Writes the SQLite
+  # ledger under data/intel/ — gitignored, so like playerctx and BDVM
+  # the producer must run where the reader lives.  Needs NO credentials
+  # (Sleeper's read API is public and unauthenticated), so this installs
+  # unconditionally whenever both templates are present.
+  #
+  # The unit treats exit 2 as success: "budget exhausted with frontier
+  # remaining" is the NORMAL steady state on a compounding graph, not a
+  # failure — the next run resumes where this one stopped.
+  local sharp_service_template="${APP_DIR}/deploy/systemd/dynasty-sharp-discovery.service.template"
+  local sharp_timer_template="${APP_DIR}/deploy/systemd/dynasty-sharp-discovery.timer.template"
+  local sharp_service_name="${SERVICE_NAME}-sharp-discovery"
+  local sharp_service_path="/etc/systemd/system/${sharp_service_name}.service"
+  local sharp_timer_path="/etc/systemd/system/${sharp_service_name}.timer"
+  local sharp_needs_install=false
+
+  if [[ -f "${sharp_service_template}" && -f "${sharp_timer_template}" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${sharp_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${sharp_service_path} + timer."
+        sharp_needs_install=true
+      else
+        log "Sharp-discovery timer already installed; skipping."
+      fi
+    else
+      log "Installing Sharp Tracker manager-discovery service + timer."
+      sharp_needs_install=true
+    fi
+
+    if [[ "${sharp_needs_install}" == "true" ]]; then
+      local tmp_sharp_service tmp_sharp_timer
+      tmp_sharp_service="$(mktemp)"
+      tmp_sharp_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+        "${sharp_service_template}" > "${tmp_sharp_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${sharp_timer_template}" > "${tmp_sharp_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharp_service}" "${sharp_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharp_timer}" "${sharp_timer_path}"
+      rm -f "${tmp_sharp_service}" "${tmp_sharp_timer}"
+      log "Installed ${sharp_service_name}.service + .timer"
+    fi
+  fi
+
   # ── Reception-depth histogram timer ───────────────────────────────────
   # Streams nflverse play-by-play into per-player reception-band
   # histograms.  Like playerctx and BDVM the readers load a LOCAL file
@@ -653,6 +704,17 @@ main() {
     # already has, so that first run is cheap.
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${rd_service_name}.timer"
     log "Enabled ${rd_service_name}.timer"
+  fi
+  if [[ "${sharp_needs_install}" == "true" ]]; then
+    # --now arms the daily timer, plus one immediate --no-block kick so
+    # the graph starts compounding on deploy day rather than sitting
+    # empty until 04:20.  The crawl is budgeted and resumable, so this
+    # first run cannot stall the deploy: it stops at its call cap and
+    # leaves a frontier for tomorrow.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharp_service_name}.timer"
+    log "Enabled ${sharp_service_name}.timer"
+    sudo -n "${SYSTEMCTL_BIN}" start --no-block "${sharp_service_name}.service" || \
+      log "Note: initial sharp-discovery crawl could not be started; the timer will cover it."
   fi
   if [[ "${bdvm_needs_install}" == "true" ]]; then
     # --now arms the timer immediately; the FIRST snapshots are built

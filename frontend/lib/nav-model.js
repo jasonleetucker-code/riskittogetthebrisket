@@ -182,11 +182,17 @@ export const NAV_MODEL = [
         hint: "Where the ranking sources agree, disagree and flag issues",
         keywords: ["edge", "signals", "spread", "gaps"],
       },
+      // Sharp Tracker sits in Market, not League, and that placement is
+      // load-bearing rather than cosmetic: it is a GLOBAL cohort signal
+      // and `/api/sharp/cohort` deliberately takes no `leagueKey`. Its
+      // league-scoped sibling, Insider Trading, lives under League.
+      // The two shipped as one entry — Sharp Tracker's name on Insider
+      // Trading's cohort — and separating them is the point of #626.
       {
-        href: "/intel",
-        label: "Manager Activity",
-        hint: "What league-mates buy and sell across their leagues",
-        keywords: ["sharp tracker", "sleeper intelligence", "exposure"],
+        href: "/market/sharp-tracker",
+        label: "Sharp Tracker",
+        hint: "What qualified dynasty managers are buying and selling",
+        keywords: ["sharp", "market intelligence", "smart money", "cohort"],
       },
     ],
   },
@@ -198,6 +204,12 @@ export const NAV_MODEL = [
     items: [
       { href: "/league", label: "Hub", hint: "Champions, records, power, draft capital, recaps" },
       { href: "/league/activity", label: "Activity", hint: "Trades and news in one feed" },
+      {
+        href: "/league/insider-trading",
+        label: "Insider Trading",
+        hint: "Trade leads from what your league-mates do elsewhere",
+        keywords: ["league mates", "trade leads", "insider", "sleeper intelligence"],
+      },
       {
         href: "/league-comparison",
         label: "Scoring Comparison",

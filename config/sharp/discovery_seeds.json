@@ -1,0 +1,41 @@
+{
+  "_comment": "Seeds for the Sharp Tracker manager-discovery graph. Sleeper publishes no global user or league directory, so the cohort can only grow OUTWARD from leagues we already know. Add a league here whenever you join one — the crawl picks it up on the next run with no code change.",
+  "_seedVsSignal": "A seed league does NOT have to be a dynasty league. Seeds exist to find USERS; only dynasty/keeper leagues feed the transaction ledger (src/intel/league_filter.py). A large redraft tournament is one of the best user sources available precisely because it puts many unrelated managers in one place — its trades are simply never counted.",
+
+  "seedLeagues": [
+    {
+      "leagueId": "872952227344678912",
+      "name": "The Megalabowl",
+      "season": "2022",
+      "note": "Redraft (settings.type=0) — DISCOVERY ONLY, never counted in the dynasty signal. 13 members, each of whom plays in unrelated leagues, which is what makes it a high-yield seed.",
+      "discoveryOnly": true
+    }
+  ],
+
+  "seedUsers": [
+    {
+      "userId": "468418790212759552",
+      "username": "JasonLeeTucker",
+      "note": "Platform owner. Their current leagues are re-read every run, so newly joined leagues enter the graph automatically."
+    }
+  ],
+
+  "traversal": {
+    "_comment": "BFS outward: league -> members -> their leagues -> those leagues' members -> ... Generation 0 is the seed set.",
+    "maxGenerations": 4,
+    "seasons": ["2026"],
+    "seedSeasonLookback": ["2022", "2023", "2024", "2025"],
+    "perUserLeagueCap": 40,
+    "maxLeagueRosters": 32,
+    "minLeagueRosters": 6,
+    "callBudgetPerRun": 2500,
+    "sleepSecondsBetweenCalls": 0.12,
+    "_rateLimitNote": "Sleeper documents 'stay under 1000 API calls per minute'. 0.12s between calls is ~500/min, deliberately half the stated ceiling."
+  },
+
+  "limits": {
+    "_comment": "Backstops so a runaway traversal cannot spend an unbounded crawl. Reaching one is reported, never silent.",
+    "maxUsersPerRun": 20000,
+    "maxLeaguesPerRun": 5000
+  }
+}

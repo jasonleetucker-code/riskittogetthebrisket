@@ -39,10 +39,11 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/phases",
   "/edge",
   "/bdvm",
-  "/intel",
+  "/market/sharp-tracker",
   "/idptc-rookies",
   "/league",
   "/league/activity",
+  "/league/insider-trading",
   "/league-comparison",
   "/players/compare",
   "/settings",
@@ -163,7 +164,11 @@ describe("naming canon", () => {
     "/draft": "Draft Board",
     "/phases": "Win-now vs Rebuild",
     "/edge": "Source Disagreement",
-    "/intel": "Manager Activity",
+    // /intel retired into two products. It shipped Sharp Tracker's
+    // NAME on Insider Trading's COHORT; the split gives each its own
+    // route, and Sharp Tracker is deliberately not league-scoped.
+    "/market/sharp-tracker": "Sharp Tracker",
+    "/league/insider-trading": "Insider Trading",
     "/league": "Hub",
     "/league/activity": "Activity",
     "/league-comparison": "Scoring Comparison",
@@ -195,7 +200,13 @@ describe("naming canon", () => {
       "Signal Blotter",
       "Player Screener",
       "Counter-Pitch",
-      "Sharp Tracker",
+      // "Sharp Tracker" is NOT retired. It was retired when it was a
+      // misnomer — the name sat on the league-mate board, which is
+      // Insider Trading. It now names the product it always described:
+      // a global signal from a qualified manager cohort, on its own
+      // route. "Manager Activity" replaced it only for the interval
+      // where one entry wore both identities.
+      "Manager Activity",
       "Rookie Lab",
       "Arbitrage Finder",
       "League Comp",
