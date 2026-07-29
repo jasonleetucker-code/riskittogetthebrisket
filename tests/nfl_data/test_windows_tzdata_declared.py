@@ -42,9 +42,7 @@ _TZDATA_LINE = re.compile(
 def _declared_lines() -> list[str]:
     text = REQUIREMENTS.read_text(encoding="utf-8")
     return [
-        line
-        for line in text.splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
+        line for line in text.splitlines() if line.strip() and not line.lstrip().startswith("#")
     ]
 
 
@@ -71,9 +69,7 @@ def test_tzdata_marker_keeps_it_off_linux() -> None:
     become a runtime dependency nobody could justify from the code.
     """
     unmarked = [
-        line
-        for line in _declared_lines()
-        if re.match(r"^\s*tzdata\s*(?:[~>=<!]=\S+)?\s*$", line)
+        line for line in _declared_lines() if re.match(r"^\s*tzdata\s*(?:[~>=<!]=\S+)?\s*$", line)
     ]
     assert not unmarked, (
         "tzdata is declared without an environment marker "
