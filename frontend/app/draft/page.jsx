@@ -1,5 +1,9 @@
 "use client";
 
+// The board's own stylesheet — see draft.css for why it is not in
+// globals.css.  Route-scoped, so only /draft pays for it.
+import "./draft.css";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
@@ -98,6 +102,14 @@ function marketDollarFor(player) {
   const v = isIdp ? player.idpTradeCalcDollar : player.ktcDollar;
   return Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : null;
 }
+
+// One constant, rendered by BOTH the auth-resolving skeleton header and
+// the settled header, so the two can never drift back into different
+// heights.  See the skeleton's comment for what that drift cost.
+const DRAFT_PAGE_EYEBROW = "My Team";
+const DRAFT_PAGE_TITLE = "Draft Board";
+const DRAFT_PAGE_DESCRIPTION =
+  "Live inflation-aware auction dashboard — every pick you record moves the per-player bid ceiling immediately.";
 
 // Short labels + CSS classes for the recommendation chip on each row.
 // Kept in one place so the color language is consistent between the
@@ -343,8 +355,18 @@ function TeamPanel({
             insertion grew this header ~20px and pushed the ~440px team
             list down by the same amount: the whole of /draft's 0.33
             CLS.  Reserving one line's worth up front makes the arrival
-            a repaint instead of a reflow. */}
-        <div style={{ minHeight: 26 }}>
+            a repaint instead of a reflow.
+
+            ``flow-root`` is the load-bearing half.  ``minHeight`` alone
+            reserved the BOX but not the SPACING: each block below carries
+            its own ``marginTop``, and with no padding, border or BFC on
+            this slot that margin COLLAPSED THROUGH and pushed the slot
+            itself down 4px the moment a status line arrived.  A 4px
+            header growth reads as trivial and is not — it moves the
+            ~490px team list under it, and an A/B against this exact
+            build measured it at 0.24 of /draft's 0.315 CLS.  A BFC keeps
+            the child's margin inside the reserved height. */}
+        <div style={{ minHeight: 26, display: "flow-root" }}>
           {capitalStatus.info && (
             <div
               className="muted"
@@ -4627,7 +4649,21 @@ export default function DraftDashboardPage() {
   if (checking || authenticated == null) {
     return (
       <main className={`main-shell ${styles.page}`}>
-        <PageHeader eyebrow="War room" title="Draft board" />
+        {/* Same three constants as the settled header below — they are
+            constants, not data, so rendering them here is the honest
+            value rather than a placeholder.  Omitting the description
+            made the header 45px while auth resolved and 87px afterwards
+            (it wraps to two lines at the 60ch measure), dropping 42px of
+            content on top of every band below it — the actual bulk of
+            /draft's 0.32 CLS, which the band reservations underneath
+            could not reach.  Shared constants rather than duplicated
+            literals so the two headers cannot drift back into different
+            heights when the copy is next revised. */}
+        <PageHeader
+          eyebrow={DRAFT_PAGE_EYEBROW}
+          title={DRAFT_PAGE_TITLE}
+          description={DRAFT_PAGE_DESCRIPTION}
+        />
         {/* Mirrors the SETTLED board's top-of-page bands, not a generic
             table.  The real board renders a progress bar (26px), then
             the stats strip (105px), then the teams/knobs grid — and
@@ -4658,9 +4694,9 @@ export default function DraftDashboardPage() {
   return (
     <main className={`main-shell ${styles.page} draft-page`}>
       <PageHeader
-        eyebrow="My Team"
-        title="Draft Board"
-        description="Live inflation-aware auction dashboard — every pick you record moves the per-player bid ceiling immediately."
+        eyebrow={DRAFT_PAGE_EYEBROW}
+        title={DRAFT_PAGE_TITLE}
+        description={DRAFT_PAGE_DESCRIPTION}
         actions={
           <div className={styles.pageActions}>
             <DraftGlossary />

@@ -3,9 +3,17 @@
 // PUBLIC /league client shell (tabbed container).
 //
 // Wrapped by ./page.jsx — which is a server component that pre-fetches
-// the public contract so the first paint already has real data (no
-// "Loading league data..." flash).  We accept an ``initialContract``
-// prop and skip the client fetch if it's provided.
+// the sections the LANDING TAB needs so the first paint already has
+// real data (no "Loading league data..." flash).  We accept that
+// partial ``initialContract`` as a prop and fetch each remaining
+// section only when the visitor opens the tab that renders it.
+//
+// Partial by design: the aggregate contract is 2.01 MB across 17
+// sections, this page renders one tab at a time, and the prop is
+// serialized into the RSC flight payload — so shipping all of it made
+// the /league document 2.38 MB to render 7.6 KB of overview.  Two of
+// those sections (``weeklyRecap``, ``matchupPreview``) are not read by
+// this page at all since the AI-article tabs replaced those views.
 //
 // Critical isolation rules (enforced by AppShell.PUBLIC_ONLY_ROUTE_PREFIXES):
 //   * NO imports from @/components/AppShell.useApp — the public route
@@ -19,21 +27,26 @@
 //   * NO imports from @/lib/dynasty-data, @/lib/trade-logic, @/lib/edge-helpers.
 //
 // Data source: initialContract (server-rendered) OR /api/public/league
-// via fetchPublicLeague() as client fallback.
+// via fetchPublicSection() — for the landing tab when SSR failed, and
+// for every other tab on open.
 //
 // Section renderers live under ./sections/<name>.jsx so Next.js can
 // code-split each tab.  Shared primitives (Avatar, Card, Stat, format
 // helpers) live in shared.jsx and are imported by both tabbed and
 // dedicated routes.
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SubNav, PageHeader, LoadingState, EmptyState } from "@/components/ui";
-import {
-  PUBLIC_SECTION_KEYS,
-  fetchPublicLeague,
-} from "@/lib/public-league-data";
+import { PUBLIC_SECTION_KEYS, fetchPublicSection } from "@/lib/public-league-data";
 import { buildManagerLookup } from "./shared.jsx";
+import {
+  DEFAULT_TAB,
+  SECTION_FOR_TAB,
+  SUB_TABS,
+  VALID_TABS,
+  normalizeTabKey,
+} from "./tabs.js";
 
 import DraftCapitalSection from "./sections/draft-capital.jsx";
 import OverviewSection from "./sections/overview.jsx";
@@ -58,56 +71,11 @@ import { useSettings } from "@/components/useSettings";
 import ArticlesSection from "./sections/articles.jsx";
 import TeamAssignmentSection from "./sections/team-assignment.jsx";
 
-// Tab order + labels for the /league section nav.
-const SUB_TABS = [
-  { key: "overview", label: "Home" },
-  // The two AI-article tabs replace the older "This Week" structured
-  // preview tab and the structured "Recaps" tab. The articles surface
-  // the same H2H + form data inline (the brief is built from it), so
-  // the structured-data tabs are redundant once articles are wired in.
-  { key: "previews", label: "Previews" },
-  { key: "recaps", label: "Recaps" },
-  { key: "power", label: "Power" },
-  { key: "rosTeamStrength", label: "ROS Strength" },
-  { key: "rosChampionship", label: "Championship" },
-  { key: "rosTradeDeadline", label: "Trade Deadline" },
-  { key: "luck", label: "Luck" },
-  { key: "streaks", label: "Streaks" },
-  { key: "history", label: "History" },
-  { key: "rivalries", label: "Rivalries" },
-  { key: "awards", label: "Awards" },
-  { key: "records", label: "Records" },
-  { key: "franchise", label: "Franchises" },
-  { key: "activity", label: "Trades" },
-  { key: "draft", label: "Draft" },
-  { key: "weekly", label: "Weekly" },
-  { key: "superlatives", label: "Superlatives" },
-  { key: "archives", label: "Archives" },
-  { key: "teamAssignment", label: "Team Assignment" },
-  { key: "draft-capital", label: "Draft Capital" },
-];
-
-const VALID_TABS = new Set(SUB_TABS.map((t) => t.key));
-const DEFAULT_TAB = "overview";
-
-// Old → new tab-key aliases. Two reasons to keep these forever:
-//   1. External deep links (sitemap.js, /league/week/<season>/<week>
-//      back-links, anyone's bookmarks) still use the legacy
-//      ``matchupPreview`` / ``weeklyRecap`` query values. Without the
-//      alias they fall through to DEFAULT_TAB on landing.
-//   2. Internal CTAs (overview.jsx → onNavigate("matchupPreview"))
-//      route through the same setActiveTab path, so aliasing in one
-//      place fixes both classes of caller.
-// Cheap to keep, never removed.
-const TAB_ALIASES = {
-  matchupPreview: "previews",
-  weeklyRecap: "recaps",
-};
-
-function normalizeTabKey(key) {
-  if (!key) return key;
-  return TAB_ALIASES[key] || key;
-}
+// SUB_TABS / VALID_TABS / DEFAULT_TAB / normalizeTabKey / SECTION_FOR_TAB
+// now live in ./tabs.js so ./page.jsx (a server component) can read the
+// same tab→section map when deciding which sections to server-render.
+// A "use client" module's plain exports are client references and
+// cannot be called on the server, so the map could not stay here.
 
 export default function LeagueClient({ initialContract = null, initialTab = DEFAULT_TAB }) {
   return (
@@ -181,14 +149,15 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
     let active = true;
     (async () => {
       try {
-        const contract = await fetchPublicLeague();
+        // The OVERVIEW section, not the aggregate contract.  Every
+        // section response carries the ``league`` block, so one 15 KB
+        // request bootstraps the header, the manager lookup and the
+        // landing tab — where the aggregate was 2.01 MB.  This is the
+        // SSR-failed fallback path; the tab effect below fills in
+        // whatever else the visitor opens.
+        const payload = await fetchPublicSection("overview");
         if (!active) return;
-        if (
-          !contract ||
-          typeof contract !== "object" ||
-          !contract.sections ||
-          !contract.league
-        ) {
+        if (!payload || typeof payload !== "object" || !payload.league) {
           setState({
             loading: false,
             error: "Public contract missing required shape.",
@@ -196,7 +165,15 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
           });
           return;
         }
-        setState({ loading: false, error: "", contract });
+        setState({
+          loading: false,
+          error: "",
+          contract: {
+            contractVersion: payload.contractVersion,
+            league: payload.league,
+            sections: { overview: payload.data },
+          },
+        });
       } catch (err) {
         if (!active) return;
         setState({
@@ -214,6 +191,60 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const { loading, error, contract } = state;
   const sections = contract?.sections || {};
   const league = contract?.league || null;
+
+  // Which section the active tab needs, or null when the tab fetches
+  // its own data (articles, the ROS tabs, draft-capital).  The Power
+  // tab is the one conditional: under the ROS flag it renders
+  // RosPowerSection, which reads nothing from the contract.
+  const neededSection =
+    activeTab === "power" && useRosPower ? null : SECTION_FOR_TAB[activeTab] || null;
+  const haveSection = !neededSection || sections[neededSection] !== undefined;
+
+  // Lazily pull the section the visitor just opened.  ``inflightRef``
+  // (not state) guards against a double-fetch across the re-render that
+  // marking it pending would itself cause.
+  const [sectionError, setSectionError] = useState("");
+  const inflightRef = useRef({});
+  useEffect(() => {
+    if (!contract) return undefined;
+    if (!neededSection || haveSection) return undefined;
+    if (inflightRef.current[neededSection]) return undefined;
+    inflightRef.current[neededSection] = true;
+    let active = true;
+    (async () => {
+      try {
+        const payload = await fetchPublicSection(neededSection);
+        if (!active) return;
+        if (!payload || typeof payload !== "object") {
+          throw new Error(`Empty payload for section ${neededSection}`);
+        }
+        setSectionError("");
+        // Merge, never replace: other sections already fetched stay.
+        setState((prev) =>
+          prev.contract
+            ? {
+                ...prev,
+                contract: {
+                  ...prev.contract,
+                  sections: {
+                    ...prev.contract.sections,
+                    [neededSection]: payload.data,
+                  },
+                },
+              }
+            : prev,
+        );
+      } catch (err) {
+        if (!active) return;
+        setSectionError(err?.message || `Failed to load ${neededSection}`);
+      } finally {
+        delete inflightRef.current[neededSection];
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [contract, neededSection, haveSection]);
 
   const managers = useMemo(() => buildManagerLookup(league), [league]);
 
@@ -284,6 +315,21 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
         </div>
       </div>
 
+      {/* The tab's section is fetched on open (see the effect above), so
+          a tab the server did not pre-render shows its own loading /
+          error state under the header and nav rather than blanking the
+          page.  Tabs that fetch their own data have no section and skip
+          this entirely. */}
+      {!haveSection ? (
+        sectionError ? (
+          <div className="card">
+            <EmptyState title="Section unavailable" message={sectionError} />
+          </div>
+        ) : (
+          <LoadingState message="Loading section..." />
+        )
+      ) : (
+        <>
       {activeTab === "draft-capital" && <DraftCapitalSection />}
       {activeTab === "overview" && (
         <OverviewSection managers={managers} data={overview} onNavigate={setActiveTab} />
@@ -355,6 +401,8 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
           data={sections.teamAssignment}
           managers={managers}
         />
+      )}
+        </>
       )}
     </section>
   );

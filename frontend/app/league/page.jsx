@@ -14,6 +14,7 @@
 
 import { cache } from "react";
 import LeagueClient from "./LeagueClient.jsx";
+import { DEFAULT_TAB, normalizeTabKey, sectionForTab } from "./tabs.js";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -25,19 +26,48 @@ function _backend() {
   }
 }
 
-// React cache(): ``generateMetadata`` and the page body both await
-// this during one render pass.  The multi-MB payload is bigger than
-// Next's Data Cache entry limit, so without explicit request
-// memoization a render could cost TWO full backend contract builds.
-const fetchContract = cache(async function fetchContract() {
-  const url = `${_backend()}/api/public/league`;
+// Fetch ONE public-contract section.  Shape: {contractVersion, league,
+// section, data} — every section response carries the ``league`` block,
+// which is why the page never needs the aggregate endpoint.
+//
+// Why per-section instead of the whole contract:
+//
+//   The aggregate ``/api/public/league`` is 2.01 MB of JSON across 17
+//   sections.  This page renders ONE tab at a time, and the landing tab
+//   (`overview`) is 7.6 KB of it.  The rest was fetched, parsed, and —
+//   because ``initialContract`` is a prop on a client component —
+//   serialized into the RSC flight payload and shipped to every
+//   visitor, making the /league document 2.38 MB.  Two sections in it
+//   (`weeklyRecap` 378 KB, `matchupPreview` 11 KB) are not read by this
+//   page AT ALL: the AI-article tabs replaced those views and fetch
+//   their own data.
+//
+//   It also could not be cached on the way in.  Next's Data Cache
+//   refuses entries over 2 MB, so ``revalidate: 60`` was silently inert
+//   on the aggregate and every render re-fetched and re-parsed the full
+//   payload.  At 7.6 KB a section entry caches normally and the
+//   revalidate window does what it says.
+//
+// Cache: Next Data Cache, keyed by the section URL, revalidate 60s.
+// Sections are derived from one backend snapshot that the backend
+// itself refreshes on its own schedule, so a stale read is at worst a
+// minute-old view of an already-eventually-consistent public league
+// page — no private data, no trade math, nothing a user acts on.  Tabs
+// opened later fetch their own sections, so a long-lived tab CAN show
+// two sections built from snapshots up to a minute apart; they are
+// independent read-only views (Records vs Archives), never two halves
+// of one number.
+//
+// React cache(): ``generateMetadata`` and the page body both await the
+// overview section during one render pass, and de-duping that is the
+// difference between one backend call and two.
+const fetchSection = cache(async function fetchSection(section) {
+  const url = `${_backend()}/api/public/league/${encodeURIComponent(section)}`;
   try {
     const res = await fetch(url, { next: { revalidate: 60 } });
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data || typeof data !== "object" || !data.sections || !data.league) {
-      return null;
-    }
+    if (!data || typeof data !== "object" || !data.league) return null;
     return data;
   } catch {
     return null;
@@ -45,7 +75,7 @@ const fetchContract = cache(async function fetchContract() {
 });
 
 export async function generateMetadata() {
-  const data = await fetchContract();
+  const data = await fetchSection("overview");
   if (!data) {
     return {
       title: "Risk It To Get The Brisket — public league",
@@ -53,7 +83,7 @@ export async function generateMetadata() {
     };
   }
   const league = data.league || {};
-  const overview = data.sections?.overview || {};
+  const overview = data.data || {};
   const name = league.leagueName || "Chase Upside";
   const range = overview.seasonRangeLabel || (league.seasonsCovered || []).join("–");
   const champ = overview.currentChampion;
@@ -79,12 +109,39 @@ export async function generateMetadata() {
 
 export default async function LeagueRoute({ searchParams }) {
   const sp = (await searchParams) || {};
-  // Default tab matches LeagueClient's DEFAULT_TAB ("overview")
-  // — LeagueClient validates the key against VALID_TABS so an unknown
-  // ?tab= value falls back safely.
-  const rawTab = typeof sp.tab === "string" ? sp.tab : Array.isArray(sp.tab) ? sp.tab[0] : "overview";
-  const initialContract = await fetchContract();
-  return (
-    <LeagueClient initialContract={initialContract} initialTab={rawTab} />
-  );
+  // Default tab matches DEFAULT_TAB ("overview") — LeagueClient
+  // validates the key against VALID_TABS so an unknown ?tab= value
+  // falls back safely.
+  const rawTab =
+    typeof sp.tab === "string"
+      ? sp.tab
+      : Array.isArray(sp.tab)
+        ? sp.tab[0]
+        : DEFAULT_TAB;
+
+  // ``overview`` is always fetched, not only for the overview tab: the
+  // page header's season label reads it on every tab.  A deep link to
+  // any other tab pulls that tab's section too, so the landing view is
+  // still fully server-rendered — which is what keeps crawlers and
+  // shared links seeing real content instead of a spinner.  Everything
+  // else loads when the visitor actually opens it.
+  const landing = sectionForTab(normalizeTabKey(rawTab));
+  const wanted = landing && landing !== "overview" ? ["overview", landing] : ["overview"];
+  const payloads = await Promise.all(wanted.map((s) => fetchSection(s)));
+
+  let league = null;
+  let contractVersion = null;
+  const sections = {};
+  for (const payload of payloads) {
+    if (!payload) continue;
+    if (!league) league = payload.league;
+    if (!contractVersion) contractVersion = payload.contractVersion;
+    if (payload.section) sections[payload.section] = payload.data;
+  }
+  // Null (not a half-built object) when the backend gave us nothing —
+  // LeagueClient's bootstrap path treats that as "fetch it yourself",
+  // which is the behaviour that already existed for an SSR failure.
+  const initialContract = league ? { contractVersion, league, sections } : null;
+
+  return <LeagueClient initialContract={initialContract} initialTab={rawTab} />;
 }

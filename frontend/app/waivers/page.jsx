@@ -582,6 +582,7 @@ export default function WaiversPage() {
   return (
     <main className={`main-shell ${styles.page} waivers-page`}>
       <PageHeader
+        className="ds-page-header--reserve-2-line-description"
         eyebrow="My Team"
         title="Waivers"
         description={

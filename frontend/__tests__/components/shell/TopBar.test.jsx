@@ -175,6 +175,34 @@ describe("auth gating", () => {
     ).toBeNull();
   });
 
+  it("renders NO nav items while auth is unresolved, and the banner/landmark anyway", () => {
+    // ``authenticated === null`` means "not answered yet", which is NOT
+    // the same as "signed out".  Answering it with the public subset
+    // made every signed-in first paint render a 2-item nav and then
+    // INSERT four more, sliding the surviving items sideways — a shift
+    // on every route, since this is the shell.  Reserve-by-absence is
+    // free here: the nav sits between a left-aligned brand and a
+    // ``margin-left: auto`` rail, so items appear without moving
+    // either neighbour.
+    for (const unresolved of [null, undefined]) {
+      const { unmount } = render(
+        <TopBar
+          authenticated={unresolved}
+          isPublic={isPublic}
+          onSearch={() => {}}
+          onLogout={() => {}}
+        />
+      );
+      const nav = screen.getByRole("navigation", { name: "Primary" });
+      expect(within(nav).queryAllByRole("link")).toHaveLength(0);
+      expect(within(nav).queryAllByRole("button")).toHaveLength(0);
+      // and nothing from the signed-out branch leaks in either
+      expect(screen.queryByRole("link", { name: "Login" })).toBeNull();
+      expect(screen.queryByTestId("team-switcher")).toBeNull();
+      unmount();
+    }
+  });
+
   it("authenticated users get switchers + search + System", () => {
     render(
       <TopBar authenticated isPublic={isPublic} onSearch={() => {}} onLogout={() => {}} />

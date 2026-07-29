@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import {
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useTransition,
+} from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import {
   resolvedRank,
@@ -335,6 +341,26 @@ export default function RankingsPage() {
   const [showTiers, setShowTiers] = useState(true);
   const [showEdgeRail, setShowEdgeRail] = useState(true);
   const [rowLimit, setRowLimit] = useState(DEFAULT_ROW_LIMIT);
+  // Growing the board is a NON-URGENT update.  "Show all" takes the
+  // rendered rows from 200 to ~1,095 (36 DOM nodes each), and committing
+  // that synchronously froze the page for a measured 6.9s on an
+  // unthrottled CPU and 20.9s at 6x throttle — the tab accepted no
+  // input for the whole window, which reads as a crash rather than a
+  // slow load.  Marking it a transition lets React keep the current
+  // board interactive and paint while the larger one is prepared, and
+  // gives us a real pending flag for the button instead of a dead
+  // control.  It does NOT reduce the final row count — see
+  // docs/performance-optimization.md for why virtualizing this table
+  // needs its column widths pinned first.
+  const [rowGrowthPending, startRowGrowth] = useTransition();
+  const growRows = useCallback(
+    (next) => {
+      startRowGrowth(() => {
+        setRowLimit(next);
+      });
+    },
+    [startRowGrowth],
+  );
   const [sortCol, setSortCol] = useState("rank");
   const [sortAsc, setSortAsc] = useState(true);
   const [copyStatus, setCopyStatus] = useState("");
@@ -1931,12 +1957,18 @@ export default function RankingsPage() {
             >
               <Button
                 variant="secondary"
-                onClick={() => setRowLimit((l) => l + 200)}
+                disabled={rowGrowthPending}
+                onClick={() => growRows(rowLimit + 200)}
               >
-                Show more ({(ranked.length - rowLimit).toLocaleString()}{" "}
-                remaining)
+                {rowGrowthPending
+                  ? "Adding rows…"
+                  : `Show more (${(ranked.length - rowLimit).toLocaleString()} remaining)`}
               </Button>
-              <Button variant="ghost" onClick={() => setRowLimit(Infinity)}>
+              <Button
+                variant="ghost"
+                disabled={rowGrowthPending}
+                onClick={() => growRows(Infinity)}
+              >
                 Show all
               </Button>
             </div>

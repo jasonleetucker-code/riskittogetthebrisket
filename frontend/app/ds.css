@@ -366,6 +366,19 @@
   color: var(--text-secondary);
   max-width: 60ch;
 }
+/* Opt-in modifier for headers whose description is COMPLETED
+   asynchronously — today only /waivers, which appends "— <league name>"
+   once the league resolves.  The base string fits the 60ch measure on
+   one line; the suffixed one does not, so the description grew 19px →
+   38px mid-load and shoved every panel on the page down 19px (measured
+   as the vertical half of /waivers' 0.180 CLS).  Reserving the second
+   line up front costs one line of whitespace in the rare no-league
+   state and nothing at all in the normal one.  Value tracks the two
+   tokens that produce the wrap, so a type-scale change can't
+   desynchronise it. */
+.ds-page-header--reserve-2-line-description .ds-page-header__description {
+  min-height: calc(2 * var(--font-size-sm) * var(--line-height-normal));
+}
 /* ValueBasisNote — appears only when the board is NOT market values.
    Low-key by design: it is a standing clarification, not an alert, and
    an alert-styled strip on every page would be tuned out. */

@@ -125,7 +125,14 @@ const clientSource = fs.readFileSync(
   path.resolve(__dirname, "..", "app", "league", "LeagueClient.jsx"),
   "utf8",
 );
-const combinedSource = pageSource + "\n" + clientSource;
+// tabs.js is the third file in the route's server graph — page.jsx
+// imports it to decide which sections to server-render — so the
+// isolation guardrails below have to cover it too.
+const tabsSource = fs.readFileSync(
+  path.resolve(__dirname, "..", "app", "league", "tabs.js"),
+  "utf8",
+);
+const combinedSource = pageSource + "\n" + clientSource + "\n" + tabsSource;
 
 describe("public /league page isolation", () => {
   it("does not import useApp / AppShell", () => {
