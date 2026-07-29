@@ -8288,6 +8288,13 @@ from src.api.public_activity_valuation import (  # noqa: E402 — grouped with p
 )
 
 
+# Single-entry memo for the activity-valuation callable, keyed on the
+# private contract generation (``latest_data_etag``).  The builder
+# re-parsed the multi-MB private contract on every /api/public/league*
+# request; the callable is a pure function of one contract generation.
+_ACTIVITY_VALUATION_MEMO: dict = {}
+
+
 def _build_public_activity_valuation():
     """Build a valuation callable for the public activity trade feed.
 
@@ -8302,11 +8309,75 @@ def _build_public_activity_valuation():
     server, scraper failure).  In that case the public activity feed
     ships without grade annotations.
 
+    Memoized per contract generation (no TTL — a scrape promotion mints
+    a new etag).  With no etag (mid-prime / no contract) the builder
+    runs uncached.
+
     The actual contract parsing lives in
     ``src.api.public_activity_valuation.build_valuation_from_contract``
     so it can be unit-tested without pulling in FastAPI.
     """
-    return _build_valuation_from_contract(latest_contract_data)
+    etag = latest_data_etag
+    if not etag:
+        return _build_valuation_from_contract(latest_contract_data)
+    hit = _ACTIVITY_VALUATION_MEMO.get("v")
+    if hit is not None and hit[0] == etag:
+        return hit[1]
+    val = _build_valuation_from_contract(latest_contract_data)
+    _ACTIVITY_VALUATION_MEMO["v"] = (etag, val)
+    return val
+
+
+# ── Public contract response memo ────────────────────────────────────
+# ``GET /api/public/league`` used to reassemble ALL 16 public sections
+# + recursively safety-walk + ``json.dumps`` the multi-MB result on
+# EVERY request (2.5-4s of TTFB), even though the snapshot it builds
+# from is SWR-cached for 5 minutes and the identical contract is
+# already assembled — and then discarded — during every snapshot
+# rebuild's persist step.
+#
+# Cache contract:
+#   key:  (snapshot.root_league_id, snapshot.generated_at,
+#          latest_data_etag) — ``generated_at`` is re-stamped on every
+#          snapshot rebuild (natural invalidation), and the private
+#          contract etag is in the key because the activity-feed trade
+#          grades derive from the private board's generation.
+#   value: the encoded response bytes (byte-compatible with
+#          ``JSONResponse.render``).
+#   TTL:  none (generation-keyed); bound 4 entries.
+#   staleness: none beyond the existing 300s snapshot SWR window —
+#          identical payload freshness to the uncached path.
+_PUBLIC_CONTRACT_BYTES_CACHE: dict = {}
+_PUBLIC_CONTRACT_BYTES_LOCK = threading.Lock()
+_PUBLIC_CONTRACT_BYTES_MAX = 4
+
+
+def _public_contract_cache_key(snapshot):
+    return (
+        getattr(snapshot, "root_league_id", ""),
+        getattr(snapshot, "generated_at", ""),
+        latest_data_etag,
+    )
+
+
+def _cached_public_contract_bytes(snapshot):
+    with _PUBLIC_CONTRACT_BYTES_LOCK:
+        return _PUBLIC_CONTRACT_BYTES_CACHE.get(_public_contract_cache_key(snapshot))
+
+
+def _store_public_contract_bytes(snapshot, contract) -> bytes:
+    """Encode ``contract`` exactly like ``JSONResponse.render`` and
+    memoize the bytes under the snapshot's generation key."""
+    raw = json.dumps(contract, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    key = _public_contract_cache_key(snapshot)
+    with _PUBLIC_CONTRACT_BYTES_LOCK:
+        if len(_PUBLIC_CONTRACT_BYTES_CACHE) >= _PUBLIC_CONTRACT_BYTES_MAX:
+            for k in [k for k in _PUBLIC_CONTRACT_BYTES_CACHE if k != key]:
+                del _PUBLIC_CONTRACT_BYTES_CACHE[k]
+        _PUBLIC_CONTRACT_BYTES_CACHE[key] = raw
+    return raw
 
 
 _public_league_cache: dict = {
@@ -8689,7 +8760,10 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
                     activity_valuation=_build_public_activity_valuation(),
                 )
                 public_snapshot_store.persist_snapshot(snapshot, contract=contract)
-                contract_bytes = len(json.dumps(contract).encode("utf-8"))
+                # Seed the response-bytes memo with this build — the
+                # contract used to be assembled here and then THROWN
+                # AWAY while every request rebuilt it from scratch.
+                contract_bytes = len(_store_public_contract_bytes(snapshot, contract))
                 _public_league_metrics["last_contract_bytes"] = contract_bytes
             except Exception as exc:  # noqa: BLE001
                 logging.warning("Failed to persist public_league snapshot: %s", exc)
@@ -8862,17 +8936,27 @@ async def get_public_league(refresh: str = ""):
         # the event loop is never starved — see the ``run_in_threadpool``
         # note on the section endpoint below.
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        # Serve pre-encoded bytes for the current (snapshot, private
+        # contract) generation — see _PUBLIC_CONTRACT_BYTES_CACHE.
+        # ``?refresh=1`` bypasses the read (still repopulates).
+        cached = None if refresh else _cached_public_contract_bytes(snapshot)
+        if cached is not None:
+            return cached
         payload = build_public_contract(
             snapshot,
             activity_valuation=_build_public_activity_valuation(),
         )
-        assert_public_payload_safe(payload)
-        return payload
+        # NOTE: no assert_public_payload_safe here — build_public_contract
+        # runs the full recursive walk internally before returning
+        # (public_contract.py); the second walk was pure duplicate cost
+        # over a multi-MB tree.
+        return _store_public_contract_bytes(snapshot, payload)
 
     try:
-        payload = await run_in_threadpool(_build)
-        return JSONResponse(
-            content=payload,
+        raw = await run_in_threadpool(_build)
+        return Response(
+            content=raw,
+            media_type="application/json",
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
         )
     except AssertionError as exc:

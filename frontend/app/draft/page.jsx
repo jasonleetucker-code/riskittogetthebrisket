@@ -76,7 +76,7 @@ import {
   Modal,
   PageHeader,
   Panel,
-  SkeletonText,
+  SkeletonTable,
   StatTile,
   ValueBasisNote,
 } from "@/components/ds";
@@ -4515,7 +4515,12 @@ export default function DraftDashboardPage() {
       <main className={`main-shell ${styles.page}`}>
         <PageHeader eyebrow="War room" title="Draft board" />
         <Panel>
-          <SkeletonText lines={2} />
+          {/* Board-shaped and sized to match app/draft/loading.jsx
+              (10x5 table) so the route-loading -> auth-checking ->
+              real-board sequence doesn't step through three different
+              heights (the old 2-line skeleton was one of the /draft
+              CLS drivers). */}
+          <SkeletonTable rows={10} columns={5} />
         </Panel>
       </main>
     );
