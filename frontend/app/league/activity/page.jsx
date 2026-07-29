@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useApp } from "@/components/AppShell";
 import { useNews } from "@/components/useNews";
 import { useUserState } from "@/components/useUserState";
 import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
-import { buildActivityEvents, filterEvents } from "@/lib/activity-feed";
+import { buildPublicActivityEvents, filterEvents } from "@/lib/activity-feed";
+import { fetchPublicSection } from "@/lib/public-league-data";
 
 const SCOPE_OPTIONS = [
   { key: "league", label: "League" },
@@ -75,7 +75,6 @@ function humanizeNewsReason(reason) {
 }
 
 export default function ActivityPage() {
-  const { rawData, loading, error } = useApp();
   const { state: userState } = useUserState();
   const {
     items: newsItems,
@@ -85,26 +84,52 @@ export default function ActivityPage() {
   const [scope, setScope] = useState("league");
   const [type, setType] = useState("all");
 
-  const myTeam = useMemo(() => {
-    const ownerId = userState?.selectedTeam?.ownerId;
-    if (!ownerId) return null;
-    return (rawData?.sleeper?.teams || []).find(
-      (t) => String(t?.ownerId) === String(ownerId),
-    ) || null;
-  }, [rawData, userState]);
+  // This page sits under the public-only route prefix, where AppShell
+  // hard-codes ``rawData: null`` so the private contract can never
+  // hydrate on a /league URL.  It used to read that null anyway, which
+  // is why the trade half of the feed was always empty — even for
+  // signed-in users.  Trades come from the public league pipeline
+  // instead, which already publishes them with public-safe grade
+  // badges.
+  const [trades, setTrades] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchPublicSection("activity")
+      .then((payload) => {
+        if (cancelled) return;
+        setTrades(payload?.data?.feed || []);
+        setError("");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setTrades([]);
+        setError(err?.message || "Could not load league activity.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Owner id is enough to scope the feed to "my" trades — the public
+  // payload stamps ownerId on every side, so no roster snapshot (and
+  // no private data) is needed to answer "was I in this trade?".
+  const myOwnerId = userState?.selectedTeam?.ownerId || null;
 
   const allEvents = useMemo(
-    () => buildActivityEvents(rawData, newsItems),
-    [rawData, newsItems],
+    () => buildPublicActivityEvents(trades, newsItems),
+    [trades, newsItems],
   );
 
   const events = useMemo(
-    () => filterEvents(allEvents, {
-      scope,
-      type,
-      rosterNames: myTeam?.players || [],
-    }),
-    [allEvents, scope, type, myTeam],
+    () => filterEvents(allEvents, { scope, type, ownerId: myOwnerId }),
+    [allEvents, scope, type, myOwnerId],
   );
 
   if (loading) return <LoadingState message="Loading league activity…" />;
@@ -138,9 +163,9 @@ export default function ActivityPage() {
           <div className="muted" style={{ fontSize: "0.7rem", marginBottom: 4 }}>Type</div>
           <FilterPills options={TYPE_OPTIONS} value={type} onChange={setType} ariaLabel="Event type" />
         </div>
-        {scope === "roster" && !myTeam && (
+        {scope === "roster" && !myOwnerId && (
           <p className="muted" style={{ fontSize: "0.7rem", margin: 0, color: "var(--amber)" }}>
-            Pick your team on the league page to use the &quot;My roster&quot; scope.
+            Sign in and pick your team to use the &quot;My roster&quot; scope.
           </p>
         )}
       </div>

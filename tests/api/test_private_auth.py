@@ -90,9 +90,13 @@ PUBLIC_API_PATHS = [
     "/api/leagues",
     "/api/rankings/sources",
     "/api/auth/status",
-    # The public /league page's draft-capital tab reads this.
-    # Payload is public Sleeper data (team names + pick values +
-    # owners) — keep reachable without auth.
+    # The public /league page's draft-capital tab reads this, so it
+    # must stay reachable without auth.  It is public with a
+    # REDACTION, not because the whole payload is safe: the per-pick
+    # ``rookie*`` fields carry our contract-derived rookie board and
+    # are stripped for anonymous callers.  That half is pinned by
+    # tests/api/test_draft_capital_public_redaction.py — this entry
+    # only asserts reachability.
     "/api/draft-capital",
 ]
 

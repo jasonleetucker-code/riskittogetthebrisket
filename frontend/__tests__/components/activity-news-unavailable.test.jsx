@@ -2,41 +2,58 @@
 // unavailable state instead of a misleading "No activity in this
 // view" when the News-only filter is active — and mixed views keep
 // trades/roster activity while noting the news portion is missing.
+//
+// Trades now come from the PUBLIC league pipeline, not the private
+// contract.  The page previously read ``useApp().rawData``, which is
+// hard-coded ``null`` on every /league route (PUBLIC_ONLY_ROUTE_PREFIXES)
+// — so its trade half was permanently empty in the real app even
+// though this spec passed against a mocked ``useApp``.  Mocking the
+// public fetch instead means the test exercises the path production
+// actually takes.
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 const mockUseNews = vi.fn();
+const mockFetchPublicSection = vi.fn();
 
-vi.mock("@/components/AppShell", () => ({
-  useApp: () => ({ rawData: FAKE_RAW, loading: false, error: null }),
-}));
 vi.mock("@/components/useUserState", () => ({
   useUserState: () => ({ state: {} }),
 }));
 vi.mock("@/components/useNews", () => ({
   useNews: (...args) => mockUseNews(...args),
 }));
+vi.mock("@/lib/public-league-data", () => ({
+  fetchPublicSection: (...args) => mockFetchPublicSection(...args),
+}));
 
 import ActivityPage from "@/app/league/activity/page";
 
-const FAKE_RAW = {
-  sleeper: {
-    teams: [
-      { ownerId: "ownA", rosterId: "1", name: "Team A", players: ["Caleb Williams"] },
-      { ownerId: "ownB", rosterId: "2", name: "Team B", players: ["Drake Maye"] },
-    ],
-    positions: { 100: { name: "Caleb Williams" } },
-    trades: [
+// One trade, shaped like src/public_league/activity.py's feed entries.
+const PUBLIC_FEED = [
+  {
+    transactionId: "t1",
+    season: "2025",
+    createdAt: 1714000000000,
+    sides: [
       {
-        transaction_id: "t1",
-        roster_ids: ["1", "2"],
-        adds: { 100: "2" },
-        drops: { 100: "1" },
-        status_updated: 1714000000000,
+        rosterId: 1,
+        ownerId: "ownA",
+        teamName: "Team A",
+        receivedAssets: [{ kind: "player", name: "Caleb Williams", position: "QB" }],
+        grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
+      },
+      {
+        rosterId: 2,
+        ownerId: "ownB",
+        teamName: "Team B",
+        receivedAssets: [{ kind: "player", name: "Drake Maye", position: "QB" }],
+        grade: { grade: "A", color: "var(--green)", label: "Fair trade" },
       },
     ],
+    totalAssets: 2,
+    notableAssetCount: 2,
   },
-};
+];
 
 const UNAVAILABLE = {
   loading: false,
@@ -68,34 +85,66 @@ const HEALTHY = {
   byPlayer: new Map(),
 };
 
+function renderPage() {
+  mockFetchPublicSection.mockResolvedValue({ data: { feed: PUBLIC_FEED } });
+  return render(<ActivityPage />);
+}
+
 afterEach(() => {
   mockUseNews.mockReset();
+  mockFetchPublicSection.mockReset();
 });
 
 describe("ActivityPage news-outage handling", () => {
-  it("News filter during an outage shows the explicit unavailable state", () => {
+  it("News filter during an outage shows the explicit unavailable state", async () => {
     mockUseNews.mockReturnValue(UNAVAILABLE);
-    render(<ActivityPage />);
-    fireEvent.click(screen.getByRole("tab", { name: "News" }));
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "News" }));
     expect(screen.getByRole("alert")).toHaveTextContent("News unavailable");
     expect(screen.queryByText("No activity in this view")).toBeNull();
   });
 
-  it("mixed (All) view keeps trade activity and notes the missing news portion", () => {
+  it("mixed (All) view keeps trade activity and notes the missing news portion", async () => {
     mockUseNews.mockReturnValue(UNAVAILABLE);
-    render(<ActivityPage />);
+    renderPage();
     // The trade event still renders...
-    expect(screen.getByText("TRADE")).toBeInTheDocument();
+    expect(await screen.findByText("TRADE")).toBeInTheDocument();
     // ...alongside an inline note, not the red alert card.
     expect(screen.getByRole("status")).toHaveTextContent("News unavailable");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("healthy feed under the News filter renders items, no unavailable state", () => {
+  it("healthy feed under the News filter renders items, no unavailable state", async () => {
     mockUseNews.mockReturnValue(HEALTHY);
-    render(<ActivityPage />);
-    fireEvent.click(screen.getByRole("tab", { name: "News" }));
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "News" }));
     expect(screen.getByText("Caleb Williams practice note")).toBeInTheDocument();
     expect(screen.queryByText("News unavailable")).toBeNull();
+  });
+});
+
+describe("ActivityPage trade feed source", () => {
+  it("reads the public activity section, never the private contract", async () => {
+    mockUseNews.mockReturnValue(HEALTHY);
+    renderPage();
+    expect(await screen.findByText("TRADE")).toBeInTheDocument();
+    expect(mockFetchPublicSection).toHaveBeenCalledWith("activity");
+  });
+
+  it("renders the trade with both teams resolved from the public payload", async () => {
+    mockUseNews.mockReturnValue(HEALTHY);
+    renderPage();
+    expect(await screen.findByText("Team A ↔ Team B")).toBeInTheDocument();
+    // Asset names come resolved from the public payload too.  (The
+    // detail string appears in both the desktop and mobile rows, so
+    // match all rather than requiring exactly one.)
+    expect(screen.getAllByText("Caleb Williams · Drake Maye").length).toBeGreaterThan(0);
+  });
+
+  it("shows an explicit failure state when the public section cannot load", async () => {
+    mockUseNews.mockReturnValue(HEALTHY);
+    mockFetchPublicSection.mockRejectedValue(new Error("public league offline"));
+    render(<ActivityPage />);
+    expect(await screen.findByText("Couldn't load data")).toBeInTheDocument();
   });
 });

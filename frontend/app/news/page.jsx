@@ -337,7 +337,7 @@ export default function NewsPage() {
           {!news.loading && news.unavailable && (
             <EmptyState
               title="No news to show"
-              message="The feed is offline right now — it will fill back in automatically."
+              description="The feed is offline right now — it will fill back in automatically."
             />
           )}
 

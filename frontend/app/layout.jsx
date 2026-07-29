@@ -33,8 +33,12 @@ const jetbrainsMono = localFont({
 });
 
 export const metadata = {
-  title: "Dynasty Trade Calculator",
-  description: "React + Next.js frontend for dynasty rankings and trade evaluation",
+  // Brand name, matching the top bar, the PWA manifest and the
+  // apple-web-app title.  This said "Dynasty Trade Calculator" — a
+  // name nothing else in the product uses — so every browser tab and
+  // bookmark disagreed with the site itself.
+  title: "Chase Upside",
+  description: "Dynasty fantasy football rankings, trade analysis and league history",
   manifest: "/manifest.webmanifest",
   // Tell Safari + Chrome this is an installable "app".  The
   // display / theme color come from the PWA manifest for the

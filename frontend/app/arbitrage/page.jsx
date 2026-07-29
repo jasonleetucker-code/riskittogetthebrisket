@@ -172,11 +172,12 @@ export default function ArbitragePage() {
   return (
     <div className={styles.page}>
       <PageHeader
+        eyebrow="Trades"
         title="Arbitrage"
-        subtitle="Trades that gain on our blended board while still reading as fair on the market your counterparty checks."
+        description="Trades that gain on our blended board while still reading as fair on the market your counterparty checks."
       />
 
-      {dataError ? <Banner tone="danger">{String(dataError)}</Banner> : null}
+      {dataError ? <Banner tone="negative">{String(dataError)}</Banner> : null}
 
       <Panel>
         <div className={styles.controls}>
@@ -215,7 +216,7 @@ export default function ArbitragePage() {
         </div>
       </Panel>
 
-      {error ? <Banner tone="danger">{error}</Banner> : null}
+      {error ? <Banner tone="negative">{error}</Banner> : null}
 
       {/* Backend warnings are rendered verbatim. The engine emits a real
           one when an IDP league has no priced IDP assets, which is the
@@ -252,7 +253,7 @@ export default function ArbitragePage() {
       {!running && result && !result.trades?.length ? (
         <EmptyState
           title="No arbitrage found"
-          body="Every candidate either lost value on our board or looked too lopsided on the counterparty's market to be plausible."
+          description="Every candidate either lost value on our board or looked too lopsided on the counterparty's market to be plausible."
         />
       ) : null}
 
@@ -267,7 +268,7 @@ export default function ArbitragePage() {
       {!result && !running ? (
         <EmptyState
           title="Pick a team and scan"
-          body="Every value, delta and score on this page is computed by the backend arbitrage engine. Nothing is recomputed in the browser."
+          description="Choose your team and a counterparty above, then run the scan to surface trades the market prices differently than our board does."
         />
       ) : null}
     </div>
