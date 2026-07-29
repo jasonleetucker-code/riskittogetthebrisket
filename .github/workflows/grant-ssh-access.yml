@@ -1,0 +1,86 @@
+name: Grant SSH Access (one-shot)
+
+# TEMPORARY. Adds an operator public key to the production
+# authorized_keys using the existing deploy credentials. DELETE THIS
+# FILE IMMEDIATELY AFTER ONE SUCCESSFUL RUN — while it exists, anyone
+# who can dispatch workflows can write to authorized_keys on prod.
+
+on:
+  workflow_dispatch:
+    inputs:
+      public_key:
+        description: "Your PUBLIC key line (ssh-ed25519 AAAA... ). Never a private key."
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: grant-ssh-access
+  cancel-in-progress: false
+
+jobs:
+  grant:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate the input is a PUBLIC key
+        env:
+          PUBKEY: ${{ inputs.public_key }}
+        run: |
+          set -Eeuo pipefail
+          if grep -q 'PRIVATE KEY' <<<"${PUBKEY}"; then
+            echo "::error title=That is a PRIVATE key::Refusing. Paste the .pub line only."
+            exit 1
+          fi
+          if ! grep -Eq '^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+) [A-Za-z0-9+/=]+( .*)?$' <<<"${PUBKEY}"; then
+            echo "::error title=Not a public key line::Expected 'ssh-ed25519 AAAA... comment'."
+            exit 1
+          fi
+          printf '%s\n' "${PUBKEY}" > /tmp/new_key.pub
+          echo "Public key fingerprint:"
+          ssh-keygen -lf /tmp/new_key.pub
+
+      - name: Configure SSH from deploy secrets
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "${DEPLOY_SSH_PRIVATE_KEY}" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "${DEPLOY_KNOWN_HOSTS}"     | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+
+      - name: Append to authorized_keys (backup first, idempotent)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          PUBKEY: ${{ inputs.public_key }}
+        run: |
+          set -Eeuo pipefail
+          port="${DEPLOY_PORT:-22}"
+          printf '%s\n' "${PUBKEY}" | ssh -p "${port}" \
+            -i "$HOME/.ssh/id_ed25519" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            'set -Eeuo pipefail
+             umask 077
+             mkdir -p "$HOME/.ssh"
+             touch "$HOME/.ssh/authorized_keys"
+             cp -a "$HOME/.ssh/authorized_keys" \
+                   "$HOME/.ssh/authorized_keys.bak.$(date -u +%Y%m%dT%H%M%SZ)"
+             new="$(cat)"
+             if grep -qxF "$new" "$HOME/.ssh/authorized_keys"; then
+               echo "Key already present - no change."
+             else
+               printf "%s\n" "$new" >> "$HOME/.ssh/authorized_keys"
+               echo "Key appended."
+             fi
+             chmod 700 "$HOME/.ssh"
+             chmod 600 "$HOME/.ssh/authorized_keys"
+             echo "authorized_keys line count: $(wc -l < "$HOME/.ssh/authorized_keys")"'
