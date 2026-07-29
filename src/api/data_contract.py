@@ -6811,8 +6811,21 @@ def _compute_unified_rankings(
     # So ``csv_rank = _RANK_TO_SYNTHETIC_VALUE_OFFSET − (synthetic / 100)``.
     # Every ``is_cross_market=True`` source that carries a rank signal
     # natively (i.e. NOT routed through the DS combined-rank pre-pass
-    # above) falls into this bucket — currently just FBG SF + FBG IDP,
-    # but extensible to any future rank-signal cross-market source.
+    # above) falls into this bucket.
+    #
+    # DORMANT AS OF 2026-07-29 (audit): this set is currently EMPTY and
+    # the block below never executes.  All three cross-market sources
+    # are excluded by construction — ``draftSharks`` / ``draftSharksIdp``
+    # are ``ds_combined_rank_partner`` (handled by the pre-pass above)
+    # and ``idpTradeCalc`` is value-direct.  The only members it ever
+    # had were FootballGuys SF + FootballGuys IDP, which are no longer
+    # registered sources.
+    #
+    # KEPT, not deleted: the logic is generic rather than FBG-specific,
+    # it is guarded by the emptiness check so it costs nothing, and it
+    # would correctly auto-activate for any future rank-signal
+    # cross-market source.  The comment is what was misleading — it
+    # named FBG as a current member long after the source was removed.
     csv_rank_cross_market_keys: set[str] = {
         str(s.get("key") or "")
         for s in active_sources
