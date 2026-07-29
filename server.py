@@ -4903,6 +4903,14 @@ async def post_waiver_faab_recommend(request: Request):
     )
     arr = (contract or {}).get("playersArray") or []
 
+    # Loose trim+lowercase key (family 3 in the ``src/utils/name_clean``
+    # registry) — both sides of this join are contract/display names
+    # from the same vocabulary, so no stronger key is needed.  Local on
+    # purpose: the byte-equal twins in ``src/trade/waiver.py`` and
+    # ``src/api/source_history.py`` key unrelated domains.  Note this is
+    # NOT the key the KTC crowd FAAB map uses — that one is
+    # ``name_clean.compact_name_key`` and the recommender looks it up
+    # itself.
     def _norm(s: str) -> str:
         return str(s or "").strip().lower()
 
@@ -5104,6 +5112,19 @@ async def post_waiver_faab_recommend(request: Request):
     # KTC crowd-sourced bid map — Phase B7 bridge.  Bridge degrades
     # gracefully (returns empty dict) when the contract has no
     # ``ktcCrowd`` block, so this lookup is unconditional.
+    #
+    # The map is keyed by ``name_clean.compact_name_key``, NOT by the
+    # local ``_norm`` above; ``_ktc_crowd_blend`` applies that key to
+    # ``add_player_name`` itself.  Do not pre-normalize ``add_name``
+    # here — the raw display name is what the recommender expects.
+    #
+    # Two independent reasons this factor can be absent, worth knowing
+    # before debugging it: the contract only carries ``ktcCrowd`` when
+    # the scrape actually captured crowd data (the 2026-07-29 export has
+    # none), and the crowd names come from KTC's raw API vocabulary,
+    # which — unlike the Sleeper/contract vocabulary — has not been
+    # through ``clean_name``, so a KTC "Marvin Harrison Jr." still will
+    # not join a contract "Marvin Harrison" under the compact key.
     from src.adapters.ktc_crowd_faab import (  # noqa: PLC0415
         crowd_bid_map_from_contract,
     )

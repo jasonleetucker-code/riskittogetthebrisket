@@ -71,6 +71,17 @@ const VALID_POSITION_FILTERS = new Set([
 /**
  * Lowercase + trim, parity with backend ``_normalize_name``.  Empty/
  * null/undefined collapse to ``""``.
+ *
+ * Family 3 (LOOSE / trim) in the name-key registry at the head of
+ * ``lib/player-name-match.js``.  Byte-parity pair with
+ * ``src/trade/waiver.py::_normalize_name`` — both sides key league
+ * roster-ownership Sets, so they must agree.
+ *
+ * Do NOT swap this for ``normalizePlayerNameKey`` (family 1): that key
+ * strips generational suffixes, so Sleeper's "Marvin Harrison Jr."
+ * would newly collide with the contract's "Marvin Harrison" and any
+ * future "Kenneth Walker" would collapse into "Kenneth Walker III",
+ * silently changing who is filtered out of the waiver add pool.
  */
 export function normalizeName(s) {
   return String(s == null ? "" : s).trim().toLowerCase();
@@ -92,6 +103,15 @@ export function normalizeName(s) {
  * names (two vocabularies that disagree on punctuation), and a search
  * box where typing "djmoore" must find "D.J. Moore".  It lives here
  * rather than in the component so there is exactly one definition.
+ *
+ * Family 2 (COMPACT) in the name-key registry at the head of
+ * ``lib/player-name-match.js``.  Despite appearances it is NOT the
+ * twin of Python's ``name_clean.compact_name_key``: ``str.isalnum()``
+ * there is Unicode-aware and keeps "é" ("juanyéhthomas"), while the
+ * ``[^a-z0-9]`` strip here removes it ("juanyhthomas").  Nothing joins
+ * across that boundary, so the two are independent by design — the
+ * Python docstrings that used to claim byte-for-byte agreement were
+ * wrong and were corrected on 2026-07-29.
  */
 export function normalizeNameCompact(s) {
   return String(s == null ? "" : s)

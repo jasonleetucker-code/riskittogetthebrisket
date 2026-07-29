@@ -22,6 +22,51 @@
  *
  * This module is deliberately free of "use client" so server
  * components (e.g. the public player-journey page) can import it.
+ *
+ * ── Name-key families — the JS registry ─────────────────────────────
+ *
+ * There is more than one name key on the frontend, deliberately. They
+ * are NOT interchangeable: a Set built with one is never hit by
+ * another. This list is the single JS-side statement of which key is
+ * which; its Python counterpart is the module docstring of
+ * `src/utils/name_clean.py`.
+ *
+ * 1. STRICT / canonical — `normalizePlayerNameKey` (this module).
+ *    Consumers: the news-by-player index and news filters
+ *    (`lib/news-filters.js`, `app/news/page.jsx`) and the BDVM
+ *    "Fund gap" column join on /rankings and /draft (`lib/bdvm.js`).
+ *    Every one of those looks up rows a backend keyed with
+ *    `normalize_player_name`, so this is a REAL cross-language pair —
+ *    move both or neither. Pinned by the shared fixture
+ *    `tests/fixtures/name_key_cases.json`
+ *    (`__tests__/name-key-parity.test.js` +
+ *    `tests/utils/test_name_key_parity.py`).
+ *    `lib/dynasty-data.js` carried a second, drifted copy of this
+ *    (missing the apostrophe rule, zero production callers); it was
+ *    deleted on 2026-07-29.
+ *
+ * 2. COMPACT — `lib/waiver-logic.js::normalizeNameCompact`. Lowercase,
+ *    drop every non-`[a-z0-9]` character including spaces. For the
+ *    claim desk's LOCAL joins and typeahead only. Does NOT strip
+ *    generational suffixes, and is NOT the twin of Python's
+ *    `compact_name_key` despite looking identical (`str.isalnum()` is
+ *    Unicode-aware and keeps "é"; this drops it). Nothing joins across
+ *    that boundary.
+ *
+ * 3. LOOSE / trim — `lib/waiver-logic.js::normalizeName`. `trim()` +
+ *    `toLowerCase()`. Byte-parity with
+ *    `src/trade/waiver.py::_normalize_name`; keys the league
+ *    roster-ownership Sets. Swapping it for family 1 changes which
+ *    players are filtered out of the waiver add pool ("Marvin Harrison
+ *    Jr." from Sleeper would newly collide with the contract's "Marvin
+ *    Harrison"); swapping it for family 2 breaks the documented
+ *    backend parity. See the warning on `normalizeNameCompact`.
+ *
+ * 4. HISTORY-LOG key — `lib/value-history.js::buildHistoryLookup`, a
+ *    `"Name::scope"` split with trim+lowercase on both halves. Its
+ *    backend counterpart is
+ *    `src/api/source_history.py::_norm_name_key`, which produces the
+ *    payload it reads.
  */
 
 const SUFFIX_RE = /\b(jr|sr|ii|iii|iv|v|dr)\b\.?/gi;
