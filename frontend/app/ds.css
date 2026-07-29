@@ -784,6 +784,134 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   top: calc(100% + var(--space-2));
 }
 
+/* ══ Player name button ═════════════════════════════════════════════════
+   A name that opens the detail popup, for pages that build their own
+   table markup.  Inherits type so it looks like the text it replaces —
+   the affordance is the hover/focus treatment, not a link colour. */
+.ds-player-name {
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-1);
+}
+.ds-player-name:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.ds-player-name:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ══ InfoTip / Help ═════════════════════════════════════════════════════
+   Click-driven explanation attached to the thing it explains.  Distinct
+   from .ds-tooltip: that one is hover/focus and pointer-events:none, so
+   it can neither be opened by touch nor hold a link.  These carry the
+   methodology copy moved out of permanent page prose, so they must be
+   reachable on every pointer type and allowed to contain markup. */
+.ds-infotip {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+.ds-infotip__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-1);
+  /* 24px box around a 12px glyph: the icon stays quiet next to a
+     heading while the tap target clears the 24px minimum. */
+  padding: var(--space-1);
+  min-width: 24px;
+  min-height: 24px;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+.ds-infotip__trigger:hover,
+.ds-infotip__trigger[aria-expanded="true"] {
+  color: var(--text-primary);
+}
+.ds-infotip__trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.ds-infotip__popover {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  z-index: var(--z-tooltip);
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+  letter-spacing: normal;
+  text-transform: none;
+  padding: var(--space-3);
+  width: max-content;
+  max-width: min(320px, calc(100vw - var(--space-6)));
+  white-space: normal;
+  text-align: left;
+}
+.ds-infotip__popover--top {
+  top: auto;
+  bottom: calc(100% + var(--space-2));
+}
+.ds-infotip__popover p {
+  margin: 0 0 var(--space-2);
+}
+.ds-infotip__popover p:last-child {
+  margin-bottom: 0;
+}
+/* Near the right edge the popover would overflow the viewport; flip its
+   anchor so it grows leftward instead. */
+.ds-infotip--end .ds-infotip__popover {
+  left: auto;
+  right: 0;
+}
+
+/* Long-form methodology inside a Modal. */
+.ds-help-body {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+.ds-help-body h3 {
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  margin: var(--space-4) 0 var(--space-2);
+}
+.ds-help-body h3:first-child {
+  margin-top: 0;
+}
+.ds-help-body p,
+.ds-help-body ul,
+.ds-help-body ol {
+  margin: 0 0 var(--space-3);
+}
+.ds-help-body li {
+  margin-bottom: var(--space-1);
+}
+.ds-help-body code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  background: var(--surface-2);
+  border-radius: var(--radius-1);
+  padding: 1px 4px;
+}
+
 /* ══ Modal / Drawer ═════════════════════════════════════════════════════
    Each overlay renders ONE .ds-overlay-root: a fixed, viewport-covering
    stacking context (z: --z-modal) holding both its backdrop and panel.

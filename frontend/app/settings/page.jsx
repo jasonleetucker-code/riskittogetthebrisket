@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
+import { useAuthContext } from "@/app/AppShellWrapper";
+import { HelpModal, InfoTip } from "@/components/ds";
 import {
   useSettings,
   SETTINGS_DEFAULTS as DEFAULTS,
@@ -27,11 +30,17 @@ import CustomAlertsConfigurator from "@/components/CustomAlertsConfigurator";
 
 function Section({ title, defaultOpen = true, children }) {
   const [open, setOpen] = useState(defaultOpen);
+  // aria-expanded + aria-controls were both missing, so assistive tech
+  // announced twelve identical buttons with no state and no
+  // relationship to the panels they toggle.
+  const bodyId = useId();
   return (
     <div className="card" style={{ marginBottom: 10 }}>
       <button
         className="button-reset"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls={bodyId}
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -45,12 +54,50 @@ function Section({ title, defaultOpen = true, children }) {
         <h3 style={{ margin: 0, fontSize: "0.92rem" }}>{title}</h3>
         <span
           className="muted"
+          aria-hidden="true"
           style={{ fontSize: "1.2rem", width: 24, textAlign: "center" }}
         >
           {open ? "−" : "+"}
         </span>
       </button>
-      {open && <div style={{ marginTop: 10 }}>{children}</div>}
+      <div id={bodyId} hidden={!open} style={open ? { marginTop: 10 } : undefined}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A labelled cluster of sections.
+ *
+ * The page was twelve peer accordions in one flat list, mixing everyday
+ * preferences (superflex, TEP), power-user model tuning (two per-source
+ * weight tables), personal data (watchlist, alerts) and operator
+ * surfaces (server status, guest passes).  Nothing said which was
+ * which, so finding anything meant opening things until you hit it.
+ * Same sections, same order within each group — now under headings that
+ * say what kind of setting lives there.
+ */
+function SettingsGroup({ title, description, children }) {
+  return (
+    <div style={{ marginTop: "var(--space-lg)" }}>
+      <h2
+        style={{
+          margin: "0 0 2px",
+          fontSize: "0.78rem",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          color: "var(--subtext)",
+        }}
+      >
+        {title}
+      </h2>
+      {description ? (
+        <p className="muted" style={{ margin: "0 0 8px", fontSize: "0.72rem" }}>
+          {description}
+        </p>
+      ) : null}
+      {children}
     </div>
   );
 }
@@ -124,6 +171,9 @@ function ToggleRow({ label, checked, onChange, hint }) {
 
 export default function SettingsPage() {
   const { loading, error, rows, rawData } = useDynastyData();
+  // Only to point an operator at where the moved panels went; nothing
+  // on this page is gated by it.
+  const { isAdmin } = useAuthContext();
   const {
     settings,
     hydrated: settingsHydrated,
@@ -304,6 +354,10 @@ export default function SettingsPage() {
       {loading && <p>Loading data...</p>}
       {!!error && <p style={{ color: "var(--red)" }}>{error}</p>}
 
+      <SettingsGroup
+        title="League &amp; scoring"
+        description="How your league is set up. These change what the numbers mean."
+      >
       <Section title="League Format" defaultOpen>
         <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
           <select
@@ -433,6 +487,8 @@ export default function SettingsPage() {
           className="muted"
           style={{ fontSize: "0.68rem", marginTop: 4, marginBottom: 0 }}
         >
+          Applied at blend time, on TE rows only.
+          <InfoTip label="the two TE Premium multipliers">
           Two parallel TE Premium multipliers, both applied at blend time on TE
           rows only. <strong>Non-native</strong> covers sources whose published
           board doesn&apos;t already bake in TE premium (DLF, FBG, FP consensus,
@@ -455,9 +511,16 @@ export default function SettingsPage() {
           the canonical baseline and passes through both knobs unchanged.
           Changing either value re-runs the canonical ranking pipeline so every
           page (rankings, trade calculator, edge) sees the same values.
+        </InfoTip>
         </p>
       </Section>
 
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="How values are calculated"
+        description="Tuning for the valuation engine. The defaults are sensible; change these only if you want a different board."
+      >
       <Section title="Trade Calculation" defaultOpen>
         <SliderRow
           label="Trade History Window"
@@ -481,10 +544,15 @@ export default function SettingsPage() {
           className="muted"
           style={{ fontSize: "0.7rem", marginTop: 4, marginBottom: 0 }}
         >
-          Default 150 fits a standard 12-team Superflex league. Raise for deeper
-          formats (14-team 2QB, deep-IDP keeper) where the bottom-50 of your
-          roster pool sits below KTC #150 but is genuinely traded. Picks + IDP
-          are unaffected by this cap.
+          Default 150 suits a standard 12-team Superflex league.
+          <InfoTip label="the suggestion pool cap">
+            <p>
+              Raise it for deeper formats (14-team 2QB, deep-IDP keeper) where
+              the bottom 50 of your roster pool sits below KTC #150 but is
+              genuinely traded.
+            </p>
+            <p>Picks and IDP are unaffected by this cap.</p>
+          </InfoTip>
         </p>
       </Section>
 
@@ -537,28 +605,46 @@ export default function SettingsPage() {
             lift; deep positions trim. Ranks and tiers are recomputed on the
             backend.
           </p>
-          <p>
-            What it does <strong>not</strong> include, deliberately: no
-            tight-end premium — our market anchor is already KTC&apos;s TE++
-            board, so applying another would count the same premium twice. No
-            player projections — no source we can use publishes raw statistical
-            categories yet, so there is nothing to re-score under your rules.
-            And no per-player judgment: the adjustment is identical for every
-            player at a position, so it can never reorder your RBs against each
-            other.
-          </p>
-          <p>
-            What it <strong>does</strong> change is how positions — and{" "}
-            <strong>players versus draft picks</strong> — are priced against one
-            another. Picks carry no scarcity measurement, so they stay at market
-            value while players move around them. That is enough to shift most
-            ranks and to change trade verdicts.
-          </p>
-          <p>
-            Not applied while custom source weights are active: the two cannot
-            be combined correctly yet, so the board stays on your custom market
-            values.
-          </p>
+          {/* The two definitions above are the choice being made and
+              stay visible.  The rest — scope, exclusions, interaction
+              with custom weights — is reference material a user reads
+              once, so it moves behind a button instead of occupying
+              three paragraphs above the next control. */}
+          <HelpModal
+            title="How the league-adjusted board works"
+            label="What this changes"
+          >
+            <h3>What it does not include, deliberately</h3>
+            <p>
+              <strong>No tight-end premium.</strong> Our market anchor is
+              already KTC&apos;s TE++ board, so applying another would count the
+              same premium twice.
+            </p>
+            <p>
+              <strong>No player projections.</strong> No source we can use
+              publishes raw statistical categories yet, so there is nothing to
+              re-score under your rules.
+            </p>
+            <p>
+              <strong>No per-player judgment.</strong> The adjustment is
+              identical for every player at a position, so it can never reorder
+              your RBs against each other.
+            </p>
+            <h3>What it does change</h3>
+            <p>
+              How positions — and <strong>players versus draft picks</strong> —
+              are priced against one another. Picks carry no scarcity
+              measurement, so they stay at market value while players move
+              around them. That is enough to shift most ranks and to change
+              trade verdicts.
+            </p>
+            <h3>When it does not apply</h3>
+            <p>
+              Not applied while custom source weights are active: the two cannot
+              be combined correctly yet, so the board stays on your custom
+              market values.
+            </p>
+          </HelpModal>
         </div>
       </Section>
 
@@ -758,16 +844,12 @@ export default function SettingsPage() {
         </p>
       </Section>
 
-      <Section title="Pick Settings" defaultOpen={false}>
-        <p className="muted" style={{ fontSize: "0.72rem", marginTop: 0 }}>
-          Future-year pick values are discounted automatically by the ranking
-          engine, and the &ldquo;current draft year&rdquo; now rolls forward on
-          its own from the live data — the next draft carries no penalty, and
-          further-out picks are discounted by distance. There is no longer a
-          manual draft-year setting to keep in sync.
-        </p>
-      </Section>
+      </SettingsGroup>
 
+      <SettingsGroup
+        title="Alerts &amp; lists"
+        description="What the site tells you about, and which players you are tracking."
+      >
       <Section title="Notifications" defaultOpen={false}>
         {serverBacked ? (
           <>
@@ -962,13 +1044,7 @@ export default function SettingsPage() {
         <CustomAlertsConfigurator enabled={!!serverBacked} players={rows} />
       </Section>
 
-      <Section title="Data & Admin" defaultOpen={false}>
-        <ServerStatusPanel />
-      </Section>
-
-      <Section title="Guest access" defaultOpen={false}>
-        <GuestPassPanel />
-      </Section>
+      </SettingsGroup>
 
       <div
         className="muted"
@@ -981,6 +1057,16 @@ export default function SettingsPage() {
       >
         Settings are saved automatically to your browser. They affect trade
         calculations, rankings display, and value composites.
+        {isAdmin ? (
+          <>
+            {" "}
+            Server status, manual scrapes and guest passes moved to{" "}
+            <Link href="/admin" style={{ color: "var(--cyan)" }}>
+              Admin
+            </Link>
+            .
+          </>
+        ) : null}
       </div>
     </section>
   );
@@ -1084,7 +1170,6 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                       {src.isTepPremium && (
                         <span
                           className="badge"
-                          title="This source's raw ranks already bake in TE premium, so the global TE Premium multiplier does not need to compensate for it."
                           style={{
                             fontSize: "0.58rem",
                             padding: "1px 5px",
@@ -1099,6 +1184,13 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                         >
                           TEP NATIVE
                         </span>
+                      )}
+                      {src.isTepPremium && (
+                        <InfoTip label="TEP NATIVE">
+                          This source&apos;s published ranks already bake in TE
+                          premium, so the global TE Premium multiplier does not
+                          need to compensate for it.
+                        </InfoTip>
                       )}
                     </div>
                     <div
@@ -1436,142 +1528,6 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
   );
 }
 
-function ServerStatusPanel() {
-  const [status, setStatus] = useState(null);
-  const [scraping, setScraping] = useState(false);
-  const [scrapeMsg, setScrapeMsg] = useState("");
-
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch("/api/status");
-      if (res.ok) setStatus(await res.json());
-      else setStatus({ error: `HTTP ${res.status}` });
-    } catch {
-      setStatus({ error: "Backend unreachable" });
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 30000);
-    return () => clearInterval(interval);
-  }, [fetchStatus]);
-
-  async function triggerScrape() {
-    setScraping(true);
-    setScrapeMsg("");
-    try {
-      const res = await fetch("/api/scrape", { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      setScrapeMsg(
-        data.error
-          ? `Error: ${data.error}`
-          : "Refresh triggered. Data will update shortly.",
-      );
-      setTimeout(fetchStatus, 5000);
-    } catch {
-      setScrapeMsg("Failed to reach backend.");
-    } finally {
-      setScraping(false);
-    }
-  }
-
-  const connected = status && !status.error;
-
-  return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 10,
-        }}
-      >
-        <span
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: connected ? "var(--green)" : "var(--red)",
-            display: "inline-block",
-          }}
-        />
-        <span style={{ fontSize: "0.82rem", fontWeight: 600 }}>
-          {connected ? "Backend Connected" : "Backend Offline"}
-        </span>
-      </div>
-
-      {connected && (
-        <div
-          style={{
-            fontSize: "0.72rem",
-            color: "var(--subtext)",
-            marginBottom: 10,
-          }}
-        >
-          {status.player_count != null && (
-            <div>Players: {status.player_count}</div>
-          )}
-          {status.last_scrape && <div>Last update: {status.last_scrape}</div>}
-          {status.next_scrape && <div>Next update: {status.next_scrape}</div>}
-          {status?.contract?.version && (
-            <div>Contract: {status.contract.version}</div>
-          )}
-          {status?.uptime?.last_ok && (
-            <div>
-              Uptime monitor:{" "}
-              {status.uptime.consecutive_failures > 0
-                ? `${status.uptime.consecutive_failures} consecutive failures (last ok ${status.uptime.last_ok})`
-                : `healthy (last ok ${status.uptime.last_ok})`}
-            </div>
-          )}
-        </div>
-      )}
-
-      {status?.error && (
-        <div
-          style={{ fontSize: "0.72rem", color: "var(--red)", marginBottom: 10 }}
-        >
-          {status.error}
-        </div>
-      )}
-
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <button
-          className="button"
-          onClick={triggerScrape}
-          disabled={scraping}
-          style={{ fontSize: "0.76rem" }}
-        >
-          {scraping ? "Refreshing..." : "Refresh Values"}
-        </button>
-        <button
-          className="button"
-          onClick={fetchStatus}
-          style={{ fontSize: "0.76rem" }}
-        >
-          Check Status
-        </button>
-      </div>
-
-      {scrapeMsg && (
-        <div
-          style={{
-            fontSize: "0.72rem",
-            marginTop: 6,
-            color: scrapeMsg.startsWith("Error")
-              ? "var(--red)"
-              : "var(--green)",
-          }}
-        >
-          {scrapeMsg}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Guest pass panel ──────────────────────────────────────────────────
 //
 // Generates time-bounded guest passwords the owner can share.  A pass
@@ -1589,357 +1545,6 @@ function ServerStatusPanel() {
 // expiry, status).  This mirrors how every "API key" UI works and
 // prevents the token from leaking via DOM scraping or screenshot
 // later.
-
-function GuestPassPanel() {
-  const [hours, setHours] = useState(12);
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [freshToken, setFreshToken] = useState(null);
-  const [passes, setPasses] = useState([]);
-  const [listLoading, setListLoading] = useState(true);
-  const [copyStatus, setCopyStatus] = useState("");
-
-  const fetchList = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/guest-passes", {
-        cache: "no-store",
-      });
-      if (res.status === 403) {
-        setError("Admin only.");
-        setPasses([]);
-        return;
-      }
-      if (!res.ok) {
-        setError(`Server error (${res.status})`);
-        return;
-      }
-      const body = await res.json();
-      setPasses(Array.isArray(body?.passes) ? body.passes : []);
-      setError("");
-    } catch {
-      setError("Could not reach the backend.");
-    } finally {
-      setListLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchList();
-  }, [fetchList]);
-
-  async function generate() {
-    setBusy(true);
-    setError("");
-    setFreshToken(null);
-    setCopyStatus("");
-    try {
-      const res = await fetch("/api/admin/guest-pass", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          durationHours: Number(hours) || 12,
-          note: String(note || "").trim(),
-        }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(body?.message || body?.error || `HTTP ${res.status}`);
-        return;
-      }
-      setFreshToken({
-        token: body.token,
-        expiresAtEpoch: body?.pass?.expiresAtEpoch,
-        note: body?.pass?.note || "",
-        id: body?.pass?.id,
-      });
-      setNote("");
-      // Refresh the list so the new pass shows up.
-      fetchList();
-    } catch {
-      setError("Could not reach the backend.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyToken(token) {
-    try {
-      await navigator.clipboard.writeText(token);
-      setCopyStatus("Copied!");
-      setTimeout(() => setCopyStatus(""), 2000);
-    } catch {
-      setCopyStatus("Copy failed — select the token manually.");
-    }
-  }
-
-  async function revoke(id) {
-    if (
-      !window.confirm("Revoke this guest pass? The recipient will lose access.")
-    ) {
-      return;
-    }
-    try {
-      const res = await fetch(`/api/admin/guest-pass/${id}/revoke`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        setError(`Revoke failed (${res.status})`);
-        return;
-      }
-      fetchList();
-    } catch {
-      setError("Could not reach the backend.");
-    }
-  }
-
-  return (
-    <div>
-      <p className="muted" style={{ fontSize: "0.76rem", margin: "0 0 12px" }}>
-        Generate a temporary password to share with someone you want to give
-        private-app access. They paste it into the login form's password field;
-        their session expires automatically when the pass does. Plaintext tokens
-        are shown ONCE — copy and share immediately.
-      </p>
-
-      {/* ── Generate form ─────────────────────────────────────── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "auto 1fr auto",
-          gap: 8,
-          alignItems: "center",
-          marginBottom: 10,
-        }}
-      >
-        <label
-          style={{
-            fontSize: "0.74rem",
-            color: "var(--subtext)",
-            whiteSpace: "nowrap",
-          }}
-          title="How long the guest's session stays valid (1 hour to 720 hours / 30 days)."
-        >
-          Duration:
-          <input
-            type="number"
-            min={1}
-            max={720}
-            step={1}
-            value={hours}
-            onChange={(e) =>
-              setHours(Math.max(1, Math.min(720, Number(e.target.value) || 12)))
-            }
-            style={{
-              marginLeft: 6,
-              width: 64,
-              fontFamily: "var(--mono)",
-              fontSize: "0.82rem",
-              padding: "4px 6px",
-              background: "rgba(8,19,44,0.6)",
-              border: "1px solid var(--border)",
-              borderRadius: 4,
-              color: "var(--text)",
-            }}
-          />
-          <span style={{ marginLeft: 4 }}>hours</span>
-        </label>
-        <input
-          type="text"
-          placeholder="Optional note (e.g. 'Brent — preview')"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          maxLength={100}
-          style={{
-            fontSize: "0.78rem",
-            padding: "5px 8px",
-            background: "rgba(8,19,44,0.6)",
-            border: "1px solid var(--border)",
-            borderRadius: 4,
-            color: "var(--text)",
-          }}
-        />
-        <button
-          className="button"
-          onClick={generate}
-          disabled={busy}
-          style={{ fontSize: "0.78rem", whiteSpace: "nowrap" }}
-        >
-          {busy ? "Generating…" : `Generate ${hours}h pass`}
-        </button>
-      </div>
-
-      {error && (
-        <div
-          style={{
-            fontSize: "0.74rem",
-            color: "var(--red)",
-            marginBottom: 8,
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* ── Fresh-token reveal ────────────────────────────────── */}
-      {freshToken && (
-        <div
-          className="card"
-          style={{
-            marginBottom: 12,
-            padding: 10,
-            border: "1px solid var(--green)",
-            background: "rgba(52, 211, 153, 0.06)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "0.7rem",
-              color: "var(--green)",
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              marginBottom: 6,
-            }}
-          >
-            New pass — copy NOW (won't be shown again)
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-              marginBottom: 6,
-            }}
-          >
-            <code
-              style={{
-                fontFamily: "var(--mono)",
-                fontSize: "0.82rem",
-                padding: "6px 10px",
-                background: "rgba(8,19,44,0.85)",
-                border: "1px solid var(--border)",
-                borderRadius: 4,
-                flex: 1,
-                wordBreak: "break-all",
-              }}
-            >
-              {freshToken.token}
-            </code>
-            <button
-              className="button"
-              onClick={() => copyToken(freshToken.token)}
-              style={{ fontSize: "0.74rem" }}
-            >
-              Copy
-            </button>
-          </div>
-          {copyStatus && (
-            <div
-              style={{
-                fontSize: "0.7rem",
-                color: copyStatus === "Copied!" ? "var(--green)" : "var(--red)",
-              }}
-            >
-              {copyStatus}
-            </div>
-          )}
-          <div style={{ fontSize: "0.7rem", color: "var(--subtext)" }}>
-            Expires {fmtPassExpiry(freshToken.expiresAtEpoch)} · #
-            {freshToken.id}
-            {freshToken.note ? ` · ${freshToken.note}` : ""}
-          </div>
-        </div>
-      )}
-
-      {/* ── Active + recent passes ────────────────────────────── */}
-      <div style={{ fontWeight: 600, fontSize: "0.78rem", marginBottom: 6 }}>
-        Recent passes
-      </div>
-      {listLoading ? (
-        <div className="muted" style={{ fontSize: "0.72rem" }}>
-          Loading…
-        </div>
-      ) : passes.length === 0 ? (
-        <div className="muted" style={{ fontSize: "0.72rem" }}>
-          No passes yet.
-        </div>
-      ) : (
-        <div className="table-wrap" style={{ marginTop: 4 }}>
-          <table style={{ width: "100%", fontSize: "0.74rem" }}>
-            <thead>
-              <tr style={{ color: "var(--subtext)", textAlign: "left" }}>
-                <th style={{ padding: "4px 6px", width: 50 }}>#</th>
-                <th style={{ padding: "4px 6px" }}>Note</th>
-                <th style={{ padding: "4px 6px", width: 130 }}>Expires</th>
-                <th style={{ padding: "4px 6px", width: 100 }}>Status</th>
-                <th style={{ padding: "4px 6px", width: 80 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {passes.map((p) => {
-                const status = p.isRevoked
-                  ? { label: "Revoked", color: "var(--red)" }
-                  : p.isExpired
-                    ? { label: "Expired", color: "var(--subtext)" }
-                    : { label: "Active", color: "var(--green)" };
-                return (
-                  <tr
-                    key={p.id}
-                    style={{ borderTop: "1px solid var(--border-dim)" }}
-                  >
-                    <td
-                      style={{
-                        padding: "4px 6px",
-                        fontFamily: "var(--mono)",
-                        color: "var(--subtext)",
-                      }}
-                    >
-                      {p.id}
-                    </td>
-                    <td style={{ padding: "4px 6px" }}>
-                      {p.note || <span className="muted">— no note —</span>}
-                    </td>
-                    <td
-                      style={{ padding: "4px 6px", fontFamily: "var(--mono)" }}
-                    >
-                      {fmtPassExpiry(p.expiresAtEpoch)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 6px",
-                        color: status.color,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {status.label}
-                    </td>
-                    <td style={{ padding: "4px 6px", textAlign: "right" }}>
-                      {p.isActive && (
-                        <button
-                          className="button"
-                          onClick={() => revoke(p.id)}
-                          style={{
-                            fontSize: "0.68rem",
-                            padding: "2px 8px",
-                            borderColor: "var(--red)",
-                            color: "var(--red)",
-                          }}
-                        >
-                          Revoke
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function fmtPassExpiry(epoch) {
   if (!Number.isFinite(Number(epoch)) || Number(epoch) <= 0) return "—";

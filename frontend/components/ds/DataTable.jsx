@@ -15,7 +15,11 @@
  *     hideBelow: "sm"|"md"|"lg" — hides the column (header + body cells)
  *       below the canonical breakpoint: sm < 480px, md < 768px,
  *       lg < 1024px (media rules live in ds.css)
- *     headerTitle: string — native tooltip on the <th>
+ *     headerInfo: node — column definition, shown in a tappable
+ *       InfoTip beside the header (replaces the old `headerTitle`
+ *       native tooltip, which touch and screen readers never saw)
+ *     headerInfoLabel: string — override the InfoTip's accessible name
+ *       when the header itself is an abbreviation
  *     firstDirection: "asc"|"desc" — override the first-activation sort
  *       direction (default: numeric → desc, text → asc)
  *     align: "center" — center-align this column (numeric wins if both)
@@ -62,6 +66,7 @@
 
 import React, { Fragment, useCallback, useMemo, useState } from "react";
 import { Icon } from "./Icon";
+import { InfoTip } from "./Help";
 
 function defaultRowKey(row, index) {
   return row?.id ?? index;
@@ -232,7 +237,6 @@ export function DataTable({
                   aria-sort={ariaSort}
                   className={cellClass(col)}
                   style={col.width ? { width: col.width } : undefined}
-                  title={col.headerTitle}
                 >
                   {col.sortable ? (
                     <button
@@ -250,6 +254,19 @@ export function DataTable({
                   ) : (
                     col.header
                   )}
+                  {/* A column whose meaning needs explaining gets a
+                      tappable InfoTip, not a native `title`.  These
+                      definitions ("what is depth-adjusted spread?") are
+                      the whole reason a column is legible, and a native
+                      tooltip shows on neither touch nor a screen
+                      reader — so on a phone the header was a two-word
+                      abbreviation with no way to find out what it
+                      meant. */}
+                  {col.headerInfo ? (
+                    <InfoTip label={col.headerInfoLabel || String(col.header)}>
+                      {col.headerInfo}
+                    </InfoTip>
+                  ) : null}
                 </th>
               );
             })}

@@ -101,14 +101,16 @@ describe("navigation targets", () => {
   it("shows quick destinations on empty query", () => {
     palette();
     expect(screen.getByText("Go to")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Rankings/ })).toBeInTheDocument();
+    // Several destinations now sit in the Rankings group, so the group
+    // name appears in more than one option's accessible name.
+    expect(screen.getAllByRole("option", { name: /Rankings/ }).length).toBeGreaterThan(0);
   });
 
   it("matches pages by name and navigates on activation", async () => {
     const user = userEvent.setup();
     palette();
     await user.keyboard("arbitrage");
-    const opt = screen.getByRole("option", { name: /Arbitrage Finder/ });
+    const opt = screen.getByRole("option", { name: /Arbitrage/ });
     await user.click(opt);
     expect(push).toHaveBeenCalledWith("/arbitrage");
   });

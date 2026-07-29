@@ -223,7 +223,7 @@ export default function IntelPage() {
   if (error) {
     return (
       <section>
-        <PageHeader title="Sharp Tracker" subtitle="League-mate market intelligence." />
+        <PageHeader title="Manager Activity" subtitle="League-mate market intelligence." />
         <div className="card">
           <EmptyState title="Couldn't load intel" message={error} />
         </div>
@@ -234,7 +234,7 @@ export default function IntelPage() {
   return (
     <section>
       <PageHeader
-        title="Sharp Tracker"
+        title="Manager Activity"
         subtitle={
           `What your league-mates are buying and selling across all of their Sleeper ` +
           `leagues — ${data?.memberCount ?? 0} managers, ${data?.leagueCount ?? 0} leagues tracked.`

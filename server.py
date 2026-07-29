@@ -2731,8 +2731,19 @@ _PUBLIC_API_EXACT = frozenset(
         "/api/scaffold/status",
         # /league page is a public view — its draft-capital tab reads
         # this endpoint.  Payload is public Sleeper data (team names,
-        # pick dollar values, owners) already viewable on Sleeper; no
-        # private rankings / user state is leaked here.
+        # pick dollar values, owners) already viewable on Sleeper.
+        #
+        # It is public with a REDACTION, not because the raw payload is
+        # safe: each pick also carries ``rookieName`` / ``rookiePos`` /
+        # ``rookieKtcValue`` / ``rookieKtcDollar`` / ``rookieIdpDollar``,
+        # filled from ``_our_rookie_pool()`` — our contract's
+        # ``playersArray`` ordered by ``rankDerivedValue``.  That is the
+        # proprietary rookie board, and an earlier version of this
+        # comment asserted it wasn't here.  ``get_draft_capital`` strips
+        # those fields for unauthenticated callers; only the private
+        # /draft page consumes them.  See
+        # ``_redact_draft_capital_for_public`` and
+        # tests/api/test_draft_capital_public_redaction.py.
         "/api/draft-capital",
         # Aggregated public sports news (Sleeper trending + public
         # RSS/sitemap providers).  Zero league-private data — no
@@ -6730,6 +6741,58 @@ _ktc_cache = {"rookies": None, "fetched_at": 0}
 _DRAFT_CAPITAL_CACHE: dict[str, tuple[float, dict]] = {}
 _DRAFT_CAPITAL_TTL_SEC = 300.0
 _DRAFT_CAPITAL_LOCKS: dict[str, asyncio.Lock] = {}
+
+# Per-pick fields that carry OUR board, not public Sleeper data.  They
+# are filled from ``_our_rookie_pool()``, which reads
+# ``latest_contract_data['playersArray']`` ordered by
+# ``rankDerivedValue`` — the same field the public-league payload guard
+# blocklists outright (src/public_league/public_contract.py).  So an
+# anonymous caller was receiving the full ordered top-72 proprietary
+# rookie board plus per-rookie derived dollars.
+_DRAFT_CAPITAL_PRIVATE_PICK_FIELDS = (
+    "rookieName",
+    "rookiePos",
+    "rookieKtcValue",
+    "rookieKtcDollar",
+    "rookieIdpDollar",
+)
+
+
+def _redact_draft_capital_for_public(result):
+    """Strip the proprietary rookie board from a draft-capital payload.
+
+    ``/api/draft-capital`` is deliberately public: the public /league
+    page's draft-capital tab reads it for team names, pick ownership and
+    pick dollar values — all of it visible on Sleeper already.  What was
+    NOT public-safe is the rookie ranking stapled onto each pick.
+
+    Returns a COPY.  The caller must never mutate the cached object:
+    ``_DRAFT_CAPITAL_CACHE`` is shared across sessions, so redacting in
+    place would strip the fields from the authenticated /draft page too
+    for the rest of the TTL — a cache-poisoning bug with the same shape
+    as the leak it fixes.  Only the ``picks`` list is rebuilt; every
+    other branch is shared by reference and never written to.
+
+    The only consumer of these fields is the private /draft page
+    (frontend/app/draft/page.jsx); the public league section never reads
+    them, so redaction costs no functionality.
+    """
+    if not isinstance(result, dict):
+        return result
+    picks = result.get("picks")
+    if not isinstance(picks, list):
+        return result
+    redacted = dict(result)
+    redacted["picks"] = [
+        {k: v for k, v in pick.items() if k not in _DRAFT_CAPITAL_PRIVATE_PICK_FIELDS}
+        if isinstance(pick, dict)
+        else pick
+        for pick in picks
+    ]
+    redacted["rookieBoardRedacted"] = True
+    return redacted
+
+
 _KTC_CACHE_TTL = 6 * 3600  # 6 hours
 
 
@@ -8114,10 +8177,16 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     # misses (the /draft triple-fetch) coalesce onto one build, which
     # itself runs in the threadpool — never on the loop.
     now = time.time()
+    # The cache stores the FULL payload, including the proprietary rookie
+    # board.  Redaction is applied per-response, on a copy, so an
+    # anonymous request can never strip the fields from the cached object
+    # that the authenticated /draft page reads next.
+    viewer_is_authed = _is_authenticated(request)
     cache_slot = _DRAFT_CAPITAL_CACHE.get(league_cfg.key)
     if not refresh and cache_slot and (now - cache_slot[0]) < _DRAFT_CAPITAL_TTL_SEC:
+        cached = cache_slot[1]
         return JSONResponse(
-            content=cache_slot[1],
+            content=cached if viewer_is_authed else _redact_draft_capital_for_public(cached),
             headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
         )
 
@@ -8166,7 +8235,7 @@ async def get_draft_capital(request: Request, refresh: str = ""):
                     result["leagueKey"] = league_cfg.key
                     _DRAFT_CAPITAL_CACHE[league_cfg.key] = (time.time(), result)
         return JSONResponse(
-            content=result,
+            content=result if viewer_is_authed else _redact_draft_capital_for_public(result),
             headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
         )
     except Exception as e:
@@ -9482,6 +9551,13 @@ async def auth_status(request: Request):
             "sleeperUserId": session.get("sleeper_user_id") or None,
             "avatar": session.get("avatar") or None,
             "authMethod": session.get("auth_method") or "password",
+            # Lets the shell hide operator surfaces (/admin, /tools/*)
+            # from users who would only get a 403 from them.  This is a
+            # UI affordance, NOT the access control: every admin
+            # endpoint still runs _require_admin_session independently,
+            # so a client that lies to itself about this flag gains
+            # nothing.
+            "isAdmin": str(session.get("username") or "").lower() in PRIVATE_APP_ALLOWED_USERNAMES,
         }
     )
 
@@ -11843,7 +11919,23 @@ async def serve_finder(request: Request):
 
 @app.get("/trades", response_class=HTMLResponse)
 async def serve_trades(request: Request):
-    # Public page — no auth required
+    """Analyzed trade history — PRIVATE.
+
+    This was marked "public page, no auth required" in three places
+    (here, the app shell's PUBLIC_ROUTES, and robots.txt) while the page
+    itself renders per-side trade grades, cumulative net value and
+    manager tendencies computed from the private ``/api/data``
+    contract.  So it was simultaneously a broken empty page for
+    anonymous visitors (the data 401s) and a competitive-intelligence
+    surface advertised as public.
+
+    The public league hub has its own community-facing Trades tab
+    (/league?tab=activity), fed by the public pipeline, so gating this
+    route removes nothing from the public surface.
+    """
+    redirect = _require_auth_or_redirect(request, "/trades")
+    if redirect is not None:
+        return redirect
     return await _serve_app_shell("/trades")
 
 

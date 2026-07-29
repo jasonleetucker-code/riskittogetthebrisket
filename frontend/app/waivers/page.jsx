@@ -219,7 +219,7 @@ function BestMovesPanel({ moves }) {
           );
           return `$${hint.reasonable}`;
         },
-        headerTitle: "Quick baseline share of a $100 budget — use the bid desk for a league-aware recommendation.",
+        headerInfo: "Quick baseline share of a $100 budget — use the bid desk for a league-aware recommendation.",
       },
       {
         key: "tier",
@@ -582,7 +582,7 @@ export default function WaiversPage() {
   return (
     <main className={`main-shell ${styles.page} waivers-page`}>
       <PageHeader
-        eyebrow="Claim desk"
+        eyebrow="My Team"
         title="Waivers"
         description={
           selectedLeagueName

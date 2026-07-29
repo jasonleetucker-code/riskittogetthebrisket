@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
+import { PlayerNameButton } from "@/components/ds";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
 import {
   WINDOW_OPTIONS,
@@ -50,7 +51,7 @@ function FilterPills({ options, value, onChange, ariaLabel }) {
 }
 
 export default function TrendingPage() {
-  const { rows, loading, error } = useApp();
+  const { rows, loading, error, openPlayerPopup } = useApp();
   const [windowKey, setWindowKey] = useState("7d");
   const [direction, setDirection] = useState("all");
   const [family, setFamily] = useState("ALL");
@@ -145,7 +146,11 @@ export default function TrendingPage() {
                     <tr key={`${m.name}::${m.pos}`}>
                       <td style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <PlayerImage name={m.name} sleeperId={m.sleeperId} size={22} />
-                        <span style={{ fontWeight: 600 }}>{m.name}</span>
+                        <PlayerNameButton
+                          name={m.name}
+                          onOpen={openPlayerPopup}
+                          style={{ fontWeight: 600 }}
+                        />
                         {m.teamAbbr && (
                           <span className="muted" style={{ fontSize: "0.66rem" }}>
                             {m.teamAbbr}

@@ -61,7 +61,7 @@ export default function LeagueComparisonPage() {
   return (
     <section>
       <PageHeader
-        title="League Comparison"
+        title="Scoring Comparison"
         subtitle={subtitle}
         actions={
           <button

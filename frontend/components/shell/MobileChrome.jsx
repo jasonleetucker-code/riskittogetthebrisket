@@ -22,11 +22,13 @@ import TeamSwitcher from "@/components/TeamSwitcher";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import {
   MOBILE_TABS,
+  MOBILE_TABS_PUBLIC,
   NAV_MODEL,
   SYSTEM_MODEL,
   flattenNav,
   isNavActive,
   pageTitleFor,
+  systemItemsFor,
 } from "@/lib/nav-model";
 
 function DrawerGroup({ label, items, pathname, onNavigate }) {
@@ -76,7 +78,7 @@ export function MobileTopBar({ authenticated, onSearch }) {
   );
 }
 
-export function MobileTabBar({ authenticated, isPublic, onLogout }) {
+export function MobileTabBar({ authenticated, isAdmin, isPublic, onLogout }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -85,9 +87,11 @@ export function MobileTabBar({ authenticated, isPublic, onLogout }) {
     setMenuOpen(false);
   }, [pathname]);
 
-  const tabs = MOBILE_TABS.filter(
-    (tab) => authenticated || isPublic(tab.href)
-  );
+  // Logged out, the authed tab set filtered by "is this public" left
+  // Home and the Menu button — and no Sign in anywhere in the mobile
+  // chrome, so the only way into the app from a phone was a button on
+  // the landing page.  Logged-out visitors get their own three tabs.
+  const tabs = authenticated ? MOBILE_TABS : MOBILE_TABS_PUBLIC;
 
   // Tab active state: longest-prefix winner among the tabs so /trade
   // lights Trade, not Home; the Menu button is active-by-none like the
@@ -99,7 +103,7 @@ export function MobileTabBar({ authenticated, isPublic, onLogout }) {
   }, null);
 
   const groups = authenticated
-    ? [...NAV_MODEL, SYSTEM_MODEL]
+    ? [...NAV_MODEL, { ...SYSTEM_MODEL, items: systemItemsFor({ isAdmin }) }]
     : NAV_MODEL.map((g) => {
         if (!g.items) return isPublic(g.href) ? g : null;
         const items = g.items.filter((i) => isPublic(i.href));

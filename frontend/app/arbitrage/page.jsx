@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useTeam } from "@/components/useTeam";
 import {
@@ -16,6 +17,7 @@ import {
   StatTile,
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
+import { buildShareUrl } from "@/lib/trade-share";
 import styles from "./arbitrage.module.css";
 
 // ── /arbitrage — the board-vs-market arbitrage finder ─────────────────
@@ -67,9 +69,31 @@ function AssetList({ assets, tone }) {
   );
 }
 
-function TradeCard({ trade }) {
+function TradeCard({ trade, myTeam, opponent }) {
   const boardDelta = Number(trade.boardDelta || 0);
   const ktcDelta = Number(trade.ktcDelta || 0);
+
+  // A found trade was a dead end: the engine surfaced it, and then you
+  // retyped both sides into the calculator by hand.  The share encoder
+  // already round-trips exactly this shape, so the hand-off is a link.
+  const openInCalculator = useMemo(() => {
+    const give = (trade.give || []).map((a) => a.name).filter(Boolean);
+    const receive = (trade.receive || []).map((a) => a.name).filter(Boolean);
+    if (!give.length && !receive.length) return null;
+    try {
+      return buildShareUrl({
+        sides: [
+          { name: myTeam || "You", players: give },
+          { name: opponent && opponent !== "all" ? opponent : "Them", players: receive },
+        ],
+      });
+    } catch {
+      // A trade we cannot encode simply loses the shortcut; the card
+      // itself still renders.
+      return null;
+    }
+  }, [trade, myTeam, opponent]);
+
   return (
     <Panel className={styles.tradeCard}>
       <div className={styles.tradeHead}>
@@ -107,6 +131,13 @@ function TradeCard({ trade }) {
           <AssetList assets={trade.receive} tone="receive" />
         </div>
       </div>
+      {openInCalculator ? (
+        <div className={styles.tradeFoot}>
+          <Button as={Link} href={openInCalculator} size="sm" variant="secondary">
+            Open in Trade Calculator
+          </Button>
+        </div>
+      ) : null}
     </Panel>
   );
 }
@@ -172,11 +203,12 @@ export default function ArbitragePage() {
   return (
     <div className={styles.page}>
       <PageHeader
+        eyebrow="Trades"
         title="Arbitrage"
-        subtitle="Trades that gain on our blended board while still reading as fair on the market your counterparty checks."
+        description="Trades that gain on our blended board while still reading as fair on the market your counterparty checks."
       />
 
-      {dataError ? <Banner tone="danger">{String(dataError)}</Banner> : null}
+      {dataError ? <Banner tone="negative">{String(dataError)}</Banner> : null}
 
       <Panel>
         <div className={styles.controls}>
@@ -215,7 +247,7 @@ export default function ArbitragePage() {
         </div>
       </Panel>
 
-      {error ? <Banner tone="danger">{error}</Banner> : null}
+      {error ? <Banner tone="negative">{error}</Banner> : null}
 
       {/* Backend warnings are rendered verbatim. The engine emits a real
           one when an IDP league has no priced IDP assets, which is the
@@ -252,14 +284,14 @@ export default function ArbitragePage() {
       {!running && result && !result.trades?.length ? (
         <EmptyState
           title="No arbitrage found"
-          body="Every candidate either lost value on our board or looked too lopsided on the counterparty's market to be plausible."
+          description="Every candidate either lost value on our board or looked too lopsided on the counterparty's market to be plausible."
         />
       ) : null}
 
       {!running && result?.trades?.length ? (
         <div className={styles.trades}>
           {result.trades.map((t, i) => (
-            <TradeCard key={i} trade={t} />
+            <TradeCard key={i} trade={t} myTeam={effectiveTeam} opponent={opponent} />
           ))}
         </div>
       ) : null}
@@ -267,7 +299,7 @@ export default function ArbitragePage() {
       {!result && !running ? (
         <EmptyState
           title="Pick a team and scan"
-          body="Every value, delta and score on this page is computed by the backend arbitrage engine. Nothing is recomputed in the browser."
+          description="Choose your team and a counterparty above, then run the scan to surface trades the market prices differently than our board does."
         />
       ) : null}
     </div>
