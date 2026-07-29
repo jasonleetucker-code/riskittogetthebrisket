@@ -8449,7 +8449,7 @@
     "rosterId": 7,
     "teamName": "Roy",
     "teamRosStrength": 378.66,
-    "startingLineupScore": 489.1,
+    "startingLineupScore": 489.11,
     "benchDepthScore": 92.91,
     "positionalCoverageScore": 95.63,
     "healthAvailabilityScore": 100.0,
@@ -8579,9 +8579,9 @@
         "playerId": "8154",
         "canonicalName": "brian robinson",
         "position": "RB",
-        "rosValue": 17.79,
-        "adjustedValue": 17.79,
-        "confidence": 0.963,
+        "rosValue": 17.8,
+        "adjustedValue": 17.8,
+        "confidence": 0.964,
         "flagged": null
       },
       {
@@ -9215,7 +9215,7 @@
         "playerId": "8154",
         "canonicalName": "brian robinson",
         "position": "RB",
-        "rosValue": 17.79,
+        "rosValue": 17.8,
         "fantasyPositions": [
           "RB"
         ],
@@ -9951,7 +9951,7 @@
         "playerId": "13353",
         "canonicalName": "chris brazzell",
         "position": "WR",
-        "rosValue": 15.14,
+        "rosValue": 15.12,
         "fantasyPositions": [
           "WR"
         ],

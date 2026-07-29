@@ -2774,7 +2774,7 @@
         "playerId": "8154",
         "canonicalName": "brian robinson",
         "position": "RB",
-        "rosValue": 17.79,
+        "rosValue": 17.8,
         "depthFactor": 0.423,
         "depthContribution": 7.52
       },
@@ -3046,7 +3046,7 @@
         "playerId": "8154",
         "canonicalName": "brian robinson",
         "position": "RB",
-        "rosValue": 17.79,
+        "rosValue": 17.8,
         "fantasyPositions": [
           "RB"
         ],
@@ -4551,7 +4551,7 @@
         "playerId": "13353",
         "canonicalName": "chris brazzell",
         "position": "WR",
-        "rosValue": 15.14,
+        "rosValue": 15.12,
         "fantasyPositions": [
           "WR"
         ],
