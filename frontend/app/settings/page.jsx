@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useAuthContext } from "@/app/AppShellWrapper";
+import { HelpModal, InfoTip } from "@/components/ds";
 import {
   useSettings,
   SETTINGS_DEFAULTS as DEFAULTS,
@@ -486,6 +487,8 @@ export default function SettingsPage() {
           className="muted"
           style={{ fontSize: "0.68rem", marginTop: 4, marginBottom: 0 }}
         >
+          Applied at blend time, on TE rows only.
+          <InfoTip label="the two TE Premium multipliers">
           Two parallel TE Premium multipliers, both applied at blend time on TE
           rows only. <strong>Non-native</strong> covers sources whose published
           board doesn&apos;t already bake in TE premium (DLF, FBG, FP consensus,
@@ -508,6 +511,7 @@ export default function SettingsPage() {
           the canonical baseline and passes through both knobs unchanged.
           Changing either value re-runs the canonical ranking pipeline so every
           page (rankings, trade calculator, edge) sees the same values.
+        </InfoTip>
         </p>
       </Section>
 
@@ -540,10 +544,15 @@ export default function SettingsPage() {
           className="muted"
           style={{ fontSize: "0.7rem", marginTop: 4, marginBottom: 0 }}
         >
-          Default 150 fits a standard 12-team Superflex league. Raise for deeper
-          formats (14-team 2QB, deep-IDP keeper) where the bottom-50 of your
-          roster pool sits below KTC #150 but is genuinely traded. Picks + IDP
-          are unaffected by this cap.
+          Default 150 suits a standard 12-team Superflex league.
+          <InfoTip label="the suggestion pool cap">
+            <p>
+              Raise it for deeper formats (14-team 2QB, deep-IDP keeper) where
+              the bottom 50 of your roster pool sits below KTC #150 but is
+              genuinely traded.
+            </p>
+            <p>Picks and IDP are unaffected by this cap.</p>
+          </InfoTip>
         </p>
       </Section>
 
@@ -596,28 +605,46 @@ export default function SettingsPage() {
             lift; deep positions trim. Ranks and tiers are recomputed on the
             backend.
           </p>
-          <p>
-            What it does <strong>not</strong> include, deliberately: no
-            tight-end premium — our market anchor is already KTC&apos;s TE++
-            board, so applying another would count the same premium twice. No
-            player projections — no source we can use publishes raw statistical
-            categories yet, so there is nothing to re-score under your rules.
-            And no per-player judgment: the adjustment is identical for every
-            player at a position, so it can never reorder your RBs against each
-            other.
-          </p>
-          <p>
-            What it <strong>does</strong> change is how positions — and{" "}
-            <strong>players versus draft picks</strong> — are priced against one
-            another. Picks carry no scarcity measurement, so they stay at market
-            value while players move around them. That is enough to shift most
-            ranks and to change trade verdicts.
-          </p>
-          <p>
-            Not applied while custom source weights are active: the two cannot
-            be combined correctly yet, so the board stays on your custom market
-            values.
-          </p>
+          {/* The two definitions above are the choice being made and
+              stay visible.  The rest — scope, exclusions, interaction
+              with custom weights — is reference material a user reads
+              once, so it moves behind a button instead of occupying
+              three paragraphs above the next control. */}
+          <HelpModal
+            title="How the league-adjusted board works"
+            label="What this changes"
+          >
+            <h3>What it does not include, deliberately</h3>
+            <p>
+              <strong>No tight-end premium.</strong> Our market anchor is
+              already KTC&apos;s TE++ board, so applying another would count the
+              same premium twice.
+            </p>
+            <p>
+              <strong>No player projections.</strong> No source we can use
+              publishes raw statistical categories yet, so there is nothing to
+              re-score under your rules.
+            </p>
+            <p>
+              <strong>No per-player judgment.</strong> The adjustment is
+              identical for every player at a position, so it can never reorder
+              your RBs against each other.
+            </p>
+            <h3>What it does change</h3>
+            <p>
+              How positions — and <strong>players versus draft picks</strong> —
+              are priced against one another. Picks carry no scarcity
+              measurement, so they stay at market value while players move
+              around them. That is enough to shift most ranks and to change
+              trade verdicts.
+            </p>
+            <h3>When it does not apply</h3>
+            <p>
+              Not applied while custom source weights are active: the two cannot
+              be combined correctly yet, so the board stays on your custom
+              market values.
+            </p>
+          </HelpModal>
         </div>
       </Section>
 

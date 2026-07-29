@@ -36,9 +36,16 @@ vi.mock("@/components/useLeague", () => ({
 vi.mock("@/components/PlayerRankHistoryChart", () => ({
   default: () => <div data-testid="rank-history-stub" />,
 }));
-// next/link needs the Next runtime; a plain anchor is enough here.
+// next/link needs the Next runtime; a plain anchor is enough here — but
+// it must forward the rest of its props, or aria-labels set on a linked
+// control silently vanish and the test asserts against a name the real
+// component does not have.
 vi.mock("next/link", () => ({
-  default: ({ children, href }) => <a href={href}>{children}</a>,
+  default: ({ children, href, ...rest }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 import PlayerPopup from "@/components/PlayerPopup";
@@ -96,6 +103,28 @@ describe("PlayerPopup", () => {
       screen.getByRole("button", { name: new RegExp(`add ${row.name} to trade`, "i") }),
     );
     expect(onAddToTrade).toHaveBeenCalledWith(row);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  // /players/compare is URL-driven but nothing in the product linked to
+  // it — it was a command-palette-only destination, so the only way to
+  // reach it was to already know it existed.  The popup is where a user
+  // is looking at one player and wondering how he stacks up.
+  it("offers a Compare link seeded with this player", () => {
+    const { row } = renderPopup();
+    const link = screen.getByRole("link", {
+      name: new RegExp(`compare ${row.name}`, "i"),
+    });
+    expect(link).toHaveAttribute(
+      "href",
+      `/players/compare?p1=${encodeURIComponent(row.name)}`,
+    );
+  });
+
+  it("closes the popup when Compare is followed", () => {
+    // Otherwise the overlay stays mounted over the page just navigated to.
+    const { onClose } = renderPopup();
+    fireEvent.click(screen.getByRole("link", { name: /compare/i }));
     expect(onClose).toHaveBeenCalled();
   });
 });
