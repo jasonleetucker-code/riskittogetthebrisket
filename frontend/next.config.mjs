@@ -18,6 +18,24 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  async redirects() {
+    return [
+      {
+        // Legacy route.  This used to be `app/draft-capital/page.jsx`
+        // calling `redirect()` inside a React render, which meant the
+        // first leg cost a full route invocation — measured 1445ms
+        // TTFB against 7-35ms on every other route, because the
+        // redirect target (/league) is a server component that awaits
+        // the multi-MB public contract.  Emitting the redirect from
+        // the routing layer costs sub-millisecond instead, and a
+        // permanent (308) redirect is cacheable by the browser so
+        // repeat visits skip the leg entirely.
+        source: "/draft-capital",
+        destination: "/league?tab=draft-capital",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
