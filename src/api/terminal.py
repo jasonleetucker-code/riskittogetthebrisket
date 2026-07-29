@@ -736,9 +736,31 @@ def _compute_movers(
 # ── SIGNAL EVALUATION (server-side rule engine) ─────────────────────────
 
 
-# Rule order + priority mirrors ``frontend/lib/signal-engine.js``; the
-# frontend engine is kept as a fallback but the authoritative output
-# comes from this pass.  Each rule: (priority, signal, tag, test, reason).
+# Rule order + priority mirrors ``frontend/lib/signal-engine.js``.
+# Each rule: (priority, signal, tag, test, reason).
+#
+# The two engines are NOT a primary/fallback pair — they are both live,
+# on different surfaces, and neither is a fallback for the other:
+#
+#   * THIS pass is what gets EMAILED.  ``server.py`` feeds the terminal
+#     payload's ``signals`` block into
+#     ``src/api/signal_alerts.py::process_user_alerts``, whose
+#     ``ACTIONABLE_SIGNALS`` set is {RISK, SELL, BUY, MONITOR}.
+#   * The JS engine is what the user SEES.  ``BuySellHold.jsx`` and
+#     ``TopSignalsRail.jsx`` render the verdicts from
+#     ``evaluateRoster``; nothing in the UI reads the ``signal`` /
+#     ``reason`` / ``tag`` / ``fired`` fields stamped here (the server
+#     ``signals`` block is consumed only for ``injuryImpact`` /
+#     ``injuryAdjustedValue``, which the client cannot compute).
+#
+# So a divergence between the two reads as "you were emailed a SELL the
+# Signals panel does not show".  Rule-table parity is pinned from both
+# sides against one shared fixture:
+# ``tests/fixtures/signal_parity_cases.json``, driven by
+# ``tests/api/test_signal_engine_parity.py`` and
+# ``frontend/__tests__/signal-engine-parity.test.js``.  Adding or
+# changing a rule here without mirroring it in the JS engine (and
+# adding fixture cases) fails both suites.
 def _build_signal_context(
     row: dict[str, Any],
     *,

@@ -1,0 +1,1474 @@
+{
+  "_comment": "Shared Buy/Sell/Hold parity fixture. SINGLE SOURCE OF TRUTH for both tests/api/test_signal_engine_parity.py (drives src/api/terminal.py::_evaluate_signal) and frontend/__tests__/signal-engine-parity.test.js (drives frontend/lib/signal-engine.js::evaluate). Neither test may hardcode an expectation of its own \u2014 if the two engines disagree, exactly one of them fails against this file. See the module docstrings in both tests for what is deliberately NOT asserted (reason prose, fired-entry shape, context-builder inputs).",
+  "schemaVersion": 1,
+  "generatedFor": "debt item D3 (Buy/Sell/Hold engine parity)",
+  "defaultVerdict": {
+    "signal": "HOLD",
+    "tag": "default_hold"
+  },
+  "rules": [
+    {
+      "tag": "alert_with_drop",
+      "priority": 100,
+      "signal": "RISK"
+    },
+    {
+      "tag": "high_vol_drop",
+      "priority": 95,
+      "signal": "RISK"
+    },
+    {
+      "tag": "sustained_downtrend",
+      "priority": 80,
+      "signal": "SELL"
+    },
+    {
+      "tag": "neg_news_high_vol",
+      "priority": 78,
+      "signal": "SELL"
+    },
+    {
+      "tag": "alert_present",
+      "priority": 65,
+      "signal": "MONITOR"
+    },
+    {
+      "tag": "high_vol",
+      "priority": 62,
+      "signal": "MONITOR"
+    },
+    {
+      "tag": "low_conf_unstable",
+      "priority": 60,
+      "signal": "MONITOR"
+    },
+    {
+      "tag": "elite_stable",
+      "priority": 50,
+      "signal": "STRONG_HOLD"
+    },
+    {
+      "tag": "uptrend_controlled",
+      "priority": 40,
+      "signal": "BUY"
+    },
+    {
+      "tag": "pos_news_rising",
+      "priority": 38,
+      "signal": "BUY"
+    }
+  ],
+  "cases": [
+    {
+      "id": "baseline_no_rule_fires",
+      "why": "Empty context: no trend, no volatility, no news, no confidence.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "all_fields_null",
+      "why": "Every numeric field explicitly null (the shape a player with no rank history and no news produces).",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": null,
+        "rank": null,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": null,
+        "negativeImpactCount": null,
+        "positiveImpactCount": null,
+        "newsCount": null
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "only_name_present",
+      "why": "Keys missing entirely rather than null \u2014 Python .get() vs JS undefined must both read as absent.",
+      "ctx": {
+        "name": "Sparse Row"
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r1_at_threshold",
+      "why": "trend7 exactly at -3 with an alert headline and a negative impact.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -3,
+        "trend30": 5,
+        "volatility": null,
+        "alertCount": 1,
+        "negativeImpactCount": 1,
+        "positiveImpactCount": 0,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "RISK",
+        "tag": "alert_with_drop",
+        "firedTags": [
+          "alert_with_drop",
+          "alert_present"
+        ]
+      }
+    },
+    {
+      "id": "r1_trend7_just_above_threshold",
+      "why": "trend7 -2 misses the -3 gate; only the alert rule survives.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -2,
+        "trend30": 5,
+        "volatility": null,
+        "alertCount": 1,
+        "negativeImpactCount": 1,
+        "positiveImpactCount": 0,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "alert_present",
+        "firedTags": [
+          "alert_present"
+        ]
+      }
+    },
+    {
+      "id": "r1_trend7_just_below_threshold",
+      "why": "trend7 -4 clears the gate.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -4,
+        "trend30": 5,
+        "volatility": null,
+        "alertCount": 1,
+        "negativeImpactCount": 1,
+        "positiveImpactCount": 0,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "RISK",
+        "tag": "alert_with_drop",
+        "firedTags": [
+          "alert_with_drop",
+          "alert_present"
+        ]
+      }
+    },
+    {
+      "id": "r1_requires_negative_impact",
+      "why": "Alert severity but no negatively-tagged player impact.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -9,
+        "trend30": 5,
+        "volatility": null,
+        "alertCount": 1,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "alert_present",
+        "firedTags": [
+          "alert_present"
+        ]
+      }
+    },
+    {
+      "id": "r1_requires_alert_severity",
+      "why": "Negative impact but no alert-severity headline.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -9,
+        "trend30": 5,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 1,
+        "positiveImpactCount": 0,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r2_at_threshold",
+      "why": "High volatility with trend7 exactly -5.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -5,
+        "trend30": 5,
+        "volatility": {
+          "mad": 6.0,
+          "label": "high"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "RISK",
+        "tag": "high_vol_drop",
+        "firedTags": [
+          "high_vol_drop",
+          "high_vol"
+        ]
+      }
+    },
+    {
+      "id": "r2_trend7_just_above_threshold",
+      "why": "trend7 -4 misses the steeper -5 gate; the plain high-vol rule remains.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -4,
+        "trend30": 5,
+        "volatility": {
+          "mad": 6.0,
+          "label": "high"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "high_vol",
+        "firedTags": [
+          "high_vol"
+        ]
+      }
+    },
+    {
+      "id": "r2_requires_high_volatility",
+      "why": "A steep drop with only medium volatility fires nothing.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -9,
+        "trend30": 5,
+        "volatility": {
+          "mad": 3.0,
+          "label": "med"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r3_at_both_thresholds",
+      "why": "trend7 exactly -3 and trend30 exactly 0 (the inclusive edge of both).",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -3,
+        "trend30": 0,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "SELL",
+        "tag": "sustained_downtrend",
+        "firedTags": [
+          "sustained_downtrend"
+        ]
+      }
+    },
+    {
+      "id": "r3_trend30_just_above_zero",
+      "why": "A 7d drop that the 30d window contradicts.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -3,
+        "trend30": 1,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r3_trend7_just_above_threshold",
+      "why": "Long slide but the 7d window is only -2.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -2,
+        "trend30": -20,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r3_trend30_null_no_history",
+      "why": "KNOWN DIVERGENCE, FIXED 2026-07-29. A 7d drop with NO 30d measurement is not a sustained downtrend. Python guarded on `trend30 is not None`; the JS rule read `(c.trend30 ?? 0) <= 0`, so absent history satisfied the gate and returned SELL. Python's reading is the correct one and the JS rule was changed to match.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -5,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r3_trend7_null",
+      "why": "No 7d measurement, only a 30d slide.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": -20,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r4_fires",
+      "why": "Negative news impact while the market is churning.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": {
+          "mad": 6.0,
+          "label": "high"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 1,
+        "positiveImpactCount": 0,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "SELL",
+        "tag": "neg_news_high_vol",
+        "firedTags": [
+          "neg_news_high_vol",
+          "high_vol"
+        ]
+      }
+    },
+    {
+      "id": "r4_requires_high_volatility",
+      "why": "Negative news but a settled market.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": {
+          "mad": 3.0,
+          "label": "med"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 3,
+        "positiveImpactCount": 0,
+        "newsCount": 2
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r5_alert_only",
+      "why": "A single alert-severity headline with no price movement.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 1,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "alert_present",
+        "firedTags": [
+          "alert_present"
+        ]
+      }
+    },
+    {
+      "id": "r5_plural_alerts",
+      "why": "Alert count >1 (exercises the singular/plural reason branch).",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 3,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 3
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "alert_present",
+        "firedTags": [
+          "alert_present"
+        ]
+      }
+    },
+    {
+      "id": "r6_high_vol_only",
+      "why": "Churn with no drop, no news. Fractional MAD on purpose.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": 0,
+        "trend30": 0,
+        "volatility": {
+          "mad": 4.25,
+          "label": "high"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "high_vol",
+        "firedTags": [
+          "high_vol"
+        ]
+      }
+    },
+    {
+      "id": "r7_conf_at_threshold",
+      "why": "confidence exactly 0.35 \u2014 the gate is strict `<`, so it must NOT fire.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": 0.35,
+        "trend7": 0,
+        "trend30": 0,
+        "volatility": {
+          "mad": 3.0,
+          "label": "med"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r7_conf_just_below_threshold",
+      "why": "confidence 0.34 with medium volatility.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": 0.34,
+        "trend7": 0,
+        "trend30": 0,
+        "volatility": {
+          "mad": 3.0,
+          "label": "med"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "low_conf_unstable",
+        "firedTags": [
+          "low_conf_unstable"
+        ]
+      }
+    },
+    {
+      "id": "r7_conf_zero_is_not_missing",
+      "why": "confidence 0.0 is a measurement, not an absence \u2014 both engines must null-check explicitly rather than testing truthiness.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": 0.0,
+        "trend7": 0,
+        "trend30": 0,
+        "volatility": {
+          "mad": 3.0,
+          "label": "med"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "low_conf_unstable",
+        "firedTags": [
+          "low_conf_unstable"
+        ]
+      }
+    },
+    {
+      "id": "r7_conf_null_never_fires",
+      "why": "No confidence measurement must never produce a confidence verdict.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -9,
+        "trend30": 5,
+        "volatility": {
+          "mad": 3.0,
+          "label": "med"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r7_trend7_abs_at_2_positive",
+      "why": "|trend7| exactly 2 on the rise satisfies the movement clause.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": 0.1,
+        "trend7": 2,
+        "trend30": 5,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "low_conf_unstable",
+        "firedTags": [
+          "low_conf_unstable"
+        ]
+      }
+    },
+    {
+      "id": "r7_trend7_abs_at_2_negative",
+      "why": "|trend7| exactly 2 on the fall satisfies it too.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": 0.1,
+        "trend7": -2,
+        "trend30": 5,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "low_conf_unstable",
+        "firedTags": [
+          "low_conf_unstable"
+        ]
+      }
+    },
+    {
+      "id": "r7_trend7_abs_just_below_2",
+      "why": "|trend7| of 1 with low volatility fires nothing.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": 0.1,
+        "trend7": 1,
+        "trend30": 5,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r7_trend7_null_with_low_vol",
+      "why": "Low confidence alone is not enough without movement.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": 0.1,
+        "trend7": null,
+        "trend30": null,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r8_value_at_threshold",
+      "why": "value exactly 7000 with a flat 30d trend and low volatility.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 7000,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": 0,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "STRONG_HOLD",
+        "tag": "elite_stable",
+        "firedTags": [
+          "elite_stable"
+        ]
+      }
+    },
+    {
+      "id": "r8_value_just_below_threshold",
+      "why": "value 6999 misses the elite gate.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 6999,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": 0,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r8_trend30_just_below_zero",
+      "why": "Elite but drifting down over 30d.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 9500,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": -1,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r8_vol_med_qualifies",
+      "why": "Medium volatility still counts as non-high.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 8000,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": 3,
+        "volatility": {
+          "mad": 3.0,
+          "label": "med"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "STRONG_HOLD",
+        "tag": "elite_stable",
+        "firedTags": [
+          "elite_stable"
+        ]
+      }
+    },
+    {
+      "id": "r8_vol_high_disqualifies",
+      "why": "Elite and rising but the market is churning.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 8000,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": 3,
+        "volatility": {
+          "mad": 6.0,
+          "label": "high"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "high_vol",
+        "firedTags": [
+          "high_vol"
+        ]
+      }
+    },
+    {
+      "id": "r8_vol_null_disqualifies",
+      "why": "`in (low, med)` is a positive test, so absent volatility fails it on both sides.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 8000,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": 3,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r8_trend30_null_no_history",
+      "why": "KNOWN DIVERGENCE, FIXED 2026-07-29. An elite player with NO 30d measurement is not demonstrably stable. Python guarded on `trend30 is not None`; the JS rule read `(c.trend30 ?? 0) >= 0`, so absent history satisfied the gate and returned STRONG_HOLD. Python's reading is the correct one and the JS rule was changed to match.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 9000,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r8_value_null_never_elite",
+      "why": "No value at all cannot clear the elite gate.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": null,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": 0,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r9_at_threshold",
+      "why": "trend7 exactly +3 with low volatility.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": 3,
+        "trend30": 4,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "BUY",
+        "tag": "uptrend_controlled",
+        "firedTags": [
+          "uptrend_controlled"
+        ]
+      }
+    },
+    {
+      "id": "r9_just_below_threshold",
+      "why": "trend7 +2 misses the gate.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": 2,
+        "trend30": 4,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r9_vol_high_disqualifies",
+      "why": "Rising hard but the price is unstable.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": 8,
+        "trend30": 4,
+        "volatility": {
+          "mad": 6.0,
+          "label": "high"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "high_vol",
+        "firedTags": [
+          "high_vol"
+        ]
+      }
+    },
+    {
+      "id": "r9_vol_null_qualifies",
+      "why": "`!= high` is a negative test, so absent volatility PASSES it on both sides \u2014 deliberately the opposite of r8_vol_null_disqualifies.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": 5,
+        "trend30": 4,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "BUY",
+        "tag": "uptrend_controlled",
+        "firedTags": [
+          "uptrend_controlled"
+        ]
+      }
+    },
+    {
+      "id": "r10_fires",
+      "why": "Positive news impact alongside a rank that improved on the last scrape.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": 3,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 1,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "BUY",
+        "tag": "pos_news_rising",
+        "firedTags": [
+          "pos_news_rising"
+        ]
+      }
+    },
+    {
+      "id": "r10_rank_change_zero",
+      "why": "rankChange exactly 0 \u2014 the gate is strict `>`.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": 0,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 1,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r10_rank_change_null",
+      "why": "No rank-change measurement must not read as a rise.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 1,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r10_rank_change_negative",
+      "why": "Positive news but the board moved the other way.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": -4,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 1,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "r10_requires_positive_impact",
+      "why": "Rank rose but no positively-tagged news.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": 9,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "stack_all_bearish_rules",
+      "why": "Seven rules fire at once; the 100-priority RISK rule owns the verdict and the whole chain must come back in priority order.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 9000,
+        "rank": 50,
+        "rankChange": -5,
+        "confidence": 0.2,
+        "trend7": -6,
+        "trend30": -12,
+        "volatility": {
+          "mad": 9.0,
+          "label": "high"
+        },
+        "alertCount": 2,
+        "negativeImpactCount": 2,
+        "positiveImpactCount": 0,
+        "newsCount": 4
+      },
+      "expected": {
+        "signal": "RISK",
+        "tag": "alert_with_drop",
+        "firedTags": [
+          "alert_with_drop",
+          "high_vol_drop",
+          "sustained_downtrend",
+          "neg_news_high_vol",
+          "alert_present",
+          "high_vol",
+          "low_conf_unstable"
+        ]
+      }
+    },
+    {
+      "id": "stack_strong_hold_outranks_buy",
+      "why": "STRONG_HOLD (50) beats both BUY rules (40, 38).",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 8000,
+        "rank": 50,
+        "rankChange": 4,
+        "confidence": 0.9,
+        "trend7": 5,
+        "trend30": 6,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 2,
+        "newsCount": 2
+      },
+      "expected": {
+        "signal": "STRONG_HOLD",
+        "tag": "elite_stable",
+        "firedTags": [
+          "elite_stable",
+          "uptrend_controlled",
+          "pos_news_rising"
+        ]
+      }
+    },
+    {
+      "id": "stack_monitor_outranks_strong_hold",
+      "why": "MONITOR (60) beats STRONG_HOLD (50).",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 9000,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": 0.1,
+        "trend7": 0,
+        "trend30": 2,
+        "volatility": {
+          "mad": 3.0,
+          "label": "med"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "MONITOR",
+        "tag": "low_conf_unstable",
+        "firedTags": [
+          "low_conf_unstable",
+          "elite_stable"
+        ]
+      }
+    },
+    {
+      "id": "stack_sell_outranks_monitor",
+      "why": "SELL (78) beats MONITOR (62).",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -1,
+        "trend30": 5,
+        "volatility": {
+          "mad": 7.0,
+          "label": "high"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 1,
+        "positiveImpactCount": 0,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "SELL",
+        "tag": "neg_news_high_vol",
+        "firedTags": [
+          "neg_news_high_vol",
+          "high_vol"
+        ]
+      }
+    },
+    {
+      "id": "stack_risk_outranks_sell",
+      "why": "RISK (100) beats SELL (80) with no volatility rule involved.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": -4,
+        "trend30": -6,
+        "volatility": {
+          "mad": 3.0,
+          "label": "med"
+        },
+        "alertCount": 1,
+        "negativeImpactCount": 1,
+        "positiveImpactCount": 0,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "RISK",
+        "tag": "alert_with_drop",
+        "firedTags": [
+          "alert_with_drop",
+          "sustained_downtrend",
+          "alert_present"
+        ]
+      }
+    },
+    {
+      "id": "stack_buy_rules_tie_break_by_priority",
+      "why": "Both BUY rules fire; 40 beats 38.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 100,
+        "rank": 50,
+        "rankChange": 2,
+        "confidence": null,
+        "trend7": 4,
+        "trend30": 4,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 1,
+        "newsCount": 1
+      },
+      "expected": {
+        "signal": "BUY",
+        "tag": "uptrend_controlled",
+        "firedTags": [
+          "uptrend_controlled",
+          "pos_news_rising"
+        ]
+      }
+    }
+  ]
+}

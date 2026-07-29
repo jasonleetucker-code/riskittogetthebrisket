@@ -73,8 +73,16 @@ const RULES = [
     id: "sell.sustained_downtrend",
     signal: SIGNALS.SELL,
     priority: 80,
+    // trend30 is null when the 30d window has no coverage, which means
+    // "unmeasured", NOT "flat".  A `?? 0` here made absent history
+    // satisfy `<= 0`, so a player we know nothing about over 30 days
+    // came back SELL — and SELL is in ACTIONABLE_SIGNALS, so it emails.
+    // The Python engine (src/api/terminal.py::_evaluate_signal) always
+    // guarded on `is not None`; this is the side that was wrong.
+    // Pinned by tests/fixtures/signal_parity_cases.json ::
+    // r3_trend30_null_no_history.
     test: (c) =>
-      (c.trend7 ?? 0) <= -3 && (c.trend30 ?? 0) <= 0,
+      (c.trend7 ?? 0) <= -3 && c.trend30 != null && c.trend30 <= 0,
     reason: (c) =>
       `7d trend ${fmtDelta(c.trend7)} continues a 30d trend of ${fmtDelta(c.trend30)}.`,
     tag: "sustained_downtrend",
@@ -127,9 +135,15 @@ const RULES = [
     id: "strong.elite_stable",
     signal: SIGNALS.STRONG_HOLD,
     priority: 50,
+    // Same null-vs-zero fix as sell.sustained_downtrend above: absent
+    // 30d coverage is not evidence of stability, and this rule's whole
+    // claim is stability.  Matches Python's `trend30 is not None`.
+    // Pinned by tests/fixtures/signal_parity_cases.json ::
+    // r8_trend30_null_no_history.
     test: (c) =>
       c.value >= 7000 &&
-      (c.trend30 ?? 0) >= 0 &&
+      c.trend30 != null &&
+      c.trend30 >= 0 &&
       (c.volatility?.label === "low" || c.volatility?.label === "med"),
     reason: (c) =>
       `Elite value (${c.value.toLocaleString()}) with a non-negative 30d trend and non-high volatility.`,
