@@ -30,7 +30,7 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from src.canonical.player_valuation import (
+from src.canonical.player_valuation import (  # noqa: E402
     detect_tiers,
     rank_to_value,
 )

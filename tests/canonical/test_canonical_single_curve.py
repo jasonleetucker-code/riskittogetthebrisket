@@ -27,7 +27,7 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from src.canonical.calibration import calibrate_canonical_values
+from src.canonical.calibration import calibrate_canonical_values  # noqa: E402
 
 
 def _make_canonical_assets(n: int = 20) -> list[dict]:
