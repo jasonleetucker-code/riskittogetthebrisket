@@ -213,6 +213,18 @@ source votes exactly once — pinned by a determinism test.
 
 ### Open modeling decisions (NOT resolved here)
 
+> **Followed up 2026-07-29 — see `docs/open-modeling-decisions.md`.**
+> Both questions below were under-specified: stated as choices without
+> the measurements needed to make them. They are now closed to evidence.
+> **(1) `coverageWeight`: do not apply** — measured at 297 rows moved /
+> 221 ranks changed for a 3-source input change, with no accuracy
+> evidence. **(2) the rank-form family: the "bring it under the model
+> registry" proposal was WRONG** — the refit script is read-only and
+> nothing runs it, so there is no automated promotion to gate; replaced
+> with a tripwire test. A third question raised later (the
+> `low_conf_unstable` threshold) turned out to be a broken metric, not a
+> threshold — same document.
+
 1. **Should `coverageWeight` be applied?** The depth-scaled factor is
    computed and published but never used. Applying it would down-weight
    the three depth-50 rookie sources and *change the default board*.
