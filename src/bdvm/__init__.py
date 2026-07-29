@@ -16,7 +16,11 @@ board (``src/api/data_contract.py::_compute_unified_rankings``, which
 produces ``rankDerivedValue`` from market ranks/values).  It never
 mutates the live contract, never writes into ``rankDerivedValue``, and
 is only reachable behind the ``bdvm_engine`` feature flag
-(``src/api/feature_flags.py``), default OFF.
+(``src/api/feature_flags.py``), **default ON since 2026-07-28** (this
+line said "default OFF" until the 2026-07-29 audit; the flag has been
+``True`` since the baseline snapshot builder landed).  Rollback is
+``RISKIT_FEATURE_BDVM_ENGINE=0`` **plus a restart** — flag reads are
+cached per process.
 
 Core formula (per player i, strategy s)::
 

@@ -99,10 +99,10 @@ A **dynasty fantasy football trade calculator and league management tool** built
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `JASON_LOGIN_PASSWORD` | `Elliott21!` ⚠️ | App password — **change this, default is hardcoded** |
+| `JASON_LOGIN_PASSWORD` | `«REDACTED — see audit/AUDIT_REPORT_2026-04-28.md C1»` ⚠️ | App password — **change this, default is hardcoded** |
 | `SLEEPER_LEAGUE_ID` | `1312006700437352448` | Primary league for roster/picks/trades |
 | `BASELINE_LEAGUE_ID` | — | Baseline comparison league |
-| `CANONICAL_DATA_MODE` | `off` | `off` / `shadow` / `primary` — pipeline integration |
+| ~~`CANONICAL_DATA_MODE`~~ | — | **RETIRED** (2026-07-29 audit): the offline canonical-build path was removed; this var is read nowhere in the tree. |
 | `FRONTEND_RUNTIME` | `next` | Hardcoded — Next.js is sole frontend |
 | `FRONTEND_URL` | `http://127.0.0.1:3000` | Next.js dev server URL |
 | `SCRAPE_INTERVAL_HOURS` | `2` | How often to auto-scrape |
@@ -368,7 +368,7 @@ Proxy: Caddy (Caddyfile in repo root)
 ## Known Issues & Things to Fix
 
 ### Security (Fix First)
-1. **Hardcoded password** — `server.py:103`: `"Elliott21!"` is the default. Set `JASON_LOGIN_PASSWORD` env var and remove the fallback.
+1. **Hardcoded password** — `server.py:103`: `"«REDACTED — see audit/AUDIT_REPORT_2026-04-28.md C1»"` is the default. Set `JASON_LOGIN_PASSWORD` env var and remove the fallback.
 2. **No session TTL** — sessions never expire. Add a 24h max lifetime check.
 3. **No login rate limiting** — brute-force possible.
 
@@ -400,8 +400,8 @@ Proxy: Caddy (Caddyfile in repo root)
 | **KTC** | KeepTradeCut — primary dynasty value site |
 | **DLF** | Dynasty League Football — CSV rankings source |
 | **IDP** | Individual Defensive Player |
-| **Canonical pipeline** | `src/` Python modules — alternative value computation path, not yet primary |
-| **CANONICAL_DATA_MODE** | `off`/`shadow`/`primary` — controls whether pipeline data is used |
+| **Canonical pipeline** | `src/api/data_contract.py::_compute_unified_rankings` — THE live value path (no longer "alternative"; the offline build it referred to is retired) |
+| ~~**CANONICAL_DATA_MODE**~~ | **RETIRED** — read nowhere in the tree as of the 2026-07-29 audit |
 | **Pick model** | Derived pick values using rookie composite curve + year discounts |
 | **Roster guarantee** | Every Sleeper-rostered player is guaranteed a non-zero composite |
 | **Partial scrape block** | Server rejects scrape result if <50% of sites returned data |

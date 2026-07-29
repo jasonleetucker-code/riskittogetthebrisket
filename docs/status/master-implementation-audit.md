@@ -189,7 +189,7 @@ These items **appear complete** from doc/file presence but are **not actually wi
 
 ## 8. Security Notes
 
-1. **Hardcoded default credentials** in `server.py` line 93: `JASON_LOGIN_PASSWORD = "Elliott21!"`. Env-overridable but default is in source code.
+1. **Hardcoded default credentials** in `server.py` line 93: `JASON_LOGIN_PASSWORD = "«REDACTED — see audit/AUDIT_REPORT_2026-04-28.md C1»"`. Env-overridable but default is in source code.
 
 2. **In-memory session store** — Sessions lost on restart. No persistence, no session expiry beyond manual cleanup.
 

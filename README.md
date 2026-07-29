@@ -148,13 +148,20 @@ Example:
 
 New modular scaffold lives under `src/` with config templates under `config/`.
 
+> **Note (2026-07-29 audit):** the offline canonical-build step
+> (`scripts/canonical_build.py`) was retired along with
+> `src/canonical/transform.py` / `pipeline.py` and the
+> `CANONICAL_DATA_MODE` env var; none of them are in the tree. The live
+> `/api/data` contract (`src/api/data_contract.py::_compute_unified_rankings`)
+> is the single source of truth for player values. The scaffold steps
+> below are the ingestion/identity/reporting helpers that remain.
+
 Run the scaffold pipeline:
 
 ```powershell
 python .\scripts\source_pull.py --repo .
 python .\scripts\validate_ingest.py --repo .
 python .\scripts\identity_resolve.py --repo .
-python .\scripts\canonical_build.py --repo .
 python .\scripts\league_refresh.py --repo .
 python .\scripts\reporting.py --repo .
 ```

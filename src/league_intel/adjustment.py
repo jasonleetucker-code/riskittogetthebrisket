@@ -728,13 +728,23 @@ def build_board_adjustments(
     :class:`~src.league_intel.replacement.ScarcityComponents` (or its
     serialized form) from LI-5.
 
-    **Today this is a no-op by construction** and
-    :attr:`BoardAdjustment.is_noop` asserts it: the TE axis is ABSENT
-    pending ADR-009's open question, projections are ABSENT pending
-    LI-6, and the structural-scarcity axis is only supplied when
-    ``scarcity`` is passed.  The board-level monotonicity check runs
-    over the result regardless, so a future player-specific axis cannot
-    reorder a position silently.
+    **This is NO LONGER a no-op** (corrected 2026-07-29 audit — the
+    text here claimed "today this is a no-op by construction", which
+    stopped being true when the scoring-fit axes shipped).  Current
+    axis status:
+
+    * TE premium — ABSENT, still pending ADR-009's open question.
+    * projection corroboration — factor 1.0 by design; it raises
+      confidence only, never moves a value.
+    * structural scarcity — applies whenever ``scarcity`` is passed.
+    * IDP scoring fit — LIVE, flag ``idp_scoring_fit`` defaults True.
+    * reception fit — LIVE, flag ``reception_scoring_fit`` defaults
+      True; the only PER-PLAYER axis.
+
+    :attr:`BoardAdjustment.is_noop` still reports truthfully per
+    adjustment, so an all-ABSENT result is still detectable.  The
+    board-level monotonicity check runs over the result regardless, so
+    a player-specific axis cannot reorder a position silently.
     """
     from src.league_intel.values import _consensus_from_row  # noqa: PLC0415
 
