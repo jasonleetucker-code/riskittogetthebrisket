@@ -5,11 +5,19 @@
 # Settings → Advanced Security. This configures the version-update
 # PRs once that is on.
 #
-# Why this matters here specifically: requirements.txt carries 76
-# dependency lines and ZERO `==` pins, so every install resolves
-# whatever is current at the time. That makes an unnoticed breaking
-# release a production incident with no diff to point at, and it means
-# nothing was watching for CVEs in the runtime deps.
+# Why this matters here specifically: requirements.txt declares 10
+# direct dependencies, every one of them a `~=` compatible-release
+# pin (e.g. `fastapi~=0.135.0` accepts 0.135.x). So the minor is
+# locked but the patch floats, and the ~50 transitive dependencies
+# those pull in are not constrained at all — there is no lockfile.
+# An unnoticed breaking patch release therefore lands with no diff to
+# point at, and until this file existed nothing was watching for CVEs
+# in the runtime graph.
+#
+# (An earlier version of this comment said "76 dependency lines and
+# ZERO `==` pins". 76 is the file's total line count including
+# comments, and `~=` *is* pinning — just not exact. Corrected
+# 2026-07-29.)
 #
 # Grouping is deliberate. Ungrouped, four ecosystems on a weekly
 # cadence open enough PRs to bury the repo, and each one costs an
