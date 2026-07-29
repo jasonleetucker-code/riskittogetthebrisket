@@ -49,6 +49,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from src.utils.name_clean import strip_display_suffix
 from src.utils.owner_names import owner_label
 
 log = logging.getLogger(__name__)
@@ -791,6 +792,26 @@ def _resolve_player_label(pid: Any, id_map: dict[str, str]) -> str:
     Resolution order: loaded-contract NFL map → full Sleeper players
     dump (lazy, process-cached) → the raw id string as a last resort
     so the row still renders rather than vanishing.
+
+    VOCABULARY (audit N3, 2026-07-29).  The first branch returns a name
+    from the contract, which is already in the contract's vocabulary.
+    The Sleeper-dump fallback is NOT: Sleeper's ``full_name`` keeps
+    generational suffixes, and the contract's names — produced by
+    ``Dynasty Scraper.py::clean_name`` — do not (measured: **0 of 1076**
+    contract keys carry one).  Emitting a raw Sleeper name here leaks a
+    foreign vocabulary into ``sleeper.teams[].players``, which is
+    name-keyed and read by waiver ownership, angle, replacement and FAAB
+    contention — so a player who takes this branch silently fails to
+    join in all of them.
+
+    ``strip_display_suffix`` puts the fallback into the same vocabulary
+    while preserving case, because this value is displayed.  It is a
+    display cleanup, NOT one of this repo's lowercased join keys.
+
+    Live exposure when this was written was small — 1 of 666 rostered
+    ids missed the contract map, and that id had no contract row, so
+    nothing was hidden yet.  It is fixed because the branch is reachable
+    by construction, not because it was actively breaking a join.
     """
     pid_str = str(pid if pid is not None else "").strip()
     if not pid_str:
@@ -800,7 +821,7 @@ def _resolve_player_label(pid: Any, id_map: dict[str, str]) -> str:
         return str(mapped)
     fallback = _sleeper_fallback_name_map().get(pid_str)
     if fallback:
-        return fallback
+        return strip_display_suffix(fallback) or fallback
     return pid_str
 
 
