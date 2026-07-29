@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from src.intel import league_filter
 from src.intel.store import EVENT_RETENTION_DAYS, default_state
 
 log = logging.getLogger(__name__)
@@ -120,6 +121,10 @@ class CrawlResult:
     completed: bool = True
     failed_member_ids: list[str] = field(default_factory=list)
     new_event_count: int = 0
+    # Leagues the dynasty filter declined, by label
+    # ({"redraft": 4, "best_ball": 1}).  Reported rather than dropped
+    # silently: a shrinking tracked-league count must be explainable.
+    excluded_leagues: dict[str, int] = field(default_factory=dict)
 
 
 def _tx_created_ms(tx: dict[str, Any]) -> int:
@@ -477,6 +482,10 @@ def crawl(
     leagues_block = state.setdefault("leagues", {})
     discovered_this_run: list[str] = []
     pending_members: list[str] = []
+    # {"redraft": n, "best_ball": n, ...} — what the dynasty filter
+    # dropped this run, surfaced on the crawl result so the tracked
+    # league count is always explainable.
+    excluded_leagues: dict[str, int] = {}
 
     for idx, oid in enumerate(ordered_members):
         if not b.can_call():
@@ -497,6 +506,14 @@ def crawl(
             failed_members.append(oid)
             continue
         league_objs = [lg for lg in raw if isinstance(lg, dict) and lg.get("league_id")]
+        # Dynasty signal, dynasty leagues.  Redraft/best-ball trade
+        # behaviour is the OPPOSITE of dynasty behaviour for the same
+        # player, so mixing them cancels real signal rather than
+        # adding to it.  Excluded counts are recorded (never silently
+        # dropped) so a smaller tracked-league number is explainable.
+        league_objs, excluded_by_type = league_filter.partition(league_objs)
+        for label, n in excluded_by_type.items():
+            excluded_leagues[label] = excluded_leagues.get(label, 0) + n
         truncated = len(league_objs) > PER_MEMBER_LEAGUE_CAP
         league_objs = league_objs[:PER_MEMBER_LEAGUE_CAP]
         entry.update(
@@ -827,4 +844,5 @@ def crawl(
         completed=not has_pending,
         failed_member_ids=failed_members,
         new_event_count=new_event_count,
+        excluded_leagues=excluded_leagues,
     )

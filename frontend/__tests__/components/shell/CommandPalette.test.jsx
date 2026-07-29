@@ -137,7 +137,7 @@ describe("navigation targets", () => {
     await user.keyboard("sharp tracker");
     // no player named "sharp tracker" → first option is the nav target
     await user.keyboard("{Enter}");
-    expect(push).toHaveBeenCalledWith("/intel");
+    expect(push).toHaveBeenCalledWith("/market/sharp-tracker");
   });
 });
 

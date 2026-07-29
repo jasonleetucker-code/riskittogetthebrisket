@@ -76,7 +76,12 @@ export const NAV_MODEL = [
       { href: "/trending", label: "Trending", hint: "Biggest rank movers, last 1d/7d/30d", keywords: ["movers", "risers", "fallers"] },
       { href: "/edge", label: "Edge", hint: "Where ranking sources disagree most", keywords: ["signals", "disagreement"] },
       { href: "/bdvm", label: "Fundamentals", hint: "BDVM projection-driven values vs the market", keywords: ["bdvm", "fundamental", "projections", "buy low"] },
-      { href: "/intel", label: "Sharp Tracker", hint: "What league-mates buy/sell across their leagues", keywords: ["sleeper intelligence"] },
+      // Two DISTINCT products, deliberately kept apart.  Sharp Tracker
+      // is a global market signal from a qualified manager cohort and
+      // is not league-scoped; Insider Trading is league-scoped trade
+      // leads from your own league-mates.  They previously shipped as
+      // one entry — Sharp Tracker's name on Insider Trading's cohort.
+      { href: "/market/sharp-tracker", label: "Sharp Tracker", hint: "What qualified dynasty managers are buying and selling", keywords: ["sharp", "market intelligence", "smart money"] },
       { href: "/idptc-rookies", label: "Rookie Lab", hint: "Rookie board (IDPTC + KTC) with blurbs + export", keywords: ["rookies", "idptc"] },
     ],
   },
@@ -88,6 +93,7 @@ export const NAV_MODEL = [
     items: [
       { href: "/league", label: "Hub", hint: "Champions, records, power, draft capital, recaps" },
       { href: "/league/activity", label: "Activity", hint: "Trades + news in one feed" },
+      { href: "/league/insider-trading", label: "Insider Trading", hint: "Trade leads from what your league-mates do elsewhere", keywords: ["league mates", "trade leads", "insider", "sleeper intelligence"] },
       { href: "/league/phases", label: "Win-now vs Rebuild", hint: "Per-team phase classification + trade partners", keywords: ["contention"] },
       { href: "/league-comparison", label: "League Comp", hint: "Your league scoring vs a standard baseline", keywords: ["scoring comparison", "baseline"] },
     ],

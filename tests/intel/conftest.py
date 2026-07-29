@@ -161,6 +161,26 @@ def _reset_service_state():
     service.invalidate_cache()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_intel_data_dir(tmp_path, monkeypatch):
+    """Every intel test writes into a tmp dir, never ``data/intel/``.
+
+    AUTOUSE and unconditional.  ``service.refresh_intel`` now feeds the
+    ledger, so any test exercising a refresh would otherwise write real
+    rows into the production ``data/intel/ledger.sqlite3`` — which is
+    precisely what happened before this existed.  Redirecting
+    ``store.DATA_DIR`` covers the ledger too, because
+    ``ledger.default_path()`` resolves from it at call time.
+    """
+    from src.intel import ledger, store
+
+    monkeypatch.setattr(store, "DATA_DIR", tmp_path / "intel_autouse")
+    ledger.reset_setup_cache()
+    service.invalidate_cache()
+    yield
+    ledger.reset_setup_cache()
+
+
 @pytest.fixture
 def intel_data_dir(tmp_path, monkeypatch):
     """Point the store's league-partitioned data dir at a per-test
