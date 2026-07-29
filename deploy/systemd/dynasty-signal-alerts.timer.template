@@ -3,14 +3,24 @@ Description=Daily signal-alert digest sweep for __SERVICE_NAME__
 Requires=__SERVICE_NAME__-signal-alerts.service
 
 [Timer]
-# Fire once a day at 15:00 local time.  Chosen for the US Eastern
-# evening window — most people check fantasy news at night, so the
-# email arrives right before the usual look-at-your-roster moment
-# rather than buried under morning inbox noise.  Persistent=true
-# ensures we run once at boot if the machine was down when the
-# timer would have fired; RandomizedDelaySec smears the load a bit
-# so cohort bursts don't hammer the SMTP relay.
-OnCalendar=*-*-* 15:00:00
+# Fire once a day at 15:00 UTC.  Persistent=true ensures we run
+# once at boot if the machine was down when the timer would have
+# fired; RandomizedDelaySec smears the load a bit so cohort bursts
+# don't hammer the SMTP relay.
+#
+# Explicit UTC, like every other timer in deploy/systemd.  Without
+# the suffix systemd uses the host timezone, so a DST transition
+# silently shifts the schedule.  The fleet runs UTC today, so
+# pinning it changes no firing time — it just stops a future host
+# timezone change from moving the digest.
+#
+# NOTE (stale rationale): this line used to be commented "15:00
+# local time, chosen for the US Eastern evening window".  On a UTC
+# host 15:00 is 11:00 ET (10:00 in winter) — a late-morning send,
+# not an evening one.  The comment described an intent the schedule
+# never had.  Retiming it is a product decision, not an audit fix,
+# so the hour is left exactly where it has been firing.
+OnCalendar=*-*-* 15:00:00 UTC
 RandomizedDelaySec=300
 Persistent=true
 Unit=__SERVICE_NAME__-signal-alerts.service

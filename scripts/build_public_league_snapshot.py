@@ -24,18 +24,31 @@ from src.public_league import snapshot_store  # noqa: E402
 
 def _default_league_id() -> str:
     """Pick the default --league-id for the CLI:
-       1. ``SLEEPER_LEAGUE_ID`` env var (explicit operator override)
-       2. The registry's default league
+       1. The registry's default league (``config/leagues/registry.json``)
+       2. ``SLEEPER_LEAGUE_ID`` env var (no registry file — fresh dev
+          box / CI without config)
        3. Empty string (caller must pass --league-id)
+
+    Registry-first is the platform-wide pattern (CLAUDE.md: "never
+    read ``os.getenv('SLEEPER_LEAGUE_ID')`` in new code").  This CLI
+    used to read the env var FIRST, which inverted the precedence
+    every other consumer uses: on a multi-league host that still has
+    the legacy single-league env var exported, the snapshot would be
+    built for whatever that var points at rather than the registry's
+    default league.
+
+    ``get_sleeper_league_id()`` already synthesises a one-league
+    registry from the env var when no registry file exists, so step 2
+    is only reachable if that synthesis failed (e.g. the registry
+    import raised).  It stays as a belt-and-braces fallback.
 
     Removes the hardcoded Sleeper ID that used to live here; the
     registry is now the source of truth per the multi-league audit.
     """
-    env = os.getenv("SLEEPER_LEAGUE_ID", "").strip()
-    if env:
-        return env
     reg = league_registry.get_sleeper_league_id()
-    return reg or ""
+    if reg:
+        return reg
+    return os.getenv("SLEEPER_LEAGUE_ID", "").strip()
 
 
 def main() -> int:
@@ -45,7 +58,7 @@ def main() -> int:
         default=_default_league_id(),
         help=(
             "Sleeper league id to start the chain walk from.  Defaults "
-            "to SLEEPER_LEAGUE_ID env var → registry default → empty."
+            "to the registry default → SLEEPER_LEAGUE_ID env var → empty."
         ),
     )
     parser.add_argument(

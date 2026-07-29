@@ -5706,9 +5706,13 @@ def _resolve_league_context(
 ) -> dict[str, Any]:
     """Return the operator's Sleeper league context as a dict.
 
-    Reads ``SLEEPER_LEAGUE_ID`` from the environment and fetches
-    ``total_rosters`` + ``scoring_settings`` from Sleeper, cached for
-    an hour.  Returns a dict with keys:
+    Resolves the league ID **registry-first** —
+    ``league_registry.get_sleeper_league_id()`` reads
+    ``config/leagues/registry.json`` — and only falls back to the
+    ``SLEEPER_LEAGUE_ID`` env var when the registry yields nothing
+    (broken/absent registry module or no league configured).  Then
+    fetches ``total_rosters`` + ``scoring_settings`` from Sleeper,
+    cached for an hour.  Returns a dict with keys:
 
       * ``roster_count`` (int) — number of rosters in the league; the
         rookie-pick anchor uses this as N in ``(round-1)*N + slot``.
@@ -5719,9 +5723,9 @@ def _resolve_league_context(
         a live Sleeper fetch, False when it's a fallback dict.
 
     Returns a fallback dict (``roster_count=default``, ``bonus_rec_te=0.0``,
-    ``fetched_from_sleeper=False``) if the env var is unset, the fetch
-    fails, or Sleeper returns an unusable payload — so the pipeline
-    still produces output on a cold start / offline machine.
+    ``fetched_from_sleeper=False``) if no league resolves at all, the
+    fetch fails, or Sleeper returns an unusable payload — so the
+    pipeline still produces output on a cold start / offline machine.
 
     Public helper so tests can patch it; no side effects beyond
     the cache fill.
