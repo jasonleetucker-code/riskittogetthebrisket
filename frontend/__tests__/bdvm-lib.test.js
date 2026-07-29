@@ -220,13 +220,46 @@ describe("buildBdvmIndex + bdvmEntryForRow (rankings gap join)", () => {
     ],
   };
 
-  it("joins playerId-first, then lowercased name", () => {
+  it("joins playerId-first, then canonical name key", () => {
     const index = buildBdvmIndex(payload);
     // rankings rows carry playerId at top level or under raw
     expect(bdvmEntryForRow(index, { raw: { playerId: "sid1" }, name: "X" }).gap).toBe(200.0);
     expect(bdvmEntryForRow(index, { playerId: "sid1", name: "X" }).gap).toBe(200.0);
     expect(bdvmEntryForRow(index, { name: "NO ID GUY" }).gap).toBe(200.0);
     expect(bdvmEntryForRow(index, { name: "Unknown Player" })).toBeNull();
+  });
+
+  // The BDVM projection snapshot and the scrape contract are two
+  // separate name vocabularies, so the fallback has to survive
+  // punctuation / suffix / accent variance.  A bare toLowerCase key
+  // (the pre-fix behaviour) missed every case below and the Fund gap
+  // column silently went blank for those players.
+  it("name fallback tolerates punctuation, suffix and accent variants", () => {
+    const index = buildBdvmIndex({
+      players: [
+        player("DJ Moore", { playerId: null, market: { gap: 111, marketValue: 1 } }),
+        player("Ken Walker III", { playerId: null, market: { gap: 222, marketValue: 2 } }),
+        player("Amon-Ra St. Brown", { playerId: null, market: { gap: 333, marketValue: 3 } }),
+        player("JaMarr Chase", { playerId: null, market: { gap: 444, marketValue: 4 } }),
+      ],
+    });
+    expect(bdvmEntryForRow(index, { name: "D.J. Moore" }).gap).toBe(111);
+    expect(bdvmEntryForRow(index, { name: "Kenneth Walker" })).toBeNull(); // different first name, still no guess
+    expect(bdvmEntryForRow(index, { name: "Ken Walker" }).gap).toBe(222);
+    expect(bdvmEntryForRow(index, { name: "Amon-Rá St.Brown" }).gap).toBe(333);
+    expect(bdvmEntryForRow(index, { name: "Ja'Marr Chase" }).gap).toBe(444);
+  });
+
+  it("playerId still wins over a name that resolves elsewhere", () => {
+    const index = buildBdvmIndex({
+      players: [
+        player("Alpha One", { playerId: "sid-a", market: { gap: 10, marketValue: 1 } }),
+        player("Bravo Two", { playerId: "sid-b", market: { gap: 20, marketValue: 2 } }),
+      ],
+    });
+    // Row names "Bravo Two" but carries Alpha's id — the id decides.
+    expect(bdvmEntryForRow(index, { playerId: "sid-a", name: "Bravo Two" }).gap).toBe(10);
+    expect(bdvmEntryForRow(index, { raw: { playerId: "sid-b" }, name: "Alpha One" }).gap).toBe(20);
   });
 
   it("returns null for an empty or non-ok payload shape", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { useLeague } from "@/components/useLeague";
@@ -53,9 +53,14 @@ function normalize(s) {
  */
 export function useTeam() {
   const { rawData, privateDataEnabled, loading: dataLoading } = useApp();
-  const { settings, update } = useSettings();
+  const { settings, update, hydrated: settingsHydrated } = useSettings();
   const { selectedLeague, selectedLeagueKey, defaultLeagueKey } = useLeague();
   const autoAssignedRef = useRef(new Set());
+  // Leagues for which the auto-assign effect below has completed one
+  // post-data evaluation (match or no match).  State, not a ref: the
+  // ``loading`` return value below depends on it, so the flip must
+  // re-render consumers.
+  const [autoAssignEvaluated, setAutoAssignEvaluated] = useState({});
 
   // ── Sleeper-data-for-this-league guard ─────────────────────────
   // The contract's ``meta.sleeperDataReady`` tells us whether the
@@ -221,6 +226,10 @@ export function useTeam() {
     if (!selectedLeagueKey) return;
     if (autoAssignedRef.current.has(selectedLeagueKey)) return;
     if (dataLoading) return;
+    // Settings drive ``selectionTouched`` and the stored team; running
+    // on the pre-hydration defaults could auto-assign over a choice the
+    // user actually persisted.
+    if (!settingsHydrated) return;
     if (!privateDataEnabled) return;
     if (leagueMismatch) return;
     if (selectionTouched) return;
@@ -252,12 +261,20 @@ export function useTeam() {
       autoAssignedRef.current.add(selectedLeagueKey);
       setSelectedTeam(match);
     }
+    // Mark this league as evaluated for BOTH outcomes — the
+    // ``autoAssignPending`` gate below must clear even when no match
+    // exists, or consumers gating fetches on ``loading`` would wait
+    // forever on leagues with no resolvable default team.
+    setAutoAssignEvaluated((prev) =>
+      prev[selectedLeagueKey] ? prev : { ...prev, [selectedLeagueKey]: true },
+    );
   }, [
     selectedLeagueKey,
     defaultLeagueKey,
     selectionTouched,
     privateDataEnabled,
     dataLoading,
+    settingsHydrated,
     leagueMismatch,
     availableTeams,
     selectedLeague,
@@ -271,6 +288,22 @@ export function useTeam() {
     availableTeams.length > 0 &&
     !selectedTeam;
 
+  // Team identity is still "pending" while auto-assign could yet
+  // resolve it: the effect above runs AFTER the commit in which the
+  // contract lands, so without this window consumers gating fetches on
+  // ``loading`` (all seven useTerminal call sites pass
+  // ``skip: teamLoading``) fired an anonymous /api/terminal request
+  // and then immediately refired with the resolved team.
+  // ``selectionTouched`` is the escape hatch: a user who deliberately
+  // cleared their team must still get the anonymous slice.
+  const autoAssignPending =
+    privateDataEnabled &&
+    !leagueMismatch &&
+    !selectionTouched &&
+    availableTeams.length > 0 &&
+    !selectedTeam &&
+    !autoAssignEvaluated[selectedLeagueKey];
+
   return {
     availableTeams,
     selectedTeam,
@@ -281,7 +314,14 @@ export function useTeam() {
     setSelectedTeam,
     clearSelectedTeam,
     needsSelection,
-    loading: dataLoading,
+    // ``loading`` is the "team identity not yet answerable" signal, not
+    // just "contract downloading": settings hydration supplies the
+    // stored selection, and auto-assign may still resolve a team one
+    // commit after data lands.  Public surfaces are unaffected —
+    // PublicAppShell pins the contract flag false, hydration flips true
+    // on the first client commit everywhere, and autoAssignPending
+    // requires privateDataEnabled.
+    loading: dataLoading || !settingsHydrated || autoAssignPending,
     privateDataEnabled,
     idpEnabled: selectedLeague?.idpEnabled !== false,
     rosterSettings: selectedLeague?.rosterSettings || {},

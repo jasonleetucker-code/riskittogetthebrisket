@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Movement, Panel, SegmentedControl, SkeletonText } from "@/components/ds";
+import { Movement, Panel, SegmentedControl, SkeletonTable } from "@/components/ds";
 import styles from "./terminal.module.css";
 import { PlayerImage } from "@/components/ui";
 import { useApp } from "@/components/AppShell";
@@ -171,7 +171,19 @@ export default function MoversPanel() {
         />
       }
     >
-      {loading && <SkeletonText lines={4} />}
+      {loading && (
+        // Sized to the settled two-column shape (up to 8 movers per
+        // side) — the old 4-line text skeleton was ~10x too short and
+        // the panel grew ~500px when data landed.
+        <div className={styles.moverColumns}>
+          <div className={styles.moverColumn}>
+            <SkeletonTable rows={8} columns={2} />
+          </div>
+          <div className={styles.moverColumn}>
+            <SkeletonTable rows={8} columns={2} />
+          </div>
+        </div>
+      )}
       {error && <p className={styles.moverError}>{error}</p>}
       {!loading && !error && (
         <div className={styles.moverColumns}>

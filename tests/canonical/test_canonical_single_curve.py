@@ -1,22 +1,19 @@
-"""Pin the canonical engine's single-curve invariant.
+"""Pin ``calibrate_canonical_values``' double-calibration tripwire.
 
-The canonical 6-step Hill-curve pipeline
-(``src/canonical/player_valuation.py``) produces display-scaled values
-in a single pass.  The legacy ``calibration.py`` remap (percentile
-power curve + per-universe scales) is explicitly skipped for canonical
-output so we never double-calibrate.
+``calibration.py`` is the LEGACY remap (percentile power curve +
+per-universe scales).  It must refuse any asset already tagged
+``_pick_calibration_source == "canonical_pipeline"``, because stacking
+that remap on top of a Hill-curve value double-calibrates it.
 
-These tests pin that invariant from two directions:
-
-  1. **Emit side** — ``valuation_result_to_asset_dicts`` writes
-     ``blended_value == calibrated_value == display_value`` for every
-     canonical asset.  The three field names are retained for
-     downstream consumers that still read legacy keys, but they
-     reference the same Hill-curve value.
-
-  2. **Consume side** — ``calibrate_canonical_values`` raises
-     ``RuntimeError`` if called on a canonical-tagged asset, defending
-     against accidental double-calibration.
+SCOPE NOTE (2026-07-29).  This file previously also pinned the *emit*
+side of that invariant — that ``valuation_result_to_asset_dicts`` wrote
+``blended_value == calibrated_value == display_value`` and stamped the
+canonical tag.  That emitter belonged to the retired offline
+canonical-build engine, had no production caller, and was deleted from
+``src/canonical/player_valuation.py``; its tests went with it.  The
+consume-side guard below is unchanged and NOT weakened — it now builds
+its canonical-tagged fixture directly, which is also a more honest
+test: the guard's job is to reject the tag, whoever wrote it.
 """
 
 from __future__ import annotations
@@ -30,54 +27,24 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from src.canonical.calibration import calibrate_canonical_values
-from src.canonical.player_valuation import (
-    PlayerInput,
-    run_valuation,
-    valuation_result_to_asset_dicts,
-)
+from src.canonical.calibration import calibrate_canonical_values  # noqa: E402
 
 
 def _make_canonical_assets(n: int = 20) -> list[dict]:
-    """Run the full canonical pipeline on a small synthetic roster."""
-    players = [
-        PlayerInput(
-            player_id=f"p{i:02d}",
-            display_name=f"Player {i:02d}",
-            source_ranks=[float(i), float(i), float(i + 1)],
-        )
+    """Assets carrying the canonical-pipeline tag the guard looks for."""
+    return [
+        {
+            "asset_key": f"p{i:02d}",
+            "display_name": f"Player {i:02d}",
+            "universe": "offense_vet",
+            "blended_value": 10000 - i * 100,
+            "calibrated_value": 10000 - i * 100,
+            "display_value": 10000 - i * 100,
+            "metadata": {"position": "WR"},
+            "_pick_calibration_source": "canonical_pipeline",
+        }
         for i in range(1, n + 1)
     ]
-    result = run_valuation(players)
-    return valuation_result_to_asset_dicts(result, universe="offense_vet")
-
-
-class TestSingleCurveInvariant:
-    """Pin: canonical emit writes blended == calibrated == display."""
-
-    def test_three_value_fields_are_equal(self):
-        assets = _make_canonical_assets()
-        assert assets, "pipeline produced no assets"
-        for asset in assets:
-            blended = asset["blended_value"]
-            calibrated = asset["calibrated_value"]
-            display = asset["display_value"]
-            assert blended == calibrated == display, (
-                f"canonical asset {asset['display_name']!r} "
-                f"has diverging value fields: "
-                f"blended={blended}, calibrated={calibrated}, display={display}. "
-                f"The canonical engine is supposed to emit a single "
-                f"Hill-curve value across all three fields."
-            )
-
-    def test_every_canonical_asset_carries_pipeline_tag(self):
-        assets = _make_canonical_assets()
-        for asset in assets:
-            assert asset.get("_pick_calibration_source") == "canonical_pipeline", (
-                f"asset {asset['display_name']!r} missing canonical pipeline tag; "
-                f"the defensive guard in calibrate_canonical_values relies on "
-                f"this marker to detect canonical output."
-            )
 
 
 class TestCalibrationRejectsCanonical:

@@ -26,39 +26,52 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ## Directory Structure
 
 ```
-├── server.py                  # FastAPI backend entry point
-├── Dynasty Scraper.py         # Legacy scraper (Selenium/requests)
+├── server.py                  # FastAPI backend entry point (~100 routes)
+├── Dynasty Scraper.py         # THE PRODUCTION SCRAPER (Selenium/requests).
+│                              #   Not legacy despite its age: server.py
+│                              #   imports it via importlib for /api/scrape,
+│                              #   the scheduled loop and startup, and
+│                              #   scheduled-refresh.yml runs it every 2h.
 ├── .github/workflows/         # GitHub Actions CI/CD pipelines
 │
-├── frontend/                  # Next.js app (App Router)
-│   ├── app/                   # Pages: rankings/, trade/, login/
-│   │   └── api/dynasty-data/  # Backend data bridge route
+├── frontend/                  # Next.js app (App Router) — 38 pages
+│   ├── app/                   # rankings/, trade/, draft/, bdvm/, waivers/,
+│   │   │                      #   terminal/, news/, settings/, login/, …
+│   │   └── api/               # 28 backend bridge routes
 │   ├── components/            # React components + hooks
-│   └── lib/                   # Data utilities
+│   └── lib/                   # Data utilities (pure materializers)
 │
-├── src/                       # Modular canonical engine
-│   ├── adapters/              # Source ingestion (DLF CSV, KTC stub, manual CSV)
-│   ├── api/                   # API data contract (versioned)
-│   ├── canonical/             # Core valuation pipeline + player_valuation.py
+├── src/                       # Modular canonical engine (~250 modules)
+│   ├── adapters/              # base.py (frozen contract), scraper bridge,
+│   │                          #   sleeper_trending, ktc_crowd_faab
+│   ├── api/                   # API data contract (versioned) + endpoints
+│   ├── bdvm/                  # Brisket Dynasty Valuation Model (fundamentals)
+│   ├── canonical/             # Hill curves + tiering (player_valuation.py)
 │   ├── identity/              # Player/pick master identity mapping
+│   ├── league_intel/          # League-adjusted overlay, TE premium, scarcity
+│   ├── model_registry/        # Hill-curve challenger/promotion (script-only)
 │   ├── scoring/               # Scoring adjustments, archetypes, backtesting
-│   ├── league/                # League context (placeholder — scarcity/replacement removed)
-│   ├── trade/                 # Trade engines: suggestions + KTC arbitrage finder
+│   ├── league/                # EMPTY placeholder — see src/league/README.md
+│   ├── trade/                 # Trade engines: suggestions + arbitrage finder
 │   ├── data_models/           # Dataclass contracts
 │   └── utils/                 # Config loading, name/position normalization
 │
 ├── config/
+│   ├── bdvm/                  # BDVM params, event ontology, pick outcomes
+│   ├── leagues/               # League registry + profile templates
+│   ├── model_registry/        # Hill scope-master versions
 │   ├── sources/               # Source ingestion templates
-│   ├── weights/               # Source blending weights
-│   ├── leagues/               # League profile templates
-│   └── promotion/             # Canonical mode promotion thresholds
+│   ├── tiers/, trade/, identity/, league_intel/
+│   └── weights/               # Pick-year discount, TE curve, coverage floors
 │
 ├── scripts/                   # Pipeline helper scripts (source fetches, fit, etc.)
 ├── deploy/                    # Deployment configs (nginx, systemd, deploy scripts)
 ├── tests/                     # pytest unit/integration + Playwright E2E
-├── data/                      # Generated pipeline outputs (not committed)
-├── exports/                   # Release artifacts (latest/ + archive/)
-└── docs/                      # Architecture blueprints, status docs
+├── data/                      # Pipeline outputs. MOSTLY gitignored, but ~7,900
+│                              #   files ARE tracked (data/ros/ is re-included by
+│                              #   .gitignore, and refresh workflows `git add -f`)
+├── exports/                   # Release artifacts (latest/ + archive/) — 141 tracked
+└── docs/                      # Architecture blueprints, status docs, ADRs, audits
 ```
 
 ## Key Commands
@@ -260,7 +273,8 @@ Steps:
 5. Scope-appropriate curve routing (cross-market → GLOBAL, overall
    IDP → IDP, everything else → OFFENSE; the ROOKIE master is refit
    tooling only — rookie sources ladder-translate first)
-5a. TE basis conversion (2026-07-27, ADR-015).  TE rows from non-TEP
+5a. TE basis conversion (2026-07-27, ADR-015 in
+   ``docs/league-intelligence/DECISIONS.md``).  TE rows from non-TEP
    sources are lifted onto the basis the board is anchored on via
    ``src/league_intel/te_premium.convert_te_value(from_basis="base",
    to_basis="tepp")`` — KTC's own measured uplift, 1.209 at the top of
@@ -301,10 +315,26 @@ Steps:
     as containing "the IDP calibration runaway", which is now a
     retired mechanism — the clamp still does real work against raw
     blend drift, but that stated rationale is stale.
-11. Pick tethering — current-year slot picks inherit the merged
-    rookie pool's values (offense + IDP rookies combined)
+11. Two-way player boost (``_apply_two_way_player_boost``,
+    ``_TWO_WAY_PLAYERS`` — today exactly ``{"Travis Hunter": "DB"}``).
+    A genuine post-blend OVERRIDE: ``rankDerivedValue`` becomes
+    ``max(offense value, alt-position-family value)``, written to both
+    the row and the legacy dict.  Runs after the corridor clamp and
+    before the Phase 5 pick passes.
+
+The pick stages are NOT in the order this list used to give.  Actual
+live order (corrected 2026-07-29 audit):
+
 12. Multiplicative future-year pick discount
-    (``config/weights/pick_year_discount.json``)
+    (``config/weights/pick_year_discount.json``) — **Phase 3a, BEFORE
+    the global sort**, applied to the blended value so 2027/2028 picks
+    settle lower in the ladder.
+13. Pick tethering — **Phase 5.2b, AFTER the sort**: current-year slot
+    picks inherit the merged rookie pool's values (offense + IDP
+    rookies combined), OVERWRITING ``rankDerivedValue`` outright.  A
+    tethered current-year pick therefore never carries a discount
+    anyway (its year offset is 0 → factor 1.0), but the causal order
+    matters when reasoning about future-year picks.
 
 Master curve constants are refit weekly by
 ``.github/workflows/refit-hill-curves.yml`` (see
@@ -314,7 +344,10 @@ boards the fit never reads (``src/model_registry/holdout.py``), records
 the verdict in ``config/model_registry/``, and stops.  Production
 constants move only via ``scripts/model_registry.py promote`` +
 ``apply``, run by a human — see ADR-008 in
-``docs/roster-trade-intelligence/DECISIONS.md`` for the three reasons
+``docs/roster-trade-intelligence/DECISIONS.md`` (NOTE: the ADR numbers
+are per-file, not global — there is a DIFFERENT ADR-008 in
+``docs/league-intelligence/DECISIONS.md`` about replacement levels.
+Always cite ADRs with their file) for the three reasons
 the previous auto-commit path had no working guard.
 
 Blend weights live in the ``_RANKING_SOURCES`` registry (all 1.0 by
@@ -583,7 +616,21 @@ Flow:
 4. `fetchDynastyData` merges the delta onto the cached base `/api/dynasty-data` contract via `mergeRankingsDelta` and returns a fully-populated contract object.
 5. `server.py::post_rankings_overrides` invokes `build_rankings_delta_payload(raw_payload, source_overrides=...)` (or `build_api_data_contract` for legacy full-view consumers).
 6. `src/api/data_contract.py::_compute_unified_rankings` filters disabled sources and applies overridden weights — same Hill curve, same coverage-aware blend, same robust-median step.
-7. `buildRows` materializes the merged contract; it trusts backend stamps verbatim and never recomputes ranks.
+7. `buildRows` materializes the merged contract; it trusts backend stamps verbatim and never recomputes VALUES.
+
+One precise nuance on ranks (documented 2026-07-29 audit — the line
+above used to read "never recomputes ranks", which overstated it):
+`buildRows` assigns a display ordinal `computedConsensusRank = i + 1`
+after sorting (`dynasty-data.js:1366`) and uses it for `r.rank`
+(`:1378`) **only** when the backend stamped no `canonicalConsensusRank`
+on that row. In practice that is players past the backend's
+`OVERALL_RANK_LIMIT` (800) — rows the backend deliberately left
+unranked — and it is suppressed for picks and whenever a valuation
+overlay is active. A backend-stamped rank always wins.
+
+This is a display ordinal for otherwise-unnumbered rows, not a ranking
+engine: no value is recomputed and the sort key is the backend's
+`rankDerivedValue`. The no-frontend-ranker rule is intact.
 
 Registry lockstep:
 - Python registry: `src/api/data_contract.py::_RANKING_SOURCES`
@@ -711,7 +758,20 @@ Regression test: `tests/api/test_source_overrides.py::TestBuildRankingsDeltaPayl
 See `tests/api/test_source_overrides.py` for the full contract spec.
 
 ### Adapter Pattern
-Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). All adapters emit `RawAssetRecord` dataclasses with normalized fields. Current adapters: DLF CSV, KTC stub, manual CSV, scraper bridge.
+Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). All adapters emit `RawAssetRecord` dataclasses with normalized fields.
+
+Actual contents of `src/adapters/` (corrected 2026-07-29 audit — the
+list here previously named DLF CSV / KTC stub / manual CSV adapters
+that are not in the tree):
+
+| module | status |
+|---|---|
+| `scraper_bridge_adapter.py` | live (`server.py`) |
+| `sleeper_trending.py` | live (`server.py`) |
+| `ktc_crowd_faab.py` | live (waiver/FAAB path) |
+| `base.py` | the frozen contract — imported by tests only, kept as the interface definition |
+
+Source ingestion itself lives in `Dynasty Scraper.py` + `scripts/` fetchers, not in an adapter per source.
 
 ### Position Normalization
 Single source of truth: `POSITION_ALIASES` in `src/utils/name_clean.py`. All modules import from there.

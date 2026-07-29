@@ -12,7 +12,7 @@ import {
   SIGNAL_META,
   SIGNALS,
 } from "@/lib/signal-engine";
-import { Panel } from "@/components/ds";
+import { Panel, SkeletonTable } from "@/components/ds";
 
 const DISMISSAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -252,9 +252,14 @@ export default function BuySellHold() {
         })}
       </div>
 
-      {emptyReason && (
-        <div className="signal-empty" role="status">{emptyReason}</div>
-      )}
+      {emptyReason &&
+        (emptyReason === "Loading signals…" ? (
+          // Sized to a settled signal list (~6 cards) — a one-line
+          // string here grew by hundreds of px when signals landed.
+          <SkeletonTable rows={6} columns={2} />
+        ) : (
+          <div className="signal-empty" role="status">{emptyReason}</div>
+        ))}
 
       {!emptyReason && (
         <ul className="signal-list">

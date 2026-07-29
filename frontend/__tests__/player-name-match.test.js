@@ -31,6 +31,51 @@ describe("normalizePlayerNameKey", () => {
     expect(normalizePlayerNameKey(undefined)).toBe("");
     expect(normalizePlayerNameKey("")).toBe("");
   });
+
+  // ── Migrated from __tests__/dynasty-data.test.js ────────────────────
+  // `lib/dynasty-data.js` exported a second "mirror of
+  // normalize_player_name" that had drifted (no apostrophe rule) and had
+  // no production callers.  It was deleted on 2026-07-29; its cases live
+  // here, against the one verified mirror.  The apostrophe assertion the
+  // old suite lacked — the exact case that let the drift survive — is in
+  // the block above and in tests/fixtures/name_key_cases.json.
+
+  it("collapses adjacent single-letter initials", () => {
+    expect(normalizePlayerNameKey("T.J. Watt")).toBe("tj watt");
+    expect(normalizePlayerNameKey("TJ Watt")).toBe("tj watt");
+    expect(normalizePlayerNameKey("t j watt")).toBe("tj watt");
+    expect(normalizePlayerNameKey("C.J. Stroud")).toBe(
+      normalizePlayerNameKey("CJ Stroud"),
+    );
+    expect(normalizePlayerNameKey("D.J. Moore")).toBe(
+      normalizePlayerNameKey("DJ Moore"),
+    );
+    expect(normalizePlayerNameKey("A.J. Brown")).toBe(
+      normalizePlayerNameKey("AJ Brown"),
+    );
+  });
+
+  it("strips generational suffixes", () => {
+    expect(normalizePlayerNameKey("Marvin Harrison Jr.")).toBe(
+      normalizePlayerNameKey("Marvin Harrison"),
+    );
+    expect(normalizePlayerNameKey("Kenneth Walker III")).toBe(
+      normalizePlayerNameKey("Kenneth Walker"),
+    );
+    expect(normalizePlayerNameKey("Brian Thomas Jr")).toBe(
+      normalizePlayerNameKey("Brian Thomas"),
+    );
+  });
+
+  it("folds diacritics to ASCII", () => {
+    expect(normalizePlayerNameKey("Juanyéh Thomas")).toBe(
+      normalizePlayerNameKey("Juanyeh Thomas"),
+    );
+  });
+
+  it("lowercases and collapses whitespace", () => {
+    expect(normalizePlayerNameKey("  T.J.  WATT  ")).toBe("tj watt");
+  });
 });
 
 const ITEMS = [

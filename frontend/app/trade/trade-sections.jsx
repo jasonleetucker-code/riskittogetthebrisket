@@ -23,6 +23,7 @@ import {
   Movement,
   Panel,
   Select,
+  SkeletonText,
   StatTile,
 } from "@/components/ds";
 import { PlayerImage } from "@/components/ui";
@@ -212,6 +213,39 @@ export function MobileQuickAddBar({
 }
 
 // ── Proactive suggestion rail ─────────────────────────────────────────
+
+/**
+ * Height-stable stand-in for ``ProactiveSuggestionsRail``.
+ *
+ * The rail's fetch is debounced 500ms and then round-trips, so it
+ * always mounts well after the rest of /trade has painted.  Rendering
+ * nothing until then inserted the whole 213px panel above the trade
+ * controls and meter, pushing them down 229px.
+ *
+ * Reuses the REAL Panel with the REAL title/subtitle so the 59px
+ * header is byte-identical between states; only the 152px card body
+ * is skeleton bones.  Same reserve-then-collapse contract as the
+ * dashboard's TopSignalsRail: if the fetch resolves with no ideas,
+ * this unmounts and the slot collapses once (a one-time settle).
+ */
+export function SuggestionsRailPlaceholder() {
+  return (
+    <Panel
+      dense
+      title="Recommended right now"
+      subtitle="Top idea per category — activate a card to load it into the builder."
+      headingLevel={2}
+    >
+      <div className={styles.railGrid} aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className={styles.railCard} style={{ minHeight: 120 }}>
+            <SkeletonText lines={4} />
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
 
 export function ProactiveSuggestionsRail({ suggestions, onApply }) {
   const cards = [];

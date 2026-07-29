@@ -148,8 +148,12 @@ key and silently lost every player whose spelling drifted between the
 scraper payload and the committed CSVs — T.J. Watt was the canonical
 example (present in both DLF and IDPTC, but landed on the board as a
 1-src ghost because the join failed on the period). The frontend
-mirror `normalizePlayerName` in `frontend/lib/dynasty-data.js` uses the
-same rules so offline fallbacks reproduce the backend join semantics.
+mirror is `normalizePlayerNameKey` in
+`frontend/lib/player-name-match.js`, which uses the same rules so
+client-side lookups reproduce the backend join semantics. (This used
+to name `normalizePlayerName` in `frontend/lib/dynasty-data.js`; that
+was a second, drifted copy with no production callers and was deleted
+on 2026-07-29 — see `tests/utils/test_name_key_parity.py`.)
 
 ---
 
@@ -269,8 +273,12 @@ for p in data.get('playersArray', []):
   through `_canonical_match_key` (wrapping `normalize_player_name`),
   which collapses periods and initials consistently with the
   identity and adapter layers. The frontend mirror is
-  `normalizePlayerName` in `frontend/lib/dynasty-data.js`. Regression
-  tests live in `tests/api/test_name_join_hygiene.py`.
+  `normalizePlayerNameKey` in `frontend/lib/player-name-match.js`
+  (the drifted `dynasty-data.js` copy this line used to name was
+  deleted on 2026-07-29). Regression tests live in
+  `tests/api/test_name_join_hygiene.py`, with cross-language parity in
+  `tests/utils/test_name_key_parity.py` +
+  `frontend/__tests__/name-key-parity.test.js`.
 - **DLF IDP overweighting** — DLF was registered as `overall_idp`,
   which passed its raw IDP ordinal rank directly to the Hill curve as
   if it were a combined offense+IDP rank. DLF rank 1 → value 9999 inflated

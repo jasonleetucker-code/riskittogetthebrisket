@@ -96,7 +96,7 @@ function SignalCard({ entry, tone, onOpen }) {
 
 export default function TopSignalsRail() {
   const { rows, openPlayerPopup } = useApp();
-  const { selectedTeam, selectedLeagueKey } = useTeam();
+  const { selectedTeam, selectedLeagueKey, loading: teamLoading } = useTeam();
   const { history } = useRankHistory({ days: 30 });
   const { state: userState } = useUserState();
 
@@ -150,12 +150,33 @@ export default function TopSignalsRail() {
     };
   }, [verdicts, dismissedMap]);
 
+  // While the team is still resolving, hold a height-stable placeholder
+  // instead of nothing — this rail sits ABOVE the whole grid, so
+  // popping in later shifted every panel below it (part of the
+  // measured 0.72 CLS on /).  Once loaded-and-empty it still collapses
+  // (a one-time settle) — reserving forever would leave a permanent
+  // hole in the "act on this" lane.
+  if (!selectedTeam) {
+    return teamLoading ? (
+      <div className={styles.railGrid} style={{ minHeight: 150 }} aria-hidden="true" />
+    ) : null;
+  }
   // Render nothing when there's nothing actionable.  The full
   // ``BuySellHold`` panel below still surfaces RISK/MONITOR/HOLD —
   // this rail intentionally focuses on the two clear "trade now"
   // categories.
-  if (!selectedTeam) return null;
-  if (!hasAny) return null;
+  //
+  // ``news.loading`` is part of the hold, not just the team: signals
+  // are scored from news, so a team that resolves BEFORE the news
+  // fetch lands computes hasAny=false, collapses the reserved slot,
+  // and then re-expands when news arrives — shifting the entire grid
+  // below it.  That second window was the residual 0.09 CLS on / after
+  // the team-resolution hold was added.
+  if (!hasAny) {
+    return news.loading ? (
+      <div className={styles.railGrid} style={{ minHeight: 150 }} aria-hidden="true" />
+    ) : null;
+  }
 
   return (
     <Panel

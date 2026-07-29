@@ -6,7 +6,7 @@ import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
 import { useTerminal } from "@/components/useTerminal";
 import { computePortfolio } from "@/lib/portfolio-insights";
-import { Panel } from "@/components/ds";
+import { Panel, SkeletonTable } from "@/components/ds";
 
 const POS_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF", "IDP", "PICK"];
 const AGE_ORDER = [
@@ -112,9 +112,14 @@ export default function PortfolioSummary() {
   if (!portfolio) {
     return (
       <Panel className="panel--portfolio" title="Portfolio" subtitle="Positional allocation">
-        <div className="portfolio-empty">
-          {historyLoading ? "Loading portfolio…" : "No roster data resolved."}
-        </div>
+        {historyLoading ? (
+          // Sized to the settled panel (value tiles + positional bars
+          // + age mix) — a one-line string here meant ~500px of growth
+          // when the data landed.
+          <SkeletonTable rows={9} columns={2} />
+        ) : (
+          <div className="portfolio-empty">No roster data resolved.</div>
+        )}
       </Panel>
     );
   }

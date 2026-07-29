@@ -28,9 +28,31 @@ documented in `CLAUDE.md`** before adding code here:
 > Scoring profile controls rankings. League key controls context.
 
 The empty `__init__.py` is kept so `import src.league` doesn't break
-historical references. There is no replacement module — LAM-style
-adjustments are expected to come from upstream source weights or the
-TE-premium multiplier in the unified rankings blend, not from a
-separate per-league post-pass.
+historical references.
 
-— Audit pass 2026-04-28
+## Update — 2026-07-29 audit: this warning has a live answer now
+
+The paragraph above used to end "There is no replacement module —
+LAM-style adjustments are expected to come from upstream source weights
+or the TE-premium multiplier in the unified rankings blend, not from a
+separate per-league post-pass." That is no longer accurate, and reading
+it as current guidance would send someone the wrong way.
+
+**`src/league_intel/` is the replacement module.** League-side
+adjustment to player values shipped — positional scarcity measured from
+one league's rosters, composed multiplicatively and clamped to ±25%
+(`src/league_intel/adjustment.py`), applied via
+`src/league_intel/overlay.py` and served by
+`GET /api/valuation/league-adjusted`.
+
+Critically, it **conforms to** the split this README defends rather than
+violating it: because `lineupScarcity` is derived from a specific
+league's rosters, the result is `leagueKey`-scoped and is delivered as a
+client-composed *overlay*, never stamped onto the scoring-profile-scoped
+contract. That is exactly the design this warning was asking for — the
+rule is what forced the overlay shape instead of a contract field.
+
+So: still do not add a per-league post-pass **here**. Go read
+`src/league_intel/` and CLAUDE.md's "Two overlays" section first.
+
+— Audit pass 2026-04-28, updated 2026-07-29

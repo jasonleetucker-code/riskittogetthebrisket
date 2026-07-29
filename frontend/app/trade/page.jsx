@@ -61,6 +61,7 @@ import {
   MobileQuickAddBar,
   PickTeamSelectors,
   ProactiveSuggestionsRail,
+  SuggestionsRailPlaceholder,
   SideCard,
   SimulationPanel,
   SuggestionsDesk,
@@ -121,6 +122,18 @@ export default function TradePage() {
   const [suggestions, setSuggestions] = useState(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState(null);
+  // True from the moment we KNOW a proactive-suggestions fetch is
+  // coming until it resolves.  Distinct from ``suggestionsLoading``,
+  // which only flips inside ``fetchSuggestions`` — i.e. AFTER the 500ms
+  // debounce below.  The rail's reserved slot has to cover that
+  // debounce window too, otherwise the page renders without it and the
+  // rail still lands late (the 229px shove this exists to prevent).
+  // Defaults TRUE: effects run AFTER the commit, so initialising this
+  // false meant the first !loading paint had no reserved slot and the
+  // placeholder itself became the shift.  Starting reserved and letting
+  // the effect clear it (roster < 3, error, league mismatch) is the
+  // only ordering with no un-reserved frame.
+  const [suggestionsPending, setSuggestionsPending] = useState(true);
   const [suggestionTab, setSuggestionTab] = useState("sellHigh");
 
   // Sleeper team selection state
@@ -1390,15 +1403,20 @@ export default function TradePage() {
     };
     if (loading || error || leagueMismatch) {
       cancelPending();
+      setSuggestionsPending(false);
       return;
     }
     if (!rows || rows.length === 0) {
       cancelPending();
+      setSuggestionsPending(false);
       return;
     }
     const roster = parseRoster();
     if (roster.length < 3) {
       cancelPending();
+      // Fewer than 3 rostered players: no fetch will happen, so no
+      // slot is reserved and the rail simply never appears.
+      setSuggestionsPending(false);
       return;
     }
     const bodyKey = `${selectedLeagueKey || ""}|${roster.join("|")}`;
@@ -1412,6 +1430,7 @@ export default function TradePage() {
     // hit "Get Suggestions."
     setSuggestions(null);
     setSuggestionsError(null);
+    setSuggestionsPending(true);
     if (proactiveFetchRef.current.timer) {
       clearTimeout(proactiveFetchRef.current.timer);
     }
@@ -1442,6 +1461,7 @@ export default function TradePage() {
     const roster = parseRoster();
     if (roster.length < 3) {
       setSuggestionsError("Enter at least 3 player names to get suggestions.");
+      setSuggestionsPending(false);
       return;
     }
     setSuggestionsLoading(true);
@@ -1479,6 +1499,7 @@ export default function TradePage() {
       setSuggestionsError("Could not reach suggestion service.");
     } finally {
       setSuggestionsLoading(false);
+      setSuggestionsPending(false);
     }
   }
 
@@ -1615,8 +1636,12 @@ export default function TradePage() {
       ) : null}
 
       {loading ? (
+        // 4 rows ~= 213px, the measured height of the suggestions rail
+        // that occupies this same slot once loading completes.  At 6
+        // rows it was 258px, so the loading -> content transition moved
+        // everything below it up 45px.
         <Panel flush>
-          <SkeletonTable rows={6} columns={4} />
+          <SkeletonTable rows={4} columns={4} />
         </Panel>
       ) : null}
       {loading ? (
@@ -1651,10 +1676,14 @@ export default function TradePage() {
         />
       ) : null}
 
-      {!loading &&
-      !error &&
-      !leagueMismatch &&
-      suggestions?.totalSuggestions > 0 ? (
+      {/* Three-state slot, same pattern as the dashboard's
+          TopSignalsRail: RESERVE while the suggestions fetch is
+          pending, RENDER once it lands, COLLAPSE if it resolves empty.
+          The rail arrives ~500ms (debounce) + one round-trip after the
+          rest of the page renders, so absence-then-presence inserted
+          213px + a 16px stack gap ABOVE the trade controls and meter,
+          shoving them down 229px — 79% of /trade's 0.139 CLS. */}
+      {!loading && !error && !leagueMismatch && suggestions?.totalSuggestions > 0 ? (
         <ProactiveSuggestionsRail
           suggestions={suggestions}
           onApply={(s) => {
@@ -1662,6 +1691,8 @@ export default function TradePage() {
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />
+      ) : !loading && !error && !leagueMismatch && suggestionsPending ? (
+        <SuggestionsRailPlaceholder />
       ) : null}
 
       {!loading && !error ? (

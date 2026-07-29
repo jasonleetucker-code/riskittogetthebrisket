@@ -223,11 +223,13 @@ export default function TeamCommandHeader() {
         />
         <StatTile label="Tiers" value={tierLabel} meta="elite·high·mid·depth" />
       </div>
-      {chartReady && (
-        <div className={styles.commandChart}>
-          <TeamValueChart width={560} height={60} showSummary={false} />
-        </div>
-      )}
+      {/* Slot is ALWAYS mounted with the chart's height reserved —
+          conditionally mounting the whole block inserted 60px+margin
+          above the ticker/rail/grid when the team resolved, shifting
+          the entire dashboard. */}
+      <div className={styles.commandChart} style={{ minHeight: 60 }}>
+        {chartReady && <TeamValueChart width={560} height={60} showSummary={false} />}
+      </div>
     </section>
   );
 }

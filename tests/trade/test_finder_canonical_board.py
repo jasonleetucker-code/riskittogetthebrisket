@@ -161,6 +161,115 @@ class TestUnpricedAssetsLeaveLoudly:
         assert meta.get("assetsUnpricedByBoard") == 0
 
 
+class TestUnpricedCountUsesTheCompositeScale:
+    """2026-07-29 audit.  The unpriced-asset filter necessarily runs on
+    COMPOSITE values (these rows have no board value — that is what makes
+    them unpriced), but it was gating them with the BOARD-scale
+    ``MIN_ASSET_VALUE`` (700).  Composite runs ~1.131x the board, so the
+    board-scale gate admitted assets the composite-scale one would not:
+    202 on the live payload where ``build_asset_pool``'s own docstring
+    says 189.
+    """
+
+    def test_composite_threshold_is_the_inverted_k(self):
+        from src.trade.finder import (
+            _MIN_ASSET_VALUE_COMPOSITE_SCALE,
+            BOARD_TO_COMPOSITE_K,
+        )
+
+        assert _MIN_ASSET_VALUE_COMPOSITE_SCALE == round(MIN_ASSET_VALUE / BOARD_TO_COMPOSITE_K)
+        # The pre-migration composite gate, recovered exactly.
+        assert _MIN_ASSET_VALUE_COMPOSITE_SCALE == 800
+
+    def test_asset_between_the_two_thresholds_is_not_counted(self):
+        """A composite value of 750 clears the board-scale 700 but not the
+        composite-scale 800.  It is the case that separated the two
+        numbers, so it is the case worth pinning."""
+        from src.trade.finder import _MIN_ASSET_VALUE_COMPOSITE_SCALE
+
+        straddler = (MIN_ASSET_VALUE + _MIN_ASSET_VALUE_COMPOSITE_SCALE) // 2
+        assert MIN_ASSET_VALUE < straddler < _MIN_ASSET_VALUE_COMPOSITE_SCALE
+
+        players = {"Priced": _player(5000), "Straddler": _player(straddler)}
+        teams = [
+            {"name": "Me", "players": ["Priced"]},
+            {"name": "Them", "players": ["Straddler"]},
+        ]
+        res = find_trades(
+            players=players,
+            my_team="Me",
+            opponent_teams=["Them"],
+            sleeper_teams=teams,
+            contract=_contract({"Priced": 4000}),
+        )
+        assert (res.get("metadata") or {}).get("assetsUnpricedByBoard") == 0
+
+    def test_asset_above_the_composite_threshold_is_still_counted(self):
+        from src.trade.finder import _MIN_ASSET_VALUE_COMPOSITE_SCALE
+
+        players = {
+            "Priced": _player(5000),
+            "Real": _player(_MIN_ASSET_VALUE_COMPOSITE_SCALE + 50),
+        }
+        teams = [
+            {"name": "Me", "players": ["Priced"]},
+            {"name": "Them", "players": ["Real"]},
+        ]
+        res = find_trades(
+            players=players,
+            my_team="Me",
+            opponent_teams=["Them"],
+            sleeper_teams=teams,
+            contract=_contract({"Priced": 4000}),
+        )
+        assert (res.get("metadata") or {}).get("assetsUnpricedByBoard") == 1
+
+
+class TestOffenseOnlyValueIsBoardScale:
+    """2026-07-29 audit.  ``_offenseOnlyFinalAdjusted`` is mirrored from
+    ``offenseOnlyRankDerivedValue`` (data_contract.py) — the IDP-disabled
+    run of the SAME pipeline — so it is BOARD-scale, measured at median
+    0.994x ``rankDerivedValue`` over 522 live assets.  The two branches
+    had their scales backwards: the board path discarded it as though the
+    board had no offense-only variant, and the composite path consumed it
+    alongside a 1.131x-scale model value.
+    """
+
+    def test_board_path_now_carries_the_offense_only_value(self):
+        players = {"Star WR": _player(9000, ktc=9000)}
+        players["Star WR"]["_offenseOnlyFinalAdjusted"] = 4100
+        board = board_values_from_contract(_contract({"Star WR": 4321}))
+        pool = build_asset_pool(players, market_top_n=0, board_values=board)
+        assert [a.offense_only_model_value for a in pool] == [4100]
+
+    def test_legacy_path_refuses_the_cross_scale_value(self):
+        """On the composite path ``model_value`` is composite-scale, so
+        consuming a board-scale offense-only value inside the same
+        subtraction understated all-offense legs by ~12%.  Degrade to
+        unavailable instead."""
+        players = {"Star WR": _player(9000, ktc=9000)}
+        players["Star WR"]["_offenseOnlyFinalAdjusted"] = 4100
+        pool = build_asset_pool(players, market_top_n=0)
+        assert [a.offense_only_model_value for a in pool] == [None]
+        assert [a.model_value for a in pool] == [9000]
+
+    def test_all_offense_trade_scores_off_the_offense_only_board(self):
+        """End-to-end: with no IDP asset on either side, ``_score_trade``
+        must consume the offense-only values, not the blended ones."""
+        players = {
+            "Mine": _player(6000, ktc=6000),
+            "Theirs": _player(6000, ktc=6000),
+        }
+        players["Mine"]["_offenseOnlyFinalAdjusted"] = 5000
+        players["Theirs"]["_offenseOnlyFinalAdjusted"] = 5900
+        board = board_values_from_contract(_contract({"Mine": 5200, "Theirs": 5200}))
+        pool = {a.name: a for a in build_asset_pool(players, market_top_n=0, board_values=board)}
+        # Blended board values tie; the offense-only board does not.
+        assert pool["Mine"].model_value == pool["Theirs"].model_value
+        assert pool["Mine"].offense_only_model_value == 5000
+        assert pool["Theirs"].offense_only_model_value == 5900
+
+
 class TestBoardDeltaSignIsHonest:
     def test_a_loss_is_not_described_as_a_gain(self):
         """``_build_summary`` hard-coded a ``+`` sign, so a -100 delta

@@ -11,16 +11,7 @@
  * or "league wide" (everything).
  */
 
-const POS_FAMILY = {
-  QB: "QB", RB: "RB", FB: "RB", WR: "WR", TE: "TE",
-  DL: "DL", DT: "DL", DE: "DL", EDGE: "DL", NT: "DL",
-  LB: "LB", ILB: "LB", OLB: "LB", MLB: "LB",
-  DB: "DB", CB: "DB", S: "DB", FS: "DB", SS: "DB",
-};
-
-function familyOf(pos) {
-  return POS_FAMILY[String(pos || "").toUpperCase()] || "OTHER";
-}
+import { familyOf } from "@/lib/position-family";
 
 function tsOf(value) {
   if (!value) return 0;
@@ -221,6 +212,8 @@ export function filterEvents(
   });
 }
 
+/** Coarse position family — thin alias over the shared
+ * ``lib/position-family`` map, identical to ``movers.familyOf``. */
 export function familyOfPos(pos) {
   return familyOf(pos);
 }

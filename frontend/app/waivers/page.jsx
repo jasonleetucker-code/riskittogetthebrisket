@@ -488,7 +488,7 @@ export default function WaiversPage() {
   const { privateDataEnabled, rows, rawData } = useApp();
   const { authenticated } = useAuthContext();
   const { selectedLeague } = useLeague();
-  const { selectedTeam } = useTeam();
+  const { selectedTeam, loading: teamLoading } = useTeam();
   const { settings } = useSettings();
   const [includeRookies, setIncludeRookies] = useState(false);
   const [position, setPosition] = useState("ALL");
@@ -531,10 +531,27 @@ export default function WaiversPage() {
       );
     }
     if (loading || !analysis) {
+      // Stub the FULL settled layout (summary tiles + best-moves +
+      // upgrade panel + the 2-up droppable/addable split), not just the
+      // first panel — the page grew by thousands of px when analysis
+      // landed, one of the /waivers CLS drivers.
       return (
-        <Panel flush title="Best add/drop moves">
-          <SkeletonTable rows={8} columns={6} />
-        </Panel>
+        <>
+          <Panel flush title="Best add/drop moves">
+            <SkeletonTable rows={8} columns={6} />
+          </Panel>
+          <Panel flush title="Unique upgrade set">
+            <SkeletonTable rows={4} columns={6} />
+          </Panel>
+          <div className={styles.split} aria-hidden="true">
+            <Panel flush title="Droppable">
+              <SkeletonTable rows={8} columns={4} />
+            </Panel>
+            <Panel flush title="Addable">
+              <SkeletonTable rows={8} columns={4} />
+            </Panel>
+          </div>
+        </>
       );
     }
     if (!hasTeam) {
@@ -585,6 +602,7 @@ export default function WaiversPage() {
           includeRookies={includeRookies}
           settings={settings}
           leagueKey={selectedLeague?.key}
+          teamLoading={teamLoading}
         />
       ) : null}
 

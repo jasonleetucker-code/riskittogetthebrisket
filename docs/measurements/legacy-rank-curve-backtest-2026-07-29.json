@@ -1,0 +1,555 @@
+{
+  "generatedAt": "2026-07-29T08:17:40.674424+00:00",
+  "payload": "exports/latest/dynasty_data_2026-07-29.json",
+  "rowCount": 740,
+  "scopeCounts": {
+    "idp": 281,
+    "offense": 428,
+    "pick": 31
+  },
+  "percentileReferenceN": 500,
+  "liveConstants": {
+    "legacyOffense": {
+      "midpoint": 48.44,
+      "slope": 1.149
+    },
+    "legacyIdp": {
+      "midpoint": 69.5,
+      "slope": 0.945
+    },
+    "percentileOffense": {
+      "c": 0.118,
+      "s": 1.17
+    },
+    "percentileIdp": {
+      "c": 0.093,
+      "s": 0.97
+    },
+    "percentileGlobal": {
+      "c": 0.113,
+      "s": 0.87
+    }
+  },
+  "refitRankForm": {
+    "midpoint": 68.8,
+    "slope": 0.929
+  },
+  "results": {
+    "legacy_offense": {
+      "overall": {
+        "n": 740,
+        "rmse": 840.4,
+        "mae": 823.1,
+        "medianAbsErr": 828.5,
+        "maxAbsErr": 1154.0,
+        "meanSignedErr": -823.1
+      },
+      "byScope": {
+        "idp": {
+          "n": 281,
+          "rmse": 826.5,
+          "mae": 813.6,
+          "medianAbsErr": 815.0,
+          "maxAbsErr": 1154.0,
+          "meanSignedErr": -813.6
+        },
+        "offense": {
+          "n": 428,
+          "rmse": 845.9,
+          "mae": 825.5,
+          "medianAbsErr": 835.0,
+          "maxAbsErr": 1126.0,
+          "meanSignedErr": -825.4
+        },
+        "pick": {
+          "n": 31,
+          "rmse": 887.8,
+          "mae": 877.4,
+          "medianAbsErr": 874.0,
+          "maxAbsErr": 1098.0,
+          "meanSignedErr": -877.4
+        }
+      },
+      "byRankBand": {
+        "1-24": {
+          "n": 24,
+          "rmse": 396.3,
+          "mae": 358.4,
+          "medianAbsErr": 386.5,
+          "maxAbsErr": 584.0,
+          "meanSignedErr": -357.5
+        },
+        "25-60": {
+          "n": 36,
+          "rmse": 724.2,
+          "mae": 711.4,
+          "medianAbsErr": 693.0,
+          "maxAbsErr": 921.0,
+          "meanSignedErr": -711.4
+        },
+        "61-120": {
+          "n": 60,
+          "rmse": 1017.3,
+          "mae": 1015.6,
+          "medianAbsErr": 1004.5,
+          "maxAbsErr": 1154.0,
+          "meanSignedErr": -1015.6
+        },
+        "121-250": {
+          "n": 130,
+          "rmse": 1040.0,
+          "mae": 1037.9,
+          "medianAbsErr": 1064.0,
+          "maxAbsErr": 1126.0,
+          "meanSignedErr": -1037.9
+        },
+        "251-500": {
+          "n": 250,
+          "rmse": 851.5,
+          "mae": 849.9,
+          "medianAbsErr": 838.5,
+          "maxAbsErr": 1030.0,
+          "meanSignedErr": -849.9
+        },
+        "501+": {
+          "n": 240,
+          "rmse": 695.4,
+          "mae": 693.9,
+          "medianAbsErr": 707.5,
+          "maxAbsErr": 745.0,
+          "meanSignedErr": -693.9
+        }
+      }
+    },
+    "legacy_scope": {
+      "overall": {
+        "n": 740,
+        "rmse": 670.3,
+        "mae": 539.3,
+        "medianAbsErr": 698.5,
+        "maxAbsErr": 1126.0,
+        "meanSignedErr": -529.2
+      },
+      "byScope": {
+        "idp": {
+          "n": 281,
+          "rmse": 78.7,
+          "mae": 66.1,
+          "medianAbsErr": 57.0,
+          "maxAbsErr": 220.0,
+          "meanSignedErr": -39.7
+        },
+        "offense": {
+          "n": 428,
+          "rmse": 845.9,
+          "mae": 825.5,
+          "medianAbsErr": 835.0,
+          "maxAbsErr": 1126.0,
+          "meanSignedErr": -825.4
+        },
+        "pick": {
+          "n": 31,
+          "rmse": 887.8,
+          "mae": 877.4,
+          "medianAbsErr": 874.0,
+          "maxAbsErr": 1098.0,
+          "meanSignedErr": -877.4
+        }
+      },
+      "byRankBand": {
+        "1-24": {
+          "n": 24,
+          "rmse": 396.3,
+          "mae": 358.4,
+          "medianAbsErr": 386.5,
+          "maxAbsErr": 584.0,
+          "meanSignedErr": -357.5
+        },
+        "25-60": {
+          "n": 36,
+          "rmse": 679.7,
+          "mae": 634.9,
+          "medianAbsErr": 676.0,
+          "maxAbsErr": 921.0,
+          "meanSignedErr": -622.4
+        },
+        "61-120": {
+          "n": 60,
+          "rmse": 944.0,
+          "mae": 888.2,
+          "medianAbsErr": 993.0,
+          "maxAbsErr": 1124.0,
+          "meanSignedErr": -870.0
+        },
+        "121-250": {
+          "n": 130,
+          "rmse": 814.7,
+          "mae": 664.7,
+          "medianAbsErr": 928.0,
+          "maxAbsErr": 1126.0,
+          "meanSignedErr": -634.9
+        },
+        "251-500": {
+          "n": 250,
+          "rmse": 691.9,
+          "mae": 573.9,
+          "medianAbsErr": 819.0,
+          "maxAbsErr": 1030.0,
+          "meanSignedErr": -567.5
+        },
+        "501+": {
+          "n": 240,
+          "rmse": 468.2,
+          "mae": 351.9,
+          "medianAbsErr": 127.5,
+          "maxAbsErr": 745.0,
+          "meanSignedErr": -350.1
+        }
+      }
+    },
+    "percentile_offense": {
+      "overall": {
+        "n": 740,
+        "rmse": 589.4,
+        "mae": 559.0,
+        "medianAbsErr": 604.5,
+        "maxAbsErr": 862.0,
+        "meanSignedErr": -557.3
+      },
+      "byScope": {
+        "idp": {
+          "n": 281,
+          "rmse": 595.8,
+          "mae": 575.0,
+          "medianAbsErr": 571.0,
+          "maxAbsErr": 862.0,
+          "meanSignedErr": -575.0
+        },
+        "offense": {
+          "n": 428,
+          "rmse": 581.3,
+          "mae": 544.0,
+          "medianAbsErr": 603.5,
+          "maxAbsErr": 857.0,
+          "meanSignedErr": -540.9
+        },
+        "pick": {
+          "n": 31,
+          "rmse": 638.9,
+          "mae": 622.5,
+          "medianAbsErr": 667.0,
+          "maxAbsErr": 813.0,
+          "meanSignedErr": -622.5
+        }
+      },
+      "byRankBand": {
+        "1-24": {
+          "n": 24,
+          "rmse": 128.7,
+          "mae": 100.5,
+          "medianAbsErr": 72.0,
+          "maxAbsErr": 287.0,
+          "meanSignedErr": -67.7
+        },
+        "25-60": {
+          "n": 36,
+          "rmse": 204.2,
+          "mae": 174.1,
+          "medianAbsErr": 154.5,
+          "maxAbsErr": 362.0,
+          "meanSignedErr": -159.6
+        },
+        "61-120": {
+          "n": 60,
+          "rmse": 528.1,
+          "mae": 523.8,
+          "medianAbsErr": 527.0,
+          "maxAbsErr": 651.0,
+          "meanSignedErr": -523.8
+        },
+        "121-250": {
+          "n": 130,
+          "rmse": 729.9,
+          "mae": 721.0,
+          "medianAbsErr": 774.0,
+          "maxAbsErr": 862.0,
+          "meanSignedErr": -721.0
+        },
+        "251-500": {
+          "n": 250,
+          "rmse": 686.6,
+          "mae": 685.8,
+          "medianAbsErr": 679.5,
+          "maxAbsErr": 793.0,
+          "meanSignedErr": -685.8
+        },
+        "501+": {
+          "n": 240,
+          "rmse": 462.3,
+          "mae": 451.7,
+          "medianAbsErr": 472.0,
+          "maxAbsErr": 628.0,
+          "meanSignedErr": -451.7
+        }
+      }
+    },
+    "percentile_scope": {
+      "overall": {
+        "n": 740,
+        "rmse": 563.4,
+        "mae": 524.7,
+        "medianAbsErr": 546.5,
+        "maxAbsErr": 1020.0,
+        "meanSignedErr": -522.8
+      },
+      "byScope": {
+        "idp": {
+          "n": 281,
+          "rmse": 525.6,
+          "mae": 484.5,
+          "medianAbsErr": 522.0,
+          "maxAbsErr": 1020.0,
+          "meanSignedErr": -484.0
+        },
+        "offense": {
+          "n": 428,
+          "rmse": 581.3,
+          "mae": 544.0,
+          "medianAbsErr": 603.5,
+          "maxAbsErr": 857.0,
+          "meanSignedErr": -540.9
+        },
+        "pick": {
+          "n": 31,
+          "rmse": 638.9,
+          "mae": 622.5,
+          "medianAbsErr": 667.0,
+          "maxAbsErr": 813.0,
+          "meanSignedErr": -622.5
+        }
+      },
+      "byRankBand": {
+        "1-24": {
+          "n": 24,
+          "rmse": 128.7,
+          "mae": 100.5,
+          "medianAbsErr": 72.0,
+          "maxAbsErr": 287.0,
+          "meanSignedErr": -67.7
+        },
+        "25-60": {
+          "n": 36,
+          "rmse": 350.0,
+          "mae": 251.4,
+          "medianAbsErr": 167.5,
+          "maxAbsErr": 932.0,
+          "meanSignedErr": -236.9
+        },
+        "61-120": {
+          "n": 60,
+          "rmse": 586.4,
+          "mae": 568.0,
+          "medianAbsErr": 533.0,
+          "maxAbsErr": 1020.0,
+          "meanSignedErr": -568.0
+        },
+        "121-250": {
+          "n": 130,
+          "rmse": 734.0,
+          "mae": 726.7,
+          "medianAbsErr": 767.0,
+          "maxAbsErr": 857.0,
+          "meanSignedErr": -726.7
+        },
+        "251-500": {
+          "n": 250,
+          "rmse": 642.7,
+          "mae": 638.7,
+          "medianAbsErr": 659.0,
+          "maxAbsErr": 793.0,
+          "meanSignedErr": -638.7
+        },
+        "501+": {
+          "n": 240,
+          "rmse": 388.3,
+          "mae": 369.2,
+          "medianAbsErr": 347.0,
+          "maxAbsErr": 628.0,
+          "meanSignedErr": -368.6
+        }
+      }
+    },
+    "percentile_global": {
+      "overall": {
+        "n": 740,
+        "rmse": 238.4,
+        "mae": 177.8,
+        "medianAbsErr": 122.0,
+        "maxAbsErr": 988.0,
+        "meanSignedErr": -112.7
+      },
+      "byScope": {
+        "idp": {
+          "n": 281,
+          "rmse": 164.9,
+          "mae": 131.3,
+          "medianAbsErr": 94.0,
+          "maxAbsErr": 532.0,
+          "meanSignedErr": -41.7
+        },
+        "offense": {
+          "n": 428,
+          "rmse": 278.8,
+          "mae": 209.4,
+          "medianAbsErr": 152.0,
+          "maxAbsErr": 988.0,
+          "meanSignedErr": -159.4
+        },
+        "pick": {
+          "n": 31,
+          "rmse": 193.4,
+          "mae": 163.0,
+          "medianAbsErr": 145.0,
+          "maxAbsErr": 545.0,
+          "meanSignedErr": -111.0
+        }
+      },
+      "byRankBand": {
+        "1-24": {
+          "n": 24,
+          "rmse": 703.3,
+          "mae": 667.9,
+          "medianAbsErr": 711.5,
+          "maxAbsErr": 988.0,
+          "meanSignedErr": -667.0
+        },
+        "25-60": {
+          "n": 36,
+          "rmse": 524.1,
+          "mae": 512.3,
+          "medianAbsErr": 468.5,
+          "maxAbsErr": 794.0,
+          "meanSignedErr": -512.3
+        },
+        "61-120": {
+          "n": 60,
+          "rmse": 351.8,
+          "mae": 335.0,
+          "medianAbsErr": 385.0,
+          "maxAbsErr": 478.0,
+          "meanSignedErr": -335.0
+        },
+        "121-250": {
+          "n": 130,
+          "rmse": 201.9,
+          "mae": 193.0,
+          "medianAbsErr": 212.0,
+          "maxAbsErr": 272.0,
+          "meanSignedErr": -193.0
+        },
+        "251-500": {
+          "n": 250,
+          "rmse": 111.9,
+          "mae": 105.4,
+          "medianAbsErr": 96.0,
+          "maxAbsErr": 199.0,
+          "meanSignedErr": -105.4
+        },
+        "501+": {
+          "n": 240,
+          "rmse": 136.1,
+          "mae": 106.4,
+          "medianAbsErr": 74.5,
+          "maxAbsErr": 431.0,
+          "meanSignedErr": 94.3
+        }
+      }
+    },
+    "refit_rank_form": {
+      "overall": {
+        "n": 740,
+        "rmse": 96.3,
+        "mae": 65.7,
+        "medianAbsErr": 47.0,
+        "maxAbsErr": 599.0,
+        "meanSignedErr": -15.2
+      },
+      "byScope": {
+        "idp": {
+          "n": 281,
+          "rmse": 65.6,
+          "mae": 52.6,
+          "medianAbsErr": 43.0,
+          "maxAbsErr": 223.0,
+          "meanSignedErr": -18.7
+        },
+        "offense": {
+          "n": 428,
+          "rmse": 113.5,
+          "mae": 75.2,
+          "medianAbsErr": 52.0,
+          "maxAbsErr": 599.0,
+          "meanSignedErr": -14.5
+        },
+        "pick": {
+          "n": 31,
+          "rmse": 68.7,
+          "mae": 53.1,
+          "medianAbsErr": 47.0,
+          "maxAbsErr": 208.0,
+          "meanSignedErr": 5.7
+        }
+      },
+      "byRankBand": {
+        "1-24": {
+          "n": 24,
+          "rmse": 341.9,
+          "mae": 306.8,
+          "medianAbsErr": 271.0,
+          "maxAbsErr": 599.0,
+          "meanSignedErr": -305.8
+        },
+        "25-60": {
+          "n": 36,
+          "rmse": 110.1,
+          "mae": 73.2,
+          "medianAbsErr": 40.5,
+          "maxAbsErr": 297.0,
+          "meanSignedErr": -27.6
+        },
+        "61-120": {
+          "n": 60,
+          "rmse": 90.6,
+          "mae": 70.2,
+          "medianAbsErr": 46.5,
+          "maxAbsErr": 210.0,
+          "meanSignedErr": 50.8
+        },
+        "121-250": {
+          "n": 130,
+          "rmse": 107.0,
+          "mae": 75.2,
+          "medianAbsErr": 40.0,
+          "maxAbsErr": 233.0,
+          "meanSignedErr": 42.0
+        },
+        "251-500": {
+          "n": 250,
+          "rmse": 53.8,
+          "mae": 48.0,
+          "medianAbsErr": 45.0,
+          "maxAbsErr": 104.0,
+          "meanSignedErr": 1.9
+        },
+        "501+": {
+          "n": 240,
+          "rmse": 62.0,
+          "mae": 52.6,
+          "medianAbsErr": 55.0,
+          "maxAbsErr": 120.0,
+          "meanSignedErr": -49.7
+        }
+      }
+    }
+  }
+}

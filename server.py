@@ -4914,6 +4914,14 @@ async def post_waiver_faab_recommend(request: Request):
     )
     arr = (contract or {}).get("playersArray") or []
 
+    # Loose trim+lowercase key (family 3 in the ``src/utils/name_clean``
+    # registry) — both sides of this join are contract/display names
+    # from the same vocabulary, so no stronger key is needed.  Local on
+    # purpose: the byte-equal twins in ``src/trade/waiver.py`` and
+    # ``src/api/source_history.py`` key unrelated domains.  Note this is
+    # NOT the key the KTC crowd FAAB map uses — that one is
+    # ``name_clean.compact_name_key`` and the recommender looks it up
+    # itself.
     def _norm(s: str) -> str:
         return str(s or "").strip().lower()
 
@@ -5115,6 +5123,19 @@ async def post_waiver_faab_recommend(request: Request):
     # KTC crowd-sourced bid map — Phase B7 bridge.  Bridge degrades
     # gracefully (returns empty dict) when the contract has no
     # ``ktcCrowd`` block, so this lookup is unconditional.
+    #
+    # The map is keyed by ``name_clean.compact_name_key``, NOT by the
+    # local ``_norm`` above; ``_ktc_crowd_blend`` applies that key to
+    # ``add_player_name`` itself.  Do not pre-normalize ``add_name``
+    # here — the raw display name is what the recommender expects.
+    #
+    # Two independent reasons this factor can be absent, worth knowing
+    # before debugging it: the contract only carries ``ktcCrowd`` when
+    # the scrape actually captured crowd data (the 2026-07-29 export has
+    # none), and the crowd names come from KTC's raw API vocabulary,
+    # which — unlike the Sleeper/contract vocabulary — has not been
+    # through ``clean_name``, so a KTC "Marvin Harrison Jr." still will
+    # not join a contract "Marvin Harrison" under the compact key.
     from src.adapters.ktc_crowd_faab import (  # noqa: PLC0415
         crowd_bid_map_from_contract,
     )
@@ -5858,7 +5879,13 @@ async def post_trade_suggestions(request: Request):
     # players in suggestion candidacy.  Sanitize to integer in
     # [50, 300]; out-of-range or missing falls back to the engine's
     # default constant.
-    from src.trade.suggestions import KTC_TOP_N_FILTER as _KTC_TOP_N_DEFAULT
+    #
+    # The wire names stay ``ktc_top_n`` (request) / ``ktcTopNFilter``
+    # (response) — they are the published contract.  The engine-side
+    # constant is ``BOARD_TOP_N_FILTER``, because this gate ranks
+    # against OUR blended board and never consulted KTC; the
+    # ``KTC_TOP_N_FILTER`` alias is deprecated and not imported here.
+    from src.trade.suggestions import BOARD_TOP_N_FILTER as _KTC_TOP_N_DEFAULT
 
     raw_ktc_top_n = body.get("ktc_top_n")
     try:
@@ -5965,7 +5992,11 @@ async def post_trade_finder(request: Request):
     if opponent_teams == ["all"] or not opponent_teams:
         opponent_teams = [t["name"] for t in sleeper_teams if t.get("name") != my_team]
 
-    from src.trade.finder import find_trades, KTC_TOP_N_FILTER as _FINDER_KTC_TOP_N_DEFAULT
+    # Wire name stays ``ktc_top_n``; the engine constant is
+    # ``MARKET_TOP_N_FILTER`` (the gate is per-market — ktcSfTep for
+    # offense + picks, idpTradeCalc for IDP — not KTC-only).  The
+    # ``KTC_TOP_N_FILTER`` alias is deprecated and not imported here.
+    from src.trade.finder import find_trades, MARKET_TOP_N_FILTER as _FINDER_KTC_TOP_N_DEFAULT
 
     raw_ktc_top_n_f = body.get("ktc_top_n")
     try:
@@ -8357,6 +8388,13 @@ from src.api.public_activity_valuation import (  # noqa: E402 — grouped with p
 )
 
 
+# Single-entry memo for the activity-valuation callable, keyed on the
+# private contract generation (``latest_data_etag``).  The builder
+# re-parsed the multi-MB private contract on every /api/public/league*
+# request; the callable is a pure function of one contract generation.
+_ACTIVITY_VALUATION_MEMO: dict = {}
+
+
 def _build_public_activity_valuation():
     """Build a valuation callable for the public activity trade feed.
 
@@ -8371,11 +8409,75 @@ def _build_public_activity_valuation():
     server, scraper failure).  In that case the public activity feed
     ships without grade annotations.
 
+    Memoized per contract generation (no TTL — a scrape promotion mints
+    a new etag).  With no etag (mid-prime / no contract) the builder
+    runs uncached.
+
     The actual contract parsing lives in
     ``src.api.public_activity_valuation.build_valuation_from_contract``
     so it can be unit-tested without pulling in FastAPI.
     """
-    return _build_valuation_from_contract(latest_contract_data)
+    etag = latest_data_etag
+    if not etag:
+        return _build_valuation_from_contract(latest_contract_data)
+    hit = _ACTIVITY_VALUATION_MEMO.get("v")
+    if hit is not None and hit[0] == etag:
+        return hit[1]
+    val = _build_valuation_from_contract(latest_contract_data)
+    _ACTIVITY_VALUATION_MEMO["v"] = (etag, val)
+    return val
+
+
+# ── Public contract response memo ────────────────────────────────────
+# ``GET /api/public/league`` used to reassemble ALL 16 public sections
+# + recursively safety-walk + ``json.dumps`` the multi-MB result on
+# EVERY request (2.5-4s of TTFB), even though the snapshot it builds
+# from is SWR-cached for 5 minutes and the identical contract is
+# already assembled — and then discarded — during every snapshot
+# rebuild's persist step.
+#
+# Cache contract:
+#   key:  (snapshot.root_league_id, snapshot.generated_at,
+#          latest_data_etag) — ``generated_at`` is re-stamped on every
+#          snapshot rebuild (natural invalidation), and the private
+#          contract etag is in the key because the activity-feed trade
+#          grades derive from the private board's generation.
+#   value: the encoded response bytes (byte-compatible with
+#          ``JSONResponse.render``).
+#   TTL:  none (generation-keyed); bound 4 entries.
+#   staleness: none beyond the existing 300s snapshot SWR window —
+#          identical payload freshness to the uncached path.
+_PUBLIC_CONTRACT_BYTES_CACHE: dict = {}
+_PUBLIC_CONTRACT_BYTES_LOCK = threading.Lock()
+_PUBLIC_CONTRACT_BYTES_MAX = 4
+
+
+def _public_contract_cache_key(snapshot):
+    return (
+        getattr(snapshot, "root_league_id", ""),
+        getattr(snapshot, "generated_at", ""),
+        latest_data_etag,
+    )
+
+
+def _cached_public_contract_bytes(snapshot):
+    with _PUBLIC_CONTRACT_BYTES_LOCK:
+        return _PUBLIC_CONTRACT_BYTES_CACHE.get(_public_contract_cache_key(snapshot))
+
+
+def _store_public_contract_bytes(snapshot, contract) -> bytes:
+    """Encode ``contract`` exactly like ``JSONResponse.render`` and
+    memoize the bytes under the snapshot's generation key."""
+    raw = json.dumps(contract, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    key = _public_contract_cache_key(snapshot)
+    with _PUBLIC_CONTRACT_BYTES_LOCK:
+        if len(_PUBLIC_CONTRACT_BYTES_CACHE) >= _PUBLIC_CONTRACT_BYTES_MAX:
+            for k in [k for k in _PUBLIC_CONTRACT_BYTES_CACHE if k != key]:
+                del _PUBLIC_CONTRACT_BYTES_CACHE[k]
+        _PUBLIC_CONTRACT_BYTES_CACHE[key] = raw
+    return raw
 
 
 _public_league_cache: dict = {
@@ -8758,7 +8860,10 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
                     activity_valuation=_build_public_activity_valuation(),
                 )
                 public_snapshot_store.persist_snapshot(snapshot, contract=contract)
-                contract_bytes = len(json.dumps(contract).encode("utf-8"))
+                # Seed the response-bytes memo with this build — the
+                # contract used to be assembled here and then THROWN
+                # AWAY while every request rebuilt it from scratch.
+                contract_bytes = len(_store_public_contract_bytes(snapshot, contract))
                 _public_league_metrics["last_contract_bytes"] = contract_bytes
             except Exception as exc:  # noqa: BLE001
                 logging.warning("Failed to persist public_league snapshot: %s", exc)
@@ -8931,17 +9036,27 @@ async def get_public_league(refresh: str = ""):
         # the event loop is never starved — see the ``run_in_threadpool``
         # note on the section endpoint below.
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        # Serve pre-encoded bytes for the current (snapshot, private
+        # contract) generation — see _PUBLIC_CONTRACT_BYTES_CACHE.
+        # ``?refresh=1`` bypasses the read (still repopulates).
+        cached = None if refresh else _cached_public_contract_bytes(snapshot)
+        if cached is not None:
+            return cached
         payload = build_public_contract(
             snapshot,
             activity_valuation=_build_public_activity_valuation(),
         )
-        assert_public_payload_safe(payload)
-        return payload
+        # NOTE: no assert_public_payload_safe here — build_public_contract
+        # runs the full recursive walk internally before returning
+        # (public_contract.py); the second walk was pure duplicate cost
+        # over a multi-MB tree.
+        return _store_public_contract_bytes(snapshot, payload)
 
     try:
-        payload = await run_in_threadpool(_build)
-        return JSONResponse(
-            content=payload,
+        raw = await run_in_threadpool(_build)
+        return Response(
+            content=raw,
+            media_type="application/json",
             headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
         )
     except AssertionError as exc:
@@ -10554,6 +10669,13 @@ async def post_test_create_session(request: Request):
         Bearer <secret>`` header
 
     In prod neither var is set, so this endpoint is invisible.
+
+    ``E2E_TEST_USERNAME`` is a THIRD requirement, and it fails
+    closed: there is no default.  An earlier revision fell back to
+    the operator's real username, so enabling E2E mode without
+    naming a test user minted a session for a real (allowlisted,
+    admin-capable) account.  The identity a test session assumes
+    must be stated explicitly, never inherited.
     """
     mode_raw = os.getenv("E2E_TEST_MODE", "").strip().lower()
     if mode_raw not in ("1", "true", "yes", "on"):
@@ -10563,7 +10685,26 @@ async def post_test_create_session(request: Request):
     provided = auth[len("Bearer ") :].strip() if auth.lower().startswith("bearer ") else ""
     if not expected or provided != expected:
         return JSONResponse(status_code=404, content={"error": "not_found"})
-    username = (os.getenv("E2E_TEST_USERNAME") or "jasonleetucker").strip().lower()
+    # Misconfiguration, reported only to a caller that already proved
+    # it holds the secret — so the message can be actionable without
+    # leaking the endpoint's existence to anyone else.
+    username = (os.getenv("E2E_TEST_USERNAME") or "").strip().lower()
+    if not username:
+        log.error(
+            "/api/test/create-session refused: E2E_TEST_MODE is on but "
+            "E2E_TEST_USERNAME is unset — refusing rather than defaulting "
+            "to a real account."
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "e2e_username_not_configured",
+                "message": (
+                    "E2E_TEST_USERNAME must be set to the throwaway username "
+                    "test sessions should assume.  There is no default."
+                ),
+            },
+        )
     session_id = _create_auth_session(
         username=username,
         sleeper_user_id=os.getenv("E2E_TEST_SLEEPER_USER_ID", "").strip() or None,
@@ -11806,10 +11947,23 @@ async def serve_rosters(request: Request):
     return await _serve_app_shell("/rosters")
 
 
-@app.get("/draft-capital", response_class=HTMLResponse)
+@app.get("/draft-capital")
 async def serve_draft_capital(request: Request):
-    # Public page — no auth required
-    return await _serve_app_shell("/draft-capital")
+    """Legacy public route — permanently moved under /league.
+
+    Emit a real redirect rather than proxying.  ``_proxy_next`` uses
+    ``urllib`` with default redirect-following, so once the Next side
+    became a routing-layer 308 (frontend/next.config.mjs) this handler
+    would have chased it server-side and returned /league's HTML under
+    the /draft-capital URL — the address bar would lie and Next would
+    hydrate a /league flight payload at a mismatched pathname.  It also
+    blocked the event loop for the whole multi-second /league SSR.
+
+    Production never reaches this handler (nginx routes ``location /``
+    straight to the Next upstream); it is the dev / direct-to-backend
+    path, and it should behave the same way there.
+    """
+    return RedirectResponse(url="/league?tab=draft-capital", status_code=308)
 
 
 @app.get("/more", response_class=HTMLResponse)

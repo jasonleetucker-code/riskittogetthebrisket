@@ -57,6 +57,16 @@ MULTI_FOR_ONE_MIN_RATIO = 0.55  # 2-for-1 give side must be >= 55% of receive mo
 # ``scripts/measure_engine_value_divergence.py``.
 BOARD_TO_COMPOSITE_K = 0.875
 
+# ``MIN_ASSET_VALUE`` expressed back on the COMPOSITE scale (800 —
+# the pre-migration value, recovered by inverting k).  Needed because
+# one filter necessarily runs on composite-scale numbers: counting the
+# assets the board declined to price means looking at rows that have
+# NO board value, so their only value is the composite one.  Gating
+# those with the board-scale 700 compared two different scales and
+# over-counted (202 vs 189 on the live payload) — see the
+# ``assetsUnpricedByBoard`` note in ``find_trades``.
+_MIN_ASSET_VALUE_COMPOSITE_SCALE = round(MIN_ASSET_VALUE / BOARD_TO_COMPOSITE_K)
+
 # Single-source haircut for the LEGACY composite path only.
 #
 # It existed because ``_SINGLE_SOURCE_VALUE_RETENTION`` (0.30) is applied
@@ -389,9 +399,11 @@ def build_asset_pool(
     that hold only a raw payload; ``find_trades`` always passes the
     board when a contract is available.
 
-    **Dropping is the point, not a side effect.** 274 assets on a
-    real payload carry a composite value but no ``rankDerivedValue``
-    (189 of them clearing ``MIN_ASSET_VALUE``). They are assets the
+    **Dropping is the point, not a side effect.** 282 assets on the
+    live 2026-07-29 payload carry a composite value but no
+    ``rankDerivedValue`` (189 of them clearing the composite-scale
+    equivalent of ``MIN_ASSET_VALUE`` — see
+    ``_MIN_ASSET_VALUE_COMPOSITE_SCALE``). They are assets the
     canonical board declines to price. Trading them was never
     defensible — the finder was pricing them off a board nothing else
     consults — so they leave the universe, and ``find_trades`` reports
@@ -416,10 +428,24 @@ def build_asset_pool(
             model = board_values.get(name)
             if model is None or model < 1:
                 continue
-            # The board has no offense-only variant; the offense-only
-            # path stays on the composite so it degrades to "unavailable"
-            # rather than silently comparing two different scales.
-            oo_raw = None
+            # Offense-only board value.  ``_offenseOnlyFinalAdjusted`` is
+            # mirrored from ``offenseOnlyRankDerivedValue`` — the output of
+            # the IDP-disabled run of ``_compute_unified_rankings``
+            # (data_contract.py) — so it is on the BOARD scale, the same
+            # scale as ``model`` here.  ``_score_trade`` substitutes one
+            # for the other inside a single subtraction, so sharing a
+            # scale is the correctness requirement, and it is met.
+            #
+            # Corrected 2026-07-29 audit: this branch previously forced
+            # ``oo_raw = None`` on the reasoning that "the board has no
+            # offense-only variant".  It does — measured over 522 assets
+            # carrying both, median ``_offenseOnlyFinalAdjusted /
+            # rankDerivedValue`` = 0.994 (p10 0.893, p90 1.015), i.e. the
+            # same scale.  The composite, by contrast, runs 1.131× the
+            # board.  So the two branches had their scales exactly
+            # backwards: the offense-only feature was dead on the live
+            # path, and the fallback below was the one mixing scales.
+            oo_raw = _int_or_none(pdata.get("_offenseOnlyFinalAdjusted"))
         else:
             # Legacy path: raw scraper composite.
             model = _int_or_none(pdata.get("_finalAdjusted"))
@@ -432,16 +458,21 @@ def build_asset_pool(
             if model is None or model < 1:
                 continue
 
-            # Offense-only model value: uses the value computed with IDP
-            # sources excluded.  Applied to trades where no side has an
-            # IDP player, so IDP source calibration doesn't influence
-            # the score.
-            oo_raw = _int_or_none(pdata.get("_offenseOnlyFinalAdjusted"))
+            # No offense-only value on this path.  The only producer of
+            # ``_offenseOnlyFinalAdjusted`` is the contract builder, which
+            # mirrors the BOARD-scale ``offenseOnlyRankDerivedValue`` into
+            # it — while ``model`` here is the COMPOSITE-scale scraper
+            # value, measured at 1.131× the board.  ``_score_trade``
+            # substitutes one for the other inside one subtraction, so
+            # reading it here understated every all-offense give/receive
+            # leg by ~12% whenever a caller passed a contract-built
+            # players dict without the contract itself.  Degrading to
+            # "unavailable" is the honest behaviour on this path — the
+            # rationale that used to sit on the board branch above.
+            oo_raw = None
 
             if source_count == 1:
                 model = int(model * _LEGACY_SINGLE_SOURCE_DISCOUNT)
-                if oo_raw is not None and oo_raw >= 1:
-                    oo_raw = int(oo_raw * _LEGACY_SINGLE_SOURCE_DISCOUNT)
 
         pos = _norm_pos(pdata.get("position", ""))
 
@@ -898,6 +929,13 @@ def find_trades(
     # left to be inferred from a smaller pool: migrating to the canonical
     # board removes assets from this engine's universe, and a silently
     # shorter list reads as "nothing available" instead of "not priced".
+    # NOTE ON SCALE: these rows have no board value by definition, so the
+    # only value available for the "would this asset have mattered?"
+    # filter is the COMPOSITE one — and it must therefore be gated with
+    # the composite-scale threshold, not the board-scale
+    # ``MIN_ASSET_VALUE``.  Fixed 2026-07-29 audit: the board-scale 700
+    # was being applied to composite numbers, reporting 202 where the
+    # docstring on ``build_asset_pool`` (and the intent) say 189.
     unpriced_by_board = 0
     if board_values is not None:
         unpriced_by_board = sum(
@@ -905,7 +943,7 @@ def find_trades(
             for name, pdata in players.items()
             if isinstance(pdata, dict)
             and name not in board_values
-            and (_int_or_none(pdata.get("_finalAdjusted")) or 0) >= MIN_ASSET_VALUE
+            and (_int_or_none(pdata.get("_finalAdjusted")) or 0) >= _MIN_ASSET_VALUE_COMPOSITE_SCALE
         )
 
     pool_by_name: dict[str, Asset] = {}
@@ -928,8 +966,8 @@ def find_trades(
     if unpriced_by_board:
         warnings.append(
             f"{unpriced_by_board} assets carry a scraper value above "
-            f"{MIN_ASSET_VALUE} but no canonical board value, so they are not "
-            "tradeable here. They are unpriced, not worthless."
+            f"{_MIN_ASSET_VALUE_COMPOSITE_SCALE} but no canonical board value, "
+            "so they are not tradeable here. They are unpriced, not worthless."
         )
 
     # Track market coverage, per market.  Reporting one blended number

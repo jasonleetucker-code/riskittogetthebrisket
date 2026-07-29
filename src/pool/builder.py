@@ -19,6 +19,10 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
 
+# Shared with ``Dynasty Scraper.py::_TEAM_CODES`` — see the name-cleaning
+# section below and ``tests/utils/test_team_codes_parity.py``.
+from src.utils.name_clean import NFL_TEAM_CODES as _TEAM_CODES
+
 # Historical note: this file used to export
 # ``DEFAULT_SLEEPER_LEAGUE_ID`` as a hardcoded fallback.  The constant
 # was never consumed outside its own module (confirmed by grep on
@@ -153,42 +157,20 @@ def is_idp(pos: str) -> bool:
 
 
 # ── Name cleaning (extracted from Dynasty Scraper.py) ──
-
-_TEAM_CODES = {
-    "ARI",
-    "ATL",
-    "BAL",
-    "BUF",
-    "CAR",
-    "CHI",
-    "CIN",
-    "CLE",
-    "DAL",
-    "DEN",
-    "DET",
-    "GB",
-    "HOU",
-    "IND",
-    "JAX",
-    "KC",
-    "LAC",
-    "LAR",
-    "LV",
-    "MIA",
-    "MIN",
-    "NE",
-    "NO",
-    "NYG",
-    "NYJ",
-    "PHI",
-    "PIT",
-    "SEA",
-    "SF",
-    "TB",
-    "TEN",
-    "WAS",
-    "FA",
-}
+#
+# ``pool_clean_name`` / ``pool_normalize_lookup`` are the scraper-clean
+# key family (family 4 in the ``src/utils/name_clean`` registry): a
+# deliberate mirror of ``Dynasty Scraper.py::clean_name`` /
+# ``normalize_lookup_name``.  The regex bodies are character-identical;
+# only the team-code table had drifted, so that table now has ONE
+# definition (``name_clean.NFL_TEAM_CODES``) with a parity test against
+# the scraper's literal (``tests/utils/test_team_codes_parity.py``).
+#
+# Do NOT swap these for ``normalize_player_name``.  This family keeps
+# hyphens, reverses "Last, First", strips trailing position tokens and
+# glued team codes, and is what the canonical POOL is keyed on; the
+# strict family is what the contract JOINS are keyed on.  They are used
+# at different stages and are not interchangeable.
 
 
 def pool_clean_name(raw: str) -> str:

@@ -21,7 +21,8 @@ import { isPublicPath } from "@/lib/public-routes";
 
 // Every user-facing route in frontend/app (excluding dynamic-only
 // public-league subroutes reached from the hub, the /login page, the
-// legacy /draft-capital redirect shim, and the dev-only /design style
+// legacy /draft-capital redirect (now a routing-layer 308 in
+// next.config.mjs, not a page), and the dev-only /design style
 // reference). If a new page ships, add it HERE and to the nav model.
 const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/",

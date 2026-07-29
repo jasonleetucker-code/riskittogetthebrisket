@@ -12,6 +12,7 @@
 // /api/data, useDynastyData, or any private module — only the public
 // /api/public/league endpoint.
 
+import { cache } from "react";
 import LeagueClient from "./LeagueClient.jsx";
 
 function _backend() {
@@ -24,7 +25,11 @@ function _backend() {
   }
 }
 
-async function fetchContract() {
+// React cache(): ``generateMetadata`` and the page body both await
+// this during one render pass.  The multi-MB payload is bigger than
+// Next's Data Cache entry limit, so without explicit request
+// memoization a render could cost TWO full backend contract builds.
+const fetchContract = cache(async function fetchContract() {
   const url = `${_backend()}/api/public/league`;
   try {
     const res = await fetch(url, { next: { revalidate: 60 } });
@@ -37,7 +42,7 @@ async function fetchContract() {
   } catch {
     return null;
   }
-}
+});
 
 export async function generateMetadata() {
   const data = await fetchContract();

@@ -1,10 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 
-import {
-  normName,
-  rosterRowsForTeam,
-} from "@/components/waivers/ManualAddDrop";
+import { rosterRowsForTeam } from "@/components/waivers/ManualAddDrop";
+import { normalizeName, normalizeNameCompact } from "@/lib/waiver-logic";
 
 // Pure-helper coverage for the manual add/drop selector.  The
 // React component itself is exercised manually + via the next
@@ -25,17 +23,26 @@ function row(name, value, opts = {}) {
   };
 }
 
-describe("normName", () => {
+// The component no longer defines its own normalizer — it imports the
+// shared one.  These pins moved with it.
+describe("normalizeNameCompact", () => {
   it("lowercases and strips non-alphanumerics", () => {
-    expect(normName("Ja'Marr Chase")).toBe("jamarrchase");
-    expect(normName("D.J. Moore")).toBe("djmoore");
-    expect(normName("  Foo Bar 1st  ")).toBe("foobar1st");
+    expect(normalizeNameCompact("Ja'Marr Chase")).toBe("jamarrchase");
+    expect(normalizeNameCompact("D.J. Moore")).toBe("djmoore");
+    expect(normalizeNameCompact("  Foo Bar 1st  ")).toBe("foobar1st");
   });
 
   it("returns empty string for falsy input", () => {
-    expect(normName(null)).toBe("");
-    expect(normName(undefined)).toBe("");
-    expect(normName("")).toBe("");
+    expect(normalizeNameCompact(null)).toBe("");
+    expect(normalizeNameCompact(undefined)).toBe("");
+    expect(normalizeNameCompact("")).toBe("");
+  });
+
+  it("is a strictly different key from the backend-parity normalizer", () => {
+    // Both exist on purpose; this pin is here so nobody swaps one for
+    // the other assuming they are interchangeable.
+    expect(normalizeName("D.J. Moore")).toBe("d.j. moore");
+    expect(normalizeNameCompact("D.J. Moore")).toBe("djmoore");
   });
 });
 
@@ -78,6 +85,22 @@ describe("rosterRowsForTeam", () => {
     ]);
     expect(out).toHaveLength(1);
     expect(out[0].name).toBe("Bo Nix");
+  });
+
+  // The map is built from contract row names and probed with Sleeper
+  // roster strings — two vocabularies that disagree on punctuation.
+  // Both sides must use the SAME key or the roster player silently
+  // disappears from the drop pool.
+  it("resolves names that differ only by punctuation on both sides of the join", () => {
+    const punctuated = [
+      row("DJ Moore", 6100, { pos: "WR" }),
+      row("Amon-Ra St. Brown", 8200, { pos: "WR" }),
+    ];
+    const out = rosterRowsForTeam(punctuated, [
+      "D.J. Moore",          // roster string punctuated, row is not
+      "Amon-Ra St.Brown",    // roster string missing a space
+    ]);
+    expect(out.map((r) => r.name)).toEqual(["DJ Moore", "Amon-Ra St. Brown"]);
   });
 
   it("returns empty arrays for non-arrays / unknown rosters", () => {
