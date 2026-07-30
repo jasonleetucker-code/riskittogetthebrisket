@@ -161,6 +161,44 @@ def _count_csv_rows(csv_path: Path) -> int:
         return 0
 
 
+# Canonical names where the pool genuinely contains ONE player twice,
+# so an alias merging them is correct rather than a defect.
+#
+# ``alias_collision_delta``'s own docstring carves this case out — "a
+# same-family collision is also a defect ... unless the pool genuinely
+# contains one player twice" — but the code never implemented it, so
+# the exception had nowhere to live and the first real instance turned
+# the hard gate red on ``main``.
+#
+# Entries are NOT a way to quiet the check. Each one needs a verified
+# same-player claim, and every collision outside this set still fails.
+# The collisions are still reported and still printed in the run
+# summary; they are marked, not hidden.
+_KNOWN_POOL_DUPLICATES = {
+    # "Rob Henry" + "Robert Henry" — one player, two pool rows.
+    #
+    # ``src/utils/name_clean.py`` aliases "robert henry" → "rob henry"
+    # with the identity verified on both sides: RB, UTSA UDFA → WAS,
+    # age 24. The alias existed to bridge DraftSharks/FantasyPros'
+    # "Robert Henry Jr." to the pool's "Rob Henry".
+    #
+    # The 2026-07-30T18:06Z scheduled refresh then added "Robert Henry"
+    # to CSVs/dynasty_full.csv alongside the existing "Rob Henry", so
+    # the pool now carries both spellings and the alias merges two rows
+    # that are the same person. That is the alias working, not failing.
+    #
+    # It reports ``crossFamily`` only because the new row carries no
+    # position and lands in the OTHER group — absence of position data,
+    # not evidence of a second player. The vote-replication hazard this
+    # check exists for (a WR absorbing a CB's ballot) needs two KNOWN
+    # and different families.
+    #
+    # Removing the alias was the alternative and is worse: it would
+    # leave one player sitting on the board as two separate rows.
+    "rob henry",
+}
+
+
 def alias_collision_delta(pool_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return alias-introduced collisions among distinct pool players.
 
@@ -221,6 +259,9 @@ def alias_collision_delta(pool_rows: list[dict[str, Any]]) -> list[dict[str, Any
                 "preAliasNames": sorted(pre_map),
                 "positionGroups": groups,
                 "crossFamily": len(groups) > 1,
+                # Reported either way; the gate ignores only the
+                # verified same-player duplicates above.
+                "knownPoolDuplicate": post_name in _KNOWN_POOL_DUPLICATES,
             }
         )
     return collisions

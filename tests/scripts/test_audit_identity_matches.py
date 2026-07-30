@@ -177,4 +177,50 @@ class TestCommittedDataRegression:
         assert set(report["sources"]) == set(_SOURCE_CSV_PATHS)
         # The live board must never contain an alias-introduced
         # collision — the collision-delta invariant.
-        assert report["aliasCollisions"] == []
+        #
+        # Verified same-player pool duplicates are excluded, which is
+        # the carve-out `alias_collision_delta`'s docstring already
+        # described ("unless the pool genuinely contains one player
+        # twice") and the code did not implement until 2026-07-30.
+        # They are still reported and still printed in the summary;
+        # only the GATE ignores them. Every other collision fails, so
+        # this cannot quietly absorb a genuine WR-absorbs-CB merge.
+        unexpected = [c for c in report["aliasCollisions"] if not c.get("knownPoolDuplicate")]
+        assert unexpected == []
+
+    def test_the_duplicate_allowlist_only_holds_real_collisions(self, tmp_path):
+        """An allowlist entry that no longer collides is dead weight.
+
+        Guards the guard: if a refresh drops the duplicate pool row,
+        this fails and the entry gets removed, rather than sitting
+        there widening the exemption for a future name that happens to
+        normalize the same way.
+        """
+        from scripts.audit_identity_matches import _KNOWN_POOL_DUPLICATES
+
+        out = tmp_path / "report.json"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--json-path",
+                str(_latest_export()),
+                "--json",
+                str(out),
+                "--limit",
+                "1",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO),
+            timeout=600,
+        )
+        assert proc.returncode == 0, proc.stderr[-2000:]
+        report = json.loads(out.read_text(encoding="utf-8"))
+        colliding = {c["canonicalName"] for c in report["aliasCollisions"]}
+        stale = sorted(_KNOWN_POOL_DUPLICATES - colliding)
+        assert stale == [], (
+            f"allowlisted names that no longer collide: {stale}. "
+            "Drop them from _KNOWN_POOL_DUPLICATES — a stale exemption "
+            "silently covers whatever normalizes to that name next."
+        )
