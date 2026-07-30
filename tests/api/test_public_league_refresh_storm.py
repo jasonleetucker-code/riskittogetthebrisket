@@ -249,6 +249,6 @@ def test_a_healthy_upstream_still_rebuilds_exactly_once(cold_cache, monkeypatch)
     _storm(slow_builder, monkeypatch)
 
     assert len(calls) == 1, f"expected single-flight, got {len(calls)} rebuilds"
-    assert server._public_league_cache["snapshot"] is not None, (
-        "the healthy path must still populate the cache"
-    )
+    assert (
+        server._public_league_cache["snapshot"] is not None
+    ), "the healthy path must still populate the cache"
