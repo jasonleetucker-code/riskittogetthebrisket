@@ -498,13 +498,35 @@ def main() -> int:
     if args.github_summary:
         _write_github_summary(report, collisions)
     if collisions and args.fail_on_collision:
+        # ``_KNOWN_POOL_DUPLICATES`` entries are REPORTED but do not fail
+        # the gate — that is the whole point of the set, and until now it
+        # was only half-implemented: ``build_report`` stamped
+        # ``knownPoolDuplicate`` on the row and this gate ignored the
+        # stamp, so the carve-out annotated the collision and still went
+        # red.  The set's own docstring says "every collision outside
+        # this set still fails", which only means anything if the ones
+        # inside it do not.  A guard whose stated purpose and actual
+        # predicate differ is the exact failure mode this repo keeps
+        # tripping over (docs/ORCHESTRATION.md §6.15).
+        #
+        # They stay visible as ::notice, never silently dropped.
+        blocking = [c for c in collisions if not c.get("knownPoolDuplicate")]
         for c in collisions:
             kind = "cross-family " if c.get("crossFamily") else ""
-            print(
-                f"::error title=Alias collision::{kind}'{c['canonicalName']}' "
-                f"merges {c['mergedNames']}"
-            )
-        return 1
+            if c.get("knownPoolDuplicate"):
+                print(
+                    f"::notice title=Known pool duplicate::{kind}"
+                    f"'{c['canonicalName']}' merges {c['mergedNames']} — "
+                    "verified same player, allow-listed in "
+                    "_KNOWN_POOL_DUPLICATES; not failing the gate"
+                )
+            else:
+                print(
+                    f"::error title=Alias collision::{kind}'{c['canonicalName']}' "
+                    f"merges {c['mergedNames']}"
+                )
+        if blocking:
+            return 1
     return 0
 
 
