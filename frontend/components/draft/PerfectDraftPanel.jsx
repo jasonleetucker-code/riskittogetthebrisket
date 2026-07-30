@@ -22,7 +22,6 @@ import {
   CollapsiblePanel,
   DataTable,
   InfoTip,
-  Panel,
   SegmentedControl,
   Select,
   StatTile,
@@ -330,14 +329,15 @@ export function PerfectDraftPanel({ stats, workspace }) {
         </p>
       ) : (
         <>
-          <Panel flush>
-            <DataTable
-              caption="Recommended rookies, the roster player each would displace, and the maximum worth bidding"
-              columns={columns}
-              rows={rows}
-              rowKey={(r) => r.id}
-            />
-          </Panel>
+          {/* No wrapping Panel: this already sits inside a CollapsiblePanel,
+              and the design system forbids a second container primitive.
+              DataTable brings its own .ds-table-wrap scroller. */}
+          <DataTable
+            caption="Recommended rookies, the roster player each would displace, and the maximum worth bidding"
+            columns={columns}
+            rows={rows}
+            rowKey={(r) => r.id}
+          />
 
           <div className={styles.signalStack}>
             {rows.map((r) =>
