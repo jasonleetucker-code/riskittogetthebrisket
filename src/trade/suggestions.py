@@ -46,6 +46,106 @@ DEFAULT_STARTER_NEEDS: dict[str, int] = {
     "DB": 3,  # 3 DB
 }
 
+# Order flex slots are handed out in when converting a lineup to
+# effective demand.  RB before WR before TE matches how the constant
+# above was hand-derived, and is what makes the derivation reproduce it.
+_FLEX_ALLOCATION_ORDER: tuple[str, ...] = ("RB", "WR", "TE")
+
+# Slots that carry no dynasty trade demand.  ``K`` is deliberately
+# absent from the constant above and must stay absent from the derived
+# version: kickers carry no board value, so a "need" for one can never
+# be met or traded for.  ``BN``/``IR``/``TAXI`` are not lineup slots.
+_NON_DEMAND_SLOTS: frozenset[str] = frozenset({"K", "DEF", "BN", "IR", "TAXI"})
+
+
+def starter_needs_for_league(league_key: str | None = None) -> dict[str, int]:
+    """Effective starter demand per position for one league.
+
+    ``DEFAULT_STARTER_NEEDS`` above is not a slot count — it is a demand
+    model: base slots PLUS a hand-allocation of the flex slots, because
+    a superflex league genuinely wants a second startable QB even though
+    only one QB slot exists.  That model was correct and hardcoded, which
+    made it silently wrong for any other league.  The two live leagues
+    share a scoring profile but not a lineup (``dynasty_main`` starts
+    2 TE and 9 IDP; ``dynasty_new`` starts 1 TE and no IDP), and starter
+    counts are leagueKey-scoped per CLAUDE.md.
+
+    The allocation rule, stated once so it is auditable:
+
+    * every fixed positional slot contributes 1 to its own position;
+    * each ``SFLEX``/``SUPER_FLEX`` slot contributes 1 to ``QB`` — it is
+      the reason the format is called superflex;
+    * each ``FLEX`` slot contributes 1, round-robin over the league's
+      own ``flexEligible`` list in ``RB``, ``WR``, ``TE`` order;
+    * each ``IDP_FLEX`` slot contributes 1, round-robin over
+      ``idpFlexEligible``;
+    * ``K``/``DEF`` contribute nothing — see ``_NON_DEMAND_SLOTS``.
+
+    Applied to ``dynasty_main`` this reproduces ``DEFAULT_STARTER_NEEDS``
+    exactly, so the live league's suggestions are unchanged; pinned by
+    ``tests/league_intel/test_registry_consumers.py``.
+
+    Falls back to ``DEFAULT_STARTER_NEEDS`` when the registry has
+    nothing to say — an unknown key, or no roster settings — rather than
+    returning an empty demand map, which would read as "this roster
+    needs nobody" and silence every surplus/need suggestion.
+    """
+    starters: dict[str, Any] = {}
+    flex_eligible: list[str] = []
+    idp_flex_eligible: list[str] = []
+    try:
+        from src.api.league_registry import get_league_roster_settings
+
+        settings = get_league_roster_settings(league_key) or {}
+        starters = dict(settings.get("starters") or {})
+        flex_eligible = list(settings.get("flexEligible") or [])
+        idp_flex_eligible = list(settings.get("idpFlexEligible") or [])
+    except Exception:  # noqa: BLE001 — registry is optional for this module
+        starters = {}
+    if not starters:
+        return dict(DEFAULT_STARTER_NEEDS)
+
+    needs: dict[str, int] = {}
+
+    def _add(position: str, count: int = 1) -> None:
+        pos = str(position).upper()
+        if pos in _NON_DEMAND_SLOTS:
+            return
+        needs[pos] = needs.get(pos, 0) + count
+
+    def _round_robin(count: int, eligible: list[str], order: tuple[str, ...]) -> None:
+        pool = [p for p in order if p in {str(e).upper() for e in eligible}]
+        if not pool:
+            return
+        for i in range(int(count)):
+            _add(pool[i % len(pool)])
+
+    flex_count = 0
+    sflex_count = 0
+    idp_flex_count = 0
+    for slot, count in starters.items():
+        key = str(slot).upper()
+        n = int(count or 0)
+        if n <= 0:
+            continue
+        if key in ("FLEX", "WR_RB_FLEX", "REC_FLEX"):
+            flex_count += n
+        elif key in ("SFLEX", "SUPER_FLEX", "SUPERFLEX"):
+            sflex_count += n
+        elif key == "IDP_FLEX":
+            idp_flex_count += n
+        else:
+            _add(key, n)
+
+    # Superflex is a QB slot in everything but name.
+    if sflex_count:
+        _add("QB", sflex_count)
+    _round_robin(flex_count, flex_eligible, _FLEX_ALLOCATION_ORDER)
+    _round_robin(idp_flex_count, idp_flex_eligible, ("DL", "LB", "DB"))
+
+    return needs or dict(DEFAULT_STARTER_NEEDS)
+
+
 # Minimum display value to consider a player "rosterable" (not a throw-in)
 MIN_RELEVANT_VALUE = 500
 

@@ -5,9 +5,10 @@ dynasty Superflex page (a season-long valuation board used as a
 ROS proxy), this hits the actual ROS-specific pages:
 
   * ``/ros-rankings/superflex`` — combined offense + IDP ROS list
-  * ``/ros-rankings/idp``       — IDP-only ROS list (currently
-                                  redundant with the SF page; kept
-                                  for forward compat)
+  * ``/ros-rankings/idp``       — despite the name, NOT an IDP-only
+                                  list: a second FULL board over the
+                                  same universe, ranked for a
+                                  1QB format
 
 These pages render ~25 rows server-side and lazy-load the rest via
 JS scroll, so we need a real browser to capture the full ranked
@@ -17,13 +18,32 @@ Reuses the same ``draftsharks_session.json`` cookie store + login
 flow that ``fetch_draftsharks.py`` already established — no new
 auth dependency.
 
-Output: writes per-asset CSVs directly into ``data/ros/sources/``
-so the ROS orchestrator picks them up on the next scrape pass:
+Output: writes per-asset CSVs into ``CSVs/site_raw/`` (see
+``ROS_RAW_DIR`` below for why that path and not ``data/ros/sources/``),
+where the adapter ``src/ros/sources/draftsharks_ros.py`` reads them:
 
-  * ``data/ros/sources/draftSharksRosSf.csv``  (offense + IDP, position-tagged)
-  * ``data/ros/sources/draftSharksRosIdp.csv`` (IDP-only mirror; currently
-                                                a subset of the SF list filtered
-                                                to IDP positions)
+  * ``CSVs/site_raw/draftSharksRosSf.csv``  (offense + IDP, position-tagged)
+  * ``CSVs/site_raw/draftSharksRosIdp.csv`` (the ``/ros-rankings/idp``
+                                             page verbatim)
+
+WHAT THE IDP FILE ACTUALLY IS (measured 2026-07-30, corrected here —
+this docstring previously claimed it was "IDP-only … filtered to IDP
+positions", which it has never been).  Both files carry 978 rows over
+the *identical* 978 players — zero names unique to either side — and
+the SF board already contains all 424 IDP-family rows by itself.  What
+differs is the FORMAT: 974 of 978 players sit at a different rank, and
+the deltas are positional (RB −171, QB +104, WR +109), i.e. the idp
+page is a 1QB board.  ``jahmyr gibbs`` is 1 there against ``josh
+allen``'s 17; on the SF board those are 2 and 1.
+
+It is therefore kept as forward-compat / pagination overflow, NOT as a
+second opinion.  The adapter unions it name-first behind the SF board
+so it contributes only players the SF page did not list (today: zero).
+Do not restore the ``_IDP_FAMILIES`` filter to the success branch to
+"make the file match its name": ``_write_csv`` renumbers ``rank`` 1..N
+and stamps ``total_ranked = N``, so a filtered file would arrive on a
+424-player scale for players already carried at 978, and every one of
+them would still be excluded by the union — a file nothing reads.
 
 The CSV schema matches the ROS orchestrator's existing format
 (``canonicalName,sourceName,position,team,rank,total_ranked,projection``).
@@ -242,12 +262,17 @@ async def main_async() -> int:
     # which is how DS publishes their ROS list).  Position is preserved.
     n_sf = _write_csv(sf_csv, sf_rows)
 
-    # IDP CSV.  The SF-filter fallback is acceptable when the IDP
-    # page merely loaded empty, but a FAILED IDP fetch must NOT
-    # silently overwrite the last-good IDP CSV with a degraded
-    # SF-filtered board (this was a silent-degradation bug).  On
-    # failure: preserve last-good if it exists and fail loud; only
-    # fall back when there is no prior good CSV (genuine first run).
+    # IDP CSV — written verbatim from ``/ros-rankings/idp``, which is a
+    # full 1QB board rather than an IDP subset (see the module
+    # docstring).  The adapter unions it behind the SF board name-first,
+    # so it only ever contributes players the SF page did not list.
+    #
+    # The SF-filter fallback below is acceptable when the IDP page
+    # merely loaded empty, but a FAILED IDP fetch must NOT silently
+    # overwrite the last-good IDP CSV with a degraded SF-filtered board
+    # (this was a silent-degradation bug).  On failure: preserve
+    # last-good if it exists and fail loud; only fall back when there is
+    # no prior good CSV (genuine first run).
     idp_degraded = False
     if idp_page_failed and idp_csv.exists():
         print(

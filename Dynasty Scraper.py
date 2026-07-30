@@ -1603,7 +1603,26 @@ if SLEEPER_LEAGUE_ID:
     except Exception as e:  # defensive — it normally returns ([], {}) on failure
         print(f"  [Sleeper] fetch raised: {e}")
         SLEEPER_PLAYERS, SLEEPER_ROSTER_DATA = [], {}
-    if SLEEPER_ROSTER_DATA:
+    # A PARTIAL fetch is not a success.  ``fetch_sleeper_rosters`` makes
+    # two independent Sleeper calls: ``/rosters`` (teams) and ``/league``
+    # (name, scoring, roster_positions).  Only the second one carries
+    # ``rosterPositions``, and its request sits in a bare
+    # ``except Exception: pass`` with ``roster_positions`` pre-set to
+    # ``[]`` — so a single timeout or 5xx on that one endpoint returns a
+    # perfectly truthy dict with 12 teams and NO LINEUP.
+    #
+    # Treating that as success did real damage twice over: it overwrote
+    # ``data/sleeper_last_good.json`` with the degraded block, making it
+    # the fallback every later outage restores from, and it stamped
+    # success so the freshness watchdog stayed quiet about it.
+    # Downstream, a contract with teams but no lineup is exactly the
+    # input that makes /terminal fill an offence-only default lineup.
+    #
+    # ``rosterPositions`` is the discriminator because it is the field
+    # that only the league endpoint provides; ``teams`` alone cannot
+    # tell the two calls apart.
+    _missing_lineup = not (SLEEPER_ROSTER_DATA or {}).get("rosterPositions")
+    if SLEEPER_ROSTER_DATA and not _missing_lineup:
         # Live fetch produced the per-league block: persist it as the
         # last-good snapshot and stamp success so the freshness
         # watchdog can see a future outage.
@@ -1611,6 +1630,31 @@ if SLEEPER_LEAGUE_ID:
         _stamp_sleeper_success()
         if SLEEPER_PLAYERS:
             print(f"  Sample: {SLEEPER_PLAYERS[:5]}")
+    elif SLEEPER_ROSTER_DATA and _missing_lineup:
+        # Rosters arrived, the league endpoint did not.  Keep the live
+        # rosters (they are real and fresher than the cache) but splice
+        # the lineup back in from the last-good snapshot, and refuse to
+        # persist or stamp — a half-fetch must not become the artifact a
+        # future outage restores from.
+        print(
+            "  [Sleeper] WARNING: rosters fetched but the league endpoint "
+            "returned no roster_positions — NOT saving as last-good and "
+            "NOT stamping success.",
+            file=sys.stderr,
+        )
+        _cached_rd, _cache_age_h = _load_sleeper_snapshot()
+        _cached_slots = (_cached_rd or {}).get("rosterPositions") or []
+        if _cached_slots:
+            SLEEPER_ROSTER_DATA["rosterPositions"] = _cached_slots
+            _age_txt = f"{_cache_age_h:.1f}h old" if _cache_age_h is not None else "age unknown"
+            print(f"  [Sleeper] lineup slots restored from cache ({_age_txt})")
+        else:
+            print(
+                "  [Sleeper] no cached lineup either — the contract will "
+                "carry teams with no rosterPositions; starter views will "
+                "say so rather than guess.",
+                file=sys.stderr,
+            )
     else:
         # Sleeper outage / empty result.  Keep the league `sleeper`
         # block alive from the last-good committed snapshot instead of

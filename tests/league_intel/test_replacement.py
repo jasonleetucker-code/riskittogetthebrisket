@@ -111,7 +111,25 @@ class TestEndogenousStarters:
         assert measured.slot_fill["FLEX"] == {"RB": 1}
         assert measured.starters_per_team.get("TE", 0.0) == 0.0
 
-    def test_hybrid_counts_toward_the_slot_it_actually_fills(self):
+    def test_hybrid_counts_against_its_own_position_pool_not_the_slot(self):
+        """A DL/LB slotted at LB still consumes a DL-pool body.
+
+        Renamed 2026-07-30.  This was
+        ``test_hybrid_counts_toward_the_slot_it_actually_fills``, whose
+        name asserted the OPPOSITE of its assertion — the hybrid fills the
+        LB slot, yet the assertion (correctly) counts it as DL.  Acting on
+        the name and switching the attribution to the slot breaks
+        ``compute_scarcity``: it builds ``by_pos`` from the players'
+        nominal positions and uses ``starters_n`` to index into it, so a
+        slot-derived count would index a pool it no longer denotes, and
+        ``lineupScarcity`` — the only live axis of the league-adjusted
+        overlay — is computed off that index.
+
+        ``starters_per_team`` answers "how many DL-pool bodies do lineups
+        consume".  "How many DL does the league start" is a different
+        question; ``slot_fill`` answers that one, and the test below pins
+        it.
+        """
         team = {
             "players": [
                 player("h", "DL", 50, fp=("DL", "LB")),
@@ -121,6 +139,37 @@ class TestEndogenousStarters:
         measured = measure_endogenous_starters([team], ["DL", "LB"])
         assert measured.starters_per_team["DL"] == 2.0
         assert measured.slot_fill["LB"] == {"DL": 1}
+
+    def test_fixed_slots_are_filled_exactly_as_many_times_as_they_exist(self):
+        """The league starts 3 at each IDP position — pinned on the slots.
+
+        This is the invariant a reader expects ``starters_per_team`` to
+        show and it deliberately does not (see above).  It belongs here,
+        on ``slot_fill``, where it is true regardless of how many hybrids
+        Sleeper labels one way and the optimizer slots another.
+        """
+        team = {
+            "players": [
+                player("h", "DL", 50, fp=("DL", "LB")),
+                player("d1", "DL", 40),
+                player("d2", "DL", 30),
+                player("d3", "DL", 20),
+                player("l1", "LB", 18),
+                player("l2", "LB", 16),
+                player("b1", "DB", 14),
+                player("b2", "DB", 12),
+                player("b3", "DB", 10),
+            ]
+        }
+        slots = ["DL"] * 3 + ["LB"] * 3 + ["DB"] * 3
+        measured = measure_endogenous_starters([team], slots)
+
+        for pos in ("DL", "LB", "DB"):
+            filled = sum(measured.slot_fill.get(pos, {}).values())
+            assert filled == 3, f"{pos} slots filled {filled} times, expected 3"
+        # ...and the hybrid is one of the bodies doing it, counted under
+        # its own position in the diagnostic.
+        assert measured.slot_fill["LB"].get("DL", 0) == 1
 
     def test_marginal_starter_is_the_weakest_started_at_the_position(self):
         measured = measure_endogenous_starters([make_team(0)], ["WR", "WR", "WR"])

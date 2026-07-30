@@ -5867,7 +5867,16 @@ async def post_trade_suggestions(request: Request):
     from src.trade.suggestions import (
         build_asset_pool_from_contract,
         generate_suggestions_from_pool,
+        starter_needs_for_league,
     )
+
+    # Effective starter demand is a per-LEAGUE fact, not a constant: both
+    # live leagues share a scoring profile but ``dynasty_main`` starts
+    # 2 TE + 9 IDP while ``dynasty_new`` starts 1 TE and no IDP.  The
+    # engine has always accepted ``starter_needs``; nothing ever passed
+    # it, so every league got dynasty_main's lineup.  The derivation is
+    # a no-op for dynasty_main by construction.
+    starter_needs = starter_needs_for_league(getattr(league_cfg, "key", None))
 
     league_rosters = body.get("league_rosters")
     if league_rosters is not None and not isinstance(league_rosters, list):
@@ -5918,6 +5927,7 @@ async def post_trade_suggestions(request: Request):
             roster_names=roster,
             pool=pool,
             league_rosters=league_rosters,
+            starter_needs=starter_needs,
             ktc_top_n=ktc_top_n,
         )
 
@@ -8551,23 +8561,48 @@ class PublicSnapshotUnavailable(RuntimeError):
 # naively, a burst of concurrent ``playoffOdds`` requests would each
 # launch an independent simulation and saturate the shared threadpool.
 #
-# So we single-flight + memoize ``playoffOdds`` only:
+# ``archives`` has the same SHAPE for a different reason (added
+# 2026-07-30).  It is the single most expensive builder in the contract:
+# ``src/public_league/archives.py`` rebuilds four other sections
+# (history, activity, draft, awards) before its own five walks, and
+# ``assert_public_payload_safe`` then recurses the whole ~800 KB result.
+# That is ~1.4s of GIL-bound Python per request, and it ran fresh on
+# EVERY request — measured 34.3s / 19.3s / 2.9s TTFB on production
+# against a ~0.53s baseline for every other section, because concurrent
+# requests each launched their own build and held an AnyIO worker token
+# for the duration.  The 2 MB aggregate contract is *faster* than this
+# 737 KB subset of it precisely because the aggregate is memoized
+# (``_store_public_contract_bytes``) and the section route threw the
+# identical work away.
+#
+# So we single-flight + memoize these two:
 #   * Coordination happens on the EVENT LOOP via a per-section
 #     ``asyncio.Lock`` (see ``_get_heavy_section_payload``), so waiters
 #     ``await`` on the loop instead of occupying AnyIO worker tokens.
 #     Exactly one request offloads the simulation to ``run_in_threadpool``;
 #     the rest wake to the cached result.
 #   * The result is keyed by the snapshot's identity + freshness
-#     (``root_league_id`` + ``generated_at``).  ``playoffOdds`` is derived
-#     purely from the snapshot (no external files), so that key is
-#     complete — a snapshot refresh mints a new ``generated_at`` and
-#     transparently invalidates the entry (bounded to one payload).
+#     (``root_league_id`` + ``generated_at``).  Both are derived purely
+#     from the snapshot (no external files), so that key is complete — a
+#     snapshot refresh mints a new ``generated_at`` and transparently
+#     invalidates the entry (bounded to one payload per section).
+#     Freshness is therefore unchanged by memoizing: the 300s SWR window
+#     on the snapshot still governs how old the data can be.
+#
+# One asymmetry worth knowing before adding a third key: the JSON route
+# passes ``activity_valuation`` and the CSV route does not, while the
+# cache key includes neither.  That is safe for both current members —
+# ``playoffOdds`` resolves through ``_LAZY_SECTION_BUILDERS`` and
+# ``archives`` through ``_SECTION_BUILDERS``, and neither branch of
+# ``build_section_payload`` forwards the kwarg (only ``activity`` and
+# the aggregate walk do).  A section that DOES consume it must not be
+# added here without putting it in the cache key.
 #
 # The file-backed ROS sections are deliberately NOT cached here: they are
 # cheap file reads in the common case, and caching them by snapshot
 # identity would hide fresh results the ROS publisher writes between
 # snapshot refreshes.  They read their artifact fresh on every request.
-_HEAVY_SECTION_KEYS = frozenset({"playoffOdds"})
+_HEAVY_SECTION_KEYS = frozenset({"playoffOdds", "archives"})
 _heavy_section_cache: dict = {}
 _heavy_section_async_locks: dict = {}
 
@@ -9366,10 +9401,24 @@ async def get_public_league_section_csv(
 
     try:
         snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
-        if section in _HEAVY_SECTION_KEYS:
-            # playoffOdds.csv: reuse the single-flighted / cached payload
-            # (heavy sections take no owner/kind qualifier), then serialize
-            # to CSV in the worker.
+        if section in _HEAVY_SECTION_KEYS and not kind and not owner:
+            # Reuse the single-flighted / cached payload, then serialize to
+            # CSV in the worker.
+            #
+            # The qualifier check is load-bearing, not defensive padding:
+            # this branch never FORWARDS a qualifier, which was invisible
+            # while ``playoffOdds`` (which takes none) was the only heavy
+            # section.  ``archives`` DOES take ``?kind=`` — and
+            # ``public_csv_export.export_section`` falls back to trades for
+            # a missing kind, so without this a request for
+            # ``archives.csv?kind=waivers`` would return a trades CSV with
+            # a 200 and nothing saying a qualifier had been ignored.  A
+            # qualified request drops to the uncached branch below, which
+            # honours it; that is the rarer path, and correctness beats the
+            # memo there.  ``owner`` is included for the same reason even
+            # though no heavy section reads it today — the predicate should
+            # match the stated rule, or the next section added here
+            # reintroduces the bug.
             payload = await _get_heavy_section_payload(snapshot, section)
 
             def _export():

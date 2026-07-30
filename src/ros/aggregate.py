@@ -33,6 +33,7 @@ in ``src/ros/scrape.py`` and ``src/ros/api.py``.
 
 from __future__ import annotations
 
+import logging
 import statistics
 from dataclasses import dataclass, field
 from typing import Any, Iterable
@@ -42,6 +43,8 @@ from src.ros.parse import (
     rank_to_score,
 )
 
+
+LOG = logging.getLogger("ros.aggregate")
 
 VOLATILITY_THRESHOLD = 18.0  # 0-100 scale; stddev above this flags volatile
 DEFAULT_TIER_QUINTILES = 5
@@ -150,6 +153,17 @@ def aggregate(
         )
         if weight <= 0:
             continue
+        # One vote per (source, player).  ``weight`` above is computed once
+        # for the SOURCE, then added below once per ROW — so a source that
+        # lists the same player twice silently doubles that vendor's say.
+        # That is not hypothetical: the DraftSharks ROS adapter
+        # concatenated two of the vendor's own boards over an identical
+        # 978-player universe, taking 67.4% of the blend against an
+        # intended 50.8% and inflating ``sourceCount``/``confidence`` on
+        # 939 of 1084 players for a year (audit 2026-07-30).  The adapter
+        # is fixed; this guard is here so the next one cannot reintroduce
+        # it.  First row wins — adapters put their primary board first.
+        seen_in_source: set[str] = set()
         for row in snap.rows:
             if not row.canonical_name:
                 continue
@@ -167,6 +181,18 @@ def aggregate(
             score = rank_to_score(row.rank, row.total_ranked)
             if score <= 0:
                 continue
+            # Checked here rather than at the top of the loop so a row that
+            # scores 0 (and contributes nothing) cannot claim the slot and
+            # shut out a scoreable duplicate behind it.
+            if row.canonical_name in seen_in_source:
+                LOG.warning(
+                    "[ros] %s emitted %r more than once — keeping the first "
+                    "scoring row; a source gets one vote per player.",
+                    snap.source_key,
+                    row.canonical_name,
+                )
+                continue
+            seen_in_source.add(row.canonical_name)
             acc = accs.get(row.canonical_name)
             if acc is None:
                 acc = _PlayerAcc(
@@ -204,10 +230,17 @@ def aggregate(
         ros_value = acc.weighted_score_sum / acc.weight_sum
         stddev = statistics.pstdev(acc.raw_scores) if len(acc.raw_scores) > 1 else 0.0
         median_rank = statistics.median(acc.ranks) if acc.ranks else None
+        # DISTINCT sources, not rows.  ``sourceCount`` is the number the UI
+        # shows as "N sources agree" and the number ``ros-index.js`` breaks
+        # duplicate-row ties on, so counting rows lets one vendor's second
+        # board read as independent corroboration.  The per-source dedup
+        # above makes these equal today; this keeps them equal by
+        # construction rather than by the loop above staying correct.
+        source_count = len({c["sourceKey"] for c in acc.contributors})
         # Confidence: combines source count (saturates at 4),
         # agreement (1 - stddev/SD_REFERENCE), and freshness
         # (% of contributors not stale).
-        source_count_factor = min(1.0, len(acc.ranks) / 4.0)
+        source_count_factor = min(1.0, source_count / 4.0)
         agreement_factor = max(0.0, 1.0 - stddev / 30.0)
         freshness_factor = 1.0 - (acc.stale_count / acc.total_count) if acc.total_count else 0.0
         confidence = round(
@@ -219,7 +252,7 @@ def aggregate(
                 "canonicalName": acc.canonical_name,
                 "position": acc.position,
                 "rosValue": round(ros_value, 2),
-                "sourceCount": len(acc.ranks),
+                "sourceCount": source_count,
                 "sourceMinRank": min(acc.ranks),
                 "sourceMaxRank": max(acc.ranks),
                 "sourceMedianRank": float(median_rank) if median_rank is not None else None,

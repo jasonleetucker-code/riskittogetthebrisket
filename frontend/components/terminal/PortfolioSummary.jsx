@@ -42,14 +42,18 @@ function formatPct(v) {
  *   - Positional allocation (value-weighted stack)
  *   - Age mix (value-weighted segments)
  *   - Volatility exposure (value-weighted segments)
- *   - Starting XI (top 10 starters as clickable chips)
+ *   - Starters — EVERY filled lineup slot, in the league's own slot
+ *     order, as clickable chips.  Not a top-N by value: that ordering
+ *     put all the offense first, so a display cap silently removed the
+ *     defense (11 of 12 teams rendered zero DBs).  The chip shows the
+ *     SLOT, so 3 DL + 3 LB + 3 DB is legible.
  *
  * All numbers trace back to contract fields or named derived metrics.
  * No fake data, no filler chips.
  */
 export default function PortfolioSummary() {
   const { rows, rawData, openPlayerPopup } = useApp();
-  const { selectedTeam, idpEnabled, loading: teamLoading } = useTeam();
+  const { selectedTeam, idpEnabled, rosterSettings, loading: teamLoading } = useTeam();
   // IDP gating: skip the IDP positional bucket (and any IDP rows in
   // the positional stack) for leagues that don't support IDP.  The
   // portfolio computation still runs globally on the contract; we
@@ -78,8 +82,8 @@ export default function PortfolioSummary() {
   });
 
   const localPortfolio = useMemo(
-    () => computePortfolio({ rows, selectedTeam, rawData, history }),
-    [rows, selectedTeam, rawData, history],
+    () => computePortfolio({ rows, selectedTeam, rawData, history, rosterSettings }),
+    [rows, selectedTeam, rawData, history, rosterSettings],
   );
 
   // Merge: prefer server-computed sub-sections when present; fall
@@ -130,7 +134,9 @@ export default function PortfolioSummary() {
     benchValue,
     starterCount,
     benchCount,
-    starters,
+    starterAssignments,
+    lineupFromLeague,
+    lineupKnown,
     pickCount,
     pickValue,
     byPosition,
@@ -164,6 +170,18 @@ export default function PortfolioSummary() {
             </span>
           )}
         </div>
+        {/* The split bar is a claim about which players start, so it
+            must not present a guessed lineup as a measurement. Silence
+            here is what let a contract with teams but no rosterPositions
+            render 40.1% starters (offence-only, all 12 defenders
+            benched) as if it were the real 68.1%. */}
+        {!lineupFromLeague && (
+          <p className="portfolio-lineup-note" role="note">
+            {lineupKnown
+              ? "Lineup from league settings — the live roster positions weren't in this contract."
+              : "Lineup unknown for this league, so no starter/bench split can be computed."}
+          </p>
+        )}
         <div className="portfolio-split" aria-label="Starter vs bench value">
           <div className="portfolio-split-bar">
             <span
@@ -310,22 +328,41 @@ export default function PortfolioSummary() {
         </div>
       </section>
 
-      {/* ── Starters list ── */}
-      {starters.length > 0 && (
+      {/* ── Starters list ──
+          Walks ``starterAssignments`` (SLOT order, the league's own),
+          not ``starters`` (value-descending), and renders every filled
+          slot rather than a top-N.
+
+          Both halves of that matter. This used to be
+          ``starters.slice(0, 12)``: 12 of 20 filled slots, taken from a
+          value-sorted list. IDP values sit far below offense on the
+          blended board, so the truncation ate the defense — measured on
+          the 2026-07-30 snapshot, 11 of 12 teams showed ZERO defensive
+          backs and most showed one or no linebackers, in a league that
+          starts three of each. The lineup is 20 players; showing it is
+          the panel's job. */}
+      {starterAssignments.length > 0 && (
         <section className="portfolio-section">
           <h3 className="portfolio-section-title">
-            Starters <span className="portfolio-section-hint">click to open</span>
+            Starters{" "}
+            <span className="portfolio-section-hint">
+              {lineupFromLeague ? "click to open" : "from league settings"}
+            </span>
           </h3>
           <ul className="portfolio-starters">
-            {starters.slice(0, 12).map((p) => (
-              <li key={p.name}>
+            {starterAssignments.map(({ slot, asset: p }, i) => (
+              <li key={`${slot}-${p.name}-${i}`}>
                 <button
                   type="button"
                   className="portfolio-starter"
                   onClick={() => openPlayerPopup?.(p.name)}
-                  title={`${p.name} — ${formatValue(p.value)}`}
+                  title={`${slot} — ${p.name} — ${formatValue(p.value)}`}
                 >
-                  <span className="portfolio-starter-pos">{p.pos}</span>
+                  {/* The SLOT this player fills, which is what the lineup
+                      is made of. ``p.pos`` collapses every defender to a
+                      generic "IDP", so nine chips would read the same
+                      token and you could not see 3 DL + 3 LB + 3 DB. */}
+                  <span className="portfolio-starter-pos">{slot}</span>
                   <span className="portfolio-starter-name">{p.name}</span>
                   <span className="portfolio-starter-value">{formatValue(p.value)}</span>
                 </button>
