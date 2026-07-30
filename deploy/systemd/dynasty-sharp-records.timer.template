@@ -1,0 +1,23 @@
+[Unit]
+Description=Daily Sharp Tracker season-records crawl for __SERVICE_NAME__
+# No Requires= on the service: [Timer] Unit= already binds it, and a
+# [Unit] Requires= would start the service on every boot regardless of
+# OnCalendar and let a service failure stop the timer itself.
+# Persistent=true is the intended catch-up for missed runs.
+
+[Timer]
+# Daily at 04:50 UTC — 30 minutes AFTER the discovery crawl, because
+# this pass reads the sharp-eligible league list discovery produces.
+# Running it first would crawl records for a league set one day stale.
+# Season records change at most weekly in-season and not at all in the
+# offseason, but the crawl is budgeted and resumable, so a daily pass
+# is really "keep chewing through the backlog" rather than "re-read
+# everything".
+OnCalendar=*-*-* 04:50:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-sharp-records.service
+
+[Install]
+WantedBy=timers.target

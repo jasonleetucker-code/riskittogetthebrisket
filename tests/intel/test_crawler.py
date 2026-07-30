@@ -352,11 +352,14 @@ class TestPickHoldings:
         assert len(out6["1"]) == 18  # clamped to 6 rounds
 
     def test_crawl_folds_pick_holdings_into_member_holdings(self):
-        from datetime import datetime, timezone
 
         from src.intel import service
 
-        now_year = datetime.fromtimestamp(NOW_MS / 1000, tz=timezone.utc).year
+        # D9: the pick horizon anchors on the LEAGUE'S SEASON, not the
+        # wall clock — Sleeper rolls a league over around Aug/Sept, so
+        # the two disagree for most of the calendar.  make_league's
+        # default season is what the crawl will use.
+        now_year = int(make_league("x")["season"])
         league = make_league("L1")
         league["settings"] = {"draft_rounds": 2}
         responses = _base_responses()
@@ -428,9 +431,12 @@ class TestPickHoldings:
         assert len({e["eventId"] for e in events}) == 4
 
     def test_traded_picks_failure_never_fabricates_defaults(self):
-        from datetime import datetime, timezone
 
-        now_year = datetime.fromtimestamp(NOW_MS / 1000, tz=timezone.utc).year
+        # D9: the pick horizon anchors on the LEAGUE'S SEASON, not the
+        # wall clock — Sleeper rolls a league over around Aug/Sept, so
+        # the two disagree for most of the calendar.  make_league's
+        # default season is what the crawl will use.
+        now_year = int(make_league("x")["season"])
         league = make_league("L1")
         league["settings"] = {"draft_rounds": 1}
         responses = _base_responses()

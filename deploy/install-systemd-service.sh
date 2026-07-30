@@ -415,7 +415,14 @@ main() {
       bdvm_needs_install=true
     fi
 
-    if [[ "${bdvm_needs_install}" == "true" ]]; then
+    if [[ "${sharprec_needs_install}" == "true" ]]; then
+    # --now arms the daily timer.  No initial kick: the discovery crawl
+    # kicked above must populate the sharp-eligible league list first,
+    # and the 04:50 slot already sequences this after it.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharprec_service_name}.timer"
+    log "Enabled ${sharprec_service_name}.timer"
+  fi
+  if [[ "${bdvm_needs_install}" == "true" ]]; then
       local tmp_bdvm_service tmp_bdvm_timer
       tmp_bdvm_service="$(mktemp)"
       tmp_bdvm_timer="$(mktemp)"
@@ -483,6 +490,57 @@ main() {
       sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharp_timer}" "${sharp_timer_path}"
       rm -f "${tmp_sharp_service}" "${tmp_sharp_timer}"
       log "Installed ${sharp_service_name}.service + .timer"
+    fi
+  fi
+
+  # ── Sharp Tracker season-records timer ─────────────────────────────
+  # Grows the Sharp Tracker cohort by walking Sleeper outward from the
+  # seeds in config/sharp/discovery_seeds.json.  Writes the SQLite
+  # ledger under data/intel/ — gitignored, so like playerctx and BDVM
+  # the producer must run where the reader lives.  Needs NO credentials
+  # (Sleeper's read API is public and unauthenticated), so this installs
+  # unconditionally whenever both templates are present.
+  #
+  # The unit treats exit 2 as success: "budget exhausted with frontier
+  # remaining" is the NORMAL steady state on a compounding graph, not a
+  # failure — the next run resumes where this one stopped.
+  local sharprec_service_template="${APP_DIR}/deploy/systemd/dynasty-sharp-records.service.template"
+  local sharprec_timer_template="${APP_DIR}/deploy/systemd/dynasty-sharp-records.timer.template"
+  local sharprec_service_name="${SERVICE_NAME}-sharp-records"
+  local sharprec_service_path="/etc/systemd/system/${sharprec_service_name}.service"
+  local sharprec_timer_path="/etc/systemd/system/${sharprec_service_name}.timer"
+  local sharprec_needs_install=false
+
+  if [[ -f "${sharprec_service_template}" && -f "${sharprec_timer_template}" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${sharprec_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${sharprec_service_path} + timer."
+        sharprec_needs_install=true
+      else
+        log "Sharp-records timer already installed; skipping."
+      fi
+    else
+      log "Installing Sharp Tracker season-records service + timer."
+      sharprec_needs_install=true
+    fi
+
+    if [[ "${sharprec_needs_install}" == "true" ]]; then
+      local tmp_sharprec_service tmp_sharprec_timer
+      tmp_sharprec_service="$(mktemp)"
+      tmp_sharprec_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+        "${sharprec_service_template}" > "${tmp_sharprec_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${sharprec_timer_template}" > "${tmp_sharprec_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharprec_service}" "${sharprec_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharprec_timer}" "${sharprec_timer_path}"
+      rm -f "${tmp_sharprec_service}" "${tmp_sharprec_timer}"
+      log "Installed ${sharprec_service_name}.service + .timer"
     fi
   fi
 
@@ -715,6 +773,13 @@ main() {
     log "Enabled ${sharp_service_name}.timer"
     sudo -n "${SYSTEMCTL_BIN}" start --no-block "${sharp_service_name}.service" || \
       log "Note: initial sharp-discovery crawl could not be started; the timer will cover it."
+  fi
+  if [[ "${sharprec_needs_install}" == "true" ]]; then
+    # --now arms the daily timer.  No initial kick: the discovery crawl
+    # kicked above must populate the sharp-eligible league list first,
+    # and the 04:50 slot already sequences this after it.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharprec_service_name}.timer"
+    log "Enabled ${sharprec_service_name}.timer"
   fi
   if [[ "${bdvm_needs_install}" == "true" ]]; then
     # --now arms the timer immediately; the FIRST snapshots are built

@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.intel import ledger
-from src.sharp import discovery
+from src.sharp import discovery, records
 from src.sharp import score as sharp_score
 
 log = logging.getLogger(__name__)
@@ -34,16 +34,31 @@ def _utc_now_iso() -> str:
 
 
 def load_manager_records() -> list[sharp_score.ManagerRecord]:
-    """Manager records for scoring.
+    """Manager records for scoring, from the season-records crawl.
 
-    Returns empty until the discovery + season-history job exists.  It
-    deliberately does NOT synthesise records from the ledger's
-    transaction rows alone: the Sharp Score's eligibility gates need
-    completed-season history (records, playoff results, championships)
-    that transactions simply do not contain, and scoring managers on
-    partial inputs would qualify people on the wrong evidence.
+    Built ONLY from completed, sharp-eligible seasons — see
+    ``records.build_manager_records``.  It deliberately does not
+    synthesise records from transaction rows: the eligibility gates need
+    completed-season history (W/L, playoff results, championships) that
+    transactions do not contain, and scoring on partial inputs would
+    qualify people on the wrong evidence.
+
+    Empty until the records crawl has run, which is the honest
+    ``cohort_building`` state rather than a fabricated cohort.
     """
-    return []
+    try:
+        return records.build_manager_records()
+    except Exception:  # noqa: BLE001 — status must not 500
+        log.exception("sharp: manager records unavailable")
+        return []
+
+
+def _records_coverage() -> dict[str, Any]:
+    try:
+        return records.records_coverage()
+    except Exception:  # noqa: BLE001
+        log.exception("sharp: records coverage failed")
+        return {}
 
 
 def cohort_status() -> dict[str, Any]:
@@ -68,8 +83,8 @@ def cohort_status() -> dict[str, Any]:
         log.exception("sharp: graph stats failed")
         graph = {}
 
-    records = load_manager_records()
-    scored = sharp_score.score_managers(records) if records else []
+    manager_records = load_manager_records()
+    scored = sharp_score.score_managers(manager_records) if manager_records else []
     tiers = (
         sharp_score.cohort_tiers(scored)
         if scored
@@ -80,6 +95,21 @@ def cohort_status() -> dict[str, Any]:
             "uncertainManagers": 0,
         }
     )
+    if scored:
+        # OBSERVABLE means every manager the discovery graph has reached
+        # — not merely those we have records for.  cohort_tiers can only
+        # count what it was handed, so it reports the scoreable subset
+        # and would understate the population by ~4x.  The gap between
+        # observable and scoreable IS the coverage story, so it is
+        # reported rather than flattened.
+        observable = graph.get("observedUsers") or 0
+        scoreable = tiers["observableManagers"]
+        tiers["observableManagers"] = max(observable, scoreable)
+        tiers["managersWithRecords"] = scoreable
+        total = tiers["observableManagers"]
+        tiers["qualifiedShareOfObservable"] = (
+            round(tiers["qualifiedManagers"] / total, 4) if total else None
+        )
 
     status = STATUS_OK if tiers.get("qualifiedManagers", 0) > 0 else STATUS_BUILDING
     return {
@@ -98,6 +128,7 @@ def cohort_status() -> dict[str, Any]:
             "observedTransactions": coverage.get("transactionCount", 0),
         },
         "graph": graph,
+        "records": _records_coverage(),
         "coverage": coverage,
         "note": (
             "Sleeper publishes no global directory of users or leagues, so this "

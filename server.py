@@ -5169,7 +5169,14 @@ async def post_waiver_faab_recommend(request: Request):
     # regardless of contention so ``inputsAsOf.intel`` is honest.
     # Snapshots are LEAGUE-PARTITIONED (intel is roster-scoped →
     # league-scoped), so the resolved league's partition is read.
-    intel_snapshot = _faab_contention.load_intel_snapshot(league_key=league_cfg.key)
+    # Threadpooled like every other I/O in this handler: it reads (and
+    # JSON-parses) a snapshot file that grows with pool activity, and a
+    # synchronous read here blocks the event loop for every other
+    # request in flight.  D11 in docs/intel/AUDIT.md — the surrounding
+    # calls were already wrapped and this one was simply missed.
+    intel_snapshot = await run_in_threadpool(
+        _faab_contention.load_intel_snapshot, league_key=league_cfg.key
+    )
     intel_as_of = intel_snapshot.get("generatedAt") if isinstance(intel_snapshot, dict) else None
 
     # Rival contention (FAAB v2).  Requires a ``teamOwnerId`` that
@@ -12065,6 +12072,55 @@ _INTEL_DEFAULT_WINDOW = "30d"
 _INTEL_ALLOWED_WINDOWS = ("7d", "30d", "90d", "all")
 _INTEL_ALLOWED_SORTS = ("net", "volume", "buys", "sells", "strength", "velocity")
 
+# ── Manual-refresh cooldown (D13) ────────────────────────────────────
+#
+# A refresh spends hundreds of budgeted Sleeper calls over several
+# minutes.  The process lock stops CONCURRENT crawls (409), but nothing
+# stopped a signed-in user from re-triggering the moment each run
+# finished — an unbounded serial drain on someone else's API, from any
+# account with a session.
+#
+# So manual triggers get a per-user cooldown.  The CRON IS EXEMPT: it
+# authenticates by bearer token and is the intended scheduled driver,
+# and throttling it would defeat the schedule it exists to keep.
+_INTEL_MANUAL_REFRESH_COOLDOWN_SEC = float(os.getenv("INTEL_MANUAL_REFRESH_COOLDOWN_SEC", "600"))
+_intel_manual_refresh_at: dict[str, float] = {}
+_intel_manual_refresh_lock = threading.Lock()
+
+
+def _intel_refresh_cooldown_remaining(user_key: str) -> int:
+    """Seconds left on this user's cooldown, 0 when clear."""
+    if _INTEL_MANUAL_REFRESH_COOLDOWN_SEC <= 0:
+        return 0
+    now = time.monotonic()
+    with _intel_manual_refresh_lock:
+        last = _intel_manual_refresh_at.get(user_key)
+    if last is None:
+        return 0
+    elapsed = now - last
+    if elapsed >= _INTEL_MANUAL_REFRESH_COOLDOWN_SEC:
+        return 0
+    return int(_INTEL_MANUAL_REFRESH_COOLDOWN_SEC - elapsed) + 1
+
+
+def _intel_refresh_mark_triggered(user_key: str) -> None:
+    """Stamp the cooldown.  Called only AFTER a crawl actually starts,
+    so a 409 (someone else already crawling) does not burn the caller's
+    window for work they never got."""
+    with _intel_manual_refresh_lock:
+        _intel_manual_refresh_at[user_key] = time.monotonic()
+        # Bound the dict — this is a long-lived process and the key set
+        # grows with distinct users.
+        if len(_intel_manual_refresh_at) > 512:
+            cutoff = time.monotonic() - _INTEL_MANUAL_REFRESH_COOLDOWN_SEC
+            for key in [k for k, v in _intel_manual_refresh_at.items() if v < cutoff]:
+                _intel_manual_refresh_at.pop(key, None)
+
+
+def _intel_refresh_reset_for_tests() -> None:
+    with _intel_manual_refresh_lock:
+        _intel_manual_refresh_at.clear()
+
 
 # Rate limit for the bearer-rejection warnings below: they fire on
 # UNAUTHENTICATED requests, so an unthrottled log line would be a
@@ -12328,12 +12384,47 @@ async def post_intel_refresh(request: Request):
     ``?leagueKey=all`` refreshes every ACTIVE registry league
     sequentially (the cron's mode); any other key resolves through
     the standard league resolver."""
-    if not _intel_bearer_auth_ok(request) and not _get_auth_session(request):
+    is_cron = _intel_bearer_auth_ok(request)
+    session = None if is_cron else _get_auth_session(request)
+    if not is_cron and not session:
         return JSONResponse(
             status_code=401,
             content={"error": "auth_required", "message": "Sign-in or bearer token required."},
             headers={"Cache-Control": "no-store"},
         )
+
+    # D13: per-user cooldown on MANUAL triggers.  The cron (bearer) is
+    # exempt — it is the intended scheduled driver.  A crawl is minutes
+    # of budgeted Sleeper calls, and the process lock only prevented
+    # concurrent runs, not a user re-triggering after each one finished.
+    cooldown_key = ""
+    if not is_cron:
+        cooldown_key = (
+            str((session or {}).get("username") if isinstance(session, dict) else session)
+            or "anonymous"
+        )
+        # ORDER MATTERS: "a crawl is already running" is both the more
+        # informative answer and the more actionable one, so 409 wins
+        # when both apply.  Checking the cooldown first turned every
+        # mid-crawl retry into an opaque 429.  The gap between this
+        # check and the start below is racy, but the process lock still
+        # guarantees correctness — the worst case is a 429 where a 409
+        # would have read better.
+        already_running = bool(_intel_service.refresh_status().get("isRunning"))
+        remaining = 0 if already_running else _intel_refresh_cooldown_remaining(cooldown_key)
+        if remaining > 0:
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "refresh_cooldown",
+                    "message": (
+                        f"A manual refresh was triggered recently. Try again in "
+                        f"{remaining}s, or wait for the daily crawl."
+                    ),
+                    "retryAfterSeconds": remaining,
+                },
+                headers={"Cache-Control": "no-store", "Retry-After": str(remaining)},
+            )
 
     # ``leagueKey=all`` — refresh EVERY active league sequentially
     # under the single crawl lock.  This is what the daily cron
@@ -12369,6 +12460,8 @@ async def post_intel_refresh(request: Request):
                 },
                 headers={"Cache-Control": "no-store"},
             )
+        if cooldown_key:
+            _intel_refresh_mark_triggered(cooldown_key)
         return JSONResponse(
             status_code=202,
             content={
@@ -12399,6 +12492,8 @@ async def post_intel_refresh(request: Request):
             },
             headers={"Cache-Control": "no-store"},
         )
+    if cooldown_key:
+        _intel_refresh_mark_triggered(cooldown_key)
     return JSONResponse(
         status_code=202,
         content={
