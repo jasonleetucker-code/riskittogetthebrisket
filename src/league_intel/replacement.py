@@ -279,15 +279,28 @@ def measure_endogenous_starters(
             # is real and is recorded — ``slot_fill`` below shows exactly
             # 36 DL / 36 LB / 36 DB, 3 per team.
             #
-            # But this count exists to INDEX A POOL, and the pool is keyed
-            # by nominal position: ``compute_scarcity`` builds ``by_pos``
-            # from ``normalize_base_position(player["position"])`` and
-            # then uses ``starters_n`` to find the median starter inside
-            # it.  Counting by slot instead would index a pool of
-            # nominal-DLs with a number derived from DL *slots* — the two
-            # stop denoting the same set the moment one hybrid moves, and
-            # ``lineupScarcity`` (the only live axis of the
-            # league-adjusted overlay) is computed off that index.
+            # But these numbers exist to describe A POOL, and the pool is
+            # keyed by nominal position: ``compute_scarcity`` builds
+            # ``by_pos`` from ``normalize_base_position(player["position"])``.
+            # Two separate consumers depend on that correspondence, and it
+            # is worth naming them precisely rather than hand-waving at
+            # "scarcity" — a vague justification is what invites the next
+            # reader to re-open this:
+            #
+            #   * ``starters_per_team`` → ``starters_n`` → ``pool[:n]`` →
+            #     ``median_starter``, which feeds ``eliteSeparation`` and
+            #     ``starterSeparation``.  Slicing a pool of nominal-DLs
+            #     with a count derived from DL *slots* mismatches
+            #     numerator and denominator.
+            #   * ``marginal_starter_values`` → the ``starter``
+            #     replacement tier → ``lineupScarcity``, which IS the live
+            #     axis of the league-adjusted overlay.  Note it reaches
+            #     that axis through the MARGINALS, not through
+            #     ``starters_n`` — an earlier version of this comment said
+            #     otherwise and was wrong.
+            #
+            # Both are keyed nominally, so switching attribution to the
+            # slot breaks both.
             #
             # The question this answers is "how many DL-pool bodies do
             # lineups consume", which is what a replacement level needs.

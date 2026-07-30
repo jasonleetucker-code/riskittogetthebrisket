@@ -7,7 +7,7 @@ import {
   buildHistoryLookup,
 } from "@/lib/value-history";
 import { buildPickLookupCandidates } from "@/lib/trade-logic";
-import { fillLineup, lineupPosition } from "@/lib/starter-slots";
+import { fillLineup, lineupPosition, slotsFromStarterCounts } from "@/lib/starter-slots";
 
 /** First contract row matching any candidate key, or null. */
 function resolveByCandidates(byName, candidates) {
@@ -81,27 +81,29 @@ function pct(part, whole) {
   return Math.round((part / whole) * 1000) / 10;
 }
 
-// The lineup this module assumes when the contract gave us no
-// ``sleeper.rosterPositions``.  It is a 9-slot, non-IDP guess and it is
-// WRONG for both live leagues — it undercounts dynasty_main's 21-slot
-// lineup by 12.  It is kept only because /terminal's starter-share
-// panels are a defensive fallback that should degrade to a plausible
-// shape rather than to zero starters (see the module docstring above).
+// NO LITERAL FALLBACK LINEUP.  This used to hold a 9-slot offence-only
+// default used whenever the contract lacked ``sleeper.rosterPositions``,
+// justified as "degrade to a plausible shape".  It was neither plausible
+// nor necessary:
 //
-// /rosters deliberately does NOT take this route: it says so on screen
-// instead, because its starter board is a ranked comparison across 12
-// teams and a wrong lineup silently reorders it.
-const DEFAULT_FALLBACK_SLOTS = [
-  "QB",
-  "RB",
-  "RB",
-  "WR",
-  "WR",
-  "WR",
-  "TE",
-  "FLEX",
-  "SUPER_FLEX",
-];
+//   * Measured by running this module both ways on one 29-player roster,
+//     it produced 9 starters — QB2 RB3 WR3 TE1 and ZERO DL / LB / DB, all
+//     12 defenders benched — where the real lineup gives 20 starters
+//     including 3 / 3 / 3.  The split bar read 40.1% against a true
+//     68.1%.  Offense was wrong too (TE 1, not 2).
+//   * It was reachable in production, and stickily so.  ``fetch_sleeper_
+//     rosters`` gets teams and the lineup from two DIFFERENT Sleeper
+//     endpoints, and only the lineup call sits in a bare ``except: pass``
+//     with ``roster_positions`` pre-set to ``[]`` — so one timeout on
+//     that endpoint alone yields teams-present / lineup-empty.
+//   * And the league's real lineup was one destructure away the whole
+//     time: ``useTeam()`` already returns ``rosterSettings`` from
+//     ``/api/leagues``, and ``PortfolioSummary`` already calls it.
+//
+// So the ladder is now the same one BDVM already set
+// (``src/bdvm/league_config.py``) and that /rosters follows: live host
+// (``sleeper.rosterPositions``) → registry (``rosterSettings.starters``)
+// → refuse and say so.  Never a literal.
 
 /**
  * Starter / bench split for the terminal's portfolio panels.
@@ -118,14 +120,17 @@ const DEFAULT_FALLBACK_SLOTS = [
  * for.  ``pos`` is still what ``byPosition`` allocates against, which is
  * why both fields exist.
  */
-function splitStartersBench({ rosterValues, sleeperRosterPositions }) {
-  const { starters, bench, assignments, usedFallback } = fillLineup({
+function splitStartersBench({ rosterValues, sleeperRosterPositions, rosterSettings }) {
+  const { starters, bench, assignments, usedFallback, available } = fillLineup({
     assets: rosterValues,
     rosterPositions: sleeperRosterPositions,
     // ``|| p.pos`` only for callers that predate ``lineupPos``; every
     // row built by ``computePortfolio`` carries it.
     positionOf: (p) => p.lineupPos || p.pos,
-    fallbackSlots: DEFAULT_FALLBACK_SLOTS,
+    // Rung two of the ladder — the registry's own lineup, not a guess.
+    // Omitted entirely when the registry has nothing either, so
+    // ``available: false`` propagates and the panel says so.
+    fallbackSlots: slotsFromStarterCounts(rosterSettings?.starters),
   });
   return {
     starters,
@@ -134,11 +139,15 @@ function splitStartersBench({ rosterValues, sleeperRosterPositions }) {
     // is value-descending, and truncating that to fit a panel drops the
     // defense — IDP values sit far below offense on the blended board.
     starterAssignments: assignments,
-    // False only when the contract carried no lineup and we fell back to
-    // DEFAULT_FALLBACK_SLOTS, which has no IDP slots at all.  Surfaced so
-    // the panel can say so instead of showing an offence-only lineup as
-    // if it were the league's.
-    lineupFromLeague: !usedFallback,
+    // Which rung of the truth ladder produced this lineup, so the panel
+    // can be honest about it:
+    //   lineupFromLeague true        -> the league's live rosterPositions
+    //   false + lineupKnown true     -> the registry's rosterSettings
+    //   both false                   -> no lineup at all; nobody starts,
+    //                                   and the panel must say so rather
+    //                                   than render 0% as a measurement
+    lineupFromLeague: !usedFallback && available,
+    lineupKnown: available,
     starterCount: starters.length,
     benchCount: bench.length,
     starterValue: sumValue(starters),
@@ -156,8 +165,11 @@ function splitStartersBench({ rosterValues, sleeperRosterPositions }) {
  *                   the lineup-slot ARRAY, distinct from
  *                   sleeper.positions which is the player→position map)
  *   - history       rank-history map (name -> [{date, rank}])
+ *   - rosterSettings the registry's roster settings (from ``useTeam()``),
+ *                   used ONLY as the lineup fallback when the contract
+ *                   carries no rosterPositions
  */
-export function computePortfolio({ rows, selectedTeam, rawData, history }) {
+export function computePortfolio({ rows, selectedTeam, rawData, history, rosterSettings }) {
   const hasPlayers = !!selectedTeam?.players?.length;
   const hasPicks = !!selectedTeam?.picks?.length;
   if ((!hasPlayers && !hasPicks) || !Array.isArray(rows)) {
@@ -281,6 +293,7 @@ export function computePortfolio({ rows, selectedTeam, rawData, history }) {
   const starterSplit = splitStartersBench({
     rosterValues: lineupEligible,
     sleeperRosterPositions,
+    rosterSettings,
   });
   const picks = rosterValues.filter((p) => p.isPick);
   const pickValue = sumValue(picks);

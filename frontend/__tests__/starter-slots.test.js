@@ -15,7 +15,12 @@
  * `sleeper.rosterPositions` on the live contract.
  */
 import { describe, expect, it } from "vitest";
-import { fillLineup, lineupPosition, lineupSlots } from "@/lib/starter-slots";
+import {
+  fillLineup,
+  lineupPosition,
+  lineupSlots,
+  slotsFromStarterCounts,
+} from "@/lib/starter-slots";
 import { computePortfolio } from "@/lib/portfolio-insights";
 import {
   buildAllTeamSummaries,
@@ -377,6 +382,54 @@ describe("an IDP-stacked roster starts 3 at EACH position, not 9 defenders", () 
   });
 });
 
+describe("slotsFromStarterCounts — the registry rung of the ladder", () => {
+  const DYNASTY_MAIN_STARTERS = {
+    QB: 1, RB: 2, WR: 3, TE: 2, FLEX: 2, SFLEX: 1, K: 1,
+    DL: 3, LB: 3, DB: 3, IDP_FLEX: 0,
+  };
+
+  it("expands the registry map into the league's 21 slots", () => {
+    const slots = slotsFromStarterCounts(DYNASTY_MAIN_STARTERS);
+    expect(slots).toHaveLength(21);
+    expect(slots.filter((s) => s === "DL")).toHaveLength(3);
+    expect(slots.filter((s) => s === "LB")).toHaveLength(3);
+    expect(slots.filter((s) => s === "DB")).toHaveLength(3);
+  });
+
+  it("maps the registry's SFLEX onto Sleeper's SUPER_FLEX", () => {
+    // FLEX_POOLS knows SUPER_FLEX, not SFLEX. Left unmapped, the slot
+    // falls to the strict pass, matches a position token nobody has and
+    // silently goes unfilled — one fewer starter and no error anywhere.
+    const slots = slotsFromStarterCounts(DYNASTY_MAIN_STARTERS);
+    expect(slots).toContain("SUPER_FLEX");
+    expect(slots).not.toContain("SFLEX");
+  });
+
+  it("drops zero-count slots such as this league's IDP_FLEX", () => {
+    expect(slotsFromStarterCounts(DYNASTY_MAIN_STARTERS)).not.toContain("IDP_FLEX");
+  });
+
+  it("returns [] for a missing or empty map so the caller can refuse", () => {
+    expect(slotsFromStarterCounts(null)).toEqual([]);
+    expect(slotsFromStarterCounts({})).toEqual([]);
+    expect(slotsFromStarterCounts(undefined)).toEqual([]);
+  });
+
+  it("fills the same lineup the live rosterPositions array does", () => {
+    const roster = squad([
+      ["QB", 3, 900], ["RB", 4, 800], ["WR", 5, 700], ["TE", 3, 600],
+      ["DL", 4, 500], ["LB", 4, 400], ["DB", 4, 300],
+    ]);
+    const opts = { assets: roster, positionOf: (p) => p.group };
+    const live = fillLineup({ ...opts, rosterPositions: DYNASTY_MAIN_SLOTS });
+    const registry = fillLineup({
+      ...opts,
+      rosterPositions: slotsFromStarterCounts(DYNASTY_MAIN_STARTERS),
+    });
+    expect(new Set(registry.starters)).toEqual(new Set(live.starters));
+  });
+});
+
 describe("computePortfolio (/terminal) fills on the resolved position", () => {
   it("starts 3 LB, 3 DL and 3 DB from an LB-heavy roster", () => {
     const players = [
@@ -403,6 +456,65 @@ describe("computePortfolio (/terminal) fills on the resolved position", () => {
     expect(lbStarters).toHaveLength(3);
     expect(starterNames.filter((n) => n.startsWith("DL"))).toHaveLength(3);
     expect(starterNames.filter((n) => n.startsWith("DB"))).toHaveLength(3);
+  });
+
+  it("falls back to the registry lineup, never to an offence-only literal", () => {
+    // The exact production shape: a contract that HAS teams but whose
+    // rosterPositions is empty, because the Sleeper rosters call
+    // succeeded and the league call timed out. The old 9-slot literal
+    // benched all 12 defenders here and reported it as a real split.
+    const players = [
+      ...Array.from({ length: 3 }, (_, i) => ({ name: `QB${i + 1}`, pos: "QB", v: 9000 - i })),
+      ...Array.from({ length: 4 }, (_, i) => ({ name: `RB${i + 1}`, pos: "RB", v: 8000 - i })),
+      ...Array.from({ length: 4 }, (_, i) => ({ name: `WR${i + 1}`, pos: "WR", v: 7000 - i })),
+      ...Array.from({ length: 3 }, (_, i) => ({ name: `TE${i + 1}`, pos: "TE", v: 6000 - i })),
+      ...Array.from({ length: 4 }, (_, i) => ({ name: `DL${i + 1}`, pos: "DE", v: 500 - i })),
+      ...Array.from({ length: 4 }, (_, i) => ({ name: `LB${i + 1}`, pos: "LB", v: 400 - i })),
+      ...Array.from({ length: 4 }, (_, i) => ({ name: `DB${i + 1}`, pos: "CB", v: 300 - i })),
+    ];
+    const rows = players.map((p) => ({
+      name: p.name, pos: p.pos, rankDerivedValue: p.v, values: { full: p.v }, raw: {},
+    }));
+    const args = {
+      rows,
+      selectedTeam: { players: players.map((p) => p.name), picks: [] },
+      history: {},
+    };
+    const rosterSettings = {
+      starters: { QB: 1, RB: 2, WR: 3, TE: 2, FLEX: 2, SFLEX: 1, K: 1, DL: 3, LB: 3, DB: 3 },
+    };
+
+    const p = computePortfolio({
+      ...args,
+      rawData: { sleeper: { rosterPositions: [] } },
+      rosterSettings,
+    });
+
+    const names = p.starterAssignments.map((a) => a.asset.name);
+    expect(names.filter((n) => n.startsWith("DL"))).toHaveLength(3);
+    expect(names.filter((n) => n.startsWith("LB"))).toHaveLength(3);
+    expect(names.filter((n) => n.startsWith("DB"))).toHaveLength(3);
+    // ...and it says where the lineup came from rather than implying live.
+    expect(p.lineupFromLeague).toBe(false);
+    expect(p.lineupKnown).toBe(true);
+  });
+
+  it("refuses outright when neither the contract nor the registry has a lineup", () => {
+    const rows = [
+      { name: "QB1", pos: "QB", rankDerivedValue: 9000, values: { full: 9000 }, raw: {} },
+      { name: "LB1", pos: "LB", rankDerivedValue: 400, values: { full: 400 }, raw: {} },
+    ];
+    const p = computePortfolio({
+      rows,
+      selectedTeam: { players: ["QB1", "LB1"], picks: [] },
+      rawData: { sleeper: { rosterPositions: [] } },
+      history: {},
+      rosterSettings: {},
+    });
+    expect(p.lineupKnown).toBe(false);
+    expect(p.lineupFromLeague).toBe(false);
+    expect(p.starterAssignments).toEqual([]);
+    expect(p.starterCount).toBe(0);
   });
 
   it("still buckets defenders under the collapsed IDP allocation group", () => {

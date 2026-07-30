@@ -4645,6 +4645,16 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 0.64rem;
   color: var(--amber);
 }
+/* Shown above the starter/bench bar when the lineup did not come from
+   the league's live roster positions.  Amber, not red: the split is
+   still computed, just from the registry rather than the host. */
+.portfolio-lineup-note {
+  margin: 0 0 6px;
+  font-size: 0.64rem;
+  line-height: 1.35;
+  color: var(--amber);
+  max-width: 60ch;
+}
 .portfolio-split {
   flex: 1;
   min-width: 240px;

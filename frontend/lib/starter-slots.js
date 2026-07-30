@@ -163,6 +163,55 @@ function normalizeSlot(slot) {
   return STRICT_SLOT_REMAP[upper] ?? upper;
 }
 
+// The order a lineup reads in, so `assignments` renders like the league's
+// own lineup card rather than in whatever order the registry map happened
+// to serialize.
+const SLOT_DISPLAY_ORDER = [
+  "QB", "RB", "WR", "TE", "FLEX", "SUPER_FLEX", "K", "DEF",
+  "DL", "LB", "DB", "IDP_FLEX",
+];
+
+// The registry spells superflex `SFLEX`; Sleeper spells it `SUPER_FLEX`,
+// which is the spelling FLEX_POOLS knows. Without this the slot falls
+// through to the strict pass, matches a position token nobody has, and
+// silently goes unfilled — one fewer starter, no error.
+const REGISTRY_SLOT_ALIASES = {
+  SFLEX: "SUPER_FLEX",
+  SUPERFLEX: "SUPER_FLEX",
+};
+
+/**
+ * Expand a registry `rosterSettings.starters` map into a slot array.
+ *
+ * `{QB: 1, RB: 2, ..., SFLEX: 1, DL: 3}` → `["QB","RB","RB",…,"SUPER_FLEX",…,"DL","DL","DL"]`,
+ * i.e. the same shape Sleeper's `rosterPositions` arrives in, so both can
+ * feed `fillLineup` unchanged.
+ *
+ * This is the SECOND rung of the truth ladder: live `rosterPositions`
+ * first, this next, and refusal after that — never a literal. See the
+ * module docstring.
+ */
+export function slotsFromStarterCounts(starters) {
+  if (!starters || typeof starters !== "object") return [];
+  const entries = Object.entries(starters)
+    .map(([slot, n]) => {
+      const upper = String(slot).toUpperCase();
+      return [REGISTRY_SLOT_ALIASES[upper] ?? upper, Number(n) || 0];
+    })
+    .filter(([, n]) => n > 0);
+  entries.sort((a, b) => {
+    const ia = SLOT_DISPLAY_ORDER.indexOf(a[0]);
+    const ib = SLOT_DISPLAY_ORDER.indexOf(b[0]);
+    // Unknown slots keep their relative order, after the known ones.
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+  });
+  const out = [];
+  for (const [slot, n] of entries) {
+    for (let i = 0; i < n; i += 1) out.push(slot);
+  }
+  return out;
+}
+
 /**
  * Fill a league's lineup slots greedily by value.
  *

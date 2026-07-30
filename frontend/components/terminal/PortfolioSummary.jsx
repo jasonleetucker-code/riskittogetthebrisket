@@ -53,7 +53,7 @@ function formatPct(v) {
  */
 export default function PortfolioSummary() {
   const { rows, rawData, openPlayerPopup } = useApp();
-  const { selectedTeam, idpEnabled, loading: teamLoading } = useTeam();
+  const { selectedTeam, idpEnabled, rosterSettings, loading: teamLoading } = useTeam();
   // IDP gating: skip the IDP positional bucket (and any IDP rows in
   // the positional stack) for leagues that don't support IDP.  The
   // portfolio computation still runs globally on the contract; we
@@ -82,8 +82,8 @@ export default function PortfolioSummary() {
   });
 
   const localPortfolio = useMemo(
-    () => computePortfolio({ rows, selectedTeam, rawData, history }),
-    [rows, selectedTeam, rawData, history],
+    () => computePortfolio({ rows, selectedTeam, rawData, history, rosterSettings }),
+    [rows, selectedTeam, rawData, history, rosterSettings],
   );
 
   // Merge: prefer server-computed sub-sections when present; fall
@@ -136,6 +136,7 @@ export default function PortfolioSummary() {
     benchCount,
     starterAssignments,
     lineupFromLeague,
+    lineupKnown,
     pickCount,
     pickValue,
     byPosition,
@@ -169,6 +170,18 @@ export default function PortfolioSummary() {
             </span>
           )}
         </div>
+        {/* The split bar is a claim about which players start, so it
+            must not present a guessed lineup as a measurement. Silence
+            here is what let a contract with teams but no rosterPositions
+            render 40.1% starters (offence-only, all 12 defenders
+            benched) as if it were the real 68.1%. */}
+        {!lineupFromLeague && (
+          <p className="portfolio-lineup-note" role="note">
+            {lineupKnown
+              ? "Lineup from league settings — the live roster positions weren't in this contract."
+              : "Lineup unknown for this league, so no starter/bench split can be computed."}
+          </p>
+        )}
         <div className="portfolio-split" aria-label="Starter vs bench value">
           <div className="portfolio-split-bar">
             <span
@@ -333,9 +346,7 @@ export default function PortfolioSummary() {
           <h3 className="portfolio-section-title">
             Starters{" "}
             <span className="portfolio-section-hint">
-              {lineupFromLeague
-                ? "click to open"
-                : "league lineup unavailable — showing a default"}
+              {lineupFromLeague ? "click to open" : "from league settings"}
             </span>
           </h3>
           <ul className="portfolio-starters">
