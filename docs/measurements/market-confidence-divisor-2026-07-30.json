@@ -1,0 +1,141 @@
+{
+  "generatedAt": "2026-07-30T08:10:46.305266+00:00",
+  "payload": "dynasty_data_2026-07-29.json",
+  "threshold": 0.35,
+  "results": {
+    "live": {
+      "divisor": 8.0,
+      "confidence": {
+        "n": 838,
+        "min": 0.3405,
+        "p10": 0.48,
+        "median": 0.4908,
+        "p90": 0.5635,
+        "max": 0.5938
+      }
+    },
+    "divisor_3": {
+      "divisor": 3.0,
+      "confidence": {
+        "n": 838,
+        "min": 0.5667,
+        "p10": 0.5667,
+        "median": 0.8814,
+        "p90": 0.9698,
+        "max": 1.0
+      },
+      "ceilingAtMaxSites": 1.0,
+      "meanConfDelta": 0.2597,
+      "maxConfDelta": 0.4063,
+      "belowThreshold": 0,
+      "downstreamMultiplier": {
+        "singleSourceDiscount": {
+          "n": 838,
+          "min": 1.0344,
+          "p10": 1.0344,
+          "median": 1.1554,
+          "p90": 1.1594,
+          "max": 1.1709
+        },
+        "idpConfFactor": {
+          "n": 838,
+          "min": 1.0438,
+          "p10": 1.0438,
+          "median": 1.1955,
+          "p90": 1.202,
+          "max": 1.2207
+        },
+        "eliteCapOffense": {
+          "n": 838,
+          "min": 1.0067,
+          "p10": 1.0067,
+          "median": 1.0311,
+          "p90": 1.0312,
+          "max": 1.0316
+        }
+      }
+    },
+    "divisor_4": {
+      "divisor": 4.0,
+      "confidence": {
+        "n": 838,
+        "min": 0.5125,
+        "p10": 0.5125,
+        "median": 0.7189,
+        "p90": 0.8073,
+        "max": 0.8375
+      },
+      "ceilingAtMaxSites": 0.8375,
+      "meanConfDelta": 0.1471,
+      "maxConfDelta": 0.2438,
+      "belowThreshold": 0,
+      "downstreamMultiplier": {
+        "singleSourceDiscount": {
+          "n": 838,
+          "min": 1.0129,
+          "p10": 1.0129,
+          "median": 1.0932,
+          "p90": 1.0956,
+          "max": 1.1025
+        },
+        "idpConfFactor": {
+          "n": 838,
+          "min": 1.0164,
+          "p10": 1.0164,
+          "median": 1.1173,
+          "p90": 1.1212,
+          "max": 1.1324
+        },
+        "eliteCapOffense": {
+          "n": 838,
+          "min": 1.0025,
+          "p10": 1.0025,
+          "median": 1.0186,
+          "p90": 1.0187,
+          "max": 1.019
+        }
+      }
+    },
+    "divisor_5": {
+      "divisor": 5.0,
+      "confidence": {
+        "n": 838,
+        "min": 0.4528,
+        "p10": 0.48,
+        "median": 0.6214,
+        "p90": 0.7097,
+        "max": 0.74
+      },
+      "ceilingAtMaxSites": 0.74,
+      "meanConfDelta": 0.0796,
+      "maxConfDelta": 0.1463,
+      "belowThreshold": 0,
+      "downstreamMultiplier": {
+        "singleSourceDiscount": {
+          "n": 838,
+          "min": 1.0,
+          "p10": 1.0,
+          "median": 1.0559,
+          "p90": 1.0574,
+          "max": 1.0615
+        },
+        "idpConfFactor": {
+          "n": 838,
+          "min": 1.0,
+          "p10": 1.0,
+          "median": 1.0704,
+          "p90": 1.0727,
+          "max": 1.0795
+        },
+        "eliteCapOffense": {
+          "n": 838,
+          "min": 1.0,
+          "p10": 1.0,
+          "median": 1.0112,
+          "p90": 1.0112,
+          "max": 1.0114
+        }
+      }
+    }
+  }
+}
