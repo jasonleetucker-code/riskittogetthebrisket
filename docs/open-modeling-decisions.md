@@ -1,12 +1,22 @@
 # Open modeling decisions — resolved to evidence
 
-**Date:** 2026-07-29
+**Date:** 2026-07-29, updated 2026-07-30
 **Context:** the 2026-07-29 repository audit
 (`docs/audits/complete-codebase-audit-2026-07-29.md`) left three
 questions as "requires a product decision". Each was under-specified:
 they were stated as choices without the measurements needed to make
-them. This document closes that gap. Two are now decided on evidence;
-one is narrowed to a single concrete change that still needs a call.
+them. This document closes that gap.
+
+**Status as of 2026-07-30 — all three are decided:**
+
+| # | question | outcome |
+|---|---|---|
+| 1 | apply `coverageWeight`? | **No.** Measured: 297 rows / 221 ranks move for a 3-source input change, with no accuracy evidence either way. Stays DIAGNOSTIC ONLY. |
+| 2 | retire the legacy rank-form curves? | **No — re-tuned and kept**, with a tested drift alarm. Migration turned out not to be a live option; the old constants were fit to the wrong target. |
+| 3 | re-threshold `low_conf_unstable`? | **No — rule retired.** The metric is structurally capped; no threshold makes it sound. |
+
+Only #1 remains reversible-on-new-evidence (a holdout backtest would
+settle it); #2 and #3 are closed.
 
 ---
 
@@ -114,12 +124,44 @@ asserts the refit script still does not write — because if it ever gains
 that ability, it *does* become an automated promotion path and the
 reasoning above has to be revisited rather than silently outgrown.
 
-**Still open, and genuinely a product call:** whether to retire the
-rank-form family in favour of the percentile masters. Measured in
-`docs/legacy-rank-curve-backtest.md` — the candidates have inverted
-error profiles (`percentile_global` is far better past rank 120 and
-~2× worse in the top 24), and switching moves user-visible history
-values. Unchanged by this document.
+**RESOLVED 2026-07-30 — re-tuned and kept, with a drift alarm.** The
+question above was "retire the rank-form family in favour of the
+percentile masters?", and the 2026-07-29 answer was "hard, because the
+error profiles are inverted". Re-measuring closed it:
+
+* **Migration is not a live option.** On the current board the percentile
+  candidates are 5–8× worse *everywhere* (410 and 692 RMSE against 83.8),
+  not better-past-120-and-worse-in-the-top-24. The reason is structural:
+  the percentile masters are an **input stage to the blend**, not a model
+  of its output, so translating them into rank space cannot answer "what
+  does our board pay at rank r".
+* **The old constants were fit to the wrong target.** They came from
+  `fit_hill_curve_from_market.py`, which fits retail *source* boards.
+  Against `rankDerivedValue` the offense pair scored RMSE 821.8 — a ~9×
+  error on every reconstructed offense value. Re-tuned to 65.4 / 0.910
+  (offense) and 64.6 / 0.900 (IDP), it scores 89.8 / 76.2, which **is**
+  the achievable floor for this curve family (83.8 overall vs 83.4 for a
+  free fit). No headroom left; the residual is post-blend scatter.
+* **The drift surface is now watched, and the alarm is tested.**
+  `scripts/check_rank_form_drift.py` +
+  `.github/workflows/audit-rank-form-drift.yml` (Tue 07:41 UTC, after
+  the refit workflow) measure *excess RMSE over the achievable floor*
+  per scope, budget 25.0. It opens an issue rather than a PR, because an
+  automated patch that also re-baselined the guard tests would recreate
+  precisely the by-construction-green circularity ADR-008 documents.
+  `tests/canonical/test_rank_form_drift_check.py` proves the alarm fires.
+* **Bonus finding: the real drift driver is percentile-master
+  promotion, not market churn.** 16 snapshots over two weeks all refit to
+  the same constants; the 2026-07-29 pre-promotion board refit to
+  68.8 / 0.929 and the post-promotion board to 65.2 / 0.905. That is why
+  the check runs after the refit workflow rather than daily.
+* **A third copy existed.** `frontend/lib/value-history.js` still held
+  `K = 45, EXP = 1.1, CEIL = 9999` — wrong on all three, with rank 1 at
+  10000 instead of 9999 — behind a comment that flagged the risk and
+  deferred the fix. Now a single `RANK_FORM_CURVE` object, pinned against
+  Python by `tests/api/test_rank_form_frontend_parity.py`.
+
+Full write-up: `docs/legacy-rank-curve-backtest.md` (2026-07-30 addendum).
 
 ---
 

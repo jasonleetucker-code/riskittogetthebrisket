@@ -367,6 +367,8 @@ corrected instead.
 | D12 | mypy configured, never run; ruff check changed-files-only | Low | Type debt accumulates unseen | Medium | No |
 | D13 | ~205 pytest cases are `livedata`-advisory (`continue-on-error`) | Medium | Includes the primary blend test | Small | Re-litigate per module |
 | D14 | ADR numbers collide across two DECISIONS files (two ADR-008s) | Low | Ambiguous citations | Small | No |
+| D15 | `_sites` / `_marketConfidence` divisor is 8.0, a fossil of the pre-scope-reduction ~10-site scraper era; confidence is structurally capped at 0.594 | Low | No board impact (`market_conf` only multiplies the scraper composite, never `rankDerivedValue`); reaches live code only via `finder.py`'s degraded fallback | Small | Fix when the scraper is next touched — measured multipliers in `docs/open-modeling-decisions.md` §3 |
+| D16 | `tests/canonical/test_ktc_reconciliation.py`: 9 cases failing on `main`, invisible because the module is auto-marked `livedata` | Medium | A guard that was supposed to catch curve drift is stale and silent — `PINNED_DELTAS` were baselined against since-promoted percentile constants | Small | Re-baseline as part of the next percentile-master promotion; promotion currently re-baselines nothing |
 
 ### D2 was wrong — recorded so it is not re-raised
 
@@ -605,6 +607,27 @@ pipeline.
    One function; hardens five consumers at once.
 6. **Legacy-curve decision** (§3.2) using the committed backtest.
    Depends on 4 only in the sense that both are curve-governance calls.
+
+   **DONE 2026-07-30 — re-tuned, kept, and alarmed.** Migration to the
+   percentile masters turned out not to be a live option (they are 5-8x
+   worse everywhere on the current board; they model the blend's *input*,
+   not its output). The old rank-form constants were fit to retail source
+   boards rather than to our board and scored RMSE 821.8 on offense rows;
+   re-tuned to 65.4/0.910 (offense) and 64.6/0.900 (IDP) they score
+   89.8/76.2, which is the achievable floor. Drift is now watched by
+   `scripts/check_rank_form_drift.py` +
+   `.github/workflows/audit-rank-form-drift.yml`, which opens an issue
+   rather than a PR per ADR-008, and the alarm itself is tested. A third
+   copy of these constants in `frontend/lib/value-history.js` (wrong on
+   all three values) was found and pinned by a parity test. Full
+   write-up: `docs/legacy-rank-curve-backtest.md` 2026-07-30 addendum.
+
+   Uncovered while doing it: `tests/canonical/test_ktc_reconciliation.py`
+   has **9 cases failing on `main`** — its `PINNED_DELTAS` were baselined
+   against percentile constants that have since been promoted, and it is
+   auto-marked `livedata` so CI never blocks on it. Confirmed at a clean
+   HEAD, so it predates this work. Registered as debt (D16 below);
+   re-baselining it is a percentile-master decision, not a rank-form one.
 7. **BDVM end-to-end validation** once a projection snapshot exists.
 
 **Medium priority**

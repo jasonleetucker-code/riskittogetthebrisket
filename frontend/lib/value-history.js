@@ -304,49 +304,76 @@ export function buildHistoryLookup(history) {
 }
 
 /**
- * Cheap Hill-curve approximation matching the canonical backend
- * formula in src/canonical/player_valuation.py.  Used for the
- * team-value series so the frontend can sum values from a rank
- * series without a second API call per history point.
+ * The rank-form Hill curve, mirrored from the backend.
  *
- * Backend constants (k=45, exponent=1.10, floor=1, ceiling=9999)
- * are duplicated here.  If they drift backend-side, the team chart
- * goes out of calibration until this is retuned — flagged for the
- * follow-up step that pulls these constants from the contract's
- * ``methodology`` or ``hillCurves`` field.
+ * SINGLE SOURCE OF TRUTH for this file's two curve functions, and the
+ * only place the constants appear. It mirrors
+ * `src/canonical/player_valuation.py`:
+ *
+ *     HILL_MIDPOINT -> midpoint
+ *     HILL_SLOPE    -> slope
+ *     span 9998     -> span   (so rank 1 == 9999 exactly, as it does
+ *                              in Python's `rank_to_value`)
+ *
+ * Kept as a mirror rather than read from the contract because the two
+ * consumers are chart components that receive a rank series, not the
+ * contract, and threading it through four call sites to fetch two
+ * numbers is not worth the coupling.
+ *
+ * The drift risk that WAS real here is now covered by a test instead of
+ * a comment: `tests/api/test_rank_form_frontend_parity.py` parses this
+ * object and fails if it disagrees with the Python constants.
+ *
+ * Before 2026-07-30 these were `K = 45`, `EXP = 1.1`, `CEIL = 9999`,
+ * with a comment noting the drift risk and deferring the fix. All three
+ * were wrong: the backend pair was 48.44 / 1.149 at the time, and
+ * `1 + 9999/(...)` puts rank 1 at 10000 rather than 9999. The chart had
+ * been quietly off-calibration on both axes.
+ */
+export const RANK_FORM_CURVE = {
+  midpoint: 65.4,
+  slope: 0.91,
+  span: 9998,
+};
+
+/**
+ * Cheap Hill-curve reconstruction matching the backend's
+ * `rank_to_value`. Used for the team-value series so the frontend can
+ * sum values from a rank series without a second API call per history
+ * point.
+ *
+ * RECONSTRUCTION ONLY — like its Python counterpart, this is not a
+ * valuation path. It answers "what would the board have said at this
+ * rank" for history points that persisted a rank but no value.
  */
 export function valueFromRank(rank) {
   const r = Number(rank);
   if (!Number.isFinite(r) || r <= 0) return 0;
-  const K = 45;
-  const EXP = 1.1;
-  const CEIL = 9999;
-  return Math.round(1 + CEIL / (1 + Math.pow((r - 1) / K, EXP)));
+  const { midpoint, slope, span } = RANK_FORM_CURVE;
+  return Math.round(1 + span / (1 + Math.pow((r - 1) / midpoint, slope)));
 }
 
 /**
- * Closed-form inverse of {@link valueFromRank}.  Given a blended
- * value on the 1..(1+CEIL) Hill scale, return the rank that produces
- * it.  Solving ``v = 1 + CEIL / (1 + ((r-1)/K)^EXP)`` for r:
- *   r = 1 + K * (CEIL/(v-1) - 1)^(1/EXP)
+ * Closed-form inverse of {@link valueFromRank}. Given a blended value on
+ * the 1..(1+span) Hill scale, return the rank that produces it. Solving
+ * ``v = 1 + span / (1 + ((r-1)/midpoint)^slope)`` for r:
+ *   r = 1 + midpoint * (span/(v-1) - 1)^(1/slope)
  *
  * Used to DERIVE a rank-history line for historical snapshots that
  * persisted a value but not a rank (per-source ranks only began
- * persisting 2026-04-29 while value history goes back further).  Same
- * K/EXP/CEIL as valueFromRank so derived ranks are exactly consistent
- * with the curve the rest of the app uses.  Returns null when the
- * value is outside the curve's invertible domain.
+ * persisting 2026-04-29 while value history goes back further). Reads
+ * the same `RANK_FORM_CURVE` so derived ranks are exactly consistent
+ * with the curve the rest of the app uses. Returns null when the value
+ * is outside the curve's invertible domain.
  */
 export function rankFromValue(value) {
   const v = Number(value);
-  const K = 45;
-  const EXP = 1.1;
-  const CEIL = 9999;
+  const { midpoint, slope, span } = RANK_FORM_CURVE;
   if (!Number.isFinite(v) || v <= 1) return null;
-  if (v >= 1 + CEIL) return 1; // saturated → top rank
-  const base = CEIL / (v - 1) - 1; // > 0 for 1 < v < 1+CEIL
+  if (v >= 1 + span) return 1; // saturated → top rank
+  const base = span / (v - 1) - 1; // > 0 for 1 < v < 1+span
   if (!(base > 0)) return 1;
-  const r = 1 + K * Math.pow(base, 1 / EXP);
+  const r = 1 + midpoint * Math.pow(base, 1 / slope);
   if (!Number.isFinite(r)) return null;
   return Math.max(1, Math.round(r));
 }

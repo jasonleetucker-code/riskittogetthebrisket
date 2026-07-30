@@ -50,27 +50,41 @@ from src.canonical.player_valuation import (
     IDP_HILL_SLOPE,
 )
 
-# The values live in ``src/canonical/player_valuation.py``.  Measured
-# fit against the live board on 2026-07-29
-# (``scripts/backtest_legacy_rank_curve.py``): the offense pair scores
-# RMSE 845.9 on offense rows, the IDP pair RMSE 78.7 on IDP rows, and a
-# curve refit to that board would score 96.3 overall.  Those numbers are
-# the context for any change here.
+# The values live in ``src/canonical/player_valuation.py``.
+#
+# RE-BASELINED 2026-07-30.  The previous pins (48.44 / 1.149 and
+# 69.50 / 0.945) were fit against retail SOURCE boards, which is the
+# wrong target for a curve whose job is reconstructing OUR board: they
+# scored RMSE 821.8 on offense rows against ``rankDerivedValue``.  The
+# values below are the per-scope fit to the served board
+# (``scripts/backtest_legacy_rank_curve.py``) and score 89.8 offense /
+# 76.2 IDP, which IS the achievable floor for this curve family (83.8
+# overall vs 83.4 for a free fit).
+#
+# They are structurally stable: 16 archived snapshots spanning
+# 2026-07-16 -> 07-30 returned offense midpoint 65.4 (once 65.6) /
+# slope 0.910 and IDP 64.4-64.6 / 0.900.  Market churn does not move
+# them, because the board's rank->value relation IS a Hill curve and
+# churn only permutes which player sits at which rank.  A
+# percentile-master promotion DOES move them — that is what
+# ``scripts/check_rank_form_drift.py`` watches.
 _PINNED = {
-    "HILL_MIDPOINT": 48.44,
-    "HILL_SLOPE": 1.149,
-    "IDP_HILL_MIDPOINT": 69.50,
-    "IDP_HILL_SLOPE": 0.945,
+    "HILL_MIDPOINT": 65.4,
+    "HILL_SLOPE": 0.910,
+    "IDP_HILL_MIDPOINT": 64.6,
+    "IDP_HILL_SLOPE": 0.900,
 }
 
 _GUIDANCE = """
 The legacy rank-form Hill constants changed.
 
-If that was DELIBERATE, do these two things and then update _PINNED in
+If that was DELIBERATE, do these three things and then update _PINNED in
 this file:
 
   1. Re-run the drift check, which is the whole reason this tripwire
      exists:
+         python scripts/check_rank_form_drift.py --verbose
+     and the full comparison behind it:
          python scripts/backtest_legacy_rank_curve.py \\
              --out docs/measurements/<dated>.json
      Compare against docs/legacy-rank-curve-backtest.md.  These
@@ -78,14 +92,18 @@ this file:
      and rank_history.py's historical backfill), so a change moves
      user-visible history values.
 
-  2. Record the decision in docs/legacy-rank-curve-backtest.md, which
-     carries the open question of whether this whole rank-form family
-     should be retired in favour of the registry-managed percentile
-     masters.
+  2. Update the mirrored constants in
+     frontend/lib/value-history.js (RANK_FORM_CURVE).  They must move
+     together or the team-value chart and the derived rank-history line
+     go out of calibration with the backend.
+     tests/api/test_rank_form_frontend_parity.py fails if they diverge.
+
+  3. Record the decision in docs/legacy-rank-curve-backtest.md.
 
 If it was NOT deliberate: revert it.  Nothing automated writes these —
-``scripts/fit_hill_curve_from_market.py`` only prints — so an unexplained
-change here is a hand edit.
+``scripts/fit_hill_curve_from_market.py`` only prints, and
+``check_rank_form_drift.py`` opens an issue rather than committing — so
+an unexplained change here is a hand edit.
 """
 
 
