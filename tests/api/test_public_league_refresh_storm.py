@@ -194,7 +194,14 @@ def test_the_cooldown_expires_so_the_outage_is_not_sticky(cold_cache, monkeypatc
         reached.append(1)
 
         class _Snap:
-            seasons: list = []
+            # Non-empty: a zero-season rebuild is now treated as a
+            # FAILURE by _rebuild_public_snapshot (see
+            # tests/api/test_public_league_empty_snapshot.py — an empty
+            # snapshot was served to production as HTTP 200 with every
+            # health signal green). These two tests are about
+            # single-flight and cooldown behaviour, so their stub just
+            # has to be a VALID snapshot.
+            seasons: list = ["2026"]
             root_league_id = "STORMTEST"
             generated_at = "2026-07-28T00:00:00Z"
 
@@ -223,7 +230,14 @@ def test_a_healthy_upstream_still_rebuilds_exactly_once(cold_cache, monkeypatch)
         time.sleep(REBUILD_SECONDS)
 
         class _Snap:
-            seasons: list = []
+            # Non-empty: a zero-season rebuild is now treated as a
+            # FAILURE by _rebuild_public_snapshot (see
+            # tests/api/test_public_league_empty_snapshot.py — an empty
+            # snapshot was served to production as HTTP 200 with every
+            # health signal green). These two tests are about
+            # single-flight and cooldown behaviour, so their stub just
+            # has to be a VALID snapshot.
+            seasons: list = ["2026"]
             root_league_id = "STORMTEST"
             generated_at = "2026-07-28T00:00:00Z"
 
@@ -235,6 +249,6 @@ def test_a_healthy_upstream_still_rebuilds_exactly_once(cold_cache, monkeypatch)
     _storm(slow_builder, monkeypatch)
 
     assert len(calls) == 1, f"expected single-flight, got {len(calls)} rebuilds"
-    assert (
-        server._public_league_cache["snapshot"] is not None
-    ), "the healthy path must still populate the cache"
+    assert server._public_league_cache["snapshot"] is not None, (
+        "the healthy path must still populate the cache"
+    )
