@@ -124,7 +124,7 @@ test.describe("Chart visual regression", () => {
   test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
 
   test("Hill curve (methodology panel)", async ({ authedPage: page }) => {
-    await page.goto("/rankings");
+    await page.goto(pageUrl("/rankings"));
     await _openMethodology(page);
     const el = await _waitForChart(
       page,
@@ -135,7 +135,7 @@ test.describe("Chart visual regression", () => {
   });
 
   test("Tier-gap waterfall", async ({ authedPage: page }) => {
-    await page.goto("/rankings");
+    await page.goto(pageUrl("/rankings"));
     await _openMethodology(page);
     const el = await _waitForChart(
       page,
@@ -146,7 +146,7 @@ test.describe("Chart visual regression", () => {
   });
 
   test("Confidence vs value scatter", async ({ authedPage: page }) => {
-    await page.goto("/edge");
+    await page.goto(pageUrl("/edge"));
     const el = await _waitForChart(
       page,
       CHART_SELECTORS.confidenceScatter,
@@ -210,7 +210,7 @@ test.describe("Chart structural smoke tests", () => {
   test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
 
   test("Hill curve has axis + at least one path", async ({ authedPage: page }) => {
-    await page.goto("/rankings");
+    await page.goto(pageUrl("/rankings"));
     await _openMethodology(page);
     const svg = await _waitForChart(
       page,
@@ -227,7 +227,7 @@ test.describe("Chart structural smoke tests", () => {
   });
 
   test("Confidence scatter has enough points", async ({ authedPage: page }) => {
-    await page.goto("/edge");
+    await page.goto(pageUrl("/edge"));
     const svg = await _waitForChart(
       page,
       CHART_SELECTORS.confidenceScatter,

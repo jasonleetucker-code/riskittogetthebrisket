@@ -11,10 +11,28 @@ function ArchivesSection({ data }) {
   const [kind, setKind] = useState("trades");
   const [query, setQuery] = useState("");
   const [season, setSeason] = useState("all");
-  if (!data) return <EmptyCard label="Archives" />;
 
-  const seasonsCovered = data.seasonsCovered || [];
-  const rows = useMemo(() => data[kind] || [], [data, kind]);
+  // EVERY hook runs before the `!data` bail-out below.  This used to be
+  // `if (!data) return <EmptyCard/>` HERE, above the two useMemos —
+  // a conditional hook call.  On the `data: null → data: present`
+  // transition (which is this section's normal path: it is lazily
+  // loaded, so the first render has no data) the hook count went 3 → 5
+  // and React threw "Rendered more hooks than during the previous
+  // render."  The throw lands during an update, so the previously
+  // committed markup stays on screen with its handlers detached: the
+  // section renders, and then the archive-kind buttons and the season
+  // <select> do nothing.
+  //
+  // That is the shape of the Production E2E Smoke failure this fixes.
+  // `public-league.spec.js:218` clicked "Matchups", then selected a
+  // season, and the row count stayed at exactly 190 through both — and
+  // 190 is the UNFILTERED `trades` total (the default `kind` below),
+  // matching no season-filtered subset of any dataset.  Measured from
+  // production 2026-07-30: trades 190 (2026:37, 2025:124, 2024:29),
+  // weeklyMatchups 138 (2026:0), waivers 1092, rookieDrafts 424,
+  // seasonResults 30.  The season filter below was never the bug — it
+  // had simply never run.
+  const rows = useMemo(() => (data ? data[kind] || [] : []), [data, kind]);
   const filtered = useMemo(() => {
     let out = rows;
     if (season !== "all") {
@@ -26,6 +44,10 @@ function ArchivesSection({ data }) {
     }
     return out.slice(0, 500);
   }, [rows, query, season]);
+
+  if (!data) return <EmptyCard label="Archives" />;
+
+  const seasonsCovered = data.seasonsCovered || [];
 
   return (
     <Card

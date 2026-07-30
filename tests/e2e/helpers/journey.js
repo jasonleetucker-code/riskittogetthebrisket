@@ -26,6 +26,66 @@ const NAME = {
   waiverStrengthFilter: /Upgrade strength/i,
 };
 
+// ── Page-title canon ───────────────────────────────────────────────────
+// Route → the page's <h1>, mirroring
+// frontend/__tests__/helpers/naming-canon.js. Kept in lockstep by
+// tests/e2e/test_e2e_harness_guards.py, the same
+// parse-the-JS-and-diff idiom tests/api/test_source_registry_parity.py
+// already uses for the ranking-source registry.
+//
+// Why this exists: SEL centralizes redesign-volatile *markup* and did
+// its job — not one of the nineteen 2026-07-30 nightly failures was a
+// broken CSS hook. What was NOT centralized was the user-facing COPY,
+// so PR #625's naming canon ("Trade Builder" → "Trade Calculator",
+// "Roster Dashboard" → "Team Strength") broke four assertions across
+// three files, each hardcoding the old string. One rename, three files.
+// Put a title here, reference it, and the parity test makes the next
+// rename a fast-gate failure instead of an overnight one.
+const TITLE = {
+  "/rankings": "Rankings",
+  "/trending": "Trending",
+  "/idptc-rookies": "Rookie Board",
+  "/players/compare": "Compare Players",
+  "/bdvm": "Fundamental Values",
+  "/news": "News",
+  "/trade": "Trade Calculator",
+  "/angle": "Package Builder",
+  "/arbitrage": "Arbitrage",
+  "/trades": "Trade History",
+  "/rosters": "Team Strength",
+  "/waivers": "Waivers",
+  "/draft": "Draft Board",
+  "/phases": "Win-now vs Rebuild",
+  "/edge": "Source Disagreement",
+  "/market/sharp-tracker": "Sharp Tracker",
+  "/league/insider-trading": "Insider Trading",
+  "/league": "Hub",
+  "/league/activity": "Activity",
+  "/league-comparison": "Scoring Comparison",
+};
+
+/**
+ * The page title for `route`, as an anchored exact-match RegExp.
+ *
+ * Anchored deliberately. A loose /Trade/i matches the nav group label
+ * present on every authenticated page, which is the vacuity class
+ * docs/e2e-assertion-audit.md measured: those assertions passed with
+ * <main> deleted entirely. Pair this with pageHeading() and the
+ * assertion can only pass if the PAGE BODY rendered.
+ */
+function titleFor(route) {
+  const title = TITLE[route];
+  if (!title) {
+    throw new Error(
+      `No canon title for ${route}. Add it to TITLE in ` +
+        `tests/e2e/helpers/journey.js and to CANON in ` +
+        `frontend/__tests__/helpers/naming-canon.js — the parity test ` +
+        `requires both.`,
+    );
+  }
+  return new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+}
+
 
 // ── Selector registry ──────────────────────────────────────────────────
 // The one place the redesign has to keep in sync.  Every selector is
@@ -167,7 +227,19 @@ function mobileOnly(test, testInfo) {
  * timers.  Returns the row locator.
  */
 async function gotoRankingsBoard(page, { minRows = 50 } = {}) {
-  await page.goto("/rankings", { waitUntil: "domcontentloaded" });
+  // MUST go through pageUrl() — see its 30-line warning above. This
+  // line was a bare `page.goto("/rankings")` until 2026-07-30, which
+  // resolved against baseURL (the FastAPI page proxy on :8000).
+  // `_proxy_next` forwards no cookies (server.py:2891-2896, and
+  // server.py:12539-12545 says so outright), so once
+  // frontend/middleware.js landed on 2026-07-29 every such navigation
+  // 307'd to /login and the board never existed. That single missing
+  // wrapper was ELEVEN of the nightly suite's nineteen failures —
+  // six rankings journeys, the settings-override round-trip, two
+  // mobile smokes and two chart smokes — every one of them reported
+  // as "rankings board should render rows / element(s) not found",
+  // which reads like a dead pipeline and was a dead cookie.
+  await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
   const rows = page.locator(SEL.boardRow);
   await expect(rows.first(), "rankings board should render rows").toBeVisible({
     timeout: 60_000,
@@ -296,6 +368,8 @@ function attachConsoleGuards(page, { allow = [] } = {}) {
 module.exports = {
   SEL,
   NAME,
+  TITLE,
+  titleFor,
   isMobileProject,
   pageUrl,
   desktopOnly,

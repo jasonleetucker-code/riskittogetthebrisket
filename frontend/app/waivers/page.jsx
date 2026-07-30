@@ -530,6 +530,34 @@ export default function WaiversPage() {
         />
       );
     }
+    // "No team chosen" must be answered BEFORE the skeleton, once
+    // loading has settled.  ``analysis`` is null for as long as no team
+    // is selected (useWaiverAnalysis returns null without one), so the
+    // ``loading || !analysis`` skeleton below is permanent in that
+    // state and the ``!hasTeam`` branch after it was unreachable dead
+    // code — the page sat in its loading stub forever instead of saying
+    // "Pick your team".  Two of nightly E2E run 30529404019's nineteen
+    // failures (desktop + mobile) were this: the spec looked for
+    // /Select a team/i, found the skeleton's "Unique upgrade set"
+    // heading instead of the settled "Best unique upgrade set", and
+    // fell through to an assertion that could not pass.
+    //
+    // Gated on ``!loading`` rather than placed first so a user WITH a
+    // stored team still gets the full-height skeleton rather than a
+    // flash of the empty state while settings hydrate — that stub is
+    // deliberate CLS work, see the comment below.
+    if (!loading && !hasTeam) {
+      return (
+        <EmptyState
+          title={teamCount === 0 ? "No teams available" : "Pick your team"}
+          description={
+            teamCount === 0
+              ? "This league hasn't been ingested yet."
+              : "Select a team above to start comparing the pool against your roster."
+          }
+        />
+      );
+    }
     if (loading || !analysis) {
       // Stub the FULL settled layout (summary tiles + best-moves +
       // upgrade panel + the 2-up droppable/addable split), not just the
@@ -554,18 +582,9 @@ export default function WaiversPage() {
         </>
       );
     }
-    if (!hasTeam) {
-      return (
-        <EmptyState
-          title={teamCount === 0 ? "No teams available" : "Pick your team"}
-          description={
-            teamCount === 0
-              ? "This league hasn't been ingested yet."
-              : "Select a team above to start comparing the pool against your roster."
-          }
-        />
-      );
-    }
+    // Reached only with loading settled AND analysis present, so a
+    // team is necessarily selected by here — the pre-skeleton branch
+    // above owns the no-team case.
     return (
       <>
         <SummaryTiles summary={analysis.summary} includeRookies={includeRookies} />

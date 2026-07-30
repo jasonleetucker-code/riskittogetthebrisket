@@ -29,6 +29,7 @@ const { test, expect } = require("../helpers/auth-fixture");
 const {
   pageUrl,
   pageHeading,
+  titleFor,
   contractFixture,
   desktopOnly,
 } = require("../helpers/journey");
@@ -103,7 +104,7 @@ test.describe("signed-in: basic navigation + UI render", () => {
 
   test("trade builder renders its own page body, not just the nav link", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/trade"));
-    await expect(pageHeading(authedPage, /Trade Builder/i)).toBeVisible({
+    await expect(pageHeading(authedPage, titleFor("/trade"))).toBeVisible({
       timeout: 60_000,
     });
     // The pool has to actually load — the builder is useless without it.
@@ -122,7 +123,7 @@ test.describe("signed-in: basic navigation + UI render", () => {
     expect(teamNames.length).toBeGreaterThan(0);
 
     await authedPage.goto(pageUrl("/rosters"));
-    await expect(pageHeading(authedPage, /Roster Dashboard/i)).toBeVisible({
+    await expect(pageHeading(authedPage, titleFor("/rosters"))).toBeVisible({
       timeout: 60_000,
     });
 
