@@ -188,6 +188,88 @@ class TestCommittedDataRegression:
         unexpected = [c for c in report["aliasCollisions"] if not c.get("knownPoolDuplicate")]
         assert unexpected == []
 
+    def test_gate_exits_zero_under_the_flag_ci_actually_passes(self, tmp_path):
+        """The CI invocation, verbatim — including ``--fail-on-collision``.
+
+        Every other end-to-end test here omits that flag, so none of them
+        exercised the GATE.  That gap is not hypothetical: the
+        ``_KNOWN_POOL_DUPLICATES`` carve-out landed on 2026-07-30 stamping
+        ``knownPoolDuplicate`` on the report while the gate ignored the
+        stamp, so the whole suite stayed green and
+        ``Audit Identity Matches`` went red on ``main`` anyway.  A test
+        that does not pass the flag cannot see that.
+        """
+        out = tmp_path / "report.json"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--json-path",
+                str(_latest_export()),
+                "--json",
+                str(out),
+                "--limit",
+                "10",
+                "--fail-on-collision",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO),
+            timeout=600,
+        )
+        assert proc.returncode == 0, (
+            "identity audit gate failed:\n" + proc.stdout[-3000:] + proc.stderr[-2000:]
+        )
+        # Allow-listed collisions stay VISIBLE — marked, not hidden.
+        report = json.loads(out.read_text(encoding="utf-8"))
+        known = [c for c in report["aliasCollisions"] if c.get("knownPoolDuplicate")]
+        if known:
+            assert "::notice title=Known pool duplicate" in proc.stdout
+            assert "::error title=Alias collision" not in proc.stdout
+
+    def test_gate_still_fails_on_a_collision_outside_the_allowlist(self, tmp_path):
+        """The exemption must not become a blanket pass.
+
+        Feeds a payload whose pool carries two genuinely different
+        players that an alias merges, with the name absent from
+        ``_KNOWN_POOL_DUPLICATES``.  Exit MUST be 1.
+        """
+        # The same cross-family pair the unit test above uses: an alias
+        # merges a WR and a CB onto one canonical name, which is the
+        # vote-replication hazard this gate exists for.
+        assert "michael jackson" not in _mod._KNOWN_POOL_DUPLICATES
+        payload = {
+            "players": {
+                "Michael Jackson": {"pos": "WR", "_finalAdjusted": 5000},
+                "Mike Jackson": {"pos": "CB", "_finalAdjusted": 4000},
+            }
+        }
+        payload_path = tmp_path / "payload.json"
+        payload_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--json-path",
+                str(payload_path),
+                "--json",
+                str(tmp_path / "r.json"),
+                "--limit",
+                "1",
+                "--fail-on-collision",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO),
+            timeout=600,
+        )
+        assert proc.returncode == 1, (
+            "an un-allow-listed cross-family collision did NOT fail the "
+            "gate:\n" + proc.stdout[-3000:]
+        )
+        assert "::error title=Alias collision" in proc.stdout
+
     def test_the_duplicate_allowlist_only_holds_real_collisions(self, tmp_path):
         """An allowlist entry that no longer collides is dead weight.
 
