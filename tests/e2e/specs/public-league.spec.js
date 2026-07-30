@@ -229,7 +229,7 @@ test.describe("public /league page", () => {
     // asserted on was not this section's row count.
     const rows = page.locator(".archives-table table tbody tr");
 
-    // The kind buttons render their own count ("Matchups (138)"), so
+    // The kind buttons render their own count ("Matchups (158)"), so
     // the expected row count is readable from the control itself.
     // Waiting for THAT is falsifiable. The old wait was
     // `.toBeGreaterThan(0)` immediately after the click, which the
@@ -243,14 +243,18 @@ test.describe("public /league page", () => {
     // Click INSIDE the poll, because the first one can land before
     // React has attached its handlers and is then simply lost.
     //
-    // `visitLeague` waits for the text "Public archives", which is in
-    // the SSR HTML — so it proves the markup arrived, not that the
-    // page is interactive. Against production that gap is real: the
-    // /league document is ~960 KB with the archives section (~737 KB)
-    // inlined in the RSC payload, so hydration takes long enough to
-    // race a test that clicks the moment the text appears.
+    // `visitLeague` waits for the text "Public archives". That wait has
+    // CHANGED MEANING as of 2026-07-30 and is now strictly stronger:
+    // the section is no longer server-rendered (it was ~737 KB of a
+    // ~960 KB document), so "Public archives" appears only once the
+    // client fetch has landed and the component has rendered with data
+    // — it waits on data, not on markup. Previously the string was in
+    // the SSR HTML, so it proved the markup arrived and nothing about
+    // interactivity, and against production that gap was real: a
+    // ~960 KB RSC payload takes long enough to hydrate to race a test
+    // that clicks the moment the text appears.
     //
-    // This is what made the suite ~46% flaky rather than broken.
+    // That gap is what made the suite ~46% flaky rather than broken.
     // Across 30 consecutive scheduled runs the results were
     // FFFF.SFFSFSSSSSSFSFSFFSS.FSFFF — 13 passes, 15 failures,
     // interleaved. A genuinely inert control fails every time; an

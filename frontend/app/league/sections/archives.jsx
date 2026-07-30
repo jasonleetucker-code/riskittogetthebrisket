@@ -24,14 +24,19 @@ function ArchivesSection({ data }) {
   // <select> do nothing.
   //
   // That is the shape of the Production E2E Smoke failure this fixes.
-  // `public-league.spec.js:218` clicked "Matchups", then selected a
-  // season, and the row count stayed at exactly 190 through both — and
-  // 190 is the UNFILTERED `trades` total (the default `kind` below),
-  // matching no season-filtered subset of any dataset.  Measured from
-  // production 2026-07-30: trades 190 (2026:37, 2025:124, 2024:29),
-  // weeklyMatchups 138 (2026:0), waivers 1092, rookieDrafts 424,
-  // seasonResults 30.  The season filter below was never the bug — it
-  // had simply never run.
+  // `public-league.spec.js` clicked "Matchups", then selected a season,
+  // and the row count stayed at exactly 190 through both — and 190 is
+  // the UNFILTERED `trades` total (the default `kind` below), matching
+  // no season-filtered subset of any dataset.  Measured from production
+  // 2026-07-30: trades 190 (2026:37, 2025:124, 2024:29), weeklyMatchups
+  // 158, waivers 1092, rookieDrafts 494, seasonResults 30.  The season
+  // filter below was never the bug — it had simply never run.
+  //
+  // "Lazily loaded" above is now true on EVERY entry, not just a tab
+  // switch: `page.jsx` stopped server-rendering this section (it was
+  // ~737 KB of a ~960 KB document), so the first render has `data: null`
+  // even on a `?tab=archives` deep link.  The hook ordering here is what
+  // makes that safe.
   const rows = useMemo(() => (data ? data[kind] || [] : []), [data, kind]);
   const filtered = useMemo(() => {
     let out = rows;
