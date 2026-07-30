@@ -38,36 +38,46 @@ def _seed_snapshot(
     now_ms: int | None = None,
     league_key: str = LEAGUE_KEY,
     asset_ids: tuple[str, str] = ("1234", "5678"),
+    traded_asset: str | None = None,
+    member_id: str = "A",
 ) -> None:
     """Write a small snapshot into one league's partition (the store's
     DATA_DIR is monkeypatched by ``intel_data_dir``)."""
     now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
     add_asset, drop_asset = asset_ids
+    # Distinct from the waiver/FA assets so a test can tell which
+    # transaction type a row came from.
+    traded_asset = traded_asset or f"tr{add_asset}"
     state = store.default_state("2026")
     state["members"] = {
-        "A": {
+        member_id: {
             "leagues": ["L1", "L2"],
             "truncated": False,
             "lastCrawledAt": "2026-07-25T00:00:00+00:00",
             "lastError": None,
         }
     }
-    state["memberNames"] = {"A": "Alice"}
+    state["memberNames"] = {member_id: "Alice"}
     state["leagues"] = {
         "L1": {
             "name": "Alpha League",
-            "memberOwnerIds": ["A"],
-            "holdings": {"A": [add_asset]},
+            "memberOwnerIds": [member_id],
+            "holdings": {member_id: [add_asset]},
             "fetchState": {},
         },
-        "L2": {"name": "Beta League", "memberOwnerIds": ["A"], "holdings": {}, "fetchState": {}},
+        "L2": {
+            "name": "Beta League",
+            "memberOwnerIds": [member_id],
+            "holdings": {},
+            "fetchState": {},
+        },
     }
     state["events"] = [
         {
-            "eventId": f"t1:A:add:{add_asset}",
+            "eventId": f"t1:{member_id}:add:{add_asset}",
             "txId": "t1",
             "leagueId": "L1",
-            "ownerId": "A",
+            "ownerId": member_id,
             "assetId": add_asset,
             "assetType": "player",
             "action": "add",
@@ -77,15 +87,31 @@ def _seed_snapshot(
             "faabBid": 5,
         },
         {
-            "eventId": f"t2:A:drop:{drop_asset}",
+            "eventId": f"t2:{member_id}:drop:{drop_asset}",
             "txId": "t2",
             "leagueId": "L1",
-            "ownerId": "A",
+            "ownerId": member_id,
             "assetId": drop_asset,
             "assetType": "player",
             "action": "drop",
             "txType": "free_agent",
             "ts": now_ms - DAY_MS,
+            "week": 1,
+            "faabBid": None,
+        },
+        # A real TRADE.  The two events above are waiver / free-agent and
+        # must NOT reach the buy/sell board — only this one may.  Keeping
+        # all three in the fixture pins both directions at once.
+        {
+            "eventId": f"t3:{member_id}:add:{traded_asset}",
+            "txId": "t3",
+            "leagueId": "L1",
+            "ownerId": member_id,
+            "assetId": traded_asset,
+            "assetType": "player",
+            "action": "add",
+            "txType": "trade",
+            "ts": now_ms - HOUR_MS,
             "week": 1,
             "faabBid": None,
         },
@@ -229,8 +255,13 @@ class TestLeagueScoping:
         # Two leagues, two disjoint snapshots.  The resolved league's
         # partition is served — switching leagues switches data, and
         # neither refresh clobbered the other (distinct files).
-        _seed_snapshot(league_key="dynasty_main", asset_ids=("1111", "2222"))
-        _seed_snapshot(league_key="dynasty_new", asset_ids=("3333", "4444"))
+        # DISTINCT members per league.  A manager who really is in both
+        # leagues legitimately appears on both boards (their trades are
+        # relevant to both) — see
+        # tests/intel/test_read_path.py::TestLeagueScoping.  To test
+        # ISOLATION the pools must actually differ.
+        _seed_snapshot(league_key="dynasty_main", asset_ids=("1111", "2222"), member_id="A")
+        _seed_snapshot(league_key="dynasty_new", asset_ids=("3333", "4444"), member_id="Z")
         with TestClient(server.app, raise_server_exceptions=True) as c:
             league_stub.key = "dynasty_main"
             res_main = c.get("/api/intel/summary")
@@ -239,10 +270,73 @@ class TestLeagueScoping:
         assert res_main.status_code == res_new.status_code == 200
         main_assets = {a["assetId"] for a in res_main.json()["assets"]}
         new_assets = {a["assetId"] for a in res_new.json()["assets"]}
-        assert main_assets == {"1111", "2222"}
-        assert new_assets == {"3333", "4444"}
+        # Only the TRADED asset reaches the board; the waiver/FA assets
+        # ("1111"/"2222") are correctly absent.
+        assert main_assets == {"tr1111"}
+        assert new_assets == {"tr3333"}
         assert res_main.json()["leagueKey"] == "dynasty_main"
         assert res_new.json()["leagueKey"] == "dynasty_new"
+
+
+class TestWaiverInterestIsSeparate:
+    """Waiver activity gets its OWN endpoint and its OWN vocabulary.
+
+    A flag on the board would have been enough to render the numbers,
+    but not to prevent the defect: the whole failure was waiver churn
+    reading as trade "buys".  Separate route, separate field names.
+    """
+
+    def test_waiver_endpoint_serves_the_waiver_assets(self, intel_data_dir, authed, league_stub):
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.get("/api/intel/waiver-interest")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["activityType"] == "waiver_and_free_agent"
+        ids = {a["assetId"] for a in body["assets"]}
+        # The waiver add and the free-agent drop; NOT the traded asset.
+        assert ids == {"1234", "5678"}
+        assert "tr1234" not in ids
+
+    def test_waiver_rows_say_adds_not_buys(self, intel_data_dir, authed, league_stub):
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            body = c.get("/api/intel/waiver-interest").json()
+        win = body["assets"][0]["windows"]["30d"]
+        assert "adds" in win and "drops" in win
+        assert "buys" not in win and "sells" not in win
+
+    def test_board_and_waiver_endpoints_do_not_overlap(self, intel_data_dir, authed, league_stub):
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            board = {a["assetId"] for a in c.get("/api/intel/summary").json()["assets"]}
+            waiver = {a["assetId"] for a in c.get("/api/intel/waiver-interest").json()["assets"]}
+        assert board and waiver
+        assert board.isdisjoint(waiver)
+
+
+class TestWindowAndSortParams:
+    def test_window_param_is_honoured(self, intel_data_dir, authed, league_stub):
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            body = c.get("/api/intel/summary?window=7d").json()
+        assert body["window"] == "7d"
+
+    def test_unknown_window_falls_back_to_the_default(self, intel_data_dir, authed, league_stub):
+        """An arbitrary window name must not reach signals.window_bounds,
+        which raises on unknown values."""
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.get("/api/intel/summary?window=13d")
+        assert res.status_code == 200
+        assert res.json()["window"] == "30d"
+
+    def test_unknown_sort_falls_back(self, intel_data_dir, authed, league_stub):
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.get("/api/intel/summary?sort=nonsense")
+        assert res.status_code == 200
+        assert res.json()["sort"] == "net"
 
 
 class TestSummary:
@@ -258,7 +352,7 @@ class TestSummary:
             monkeypatch.setattr(
                 server,
                 "latest_contract_data",
-                {"sleeper": {"idToPlayer": {"1234": "Test Guy"}}},
+                {"sleeper": {"idToPlayer": {"tr1234": "Test Guy"}}},
             )
             res = c.get("/api/intel/summary")
         assert res.status_code == 200
@@ -268,9 +362,20 @@ class TestSummary:
         assert body["memberCount"] == 1
         assert body["leagueCount"] == 2
         assets = body["assets"]
-        assert [a["assetId"] for a in assets] == ["1234", "5678"]  # trendScore desc
+        # Trades only: the waiver add ("1234") and free-agent drop
+        # ("5678") must not appear as buys/sells.  trendScore is retired,
+        # so ordering is net with a volume tiebreak.
+        assert [a["assetId"] for a in assets] == ["tr1234"]
+        assert "trendScore" not in assets[0]
+        assert body["countedTxTypes"] == ["trade"]
+        assert body["window"] == "30d"
         assert assets[0]["displayName"] == "Test Guy"
-        assert assets[0]["trendScore"] > 0 > assets[1]["trendScore"]
+        # trendScore is retired.  The row carries volume and a
+        # confidence tier instead, and a single observation must never
+        # read as confident.
+        win = assets[0]["windows"]["30d"]
+        assert win["buys"] == 1 and win["volume"] == 1
+        assert assets[0]["confidence"] == "low"
         # Private endpoint — never a public cache header.
         assert "private" in res.headers["cache-control"]
         # No raw Sleeper league IDs anywhere in the payload.
@@ -316,7 +421,12 @@ class TestPlayerAndMember:
         assert body["leagueCount"] == 2
         assert body["leagueNames"] == ["Alpha League", "Beta League"]
         assert body["truncated"] is False
-        assert body["eventCount30d"] == 2
+        # "eventCount30d" became movement/trade counts with the unit
+        # named explicitly (see docs/intel/METRICS.md).  Only the trade
+        # counts — the waiver add and FA drop do not.
+        assert body["movementCount"] == 1
+        assert body["tradeCount"] == 1
+        assert body["window"] == "30d"
         assert "L1" not in json.dumps(body)
 
     def test_member_unknown_404(self, intel_data_dir, authed, league_stub):

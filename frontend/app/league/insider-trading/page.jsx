@@ -18,12 +18,29 @@ import { useLeague } from "@/components/useLeague";
 // (member-exposure drill-down).  All numbers are computed server-side;
 // this page is a pure renderer.
 
-const WINDOW_COLUMNS = [
-  { key: "48h", label: "48h" },
-  { key: "7d", label: "7d" },
-  { key: "14d", label: "14d" },
-  { key: "30d", label: "30d" },
+// Insider Trading defaults to ONE uncluttered window; the others are
+// explicit filters.  These are overlapping views of the same rows, never
+// additive buckets — a movement 15 days old appears under 30d AND 90d
+// because it is one movement seen twice.  Nothing sums them.
+const WINDOW_OPTIONS = [
+  { key: "7d", label: "7 days" },
+  { key: "30d", label: "30 days" },
+  { key: "90d", label: "90 days" },
 ];
+
+const SORT_OPTIONS = [
+  { key: "net", label: "Net" },
+  { key: "volume", label: "Volume" },
+  { key: "buys", label: "Most bought" },
+  { key: "sells", label: "Most sold" },
+];
+
+const CONFIDENCE_STYLE = {
+  high: { label: "High", color: "var(--green)" },
+  medium: { label: "Medium", color: "var(--amber)" },
+  low: { label: "Low", color: "var(--subtext)" },
+  insufficient: { label: "—", color: "var(--subtext)" },
+};
 
 // Snapshot older than this renders the amber staleness banner.  The
 // cron refreshes daily, so >30h means at least one missed run.
@@ -38,6 +55,53 @@ function netColor(net) {
   if (net > 0) return "var(--green)";
   if (net < 0) return "var(--red)";
   return "var(--subtext)";
+}
+
+function ConfidenceBadge({ confidence }) {
+  const style = CONFIDENCE_STYLE[confidence] || CONFIDENCE_STYLE.insufficient;
+  return (
+    <span
+      className="badge"
+      style={{ fontSize: "0.62rem", color: style.color, borderColor: style.color }}
+      title="Sample strength: how much evidence sits behind this signal, not how strong the direction is."
+    >
+      {style.label}
+    </span>
+  );
+}
+
+function FilterGroup({ label, options, value, onChange, hint }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <span
+        className="muted"
+        style={{ fontSize: "0.64rem", textTransform: "uppercase", letterSpacing: "0.04em" }}
+        title={hint}
+      >
+        {label}
+      </span>
+      <div style={{ display: "flex", gap: 3 }}>
+        {options.map((opt) => {
+          const active = opt.key === value;
+          return (
+            <button
+              key={opt.key}
+              onClick={() => onChange(opt.key)}
+              className={active ? "button" : "button-outline"}
+              style={{
+                fontSize: "0.72rem",
+                padding: "3px 9px",
+                minHeight: 30,
+                opacity: active ? 1 : 0.75,
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function StalenessBanner({ staleHours, generatedAt }) {
@@ -106,7 +170,9 @@ function MemberExposure({ assetId, leagueKey }) {
     );
   }
   const exposure = detail.memberExposure || [];
-  if (exposure.length === 0) {
+  const movements = detail.movements || [];
+  const win = detail.windows?.[detail.window || "30d"] || {};
+  if (exposure.length === 0 && movements.length === 0) {
     return (
       <div className="muted" style={{ fontSize: "0.72rem", padding: "6px 0" }}>
         No league-mate holds or traded this asset in the tracked pool.
@@ -116,18 +182,25 @@ function MemberExposure({ assetId, leagueKey }) {
   return (
     <div style={{ padding: "4px 0 8px" }}>
       <div className="muted" style={{ fontSize: "0.7rem", marginBottom: 4 }}>
-        {detail.holderCount} league-mate{detail.holderCount === 1 ? "" : "s"} hold this asset
-        across {detail.heldLeagueTotal} league slot{detail.heldLeagueTotal === 1 ? "" : "s"}
+        {detail.holderCount} league-mate{detail.holderCount === 1 ? "" : "s"} currently hold this
+        asset across {detail.heldLeagueCount} league
+        {detail.heldLeagueCount === 1 ? "" : "s"} · {win.volume || 0} trade movement
+        {(win.volume || 0) === 1 ? "" : "s"} in the last {detail.window || "30d"}
       </div>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th style={{ textAlign: "left" }}>League-mate</th>
-              <th style={{ textAlign: "right" }}>Holds in</th>
-              <th style={{ textAlign: "right" }}>Buys 30d</th>
-              <th style={{ textAlign: "right" }}>Sells 30d</th>
-              <th style={{ textAlign: "right" }}>Net 30d</th>
+              <th style={{ textAlign: "right" }} title="Leagues where they currently roster the asset">
+                Holds in
+              </th>
+              <th style={{ textAlign: "right" }}>Bought</th>
+              <th style={{ textAlign: "right" }}>Sold</th>
+              <th style={{ textAlign: "right" }}>Net</th>
+              <th style={{ textAlign: "right" }} title="Leagues the trades happened in">
+                Traded in
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -135,25 +208,76 @@ function MemberExposure({ assetId, leagueKey }) {
               <tr key={m.ownerId}>
                 <td style={{ fontWeight: 600 }}>{m.displayName || `Owner ${m.ownerId}`}</td>
                 <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
-                  {m.heldLeagueCount} league{m.heldLeagueCount === 1 ? "" : "s"}
+                  {m.heldLeagueCount}
                 </td>
-                <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{m.buys30d}</td>
-                <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{m.sells30d}</td>
+                <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--green)" }}>
+                  {m.buys}
+                </td>
+                <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--red)" }}>
+                  {m.sells}
+                </td>
                 <td
                   style={{
                     textAlign: "right",
                     fontFamily: "var(--mono)",
                     fontWeight: 700,
-                    color: netColor(m.net30d),
+                    color: netColor(m.net),
                   }}
                 >
-                  {fmtNet(m.net30d)}
+                  {fmtNet(m.net)}
+                </td>
+                <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
+                  {m.tradedLeagueCount}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* The receipts.  Every count above is auditable back to the
+          individual movements that produced it — the brief's "allow a
+          transaction detail list so users can verify the count". */}
+      {movements.length > 0 && (
+        <details style={{ marginTop: 8 }}>
+          <summary className="muted" style={{ fontSize: "0.7rem", cursor: "pointer" }}>
+            {movements.length} underlying trade movement
+            {movements.length === 1 ? "" : "s"} — verify the count
+          </summary>
+          <div className="table-wrap" style={{ marginTop: 6 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left" }}>When</th>
+                  <th style={{ textAlign: "left" }}>Manager</th>
+                  <th style={{ textAlign: "left" }}>Direction</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movements.map((mv) => (
+                  <tr key={mv.movementId}>
+                    <td style={{ fontFamily: "var(--mono)", fontSize: "0.7rem" }}>
+                      {new Date(mv.ts).toLocaleDateString()}
+                    </td>
+                    <td style={{ fontSize: "0.72rem" }}>
+                      {detail.memberExposure?.find((m) => m.ownerId === mv.userId)?.displayName ||
+                        `Owner ${mv.userId}`}
+                    </td>
+                    <td
+                      style={{
+                        fontSize: "0.72rem",
+                        color: mv.action === "add" ? "var(--green)" : "var(--red)",
+                      }}
+                    >
+                      {mv.action === "add" ? "bought" : "sold"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -164,6 +288,10 @@ export default function IntelPage() {
   const [loading, setLoading] = useState(true);
   const [expandedAsset, setExpandedAsset] = useState(null);
   const [typeFilter, setTypeFilter] = useState("all");
+  const [window_, setWindow] = useState("30d");
+  const [sort, setSort] = useState("net");
+  const [direction, setDirection] = useState("all");
+  const [search, setSearch] = useState("");
 
   // League binding: follow the league switcher's selection (same
   // useLeague subscription other league-aware pages use — it re-reads
@@ -176,11 +304,14 @@ export default function IntelPage() {
   // can never overwrite a newer league's board.
   const requestSeq = useRef(0);
 
-  const load = useCallback((leagueKey) => {
+  const load = useCallback((leagueKey, activeWindow, activeSort) => {
     const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
-    const params = new URLSearchParams({ limit: "200" });
+    // Window and sort are applied SERVER-SIDE: each window is its own
+    // indexed ledger query, so the client must not try to derive one
+    // window from another.
+    const params = new URLSearchParams({ limit: "200", window: activeWindow, sort: activeSort });
     if (leagueKey) params.set("leagueKey", leagueKey);
     fetch(`/api/intel/summary?${params.toString()}`)
       .then(async (r) => {
@@ -217,14 +348,25 @@ export default function IntelPage() {
   useEffect(() => {
     if (leagueLoading) return; // wait for the resolved league key
     setExpandedAsset(null); // drill-down belongs to the old league
-    load(selectedLeagueKey);
-  }, [leagueLoading, selectedLeagueKey, load]);
+    load(selectedLeagueKey, window_, sort);
+  }, [leagueLoading, selectedLeagueKey, window_, sort, load]);
 
+  // Asset-type, direction and search are pure display filters over the
+  // rows the server already scoped and ordered — they never recompute a
+  // count.
   const assets = useMemo(() => {
-    const all = data?.assets || [];
-    if (typeFilter === "all") return all;
-    return all.filter((a) => a.assetType === typeFilter);
-  }, [data, typeFilter]);
+    let rows = data?.assets || [];
+    const active = data?.window || window_;
+    if (typeFilter !== "all") rows = rows.filter((a) => a.assetType === typeFilter);
+    if (direction === "buy") {
+      rows = rows.filter((a) => (a.windows?.[active]?.net || 0) > 0);
+    } else if (direction === "sell") {
+      rows = rows.filter((a) => (a.windows?.[active]?.net || 0) < 0);
+    }
+    const q = search.trim().toLowerCase();
+    if (q) rows = rows.filter((a) => String(a.displayName || "").toLowerCase().includes(q));
+    return rows;
+  }, [data, typeFilter, direction, search, window_]);
 
   if (loading) return <LoadingState message="Loading Insider Trading…" />;
   if (error) {
@@ -258,6 +400,46 @@ export default function IntelPage() {
         </div>
       )}
 
+      <div
+        className="card"
+        style={{ marginBottom: 10, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}
+      >
+        <FilterGroup
+          label="Window"
+          options={WINDOW_OPTIONS}
+          value={window_}
+          onChange={setWindow}
+          hint="Overlapping views of the same trades — never added together."
+        />
+        <FilterGroup
+          label="Sort"
+          options={SORT_OPTIONS}
+          value={sort}
+          onChange={setSort}
+        />
+        <FilterGroup
+          label="Direction"
+          options={[
+            { key: "all", label: "All" },
+            { key: "buy", label: "Buying" },
+            { key: "sell", label: "Selling" },
+          ]}
+          value={direction}
+          onChange={setDirection}
+        />
+        <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <span className="muted" style={{ fontSize: "0.64rem", textTransform: "uppercase" }}>
+            Search
+          </span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Player or pick…"
+            style={{ fontSize: "0.74rem", padding: "4px 8px", minHeight: 32 }}
+          />
+        </label>
+      </div>
+
       <div className="card" style={{ marginBottom: 10, display: "flex", gap: 4, flexWrap: "wrap" }}>
         {[
           { key: "all", label: "All assets" },
@@ -288,32 +470,42 @@ export default function IntelPage() {
       ) : (
         <div className="card">
           <div className="muted" style={{ fontSize: "0.7rem", marginBottom: 6 }}>
-            {assets.length} asset{assets.length === 1 ? "" : "s"} · sorted by trend score
-            (3·net48h + 2·net7d + 1·net30d) · click a row for member exposure
+            {assets.length} asset{assets.length === 1 ? "" : "s"} · trades only, last{" "}
+            {data?.window || "30d"} · sorted by {SORT_OPTIONS.find((s) => s.key === sort)?.label}
+            {" "}· click a row for the managers and the underlying trades
           </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th style={{ textAlign: "left" }}>Asset</th>
-                  <th style={{ textAlign: "right" }}>Trend</th>
-                  {WINDOW_COLUMNS.map((w) => (
-                    <th key={w.key} style={{ textAlign: "right" }}>
-                      Net {w.label}
-                    </th>
-                  ))}
-                  <th style={{ textAlign: "right" }}>Leagues</th>
+                  <th style={{ textAlign: "right" }} title="Buys minus sells">Net</th>
+                  <th
+                    style={{ textAlign: "right" }}
+                    title="Buys plus sells — the evidence behind the direction. Net is never shown without it."
+                  >
+                    Volume
+                  </th>
+                  <th style={{ textAlign: "right" }}>Buys</th>
+                  <th style={{ textAlign: "right" }}>Sells</th>
+                  <th style={{ textAlign: "right" }} title="Distinct managers involved">Mgrs</th>
+                  <th
+                    style={{ textAlign: "right" }}
+                    title="Distinct leagues the trades happened in (not leagues where the asset is merely rostered)"
+                  >
+                    Leagues
+                  </th>
+                  <th style={{ textAlign: "right" }}>Confidence</th>
                 </tr>
               </thead>
               <tbody>
                 {assets.map((asset) => {
                   const expanded = expandedAsset === asset.assetId;
+                  const win = asset.windows?.[data?.window || "30d"] || {};
                   return [
                     <tr
                       key={asset.assetId}
-                      onClick={() =>
-                        setExpandedAsset(expanded ? null : asset.assetId)
-                      }
+                      onClick={() => setExpandedAsset(expanded ? null : asset.assetId)}
                       style={{ cursor: "pointer" }}
                     >
                       <td style={{ fontWeight: 600 }}>
@@ -330,35 +522,33 @@ export default function IntelPage() {
                           textAlign: "right",
                           fontFamily: "var(--mono)",
                           fontWeight: 700,
-                          color: netColor(asset.trendScore),
+                          color: netColor(win.net || 0),
                         }}
                       >
-                        {fmtNet(asset.trendScore)}
+                        {fmtNet(win.net || 0)}
                       </td>
-                      {WINDOW_COLUMNS.map((w) => {
-                        const win = asset.windows?.[w.key] || { buys: 0, sells: 0, net: 0 };
-                        return (
-                          <td
-                            key={w.key}
-                            style={{ textAlign: "right", fontFamily: "var(--mono)" }}
-                            title={`${win.buys} buys / ${win.sells} sells`}
-                          >
-                            <span style={{ color: netColor(win.net), fontWeight: 600 }}>
-                              {fmtNet(win.net)}
-                            </span>
-                            <span className="muted" style={{ fontSize: "0.64rem", marginLeft: 4 }}>
-                              ({win.buys}/{win.sells})
-                            </span>
-                          </td>
-                        );
-                      })}
+                      <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontWeight: 600 }}>
+                        {win.volume || 0}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--green)" }}>
+                        {win.buys || 0}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--red)" }}>
+                        {win.sells || 0}
+                      </td>
                       <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
-                        {asset.leagueCount}
+                        {win.uniqueManagers || 0}
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
+                        {win.uniqueLeagues || 0}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <ConfidenceBadge confidence={asset.confidence} />
                       </td>
                     </tr>,
                     expanded ? (
                       <tr key={`${asset.assetId}::detail`}>
-                        <td colSpan={3 + WINDOW_COLUMNS.length} style={{ background: "rgba(255,255,255,0.02)" }}>
+                        <td colSpan={8} style={{ background: "rgba(255,255,255,0.02)" }}>
                           <MemberExposure assetId={asset.assetId} leagueKey={selectedLeagueKey} />
                         </td>
                       </tr>

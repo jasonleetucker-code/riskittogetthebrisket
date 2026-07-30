@@ -12059,6 +12059,12 @@ INTEL_REFRESH_TOKEN = os.getenv("INTEL_REFRESH_TOKEN", "").strip() or SIGNAL_ALE
 
 _INTEL_PRIVATE_CACHE_HEADERS = {"Cache-Control": "private, max-age=60, stale-while-revalidate=300"}
 
+# Allow-listed so a query string cannot reach an arbitrary window name
+# (signals.window_bounds raises on unknown ones) or an unsupported sort.
+_INTEL_DEFAULT_WINDOW = "30d"
+_INTEL_ALLOWED_WINDOWS = ("7d", "30d", "90d", "all")
+_INTEL_ALLOWED_SORTS = ("net", "volume", "buys", "sells", "strength", "velocity")
+
 
 # Rate limit for the bearer-rejection warnings below: they fire on
 # UNAUTHENTICATED requests, so an unthrottled log line would be a
@@ -12164,10 +12170,18 @@ def _intel_not_ready_response(league_key: str) -> JSONResponse:
 
 @app.get("/api/intel/summary")
 async def get_intel_summary(request: Request):
-    """Sharp Tracker board: per-asset buy/sell/net over 48h/7d/14d/30d
-    windows, sorted by trendScore.  League-scoped (intel is
-    roster-scoped → league-scoped): resolves the requested league and
-    reads that league's snapshot partition.  Stamps staleness."""
+    """Insider Trading board: per-asset trade buy/sell/net/volume over an
+    explicit window, served from the normalized ledger.
+
+    League-scoped (intel is roster-scoped → league-scoped): resolves the
+    requested league, and every ledger query is filtered to that
+    league's member pool — the ledger itself is global.
+
+    ``window`` selects ONE lens (7d/30d/90d/all, default 30d) and
+    ``sort`` the ordering.  Counts are TRADES ONLY; waiver and
+    free-agent activity is served separately by
+    ``/api/intel/waiver-interest`` so a claim can never render as a buy.
+    """
     try:
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
@@ -12179,11 +12193,51 @@ async def get_intel_summary(request: Request):
     except (TypeError, ValueError):
         limit = 100
     limit = max(1, min(500, limit))
+    window = (request.query_params.get("window") or "").strip() or _INTEL_DEFAULT_WINDOW
+    if window not in _INTEL_ALLOWED_WINDOWS:
+        window = _INTEL_DEFAULT_WINDOW
+    sort = (request.query_params.get("sort") or "").strip() or "net"
+    if sort not in _INTEL_ALLOWED_SORTS:
+        sort = "net"
     payload = await run_in_threadpool(
         _intel_service.build_summary_payload,
         league_cfg.key,
         limit=limit,
         id_to_player=_intel_id_to_player(),
+        window=window,
+        sort=sort,
+    )
+    return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
+
+
+@app.get("/api/intel/waiver-interest")
+async def get_intel_waiver_interest(request: Request):
+    """Waiver and free-agent activity, under its OWN label.
+
+    A SEPARATE endpoint rather than a flag on the board, because the
+    defect this whole change undoes was waiver churn rendering as trade
+    "buys".  Fields here are ``adds``/``drops``, never ``buys``/``sells``.
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    if not await run_in_threadpool(_intel_service.snapshot_ready, league_cfg.key):
+        return _intel_not_ready_response(league_cfg.key)
+    try:
+        limit = int(request.query_params.get("limit") or 100)
+    except (TypeError, ValueError):
+        limit = 100
+    limit = max(1, min(500, limit))
+    window = (request.query_params.get("window") or "").strip() or _INTEL_DEFAULT_WINDOW
+    if window not in _INTEL_ALLOWED_WINDOWS:
+        window = _INTEL_DEFAULT_WINDOW
+    payload = await run_in_threadpool(
+        _intel_service.build_waiver_interest_payload,
+        league_cfg.key,
+        limit=limit,
+        id_to_player=_intel_id_to_player(),
+        window=window,
     )
     return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
 
