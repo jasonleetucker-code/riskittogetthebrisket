@@ -239,12 +239,40 @@ test.describe("public /league page", () => {
     // trades total) while claiming to measure matchups.
     const matchupsBtn = page.getByRole("button", { name: /^Matchups \(\d+\)$/ });
     const declared = Number((await matchupsBtn.innerText()).match(/\((\d+)\)/)[1]);
-    await matchupsBtn.click();
+
+    // Click INSIDE the poll, because the first one can land before
+    // React has attached its handlers and is then simply lost.
+    //
+    // `visitLeague` waits for the text "Public archives", which is in
+    // the SSR HTML — so it proves the markup arrived, not that the
+    // page is interactive. Against production that gap is real: the
+    // /league document is ~960 KB with the archives section (~737 KB)
+    // inlined in the RSC payload, so hydration takes long enough to
+    // race a test that clicks the moment the text appears.
+    //
+    // This is what made the suite ~46% flaky rather than broken.
+    // Across 30 consecutive scheduled runs the results were
+    // FFFF.SFFSFSSSSSSFSFSFFSS.FSFFF — 13 passes, 15 failures,
+    // interleaved. A genuinely inert control fails every time; an
+    // interleaved record is a race, and the same spec passed
+    // consistently in the nightly, where the committed snapshot is
+    // small and hydration is quick.
+    //
+    // Re-clicking is safe: the handler is `setKind(k.key)`, so extra
+    // clicks set the same value. Nothing here is loosened — the
+    // assertion is still the exact declared row count.
     await expect
-      .poll(() => rows.count(), {
-        message: `clicking Matchups should render its declared ${declared} rows`,
-        timeout: 15_000,
-      })
+      .poll(
+        async () => {
+          await matchupsBtn.click();
+          return rows.count();
+        },
+        {
+          message: `clicking Matchups should render its declared ${declared} rows`,
+          timeout: 30_000,
+          intervals: [250, 500, 1000, 2000, 3000],
+        },
+      )
       .toBe(Math.min(declared, 500)); // the section caps its render at 500
     const matchupRows = await rows.count();
 
@@ -259,12 +287,21 @@ test.describe("public /league page", () => {
         specific,
         `archives season filter offered no concrete season: ${options.join(", ")}`,
       ).toBeTruthy();
-      await seasonSelect.selectOption({ label: specific });
+      // Same shape as the click above: re-select inside the poll so a
+      // pre-hydration change event cannot be swallowed. Selecting the
+      // same option repeatedly is idempotent.
       await expect
-        .poll(() => rows.count(), {
-          message: `selecting season ${specific} should narrow the archive rows below ${matchupRows}`,
-          timeout: 15_000,
-        })
+        .poll(
+          async () => {
+            await seasonSelect.selectOption({ label: specific });
+            return rows.count();
+          },
+          {
+            message: `selecting season ${specific} should narrow the archive rows below ${matchupRows}`,
+            timeout: 30_000,
+            intervals: [250, 500, 1000, 2000],
+          },
+        )
         .toBeLessThan(matchupRows);
 
       // Stronger than "fewer rows": every surviving row must BE the
