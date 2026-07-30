@@ -37,10 +37,10 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from src.canonical.player_valuation import (
+from src.canonical.player_valuation import (  # noqa: E402
     percentile_to_value,  # kept for shape invariants
 )
-from src.api.data_contract import _PERCENTILE_REFERENCE_N
+from src.api.data_contract import _PERCENTILE_REFERENCE_N  # noqa: E402
 
 
 KTC_CSV = REPO / "CSVs" / "site_raw" / "ktc.csv"
@@ -103,17 +103,42 @@ def _load_ktc_players_sorted() -> list[tuple[str, int]]:
 # A structural KTC tail shift larger than these bands is a signal, not
 # a regression — break CI, investigate, re-baseline the affected ranks.
 # ──────────────────────────────────────────────────────────────────────
+#
+# RE-BASELINED 2026-07-30 (audit debt D16).  The previous baseline dated
+# from 2026-04-20 and had gone stale: `HILL_PERCENTILE_C/S` were promoted
+# through the model registry since, so `_ours(rank)` no longer matched the
+# pinned `ours` at 9 of these 10 ranks, and the bands at ranks 24 and 50
+# had drifted out too.  **All 10 cases were failing on `main`** and nobody
+# saw it, because this module is auto-marked `livedata` (see
+# `_LIVEDATA_MODULES` in tests/conftest.py) so CI runs it
+# `continue-on-error`.
+#
+# That is the third of ADR-008's three failure modes showing up from the
+# other side.  The old auto-refit used to rewrite these pins, which made
+# the guard unfalsifiable; removing that rewrite left the pins simply
+# UNMAINTAINED, because promotion (`scripts/model_registry.py apply`)
+# re-baselines nothing.  A guard that silently goes stale after every
+# promotion is not much better than one that is rewritten by the thing it
+# guards.
+#
+# The structural half of that gap is fixed by
+# `tests/canonical/test_hill_percentile_constants_tripwire.py`: it pins the
+# eight percentile constants deterministically, needs no live data, is NOT
+# livedata-marked, and therefore BLOCKS.  Its failure message tells the
+# operator to re-baseline this file too.  This module keeps only the part
+# that genuinely needs `ktc.csv` — the divergence band — and stays
+# advisory, which is correct for a data-coupled assertion.
 PINNED_DELTAS: list[tuple[int, int, float, float]] = [
     (1, 9999, 0.0, 3.0),
-    (5, 9587, 3.2, 3.0),
-    (12, 8768, 14.2, 3.0),
-    (24, 7502, 17.5, 3.0),
-    (50, 5535, 4.5, 3.0),
-    (100, 3525, -0.9, 5.0),
-    (150, 2523, -10.7, 5.0),
-    (200, 1939, -20.6, 10.0),
-    (300, 1300, -18.6, 10.0),
-    (400, 963, -2.7, 10.0),
+    (5, 9481, 2.2, 3.0),
+    (12, 8561, 12.3, 3.0),
+    (24, 7242, 13.5, 3.0),
+    (50, 5314, 0.4, 3.0),
+    (100, 3419, -3.3, 5.0),
+    (150, 2481, -11.8, 5.0),
+    (200, 1931, -20.4, 10.0),
+    (300, 1322, -16.5, 10.0),
+    (400, 996, 0.0, 10.0),
 ]
 
 

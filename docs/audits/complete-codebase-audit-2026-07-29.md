@@ -368,7 +368,49 @@ corrected instead.
 | D13 | ~205 pytest cases are `livedata`-advisory (`continue-on-error`) | Medium | Includes the primary blend test | Small | Re-litigate per module |
 | D14 | ADR numbers collide across two DECISIONS files (two ADR-008s) | Low | Ambiguous citations | Small | No |
 | D15 | `_sites` / `_marketConfidence` divisor is 8.0, a fossil of the pre-scope-reduction ~10-site scraper era; confidence is structurally capped at 0.594 | Low | No board impact (`market_conf` only multiplies the scraper composite, never `rankDerivedValue`); reaches live code only via `finder.py`'s degraded fallback | Small | Fix when the scraper is next touched — measured multipliers in `docs/open-modeling-decisions.md` §3 |
-| D16 | `tests/canonical/test_ktc_reconciliation.py`: 9 cases failing on `main`, invisible because the module is auto-marked `livedata` | Medium | A guard that was supposed to catch curve drift is stale and silent — `PINNED_DELTAS` were baselined against since-promoted percentile constants | Small | Re-baseline as part of the next percentile-master promotion; promotion currently re-baselines nothing |
+| D16 | `tests/canonical/test_ktc_reconciliation.py`: 10 cases failing on `main`, invisible because the module is auto-marked `livedata` | Medium | A guard that was supposed to catch curve drift is stale and silent — `PINNED_DELTAS` were baselined against since-promoted percentile constants | Small | **FIXED 2026-07-30** — see below |
+
+### D16 — fixed 2026-07-30
+
+Two problems, and only one of them was the stale numbers.
+
+**The pins were re-baselined.** All 10 cases were failing (not 9 — the
+first count came from a partial run; rank 1 fails only on the band, which
+happened to be in tolerance). Nine failed the exact `ours == pinned_ours`
+pin because `HILL_PERCENTILE_C/S` were promoted after the 2026-04-20
+baseline; ranks 24 and 50 also failed the divergence band.
+
+**The structural problem was that nothing could ever have caught it.**
+`scripts/model_registry.py apply` rewrites the constants and stops —
+deliberately, because ADR-008 prohibits the refit path from rewriting its
+own guards. But that leaves every downstream expectation to go stale
+silently, and this one is `livedata`-marked, so CI runs it
+`continue-on-error`. A guard that quietly rots after every promotion is
+not much better than one rewritten by the thing it guards.
+
+The marking is *correct* and pinned in place by
+`test_refit_path_characterisation.py::TestTheLivedataMarkingIsPreserved`
+(a KTC row-count dip once stalled every open PR), and that test also
+requires the module keep both its assertions. So the fix could not be a
+restructure of that file. Instead:
+
+`tests/canonical/test_hill_percentile_constants_tripwire.py` — a
+deterministic, **non-`livedata`, blocking** tripwire on the eight
+percentile constants, mirroring the rank-form tripwire. Four tests:
+
+- pins the eight constants; a promotion fails here, loudly, in the hard
+  tier, with a four-step follow-up checklist in the message
+- pins what the OFFENSE master *produces* at ten ranks — catches a
+  formula or `_PERCENTILE_REFERENCE_N` change the constants would miss
+- asserts the registry's **regex** reader (`hill_masters.read_committed_constants`,
+  the same path `apply` writes through) agrees with the values Python
+  imports. Nothing else checked that; a divergence would have the registry
+  promoting numbers the engine does not use
+- **cross-checks `PINNED_DELTAS` against these values**, so the advisory
+  guard's staleness is detectable from the blocking tier. Mutation-tested:
+  reverting one pin fails this test
+
+Net effect: the next promotion cannot silently stale either guard.
 
 ### D2 was wrong — recorded so it is not re-raised
 
@@ -623,11 +665,13 @@ pipeline.
    write-up: `docs/legacy-rank-curve-backtest.md` 2026-07-30 addendum.
 
    Uncovered while doing it: `tests/canonical/test_ktc_reconciliation.py`
-   has **9 cases failing on `main`** — its `PINNED_DELTAS` were baselined
+   had **10 cases failing on `main`** — its `PINNED_DELTAS` were baselined
    against percentile constants that have since been promoted, and it is
    auto-marked `livedata` so CI never blocks on it. Confirmed at a clean
-   HEAD, so it predates this work. Registered as debt (D16 below);
-   re-baselining it is a percentile-master decision, not a rank-form one.
+   HEAD, so it predated this work. Registered as D16 and **fixed
+   2026-07-30** (see the D16 note in §8): pins re-baselined, plus a new
+   deterministic blocking tripwire on the percentile constants so the next
+   promotion cannot silently stale either guard.
 7. **BDVM end-to-end validation** once a projection snapshot exists.
 
 **Medium priority**
