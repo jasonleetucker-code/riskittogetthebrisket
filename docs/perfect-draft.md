@@ -210,20 +210,67 @@ absolute number on an arbitrary scale, and it ignores correlation entirely.
 
 ---
 
-## 8. Recalculation triggers
+## 8. Live updating during the auction
 
 The solve is a `useMemo` over live workspace state, so it re-runs whenever:
 
-- a rookie is drafted or a final price is recorded (`recordPick`, and the live
-  Sleeper feed via `useSleeperDraftSync`),
+- a rookie is drafted or a final price is recorded — by hand, by the `Q`
+  quick-record, or from the live Sleeper feed (`useSleeperDraftSync` →
+  `handleLivePick` → `recordPick`),
 - a team's budget is edited or `/api/draft-capital` re-syncs,
-- inflation or tier heat moves (any recorded pick),
+- inflation or tier heat moves (which any recorded pick does),
+- a PreDraft value is edited,
 - the strategy mode or the selected team changes.
 
-The roster context is fetched once per (league, team) and on the
-`league:changed` / `auth:changed` events — it is static for the whole draft, so
-re-fetching per pick would add latency to the one interaction that must feel
-instant.
+`stats` is memoized on `workspace` (`page.jsx`), so the chain fires on real state
+changes rather than on every render.
+
+### Consuming what has already been bought
+
+The roster context is a **pre-draft snapshot**: its `openRosterSpots` and cut
+ladder describe the roster before the auction and do not move when a rookie
+sells. `applyDraftProgress` advances both past this team's purchases — each
+rookie bought fills an open spot first, then consumes the cheapest remaining
+rung, matching the order the plan itself assumes.
+
+Without it, two things break the moment you buy anything: roster room is
+double-counted (three rookies into one open spot, and the model still thinks the
+spot is free), and the ladder re-offers rungs those purchases already consumed —
+i.e. it recommends releasing the same player twice, which is exactly what the
+spec forbids. Budget already flowed through correctly via `stats.myRemaining`;
+this is the other half.
+
+`ladderExhausted` is surfaced explicitly, because "no roster room left to model"
+and "nothing is worth buying" render identically and mean opposite things.
+
+### Phase, and completed results
+
+`draftPhase(stats)` → `pre` | `live` | `complete`, from picks recorded against
+the pool size, shown as a badge. `realizedResults` values what has already been
+bought using the *same* surplus and ECC primitives as the plan, so the
+"bought so far" line and the remaining plan are directly comparable — a separate
+results formula would drift.
+
+### Cost and responsiveness
+
+A full solve measured ~140 ms at a $417 budget on the live board (most of it the
+per-rookie max-bid DPs). The solve inputs go through `useDeferredValue` so a
+burst of live picks cannot jank the board; the previous plan stays painted and
+the header shows "Recalculating…" until the new one lands.
+
+### Refetching the roster context
+
+Fetched once per (league, team), and on `league:changed` / `auth:changed`. It is
+static for a draft and the server build is ~1.35 s cold, so it is deliberately
+not polled — purchases are applied client-side instead. A mid-draft **trade** is
+the exception, so the panel carries an explicit "Refresh roster" control.
+
+### Bundle
+
+The panel is mounted via `next/dynamic` with `ssr: false`, keeping it and the
+optimizer out of the initial `/draft` chunk (measured: 124.7 KB against the
+128 KB budget, versus 141.9 KB when statically imported). `ssr: false` is
+required, not cosmetic — the panel reads `localStorage` via `useRosterContext`.
 
 Server-side cache key: contract identity (`id` + `generatedAt` +
 `scrapeTimestamp`), league key, and **team identity**. The last is what

@@ -718,3 +718,113 @@ export function optimizeDraft(input) {
     },
   };
 }
+
+// ── Live draft progress ────────────────────────────────────────────────────
+
+/**
+ * Advance the roster context past the rookies this team has ALREADY bought.
+ *
+ * The roster context is a snapshot of the roster as it stood before the draft:
+ * `openRosterSpots` and the cut ladder both describe that starting state, and
+ * neither moves when a rookie sells. Consuming them here is what makes the
+ * recommendation *the remaining plan* rather than a stale opening plan.
+ *
+ * Without this, two things go wrong the moment you buy anything:
+ *
+ *   * roster room is double-counted — buy three rookies into one open spot and
+ *     the model still believes that spot is free, so it under-charges the next
+ *     three additions;
+ *   * the ladder re-offers rungs those purchases already consumed, i.e. it
+ *     recommends releasing the same player twice.
+ *
+ * Each rookie bought fills an open spot first, then takes the cheapest
+ * remaining rung — the same order the plan itself assumes, so the accounting
+ * stays consistent with how the cost was quoted at the time.
+ *
+ * `ladderExhausted` matters for display: a plan of zero because there is no
+ * modelled room left reads identically to a plan of zero because nothing is
+ * worth buying, and those call for opposite actions.
+ */
+export function applyDraftProgress({
+  openRosterSpots = 0,
+  cutLadder = [],
+  rookiesBought = 0,
+} = {}) {
+  const open = Math.max(0, Number(openRosterSpots) || 0);
+  const ladder = Array.isArray(cutLadder) ? cutLadder : [];
+  const bought = Math.max(0, Number(rookiesBought) || 0);
+
+  const spotsUsed = Math.min(bought, open);
+  const rungsUsed = Math.min(ladder.length, Math.max(0, bought - open));
+  const remainingLadder = ladder.slice(rungsUsed);
+
+  return {
+    openRosterSpots: open - spotsUsed,
+    cutLadder: remainingLadder,
+    spotsUsed,
+    rungsUsed,
+    // True once purchases have eaten the whole modelled ladder AND there is no
+    // open spot left — at that point the model has nothing left to charge, and
+    // says so rather than quietly recommending nothing.
+    ladderExhausted: remainingLadder.length === 0 && open - spotsUsed === 0 && bought > 0,
+  };
+}
+
+/**
+ * Which phase of the draft the plan describes.
+ *
+ * The three states mean genuinely different things — an opening plan is a
+ * theory, a live plan is a decision, and a finished draft is a record — and the
+ * panel should not present them in the same voice.
+ */
+export function draftPhase(stats) {
+  const made = Number(stats?.totalPicksMade) || 0;
+  const pool = Number(stats?.rookiePoolSize) || 0;
+  if (made <= 0) return "pre";
+  if (pool > 0 && made >= pool) return "complete";
+  return "live";
+}
+
+/**
+ * What this team has actually bought so far, valued the same way the plan
+ * values a prospective purchase.
+ *
+ * Surplus uses each rookie's board value over replacement; the cost side is the
+ * ladder rungs those purchases consumed (`applyDraftProgress` says how many).
+ * Reusing both primitives is deliberate — a separate "results" formula would
+ * drift from the plan's and the two numbers would stop being comparable.
+ */
+export function realizedResults({
+  stats,
+  waiverValues = {},
+  cutLadder = [],
+  openRosterSpots = 0,
+  strategy = DEFAULT_STRATEGY,
+} = {}) {
+  // `mine` is stamped per-row by computeDraftStats, so the team is already
+  // resolved here — `stats` itself carries no myTeamIdx.
+  const bought = (stats?.enrichedPlayers || []).filter((p) => p?.drafted && p?.mine);
+  const { rungsUsed } = applyDraftProgress({
+    openRosterSpots,
+    cutLadder,
+    rookiesBought: bought.length,
+  });
+
+  const grossSurplus = bought.reduce(
+    (s, p) => s + surplusOverReplacement(p, waiverValues, strategy),
+    0,
+  );
+  const displacement = (Array.isArray(cutLadder) ? cutLadder : [])
+    .slice(0, rungsUsed)
+    .reduce((s, r) => s + (Number(r?.effectiveCutCost) || 0), 0);
+  const spend = bought.reduce((s, p) => s + (Number(p?.pick?.amount) || 0), 0);
+
+  return {
+    count: bought.length,
+    spend,
+    grossSurplus,
+    displacement,
+    netValue: grossSurplus - displacement,
+    players: bought,
+  };
+}

@@ -14,11 +14,12 @@
  * configuration states, not failures worth shouting about mid-draft.
  */
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 
 import {
   Badge,
   Banner,
+  Button,
   CollapsiblePanel,
   DataTable,
   InfoTip,
@@ -27,7 +28,14 @@ import {
   StatTile,
 } from "@/components/ds";
 import { useRosterContext } from "@/components/useRosterContext";
-import { optimizeDraft, priceBand, STRATEGIES } from "@/lib/perfect-draft";
+import {
+  applyDraftProgress,
+  draftPhase,
+  optimizeDraft,
+  priceBand,
+  realizedResults,
+  STRATEGIES,
+} from "@/lib/perfect-draft";
 
 import styles from "@/app/draft/draft.module.css";
 
@@ -68,7 +76,7 @@ export function PerfectDraftPanel({ stats, workspace }) {
   const myTeamName = workspace?.teams?.[workspace?.myTeamIdx]?.name || "";
   const [teamName, setTeamName] = useState(myTeamName);
   const [strategy, setStrategy] = useState("balanced");
-  const { teams, context, failure, loading } = useRosterContext({
+  const { teams, context, failure, loading, refetch } = useRosterContext({
     teamName: teamName || myTeamName,
   });
 
@@ -91,25 +99,71 @@ export function PerfectDraftPanel({ stats, workspace }) {
       }));
   }, [stats?.enrichedPlayers]);
 
-  const result = useMemo(() => {
-    if (!context) return null;
-    return optimizeDraft({
-      rookies,
-      budget: stats?.myRemaining || 0,
-      cutLadder: context.cutLadder?.rungs || [],
-      openRosterSpots: context.openRosterSpots || 0,
-      waiverValues: context.waiverValues || {},
-      strategy,
-    });
-  }, [context, rookies, stats?.myRemaining, strategy]);
+  const rookiesBought = Number(stats?.myRookiesBought) || 0;
+
+  // The roster context describes the roster as it stood BEFORE the draft, and
+  // neither its open spots nor its cut ladder move when a rookie sells. Advance
+  // both past what has already been bought so the recommendation below is the
+  // REMAINING plan — otherwise roster room is double-counted and the ladder
+  // re-offers cuts those purchases already consumed.
+  const progress = useMemo(
+    () =>
+      applyDraftProgress({
+        openRosterSpots: context?.openRosterSpots || 0,
+        cutLadder: context?.cutLadder?.rungs || [],
+        rookiesBought,
+      }),
+    [context?.openRosterSpots, context?.cutLadder?.rungs, rookiesBought],
+  );
+
+  const solveInput = useMemo(
+    () =>
+      context
+        ? {
+            rookies,
+            budget: stats?.myRemaining || 0,
+            cutLadder: progress.cutLadder,
+            openRosterSpots: progress.openRosterSpots,
+            waiverValues: context.waiverValues || {},
+            strategy,
+          }
+        : null,
+    [context, rookies, stats?.myRemaining, progress, strategy],
+  );
+
+  // The solve is ~140ms at a full budget, and live Sleeper picks can arrive in
+  // bursts. Deferring lets React keep the board interactive and paint the
+  // previous plan while the next one computes, instead of blocking on every
+  // recorded pick.
+  const deferredInput = useDeferredValue(solveInput);
+  const recalculating = solveInput !== deferredInput;
+  const result = useMemo(
+    () => (deferredInput ? optimizeDraft(deferredInput) : null),
+    [deferredInput],
+  );
+
+  const phase = draftPhase(stats);
+  const realized = useMemo(
+    () =>
+      context
+        ? realizedResults({
+            stats,
+            waiverValues: context.waiverValues || {},
+            cutLadder: context.cutLadder?.rungs || [],
+            openRosterSpots: context.openRosterSpots || 0,
+            strategy,
+          })
+        : null,
+    [context, stats, strategy],
+  );
 
   // Silent vanish — never a generic error on an add-on panel.
   if (failure || (!loading && !context)) return null;
   if (!result) return null;
 
   const { plan, alternatives, confidence, nearTies, meta } = result;
-  const cutRungs = context.cutLadder?.rungs || [];
-  const openSpots = context.openRosterSpots || 0;
+  const cutRungs = progress.cutLadder;
+  const openSpots = progress.openRosterSpots;
 
   // Pair each recommended rookie with the specific roster player it
   // displaces. The i-th rookie past the open spots takes the i-th rung, so
@@ -274,19 +328,50 @@ export function PerfectDraftPanel({ stats, workspace }) {
     </div>
   );
 
+  const phaseLabel =
+    phase === "pre"
+      ? "Opening plan"
+      : phase === "complete"
+        ? "Draft complete"
+        : "Live — remaining plan";
+  const phaseTone = phase === "live" ? "accent" : phase === "complete" ? "neutral" : "outline";
+
+  const subtitle = (() => {
+    if (progress.ladderExhausted) {
+      return "No roster room left to model — every open spot is used and the cut ladder is spent";
+    }
+    if (plan.players.length === 0) {
+      return phase === "complete"
+        ? "Draft complete"
+        : "No remaining rookie improves this roster enough to be worth his price";
+    }
+    const lead = phase === "pre" ? "Best use of" : "Best use of your remaining";
+    return `${lead} ${fmt$(meta.budget)}: ${plan.players.length} rookie${
+      plan.players.length === 1 ? "" : "s"
+    }, ${fmtVal(plan.netValue)} net roster value`;
+  })();
+
   return (
     <CollapsiblePanel
       title="Perfect Draft"
-      subtitle={
-        plan.players.length === 0
-          ? "No rookie currently improves this roster enough to be worth its price"
-          : `Best use of ${fmt$(meta.budget)}: ${plan.players.length} rookie${
-              plan.players.length === 1 ? "" : "s"
-            }, ${fmtVal(plan.netValue)} net roster value`
-      }
+      subtitle={subtitle}
       defaultCollapsed={false}
     >
       <div className={styles.pageActions}>
+        <Badge tone={phaseTone}>{phaseLabel}</Badge>
+        {/* Automatic-update status. The plan recomputes from live workspace
+            state on every recorded pick, price and budget change; this says so
+            rather than leaving the user to wonder whether it is stale. */}
+        <span className="muted" style={{ fontSize: "var(--font-size-2xs)" }}>
+          {recalculating
+            ? "Recalculating…"
+            : `Updates automatically · ${rookiesBought} bought · ${fmt$(
+                stats?.mySpent || 0,
+              )} spent`}
+        </span>
+        <Button size="sm" variant="ghost" onClick={refetch}>
+          Refresh roster
+        </Button>
         {teams.length > 1 ? (
           <Select
             aria-label="Team to optimize"
@@ -312,6 +397,25 @@ export function PerfectDraftPanel({ stats, workspace }) {
       </div>
 
       {summary}
+
+      {realized && realized.count > 0 ? (
+        <p className="muted">
+          <strong>Bought so far:</strong> {realized.count} rookie
+          {realized.count === 1 ? "" : "s"} for {fmt$(realized.spend)} —{" "}
+          {fmtVal(realized.netValue)} net roster value added (
+          {fmtVal(realized.grossSurplus)} added −{" "}
+          {fmtVal(realized.displacement)} released). The plan below covers what
+          is left.
+        </p>
+      ) : null}
+
+      {progress.ladderExhausted ? (
+        <Banner tone="warning" title="No modelled roster room left">
+          Your open spots are used and the cut ladder is spent, so there is
+          nothing left to price a further addition against. Deeper cuts exist —
+          they are just past anything this model will recommend.
+        </Banner>
+      ) : null}
 
       {nearTies.length > 0 ? (
         <Banner tone="warning" title="Close call">

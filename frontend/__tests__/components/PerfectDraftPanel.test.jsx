@@ -287,3 +287,104 @@ describe("pure helpers", () => {
     ).toBe("depth-focused");
   });
 });
+
+describe("live updating as the auction proceeds", () => {
+  // The regression these guard is invisible from the outside unless you check
+  // the rendered cut: the roster context is a pre-draft snapshot, so a panel
+  // that reads it raw keeps offering the same roster player for release after
+  // every purchase, and keeps believing a used-up open spot is free.
+  beforeEach(() => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+  });
+
+  // `realizedResults` reads the drafted+mine rows, so a fixture that only bumps
+  // the counter would not exercise the "bought so far" line. Add real purchases.
+  const withBought = (n, spent) => ({
+    ...STATS,
+    myRookiesBought: n,
+    mySpent: spent,
+    totalPicksMade: n,
+    rookiePoolSize: 72,
+    enrichedPlayers: [
+      ...STATS.enrichedPlayers,
+      ...Array.from({ length: n }, (_, i) => ({
+        id: `bought-${i}`,
+        name: `Bought ${i}`,
+        pos: "WR",
+        boardValue: 4000,
+        drafted: true,
+        mine: true,
+        pick: { amount: Math.round(spent / Math.max(1, n)) },
+      })),
+    ],
+  });
+
+  it("advances the named cut once purchases consume the open spot", async () => {
+    // One open spot. With nothing bought, the first recommendation displaces
+    // nobody. With one bought, the spot is gone and the cheapest rung is next.
+    const { unmount } = render(
+      <PerfectDraftPanel stats={withBought(0, 0)} workspace={WORKSPACE} />,
+    );
+    let table = await screen.findByRole("table");
+    expect(within(table).getByText("open spot")).toBeInTheDocument();
+    unmount();
+
+    render(<PerfectDraftPanel stats={withBought(1, 20)} workspace={WORKSPACE} />);
+    table = await screen.findByRole("table");
+    expect(within(table).queryByText("open spot")).not.toBeInTheDocument();
+    expect(within(table).getByText("Deep Bench Guy")).toBeInTheDocument();
+  });
+
+  it("does not offer a roster player who was already displaced", async () => {
+    // Two bought against one open spot: the first rung is spent, so the panel
+    // must name the SECOND rung, never "Deep Bench Guy" again.
+    render(<PerfectDraftPanel stats={withBought(2, 40)} workspace={WORKSPACE} />);
+    const table = await screen.findByRole("table");
+    expect(within(table).queryByText("Deep Bench Guy")).not.toBeInTheDocument();
+    expect(within(table).getByText("Unpriced Body")).toBeInTheDocument();
+  });
+
+  it("reports what has already been bought alongside the remaining plan", async () => {
+    render(<PerfectDraftPanel stats={withBought(1, 20)} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    expect(screen.getByText(/Bought so far:/i)).toBeInTheDocument();
+    expect(screen.getByText(/The plan below covers what is left/i)).toBeInTheDocument();
+  });
+
+  it("labels which phase of the draft the plan describes", async () => {
+    const { unmount } = render(
+      <PerfectDraftPanel stats={withBought(0, 0)} workspace={WORKSPACE} />,
+    );
+    await screen.findByRole("table");
+    expect(screen.getByText("Opening plan")).toBeInTheDocument();
+    unmount();
+
+    // One bought: the open spot is consumed but the ladder is intact, so a
+    // remaining plan still renders.
+    render(<PerfectDraftPanel stats={withBought(1, 20)} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    expect(screen.getByText("Live — remaining plan")).toBeInTheDocument();
+  });
+
+  it("says it updates automatically, with the live spend", async () => {
+    render(<PerfectDraftPanel stats={withBought(2, 45)} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    expect(screen.getByText(/Updates automatically/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 bought · \$45 spent/i)).toBeInTheDocument();
+  });
+
+  it("warns explicitly when there is no modelled roster room left", async () => {
+    // Purchases have eaten the open spot and both rungs. "No room" and "nothing
+    // is worth buying" read identically to a user and mean opposite things.
+    render(<PerfectDraftPanel stats={withBought(5, 90)} workspace={WORKSPACE} />);
+    expect(
+      await screen.findByText(/No modelled roster room left/i),
+    ).toBeInTheDocument();
+  });
+
+  it("offers a manual roster refresh for mid-draft trades", async () => {
+    render(<PerfectDraftPanel stats={withBought(1, 20)} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    expect(screen.getByRole("button", { name: /refresh roster/i })).toBeInTheDocument();
+  });
+});

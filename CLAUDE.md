@@ -408,6 +408,24 @@ per-position count, because FLEX/SUPER_FLEX make it set-dependent.
 It is named ``planMaxBid`` because the board already shows five other
 max-bid fields.  ``bestNetWithout(i)`` doubles as the live pivot.
 
+**Live updating.**  The solve is a ``useMemo`` over live workspace state, so it
+re-runs on every recorded pick (hand-entered, ``Q`` quick-record, or the live
+Sleeper feed), budget edit, PreDraft edit and inflation shift.  One subtlety is
+load-bearing: the roster context is a **pre-draft snapshot**, so
+``applyDraftProgress`` advances ``openRosterSpots`` and the cut ladder past this
+team's purchases — each rookie fills an open spot first, then consumes the
+cheapest remaining rung.  Without it roster room is double-counted and the ladder
+re-offers cuts already consumed (recommending the same release twice).
+``ladderExhausted`` is surfaced explicitly because "no room left to model" and
+"nothing is worth buying" render identically and mean opposite things.
+``draftPhase`` distinguishes pre/live/complete; ``realizedResults`` values what
+was already bought with the SAME surplus/ECC primitives so it is comparable to
+the plan.  The ~140 ms solve goes through ``useDeferredValue`` so a burst of
+live picks cannot jank the board.  The context itself is fetched once per
+(league, team) — deliberately not polled — with a manual refresh for mid-draft
+trades.  Mounted via ``next/dynamic`` (``ssr: false`` — it reads localStorage)
+to keep it out of the initial /draft chunk.
+
 **Split:** the server serves ``GET /api/draft/roster-context`` (rosters
 joined to ``rankDerivedValue``, waiver levels, the cut ladder — all static
 for a whole draft, all needing the 4 MB contract + lineup solver +

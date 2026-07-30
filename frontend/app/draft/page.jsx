@@ -6,10 +6,11 @@ import "./draft.css";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
-import { PerfectDraftPanel } from "@/components/draft/PerfectDraftPanel";
+
 import {
   buildTeamIndexLookup,
   useSleeperDraftSync,
@@ -88,6 +89,20 @@ import {
   ValueBasisNote,
 } from "@/components/ds";
 import styles from "./draft.module.css";
+
+// Lazily loaded so the Perfect Draft panel and its optimizer stay OUT of the
+// initial /draft chunk — this page is already one of the heaviest routes in the
+// app and `check-bundle-sizes.mjs` guards it. ``ssr: false`` is correct rather
+// than merely convenient: the panel reads localStorage via useRosterContext and
+// has no meaningful server render. No loading placeholder, because the panel
+// renders nothing until its fetch settles anyway.
+const PerfectDraftPanel = dynamic(
+  () =>
+    import("@/components/draft/PerfectDraftPanel").then(
+      (m) => m.PerfectDraftPanel,
+    ),
+  { ssr: false },
+);
 
 const TIER_LABELS = Object.fromEntries(TIER_DEFS.map((t) => [t.key, t.label]));
 

@@ -23,8 +23,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyDraftProgress,
   assessPlans,
+  draftPhase,
   optimizeDraft,
+  realizedResults,
   computeMaxBid,
   displacementCost,
   logPriceDispersion,
@@ -564,5 +567,131 @@ describe("plan invariants", () => {
     const ids = out.plan.players.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(out.plan.spend).toBeLessThanOrEqual(shared.budget);
+  });
+});
+
+describe("live draft progress", () => {
+  // The gap these pin: the roster context is a PRE-DRAFT snapshot. Its open
+  // spots and cut ladder do not move when a rookie sells, so they have to be
+  // advanced past what has already been bought. Without that, roster room is
+  // double-counted and the ladder re-offers cuts already consumed — i.e. it
+  // recommends releasing the same player twice.
+  const cuts = ladder(100, 400, 900, 1600);
+
+  it("fills open spots before it starts consuming cuts", () => {
+    const p = applyDraftProgress({ openRosterSpots: 2, cutLadder: cuts, rookiesBought: 2 });
+    expect(p.spotsUsed).toBe(2);
+    expect(p.rungsUsed).toBe(0);
+    expect(p.openRosterSpots).toBe(0);
+    expect(p.cutLadder).toHaveLength(4);
+  });
+
+  it("advances the ladder once the open spots are gone", () => {
+    const p = applyDraftProgress({ openRosterSpots: 1, cutLadder: cuts, rookiesBought: 3 });
+    expect(p.spotsUsed).toBe(1);
+    expect(p.rungsUsed).toBe(2);
+    expect(p.openRosterSpots).toBe(0);
+    // The two cheapest rungs are spent; the next cut costs 900, not 100.
+    expect(p.cutLadder.map((r) => r.effectiveCutCost)).toEqual([900, 1600]);
+  });
+
+  it("never re-offers a consumed rung", () => {
+    const before = applyDraftProgress({ openRosterSpots: 0, cutLadder: cuts, rookiesBought: 0 });
+    const after = applyDraftProgress({ openRosterSpots: 0, cutLadder: cuts, rookiesBought: 1 });
+    expect(before.cutLadder[0].playerId).toBe("cut-0");
+    expect(after.cutLadder[0].playerId).not.toBe("cut-0");
+  });
+
+  it("reports an exhausted ladder rather than silently pricing nothing", () => {
+    const p = applyDraftProgress({ openRosterSpots: 1, cutLadder: cuts, rookiesBought: 9 });
+    expect(p.cutLadder).toEqual([]);
+    expect(p.ladderExhausted).toBe(true);
+    // Clamped, not negative.
+    expect(p.openRosterSpots).toBe(0);
+    expect(p.rungsUsed).toBe(4);
+  });
+
+  it("is inert before anything is bought", () => {
+    const p = applyDraftProgress({ openRosterSpots: 3, cutLadder: cuts, rookiesBought: 0 });
+    expect(p).toMatchObject({ openRosterSpots: 3, spotsUsed: 0, rungsUsed: 0 });
+    expect(p.ladderExhausted).toBe(false);
+  });
+
+  it("makes each successive purchase more expensive to accommodate", () => {
+    // The whole point of advancing the ladder: the marginal cost of the next
+    // rookie rises as cheap cuts are used up. A stale ladder would quote 100
+    // every time.
+    const costs = [0, 1, 2, 3].map((bought) => {
+      const p = applyDraftProgress({ openRosterSpots: 0, cutLadder: cuts, rookiesBought: bought });
+      return displacementCost(1, p.cutLadder, p.openRosterSpots);
+    });
+    expect(costs).toEqual([100, 400, 900, 1600]);
+  });
+
+  it("shrinks the remaining plan as the draft proceeds", () => {
+    const rookies = [
+      rookie("a", 6000, 20),
+      rookie("b", 5000, 20),
+      rookie("c", 4000, 20),
+    ];
+    const base = { waiverValues: {}, budget: 60 };
+
+    const opening = applyDraftProgress({ openRosterSpots: 3, cutLadder: cuts, rookiesBought: 0 });
+    const openingPlan = solveFrontier({ ...base, ...opening, rookies }).frontier[0];
+    expect(openingPlan.k).toBe(3);
+    expect(openingPlan.displacement).toBe(0);
+
+    // Two bought: budget down to $20, one open spot left, ladder untouched.
+    const later = applyDraftProgress({ openRosterSpots: 3, cutLadder: cuts, rookiesBought: 2 });
+    const laterPlan = solveFrontier({
+      ...base,
+      ...later,
+      budget: 20,
+      rookies: rookies.map((r) => (r.id === "a" || r.id === "b" ? { ...r, drafted: true } : r)),
+    }).frontier[0];
+    expect(laterPlan.players.map((p) => p.id)).toEqual(["c"]);
+    expect(laterPlan.displacement).toBe(0); // still one open spot
+  });
+
+  it("classifies the phase from picks recorded against the pool", () => {
+    expect(draftPhase({ totalPicksMade: 0, rookiePoolSize: 72 })).toBe("pre");
+    expect(draftPhase({ totalPicksMade: 5, rookiePoolSize: 72 })).toBe("live");
+    expect(draftPhase({ totalPicksMade: 72, rookiePoolSize: 72 })).toBe("complete");
+    // No pool size known yet — a recorded pick still means the draft is live.
+    expect(draftPhase({ totalPicksMade: 1, rookiePoolSize: 0 })).toBe("live");
+    expect(draftPhase(undefined)).toBe("pre");
+  });
+
+  it("values what was actually bought the same way it values the plan", () => {
+    const stats = {
+      enrichedPlayers: [
+        { id: "a", name: "A", pos: "WR", boardValue: 6000, drafted: true, mine: true, pick: { amount: 30 } },
+        { id: "b", name: "B", pos: "WR", boardValue: 5000, drafted: true, mine: false, pick: { amount: 25 } },
+        { id: "c", name: "C", pos: "WR", boardValue: 4000, drafted: false },
+      ],
+    };
+    const out = realizedResults({
+      stats,
+      waiverValues: { WR: 1000 },
+      cutLadder: cuts,
+      openRosterSpots: 0,
+    });
+    // Only MY purchase counts; surplus is over replacement, cost is the rung
+    // that purchase consumed.
+    expect(out.count).toBe(1);
+    expect(out.spend).toBe(30);
+    expect(out.grossSurplus).toBe(5000);
+    expect(out.displacement).toBe(100);
+    expect(out.netValue).toBe(4900);
+  });
+
+  it("reports nothing bought before the draft starts", () => {
+    const out = realizedResults({
+      stats: { enrichedPlayers: [{ id: "a", boardValue: 6000, drafted: false }] },
+      waiverValues: {},
+      cutLadder: cuts,
+      openRosterSpots: 1,
+    });
+    expect(out).toMatchObject({ count: 0, spend: 0, netValue: 0 });
   });
 });
