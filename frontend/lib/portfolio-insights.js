@@ -7,6 +7,7 @@ import {
   buildHistoryLookup,
 } from "@/lib/value-history";
 import { buildPickLookupCandidates } from "@/lib/trade-logic";
+import { fillLineup } from "@/lib/starter-slots";
 
 /** First contract row matching any candidate key, or null. */
 function resolveByCandidates(byName, candidates) {
@@ -50,53 +51,6 @@ function resolveByCandidates(byName, candidates) {
  * No randomness.  Every insight cites the metric that earned it.
  */
 
-// Which player positions can fill each Sleeper lineup slot.  Without
-// full coverage an unrecognized alias like WRRB_FLEX would fall
-// through the strict pass, never match any player, and push valid
-// starters onto the bench — skewing starter-share metrics.
-//
-// IDP slot pools include the generic "IDP" token because upstream
-// normalization collapses DB/LB/DL/DE/DT/CB/S → "IDP".
-const OFFENSE_FLEX = new Set(["RB", "WR", "TE"]);
-const WR_RB_FLEX_POOL = new Set(["RB", "WR"]);
-const WR_TE_FLEX_POOL = new Set(["WR", "TE"]);
-const SUPER_FLEX_POOL = new Set(["QB", "RB", "WR", "TE"]);
-const IDP_POOL = new Set(["IDP", "DL", "DE", "DT", "LB", "DB", "CB", "S"]);
-
-const FLEX_POOLS = {
-  // Offense: all known Sleeper aliases → the same pool.
-  FLEX:         OFFENSE_FLEX,
-  // RB/WR (no TE)
-  WR_RB_FLEX:   WR_RB_FLEX_POOL,
-  WRRB_FLEX:    WR_RB_FLEX_POOL,
-  RB_WR_FLEX:   WR_RB_FLEX_POOL,
-  RBWR_FLEX:    WR_RB_FLEX_POOL,
-  // WR/TE
-  REC_FLEX:     WR_TE_FLEX_POOL,
-  WR_TE_FLEX:   WR_TE_FLEX_POOL,
-  WRTE_FLEX:    WR_TE_FLEX_POOL,
-  WRT:          WR_TE_FLEX_POOL,
-  // Superflex (QB-eligible)
-  SUPER_FLEX:   SUPER_FLEX_POOL,
-  SUPERFLEX:    SUPER_FLEX_POOL,
-  Q_FLEX:       SUPER_FLEX_POOL,
-  QB_RB_WR_TE:  SUPER_FLEX_POOL,
-  // IDP — both specific slot names and flex aliases.
-  DL:           new Set(["IDP", "DL", "DE", "DT"]),
-  DE:           new Set(["IDP", "DE", "DL"]),
-  DT:           new Set(["IDP", "DT", "DL"]),
-  LB:           new Set(["IDP", "LB"]),
-  DB:           new Set(["IDP", "DB", "CB", "S"]),
-  CB:           new Set(["IDP", "CB", "DB"]),
-  S:            new Set(["IDP", "S", "DB"]),
-  IDP:          IDP_POOL,
-  IDP_FLEX:     IDP_POOL,
-  DB_LB:        IDP_POOL,
-  DL_LB:        IDP_POOL,
-  DL_DB:        IDP_POOL,
-  DEF_FLEX:     IDP_POOL,
-};
-
 const POSITION_GROUPS = ["QB", "RB", "WR", "TE", "K", "DEF", "IDP", "PICK"];
 
 function normalizePos(pos) {
@@ -127,56 +81,48 @@ function pct(part, whole) {
   return Math.round((part / whole) * 1000) / 10;
 }
 
-// Strict slots (no flex pool entry): these match a single
-// normalized player position token exactly.  K and DEF do not
-// collapse into a flex pool; their slots match same-named rosters
-// and nothing else.
-const STRICT_SLOT_REMAP = {
-  PK: "K",
-};
+// The lineup this module assumes when the contract gave us no
+// ``sleeper.rosterPositions``.  It is a 9-slot, non-IDP guess and it is
+// WRONG for both live leagues — it undercounts dynasty_main's 21-slot
+// lineup by 12.  It is kept only because /terminal's starter-share
+// panels are a defensive fallback that should degrade to a plausible
+// shape rather than to zero starters (see the module docstring above).
+//
+// /rosters deliberately does NOT take this route: it says so on screen
+// instead, because its starter board is a ranked comparison across 12
+// teams and a wrong lineup silently reorders it.
+const DEFAULT_FALLBACK_SLOTS = [
+  "QB",
+  "RB",
+  "RB",
+  "WR",
+  "WR",
+  "WR",
+  "TE",
+  "FLEX",
+  "SUPER_FLEX",
+];
 
 /**
- * Compute the strict starter / bench split using the league's
- * roster-positions array when present, falling back to a reasonable
- * default (1QB/2RB/3WR/1TE/1FLEX/1SF) otherwise.
+ * Starter / bench split for the terminal's portfolio panels.
  *
- * Two passes so flex slots fill AFTER strict-position slots have
- * already claimed the appropriate starters.  All slot-to-position
- * matching routes through FLEX_POOLS for anything flex-y, including
- * the IDP slot family (DL/LB/DB/IDP_FLEX/…) — those pools include
- * the generic "IDP" token so roster positions normalized upstream
- * still match specific-IDP lineup slots.
+ * Thin wrapper over the shared ``fillLineup`` — see
+ * ``lib/starter-slots.js`` for why the slot filling lives there.  The
+ * position vocabulary handed in here is the COLLAPSED one
+ * (``normalizePos``: DB/LB/DL/DE/DT/CB/S → "IDP"), so each of this
+ * league's 9 defensive slots matches any defender and the split credits
+ * the top 9 by value rather than 3 DL + 3 LB + 3 DB.  Totals coincide
+ * for a normally-constructed roster; a team stacked at one IDP position
+ * is over-credited.  /rosters passes the un-collapsed vocabulary and
+ * gets the exact answer.
  */
 function splitStartersBench({ rosterValues, sleeperRosterPositions }) {
-  const defaultSlots = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "SUPER_FLEX"];
-  const slots = Array.isArray(sleeperRosterPositions) && sleeperRosterPositions.length > 0
-    ? sleeperRosterPositions.filter((p) => {
-        const u = String(p).toUpperCase();
-        return u !== "BN" && u !== "IR" && u !== "TAXI";
-      })
-    : defaultSlots;
-
-  const pool = [...rosterValues].sort((a, b) => b.value - a.value);
-  const starterNames = new Set();
-
-  // First pass: strict position slots.
-  for (const slot of slots) {
-    const upper = STRICT_SLOT_REMAP[String(slot).toUpperCase()] ?? String(slot).toUpperCase();
-    if (FLEX_POOLS[upper]) continue;
-    const match = pool.find((p) => !starterNames.has(p.name) && p.pos === upper);
-    if (match) starterNames.add(match.name);
-  }
-  // Second pass: flex / IDP-family slots.
-  for (const slot of slots) {
-    const upper = STRICT_SLOT_REMAP[String(slot).toUpperCase()] ?? String(slot).toUpperCase();
-    const pool_ = FLEX_POOLS[upper];
-    if (!pool_) continue;
-    const match = pool.find((p) => !starterNames.has(p.name) && pool_.has(p.pos));
-    if (match) starterNames.add(match.name);
-  }
-
-  const starters = pool.filter((p) => starterNames.has(p.name));
-  const bench = pool.filter((p) => !starterNames.has(p.name));
+  const { starters, bench } = fillLineup({
+    assets: rosterValues,
+    rosterPositions: sleeperRosterPositions,
+    positionOf: (p) => p.pos,
+    fallbackSlots: DEFAULT_FALLBACK_SLOTS,
+  });
   return {
     starters,
     bench,

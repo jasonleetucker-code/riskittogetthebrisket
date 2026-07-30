@@ -5867,7 +5867,16 @@ async def post_trade_suggestions(request: Request):
     from src.trade.suggestions import (
         build_asset_pool_from_contract,
         generate_suggestions_from_pool,
+        starter_needs_for_league,
     )
+
+    # Effective starter demand is a per-LEAGUE fact, not a constant: both
+    # live leagues share a scoring profile but ``dynasty_main`` starts
+    # 2 TE + 9 IDP while ``dynasty_new`` starts 1 TE and no IDP.  The
+    # engine has always accepted ``starter_needs``; nothing ever passed
+    # it, so every league got dynasty_main's lineup.  The derivation is
+    # a no-op for dynasty_main by construction.
+    starter_needs = starter_needs_for_league(getattr(league_cfg, "key", None))
 
     league_rosters = body.get("league_rosters")
     if league_rosters is not None and not isinstance(league_rosters, list):
@@ -5918,6 +5927,7 @@ async def post_trade_suggestions(request: Request):
             roster_names=roster,
             pool=pool,
             league_rosters=league_rosters,
+            starter_needs=starter_needs,
             ktc_top_n=ktc_top_n,
         )
 
