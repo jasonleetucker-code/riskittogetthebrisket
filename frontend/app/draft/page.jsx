@@ -4,9 +4,16 @@
 // globals.css.  Route-scoped, so only /draft pays for it.
 import "./draft.css";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
@@ -90,18 +97,23 @@ import {
 } from "@/components/ds";
 import styles from "./draft.module.css";
 
-// Lazily loaded so the Perfect Draft panel and its optimizer stay OUT of the
+// Code-split so the Perfect Draft panel and its optimizer stay OUT of the
 // initial /draft chunk — this page is already one of the heaviest routes in the
-// app and `check-bundle-sizes.mjs` guards it. ``ssr: false`` is correct rather
-// than merely convenient: the panel reads localStorage via useRosterContext and
-// has no meaningful server render. No loading placeholder, because the panel
-// renders nothing until its fetch settles anyway.
-const PerfectDraftPanel = dynamic(
-  () =>
-    import("@/components/draft/PerfectDraftPanel").then(
-      (m) => m.PerfectDraftPanel,
-    ),
-  { ssr: false },
+// app and `check-bundle-sizes.mjs` guards it (main sits 2.2 KB under budget
+// before this feature even lands).
+//
+// React.lazy rather than next/dynamic, and the difference is measured, not
+// stylistic: next/dynamic pulled Next's loadable runtime into the shared graph
+// and moved ~8 KB out of the common chunk into EVERY page's own chunk, pushing
+// /waivers over its budget as collateral. React.lazy uses webpack's plain
+// dynamic import and leaves the other routes alone.
+//
+// No fallback content: the panel renders nothing until its own fetch settles,
+// so a placeholder would only add a flash of layout.
+const PerfectDraftPanel = lazy(() =>
+  import("@/components/draft/PerfectDraftPanel").then((m) => ({
+    default: m.PerfectDraftPanel,
+  })),
 );
 
 const TIER_LABELS = Object.fromEntries(TIER_DEFS.map((t) => [t.key, t.label]));
@@ -4913,7 +4925,9 @@ export default function DraftDashboardPage() {
         />
       </div>
 
-      <PerfectDraftPanel stats={stats} workspace={workspace} />
+      <Suspense fallback={null}>
+        <PerfectDraftPanel stats={stats} workspace={workspace} />
+      </Suspense>
 
       <RookieBoard
         stats={stats}

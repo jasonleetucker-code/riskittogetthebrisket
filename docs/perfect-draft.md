@@ -267,10 +267,20 @@ the exception, so the panel carries an explicit "Refresh roster" control.
 
 ### Bundle
 
-The panel is mounted via `next/dynamic` with `ssr: false`, keeping it and the
-optimizer out of the initial `/draft` chunk (measured: 124.7 KB against the
-128 KB budget, versus 141.9 KB when statically imported). `ssr: false` is
-required, not cosmetic — the panel reads `localStorage` via `useRosterContext`.
+The panel is code-split with `React.lazy` + `Suspense`, keeping it and the
+optimizer out of the initial `/draft` chunk: 124.7 KB against the 128 KB budget,
+versus 141.9 KB statically imported. (`main` sits at 125.8 KB *without* this
+feature, so the page was already at the edge.)
+
+`React.lazy` rather than `next/dynamic`, and the choice is measured. `next/dynamic`
+pulled Next's loadable runtime into the shared chunk graph and moved ~8 KB out of
+the common chunk into **every** page's own chunk — `/page` 71.5 → 79.8,
+`/settings` 43.5 → 51.7, and `/waivers` 30.8 → 38.7, which broke its 36 KB
+budget as collateral. `React.lazy` uses webpack's plain dynamic import and leaves
+every other route byte-identical to `main`. Verified by building both.
+
+The fallback is `null` deliberately: the panel renders nothing until its own
+fetch settles, so a placeholder would only add a flash of layout.
 
 Server-side cache key: contract identity (`id` + `generatedAt` +
 `scrapeTimestamp`), league key, and **team identity**. The last is what

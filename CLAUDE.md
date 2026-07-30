@@ -423,8 +423,11 @@ was already bought with the SAME surplus/ECC primitives so it is comparable to
 the plan.  The ~140 ms solve goes through ``useDeferredValue`` so a burst of
 live picks cannot jank the board.  The context itself is fetched once per
 (league, team) — deliberately not polled — with a manual refresh for mid-draft
-trades.  Mounted via ``next/dynamic`` (``ssr: false`` — it reads localStorage)
-to keep it out of the initial /draft chunk.
+trades.  Code-split with ``React.lazy`` + ``Suspense`` to keep it out of the initial
+/draft chunk (124.7 KB vs a 128 KB budget; ``main`` is 125.8 KB without the
+feature).  NOT ``next/dynamic`` — that pulled Next's loadable runtime into the
+shared graph and moved ~8 KB from the common chunk into EVERY page's chunk,
+breaking /waivers' budget as collateral.  Measured both ways.
 
 **Split:** the server serves ``GET /api/draft/roster-context`` (rosters
 joined to ``rankDerivedValue``, waiver levels, the cut ladder — all static
