@@ -84,7 +84,9 @@ describe("signal-engine parity fixture integrity", () => {
   it("loads a non-trivial shared fixture", () => {
     expect(Array.isArray(FIXTURE.cases)).toBe(true);
     expect(FIXTURE.cases.length).toBeGreaterThanOrEqual(40);
-    expect(FIXTURE.rules).toHaveLength(10);
+    // 10 until 2026-07-30, when `low_conf_unstable` was retired — see
+    // the retirement note in frontend/lib/signal-engine.js.
+    expect(FIXTURE.rules).toHaveLength(9);
   });
 
   it("has unique case ids", () => {

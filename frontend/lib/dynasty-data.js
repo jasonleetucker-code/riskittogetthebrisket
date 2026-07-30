@@ -1015,8 +1015,11 @@ function _materializePlayerArrayRow(player) {
     // 256 of 1094 live rows carry no ``marketConfidence``; coercing
     // those to 0 put them under the 0.35 ``low_conf_unstable``
     // threshold, so the MONITOR rule fired on rows that simply lack the
-    // field rather than on genuinely low-confidence ones. The rule
-    // itself already guards on ``!= null``.
+    // field rather than on genuinely low-confidence ones.
+    // That rule was retired 2026-07-30, so nothing consumes this for a
+    // verdict any more — but absent-is-not-zero is the right contract for
+    // a measurement regardless, and this is the row field the terminal
+    // signal context reads.
     confidence: Number.isFinite(Number(player.marketConfidence))
       ? Number(player.marketConfidence)
       : null,
@@ -1193,7 +1196,8 @@ function _materializeLegacyDictRow(name, player, posMap) {
     // So this field was permanently 0, which is under the 0.35
     // threshold, so ``low_conf_unstable`` fired for every eligible row
     // on the legacy path. Reads the field that is actually stamped, and
-    // keeps absent as null rather than 0.
+    // keeps absent as null rather than 0. (That rule was retired
+    // 2026-07-30; reading the real field is still correct.)
     confidence: Number.isFinite(Number(player._marketConfidence))
       ? Number(player._marketConfidence)
       : null,

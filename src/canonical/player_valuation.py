@@ -51,33 +51,56 @@ TIER_MIN_SIZE: int = 3  # minimum players in a tier before allowing split
 
 # Rank-form value curve — Hill-style, rank 1 always = 9999
 # value = 1 + 9998 / (1 + ((rank - 1) / midpoint)^slope)
-# Mirrors the JS rankToValue in frontend/lib/dynasty-data.js.
 #
-# Constants are the simple mean of per-source Hill-curve fits across
-# the four value-emitting market sources — KTC, IDPTradeCalc,
-# DynastyNerds (SF TEP), DynastyDaddy (SF) — each normalised so its
-# top player = 9999 before fitting. Re-run
-# ``scripts/fit_hill_curve_from_market.py`` when the community's
-# dropoff shape drifts from ours and update the constants here.
-HILL_MIDPOINT: float = 48.44  # rank at which value decay inflects
-HILL_SLOPE: float = 1.149  # controls steepness of decay
+# RECONSTRUCTION-ONLY.  Nothing on the live valuation path evaluates
+# these; the board is built by the percentile-form scope masters below.
+# The only consumers answer "what would the board have said for this
+# rank?" when a real value is missing — see ``rank_to_value_for_scope``.
+#
+# RE-TUNED 2026-07-30.  Previously 48.44 / 1.149, being the mean of
+# per-source Hill fits from ``scripts/fit_hill_curve_from_market.py``
+# (four value-emitting market sources, each normalised so its top player
+# = 9999).  That is the wrong target for a reconstruction curve: fitting
+# individual retail SOURCE boards answers "what shape does KTC publish",
+# while these constants have to answer "what does OUR board pay at rank
+# r" — the output of the whole pipeline, after blending, TE basis
+# conversion, shrinkage, the single-source haircut, the corridor clamp
+# and pick tethering.  Measured against the live board the old pair
+# scored RMSE 821.8 on offense rows; the values below score 89.8.
+#
+# Fit by ``scripts/backtest_legacy_rank_curve.py``, per scope, against
+# ``rankDerivedValue`` on the served board.  The fit is structurally
+# stable — 16 archived snapshots spanning 2026-07-16 → 07-30 returned
+# offense midpoint 65.4 (once 65.6) / slope 0.910 and IDP 64.4-64.6 /
+# 0.900 — because the board's rank→value relation IS a Hill curve, so
+# market churn only permutes which player sits at which rank.
+#
+# What DOES move them is a percentile-master promotion: the pre-promotion
+# board of 2026-07-29 fit at 68.8 / 0.929, the post-promotion board at
+# 65.2 / 0.905.  That is what ``scripts/check_rank_form_drift.py`` and
+# ``.github/workflows/audit-rank-form-drift.yml`` watch for.
+HILL_MIDPOINT: float = 65.4  # rank at which value decay inflects
+HILL_SLOPE: float = 0.910  # controls steepness of decay
 
-# IDP-specific Hill curve.  Dynasty IDP markets price differently from
-# offense: the #1 LB is nowhere near 2x the #2 the way the #1 QB is,
-# and values decay more slowly through the long tail (mid-/deep-
-# roster IDP players are more fungible than the equivalent offensive
-# skill-position players).  Fit via
-# ``scripts/fit_hill_curve_from_market.py --universe idp`` against
-# IDPTradeCalc's raw IDP slice of its combined offense+IDP pool — the
-# retail IDP authority whose per-rank values the blend should
-# reproduce at the Hill step, BEFORE any per-position IDP calibration
-# multiplier is applied.  Previous fit anchored on FantasyPros IDP
-# ``normalizedValue`` which produced values ~600-1,000 below IDPTC
-# across the top-250 IDP rows; the new fit is RMSE ~170 across 376
-# IDP rows in the live snapshot.  Re-run the fit and update these
-# constants when the IDPTC dropoff shape drifts.
-IDP_HILL_MIDPOINT: float = 69.50
-IDP_HILL_SLOPE: float = 0.945
+# IDP-specific rank-form curve.  Kept as a separate pair because
+# ``rank_history.py`` routes by scope and the IDP sub-population does fit
+# marginally better on its own numbers (RMSE 76.2 vs 76.4 for one shared
+# curve).  Note how SMALL that gap is, and why: ``canonicalConsensusRank``
+# is a single GLOBAL ordinal over the whole board, so offense, IDP and
+# pick rows all lie on one rank→value relation by construction.  The
+# pre-2026-07-30 rationale here — that "dynasty IDP markets price
+# differently from offense", fit against IDPTradeCalc's raw IDP slice —
+# describes a real property of retail IDP BOARDS, but it is not what this
+# constant measures.  Against our own board the two scopes want
+# effectively the same curve, and the old IDP pair (69.50 / 0.945) scored
+# well on IDP rows largely by coincidence: it sat near the global optimum
+# while the offense pair did not.
+#
+# Do not read the offense/IDP split here as evidence of two economies.
+# If a future change makes ranks scope-local rather than global, re-fit
+# and revisit.
+IDP_HILL_MIDPOINT: float = 64.6
+IDP_HILL_SLOPE: float = 0.900
 
 # Final Framework step 2-3: percentile-input Hill curves, one per scope.
 #
@@ -309,24 +332,36 @@ def rank_to_value_for_scope(rank: float, scope: str) -> int:
     ``data_contract.py::_compute_unified_rankings``; this is only for
     rows where that output is unavailable.
 
-    CALIBRATION (measured 2026-07-29,
-    ``scripts/backtest_legacy_rank_curve.py``, 740 ranked rows of the
-    live board, results in ``docs/measurements/``):
+    CALIBRATION (re-measured 2026-07-30 after the constants were re-tuned,
+    ``scripts/backtest_legacy_rank_curve.py``, 740 ranked rows of the live
+    board, results in ``docs/measurements/``):
 
         candidate                overall RMSE   idp    offense   pick
-        legacy_offense (was)         840.4     826.5    845.9   887.8
-        legacy_scope   (this)        670.3      78.7    845.9   887.8
-        percentile_global            238.4     164.9    278.8   193.4
-        best-fit rank-form            96.3      65.6    113.5    68.7
+        legacy_scope   (this)         83.8      76.2     89.8     64.7
+        best-fit per scope            83.4      76.2     89.8     47.6
+        best-fit single curve         84.0      76.4     90.1     61.9
+        percentile_global            410.1     459.0    380.6    276.5
+        percentile_scope             691.8     835.0    575.5    639.0
 
-    Routing by scope is a strict improvement and costs nothing — it uses
-    constants that already exist — so it is applied here.  Whether this
-    whole legacy rank-form family should be REPLACED (by the
-    registry-managed percentile masters, or by a refit) is an open
-    modeling decision, deliberately not taken inside an audit fix: the
-    candidates have inverted error profiles (percentile_global is far
-    better past rank 120 but ~2x worse in the top 24), and switching
-    changes user-visible history values.  See the audit report.
+    For contrast, the SAME table on the same board before the re-tune:
+
+        legacy_scope (old 48.44/1.149 + 69.50/0.945)
+                                     644.9      89.5    821.8    882.9
+
+    Two conclusions worth keeping:
+
+    * The re-tuned pair now sits ON the achievable floor (83.8 vs 83.4),
+      so there is no headroom left in this curve family.  The remaining
+      ~84 RMSE is irreducible scatter — the board is not a pure function
+      of rank, because post-blend stages (pick tethering, the two-way
+      boost, the corridor clamp) move individual rows off the curve.
+    * The percentile masters are NOT a drop-in replacement, and the
+      2026-07-29 note that they had "inverted error profiles" is
+      superseded: on the current board they are 5-8x worse everywhere.
+      They are an INPUT stage to the blend, not a model of its output,
+      so translating them into rank space does not answer this question.
+      Retiring the rank-form family in their favour is off the table
+      until something better than a refit exists.
     """
     if str(scope).lower() == "idp":
         return int(rank_to_value(float(rank), midpoint=IDP_HILL_MIDPOINT, slope=IDP_HILL_SLOPE))

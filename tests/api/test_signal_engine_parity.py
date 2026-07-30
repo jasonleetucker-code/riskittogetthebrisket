@@ -106,7 +106,9 @@ class TestSignalParityFixtureIntegrity(unittest.TestCase):
     def test_fixture_exists_and_is_non_trivial(self) -> None:
         self.assertTrue(FIXTURE_PATH.is_file(), f"missing fixture {FIXTURE_PATH}")
         self.assertGreaterEqual(len(FIXTURE["cases"]), 40)
-        self.assertEqual(len(FIXTURE["rules"]), 10)
+        # 10 until 2026-07-30, when ``low_conf_unstable`` was retired
+        # (see tests/api/test_market_confidence_wiring.py for why).
+        self.assertEqual(len(FIXTURE["rules"]), 9)
 
     def test_case_ids_are_unique(self) -> None:
         ids = [c["id"] for c in FIXTURE["cases"]]

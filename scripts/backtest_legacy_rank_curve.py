@@ -224,6 +224,31 @@ def _fit_rank_form(rows: list[dict[str, Any]]) -> tuple[float, float]:
     return round(best[1], 4), round(best[2], 4)
 
 
+def _fit_rank_form_per_scope(rows: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
+    """Fit a separate rank-form curve per scope.
+
+    The live code carries TWO pairs (``HILL_*`` and ``IDP_HILL_*``) and
+    ``rank_history.py`` routes by scope, so the honest question is whether
+    the scopes actually WANT different curves.  They largely do not, and
+    the reason is structural: ``canonicalConsensusRank`` is a single
+    GLOBAL ordinal over the whole board, so offense, IDP and pick rows all
+    lie on one rank→value relation by construction.  Splitting the fit
+    measures how much the sub-populations deviate from it, not two
+    genuinely different economies.
+
+    ``pick`` is fit and reported for completeness; no live path routes
+    picks to their own rank-form pair.
+    """
+    out: dict[str, dict[str, float]] = {}
+    for scope in sorted({r["scope"] for r in rows}):
+        subset = [r for r in rows if r["scope"] == scope]
+        if len(subset) < 20:
+            continue
+        mid, slope = _fit_rank_form(subset)
+        out[scope] = {"midpoint": mid, "slope": slope, "n": len(subset)}
+    return out
+
+
 def _metrics(errors: list[float]) -> dict[str, float | int]:
     if not errors:
         return {"n": 0}
@@ -282,6 +307,7 @@ def main() -> int:
     results: dict[str, Any] = {name: _evaluate(rows, fn) for name, fn in candidates.items()}
 
     refit: dict[str, Any] | None = None
+    refit_scope: dict[str, dict[str, float]] | None = None
     if not args.skip_fit:
         mid, slope = _fit_rank_form(rows)
         refit = {"midpoint": mid, "slope": slope}
@@ -289,9 +315,25 @@ def main() -> int:
             rows, lambda r, _s, m=mid, sl=slope: float(rank_to_value(r, midpoint=m, slope=sl))
         )
 
+        refit_scope = _fit_rank_form_per_scope(rows)
+        if refit_scope:
+
+            def _per_scope(rank: float, scope: str) -> float:
+                pair = refit_scope.get(scope) or {"midpoint": mid, "slope": slope}
+                return float(rank_to_value(rank, midpoint=pair["midpoint"], slope=pair["slope"]))
+
+            results["refit_rank_form_per_scope"] = _evaluate(rows, _per_scope)
+
     payload_out = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
-        "payload": str(payload_path.relative_to(REPO_ROOT)),
+        # ``--payload`` may point outside the repo (e.g. a snapshot
+        # extracted to a temp dir for a stability sweep), so
+        # ``relative_to`` is best-effort rather than assumed.
+        "payload": str(
+            payload_path.relative_to(REPO_ROOT)
+            if payload_path.is_relative_to(REPO_ROOT)
+            else payload_path
+        ),
         "rowCount": len(rows),
         "scopeCounts": {
             scope: sum(1 for r in rows if r["scope"] == scope)
@@ -306,6 +348,7 @@ def main() -> int:
             "percentileGlobal": {"c": HILL_GLOBAL_PERCENTILE_C, "s": HILL_GLOBAL_PERCENTILE_S},
         },
         "refitRankForm": refit,
+        "refitRankFormPerScope": refit_scope,
         "results": results,
     }
 
@@ -317,6 +360,13 @@ def main() -> int:
     print(f"Percentile reference N: {_PERCENTILE_REFERENCE_N}")
     if refit:
         print(f"Best-fit rank-form curve on this board: {refit}")
+    if refit_scope:
+        print("Best-fit rank-form curve per scope:")
+        for scope, pair in refit_scope.items():
+            print(
+                f"  {scope:8s} midpoint={pair['midpoint']:8.4f} "
+                f"slope={pair['slope']:6.4f}  (n={int(pair['n'])})"
+            )
     print("\nOverall RMSE (lower = reproduces the live board more closely):")
     for name, rmse in ranked:
         overall = results[name]["overall"]

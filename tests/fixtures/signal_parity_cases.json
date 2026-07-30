@@ -38,11 +38,6 @@
       "signal": "MONITOR"
     },
     {
-      "tag": "low_conf_unstable",
-      "priority": 60,
-      "signal": "MONITOR"
-    },
-    {
       "tag": "elite_stable",
       "priority": 50,
       "signal": "STRONG_HOLD"
@@ -636,7 +631,7 @@
     },
     {
       "id": "r7_conf_just_below_threshold",
-      "why": "confidence 0.34 with medium volatility.",
+      "why": "RETIRED RULE \u2014 low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: confidence 0.34 with medium volatility.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -656,16 +651,14 @@
         "newsCount": 0
       },
       "expected": {
-        "signal": "MONITOR",
-        "tag": "low_conf_unstable",
-        "firedTags": [
-          "low_conf_unstable"
-        ]
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
       }
     },
     {
       "id": "r7_conf_zero_is_not_missing",
-      "why": "confidence 0.0 is a measurement, not an absence \u2014 both engines must null-check explicitly rather than testing truthiness.",
+      "why": "RETIRED RULE \u2014 low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: confidence 0.0 is a measurement, not an absence \u2014 both engines must null-check explicitly rather than testing truthiness.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -685,16 +678,14 @@
         "newsCount": 0
       },
       "expected": {
-        "signal": "MONITOR",
-        "tag": "low_conf_unstable",
-        "firedTags": [
-          "low_conf_unstable"
-        ]
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
       }
     },
     {
       "id": "r7_conf_null_never_fires",
-      "why": "No confidence measurement must never produce a confidence verdict.",
+      "why": "Absent confidence produced no verdict even while the rule was live; it still must not, now that no rule reads confidence at all.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -721,7 +712,7 @@
     },
     {
       "id": "r7_trend7_abs_at_2_positive",
-      "why": "|trend7| exactly 2 on the rise satisfies the movement clause.",
+      "why": "RETIRED RULE \u2014 low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: |trend7| exactly 2 on the rise satisfies the movement clause.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -741,16 +732,14 @@
         "newsCount": 0
       },
       "expected": {
-        "signal": "MONITOR",
-        "tag": "low_conf_unstable",
-        "firedTags": [
-          "low_conf_unstable"
-        ]
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
       }
     },
     {
       "id": "r7_trend7_abs_at_2_negative",
-      "why": "|trend7| exactly 2 on the fall satisfies it too.",
+      "why": "RETIRED RULE \u2014 low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: |trend7| exactly 2 on the fall satisfies it too.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -770,11 +759,9 @@
         "newsCount": 0
       },
       "expected": {
-        "signal": "MONITOR",
-        "tag": "low_conf_unstable",
-        "firedTags": [
-          "low_conf_unstable"
-        ]
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
       }
     },
     {
@@ -1285,7 +1272,7 @@
     },
     {
       "id": "stack_all_bearish_rules",
-      "why": "Seven rules fire at once; the 100-priority RISK rule owns the verdict and the whole chain must come back in priority order.",
+      "why": "Six rules fire at once; the 100-priority RISK rule owns the verdict and the whole chain must come back in priority order.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -1313,8 +1300,7 @@
           "sustained_downtrend",
           "neg_news_high_vol",
           "alert_present",
-          "high_vol",
-          "low_conf_unstable"
+          "high_vol"
         ]
       }
     },
@@ -1351,30 +1337,30 @@
     },
     {
       "id": "stack_monitor_outranks_strong_hold",
-      "why": "MONITOR (60) beats STRONG_HOLD (50).",
+      "why": "MONITOR (65, alert_present) beats STRONG_HOLD (50). Rebuilt 2026-07-30 off alert_present: this case used to ride the retired low_conf_unstable rule, and high_vol cannot stand in because elite_stable requires low/med volatility.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
         "value": 9000,
         "rank": 50,
         "rankChange": null,
-        "confidence": 0.1,
         "trend7": 0,
         "trend30": 2,
         "volatility": {
           "mad": 3.0,
           "label": "med"
         },
-        "alertCount": 0,
+        "alertCount": 1,
         "negativeImpactCount": 0,
         "positiveImpactCount": 0,
-        "newsCount": 0
+        "newsCount": 1,
+        "confidence": null
       },
       "expected": {
         "signal": "MONITOR",
-        "tag": "low_conf_unstable",
+        "tag": "alert_present",
         "firedTags": [
-          "low_conf_unstable",
+          "alert_present",
           "elite_stable"
         ]
       }

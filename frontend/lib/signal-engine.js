@@ -118,18 +118,14 @@ const RULES = [
       `High volatility (MAD ${c.volatility.mad.toFixed(1)}) — market can't settle on a price.`,
     tag: "high_vol",
   },
-  {
-    id: "monitor.low_conf_unstable",
-    signal: SIGNALS.MONITOR,
-    priority: 60,
-    test: (c) =>
-      c.confidence != null &&
-      c.confidence < 0.35 &&
-      (c.volatility?.label === "med" || Math.abs(c.trend7 ?? 0) >= 2),
-    reason: (c) =>
-      `Low market confidence (${(c.confidence * 100).toFixed(0)}%) plus recent movement.`,
-    tag: "low_conf_unstable",
-  },
+  // RETIRED 2026-07-30: `monitor.low_conf_unstable` (MONITOR, priority 60)
+  // lived here. It tested `confidence < 0.35`, but `marketConfidence` is
+  // structurally capped at 0.59375 and runs p10 0.480 / median 0.491 /
+  // p90 0.564 live — the scraper's `site_count / 8.0` term dates from a
+  // ~10-site era and only three dash keys exist today. See the full
+  // rationale on the Python side (`src/api/terminal.py::_evaluate_signal`),
+  // which is the authority; this engine mirrors it and the two are pinned
+  // together by `tests/fixtures/signal_parity_cases.json`.
 
   // ── STRONG HOLD ─────────────────────────────────────────────────
   {
@@ -248,6 +244,9 @@ export function buildContext({ row, historyPoints, newsItems }) {
     value: Number(row?.rankDerivedValue || row?.values?.full || 0),
     rank: Number(row?.canonicalConsensusRank) || null,
     rankChange: Number.isFinite(row?.rankChange) ? row.rankChange : null,
+    // Diagnostic only since 2026-07-30 — no rule reads it (see the
+    // retirement note on `monitor.low_conf_unstable` above). Kept on the
+    // context to stay shape-identical to the Python builder.
     confidence: Number.isFinite(row?.confidence) ? row.confidence : null,
     trend7,
     trend30,

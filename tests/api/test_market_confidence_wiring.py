@@ -1,9 +1,9 @@
-"""Market confidence reaches the signal rule, and absent != zero.
+"""Market confidence reaches the signal context — and no rule reads it.
 
-N2, 2026-07-29 audit round 2.
+History, because both halves matter:
 
-``low_conf_unstable`` (MONITOR, priority 60) was broken in THREE places
-at once, in opposite directions:
+**2026-07-29 (audit N2).**  ``low_conf_unstable`` (MONITOR, priority 60)
+was broken in THREE places at once, in opposite directions:
 
 1. Backend — ``terminal.py::_build_signal_context`` read
    ``row["confidence"]``.  No contract builder stamps that key; the
@@ -18,23 +18,39 @@ at once, in opposite directions:
 3. Frontend, legacy-dict path — mapped
    ``Number(player._marketReliabilityScore ?? 0)``.  That field appeared
    exactly once in the entire repository — at that consumer — and
-   nothing ever produced it (0 of 1076 live players carry it, while 838
-   carry ``_marketConfidence``).  Confidence was therefore permanently
-   0 and the rule fired for every eligible row on that path.
+   nothing ever produced it, so confidence was permanently 0 and the
+   rule fired for every eligible row on that path.
 
-MONITOR is in ``signal_alerts.ACTIONABLE_SIGNALS``, so #1 is the one
-that gates emails.  The measured distribution says fixing it is safe:
-live ``marketConfidence`` runs p10 0.480 / median 0.491 / p90 0.564
-against a 0.35 threshold, and exactly ONE row of 1094 sits below it.
-That is recorded in ``test_threshold_is_far_below_the_live_distribution``
-so the "turning this on floods every inbox" assumption is not re-made
-without evidence — and so that if the distribution ever shifts down
-toward the threshold, someone notices.
+All three plumbing defects were fixed then, and the fixes are what this
+file still pins.
+
+**2026-07-30 — the rule itself is RETIRED.**  With the plumbing correct,
+the metric turned out to be the problem.  ``_marketConfidence`` is
+computed by ``Dynasty Scraper.py::_market_confidence`` with a
+``site_count / 8.0`` term inherited from an era when ~10 scraper
+``SITES`` were enabled.  Two are enabled today (KTC + IDPTradeCalc),
+which yields at most three numeric dash keys per player, so
+``site_score`` is confined to {0.20, 0.25, 0.375} and confidence is
+structurally capped at ``0.375*0.65 + 1.00*0.35 = 0.59375``.  Live
+distribution: p10 0.480 / median 0.491 / p90 0.564, one row of 1094
+below 0.35.  Every candidate divisor moves confidence UP
+(``scripts/simulate_market_confidence_divisor.py``: zero players below
+0.35 at divisors 3, 4 and 5), so no re-threshold rescues it.
+
+So: the context field stays (it is a real, inspectable number and the
+plumbing must not silently rot), and the rule is gone.  This file tests
+both facts — including, explicitly, that the rule does NOT come back
+without someone editing this test.
 """
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from src.api.terminal import _build_signal_context, _evaluate_signal
+
+_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "signal_parity_cases.json"
 
 
 def _row(**over):
@@ -49,6 +65,10 @@ def _row(**over):
 
 
 class TestConfidenceReachesTheContext:
+    """The 2026-07-29 plumbing fixes.  Still load-bearing: the number is
+    surfaced in ``/api/terminal`` payloads and is the substrate any future
+    confidence rule would be built on."""
+
     def test_market_confidence_is_read(self):
         """The key the contract actually stamps."""
         ctx = _build_signal_context(_row(marketConfidence=0.2), points=[], news_for_player=[])
@@ -67,8 +87,8 @@ class TestConfidenceReachesTheContext:
         assert ctx["confidence"] == 0.2
 
     def test_absent_confidence_is_none_not_zero(self):
-        """The defect that made the rule fire on the frontend: a row
-        with no confidence must be UNMEASURED, never 'zero confidence'."""
+        """A row with no confidence must be UNMEASURED, never 'zero
+        confidence' — the distinction that made defect #2 above fire."""
         ctx = _build_signal_context(_row(), points=[], news_for_player=[])
         assert ctx["confidence"] is None
 
@@ -79,14 +99,17 @@ class TestConfidenceReachesTheContext:
         assert ctx["confidence"] is None
 
 
-class TestTheRuleNowFires:
-    def _ctx(self, conf, trend7=-4.0):
+class TestTheRuleIsRetired:
+    """The 2026-07-30 retirement, pinned from three directions so it
+    cannot be undone by accident in either engine."""
+
+    def _ctx(self, conf, trend7=-4.0, vol="med"):
         return {
             "value": 5000,
             "confidence": conf,
             "trend7": trend7,
             "trend30": None,
-            "volatility": {"label": "med", "mad": 3.0},
+            "volatility": {"label": vol, "mad": 3.0},
             "rankChange": None,
             "alertCount": 0,
             "negativeImpactCount": 0,
@@ -94,60 +117,46 @@ class TestTheRuleNowFires:
             "newsCount": 0,
         }
 
-    def test_low_confidence_plus_movement_fires_monitor(self):
-        """Server-side this could not fire at all before the fix."""
+    def test_low_confidence_no_longer_fires_anything(self):
+        """The exact input that used to produce the MONITOR verdict."""
         verdict = _evaluate_signal(self._ctx(0.2))
         tags = {f["tag"] for f in verdict["fired"]}
-        assert "low_conf_unstable" in tags
+        assert "low_conf_unstable" not in tags
+        assert tags == set(), f"unexpected rules fired: {sorted(tags)}"
+        assert verdict["signal"] == "HOLD"
 
-    def test_absent_confidence_does_not_fire(self):
-        verdict = _evaluate_signal(self._ctx(None))
-        tags = {f["tag"] for f in verdict["fired"]}
+    def test_zero_confidence_does_not_fire_either(self):
+        """0.0 is a measurement, not an absence — and neither one has a
+        rule to reach any more."""
+        tags = {f["tag"] for f in _evaluate_signal(self._ctx(0.0))["fired"]}
+        assert tags == set()
+
+    def test_no_surviving_rule_reads_confidence(self):
+        """Sweep the whole rule set: confidence must not change any
+        verdict.  Catches a reinstatement under a different tag."""
+        for conf in (None, 0.0, 0.1, 0.34, 0.35, 0.5, 0.9, 1.0):
+            for trend7 in (-4.0, 0.0, 4.0):
+                for vol in ("low", "med", "high"):
+                    with_conf = _evaluate_signal(self._ctx(conf, trend7=trend7, vol=vol))
+                    without = _evaluate_signal(self._ctx(None, trend7=trend7, vol=vol))
+                    assert [f["tag"] for f in with_conf["fired"]] == [
+                        f["tag"] for f in without["fired"]
+                    ], f"confidence {conf} changed the verdict (trend7={trend7}, vol={vol})"
+
+    def test_parity_fixture_no_longer_registers_the_rule(self):
+        """The shared fixture is the contract between the Python and JS
+        engines.  If the tag is back in its rule registry, one of the two
+        engines has been changed without the other."""
+        data = json.loads(_FIXTURE.read_text())
+        tags = {r["tag"] for r in data["rules"]}
         assert "low_conf_unstable" not in tags
 
-    def test_healthy_confidence_does_not_fire(self):
-        """0.49 is the live median — the common case must stay quiet."""
-        verdict = _evaluate_signal(self._ctx(0.49))
-        tags = {f["tag"] for f in verdict["fired"]}
-        assert "low_conf_unstable" not in tags
 
-
-class TestAlertVolumeIsBounded:
-    def test_monitor_is_actionable_so_this_gates_email(self):
-        """Pins the coupling that made this change delicate: if MONITOR
-        ever leaves ACTIONABLE_SIGNALS, the reasoning below changes."""
+class TestMonitorStillGatesEmail:
+    def test_monitor_is_actionable(self):
+        """Pins the coupling that made the retired rule delicate in the
+        first place: MONITOR verdicts send mail, so the surviving MONITOR
+        rules (``alert_present``, ``high_vol``) are email-gating too."""
         from src.api.signal_alerts import ACTIONABLE_SIGNALS
 
         assert "MONITOR" in ACTIONABLE_SIGNALS
-
-    def test_threshold_is_far_below_the_live_distribution(self):
-        """The evidence that wiring this rule up does not flood inboxes.
-
-        The scraper defaults ``_marketConfidence`` to 0.5 and the live
-        spread is p10 0.480 / median 0.491 / p90 0.564, so a 0.35
-        threshold catches almost nothing — 1 row in 1094 when measured.
-
-        This test does not read live data (unit tests must not), but it
-        pins the two numbers the safety argument rests on, so a future
-        change to either is a deliberate one.
-        """
-        from src.api.terminal import _evaluate_signal as ev
-
-        base = {
-            "value": 5000,
-            "trend7": -4.0,
-            "trend30": None,
-            "volatility": {"label": "med", "mad": 3.0},
-            "rankChange": None,
-            "alertCount": 0,
-            "negativeImpactCount": 0,
-            "positiveImpactCount": 0,
-            "newsCount": 0,
-        }
-        # The scraper's default, and the live p10 — neither may fire.
-        for conf in (0.5, 0.480):
-            tags = {f["tag"] for f in ev({**base, "confidence": conf})["fired"]}
-            assert "low_conf_unstable" not in tags, f"{conf} fired; threshold moved"
-        # Just under the threshold must fire.
-        tags = {f["tag"] for f in ev({**base, "confidence": 0.34})["fired"]}
-        assert "low_conf_unstable" in tags
