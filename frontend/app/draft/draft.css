@@ -83,7 +83,7 @@
 }
 .draft-team-row {
   display: grid;
-  grid-template-columns: 30px 1fr 62px 52px 64px 52px 56px 56px 46px;
+  grid-template-columns: 30px 1fr 62px 52px 64px 52px 56px 46px;
   gap: 5px;
   align-items: center;
   padding: 4px 0;
@@ -686,29 +686,6 @@
   margin-top: 4px;
 }
 
-/* MDV heatmap cell backgrounds */
-.draft-mdv {
-  border-radius: 4px;
-  padding: 0 4px;
-  line-height: 1.3;
-}
-.draft-mdv-high {
-  background: rgba(52, 211, 153, 0.12);
-  color: var(--green);
-}
-.draft-mdv-mid {
-  background: rgba(153, 166, 200, 0.08);
-  color: var(--muted);
-}
-.draft-mdv-low {
-  background: rgba(248, 113, 113, 0.1);
-  color: var(--red);
-}
-.draft-mdv-empty {
-  color: var(--subtext);
-  opacity: 0.6;
-}
-
 /* Overpay index text coloring */
 .draft-money-overpay {
   color: var(--red);
@@ -1286,8 +1263,8 @@
    scrolls it), so the cause was the two dense fixed-column grids that
    have no scroll container of their own:
 
-     .draft-team-row  30px 1fr 62px 52px 64px 52px 56px 56px 46px
-                      → 458px minimum, 167px past a 324px panel body
+     .draft-team-row  30px 1fr 62px 52px 64px 52px 56px 46px
+                      → 402px minimum, 78px past a 324px panel body
      .draft-nbt-row   32px 28px 36px 1fr 80px 90px 64px 60px
                       → 446px minimum, ~200px past
 

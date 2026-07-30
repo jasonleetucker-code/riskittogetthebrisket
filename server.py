@@ -6755,6 +6755,10 @@ _DRAFT_CAPITAL_PRIVATE_PICK_FIELDS = (
     "rookieKtcValue",
     "rookieKtcDollar",
     "rookieIdpDollar",
+    # The raw board value the dollar ladder is derived from — the single
+    # most proprietary number on the payload, and blocklisted outright by
+    # the public-league guard.  Added with the field itself, not after.
+    "rookieBoardValue",
 )
 
 
@@ -8040,6 +8044,12 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 "value": d,
                 "ktcDollar": ktc_by_name.get(r["name"].lower()),
                 "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
+                # The board value the dollar ladder was derived FROM.
+                # ``_our_rookie_pool`` already carries it; it used to be
+                # discarded here.  Perfect Draft needs it because net roster
+                # value is measured in rankDerivedValue units against the
+                # displaced player, and the $ ladder is not convertible back.
+                "boardValue": r["value"],
             }
             for r, d in zip(our_rookies, rookie_dollar_overrides)
         ]
@@ -8061,6 +8071,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             if "ktcDollar" in rookies[i]:
                 pick["rookieKtcDollar"] = rookies[i]["ktcDollar"]
                 pick["rookieIdpDollar"] = rookies[i]["idpTradeCalcDollar"]
+            if "boardValue" in rookies[i]:
+                pick["rookieBoardValue"] = rookies[i]["boardValue"]
 
     sorted_teams = sorted(team_totals.items(), key=lambda x: -x[1])
 
@@ -8243,6 +8255,124 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         return JSONResponse(
             status_code=500, content={"error": f"Draft capital computation failed: {str(e)}"}
         )
+
+
+@app.get("/api/draft/roster-context")
+async def get_draft_roster_context(
+    request: Request,
+    ownerId: str = "",
+    rosterId: str = "",
+    teamName: str = "",
+):
+    """Roster context the Perfect Draft optimizer runs against.
+
+    Everything here is static for the duration of a draft — rosters, board
+    values, waiver levels and the cut ladder do not move when a rookie sells —
+    which is why the budget solve itself runs on the client against live
+    ``localStorage`` state instead of round-tripping the whole draft workspace
+    on every recorded pick.  See ``src/draft/context.py``.
+
+    Called with no team identifier this returns just the team list, so the UI
+    can populate its selector in the same request it will later use to fetch a
+    context.
+
+    Query parameters::
+
+        leagueKey  optional; falls back to the user's active league, then the
+                   registry default
+        ownerId    preferred team handle (stable across a team rename)
+        rosterId   secondary handle
+        teamName   display-name fallback, matched case-insensitively
+
+    Responses::
+
+        200  {teams, context|null, leagueKey}
+        400  bad_request      — team identifier supplied but no such team
+        503  feature_disabled — perfect_draft flag is off
+        503  data_not_ready   — no contract, or none for the requested league
+        503  draft_context_unavailable — the build raised
+    """
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    if not _ff.is_enabled("perfect_draft"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "feature_disabled", "flag": "perfect_draft"},
+        )
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    # The league-match gate is what scopes this feature to the league whose
+    # rosters are actually loaded.  A league served only by the Sleeper-derived
+    # draft-capital fallback has no genuine rookie pool on /draft, and would
+    # also fail this check — so the panel vanishes rather than optimizing
+    # against placeholder players.
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"No rosters loaded for league {league_cfg.key!r} yet "
+                    f"(server holds {loaded_league!r})."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    from src.api import draft_optimizer_api as _draft_api  # noqa: PLC0415
+
+    def _compute():
+        teams = _draft_api.get_draft_teams(contract)
+        ctx = None
+        if ownerId or rosterId or teamName:
+            ctx = _draft_api.get_roster_context(
+                contract,
+                league_cfg.key,
+                owner_id=ownerId or None,
+                roster_id=rosterId or None,
+                team_name=teamName or None,
+            )
+        return {"teams": teams, "context": ctx}
+
+    try:
+        payload = await run_in_threadpool(_compute)
+    except ValueError as exc:
+        # ``unknown_team`` / ``no_rosters_loaded`` — never fall back to some
+        # other team's numbers; every figure in this payload is roster-specific.
+        code = str(exc) or "bad_request"
+        status = 503 if code == "no_rosters_loaded" else 400
+        return JSONResponse(
+            status_code=status,
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception as exc:  # noqa: BLE001 — surface, never 500-crash the board
+        logging.exception("Perfect Draft roster context failed")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "draft_context_unavailable",
+                "message": str(exc),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    payload["leagueKey"] = league_cfg.key
+    return JSONResponse(content=payload)
 
 
 @app.get("/api/sleeper/draft/picks")

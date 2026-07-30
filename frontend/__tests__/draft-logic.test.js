@@ -981,55 +981,64 @@ describe("tierForPreDraft", () => {
   });
 });
 
-describe("effectiveBudgetFor", () => {
-  it("reserves $1 per remaining slot beyond the current bid", () => {
-    expect(effectiveBudgetFor(100, 3)).toBe(98); // $1 × 2 reserved
-    expect(effectiveBudgetFor(100, 1)).toBe(100); // last slot: full budget
-    expect(effectiveBudgetFor(5, 5)).toBe(1); // $1 × 4 reserved
+describe("the rookie draft has no per-team slot limit", () => {
+  // This block is the regression guard for the 2026-07-30 removal.  The
+  // board used to model six rookie picks per team and let that number
+  // drive every MaxBid.  This league caps nobody's rookie count, so any
+  // reintroduction of a slot ceiling should break these.
+
+  it("treats a team's whole remaining budget as biddable", () => {
+    expect(effectiveBudgetFor(100)).toBe(100);
+    expect(effectiveBudgetFor(5)).toBe(5);
   });
 
-  it("returns 0 when slots are 0 (team has no roster space)", () => {
-    expect(effectiveBudgetFor(50, 0)).toBe(0);
+  it("does not withhold a per-opening reserve", () => {
+    // The old model returned 98 here, holding back $1 for each of two
+    // other "slots" the team was assumed to be obliged to fill.
+    expect(effectiveBudgetFor(100)).not.toBe(98);
   });
 
-  it("returns 0 when team is over-committed (more slots than $)", () => {
-    expect(effectiveBudgetFor(10, 11)).toBe(0);
+  it("keeps a team that has already drafted in the bidding", () => {
+    // The old model returned 0 once a team's six picks were used, which
+    // erased real money from topCompetitorMax.
+    expect(effectiveBudgetFor(50)).toBe(50);
   });
 
   it("handles bad input gracefully", () => {
-    expect(effectiveBudgetFor(null, 3)).toBe(0);
-    expect(effectiveBudgetFor(100, null)).toBe(0);
-    expect(effectiveBudgetFor(-5, 3)).toBe(0);
-  });
-});
-
-describe("slotsByTeamFromPicks", () => {
-  it("counts picks per currentOwner (case-insensitive)", () => {
-    const picks = [
-      { currentOwner: "Russini Panini" },
-      { currentOwner: "Russini Panini" },
-      { currentOwner: "jstuedle" },
-      { currentOwner: "RUSSINI PANINI" }, // different casing
-    ];
-    const counts = slotsByTeamFromPicks(picks);
-    expect(counts.get("russini panini")).toBe(3);
-    expect(counts.get("jstuedle")).toBe(1);
+    expect(effectiveBudgetFor(null)).toBe(0);
+    expect(effectiveBudgetFor(undefined)).toBe(0);
+    expect(effectiveBudgetFor(-5)).toBe(0);
   });
 
-  it("handles null / non-array input", () => {
-    expect(slotsByTeamFromPicks(null).size).toBe(0);
-    expect(slotsByTeamFromPicks(undefined).size).toBe(0);
-    expect(slotsByTeamFromPicks("bad").size).toBe(0);
+  it("no longer exports slot machinery", async () => {
+    const mod = await import("@/lib/draft-logic");
+    for (const gone of [
+      "slotsByTeamFromPicks",
+      "DEFAULT_INITIAL_SLOTS",
+      "PHASE_LATE_BOOST",
+      "SPEND_UP_MDV_FLOOR",
+      "SPEND_UP_PRESSURE_MIN",
+    ]) {
+      expect(mod[gone], `${gone} should be gone`).toBeUndefined();
+    }
   });
 
-  it("ignores picks with missing owner", () => {
-    const picks = [
-      { currentOwner: "Russini Panini" },
-      { currentOwner: "" },
-      { currentOwner: null },
-      {},
-    ];
-    expect(slotsByTeamFromPicks(picks).get("russini panini")).toBe(1);
+  it("stamps no slot fields on stats or teams", () => {
+    const stats = computeDraftStats(createDefaultWorkspace());
+    for (const gone of [
+      "slotPressure",
+      "phaseMultiplier",
+      "myInitialSlots",
+      "mySlotsRemaining",
+      "totalInitialSlots",
+    ]) {
+      expect(stats[gone], `stats.${gone} should be gone`).toBeUndefined();
+    }
+    for (const t of stats.teamStats) {
+      expect(t.initialSlots).toBeUndefined();
+      expect(t.slotsRemaining).toBeUndefined();
+      expect(t.mdv).toBeUndefined();
+    }
   });
 });
 
@@ -1039,27 +1048,18 @@ describe("computeDraftStats — Tier 1 new fields", () => {
   const ws = createDefaultWorkspace();
   const stats = computeDraftStats(ws);
 
-  it("exposes initialSlots / slotsRemaining / effectiveBudget per team", () => {
+  it("reports rookies bought and full effective budget per team", () => {
     for (const t of stats.teamStats) {
-      expect(t.initialSlots).toBe(DEFAULT_INITIAL_SLOTS);
-      expect(t.slotsDrafted).toBe(0);
-      expect(t.slotsRemaining).toBe(DEFAULT_INITIAL_SLOTS);
-      // effectiveBudget = max(0, remaining − (slots − 1))
-      expect(t.effectiveBudget).toBe(
-        Math.max(0, t.remaining - (DEFAULT_INITIAL_SLOTS - 1)),
-      );
+      expect(t.rookiesBought).toBe(0);
+      // No reserve withheld — a team may spend everything on one rookie.
+      expect(t.effectiveBudget).toBe(t.remaining);
     }
   });
 
-  it("slotPressure is 0 at draft start", () => {
-    expect(stats.slotPressure).toBe(0);
-    expect(stats.phaseMultiplier).toBe(1);
-  });
-
-  it("topCompetitorMax is the max OTHER slot-adjusted budget", () => {
-    // Teams 1-10 have $71, Joel has $73.  All with 6 slots.
-    // Effective: 71-5=66, 73-5=68.  Top competitor = 68 (Joel).
-    expect(stats.topCompetitorMax).toBe(68);
+  it("topCompetitorMax is the richest OTHER team's actual remaining", () => {
+    // Teams 1-10 have $71, Joel has $73.  Top competitor = 73 (Joel).
+    // The old slot model shrank these to 66/68 and answered 68.
+    expect(stats.topCompetitorMax).toBe(73);
   });
 
   it("enrichedPlayers carry tier + myWinningBid", () => {
@@ -1067,10 +1067,13 @@ describe("computeDraftStats — Tier 1 new fields", () => {
       (p) => p.name === "Jeremiyah Love",
     );
     expect(love.tier).toBe("S");
-    // Love's theoretical max at opening is 193; competitor ceiling
-    // caps winning bid at 68+1=69.
     expect(love.theoreticalMaxBid).toBe(193);
-    expect(love.myWinningBid).toBe(69);
+    // Competitor ceiling caps the winning bid at Joel's $73 + 1.  Under
+    // the slot model this was 69, because every rival's budget was first
+    // shrunk by $1 per unfilled "slot" — money they could in fact have
+    // bid, since nothing obliged them to buy six rookies.
+    expect(love.myWinningBid).toBe(74);
+    expect(stats.topCompetitorMax).toBe(73);
   });
 
   it("myWinningBid ≤ theoreticalMaxBid for every undrafted player", () => {
@@ -1169,38 +1172,43 @@ describe("computeDraftStats — tier heat / inflation blend", () => {
   });
 });
 
-describe("computeDraftStats — phase multiplier (slot pressure)", () => {
-  it("ramps up as my slots drain", () => {
-    // Simulate me (team 0) drafting 5 of 6 picks at $1 each so we
-    // move slotPressure from 0 → 5/6 without blowing the budget
-    // (and without disturbing tier S heat).
+describe("computeDraftStats — drafting many rookies is unconstrained", () => {
+  it("lets a team draft well past the old six-pick ceiling", () => {
+    // Eight cheap rookies to one team.  Under the slot model this was
+    // impossible to represent: slotsRemaining floored at 0, effective
+    // budget collapsed to 0, and the team dropped out of the bidding.
     const ws = createDefaultWorkspace();
-    const picks = [
-      "Caleb Douglas",
-      "De'Zhaun Stribling",
-      "Drew Allar",
-      "Roman Hemby",
-      "Jeff Caldwell",
-    ];
     let next = ws;
-    for (const name of picks) {
-      const p = next.players.find((pl) => pl.name === name);
-      next = recordPick(next, {
-        playerId: p.id,
-        teamIdx: 0,
-        amount: 1,
-      });
+    const bought = ws.players.slice(-8);
+    for (const p of bought) {
+      next = recordPick(next, { playerId: p.id, teamIdx: 0, amount: 1 });
     }
     const stats = computeDraftStats(next);
-    expect(stats.mySlotsRemaining).toBe(1);
-    expect(stats.slotPressure).toBeCloseTo(5 / 6, 4);
-    // phaseMultiplier = 1 + (5/6) × 0.5 ≈ 1.417
-    expect(stats.phaseMultiplier).toBeCloseTo(1 + (5 / 6) * PHASE_LATE_BOOST, 4);
+    expect(stats.myRookiesBought).toBe(8);
+    expect(stats.teamStats[0].rookiesBought).toBe(8);
+    // Still holds — and can still bid — the rest of its money.
+    expect(stats.teamStats[0].effectiveBudget).toBe(stats.myRemaining);
+    expect(stats.myRemaining).toBeGreaterThan(0);
   });
 
-  it("phase multiplier stays at 1 when no slots drafted", () => {
-    const stats = computeDraftStats(createDefaultWorkspace());
-    expect(stats.phaseMultiplier).toBe(1);
+  it("does not ramp MaxBid as a team drafts more rookies", () => {
+    // The removed phaseMultiplier scaled every MaxBid by up to 1.5x as
+    // a team's imaginary slots drained.  Buying cheap rookies must not
+    // move another player's theoretical ceiling at all.
+    const ws = createDefaultWorkspace();
+    const before = computeDraftStats(ws);
+    const loveBefore = before.enrichedPlayers.find((p) => p.name === "Jeremiyah Love");
+
+    let next = ws;
+    for (const p of ws.players.slice(-5)) {
+      next = recordPick(next, { playerId: p.id, teamIdx: 0, amount: 1 });
+    }
+    const after = computeDraftStats(next);
+    const loveAfter = after.enrichedPlayers.find((p) => p.name === "Jeremiyah Love");
+
+    // Inflation moves a little because dollars left the pool; the point
+    // is that it is not the 1.4x slot ramp.
+    expect(loveAfter.theoreticalMaxBid).toBeLessThan(loveBefore.theoreticalMaxBid * 1.1);
   });
 });
 
@@ -1255,22 +1263,24 @@ describe("mergeDraftCapitalTeams — with picks array", () => {
     ...Array(3).fill({ currentOwner: "jstuedle" }),
   ];
 
-  it("sets initialSlots from the picks array when supplied, capped at DEFAULT_INITIAL_SLOTS", () => {
+  it("derives no per-team pick ceiling from the picks array", () => {
+    // Pick ownership is already valued into auctionDollars; counting the
+    // picks again as a roster limit is what the removal was about.  The
+    // option is still accepted so callers keep working.
     const ws = createDefaultWorkspace();
     const { workspace } = mergeDraftCapitalTeams(ws, teamTotals, { picks });
-    const russini = workspace.teams.find((t) => t.name === "Russini Panini");
-    const jstu = workspace.teams.find((t) => t.name === "jstuedle");
-    const pop = workspace.teams.find((t) => t.name === "Pop Trunk");
-    expect(russini.initialSlots).toBe(DEFAULT_INITIAL_SLOTS);
-    expect(jstu.initialSlots).toBe(3);
-    expect(pop.initialSlots).toBe(0);
+    for (const t of workspace.teams) {
+      expect(t.initialSlots).toBeUndefined();
+    }
   });
 
-  it("without picks array, initialSlots falls back to DEFAULT_INITIAL_SLOTS", () => {
+  it("still merges budgets when the picks array is supplied", () => {
     const ws = createDefaultWorkspace();
-    const { workspace } = mergeDraftCapitalTeams(ws, teamTotals);
-    const russini = workspace.teams.find((t) => t.name === "Russini Panini");
-    expect(russini.initialSlots).toBe(DEFAULT_INITIAL_SLOTS);
+    const withPicks = mergeDraftCapitalTeams(ws, teamTotals, { picks }).workspace;
+    const without = mergeDraftCapitalTeams(ws, teamTotals).workspace;
+    expect(withPicks.teams.map((t) => t.initialBudget)).toEqual(
+      without.teams.map((t) => t.initialBudget),
+    );
   });
 });
 
@@ -1471,7 +1481,9 @@ describe("computeDraftStats — draftProgress", () => {
     const ws = createDefaultWorkspace();
     const s0 = computeDraftStats(ws);
     expect(s0.draftProgress).toBe(0);
-    expect(s0.totalInitialSlots).toBe(12 * DEFAULT_INITIAL_SLOTS);
+    // Progress is now measured against the rookie POOL, not against a
+    // 12-teams x 6-slots denominator that described nothing real.
+    expect(s0.rookiePoolSize).toBe(ws.players.length);
 
     const love = ws.players.find((p) => p.name === "Jeremiyah Love");
     const withPick = recordPick(ws, {
@@ -1683,12 +1695,13 @@ import {
 } from "@/lib/draft-logic";
 
 describe("teamStats — Tier 3 per-team signals", () => {
-  it("mdv = remaining / slotsRemaining; 0 when no slots left", () => {
+  it("reports rookiesBought instead of a budget-per-opening figure", () => {
     const ws = createDefaultWorkspace();
     const stats = computeDraftStats(ws);
     const mine = stats.teamStats[0];
-    // Russini: 417 / 6 ≈ 69.5
-    expect(mine.mdv).toBeCloseTo(417 / 6, 4);
+    expect(mine.rookiesBought).toBe(0);
+    // The old field divided $417 by six openings that do not exist.
+    expect(mine.mdv).toBeUndefined();
   });
 
   it("overpayIndex is null before any picks", () => {
@@ -2019,17 +2032,16 @@ describe("computeDraftStats — targetBoardStats", () => {
     expect(tb.totals.remainingCount).toBe(0);
   });
 
-  it("portfolioBuffer = myRemaining − remainingWinBid − nonTargetSlotsLeft × $1", () => {
+  it("portfolioBuffer = myRemaining − remainingWinBid, with no per-opening reserve", () => {
     let ws = createDefaultWorkspace();
     ws = addToTargetBoard(ws, "jeremiyah-love");
     ws = addToTargetBoard(ws, "makai-lemon");
     const stats = computeDraftStats(ws);
     const tb = stats.targetBoardStats;
-    // myRemaining=417, slotsRemaining=6, target count=2, so
-    // nonTargetSlotsLeft = 4.  winBids capped by competitor ceiling
-    // ~$68 each → winBidSum ~ 2×69 = 138.  Buffer ≈ 417 − ~138 − 4.
-    const expected = 417 - tb.totals.remainingWinBid - 4;
-    expect(tb.portfolioBuffer).toBe(expected);
+    // Every dollar not committed to a target is genuinely free: nothing
+    // obliges the team to buy a third rookie, so nothing is held back.
+    expect(tb.portfolioBuffer).toBe(417 - tb.totals.remainingWinBid);
+    expect(tb.nonTargetSlotsLeft).toBeUndefined();
     expect(tb.portfolioStatus).toBe("on_track");
   });
 

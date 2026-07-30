@@ -116,6 +116,7 @@ npm run regression                   # Full pipeline: preflight + tests
 | `/api/trade/suggestions` | POST | Roster-aware trade suggestions (reads live contract) |
 | `/api/trade/finder` | POST | KTC arbitrage finder |
 | `/api/leagues` | GET | Active league registry (stable `key` → `displayName` + roster settings; **no Sleeper IDs leaked**) |
+| `/api/draft/roster-context` | GET | Perfect Draft roster context — rosters at board value, waiver levels, cut ladder (flag `perfect_draft`) |
 
 ### Rankings vs. league context — the core split
 
@@ -353,6 +354,92 @@ the previous auto-commit path had no working guard.
 Blend weights live in the ``_RANKING_SOURCES`` registry (all 1.0 by
 policy).  ``config/weights/default_weights.json`` is historical
 documentation only — nothing loads it.
+
+### Perfect Draft — the rookie-auction budget optimizer
+
+``src/draft/`` + ``frontend/lib/perfect-draft.js`` answer *which
+COMBINATION of rookies a budget should buy* — not which rookies rank
+highest.  Flag ``perfect_draft`` (LIVE, default on); rollback
+``RISKIT_FEATURE_PERFECT_DRAFT=0`` **and restart**.  Full reference in
+``docs/perfect-draft.md``; decisions in
+``docs/roster-trade-intelligence/DECISIONS.md`` ADR-009/010/011.
+
+**The rookie draft has NO per-team slot limit.**  Picks are valued into
+``teamTotals[].auctionDollars``; the auction caps nobody's rookie count.
+``DEFAULT_INITIAL_SLOTS``, ``phaseMultiplier``, ``slotPressure``, ``mdv``
+and ``slotsByTeamFromPicks`` are **gone** from ``draft-logic.js``, and
+their removal changed live MaxBid numbers (sheet parity was deliberately
+given up — the spreadsheet encoded the same wrong assumption).
+``effectiveBudgetFor(remaining)`` is now just remaining dollars;
+``topCompetitorMax`` is the richest rival's actual remaining.  Roster
+*capacity* (58 in ``dynasty_main``) is real and lives in the optimizer as
+``openRosterSpots``.
+
+**Both sides are measured over replacement, and that is load-bearing.**
+Rookie board values and the $1200 dollar ladder come from the same convex
+Hill curve, so value-per-dollar rises ~30x down the ladder; a raw
+``max Σ value`` objective just reads the price curve back out and buys
+$1 darts.  So:
+
+```
+waiverValue(pos) = best unrostered player at that position
+surplus(rookie)  = max(0, boardValue − waiverValue(pos))
+ECC(player)      = max(0, base − waiverValue(pos)) × (0.85 + 0.30·waiverScarcity)
+   base          = boardValue, or waiverValue when unranked ("assumedWaiver")
+NetValue(S)      = Σ surplus − D(|S|)
+```
+
+An empty roster spot is worth waiver level, not zero.  Unranked roster
+players cost 0 and are stamped — the board's 375/497 floor is an artifact
+(19 players at each, single-source, no position), and costing cuts at it
+would turn an identity-join miss into a free-cut recommendation.
+
+``D(k)`` depends only on ``k``, so one cardinality-constrained knapsack
+solves every plan size at once; star- and depth-focused alternatives are
+the ends of that frontier, not a second algorithm.  This is exact, not
+heuristic: legal cut-sets are the independent sets of the dual of a
+transversal matroid.  Droppability is therefore a **matching** —
+``src/ros/lineup.py::solve_optimal_assignment`` re-run per rung — never a
+per-position count, because FLEX/SUPER_FLEX make it set-dependent.
+
+``planMaxBid`` is an **indifference price**
+(``max{q : bestNetWith(i at q) ≥ bestNetWithout(i)}``), never
+``price + (netWith − netWithout)`` — that adds value units to dollars.
+It is named ``planMaxBid`` because the board already shows five other
+max-bid fields.  ``bestNetWithout(i)`` doubles as the live pivot.
+
+**Split:** the server serves ``GET /api/draft/roster-context`` (rosters
+joined to ``rankDerivedValue``, waiver levels, the cut ladder — all static
+for a whole draft, all needing the 4 MB contract + lineup solver +
+scarcity); the client runs the knapsack against live ``localStorage``
+state.  Not a frontend ranking engine: it recomputes no value, exactly as
+``draft-logic.js`` already consumes ``rookieKtcValue``.
+``rookieBoardValue`` was added to ``/api/draft-capital`` because the
+dollar ladder is not invertible — and it is redacted for public callers.
+
+Cache key carries **team identity**; an unresolvable team is a 400, never
+another team's numbers.  The league-match gate scopes the feature to the
+league whose rosters are loaded, so the second league (served only by the
+Sleeper-derived fallback, which emits no rookie fields) gets a silently
+vanished panel rather than a plan built on placeholder rookies.
+
+Confidence is a bootstrap ``P(this plan wins)`` over the frontier **plus**
+the per-rookie pivots — without the pivots, two tied plans of the same
+size are invisible.  Near-tie at ``P ≥ 0.25``.  Seeded PRNG so the number
+does not flicker across re-renders.
+
+Not sourced from BDVM: it returns ``no_projection`` for the 2026 rookie
+class (upstream nflverse gap).  ``strategyMultiplier`` is the seam to
+replace when that changes.
+
+**Known limitation:** every addition in a k-rookie plan is measured
+against the SAME ``waiverValue(pos)``, but the honest comparison is
+against the 1st..k-th best free agent, which declines.  Total surplus is
+therefore optimistic and increasingly so as k grows, which biases toward
+high-k plans.  The fix is the mirror of ``D(k)`` — subtract a ``W(k)``
+term (sum of the top-k free-agent values) instead of a flat per-item
+waiver level, which preserves the cardinality decomposition.  Deferred,
+documented in ``docs/perfect-draft.md``.
 
 ### Trade Engines
 Two independent trade suggestion systems in `src/trade/`:
