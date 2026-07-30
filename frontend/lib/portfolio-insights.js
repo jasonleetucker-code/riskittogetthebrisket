@@ -6,6 +6,16 @@ import {
   computeVolatility,
   buildHistoryLookup,
 } from "@/lib/value-history";
+import { buildPickLookupCandidates } from "@/lib/trade-logic";
+
+/** First contract row matching any candidate key, or null. */
+function resolveByCandidates(byName, candidates) {
+  for (const key of candidates || []) {
+    const row = byName.get(key);
+    if (row) return row;
+  }
+  return null;
+}
 
 /**
  * portfolio-insights — FALLBACK ROSTER AGGREGATES.
@@ -243,7 +253,25 @@ export function computePortfolio({ rows, selectedTeam, rawData, history }) {
   // count toward total value + the PICK positional bucket.  Ignoring
   // them here silently understated both.
   for (const name of selectedTeam.picks || []) {
-    const row = byName.get(String(name).toLowerCase());
+    // Picks need the candidate expansion, not a bare lowercase. Sleeper
+    // labels a pick "2026 1.02 (own)"; the contract row is named
+    // "2026 Pick 1.02". The case was never the problem — the FORMAT is
+    // — so `byName.get(name.toLowerCase())` resolved 0 of 288 picks on
+    // the live 12-team snapshot, and every team therefore rendered a
+    // permanent "N unresolved" badge at 45-84% coverage while
+    // `pickCount` stayed 0 and the "Picks $X · N" legend never drew.
+    //
+    // `buildPickLookupCandidates` already solves this and
+    // `lib/league-analysis.js` already uses it; this module simply
+    // never imported it. With it, 216 of 288 resolve.
+    //
+    // The other 72 are RIGHT to be unresolved: they are every 2029
+    // pick, and the board prices 2026 (90 rows), 2027 (18) and 2028
+    // (18) but publishes nothing for 2029. Do not "fix" that number to
+    // 288 — a pick with no board row has no value to show, and
+    // inventing one is the failure mode this codebase already had with
+    // the flat 7000/4000/2000/1200 table.
+    const row = resolveByCandidates(byName, buildPickLookupCandidates(name));
     if (!row) {
       unresolved.push(name);
       continue;
