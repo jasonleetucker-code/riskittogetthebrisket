@@ -42,9 +42,11 @@ function formatPct(v) {
  *   - Positional allocation (value-weighted stack)
  *   - Age mix (value-weighted segments)
  *   - Volatility exposure (value-weighted segments)
- *   - Starters (top 12 by value, as clickable chips).  Heading is
- *     "Starters", not "Starting XI" — this league starts 21, and the 12
- *     is a display cap on the chip row, not the lineup size.
+ *   - Starters — EVERY filled lineup slot, in the league's own slot
+ *     order, as clickable chips.  Not a top-N by value: that ordering
+ *     put all the offense first, so a display cap silently removed the
+ *     defense (11 of 12 teams rendered zero DBs).  The chip shows the
+ *     SLOT, so 3 DL + 3 LB + 3 DB is legible.
  *
  * All numbers trace back to contract fields or named derived metrics.
  * No fake data, no filler chips.
@@ -132,7 +134,8 @@ export default function PortfolioSummary() {
     benchValue,
     starterCount,
     benchCount,
-    starters,
+    starterAssignments,
+    lineupFromLeague,
     pickCount,
     pickValue,
     byPosition,
@@ -312,27 +315,43 @@ export default function PortfolioSummary() {
         </div>
       </section>
 
-      {/* ── Starters list ── */}
-      {starters.length > 0 && (
+      {/* ── Starters list ──
+          Walks ``starterAssignments`` (SLOT order, the league's own),
+          not ``starters`` (value-descending), and renders every filled
+          slot rather than a top-N.
+
+          Both halves of that matter. This used to be
+          ``starters.slice(0, 12)``: 12 of 20 filled slots, taken from a
+          value-sorted list. IDP values sit far below offense on the
+          blended board, so the truncation ate the defense — measured on
+          the 2026-07-30 snapshot, 11 of 12 teams showed ZERO defensive
+          backs and most showed one or no linebackers, in a league that
+          starts three of each. The lineup is 20 players; showing it is
+          the panel's job. */}
+      {starterAssignments.length > 0 && (
         <section className="portfolio-section">
           <h3 className="portfolio-section-title">
-            Starters <span className="portfolio-section-hint">click to open</span>
+            Starters{" "}
+            <span className="portfolio-section-hint">
+              {lineupFromLeague
+                ? "click to open"
+                : "league lineup unavailable — showing a default"}
+            </span>
           </h3>
           <ul className="portfolio-starters">
-            {starters.slice(0, 12).map((p) => (
-              <li key={p.name}>
+            {starterAssignments.map(({ slot, asset: p }, i) => (
+              <li key={`${slot}-${p.name}-${i}`}>
                 <button
                   type="button"
                   className="portfolio-starter"
                   onClick={() => openPlayerPopup?.(p.name)}
-                  title={`${p.name} — ${formatValue(p.value)}`}
+                  title={`${slot} — ${p.name} — ${formatValue(p.value)}`}
                 >
-                  {/* ``lineupPos`` (DL / LB / DB), not ``pos`` — the
-                      latter collapses every defender to a generic "IDP",
-                      so nine of these chips read the same token and you
-                      cannot see that the lineup is 3 DL + 3 LB + 3 DB.
-                      Falls back for any row built before lineupPos. */}
-                  <span className="portfolio-starter-pos">{p.lineupPos || p.pos}</span>
+                  {/* The SLOT this player fills, which is what the lineup
+                      is made of. ``p.pos`` collapses every defender to a
+                      generic "IDP", so nine chips would read the same
+                      token and you could not see 3 DL + 3 LB + 3 DB. */}
+                  <span className="portfolio-starter-pos">{slot}</span>
                   <span className="portfolio-starter-name">{p.name}</span>
                   <span className="portfolio-starter-value">{formatValue(p.value)}</span>
                 </button>

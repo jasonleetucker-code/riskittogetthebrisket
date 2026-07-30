@@ -209,46 +209,69 @@ export function fillLineup({
   const pool = scored.map((s) => s.asset);
   let slots = lineupSlots(rosterPositions);
   let available = slots.length > 0;
+  // Distinct from `available`, which goes true again once a fallback is
+  // applied. A caller that renders the lineup needs to know the
+  // difference between "this is the league's lineup" and "this is our
+  // guess at one" — collapsing them is how an offence-only default gets
+  // shown as if it were an IDP league's starting nine.
+  let usedFallback = false;
   if (!available) {
     if (!fallbackSlots) {
       return {
         starters: [],
         bench: pool,
+        assignments: [],
         slotCount: 0,
         unfilledSlots: [],
         available: false,
+        usedFallback: false,
       };
     }
     slots = lineupSlots(fallbackSlots);
     available = slots.length > 0;
+    usedFallback = available;
   }
 
   const claimed = new Set();
   const unfilledSlots = [];
+  // Slot -> asset, in the league's own slot order. `starters` below is
+  // value-descending, which is the wrong order for anything that renders
+  // a lineup: IDP values sit far below offense on the blended board, so
+  // truncating a value-sorted list to fit a panel eats the defense
+  // entirely. Callers that DISPLAY the lineup should walk `assignments`.
+  const assignments = slots.map((slot) => ({ slot: normalizeSlot(slot), asset: null }));
 
   // First pass: strict position slots.
-  for (const slot of slots) {
-    const upper = normalizeSlot(slot);
-    if (FLEX_POOLS[upper]) continue;
-    const match = pool.find((p) => !claimed.has(p) && positionOf(p) === upper);
-    if (match) claimed.add(match);
-    else unfilledSlots.push(upper);
-  }
+  assignments.forEach((a) => {
+    if (FLEX_POOLS[a.slot]) return;
+    const match = pool.find((p) => !claimed.has(p) && positionOf(p) === a.slot);
+    if (match) {
+      claimed.add(match);
+      a.asset = match;
+    } else {
+      unfilledSlots.push(a.slot);
+    }
+  });
   // Second pass: flex / IDP-family slots.
-  for (const slot of slots) {
-    const upper = normalizeSlot(slot);
-    const eligible = FLEX_POOLS[upper];
-    if (!eligible) continue;
+  assignments.forEach((a) => {
+    const eligible = FLEX_POOLS[a.slot];
+    if (!eligible) return;
     const match = pool.find((p) => !claimed.has(p) && eligible.has(positionOf(p)));
-    if (match) claimed.add(match);
-    else unfilledSlots.push(upper);
-  }
+    if (match) {
+      claimed.add(match);
+      a.asset = match;
+    } else {
+      unfilledSlots.push(a.slot);
+    }
+  });
 
   return {
     starters: pool.filter((p) => claimed.has(p)),
     bench: pool.filter((p) => !claimed.has(p)),
+    assignments: assignments.filter((a) => a.asset),
     slotCount: slots.length,
     unfilledSlots,
     available,
+    usedFallback,
   };
 }

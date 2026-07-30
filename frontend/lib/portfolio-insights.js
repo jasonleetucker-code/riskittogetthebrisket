@@ -119,7 +119,7 @@ const DEFAULT_FALLBACK_SLOTS = [
  * why both fields exist.
  */
 function splitStartersBench({ rosterValues, sleeperRosterPositions }) {
-  const { starters, bench } = fillLineup({
+  const { starters, bench, assignments, usedFallback } = fillLineup({
     assets: rosterValues,
     rosterPositions: sleeperRosterPositions,
     // ``|| p.pos`` only for callers that predate ``lineupPos``; every
@@ -130,6 +130,15 @@ function splitStartersBench({ rosterValues, sleeperRosterPositions }) {
   return {
     starters,
     bench,
+    // Slot-ordered, for anything that RENDERS the lineup.  ``starters``
+    // is value-descending, and truncating that to fit a panel drops the
+    // defense — IDP values sit far below offense on the blended board.
+    starterAssignments: assignments,
+    // False only when the contract carried no lineup and we fell back to
+    // DEFAULT_FALLBACK_SLOTS, which has no IDP slots at all.  Surfaced so
+    // the panel can say so instead of showing an offence-only lineup as
+    // if it were the league's.
+    lineupFromLeague: !usedFallback,
     starterCount: starters.length,
     benchCount: bench.length,
     starterValue: sumValue(starters),

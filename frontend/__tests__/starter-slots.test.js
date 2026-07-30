@@ -204,6 +204,52 @@ describe("fillLineup — dynasty_new (same scoring profile, different lineup)", 
   });
 });
 
+describe("assignments — slot order, so a display cap cannot eat the defense", () => {
+  // The shape that broke the terminal panel: offense values sit far above
+  // IDP on the blended board, so a VALUE-sorted starter list puts all 11
+  // offensive starters first and any top-N truncation removes the entire
+  // secondary. Measured on the real snapshot, the old `slice(0, 12)` left
+  // 11 of 12 teams showing zero defensive backs.
+  const roster = squad([
+    ["QB", 2, 9000], ["RB", 3, 8000], ["WR", 4, 7000], ["TE", 3, 6000],
+    ["DL", 4, 300], ["LB", 4, 200], ["DB", 4, 100],
+  ]);
+  const fill = () =>
+    fillLineup({
+      assets: roster,
+      rosterPositions: DYNASTY_MAIN_SLOTS,
+      positionOf: (p) => p.group,
+    });
+
+  it("returns one entry per FILLED slot, in the league's slot order", () => {
+    const { assignments } = fill();
+    expect(assignments).toHaveLength(20); // 21 slots, K unfillable
+    // The league's own slot array order, with the unfillable K dropped —
+    // NOT the two-pass fill order, and not value order.
+    expect(assignments.map((a) => a.slot)).toEqual([
+      "QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE",
+      "FLEX", "FLEX", "SUPER_FLEX",
+      "DL", "DL", "DL", "LB", "LB", "LB", "DB", "DB", "DB",
+    ]);
+  });
+
+  it("keeps all three DB even though they are the 18th-20th most valuable", () => {
+    const { assignments, starters } = fill();
+    expect(assignments.filter((a) => a.slot === "DB")).toHaveLength(3);
+    // ...and this is why slot order is required: the value-sorted list
+    // puts every DB in the last three positions.
+    const dbIdx = starters
+      .map((p, i) => (p.group === "DB" ? i : -1))
+      .filter((i) => i >= 0);
+    expect(Math.min(...dbIdx)).toBeGreaterThanOrEqual(12);
+  });
+
+  it("assigns the same players as `starters`, only ordered differently", () => {
+    const { assignments, starters } = fill();
+    expect(new Set(assignments.map((a) => a.asset))).toEqual(new Set(starters));
+  });
+});
+
 describe("fillLineup — no lineup supplied", () => {
   const roster = squad([["QB", 2, 900], ["RB", 2, 800]]);
 
@@ -227,6 +273,29 @@ describe("fillLineup — no lineup supplied", () => {
     });
     expect(f.available).toBe(true);
     expect(f.starters).toHaveLength(2);
+  });
+
+  it("flags a fallback fill as such, distinctly from `available`", () => {
+    // `available` goes true again the moment a fallback applies, so it
+    // cannot answer "is this the league's lineup?". Collapsing the two is
+    // how /terminal's 9-slot offence-only default would get rendered as
+    // if it were an IDP league's starting nine.
+    const withLeague = fillLineup({
+      assets: roster,
+      rosterPositions: ["QB", "RB"],
+      positionOf: (p) => p.group,
+      fallbackSlots: ["QB", "RB"],
+    });
+    const withFallback = fillLineup({
+      assets: roster,
+      rosterPositions: null,
+      positionOf: (p) => p.group,
+      fallbackSlots: ["QB", "RB"],
+    });
+    expect(withLeague.available).toBe(true);
+    expect(withFallback.available).toBe(true);
+    expect(withLeague.usedFallback).toBe(false);
+    expect(withFallback.usedFallback).toBe(true);
   });
 });
 

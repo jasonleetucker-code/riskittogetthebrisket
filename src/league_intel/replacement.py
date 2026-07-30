@@ -269,6 +269,31 @@ def measure_endogenous_starters(
         solution = optimize_lineup(_to_roster_players(players), starter_slots=starter_slots)
         per_pos: dict[str, list[float]] = {}
         for row in solution.starting_lineup:
+            # BY THE PLAYER'S NOMINAL POSITION, NOT BY THE SLOT — and that
+            # is deliberate, so read this before "fixing" it.
+            #
+            # It looks wrong on a hybrid: a DL/LB whom the optimizer slots
+            # at LB still counts as DL here, so on the live 12 rosters
+            # ``starters_per_team`` reads DL 2.667 / LB 3.250 / DB 3.083
+            # while the league plainly starts 3 at each.  The slot truth
+            # is real and is recorded — ``slot_fill`` below shows exactly
+            # 36 DL / 36 LB / 36 DB, 3 per team.
+            #
+            # But this count exists to INDEX A POOL, and the pool is keyed
+            # by nominal position: ``compute_scarcity`` builds ``by_pos``
+            # from ``normalize_base_position(player["position"])`` and
+            # then uses ``starters_n`` to find the median starter inside
+            # it.  Counting by slot instead would index a pool of
+            # nominal-DLs with a number derived from DL *slots* — the two
+            # stop denoting the same set the moment one hybrid moves, and
+            # ``lineupScarcity`` (the only live axis of the
+            # league-adjusted overlay) is computed off that index.
+            #
+            # The question this answers is "how many DL-pool bodies do
+            # lineups consume", which is what a replacement level needs.
+            # "How many DL slots does the league start" is a different
+            # question with a different answer, and ``slot_fill`` is where
+            # it lives.
             base = normalize_base_position(str(row.get("position") or ""))
             counts[base] = counts.get(base, 0) + 1
             per_pos.setdefault(base, []).append(float(row.get("rosValue") or 0.0))
