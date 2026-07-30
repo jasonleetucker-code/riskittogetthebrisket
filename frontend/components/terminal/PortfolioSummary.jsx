@@ -42,7 +42,9 @@ function formatPct(v) {
  *   - Positional allocation (value-weighted stack)
  *   - Age mix (value-weighted segments)
  *   - Volatility exposure (value-weighted segments)
- *   - Starting XI (top 10 starters as clickable chips)
+ *   - Starters (top 12 by value, as clickable chips).  Heading is
+ *     "Starters", not "Starting XI" — this league starts 21, and the 12
+ *     is a display cap on the chip row, not the lineup size.
  *
  * All numbers trace back to contract fields or named derived metrics.
  * No fake data, no filler chips.
@@ -325,7 +327,12 @@ export default function PortfolioSummary() {
                   onClick={() => openPlayerPopup?.(p.name)}
                   title={`${p.name} — ${formatValue(p.value)}`}
                 >
-                  <span className="portfolio-starter-pos">{p.pos}</span>
+                  {/* ``lineupPos`` (DL / LB / DB), not ``pos`` — the
+                      latter collapses every defender to a generic "IDP",
+                      so nine of these chips read the same token and you
+                      cannot see that the lineup is 3 DL + 3 LB + 3 DB.
+                      Falls back for any row built before lineupPos. */}
+                  <span className="portfolio-starter-pos">{p.lineupPos || p.pos}</span>
                   <span className="portfolio-starter-name">{p.name}</span>
                   <span className="portfolio-starter-value">{formatValue(p.value)}</span>
                 </button>
