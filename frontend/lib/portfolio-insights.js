@@ -7,7 +7,7 @@ import {
   buildHistoryLookup,
 } from "@/lib/value-history";
 import { buildPickLookupCandidates } from "@/lib/trade-logic";
-import { fillLineup } from "@/lib/starter-slots";
+import { fillLineup, lineupPosition } from "@/lib/starter-slots";
 
 /** First contract row matching any candidate key, or null. */
 function resolveByCandidates(byName, candidates) {
@@ -107,20 +107,24 @@ const DEFAULT_FALLBACK_SLOTS = [
  * Starter / bench split for the terminal's portfolio panels.
  *
  * Thin wrapper over the shared ``fillLineup`` — see
- * ``lib/starter-slots.js`` for why the slot filling lives there.  The
- * position vocabulary handed in here is the COLLAPSED one
- * (``normalizePos``: DB/LB/DL/DE/DT/CB/S → "IDP"), so each of this
- * league's 9 defensive slots matches any defender and the split credits
- * the top 9 by value rather than 3 DL + 3 LB + 3 DB.  Totals coincide
- * for a normally-constructed roster; a team stacked at one IDP position
- * is over-credited.  /rosters passes the un-collapsed vocabulary and
- * gets the exact answer.
+ * ``lib/starter-slots.js`` for why the slot filling lives there.
+ *
+ * Fills on ``lineupPos`` (DL / LB / DB kept DISTINCT), never on ``pos``
+ * (every defender collapsed to "IDP").  The league starts 3 at each IDP
+ * position; filling on the collapsed field made every defensive slot
+ * match every defender, so the split credited the top 9 defenders by
+ * value.  Identical answer on a balanced roster, wrong on one stacked at
+ * a single IDP position — it counted starters the league has no slot
+ * for.  ``pos`` is still what ``byPosition`` allocates against, which is
+ * why both fields exist.
  */
 function splitStartersBench({ rosterValues, sleeperRosterPositions }) {
   const { starters, bench } = fillLineup({
     assets: rosterValues,
     rosterPositions: sleeperRosterPositions,
-    positionOf: (p) => p.pos,
+    // ``|| p.pos`` only for callers that predate ``lineupPos``; every
+    // row built by ``computePortfolio`` carries it.
+    positionOf: (p) => p.lineupPos || p.pos,
     fallbackSlots: DEFAULT_FALLBACK_SLOTS,
   });
   return {
@@ -171,12 +175,25 @@ export function computePortfolio({ rows, selectedTeam, rawData, history }) {
       continue;
     }
     const pos = normalizePos(row.pos);
+    // TWO position fields, deliberately, because they answer different
+    // questions:
+    //   ``pos``       collapses every defender to "IDP" — the value
+    //                 bucket this page reports allocation against
+    //                 (``byPosition``, POSITION_GROUPS).
+    //   ``lineupPos`` keeps DL / LB / DB DISTINCT — because the league
+    //                 starts 3 at EACH of those, not 9 defenders.
+    // Filling slots off the collapsed field made every defensive slot
+    // match every defender, so the split credited the top 9 by value; a
+    // roster stacked at one IDP position had players counted as starters
+    // that the league has no slot for.
+    const lineupPos = lineupPosition(row.pos);
     const value = Number(row.rankDerivedValue || row.values?.full || 0);
     const points = normalizePoints(lookupHistory(row.name, row.assetClass));
     const vol = computeVolatility(points, 30);
     rosterValues.push({
       name: row.name,
       pos,
+      lineupPos,
       value,
       age: row.age,
       isRookie: !!row.rookie,

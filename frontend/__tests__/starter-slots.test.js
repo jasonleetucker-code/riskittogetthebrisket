@@ -15,7 +15,8 @@
  * `sleeper.rosterPositions` on the live contract.
  */
 import { describe, expect, it } from "vitest";
-import { fillLineup, lineupSlots } from "@/lib/starter-slots";
+import { fillLineup, lineupPosition, lineupSlots } from "@/lib/starter-slots";
+import { computePortfolio } from "@/lib/portfolio-insights";
 import {
   buildAllTeamSummaries,
   buildPlayerMetaMap,
@@ -229,20 +230,127 @@ describe("fillLineup — no lineup supplied", () => {
   });
 });
 
-describe("fillLineup — collapsed IDP vocabulary (the /terminal caller)", () => {
-  it("still matches specific IDP slots via the generic IDP token", () => {
-    // portfolio-insights normalizes DB/LB/DL/... -> "IDP" before calling.
-    const roster = [
-      { name: "d1", pos: "IDP", value: 500 },
-      { name: "d2", pos: "IDP", value: 490 },
-      { name: "q1", pos: "QB", value: 900 },
-    ];
+describe("lineupPosition", () => {
+  it("keeps DL, LB and DB DISTINCT — the league starts 3 at each", () => {
+    expect(lineupPosition("DL")).toBe("DL");
+    expect(lineupPosition("LB")).toBe("LB");
+    expect(lineupPosition("DB")).toBe("DB");
+  });
+
+  it("resolves the family aliases onto those three", () => {
+    for (const p of ["DE", "DT", "EDGE", "NT"]) expect(lineupPosition(p)).toBe("DL");
+    for (const p of ["OLB", "ILB"]) expect(lineupPosition(p)).toBe("LB");
+    for (const p of ["CB", "S", "FS", "SS"]) expect(lineupPosition(p)).toBe("DB");
+  });
+
+  it("passes offense, K and DEF through so their slots still match", () => {
+    for (const p of ["QB", "RB", "WR", "TE", "DEF"]) expect(lineupPosition(p)).toBe(p);
+    expect(lineupPosition("PK")).toBe("K");
+  });
+
+  it("never returns the collapsed 'IDP' token", () => {
+    for (const p of ["DL", "DE", "DT", "EDGE", "NT", "LB", "OLB", "ILB", "DB", "CB", "S"]) {
+      expect(lineupPosition(p)).not.toBe("IDP");
+    }
+  });
+});
+
+describe("an IDP-stacked roster starts 3 at EACH position, not 9 defenders", () => {
+  // The defect this pins, in the shape that exposes it: 9 linebackers,
+  // all worth more than any lineman or back. Every defensive slot in
+  // FLEX_POOLS also accepts the generic "IDP" token, so filling on a
+  // collapsed vocabulary lets all 9 LBs claim the DL and DB slots too.
+  // The league has 3 LB slots. It starts 3 linebackers.
+  const stacked = [
+    ...Array.from({ length: 9 }, (_, i) => ({
+      name: `LB${i + 1}`,
+      real: "LB",
+      value: 900 - i,
+    })),
+    ...Array.from({ length: 3 }, (_, i) => ({
+      name: `DL${i + 1}`,
+      real: "DE",
+      value: 100 - i,
+    })),
+    ...Array.from({ length: 3 }, (_, i) => ({
+      name: `DB${i + 1}`,
+      real: "CB",
+      value: 50 - i,
+    })),
+  ];
+  const idpSlots = ["DL", "DL", "DL", "LB", "LB", "LB", "DB", "DB", "DB", "BN"];
+
+  it("credits exactly 3 LB when filled on the resolved position", () => {
     const f = fillLineup({
-      assets: roster,
-      rosterPositions: ["QB", "DL", "LB", "BN"],
-      positionOf: (p) => p.pos,
+      assets: stacked,
+      rosterPositions: idpSlots,
+      positionOf: (p) => lineupPosition(p.real),
     });
-    expect(f.starters).toHaveLength(3);
+    const counts = byGroup(f.starters.map((p) => ({ group: lineupPosition(p.real) })));
+    expect(counts.LB).toBe(3);
+    expect(counts.DL).toBe(3);
+    expect(counts.DB).toBe(3);
+    expect(f.starters).toHaveLength(9);
+  });
+
+  it("credits 9 LB when filled on the collapsed vocabulary — the bug", () => {
+    // Kept as an executable statement of WHY `lineupPos` exists. If this
+    // ever stops reproducing, the collapsed path is gone and this test
+    // and the two-field split in portfolio-insights can go with it.
+    const f = fillLineup({
+      assets: stacked,
+      rosterPositions: idpSlots,
+      positionOf: () => "IDP",
+    });
+    const lbStarters = f.starters.filter((p) => p.real === "LB");
+    expect(lbStarters).toHaveLength(9);
+    expect(f.starters.filter((p) => p.real === "DE")).toHaveLength(0);
+  });
+});
+
+describe("computePortfolio (/terminal) fills on the resolved position", () => {
+  it("starts 3 LB, 3 DL and 3 DB from an LB-heavy roster", () => {
+    const players = [
+      ...Array.from({ length: 9 }, (_, i) => ({ name: `LB${i + 1}`, pos: "LB", v: 900 - i })),
+      ...Array.from({ length: 3 }, (_, i) => ({ name: `DL${i + 1}`, pos: "DE", v: 100 - i })),
+      ...Array.from({ length: 3 }, (_, i) => ({ name: `DB${i + 1}`, pos: "CB", v: 50 - i })),
+    ];
+    const rows = players.map((p) => ({
+      name: p.name,
+      pos: p.pos,
+      rankDerivedValue: p.v,
+      values: { full: p.v },
+      raw: {},
+    }));
+    const portfolio = computePortfolio({
+      rows,
+      selectedTeam: { players: players.map((p) => p.name), picks: [] },
+      rawData: { sleeper: { rosterPositions: ["DL", "DL", "DL", "LB", "LB", "LB", "DB", "DB", "DB", "BN"] } },
+      history: {},
+    });
+
+    const starterNames = portfolio.starters.map((p) => p.name);
+    const lbStarters = starterNames.filter((n) => n.startsWith("LB"));
+    expect(lbStarters).toHaveLength(3);
+    expect(starterNames.filter((n) => n.startsWith("DL"))).toHaveLength(3);
+    expect(starterNames.filter((n) => n.startsWith("DB"))).toHaveLength(3);
+  });
+
+  it("still buckets defenders under the collapsed IDP allocation group", () => {
+    // `pos` stays collapsed on purpose — byPosition reports allocation
+    // against QB/RB/WR/TE/K/DEF/IDP/PICK, not per defensive position.
+    const rows = [
+      { name: "LB1", pos: "LB", rankDerivedValue: 900, values: { full: 900 }, raw: {} },
+      { name: "CB1", pos: "CB", rankDerivedValue: 800, values: { full: 800 }, raw: {} },
+    ];
+    const portfolio = computePortfolio({
+      rows,
+      selectedTeam: { players: ["LB1", "CB1"], picks: [] },
+      rawData: { sleeper: { rosterPositions: ["LB", "DB", "BN"] } },
+      history: {},
+    });
+    expect(portfolio.byPosition.IDP.count).toBe(2);
+    expect(portfolio.byPosition.IDP.value).toBe(1700);
   });
 });
 

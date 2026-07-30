@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizePos } from "@/lib/dynasty-data";
+
 /**
  * starter-slots — THE lineup-slot filler.
  *
@@ -104,6 +106,39 @@ export const FLEX_POOLS = {
 const STRICT_SLOT_REMAP = {
   PK: "K",
 };
+
+const DL_FAMILY = new Set(["DL", "DE", "DT", "EDGE", "NT"]);
+const LB_FAMILY = new Set(["LB", "OLB", "ILB"]);
+const DB_FAMILY = new Set(["DB", "CB", "S", "FS", "SS"]);
+
+/**
+ * A player position resolved to the token that fills a lineup slot.
+ *
+ * THE single position vocabulary for lineup purposes. Defensive players
+ * resolve to their FAMILY — DL, LB or DB, kept distinct — because this
+ * league starts 3 at each of those positions, not 9 defenders. Anything
+ * else (QB/RB/WR/TE/K/DEF) passes through `normalizePos` unchanged so a
+ * K slot still matches a kicker and a DEF slot a team defense.
+ *
+ * Keeping DL/LB/DB distinct is the whole point. `FLEX_POOLS.DL`, `.LB`
+ * and `.DB` each also contain the generic "IDP" token for backward
+ * compatibility, so a caller that hands in an IDP-collapsed vocabulary
+ * still matches *something* — but every defensive slot then matches
+ * every defender, and the fill degrades to "top N defenders by value".
+ * On a roster stacked at one IDP position that starts players the
+ * league has no slot for. Callers should resolve through here.
+ */
+export function lineupPosition(pos) {
+  const p = normalizePos(pos);
+  if (DL_FAMILY.has(p)) return "DL";
+  if (LB_FAMILY.has(p)) return "LB";
+  if (DB_FAMILY.has(p)) return "DB";
+  // ``normalizePos`` maps P -> K but not PK; portfolio-insights' local
+  // helper mapped PK and this must not lose it, or a kicker stops
+  // matching the league's K slot.
+  if (p === "PK") return "K";
+  return p;
+}
 
 // Slots that are not part of the starting lineup.
 const NON_LINEUP_SLOTS = new Set(["BN", "IR", "TAXI"]);

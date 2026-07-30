@@ -11,8 +11,7 @@ import {
   resolvePickRow,
   ktcAdjustPackage,
 } from "@/lib/trade-logic";
-import { normalizePos } from "@/lib/dynasty-data";
-import { fillLineup } from "@/lib/starter-slots";
+import { fillLineup, lineupPosition } from "@/lib/starter-slots";
 
 // ── Position Group Helpers ──────────────────────────────────────────────
 export const POS_GROUPS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICKS"];
@@ -51,14 +50,20 @@ export const POS_GROUP_LABELS = {
 // was a single-league literal on a page that serves two leagues with
 // different lineups).
 
+/**
+ * Position → value-bucket group for this page's tables.
+ *
+ * Delegates to `lineupPosition` so the grouping a player is DISPLAYED
+ * under and the grouping used to fill a lineup slot cannot drift apart.
+ * The only difference is the tail: K and DEF are real lineup slots but
+ * not buckets on /rosters (`buildPlayerMetaMap` drops kickers before
+ * they reach here), so anything outside the seven value groups lands in
+ * "Other".
+ */
 export function posGroup(pos) {
   if (!pos) return "Other";
-  const p = normalizePos(pos);
-  if (["QB", "RB", "WR", "TE"].includes(p)) return p;
-  if (["DL", "DE", "DT", "EDGE", "NT"].includes(p)) return "DL";
-  if (["LB", "OLB", "ILB"].includes(p)) return "LB";
-  if (["DB", "CB", "S", "FS", "SS"].includes(p)) return "DB";
-  return "Other";
+  const g = lineupPosition(pos);
+  return PLAYER_GROUPS.includes(g) ? g : "Other";
 }
 
 // ── Timestamp Helpers ───────────────────────────────────────────────────
