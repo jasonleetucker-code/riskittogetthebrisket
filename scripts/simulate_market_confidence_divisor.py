@@ -19,6 +19,32 @@ never exceeds 3 on real payloads, so ``site_score`` is confined to
 high confidence, so the ``low_conf_unstable`` threshold of 0.35 cannot
 be calibrated meaningfully against it.
 
+WHY ``_sites`` MAXES AT 3 (measured 2026-07-30)
+===============================================
+It is not a registry-coverage count.  The composite loop accumulates
+``wNorms`` from the SCRAPER's own per-player dash keys, and the
+scraper's ``SITES`` toggle map has exactly two entries enabled — ``KTC``
+and ``IDPTradeCalc``, the rest ``False`` and labelled "disabled in scope
+reduction".  Those two emit three numeric dash keys between them
+(``ktc``, ``ktcSfTep``, ``idpTradeCalc``), so ``len(wNorms) ∈ {1,2,3}``
+by construction.  The other 18 registry sources are fetched by
+``scripts/fetch_*.py`` and merged downstream in
+``src/api/data_contract.py``, which never recomputes ``_sites``.  The
+``/ 8.0`` divisor is a fossil of the pre-scope-reduction ~10-site era.
+
+OUTCOME (2026-07-30)
+====================
+The rule this was measured for is **RETIRED**, because the table this
+script prints shows every candidate divisor pushing confidence UP: zero
+players fall below 0.35 at divisors 3, 4 or 5, so there is no divisor at
+which a "fires below 0.35" rule becomes well-calibrated.  See
+``docs/open-modeling-decisions.md`` §3.
+
+The script is kept because the divisor itself is still 8.0 and the
+composite-multiplier columns below are the measurement anyone correcting
+it will need.  ``--threshold`` now just annotates the output; no live
+rule reads it.
+
 WHY THIS DOESN'T NEED THE SCRAPER
 =================================
 Re-scraping to measure the fix is impractical in a dev environment (no
@@ -138,7 +164,12 @@ def main() -> int:
     ap.add_argument("--payload", type=Path, default=None)
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--divisors", type=float, nargs="*", default=[3.0, 4.0, 5.0])
-    ap.add_argument("--threshold", type=float, default=0.35, help="low_conf_unstable threshold")
+    ap.add_argument(
+        "--threshold",
+        type=float,
+        default=0.35,
+        help="annotation only — the retired low_conf_unstable rule's threshold",
+    )
     args = ap.parse_args()
 
     path = args.payload or _default_payload()

@@ -224,6 +224,13 @@ source votes exactly once — pinned by a determinism test.
 > with a tripwire test. A third question raised later (the
 > `low_conf_unstable` threshold) turned out to be a broken metric, not a
 > threshold — same document.
+>
+> **Closed 2026-07-30.** `low_conf_unstable` is **retired** from both
+> engines. `_sites` maxes at 3 because the scraper runs a deliberate
+> two-source model (`SITES` has KTC + IDPTradeCalc on, ten others off),
+> and every candidate divisor moves confidence *away* from the 0.35
+> threshold — 0 players below it at divisors 3, 4 and 5 — so no
+> recalibration could rescue the rule.
 
 1. **Should `coverageWeight` be applied?** The depth-scaled factor is
    computed and published but never used. Applying it would down-weight
@@ -549,6 +556,14 @@ pipeline.
 > (three merges, three live defects fixed). The follow-up also surfaced
 > **three NEW items**, listed under "Must complete" — they are bigger
 > than the ones they replaced.
+>
+> **Status update 2026-07-30.** **N1 done** (`signal-engine.js` now uses
+> `buildHistoryLookup`, so the frontend engine actually sees history).
+> **N2 resolved by retirement, not repair** — the metric, not the wiring,
+> was the problem; see `docs/open-modeling-decisions.md` §3. **N3 done**
+> (`sleeper_overlay` raw `full_name` fallback). Item 1 (rotate the admin
+> password) is still an owner action. Item 6 — the legacy-curve decision
+> — is in progress: re-tune plus drift automation.
 
 **Must complete before major new features**
 1. **Rotate the admin password** if not already done since April (C6).
@@ -567,6 +582,19 @@ pipeline.
    `ACTIONABLE_SIGNALS` — so fixing it naively would email every user at
    once on the first sweep. It needs the silent baseline-seeding pass
    that `bdvm_signal_alerts.py` already models.
+
+   **RESOLVED 2026-07-30 — retired, not repaired.** The wiring was fixed
+   on 2026-07-29; with the plumbing correct the *metric* proved to be
+   the defect. `marketConfidence` is structurally capped at 0.59375
+   because the scraper's `site_count / 8.0` term is a fossil of a
+   ~10-site era and only three dash keys exist under today's two-source
+   `SITES` map. Every candidate divisor pushes the population above
+   0.35 rather than toward it, so no threshold makes the rule sound. The
+   rule is gone from both engines and from the parity fixture's rule
+   registry; the confidence number survives as a diagnostic.
+   `tests/api/test_market_confidence_wiring.py::TestTheRuleIsRetired`
+   asserts no surviving rule's verdict changes with confidence, so a
+   reinstatement under another tag fails a test.
 4. **Decide the `coverageWeight` question** (§3.1). It is now honestly
    labelled, but leaving a published formula unapplied indefinitely
    invites the next reader to "fix" it and move every value.

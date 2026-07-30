@@ -125,9 +125,13 @@ values. Unchanged by this document.
 
 ## 3. What is the right `low_conf_unstable` confidence threshold?
 
-**Status: the question was wrong. The metric is structurally capped.**
-**Recommendation — fix the metric, not the threshold. Needs a call
-because the change cannot be measured in a dev environment.**
+**RESOLVED 2026-07-30 — the rule is retired.** The question was wrong:
+the metric is structurally capped, and every candidate repair pushes
+confidence *away* from the threshold rather than toward it. Kept here
+(rather than deleted) because the underlying metric is still broken and
+the next person to reach for `marketConfidence` needs to know that.
+
+### The original question
 
 The audit asked whether the 0.35 threshold should move, having observed
 that live `marketConfidence` clusters around 0.49 so the rule fires for
@@ -163,28 +167,106 @@ threshold against that scale is calibrating against a broken ruler: at
 catch *most of the board* including well-covered players, because the
 whole population sits in a narrow band just above it.
 
-**The fix is the divisor** (or the count feeding it — 3 sources is
-itself suspicious against a 21-source registry, and `wNorms` may be
-narrower than the registry population; worth checking before changing
-the constant).
+### Why `_sites` maxes at 3 (measured 2026-07-30)
 
-**Why this was not just fixed here.** `market_conf` is not only a
-display/signal input — it feeds the scraper's composite arithmetic:
-`elite_boost`, `elite_cap` (both offense and IDP), the single-source
-discount, and `idp_conf_factor`. Changing it moves `_finalAdjusted`. The
-scraper cannot be re-run in a dev environment (it needs network access
-and site credentials), so **the impact of a divisor change cannot be
-measured here** — and this audit's standing rule is not to change
-valuation inputs it cannot measure.
+The suspicion above — "3 sources is itself suspicious against a
+21-source registry" — checks out, and the answer is that `_sites` is not
+a registry-coverage count at all.
 
-**Recommended next step:** on a machine that can run the scraper,
-re-scrape once with the divisor corrected and diff `_finalAdjusted`
-across the population. If the composite shift is acceptable, take the
-fix; if not, retire `low_conf_unstable` rather than leaving a rule
-gated on a metric that cannot reach its own thresholds.
+The composite loop (`Dynasty Scraper.py`, `for name, pdata in
+players_json.items()`) accumulates `wNorms` by iterating the *scraper's
+own* per-player dash keys. The scraper's `SITES` toggle map has exactly
+**two entries enabled** — `KTC: True` and `IDPTradeCalc: True`; the
+other ten are `False`, labelled *"disabled in scope reduction"*, with a
+matching comment elsewhere reading *"No rank-based sites in the
+two-source model"*. Those two scrapers emit three numeric dash keys
+between them, confirmed on the live payload:
 
-Pinned meanwhile by
-`tests/api/test_market_confidence_wiring.py::test_threshold_is_far_below_the_live_distribution`,
-which asserts the scraper default (0.5) and the live p10 (0.480) do not
-fire — so if either the threshold or the distribution moves toward the
-other, a test says so.
+| dash key | players carrying it | in `_canonicalSiteValues` |
+|---|---|---|
+| `idpTradeCalc` | 898 | 814 |
+| `ktc` | 590 | 464 |
+| `ktcSfTep` | 464 | 464 |
+
+So `len(wNorms) ∈ {1,2,3}` by construction. The other 18 registry
+sources are fetched by `scripts/fetch_*.py` and merged **downstream** in
+`src/api/data_contract.py`, which never recomputes `_sites` or
+`_marketConfidence`. `_sites` therefore measures scraper-composite
+coverage only, and always did — it was never the board's source count.
+(The board's own count is `sourceCount`, from the 21-source blend.)
+
+The `/ 8.0` divisor is a fossil of the pre-scope-reduction era when
+~10 `SITES` were on.
+
+### Why no divisor rescues the rule
+
+`scripts/simulate_market_confidence_divisor.py` recomputes confidence
+under any divisor without re-scraping, by inverting the live formula
+(`cv_score = (conf - site_score*0.65) / 0.35` recovers the second input
+exactly from the payload's `_marketConfidence` + `_sites`). Result:
+
+| divisor | confidence range | players below 0.35 |
+|---|---|---|
+| 8.0 (live) | 0.341 – 0.594 | 1 |
+| 5 | 0.356 – 1.000 | **0** |
+| 4 | 0.393 – 1.000 | **0** |
+| 3 | 0.567 – 1.000 | **0** |
+
+Every correction moves the population *up*, so a rule that fires below
+0.35 gets strictly deader, not healthier. There is no divisor at which
+this rule becomes well-calibrated.
+
+### The decision
+
+`low_conf_unstable` is removed from both engines
+(`src/api/terminal.py::_evaluate_signal` and
+`frontend/lib/signal-engine.js`), from the shared parity fixture's rule
+registry, and from the alert path. MONITOR is in
+`signal_alerts.ACTIONABLE_SIGNALS`, so the rule gated email on a gauge
+whose range is an artifact of how many scrapers happen to be enabled —
+that is the specific thing worth not shipping.
+
+The confidence *number* survives as a diagnostic on both signal
+contexts, so a future rule built on a repaired metric has the plumbing
+in place.
+
+Pinned by `tests/api/test_market_confidence_wiring.py`:
+`TestConfidenceReachesTheContext` keeps the 2026-07-29 plumbing fixes
+honest, and `TestTheRuleIsRetired` asserts that **no** surviving rule's
+verdict changes with confidence — so a reinstatement under a different
+tag fails a test rather than landing quietly.
+
+### Still open (deliberately not done here)
+
+**The divisor itself is still 8.0.** Correcting it is a separate
+decision with a separate risk profile, and it is *not* a board change:
+`market_conf` only ever multiplies the scraper's `composite`
+(`elite_boost`, `elite_cap`, the single-source discount,
+`idp_conf_factor`), never `canonical_site_values`, so
+`rankDerivedValue` is untouched by it. What it does move is
+`_finalAdjusted`. Measured multiplier shifts on the composite, median
+across the population:
+
+| divisor | single-source discount | `idp_conf_factor` | `elite_cap` (offense) |
+|---|---|---|---|
+| 5 | ×1.056 | ×1.070 | ×1.011 |
+| 4 | ×1.093 | ×1.117 | ×1.019 |
+| 3 | ×1.155 | ×1.196 | ×1.031 |
+
+The blast radius is narrower than it looks, but it is not zero — be
+precise about which `finalAdjusted` a consumer reads:
+
+* `values.finalAdjusted` on a `playersArray` row is **overwritten with
+  `rankDerivedValue`** whenever the board priced the row
+  (`data_contract.py`, "Stamp rankDerivedValue into the values bundle").
+  So `public_activity_valuation.py`, `league_intel/values.py` and
+  `/draft`'s fallback chain all see the board value, not the composite.
+* The raw legacy key `_finalAdjusted` still carries the scraper
+  composite, and `src/trade/finder.py` is the one live reader
+  (lines 451 and 946) — both on its **degraded/legacy** path, after
+  `finder.py` was moved onto the canonical board on 2026-07-27.
+
+With `low_conf_unstable` gone there is no signal-path pressure to change
+the divisor either. Honest status: a fossil constant whose only live
+reach is the finder's fallback path, worth fixing when the scraper is
+next touched, not worth a speculative re-scrape now.
