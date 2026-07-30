@@ -11,7 +11,14 @@
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { desktopOnly, attachConsoleGuards, pageUrl, SEL } = require("../helpers/journey");
+const {
+  desktopOnly,
+  attachConsoleGuards,
+  pageUrl,
+  SEL,
+  pageHeading,
+  titleFor,
+} = require("../helpers/journey");
 
 test.describe("journey: trade surfaces", () => {
   test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
@@ -22,7 +29,13 @@ test.describe("journey: trade surfaces", () => {
 
     // Header renders, then the player pool finishes loading (the
     // "Loading player pool..." sentinel clears once /api/data lands).
-    await expect(page.locator("body")).toContainText(/Trade Builder/i, { timeout: 30_000 });
+    // Was `body` + /Trade Builder/i: loose on a nav label present on
+    // every authed page (so it passed with <main> deleted — see
+    // docs/e2e-assertion-audit.md) AND wrong after the #625 rename.
+    // The page's own <h1>, anchored to the canon, fixes both.
+    await expect(pageHeading(page, titleFor("/trade"))).toBeVisible({
+      timeout: 30_000,
+    });
     await page.waitForFunction(
       () => !document.body.innerText.includes("Loading player pool..."),
       null,

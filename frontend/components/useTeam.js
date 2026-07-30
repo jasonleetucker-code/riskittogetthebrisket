@@ -296,8 +296,30 @@ export function useTeam() {
   // and then immediately refired with the resolved team.
   // ``selectionTouched`` is the escape hatch: a user who deliberately
   // cleared their team must still get the anonymous slice.
+  // ``Boolean(selectedLeagueKey)`` is load-bearing, not defensive.
+  //
+  // The effect above opens with ``if (!selectedLeagueKey) return;``, so
+  // with no league key it never reaches its ``setAutoAssignEvaluated``
+  // call.  Without this term the gate then reads
+  // ``!autoAssignEvaluated[""]`` → ``!undefined`` → true on every
+  // render, forever, and ``loading`` below can never flip.
+  //
+  // That is the same hole the comment on that effect says it closed for
+  // the no-match case ("consumers gating fetches on ``loading`` would
+  // wait forever") — closed for one branch of the early return and left
+  // open for the other.  Measured consequences on nightly E2E run
+  // 30529404019: /tools/trade-coverage never left "Loading team list…"
+  // so the page had no <h1> at all, and /waivers stayed in its
+  // skeleton.  Three of that run's nineteen failures, and reachable in
+  // production for any user with no stored team.
+  //
+  // Fixing it at the gate rather than in the effect keeps the two
+  // agreeing on one predicate: no league key means there is no league
+  // to auto-assign within, so "pending" is the wrong answer, not a
+  // deferred one.
   const autoAssignPending =
     privateDataEnabled &&
+    Boolean(selectedLeagueKey) &&
     !leagueMismatch &&
     !selectionTouched &&
     availableTeams.length > 0 &&

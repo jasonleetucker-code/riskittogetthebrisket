@@ -8836,6 +8836,63 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
             raise
         finally:
             _public_league_cache["refreshing"] = False
+
+        # A zero-season snapshot is a FAILURE, not a result.
+        #
+        # ``walk_league_chain`` returns ``[]`` on any Sleeper miss
+        # (``src/public_league/sleeper_client.py`` — ``if not league:
+        # break``, 8s timeout), and ``build_public_snapshot`` then
+        # returns a snapshot with no seasons rather than raising. Every
+        # line below treats that as success: it clears the failure
+        # cooldown, caches the empty snapshot with a fresh
+        # ``fetched_at`` so it is served for the full 300s TTL plus
+        # stale-while-revalidate, and skips the persist block on
+        # ``and snapshot.seasons`` — which leaves
+        # ``last_contract_bytes`` frozen at its last healthy value.
+        #
+        # The result is a total content outage that every signal calls
+        # healthy. Observed live on 2026-07-30 at 16:18 UTC, on the
+        # deploy restart that shipped this file's own PR:
+        # ``/api/public/league`` served 7,403 bytes with
+        # ``leagueName: ""``, ``managers: 0``, ``seasonsCovered: []`` —
+        # HTTP 200, ``rebuild_failures: 0``, and
+        # ``last_contract_bytes: 2005444``. A monitor keyed on payload
+        # size (``deploy/grafana/public-league-dashboard.json``) reads
+        # 2 MB and green while the public page has nothing on it. Only
+        # ``last_season_count``/``last_manager_count`` told the truth,
+        # and nothing gated on them.
+        #
+        # So take the same path a raised exception takes: count the
+        # failure, arm the cooldown, and serve the last good snapshot
+        # if we have one. If we do not, refuse — a 503 is a true
+        # statement about a page we cannot render, and a 200 carrying
+        # empty sections is not.
+        #
+        # This deliberately makes a genuinely season-less league
+        # unserveable rather than served-empty. That is the right
+        # trade: there is no such league here (every chain in
+        # ``config/leagues/registry.json`` has seasons), and a real one
+        # would surface loudly on the first request instead of looking
+        # like a healthy empty page forever.
+        if not snapshot.seasons:
+            _public_league_metrics["rebuild_failures"] += 1
+            _public_league_metrics["last_season_count"] = 0
+            _public_league_metrics["last_manager_count"] = 0
+            _public_league_cache["last_failure_at"] = time.time()
+            _public_league_cache["last_failure_error"] = (
+                "empty snapshot: zero seasons (upstream league chain unreachable)"
+            )
+            _log_public_league_event(
+                "rebuild_failed",
+                trigger=trigger,
+                league_id=league_id,
+                error="empty snapshot: zero seasons",
+            )
+            if cached is not None and cached_id == league_id:
+                _public_league_metrics["rebuild_cooldown_served_stale"] += 1
+                return cached
+            raise PublicSnapshotUnavailable("public league snapshot came back with zero seasons")
+
         # A success clears the cooldown, so recovery needs no operator
         # action and no waiting out the remaining window.
         _public_league_cache["last_failure_at"] = 0.0
