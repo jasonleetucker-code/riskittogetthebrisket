@@ -92,23 +92,23 @@ IDP_HILL_SLOPE: float = 0.945
 # (currently IDPTradeCalc only; the only source with dual-universe
 # coverage).  Used for the anchor source's contributions to every
 # player, regardless of position.
-HILL_GLOBAL_PERCENTILE_C: float = 0.1130
-HILL_GLOBAL_PERCENTILE_S: float = 0.870
+HILL_GLOBAL_PERCENTILE_C: float = 0.1120
+HILL_GLOBAL_PERCENTILE_S: float = 0.725
 #
 # OFFENSE master — fit from offense-only value sources (KTC,
 # DynastyDaddy, DynastyNerds).  Used for every offense-scope source's
 # contributions (KTC, DLF SF, Dynasty Nerds, FantasyPros SF, Dynasty
 # Daddy, Flock Fantasy, FootballGuys SF, Yahoo/Boone, DraftSharks,
 # DLF Rookie SF).
-HILL_PERCENTILE_C: float = 0.1180
-HILL_PERCENTILE_S: float = 1.170
+HILL_PERCENTILE_C: float = 0.1100
+HILL_PERCENTILE_S: float = 1.110
 #
 # IDP master — fit from IDPTradeCalc's IDP slice (the only value-
 # based IDP source).  Used for every IDP-scope source's contributions
 # (DLF IDP, FantasyPros IDP, FootballGuys IDP, DLF Rookie IDP,
 # DraftSharks IDP).
-IDP_HILL_PERCENTILE_C: float = 0.0930
-IDP_HILL_PERCENTILE_S: float = 0.970
+IDP_HILL_PERCENTILE_C: float = 0.0830
+IDP_HILL_PERCENTILE_S: float = 1.110
 #
 # ROOKIE master — fit from KTC + IDPTC rookie slices of the latest
 # snapshot.
@@ -132,8 +132,8 @@ IDP_HILL_PERCENTILE_S: float = 0.970
 # Keep the constants — the refit workflow maintains them, and routing
 # the curve is a live option — but do not read this block as a
 # description of current behaviour.
-HILL_ROOKIE_PERCENTILE_C: float = 0.1280
-HILL_ROOKIE_PERCENTILE_S: float = 0.865
+HILL_ROOKIE_PERCENTILE_C: float = 0.1530
+HILL_ROOKIE_PERCENTILE_S: float = 0.885
 
 # Display scale
 DISPLAY_SCALE_MAX: int = 9999

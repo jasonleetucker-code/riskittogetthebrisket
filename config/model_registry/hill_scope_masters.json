@@ -1,8 +1,8 @@
 {
   "modelId": "hill_scope_masters",
   "schemaVersion": 1,
-  "updatedAt": "2026-07-28T09:08:00.219932+00:00",
-  "championVersion": 1,
+  "updatedAt": "2026-07-29T23:35:35.519561+00:00",
+  "championVersion": 2,
   "versions": [
     {
       "modelId": "hill_scope_masters",
@@ -19,7 +19,7 @@
       },
       "fittedAt": "unknown",
       "producer": "seeded from committed constants in player_valuation.py",
-      "status": "champion",
+      "status": "retired",
       "trainingInputs": {
         "DraftSharks": "sha256:c37dc3fb4b127a2d",
         "DynastyDaddy": "sha256:5b9d328ae8f51887",
@@ -29,14 +29,14 @@
         "YahooBoone": "sha256:8687353a0fcbb9ee"
       },
       "holdout": {
-        "criterion": 849.8254,
+        "criterion": 819.7335,
         "criterionName": "mean_per_source_rmse",
         "criterionUnits": "points on the 0-9999 value scale (lower is better)",
         "perSource": {
-          "FantasyCalc": 852.6106,
+          "FantasyCalc": 803.4113,
           "FantasyNavigator": 1185.153,
-          "OTCFFB": 1104.867,
-          "PFKDynasty": 256.6712
+          "OTCFFB": 1033.9634,
+          "PFKDynasty": 256.4063
         },
         "perSourceRows": {
           "FantasyCalc": 399,
@@ -71,10 +71,11 @@
       "qualified": true,
       "confidence": "measured",
       "notes": [
-        "seeded, not validated: these constants were live before the registry existed and carry no out-of-sample score"
+        "seeded: these constants were live before the registry existed, so they were never FIT against a holdout \u2014 but they have since been SCORED against one",
+        "holdout re-scored 2026-07-29 against that day's boards (849.8 -> 819.7). The prior figure was measured 2026-07-26 and was NOT comparable to challenger v2's 2026-07-28 score: promotion.py requires a PAIRED comparison because the criterion's absolute level drifts ~68 points week to week, so comparing across snapshot dates reads market drift as model quality."
       ],
       "promotedAt": "2026-07-26T20:14:13.267338+00:00",
-      "retiredAt": null
+      "retiredAt": "2026-07-29T23:35:35.519297+00:00"
     },
     {
       "modelId": "hill_scope_masters",
@@ -91,7 +92,7 @@
       },
       "fittedAt": "2026-07-28T09:08:00.219336+00:00",
       "producer": "scripts/fit_hill_curve_percentile.py @ 3df9cc4",
-      "status": "challenger",
+      "status": "champion",
       "trainingInputs": {
         "DraftSharks": "sha256:d474c81d2f6ce808",
         "DynastyDaddy": "sha256:4d2cd2d87560557f",
@@ -142,8 +143,10 @@
       },
       "qualified": true,
       "confidence": "measured",
-      "notes": [],
-      "promotedAt": null,
+      "notes": [
+        "promoted: held-out win: +38.5 paired on 2026-07-29 boards (819.7 -> 781.2), improving all four holdout sources with no sign flips; downstream contract diff over 1093 rows shows top-100 median 2.4% / max 4.4% and max top-150 rank displacement 46 slots"
+      ],
+      "promotedAt": "2026-07-29T23:35:35.519297+00:00",
       "retiredAt": null
     }
   ]

@@ -54,6 +54,28 @@ beautifulsoup4~=4.14.0
 # subscribed devices.
 pywebpush~=2.0
 
+# tzdata: required on Windows ONLY, and load-bearing there.
+#
+# ``src/nfl_data/freshness.py:25`` evaluates
+# ``ZoneInfo("America/New_York")`` at MODULE IMPORT TIME, and
+# ``src/news/usage_signals.py`` imports that module.  On Linux and
+# macOS ``zoneinfo`` reads the operating system's tz database
+# (``/usr/share/zoneinfo``) and needs nothing extra.  Windows ships no
+# such database, so CPython's ``zoneinfo`` falls back to this PyPI
+# package — and without it the import raises
+# ``ZoneInfoNotFoundError``, not a soft warning.
+#
+# Why this went unnoticed until 2026-07-29: every workflow runs on
+# ``ubuntu-latest``, so CI could never surface it, while CLAUDE.md
+# calls Windows the primary dev platform.  The practical effect was
+# that ``python -m pytest tests/`` could not even be COLLECTED on
+# Windows (3 collection errors, whole run interrupted), and any
+# Windows process touching news usage signals died on import.
+#
+# The environment marker keeps it off Linux/macOS installs, so the
+# production dependency graph is unchanged.
+tzdata~=2026.1; sys_platform == "win32"
+
 # nfl_data_py: deliberately NOT in this manifest.
 #
 # nfl_data_py 0.3.x pins pandas<2.0, which forces pandas-1.5.3 to
