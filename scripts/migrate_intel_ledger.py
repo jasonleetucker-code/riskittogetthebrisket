@@ -2,9 +2,30 @@
 """Migrate existing intel JSON snapshots into the normalized ledger.
 
 Idempotent: the crawler's deterministic ``eventId`` is the ledger's
-``movement_id``, so re-running this inserts nothing the second time.
-Safe to run against production while the service is up — it only
-inserts, never mutates or deletes existing rows.
+``movement_id``, so re-running this inserts nothing the second time
+(the insert is ``INSERT OR IGNORE`` against a PRIMARY KEY).
+
+Safe to run against production while the service is up.  The import
+itself only inserts and never mutates existing rows — but note that
+this script is NOT purely additive: after importing it calls
+``ledger.prune()``, which issues
+``DELETE FROM asset_movements WHERE ts < cutoff`` at
+``MOVEMENT_RETENTION_DAYS`` (400) and then deletes any transaction left
+with no movements.  On a ledger whose oldest row is well inside the
+horizon that removes nothing, and the returned report says so via
+``prunedBeyondRetention`` — but it is a delete, so back the file up
+first:
+
+    cp -a data/intel/ledger.sqlite3 data/intel/ledger.sqlite3.bak
+
+(An earlier version of this docstring claimed the script "never
+mutates or deletes existing rows", which was false for the prune step.
+Corrected 2026-07-30.)
+
+Note also that ``--dry-run`` reports ``eventsInSnapshot`` — what the
+snapshots CONTAIN, not what would be inserted.  It never consults the
+ledger, so the number is an upper bound: the real run drops both
+already-present rows and rows missing a required id.
 
     python scripts/migrate_intel_ledger.py            # all snapshots
     python scripts/migrate_intel_ledger.py --league default

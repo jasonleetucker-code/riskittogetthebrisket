@@ -283,14 +283,32 @@ def _write_csv(path: Path, rows: list[dict]) -> int:
     return len(rows_sorted)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    """Entry point.  ``argv`` MUST be accepted, not just for symmetry.
+
+    ``server.py``'s in-scrape refresh calls ``main([])`` — the same shape
+    it uses for the other three fetchers, all of which already take
+    ``argv``.  This one did not, so every scrape raised
+    ``TypeError: main() takes 0 positional arguments but 1 was given``,
+    which ``server.py:2323`` caught and logged as a WARNING
+    (``idpshow_fetch_exception``).  The in-scrape IDP Show refresh was
+    therefore dead in production while looking merely noisy; observed
+    live 2026-07-30.
+
+    Note that simply dropping the argument would NOT have fixed it:
+    ``parse_args(None)`` reads ``sys.argv[1:]``, which under uvicorn is
+    the *server's* argv, so argparse would exit on unrecognised flags.
+    Threading ``argv`` through is the fix, and it matches
+    ``fetch_dynasty_nerds`` / ``fetch_fantasypros_offense`` /
+    ``fetch_fantasypros_idp``.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Scrape but don't write the CSV.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not SESSION_PATH.exists():
         print(
