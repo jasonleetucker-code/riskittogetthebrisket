@@ -1,5 +1,5 @@
 {
-  "computedAt": "2026-07-30T03:49:30.703846+00:00",
+  "computedAt": "2026-07-30T07:23:13.361974+00:00",
   "playoffOdds": [
     {
       "ownerId": "1012114412049731584",
@@ -9,10 +9,10 @@
         0.9981,
         1.0
       ],
-      "championshipOdds": 0.3105,
+      "championshipOdds": 0.318,
       "championshipOddsCi": [
-        0.2906,
-        0.3311
+        0.298,
+        0.3387
       ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
@@ -39,10 +39,10 @@
         0.9981,
         1.0
       ],
-      "championshipOdds": 0.42,
+      "championshipOdds": 0.428,
       "championshipOddsCi": [
-        0.3985,
-        0.4418
+        0.4065,
+        0.4498
       ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
@@ -129,10 +129,10 @@
         0.9981,
         1.0
       ],
-      "championshipOdds": 0.266,
+      "championshipOdds": 0.253,
       "championshipOddsCi": [
-        0.2471,
-        0.2858
+        0.2344,
+        0.2725
       ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
@@ -159,10 +159,10 @@
         0.9981,
         1.0
       ],
-      "championshipOdds": 0.0035,
+      "championshipOdds": 0.001,
       "championshipOddsCi": [
-        0.0017,
-        0.0072
+        0.0003,
+        0.0036
       ],
       "byeOdds": 1.0,
       "topSeedOdds": 0.0,
