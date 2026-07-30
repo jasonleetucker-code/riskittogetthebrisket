@@ -4,6 +4,7 @@ import {
   useMemo,
   useState,
   useCallback,
+  useDeferredValue,
   useEffect,
   useTransition,
 } from "react";
@@ -691,6 +692,25 @@ export default function RankingsPage() {
     [hasActiveFilter, ranked, rowLimit],
   );
   const hasMore = !hasActiveFilter && ranked.length > rowLimit;
+
+  // A filter deliberately bypasses ``rowLimit`` (above), so a broad one
+  // renders the FULL ~1.1k-row board — the same synchronous commit that
+  // froze the tab on "Show all" before it was made a transition.
+  //
+  // Deferring the ROWS rather than wrapping the filter setters in
+  // ``startTransition`` is the deliberate choice: the search box's own
+  // value has to stay urgent or the text lags a frame behind the
+  // keystrokes, which is worse than the freeze it fixes.  Filtering
+  // 1,076 rows is microseconds; RENDERING a thousand of them at ~36 DOM
+  // nodes each is the expensive half, and that is exactly what this
+  // defers.  Counts, movers and the lens chips all stay urgent.
+  //
+  // While the transition is in flight React keeps serving the previous
+  // array, so the table briefly shows pre-filter rows.  That must be
+  // visible or it reads as "the filter didn't work" — hence
+  // ``rowsPending`` and the affordance on the count line.
+  const renderedRows = useDeferredValue(displayRows);
+  const rowsPending = renderedRows !== displayRows;
 
   // Per-position ranks (QB3, RB5, LB2…) — computed from the eligible
   // board sorted by rank ASC, independent of the user's sort/filter.
@@ -1829,15 +1849,22 @@ export default function RankingsPage() {
               </div>
             )}
 
+            {/* ``aria-live`` so the count is announced when it settles,
+                and ``aria-busy`` while the deferred rows catch up — a
+                screen-reader user otherwise gets the stale count read
+                out as if it were the answer. */}
             <p
               className={styles.resultCount}
               style={{ margin: "var(--space-2) 0 0" }}
+              aria-live="polite"
+              aria-busy={rowsPending || undefined}
             >
-              {displayRows.length.toLocaleString()}
+              {renderedRows.length.toLocaleString()}
               {hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
               {activeLens !== "consensus" && ` · ${currentLens.label} lens`}
               {confFilter !== "all" && ` · ${confFilter} confidence`}
               {tierGroupingActive && " · grouped by tier"}
+              {rowsPending && " · filtering…"}
             </p>
           </div>
 
@@ -1846,13 +1873,25 @@ export default function RankingsPage() {
             role="tabpanel"
             id={tabPanelId("lens", activeLens)}
             aria-labelledby={tabId("lens", activeLens)}
+            // Dim the stale rows while the deferred list catches up.  No
+            // transition on the property: a fade would itself cost paint
+            // on the very commit this is trying to keep cheap, and the
+            // whole point is that the rows below are the OLD ones.
+            style={rowsPending ? { opacity: 0.55 } : undefined}
           >
             <DataTable
               caption="Unified dynasty value board: rank, tier, player, position, consensus, value, per-source values, confidence, and market signals"
               columns={columns}
-              rows={displayRows}
+              rows={renderedRows}
               rowKey={(row) => row.name}
               presorted
+              // Prerequisite for windowing the rows: under auto layout a
+              // column is as wide as its widest CELL, so rendering only a
+              // visible slice would make columns jump while scrolling.
+              // DataTable measures the widths the browser already settled
+              // on and freezes exactly those, so the geometry is
+              // unchanged at every breakpoint.  See DataTable.jsx.
+              freezeColumnWidths
               density="compact"
               // DataTable renders emptyState INSTEAD of the table when
               // rows are empty — without one, a filter that matches
@@ -1902,7 +1941,7 @@ export default function RankingsPage() {
               renderBeforeRow={(row, i) => {
                 if (!tierGroupingActive || i === 0) return null;
                 const tierId = effectiveTierId(row);
-                const prevTierId = effectiveTierId(displayRows[i - 1]);
+                const prevTierId = effectiveTierId(renderedRows[i - 1]);
                 if (tierId === prevTierId || tierId == null) return null;
                 return (
                   <tr className={styles.tierSeparator}>
