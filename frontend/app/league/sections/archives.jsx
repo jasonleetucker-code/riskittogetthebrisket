@@ -104,7 +104,12 @@ function ArchivesSection({ data }) {
         {rows.length > filtered.length ? ` of ${rows.length}` : ""}
       </div>
 
-      <div className="table-wrap">
+      {/* `archives-table` is a stable E2E hook, in the style of the
+          SEL registry in tests/e2e/helpers/journey.js. `table-wrap`
+          alone is not addressable: ten other /league sections use it
+          (weekly, luck, power, draft, draft-capital, rivalries…), so a
+          page-wide `table tbody tr` count is not this table's count. */}
+      <div className="table-wrap archives-table">
         <ArchiveTable kind={kind} rows={filtered} />
       </div>
     </Card>

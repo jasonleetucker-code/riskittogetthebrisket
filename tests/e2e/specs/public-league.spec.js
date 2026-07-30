@@ -223,15 +223,29 @@ test.describe("public /league page", () => {
     // nothing at all.  It also slept 500ms instead of waiting on data.
     // Assert the actual contract: applying a narrower filter must
     // reduce the row count, and clearing it must restore.
-    const rows = page.locator("table tbody tr");
+    // Scoped to the archives table. `table tbody tr` counted EVERY
+    // table on /league — weekly, luck, power, draft, draft-capital and
+    // rivalries all use `.table-wrap` too — so the number being
+    // asserted on was not this section's row count.
+    const rows = page.locator(".archives-table table tbody tr");
 
-    await page.getByRole("button", { name: /Matchups/i }).first().click();
+    // The kind buttons render their own count ("Matchups (138)"), so
+    // the expected row count is readable from the control itself.
+    // Waiting for THAT is falsifiable. The old wait was
+    // `.toBeGreaterThan(0)` immediately after the click, which the
+    // PRE-click trades table already satisfied — so it captured a
+    // stale count and the later comparison was against the wrong
+    // number. That is how this test reported 190 (the unfiltered
+    // trades total) while claiming to measure matchups.
+    const matchupsBtn = page.getByRole("button", { name: /^Matchups \(\d+\)$/ });
+    const declared = Number((await matchupsBtn.innerText()).match(/\((\d+)\)/)[1]);
+    await matchupsBtn.click();
     await expect
       .poll(() => rows.count(), {
-        message: "archives should list matchup rows",
+        message: `clicking Matchups should render its declared ${declared} rows`,
         timeout: 15_000,
       })
-      .toBeGreaterThan(0);
+      .toBe(Math.min(declared, 500)); // the section caps its render at 500
     const matchupRows = await rows.count();
 
     // Season filter is the narrowing control.  Pick the first specific
@@ -252,6 +266,21 @@ test.describe("public /league page", () => {
           timeout: 15_000,
         })
         .toBeLessThan(matchupRows);
+
+      // Stronger than "fewer rows": every surviving row must BE the
+      // selected season. A filter that drops rows for the wrong reason
+      // passes the count check and fails this one. Skipped when the
+      // filter legitimately empties the table (the live board has
+      // seasons with no matchups at all), because `every` on an empty
+      // list is vacuously true and would assert nothing.
+      const remaining = await rows.count();
+      if (remaining > 0) {
+        const seasons = await rows.locator("td:first-child").allInnerTexts();
+        expect(
+          seasons.every((s) => s.trim() === specific),
+          `rows left after selecting ${specific}: ${[...new Set(seasons.map((s) => s.trim()))].join(", ")}`,
+        ).toBe(true);
+      }
     } else {
       // No season control in this build — then the section-type
       // buttons are the only filter, so prove THOSE narrow: a
