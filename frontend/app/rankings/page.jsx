@@ -1885,6 +1885,13 @@ export default function RankingsPage() {
               rows={renderedRows}
               rowKey={(row) => row.name}
               presorted
+              // Prerequisite for windowing the rows: under auto layout a
+              // column is as wide as its widest CELL, so rendering only a
+              // visible slice would make columns jump while scrolling.
+              // DataTable measures the widths the browser already settled
+              // on and freezes exactly those, so the geometry is
+              // unchanged at every breakpoint.  See DataTable.jsx.
+              freezeColumnWidths
               density="compact"
               // DataTable renders emptyState INSTEAD of the table when
               // rows are empty — without one, a filter that matches

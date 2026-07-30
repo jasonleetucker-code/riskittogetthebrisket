@@ -64,9 +64,22 @@
  */
 "use client";
 
-import React, { Fragment, useCallback, useMemo, useState } from "react";
+import React, {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Icon } from "./Icon";
 import { InfoTip } from "./Help";
+
+// useLayoutEffect warns during SSR; the freeze pass is a post-paint
+// measurement that has no server equivalent, so fall back to a no-op.
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? () => {} : useLayoutEffect;
 
 function defaultRowKey(row, index) {
   return row?.id ?? index;
@@ -153,6 +166,7 @@ export function DataTable({
   rowClassName = null,
   renderBeforeRow = null,
   renderAfterRow = null,
+  freezeColumnWidths = false,
 }) {
   const [internalSort, setInternalSort] = useState(defaultSort);
   const sort = controlledSort !== undefined ? controlledSort : internalSort;
@@ -200,6 +214,123 @@ export function DataTable({
   const getKey =
     typeof rowKey === "string" ? (row, i) => row?.[rowKey] ?? i : rowKey;
 
+  // ── Column-width freeze (opt-in via `freezeColumnWidths`) ──────────
+  //
+  // A prerequisite for row virtualization, not a cosmetic option. Under
+  // `table-layout: auto` a column is as wide as its widest CELL, so
+  // rendering only a window of rows would let widths change as the user
+  // scrolls. `table-layout: fixed` fixes that, but naively flipping it
+  // is wrong here: this table is content-sized and horizontally
+  // scrollable on narrow viewports (measured 604px inside a 376px wrap
+  // at 390px), and `fixed` with no min-width would squeeze it to the
+  // wrapper instead.
+  //
+  // So rather than hand-authoring widths per breakpoint — which the
+  // `hideBelow` columns would make a maintenance trap, since the
+  // visible set and therefore the correct min-width change per
+  // breakpoint — we MEASURE the widths the browser already settled on
+  // and then freeze exactly those. The frozen table is by construction
+  // the same geometry the user sees today, at whatever breakpoint they
+  // are at, and re-measures when the viewport changes.
+  const tableRef = useRef(null);
+  const [frozen, setFrozen] = useState(null);
+
+  const measure = useCallback(() => {
+    const table = tableRef.current;
+    if (!table) return;
+    const ths = Array.from(table.querySelectorAll("thead th"));
+    if (ths.length === 0) return;
+    // Measure with the freeze OFF, so we read the browser's own
+    // content-driven answer rather than the widths we last imposed.
+    const widths = ths.map((th) => {
+      // A `hideBelow` column is display:none at this breakpoint. It has
+      // no width to freeze and must not get one, or its <col> would
+      // reserve space for a column nobody can see.
+      if (th.offsetParent === null && th.getClientRects().length === 0) {
+        return null;
+      }
+      return Math.round(th.getBoundingClientRect().width * 100) / 100;
+    });
+    const total = widths.reduce((sum, w) => sum + (w || 0), 0);
+    if (total <= 0) return;
+    setFrozen((prev) => {
+      if (
+        prev &&
+        prev.total === total &&
+        prev.widths.length === widths.length &&
+        prev.widths.every((w, i) => w === widths[i])
+      ) {
+        return prev; // identical — don't churn a re-render
+      }
+      return { widths, total };
+    });
+  }, []);
+
+  // Measure after paint, with the freeze removed for that one frame, so
+  // the numbers come from the auto-layout pass. `frozen` is cleared
+  // first on a resize (below) for the same reason.
+  //
+  // Deliberately NO dependency array. The obvious version — deps on
+  // [freezeColumnWidths, frozen, columns] — silently fails whenever the
+  // first render has no rows yet: the component returns `emptyState`, so
+  // there is no <table> to measure, `measure()` bails on the null ref,
+  // and when the rows finally arrive none of those deps has changed, so
+  // the effect never runs again and the table stays on auto layout
+  // forever. Running every render costs one `if` once frozen, and
+  // `measure()` is idempotent — it self-terminates on the guard below.
+  useIsomorphicLayoutEffect(() => {
+    if (!freezeColumnWidths) return;
+    if (frozen) return;
+    measure();
+  });
+
+  // Re-measure on viewport change: a breakpoint crossing changes which
+  // columns are visible, so both the widths AND the correct min-width
+  // change. Clearing `frozen` drops back to auto layout for one frame,
+  // which is what makes the next measurement honest.
+  useEffect(() => {
+    if (!freezeColumnWidths) return undefined;
+    const table = tableRef.current;
+    if (!table || typeof ResizeObserver === "undefined") return undefined;
+    const target = table.parentElement || table;
+    // Only react to a real WIDTH change. Freezing the table sets a
+    // min-width, which changes the wrapper's scrollWidth — observing
+    // size unconditionally would fire on our own change, clear the
+    // freeze, re-measure, re-freeze, forever.
+    let lastWidth = Math.round(target.getBoundingClientRect().width);
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      const width = Math.round(target.getBoundingClientRect().width);
+      if (width === lastWidth) return;
+      lastWidth = width;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setFrozen(null));
+    });
+    ro.observe(target);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [freezeColumnWidths]);
+
+  // Columns changing (the board's source toggles add/remove columns)
+  // invalidates the measurement for the same reason a resize does.
+  //
+  // The ref guard is load-bearing, not defensive: an unguarded effect
+  // fires on MOUNT too, in the same commit where the layout effect above
+  // has just set `frozen`. Passive effects run after layout effects, so
+  // it clears the freeze, `frozen` ends the commit back at null, the
+  // layout effect's deps are therefore unchanged on the next render, and
+  // it never measures again. The table silently stayed on auto layout.
+  const columnKeys = columns.map((c) => c.key).join("|");
+  const lastColumnKeys = useRef(columnKeys);
+  useEffect(() => {
+    if (!freezeColumnWidths) return;
+    if (lastColumnKeys.current === columnKeys) return;
+    lastColumnKeys.current = columnKeys;
+    setFrozen(null);
+  }, [freezeColumnWidths, columnKeys]);
+
   if (!rows || rows.length === 0) return emptyState;
 
   const activeCol = sort ? columns.find((c) => c.key === sort.key) : null;
@@ -210,6 +341,7 @@ export function DataTable({
       style={maxHeight ? { maxHeight, overflowY: "auto" } : undefined}
     >
       <table
+        ref={tableRef}
         className={[
           "ds-table",
           density === "compact" ? "ds-table--compact" : "",
@@ -217,9 +349,38 @@ export function DataTable({
         ]
           .filter(Boolean)
           .join(" ")}
+        style={
+          frozen
+            ? {
+                tableLayout: "fixed",
+                // The measured total, so a content-sized horizontally
+                // scrollable table keeps its width instead of being
+                // squeezed into the wrapper by `fixed`.
+                width: frozen.total,
+                minWidth: frozen.total,
+              }
+            : undefined
+        }
       >
         {caption ? (
           <caption className="ds-visually-hidden">{caption}</caption>
+        ) : null}
+        {frozen ? (
+          // Only the VISIBLE columns get a <col>, and this is the whole
+          // subtlety of the feature. `hideBelow` hides a column with
+          // `display: none`, which removes it from the table's column
+          // count in the fixed-layout algorithm — but <col> elements map
+          // to columns by POSITION. Emitting a placeholder <col> for a
+          // hidden column therefore shifted every width after it onto
+          // the wrong column: at 390px the player name collapsed to 0
+          // and the position column inherited its 296px.
+          <colgroup>
+            {frozen.widths.map((w, i) =>
+              w == null ? null : (
+                <col key={columns[i]?.key ?? i} style={{ width: w }} />
+              ),
+            )}
+          </colgroup>
         ) : null}
         <thead>
           <tr>
