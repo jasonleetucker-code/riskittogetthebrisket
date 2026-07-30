@@ -12266,6 +12266,134 @@ async def get_intel_summary(request: Request):
     return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
 
 
+def _intel_contract_context() -> dict:
+    """Position, value and team maps from the loaded contract.
+
+    Every piece is optional: a missing contract yields empty maps, which
+    makes the partner-fit and value-match terms abstain rather than
+    taking the whole lead list down with them.
+    """
+    try:
+        contract = latest_contract_data or {}
+        sleeper_block = contract.get("sleeper") or {}
+        teams = sleeper_block.get("teams") or []
+        positions = {}
+        values = {}
+        for row in contract.get("playersArray") or []:
+            if not isinstance(row, dict):
+                continue
+            pid = str(row.get("sleeperId") or row.get("playerId") or "").strip()
+            if not pid:
+                continue
+            pos = str(row.get("position") or "").strip().upper()
+            if pos:
+                positions[pid] = pos
+            val = row.get("rankDerivedValue")
+            if isinstance(val, (int, float)) and val > 0:
+                values[pid] = float(val)
+        return {"teams": teams, "positions": positions, "values": values}
+    except Exception:  # noqa: BLE001 — leads must survive a missing contract
+        log.exception("intel: contract context unavailable")
+        return {"teams": [], "positions": {}, "values": {}}
+
+
+def _build_intel_leads(league_cfg, asset_id: str, mode: str) -> dict:
+    """Assemble one lead list.  Runs in a threadpool — pure sync."""
+    from src.intel import lead_service, roster_shape
+
+    ctx = _intel_contract_context()
+    teams = ctx["teams"]
+    positions = ctx["positions"]
+    values = ctx["values"]
+
+    signals_by_owner = roster_shape.team_signals(
+        teams, positions, league_cfg.roster_settings, value_by_player=values
+    )
+    owner = roster_shape.owner_of_player(teams, asset_id)
+    matchable = roster_shape.matchable_values(teams, values)
+
+    # SELL mode asks who WANTS what I hold, so it scores their BUYING.
+    # BUY mode asks who would PART with it, so it scores their SELLING.
+    direction = "buy" if mode == "sell" else "sell"
+
+    # In sell mode the caller owns the asset, so they are not a lead for
+    # their own player; in buy mode the current owner IS the lead.
+    exclude = []
+    our_signal = None
+    if mode == "sell" and owner:
+        exclude = [owner]
+        our_signal = signals_by_owner.get(owner)
+
+    return lead_service.build_leads(
+        league_key=league_cfg.key,
+        asset_id=asset_id,
+        position=positions.get(str(asset_id)),
+        direction=direction,
+        roster_signals=signals_by_owner,
+        our_roster=our_signal,
+        target_value=values.get(str(asset_id)),
+        matchable_values_by_owner=matchable,
+        owner_of_asset=owner,
+        home_league_ids=[str(league_cfg.sleeper_league_id or "")],
+        exclude_owner_ids=exclude,
+    )
+
+
+@app.post("/api/intel/leads")
+async def post_intel_leads(request: Request):
+    """Insider Trading leads for ONE asset.
+
+    Body: ``{"assetId": "...", "mode": "sell"|"buy", "leagueKey": "..."}``
+
+    SELL mode ("I want to move X") ranks league-mates by how much they
+    look like they want X.  BUY mode ("I want X") surfaces the current
+    owner and what they look likely to want back.
+
+    Both read the SAME cross-league observations from opposite sides.
+    The score is a RANKING of who to approach, never a probability that
+    anyone accepts — ``limitations`` in the payload says so, and
+    declined offers are not recorded by Sleeper at all.
+    """
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    # Body parsed BEFORE the resolver so a body leagueKey reaches it —
+    # the POST convention used by the other league-scoped endpoints.
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    asset_id = str(body.get("assetId") or body.get("playerId") or "").strip()
+    if not asset_id:
+        name = str(body.get("name") or "").strip()
+        if name:
+            asset_id = _intel_name_to_player_id(name) or ""
+    if not asset_id:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "missing_asset",
+                "message": "Provide assetId (Sleeper id or pick:<season>:<round>) or name.",
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    mode = str(body.get("mode") or "sell").strip().lower()
+    if mode not in ("sell", "buy"):
+        mode = "sell"
+
+    if not await run_in_threadpool(_intel_service.snapshot_ready, league_cfg.key):
+        return _intel_not_ready_response(league_cfg.key)
+
+    payload = await run_in_threadpool(_build_intel_leads, league_cfg, asset_id, mode)
+    return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
+
+
 @app.get("/api/intel/waiver-interest")
 async def get_intel_waiver_interest(request: Request):
     """Waiver and free-agent activity, under its OWN label.

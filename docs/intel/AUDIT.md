@@ -127,14 +127,14 @@ depends on crawl coverage rather than on market behaviour.
 | D3 | `leagueCount` unions *held* and *traded* leagues — a widely-rostered player looks widely-traded | `aggregate.py:146` | **Fixed** |
 | D4 | Net shown without volume; 1-buy and 40/39 both render "+1" | `page.jsx:330-346` | **Fixed** |
 | D5 | No unique-manager / unique-league counts, no confidence indicator | `aggregate.py:143-153` | **Fixed** |
-| D6 | No position filter, buy/sell filter, sort control, search, or underlying trade list | `page.jsx:253-271` | Stage 2/3 |
+| D6 | No position filter, buy/sell filter, sort control, search, or underlying trade list | `page.jsx:253-271` | **Fixed** |
 | D7 | No dynasty/redraft filter — redraft and best-ball leagues feed a dynasty board | `crawler.py:499` | **Fixed** |
 | D8 | 45-day retention makes 90-day and season windows unanswerable | `store.py:42` | **Fixed** (400d) |
-| D9 | Pick holdings seeded unconditionally for 3 future seasons off a wall-clock year, even when `/traded_picks` is empty | `crawler.py:190-198,563` | Open — Stage 3 |
+| D9 | Pick holdings seeded unconditionally for 3 future seasons off a wall-clock year, even when `/traded_picks` is empty | `crawler.py:190-198,563` | **Fixed** |
 | D10 | `movement_id` embeds *attributed* owner, rebuilt per run from live `/rosters`; a co-ownership change can re-key the same transaction | `crawler.py:155-158,265` | Open — see §7 |
-| D11 | `faab_contention.load_intel_snapshot` called unwrapped in an async handler (blocking I/O on the event loop) | `server.py:5140` | Open — Stage 3 |
+| D11 | `faab_contention.load_intel_snapshot` called unwrapped in an async handler (blocking I/O on the event loop) | `server.py:5140` | **Fixed** |
 | D12 | `build_player_payload` re-aggregates the entire event log per request | `service.py:404-410` | **Fixed** (ledger) |
-| D13 | Any signed-in session can POST `/api/intel/refresh` unthrottled | `server.py:12105` | Open — Stage 3 |
+| D13 | Any signed-in session can POST `/api/intel/refresh` unthrottled | `server.py:12105` | **Fixed** (cooldown) |
 
 ### Claims that were refuted or corrected
 

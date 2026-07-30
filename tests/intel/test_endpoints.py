@@ -29,7 +29,12 @@ def authed(monkeypatch):
 
 @pytest.fixture
 def league_stub(monkeypatch):
-    cfg = SimpleNamespace(key=LEAGUE_KEY, sleeper_league_id="999", active=True)
+    cfg = SimpleNamespace(
+        key=LEAGUE_KEY,
+        sleeper_league_id="999",
+        active=True,
+        roster_settings={"starters": {"QB": 1, "RB": 2, "WR": 3, "TE": 1}},
+    )
     monkeypatch.setattr(server, "_resolve_league_for_request", lambda *a, **k: cfg)
     return cfg
 
@@ -556,6 +561,139 @@ class TestRefreshLifecycle:
         body = res.json()
         assert body["snapshotStaleHours"] == pytest.approx(2.0, abs=0.2)
         assert body["snapshotLeagueKey"] == LEAGUE_KEY
+
+
+class TestLeads:
+    """POST /api/intel/leads — the sell/buy mode surface.
+
+    The endpoint composes three optional inputs (ledger observations,
+    the loaded contract's rosters, the league's starter settings) and
+    must produce a usable ranking when any of them is missing, because
+    a missing contract is the normal state of a fresh process.
+    """
+
+    def test_requires_auth(self, intel_data_dir):
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={"assetId": "1234"})
+        assert r.status_code == 401
+
+    def test_missing_asset_is_a_400_not_an_empty_list(self, intel_data_dir, authed, league_stub):
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={})
+        assert r.status_code == 400
+        assert r.json()["error"] == "missing_asset"
+
+    def test_no_snapshot_for_league_returns_503(self, intel_data_dir, authed, league_stub):
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={"assetId": "1234"})
+        assert r.status_code == 503
+        assert r.json()["error"] == "data_not_ready"
+
+    def test_sell_mode_is_the_default_and_is_stamped(self, intel_data_dir, authed, league_stub):
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={"assetId": "tr1234"})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["mode"] == "sell"
+        assert body["assetId"] == "tr1234"
+        assert body["leagueKey"] == LEAGUE_KEY
+
+    def test_buy_mode_is_honoured(self, intel_data_dir, authed, league_stub):
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={"assetId": "tr1234", "mode": "buy"})
+        assert r.json()["mode"] == "buy"
+
+    def test_unknown_mode_falls_back_rather_than_erroring(
+        self, intel_data_dir, authed, league_stub
+    ):
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={"assetId": "tr1234", "mode": "sideways"})
+        assert r.status_code == 200
+        assert r.json()["mode"] == "sell"
+
+    def test_the_trade_shows_up_as_demonstrated_interest(self, intel_data_dir, authed, league_stub):
+        """Member A acquired ``tr1234`` by TRADE in league L1, which is
+        not this league (``sleeper_league_id`` is 999), so it counts."""
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={"assetId": "tr1234"})
+        body = r.json()
+        assert body["leadsWithObservedInterest"] == 1
+        lead = next(x for x in body["leads"] if x["ownerId"] == "A")
+        assert lead["interest"]["buys"] == 1
+        assert lead["leadScore"] > 0
+
+    def test_waiver_activity_is_never_demonstrated_interest(
+        self, intel_data_dir, authed, league_stub
+    ):
+        """``1234`` was a WAIVER add.  The whole point of the split is
+        that a claim is not a trade — it must not create a lead."""
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={"assetId": "1234"})
+        body = r.json()
+        assert body["leadsWithObservedInterest"] == 0
+        assert all(x["interest"] is None for x in body["leads"])
+
+    def test_payload_carries_its_limitations(self, intel_data_dir, authed, league_stub):
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={"assetId": "tr1234"})
+        lim = r.json()["limitations"]
+        assert lim["isNotAProbability"] is True
+
+    def test_no_acceptance_probability_anywhere_in_the_payload(
+        self, intel_data_dir, authed, league_stub
+    ):
+        """Sleeper never records a declined offer, so an acceptance rate
+        is unobservable — the payload must not imply one."""
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={"assetId": "tr1234"})
+        blob = json.dumps(r.json()).lower()
+        assert "acceptanceprobability" not in blob
+
+    def test_body_league_key_reaches_the_resolver(self, intel_data_dir, authed, monkeypatch):
+        """POST convention: the body is parsed BEFORE the resolver so a
+        body ``leagueKey`` is not silently ignored."""
+        seen = {}
+
+        def _resolve(request, body=None, **kwargs):
+            seen["body"] = body
+            return SimpleNamespace(
+                key=LEAGUE_KEY, sleeper_league_id="999", active=True, roster_settings={}
+            )
+
+        monkeypatch.setattr(server, "_resolve_league_for_request", _resolve)
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            c.post("/api/intel/leads", json={"assetId": "tr1234", "leagueKey": LEAGUE_KEY})
+        assert (seen["body"] or {}).get("leagueKey") == LEAGUE_KEY
+
+    def test_a_missing_contract_degrades_rather_than_500ing(
+        self, intel_data_dir, authed, league_stub, monkeypatch
+    ):
+        """No loaded contract means no rosters, no positions and no
+        values — the fit terms must abstain, not take the route down."""
+        monkeypatch.setattr(server, "latest_contract_data", None)
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post("/api/intel/leads", json={"assetId": "tr1234"})
+        assert r.status_code == 200
+        assert all(x["partnerFitScore"] is None for x in r.json()["leads"])
+
+    def test_malformed_body_is_a_clean_400_not_a_crash(self, intel_data_dir, authed, league_stub):
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            r = c.post(
+                "/api/intel/leads",
+                content=b"not json",
+                headers={"Content-Type": "application/json"},
+            )
+        assert r.status_code == 400
 
 
 class TestSyncRefreshLock:

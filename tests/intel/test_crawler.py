@@ -352,7 +352,6 @@ class TestPickHoldings:
         assert len(out6["1"]) == 18  # clamped to 6 rounds
 
     def test_crawl_folds_pick_holdings_into_member_holdings(self):
-
         from src.intel import service
 
         # D9: the pick horizon anchors on the LEAGUE'S SEASON, not the
@@ -431,7 +430,6 @@ class TestPickHoldings:
         assert len({e["eventId"] for e in events}) == 4
 
     def test_traded_picks_failure_never_fabricates_defaults(self):
-
         # D9: the pick horizon anchors on the LEAGUE'S SEASON, not the
         # wall clock — Sleeper rolls a league over around Aug/Sept, so
         # the two disagree for most of the calendar.  make_league's

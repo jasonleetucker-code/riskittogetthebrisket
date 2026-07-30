@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
 import { useLeague } from "@/components/useLeague";
+import InsiderLeads from "@/components/InsiderLeads";
 
 // ── Insider Trading ──────────────────────────────────────────────────
 // LEAGUE-SCOPED trade leads: what the managers in your selected league
@@ -14,9 +15,10 @@ import { useLeague } from "@/components/useLeague";
 // tied to your league.  This page's cohort is exactly "the other
 // managers in this league" — no skill filter is applied or implied.
 //
-// Backed by GET /api/intel/summary (board) and GET /api/intel/player
-// (member-exposure drill-down).  All numbers are computed server-side;
-// this page is a pure renderer.
+// Backed by GET /api/intel/summary (board), GET /api/intel/player
+// (member-exposure drill-down) and POST /api/intel/leads (sell/buy mode
+// lead ranking).  All numbers are computed server-side; this page is a
+// pure renderer.
 
 // Insider Trading defaults to ONE uncluttered window; the others are
 // explicit filters.  These are overlapping views of the same rows, never
@@ -282,6 +284,97 @@ function MemberExposure({ assetId, leagueKey }) {
   );
 }
 
+// The drill-down answers two different questions about one asset, so
+// they are tabs rather than a single stacked wall: EVIDENCE is "what
+// actually happened" (raw movements, verifiable), LEADS is "who to call
+// about it" (a ranking derived from that evidence plus roster shape).
+// Keeping them separate keeps the observation/inference line visible.
+function AssetDetail({ assetId, displayName, leagueKey }) {
+  const [tab, setTab] = useState("evidence");
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 4, padding: "6px 0 0" }}>
+        {[
+          { key: "evidence", label: "Evidence", hint: "Who holds it and the underlying trades." },
+          { key: "leads", label: "Trade leads", hint: "Who to approach, and why." },
+        ].map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => setTab(opt.key)}
+            className={opt.key === tab ? "button" : "button-outline"}
+            style={{ fontSize: "0.7rem", padding: "3px 10px", minHeight: 26 }}
+            title={opt.hint}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {tab === "evidence" ? (
+        <MemberExposure assetId={assetId} leagueKey={leagueKey} />
+      ) : (
+        <InsiderLeads assetId={assetId} assetName={displayName} leagueKey={leagueKey} />
+      )}
+    </div>
+  );
+}
+
+// The board only carries assets that MOVED somewhere. The common trade
+// question is about a player nobody has traded recently, so leads must
+// be reachable without a board row — this resolves a typed name
+// server-side (`name` in the request body) rather than filtering the
+// board client-side.
+function LeadLookup({ leagueKey }) {
+  const [draft, setDraft] = useState("");
+  const [target, setTarget] = useState(null);
+
+  return (
+    <div className="card" style={{ marginBottom: 10 }}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const name = draft.trim();
+          setTarget(name ? { name } : null);
+        }}
+        style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}
+      >
+        <label style={{ display: "flex", flexDirection: "column", gap: 3, flex: "1 1 240px" }}>
+          <span
+            className="muted"
+            style={{ fontSize: "0.64rem", textTransform: "uppercase", letterSpacing: "0.04em" }}
+          >
+            Trade leads for any player
+          </span>
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Player name — who should I call about him?"
+            style={{ fontSize: "0.78rem", padding: "5px 8px", minHeight: 34 }}
+          />
+        </label>
+        <button type="submit" className="button" style={{ fontSize: "0.76rem", minHeight: 34 }}>
+          Find leads
+        </button>
+        {target && (
+          <button
+            type="button"
+            className="button-outline"
+            onClick={() => {
+              setTarget(null);
+              setDraft("");
+            }}
+            style={{ fontSize: "0.76rem", minHeight: 34 }}
+          >
+            Clear
+          </button>
+        )}
+      </form>
+      {target && (
+        <InsiderLeads key={target.name} assetName={target.name} leagueKey={leagueKey} />
+      )}
+    </div>
+  );
+}
+
 export default function IntelPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -392,6 +485,8 @@ export default function IntelPage() {
       />
 
       <StalenessBanner staleHours={data?.staleHours} generatedAt={data?.generatedAt} />
+
+      <LeadLookup leagueKey={selectedLeagueKey} />
 
       {data?.truncatedMemberCount > 0 && (
         <div className="muted" style={{ fontSize: "0.7rem", marginBottom: 8 }}>
@@ -549,7 +644,11 @@ export default function IntelPage() {
                     expanded ? (
                       <tr key={`${asset.assetId}::detail`}>
                         <td colSpan={8} style={{ background: "rgba(255,255,255,0.02)" }}>
-                          <MemberExposure assetId={asset.assetId} leagueKey={selectedLeagueKey} />
+                          <AssetDetail
+                            assetId={asset.assetId}
+                            displayName={asset.displayName}
+                            leagueKey={selectedLeagueKey}
+                          />
                         </td>
                       </tr>
                     ) : null,
