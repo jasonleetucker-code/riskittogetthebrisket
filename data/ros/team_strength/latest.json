@@ -746,7 +746,7 @@
         "playerId": "8143",
         "canonicalName": "jerome ford",
         "position": "RB",
-        "rosValue": 8.9,
+        "rosValue": 8.91,
         "fantasyPositions": [
           "RB"
         ],
@@ -1649,7 +1649,7 @@
         "playerId": "10226",
         "canonicalName": "andrei iosivas",
         "position": "WR",
-        "rosValue": 12.42,
+        "rosValue": 12.43,
         "fantasyPositions": [
           "WR"
         ],
@@ -3331,7 +3331,7 @@
         "playerId": "12541",
         "canonicalName": "donte thornton",
         "position": "WR",
-        "rosValue": 7.94,
+        "rosValue": 7.93,
         "fantasyPositions": [
           "WR"
         ],
@@ -3576,7 +3576,7 @@
         "playerId": "12455",
         "canonicalName": "brashard smith",
         "position": "RB",
-        "rosValue": 10.6,
+        "rosValue": 10.59,
         "fantasyPositions": [
           "RB"
         ],
@@ -6587,7 +6587,7 @@
     "teamName": "Ty",
     "teamRosStrength": 435.81,
     "startingLineupScore": 571.31,
-    "benchDepthScore": 80.39,
+    "benchDepthScore": 80.37,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -6831,9 +6831,9 @@
         "playerId": "8188",
         "canonicalName": "tyquan thornton",
         "position": "WR",
-        "rosValue": 15.24,
+        "rosValue": 15.21,
         "depthFactor": 0.65,
-        "depthContribution": 9.91
+        "depthContribution": 9.89
       },
       {
         "playerId": "13268",
@@ -6847,7 +6847,7 @@
         "playerId": "4039",
         "canonicalName": "cooper kupp",
         "position": "WR",
-        "rosValue": 14.8,
+        "rosValue": 14.79,
         "depthFactor": 0.275,
         "depthContribution": 4.06
       },
@@ -6884,7 +6884,7 @@
         "playerId": "8188",
         "canonicalName": "tyquan thornton",
         "position": "WR",
-        "rosValue": 15.24,
+        "rosValue": 15.21,
         "fantasyPositions": [
           "WR"
         ],
@@ -7038,7 +7038,7 @@
         "playerId": "12503",
         "canonicalName": "isaiah bond",
         "position": "WR",
-        "rosValue": 10.5,
+        "rosValue": 10.49,
         "fantasyPositions": [
           "WR"
         ],
@@ -7205,7 +7205,7 @@
         "playerId": "10444",
         "canonicalName": "cedric tillman",
         "position": "WR",
-        "rosValue": 9.46,
+        "rosValue": 9.44,
         "fantasyPositions": [
           "WR"
         ],
@@ -7216,7 +7216,7 @@
         "playerId": "4039",
         "canonicalName": "cooper kupp",
         "position": "WR",
-        "rosValue": 14.8,
+        "rosValue": 14.79,
         "fantasyPositions": [
           "WR"
         ],
@@ -7381,7 +7381,7 @@
         "playerId": "9501",
         "canonicalName": "demario douglas",
         "position": "WR",
-        "rosValue": 9.44,
+        "rosValue": 9.43,
         "fantasyPositions": [
           "WR"
         ],
@@ -8450,7 +8450,7 @@
     "teamName": "Roy",
     "teamRosStrength": 377.62,
     "startingLineupScore": 487.62,
-    "benchDepthScore": 93.08,
+    "benchDepthScore": 93.06,
     "positionalCoverageScore": 95.63,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -8702,9 +8702,9 @@
         "playerId": "7528",
         "canonicalName": "najee harris",
         "position": "RB",
-        "rosValue": 11.96,
+        "rosValue": 11.94,
         "depthFactor": 1.0,
-        "depthContribution": 11.96
+        "depthContribution": 11.94
       },
       {
         "playerId": "4950",
@@ -8824,7 +8824,7 @@
         "playerId": "7528",
         "canonicalName": "najee harris",
         "position": "RB",
-        "rosValue": 11.96,
+        "rosValue": 11.94,
         "fantasyPositions": [
           "RB"
         ],
