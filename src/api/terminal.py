@@ -783,7 +783,27 @@ def _build_signal_context(
             elif impact == "positive":
                 pos_count += 1
     rank_change = _row_rank_change(row)
-    confidence = row.get("confidence")
+    # Market confidence.  The contract stamps ``marketConfidence``
+    # (``data_contract.py``, sourced from the scraper's
+    # ``_marketConfidence``); ``confidence`` is the name the FRONTEND row
+    # contract uses after ``buildRows`` maps it across.
+    #
+    # FIXED 2026-07-29 (audit N2): this read ``row.get("confidence")``
+    # only — a key no contract builder stamps — so it was always None and
+    # the ``low_conf_unstable`` MONITOR rule below could never fire
+    # server-side, while the same rule was live on the frontend. Two
+    # modules, one rule, opposite behaviour.
+    #
+    # ``marketConfidence`` is preferred and ``confidence`` kept as a
+    # fallback so a caller handing us an already-materialized frontend
+    # row (or a test fixture using the short name) still works.
+    # Deliberately NOT coerced to 0 when absent: 256 of 1094 live rows
+    # carry no confidence at all, and "unmeasured" must not read as
+    # "zero confidence" — that is precisely what makes the rule fire on
+    # the frontend for rows that simply lack the field.
+    confidence = row.get("marketConfidence")
+    if confidence is None:
+        confidence = row.get("confidence")
     try:
         confidence = float(confidence) if confidence is not None else None
     except (TypeError, ValueError):

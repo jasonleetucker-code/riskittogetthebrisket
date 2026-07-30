@@ -1,0 +1,199 @@
+{
+  "generatedAt": "2026-07-29T23:54:54.994870+00:00",
+  "payload": "exports/latest/dynasty_data_2026-07-29.json",
+  "minFullCoverageDepth": 60,
+  "sourcesTotal": 21,
+  "sourcesAffected": [
+    {
+      "key": "dlfRookieSf",
+      "depth": 50,
+      "declared": 1.0,
+      "effective": 0.8333
+    },
+    {
+      "key": "dlfRookieIdp",
+      "depth": 50,
+      "declared": 1.0,
+      "effective": 0.8333
+    },
+    {
+      "key": "flockFantasySfRookies",
+      "depth": 50,
+      "declared": 1.0,
+      "effective": 0.8333
+    }
+  ],
+  "rowsTotal": 1094,
+  "rowsMoved": 297,
+  "ranksChanged": 221,
+  "maxAbsValueDelta": 1072,
+  "medianAbsValueDelta": 0,
+  "boardEntered": [
+    "Josh Cameron"
+  ],
+  "boardLeft": [
+    "Kenny Moore"
+  ],
+  "largestMoves": [
+    {
+      "name": "Josh Cameron",
+      "valueBefore": null,
+      "valueAfter": 1072,
+      "rankBefore": null,
+      "rankAfter": 720,
+      "valueDelta": 1072
+    },
+    {
+      "name": "Kenny Moore",
+      "valueBefore": 959,
+      "valueAfter": null,
+      "rankBefore": 738,
+      "rankAfter": null,
+      "valueDelta": -959
+    },
+    {
+      "name": "Desmond Reid",
+      "valueBefore": 1096,
+      "valueAfter": 1218,
+      "rankBefore": 704,
+      "rankAfter": 647,
+      "valueDelta": 122
+    },
+    {
+      "name": "Jaydn Ott",
+      "valueBefore": 1107,
+      "valueAfter": 1209,
+      "rankBefore": 696,
+      "rankAfter": 649,
+      "valueDelta": 102
+    },
+    {
+      "name": "Eric McAlister",
+      "valueBefore": 1094,
+      "valueAfter": 1164,
+      "rankBefore": 706,
+      "rankAfter": 676,
+      "valueDelta": 70
+    },
+    {
+      "name": "Emmanuel Henderson",
+      "valueBefore": 1308,
+      "valueAfter": 1358,
+      "rankBefore": 535,
+      "rankAfter": 513,
+      "valueDelta": 50
+    },
+    {
+      "name": "Colbie Young",
+      "valueBefore": 1090,
+      "valueAfter": 1128,
+      "rankBefore": 711,
+      "rankAfter": 693,
+      "valueDelta": 38
+    },
+    {
+      "name": "Taylen Green",
+      "valueBefore": 1294,
+      "valueAfter": 1330,
+      "rankBefore": 547,
+      "rankAfter": 526,
+      "valueDelta": 36
+    },
+    {
+      "name": "2026 Pick 3.10",
+      "valueBefore": 2153,
+      "valueAfter": 2188,
+      "rankBefore": null,
+      "rankAfter": null,
+      "valueDelta": 35
+    },
+    {
+      "name": "Carson Beck",
+      "valueBefore": 2153,
+      "valueAfter": 2188,
+      "rankBefore": 269,
+      "rankAfter": 265,
+      "valueDelta": 35
+    },
+    {
+      "name": "Cyrus Allen",
+      "valueBefore": 1265,
+      "valueAfter": 1296,
+      "rankBefore": 562,
+      "rankAfter": 545,
+      "valueDelta": 31
+    },
+    {
+      "name": "Germie Bernard",
+      "valueBefore": 2573,
+      "valueAfter": 2600,
+      "rankBefore": 221,
+      "rankAfter": 215,
+      "valueDelta": 27
+    },
+    {
+      "name": "2026 Pick 4.03",
+      "valueBefore": 1965,
+      "valueAfter": 1990,
+      "rankBefore": null,
+      "rankAfter": null,
+      "valueDelta": 25
+    },
+    {
+      "name": "Mike Washington",
+      "valueBefore": 1965,
+      "valueAfter": 1990,
+      "rankBefore": 302,
+      "rankAfter": 295,
+      "valueDelta": 25
+    },
+    {
+      "name": "2026 Pick 1.04",
+      "valueBefore": 5509,
+      "valueAfter": 5532,
+      "rankBefore": null,
+      "rankAfter": null,
+      "valueDelta": 23
+    },
+    {
+      "name": "Jordyn Tyson",
+      "valueBefore": 5509,
+      "valueAfter": 5532,
+      "rankBefore": 56,
+      "rankAfter": 55,
+      "valueDelta": 23
+    },
+    {
+      "name": "Michael Trigg",
+      "valueBefore": 1720,
+      "valueAfter": 1741,
+      "rankBefore": 363,
+      "rankAfter": 357,
+      "valueDelta": 21
+    },
+    {
+      "name": "Dillon Thieneman",
+      "valueBefore": 3067,
+      "valueAfter": 3047,
+      "rankBefore": 157,
+      "rankAfter": 168,
+      "valueDelta": -20
+    },
+    {
+      "name": "2026 Pick 3.01",
+      "valueBefore": 2583,
+      "valueAfter": 2600,
+      "rankBefore": null,
+      "rankAfter": null,
+      "valueDelta": 17
+    },
+    {
+      "name": "2026 Pick 6.12",
+      "valueBefore": 1543,
+      "valueAfter": 1559,
+      "rankBefore": null,
+      "rankAfter": null,
+      "valueDelta": 16
+    }
+  ]
+}

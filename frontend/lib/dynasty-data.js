@@ -1011,7 +1011,15 @@ function _materializePlayerArrayRow(player) {
     // other non-rankings views.  Rankings pages hide this column, but the
     // field must remain on the row contract.  Do NOT remove it.
     siteCount: backendSourceCount,
-    confidence: Number(player.marketConfidence ?? 0),
+    // Missing confidence stays NULL, never 0 (audit N2, 2026-07-29).
+    // 256 of 1094 live rows carry no ``marketConfidence``; coercing
+    // those to 0 put them under the 0.35 ``low_conf_unstable``
+    // threshold, so the MONITOR rule fired on rows that simply lack the
+    // field rather than on genuinely low-confidence ones. The rule
+    // itself already guards on ``!= null``.
+    confidence: Number.isFinite(Number(player.marketConfidence))
+      ? Number(player.marketConfidence)
+      : null,
     marketLabel: "",
     canonicalSites,
     rawSourceValues,
@@ -1178,7 +1186,17 @@ function _materializeLegacyDictRow(name, player, posMap) {
     assetClass: classifyPos(pos || "?"),
     values,
     siteCount: Number(player.sourceCount || player._sites || 0),
-    confidence: Number(player._marketReliabilityScore ?? 0),
+    // ``_marketReliabilityScore`` DOES NOT EXIST (audit N2, 2026-07-29).
+    // It appeared exactly once in the entire repo — right here, the
+    // consumer — and nothing has ever produced it: 0 of 1076 players in
+    // the live payload carry it, while 838 carry ``_marketConfidence``.
+    // So this field was permanently 0, which is under the 0.35
+    // threshold, so ``low_conf_unstable`` fired for every eligible row
+    // on the legacy path. Reads the field that is actually stamped, and
+    // keeps absent as null rather than 0.
+    confidence: Number.isFinite(Number(player._marketConfidence))
+      ? Number(player._marketConfidence)
+      : null,
     marketLabel: String(player._marketReliabilityLabel || ""),
     canonicalSites,
     rawSourceValues,
