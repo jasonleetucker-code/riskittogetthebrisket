@@ -1,0 +1,135 @@
+name: Check Sharp Production Now
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/check-sharp-production-now.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Restart current main and capture diagnostics
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          printf -v ENVLINE 'APP_DIR=%q SERVICE_NAME=%q VENV_DIR=%q' "$APP_DIR" "$SERVICE_NAME" "$VENV_DIR"
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "$ENVLINE bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          git fetch --prune origin main
+          git reset --hard origin/main
+          sudo -n systemctl restart "$SERVICE_NAME"
+          sleep 5
+          sudo -n systemctl start --no-block "$SERVICE_NAME-sharp-discovery.service" || true
+          sudo -n systemctl start --no-block "$SERVICE_NAME-sharp-records.service" || true
+          APP_DIR="$APP_DIR" VENV_DIR="$VENV_DIR" SERVICE_NAME="$SERVICE_NAME" \
+            bash "$APP_DIR/deploy/install-ffpc-sharp-service.sh" || true
+          sudo -n systemctl start --no-block "$SERVICE_NAME-ffpc-sharp.service" || true
+          mkdir -p "$APP_DIR/data/ops"
+          APP_DIR="$APP_DIR" SERVICE_NAME="$SERVICE_NAME" VENV_DIR="$VENV_DIR" \
+          "$VENV_DIR/bin/python" - <<'PY' > "$APP_DIR/data/ops/sharp-live-route-check.json"
+          import json, os, subprocess, urllib.request, urllib.error
+          from datetime import datetime, timezone
+
+          def cmd(*args):
+              p = subprocess.run(args, text=True, capture_output=True, check=False)
+              return {"code": p.returncode, "stdout": p.stdout.strip()[-6000:], "stderr": p.stderr.strip()[-6000:]}
+
+          def get(path):
+              try:
+                  req = urllib.request.Request("http://127.0.0.1:8000" + path, headers={"Cache-Control": "no-cache", "User-Agent": "Sharp-Live-Check/1.0"})
+                  with urllib.request.urlopen(req, timeout=20) as r:
+                      raw = r.read().decode("utf-8", "replace")
+                      try: body = json.loads(raw)
+                      except Exception: body = raw[:6000]
+                      return {"status": r.status, "body": body}
+              except urllib.error.HTTPError as e:
+                  raw = e.read().decode("utf-8", "replace")
+                  try: body = json.loads(raw)
+                  except Exception: body = raw[:6000]
+                  return {"status": e.code, "body": body}
+              except Exception as e:
+                  return {"status": None, "error": f"{type(e).__name__}: {e}"}
+
+          service = os.environ["SERVICE_NAME"]
+          print(json.dumps({
+              "checkedAt": datetime.now(timezone.utc).isoformat(),
+              "gitSha": cmd("git", "-C", os.environ["APP_DIR"], "rev-parse", "HEAD"),
+              "backendState": cmd("sudo", "-n", "systemctl", "is-active", service),
+              "routeList": cmd(os.environ["VENV_DIR"] + "/bin/python", "-c", "import os; os.environ.setdefault('ALLOW_DEFAULT_LOGIN_DEV','1'); import server; print('\\n'.join(sorted({getattr(r,'path','') for r in server.app.routes if 'sharp' in getattr(r,'path','')})))"),
+              "cohort": get("/api/sharp/cohort"),
+              "market": get("/api/sharp/market?window=30d&platform=all&qualification=all&limit=10"),
+              "marketFfpc": get("/api/sharp/market?window=90d&platform=ffpc&qualification=provisional&limit=10"),
+              "backendJournal": cmd("sudo", "-n", "journalctl", "-u", service, "-n", "100", "--no-pager"),
+          }, indent=2, sort_keys=True))
+          PY
+          cat "$APP_DIR/data/ops/sharp-live-route-check.json"
+          REMOTE
+
+      - name: Retrieve result
+        if: always()
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          mkdir -p data/ops
+          scp -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -P "$PORT" \
+            "$DEPLOY_USER@$DEPLOY_HOST:$APP_DIR/data/ops/sharp-live-route-check.json" \
+            data/ops/sharp-live-route-check.json
+
+      - name: Commit result
+        if: always()
+        shell: bash
+        run: |
+          [[ -f data/ops/sharp-live-route-check.json ]] || exit 0
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git pull --rebase origin main
+          git add data/ops/sharp-live-route-check.json
+          git commit -m "chore(ops): record live Sharp route check" || exit 0
+          git push origin HEAD:main
