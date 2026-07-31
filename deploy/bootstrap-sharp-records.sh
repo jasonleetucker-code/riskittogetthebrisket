@@ -128,6 +128,32 @@ run_oneshot() {
   log "${unit} completed."
 }
 
+run_ffpc_now() {
+  local installer="${APP_DIR}/deploy/install-ffpc-sharp-service.sh"
+  local ffpc_service="${SERVICE_NAME}-ffpc-sharp.service"
+
+  if [[ ! -f "${installer}" ]]; then
+    warn "FFPC installer is unavailable: ${installer}"
+    return 0
+  fi
+
+  log "Installing the daily FFPC collector and forcing an immediate public ingestion pass."
+  APP_DIR="${APP_DIR}" \
+  APP_USER="${APP_USER}" \
+  VENV_DIR="${VENV_DIR}" \
+  SERVICE_NAME="${SERVICE_NAME}" \
+    bash "${installer}"
+
+  if ! sudo -n "${SYSTEMCTL_BIN}" cat "${ffpc_service}" >/dev/null 2>&1; then
+    warn "FFPC service was not installed; the public collector may be disabled by configuration."
+    return 0
+  fi
+
+  run_oneshot "${ffpc_service}"
+  log "Recent FFPC collector journal:"
+  sudo -n "${JOURNALCTL_BIN}" -u "${ffpc_service}" -n 120 --no-pager || true
+}
+
 main() {
   [[ -d "${APP_DIR}" ]] || { error "APP_DIR does not exist: ${APP_DIR}"; exit 1; }
   [[ -x "${VENV_DIR}/bin/python" ]] || {
@@ -208,11 +234,12 @@ main() {
 
   log "Before bootstrap: completed_rows=${complete_rows}, uncrawled_leagues=${uncrawled}, qualified_managers=${qualified}"
 
-  # An empty or still-unqualified cohort receives immediate bounded passes.
-  # Every pass recomputes the persistent queue, so it advances to leagues
-  # the prior pass did not reach instead of re-reading the same prefix.
+  # Every successful production deploy receives at least one immediate
+  # records pass. An empty or still-unqualified cohort may receive further
+  # bounded passes. Every pass recomputes the persistent fair queue, so it
+  # advances instead of rereading a fixed league prefix.
   while (( passes < SHARP_BOOTSTRAP_MAX_PASSES )); do
-    if (( qualified > 0 )) && [[ "${force}" != "true" && "${force}" != "1" && "${force}" != "yes" ]]; then
+    if (( passes > 0 && qualified > 0 )) && [[ "${force}" != "true" && "${force}" != "1" && "${force}" != "yes" ]]; then
       break
     fi
     if (( passes > 0 && uncrawled == 0 )); then
@@ -245,6 +272,8 @@ main() {
   else
     log "Sharp Tracker is populated with ${qualified} qualified manager(s)."
   fi
+
+  run_ffpc_now
 }
 
 main "$@"
