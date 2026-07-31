@@ -54,12 +54,12 @@ def _row_reasons(row: Any) -> list[str]:
         reasons.append("missing_completed_season")
     if not row["sharp_eligible"]:
         reasons.append("unknown_or_ineligible_league_format")
-    for field in _REQUIRED_RESULT_FIELDS:
-        if row[field] is None:
+    for result_field in _REQUIRED_RESULT_FIELDS:
+        if row[result_field] is None:
             reasons.append(
                 "missing_playoff_result"
-                if field in ("made_playoffs", "is_champion")
-                else f"missing_{field}"
+                if result_field in ("made_playoffs", "is_champion")
+                else f"missing_{result_field}"
             )
     try:
         stored = json.loads(row["exclusion_reasons_json"] or "[]")
