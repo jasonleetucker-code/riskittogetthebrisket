@@ -149,11 +149,23 @@ const SEL = {
   edgeSignalTab: '[role="tablist"][aria-label="Signal family"] [role="tab"]',
   edgeSignalTable: '[role="tabpanel"] .ds-table-wrap table',
   edgeSignalRow: '[role="tabpanel"] .ds-table-wrap table tbody tr',
-  // /finder (R3) — workflow presets as a tablist over one result table.
-  finderWorkflowTab:
-    '[role="tablist"][aria-label="Discovery workflow"] [role="tab"]',
-  finderFilters: ".finder-filters",
-  finderRow: '[role="tabpanel"] .ds-table-wrap table tbody tr',
+  // /arbitrage — the UI caller for src/trade/finder.py (board-vs-market).
+  // One card per candidate trade; ``arbitrage-trade-card`` is the stable
+  // hook beside the hashed CSS-module class.
+  //
+  // NOT to be confused with the retired /finder, which was a board
+  // FILTER (presets over sourceRankSpread / confidenceBucket /
+  // isSingleSource / rookie) and computed no board-versus-market
+  // comparison at all.  Its selectors (`finderWorkflowTab`,
+  // `finderFilters`, `finderRow`) are deleted here along with the route:
+  // /finder is now a redirect shim into /rankings, and its presets
+  // live on as the Screens dropdown (`SCREENS`, lib/edge-helpers.js).
+  //
+  // The confusion was load-bearing, not cosmetic: a stale header comment
+  // on /finder once called it "the arbitrage blotter", which made an
+  // earlier audit record a phantom second implementation competing with
+  // this engine (see the header of frontend/app/arbitrage/page.jsx).
+  arbitrageTradeCard: ".arbitrage-trade-card",
   // / dashboard (R3) — the war-room terminal. The legacy terminal
   // Panel container is retired; every section is a ds Panel now, so
   // panels are addressed by their accessible heading rather than a

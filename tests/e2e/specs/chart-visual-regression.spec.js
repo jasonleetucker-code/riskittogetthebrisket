@@ -104,11 +104,56 @@ async function _openMethodology(page) {
   const btn = page.getByRole("button", { name: /how this works|methodology/i });
   try {
     await btn.first().waitFor({ state: "visible", timeout: 5_000 });
-    await btn.first().click();
   } catch {
-    // Button not present — methodology is either always-open on this
-    // variant or the page doesn't have one.  Silent no-op.
+    // Button genuinely absent — methodology is either always-open on
+    // this variant or the page doesn't have one.  Legitimate no-op.
+    return;
   }
+
+  // The button EXISTS, so from here a failure to open is a real failure
+  // and must not be swallowed.  Previously the click shared the catch
+  // above, so a click lost to pre-hydration timing looked identical to
+  // "no such button" — the panel never expanded and every chart below
+  // failed as "chart didn't render" instead of naming the actual cause.
+  //
+  // Retry the click while polling for the toggle to actually flip.
+  //
+  // Idempotency matters here: this is a DISCLOSURE toggle, so clicking
+  // again would close it. So we poll on "is it open" and stop clicking
+  // once it is, rather than clicking every tick.
+  //
+  // The open-state attribute differs by widget — /rankings uses
+  // `aria-pressed` (page.jsx:1316) while a disclosure would use
+  // `aria-expanded`, and the name regex above matches both that toggle
+  // and a `HelpModal`. So read whichever the button actually exposes,
+  // and when it exposes NEITHER, click once and hand off: the caller's
+  // chart assertion is the real signal, and inventing a contract this
+  // button doesn't have would fail every run.
+  const stateAttr = (await btn.first().getAttribute("aria-pressed")) !== null
+    ? "aria-pressed"
+    : (await btn.first().getAttribute("aria-expanded")) !== null
+      ? "aria-expanded"
+      : null;
+
+  if (!stateAttr) {
+    await btn.first().click();
+    return;
+  }
+
+  await expect
+    .poll(
+      async () => {
+        if ((await btn.first().getAttribute(stateAttr)) === "true") return true;
+        await btn.first().click();
+        return (await btn.first().getAttribute(stateAttr)) === "true";
+      },
+      {
+        message: `the methodology toggle should report ${stateAttr}="true" once clicked`,
+        timeout: 30_000,
+        intervals: [250, 500, 1000, 2000],
+      },
+    )
+    .toBe(true);
 }
 
 test.describe("Chart visual regression", () => {

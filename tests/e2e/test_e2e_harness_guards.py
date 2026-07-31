@@ -50,9 +50,29 @@ E2E_DIR = REPO_ROOT / "tests" / "e2e"
 JOURNEY_HELPER = E2E_DIR / "helpers" / "journey.js"
 FRONTEND_CANON = REPO_ROOT / "frontend" / "__tests__" / "helpers" / "naming-canon.js"
 
-# ``page.goto("/…")`` without pageUrl().  Matches the literal-path form
-# only: pageUrl(...), template literals and variables are all fine
-# because they cannot be the bare-baseURL mistake this guard is about.
+# ``page.goto("/…")`` without pageUrl().  Matches the LITERAL-path form
+# only.
+#
+# The original comment here justified that as "template literals and
+# variables are all fine because they cannot be the bare-baseURL
+# mistake". That was wrong, and wrong in the specific way this whole file
+# exists to catch — a guard whose stated purpose and actual predicate
+# differ (docs/ORCHESTRATION.md §6.15).
+#
+# ``critical-smoke.spec.js`` iterates PUBLIC_ROUTES / AUTH_GATED_ROUTES
+# and calls ``page.goto(path)`` with a variable holding "/rankings",
+# "/trade"… which lands on baseURL exactly like the literal form. It is
+# CORRECT there — those tests assert the backend's own anonymous-access
+# behaviour and must not be rerouted to :3000 — but it is correct by
+# intent, not because the variable form is inherently safe.
+#
+# So the honest statement of the rule is narrower than "navigations must
+# go through pageUrl()": this guard catches the literal form, which is
+# the shape the 11-of-19 nightly regression actually took
+# (``gotoRankingsBoard`` had a hardcoded ``page.goto("/rankings")``).
+# The variable form is deliberately out of scope because distinguishing
+# "iterating routes to test the proxy" from "forgot the wrapper" needs
+# intent a regex does not have.
 _BARE_GOTO = re.compile(r"""\.goto\(\s*["'](/[^"']*)["']""")
 
 # The one deliberate exemption.  auth-fixture reloads "/" purely to let
