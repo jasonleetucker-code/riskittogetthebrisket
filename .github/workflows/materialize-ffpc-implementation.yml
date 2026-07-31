@@ -4,15 +4,18 @@ on:
   push:
     branches:
       - feature/unified-ffpc-sharp
-    paths:
-      - .ffpc_payload.b64
-      - .github/workflows/materialize-ffpc-implementation.yml
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   materialize:
+    if: github.head_ref == 'feature/unified-ffpc-sharp' || github.ref_name == 'feature/unified-ffpc-sharp'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
