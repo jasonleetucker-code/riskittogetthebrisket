@@ -415,13 +415,6 @@ main() {
       bdvm_needs_install=true
     fi
 
-    if [[ "${sharprec_needs_install}" == "true" ]]; then
-    # --now arms the daily timer.  No initial kick: the discovery crawl
-    # kicked above must populate the sharp-eligible league list first,
-    # and the 04:50 slot already sequences this after it.
-    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharprec_service_name}.timer"
-    log "Enabled ${sharprec_service_name}.timer"
-  fi
   if [[ "${bdvm_needs_install}" == "true" ]]; then
       local tmp_bdvm_service tmp_bdvm_timer
       tmp_bdvm_service="$(mktemp)"
