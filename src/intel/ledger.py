@@ -233,6 +233,20 @@ CREATE TABLE IF NOT EXISTS manager_seasons (
   PRIMARY KEY (league_id, season, user_id)
 );
 
+-- Per-league transaction cursor for the SHARP crawl
+-- (src/sharp/transactions.py).  Deliberately separate from Insider
+-- Trading's snapshot ``fetchState``: the two crawls cover different
+-- league sets on different schedules, and sharing a cursor would let
+-- one advance past transactions the other never fetched.
+CREATE TABLE IF NOT EXISTS sharp_league_fetch (
+  league_id       TEXT PRIMARY KEY,
+  max_created_ms  INTEGER,
+  boundary_tx_ids TEXT,
+  backfilled      INTEGER,
+  last_fetched_ms INTEGER,
+  last_error      TEXT
+);
+
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT
@@ -251,6 +265,9 @@ CREATE INDEX IF NOT EXISTS idx_tx_ts         ON transactions(created_ms);
 CREATE INDEX IF NOT EXISTS idx_lm_user       ON league_memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_ms_user       ON manager_seasons(user_id);
 CREATE INDEX IF NOT EXISTS idx_ms_league     ON manager_seasons(league_id, season);
+-- The sharp crawl orders leagues by staleness so a budget-capped run
+-- makes progress across the graph instead of re-walking the same head.
+CREATE INDEX IF NOT EXISTS idx_slf_fetched   ON sharp_league_fetch(last_fetched_ms);
 """
 
 

@@ -1,0 +1,30 @@
+[Unit]
+Description=Sharp Tracker transaction crawl for __SERVICE_NAME__
+# No Requires= on the service: [Timer] Unit= already binds it, and a
+# [Unit] Requires= would start the service on every boot regardless of
+# OnCalendar and let a service failure stop the timer itself.
+# Persistent=true is the intended catch-up for missed runs.
+
+[Timer]
+# Every 6 hours, offset to :20 past.  Unlike discovery and records —
+# which chew through a mostly-static graph and run daily — this one
+# tracks a MOVING signal: a 48h window is one of the board's headline
+# lenses, so a once-daily crawl would make "last 48 hours" mean
+# "somewhere in the last 48 hours as of this morning".
+#
+# Not more often than 6h: Sleeper transaction buckets are per-week, so
+# a tighter cadence re-reads the same week for very little new, and the
+# budget is better spent widening league coverage than re-polling the
+# leagues already current.
+#
+# Deliberately NOT aligned with the 04:20 discovery / 04:50 records
+# runs — three crawls hitting Sleeper in the same ten minutes is the
+# one pattern most likely to trip a rate limiter.
+OnCalendar=*-*-* 02,08,14,20:20:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-sharp-transactions.service
+
+[Install]
+WantedBy=timers.target

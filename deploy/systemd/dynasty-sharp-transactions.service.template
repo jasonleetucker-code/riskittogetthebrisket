@@ -1,0 +1,62 @@
+[Unit]
+Description=Dynasty Trade Calculator Sharp Tracker transaction crawl (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# The THIRD Sharp Tracker pass, and the one that actually produces the
+# board.  Discovery finds MANAGERS, records finds their RESULTS — this
+# finds their TRADES.
+#
+# Before this existed, ledger.ingest_events had exactly ONE caller
+# (Insider Trading's snapshot migration), so the ledger held only the
+# user's own league-mates.  Every manager discovery had reached had
+# zero movements, and a sharp board wired to that ledger would have
+# rendered empty — correctly, but uselessly.
+#
+# BOTH SIDES of every trade are recorded and the QUALIFIED-cohort
+# filter is applied at read time, not here.  Qualification moves as
+# records accumulate, so a manager who qualifies next month should
+# arrive with history rather than starting blank; and sharp-vs-sharp
+# disagreement needs both sides present to be visible at all.
+#
+# ONLY SHARP-ELIGIBLE LEAGUES are crawled (dynasty, >= 2 seasons old) —
+# the same set the records pass uses.
+#
+# Cost: 1 call per league for rosters plus one per transaction week —
+# three on a league's first pass (the backfill walks to week 0, where
+# Sleeper files preseason trades), one per run thereafter.  Budget
+# defaults to 600 with the shared 0.12s inter-call sleep, comfortably
+# under Sleeper's documented 1000/min ceiling.  Uncrawled leagues are
+# ordered first, so a capped run makes progress ACROSS the graph
+# instead of re-walking the same head.
+#
+# IDEMPOTENT: movements dedupe on the roster-slot key (D10), so an
+# interrupted pass or a re-run ingests nothing twice.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: writes the SQLite ledger under
+# data/intel/, which is gitignored, so a crawl on a CI runner never
+# reaches the VPS.  Same reasoning as discovery, records, BDVM and
+# playerctx.
+#
+# Exit codes (scripts/crawl_sharp_transactions.py):
+#   0 - completed within budget
+#   1 - hard failure; the ledger is unchanged
+#   2 - budget exhausted with leagues remaining (NORMAL on a large graph)
+# SuccessExitStatus keeps 2 out of the failure counters.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/crawl_sharp_transactions.py
+SuccessExitStatus=0 2
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target
