@@ -1,0 +1,132 @@
+name: Trigger Sharp Now Via Merge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/trigger-sharp-now-via-merge.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  kick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Restart backend and kick both collectors
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
+          SERVICE: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+        run: |
+          set -Eeuo pipefail
+          printf -v REMOTE_ENV 'APP_DIR=%q VENV_DIR=%q SERVICE=%q USER_NAME=%q' "$APP_DIR" "$VENV_DIR" "$SERVICE" "$USER"
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=20 \
+            -p "$PORT" "$USER@$HOST" \
+            "$REMOTE_ENV bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          git fetch --prune origin main
+          git reset --hard origin/main
+          sudo -n systemctl restart "$SERVICE"
+          sleep 5
+          APP_DIR="$APP_DIR" APP_USER="$USER_NAME" VENV_DIR="$VENV_DIR" SERVICE_NAME="$SERVICE" \
+            bash "$APP_DIR/deploy/install-ffpc-sharp-service.sh"
+          sudo -n systemctl start --no-block "$SERVICE-ffpc-sharp.service" || true
+          sudo -n systemctl start --no-block "$SERVICE-sharp-discovery.service" || true
+          sudo -n systemctl start --no-block "$SERVICE-sharp-records.service" || true
+          mkdir -p "$APP_DIR/data/ops"
+          APP_DIR="$APP_DIR" VENV_DIR="$VENV_DIR" SERVICE="$SERVICE" \
+          "$VENV_DIR/bin/python" - <<'PY' > "$APP_DIR/data/ops/sharp-merge-trigger-result.json"
+          import json, os, subprocess, time, urllib.error, urllib.request
+          from datetime import datetime, timezone
+
+          def cmd(*args):
+              p = subprocess.run(args, capture_output=True, text=True, check=False)
+              return {"code": p.returncode, "stdout": p.stdout.strip()[-3000:], "stderr": p.stderr.strip()[-3000:]}
+
+          def get(path):
+              try:
+                  req = urllib.request.Request("http://127.0.0.1:8000" + path, headers={"Cache-Control": "no-cache"})
+                  with urllib.request.urlopen(req, timeout=20) as r:
+                      raw = r.read().decode("utf-8", "replace")
+                      try: body = json.loads(raw)
+                      except Exception: body = raw[:3000]
+                      return {"status": r.status, "body": body}
+              except urllib.error.HTTPError as e:
+                  raw = e.read().decode("utf-8", "replace")
+                  try: body = json.loads(raw)
+                  except Exception: body = raw[:3000]
+                  return {"status": e.code, "body": body}
+              except Exception as e:
+                  return {"status": None, "error": f"{type(e).__name__}: {e}"}
+
+          time.sleep(3)
+          service = os.environ["SERVICE"]
+          print(json.dumps({
+              "checkedAt": datetime.now(timezone.utc).isoformat(),
+              "gitSha": cmd("git", "-C", os.environ["APP_DIR"], "rev-parse", "HEAD"),
+              "backend": cmd("sudo", "-n", "systemctl", "is-active", service),
+              "ffpcTimer": cmd("sudo", "-n", "systemctl", "is-active", f"{service}-ffpc-sharp.timer"),
+              "discovery": cmd("sudo", "-n", "systemctl", "is-active", f"{service}-sharp-discovery.service"),
+              "records": cmd("sudo", "-n", "systemctl", "is-active", f"{service}-sharp-records.service"),
+              "cohort": get("/api/sharp/cohort"),
+              "market": get("/api/sharp/market?window=30d&platform=all&qualification=all&limit=10"),
+              "ffpc": get("/api/sharp/market?window=90d&platform=ffpc&qualification=provisional&limit=10"),
+              "journal": cmd("sudo", "-n", "journalctl", "-u", service, "-n", "80", "--no-pager"),
+          }, indent=2, sort_keys=True))
+          PY
+          cat "$APP_DIR/data/ops/sharp-merge-trigger-result.json"
+          REMOTE
+
+      - name: Retrieve diagnostics
+        if: always()
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        run: |
+          mkdir -p data/ops
+          scp -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -P "$PORT" "$USER@$HOST:$APP_DIR/data/ops/sharp-merge-trigger-result.json" \
+            data/ops/sharp-merge-trigger-result.json
+
+      - name: Commit diagnostics
+        if: always()
+        run: |
+          [[ -f data/ops/sharp-merge-trigger-result.json ]] || exit 0
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git pull --rebase origin main
+          git add data/ops/sharp-merge-trigger-result.json
+          git commit -m "chore(ops): record merge-triggered Sharp result" || exit 0
+          git push origin HEAD:main
