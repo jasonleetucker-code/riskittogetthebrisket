@@ -37,13 +37,13 @@ User=__APP_USER__
 Group=__APP_USER__
 WorkingDirectory=__APP_DIR__
 EnvironmentFile=-__APP_DIR__/.env
-ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/crawl_sharp_records.py
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/crawl_sharp_records.py --budget 5000
 SuccessExitStatus=0 2
 StandardOutput=journal
 StandardError=journal
 Nice=10
 IOSchedulingClass=idle
-TimeoutStartSec=1800
+TimeoutStartSec=3600
 
 [Install]
 WantedBy=multi-user.target

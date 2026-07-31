@@ -702,7 +702,8 @@ ensure_systemd_service() {
         fi
         ;;
     esac
-    if ! sudo -n "${SYSTEMCTL_BIN}" cat "${timer_unit}" >/dev/null 2>&1; then
+    if ! sudo -n "${SYSTEMCTL_BIN}" cat "${timer_unit}" >/dev/null 2>&1 || \
+       ! sudo -n "${SYSTEMCTL_BIN}" is-enabled "${timer_unit}" >/dev/null 2>&1; then
       missing_timers="${missing_timers} ${timer_unit}"
     fi
   done

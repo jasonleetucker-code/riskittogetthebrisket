@@ -537,6 +537,49 @@ main() {
     fi
   fi
 
+
+  # ── FFPC public Sharp ingestion timer ───────────────────────────────
+  local ffpc_service_template="${APP_DIR}/deploy/systemd/dynasty-ffpc-sharp.service.template"
+  local ffpc_timer_template="${APP_DIR}/deploy/systemd/dynasty-ffpc-sharp.timer.template"
+  local ffpc_service_name="${SERVICE_NAME}-ffpc-sharp"
+  local ffpc_service_path="/etc/systemd/system/${ffpc_service_name}.service"
+  local ffpc_timer_path="/etc/systemd/system/${ffpc_service_name}.timer"
+  local ffpc_needs_install=false
+  local ffpc_enabled=false
+  if [[ -f "${APP_DIR}/config/sharp/ffpc_sources.json" ]] && \
+     grep -m1 -Eq '"enabled"[[:space:]]*:[[:space:]]*true' \
+       "${APP_DIR}/config/sharp/ffpc_sources.json"; then
+    ffpc_enabled=true
+  fi
+  if [[ "${ffpc_enabled}" == "true" && -f "${ffpc_service_template}" && -f "${ffpc_timer_template}" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${ffpc_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        ffpc_needs_install=true
+      fi
+    else
+      log "Installing FFPC public Sharp ingestion service + timer."
+      ffpc_needs_install=true
+    fi
+    if [[ "${ffpc_needs_install}" == "true" ]]; then
+      local tmp_ffpc_service tmp_ffpc_timer
+      tmp_ffpc_service="$(mktemp)"
+      tmp_ffpc_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+        "${ffpc_service_template}" > "${tmp_ffpc_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${ffpc_timer_template}" > "${tmp_ffpc_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_ffpc_service}" "${ffpc_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_ffpc_timer}" "${ffpc_timer_path}"
+      rm -f "${tmp_ffpc_service}" "${tmp_ffpc_timer}"
+      log "Installed ${ffpc_service_name}.service + .timer"
+    fi
+  fi
+
   # ── Reception-depth histogram timer ───────────────────────────────────
   # Streams nflverse play-by-play into per-player reception-band
   # histograms.  Like playerctx and BDVM the readers load a LOCAL file
@@ -713,7 +756,7 @@ main() {
   fi
 
   # ── daemon-reload and enable ────────────────────────────────────────────
-  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
+  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${playerctx_needs_install}" == "true" || "${bdvm_needs_install}" == "true" || "${sharp_needs_install}" == "true" || "${sharprec_needs_install}" == "true" || "${ffpc_needs_install}" == "true" || "${rd_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Reloaded systemd unit files."
   fi
@@ -767,12 +810,17 @@ main() {
     sudo -n "${SYSTEMCTL_BIN}" start --no-block "${sharp_service_name}.service" || \
       log "Note: initial sharp-discovery crawl could not be started; the timer will cover it."
   fi
-  if [[ "${sharprec_needs_install}" == "true" ]]; then
-    # --now arms the daily timer.  No initial kick: the discovery crawl
-    # kicked above must populate the sharp-eligible league list first,
-    # and the 04:50 slot already sequences this after it.
+  if [[ -f "${sharprec_service_template}" && -f "${sharprec_timer_template}" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharprec_service_name}.timer"
     log "Enabled ${sharprec_service_name}.timer"
+    sudo -n "${SYSTEMCTL_BIN}" start --no-block "${sharprec_service_name}.service" || \
+      log "Note: initial sharp-records crawl could not be started; the timer will cover it."
+  fi
+  if [[ "${ffpc_enabled}" == "true" && -f "${ffpc_service_template}" && -f "${ffpc_timer_template}" ]]; then
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${ffpc_service_name}.timer"
+    log "Enabled ${ffpc_service_name}.timer"
+    sudo -n "${SYSTEMCTL_BIN}" start --no-block "${ffpc_service_name}.service" || \
+      log "Note: initial FFPC public crawl could not be started; the timer will cover it."
   fi
   if [[ "${bdvm_needs_install}" == "true" ]]; then
     # --now arms the timer immediately; the FIRST snapshots are built

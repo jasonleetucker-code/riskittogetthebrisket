@@ -39,7 +39,11 @@ def test_public_league_home_expands_and_deduplicates_team_side_trade_rows():
     }
     assert {row.action for row in trade_movements} == {"add", "drop"}
 
-    drop = next(row for row in result.batch.movements if row.transaction_key == free_agents[0].transaction_key)
+    drop = next(
+        row
+        for row in result.batch.movements
+        if row.transaction_key == free_agents[0].transaction_key
+    )
     assert drop.canonical_asset_id == "10001"
     assert drop.action == "drop"
 

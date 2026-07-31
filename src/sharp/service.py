@@ -88,7 +88,12 @@ def cohort_status() -> dict[str, Any]:
     curated = (
         sharp_market.curated_members(config) if config.get("allowCuratedInCombinedSignals") else []
     )
-    status = STATUS_OK if tiers.get("qualifiedManagers", 0) > 0 or curated else STATUS_BUILDING
+    provisional = sharp_market.provisional_members(config)
+    status = (
+        STATUS_OK
+        if tiers.get("qualifiedManagers", 0) > 0 or curated or provisional
+        else STATUS_BUILDING
+    )
     return {
         "status": status,
         "methodologyVersion": sharp_score.methodology_version(),
@@ -96,6 +101,7 @@ def cohort_status() -> dict[str, Any]:
         "cohort": {
             **tiers,
             "curatedManagers": len(curated),
+            "provisionalManagers": len(provisional),
             "observedLeagues": graph.get("observedLeagues", coverage.get("leagueCount", 0))
             + int((source_coverage.get("ffpc") or {}).get("leagues") or 0),
             "signalEligibleLeagues": graph.get("signalEligibleLeagues", 0),
@@ -111,11 +117,14 @@ def cohort_status() -> dict[str, Any]:
             "enabled": bool(config.get("enabled")),
             "mode": config.get("mode", "public_only"),
             "curatedContributionEnabled": bool(config.get("allowCuratedInCombinedSignals")),
+            "provisionalContributionEnabled": bool(
+                config.get("allowProvisionalPublicInCombinedSignals")
+            ),
         },
         "note": (
             "Coverage is an observable subset. Sleeper grows through its public graph; "
-            "FFPC includes only explicitly configured public pages. Curated FFPC members "
-            "are never represented as Sharp Score v2 qualifiers."
+            "FFPC includes only explicitly configured public pages. Curated and "
+            "provisional FFPC members are never represented as Sharp Score v2 qualifiers."
         ),
     }
 
