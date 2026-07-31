@@ -158,49 +158,31 @@ test.describe("critical smoke — auth-gated API returns 401 when unauthenticate
   });
 });
 
-test.describe("critical smoke — terminal endpoint contracts", () => {
-  // /api/terminal moved into the auth-gated set (server.py
-  // _PUBLIC_API_EXACT no longer lists it).  The "anonymous returns
-  // publicMode payload" contract these tests asserted is no longer
-  // the live behavior — anonymous returns 401.  Tests skip when
-  // unauthenticated; the signed-in spec covers the populated path.
-  test("GET /api/terminal returns publicMode payload when anonymous", async ({ request }) => {
-    const res = await request.get("/api/terminal");
-    if (res.status() === 401) {
-      test.info().annotations.push({
-        type: "skip",
-        description: "/api/terminal is now auth-gated; signed-in spec covers populated path",
-      });
-      return;
-    }
-    if (res.status() === 503) {
-      test.info().annotations.push({
-        type: "skip",
-        description: "live contract not loaded yet",
-      });
-      return;
-    }
-    expect(res.status()).toBe(200);
-    const body = await res.json();
-    expect(body.authenticated).toBe(false);
-    expect(body.meta?.publicMode).toBe(true);
-    // Private fields should be nulled / empty.
-    expect(body.team).toBeNull();
-    expect(body.signals).toEqual([]);
-    expect(body.portfolio).toBeNull();
-    // Public fields should still be populated when data exists.
-    expect(body.movers).toBeDefined();
-    expect(Array.isArray(body.movers.league)).toBe(true);
-    expect(Array.isArray(body.movers.top150)).toBe(true);
-    expect(body.trendWindows).toEqual([7, 30, 90, 180]);
-  });
-
-  test("rank-history endpoint clamps days to MAX_SNAPSHOTS", async ({ request }) => {
-    const res = await request.get("/api/data/rank-history?days=9999");
-    if (res.status() === 401 || res.status() === 503) return;
-    expect(res.status()).toBe(200);
-    const body = await res.json();
-    expect(body.days).toBeLessThanOrEqual(365 * 3);
-    expect(body.history).toBeDefined();
-  });
-});
+// ── What was here: two tests that reported PASSED while executing
+// nothing at all ─────────────────────────────────────────────────────
+//
+// "GET /api/terminal returns publicMode payload when anonymous" and
+// "rank-history endpoint clamps days to MAX_SNAPSHOTS" both opened by
+// checking for 401 and, on a hit, returning early — one after pushing
+// an annotation of `{type: "skip"}`, which is NOT `test.skip()` and does
+// not skip anything. Playwright reported both as PASSED.
+//
+// Both endpoints are auth-gated and return 401 to an anonymous request
+// (measured, not assumed). This is an ANONYMOUS spec. So every
+// assertion in both bodies was unreachable, permanently, and the suite
+// counted two more green tests for it. That is worse than no test: it
+// occupies the slot where real coverage would go — the same finding as
+// the `body.length > 0` disjunction above.
+//
+// They are not simply deleted; each half went where it can execute:
+//
+//   * the auth gate — already covered, and non-vacuously, by
+//     AUTH_GATED_API_ROUTES above, which lists both `/api/terminal` and
+//     `/api/data/rank-history?days=30` and asserts the 401.
+//   * the terminal payload — covered by signed-in-smoke.spec.js
+//     ("/api/terminal returns 200 (or 503 data_not_ready)"). The
+//     anonymous `publicMode` payload it asserted stopped being live
+//     behaviour when the endpoint moved out of `_PUBLIC_API_EXACT`;
+//     there is no such contract left to test.
+//   * the MAX_SNAPSHOTS clamp — had NO other home, so it moved to
+//     signed-in-smoke.spec.js rather than being dropped with the rest.
