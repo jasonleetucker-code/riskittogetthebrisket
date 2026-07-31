@@ -3633,9 +3633,9 @@
     "ownerId": "1033502330853302272",
     "rosterId": 8,
     "teamName": "cbonex21",
-    "teamRosStrength": 264.46,
+    "teamRosStrength": 266.28,
     "startingLineupScore": 330.94,
-    "benchDepthScore": 89.91,
+    "benchDepthScore": 100.0,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -3758,36 +3758,28 @@
         "depthContribution": 18.58
       },
       {
-        "playerId": "6149",
-        "canonicalName": "darius slayton",
-        "position": "WR",
-        "rosValue": 17.84,
-        "depthFactor": 1.0,
-        "depthContribution": 17.84
-      },
-      {
         "playerId": "13274",
         "canonicalName": "germie bernard",
         "position": "WR",
         "rosValue": 16.85,
-        "depthFactor": 0.65,
-        "depthContribution": 10.95
+        "depthFactor": 1.0,
+        "depthContribution": 16.85
       },
       {
         "playerId": "11618",
         "canonicalName": "jalen mcmillan",
         "position": "WR",
         "rosValue": 16.48,
-        "depthFactor": 0.423,
-        "depthContribution": 6.96
+        "depthFactor": 0.65,
+        "depthContribution": 10.71
       },
       {
         "playerId": "13317",
         "canonicalName": "ted hurst",
         "position": "WR",
         "rosValue": 16.38,
-        "depthFactor": 0.275,
-        "depthContribution": 4.5
+        "depthFactor": 0.423,
+        "depthContribution": 6.92
       },
       {
         "playerId": "13272",
@@ -3802,18 +3794,26 @@
         "canonicalName": "malachi fields",
         "position": "WR",
         "rosValue": 14.71,
-        "depthFactor": 0.179,
-        "depthContribution": 2.63
+        "depthFactor": 0.275,
+        "depthContribution": 4.04
+      },
+      {
+        "playerId": "9508",
+        "canonicalName": "tyjae spears",
+        "position": "RB",
+        "rosValue": 14.44,
+        "depthFactor": 1.0,
+        "depthContribution": 14.44
       }
     ],
     "fullRoster": [
       {
-        "playerId": "12505",
-        "canonicalName": "jalen royals",
-        "position": "WR",
-        "rosValue": 10.01,
+        "playerId": "11435",
+        "canonicalName": "emanuel wilson",
+        "position": "RB",
+        "rosValue": 13.09,
         "fantasyPositions": [
-          "WR"
+          "RB"
         ],
         "injured": false,
         "bye": false
@@ -3830,259 +3830,6 @@
         "bye": false
       },
       {
-        "playerId": "13317",
-        "canonicalName": "ted hurst",
-        "position": "WR",
-        "rosValue": 16.38,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "12510",
-        "canonicalName": "jalen milroe",
-        "position": "QB",
-        "rosValue": 6.92,
-        "fantasyPositions": [
-          "QB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "6149",
-        "canonicalName": "darius slayton",
-        "position": "WR",
-        "rosValue": 17.84,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "11435",
-        "canonicalName": "emanuel wilson",
-        "position": "RB",
-        "rosValue": 13.09,
-        "fantasyPositions": [
-          "RB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "8126",
-        "canonicalName": "wandale robinson",
-        "position": "WR",
-        "rosValue": 24.35,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "13274",
-        "canonicalName": "germie bernard",
-        "position": "WR",
-        "rosValue": 16.85,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "5012",
-        "canonicalName": "mark andrews",
-        "position": "TE",
-        "rosValue": 21.07,
-        "fantasyPositions": [
-          "TE"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "8228",
-        "canonicalName": "jaylen warren",
-        "position": "RB",
-        "rosValue": 26.95,
-        "fantasyPositions": [
-          "RB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "4018",
-        "canonicalName": "joe mixon",
-        "position": "RB",
-        "rosValue": 5.77,
-        "fantasyPositions": [
-          "RB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "12472",
-        "canonicalName": "raheim sanders",
-        "position": "RB",
-        "rosValue": 4.92,
-        "fantasyPositions": [
-          "RB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "9508",
-        "canonicalName": "tyjae spears",
-        "position": "RB",
-        "rosValue": 14.44,
-        "fantasyPositions": [
-          "RB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "12536",
-        "canonicalName": "jaylin noel",
-        "position": "WR",
-        "rosValue": 16.46,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": true,
-        "bye": false
-      },
-      {
-        "playerId": "3163",
-        "canonicalName": "jared goff",
-        "position": "QB",
-        "rosValue": 36.48,
-        "fantasyPositions": [
-          "QB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "9494",
-        "canonicalName": "marvin mims",
-        "position": "WR",
-        "rosValue": 14.07,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "13285",
-        "canonicalName": "malachi fields",
-        "position": "WR",
-        "rosValue": 14.71,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "13353",
-        "canonicalName": "chris brazzell",
-        "position": "WR",
-        "rosValue": 15.19,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": true,
-        "bye": false
-      },
-      {
-        "playerId": "11630",
-        "canonicalName": "roman wilson",
-        "position": "WR",
-        "rosValue": 8.17,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "7021",
-        "canonicalName": "rico dowdle",
-        "position": "RB",
-        "rosValue": 26.75,
-        "fantasyPositions": [
-          "RB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "13272",
-        "canonicalName": "carson beck",
-        "position": "QB",
-        "rosValue": 14.97,
-        "fantasyPositions": [
-          "QB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "9506",
-        "canonicalName": "sean tucker",
-        "position": "RB",
-        "rosValue": 13.86,
-        "fantasyPositions": [
-          "RB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "12518",
-        "canonicalName": "tyler warren",
-        "position": "TE",
-        "rosValue": 32.19,
-        "fantasyPositions": [
-          "TE"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "9480",
-        "canonicalName": "brenton strange",
-        "position": "TE",
-        "rosValue": 18.58,
-        "fantasyPositions": [
-          "TE"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "96",
-        "canonicalName": "aaron rodgers",
-        "position": "QB",
-        "rosValue": 20.22,
-        "fantasyPositions": [
-          "QB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
         "playerId": "11618",
         "canonicalName": "jalen mcmillan",
         "position": "WR",
@@ -4094,10 +3841,10 @@
         "bye": false
       },
       {
-        "playerId": "6801",
-        "canonicalName": "tee higgins",
+        "playerId": "11630",
+        "canonicalName": "roman wilson",
         "position": "WR",
-        "rosValue": 39.53,
+        "rosValue": 8.17,
         "fantasyPositions": [
           "WR"
         ],
@@ -4127,12 +3874,89 @@
         "bye": false
       },
       {
-        "playerId": "7828",
-        "canonicalName": "noah gray",
+        "playerId": "12472",
+        "canonicalName": "raheim sanders",
+        "position": "RB",
+        "rosValue": 4.92,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12505",
+        "canonicalName": "jalen royals",
+        "position": "WR",
+        "rosValue": 10.01,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12510",
+        "canonicalName": "jalen milroe",
+        "position": "QB",
+        "rosValue": 6.92,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12518",
+        "canonicalName": "tyler warren",
         "position": "TE",
-        "rosValue": 5.17,
+        "rosValue": 32.19,
         "fantasyPositions": [
           "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "12536",
+        "canonicalName": "jaylin noel",
+        "position": "WR",
+        "rosValue": 16.46,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": true,
+        "bye": false
+      },
+      {
+        "playerId": "13272",
+        "canonicalName": "carson beck",
+        "position": "QB",
+        "rosValue": 14.97,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13274",
+        "canonicalName": "germie bernard",
+        "position": "WR",
+        "rosValue": 16.85,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13285",
+        "canonicalName": "malachi fields",
+        "position": "WR",
+        "rosValue": 14.71,
+        "fantasyPositions": [
+          "WR"
         ],
         "injured": false,
         "bye": false
@@ -4149,12 +3973,122 @@
         "bye": false
       },
       {
-        "playerId": "11439",
-        "canonicalName": "jaleel mclaughlin",
+        "playerId": "13317",
+        "canonicalName": "ted hurst",
+        "position": "WR",
+        "rosValue": 16.38,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13353",
+        "canonicalName": "chris brazzell",
+        "position": "WR",
+        "rosValue": 15.19,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": true,
+        "bye": false
+      },
+      {
+        "playerId": "3163",
+        "canonicalName": "jared goff",
+        "position": "QB",
+        "rosValue": 36.48,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "4018",
+        "canonicalName": "joe mixon",
         "position": "RB",
-        "rosValue": 5.7,
+        "rosValue": 5.77,
         "fantasyPositions": [
           "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "5012",
+        "canonicalName": "mark andrews",
+        "position": "TE",
+        "rosValue": 21.07,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6801",
+        "canonicalName": "tee higgins",
+        "position": "WR",
+        "rosValue": 39.53,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7021",
+        "canonicalName": "rico dowdle",
+        "position": "RB",
+        "rosValue": 26.75,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8126",
+        "canonicalName": "wandale robinson",
+        "position": "WR",
+        "rosValue": 24.35,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "8228",
+        "canonicalName": "jaylen warren",
+        "position": "RB",
+        "rosValue": 26.95,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9480",
+        "canonicalName": "brenton strange",
+        "position": "TE",
+        "rosValue": 18.58,
+        "fantasyPositions": [
+          "TE"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9494",
+        "canonicalName": "marvin mims",
+        "position": "WR",
+        "rosValue": 14.07,
+        "fantasyPositions": [
+          "WR"
         ],
         "injured": false,
         "bye": false
@@ -4166,6 +4100,39 @@
         "rosValue": 20.4,
         "fantasyPositions": [
           "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9506",
+        "canonicalName": "sean tucker",
+        "position": "RB",
+        "rosValue": 13.86,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "9508",
+        "canonicalName": "tyjae spears",
+        "position": "RB",
+        "rosValue": 14.44,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "96",
+        "canonicalName": "aaron rodgers",
+        "position": "QB",
+        "rosValue": 20.22,
+        "fantasyPositions": [
+          "QB"
         ],
         "injured": false,
         "bye": false
