@@ -98,10 +98,10 @@ Daniel Jones,96,1050,5870,QB,IND
 D'Andre Swift,97,1025,6790,RB,CHI
 Michael Wilson,98,1001,10232,WR,ARI
 Ty Simpson,99,978,13275,QB,LAR
-Jake Ferguson,100,955,8110,TE,DAL
-Derrick Henry,101,933,3198,RB,BAL
-Bryce Young,102,912,9228,QB,CAR
-Denzel Boston,103,890,13346,WR,CLE
+Denzel Boston,100,955,13346,WR,CLE
+Jake Ferguson,101,933,8110,TE,DAL
+Derrick Henry,102,912,3198,RB,BAL
+Bryce Young,103,890,9228,QB,CAR
 Terry McLaurin,104,870,5927,WR,WAS
 Jayden Reed,105,849,10222,WR,GB
 David Montgomery,106,830,5892,RB,HOU
@@ -128,7 +128,7 @@ Germie Bernard,126,519,13274,WR,PIT
 Antonio Williams,127,507,13301,WR,WAS
 Xavier Worthy,128,495,11624,WR,KC
 Rico Dowdle,129,483,7021,RB,PIT
-Chris Bell,130,472,12100,WR,MIA
+Chris Bell,130,472,13311,WR,MIA
 Jakobi Meyers,131,461,5947,WR,JAX
 Jaylen Warren,132,450,8228,RB,PIT
 Mike Evans,133,440,2216,WR,SF
