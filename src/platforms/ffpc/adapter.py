@@ -20,7 +20,6 @@ from src.platforms.ffpc.client import PublicFFPCClient
 from src.platforms.ffpc.parser import FFPCParser
 
 
-
 class FFPCAdapter:
     platform = "ffpc"
 
@@ -88,21 +87,15 @@ class FFPCAdapter:
             sharp_eligible=bool(source.get("sharpEligible", False)),
             verified_global_ids=source.get("verifiedGlobalUserIds") or (),
             season_complete=(
-                bool(source.get("seasonComplete"))
-                if "seasonComplete" in source
-                else None
+                bool(source.get("seasonComplete")) if "seasonComplete" in source else None
             ),
         )
-        parsed.batch.counters["pagesFetched"] = int(
-            fixture_html is None and not from_cache
-        )
-        parsed.batch.counters["pagesLoadedFromCache"] = int(
-            fixture_html is None and from_cache
-        )
+        parsed.batch.counters["pagesFetched"] = int(fixture_html is None and not from_cache)
+        parsed.batch.counters["pagesLoadedFromCache"] = int(fixture_html is None and from_cache)
         parsed.batch.counters["pagesParsed"] = 1 if parsed.page_types else 0
-        parsed.batch.counters["parseFailures"] = (
-            parsed.batch.counters.get("parseFailures", 0) + len(parsed.errors)
-        )
+        parsed.batch.counters["parseFailures"] = parsed.batch.counters.get(
+            "parseFailures", 0
+        ) + len(parsed.errors)
         return parsed.batch
 
     # Contract methods remain intentionally narrow. A source entry may

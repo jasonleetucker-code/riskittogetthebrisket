@@ -103,9 +103,7 @@ def main() -> int:
             players = {}
         else:
             players = _players_directory(force=args.force_refresh)
-        adapter = FFPCAdapter.from_config(
-            config, players_directory=players, repo_root=REPO_ROOT
-        )
+        adapter = FFPCAdapter.from_config(config, players_directory=players, repo_root=REPO_ROOT)
         if not args.dry_run:
             platform_ledger.ensure_platform_schema().close()
             platform_ledger.hydrate_sleeper_asset_catalog(players)
@@ -129,7 +127,9 @@ def main() -> int:
 
         for source in sources:
             page_sources = source.get("publicUrls") or [source.get("publicUrl")]
-            for url in [str(value or "").strip() for value in page_sources if str(value or "").strip()]:
+            for url in [
+                str(value or "").strip() for value in page_sources if str(value or "").strip()
+            ]:
                 page_source = {**source, "publicUrl": url}
                 batch = adapter.fetch_source(
                     page_source,
@@ -152,11 +152,15 @@ def main() -> int:
                 else:
                     ingest = platform_ledger.ingest_batch(batch)
                     ingest_report = ingest.to_dict()
-                    counters["movementsInserted"] = counters.get("movementsInserted", 0) + ingest.movements_inserted
-                    counters["movementsSkipped"] = counters.get("movementsSkipped", 0) + ingest.movements_skipped
-                    counters["transactionsDeduplicated"] = counters.get("transactionsDeduplicated", 0) + max(
-                        0, ingest.transactions_seen - ingest.transactions_inserted
+                    counters["movementsInserted"] = (
+                        counters.get("movementsInserted", 0) + ingest.movements_inserted
                     )
+                    counters["movementsSkipped"] = (
+                        counters.get("movementsSkipped", 0) + ingest.movements_skipped
+                    )
+                    counters["transactionsDeduplicated"] = counters.get(
+                        "transactionsDeduplicated", 0
+                    ) + max(0, ingest.transactions_seen - ingest.transactions_inserted)
                     reports.append(
                         {
                             "sourceLeagueId": source.get("sourceLeagueId"),
@@ -233,9 +237,7 @@ def main() -> int:
             "runId": run_id,
             "counters": counters,
             "reports": reports,
-            "coverage": (
-                {} if args.dry_run else platform_ledger.platform_coverage()
-            ),
+            "coverage": ({} if args.dry_run else platform_ledger.platform_coverage()),
         }
         print(json.dumps(payload, indent=2, default=str))
         return 0

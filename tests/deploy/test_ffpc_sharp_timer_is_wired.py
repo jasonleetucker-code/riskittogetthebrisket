@@ -26,9 +26,7 @@ def test_service_is_read_only_public_collector():
 
 def test_timer_is_catch_up_safe_and_names_only_ffpc_service():
     body = _TIMER.read_text(encoding="utf-8")
-    directives = "\n".join(
-        line for line in body.splitlines() if not line.lstrip().startswith("#")
-    )
+    directives = "\n".join(line for line in body.splitlines() if not line.lstrip().startswith("#"))
     assert "Persistent=true" in directives
     assert "Unit=__SERVICE_NAME__-ffpc-sharp.service" in directives
     assert "Requires=" not in directives.split("[Timer]", 1)[0]

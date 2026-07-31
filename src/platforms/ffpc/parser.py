@@ -140,7 +140,9 @@ def _query_id(url: str | None, *keys: str) -> str | None:
     return None
 
 
-def _data_or_query(tag: Tag | None, url: str | None, attrs: Iterable[str], query: Iterable[str]) -> str | None:
+def _data_or_query(
+    tag: Tag | None, url: str | None, attrs: Iterable[str], query: Iterable[str]
+) -> str | None:
     if tag:
         for attr in attrs:
             value = _text(tag.get(attr))
@@ -230,7 +232,9 @@ def _action(value: Any, tx_type: str) -> str:
     return ""
 
 
-def _row_source_id(row: dict[str, Any], key: str, data_names: tuple[str, ...], query_names: tuple[str, ...]) -> str | None:
+def _row_source_id(
+    row: dict[str, Any], key: str, data_names: tuple[str, ...], query_names: tuple[str, ...]
+) -> str | None:
     direct = _text(row.get(key))
     if direct:
         return direct
@@ -300,11 +304,7 @@ class FFPCParser:
             )
         )
 
-        verified_ids = {
-            str(value).strip()
-            for value in verified_global_ids
-            if str(value).strip()
-        }
+        verified_ids = {str(value).strip() for value in verified_global_ids if str(value).strip()}
         standings = self._parse_standings(
             soup,
             league_id=league_id,
@@ -505,9 +505,7 @@ class FFPCParser:
                         sharp_eligible=row_sharp_eligible,
                         source_identity_type=identity.identity_type,
                         evidence_status=(
-                            "automated_evidence"
-                            if row_sharp_eligible
-                            else QUAL_INSUFFICIENT
+                            "automated_evidence" if row_sharp_eligible else QUAL_INSUFFICIENT
                         ),
                         exclusion_reasons=tuple(dict.fromkeys(exclusion)),
                         metadata={
@@ -531,16 +529,8 @@ class FFPCParser:
         memberships: dict[str, dict[str, Any]] = {}
         unmapped = 0
         for _table, rows in _find_tables(soup, {"team", "player"}):
-            keys = (
-                {key for key in rows[0] if not key.startswith("_")}
-                if rows
-                else set()
-            )
-            if (
-                "type" in keys
-                or "action" in keys
-                or ({"overall_pick", "round", "slot"} & keys)
-            ):
+            keys = {key for key in rows[0] if not key.startswith("_")} if rows else set()
+            if "type" in keys or "action" in keys or ({"overall_pick", "round", "slot"} & keys):
                 continue
             for row in rows:
                 team_name = _text(row.get("team"))
@@ -880,31 +870,24 @@ class FFPCParser:
         # and connected participating-team sets.  The resulting fingerprint
         # uses sorted participants/assets, never display order, so two
         # team-side renderings of the same trade converge.
-        unkeyed_trade_groups: dict[
-            tuple[str | None, int, tuple[str, ...]], list[int]
-        ] = {}
+        unkeyed_trade_groups: dict[tuple[str | None, int, tuple[str, ...]], list[int]] = {}
         for index, item in enumerate(prepared):
             if item["authoritativeTxId"]:
                 # FFPC public-page transaction ids are not documented as
                 # globally unique. Scope them to the configured league
                 # before the platform prefix is applied.
-                item["sourceTxId"] = (
-                    f"league:{league_id}:tx:{item['authoritativeTxId']}"
-                )
+                item["sourceTxId"] = f"league:{league_id}:tx:{item['authoritativeTxId']}"
             elif item["txType"] != "trade":
-                item["sourceTxId"] = (
-                    f"league:{league_id}:fingerprint:"
-                    + _fingerprint(
-                        (
-                            league_id,
-                            item["season"],
-                            item["txType"],
-                            item["timestampMs"],
-                            item["teamToken"],
-                            item["sourceAssetId"],
-                            item["action"],
-                            item["faabBid"],
-                        )
+                item["sourceTxId"] = f"league:{league_id}:fingerprint:" + _fingerprint(
+                    (
+                        league_id,
+                        item["season"],
+                        item["txType"],
+                        item["timestampMs"],
+                        item["teamToken"],
+                        item["sourceAssetId"],
+                        item["action"],
+                        item["faabBid"],
                     )
                 )
             else:
@@ -928,9 +911,7 @@ class FFPCParser:
                     [],
                 ).append(index)
 
-        for (row_season, timestamp_ms, participants), component in (
-            unkeyed_trade_groups.items()
-        ):
+        for (row_season, timestamp_ms, participants), component in unkeyed_trade_groups.items():
             assets = sorted(
                 {
                     str(
@@ -945,18 +926,15 @@ class FFPCParser:
                 for index in component
                 if prepared[index]["faabBid"] is not None
             )
-            source_tx_id = (
-                f"league:{league_id}:fingerprint:"
-                + _fingerprint(
-                    (
-                        league_id,
-                        row_season,
-                        "trade",
-                        timestamp_ms,
-                        *participants,
-                        *assets,
-                        *faab_values,
-                    )
+            source_tx_id = f"league:{league_id}:fingerprint:" + _fingerprint(
+                (
+                    league_id,
+                    row_season,
+                    "trade",
+                    timestamp_ms,
+                    *participants,
+                    *assets,
+                    *faab_values,
                 )
             )
             for index in component:
@@ -1047,4 +1025,3 @@ class FFPCParser:
 
         counters["transactionsDiscovered"] = len(transactions)
         return managers, list(transactions.values()), list(movements.values()), counters
-

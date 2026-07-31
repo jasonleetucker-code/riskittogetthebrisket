@@ -94,9 +94,7 @@ def test_no_authoritative_transaction_id_uses_order_independent_trade_fingerprin
     assert len(result.batch.movements) == 2
     assert result.batch.counters["transactionsDeduplicated"] == 2
     assert result.batch.counters["movementsSkippedAsDuplicates"] == 1
-    assert result.batch.transactions[0].source_transaction_id.startswith(
-        "league:L1:fingerprint:"
-    )
+    assert result.batch.transactions[0].source_transaction_id.startswith("league:L1:fingerprint:")
 
 
 def test_standings_unknown_fields_remain_unknown_not_zero(parser):
@@ -117,7 +115,9 @@ def test_verified_complete_ffpc_evidence_can_enter_automated_layer(parser):
         verified_global_ids={"501"},
         season_complete=True,
     )
-    alice = next(row for row in result.batch.manager_seasons if row.manager_key == "ffpc:site-user-501")
+    alice = next(
+        row for row in result.batch.manager_seasons if row.manager_key == "ffpc:site-user-501"
+    )
     bob = next(row for row in result.batch.manager_seasons if row.manager_key != alice.manager_key)
     assert alice.sharp_eligible is True
     assert alice.evidence_status == "automated_evidence"

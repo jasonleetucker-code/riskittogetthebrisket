@@ -457,9 +457,7 @@ def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
 def _add_columns(conn: sqlite3.Connection) -> None:
     existing_tables = {
         str(row[0])
-        for row in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
+        for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     }
     for table, columns in _ADDITIVE_COLUMNS.items():
         if table not in existing_tables:
@@ -636,7 +634,6 @@ def _sync_legacy_entities(conn: sqlite3.Connection) -> None:
     )
 
 
-
 def _execute_script(conn: sqlite3.Connection, script: str) -> None:
     """Execute a semicolon-delimited SQLite script without implicit commits."""
     statement = ""
@@ -724,8 +721,7 @@ def _platform_schema_ready(conn: sqlite3.Connection) -> bool:
         ):
             return False
         identity_table = conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' "
-            "AND name='manager_identity_links'"
+            "SELECT 1 FROM sqlite_master WHERE type='table' " "AND name='manager_identity_links'"
         ).fetchone()
         if not identity_table:
             return False
@@ -826,8 +822,7 @@ def _verify_migration_invariants(
     )
     if transaction_orphans:
         raise RuntimeError(
-            "platform migration found "
-            f"{transaction_orphans} movement/transaction orphan(s)"
+            "platform migration found " f"{transaction_orphans} movement/transaction orphan(s)"
         )
 
 
@@ -1376,7 +1371,9 @@ def record_unmapped_asset(
 def _insert_transaction(item: NormalizedTransaction, conn: sqlite3.Connection) -> bool:
     now = _now_ms()
     legacy_tx_id = _legacy_ids(item.platform, item.source_transaction_id, item.transaction_key)
-    source_league_id = item.league_key.split(":", 1)[1] if ":" in item.league_key else item.league_key
+    source_league_id = (
+        item.league_key.split(":", 1)[1] if ":" in item.league_key else item.league_key
+    )
     legacy_league_id = _legacy_ids(item.platform, source_league_id, item.league_key)
     cur = conn.execute(
         """
@@ -1424,12 +1421,8 @@ def _insert_movement(item: NormalizedMovement, conn: sqlite3.Connection) -> bool
     legacy_counterparty = None
     if item.counterparty_manager_key:
         cp_source = item.counterparty_manager_key.split(":", 1)[-1]
-        legacy_counterparty = _legacy_ids(
-            item.platform, cp_source, item.counterparty_manager_key
-        )
-    legacy_movement_id = _legacy_ids(
-        item.platform, item.source_movement_id, item.movement_key
-    )
+        legacy_counterparty = _legacy_ids(item.platform, cp_source, item.counterparty_manager_key)
+    legacy_movement_id = _legacy_ids(item.platform, item.source_movement_id, item.movement_key)
     fallback_asset = item.canonical_asset_id or f"unmapped:{item.platform}:{item.source_asset_id}"
     cur = conn.execute(
         """
@@ -1480,9 +1473,7 @@ def _insert_movement(item: NormalizedMovement, conn: sqlite3.Connection) -> bool
     return bool(cur.rowcount and cur.rowcount > 0)
 
 
-def upsert_manager_season(
-    item: NormalizedManagerSeason, *, conn: sqlite3.Connection
-) -> None:
+def upsert_manager_season(item: NormalizedManagerSeason, *, conn: sqlite3.Connection) -> None:
     source_league_id = item.league_key.split(":", 1)[-1]
     legacy_league_id = _legacy_ids(item.platform, source_league_id, item.league_key)
     source_manager_id = item.manager_key.split(":", 1)[-1]
@@ -1580,12 +1571,8 @@ def ingest_batch(
                     position=(item.metadata or {}).get("position"),
                     asset_type=item.asset_type,
                     match_method=(item.metadata or {}).get("matchMethod", "adapter"),
-                    match_confidence=float(
-                        (item.metadata or {}).get("matchConfidence", 1.0)
-                    ),
-                    manually_verified=bool(
-                        (item.metadata or {}).get("manuallyVerified", False)
-                    ),
+                    match_confidence=float((item.metadata or {}).get("matchConfidence", 1.0)),
+                    manually_verified=bool((item.metadata or {}).get("manuallyVerified", False)),
                     metadata=item.metadata,
                     conn=connection,
                 )
@@ -1926,14 +1913,11 @@ def record_ingestion_run(
         conn.close()
 
 
-def latest_ingestion_run(
-    platform: str, *, path: Path | None = None
-) -> dict[str, Any] | None:
+def latest_ingestion_run(platform: str, *, path: Path | None = None) -> dict[str, Any] | None:
     conn = ensure_platform_schema(path)
     try:
         row = conn.execute(
-            "SELECT * FROM ingestion_runs WHERE platform=? "
-            "ORDER BY started_ms DESC LIMIT 1",
+            "SELECT * FROM ingestion_runs WHERE platform=? " "ORDER BY started_ms DESC LIMIT 1",
             (platform,),
         ).fetchone()
         return dict(row) if row else None

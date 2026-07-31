@@ -43,7 +43,8 @@ def test_league_scoped_ffpc_identity_cannot_satisfy_multi_league_qualification(t
         platform="ffpc",
         managers=[
             NormalizedManager.build(
-                "ffpc", "league:L1:team:1",
+                "ffpc",
+                "league:L1:team:1",
                 source_identity_type=IDENTITY_LEAGUE_SCOPED_TEAM,
                 identity_scope="league:L1",
             )
@@ -70,7 +71,8 @@ def test_verified_ffpc_evidence_uses_same_manager_record_type(tmp_path):
         platform="ffpc",
         managers=[
             NormalizedManager.build(
-                "ffpc", "site-user-42",
+                "ffpc",
+                "site-user-42",
                 source_identity_type=IDENTITY_GLOBAL_VERIFIED,
                 identity_scope="platform",
                 identity_confidence=1.0,

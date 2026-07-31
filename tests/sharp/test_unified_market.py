@@ -20,17 +20,31 @@ def batch(platform, manager, league, tx, movement, action="add", tx_type="trade"
         leagues=[NormalizedLeague.build(platform, league)],
         transactions=[
             NormalizedTransaction.build(
-                platform, tx, league_key=league_key, season="2026", week=1,
-                transaction_type=tx_type, status="complete", created_ms=NOW - 10_000
+                platform,
+                tx,
+                league_key=league_key,
+                season="2026",
+                week=1,
+                transaction_type=tx_type,
+                status="complete",
+                created_ms=NOW - 10_000,
             )
         ],
         movements=[
             NormalizedMovement.build(
-                platform, movement, transaction_key=f"{platform}:{tx}",
-                league_key=league_key, canonical_asset_id="P1", source_asset_id=f"{platform}-p1",
-                source_name="Unified Player", asset_type="player", action=action,
-                manager_key=manager_key, roster_id="1", counterparty_manager_key=None,
-                timestamp_ms=NOW - 10_000
+                platform,
+                movement,
+                transaction_key=f"{platform}:{tx}",
+                league_key=league_key,
+                canonical_asset_id="P1",
+                source_asset_id=f"{platform}-p1",
+                source_name="Unified Player",
+                asset_type="player",
+                action=action,
+                manager_key=manager_key,
+                roster_id="1",
+                counterparty_manager_key=None,
+                timestamp_ms=NOW - 10_000,
             )
         ],
     )
@@ -49,7 +63,9 @@ def test_same_canonical_player_is_one_combined_row_with_reconciled_sources(tmp_p
     platform_ledger.ingest_batch(batch("ffpc", "f1", "L2", "T2", "M2"), path=path)
     monkeypatch.setattr(market, "cohort_members", lambda **kwargs: members())
     payload = market.market_payload(
-        window="30d", now_ms=NOW, ledger_path=path,
+        window="30d",
+        now_ms=NOW,
+        ledger_path=path,
         ffpc_config={"enabled": True, "allowCuratedInCombinedSignals": True},
     )
     assert len(payload["assets"]) == 1
@@ -67,7 +83,10 @@ def test_platform_filter_uses_source_specific_raw_counts(tmp_path, monkeypatch):
     platform_ledger.ingest_batch(batch("ffpc", "f1", "L2", "T2", "M2"), path=path)
     monkeypatch.setattr(market, "cohort_members", lambda **kwargs: members())
     payload = market.market_payload(
-        window="30d", platform="ffpc", now_ms=NOW, ledger_path=path,
+        window="30d",
+        platform="ffpc",
+        now_ms=NOW,
+        ledger_path=path,
         ffpc_config={"enabled": True, "allowCuratedInCombinedSignals": True},
     )
     row = payload["assets"][0]
@@ -75,7 +94,9 @@ def test_platform_filter_uses_source_specific_raw_counts(tmp_path, monkeypatch):
     assert row["sourceLabels"] == ["FFPC"]
 
 
-def test_explicit_canonical_manager_link_prevents_cross_platform_unique_count_inflation(tmp_path, monkeypatch):
+def test_explicit_canonical_manager_link_prevents_cross_platform_unique_count_inflation(
+    tmp_path, monkeypatch
+):
     path = tmp_path / "ledger.sqlite3"
     platform_ledger.ingest_batch(batch("sleeper", "u1", "L1", "T1", "M1"), path=path)
     platform_ledger.ingest_batch(batch("ffpc", "f1", "L2", "T2", "M2"), path=path)
@@ -92,16 +113,22 @@ def test_explicit_canonical_manager_link_prevents_cross_platform_unique_count_in
     conn.commit()
     conn.close()
     monkeypatch.setattr(market, "cohort_members", lambda **kwargs: members())
-    row = market.market_payload(window="30d", now_ms=NOW, ledger_path=path, ffpc_config={"enabled": True})["assets"][0]
+    row = market.market_payload(
+        window="30d", now_ms=NOW, ledger_path=path, ffpc_config={"enabled": True}
+    )["assets"][0]
     assert row["windows"]["30d"]["uniqueManagers"] == 1
 
 
 def test_waiver_never_enters_trade_buy_signal(tmp_path, monkeypatch):
     path = tmp_path / "ledger.sqlite3"
     platform_ledger.ingest_batch(batch("sleeper", "u1", "L1", "T1", "M1"), path=path)
-    platform_ledger.ingest_batch(batch("ffpc", "f1", "L2", "W1", "WM1", tx_type="waiver"), path=path)
+    platform_ledger.ingest_batch(
+        batch("ffpc", "f1", "L2", "W1", "WM1", tx_type="waiver"), path=path
+    )
     monkeypatch.setattr(market, "cohort_members", lambda **kwargs: members())
-    row = market.market_payload(window="30d", now_ms=NOW, ledger_path=path, ffpc_config={"enabled": True})["assets"][0]
+    row = market.market_payload(
+        window="30d", now_ms=NOW, ledger_path=path, ffpc_config={"enabled": True}
+    )["assets"][0]
     assert row["windows"]["30d"]["buys"] == 1
     assert "ffpc" not in row["sources"]
 
@@ -110,8 +137,12 @@ def test_nested_windows_are_independent_views_not_added(tmp_path, monkeypatch):
     path = tmp_path / "ledger.sqlite3"
     platform_ledger.ingest_batch(batch("sleeper", "u1", "L1", "T1", "M1"), path=path)
     monkeypatch.setattr(market, "cohort_members", lambda **kwargs: members())
-    thirty = market.market_payload(window="30d", now_ms=NOW, ledger_path=path, ffpc_config={})["assets"][0]
-    ninety = market.market_payload(window="90d", now_ms=NOW, ledger_path=path, ffpc_config={})["assets"][0]
+    thirty = market.market_payload(window="30d", now_ms=NOW, ledger_path=path, ffpc_config={})[
+        "assets"
+    ][0]
+    ninety = market.market_payload(window="90d", now_ms=NOW, ledger_path=path, ffpc_config={})[
+        "assets"
+    ][0]
     assert thirty["windows"]["30d"]["volume"] == 1
     assert ninety["windows"]["90d"]["volume"] == 1
 
@@ -164,9 +195,7 @@ def test_curated_contribution_is_disabled_by_default():
         ],
         "allowCuratedInCombinedSignals": False,
     }
-    selected, coverage = market.cohort_members(
-        qualification="curated", ffpc_config=config
-    )
+    selected, coverage = market.cohort_members(qualification="curated", ffpc_config=config)
     assert selected == []
     assert coverage["curatedContributionEnabled"] is False
 
@@ -243,9 +272,7 @@ def test_disabling_ffpc_excludes_automated_and_curated_ffpc_members(monkeypatch)
             }
         ],
     }
-    selected, coverage = market.cohort_members(
-        qualification="all", ffpc_config=config
-    )
+    selected, coverage = market.cohort_members(qualification="all", ffpc_config=config)
     assert selected == []
     assert coverage["curatedContributionEnabled"] is False
 
@@ -254,9 +281,7 @@ def test_audit_payload_preserves_source_trace(tmp_path, monkeypatch):
     path = tmp_path / "ledger.sqlite3"
     platform_ledger.ingest_batch(batch("sleeper", "u1", "L1", "T1", "M1"), path=path)
     monkeypatch.setattr(market, "cohort_members", lambda **kwargs: members())
-    payload = market.audit_payload(
-        "P1", window="30d", now_ms=NOW, ledger_path=path
-    )
+    payload = market.audit_payload("P1", window="30d", now_ms=NOW, ledger_path=path)
     movement = payload["movements"][0]
     assert movement["platform"] == "sleeper"
     assert movement["league"] == "sleeper:L1"

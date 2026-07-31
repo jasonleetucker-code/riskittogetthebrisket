@@ -33,17 +33,31 @@ def ffpc_batch():
         leagues=[NormalizedLeague.build("ffpc", "same", season="2026")],
         transactions=[
             NormalizedTransaction.build(
-                "ffpc", "same", league_key="ffpc:same", season="2026", week=1,
-                transaction_type="trade", status="complete", created_ms=1_800_000_100_000
+                "ffpc",
+                "same",
+                league_key="ffpc:same",
+                season="2026",
+                week=1,
+                transaction_type="trade",
+                status="complete",
+                created_ms=1_800_000_100_000,
             )
         ],
         movements=[
             NormalizedMovement.build(
-                "ffpc", "same:ffpc-user:add:P1", transaction_key="ffpc:same",
-                league_key="ffpc:same", canonical_asset_id="P1", source_asset_id="ffpc-p1",
-                source_name="Player One", asset_type="player", action="add",
-                manager_key="ffpc:same", roster_id="team-1", counterparty_manager_key=None,
-                timestamp_ms=1_800_000_100_000
+                "ffpc",
+                "same:ffpc-user:add:P1",
+                transaction_key="ffpc:same",
+                league_key="ffpc:same",
+                canonical_asset_id="P1",
+                source_asset_id="ffpc-p1",
+                source_name="Player One",
+                asset_type="player",
+                action="add",
+                manager_key="ffpc:same",
+                roster_id="team-1",
+                counterparty_manager_key=None,
+                timestamp_ms=1_800_000_100_000,
             )
         ],
     )
@@ -99,12 +113,9 @@ def test_future_legacy_sleeper_writes_receive_platform_keys(tmp_path):
     platform_ledger.ensure_platform_schema(path).close()
     conn = ledger.connect(path)
     ledger.ingest_events([legacy_event()], conn=conn)
-    tx = conn.execute(
-        "SELECT platform, transaction_key, league_key FROM transactions"
-    ).fetchone()
+    tx = conn.execute("SELECT platform, transaction_key, league_key FROM transactions").fetchone()
     movement = conn.execute(
-        "SELECT platform, movement_key, manager_key, canonical_asset_id "
-        "FROM asset_movements"
+        "SELECT platform, movement_key, manager_key, canonical_asset_id " "FROM asset_movements"
     ).fetchone()
     assert tuple(tx) == ("sleeper", "sleeper:same", "sleeper:same")
     assert tuple(movement) == (
@@ -198,8 +209,7 @@ def test_cross_platform_manager_link_requires_explicit_verification(tmp_path):
     )
     conn.commit()
     link = conn.execute(
-        "SELECT link_method, verified FROM manager_identity_links "
-        "WHERE manager_key='ffpc:same'"
+        "SELECT link_method, verified FROM manager_identity_links " "WHERE manager_key='ffpc:same'"
     ).fetchone()
     conn.close()
     assert tuple(link) == ("manual_verified", 1)

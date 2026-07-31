@@ -85,7 +85,9 @@ def cohort_status() -> dict[str, Any]:
         )
 
     config = sharp_market.load_ffpc_config()
-    curated = sharp_market.curated_members(config) if config.get("allowCuratedInCombinedSignals") else []
+    curated = (
+        sharp_market.curated_members(config) if config.get("allowCuratedInCombinedSignals") else []
+    )
     status = STATUS_OK if tiers.get("qualifiedManagers", 0) > 0 or curated else STATUS_BUILDING
     return {
         "status": status,
@@ -99,8 +101,7 @@ def cohort_status() -> dict[str, Any]:
             "signalEligibleLeagues": graph.get("signalEligibleLeagues", 0),
             "discoveryOnlyLeagues": graph.get("discoveryOnlyLeagues", 0),
             "observedTransactions": sum(
-                int((value or {}).get("transactions") or 0)
-                for value in source_coverage.values()
+                int((value or {}).get("transactions") or 0) for value in source_coverage.values()
             ),
         },
         "graph": graph,
@@ -192,10 +193,14 @@ def _register_http_routes() -> None:
                 qualification=str(request.query_params.get("qualification") or "all"),
             )
         except (ValueError, TypeError) as exc:
-            return JSONResponse(status_code=400, content={"error": "bad_request", "message": str(exc)})
+            return JSONResponse(
+                status_code=400, content={"error": "bad_request", "message": str(exc)}
+            )
         except Exception as exc:  # noqa: BLE001
             log.exception("sharp market audit failed")
-            return JSONResponse(status_code=503, content={"error": "sharp_market_unavailable", "message": str(exc)})
+            return JSONResponse(
+                status_code=503, content={"error": "sharp_market_unavailable", "message": str(exc)}
+            )
         return JSONResponse(content=payload, headers={"Cache-Control": "private, max-age=60"})
 
     app.add_api_route("/api/sharp/market", get_market, methods=["GET"], name="get_sharp_market")

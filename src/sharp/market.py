@@ -83,7 +83,8 @@ def _local_asset_catalog() -> dict[str, dict[str, Any]]:
                 {
                     "displayName": name,
                     "position": str(item.get("position") or "").strip().upper() or None,
-                    "nflTeam": str(item.get("team") or item.get("nflTeam") or "").strip().upper() or None,
+                    "nflTeam": str(item.get("team") or item.get("nflTeam") or "").strip().upper()
+                    or None,
                 },
             )
     return catalog
@@ -166,12 +167,9 @@ def cohort_members(
             methodology_version=item.methodology_version,
         )
         for item in scored
-        if item.qualified
-        and (item.user_id.split(":", 1)[0] != "ffpc" or ffpc_enabled)
+        if item.qualified and (item.user_id.split(":", 1)[0] != "ffpc" or ffpc_enabled)
     ]
-    curated_enabled = bool(
-        ffpc_enabled and config.get("allowCuratedInCombinedSignals")
-    )
+    curated_enabled = bool(ffpc_enabled and config.get("allowCuratedInCombinedSignals"))
     curated = curated_members(config) if curated_enabled else []
     if qualification == "automated":
         selected = automatic
@@ -186,7 +184,11 @@ def cohort_members(
     by_key: dict[str, CohortMember] = {}
     for item in selected:
         prior = by_key.get(item.manager_key)
-        if prior is None or item.qualification_method == "automated_qualified" or item.quality > prior.quality:
+        if (
+            prior is None
+            or item.qualification_method == "automated_qualified"
+            or item.quality > prior.quality
+        ):
             by_key[item.manager_key] = item
     coverage = {
         "automatedQualifiedManagers": len(automatic),
@@ -331,6 +333,7 @@ def _sort_rows(rows: list[dict[str, Any]], sort: str) -> list[dict[str, Any]]:
         if sort == "net":
             return (-row["net"], -row["volume"], row["assetId"])
         return (-row["signalStrength"], -row["volume"], row["assetId"])
+
     return sorted(rows, key=key)
 
 
@@ -389,12 +392,8 @@ def market_payload(
         short_item = short.get(asset_id)
         long_item = long.get(asset_id)
         velocity = signals.velocity(
-            {**short_item, "_spanMs": signals.WINDOWS_MS["48h"]}
-            if short_item
-            else None,
-            {**long_item, "_spanMs": signals.WINDOWS_MS["30d"]}
-            if long_item
-            else None,
+            {**short_item, "_spanMs": signals.WINDOWS_MS["48h"]} if short_item else None,
+            {**long_item, "_spanMs": signals.WINDOWS_MS["30d"]} if long_item else None,
         )
         strength = signals.signal_strength(
             net=item["net"],
@@ -424,11 +423,23 @@ def market_payload(
                 "uniqueLeagues": item["uniqueLeagues"],
                 "tradeCount": item["tradeCount"],
                 "movementCount": item["movementCount"],
-                "windows": {window: {k: item[k] for k in (
-                    "buys", "sells", "net", "volume", "buyRate",
-                    "uniqueManagers", "uniqueLeagues", "tradeCount",
-                    "movementCount", "lastTs"
-                )}},
+                "windows": {
+                    window: {
+                        k: item[k]
+                        for k in (
+                            "buys",
+                            "sells",
+                            "net",
+                            "volume",
+                            "buyRate",
+                            "uniqueManagers",
+                            "uniqueLeagues",
+                            "tradeCount",
+                            "movementCount",
+                            "lastTs",
+                        )
+                    }
+                },
                 "sources": item["sources"],
                 "sourceCount": len(item["sources"]),
                 "sourceLabels": source_labels,
@@ -450,7 +461,11 @@ def market_payload(
     automated_by_platform = {"sleeper": 0, "ffpc": 0}
     curated_by_platform = {"sleeper": 0, "ffpc": 0}
     for item in coverage_members:
-        target = automated_by_platform if item.qualification_method == "automated_qualified" else curated_by_platform
+        target = (
+            automated_by_platform
+            if item.qualification_method == "automated_qualified"
+            else curated_by_platform
+        )
         target[item.platform] = target.get(item.platform, 0) + 1
     for name, value in source_coverage.items():
         value["qualifiedManagers"] = automated_by_platform.get(name, 0)

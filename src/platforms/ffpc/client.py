@@ -201,9 +201,7 @@ class PublicFFPCClient:
                         cache_path=body_path,
                     )
                 if response.status_code in (429, 500, 502, 503, 504):
-                    raise FFPCClientError(
-                        f"FFPC returned HTTP {response.status_code}"
-                    )
+                    raise FFPCClientError(f"FFPC returned HTTP {response.status_code}")
                 response.raise_for_status()
                 content = response.text
                 body_path.write_text(content, encoding="utf-8")
@@ -235,6 +233,4 @@ class PublicFFPCClient:
                 if attempt >= self.retry_limit:
                     break
                 self.sleep_fn(min(30.0, 2.0**attempt))
-        raise FFPCClientError(
-            f"FFPC fetch failed for configured URL: {last_error}"
-        )
+        raise FFPCClientError(f"FFPC fetch failed for configured URL: {last_error}")

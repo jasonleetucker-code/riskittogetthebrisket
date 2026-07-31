@@ -150,8 +150,7 @@ def build_manager_records(
         losses = sum(int(s["losses"]) for s in seasons)
         ties = sum(int(s["ties"]) for s in seasons)
         finishes = [
-            (int(s["team_count"]) - int(s["finish_rank"]))
-            / float(int(s["team_count"]) - 1)
+            (int(s["team_count"]) - int(s["finish_rank"])) / float(int(s["team_count"]) - 1)
             for s in seasons
             if int(s["team_count"]) > 1
         ]
@@ -262,4 +261,3 @@ def coverage(*, ledger_path: Path | None = None) -> dict[str, Any]:
             )[:25]
         ],
     }
-
