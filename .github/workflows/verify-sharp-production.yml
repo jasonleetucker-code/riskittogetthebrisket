@@ -1,0 +1,164 @@
+name: Verify Sharp Production Population
+
+on:
+  workflow_run:
+    workflows: ["Deploy Production"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sharp-production-smoke
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: ${{ github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Wait for Sharp population and capture coverage
+        env:
+          DEPLOY_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          DEPLOY_RUN_ID: ${{ github.event.workflow_run.id }}
+          DEPLOY_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          output = Path("data/ops/sharp-production-smoke.json")
+          output.parent.mkdir(parents=True, exist_ok=True)
+          base = "https://chaseupside.com"
+          deploy_conclusion = os.environ.get("DEPLOY_CONCLUSION", "unknown")
+          deploy_sha = os.environ.get("DEPLOY_HEAD_SHA", "")
+          deploy_run = os.environ.get("DEPLOY_RUN_ID", "")
+
+          def fetch_json(url):
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "User-Agent": "ChaseUpside-Production-Smoke/1.0",
+                      "Cache-Control": "no-cache",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return response.status, json.loads(response.read().decode("utf-8"))
+
+          result = {
+              "checkedAt": datetime.now(timezone.utc).isoformat(),
+              "deployConclusion": deploy_conclusion,
+              "deployRunId": deploy_run,
+              "deployHeadSha": deploy_sha,
+              "status": "deploy_failed" if deploy_conclusion != "success" else "waiting",
+              "attempts": 0,
+              "cohort": {},
+              "ffpcMarket": {},
+              "errors": [],
+          }
+
+          if deploy_conclusion == "success":
+              # The deploy immediately starts both the Sleeper records job and
+              # public FFPC ingestion. Allow up to 40 minutes for the first
+              # historical pass while checking every 30 seconds.
+              for attempt in range(1, 81):
+                  result["attempts"] = attempt
+                  try:
+                      cohort_status, cohort = fetch_json(f"{base}/api/sharp/cohort")
+                      market_status, market = fetch_json(
+                          f"{base}/api/sharp/market?window=90d&platform=ffpc&qualification=provisional&limit=100"
+                      )
+                      cohort_stats = cohort.get("cohort") or {}
+                      records = ((cohort.get("coverage") or {}).get("records") or {})
+                      market_cohort = market.get("cohort") or {}
+                      assets = market.get("assets") or []
+                      ffpc_coverage = (
+                          ((market.get("coverage") or {}).get("platforms") or {}).get("ffpc")
+                          or {}
+                      )
+                      result["cohort"] = {
+                          "httpStatus": cohort_status,
+                          "status": cohort.get("status"),
+                          "observableManagers": cohort_stats.get("observableManagers", 0),
+                          "evaluableManagers": cohort_stats.get("evaluableManagers", 0),
+                          "qualifiedManagers": cohort_stats.get("qualifiedManagers", 0),
+                          "provisionalManagers": cohort_stats.get("provisionalManagers", 0),
+                          "managersWithRecords": records.get("managersWithRecords", 0),
+                          "seasonRows": records.get("seasonRows", 0),
+                      }
+                      result["ffpcMarket"] = {
+                          "httpStatus": market_status,
+                          "status": market.get("status"),
+                          "assetRows": len(assets),
+                          "provisionalManagers": market_cohort.get("provisionalManagers", 0),
+                          "transactions": ffpc_coverage.get("transactions", 0),
+                          "movements": ffpc_coverage.get("movements", 0),
+                          "unmappedAssets": (market.get("dataQuality") or {}).get(
+                              "unmappedAssets", 0
+                          ),
+                          "sampleAssets": [
+                              {
+                                  "assetId": row.get("assetId"),
+                                  "displayName": row.get("displayName"),
+                                  "sourceLabels": row.get("sourceLabels"),
+                              }
+                              for row in assets[:5]
+                          ],
+                      }
+                      sleeper_started = int(records.get("managersWithRecords") or 0) > 0
+                      ffpc_started = (
+                          len(assets) > 0
+                          and int(market_cohort.get("provisionalManagers") or 0) > 0
+                      )
+                      if sleeper_started and ffpc_started:
+                          result["status"] = "healthy"
+                          break
+                      result["status"] = "population_in_progress"
+                  except Exception as exc:  # noqa: BLE001
+                      result["errors"].append(
+                          {
+                              "attempt": attempt,
+                              "type": type(exc).__name__,
+                              "message": str(exc),
+                          }
+                      )
+                      result["errors"] = result["errors"][-10:]
+                      result["status"] = "endpoint_retry"
+                  if attempt < 80:
+                      time.sleep(30)
+              else:
+                  result["status"] = "degraded_timeout"
+
+          result["checkedAt"] = datetime.now(timezone.utc).isoformat()
+          output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
+
+      - name: Commit production smoke result
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add data/ops/sharp-production-smoke.json
+          git commit -m "chore(ops): record Sharp production smoke"
+          git push origin HEAD:main
+
+      - name: Enforce healthy population
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path("data/ops/sharp-production-smoke.json").read_text())
+          if result.get("status") != "healthy":
+              raise SystemExit(f"Sharp production smoke is not healthy: {result.get('status')}")
+          PY
