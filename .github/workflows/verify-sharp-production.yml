@@ -1,6 +1,12 @@
 name: Verify Sharp Production Population
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "data/ops/sharp-production-smoke.json"
+      - "data/**"
+      - "exports/**"
   workflow_run:
     workflows: ["Deploy Production"]
     types: [completed]
@@ -10,11 +16,11 @@ permissions:
 
 concurrency:
   group: sharp-production-smoke
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   verify:
-    if: ${{ github.event.workflow_run.head_branch == 'main' }}
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -23,17 +29,17 @@ jobs:
           ref: main
           fetch-depth: 1
 
-      - name: Wait for Sharp population and capture coverage
+      - name: Wait for deploy and Sharp population, then capture coverage
         env:
-          DEPLOY_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          DEPLOY_RUN_ID: ${{ github.event.workflow_run.id }}
-          DEPLOY_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          DEPLOY_CONCLUSION: ${{ github.event.workflow_run.conclusion || 'pending' }}
+          DEPLOY_RUN_ID: ${{ github.event.workflow_run.id || '' }}
+          DEPLOY_HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           python - <<'PY'
           import json
           import os
           import time
-          import urllib.error
           import urllib.request
           from datetime import datetime, timezone
           from pathlib import Path
@@ -41,7 +47,8 @@ jobs:
           output = Path("data/ops/sharp-production-smoke.json")
           output.parent.mkdir(parents=True, exist_ok=True)
           base = "https://chaseupside.com"
-          deploy_conclusion = os.environ.get("DEPLOY_CONCLUSION", "unknown")
+          event_name = os.environ.get("EVENT_NAME", "")
+          deploy_conclusion = os.environ.get("DEPLOY_CONCLUSION", "pending")
           deploy_sha = os.environ.get("DEPLOY_HEAD_SHA", "")
           deploy_run = os.environ.get("DEPLOY_RUN_ID", "")
 
@@ -58,20 +65,23 @@ jobs:
 
           result = {
               "checkedAt": datetime.now(timezone.utc).isoformat(),
+              "eventName": event_name,
               "deployConclusion": deploy_conclusion,
               "deployRunId": deploy_run,
               "deployHeadSha": deploy_sha,
-              "status": "deploy_failed" if deploy_conclusion != "success" else "waiting",
+              "status": "waiting",
               "attempts": 0,
               "cohort": {},
               "ffpcMarket": {},
               "errors": [],
           }
 
-          if deploy_conclusion == "success":
-              # The deploy immediately starts both the Sleeper records job and
-              # public FFPC ingestion. Allow up to 40 minutes for the first
-              # historical pass while checking every 30 seconds.
+          if event_name == "workflow_run" and deploy_conclusion != "success":
+              result["status"] = "deploy_failed"
+          else:
+              # A push-triggered smoke starts alongside deployment. A workflow-run
+              # smoke starts after deployment. Both allow up to 40 minutes for the
+              # deploy plus the initial background Sleeper/FFPC collection.
               for attempt in range(1, 81):
                   result["attempts"] = attempt
                   try:
@@ -149,6 +159,7 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git pull --rebase origin main
           git add data/ops/sharp-production-smoke.json
           git commit -m "chore(ops): record Sharp production smoke"
           git push origin HEAD:main
