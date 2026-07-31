@@ -1,0 +1,45 @@
+name: Trigger Sharp materializer
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  run-materializer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/sharp-production-population
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Execute materializer run steps
+        shell: bash
+        run: |
+          pip install pyyaml
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          import yaml
+
+          workflow_path = Path('.github/workflows/materialize-sharp-production.yml')
+          workflow = yaml.safe_load(workflow_path.read_text())
+          steps = workflow['jobs']['materialize']['steps']
+          for step in steps:
+              command = step.get('run')
+              if not command:
+                  continue
+              if step.get('name') == 'Commit materialized changes':
+                  command = command.replace(
+                      'rm -f .github/workflows/materialize-sharp-production.yml',
+                      'rm -f .github/workflows/materialize-sharp-production.yml .github/workflows/trigger-sharp-materializer.yml',
+                  )
+              print(f"::group::{step.get('name', 'run')}")
+              subprocess.run(command, shell=True, executable='/bin/bash', check=True)
+              print('::endgroup::')
+          PY
