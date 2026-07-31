@@ -19,10 +19,7 @@ def test_ffpc_production_sources_are_public_only_and_usable():
     assert len(enabled) >= 10
     assert all(source["format"] == "dynasty" for source in enabled)
     assert all(
-        source["publicUrl"].startswith("https://myffpc.com/LeagueHome.aspx?")
-        for source in enabled
+        source["publicUrl"].startswith("https://myffpc.com/LeagueHome.aspx?") for source in enabled
     )
-    assert all(
-        source["allowProvisionalContribution"] is True for source in enabled
-    )
+    assert all(source["allowProvisionalContribution"] is True for source in enabled)
     assert all(source["sharpEligible"] is False for source in enabled)
