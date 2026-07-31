@@ -11,15 +11,24 @@ passed):
 * **11 of 19 failures were one missing ``pageUrl()`` wrapper.**
   Navigation in the E2E suite must go through ``pageUrl()``;
   a bare ``page.goto("/rankings")`` resolves against ``baseURL``, which
-  is the FastAPI page proxy.  ``_proxy_next`` forwards no cookies
-  (``server.py:2891-2896``; ``server.py:12539-12545`` states it
-  outright), so once ``frontend/middleware.js`` landed on 2026-07-29
-  every such navigation 307'd to ``/login``.  Six rankings journeys, the
+  was the FastAPI page proxy.  ``_proxy_next`` forwarded no cookies —
+  it took a ``path`` string rather than a ``Request``, so it
+  structurally could not — and so once ``frontend/middleware.js``
+  landed on 2026-07-29 every such navigation 307'd to
+  ``/login``.  Six rankings journeys, the
   settings-override round-trip, two mobile smokes and two chart smokes
   all reported "rankings board should render rows / element(s) not
   found" — which reads like a dead value pipeline and was a dead cookie.
   In the SAME run a spec that navigated correctly dumped a board with
   968 players and 200 rendered rows.
+
+  (Those ``server.py`` line citations were removed rather than
+  refreshed: the proxy was deleted in #555, so there is no current line
+  to point at.  They had already gone stale once — the second span had
+  drifted onto an unrelated ``/api/`` docstring — which is the argument
+  against citing line numbers in prose at all.  The failure mode this
+  guard catches is unchanged; only its blast radius shrank, because a
+  bare goto now 404s loudly instead of quietly rendering /login.)
 
 * **4 more were one rename.**  PR #625's naming canon renamed
   "Trade Builder" → "Trade Calculator" and "Roster Dashboard" →
@@ -53,26 +62,32 @@ FRONTEND_CANON = REPO_ROOT / "frontend" / "__tests__" / "helpers" / "naming-cano
 # ``page.goto("/…")`` without pageUrl().  Matches the LITERAL-path form
 # only.
 #
-# The original comment here justified that as "template literals and
-# variables are all fine because they cannot be the bare-baseURL
-# mistake". That was wrong, and wrong in the specific way this whole file
-# exists to catch — a guard whose stated purpose and actual predicate
-# differ (docs/ORCHESTRATION.md §6.15).
+# The original comment justified that as "variables are all fine because
+# they cannot be the bare-baseURL mistake" — wrong, in the exact way this
+# file exists to catch (docs/ORCHESTRATION.md §6.15). It was corrected to
+# say the variable form was out of scope because ``critical-smoke.spec.js``
+# iterated route arrays through ``page.goto(path)`` and was CORRECT to:
+# those tests asserted the backend page proxy's own anonymous-access
+# behaviour and must not be rerouted to :3000.
 #
-# ``critical-smoke.spec.js`` iterates PUBLIC_ROUTES / AUTH_GATED_ROUTES
-# and calls ``page.goto(path)`` with a variable holding "/rankings",
-# "/trade"… which lands on baseURL exactly like the literal form. It is
-# CORRECT there — those tests assert the backend's own anonymous-access
-# behaviour and must not be rerouted to :3000 — but it is correct by
-# intent, not because the variable form is inherently safe.
+# **That exception is now gone.** #555 deleted the page proxy. The backend
+# has no anonymous-access page behaviour to assert, because it serves no
+# pages — every page path 404s there. critical-smoke now navigates through
+# pageUrl() like everything else, and there is no longer ANY navigation in
+# this suite that should resolve against baseURL.
 #
-# So the honest statement of the rule is narrower than "navigations must
-# go through pageUrl()": this guard catches the literal form, which is
-# the shape the 11-of-19 nightly regression actually took
-# (``gotoRankingsBoard`` had a hardcoded ``page.goto("/rankings")``).
-# The variable form is deliberately out of scope because distinguishing
-# "iterating routes to test the proxy" from "forgot the wrapper" needs
-# intent a regex does not have.
+# So the rule is finally as broad as it always sounded: every page
+# navigation goes through pageUrl(). What has not changed is this regex,
+# which still only catches the LITERAL form — the shape the 11-of-19
+# nightly regression took (``gotoRankingsBoard`` had a hardcoded
+# ``page.goto("/rankings")``).
+#
+# Be clear about the residual hole rather than implying it closed: a
+# reintroduced ``page.goto(path)`` over a route array would still slip
+# past. It is left out because a regex cannot tell that from a legitimate
+# variable navigation, and a guard that fires on both would be turned off.
+# The live consequence is smaller than it was — such a call now 404s
+# loudly on every route instead of quietly asserting against /login.
 _BARE_GOTO = re.compile(r"""\.goto\(\s*["'](/[^"']*)["']""")
 
 # Deliberate exemptions, keyed (file, route).  EMPTY, and that is the

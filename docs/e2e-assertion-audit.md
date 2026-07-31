@@ -257,11 +257,14 @@ against `visitLeague`'s `waitForText` budget of **15 s**
 (`public-league.spec.js:52-56`). The test sits *below the page's own
 render time* and passes only when the route happens to be warm.
 
-This is the `/league` SSR slowness already filed as **#555 item 3**
-(7-19 s, exceeding the proxy's 5 s timeout). The test failure is a
-symptom of that, surfacing as a franchise-feature failure.
-*Fix (test side):* raise the budget above the measured p100. *Real
-fix:* #555 item 3.
+This is the `/league` SSR slowness, filed as **#667**. It was originally
+#555 item 3 ("exceeds the proxy's 5 s timeout"); the proxy was deleted
+2026-07-31, which removed the stated symptom without touching the cause,
+so it was split out before #555 closed rather than allowed to vanish with
+it. The test failure is a symptom, surfacing as a franchise-feature
+failure.
+*Fix (test side):* raise the budget above the measured p100. *Real fix:*
+#667.
 
 ---
 
@@ -307,7 +310,8 @@ assertion rewrites** and deserve their own review rather than riding a
 PR whose point is the audit.
 
 `/league` SSR performance is explicitly **not** touched here. The
-15.78 s measurement belongs to #555 item 3, where that work is filed.
+15.78 s measurement belongs to #667 (was #555 item 3), where that work
+is filed.
 Widening the test's 15 s budget would paper over a real product defect;
 the reclassification is worth more than the green.
 
@@ -848,7 +852,7 @@ A 12-tab walk clicking through at ~2.5s intervals reads an **identical
 Per-section content assertions therefore live in
 `public-league-visual.spec.js` (one fresh navigation per section, which
 the lazy loading does support); the tab-walk test asserts tab presence
-and the privacy invariant. Related to #555 item 3.
+and the privacy invariant. Related to #667 (was #555 item 3).
 
 ---
 

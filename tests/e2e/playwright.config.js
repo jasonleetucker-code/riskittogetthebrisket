@@ -158,11 +158,15 @@ module.exports = defineConfig({
           reuseExistingServer: true,
         },
         {
-          // Next.js frontend.  server.py proxies all page routes to
-          // :3000 with a 5s timeout (see server.py::_proxy_next), so a
-          // dev-mode first-compile (often >5s) would 503 through the
-          // proxy and flake page tests.  Default to a production
-          // build + start for deterministic timings; override with
+          // Next.js frontend — and since #555 the ONLY thing serving a
+          // page, so this server is not optional for page specs.  (The
+          // old note here justified the production build by the backend
+          // proxy's 5s timeout, which a dev-mode first-compile would
+          // exceed and 503 through.  That proxy is deleted.)  The
+          // production build stays, for the reason underneath: a
+          // dev-mode first-compile is slow and variable, and page specs
+          // measured against it flake on their own content budgets
+          // rather than on anything real.  Override with
           // E2E_FRONTEND_CMD (e.g. "npm run start" in CI after an
           // explicit build step, or point at an already-running dev
           // server — reuseExistingServer skips this entirely when
