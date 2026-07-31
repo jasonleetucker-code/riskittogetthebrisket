@@ -852,3 +852,170 @@ and the privacy invariant. Related to #555 item 3.
 
 ---
 
+
+## Part 3 — the 2026-07-31 pass: six failures, one green suite
+
+Part 2 catalogued findings. This part records what a **full local run**
+against a booted stack turned up, because the catalogue could not have
+found any of it: every one of these is a timing or attribution defect
+that only exists when the suite actually runs.
+
+Baseline before the pass: `E2E Safety Net` last ran 2026-07-30 09:07 on
+`f90491cbd`, which predates every fix that merged that evening. So CI
+could not answer whether #588 was fixed; only running it could.
+
+First full run: **6 failed / 85 passed**. Final: **139 passed, 49
+skipped, 0 failed** across `desktop-1366` + `mobile-chromium` with the
+exact CI flags (`--ignore-snapshots`, `SKIP_VISUAL_REGRESSION=1`).
+
+### §4.1 Three chart tests — a toggle that renames itself
+
+`_openMethodology` matched the toggle by accessible name and then
+polled `aria-pressed` on it. But `rankings/page.jsx:1319` renders
+"Methodology charts" while collapsed and **"Hide charts" while
+expanded**. The click landed, the panel opened, the name changed, and
+the locator stopped resolving — so the poll read an attribute off zero
+elements until it timed out, against a panel that is plainly open in
+every trace.
+
+Generalisable: **a name-keyed locator is unstable across any state that
+renames its own control.** Either match every name the control can
+take, or key on something that does not change.
+
+This was self-inflicted — the previous revision wrapped the click in
+`try/catch {}` and passed. Replacing a swallowed failure with a
+verified one is still the right direction; the verification just has to
+be correct.
+
+### §4.2 `/arbitrage` — "idempotent" was wrong
+
+The archives remedy (click *inside* `expect.poll`, so a click lost to
+pre-hydration timing is retried) was applied here with the justification
+"the handler is idempotent, so re-clicking only re-runs the same scan".
+
+It is not idempotent in the way that matters. `run()` sets
+`running: true`, and **both** settled states — the trade cards and the
+"No arbitrage found" empty state — are gated on `!running`
+(`arbitrage/page.jsx:283,289`). A click fired on the same tick the
+previous scan finished tears the result straight back down, and because
+the click ran *before* the read, the read always observed zero. It
+failed deterministically with 30+ trade cards on screen.
+
+Two rules fall out, and they apply to every retry-click poll:
+
+1. **Read first, click second.** A poll that acts before it observes
+   cannot see the state its own action just destroyed.
+2. **"Idempotent" means the second click leaves the observable state
+   unchanged** — not that it re-runs the same work. A tab selector
+   qualifies. A scan button that clears its own results does not.
+
+The `/league` tab helper deliberately keeps click-then-read: there, the
+content check *is* the proof the tab switched, so reading first would
+pass on the default tab's body.
+
+### §4.3 `/waivers` — read-once-then-branch
+
+```js
+const text = await body.innerText();
+if (/Select a team/i.test(text)) { … } else { … expect DROP … }
+```
+
+The page passes through three distinct bodies while it settles
+(signed-out shell → signed-in without team → team picker). A read
+landing on the middle one matches neither marker, takes the `else`
+branch, and then waits 15s for a "DROP" this session will never render.
+
+Same hydration race as the archives one in a different costume: the
+branch is decided on a frame that is not the final frame. **Poll for
+whichever settled state arrives; never branch on a single read.**
+
+### §4.4 The flake that moved between runs — guard misattribution
+
+`journey-trade` "/trade renders the builder" failed with a React #418
+hydration error whose stack was entirely `127.0.0.1:8000/_next/...`
+chunks — from a test that navigates to `:3000`.
+
+`auth-fixture` primed cookies with a bare `page.goto("/")`, resolving
+against `baseURL` (the backend page proxy). That document hydrates the
+**anonymous shell** against an authenticated client, and React reports
+the mismatch *asynchronously*, on the MessagePort scheduler, after
+`goto()` has resolved. By then the test body has attached its console
+guards — so the fixture's error lands in the next test's bucket.
+
+Whichever authed spec loses the race gets the failure, which is why it
+moved between runs and why `journey-tools-health` failed in the full run
+and passed in isolation. The fixture now primes through `pageUrl()` like
+every other navigation.
+
+That retired the harness guard's only `_GOTO_EXEMPT` entry. Its stated
+reason — "'/' is public so it cannot 307" — was true and beside the
+point: sound about redirects, silent about hydration. Same
+`docs/ORCHESTRATION.md` §6.15 shape the guard file exists to catch.
+
+**The proxy's mismatched shell is a real product defect**, not just a
+harness one. It is #555 and is being deleted; §4.4 is only about not
+misattributing it.
+
+### §4.5 Two tests that reported PASSED while executing nothing
+
+Flagged in Part 2, fixed here. `critical-smoke.spec.js` held:
+
+```js
+if (res.status() === 401) {
+  test.info().annotations.push({ type: "skip", description: "…" });
+  return;
+}
+```
+
+`annotations.push({type: "skip"})` is **not** `test.skip()`. It skips
+nothing; Playwright reports the test as passed. Both endpoints
+(`/api/terminal`, `/api/data/rank-history`) are auth-gated and 401 to an
+anonymous request — and this is an anonymous spec — so every assertion
+in both bodies was permanently unreachable while the suite counted two
+more green tests for it.
+
+Neither was simply deleted. The auth gate was already covered
+non-vacuously by `AUTH_GATED_API_ROUTES`; the terminal payload by
+`signed-in-smoke`; and the `MAX_SNAPSHOTS` clamp, which had **no other
+home**, moved to `signed-in-smoke` where it can execute. It was
+tightened on the way: `days <= 365*3` would be satisfied by a clamp
+returning 1, so it now pins the exact value and checks both ends of the
+`max`/`min` pair.
+
+The endpoint's docstring claimed "max 180" while the code clamps to
+1095 — that is the *player-source-history* window, on the next handler
+down. Corrected.
+
+### §4.6 The identity allowlist — a guard measuring the wrong thing
+
+Not an E2E finding, but the same shape and it surfaced in the same pass.
+
+`test_the_duplicate_allowlist_only_holds_real_collisions` required every
+allowlisted name to be colliding in the **currently committed pool**.
+That pool refreshes from external sources every two hours: "Robert
+Henry" entered `CSVs/dynasty_full.csv` at 2026-07-30T18:06Z and was gone
+by 2026-07-31T04:09Z, failing CI while the exemption was entirely
+correct. Left alone the pair churns forever — drop the entry, the next
+refresh re-adds the row, the *gate* fails and opens an issue, re-add it.
+
+What justifies an exemption is committed code: the verified
+`robert henry -> rob henry` alias. An alias-introduced collision on a
+name is only *possible* while something in `CANONICAL_NAME_ALIASES`
+targets it, so that is the live/dead test.
+
+The allowlist is now `name -> the exact alias sources verified for it`,
+which is **strictly stronger** on the risk that mattered. The old check
+said nothing about which names an exemption covers, so a second alias
+pointing at "rob henry" would have inherited the carve-out in silence —
+the widening it claimed to prevent. Verified failing in both directions.
+
+### What Part 3 does not claim
+
+- **The pixel baselines are still not committed**, so `SKIP_VISUAL_REGRESSION=1`
+  in CI means the `toHaveScreenshot` assertions never run there. The
+  structural chart assertions do. Unchanged from Part 2.
+- **49 of 188 are skipped** in a CI-parity run — mostly `desktopOnly`
+  guards on `mobile-chromium` plus the visual block. These are real
+  `test.skip()` calls and report as skipped, not as passed.
+- **Coverage gaps from Part 2 §3 are untouched.** This pass made the
+  suite trustworthy; it did not make it complete.

@@ -3542,7 +3542,11 @@ async def get_rank_history(request: Request):
     shape the frontend ``RankChangeGlyph`` consumes.
 
     Query params:
-      * ``days`` — window in days (default 30, max 180).
+      * ``days`` — window in days (default
+        ``_rank_history.DEFAULT_HISTORY_WINDOW_DAYS``, clamped to
+        ``[1, _rank_history.MAX_SNAPSHOTS]`` — 1095, i.e. three years).
+        This line used to say "max 180", which is the
+        player-source-history window below, not this one.
 
     The log is already mirrored onto each row's ``rankHistory`` at
     contract build time, so most consumers don't need this endpoint

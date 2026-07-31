@@ -95,7 +95,10 @@ function TradeCard({ trade, myTeam, opponent }) {
   }, [trade, myTeam, opponent]);
 
   return (
-    <Panel className={styles.tradeCard}>
+    // ``arbitrage-trade-card`` is a stable E2E hook alongside the
+    // CSS-module class, the same convention the news rows use — module
+    // class names are hashed at build time and cannot be selected on.
+    <Panel className={`${styles.tradeCard} arbitrage-trade-card`}>
       <div className={styles.tradeHead}>
         <span className={styles.score}>
           arbitrage {Number(trade.arbitrageScore || 0).toFixed(2)}

@@ -198,6 +198,37 @@ test.describe("signed-in: API round-trips that public smoke can't hit", () => {
     expect(res.status()).toBe(200);
   });
 
+  // Moved here from critical-smoke.spec.js, which is an ANONYMOUS spec.
+  // The endpoint is auth-gated and 401s to an anonymous request, and the
+  // test there opened with `if (status === 401) return;` — so its whole
+  // body was unreachable while Playwright reported it PASSED.
+  //
+  // Also tightened while moving. It asserted `days <= 365 * 3`, which a
+  // clamp returning 1 would satisfy just as happily as the correct one;
+  // the contract is an exact value, so assert that. Both ends of the
+  // clamp are checked because they are separate `max`/`min` terms
+  // (server.py:3556) and only one of them was covered before.
+  test("rank-history clamps days to [1, MAX_SNAPSHOTS]", async ({ authedPage }) => {
+    const MAX_SNAPSHOTS = 365 * 3; // src/api/rank_history.py:85
+
+    const high = await authedPage.request.get("/api/data/rank-history?days=9999");
+    expect(high.status()).toBe(200);
+    const highBody = await high.json();
+    expect(highBody.days).toBe(MAX_SNAPSHOTS);
+    expect(highBody.history).toBeDefined();
+
+    const low = await authedPage.request.get("/api/data/rank-history?days=0");
+    expect(low.status()).toBe(200);
+    expect((await low.json()).days).toBe(1);
+
+    // A non-numeric value falls back to the default rather than 500ing.
+    const junk = await authedPage.request.get("/api/data/rank-history?days=abc");
+    expect(junk.status()).toBe(200);
+    const junkDays = (await junk.json()).days;
+    expect(junkDays).toBeGreaterThanOrEqual(1);
+    expect(junkDays).toBeLessThanOrEqual(MAX_SNAPSHOTS);
+  });
+
   test("/api/terminal returns 200 (or 503 data_not_ready) for default league", async ({ authedPage }) => {
     const res = await authedPage.request.get("/api/terminal");
     // 200 = happy; 503 data_not_ready is acceptable when no live contract.

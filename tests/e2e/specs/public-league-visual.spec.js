@@ -81,13 +81,40 @@ async function _openLeagueTab(page, tabLabel, expectContent) {
     `the "${tabLabel}" sub-tab must exist on /league — a renamed or ` +
       `dropped tab used to make this test silently pass`,
   ).toBeVisible({ timeout: READINESS_TIMEOUT_MS });
-  await btn.first().click();
-
-  // Data-driven wait on the section's own content — never a sleep.
-  await expect(
-    page.locator("body"),
-    `the "${tabLabel}" section should render its own content`,
-  ).toContainText(expectContent, { timeout: READINESS_TIMEOUT_MS });
+  // Click INSIDE the poll, not before it.
+  //
+  // `toBeVisible` proves the markup arrived, not that React has attached
+  // handlers — and against a large document those are far apart. A click
+  // that lands in that gap is not queued, it is LOST, and the wait below
+  // then watches a section that was never going to change. That is the
+  // race diagnosed on the archives tab (30 production runs read
+  // FFFF.SFFSFSSSSSSFSFSFFSS.FSFFF — 13 pass, 15 fail, interleaved), and
+  // the remedy proven there is to retry the click while polling.
+  //
+  // ALL FOUR tests in this file funnel through this helper, so the fix
+  // was worth generalising rather than leaving in public-league.spec.js
+  // alone. Re-clicking is safe: the handler sets tab state, so extra
+  // clicks re-select the same tab.
+  // NOTE: every caller passes a RegExp, so this must test with `.test()`,
+  // not `String.includes` — the latter would stringify the pattern and
+  // silently never match, turning a race fix into a permanent failure.
+  const matcher =
+    expectContent instanceof RegExp ? expectContent : new RegExp(expectContent, "i");
+  await expect
+    .poll(
+      async () => {
+        await btn.first().click();
+        return matcher.test(await page.locator("body").innerText());
+      },
+      {
+        message:
+          `the "${tabLabel}" section should render its own content ` +
+          `(expected to match ${matcher})`,
+        timeout: READINESS_TIMEOUT_MS,
+        intervals: [250, 500, 1000, 2000, 3000],
+      },
+    )
+    .toBe(true);
 }
 
 test.describe("public /league visual regression", () => {

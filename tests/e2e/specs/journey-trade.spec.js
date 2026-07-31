@@ -1,12 +1,19 @@
 /**
  * Critical journey: trade surfaces.
  *
- *   - /trade   — the trade builder (calculator) renders and accepts input
- *   - /trades  — trade history page renders (cards or explicit empty state)
- *   - /finder  — the arbitrage-finder board renders result rows
- *   - POST /api/trade/finder — the KTC arbitrage engine returns trades
- *     for a real roster (API-level: no UI consumes this endpoint today,
- *     but the engine is a product surface the redesign must not break)
+ *   - /trade      — the trade builder (calculator) renders and accepts input
+ *   - /trades     — trade history renders (cards or explicit empty state)
+ *   - /rankings?screen= — a screen deep-link actually narrows the board
+ *   - /arbitrage  — the board-vs-market scan resolves to trades or an
+ *     explicit empty state
+ *   - POST /api/trade/finder — the same engine at the API level
+ *
+ * The last two used to be one test pointed at /finder and named after
+ * the arbitrage board, which was two different surfaces confused for
+ * one.  /finder is now a redirect shim into /rankings; see the comment
+ * above those tests.  The old header here also said "no UI consumes this
+ * endpoint today", which stopped being true when /arbitrage shipped as
+ * its caller.
  *
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  */
@@ -67,27 +74,140 @@ test.describe("journey: trade surfaces", () => {
     guard.assertClean();
   });
 
-  test("/finder renders the arbitrage board with result rows", async ({ authedPage: page }) => {
+  // ── What replaced "/finder renders the arbitrage board" ──────────
+  //
+  // That test asserted one page and was named after a different one, and
+  // both halves of the confusion are now covered separately.
+  //
+  // /finder was a board FILTER — presets over sourceRankSpread /
+  // confidenceBucket / isSingleSource / rookie.  It computed no
+  // board-versus-market comparison at all, despite a stale header
+  // comment there once calling it "the arbitrage blotter".  It is now a
+  // redirect shim into /rankings and its presets are the Screens
+  // dropdown, so its coverage belongs on /rankings (first test below).
+  //
+  // The actual board-vs-market engine (src/trade/finder.py) is /arbitrage,
+  // which had NO e2e coverage at all — so the old test's *name* described
+  // something real that nothing was testing (second test below).
+  //
+  // Deleting the stale test outright would have dropped both.
+
+  test("a /rankings screen deep-link narrows the board to its question", async ({
+    authedPage: page,
+  }) => {
     const guard = attachConsoleGuards(page);
-    await page.goto(pageUrl("/finder"), { waitUntil: "domcontentloaded" });
 
-    await expect(page.locator("body")).toContainText(/Finder/i, { timeout: 30_000 });
+    // ``?screen=wr-gaps`` seeds the board view on mount (rankings
+    // page.jsx). An unknown key deliberately falls through to the
+    // default board rather than wedging, so asserting the URL loaded is
+    // NOT enough — we have to prove the filter actually applied.
+    await page.goto(pageUrl("/rankings?screen=wr-gaps"), {
+      waitUntil: "domcontentloaded",
+    });
 
-    // Data-driven: the results table materializes once /api/data lands.
-    // Accepts the legacy `.table-wrap` and the ds `DataTable` wrapper the
-    // redesign moves these pages onto, so this spec spans the rebuild
-    // instead of needing a flag-day edit the day R3 lands.
-    const rows = page.locator(
-      ".table-wrap table tbody tr, .ds-table-wrap table tbody tr",
-    );
-    await expect(rows.first(), "finder should render result rows").toBeVisible({
+    // Still the rankings board, not a 404 or a redirect somewhere else.
+    // NOTE `pageHeading` RETURNS a locator — it asserts nothing on its
+    // own, so it must be wrapped in expect(). A bare `await
+    // pageHeading(...)` is a silent no-op.
+    await expect(pageHeading(page, titleFor("/rankings"))).toBeVisible({
       timeout: 60_000,
     });
-    expect(await rows.count()).toBeGreaterThan(5);
 
-    // The match-count line reflects a populated board.
-    await expect(page.locator("body")).toContainText(/\d[\d,]* players? match/i);
+    const rows = page.locator(SEL.boardRow);
+    await expect(rows.first(), "screened board should render rows").toBeVisible({
+      timeout: 60_000,
+    });
+    const count = await rows.count();
+    expect(count, "wr-gaps must match at least one player on the snapshot").toBeGreaterThan(0);
 
+    // The screen's definition: WRs only. This is what makes the test
+    // non-vacuous — the DEFAULT board is all positions, so if the
+    // ?screen= seeding silently failed, non-WR rows would appear here.
+    //
+    // Addressed by `data-col`, not `nth-child`: the board's column set is
+    // built conditionally (the Fund-gap column appears only while BDVM
+    // serves an ok payload), so an ordinal selector would keep passing
+    // while reading a different column.
+    const positions = await page
+      .locator(`${SEL.boardRow} td[data-col="pos"]`)
+      .allInnerTexts();
+    expect(positions.length, "pos column should be addressable").toBeGreaterThan(0);
+    // The cell renders "WR" plus the position rank ("WR12"), so match the
+    // leading token rather than requiring exact equality.
+    const nonWr = positions
+      .map((p) => p.trim())
+      .filter((p) => p && !/^WR\b/.test(p));
+    expect(nonWr, `wr-gaps returned non-WR rows: ${nonWr.slice(0, 5).join(", ")}`).toEqual([]);
+
+    guard.assertClean();
+  });
+
+  test("/arbitrage scans and renders either trades or an explicit empty state", async ({
+    authedPage: page,
+  }) => {
+    const guard = attachConsoleGuards(page);
+    await page.goto(pageUrl("/arbitrage"), { waitUntil: "domcontentloaded" });
+
+    await expect(pageHeading(page, titleFor("/arbitrage"))).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // Before any scan the page states what it wants, rather than showing
+    // an empty table that reads like a broken board.
+    await expect(page.getByText(/Pick a team and scan/i)).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // The team selector populates from the live contract; wait for a real
+    // option rather than clicking into a disabled control.
+    const teamSelect = page.getByLabel("Your team");
+    await expect
+      .poll(async () => (await teamSelect.locator("option").count()), {
+        message: "team selector should populate from the contract",
+        timeout: 60_000,
+      })
+      .toBeGreaterThan(0);
+
+    // Click INSIDE the poll: the first click can land before React has
+    // attached handlers and is then simply lost. Same remedy as the
+    // archives race (public-league.spec.js).
+    //
+    // But NOT "click every tick". Re-clicking is not idempotent here —
+    // `run()` sets `running: true`, and BOTH settled states are gated
+    // on `!running` (arbitrage/page.jsx:283,289). So a click fired on
+    // the same tick that the previous scan finished tears the result
+    // straight back down, and since the click happened before the read,
+    // the read always saw zero. That is not a hypothetical: it failed
+    // deterministically, with 30+ trade cards visible in the trace.
+    //
+    // Hence: READ FIRST, and only click when no scan is in flight.
+    // `disabled={running || dataLoading || !effectiveTeam}` makes
+    // `isEnabled()` the page's own statement that a click is safe.
+    const scan = page.getByRole("button", { name: /Find arbitrage|Scanning/i });
+    const settled = page
+      .locator(SEL.arbitrageTradeCard)
+      .or(page.getByText(/No arbitrage found/i));
+
+    await expect
+      .poll(
+        async () => {
+          const count = await settled.count();
+          if (count > 0) return count;
+          if (await scan.isEnabled()) await scan.click();
+          return 0;
+        },
+        {
+          message: "scan should resolve to trades or the explicit empty state",
+          timeout: 90_000,
+          intervals: [500, 1000, 2000, 3000, 5000],
+        },
+      )
+      .toBeGreaterThan(0);
+
+    // Both outcomes are legitimate on a committed snapshot — what is NOT
+    // legitimate is neither appearing, which is what the poll rules out.
+    // Asserting "trades exist" would make this test hostage to whether
+    // the frozen board happens to contain an arbitrage opportunity.
     guard.assertClean();
   });
 
