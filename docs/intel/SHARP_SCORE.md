@@ -1,165 +1,81 @@
 # Sharp Score — methodology
 
-**Version:** `sharp-v2` · **Config:** `config/sharp/scoring_v2.json` · **Code:** `src/sharp/score.py`
+**Version:** `sharp-v2`  
+**Config:** `config/sharp/scoring_v2.json`  
+**Code:** `src/sharp/score.py`
 
-Every weight and threshold lives in the config. Nothing is hardcoded, every scored manager keeps
-its component breakdown, and the methodology version moves with any change to the criteria.
+Sharp Score v2 is platform-neutral. The addition of FFPC does **not** change any weight, gate, percentile, confidence threshold, or qualification rule. Platform adapters may only normalize evidence into the existing `ManagerRecord`; they may not implement a source-specific score.
 
----
+## Evidence boundary
 
-## Three gates, widening to narrowing
+A league-season may certify a manager only when all required evidence is known:
 
-A league can be good enough to *introduce* managers, good enough to inform *your own league-mates'*
-tendencies, and still not good enough to *certify* anyone as sharp. Conflating these throws away
-good seeds or admits bad evidence, so they are three separate predicates.
+- stable, verified global manager identity
+- confirmed dynasty league that meets the configured age requirement
+- completed season
+- wins, losses, ties, and completed games
+- final rank and team count
+- playoff and championship results
+- observable recent activity when the platform evidence is expected to satisfy the existing activity/recency gates
 
-| Gate | Question | Admits | Code |
-|---|---|---|---|
-| **Discovery** | Can this league introduce us to managers? | Everything, incl. redraft + best-ball | `discovery.discover` |
-| **Signal** | May its trades count as dynasty buy/sell? | Dynasty + keeper | `league_filter.is_eligible` |
-| **Sharp** | May it certify someone as sharp? | **Dynasty only, ≥ 2 seasons old** | `league_filter.is_sharp_eligible` |
+Unknown values remain unknown and make the season row ineligible for automated scoring. They are never converted to zero.
 
-Two things follow that are easy to get wrong:
+Sleeper evidence is collected through the existing discovery and records crawls. FFPC evidence can enter the same automated population only when public/configured records meet the same standard. League-scoped FFPC team identities, name-only identities, incomplete standings, and unverified historical chains remain inspectable but do not become automated qualifiers.
 
-- **The shipped seed is a redraft league.** The Megalabowl (`872952227344678912`,
-  `settings.type = 0`) is discovery-only. A gate that required dynasty *for discovery* would have
-  discarded it and the graph would never have started.
-- **Keeper counts for Insider Trading but not for Sharp.** Keeper trade behaviour is a hybrid —
-  most of the roster resets annually — which is real evidence about a person you can trade with,
-  and not clean enough to certify dynasty skill.
+Curated FFPC high-stakes managers use a separate qualification method, `curated_high_stakes`. They are never represented as having passed `sharp-v2`, and their observations contribute only when explicitly enabled in `config/sharp/ffpc_sources.json`.
 
-### Why leagues must be ≥ 2 seasons old
+## Three gates
 
-A first-year dynasty league is startup-draft fallout: enormous early churn, no established market,
-and no completed season to judge anyone on. Counting it lets a manager look prolific purely for
-having just drafted.
+| Gate | Question | Evidence admitted |
+|---|---|---|
+| Discovery | Can this source introduce a manager? | Broad source-specific population |
+| Signal | May a transaction inform dynasty buy/sell activity? | Confirmed dynasty/keeper trade movements; waivers remain separate |
+| Sharp | May a season certify manager skill? | Confirmed dynasty only, old enough, complete, and fully evidenced |
 
-Sleeper chains seasons with `previous_league_id`, and that field ships inside the
-`/user/{id}/leagues` payload the crawl already fetches — so **the age-2 check costs zero extra API
-calls**, which is exactly why 2 is the default bar. Establishing age ≥ 3 would mean walking the
-chain one request per link; nothing currently needs that precision.
-
----
+Discovery eligibility never implies signal eligibility, and signal eligibility never implies Sharp qualification.
 
 ## Hard eligibility gates
 
-Failing **any** leaves a manager `evaluable: false` **with a reason** — never scored badly, never
-silently dropped. These are minimum-viability filters; the percentile bar is what actually sizes
-the cohort.
+The values remain controlled by `scoring_v2.json`:
 
-| Gate | Value | Rationale |
-|---|---|---|
-| `minCompletedSeasons` | 2 | One season is mostly variance. |
-| `minDynastyLeagues` | 2 | Multi-league is core. **Keeper does not count.** |
-| `minLeagueAgeSeasons` | 2 | See above. |
-| `minCompletedGames` | 24 | ~2 full seasons; guards against two partial ones. |
-| `minWinPct` | **0.52** | See below. |
-| `maxAbandonedRosterRate` | 0.34 | Abandoned rosters are the opposite of sharp. |
-| `requireRecentActivityDays` | 400 | A dormant manager is not a live signal. |
+- minimum completed seasons
+- minimum qualifying dynasty leagues
+- minimum league age
+- minimum completed games
+- minimum win percentage
+- maximum abandoned-roster rate
+- recent-activity requirement
 
-### On the win-rate floor
+Failing any gate produces `evaluable=false` with reasons rather than a low score.
 
-League win% averages **exactly 0.500 by construction** — it is a zero-sum pool. So 0.52 reads as
-*"demonstrably above average"*, not *"good"*; over ~24–40 games it sits roughly half a standard
-deviation above the mean.
+## Components and unchanged formula
 
-It is deliberately a **viability gate and not the selector**. Set it much higher and it silently
-becomes the real cutoff, fighting the percentile bar and making the cohort size unpredictable.
-
----
-
-## Components
-
-Weighted sum of five components, each percentile-normalized within the evaluable population, plus a
-championship bonus, minus an explicit uncertainty penalty.
-
-```
-score = 0.36·performance
-      + 0.22·rosterQuality
-      + 0.22·multiLeagueConsistency
-      + 0.12·longevity
-      + 0.08·activity
-      + championshipBonus        (0 … 0.12)
-      − uncertaintyPenalty       (0 … 0.25)
+```text
+score = performance weight × performance
+      + roster-quality weight × roster quality
+      + consistency weight × multi-league consistency
+      + longevity weight × longevity
+      + activity weight × activity
+      + bounded championship bonus
+      - explicit uncertainty penalty
 ```
 
-- **performance** — win%, playoff rate, championship rate (beta-binomial shrunk toward the
-  population base rate, `priorN = 6`), median finish, points-for.
-- **rosterQuality** — value **relative to each league's own average**, so a manager in a shallow
-  league cannot look sharp on raw value; plus age-, depth-, and pick-capital-adjusted variants.
-- **multiLeagueConsistency** — the anti-luck term. Scored as the **share** of leagues finishing
-  above median, so adding mediocre leagues *cannot raise it*, then penalized for cross-league
-  variance.
-- **longevity** — saturating; seasons 1→3 matter far more than 8→10.
-- **activity** — sustained participation, **not** raw volume. Capped, so churn cannot buy entry.
+The exact current numbers live only in `config/sharp/scoring_v2.json`; this document intentionally does not create a second source of truth.
 
-### Championship preference
-
-*"Preferably they have won the league before"* — implemented as a **bounded bonus, not a hard
-gate**, and always named first in `contributors` when it fires.
-
-| Titles | Bonus |
-|---|---|
-| 1 | +0.06 |
-| 2 | +0.08 |
-| 3+ | +0.10, capped at 0.12 |
-
-A hard title requirement would be self-defeating: in a 12-team league only ~1/12 of managers can
-win per season, so requiring one cuts the cohort far below a top quarter and bars managers who
-consistently make deep runs in strong leagues. The bonus is large enough to be decisive at the
-margin; diminishing, because the first title is the one that proves it can happen.
-
----
+- **Performance:** win percentage, playoff rate, shrunk championship rate, finish, and points-for evidence.
+- **Roster quality:** value relative to each league's own average plus age/depth/pick adjustments where available.
+- **Multi-league consistency:** share of qualifying leagues above median with variance control.
+- **Longevity:** saturating credit for sustained history.
+- **Activity:** capped participation evidence, not raw churn.
+- **Championship preference:** bounded bonus, not a hard title gate.
+- **Uncertainty:** explicit penalty and separate confidence output.
 
 ## Qualification
 
-A manager joins the cohort only by clearing **both** bars:
+Managers must clear both the configured score-percentile bar and confidence bar. Score and confidence remain separate. Population percentiles are calculated among evaluable records, while coverage also reports qualified share of the full observable population.
 
-- `minScorePercentile` **0.75** — top quartile
-- `minConfidence` **0.55**
+## Platform-scoped identity
 
-Score and confidence are **separate outputs, never blended**. "How good" and "how much evidence"
-are different questions, and blending them hides exactly the uncertainty that needs surfacing. An
-elite-looking record with two seasons has a high score and low confidence, and does **not**
-qualify.
+`ManagerRecord.user_id` is a platform-scoped manager key such as `sleeper:123` or `ffpc:site-user-456`. Matching display names never merge records. An explicit `canonical_manager_id` may reconcile unique-manager breadth across sources, but automated qualification remains grounded in verified evidence rows.
 
-### "Top quarter" of *what*
-
-The two readings differ a lot, so **both are reported** rather than one being picked silently:
-
-- `qualifiedShareOfEvaluable` — the bar actually applied. The percentile runs among managers who
-  cleared every hard gate, because a percentile over un-gated managers gets dragged around by
-  records too thin to judge.
-- `qualifiedShareOfObservable` — the same cohort as a fraction of **everyone discovered**. Always
-  smaller, because the gates run first.
-
-Tune with `minScorePercentile`: 0.67 for a top-third cohort, 0.85 to tighten.
-
----
-
-## Measured coverage (live, 2026-07-29)
-
-From the Megalabowl seed, 180 API calls:
-
-| | |
-|---|---|
-| Managers found | 356 |
-| Leagues found | 689 |
-| — signal-eligible (dynasty + keeper) | 485 |
-| — **sharp-eligible** (dynasty, ≥ 2 seasons) | **344** |
-
-Excluded from sharp: `best_ball` 110, `too_new` 109, `redraft` 77, `keeper` 32, `unknown` 16 —
-reported per reason, never silently dropped.
-
----
-
-## Known limitation
-
-Discovery yields *managers*; the Sharp Score needs *records* — multi-season results, playoff
-outcomes, championships, roster values. That is a second crawl pass over `previous_league_id`
-chains and `winners_bracket`, and it is the bulk of the remaining Stage 4 work.
-
-Until it exists, `load_manager_records()` returns empty and the endpoint honestly answers
-`cohort_building`. It deliberately does **not** synthesise records from transactions alone — the
-gates need completed-season history that transactions do not contain, and scoring managers on
-partial inputs would qualify people on the wrong evidence.
+See `docs/intel/FFPC_UNIFIED_SHARP.md` for collection, canonical assets, curated qualification, source reconciliation, and operational details.

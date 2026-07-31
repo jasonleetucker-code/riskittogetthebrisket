@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily FFPC public Sharp ingestion for __SERVICE_NAME__
+
+[Timer]
+OnCalendar=*-*-* 05:20:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-ffpc-sharp.service
+
+[Install]
+WantedBy=timers.target
