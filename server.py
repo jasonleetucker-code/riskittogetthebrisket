@@ -5173,7 +5173,14 @@ async def post_waiver_faab_recommend(request: Request):
     # regardless of contention so ``inputsAsOf.intel`` is honest.
     # Snapshots are LEAGUE-PARTITIONED (intel is roster-scoped →
     # league-scoped), so the resolved league's partition is read.
-    intel_snapshot = _faab_contention.load_intel_snapshot(league_key=league_cfg.key)
+    # Threadpooled like every other I/O in this handler: it reads (and
+    # JSON-parses) a snapshot file that grows with pool activity, and a
+    # synchronous read here blocks the event loop for every other
+    # request in flight.  D11 in docs/intel/AUDIT.md — the surrounding
+    # calls were already wrapped and this one was simply missed.
+    intel_snapshot = await run_in_threadpool(
+        _faab_contention.load_intel_snapshot, league_key=league_cfg.key
+    )
     intel_as_of = intel_snapshot.get("generatedAt") if isinstance(intel_snapshot, dict) else None
 
     # Rival contention (FAAB v2).  Requires a ``teamOwnerId`` that
@@ -12169,6 +12176,61 @@ INTEL_REFRESH_TOKEN = os.getenv("INTEL_REFRESH_TOKEN", "").strip() or SIGNAL_ALE
 
 _INTEL_PRIVATE_CACHE_HEADERS = {"Cache-Control": "private, max-age=60, stale-while-revalidate=300"}
 
+# Allow-listed so a query string cannot reach an arbitrary window name
+# (signals.window_bounds raises on unknown ones) or an unsupported sort.
+_INTEL_DEFAULT_WINDOW = "30d"
+_INTEL_ALLOWED_WINDOWS = ("7d", "30d", "90d", "all")
+_INTEL_ALLOWED_SORTS = ("net", "volume", "buys", "sells", "strength", "velocity")
+
+# ── Manual-refresh cooldown (D13) ────────────────────────────────────
+#
+# A refresh spends hundreds of budgeted Sleeper calls over several
+# minutes.  The process lock stops CONCURRENT crawls (409), but nothing
+# stopped a signed-in user from re-triggering the moment each run
+# finished — an unbounded serial drain on someone else's API, from any
+# account with a session.
+#
+# So manual triggers get a per-user cooldown.  The CRON IS EXEMPT: it
+# authenticates by bearer token and is the intended scheduled driver,
+# and throttling it would defeat the schedule it exists to keep.
+_INTEL_MANUAL_REFRESH_COOLDOWN_SEC = float(os.getenv("INTEL_MANUAL_REFRESH_COOLDOWN_SEC", "600"))
+_intel_manual_refresh_at: dict[str, float] = {}
+_intel_manual_refresh_lock = threading.Lock()
+
+
+def _intel_refresh_cooldown_remaining(user_key: str) -> int:
+    """Seconds left on this user's cooldown, 0 when clear."""
+    if _INTEL_MANUAL_REFRESH_COOLDOWN_SEC <= 0:
+        return 0
+    now = time.monotonic()
+    with _intel_manual_refresh_lock:
+        last = _intel_manual_refresh_at.get(user_key)
+    if last is None:
+        return 0
+    elapsed = now - last
+    if elapsed >= _INTEL_MANUAL_REFRESH_COOLDOWN_SEC:
+        return 0
+    return int(_INTEL_MANUAL_REFRESH_COOLDOWN_SEC - elapsed) + 1
+
+
+def _intel_refresh_mark_triggered(user_key: str) -> None:
+    """Stamp the cooldown.  Called only AFTER a crawl actually starts,
+    so a 409 (someone else already crawling) does not burn the caller's
+    window for work they never got."""
+    with _intel_manual_refresh_lock:
+        _intel_manual_refresh_at[user_key] = time.monotonic()
+        # Bound the dict — this is a long-lived process and the key set
+        # grows with distinct users.
+        if len(_intel_manual_refresh_at) > 512:
+            cutoff = time.monotonic() - _INTEL_MANUAL_REFRESH_COOLDOWN_SEC
+            for key in [k for k, v in _intel_manual_refresh_at.items() if v < cutoff]:
+                _intel_manual_refresh_at.pop(key, None)
+
+
+def _intel_refresh_reset_for_tests() -> None:
+    with _intel_manual_refresh_lock:
+        _intel_manual_refresh_at.clear()
+
 
 # Rate limit for the bearer-rejection warnings below: they fire on
 # UNAUTHENTICATED requests, so an unthrottled log line would be a
@@ -12274,10 +12336,18 @@ def _intel_not_ready_response(league_key: str) -> JSONResponse:
 
 @app.get("/api/intel/summary")
 async def get_intel_summary(request: Request):
-    """Sharp Tracker board: per-asset buy/sell/net over 48h/7d/14d/30d
-    windows, sorted by trendScore.  League-scoped (intel is
-    roster-scoped → league-scoped): resolves the requested league and
-    reads that league's snapshot partition.  Stamps staleness."""
+    """Insider Trading board: per-asset trade buy/sell/net/volume over an
+    explicit window, served from the normalized ledger.
+
+    League-scoped (intel is roster-scoped → league-scoped): resolves the
+    requested league, and every ledger query is filtered to that
+    league's member pool — the ledger itself is global.
+
+    ``window`` selects ONE lens (7d/30d/90d/all, default 30d) and
+    ``sort`` the ordering.  Counts are TRADES ONLY; waiver and
+    free-agent activity is served separately by
+    ``/api/intel/waiver-interest`` so a claim can never render as a buy.
+    """
     try:
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
@@ -12289,11 +12359,179 @@ async def get_intel_summary(request: Request):
     except (TypeError, ValueError):
         limit = 100
     limit = max(1, min(500, limit))
+    window = (request.query_params.get("window") or "").strip() or _INTEL_DEFAULT_WINDOW
+    if window not in _INTEL_ALLOWED_WINDOWS:
+        window = _INTEL_DEFAULT_WINDOW
+    sort = (request.query_params.get("sort") or "").strip() or "net"
+    if sort not in _INTEL_ALLOWED_SORTS:
+        sort = "net"
     payload = await run_in_threadpool(
         _intel_service.build_summary_payload,
         league_cfg.key,
         limit=limit,
         id_to_player=_intel_id_to_player(),
+        window=window,
+        sort=sort,
+    )
+    return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
+
+
+def _intel_contract_context() -> dict:
+    """Position, value and team maps from the loaded contract.
+
+    Every piece is optional: a missing contract yields empty maps, which
+    makes the partner-fit and value-match terms abstain rather than
+    taking the whole lead list down with them.
+    """
+    try:
+        contract = latest_contract_data or {}
+        sleeper_block = contract.get("sleeper") or {}
+        teams = sleeper_block.get("teams") or []
+        positions = {}
+        values = {}
+        for row in contract.get("playersArray") or []:
+            if not isinstance(row, dict):
+                continue
+            pid = str(row.get("sleeperId") or row.get("playerId") or "").strip()
+            if not pid:
+                continue
+            pos = str(row.get("position") or "").strip().upper()
+            if pos:
+                positions[pid] = pos
+            val = row.get("rankDerivedValue")
+            if isinstance(val, (int, float)) and val > 0:
+                values[pid] = float(val)
+        return {"teams": teams, "positions": positions, "values": values}
+    except Exception:  # noqa: BLE001 — leads must survive a missing contract
+        log.exception("intel: contract context unavailable")
+        return {"teams": [], "positions": {}, "values": {}}
+
+
+def _build_intel_leads(league_cfg, asset_id: str, mode: str) -> dict:
+    """Assemble one lead list.  Runs in a threadpool — pure sync."""
+    from src.intel import lead_service, roster_shape
+
+    ctx = _intel_contract_context()
+    teams = ctx["teams"]
+    positions = ctx["positions"]
+    values = ctx["values"]
+
+    signals_by_owner = roster_shape.team_signals(
+        teams, positions, league_cfg.roster_settings, value_by_player=values
+    )
+    owner = roster_shape.owner_of_player(teams, asset_id)
+    matchable = roster_shape.matchable_values(teams, values)
+
+    # SELL mode asks who WANTS what I hold, so it scores their BUYING.
+    # BUY mode asks who would PART with it, so it scores their SELLING.
+    direction = "buy" if mode == "sell" else "sell"
+
+    # In sell mode the caller owns the asset, so they are not a lead for
+    # their own player; in buy mode the current owner IS the lead.
+    exclude = []
+    our_signal = None
+    if mode == "sell" and owner:
+        exclude = [owner]
+        our_signal = signals_by_owner.get(owner)
+
+    return lead_service.build_leads(
+        league_key=league_cfg.key,
+        asset_id=asset_id,
+        position=positions.get(str(asset_id)),
+        direction=direction,
+        roster_signals=signals_by_owner,
+        our_roster=our_signal,
+        target_value=values.get(str(asset_id)),
+        matchable_values_by_owner=matchable,
+        owner_of_asset=owner,
+        home_league_ids=[str(league_cfg.sleeper_league_id or "")],
+        exclude_owner_ids=exclude,
+    )
+
+
+@app.post("/api/intel/leads")
+async def post_intel_leads(request: Request):
+    """Insider Trading leads for ONE asset.
+
+    Body: ``{"assetId": "...", "mode": "sell"|"buy", "leagueKey": "..."}``
+
+    SELL mode ("I want to move X") ranks league-mates by how much they
+    look like they want X.  BUY mode ("I want X") surfaces the current
+    owner and what they look likely to want back.
+
+    Both read the SAME cross-league observations from opposite sides.
+    The score is a RANKING of who to approach, never a probability that
+    anyone accepts — ``limitations`` in the payload says so, and
+    declined offers are not recorded by Sleeper at all.
+    """
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    # Body parsed BEFORE the resolver so a body leagueKey reaches it —
+    # the POST convention used by the other league-scoped endpoints.
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    asset_id = str(body.get("assetId") or body.get("playerId") or "").strip()
+    if not asset_id:
+        name = str(body.get("name") or "").strip()
+        if name:
+            asset_id = _intel_name_to_player_id(name) or ""
+    if not asset_id:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "missing_asset",
+                "message": "Provide assetId (Sleeper id or pick:<season>:<round>) or name.",
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    mode = str(body.get("mode") or "sell").strip().lower()
+    if mode not in ("sell", "buy"):
+        mode = "sell"
+
+    if not await run_in_threadpool(_intel_service.snapshot_ready, league_cfg.key):
+        return _intel_not_ready_response(league_cfg.key)
+
+    payload = await run_in_threadpool(_build_intel_leads, league_cfg, asset_id, mode)
+    return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
+
+
+@app.get("/api/intel/waiver-interest")
+async def get_intel_waiver_interest(request: Request):
+    """Waiver and free-agent activity, under its OWN label.
+
+    A SEPARATE endpoint rather than a flag on the board, because the
+    defect this whole change undoes was waiver churn rendering as trade
+    "buys".  Fields here are ``adds``/``drops``, never ``buys``/``sells``.
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    if not await run_in_threadpool(_intel_service.snapshot_ready, league_cfg.key):
+        return _intel_not_ready_response(league_cfg.key)
+    try:
+        limit = int(request.query_params.get("limit") or 100)
+    except (TypeError, ValueError):
+        limit = 100
+    limit = max(1, min(500, limit))
+    window = (request.query_params.get("window") or "").strip() or _INTEL_DEFAULT_WINDOW
+    if window not in _INTEL_ALLOWED_WINDOWS:
+        window = _INTEL_DEFAULT_WINDOW
+    payload = await run_in_threadpool(
+        _intel_service.build_waiver_interest_payload,
+        league_cfg.key,
+        limit=limit,
+        id_to_player=_intel_id_to_player(),
+        window=window,
     )
     return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
 
@@ -12384,12 +12622,47 @@ async def post_intel_refresh(request: Request):
     ``?leagueKey=all`` refreshes every ACTIVE registry league
     sequentially (the cron's mode); any other key resolves through
     the standard league resolver."""
-    if not _intel_bearer_auth_ok(request) and not _get_auth_session(request):
+    is_cron = _intel_bearer_auth_ok(request)
+    session = None if is_cron else _get_auth_session(request)
+    if not is_cron and not session:
         return JSONResponse(
             status_code=401,
             content={"error": "auth_required", "message": "Sign-in or bearer token required."},
             headers={"Cache-Control": "no-store"},
         )
+
+    # D13: per-user cooldown on MANUAL triggers.  The cron (bearer) is
+    # exempt — it is the intended scheduled driver.  A crawl is minutes
+    # of budgeted Sleeper calls, and the process lock only prevented
+    # concurrent runs, not a user re-triggering after each one finished.
+    cooldown_key = ""
+    if not is_cron:
+        cooldown_key = (
+            str((session or {}).get("username") if isinstance(session, dict) else session)
+            or "anonymous"
+        )
+        # ORDER MATTERS: "a crawl is already running" is both the more
+        # informative answer and the more actionable one, so 409 wins
+        # when both apply.  Checking the cooldown first turned every
+        # mid-crawl retry into an opaque 429.  The gap between this
+        # check and the start below is racy, but the process lock still
+        # guarantees correctness — the worst case is a 429 where a 409
+        # would have read better.
+        already_running = bool(_intel_service.refresh_status().get("isRunning"))
+        remaining = 0 if already_running else _intel_refresh_cooldown_remaining(cooldown_key)
+        if remaining > 0:
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "refresh_cooldown",
+                    "message": (
+                        f"A manual refresh was triggered recently. Try again in "
+                        f"{remaining}s, or wait for the daily crawl."
+                    ),
+                    "retryAfterSeconds": remaining,
+                },
+                headers={"Cache-Control": "no-store", "Retry-After": str(remaining)},
+            )
 
     # ``leagueKey=all`` — refresh EVERY active league sequentially
     # under the single crawl lock.  This is what the daily cron
@@ -12425,6 +12698,8 @@ async def post_intel_refresh(request: Request):
                 },
                 headers={"Cache-Control": "no-store"},
             )
+        if cooldown_key:
+            _intel_refresh_mark_triggered(cooldown_key)
         return JSONResponse(
             status_code=202,
             content={
@@ -12455,6 +12730,8 @@ async def post_intel_refresh(request: Request):
             },
             headers={"Cache-Control": "no-store"},
         )
+    if cooldown_key:
+        _intel_refresh_mark_triggered(cooldown_key)
     return JSONResponse(
         status_code=202,
         content={

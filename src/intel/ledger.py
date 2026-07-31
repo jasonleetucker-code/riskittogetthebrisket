@@ -184,6 +184,32 @@ CREATE TABLE IF NOT EXISTS league_memberships (
   PRIMARY KEY (league_id, user_id)
 );
 
+-- One manager's result in one league-season.  Populated by the Sharp
+-- records crawl (src/sharp/records.py) and consumed by the Sharp Score,
+-- which needs completed-season history that transactions cannot supply.
+-- PK is (league_id, season, user_id): a manager holds at most one roster
+-- per league-season, so a re-crawl overwrites rather than duplicating.
+CREATE TABLE IF NOT EXISTS manager_seasons (
+  league_id      TEXT NOT NULL,
+  season         TEXT NOT NULL,
+  user_id        TEXT NOT NULL,
+  roster_id      TEXT,
+  wins           INTEGER,
+  losses         INTEGER,
+  ties           INTEGER,
+  points_for     REAL,
+  points_against REAL,
+  made_playoffs  INTEGER,
+  is_champion    INTEGER,
+  is_runner_up   INTEGER,
+  finish_rank    INTEGER,
+  team_count     INTEGER,
+  is_complete    INTEGER,
+  sharp_eligible INTEGER,
+  crawled_ms     INTEGER,
+  PRIMARY KEY (league_id, season, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT
@@ -200,6 +226,8 @@ CREATE INDEX IF NOT EXISTS idx_mv_ts         ON asset_movements(ts);
 CREATE INDEX IF NOT EXISTS idx_mv_tx         ON asset_movements(tx_id);
 CREATE INDEX IF NOT EXISTS idx_tx_ts         ON transactions(created_ms);
 CREATE INDEX IF NOT EXISTS idx_lm_user       ON league_memberships(user_id);
+CREATE INDEX IF NOT EXISTS idx_ms_user       ON manager_seasons(user_id);
+CREATE INDEX IF NOT EXISTS idx_ms_league     ON manager_seasons(league_id, season);
 """
 
 
