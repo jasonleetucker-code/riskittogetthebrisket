@@ -42,11 +42,15 @@ from typing import Any
 from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.gzip import GZipMiddleware
+
+# RedirectResponse went with the page routes (#555). Its last four users
+# were _auth_redirect_response, serve_index_alias, serve_draft_capital's
+# 308, and GET /logout — all deleted. Nothing this backend serves redirects
+# any more: /api/* either answers or 401s, and every redirect a user sees
+# now comes from Next (frontend/middleware.js, next.config.mjs).
 from fastapi.responses import (
     FileResponse,
-    HTMLResponse,
     JSONResponse,
-    RedirectResponse,
     Response,
 )
 from fastapi.staticfiles import StaticFiles
@@ -120,8 +124,17 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
-FRONTEND_RUNTIME = "next"
+# FRONTEND_URL and FRONTEND_RUNTIME lived here until the page proxy was
+# deleted (#555).  Both described a relationship this process no longer
+# has: FRONTEND_URL was the proxy target, and FRONTEND_RUNTIME recorded
+# which frontend the backend served pages from.  This backend serves no
+# pages, so neither has a reader — FRONTEND_RUNTIME already had none, and
+# docs/OWNER_ACTION_AUDIT_2026-07-29.md:1133 called it "obsolete as a
+# variable" before this change.
+#
+# nginx routes pages straight to Next in production and always did
+# (deploy/nginx/chaseupside-proxy.conf: only `location /api/` reaches this
+# process), so Next's location is nginx's business, not ours.
 
 ALERT_ENABLED = _env_bool("ALERT_ENABLED", False)
 ALERT_TO = os.getenv("ALERT_TO", "")
@@ -677,13 +690,22 @@ uptime_status = {
     "last_http_status": None,
     "consecutive_failures": 0,
 }
-frontend_runtime_status = {
-    "configured": "next",
-    "active": "next",
-    "reason": "next_only",
-    "fallbackFrom": None,
-    "lastChecked": None,
-}
+# ``frontend_runtime_status`` used to sit here and was stamped onto
+# /api/status and /api/health as {"configured": "next", "active": "next",
+# "reason": "next_only", "fallbackFrom": None}.
+#
+# It is gone with the page proxy (#555). This process has no "active
+# frontend runtime" and no fallback to report — it serves no pages. The
+# field survived the FRONTEND_RUNTIME deletion because it is a separate
+# hardcoded dict, not a reader of that constant, which is exactly how a
+# stale claim outlives the thing it described.
+#
+# Removed rather than left as harmless: it had zero consumers anywhere
+# (frontend, deploy, scripts, tests and workflows all checked), and it
+# sat on /api/health — the endpoint the production uptime watchdog
+# probes — telling anyone debugging that the backend's active frontend
+# runtime is "next". That is the precise misconception this change
+# exists to remove.
 # In-memory auth sessions for private-use gate.
 auth_sessions: dict[str, dict] = {}
 
@@ -832,15 +854,6 @@ def _clear_auth_session(request: Request) -> None:
             _ss.evict(session_id)
         except Exception as exc:  # noqa: BLE001
             log.warning("session_store evict failed: %s", exc)
-
-
-def _auth_redirect_response(request: Request, default_next: str = "/app") -> RedirectResponse:
-    next_path = request.url.path
-    if request.url.query:
-        next_path = f"{next_path}?{request.url.query}"
-    safe_next = _sanitize_next_path(next_path, default_next)
-    encoded_next = urllib.parse.quote(safe_next, safe="/?=&")
-    return RedirectResponse(url=f"/login?next={encoded_next}", status_code=302)
 
 
 def _parse_iso(ts: str | None) -> datetime | None:
@@ -2638,7 +2651,6 @@ async def lifespan(app: FastAPI):
         log.warning("source_history: startup backfill failed: %s", exc)
 
     log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
-    log.info("Frontend: Next.js at %s", FRONTEND_URL)
     log.info(f"Dashboard: http://localhost:{PORT}")
 
     yield  # app is running
@@ -2799,9 +2811,20 @@ def _is_public_api_path(path: str) -> bool:
 @app.middleware("http")
 async def _private_api_gate(request: Request, call_next):
     """401 any /api/* call without a session, except the public
-    allowlist.  Page routes still redirect via
-    ``_require_auth_or_redirect``; static/_next assets aren't
-    touched.
+    allowlist.
+
+    This is now the ONLY auth gate in this process.  It used to be
+    half of a pair — page routes redirected via
+    ``_require_auth_or_redirect`` — and #555 deleted that half along
+    with the page routes themselves.  Pages are gated by
+    ``frontend/middleware.js``, which is where they are actually
+    served.
+
+    Note the gate runs as MIDDLEWARE, ahead of routing, so it answers
+    for unknown ``/api/*`` paths too: an unrecognised endpoint gets a
+    401 rather than a 404, deliberately, so the surface is not
+    enumerable.  Pinned by
+    ``tests/api/test_private_auth.py::test_unknown_api_path_is_json_not_a_page``.
 
     Also applies rate limiting to public endpoints only — signed-
     in users on private endpoints aren't subject to the limit
@@ -2880,50 +2903,6 @@ def _client_ip_from_request(request: Request) -> str:
             return first
     client = request.client
     return client.host if client else ""
-
-
-def _proxy_next(path: str) -> tuple[Response | None, str | None]:
-    """
-    Proxy frontend routes to local Next.js dev/prod server when available.
-    Returns (response, error_message). response is None when proxy is unavailable.
-    """
-    try:
-        target = f"{FRONTEND_URL}{path if path.startswith('/') else '/' + path}"
-        req = urllib.request.Request(
-            target,
-            headers={"User-Agent": "dynasty-server-next-proxy/1.0"},
-            method="GET",
-        )
-        # 5s timeout matches the other backend→Next proxies in this
-        # file (e.g. lines 2664, 2719).  Production routes pages
-        # through nginx directly to Next.js so this proxy is only
-        # exercised in dev / synthetic test paths, but heavy routes
-        # like /league regularly take 1.4-2.7s SSR — a 1.5s timeout
-        # was causing false 503s in Playwright runs.
-        with urllib.request.urlopen(req, timeout=5.0) as resp:
-            body = resp.read()
-            headers = {}
-            ctype = resp.headers.get("Content-Type")
-            if ctype:
-                headers["content-type"] = ctype
-            cache_control = resp.headers.get("Cache-Control")
-            if cache_control:
-                headers["cache-control"] = cache_control
-            return Response(
-                content=body, status_code=getattr(resp, "status", 200), headers=headers
-            ), None
-    except urllib.error.HTTPError as e:
-        try:
-            body = e.read()
-        except Exception:
-            body = b""
-        headers = {}
-        ctype = e.headers.get("Content-Type") if e.headers else None
-        if ctype:
-            headers["content-type"] = ctype
-        return Response(content=body, status_code=e.code, headers=headers), f"HTTPError {e.code}"
-    except Exception as e:
-        return None, f"{type(e).__name__}: {e}"
 
 
 def _overlay_encode_lock(cache_key) -> asyncio.Lock:
@@ -4194,7 +4173,6 @@ async def get_status():
     return JSONResponse(
         content={
             **status_payload,
-            "frontend_runtime": frontend_runtime_status,
             "contract": {
                 "version": API_DATA_CONTRACT_VERSION,
                 "health": contract_health,
@@ -4517,7 +4495,6 @@ async def get_health():
             "current_source": status_payload.get("current_source"),
             "contract_version": API_DATA_CONTRACT_VERSION,
             "contract_ok": contract_health.get("ok"),
-            "frontend_runtime": frontend_runtime_status.get("active"),
             "uptime_watchdog": {
                 "enabled": uptime_status.get("enabled"),
                 "target_url": uptime_status.get("target_url"),
@@ -9767,12 +9744,25 @@ async def auth_logout(request: Request):
     return response
 
 
-@app.get("/logout")
-async def auth_logout_redirect(request: Request):
-    _clear_auth_session(request)
-    response = RedirectResponse(url="/", status_code=302)
-    response.delete_cookie(key=JASON_AUTH_COOKIE_NAME, path="/")
-    return response
+# ``GET /logout`` used to live here, next to its POST sibling above. It
+# went with the page proxy (#555), and the recon that scoped that deletion
+# deliberately left this as a judgement call rather than guessing. Three
+# reasons to take it:
+#
+#   * it is a PAGE-namespace path on a backend that now serves no pages,
+#     and it redirected to "/" — a route that no longer exists here, so
+#     keeping it means clearing your session and landing on a 404
+#   * zero callers, in or out of the tree. The UI logs out via
+#     ``POST /api/auth/logout`` (useAuth.js:185, through the Next bridge
+#     at frontend/app/api/auth/logout/route.js), and there is no
+#     frontend/app/logout page, so nginx already 404s this path in
+#     production
+#   * it is a GET that destroys session state, i.e. CSRF-able by a bare
+#     ``<img src="…:8000/logout">``. That was an acceptable trade for a
+#     convenience redirect with real users; it is not one for a handler
+#     with no callers and a dead destination
+#
+# The POST sibling is the real logout and is untouched.
 
 
 # ── USER PREFERENCE PERSISTENCE (AUTH-GATED) ────────────────────────────
@@ -11922,207 +11912,6 @@ async def post_generate_league_article(request: Request):
     )
 
 
-@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def serve_landing(request: Request):
-    redirect = _require_auth_or_redirect(request, "/")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/")
-
-
-@app.get("/league", response_class=HTMLResponse)
-async def serve_league_entry(request: Request):
-    # Public page — no auth required.  The /league frontend hydrates
-    # exclusively from /api/public/league, never /api/data.  See
-    # src/public_league/ for the isolated pipeline powering this page.
-    return await _serve_app_shell("/league")
-
-
-def _require_auth_or_redirect(
-    request: Request, default_next: str = "/app"
-) -> RedirectResponse | None:
-    if _is_authenticated(request):
-        return None
-    return _auth_redirect_response(request, default_next)
-
-
-async def _serve_app_shell(frontend_path: str) -> Response:
-    """Proxy the request to the Next.js frontend."""
-    proxied, err = _proxy_next(frontend_path)
-    if proxied is not None:
-        return proxied
-    return HTMLResponse(
-        f"<h1>Next frontend unavailable</h1><p>{err or 'unknown error'}</p>",
-        status_code=503,
-    )
-
-
-# ── DASHBOARD ROUTES (AUTH REQUIRED) ────────────────────────────────────
-@app.get("/app", response_class=HTMLResponse)
-async def serve_dashboard(request: Request):
-    redirect = _require_auth_or_redirect(request, "/app")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/")
-
-
-@app.get("/rankings", response_class=HTMLResponse)
-async def serve_rankings(request: Request):
-    redirect = _require_auth_or_redirect(request, "/rankings")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/rankings")
-
-
-@app.get("/trade", response_class=HTMLResponse)
-async def serve_trade(request: Request):
-    redirect = _require_auth_or_redirect(request, "/trade")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/trade")
-
-
-@app.get("/settings", response_class=HTMLResponse)
-async def serve_settings(request: Request):
-    redirect = _require_auth_or_redirect(request, "/settings")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/settings")
-
-
-@app.get("/tools/trade-coverage", response_class=HTMLResponse)
-async def serve_trade_coverage(request: Request):
-    """Internal diagnostic dashboard: per-team /api/terminal delta
-    coverage.  Auth-gated — the page itself hits /api/terminal for
-    every team in the league, which requires a session."""
-    redirect = _require_auth_or_redirect(request, "/tools/trade-coverage")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/tools/trade-coverage")
-
-
-@app.get("/tools/source-health", response_class=HTMLResponse)
-async def serve_source_health(request: Request):
-    """Scraper source-health dashboard.  Auth-gated so the scraper
-    diagnostics aren't exposed to anonymous visitors."""
-    redirect = _require_auth_or_redirect(request, "/tools/source-health")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/tools/source-health")
-
-
-@app.get("/edge", response_class=HTMLResponse)
-async def serve_edge(request: Request):
-    redirect = _require_auth_or_redirect(request, "/edge")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/edge")
-
-
-@app.get("/finder", response_class=HTMLResponse)
-async def serve_finder(request: Request):
-    redirect = _require_auth_or_redirect(request, "/finder")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/finder")
-
-
-@app.get("/trades", response_class=HTMLResponse)
-async def serve_trades(request: Request):
-    """Analyzed trade history — PRIVATE.
-
-    This was marked "public page, no auth required" in three places
-    (here, the app shell's PUBLIC_ROUTES, and robots.txt) while the page
-    itself renders per-side trade grades, cumulative net value and
-    manager tendencies computed from the private ``/api/data``
-    contract.  So it was simultaneously a broken empty page for
-    anonymous visitors (the data 401s) and a competitive-intelligence
-    surface advertised as public.
-
-    The public league hub has its own community-facing Trades tab
-    (/league?tab=activity), fed by the public pipeline, so gating this
-    route removes nothing from the public surface.
-    """
-    redirect = _require_auth_or_redirect(request, "/trades")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/trades")
-
-
-@app.get("/rosters", response_class=HTMLResponse)
-async def serve_rosters(request: Request):
-    redirect = _require_auth_or_redirect(request, "/rosters")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/rosters")
-
-
-@app.get("/draft-capital")
-async def serve_draft_capital(request: Request):
-    """Legacy public route — permanently moved under /league.
-
-    Emit a real redirect rather than proxying.  ``_proxy_next`` uses
-    ``urllib`` with default redirect-following, so once the Next side
-    became a routing-layer 308 (frontend/next.config.mjs) this handler
-    would have chased it server-side and returned /league's HTML under
-    the /draft-capital URL — the address bar would lie and Next would
-    hydrate a /league flight payload at a mismatched pathname.  It also
-    blocked the event loop for the whole multi-second /league SSR.
-
-    Production never reaches this handler (nginx routes ``location /``
-    straight to the Next upstream); it is the dev / direct-to-backend
-    path, and it should behave the same way there.
-    """
-    return RedirectResponse(url="/league?tab=draft-capital", status_code=308)
-
-
-@app.get("/more", response_class=HTMLResponse)
-async def serve_more(request: Request):
-    redirect = _require_auth_or_redirect(request, "/more")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/more")
-
-
-@app.get("/admin", response_class=HTMLResponse)
-async def serve_admin(request: Request):
-    """Admin dashboard — auth-gated + admin-allowlist-gated.
-    The page itself makes its own /api/admin/* calls which enforce
-    admin-allowlist; this route just guards access to the shell."""
-    redirect = _require_auth_or_redirect(request, "/admin")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/admin")
-
-
-@app.get("/login", response_class=HTMLResponse)
-async def serve_login(request: Request):
-    """Login page — no auth required (avoids redirect loop)."""
-    return await _serve_app_shell("/login")
-
-
-@app.get("/index.html", response_class=HTMLResponse)
-async def serve_index_alias(request: Request):
-    """Legacy alias — redirect to root."""
-    return RedirectResponse(url="/", status_code=301)
-
-
-@app.get("/_next/{full_path:path}")
-async def serve_next_assets(full_path: str):
-    proxied, _ = _proxy_next(f"/_next/{full_path}")
-    if proxied is not None:
-        return proxied
-    return Response(status_code=404)
-
-
-@app.get("/favicon.ico")
-async def serve_favicon():
-    proxied, _ = _proxy_next("/favicon.ico")
-    if proxied is not None:
-        return proxied
-    return Response(status_code=404)
-
-
 # Static file mount for backend-generated assets (CSS, images if any).
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -12491,30 +12280,6 @@ async def get_intel_refresh_status(request: Request):
     )
 
 
-@app.get("/intel", response_class=HTMLResponse)
-async def serve_intel(request: Request):
-    """Retired route — Next redirects it to /league/insider-trading.
-
-    /intel shipped ONE feature under TWO product names: Sharp Tracker's
-    name and board on Insider Trading's cohort (your league-mates).  The
-    league-mate board lives at /league/insider-trading now; the real,
-    cohort-qualified Sharp Tracker is at /market/sharp-tracker.
-    """
-    redirect = _require_auth_or_redirect(request, "/intel")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/intel")
-
-
-@app.get("/league/insider-trading", response_class=HTMLResponse)
-async def serve_insider_trading(request: Request):
-    """Insider Trading page shell — LEAGUE-SCOPED trade leads."""
-    redirect = _require_auth_or_redirect(request, "/league/insider-trading")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/league/insider-trading")
-
-
 # ── SHARP TRACKER ──────────────────────────────────────────────────────
 # A SEPARATE product from Insider Trading above.  Its cohort is
 # skill-qualified and drawn from every league we observe, so it is
@@ -12541,15 +12306,6 @@ async def get_sharp_cohort(request: Request):
         content=payload,
         headers={"Cache-Control": "private, max-age=300, stale-while-revalidate=900"},
     )
-
-
-@app.get("/market/sharp-tracker", response_class=HTMLResponse)
-async def serve_sharp_tracker(request: Request):
-    """Sharp Tracker page shell — global market intelligence."""
-    redirect = _require_auth_or_redirect(request, "/market/sharp-tracker")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/market/sharp-tracker")
 
 
 # ── PLAYER CONTEXT (contracts / snap share / depth chart) ───────────────
@@ -12626,54 +12382,6 @@ async def get_playerctx_player(request: Request):
         content=payload,
         headers={"Cache-Control": "private, max-age=3600"},
     )
-
-
-# ── PAGE CATCH-ALL (MUST BE THE LAST ROUTE IN THIS FILE) ────────────────
-# Every page above this point is registered by hand.  That list has
-# drifted from the Next.js app three separate times — at the time this
-# was written /waivers, /news, /draft, /angle, /trending, /intel's
-# siblings, /players/compare, /league-comparison, /idptc-rookies,
-# /tools/ros-data-health, /rankings/[position] and every /league/*
-# subroute were all 404 through this backend while serving fine from
-# Next.  A hand-maintained mirror of another router's route table is a
-# permanent drift trap, so this forwards anything unclaimed instead.
-#
-# Next owns page routing; an unknown path gets Next's own 404, which is
-# the correct answer rather than a FastAPI one.
-#
-# Ordering is load-bearing: FastAPI matches in registration order, so
-# this only ever sees paths no explicit route above claimed.  The
-# ``/api/`` and ``/_next/`` guards are belt-and-braces for the day
-# someone appends a route below this one.
-#
-# NOT fixed here, deliberately: ``_proxy_next`` forwards neither the
-# request's cookies nor its query string, so a page served through this
-# backend renders logged-out and ignores ``?tab=``.  That is the same
-# behaviour every hand-registered page above already has — this change
-# makes the route list complete, not the proxy faithful.  Whether the
-# proxy should be repaired or declared non-production-representative
-# (nginx bypasses it in prod) is tracked separately; see issue #555.
-_PUBLIC_PAGE_PREFIXES = ("/league",)
-
-
-@app.get("/{full_path:path}", response_class=HTMLResponse)
-async def serve_next_page(request: Request, full_path: str):
-    path = "/" + full_path.lstrip("/")
-
-    # Never intercept API or asset traffic.  Unreachable while this
-    # stays the last route; cheap insurance if that ever changes.
-    if path.startswith("/api/") or path.startswith("/_next/"):
-        return JSONResponse(status_code=404, content={"error": "not_found"})
-
-    is_public = any(
-        path == prefix or path.startswith(prefix + "/") for prefix in _PUBLIC_PAGE_PREFIXES
-    )
-    if not is_public:
-        redirect = _require_auth_or_redirect(request, path)
-        if redirect is not None:
-            return redirect
-
-    return await _serve_app_shell(path)
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────

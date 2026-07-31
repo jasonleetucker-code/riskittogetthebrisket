@@ -181,23 +181,34 @@ function isMobileProject(testInfo) {
 }
 
 /**
- * Origin for PAGE navigations that must bypass the backend's page
- * proxy.  server.py proxies page routes to Next.js with a 5s timeout;
- * the /league SSR pass regularly exceeds that and 503s — production
- * doesn't have this problem because nginx routes page traffic
- * straight to Next.  Setting E2E_PAGE_ORIGIN (e.g.
- * http://127.0.0.1:3000) reproduces the production topology for page
- * loads while API requests keep the shared baseURL.  When unset
- * (e.g. prod smoke runs against the real domain) paths pass through
- * unchanged.
+ * Origin for PAGE navigations.
  *
- * Post-R1 this is a CORRECTNESS requirement, not just a timeout
- * workaround: served through the proxy, "/" renders the ANONYMOUS
- * landing shell even with a valid session cookie — /api/auth/status
- * returns authenticated:true while the proxied page still shows
- * "Sign In" — whereas Next serves the authed dashboard for the same
- * cookie.  Any spec asserting on signed-in chrome must navigate
- * through here or it silently tests the logged-out page.
+ * Pages live on Next.js; the API lives on FastAPI.  `baseURL` is the
+ * API origin, so every page navigation goes through here and every
+ * API request keeps `baseURL`.  Setting E2E_PAGE_ORIGIN (e.g.
+ * http://127.0.0.1:3000) points pages at Next; when unset (e.g. prod
+ * smoke against the real domain, where nginx fronts both) paths pass
+ * through unchanged.
+ *
+ * That is now a plain statement of the topology.  It used to be a
+ * WORKAROUND, and the difference is worth recording because it is why
+ * this helper exists at all: server.py used to proxy page routes to
+ * Next, and specs had to route around it for two reasons.  The proxy's
+ * 5s timeout could not absorb the /league SSR pass, so it 503'd.  And
+ * more seriously, `_proxy_next` took a path string rather than a
+ * Request and so structurally could not forward cookies — a proxied
+ * page rendered the ANONYMOUS shell while /api/auth/status on the same
+ * origin returned authenticated:true.  A spec that navigated without
+ * this wrapper silently asserted against the logged-out page.
+ *
+ * #555 deleted the proxy.  The backend serves no pages, so a bare
+ * navigation now 404s loudly instead of quietly testing /login, and
+ * this helper is the ordinary way to reach a page rather than a
+ * defence against one.  Its behaviour is unchanged — do not "simplify"
+ * it away by moving `baseURL` to :3000, which would break every API
+ * request in the suite, session minting first
+ * (auth-fixture.js posts to `${baseURL}/api/test/create-session`, and
+ * there is no Next bridge route for /api/test).
  */
 function pageUrl(path) {
   let origin = process.env.E2E_PAGE_ORIGIN;
@@ -239,13 +250,14 @@ function mobileOnly(test, testInfo) {
  * timers.  Returns the row locator.
  */
 async function gotoRankingsBoard(page, { minRows = 50 } = {}) {
-  // MUST go through pageUrl() — see its 30-line warning above. This
-  // line was a bare `page.goto("/rankings")` until 2026-07-30, which
-  // resolved against baseURL (the FastAPI page proxy on :8000).
-  // `_proxy_next` forwards no cookies (server.py:2891-2896, and
-  // server.py:12539-12545 says so outright), so once
-  // frontend/middleware.js landed on 2026-07-29 every such navigation
-  // 307'd to /login and the board never existed. That single missing
+  // MUST go through pageUrl() — see its note above. This line was a
+  // bare `page.goto("/rankings")` until 2026-07-30, which resolved
+  // against baseURL (then the FastAPI page proxy on :8000).
+  // `_proxy_next` forwarded no cookies — it took a path string, not a
+  // Request, so it could not — and so once frontend/middleware.js
+  // landed on 2026-07-29 every such navigation 307'd to /login and the
+  // board never existed. (#555 has since deleted the proxy, so the same
+  // mistake would now 404 rather than mislead.) That single missing
   // wrapper was ELEVEN of the nightly suite's nineteen failures —
   // six rankings journeys, the settings-override round-trip, two
   // mobile smokes and two chart smokes — every one of them reported

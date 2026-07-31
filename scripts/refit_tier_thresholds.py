@@ -12,7 +12,11 @@ Usage
 Inputs
 ------
     data/latest_contract.json  latest canonical contract export
-OR  fetched from the running server at FRONTEND_URL/api/data (requires auth)
+
+(This used to claim a fallback "fetched from the running server at
+FRONTEND_URL/api/data".  There is no such fetch in this script — it reads
+the file or exits 2 — and FRONTEND_URL was the Next origin, never the API
+origin.  Removed with the variable itself in #555.)
 
 Output
 ------

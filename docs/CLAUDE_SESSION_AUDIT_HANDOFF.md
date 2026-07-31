@@ -362,12 +362,21 @@ merge when genuinely ready.
   refresh cycle rebuilds. The substantive concern survives the correction:
   there is no analytics store, no versioned snapshot table, and nothing a
   champion-challenger workflow could query. See §16.2.
-- **`FRONTEND_RUNTIME` is hardcoded to `next`**; page routes proxy to Next.
-- **The backend page proxy is broken** — serves the anonymous shell to
-  signed-in sessions; `/waivers`, `/news`, `/draft` absent from its
-  hand-maintained route list (drifted three times). Issue #555. My
-  recommendation is to declare it non-production-representative and delete
-  it, since nginx bypasses it in production. **Decision open.**
+- **RESOLVED 2026-07-31: the backend page proxy is GONE** (#555). It was
+  broken as described below — served the anonymous shell to signed-in
+  sessions, and after `frontend/middleware.js` landed it returned 200
+  carrying the *login page body* for a valid session, because
+  `_proxy_next` took a path string rather than a `Request` and so could
+  not forward cookies. The recommendation here (declare it
+  non-production-representative and delete it, since nginx bypasses it)
+  was taken. `server.py` registers no page routes; `FRONTEND_RUNTIME` and
+  `FRONTEND_URL` are gone with it. `frontend/middleware.js` is the only
+  page auth gate — which it effectively already was, and the divergence
+  between the two definitions is what caused the incident it was written
+  for.
+  The route-list drift this also mentions was separately fixed by #558's
+  catch-all; that catch-all is what actually served every page until this
+  deletion, and it went too.
 - **Scoring profile vs league key split** (`CLAUDE.md`): rankings follow
   *scoring profile* and are shared across same-scoring leagues; rosters,
   teams, drafts follow *leagueKey*. Frozen contract.
@@ -1033,7 +1042,7 @@ recalibration schedule.
 | 9 | Offense vs IDP treatment | Was **silently offense-only** in the finder; fixed on #556 |
 | 10 | Autonomous development vs branch safety | Multiple violations (§8). Policy unchanged, enforcement weak |
 | 11 | "Everything is ready" vs reality | **Nothing merged**; §10 lists 5 critical items |
-| 12 | Page proxy: fix or delete | **OPEN — needs user decision** |
+| 12 | Page proxy: fix or delete | **RESOLVED 2026-07-31 — DELETED** (#555). Decision taken by the owner; 23 routes + 4 helpers removed from `server.py`, a page path on `:8000` now 404s |
 | 13 | R5 as "polish" | **Mis-scoped** — `.card` migration is a third of the app |
 
 ---

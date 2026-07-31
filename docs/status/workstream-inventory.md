@@ -186,7 +186,7 @@ This document maps every major workstream identified from the blueprint, repo st
 | Field | Value |
 |-------|-------|
 | **Blueprint Phase** | Not phased (ongoing) |
-| **Source Docs** | `AGENTS.md` "Performance Rules"; `.agents/skills/performance-optimizer/SKILL.md`; `scripts/perf_startup_probe.js` |
+| **Source Docs** | `AGENTS.md` "Performance Rules"; `.agents/skills/performance-optimizer/SKILL.md` (`scripts/perf_startup_probe.js` deleted 2026-07-31 with #555 — it was orphaned, unreferenced by any workflow or npm script, and its only page request targeted the removed `:8000` proxy) |
 | **Stated Goals** | Page-load speed, reduce blocking work, eliminate duplication |
 | **Implementation Evidence** | Performance optimizer agent skill defined. Startup probe script exists. AGENTS.md mandates performance-first rules. |
 | **Doc Currency** | **Current** (for governance). **Missing** (no performance baseline, no target metrics, no perf audit results). |

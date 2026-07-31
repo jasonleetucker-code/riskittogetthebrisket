@@ -170,3 +170,64 @@ def test_allowlist_reads_env_var_lowercased():
         u.strip().lower() for u in "JasonLeeTucker, AnotherUser".split(",") if u.strip()
     )
     assert expected == {"jasonleetucker", "anotheruser"}
+
+
+def test_unknown_api_path_is_json_not_a_page():
+    """An unknown ``/api/*`` path must answer with a JSON error, never HTML.
+
+    Rescued from ``tests/api/test_page_route_coverage.py``, which was
+    deleted with the page proxy (#555). That file's premise — "every
+    Next.js page must be reachable through this backend" — is the exact
+    inverse of the change, so it could not be repaired, only retired.
+    This one assertion survives on merit and had no other home.
+
+    Its value is the CONTENT-TYPE half. The status is already covered
+    above; what this pins is that a path this process does not recognise
+    cannot come back as a rendered page. Under the old catch-all that was
+    a live hazard — ``@app.get("/{full_path:path}")`` matched everything,
+    and only an explicit ``startswith("/api/")`` guard inside the handler
+    kept API traffic from being proxied to Next and answered with HTML.
+
+    With the catch-all gone the hazard is structural rather than guarded:
+    FastAPI's own 404 is JSON. So this now fails if someone reintroduces
+    a catch-all page route — which is precisely the regression worth
+    holding, since that is how the deleted surface would come back.
+
+    401 rather than 404 is the correct answer: ``_private_api_gate`` runs
+    as middleware, ahead of routing, and rejects any ``/api/*`` path
+    outside the public allowlist without disclosing whether it exists.
+    Either status proves the point.
+    """
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.get("/api/definitely-not-a-real-endpoint", follow_redirects=False)
+    assert res.status_code in (401, 404), (
+        f"unknown /api path returned {res.status_code} — a 2xx means something "
+        "is serving API traffic from a page-style catch-all again"
+    )
+    assert "application/json" in res.headers.get("content-type", "")
+
+
+def test_a_page_path_is_not_served_by_this_backend():
+    """The page proxy is gone; pages live on Next only (#555).
+
+    The deleted ``tests/api/test_page_route_coverage.py`` asserted the
+    opposite for 31 parametrized paths. Rather than leave that direction
+    untested, pin the new one — otherwise a future change could
+    reintroduce page serving here and nothing would notice.
+
+    ``/rankings`` is the sharpest probe: it was a hand-registered route
+    AND matched the catch-all, so a 200 or a 302 here means either came
+    back. In production nginx never sends a page to this process
+    (``deploy/nginx/chaseupside-proxy.conf`` routes only ``location
+    /api/`` to the backend upstream), so a 404 is the honest answer.
+    """
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        for path in ("/", "/rankings", "/league", "/waivers", "/_next/static/x.js"):
+            res = c.get(path, follow_redirects=False)
+            assert res.status_code == 404, (
+                f"{path} returned {res.status_code} — this backend is serving "
+                "pages again; the proxy was deleted in #555"
+            )
+            assert "text/html" not in res.headers.get(
+                "content-type", ""
+            ), f"{path} answered with HTML — _serve_app_shell or a catch-all is back"
