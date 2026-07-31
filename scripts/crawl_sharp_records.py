@@ -16,6 +16,11 @@ Costs 4 Sleeper calls per league-season (league, rosters,
 winners_bracket for completed seasons, plus the chain hop). Idempotent:
 rows upsert on (league_id, season, user_id).
 
+The default league order is persistent and fair: leagues with no stored
+season rows are crawled first, then previously crawled leagues from oldest
+to newest. That makes repeated budgeted runs advance through the full graph
+instead of restarting at the same insertion-ordered prefix every day.
+
 Exit codes: 0 success, 1 failure, 2 budget exhausted with work left.
 """
 
@@ -29,10 +34,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.sharp import discovery, records  # noqa: E402
+from src.sharp import discovery, record_queue, records  # noqa: E402
 from src.sharp import score as sharp_score  # noqa: E402
 
 log = logging.getLogger("crawl_sharp_records")
+
+
+def _stats_payload() -> dict:
+    payload = records.records_coverage()
+    payload["queue"] = record_queue.queue_stats()
+    return payload
 
 
 def main() -> int:
@@ -59,7 +70,7 @@ def main() -> int:
 
     try:
         if args.stats:
-            print(json.dumps(records.records_coverage(), indent=2))
+            print(json.dumps(_stats_payload(), indent=2))
             return 0
 
         if args.score:
@@ -83,10 +94,15 @@ def main() -> int:
             kwargs["budget"] = args.budget
         if args.max_seasons is not None:
             kwargs["max_seasons"] = args.max_seasons
-        result = records.crawl_records(league_ids=args.leagues, **kwargs)
+
+        league_ids = args.leagues
+        if league_ids is None:
+            league_ids = record_queue.prioritized_league_ids()
+        result = records.crawl_records(league_ids=league_ids, **kwargs)
 
         payload = result.to_dict()
         payload["coverage"] = records.records_coverage()
+        payload["queue"] = record_queue.queue_stats()
         payload["sharpEligibleLeagues"] = len(discovery.sharp_eligible_league_ids())
         print(json.dumps(payload, indent=2))
         # Partial is normal on a large graph — the next run continues.
