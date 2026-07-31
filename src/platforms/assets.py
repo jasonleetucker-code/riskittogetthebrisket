@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
+
 def normalize_asset_name(value: str | None) -> str:
     raw = unicodedata.normalize("NFKD", str(value or ""))
     raw = "".join(ch for ch in raw if not unicodedata.combining(ch)).lower()
