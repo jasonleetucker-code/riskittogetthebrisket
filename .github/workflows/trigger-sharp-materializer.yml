@@ -18,28 +18,51 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - name: Execute materializer run steps
-        shell: bash
+      - name: Materialize implementation
+        run: python scripts/_materialize_sharp_population.py
+      - name: Install validation dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Format and lint
         run: |
-          pip install pyyaml
-          python - <<'PY'
-          import subprocess
-          from pathlib import Path
-          import yaml
-
-          workflow_path = Path('.github/workflows/materialize-sharp-production.yml')
-          workflow = yaml.safe_load(workflow_path.read_text())
-          steps = workflow['jobs']['materialize']['steps']
-          for step in steps:
-              command = step.get('run')
-              if not command:
-                  continue
-              if step.get('name') == 'Commit materialized changes':
-                  command = command.replace(
-                      'rm -f .github/workflows/materialize-sharp-production.yml',
-                      'rm -f .github/workflows/materialize-sharp-production.yml .github/workflows/trigger-sharp-materializer.yml',
-                  )
-              print(f"::group::{step.get('name', 'run')}")
-              subprocess.run(command, shell=True, executable='/bin/bash', check=True)
-              print('::endgroup::')
-          PY
+          python -m ruff format \
+            src/platforms/ffpc/league_home.py \
+            src/platforms/ffpc/parser.py \
+            src/sharp/market.py \
+            src/sharp/service.py \
+            scripts/crawl_ffpc_sharp.py \
+            tests/platforms/ffpc/test_public_league_home.py \
+            tests/sharp/test_provisional_ffpc.py \
+            tests/deploy/test_sharp_population_jobs.py
+          python -m ruff check \
+            src/platforms/ffpc/league_home.py \
+            src/platforms/ffpc/parser.py \
+            src/sharp/market.py \
+            src/sharp/service.py \
+            scripts/crawl_ffpc_sharp.py \
+            tests/platforms/ffpc/test_public_league_home.py \
+            tests/sharp/test_provisional_ffpc.py \
+            tests/deploy/test_sharp_population_jobs.py
+      - name: Targeted tests
+        run: |
+          python -m pytest \
+            tests/platforms/ffpc \
+            tests/sharp/test_unified_market.py \
+            tests/sharp/test_provisional_ffpc.py \
+            tests/deploy/test_ffpc_sharp_timer_is_wired.py \
+            tests/deploy/test_sharp_population_jobs.py \
+            -q
+          bash -n deploy/install-systemd-service.sh deploy/deploy.sh
+          cd frontend
+          npm ci --no-audit --no-fund
+          npm test -- --run __tests__/sharp-unified-market.test.js __tests__/sharp-provisional-market.test.js
+      - name: Commit materialized changes
+        run: |
+          rm -f \
+            scripts/_materialize_sharp_population.py \
+            .github/workflows/materialize-sharp-production.yml \
+            .github/workflows/trigger-sharp-materializer.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix(sharp): populate Sleeper records and public FFPC activity"
+          git push origin HEAD:fix/sharp-production-population
