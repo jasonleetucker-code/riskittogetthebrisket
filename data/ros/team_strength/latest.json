@@ -1883,9 +1883,9 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Jason",
-    "teamRosStrength": 533.68,
-    "startingLineupScore": 690.81,
-    "benchDepthScore": 146.55,
+    "teamRosStrength": 529.59,
+    "startingLineupScore": 685.91,
+    "benchDepthScore": 143.42,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2061,16 +2061,6 @@
       },
       {
         "slot": "WR",
-        "playerId": "7525",
-        "canonicalName": "devonta smith",
-        "position": "WR",
-        "rosValue": 37.38,
-        "adjustedValue": 37.38,
-        "confidence": 0.931,
-        "flagged": null
-      },
-      {
-        "slot": "FLEX",
         "playerId": "8146",
         "canonicalName": "garrett wilson",
         "position": "WR",
@@ -2087,6 +2077,16 @@
         "rosValue": 36.01,
         "adjustedValue": 36.01,
         "confidence": 0.918,
+        "flagged": null
+      },
+      {
+        "slot": "FLEX",
+        "playerId": "13279",
+        "canonicalName": "carnell tate",
+        "position": "WR",
+        "rosValue": 32.48,
+        "adjustedValue": 32.48,
+        "confidence": 0.764,
         "flagged": null
       },
       {
@@ -2110,12 +2110,12 @@
         "depthContribution": 38.86
       },
       {
-        "playerId": "13279",
-        "canonicalName": "carnell tate",
+        "playerId": "11631",
+        "canonicalName": "brian thomas",
         "position": "WR",
-        "rosValue": 32.48,
+        "rosValue": 30.45,
         "depthFactor": 1.0,
-        "depthContribution": 32.48
+        "depthContribution": 30.45
       },
       {
         "playerId": "9756",
@@ -2124,14 +2124,6 @@
         "rosValue": 27.63,
         "depthFactor": 0.65,
         "depthContribution": 17.96
-      },
-      {
-        "playerId": "8126",
-        "canonicalName": "wandale robinson",
-        "position": "WR",
-        "rosValue": 24.3,
-        "depthFactor": 0.423,
-        "depthContribution": 10.27
       },
       {
         "playerId": "11559",
@@ -2154,16 +2146,24 @@
         "canonicalName": "omar cooper",
         "position": "WR",
         "rosValue": 21.86,
-        "depthFactor": 0.275,
-        "depthContribution": 6.0
+        "depthFactor": 0.423,
+        "depthContribution": 9.24
       },
       {
         "playerId": "7049",
         "canonicalName": "jauan jennings",
         "position": "WR",
         "rosValue": 21.82,
+        "depthFactor": 0.275,
+        "depthContribution": 5.99
+      },
+      {
+        "playerId": "13417",
+        "canonicalName": "dezhaun stribling",
+        "position": "WR",
+        "rosValue": 21.49,
         "depthFactor": 0.179,
-        "depthContribution": 3.9
+        "depthContribution": 3.84
       }
     ],
     "fullRoster": [
@@ -2289,17 +2289,6 @@
         "bye": false
       },
       {
-        "playerId": "8126",
-        "canonicalName": "wandale robinson",
-        "position": "WR",
-        "rosValue": 24.3,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
         "playerId": "12578",
         "canonicalName": "carson schwesinger",
         "position": "LB",
@@ -2399,6 +2388,17 @@
         "bye": false
       },
       {
+        "playerId": "11631",
+        "canonicalName": "brian thomas",
+        "position": "WR",
+        "rosValue": 30.45,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
         "playerId": "13276",
         "canonicalName": "omar cooper",
         "position": "WR",
@@ -2493,17 +2493,6 @@
         "rosValue": 23.93,
         "fantasyPositions": [
           "RB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "7525",
-        "canonicalName": "devonta smith",
-        "position": "WR",
-        "rosValue": 37.38,
-        "fantasyPositions": [
-          "WR"
         ],
         "injured": false,
         "bye": false
@@ -2770,6 +2759,17 @@
         "fantasyPositions": [
           "DL",
           "LB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13301",
+        "canonicalName": "antonio williams",
+        "position": "WR",
+        "rosValue": 17.04,
+        "fantasyPositions": [
+          "WR"
         ],
         "injured": false,
         "bye": false
@@ -7506,9 +7506,9 @@
     "ownerId": "711452264774041600",
     "rosterId": 2,
     "teamName": "Ed",
-    "teamRosStrength": 417.24,
-    "startingLineupScore": 538.59,
-    "benchDepthScore": 108.53,
+    "teamRosStrength": 427.86,
+    "startingLineupScore": 551.14,
+    "benchDepthScore": 117.31,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -7664,12 +7664,12 @@
       },
       {
         "slot": "WR",
-        "playerId": "11631",
-        "canonicalName": "brian thomas",
+        "playerId": "7525",
+        "canonicalName": "devonta smith",
         "position": "WR",
-        "rosValue": 30.45,
-        "adjustedValue": 30.45,
-        "confidence": 0.911,
+        "rosValue": 37.38,
+        "adjustedValue": 37.38,
+        "confidence": 0.931,
         "flagged": null
       },
       {
@@ -7684,6 +7684,16 @@
       },
       {
         "slot": "WR",
+        "playerId": "8126",
+        "canonicalName": "wandale robinson",
+        "position": "WR",
+        "rosValue": 24.3,
+        "adjustedValue": 24.3,
+        "confidence": 0.9,
+        "flagged": null
+      },
+      {
+        "slot": "FLEX",
         "playerId": "9504",
         "canonicalName": "kayshon boutte",
         "position": "WR",
@@ -7700,16 +7710,6 @@
         "rosValue": 20.04,
         "adjustedValue": 20.04,
         "confidence": 0.919,
-        "flagged": null
-      },
-      {
-        "slot": "FLEX",
-        "playerId": "11655",
-        "canonicalName": "tyrone tracy",
-        "position": "RB",
-        "rosValue": 18.68,
-        "adjustedValue": 18.68,
-        "confidence": 0.866,
         "flagged": null
       },
       {
@@ -7731,6 +7731,14 @@
         "rosValue": 27.57,
         "depthFactor": 1.0,
         "depthContribution": 27.57
+      },
+      {
+        "playerId": "11655",
+        "canonicalName": "tyrone tracy",
+        "position": "RB",
+        "rosValue": 18.68,
+        "depthFactor": 1.0,
+        "depthContribution": 18.68
       },
       {
         "playerId": "10213",
@@ -7757,28 +7765,20 @@
         "depthContribution": 11.19
       },
       {
-        "playerId": "13301",
-        "canonicalName": "antonio williams",
-        "position": "WR",
-        "rosValue": 17.04,
-        "depthFactor": 0.423,
-        "depthContribution": 7.2
-      },
-      {
         "playerId": "11618",
         "canonicalName": "jalen mcmillan",
         "position": "WR",
         "rosValue": 16.49,
-        "depthFactor": 0.275,
-        "depthContribution": 4.53
+        "depthFactor": 0.423,
+        "depthContribution": 6.97
       },
       {
         "playerId": "12469",
         "canonicalName": "dylan sampson",
         "position": "RB",
         "rosValue": 14.7,
-        "depthFactor": 1.0,
-        "depthContribution": 14.7
+        "depthFactor": 0.65,
+        "depthContribution": 9.55
       },
       {
         "playerId": "12502",
@@ -7934,6 +7934,17 @@
         "bye": false
       },
       {
+        "playerId": "8126",
+        "canonicalName": "wandale robinson",
+        "position": "WR",
+        "rosValue": 24.3,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
         "playerId": "13364",
         "canonicalName": "cashius howell",
         "position": "DL",
@@ -8044,17 +8055,6 @@
         "bye": false
       },
       {
-        "playerId": "11631",
-        "canonicalName": "brian thomas",
-        "position": "WR",
-        "rosValue": 30.45,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
         "playerId": "13269",
         "canonicalName": "fernando mendoza",
         "position": "QB",
@@ -8105,6 +8105,17 @@
         "rosValue": 12.84,
         "fantasyPositions": [
           "LB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "7525",
+        "canonicalName": "devonta smith",
+        "position": "WR",
+        "rosValue": 37.38,
+        "fantasyPositions": [
+          "WR"
         ],
         "injured": false,
         "bye": false
@@ -8370,17 +8381,6 @@
         "rosValue": 7.98,
         "fantasyPositions": [
           "DB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "13301",
-        "canonicalName": "antonio williams",
-        "position": "WR",
-        "rosValue": 17.04,
-        "fantasyPositions": [
-          "WR"
         ],
         "injured": false,
         "bye": false
