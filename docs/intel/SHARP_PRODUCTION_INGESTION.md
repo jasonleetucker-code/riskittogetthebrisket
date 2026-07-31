@@ -24,11 +24,15 @@ Sharp Score v2 evidence and scoring gates are satisfied.
 
 ## FFPC population
 
-`config/sharp/ffpc_sources.json` contains explicitly selected, unauthenticated
-public dynasty `LeagueHome.aspx` pages. The adapter performs GET requests only.
-It parses visible standings and transactions, normalizes multi-line action
-cells, deduplicates the two team perspectives of one trade, resolves assets
-onto canonical Sleeper player IDs, and stores unresolved assets for review.
+`config/sharp/ffpc_sources.json` contains an initial set of ten explicitly
+selected, unauthenticated public dynasty `LeagueHome.aspx` pages. The adapter
+performs GET requests only. It parses visible standings and transactions,
+normalizes multi-line action cells, deduplicates the two team perspectives of
+one trade, resolves assets onto canonical Sleeper player IDs, and stores
+unresolved assets for review.
+
+Additional public dynasty leagues can be added to the same configuration
+without creating a separate FFPC pipeline or table.
 
 `dynasty-ffpc-sharp.timer` runs once per day at 05:20 UTC with up to a
 15-minute randomized delay. It is persistent, so a missed run fires after the
