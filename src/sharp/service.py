@@ -137,6 +137,22 @@ def market_audit_payload(asset_id: str, **kwargs: Any) -> dict[str, Any]:
     return sharp_market.audit_payload(asset_id, **kwargs)
 
 
+def _server_app():
+    """Return the FastAPI app whether ``server.py`` was imported or executed.
+
+    Production starts the backend with ``python server.py``, which places the
+    module in ``sys.modules['__main__']`` rather than ``sys.modules['server']``.
+    Looking only for ``server`` silently skipped the market route registration
+    while the explicitly declared cohort endpoint continued to work.
+    """
+    for module_name in ("server", "__main__"):
+        module = sys.modules.get(module_name)
+        app = getattr(module, "app", None)
+        if app is not None:
+            return app
+    return None
+
+
 def _register_http_routes() -> None:
     """Register routes when this module is imported by ``server.py``.
 
@@ -144,8 +160,7 @@ def _register_http_routes() -> None:
     section. Keeping registration here avoids a second API application or
     a parallel FFPC router while preserving ``/api/sharp/cohort`` exactly.
     """
-    server_module = sys.modules.get("server")
-    app = getattr(server_module, "app", None)
+    app = _server_app()
     if app is None:
         return
     existing = {getattr(route, "path", None) for route in getattr(app, "routes", [])}
