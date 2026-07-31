@@ -100,7 +100,7 @@ def parse_action_statement(statement: str) -> ParsedAction | None:
 
     match = re.match(r"^(?:Dropped|Released)\s+(.+)$", text, re.I)
     if match:
-        return ParsedAction("free_agent", "drop", match.group(1).strip())
+        return ParsedAction("free agent", "drop", match.group(1).strip())
 
     match = re.match(
         r"^(?:Added|Claimed|Signed)\s+(.+?)(?:\s+(?:for|at)\s+\$?(\d+))?$",
@@ -109,7 +109,12 @@ def parse_action_statement(statement: str) -> ParsedAction | None:
     )
     if match:
         bid = int(match.group(2)) if match.group(2) else None
-        return ParsedAction("waiver" if bid is not None else "free_agent", "add", match.group(1).strip(), faab_bid=bid)
+        return ParsedAction(
+            "waiver" if bid is not None else "free agent",
+            "add",
+            match.group(1).strip(),
+            faab_bid=bid,
+        )
     return None
 
 
