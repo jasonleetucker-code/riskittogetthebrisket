@@ -1,9 +1,9 @@
 """Fair, resumable ordering for the Sharp Tracker season-records crawl.
 
-The records crawler has a hard per-run Sleeper API budget.  Feeding it the
+The records crawler has a hard per-run Sleeper API budget. Feeding it the
 same insertion-ordered league list every day means a large graph can spend
 that budget re-reading the same first leagues forever while later leagues
-never receive a first pass.  This module turns the discovered
+never receive a first pass. This module turns the discovered
 sharp-eligible leagues into a round-robin queue:
 
 * leagues with no stored season rows are first;
@@ -11,7 +11,7 @@ sharp-eligible leagues into a round-robin queue:
 * ties are stable by league id.
 
 ``manager_seasons`` always receives a row for the current/root league when a
-crawl reaches its rosters, including in-season leagues.  Its latest
+crawl reaches its rosters, including in-season leagues. Its latest
 ``crawled_ms`` is therefore a durable, idempotent cursor without adding a
 second queue table or competing state machine.
 """
@@ -32,12 +32,18 @@ def prioritize_league_ids(
 ) -> list[str]:
     """Return unique league ids in fair crawl order.
 
-    Uncrawled leagues sort before crawled leagues.  Among crawled leagues,
+    Uncrawled leagues sort before crawled leagues. Among crawled leagues,
     the oldest successful write sorts first so repeated budgeted runs rotate
     through the full graph instead of restarting at the same prefix.
     """
 
-    unique = {str(league_id).strip() for league_id in league_ids if str(league_id).strip()}
+    unique: set[str] = set()
+    for league_id in league_ids:
+        if league_id is None:
+            continue
+        normalized = str(league_id).strip()
+        if normalized:
+            unique.add(normalized)
 
     def key(league_id: str) -> tuple[int, int, str]:
         raw = last_crawled_ms.get(league_id)
