@@ -1,0 +1,18 @@
+{
+  "enabled": false,
+  "mode": "public_only",
+  "requestBudgetPerRun": 100,
+  "sleepSecondsBetweenCalls": 1.5,
+  "cacheHours": 12,
+  "timeoutSeconds": 20,
+  "retryLimit": 2,
+  "allowedHosts": ["myffpc.com", "www.myffpc.com"],
+  "userAgent": "ChaseUpside-FFPC-Public-Reader/1.0",
+  "assetMappingsFile": "config/sharp/ffpc_asset_mappings.json",
+  "seedLeagues": [],
+  "curatedManagers": [],
+  "allowCuratedInCombinedSignals": false,
+  "authenticatedApi": {
+    "enabled": false
+  }
+}
