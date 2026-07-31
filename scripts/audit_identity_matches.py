@@ -174,7 +174,22 @@ def _count_csv_rows(csv_path: Path) -> int:
 # same-player claim, and every collision outside this set still fails.
 # The collisions are still reported and still printed in the run
 # summary; they are marked, not hidden.
-_KNOWN_POOL_DUPLICATES = {
+# Verified same-player duplicates, mapped to the EXACT set of alias
+# sources whose merge onto that name was checked by a human.
+#
+# The value is not decoration.  An exemption keyed on the name alone
+# widens silently: add a second alias pointing at "rob henry" next year
+# and it inherits the carve-out without anyone looking.  Pinning the
+# source set means a new alias into an exempted name fails
+# ``test_the_allowlist_still_describes_the_aliases_it_exempts`` and has
+# to be verified on its own merits.
+#
+# NOTE the presence of the collision in any given snapshot is NOT the
+# criterion — the pool is refreshed from external sources every two
+# hours and the second spelling comes and goes with it (it was present
+# on 2026-07-30T18:06Z and gone by 2026-07-31T04:09Z).  What makes the
+# exemption live is the alias, which is committed code.
+_KNOWN_POOL_DUPLICATES: dict[str, frozenset[str]] = {
     # "Rob Henry" + "Robert Henry" — one player, two pool rows.
     #
     # ``src/utils/name_clean.py`` aliases "robert henry" → "rob henry"
@@ -195,7 +210,7 @@ _KNOWN_POOL_DUPLICATES = {
     #
     # Removing the alias was the alternative and is worse: it would
     # leave one player sitting on the board as two separate rows.
-    "rob henry",
+    "rob henry": frozenset({"robert henry"}),
 }
 
 

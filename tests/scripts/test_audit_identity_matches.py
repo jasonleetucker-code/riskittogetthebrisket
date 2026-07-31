@@ -270,39 +270,61 @@ class TestCommittedDataRegression:
         )
         assert "::error title=Alias collision" in proc.stdout
 
-    def test_the_duplicate_allowlist_only_holds_real_collisions(self, tmp_path):
-        """An allowlist entry that no longer collides is dead weight.
+    def test_the_allowlist_still_describes_the_aliases_it_exempts(self):
+        """An exemption must still match the alias table it was verified against.
 
-        Guards the guard: if a refresh drops the duplicate pool row,
-        this fails and the entry gets removed, rather than sitting
-        there widening the exemption for a future name that happens to
-        normalize the same way.
+        This started life asserting that every allowlisted name is
+        colliding in the CURRENTLY COMMITTED pool, and that predicate
+        was wrong in the way ``docs/ORCHESTRATION.md`` §6.15 names: its
+        stated purpose ("a stale exemption silently covers whatever
+        normalizes to that name next") and its actual predicate did not
+        match.
+
+        The pool is refreshed from external sources every two hours.
+        "Robert Henry" entered ``CSVs/dynasty_full.csv`` on
+        2026-07-30T18:06Z and was gone again by 2026-07-31T04:09Z, so
+        the collision blinks in and out on a schedule nobody controls —
+        and this test failed CI on the second of those refreshes while
+        the exemption was still entirely correct.  Left as it was, the
+        pair would churn forever: drop the entry, next refresh
+        re-introduces the row, the GATE fails and opens an issue, re-add
+        the entry.
+
+        What actually justifies the exemption is committed code — the
+        ``robert henry -> rob henry`` alias, verified same player on both
+        sides.  An alias-introduced collision on name ``X`` is only
+        POSSIBLE while some entry in ``CANONICAL_NAME_ALIASES`` targets
+        ``X``, so that is the live/dead test.
+
+        It is also strictly stronger than what it replaces on the risk
+        that mattered.  The old check said nothing about WHICH names an
+        exemption covers, so a second alias pointing at "rob henry"
+        would have inherited the carve-out in silence — exactly the
+        widening it claimed to prevent.  Pinning the source set means
+        that new alias fails here and has to be verified on its own.
         """
         from scripts.audit_identity_matches import _KNOWN_POOL_DUPLICATES
+        from src.utils.name_clean import CANONICAL_NAME_ALIASES
 
-        out = tmp_path / "report.json"
-        proc = subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPT),
-                "--json-path",
-                str(_latest_export()),
-                "--json",
-                str(out),
-                "--limit",
-                "1",
-            ],
-            capture_output=True,
-            text=True,
-            cwd=str(REPO),
-            timeout=600,
-        )
-        assert proc.returncode == 0, proc.stderr[-2000:]
-        report = json.loads(out.read_text(encoding="utf-8"))
-        colliding = {c["canonicalName"] for c in report["aliasCollisions"]}
-        stale = sorted(_KNOWN_POOL_DUPLICATES - colliding)
-        assert stale == [], (
-            f"allowlisted names that no longer collide: {stale}. "
-            "Drop them from _KNOWN_POOL_DUPLICATES — a stale exemption "
-            "silently covers whatever normalizes to that name next."
+        actual: dict[str, set[str]] = {}
+        for source, target in CANONICAL_NAME_ALIASES.items():
+            if target in _KNOWN_POOL_DUPLICATES:
+                actual.setdefault(target, set()).add(source)
+
+        drift = {
+            name: {
+                "verified": sorted(verified),
+                "aliasTableNow": sorted(actual.get(name, set())),
+            }
+            for name, verified in _KNOWN_POOL_DUPLICATES.items()
+            if actual.get(name, set()) != set(verified)
+        }
+        assert drift == {}, (
+            "_KNOWN_POOL_DUPLICATES no longer describes the alias table.\n"
+            f"{json.dumps(drift, indent=2)}\n"
+            "An empty 'aliasTableNow' means nothing can route into that "
+            "name any more — the exemption is dead weight, drop it. A "
+            "LARGER set means a new alias inherited a carve-out it was "
+            "never verified for: check it is the same player, then widen "
+            "the entry deliberately."
         )

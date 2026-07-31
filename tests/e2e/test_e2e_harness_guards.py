@@ -75,19 +75,27 @@ FRONTEND_CANON = REPO_ROOT / "frontend" / "__tests__" / "helpers" / "naming-cano
 # intent a regex does not have.
 _BARE_GOTO = re.compile(r"""\.goto\(\s*["'](/[^"']*)["']""")
 
-# The one deliberate exemption.  auth-fixture reloads "/" purely to let
-# the browser context pick up the cookies ``page.request`` just set;
-# "/" is public (``frontend/lib/public-routes.js``) so it does not
-# redirect, and the reload's whole point is to exercise the same origin
-# the session was minted against.  Documented rather than silently
-# skipped — an undocumented entry here is how this guard would rot.
-_GOTO_EXEMPT = {
-    ("helpers/auth-fixture.js", "/"): (
-        "cookie-priming reload immediately after POST "
-        "/api/test/create-session; '/' is public so it cannot 307, and "
-        "the reload must stay on the origin the session was minted on"
-    ),
-}
+# Deliberate exemptions, keyed (file, route).  EMPTY, and that is the
+# desired state — every entry here is a hole in the guard.
+#
+# There used to be one: auth-fixture's cookie-priming ``page.goto("/")``,
+# justified on the grounds that "/" is public so it cannot 307. True,
+# and beside the point. Through the backend page proxy "/" hydrates the
+# ANONYMOUS shell against an already-authenticated client, and React
+# reports that mismatch as an async #418 page error that lands after
+# goto() resolves — i.e. after the next test attached its console
+# guards. Intermittent failures on whichever authed spec lost the race,
+# with :8000 chunk URLs in a stack trace from a test that navigated to
+# :3000.
+#
+# The exemption's reasoning was sound about redirects and silent about
+# hydration, which is the same §6.15 shape this file exists to catch.
+# The fixture now primes through pageUrl() like everything else.
+#
+# An entry here needs a reason that survives someone reading it
+# adversarially — "it cannot redirect" is not the same claim as "it is
+# safe to navigate there".
+_GOTO_EXEMPT: dict[tuple[str, str], str] = {}
 
 # Names PR #625 retired.  An assertion still matching one of these is a
 # rename that only half landed.

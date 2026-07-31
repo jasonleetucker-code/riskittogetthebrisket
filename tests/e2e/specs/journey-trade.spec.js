@@ -170,9 +170,20 @@ test.describe("journey: trade surfaces", () => {
 
     // Click INSIDE the poll: the first click can land before React has
     // attached handlers and is then simply lost. Same remedy as the
-    // archives race (public-league.spec.js) — the handler is idempotent,
-    // so re-clicking only re-runs the same scan.
-    const scan = page.getByRole("button", { name: /Find arbitrage/i });
+    // archives race (public-league.spec.js).
+    //
+    // But NOT "click every tick". Re-clicking is not idempotent here —
+    // `run()` sets `running: true`, and BOTH settled states are gated
+    // on `!running` (arbitrage/page.jsx:283,289). So a click fired on
+    // the same tick that the previous scan finished tears the result
+    // straight back down, and since the click happened before the read,
+    // the read always saw zero. That is not a hypothetical: it failed
+    // deterministically, with 30+ trade cards visible in the trace.
+    //
+    // Hence: READ FIRST, and only click when no scan is in flight.
+    // `disabled={running || dataLoading || !effectiveTeam}` makes
+    // `isEnabled()` the page's own statement that a click is safe.
+    const scan = page.getByRole("button", { name: /Find arbitrage|Scanning/i });
     const settled = page
       .locator(SEL.arbitrageTradeCard)
       .or(page.getByText(/No arbitrage found/i));
@@ -180,8 +191,10 @@ test.describe("journey: trade surfaces", () => {
     await expect
       .poll(
         async () => {
+          const count = await settled.count();
+          if (count > 0) return count;
           if (await scan.isEnabled()) await scan.click();
-          return settled.count();
+          return 0;
         },
         {
           message: "scan should resolve to trades or the explicit empty state",

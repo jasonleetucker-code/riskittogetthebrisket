@@ -101,7 +101,20 @@ async function _openMethodology(page) {
   // dangerous: the opener quietly does nothing, the panel never
   // expands, and the charts fail as "chart didn't render" rather than
   // "the button moved".
-  const btn = page.getByRole("button", { name: /how this works|methodology/i });
+  //
+  // ``hide charts`` is in the alternation because THE TOGGLE RENAMES
+  // ITSELF WHEN IT OPENS: rankings/page.jsx:1319 renders
+  // "Methodology charts" while collapsed and "Hide charts" while
+  // expanded.  A name locator matching only the collapsed label stops
+  // resolving the instant the click lands, so the state poll below
+  // reads `aria-pressed` off zero elements and times out — against a
+  // panel that is, in the trace, plainly open.  That is how this
+  // helper failed three chart tests on 2026-07-31.  Nothing else on
+  // the page matches "hide charts" ("Hide edge" is the neighbouring
+  // rail toggle and does not).
+  const btn = page.getByRole("button", {
+    name: /how this works|methodology|hide charts/i,
+  });
   try {
     await btn.first().waitFor({ state: "visible", timeout: 5_000 });
   } catch {
