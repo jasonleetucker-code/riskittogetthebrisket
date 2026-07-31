@@ -1,17 +1,120 @@
 {
-  "enabled": false,
+  "enabled": true,
   "mode": "public_only",
   "requestBudgetPerRun": 100,
   "sleepSecondsBetweenCalls": 1.5,
-  "cacheHours": 12,
+  "cacheHours": 20,
   "timeoutSeconds": 20,
   "retryLimit": 2,
   "allowedHosts": ["myffpc.com", "www.myffpc.com"],
-  "userAgent": "ChaseUpside-FFPC-Public-Reader/1.0",
+  "userAgent": "ChaseUpside-FFPC-Public-Reader/1.0 (+https://chaseupside.com)",
   "assetMappingsFile": "config/sharp/ffpc_asset_mappings.json",
-  "seedLeagues": [],
+  "seedLeagues": [
+    {
+      "sourceLeagueId": "97A-DF26E86BE34D",
+      "publicUrl": "https://myffpc.com/LeagueHome.aspx?ltuid=97A-DF26E86BE34D",
+      "season": "2026",
+      "format": "dynasty",
+      "enabled": true,
+      "allowProvisionalContribution": true,
+      "sharpEligible": false,
+      "seasonComplete": false
+    },
+    {
+      "sourceLeagueId": "8A0-C9E5DD4496AD",
+      "publicUrl": "https://myffpc.com/LeagueHome.aspx?ltuid=8A0-C9E5DD4496AD",
+      "season": "2026",
+      "format": "dynasty",
+      "enabled": true,
+      "allowProvisionalContribution": true,
+      "sharpEligible": false,
+      "seasonComplete": false
+    },
+    {
+      "sourceLeagueId": "61C-0FAEDCFB484D",
+      "publicUrl": "https://myffpc.com/LeagueHome.aspx?ltuid=61C-0FAEDCFB484D",
+      "season": "2026",
+      "format": "dynasty",
+      "enabled": true,
+      "allowProvisionalContribution": true,
+      "sharpEligible": false,
+      "seasonComplete": false
+    },
+    {
+      "sourceLeagueId": "D64-09498CB81C82",
+      "publicUrl": "https://myffpc.com/LeagueHome.aspx?ltuid=D64-09498CB81C82",
+      "season": "2026",
+      "format": "dynasty",
+      "enabled": true,
+      "allowProvisionalContribution": true,
+      "sharpEligible": false,
+      "seasonComplete": false
+    },
+    {
+      "sourceLeagueId": "AE2-5A06DBE13C66",
+      "publicUrl": "https://myffpc.com/LeagueHome.aspx?ltuid=AE2-5A06DBE13C66",
+      "season": "2026",
+      "format": "dynasty",
+      "enabled": true,
+      "allowProvisionalContribution": true,
+      "sharpEligible": false,
+      "seasonComplete": false
+    },
+    {
+      "sourceLeagueId": "E80-2CFCDEDDCB0E",
+      "publicUrl": "https://myffpc.com/LeagueHome.aspx?ltuid=E80-2CFCDEDDCB0E",
+      "season": "2026",
+      "format": "dynasty",
+      "enabled": true,
+      "allowProvisionalContribution": true,
+      "sharpEligible": false,
+      "seasonComplete": false
+    },
+    {
+      "sourceLeagueId": "0C7-EE3B3479E0A2",
+      "publicUrl": "https://myffpc.com/LeagueHome.aspx?ltuid=0C7-EE3B3479E0A2",
+      "season": "2026",
+      "format": "dynasty",
+      "enabled": true,
+      "allowProvisionalContribution": true,
+      "sharpEligible": false,
+      "seasonComplete": false
+    },
+    {
+      "sourceLeagueId": "1D3-B82615D6DB68",
+      "publicUrl": "https://myffpc.com/LeagueHome.aspx?ltuid=1D3-B82615D6DB68",
+      "season": "2026",
+      "format": "dynasty",
+      "enabled": true,
+      "allowProvisionalContribution": true,
+      "sharpEligible": false,
+      "seasonComplete": false
+    },
+    {
+      "sourceLeagueId": "7A7-8B2C2637BF6C",
+      "publicUrl": "https://myffpc.com/LeagueHome.aspx?ltuid=7A7-8B2C2637BF6C",
+      "season": "2026",
+      "format": "dynasty",
+      "enabled": true,
+      "allowProvisionalContribution": true,
+      "sharpEligible": false,
+      "seasonComplete": false
+    },
+    {
+      "sourceLeagueId": "A25-CB6BE67F3850",
+      "publicUrl": "https://myffpc.com/LeagueHome.aspx?ltuid=A25-CB6BE67F3850",
+      "season": "2026",
+      "format": "dynasty",
+      "enabled": true,
+      "allowProvisionalContribution": true,
+      "sharpEligible": false,
+      "seasonComplete": false
+    }
+  ],
   "curatedManagers": [],
   "allowCuratedInCombinedSignals": false,
+  "allowProvisionalPublicInCombinedSignals": true,
+  "provisionalPublicWeight": 0.55,
   "authenticatedApi": {
     "enabled": false
   }
