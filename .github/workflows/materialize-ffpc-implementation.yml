@@ -1,0 +1,42 @@
+name: Materialize FFPC implementation
+
+on:
+  push:
+    branches:
+      - feature/unified-ffpc-sharp
+    paths:
+      - .ffpc_payload.b64
+      - .github/workflows/materialize-ffpc-implementation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout implementation branch
+        uses: actions/checkout@v6
+        with:
+          ref: feature/unified-ffpc-sharp
+          fetch-depth: 0
+
+      - name: Verify and unpack implementation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          base64 --decode .ffpc_payload.b64 > /tmp/ffpc_payload.tar.gz
+          echo "cdae82abdc93657cf41b04cdc500c5b29f850b509070210226b1298723202d4e  /tmp/ffpc_payload.tar.gz" | sha256sum --check -
+          tar -xzf /tmp/ffpc_payload.tar.gz -C .
+          rm -f .ffpc_payload.b64 .github/workflows/materialize-ffpc-implementation.yml
+
+      - name: Commit implementation files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement unified Sleeper and FFPC Sharp Tracker"
+          git push origin HEAD:feature/unified-ffpc-sharp
