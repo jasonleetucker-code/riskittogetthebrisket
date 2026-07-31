@@ -90,7 +90,30 @@ def default_path() -> Path:
     return Path(store.DATA_DIR) / LEDGER_FILENAME
 
 
-SCHEMA_VERSION = 1
+# Bumping this REBUILDS the ledger on next open (see ``_open_or_reset``).
+#
+# 2 — D10.  ``movement_id`` used to embed the *attributed* owner, which
+#     is recomputed from live ``/rosters`` each run, so a co-ownership
+#     change re-keyed an already-ingested movement and let the same
+#     transaction be counted twice.  It is now keyed on the roster slot
+#     (``src/intel/crawler.py::emit``).  Existing rows carry the old key
+#     and cannot be recomputed — they never stored a roster_id — so the
+#     migration CLEARS THE MOVEMENT TABLES rather than rewriting keys.
+#
+#     Deliberately not a whole-file rebuild.  The discovery graph
+#     (``leagues``, ``sleeper_users``, ``league_memberships``) and the
+#     season records (``manager_seasons``) live in this same file and
+#     cost hundreds of Sleeper calls to rebuild; they are unaffected by
+#     the key change, so they are preserved.  Movements are the cheap
+#     part: league-mate rows heal on the next read via
+#     ``service.ensure_ledger_synced``, and sharp rows re-crawl.
+SCHEMA_VERSION = 2
+
+# Tables whose rows are invalidated by each schema step.  Anything not
+# listed here SURVIVES the migration.
+_MIGRATION_CLEARS: dict[int, tuple[str, ...]] = {
+    2: ("asset_movements", "transactions"),
+}
 
 # Retention.  The predecessor's 45 days made "last 90 days" and any
 # season-level view structurally unanswerable.  Rows are small and
@@ -242,6 +265,47 @@ def _apply_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _migrate(conn: sqlite3.Connection, from_version: int) -> None:
+    """Clear only the tables each schema step invalidates.
+
+    A whole-file rebuild would be far more destructive than it looks:
+    the discovery graph and the season records share this file and cost
+    hundreds of Sleeper calls, and neither is affected by a movement-key
+    change.  So each step names the tables it invalidates and everything
+    else is carried forward untouched.
+
+    Steps run in order, so a file several versions behind lands on the
+    union of what each intervening step invalidated.
+    """
+    for version in sorted(_MIGRATION_CLEARS):
+        if from_version < version <= SCHEMA_VERSION:
+            for table in _MIGRATION_CLEARS[version]:
+                try:
+                    conn.execute(f"DELETE FROM {table}")  # noqa: S608 — fixed literals above
+                except sqlite3.DatabaseError:
+                    log.exception("intel.ledger: migration v%s could not clear %s", version, table)
+    conn.commit()
+
+
+def _stored_schema_version(conn: sqlite3.Connection) -> int | None:
+    """The schema version recorded in the file, or None if absent.
+
+    Absent means either a brand-new file or one written before the
+    version was tracked; both are handled by the caller as "no
+    migration needed".
+    """
+    try:
+        row = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
+    except sqlite3.DatabaseError:
+        return None
+    if not row:
+        return None
+    try:
+        return int(row[0])
+    except (TypeError, ValueError):
+        return None
+
+
 def _is_corrupt_database_error(exc: sqlite3.DatabaseError) -> bool:
     """Return True only for errors that prove the file itself is corrupt.
 
@@ -283,17 +347,36 @@ def _schema_is_current(conn: sqlite3.Connection) -> bool:
 
 
 def _open_or_reset(path: Path) -> None:
-    """Open the ledger and rebuild only when SQLite proves corruption.
+    """Open the ledger, migrating on a version bump and rebuilding only on corruption.
 
     Existing, current ledgers are checked read-only. This lets API readers
     start while a collector owns the write lock. A busy or locked database
     is never renamed, deleted, or rebuilt.
+
+    ``SCHEMA_VERSION`` was written into ``meta`` from the start but never
+    *checked*. That was harmless while the version never moved; it stops
+    being harmless the moment the movement key changes, because old rows
+    keyed the old way would sit beside new ones and double-count by a
+    different route than D10 itself. So a stale version now runs
+    ``_migrate``, which clears only the tables the step invalidates —
+    never the whole file.
     """
     conn = sqlite3.connect(str(path), timeout=30.0)
     conn.execute("PRAGMA busy_timeout=30000")
     try:
         if _schema_is_current(conn):
             return
+        # ``None`` means the file predates version tracking, so treat it as
+        # version 0: its movement rows carry the old key and must go.
+        stored = _stored_schema_version(conn)
+        if stored != SCHEMA_VERSION:
+            log.warning(
+                "intel.ledger: %s is schema v%s, expected v%s — migrating",
+                path,
+                stored,
+                SCHEMA_VERSION,
+            )
+            _migrate(conn, stored if stored is not None else 0)
         _apply_schema(conn)
         return
     except sqlite3.DatabaseError as exc:
@@ -390,6 +473,11 @@ def ingest_events(
 
     Every insert is ``INSERT OR IGNORE`` on the deterministic
     ``movement_id``.  Re-ingesting the same events inserts nothing.
+
+    That guarantee is only as good as the key.  Since D10 the crawler
+    keys ``eventId`` on the roster SLOT rather than the attributed
+    owner, so a co-ownership change can no longer manufacture a second
+    id for a movement already stored — see ``crawler.py::emit``.
     """
     own_conn = conn is None
     conn = conn or connect(path)

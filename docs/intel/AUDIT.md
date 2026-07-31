@@ -131,7 +131,7 @@ depends on crawl coverage rather than on market behaviour.
 | D7 | No dynasty/redraft filter — redraft and best-ball leagues feed a dynasty board | `crawler.py:499` | **Fixed** |
 | D8 | 45-day retention makes 90-day and season windows unanswerable | `store.py:42` | **Fixed** (400d) |
 | D9 | Pick holdings seeded unconditionally for 3 future seasons off a wall-clock year, even when `/traded_picks` is empty | `crawler.py:190-198,563` | **Fixed** |
-| D10 | `movement_id` embeds *attributed* owner, rebuilt per run from live `/rosters`; a co-ownership change can re-key the same transaction | `crawler.py:155-158,265` | Open — see §7 |
+| D10 | `movement_id` embeds *attributed* owner, rebuilt per run from live `/rosters`; a co-ownership change can re-key the same transaction | `crawler.py:155-158,265` | **Fixed** — see §7 |
 | D11 | `faab_contention.load_intel_snapshot` called unwrapped in an async handler (blocking I/O on the event loop) | `server.py:5140` | **Fixed** |
 | D12 | `build_player_payload` re-aggregates the entire event log per request | `service.py:404-410` | **Fixed** (ledger) |
 | D13 | Any signed-in session can POST `/api/intel/refresh` unthrottled | `server.py:12105` | **Fixed** (cooldown) |
@@ -208,18 +208,50 @@ call budget and crawl breadth, not API capability.
 
 ---
 
-## 7. Note on D10 (the one dedup hole)
+## 7. D10 — the last dedup hole, and how it was closed
 
-`movement_id` inherits the crawler's `eventId`, which embeds the **attributed** owner —
-and attribution prefers a pool co-owner when the primary owner is not in the pool
-(`crawler.py:155-158`), recomputed each run from live `/rosters`. If co-ownership changes,
-the same underlying transaction can produce a different key and be counted twice.
+**The defect.** `movement_id` inherited the crawler's `eventId`, which embedded the
+**attributed** owner — and attribution prefers a pool co-owner when the primary owner is not
+in the pool (`crawler.py:155-158`), recomputed each run from live `/rosters`. A co-ownership
+change therefore produced a *different key for a movement already stored*, and
+`INSERT OR IGNORE` had nothing to match against. The same transaction landed twice.
 
-This is narrow (it needs a co-ownership change on an already-crawled transaction) and is
-**not** fixed in this PR, because changing the key shape requires a coordinated
-re-migration. The ledger's schema makes the eventual fix cheap: `tx_id` is already a
-column, so a canonical re-key can be applied with a single `UPDATE ... GROUP BY` pass.
-Tracked as follow-up; called out here rather than left to be discovered.
+Narrow — it needed a co-ownership change on an already-crawled transaction — but it was the
+one remaining route to violating *"do not count the same transaction twice."*
+
+**The fix.** Identity is now the **roster slot**, never the attributed owner:
+
+```
+before   {tx_id}:{attributed_owner}:{action}:{asset_id}[:discriminator]
+after    {tx_id}:r{roster_id}:{action}:{asset_id}[:discriminator]
+```
+
+A Sleeper `roster_id` is the league slot: fixed for the life of the league and independent of
+who owns or co-owns it. The attributed user rides along as a **column** (`asset_movements.roster_id`
+is now populated too — it had existed but was always `NULL`), free to change between runs
+without re-keying anything.
+
+**A second, opposite bug fell out of the same change.** Under the old key, one user co-owning
+*two* rosters collapsed both movements into a single event — an **undercount**. Keyed by slot,
+both survive.
+
+**Migration.** Existing rows carry the old key and cannot be recomputed, because they never
+stored a roster id. So `SCHEMA_VERSION` went to 2 and `_open_or_reset` now actually *checks* it
+— it was written from the start but never read.
+
+The migration **clears the movement tables only** (`_MIGRATION_CLEARS`), and that distinction
+is load-bearing. A whole-file rebuild is far more destructive than it looks: the **discovery
+graph** (`leagues`, `sleeper_users`, `league_memberships`) and the **season records**
+(`manager_seasons`) live in this same file and cost hundreds of Sleeper calls, and neither is
+affected by a movement-key change. Movements are the cheap part — league-mate rows heal on the
+next read via `service.ensure_ledger_synced`, and sharp rows re-crawl.
+`tests/intel/test_ledger.py::TestSchemaVersionMigration::test_the_discovery_graph_survives`
+is the guard.
+
+**Pinned by** `tests/intel/test_crawler.py::TestMovementKeyStability` (key survives an
+attribution flip, carries the slot, keeps two-roster and same-round-pick cases distinct) and
+`tests/intel/test_ledger.py::TestCoOwnershipDoesNotDoubleCount` /
+`::TestSchemaVersionRebuild`.
 
 ---
 
