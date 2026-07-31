@@ -64,7 +64,7 @@ League win% averages **exactly 0.500 by construction** — it is a zero-sum pool
 deviation above the mean.
 
 It is deliberately a **viability gate and not the selector**. Set it much higher and it silently
-becomes the real cutoff, fighting the percentile bar and making the cohort size unpredictable.
+becomes the real cutoff, fighting the percentile bar and making cohort size unpredictable.
 
 ---
 
@@ -153,13 +153,36 @@ reported per reason, never silently dropped.
 
 ---
 
-## Known limitation
+## Platform-neutral evidence
 
-Discovery yields *managers*; the Sharp Score needs *records* — multi-season results, playoff
-outcomes, championships, roster values. That is a second crawl pass over `previous_league_id`
-chains and `winners_bracket`, and it is the bulk of the remaining Stage 4 work.
+Sharp Score v2 is one methodology shared by every upstream platform. Platform adapters may only
+normalize evidence into the existing `ManagerRecord`; they do not receive source-specific weights,
+thresholds, or qualification shortcuts.
 
-Until it exists, `load_manager_records()` returns empty and the endpoint honestly answers
-`cohort_building`. It deliberately does **not** synthesise records from transactions alone — the
-gates need completed-season history that transactions do not contain, and scoring managers on
-partial inputs would qualify people on the wrong evidence.
+Manager, league, transaction, and movement identities are platform-scoped. For example,
+`sleeper:123` and `ffpc:123` are different managers unless an explicit verified identity-link record
+says otherwise. Matching usernames, display names, or team names never create a cross-platform
+merge.
+
+An FFPC league-season may certify a manager only when the same evidence required from Sleeper is
+actually known: a sufficiently stable global identity, confirmed dynasty format and league age,
+completed season, trustworthy wins/losses/ties, final standings, playoff and championship results,
+and qualifying recent activity. Unknown fields remain unknown; they are not converted to zero.
+League-scoped or name-only FFPC identities cannot satisfy the multi-league gate.
+
+Curated FFPC high-stakes managers use the separate qualification method
+`curated_high_stakes`. They are never labeled as `sharp-v2` qualifiers, and their observations enter
+the combined table only when the disabled-by-default configuration explicitly permits them.
+
+See `docs/intel/FFPC_UNIFIED_SHARP.md` for collection, canonical asset mapping, source
+reconciliation, and operational controls.
+
+---
+
+## Coverage limitation
+
+The records crawl can score only completed seasons and leagues the discovery graph has reached.
+Coverage therefore describes the platform data actually observed, not a manager's complete career
+or a complete directory of Sleeper or FFPC users. The API reports observable, record-bearing,
+evaluable, and qualified populations separately so incomplete acquisition cannot be mistaken for a
+negative score.
