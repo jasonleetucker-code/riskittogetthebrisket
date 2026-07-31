@@ -18,7 +18,7 @@ FFPC_CONFIG_PATH = REPO_ROOT / "config" / "sharp" / "ffpc_sources.json"
 _ALLOWED_WINDOWS = ("48h", "7d", "14d", "30d", "90d", "all")
 _ALLOWED_SORTS = ("strength", "net", "volume", "velocity", "buys", "sells")
 _ALLOWED_PLATFORMS = ("all", "sleeper", "ffpc")
-_ALLOWED_QUALIFICATION = ("all", "automated", "curated")
+_ALLOWED_QUALIFICATION = ("all", "automated", "curated", "provisional")
 
 
 @lru_cache(maxsize=4)
@@ -146,6 +146,66 @@ def curated_members(config: dict[str, Any]) -> list[CohortMember]:
     return out
 
 
+def provisional_members(
+    config: dict[str, Any],
+    *,
+    ledger_path: Path | None = None,
+) -> list[CohortMember]:
+    """Select public FFPC observations without claiming sharp-v2 qualification."""
+    if not bool(config.get("enabled")) or not bool(
+        config.get("allowProvisionalPublicInCombinedSignals")
+    ):
+        return []
+    league_keys = [
+        f"ffpc:{str(source.get('sourceLeagueId') or '').strip()}"
+        for source in config.get("seedLeagues") or []
+        if isinstance(source, dict)
+        and bool(source.get("enabled", True))
+        and bool(source.get("allowProvisionalContribution"))
+        and str(source.get("sourceLeagueId") or "").strip()
+    ]
+    if not league_keys:
+        return []
+    weight = max(
+        0.0,
+        min(1.0, float(config.get("provisionalPublicWeight") or 0.5)),
+    )
+    placeholders = ",".join("?" for _ in league_keys)
+    conn = platform_ledger.ensure_platform_schema(ledger_path)
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT DISTINCT am.manager_key, pm.display_name
+              FROM asset_movements am
+              JOIN transactions tx
+                ON tx.transaction_key=am.transaction_key
+              LEFT JOIN platform_managers pm
+                ON pm.manager_key=am.manager_key
+             WHERE am.platform='ffpc'
+               AND am.league_key IN ({placeholders})
+               AND tx.tx_type='trade'
+               AND am.manager_key IS NOT NULL
+            """,
+            league_keys,
+        ).fetchall()
+    finally:
+        conn.close()
+    return [
+        CohortMember(
+            manager_key=str(row["manager_key"]),
+            platform="ffpc",
+            qualification_method="provisional_public",
+            quality=weight,
+            display_name=str(row["display_name"] or "") or None,
+            source_rationale=(
+                "Observed on an explicitly configured public FFPC dynasty page; "
+                "has not passed Sharp Score v2 history gates."
+            ),
+        )
+        for row in rows
+    ]
+
+
 def cohort_members(
     *,
     qualification: str = "all",
@@ -171,29 +231,43 @@ def cohort_members(
     ]
     curated_enabled = bool(ffpc_enabled and config.get("allowCuratedInCombinedSignals"))
     curated = curated_members(config) if curated_enabled else []
+    provisional_enabled = bool(
+        ffpc_enabled and config.get("allowProvisionalPublicInCombinedSignals")
+    )
+    provisional = (
+        provisional_members(config, ledger_path=ledger_path) if provisional_enabled else []
+    )
     if qualification == "automated":
         selected = automatic
     elif qualification == "curated":
         selected = curated
+    elif qualification == "provisional":
+        selected = provisional
     else:
-        selected = [*automatic, *curated]
+        selected = [*automatic, *curated, *provisional]
 
     # A manager may be explicitly linked to one canonical identity and
     # appear through two methods. Automated qualification wins; otherwise
     # the higher configured quality wins.
     by_key: dict[str, CohortMember] = {}
+    priority = {
+        "provisional_public": 1,
+        "curated_high_stakes": 2,
+        "automated_qualified": 3,
+    }
     for item in selected:
         prior = by_key.get(item.manager_key)
-        if (
-            prior is None
-            or item.qualification_method == "automated_qualified"
-            or item.quality > prior.quality
+        if prior is None or (priority.get(item.qualification_method, 0), item.quality) > (
+            priority.get(prior.qualification_method, 0),
+            prior.quality,
         ):
             by_key[item.manager_key] = item
     coverage = {
         "automatedQualifiedManagers": len(automatic),
         "curatedManagers": len(curated),
         "curatedContributionEnabled": curated_enabled,
+        "provisionalManagers": len(provisional),
+        "provisionalContributionEnabled": provisional_enabled,
         "evidenceManagers": len(evidence),
         "methodologyVersion": sharp_score.methodology_version(),
     }
@@ -460,17 +534,20 @@ def market_payload(
     )
     automated_by_platform = {"sleeper": 0, "ffpc": 0}
     curated_by_platform = {"sleeper": 0, "ffpc": 0}
+    provisional_by_platform = {"sleeper": 0, "ffpc": 0}
     for item in coverage_members:
-        target = (
-            automated_by_platform
-            if item.qualification_method == "automated_qualified"
-            else curated_by_platform
-        )
+        if item.qualification_method == "automated_qualified":
+            target = automated_by_platform
+        elif item.qualification_method == "curated_high_stakes":
+            target = curated_by_platform
+        else:
+            target = provisional_by_platform
         target[item.platform] = target.get(item.platform, 0) + 1
     for name, value in source_coverage.items():
         value["qualifiedManagers"] = automated_by_platform.get(name, 0)
         value["automatedQualifiedManagers"] = automated_by_platform.get(name, 0)
         value["curatedManagers"] = curated_by_platform.get(name, 0)
+        value["provisionalManagers"] = provisional_by_platform.get(name, 0)
         value["enabled"] = name != "ffpc" or bool(config.get("enabled"))
         if name == "ffpc" and not config.get("enabled"):
             value["status"] = "disabled"

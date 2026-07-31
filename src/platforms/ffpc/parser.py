@@ -29,6 +29,11 @@ from src.platforms.base import (
     QUAL_INSUFFICIENT,
 )
 from src.platforms.ffpc.identity import resolve_identity
+from src.platforms.ffpc.league_home import (
+    parse_action_statement,
+    parse_asset_label,
+    split_action_statements,
+)
 
 _HEADER_ALIASES = {
     "date": {"date", "timestamp", "processed", "transaction date", "time"},
@@ -50,7 +55,7 @@ _HEADER_ALIASES = {
     "wins": {"wins", "w"},
     "losses": {"losses", "l"},
     "ties": {"ties", "t"},
-    "points_for": {"points for", "pf", "pts for"},
+    "points_for": {"points for", "pf", "pts for", "pts", "points"},
     "points_against": {"points against", "pa", "pts against"},
     "rank": {"rank", "place", "finish"},
     "playoffs": {"playoffs", "made playoffs", "postseason"},
@@ -123,7 +128,7 @@ def _find_tables(soup: BeautifulSoup, required: set[str]) -> list[tuple[Tag, lis
         rows = _table_rows(table)
         if not rows:
             continue
-        keys = {k for k in rows[0] if not k.startswith("_")}
+        keys = {key for row in rows for key in row if not key.startswith("_")}
         if required.issubset(keys):
             matches.append((table, rows))
     return matches
@@ -198,7 +203,13 @@ def _timestamp_ms(value: Any, *, default: int | None = None) -> int:
             return int(parsed.timestamp() * 1000)
         except ValueError:
             pass
-        for fmt in ("%m/%d/%Y %I:%M %p", "%m/%d/%Y %H:%M", "%m/%d/%Y", "%Y-%m-%d %H:%M"):
+        for fmt in (
+            "%m/%d/%Y %I:%M:%S %p",
+            "%m/%d/%Y %I:%M %p",
+            "%m/%d/%Y %H:%M",
+            "%m/%d/%Y",
+            "%Y-%m-%d %H:%M",
+        ):
             try:
                 parsed = datetime.strptime(candidate, fmt).replace(tzinfo=timezone.utc)
                 return int(parsed.timestamp() * 1000)
@@ -398,6 +409,13 @@ class FFPCParser:
         seasons: list[NormalizedManagerSeason] = []
         tables = _find_tables(soup, {"team", "wins", "losses"})
         for _table, rows in tables:
+            rows = [
+                row
+                for row in rows
+                if _text(row.get("team"))
+                and _int(row.get("wins")) is not None
+                and _int(row.get("losses")) is not None
+            ]
             team_count = len(rows)
             for row in rows:
                 team_name = _text(row.get("team"))
@@ -407,7 +425,7 @@ class FFPCParser:
                     team_tag,
                     None,
                     ("data-team-id", "data-entry-id"),
-                    ("teamid", "entryid"),
+                    ("viewingteam", "teamid", "entryid"),
                 )
                 profile_url = None
                 if isinstance(team_tag, Tag):
@@ -540,7 +558,7 @@ class FFPCParser:
                     tag,
                     None,
                     ("data-team-id", "data-entry-id"),
-                    ("teamid", "entryid"),
+                    ("viewingteam", "teamid", "entryid"),
                 )
                 identity = resolve_identity(
                     league_id=league_id,
@@ -665,7 +683,7 @@ class FFPCParser:
                     team_tag,
                     None,
                     ("data-team-id", "data-entry-id"),
-                    ("teamid", "entryid"),
+                    ("viewingteam", "teamid", "entryid"),
                 )
                 results.append(
                     {
@@ -718,6 +736,46 @@ class FFPCParser:
             if "player" in keys and ("action" in keys or "type" in keys):
                 candidates.extend(rows)
 
+        team_ids_by_name: dict[str, str] = {}
+        for link in soup.find_all("a", href=True):
+            linked_team_id = _query_id(link.get("href"), "viewingteam", "teamid", "entryid")
+            linked_name = normalize_asset_name(_text(link))
+            if linked_team_id and linked_name:
+                team_ids_by_name[linked_name] = linked_team_id
+
+        expanded_candidates: list[dict[str, Any]] = []
+        for row in candidates:
+            if _tx_type(row.get("type")):
+                expanded_candidates.append(row)
+                continue
+            parsed_any = False
+            for statement in split_action_statements(row.get("_action_tag") or row.get("action")):
+                parsed = parse_action_statement(statement)
+                if parsed is None:
+                    continue
+                asset = parse_asset_label(parsed.asset_label)
+                expanded_row = dict(row)
+                expanded_row["type"] = parsed.transaction_type
+                expanded_row["action"] = parsed.action
+                expanded_row["player"] = asset.display_name
+                expanded_row["counterparty"] = parsed.counterparty or row.get("counterparty")
+                if parsed.faab_bid is not None:
+                    expanded_row["faab"] = parsed.faab_bid
+                expanded_row["_ffpc_asset_label"] = parsed.asset_label
+                expanded_row["_ffpc_asset_type"] = asset.asset_type
+                expanded_row["_ffpc_pick_season"] = asset.pick_season
+                expanded_row["_ffpc_pick_round"] = asset.pick_round
+                expanded_row["_ffpc_pick_owner_or_slot"] = asset.pick_owner_or_slot
+                if asset.nfl_team:
+                    expanded_row["nfl_team"] = asset.nfl_team
+                if asset.position:
+                    expanded_row["position"] = asset.position
+                expanded_candidates.append(expanded_row)
+                parsed_any = True
+            if not parsed_any:
+                expanded_candidates.append(row)
+        candidates = expanded_candidates
+
         for row in candidates:
             tx_type = _tx_type(row.get("type"))
             action = _action(row.get("action"), tx_type)
@@ -736,8 +794,8 @@ class FFPCParser:
                 team_tag,
                 None,
                 ("data-team-id", "data-entry-id"),
-                ("teamid", "entryid"),
-            )
+                ("viewingteam", "teamid", "entryid"),
+            ) or team_ids_by_name.get(normalize_asset_name(team_name))
             global_id = _data_or_query(
                 team_tag,
                 None,
@@ -764,8 +822,12 @@ class FFPCParser:
                 )
             )
 
-            counterparty_team_id = _text(row.get("counterparty_team_id")) or None
             counterparty_name = _text(row.get("counterparty")) or None
+            counterparty_team_id = (
+                _text(row.get("counterparty_team_id"))
+                or team_ids_by_name.get(normalize_asset_name(counterparty_name))
+                or None
+            )
             counterparty_identity = None
             if counterparty_team_id or counterparty_name:
                 counterparty_identity = resolve_identity(
@@ -786,17 +848,35 @@ class FFPCParser:
                 )
 
             asset_name = _text(row.get("player"))
+            source_asset_label = _text(row.get("_ffpc_asset_label")) or asset_name
+            configured_asset_type = _text(row.get("_ffpc_asset_type"))
             pick_match = re.search(
-                r"\b(20\d{2})\s*(?:(?:round|rd|r)\s*)?([1-6])(?:st|nd|rd|th)?\b",
-                asset_name.lower(),
+                r"\b(20\d{2})\s*(?:(?:round|rd|r)\s*)?([1-7])(?:st|nd|rd|th)?\b",
+                source_asset_label.lower(),
             )
-            asset_type = "pick" if pick_match else "player"
-            pick_season = pick_match.group(1) if pick_match else None
-            pick_round = pick_match.group(2) if pick_match else None
-            pick_owner = _text(row.get("original_owner")) or None
+            slot_match = re.search(
+                r"\b(20\d{2})\s+draft\s+pick\s+([1-7])\.(\d{1,2})\b",
+                source_asset_label.lower(),
+            )
+            asset_type = configured_asset_type or ("pick" if pick_match or slot_match else "player")
+            pick_season = _text(row.get("_ffpc_pick_season")) or (
+                slot_match.group(1) if slot_match else pick_match.group(1) if pick_match else None
+            )
+            pick_round = _text(row.get("_ffpc_pick_round")) or (
+                slot_match.group(2) if slot_match else pick_match.group(2) if pick_match else None
+            )
+            pick_owner = (
+                _text(row.get("_ffpc_pick_owner_or_slot"))
+                or _text(row.get("original_owner"))
+                or None
+            )
+            if not pick_owner and slot_match:
+                pick_owner = f"slot-{int(slot_match.group(3))}"
             if not pick_owner and asset_type == "pick":
                 owner_match = re.search(
-                    r"(?:from|original(?:ly)? owned by)\s+(.+)$", asset_name, re.I
+                    r"(?:from|original(?:ly)? owned by)\s+(.+)$",
+                    source_asset_label,
+                    re.I,
                 )
                 pick_owner = owner_match.group(1).strip() if owner_match else None
             normalized_pick_owner = (

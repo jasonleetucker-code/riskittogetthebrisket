@@ -93,6 +93,8 @@ def main() -> int:
     run_id = f"ffpc-{started}-{uuid.uuid4().hex[:8]}"
     counters: dict[str, int] = {}
     reports = []
+    source_failures: list[dict[str, str]] = []
+    successful_sources = 0
     try:
         if args.players_fixture:
             loaded = json.loads(args.players_fixture.read_text(encoding="utf-8"))
@@ -131,44 +133,59 @@ def main() -> int:
                 str(value or "").strip() for value in page_sources if str(value or "").strip()
             ]:
                 page_source = {**source, "publicUrl": url}
-                batch = adapter.fetch_source(
-                    page_source,
-                    force_refresh=args.force_refresh,
-                    fixture_html=fixture_html,
-                )
-                _merge_counters(counters, batch.counters)
-                if args.dry_run:
-                    reports.append(
-                        {
-                            "sourceLeagueId": source.get("sourceLeagueId"),
-                            "url": url,
-                            "managers": len(batch.managers),
-                            "transactions": len(batch.transactions),
-                            "movements": len(batch.movements),
-                            "managerSeasons": len(batch.manager_seasons),
-                            "warnings": batch.warnings,
-                        }
+                try:
+                    batch = adapter.fetch_source(
+                        page_source,
+                        force_refresh=args.force_refresh,
+                        fixture_html=fixture_html,
                     )
-                else:
-                    ingest = platform_ledger.ingest_batch(batch)
-                    ingest_report = ingest.to_dict()
-                    counters["movementsInserted"] = (
-                        counters.get("movementsInserted", 0) + ingest.movements_inserted
-                    )
-                    counters["movementsSkipped"] = (
-                        counters.get("movementsSkipped", 0) + ingest.movements_skipped
-                    )
-                    counters["transactionsDeduplicated"] = counters.get(
-                        "transactionsDeduplicated", 0
-                    ) + max(0, ingest.transactions_seen - ingest.transactions_inserted)
-                    reports.append(
-                        {
-                            "sourceLeagueId": source.get("sourceLeagueId"),
-                            "url": url,
-                            "ingest": ingest_report,
-                            "warnings": batch.warnings,
-                        }
-                    )
+                    _merge_counters(counters, batch.counters)
+                    successful_sources += 1
+                    if args.dry_run:
+                        reports.append(
+                            {
+                                "sourceLeagueId": source.get("sourceLeagueId"),
+                                "url": url,
+                                "managers": len(batch.managers),
+                                "transactions": len(batch.transactions),
+                                "movements": len(batch.movements),
+                                "managerSeasons": len(batch.manager_seasons),
+                                "warnings": batch.warnings,
+                            }
+                        )
+                    else:
+                        ingest = platform_ledger.ingest_batch(batch)
+                        counters["movementsInserted"] = (
+                            counters.get("movementsInserted", 0) + ingest.movements_inserted
+                        )
+                        counters["movementsSkipped"] = (
+                            counters.get("movementsSkipped", 0) + ingest.movements_skipped
+                        )
+                        counters["transactionsDeduplicated"] = counters.get(
+                            "transactionsDeduplicated", 0
+                        ) + max(0, ingest.transactions_seen - ingest.transactions_inserted)
+                        reports.append(
+                            {
+                                "sourceLeagueId": source.get("sourceLeagueId"),
+                                "url": url,
+                                "ingest": ingest.to_dict(),
+                                "warnings": batch.warnings,
+                            }
+                        )
+                except Exception as source_exc:  # noqa: BLE001
+                    counters["parseFailures"] = counters.get("parseFailures", 0) + 1
+                    failure = {
+                        "sourceLeagueId": str(source.get("sourceLeagueId") or ""),
+                        "url": url,
+                        "type": type(source_exc).__name__,
+                        "message": str(source_exc),
+                    }
+                    source_failures.append(failure)
+                    reports.append({**failure, "status": "failed"})
+                    log.exception("FFPC source failed without aborting remaining sources: %s", url)
+
+        if successful_sources == 0:
+            raise RuntimeError("all configured FFPC public sources failed")
 
         # Curated identities are explicit configuration records. They do
         # not become Sharp-v2 qualifiers; market selection reads their
@@ -216,11 +233,18 @@ def main() -> int:
                 qualification="curated",
                 ffpc_config=config,
             )
+            provisional, _ = sharp_market.cohort_members(
+                qualification="provisional",
+                ffpc_config=config,
+            )
             counters["automatedFfpcQualifiers"] = sum(
                 1 for member in automated if member.platform == "ffpc"
             )
             counters["curatedFfpcContributors"] = sum(
                 1 for member in curated if member.platform == "ffpc"
+            )
+            counters["provisionalFfpcContributors"] = sum(
+                1 for member in provisional if member.platform == "ffpc"
             )
             platform_ledger.record_ingestion_run(
                 run_id=run_id,
@@ -228,15 +252,24 @@ def main() -> int:
                 source_ref=args.source_league,
                 started_ms=started,
                 finished_ms=finished,
-                status="success",
+                status="partial_success" if source_failures else "success",
                 counters=counters,
                 metadata={"reports": reports, "publicOnly": True},
             )
         payload = {
-            "status": "dry_run" if args.dry_run else "success",
+            "status": (
+                "dry_run_partial"
+                if args.dry_run and source_failures
+                else "dry_run"
+                if args.dry_run
+                else "partial_success"
+                if source_failures
+                else "success"
+            ),
             "runId": run_id,
             "counters": counters,
             "reports": reports,
+            "sourceFailures": source_failures,
             "coverage": ({} if args.dry_run else platform_ledger.platform_coverage()),
         }
         print(json.dumps(payload, indent=2, default=str))
