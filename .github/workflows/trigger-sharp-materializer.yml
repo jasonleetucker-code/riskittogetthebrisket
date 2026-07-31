@@ -19,7 +19,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Materialize implementation
-        run: python scripts/_materialize_sharp_population.py
+        run: |
+          python scripts/_materialize_sharp_population.py
+          python scripts/_materialize_sharp_population_followup.py
       - name: Install validation dependencies
         run: pip install -r requirements-dev.txt
       - name: Format and lint
@@ -59,6 +61,7 @@ jobs:
         run: |
           rm -f \
             scripts/_materialize_sharp_population.py \
+            scripts/_materialize_sharp_population_followup.py \
             .github/workflows/materialize-sharp-production.yml \
             .github/workflows/trigger-sharp-materializer.yml
           git config user.name github-actions[bot]
