@@ -25,10 +25,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Ruff
-        run: python -m pip install 'ruff==0.12.12'
+      - name: Install repository Ruff version
+        run: python -m pip install 'ruff~=0.6.0'
 
-      - name: Format and safely fix changed Python files
+      - name: Format and apply safe lint fixes to changed Python files
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -37,7 +37,9 @@ jobs:
           if ((${#files[@]})); then
             printf 'Formatting %s\n' "${files[@]}"
             python -m ruff format "${files[@]}"
-            python -m ruff check --fix "${files[@]}"
+            # Commit all automatically fixable lint changes. Remaining
+            # findings are handled by the normal PR validation run.
+            python -m ruff check --fix "${files[@]}" || true
           fi
           rm -f .github/workflows/format-unified-ffpc-branch.yml
 
