@@ -1,4 +1,5 @@
 name: Check Sharp Production Now
+# Manual verification kick after the cohort self-heal route fix (PR #684).
 
 on:
   push:
