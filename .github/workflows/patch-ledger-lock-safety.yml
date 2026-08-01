@@ -126,24 +126,26 @@ jobs:
           ).lstrip()
           text = text[:start] + replacement + text[end:]
 
-          old_connect = dedent(
-              '''
-                  conn = sqlite3.connect(str(target), timeout=10.0)
-                  conn.row_factory = sqlite3.Row
-                  return conn
-              '''
-          ).strip("\n")
-          new_connect = dedent(
-              '''
-                  conn = sqlite3.connect(str(target), timeout=30.0)
-                  conn.execute("PRAGMA busy_timeout=30000")
-                  conn.row_factory = sqlite3.Row
-                  return conn
-              '''
-          ).strip("\n")
-          if old_connect not in text:
-              raise SystemExit("expected ledger connect block not found")
-          text = text.replace(old_connect, new_connect, 1)
+          connect_start = text.index("def connect(path: Path | None = None)")
+          connect_end = text.index("\ndef reset_setup_cache", connect_start)
+          connect_block = text[connect_start:connect_end]
+          old_timeout = "sqlite3.connect(str(target), timeout=10.0)"
+          if old_timeout not in connect_block:
+              raise SystemExit("expected ledger connect timeout not found")
+          connect_block = connect_block.replace(
+              old_timeout,
+              "sqlite3.connect(str(target), timeout=30.0)",
+              1,
+          )
+          row_factory = "    conn.row_factory = sqlite3.Row"
+          if row_factory not in connect_block:
+              raise SystemExit("expected row_factory line not found")
+          connect_block = connect_block.replace(
+              row_factory,
+              '    conn.execute("PRAGMA busy_timeout=30000")\n' + row_factory,
+              1,
+          )
+          text = text[:connect_start] + connect_block + text[connect_end:]
           path.write_text(text)
           PY
           python -m ruff format src/intel/ledger.py
