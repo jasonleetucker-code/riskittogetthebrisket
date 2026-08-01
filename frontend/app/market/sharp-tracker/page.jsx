@@ -124,7 +124,7 @@ export default function SharpTrackerPage() {
   }, []);
 
   const loadMarket = useCallback(async () => {
-    if (!market) setLoading(true);
+    setLoading(true);
     const params = new URLSearchParams({
       window: windowName,
       platform: source,
@@ -142,7 +142,7 @@ export default function SharpTrackerPage() {
     } finally {
       setLoading(false);
     }
-  }, [market, qualification, sort, source, windowName]);
+  }, [qualification, sort, source, windowName]);
 
   useEffect(() => {
     loadCohort();
