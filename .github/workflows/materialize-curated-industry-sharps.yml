@@ -38,14 +38,20 @@ jobs:
             24397a561002134dc7fee8d464dce560ad0a24f334774ce55ca77ecb42467d24
             77cca5818a8bf7ec9fce0638718786b6266841d719748d1dcfd48a00125c601e
           )
+          ls -la .curated_min.part-* || true
+          sha256sum .curated_min.part-* || true
           for index in 0 1 2 3 4 5 6; do
             part=$(printf '.curated_min.part-%03d' "$index")
-            test -f "$part"
+            test -f "$part" || { echo "missing $part"; exit 1; }
             actual=$(sha256sum "$part" | awk '{print $1}')
-            test "$actual" = "${expected[$index]}"
+            if [[ "$actual" != "${expected[$index]}" ]]; then
+              echo "hash mismatch $part expected=${expected[$index]} actual=$actual"
+              exit 1
+            fi
           done
           cat .curated_min.part-* > /tmp/curated-sharps.b64
           base64 -d /tmp/curated-sharps.b64 > /tmp/curated-sharps.tar.xz
+          sha256sum /tmp/curated-sharps.tar.xz
           echo '444bb894f46422c63169264c18312695c6b9975a74195383504587a3e81f9592  /tmp/curated-sharps.tar.xz' | sha256sum -c -
           tar xJf /tmp/curated-sharps.tar.xz -C .
           python scripts/_materialize_curated_sharps.py
