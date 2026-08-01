@@ -79,3 +79,5 @@ jobs:
           git add src/sharp/records.py tests/sharp/test_records_http_client.py
           git commit -m "fix(sharp): isolate records crawl from request circuit breaker"
           git push origin HEAD:fix/sharp-live-refresh-and-sleeper-activity
+
+# Updated once after creation so GitHub evaluates the push trigger from an existing workflow.
