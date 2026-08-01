@@ -1,8 +1,9 @@
 name: Patch Sharp Explicit Route Registration
 
 on:
-  push:
-    branches: [fix/sharp-route-explicit-registration]
+  pull_request:
+    branches: [main]
+    types: [opened, reopened]
     paths:
       - ".github/workflows/patch-sharp-explicit-route-registration.yml"
 
