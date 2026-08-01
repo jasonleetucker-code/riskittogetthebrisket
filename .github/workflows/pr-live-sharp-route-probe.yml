@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 10
     environment: production
     steps:
-      - name: Configure SSH and inspect live Sharp data
+      - name: Configure SSH and inspect deployed frontend and Sharp data
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
@@ -47,61 +47,46 @@ jobs:
           cd "$APP_DIR"
           echo "PRODUCTION_SHA=$(git rev-parse HEAD)"
           echo "BACKEND_STATE=$(sudo -n systemctl is-active "$SERVICE" || true)"
+          echo "FRONTEND_STATE=$(sudo -n systemctl is-active "$SERVICE-frontend" || true)"
+          sudo -n systemctl show "$SERVICE-frontend" -p ActiveEnterTimestamp --no-pager || true
+          stat -c 'FRONTEND_BUILD_ID_MTIME=%y' "$APP_DIR/frontend/.next/BUILD_ID" || true
+          printf 'SOURCE_HAS_FORCE_DYNAMIC='
+          grep -q 'dynamic = "force-dynamic"' "$APP_DIR/frontend/app/api/sharp/market/route.js" && echo yes || echo no
+          printf 'SOURCE_HAS_AUTO_REFRESH='
+          grep -q 'AUTO_REFRESH_MS = 60_000' "$APP_DIR/frontend/app/market/sharp-tracker/page.jsx" && echo yes || echo no
+
           echo "ACTIVE_COLLECTORS:"
-          for unit in "$SERVICE-sharp-discovery.service" "$SERVICE-sharp-records.service" "$SERVICE-ffpc-sharp.service"; do
+          for unit in "$SERVICE-sharp-discovery.service" "$SERVICE-sharp-records.service" "$SERVICE-sharp-activity.service" "$SERVICE-ffpc-sharp.service"; do
             printf '%s=' "$unit"
             sudo -n systemctl is-active "$unit" || true
           done
 
-          echo "REGISTERED_SHARP_ROUTES:"
-          "$VENV_DIR/bin/python" - <<'PY'
-          import os
-          os.environ.setdefault("ALLOW_DEFAULT_LOGIN_DEV", "1")
-          import server
-          print("\n".join(sorted({getattr(r, "path", "") for r in server.app.routes if "sharp" in getattr(r, "path", "")})))
-          PY
-
-          echo "DIRECT_SHARP_PAYLOADS:"
+          echo "DIRECT_SHARP_SUMMARY:"
           "$VENV_DIR/bin/python" - <<'PY'
           import json
           from src.intel import platform_ledger
           from src.sharp import service
 
-          payload = {
-              "platformCoverage": platform_ledger.platform_coverage(),
-              "cohort": service.cohort_status(),
-              "marketAll30d": service.market_payload(
-                  window="30d",
-                  sort="strength",
-                  asset_type="all",
-                  platform="all",
-                  qualification="all",
-                  limit=10,
-              ),
-              "marketFfpc90d": service.market_payload(
-                  window="90d",
-                  sort="strength",
-                  asset_type="all",
-                  platform="ffpc",
-                  qualification="provisional",
-                  limit=10,
-              ),
+          cohort = service.cohort_status()
+          market = service.market_payload(
+              window="30d", sort="strength", asset_type="all",
+              platform="all", qualification="all", limit=20,
+          )
+          ffpc = service.market_payload(
+              window="90d", sort="strength", asset_type="all",
+              platform="ffpc", qualification="provisional", limit=20,
+          )
+          result = {
+              "coverage": platform_ledger.platform_coverage(),
+              "cohort": cohort.get("cohort") or {},
+              "records": cohort.get("records") or {},
+              "marketStatus": market.get("status"),
+              "marketAssets30d": len(market.get("assets") or []),
+              "ffpcAssets90d": len(ffpc.get("assets") or []),
+              "sampleAssets": [row.get("displayName") for row in (market.get("assets") or [])[:10]],
           }
-          print(json.dumps(payload, indent=2, sort_keys=True, default=str)[:50000])
-          PY
-
-          echo "HTTP_ROUTE_EXISTENCE_WITHOUT_BROWSER_COOKIE:"
-          "$VENV_DIR/bin/python" - <<'PY'
-          import json, urllib.error, urllib.request
-          for path in (
-              "/api/sharp/cohort",
-              "/api/sharp/market?window=30d&platform=all&qualification=all&limit=10",
-          ):
-              try:
-                  with urllib.request.urlopen("http://127.0.0.1:8000" + path, timeout=20) as r:
-                      print(json.dumps({"path": path, "status": r.status}))
-              except urllib.error.HTTPError as e:
-                  body=e.read().decode("utf-8","replace")
-                  print(json.dumps({"path":path,"status":e.code,"body":body[:1000]}))
+          print(json.dumps(result, indent=2, sort_keys=True, default=str))
+          if result["marketStatus"] != "ok" or result["ffpcAssets90d"] <= 0:
+              raise SystemExit(71)
           PY
           REMOTE
