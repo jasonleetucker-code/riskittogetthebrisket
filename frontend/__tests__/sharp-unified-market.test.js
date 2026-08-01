@@ -21,6 +21,15 @@ describe("unified Sharp Tracker surface", () => {
     expect(route).toContain("searchParams");
   });
 
+  it("shows players only and excludes draft-pick assets defensively", () => {
+    expect(page).toContain('assetType: "player"');
+    expect(page).toContain('asset?.assetType !== "pick"');
+    expect(page).toContain('asset?.position !== "PICK"');
+    expect(page).toContain('startsWith("pick:")');
+    expect(page).toContain('"Player",');
+    expect(page).not.toContain('"Player / asset",');
+  });
+
   it("labels automated, curated, and provisional qualification separately", () => {
     expect(page).toContain("Automated Sharp Score");
     expect(page).toContain("Curated FFPC high-stakes cohort");

@@ -134,6 +134,7 @@ export default function SharpTrackerPage() {
       platform: source,
       sort,
       qualification,
+      assetType: "player",
       limit: "100",
     });
     try {
@@ -161,7 +162,12 @@ export default function SharpTrackerPage() {
   }, [loadMarket, refreshToken]);
 
   const cohortStats = cohort?.cohort || {};
-  const assets = market?.assets || [];
+  const assets = (market?.assets || []).filter(
+    (asset) =>
+      asset?.assetType !== "pick" &&
+      asset?.position !== "PICK" &&
+      !String(asset?.assetId || "").startsWith("pick:"),
+  );
   const coverage = market?.coverage?.platforms || cohort?.coverage?.platforms || {};
   const qualificationLabel = useMemo(() => {
     const methods = market?.cohort?.qualificationMethods || [];
@@ -315,7 +321,7 @@ export default function SharpTrackerPage() {
             message={
               source === "ffpc" && coverage.ffpc?.enabled === false
                 ? "FFPC collection is disabled. Sleeper remains available and unchanged."
-                : "No normalized trade movements matched the selected source, window, and qualification filters."
+                : "No normalized player movements matched the selected source, window, and qualification filters."
             }
           />
         </div>
@@ -327,7 +333,7 @@ export default function SharpTrackerPage() {
             <thead>
               <tr>
                 {[
-                  "Player / asset",
+                  "Player",
                   "Signal",
                   "Buys",
                   "Sells",
