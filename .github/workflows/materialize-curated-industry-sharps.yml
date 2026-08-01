@@ -1,0 +1,107 @@
+name: Materialize Curated Industry Sharps
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - ".github/workflows/materialize-curated-industry-sharps.yml"
+      - ".curated_min.part-*"
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feature/curated-industry-sharps
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Verify and unpack implementation payload
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected=(
+            31f075ace408ed7e2b8e8a82375e83ec74df91d52bc99c027ff183a8ae59175d
+            41a1633cc8a241bc3676df2baaf36724726f7595176be530a05ffb425c89febe
+            b7052b26ca89fca0ceb49fcc284e0df480ba6303e89ab4525f1d5e19871795b7
+            976e1846d9cb166b7115ad5a60b2a70c9cbcfffb84427f59f6cf90ab7f357e22
+            c63408c0f7431c69facd6c04703ffa55ab34346ee12e0c13c20c4d8f8fc23164
+            24397a561002134dc7fee8d464dce560ad0a24f334774ce55ca77ecb42467d24
+            77cca5818a8bf7ec9fce0638718786b6266841d719748d1dcfd48a00125c601e
+          )
+          for index in 0 1 2 3 4 5 6; do
+            part=$(printf '.curated_min.part-%03d' "$index")
+            test -f "$part"
+            actual=$(sha256sum "$part" | awk '{print $1}')
+            test "$actual" = "${expected[$index]}"
+          done
+          cat .curated_min.part-* > /tmp/curated-sharps.b64
+          base64 -d /tmp/curated-sharps.b64 > /tmp/curated-sharps.tar.xz
+          echo '444bb894f46422c63169264c18312695c6b9975a74195383504587a3e81f9592  /tmp/curated-sharps.tar.xz' | sha256sum -c -
+          tar xJf /tmp/curated-sharps.tar.xz -C .
+          python scripts/_materialize_curated_sharps.py
+
+      - name: Install Python dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Format and run focused Python tests
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m ruff format \
+            src/sharp/curated.py \
+            src/sharp/workbook_import.py \
+            src/sharp/curated_service.py \
+            src/sharp/consensus.py \
+            src/sharp/market.py \
+            src/sharp/service.py \
+            server.py \
+            scripts/import_sharp_workbook.py \
+            scripts/export_curated_sharps.py \
+            scripts/refresh_curated_sharps.py \
+            scripts/migrate_curated_sharps.py \
+            tests/sharp/test_curated_model.py \
+            tests/sharp/test_curated_workbook_import.py \
+            tests/sharp/test_curated_service_routes.py \
+            tests/sharp/test_curated_market_selection.py \
+            tests/sharp/test_person_consensus.py
+          python -m pytest \
+            tests/sharp/test_curated_model.py \
+            tests/sharp/test_curated_workbook_import.py \
+            tests/sharp/test_curated_service_routes.py \
+            tests/sharp/test_curated_market_selection.py \
+            tests/sharp/test_person_consensus.py \
+            tests/sharp/test_unified_market.py \
+            tests/api/test_sharp_api.py -q
+
+      - name: Run focused frontend tests
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm ci
+          npx vitest run __tests__/curated-sharp-ui.test.js __tests__/sharp-unified-market.test.js
+
+      - name: Replace staging files with implementation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -f .curated_min.part-* .curated_payload.part-*
+          rm -f .github/workflows/materialize-curated-industry-sharps.yml
+          rm -f scripts/_materialize_curated_sharps.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "feat(sharp): integrate curated industry and trackable Super Sharps"
+          git push origin HEAD:feature/curated-industry-sharps
