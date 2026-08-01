@@ -45,6 +45,13 @@ def _records_coverage() -> dict[str, Any]:
 
 
 def cohort_status() -> dict[str, Any]:
+    # The cohort endpoint is declared directly in ``server.py`` and remains
+    # reachable even when this module was imported transitively before the
+    # FastAPI app existed.  Re-running the idempotent registrar here turns
+    # that guaranteed request into a production self-heal: the next market
+    # retry sees the route instead of remaining a permanent 404.
+    _register_http_routes()
+
     try:
         coverage = ledger.coverage()
     except Exception:  # noqa: BLE001
