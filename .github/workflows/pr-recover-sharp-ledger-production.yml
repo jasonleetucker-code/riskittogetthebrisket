@@ -1,0 +1,294 @@
+name: PR Recover Sharp Ledger Production
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - ".github/workflows/pr-recover-sharp-ledger-production.yml"
+
+permissions:
+  contents: read
+
+env:
+  APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+  VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
+  SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+
+jobs:
+  recover:
+    name: Recover Ledger And Repopulate Sharp
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    environment: production
+
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_PRIVATE_KEY DEPLOY_KNOWN_HOSTS; do
+            [[ -n "${!name:-}" ]] || { echo "::error::Missing ${name}"; exit 10; }
+          done
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "DEPLOY_PORT_RESOLVED=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Stop writers, recover best ledger, and repopulate all sources
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          printf -v REMOTE_ENV 'APP_DIR=%q VENV_DIR=%q SERVICE_NAME=%q APP_USER=%q' \
+            "$APP_DIR" "$VENV_DIR" "$SERVICE_NAME" "$DEPLOY_USER"
+          ssh \
+            -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=20 \
+            -o ServerAliveInterval=20 \
+            -o ServerAliveCountMax=40 \
+            -p "$DEPLOY_PORT_RESOLVED" \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "$REMOTE_ENV bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+
+          echo "=== UPDATE TO LOCK-SAFE MAIN ==="
+          git fetch --prune origin main
+          git reset --hard origin/main
+          TARGET_SHA="$(git rev-parse HEAD)"
+          echo "production_sha=${TARGET_SHA}"
+          test "$TARGET_SHA" = "cf51a8d63b0bb7201a68efbf64309e6da095ce0f"
+
+          echo "=== STOP ALL SHARP WRITERS AND BACKEND ==="
+          for timer in \
+            "$SERVICE_NAME-sharp-discovery.timer" \
+            "$SERVICE_NAME-sharp-records.timer" \
+            "$SERVICE_NAME-sharp-activity.timer" \
+            "$SERVICE_NAME-ffpc-sharp.timer"; do
+            sudo -n systemctl stop "$timer" >/dev/null 2>&1 || true
+          done
+          for unit in \
+            "$SERVICE_NAME-sharp-discovery.service" \
+            "$SERVICE_NAME-sharp-records.service" \
+            "$SERVICE_NAME-sharp-activity.service" \
+            "$SERVICE_NAME-ffpc-sharp.service" \
+            "$SERVICE_NAME"; do
+            timeout 90 sudo -n systemctl stop "$unit" >/dev/null 2>&1 || true
+            if sudo -n systemctl is-active --quiet "$unit"; then
+              sudo -n systemctl kill --kill-who=all "$unit" >/dev/null 2>&1 || true
+              sleep 2
+            fi
+          done
+
+          DATA_DIR="$APP_DIR/data/intel"
+          LEDGER="$DATA_DIR/ledger.sqlite3"
+          STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+          BACKUP_DIR="$DATA_DIR/recovery-$STAMP"
+          mkdir -p "$BACKUP_DIR"
+          shopt -s nullglob
+          for file in "$DATA_DIR"/ledger.sqlite3*; do
+            cp -a "$file" "$BACKUP_DIR/"
+          done
+          echo "Raw ledger files copied to $BACKUP_DIR"
+          ls -lah "$DATA_DIR"/ledger.sqlite3* 2>/dev/null || true
+
+          echo "=== INVENTORY AND RECOVER BEST VALID CANDIDATE ==="
+          DATA_DIR="$DATA_DIR" LEDGER="$LEDGER" BACKUP_DIR="$BACKUP_DIR" \
+          "$VENV_DIR/bin/python" - <<'PY'
+          import json
+          import os
+          import shutil
+          import sqlite3
+          from pathlib import Path
+          from urllib.parse import quote
+
+          data_dir = Path(os.environ["DATA_DIR"])
+          target = Path(os.environ["LEDGER"])
+          backup_dir = Path(os.environ["BACKUP_DIR"])
+          candidates = []
+          for path in sorted(data_dir.glob("ledger.sqlite3*")):
+              if path.is_dir() or path.name.endswith(("-wal", "-shm", ".recovered")):
+                  continue
+              if path.parent.name.startswith("recovery-"):
+                  continue
+              candidates.append(path)
+
+          tables_of_interest = (
+              "sleeper_users",
+              "leagues",
+              "league_memberships",
+              "transactions",
+              "asset_movements",
+              "manager_seasons",
+              "platform_managers",
+              "platform_leagues",
+              "platform_memberships",
+              "ingestion_runs",
+          )
+          inventory = []
+          valid = []
+          for path in candidates:
+              row = {
+                  "path": str(path),
+                  "name": path.name,
+                  "size": path.stat().st_size,
+                  "mtime": path.stat().st_mtime,
+                  "valid": False,
+                  "quickCheck": None,
+                  "counts": {},
+                  "error": None,
+              }
+              try:
+                  uri = f"file:{quote(str(path))}?mode=ro"
+                  conn = sqlite3.connect(uri, uri=True, timeout=10.0)
+                  try:
+                      quick = conn.execute("PRAGMA quick_check").fetchone()
+                      row["quickCheck"] = quick[0] if quick else None
+                      names = {
+                          item[0]
+                          for item in conn.execute(
+                              "SELECT name FROM sqlite_master WHERE type='table'"
+                          )
+                      }
+                      for table in tables_of_interest:
+                          if table in names:
+                              row["counts"][table] = int(
+                                  conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+                              )
+                      row["valid"] = row["quickCheck"] == "ok"
+                  finally:
+                      conn.close()
+              except Exception as exc:  # noqa: BLE001
+                  row["error"] = f"{type(exc).__name__}: {exc}"
+              inventory.append(row)
+              if row["valid"]:
+                  counts = row["counts"]
+                  score = (
+                      int(counts.get("manager_seasons", 0)),
+                      int(counts.get("asset_movements", 0)),
+                      int(counts.get("transactions", 0)),
+                      int(counts.get("league_memberships", 0))
+                      + int(counts.get("platform_memberships", 0)),
+                      int(counts.get("sleeper_users", 0))
+                      + int(counts.get("platform_managers", 0)),
+                      int(row["size"]),
+                      float(row["mtime"]),
+                  )
+                  valid.append((score, path, row))
+
+          result = {"inventory": inventory, "selected": None, "restored": False}
+          if valid:
+              valid.sort(key=lambda item: item[0], reverse=True)
+              score, source, selected = valid[0]
+              result["selected"] = {**selected, "score": list(score)}
+              recovered = target.with_suffix(target.suffix + ".recovered")
+              recovered.unlink(missing_ok=True)
+              src_uri = f"file:{quote(str(source))}?mode=ro"
+              src = sqlite3.connect(src_uri, uri=True, timeout=30.0)
+              dst = sqlite3.connect(recovered)
+              try:
+                  src.backup(dst)
+                  check = dst.execute("PRAGMA quick_check").fetchone()
+                  if not check or check[0] != "ok":
+                      raise RuntimeError(f"recovered backup quick_check={check}")
+              finally:
+                  dst.close()
+                  src.close()
+              for suffix in ("", "-wal", "-shm"):
+                  existing = Path(str(target) + suffix)
+                  if existing.exists():
+                      saved = backup_dir / (existing.name + ".pre-recovery")
+                      shutil.copy2(existing, saved)
+                      existing.unlink()
+              os.replace(recovered, target)
+              result["restored"] = True
+          else:
+              for suffix in ("", "-wal", "-shm"):
+                  Path(str(target) + suffix).unlink(missing_ok=True)
+
+          report = backup_dir / "ledger-recovery-inventory.json"
+          report.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
+          chown -R "$APP_USER:$APP_USER" "$DATA_DIR" || true
+
+          echo "=== START LOCK-SAFE BACKEND ==="
+          sudo -n systemctl start "$SERVICE_NAME"
+          sleep 6
+          sudo -n systemctl is-active "$SERVICE_NAME"
+
+          echo "=== REPOPULATE FFPC IMMEDIATELY ==="
+          APP_DIR="$APP_DIR" APP_USER="$APP_USER" VENV_DIR="$VENV_DIR" SERVICE_NAME="$SERVICE_NAME" \
+            bash "$APP_DIR/deploy/install-ffpc-sharp-service.sh"
+          sudo -n systemctl reset-failed "$SERVICE_NAME-ffpc-sharp.service" >/dev/null 2>&1 || true
+          sudo -n systemctl start "$SERVICE_NAME-ffpc-sharp.service"
+
+          echo "=== VERIFY MARKET IS NONEMPTY BEFORE LONG SLEEPER WORK ==="
+          "$VENV_DIR/bin/python" - <<'PY'
+          import json
+          import sqlite3
+          from src.intel import ledger, platform_ledger
+          from src.sharp import service
+
+          conn = ledger.connect()
+          try:
+              quick = conn.execute("PRAGMA quick_check").fetchone()[0]
+          finally:
+              conn.close()
+          market = service.market_payload(
+              window="90d", sort="strength", asset_type="all",
+              platform="all", qualification="all", limit=20,
+          )
+          ffpc = service.market_payload(
+              window="90d", sort="strength", asset_type="all",
+              platform="ffpc", qualification="provisional", limit=20,
+          )
+          result = {
+              "quickCheck": quick,
+              "coverage": platform_ledger.platform_coverage(),
+              "marketStatus": market.get("status"),
+              "marketAssets": len(market.get("assets") or []),
+              "ffpcAssets": len(ffpc.get("assets") or []),
+              "sampleAssets": [row.get("displayName") for row in (market.get("assets") or [])[:10]],
+          }
+          print(json.dumps(result, indent=2, sort_keys=True, default=str))
+          if quick != "ok" or result["marketStatus"] != "ok" or result["ffpcAssets"] <= 0:
+              raise SystemExit("Recovered unified market is not healthy")
+          PY
+
+          echo "=== INSTALL TIMERS AND RUN ONE FIXED SLEEPER RECORDS PASS ==="
+          APP_DIR="$APP_DIR" \
+          APP_USER="$APP_USER" \
+          VENV_DIR="$VENV_DIR" \
+          SERVICE_NAME="$SERVICE_NAME" \
+          FORCE_SHARP_RECORDS_KICK=true \
+          SHARP_BOOTSTRAP_MAX_PASSES=1 \
+            bash "$APP_DIR/deploy/bootstrap-sharp-records.sh"
+
+          echo "=== FINAL STATUS ==="
+          "$VENV_DIR/bin/python" "$APP_DIR/scripts/crawl_sharp_records.py" --stats || true
+          "$VENV_DIR/bin/python" "$APP_DIR/scripts/crawl_sharp_records.py" --score || true
+          "$VENV_DIR/bin/python" "$APP_DIR/scripts/crawl_sharp_activity.py" --stats || true
+          for timer in \
+            "$SERVICE_NAME-sharp-discovery.timer" \
+            "$SERVICE_NAME-sharp-records.timer" \
+            "$SERVICE_NAME-sharp-activity.timer" \
+            "$SERVICE_NAME-ffpc-sharp.timer"; do
+            echo "$timer=$(sudo -n systemctl is-enabled "$timer" || true)/$(sudo -n systemctl is-active "$timer" || true)"
+          done
+          REMOTE
