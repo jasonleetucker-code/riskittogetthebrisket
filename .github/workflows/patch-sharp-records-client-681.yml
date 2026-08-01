@@ -6,6 +6,11 @@ on:
       - fix/sharp-live-refresh-and-sleeper-activity
     paths:
       - ".github/workflows/patch-sharp-records-client-681.yml"
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - ".github/workflows/patch-sharp-records-client-681.yml"
 
 permissions:
   contents: write
@@ -79,5 +84,3 @@ jobs:
           git add src/sharp/records.py tests/sharp/test_records_http_client.py
           git commit -m "fix(sharp): isolate records crawl from request circuit breaker"
           git push origin HEAD:fix/sharp-live-refresh-and-sleeper-activity
-
-# Updated once after creation so GitHub evaluates the push trigger from an existing workflow.
