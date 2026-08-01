@@ -19,7 +19,9 @@ def test_qualified_sleeper_ids_excludes_other_platforms_and_unqualified(monkeypa
         SimpleNamespace(user_id="sleeper:no", evaluable=True, qualified=False),
         SimpleNamespace(user_id="ffpc:two", evaluable=True, qualified=True),
     ]
-    monkeypatch.setattr(activity.platform_records, "build_manager_records", lambda: (records, {"a": 1}))
+    monkeypatch.setattr(
+        activity.platform_records, "build_manager_records", lambda: (records, {"a": 1})
+    )
     monkeypatch.setattr(activity.sharp_score, "score_managers", lambda _records: scores)
     monkeypatch.setattr(activity.sharp_score, "methodology_version", lambda: "sharp-v2")
 
@@ -37,7 +39,9 @@ def test_qualified_sleeper_ids_excludes_other_platforms_and_unqualified(monkeypa
 
 
 def test_no_qualified_manager_is_a_clean_cohort_building_result(monkeypatch):
-    monkeypatch.setattr(activity, "qualified_sleeper_ids", lambda: ([], {"qualifiedSleeperManagers": 0}))
+    monkeypatch.setattr(
+        activity, "qualified_sleeper_ids", lambda: ([], {"qualifiedSleeperManagers": 0})
+    )
     monkeypatch.setattr(
         activity.platform_ledger,
         "platform_coverage",
@@ -107,5 +111,5 @@ def test_systemd_wiring_installs_daily_activity_collector():
 
     assert "scripts/crawl_sharp_activity.py" in service
     assert "OnCalendar=*-*-* 06:30:00 UTC" in timer
-    assert "enable --now \"${activity_timer}\"" in bootstrap
-    assert "run_oneshot \"${activity_service}\"" in bootstrap
+    assert 'enable --now "${activity_timer}"' in bootstrap
+    assert 'run_oneshot "${activity_service}"' in bootstrap
