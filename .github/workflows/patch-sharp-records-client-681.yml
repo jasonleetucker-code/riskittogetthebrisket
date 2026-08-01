@@ -1,0 +1,81 @@
+name: Patch Sharp Records Client 681
+
+on:
+  push:
+    branches:
+      - fix/sharp-live-refresh-and-sleeper-activity
+    paths:
+      - ".github/workflows/patch-sharp-records-client-681.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/sharp-live-refresh-and-sleeper-activity
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: Replace request-path circuit-breaker client
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/sharp/records.py")
+          text = path.read_text()
+          old = '''def _default_http_get(url: str) -> Any:
+              from src.api import sleeper_overlay
+
+              return sleeper_overlay._http_get_json(url)
+          '''.replace("          ", "")
+          new = '''def _default_http_get(url: str) -> Any:
+              # The records crawler is a scheduled, paced batch job. It must not use
+              # sleeper_overlay's user-request circuit breaker: once that breaker
+              # opens, thousands of budget slots can be consumed by instant None
+              # responses without touching Sleeper. Reuse the pooled public-league
+              # client instead; it has connection reuse and never caches failures.
+              from src.public_league import sleeper_client
+
+              return sleeper_client._request_json(url)
+          '''.replace("          ", "")
+          if old not in text:
+              raise SystemExit("expected records HTTP helper not found")
+          text = text.replace(old, new, 1)
+          text = text.replace("DEFAULT_SLEEP_S = 0.12", "DEFAULT_SLEEP_S = 0.15", 1)
+          path.write_text(text)
+          PY
+          python -m ruff format src/sharp/records.py
+      - name: Add regression test
+        run: |
+          cat > tests/sharp/test_records_http_client.py <<'PY'
+          from src.public_league import sleeper_client
+          from src.sharp import records
+
+
+          def test_records_default_client_bypasses_request_circuit_breaker(monkeypatch):
+              captured = []
+
+              def request_json(url):
+                  captured.append(url)
+                  return {"league_id": "L1"}
+
+              monkeypatch.setattr(sleeper_client, "_request_json", request_json)
+
+              result = records._default_http_get("https://api.sleeper.app/v1/league/L1")
+
+              assert result == {"league_id": "L1"}
+              assert captured == ["https://api.sleeper.app/v1/league/L1"]
+          PY
+          python -m ruff format tests/sharp/test_records_http_client.py
+      - name: Commit patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/sharp/records.py tests/sharp/test_records_http_client.py
+          git commit -m "fix(sharp): isolate records crawl from request circuit breaker"
+          git push origin HEAD:fix/sharp-live-refresh-and-sleeper-activity
