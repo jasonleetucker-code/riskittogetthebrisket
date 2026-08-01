@@ -29,16 +29,17 @@ jobs:
       - name: Replace request-path circuit-breaker client
         run: |
           python - <<'PY'
+          import re
           from pathlib import Path
 
           path = Path("src/sharp/records.py")
           text = path.read_text()
-          old = '''def _default_http_get(url: str) -> Any:
-              from src.api import sleeper_overlay
-
-              return sleeper_overlay._http_get_json(url)
-          '''.replace("          ", "")
-          new = '''def _default_http_get(url: str) -> Any:
+          pattern = re.compile(
+              r"def _default_http_get\(url: str\) -> Any:\n"
+              r"    from src\.api import sleeper_overlay\n\n"
+              r"    return sleeper_overlay\._http_get_json\(url\)\n"
+          )
+          replacement = '''def _default_http_get(url: str) -> Any:
               # The records crawler is a scheduled, paced batch job. It must not use
               # sleeper_overlay's user-request circuit breaker: once that breaker
               # opens, thousands of budget slots can be consumed by instant None
@@ -48,9 +49,11 @@ jobs:
 
               return sleeper_client._request_json(url)
           '''.replace("          ", "")
-          if old not in text:
-              raise SystemExit("expected records HTTP helper not found")
-          text = text.replace(old, new, 1)
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f"expected one records HTTP helper, replaced {count}")
+          if "DEFAULT_SLEEP_S = 0.12" not in text:
+              raise SystemExit("expected records crawl sleep constant not found")
           text = text.replace("DEFAULT_SLEEP_S = 0.12", "DEFAULT_SLEEP_S = 0.15", 1)
           path.write_text(text)
           PY
