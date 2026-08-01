@@ -28,118 +28,119 @@ jobs:
       - name: Patch ledger initialization
         run: |
           python - <<'PY'
-          import re
           from pathlib import Path
+          from textwrap import dedent
 
           path = Path("src/intel/ledger.py")
           text = path.read_text()
-          pattern = re.compile(
-              r"def _open_or_reset\(path: Path\) -> None:\n"
-              r".*?\n\n"
-              r"def _ensure_schema\(path: Path\) -> None:",
-              re.DOTALL,
-          )
-          replacement = '''def _is_corrupt_database_error(exc: sqlite3.DatabaseError) -> bool:
-              """Return True only for errors that prove the file itself is corrupt.
+          start = text.index("def _open_or_reset(path: Path) -> None:")
+          end = text.index("\ndef _ensure_schema(path: Path) -> None:", start)
+          replacement = dedent(
+              '''
+              def _is_corrupt_database_error(exc: sqlite3.DatabaseError) -> bool:
+                  """Return True only for errors that prove the file itself is corrupt.
 
-              ``OperationalError`` is a ``DatabaseError`` subclass. Treating every
-              database error as corruption meant a routine ``database is locked``
-              during a collector write renamed the live ledger and rebuilt an empty
-              one underneath the writer. Busy/locked errors must propagate so the
-              caller can retry; only SQLite CORRUPT/NOTADB conditions may quarantine
-              and rebuild this derived store.
-              """
-              code = getattr(exc, "sqlite_errorcode", None)
-              corrupt_codes = {
-                  getattr(sqlite3, "SQLITE_CORRUPT", 11),
-                  getattr(sqlite3, "SQLITE_NOTADB", 26),
-              }
-              if code in corrupt_codes:
-                  return True
-              message = str(exc).lower()
-              return any(
-                  marker in message
-                  for marker in (
-                      "database disk image is malformed",
-                      "file is not a database",
-                      "file is encrypted or is not a database",
-                      "malformed database schema",
+                  ``OperationalError`` is a ``DatabaseError`` subclass. Treating every
+                  database error as corruption meant a routine ``database is locked``
+                  during a collector write renamed the live ledger and rebuilt an empty
+                  one underneath the writer. Busy/locked errors must propagate so the
+                  caller can retry; only SQLite CORRUPT/NOTADB conditions may quarantine
+                  and rebuild this derived store.
+                  """
+                  code = getattr(exc, "sqlite_errorcode", None)
+                  corrupt_codes = {
+                      getattr(sqlite3, "SQLITE_CORRUPT", 11),
+                      getattr(sqlite3, "SQLITE_NOTADB", 26),
+                  }
+                  if code in corrupt_codes:
+                      return True
+                  message = str(exc).lower()
+                  return any(
+                      marker in message
+                      for marker in (
+                          "database disk image is malformed",
+                          "file is not a database",
+                          "file is encrypted or is not a database",
+                          "malformed database schema",
+                      )
                   )
-              )
 
 
-          def _schema_is_current(conn: sqlite3.Connection) -> bool:
-              """Check an existing schema without taking a write lock."""
-              try:
-                  row = conn.execute(
-                      "SELECT value FROM meta WHERE key='schema_version'"
-                  ).fetchone()
-              except sqlite3.OperationalError as exc:
-                  if "no such table" in str(exc).lower():
-                      return False
-                  raise
-              return row is not None and str(row[0]) == str(SCHEMA_VERSION)
-
-
-          def _open_or_reset(path: Path) -> None:
-              """Open the ledger and rebuild only when SQLite proves corruption.
-
-              Existing, current ledgers are checked read-only. This lets API readers
-              start while a collector owns the write lock. A busy or locked database
-              is never renamed, deleted, or rebuilt.
-              """
-              conn = sqlite3.connect(str(path), timeout=30.0)
-              conn.execute("PRAGMA busy_timeout=30000")
-              try:
-                  if _schema_is_current(conn):
-                      return
-                  _apply_schema(conn)
-                  return
-              except sqlite3.DatabaseError as exc:
-                  if not _is_corrupt_database_error(exc):
+              def _schema_is_current(conn: sqlite3.Connection) -> bool:
+                  """Check an existing schema without taking a write lock."""
+                  try:
+                      row = conn.execute(
+                          "SELECT value FROM meta WHERE key='schema_version'"
+                      ).fetchone()
+                  except sqlite3.OperationalError as exc:
+                      if "no such table" in str(exc).lower():
+                          return False
                       raise
-                  conn.close()
-                  quarantine = path.with_suffix(
-                      path.suffix + f".corrupt-{int(time.time() * 1000)}"
-                  )
-                  log.warning(
-                      "intel.ledger: %s failed SQLite corruption checks — quarantining as %s",
-                      path,
-                      quarantine,
-                  )
-                  if path.exists():
-                      try:
-                          path.rename(quarantine)
-                      except OSError:
-                          path.unlink(missing_ok=True)
+                  return row is not None and str(row[0]) == str(SCHEMA_VERSION)
+
+
+              def _open_or_reset(path: Path) -> None:
+                  """Open the ledger and rebuild only when SQLite proves corruption.
+
+                  Existing, current ledgers are checked read-only. This lets API readers
+                  start while a collector owns the write lock. A busy or locked database
+                  is never renamed, deleted, or rebuilt.
+                  """
                   conn = sqlite3.connect(str(path), timeout=30.0)
                   conn.execute("PRAGMA busy_timeout=30000")
                   try:
+                      if _schema_is_current(conn):
+                          return
                       _apply_schema(conn)
+                      return
+                  except sqlite3.DatabaseError as exc:
+                      if not _is_corrupt_database_error(exc):
+                          raise
+                      conn.close()
+                      quarantine = path.with_suffix(
+                          path.suffix + f".corrupt-{int(time.time() * 1000)}"
+                      )
+                      log.warning(
+                          "intel.ledger: %s failed SQLite corruption checks — quarantining as %s",
+                          path,
+                          quarantine,
+                      )
+                      if path.exists():
+                          try:
+                              path.rename(quarantine)
+                          except OSError:
+                              path.unlink(missing_ok=True)
+                      conn = sqlite3.connect(str(path), timeout=30.0)
+                      conn.execute("PRAGMA busy_timeout=30000")
+                      try:
+                          _apply_schema(conn)
+                      finally:
+                          conn.close()
+                      return
                   finally:
-                      conn.close()
-                  return
-              finally:
-                  try:
-                      conn.close()
-                  except Exception:  # noqa: BLE001 — best effort
-                      pass
+                      try:
+                          conn.close()
+                      except Exception:  # noqa: BLE001 — best effort
+                          pass
+              '''
+          ).lstrip()
+          text = text[:start] + replacement + text[end:]
 
-
-          def _ensure_schema(path: Path) -> None:'''.replace("          ", "")
-          text, count = pattern.subn(replacement, text, count=1)
-          if count != 1:
-              raise SystemExit(f"expected one ledger initializer block, replaced {count}")
-
-          old_connect = '''    conn = sqlite3.connect(str(target), timeout=10.0)
-              conn.row_factory = sqlite3.Row
-              return conn
-          '''.replace("          ", "")
-          new_connect = '''    conn = sqlite3.connect(str(target), timeout=30.0)
-              conn.execute("PRAGMA busy_timeout=30000")
-              conn.row_factory = sqlite3.Row
-              return conn
-          '''.replace("          ", "")
+          old_connect = dedent(
+              '''
+                  conn = sqlite3.connect(str(target), timeout=10.0)
+                  conn.row_factory = sqlite3.Row
+                  return conn
+              '''
+          ).strip("\n")
+          new_connect = dedent(
+              '''
+                  conn = sqlite3.connect(str(target), timeout=30.0)
+                  conn.execute("PRAGMA busy_timeout=30000")
+                  conn.row_factory = sqlite3.Row
+                  return conn
+              '''
+          ).strip("\n")
           if old_connect not in text:
               raise SystemExit("expected ledger connect block not found")
           text = text.replace(old_connect, new_connect, 1)
