@@ -1,4 +1,5 @@
 name: Patch Sharp Explicit Startup Registration
+# Synchronize-triggered one-time materializer for PR #686.
 
 on:
   pull_request:
