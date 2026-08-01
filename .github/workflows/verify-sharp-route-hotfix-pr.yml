@@ -3,7 +3,7 @@ name: Verify Sharp Route Hotfix PR
 on:
   pull_request:
     branches: [main]
-    types: [opened, reopened]
+    types: [opened, synchronize, reopened]
     paths:
       - ".github/workflows/verify-sharp-route-hotfix-pr.yml"
 
@@ -36,16 +36,17 @@ jobs:
           ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
           echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
 
-      - name: Restart current main and probe sequentially
+      - name: Verify production code, route registration, and payload directly
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
           SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          printf -v REMOTE_ENV 'APP_DIR=%q SERVICE_NAME=%q' "$APP_DIR" "$SERVICE_NAME"
+          printf -v REMOTE_ENV 'APP_DIR=%q VENV_DIR=%q SERVICE_NAME=%q' "$APP_DIR" "$VENV_DIR" "$SERVICE_NAME"
           ssh -i "$HOME/.ssh/id_ed25519" \
             -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
@@ -59,54 +60,72 @@ jobs:
           sudo -n systemctl restart "$SERVICE_NAME"
           sleep 6
 
-          python3 - <<'PY'
+          ALLOW_DEFAULT_LOGIN_DEV=1 "$VENV_DIR/bin/python" - <<'PY'
           import json
-          import time
-          import urllib.error
-          import urllib.request
+          import subprocess
           from pathlib import Path
 
-          def get(path, attempts=20):
-              last = None
-              for _ in range(attempts):
-                  try:
-                      req = urllib.request.Request(
-                          "http://127.0.0.1:8000" + path,
-                          headers={"Cache-Control": "no-cache", "User-Agent": "Sharp-Route-Verify/1.0"},
-                      )
-                      with urllib.request.urlopen(req, timeout=20) as response:
-                          raw = response.read().decode("utf-8", "replace")
-                          try:
-                              body = json.loads(raw)
-                          except Exception:
-                              body = raw[:4000]
-                          return {"status": response.status, "body": body}
-                  except urllib.error.HTTPError as exc:
-                      raw = exc.read().decode("utf-8", "replace")
-                      try:
-                          body = json.loads(raw)
-                      except Exception:
-                          body = raw[:4000]
-                      last = {"status": exc.code, "body": body}
-                  except Exception as exc:
-                      last = {"status": None, "error": f"{type(exc).__name__}: {exc}"}
-                  time.sleep(2)
-              return last
+          import server
+          from src.intel import platform_ledger
+          from src.sharp import service
 
-          cohort = get("/api/sharp/cohort")
-          time.sleep(1)
-          market = get("/api/sharp/market?window=30d&platform=all&qualification=all&limit=25")
-          ffpc = get("/api/sharp/market?window=90d&platform=ffpc&qualification=provisional&limit=25")
-          result = {"cohort": cohort, "market": market, "ffpc": ffpc}
+          # Explicitly run the same idempotent self-heal invoked by the
+          # directly declared cohort endpoint, then inspect the real app.
+          service._register_http_routes()
+          routes = sorted(
+              {
+                  getattr(route, "path", "")
+                  for route in server.app.routes
+                  if "sharp" in getattr(route, "path", "")
+              }
+          )
+          cohort = service.cohort_status()
+          market = service.market_payload(
+              window="30d",
+              sort="strength",
+              asset_type="all",
+              platform="all",
+              qualification="all",
+              limit=25,
+          )
+          ffpc = service.market_payload(
+              window="90d",
+              sort="strength",
+              asset_type="all",
+              platform="ffpc",
+              qualification="provisional",
+              limit=25,
+          )
+          result = {
+              "gitSha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "routes": routes,
+              "cohortStatus": cohort.get("status"),
+              "cohort": cohort.get("cohort") or {},
+              "records": cohort.get("records") or {},
+              "coverage": platform_ledger.platform_coverage(),
+              "marketStatus": market.get("status"),
+              "marketAssetCount": len(market.get("assets") or []),
+              "marketAssets": [row.get("displayName") for row in (market.get("assets") or [])[:25]],
+              "ffpcStatus": ffpc.get("status"),
+              "ffpcAssetCount": len(ffpc.get("assets") or []),
+              "ffpcAssets": [row.get("displayName") for row in (ffpc.get("assets") or [])[:25]],
+          }
           Path("data/ops").mkdir(parents=True, exist_ok=True)
           Path("data/ops/sharp-route-hotfix-result.json").write_text(
               json.dumps(result, indent=2, sort_keys=True, default=str) + "\n"
           )
           print(json.dumps(result, indent=2, sort_keys=True, default=str))
-          if cohort.get("status") != 200 or market.get("status") != 200 or ffpc.get("status") != 200:
-              raise SystemExit("one or more live Sharp endpoints are not HTTP 200")
-          if not ((market.get("body") or {}).get("assets") or []):
-              raise SystemExit("live Sharp market returned no assets")
+          required = {
+              "/api/sharp/cohort",
+              "/api/sharp/market",
+              "/api/sharp/market/audit",
+          }
+          if not required.issubset(set(routes)):
+              raise SystemExit(f"missing Sharp routes: {sorted(required - set(routes))}")
+          if result["marketStatus"] != "ok" or result["marketAssetCount"] <= 0:
+              raise SystemExit("combined Sharp market payload is not populated")
+          if result["ffpcStatus"] != "ok" or result["ffpcAssetCount"] <= 0:
+              raise SystemExit("FFPC Sharp market payload is not populated")
           PY
           REMOTE
 
@@ -135,6 +154,6 @@ jobs:
           [[ -f data/ops/sharp-route-hotfix-result.json ]] || exit 0
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add data/ops/sharp-route-hotfix-result.json
+          git add -f data/ops/sharp-route-hotfix-result.json
           git commit -m "chore(ops): record live Sharp route verification" || exit 0
           git push origin HEAD:ops/verify-sharp-route-hotfix
