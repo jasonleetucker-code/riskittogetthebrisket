@@ -1,78 +1,191 @@
-name: Check Sharp Production Now
+name: Materialize Sharp Public API Fix
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/check-sharp-production-now.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  check:
+  materialize:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: production
+    timeout-minutes: 15
     steps:
-      - name: Configure production SSH
-        env:
-          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/sharp-public-api-access
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Apply Sharp public access and readable-error fix
         shell: bash
         run: |
           set -Eeuo pipefail
-          install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/id_ed25519"
-          chmod 644 "$HOME/.ssh/known_hosts"
-          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
-          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+          python - <<'PY'
+          from pathlib import Path
 
-      - name: Inspect Sharp routes and population
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
-          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          printf -v REMOTE_ENV 'APP_DIR=%q VENV_DIR=%q SERVICE_NAME=%q' "$APP_DIR" "$VENV_DIR" "$SERVICE_NAME"
-          ssh -i "$HOME/.ssh/id_ed25519" \
-            -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "$REMOTE_ENV bash -s" <<'REMOTE'
-          set -Eeuo pipefail
-          cd "$APP_DIR"
-          sudo -n systemctl is-active "$SERVICE_NAME"
-          ALLOW_DEFAULT_LOGIN_DEV=1 "$VENV_DIR/bin/python" - <<'PY'
-          import json
-          import server
-          from src.intel import platform_ledger
-          from src.sharp import service
+          server_path = Path("server.py")
+          server = server_path.read_text()
+          needle = '''        "/api/news",
+    }
+)'''
+          replacement = '''        "/api/news",
+        # Sharp Tracker exposes only aggregate activity derived from public
+        # platform data. It does not read the private dynasty contract,
+        # league rosters, trade recommendations, or user state. Keep the
+        # per-asset audit endpoint private because it contains row-level
+        # provenance; only these two aggregate reads are public.
+        "/api/sharp/cohort",
+        "/api/sharp/market",
+    }
+)'''
+          if replacement not in server:
+              if needle not in server:
+                  raise SystemExit("public API allowlist anchor not found")
+              server_path.write_text(server.replace(needle, replacement, 1))
 
-          service._register_http_routes()
-          market = service.market_payload(
-              window="30d", sort="strength", asset_type="all",
-              platform="all", qualification="all", limit=25,
+          service_path = Path("src/sharp/service.py")
+          service = service_path.read_text()
+          old_header = 'headers={"Cache-Control": "private, max-age=120, stale-while-revalidate=300"},'
+          new_header = 'headers={"Cache-Control": "public, max-age=30, stale-while-revalidate=120"},'
+          if new_header not in service:
+              if old_header not in service:
+                  raise SystemExit("Sharp market cache header anchor not found")
+              service_path.write_text(service.replace(old_header, new_header, 1))
+
+          auth_test_path = Path("tests/api/test_private_auth.py")
+          auth_test = auth_test_path.read_text()
+          auth_anchor = '''    "/api/draft-capital",
+]'''
+          auth_replacement = '''    "/api/draft-capital",
+    # Aggregate Sharp Tracker reads contain only normalized public-platform
+    # activity. Row-level audit/provenance remains private.
+    "/api/sharp/cohort",
+    "/api/sharp/market",
+]'''
+          if auth_replacement not in auth_test:
+              if auth_anchor not in auth_test:
+                  raise SystemExit("public API test list anchor not found")
+              auth_test_path.write_text(auth_test.replace(auth_anchor, auth_replacement, 1))
+
+          page_path = Path("frontend/app/market/sharp-tracker/page.jsx")
+          page = page_path.read_text()
+          import_anchor = 'import { PageHeader, LoadingState, EmptyState } from "@/components/ui";\n'
+          import_line = 'import { apiErrorMessage } from "@/lib/api-error";\n'
+          if import_line not in page:
+              if import_anchor not in page:
+                  raise SystemExit("Sharp Tracker import anchor not found")
+              page = page.replace(import_anchor, import_anchor + import_line, 1)
+          old_message = '''      const message = payload?.message || payload?.detail || payload?.error || `HTTP ${response.status}`;
+      lastError = new Error(message);'''
+          new_message = '''      lastError = new Error(apiErrorMessage(payload, response.status));'''
+          if new_message not in page:
+              if old_message not in page:
+                  raise SystemExit("Sharp Tracker response error anchor not found")
+              page = page.replace(old_message, new_message, 1)
+          page = page.replace(
+              '      setCohortError(String(error?.message || error));',
+              '      setCohortError(apiErrorMessage(error));',
+              1,
           )
-          ffpc = service.market_payload(
-              window="90d", sort="strength", asset_type="all",
-              platform="ffpc", qualification="provisional", limit=25,
+          page = page.replace(
+              '      setMarketError(String(error?.message || error));',
+              '      setMarketError(apiErrorMessage(error));',
+              1,
           )
-          print(json.dumps({
-              "routes": sorted(
-                  getattr(route, "path", "")
-                  for route in server.app.routes
-                  if "sharp" in getattr(route, "path", "")
-              ),
-              "coverage": platform_ledger.platform_coverage(),
-              "marketStatus": market.get("status"),
-              "marketAssets": len(market.get("assets") or []),
-              "ffpcStatus": ffpc.get("status"),
-              "ffpcAssets": len(ffpc.get("assets") or []),
-          }, indent=2, sort_keys=True, default=str))
+          page_path.write_text(page)
           PY
-          REMOTE
+
+          cat > tests/sharp/test_public_api_allowlist.py <<'PY'
+          import server
+
+
+          def test_aggregate_sharp_routes_are_public_but_audit_stays_private():
+              assert server._is_public_api_path("/api/sharp/cohort")
+              assert server._is_public_api_path("/api/sharp/market")
+              assert not server._is_public_api_path("/api/sharp/market/audit")
+          PY
+
+          cat > frontend/lib/api-error.js <<'JS'
+          function firstMessage(value, depth = 0) {
+            if (depth > 5 || value == null) return null;
+            if (typeof value === "string") {
+              const text = value.trim();
+              return text || null;
+            }
+            if (typeof value === "number" || typeof value === "boolean") return String(value);
+            if (Array.isArray(value)) {
+              for (const item of value) {
+                const message = firstMessage(item, depth + 1);
+                if (message) return message;
+              }
+              return null;
+            }
+            if (typeof value === "object") {
+              for (const key of ["message", "detail", "title", "error"]) {
+                const message = firstMessage(value[key], depth + 1);
+                if (message) return message;
+              }
+              for (const nested of Object.values(value)) {
+                const message = firstMessage(nested, depth + 1);
+                if (message) return message;
+              }
+            }
+            return null;
+          }
+
+          export function apiErrorMessage(value, status = null) {
+            return firstMessage(value) || (status ? `HTTP ${status}` : "Request failed");
+          }
+          JS
+
+          cat > frontend/__tests__/api-error.test.js <<'JS'
+          import { describe, expect, it } from "vitest";
+          import { apiErrorMessage } from "@/lib/api-error";
+
+          describe("apiErrorMessage", () => {
+            it("extracts normal API messages", () => {
+              expect(apiErrorMessage({ error: "auth_required", message: "Sign-in required." }, 401)).toBe(
+                "Sign-in required.",
+              );
+            });
+
+            it("extracts nested object details instead of rendering object Object", () => {
+              expect(apiErrorMessage({ detail: { message: "Sharp market unavailable" } }, 503)).toBe(
+                "Sharp market unavailable",
+              );
+            });
+
+            it("reads Error instances and falls back to HTTP status", () => {
+              expect(apiErrorMessage(new Error("Network failed"))).toBe("Network failed");
+              expect(apiErrorMessage({}, 502)).toBe("HTTP 502");
+            });
+          });
+          JS
+
+      - name: Format and run focused tests
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
+        run: |
+          set -Eeuo pipefail
+          python -m ruff format server.py src/sharp/service.py tests/api/test_private_auth.py tests/sharp/test_public_api_allowlist.py
+          python -m pytest tests/api/test_private_auth.py tests/sharp/test_public_api_allowlist.py -q
+
+      - name: Commit implementation to feature branch
+        run: |
+          set -Eeuo pipefail
+          git rm .github/workflows/materialize-sharp-public-api-access.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add server.py src/sharp/service.py tests/api/test_private_auth.py tests/sharp/test_public_api_allowlist.py frontend/app/market/sharp-tracker/page.jsx frontend/lib/api-error.js frontend/__tests__/api-error.test.js
+          git commit -m "fix(sharp): allow aggregate market reads without stale sessions"
+          git push origin HEAD:fix/sharp-public-api-access
