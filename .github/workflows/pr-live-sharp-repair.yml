@@ -17,13 +17,13 @@ env:
 
 jobs:
   repair:
-    name: Repair And Inspect Live Sharp
+    name: Deploy 681 And Force Live Population
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 120
     environment: production
 
     steps:
-      - name: Verify deploy secrets are present
+      - name: Configure production SSH
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -34,29 +34,17 @@ jobs:
         run: |
           set -Eeuo pipefail
           for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_PRIVATE_KEY DEPLOY_KNOWN_HOSTS; do
-            if [[ -z "${!name:-}" ]]; then
-              echo "::error::Missing ${name} in production environment"
-              exit 10
-            fi
+            [[ -n "${!name:-}" ]] || { echo "::error::Missing ${name}"; exit 10; }
           done
-          echo "DEPLOY_PORT_RESOLVED=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
-          echo "Production SSH configuration is present."
-
-      - name: Configure SSH
-        env:
-          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/id_ed25519"
           chmod 644 "$HOME/.ssh/known_hosts"
           ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "DEPLOY_PORT_RESOLVED=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
 
-      - name: Update production, restart backend, run collectors, and inspect endpoints
+      - name: Deploy latest main and run all Sharp passes now
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -72,121 +60,94 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=20 \
             -o ServerAliveInterval=20 \
-            -o ServerAliveCountMax=20 \
+            -o ServerAliveCountMax=30 \
             -p "$DEPLOY_PORT_RESOLVED" \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "$REMOTE_ENV bash -s" <<'REMOTE'
           set -Eeuo pipefail
           cd "$APP_DIR"
 
-          echo "=== UPDATE PRODUCTION CHECKOUT ==="
+          echo "=== UPDATE PRODUCTION TO CURRENT MAIN ==="
           git fetch --prune origin main
           git reset --hard origin/main
-          echo "production_sha=$(git rev-parse HEAD)"
+          TARGET_SHA="$(git rev-parse HEAD)"
+          echo "production_sha=${TARGET_SHA}"
+          test "$TARGET_SHA" = "39b99e6474a656faafbba57d723b1a58f4b42801"
 
-          echo "=== RESTART BACKEND ==="
-          sudo -n systemctl daemon-reload
-          sudo -n systemctl restart "$SERVICE_NAME"
-          sleep 6
-          sudo -n systemctl status "$SERVICE_NAME" --no-pager -l || true
+          echo "=== REBUILD FRONTEND AND RESTART APPLICATION ==="
+          DEPLOY_REF="$TARGET_SHA" \
+          APP_DIR="$APP_DIR" \
+          APP_USER="$APP_USER" \
+          VENV_DIR="$VENV_DIR" \
+          SERVICE_NAME="$SERVICE_NAME" \
+          RUN_FRONTEND_BUILD=true \
+            bash "$APP_DIR/deploy/deploy.sh"
 
-          echo "=== ROUTES FROM IMPORTED APPLICATION ==="
-          "$VENV_DIR/bin/python" - <<'PY'
-          import os
-          os.environ.setdefault("ALLOW_DEFAULT_LOGIN_DEV", "1")
-          import server
-          for route in sorted({getattr(item, "path", "") for item in server.app.routes}):
-              if "sharp" in route:
-                  print(route)
-          PY
+          echo "=== FORCE FFPC, SLEEPER RECORDS, AND SLEEPER ACTIVITY ==="
+          APP_DIR="$APP_DIR" \
+          APP_USER="$APP_USER" \
+          VENV_DIR="$VENV_DIR" \
+          SERVICE_NAME="$SERVICE_NAME" \
+          FORCE_SHARP_RECORDS_KICK=true \
+          SHARP_BOOTSTRAP_MAX_PASSES=3 \
+            bash "$APP_DIR/deploy/bootstrap-sharp-records.sh"
 
-          echo "=== LOCAL ENDPOINTS BEFORE COLLECTION ==="
-          "$VENV_DIR/bin/python" - <<'PY'
-          import json
-          import urllib.error
-          import urllib.request
-
-          for path in (
-              "/api/sharp/cohort",
-              "/api/sharp/market?window=30d&platform=all&qualification=all&limit=5",
-              "/api/sharp/market?window=90d&platform=ffpc&qualification=provisional&limit=5",
-          ):
-              try:
-                  request = urllib.request.Request(
-                      "http://127.0.0.1:8000" + path,
-                      headers={"Cache-Control": "no-cache", "User-Agent": "PR-Live-Sharp-Repair/1.0"},
-                  )
-                  with urllib.request.urlopen(request, timeout=30) as response:
-                      body = response.read().decode("utf-8", "replace")
-                      print(json.dumps({"path": path, "status": response.status, "body": body[:5000]}))
-              except urllib.error.HTTPError as exc:
-                  body = exc.read().decode("utf-8", "replace")
-                  print(json.dumps({"path": path, "status": exc.code, "body": body[:5000]}))
-              except Exception as exc:
-                  print(json.dumps({"path": path, "status": None, "error": f"{type(exc).__name__}: {exc}"}))
-          PY
-
-          echo "=== INSTALL AND RUN FFPC NOW ==="
-          APP_DIR="$APP_DIR" APP_USER="$APP_USER" VENV_DIR="$VENV_DIR" SERVICE_NAME="$SERVICE_NAME" \
-            bash "$APP_DIR/deploy/install-ffpc-sharp-service.sh"
-          sudo -n systemctl reset-failed "$SERVICE_NAME-ffpc-sharp.service" >/dev/null 2>&1 || true
-          sudo -n systemctl start "$SERVICE_NAME-ffpc-sharp.service" || true
-          sudo -n systemctl status "$SERVICE_NAME-ffpc-sharp.service" --no-pager -l || true
-
-          echo "=== RUN SLEEPER DISCOVERY AND RECORDS NOW ==="
-          sudo -n systemctl reset-failed "$SERVICE_NAME-sharp-discovery.service" >/dev/null 2>&1 || true
-          sudo -n systemctl start "$SERVICE_NAME-sharp-discovery.service" || true
-          sudo -n systemctl status "$SERVICE_NAME-sharp-discovery.service" --no-pager -l || true
-          sudo -n systemctl reset-failed "$SERVICE_NAME-sharp-records.service" >/dev/null 2>&1 || true
-          sudo -n systemctl start "$SERVICE_NAME-sharp-records.service" || true
-          sudo -n systemctl status "$SERVICE_NAME-sharp-records.service" --no-pager -l || true
-
-          echo "=== STORED COVERAGE ==="
-          "$VENV_DIR/bin/python" "$APP_DIR/scripts/crawl_sharp_records.py" --stats || true
-          "$VENV_DIR/bin/python" "$APP_DIR/scripts/crawl_sharp_records.py" --score || true
-
-          echo "=== LOCAL ENDPOINTS AFTER COLLECTION ==="
+          echo "=== DIRECT LIVE DATA VERIFICATION ==="
           "$VENV_DIR/bin/python" - <<'PY'
           import json
-          import urllib.error
-          import urllib.request
+          from src.intel import platform_ledger
+          from src.sharp import service
+          from scripts import crawl_sharp_activity
 
-          failed = False
-          for path in (
-              "/api/sharp/cohort",
-              "/api/sharp/market?window=30d&platform=all&qualification=all&limit=10",
-              "/api/sharp/market?window=90d&platform=ffpc&qualification=provisional&limit=10",
-          ):
-              try:
-                  request = urllib.request.Request(
-                      "http://127.0.0.1:8000" + path,
-                      headers={"Cache-Control": "no-cache", "User-Agent": "PR-Live-Sharp-Repair/1.0"},
-                  )
-                  with urllib.request.urlopen(request, timeout=30) as response:
-                      raw = response.read().decode("utf-8", "replace")
-                      try:
-                          body = json.loads(raw)
-                      except json.JSONDecodeError:
-                          body = raw[:10000]
-                      print(json.dumps({"path": path, "status": response.status, "body": body}, indent=2)[:20000])
-                      if "market" in path and response.status != 200:
-                          failed = True
-              except urllib.error.HTTPError as exc:
-                  raw = exc.read().decode("utf-8", "replace")
-                  print(json.dumps({"path": path, "status": exc.code, "body": raw[:10000]}, indent=2))
-                  if "market" in path:
-                      failed = True
-              except Exception as exc:
-                  print(json.dumps({"path": path, "status": None, "error": f"{type(exc).__name__}: {exc}"}, indent=2))
-                  if "market" in path:
-                      failed = True
-          if failed:
-              raise SystemExit(71)
+          coverage = platform_ledger.platform_coverage()
+          cohort = service.cohort_status()
+          market = service.market_payload(
+              window="30d",
+              sort="strength",
+              asset_type="all",
+              platform="all",
+              qualification="all",
+              limit=20,
+          )
+          ffpc = service.market_payload(
+              window="90d",
+              sort="strength",
+              asset_type="all",
+              platform="ffpc",
+              qualification="provisional",
+              limit=20,
+          )
+          activity = {
+              "qualified": crawl_sharp_activity.qualified_sleeper_ids()[1],
+              "coverage": coverage.get("sleeper") or {},
+          }
+          result = {
+              "coverage": coverage,
+              "cohort": cohort.get("cohort") or {},
+              "records": cohort.get("records") or {},
+              "marketStatus": market.get("status"),
+              "marketAssets": len(market.get("assets") or []),
+              "ffpcAssets": len(ffpc.get("assets") or []),
+              "sampleAssets": [row.get("displayName") for row in (market.get("assets") or [])[:10]],
+              "sleeperActivity": activity,
+          }
+          print(json.dumps(result, indent=2, sort_keys=True, default=str))
+          if result["marketStatus"] != "ok" or result["ffpcAssets"] <= 0:
+              raise SystemExit("Unified Sharp market is not live with FFPC data")
           PY
 
-          echo "=== RELEVANT JOURNALS ==="
-          sudo -n journalctl -u "$SERVICE_NAME" -n 120 --no-pager || true
-          sudo -n journalctl -u "$SERVICE_NAME-ffpc-sharp.service" -n 160 --no-pager || true
-          sudo -n journalctl -u "$SERVICE_NAME-sharp-discovery.service" -n 120 --no-pager || true
+          echo "=== INSTALLED TIMERS ==="
+          for timer in \
+            "$SERVICE_NAME-sharp-discovery.timer" \
+            "$SERVICE_NAME-sharp-records.timer" \
+            "$SERVICE_NAME-sharp-activity.timer" \
+            "$SERVICE_NAME-ffpc-sharp.timer"; do
+            echo "$timer=$(sudo -n systemctl is-enabled "$timer" || true)/$(sudo -n systemctl is-active "$timer" || true)"
+          done
+
+          echo "=== RECENT JOURNALS ==="
+          sudo -n journalctl -u "$SERVICE_NAME" -n 80 --no-pager || true
           sudo -n journalctl -u "$SERVICE_NAME-sharp-records.service" -n 160 --no-pager || true
+          sudo -n journalctl -u "$SERVICE_NAME-sharp-activity.service" -n 160 --no-pager || true
+          sudo -n journalctl -u "$SERVICE_NAME-ffpc-sharp.service" -n 160 --no-pager || true
           REMOTE
