@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  verify:
+  materialize:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -19,141 +19,67 @@ jobs:
         with:
           ref: ops/verify-sharp-route-hotfix
           fetch-depth: 1
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
 
-      - name: Configure production SSH
-        env:
-          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-        shell: bash
+      - name: Patch server startup and add regression coverage
         run: |
-          set -Eeuo pipefail
-          install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/id_ed25519"
-          chmod 644 "$HOME/.ssh/known_hosts"
-          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
-          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
-
-      - name: Verify production code, route registration, and payload directly
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
-          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          printf -v REMOTE_ENV 'APP_DIR=%q VENV_DIR=%q SERVICE_NAME=%q' "$APP_DIR" "$VENV_DIR" "$SERVICE_NAME"
-          ssh -i "$HOME/.ssh/id_ed25519" \
-            -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 \
-            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "$REMOTE_ENV bash -s" <<'REMOTE'
-          set -Eeuo pipefail
-          cd "$APP_DIR"
-          git fetch --prune origin main
-          git reset --hard origin/main
-          sudo -n systemctl restart "$SERVICE_NAME"
-          sleep 6
-
-          ALLOW_DEFAULT_LOGIN_DEV=1 "$VENV_DIR/bin/python" - <<'PY'
-          import json
-          import subprocess
+          python - <<'PY'
           from pathlib import Path
 
-          import server
-          from src.intel import platform_ledger
-          from src.sharp import service
+          path = Path("server.py")
+          text = path.read_text()
+          needle = '''from src.sharp import service as _sharp_service  # noqa: E402
 
-          # Explicitly run the same idempotent self-heal invoked by the
-          # directly declared cohort endpoint, then inspect the real app.
-          service._register_http_routes()
-          routes = sorted(
-              {
-                  getattr(route, "path", "")
-                  for route in server.app.routes
-                  if "sharp" in getattr(route, "path", "")
-              }
-          )
-          cohort = service.cohort_status()
-          market = service.market_payload(
-              window="30d",
-              sort="strength",
-              asset_type="all",
-              platform="all",
-              qualification="all",
-              limit=25,
-          )
-          ffpc = service.market_payload(
-              window="90d",
-              sort="strength",
-              asset_type="all",
-              platform="ffpc",
-              qualification="provisional",
-              limit=25,
-          )
-          result = {
-              "gitSha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
-              "routes": routes,
-              "cohortStatus": cohort.get("status"),
-              "cohort": cohort.get("cohort") or {},
-              "records": cohort.get("records") or {},
-              "coverage": platform_ledger.platform_coverage(),
-              "marketStatus": market.get("status"),
-              "marketAssetCount": len(market.get("assets") or []),
-              "marketAssets": [row.get("displayName") for row in (market.get("assets") or [])[:25]],
-              "ffpcStatus": ffpc.get("status"),
-              "ffpcAssetCount": len(ffpc.get("assets") or []),
-              "ffpcAssets": [row.get("displayName") for row in (ffpc.get("assets") or [])[:25]],
-          }
-          Path("data/ops").mkdir(parents=True, exist_ok=True)
-          Path("data/ops/sharp-route-hotfix-result.json").write_text(
-              json.dumps(result, indent=2, sort_keys=True, default=str) + "\n"
-          )
-          print(json.dumps(result, indent=2, sort_keys=True, default=str))
-          required = {
-              "/api/sharp/cohort",
-              "/api/sharp/market",
-              "/api/sharp/market/audit",
-          }
-          if not required.issubset(set(routes)):
-              raise SystemExit(f"missing Sharp routes: {sorted(required - set(routes))}")
-          if result["marketStatus"] != "ok" or result["marketAssetCount"] <= 0:
-              raise SystemExit("combined Sharp market payload is not populated")
-          if result["ffpcStatus"] != "ok" or result["ffpcAssetCount"] <= 0:
-              raise SystemExit("FFPC Sharp market payload is not populated")
+
+@app.get("/api/sharp/cohort")'''
+          replacement = '''from src.sharp import service as _sharp_service  # noqa: E402
+
+# The service can be imported transitively before ``app`` exists, which means
+# its module-level registration hook may already have run and returned. Call
+# the idempotent registrar explicitly here, after FastAPI construction, so
+# every production process starts with the market routes present.
+_sharp_service._register_http_routes()
+
+
+@app.get("/api/sharp/cohort")'''
+          if replacement not in text:
+              if needle not in text:
+                  raise SystemExit("expected Sharp service import block not found")
+              path.write_text(text.replace(needle, replacement, 1))
           PY
-          REMOTE
 
-      - name: Retrieve result
-        if: always()
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-        shell: bash
+          cat > tests/sharp/test_server_explicit_route_registration.py <<'PY'
+          from pathlib import Path
+
+
+          def test_server_registers_market_routes_after_service_import():
+              text = Path("server.py").read_text()
+              service_import = text.index(
+                  "from src.sharp import service as _sharp_service  # noqa: E402"
+              )
+              registration = text.index(
+                  "_sharp_service._register_http_routes()", service_import
+              )
+              cohort_route = text.index('@app.get("/api/sharp/cohort")', service_import)
+
+              assert service_import < registration < cohort_route
+          PY
+
+          python -m ruff format server.py tests/sharp/test_server_explicit_route_registration.py
+          ALLOW_DEFAULT_LOGIN_DEV=1 python -m pytest \
+            tests/sharp/test_service_route_registration.py \
+            tests/sharp/test_cohort_route_self_heal.py \
+            tests/sharp/test_server_explicit_route_registration.py -q
+
+      - name: Commit application patch
         run: |
           set -Eeuo pipefail
-          mkdir -p data/ops
-          scp -i "$HOME/.ssh/id_ed25519" \
-            -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-            -P "$PORT" \
-            "$DEPLOY_USER@$DEPLOY_HOST:$APP_DIR/data/ops/sharp-route-hotfix-result.json" \
-            data/ops/sharp-route-hotfix-result.json
-
-      - name: Commit result to verification branch
-        if: always()
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          [[ -f data/ops/sharp-route-hotfix-result.json ]] || exit 0
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -f data/ops/sharp-route-hotfix-result.json
-          git commit -m "chore(ops): record live Sharp route verification" || exit 0
+          git add server.py tests/sharp/test_server_explicit_route_registration.py
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(sharp): register market routes explicitly at startup"
           git push origin HEAD:ops/verify-sharp-route-hotfix
