@@ -29,29 +29,30 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          expected=(
-            31f075ace408ed7e2b8e8a82375e83ec74df91d52bc99c027ff183a8ae59175d
-            41a1633cc8a241bc3676df2baaf36724726f7595176be530a05ffb425c89febe
-            b7052b26ca89fca0ceb49fcc284e0df480ba6303e89ab4525f1d5e19871795b7
-            976e1846d9cb166b7115ad5a60b2a70c9cbcfffb84427f59f6cf90ab7f357e22
-            c63408c0f7431c69facd6c04703ffa55ab34346ee12e0c13c20c4d8f8fc23164
-            24397a561002134dc7fee8d464dce560ad0a24f334774ce55ca77ecb42467d24
-            77cca5818a8bf7ec9fce0638718786b6266841d719748d1dcfd48a00125c601e
-          )
-          ls -la .curated_min.part-* || true
-          sha256sum .curated_min.part-* || true
-          for index in 0 1 2 3 4 5 6; do
-            part=$(printf '.curated_min.part-%03d' "$index")
-            test -f "$part" || { echo "missing $part"; exit 1; }
-            actual=$(sha256sum "$part" | awk '{print $1}')
-            if [[ "$actual" != "${expected[$index]}" ]]; then
-              echo "hash mismatch $part expected=${expected[$index]} actual=$actual"
-              exit 1
-            fi
-          done
-          cat .curated_min.part-* > /tmp/curated-sharps.b64
+          echo 'c108881797e17b4fd050ccd56004d326067c70f1d5916b9795e2e6640af4b40f  .curated_min.part-001-sub-0' | sha256sum -c -
+          echo '0ea10d964b4f75df91f9d7b9cc03d4b68f04a578c4207cbf07ff73634cafb1de  .curated_min.part-001-sub-1' | sha256sum -c -
+          echo '3247f7ea49b81af25e6df9e1ff983da1f2023dfcedd3837e51886cc3985cf00a  .curated_min.part-001-sub-2' | sha256sum -c -
+          echo '2d83545ddc5c6ebc234a9e8ba805ce7b7882393562b77d40c3a499567481d04c  .curated_min.part-001-sub-3' | sha256sum -c -
+          cat .curated_min.part-001-sub-* > /tmp/curated-part-001
+          echo '41a1633cc8a241bc3676df2baaf36724726f7595176be530a05ffb425c89febe  /tmp/curated-part-001' | sha256sum -c -
+
+          echo '31f075ace408ed7e2b8e8a82375e83ec74df91d52bc99c027ff183a8ae59175d  .curated_min.part-000' | sha256sum -c -
+          echo 'b7052b26ca89fca0ceb49fcc284e0df480ba6303e89ab4525f1d5e19871795b7  .curated_min.part-002' | sha256sum -c -
+          echo '976e1846d9cb166b7115ad5a60b2a70c9cbcfffb84427f59f6cf90ab7f357e22  .curated_min.part-003' | sha256sum -c -
+          echo 'c63408c0f7431c69facd6c04703ffa55ab34346ee12e0c13c20c4d8f8fc23164  .curated_min.part-004' | sha256sum -c -
+          echo '24397a561002134dc7fee8d464dce560ad0a24f334774ce55ca77ecb42467d24  .curated_min.part-005' | sha256sum -c -
+          echo '77cca5818a8bf7ec9fce0638718786b6266841d719748d1dcfd48a00125c601e  .curated_min.part-006' | sha256sum -c -
+
+          cat \
+            .curated_min.part-000 \
+            /tmp/curated-part-001 \
+            .curated_min.part-002 \
+            .curated_min.part-003 \
+            .curated_min.part-004 \
+            .curated_min.part-005 \
+            .curated_min.part-006 \
+            > /tmp/curated-sharps.b64
           base64 -d /tmp/curated-sharps.b64 > /tmp/curated-sharps.tar.xz
-          sha256sum /tmp/curated-sharps.tar.xz
           echo '444bb894f46422c63169264c18312695c6b9975a74195383504587a3e81f9592  /tmp/curated-sharps.tar.xz' | sha256sum -c -
           tar xJf /tmp/curated-sharps.tar.xz -C .
           python scripts/_materialize_curated_sharps.py
