@@ -55,7 +55,53 @@ jobs:
           base64 -d /tmp/curated-sharps.b64 > /tmp/curated-sharps.tar.xz
           echo '444bb894f46422c63169264c18312695c6b9975a74195383504587a3e81f9592  /tmp/curated-sharps.tar.xz' | sha256sum -c -
           tar xJf /tmp/curated-sharps.tar.xz -C .
-          python scripts/_materialize_curated_sharps.py
+
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          patcher_path = Path("scripts/_materialize_curated_sharps.py")
+          spec = importlib.util.spec_from_file_location("curated_patcher", patcher_path)
+          patcher = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(patcher)
+          original = patcher.replace_once
+
+          pretty_headings = '''[
+                  "Player / asset",
+                  "Signal",
+                  "Buys",
+                  "Sells",
+                  "Net",
+                  "Volume",
+                  "Sharp managers",
+                  "Leagues",
+                  "Velocity",
+                  "Confidence",
+                  "Sources",
+                  "Last activity",
+                ]'''
+          pretty_cells = '''                    <td>{row.buys || 0}</td>
+                    <td>{row.sells || 0}</td>
+                    <td>
+                      {row.net > 0 ? "+" : ""}
+                      {row.net || 0}
+                    </td>
+                    <td>{row.volume || 0}</td>
+                    <td>{row.uniqueManagers || 0}</td>
+                    <td>{row.uniqueLeagues || 0}</td>
+                    <td>{asset.velocity == null ? "—" : `${asset.velocity.toFixed(2)}×`}</td>'''
+
+          def formatted_replace(text: str, old: str, new: str, label: str) -> str:
+              if label == "tracker table headings" and old not in text:
+                  old = pretty_headings
+              elif label == "tracker consensus cells" and old not in text:
+                  old = pretty_cells
+              return original(text, old, new, label)
+
+          patcher.replace_once = formatted_replace
+          patcher.main()
+          PY
 
       - name: Install Python dependencies
         run: pip install -r requirements-dev.txt
