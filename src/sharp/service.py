@@ -12,6 +12,10 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+
 from src.intel import ledger, platform_ledger
 from src.sharp import discovery
 from src.sharp import market as sharp_market
@@ -47,7 +51,7 @@ def _records_coverage() -> dict[str, Any]:
 def cohort_status() -> dict[str, Any]:
     # The cohort endpoint is declared directly in ``server.py`` and remains
     # reachable even when this module was imported transitively before the
-    # FastAPI app existed.  Re-running the idempotent registrar here turns
+    # FastAPI app existed. Re-running the idempotent registrar here turns
     # that guaranteed request into a production self-heal: the next market
     # retry sees the route instead of remaining a permanent 404.
     _register_http_routes()
@@ -166,6 +170,11 @@ def _register_http_routes() -> None:
     The existing server imports this service directly near its Sharp
     section. Keeping registration here avoids a second API application or
     a parallel FFPC router while preserving ``/api/sharp/cohort`` exactly.
+
+    ``Request`` is imported at module scope because postponed annotations
+    resolve handler types through module globals. A function-local import made
+    FastAPI treat ``request`` as a required query parameter and return 422 for
+    every real market request.
     """
     app = _server_app()
     if app is None:
@@ -173,10 +182,6 @@ def _register_http_routes() -> None:
     existing = {getattr(route, "path", None) for route in getattr(app, "routes", [])}
     if "/api/sharp/market" in existing:
         return
-
-    from fastapi import Request
-    from fastapi.responses import JSONResponse
-    from starlette.concurrency import run_in_threadpool
 
     async def get_market(request: Request):
         query = request.query_params
