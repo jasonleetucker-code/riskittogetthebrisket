@@ -1,0 +1,545 @@
+{
+  "cohort": {
+    "curatedManagers": 0,
+    "discoveryOnlyLeagues": 2501,
+    "evaluableManagers": 1656,
+    "managersWithRecords": 6323,
+    "observableManagers": 8806,
+    "observedLeagues": 4009,
+    "observedTransactions": 707,
+    "provisionalManagers": 25,
+    "qualifiedManagers": 298,
+    "qualifiedShareOfEvaluable": 0.18,
+    "qualifiedShareOfObservable": 0.0338,
+    "signalEligibleLeagues": 1498,
+    "uncertainManagers": 699
+  },
+  "cohortStatus": "ok",
+  "coverage": {
+    "ffpc": {
+      "lastActivityAt": 1785434115000,
+      "lastUpdatedAt": 1785547415693,
+      "latestIngestion": {
+        "automated_ffpc_qualifiers": 0,
+        "curated_ffpc_contributors": 0,
+        "finished_ms": 1785549523928,
+        "pages_fetched": 0,
+        "pages_parsed": 10,
+        "parse_failures": 0,
+        "started_ms": 1785549508580,
+        "status": "success",
+        "unmapped_players": 3
+      },
+      "leagues": 10,
+      "managers": 141,
+      "movements": 78,
+      "transactions": 26
+    },
+    "sleeper": {
+      "lastActivityAt": 1785541220626,
+      "lastUpdatedAt": 1785549468845,
+      "latestIngestion": null,
+      "leagues": 5835,
+      "managers": 14334,
+      "movements": 1329,
+      "transactions": 681
+    }
+  },
+  "ffpcAssetCount": 25,
+  "ffpcAssets": [
+    "2027 3rd Round Draft Pick",
+    "2027 4th Round Draft Pick",
+    "DJ Giddens",
+    "2026 Draft Pick 4.04",
+    "2027 2nd Round Draft Pick",
+    "2027 5th Round Draft Pick",
+    "2027 7th Round Draft Pick",
+    "Jayden Daniels",
+    "Mason Taylor",
+    "Gunnar Helm",
+    "Jacory Croskey-Merritt",
+    "LeQuint Allen",
+    "Tony Pollard",
+    "Mac Jones",
+    "Isaiah Likely",
+    "Isiah Pacheco",
+    "Bryce Young",
+    "Parker Washington",
+    "Tank Dell",
+    "2026 Draft Pick 4.09",
+    "2026 Draft Pick 5.07",
+    "2026 Draft Pick 6.04",
+    "2026 Draft Pick 6.08",
+    "2026 Draft Pick 7.02",
+    "2026 Draft Pick 7.08"
+  ],
+  "ffpcStatus": "ok",
+  "gitSha": "7c8ada2274f61730cb3475e1890c73f301cc6c42",
+  "marketAssetCount": 25,
+  "marketAssets": [
+    "D'Andre Swift",
+    "Trevor Lawrence",
+    "Ashton Jeanty",
+    "Jayden Higgins",
+    "James Cook",
+    "Travis Kelce",
+    "Josh Jacobs",
+    "Parker Washington",
+    "Harold Fannin",
+    "Jaylen Waddle",
+    "Terry McLaurin",
+    "Colston Loveland",
+    "2026 Round 9 Pick",
+    "Javonte Williams",
+    "J.K. Dobbins",
+    "Matthew Stafford",
+    "Christian Watson",
+    "2026 Round 7 Pick",
+    "Josh Downs",
+    "Romeo Doubs",
+    "Malik Willis",
+    "2028 Round 1 Pick",
+    "Bryce Young",
+    "Nico Collins",
+    "Dallas Goedert"
+  ],
+  "marketStatus": "ok",
+  "records": {
+    "completedSeasonRows": 22187,
+    "earliestSeason": "2021",
+    "evidenceExamples": [
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:09819965190b724b",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:2d40502983f0a649",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:32a003f0d7a5cc38",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:3fcaa060de4d8a6a",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:51b507905a04d412",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:5a57619dcc7e87bc",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:a4cf395c37a6fad9",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:b1dc86861ca710a7",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:d23635625a5a3601",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:d860fe0527a69115",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:ec634d8a19156ebc",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:0C7-EE3B3479E0A2:name:fd573c214ac0611f",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:0e1c9c34343bbd31",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:157f3fe784089174",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:5e1d3164a29a63dd",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:6068f26c40ea4869",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:60e555bad695b9a3",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:8808f8a561868ce0",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:91e51bebff3e15b3",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:96f3ef9024a9ac27",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:ce3f5a6012796b17",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:cea72120e76d5469",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:d298b1045ee8722f",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:61C-0FAEDCFB484D:name:ea9dca879b0262ff",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      },
+      {
+        "automatedEligibleSeasonRows": 0,
+        "managerKey": "ffpc:league:7A7-8B2C2637BF6C:name:1e03a77cd06c85ea",
+        "platform": "ffpc",
+        "reasons": [
+          "league_scoped_identity",
+          "missing_championship_result",
+          "missing_completed_season",
+          "missing_final_standing",
+          "missing_finish_rank",
+          "missing_playoff_result",
+          "missing_recent_activity",
+          "unknown_or_ineligible_league_format"
+        ],
+        "totalSeasonRows": 1
+      }
+    ],
+    "exclusionReasonCounts": {
+      "league_scoped_identity": 108,
+      "missing_championship_result": 108,
+      "missing_completed_season": 7608,
+      "missing_final_standing": 108,
+      "missing_finish_rank": 108,
+      "missing_playoff_result": 108,
+      "missing_recent_activity": 108,
+      "unknown_or_ineligible_league_format": 5113
+    },
+    "latestSeason": "2026",
+    "leaguesWithRecords": 2784,
+    "managersWithRecords": 9918,
+    "platforms": {
+      "ffpc": {
+        "automatedEvidenceManagers": 0,
+        "managersWithEvidence": 108,
+        "seasonRows": 108
+      },
+      "sleeper": {
+        "automatedEvidenceManagers": 6323,
+        "managersWithEvidence": 9810,
+        "seasonRows": 33499
+      }
+    },
+    "scoreableRecords": 6323,
+    "seasonRows": 33607
+  },
+  "routes": [
+    "/api/sharp/cohort",
+    "/api/sharp/market",
+    "/api/sharp/market/audit"
+  ]
+}
