@@ -12,6 +12,10 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+
 from src.intel import ledger, platform_ledger
 from src.sharp import discovery
 from src.sharp import market as sharp_market
@@ -204,10 +208,6 @@ def _register_http_routes() -> None:
     existing = {getattr(route, "path", None) for route in getattr(app, "routes", [])}
     if "/api/sharp/market" in existing:
         return
-
-    from fastapi import Request
-    from fastapi.responses import JSONResponse
-    from starlette.concurrency import run_in_threadpool
 
     async def get_market(request: Request):
         query = request.query_params
