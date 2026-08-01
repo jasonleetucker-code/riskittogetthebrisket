@@ -1,0 +1,132 @@
+name: Verify Sharp 422 Fix
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened]
+    paths:
+      - ".github/workflows/verify-sharp-422-fix.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ops/verify-sharp-422-fix
+          fetch-depth: 1
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Restart current main and verify authenticated Sharp HTTP response
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          printf -v REMOTE_ENV 'APP_DIR=%q VENV_DIR=%q SERVICE_NAME=%q' "$APP_DIR" "$VENV_DIR" "$SERVICE_NAME"
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "$REMOTE_ENV bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          git fetch --prune origin main
+          git reset --hard origin/main
+          sudo -n systemctl restart "$SERVICE_NAME"
+          sleep 6
+
+          ALLOW_DEFAULT_LOGIN_DEV=1 "$VENV_DIR/bin/python" - <<'PY'
+          import inspect
+          import json
+          import subprocess
+
+          from fastapi.testclient import TestClient
+
+          import server
+          from src.sharp import service
+
+          market_route = next(
+              route for route in server.app.routes
+              if getattr(route, "path", None) == "/api/sharp/market"
+          )
+          signature = inspect.signature(market_route.endpoint)
+          request_parameter = signature.parameters.get("request")
+          dependency_query_names = [
+              getattr(field, "name", None)
+              for field in getattr(market_route, "dependant").query_params
+          ]
+
+          original_auth = server._is_authenticated
+          server._is_authenticated = lambda _request: True
+          try:
+              with TestClient(server.app, raise_server_exceptions=True) as client:
+                  response = client.get(
+                      "/api/sharp/market",
+                      params={
+                          "window": "30d",
+                          "platform": "all",
+                          "qualification": "all",
+                          "sort": "strength",
+                          "limit": "25",
+                      },
+                  )
+          finally:
+              server._is_authenticated = original_auth
+
+          payload = response.json()
+          result = {
+              "gitSha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "backendActive": subprocess.run(
+                  ["sudo", "-n", "systemctl", "is-active", "dynasty"],
+                  text=True,
+                  capture_output=True,
+                  check=False,
+              ).stdout.strip(),
+              "requestAnnotation": str(request_parameter.annotation if request_parameter else None),
+              "dependencyQueryNames": dependency_query_names,
+              "httpStatus": response.status_code,
+              "cacheControl": response.headers.get("Cache-Control"),
+              "payloadStatus": payload.get("status") if isinstance(payload, dict) else None,
+              "assetCount": len(payload.get("assets") or []) if isinstance(payload, dict) else 0,
+              "firstAssets": [
+                  row.get("displayName")
+                  for row in (payload.get("assets") or [])[:5]
+              ] if isinstance(payload, dict) else [],
+          }
+          print(json.dumps(result, indent=2, sort_keys=True))
+
+          if "request" in dependency_query_names:
+              raise SystemExit("FastAPI still treats request as a query parameter")
+          if response.status_code != 200:
+              raise SystemExit(f"Sharp market returned HTTP {response.status_code}: {payload}")
+          if result["payloadStatus"] != "ok":
+              raise SystemExit(f"Sharp market payload status is not ok: {payload}")
+          if result["assetCount"] <= 0:
+              raise SystemExit("Sharp market returned no assets")
+          PY
+          REMOTE
