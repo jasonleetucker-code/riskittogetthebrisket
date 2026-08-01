@@ -1,10 +1,12 @@
 name: Materialize Sharp Startup Route Fix
 
 on:
-  push:
+  pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
     paths:
       - ".github/workflows/check-sharp-production-now.yml"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: main
+          ref: fix/sharp-explicit-startup-registration
           fetch-depth: 1
       - uses: actions/setup-python@v6
         with:
@@ -81,4 +83,4 @@ _sharp_service._register_http_routes()
           git add server.py tests/sharp/test_server_explicit_route_registration.py
           git diff --cached --quiet && exit 0
           git commit -m "fix(sharp): register market routes explicitly at startup"
-          git push origin HEAD:main
+          git push origin HEAD:fix/sharp-explicit-startup-registration
