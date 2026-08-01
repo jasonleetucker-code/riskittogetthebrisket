@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
+import { apiErrorMessage } from "@/lib/api-error";
 
 const WINDOWS = ["48h", "7d", "14d", "30d", "90d", "all"];
 const SOURCES = [
@@ -40,11 +41,10 @@ async function fetchFreshJson(path, { attempts = 3 } = {}) {
       });
       const payload = await response.json().catch(() => ({}));
       if (response.ok) return payload;
-      const message = payload?.message || payload?.detail || payload?.error || `HTTP ${response.status}`;
-      lastError = new Error(message);
+      lastError = new Error(apiErrorMessage(payload, response.status));
       if (!RETRYABLE_STATUSES.has(response.status) || attempt === attempts) throw lastError;
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
+      lastError = error instanceof Error ? error : new Error(apiErrorMessage(error));
       if (attempt === attempts) throw lastError;
     }
     await sleep(attempt * 750);
@@ -61,7 +61,11 @@ function Stat({ label, value, note }) {
       <div style={{ fontFamily: "var(--mono)", fontSize: "1.3rem", fontWeight: 700 }}>
         {value == null ? "—" : Number(value).toLocaleString()}
       </div>
-      {note ? <div className="muted" style={{ fontSize: "0.66rem" }}>{note}</div> : null}
+      {note ? (
+        <div className="muted" style={{ fontSize: "0.66rem" }}>
+          {note}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -119,7 +123,7 @@ export default function SharpTrackerPage() {
       setCohort(payload);
       setCohortError(null);
     } catch (error) {
-      setCohortError(String(error?.message || error));
+      setCohortError(apiErrorMessage(error));
     }
   }, []);
 
@@ -138,7 +142,7 @@ export default function SharpTrackerPage() {
       setMarketError(null);
       setLastRefreshedAt(Date.now());
     } catch (error) {
-      setMarketError(String(error?.message || error));
+      setMarketError(apiErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -176,13 +180,21 @@ export default function SharpTrackerPage() {
 
       <div className="card" style={{ marginBottom: 12 }}>
         <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <Stat label="Observable" value={cohortStats.observableManagers} note="platform-scoped managers observed" />
+          <Stat
+            label="Observable"
+            value={cohortStats.observableManagers}
+            note="platform-scoped managers observed"
+          />
           <Stat
             label="Records"
             value={cohortStats.managersWithRecords ?? cohort?.records?.scoreableRecords}
             note="complete evidence available"
           />
-          <Stat label="Automated" value={cohortStats.qualifiedManagers} note="passed Sharp Score v2" />
+          <Stat
+            label="Automated"
+            value={cohortStats.qualifiedManagers}
+            note="passed Sharp Score v2"
+          />
           <Stat
             label="Curated"
             value={cohortStats.curatedManagers ?? market?.cohort?.curatedManagers}
@@ -196,7 +208,8 @@ export default function SharpTrackerPage() {
           <Stat label="Assets" value={assets.length} note={`activity in ${windowName}`} />
         </div>
         <div className="muted" style={{ fontSize: "0.68rem", marginTop: 9 }}>
-          {qualificationLabel} · methodology {market?.methodologyVersion || cohort?.methodologyVersion || "sharp-v2"}
+          {qualificationLabel} · methodology{" "}
+          {market?.methodologyVersion || cohort?.methodologyVersion || "sharp-v2"}
         </div>
       </div>
 
@@ -206,46 +219,73 @@ export default function SharpTrackerPage() {
             Window
             <br />
             <select value={windowName} onChange={(event) => setWindowName(event.target.value)}>
-              {WINDOWS.map((value) => <option key={value} value={value}>{value}</option>)}
+              {WINDOWS.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
             </select>
           </label>
           <label style={{ fontSize: "0.7rem" }}>
             Source
             <br />
             <select value={source} onChange={(event) => setSource(event.target.value)}>
-              {SOURCES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              {SOURCES.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </label>
           <label style={{ fontSize: "0.7rem" }}>
             Sort
             <br />
             <select value={sort} onChange={(event) => setSort(event.target.value)}>
-              {SORTS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              {SORTS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </label>
           <label style={{ fontSize: "0.7rem" }}>
             Qualification
             <br />
-            <select value={qualification} onChange={(event) => setQualification(event.target.value)}>
+            <select
+              value={qualification}
+              onChange={(event) => setQualification(event.target.value)}
+            >
               <option value="all">All allowed methods</option>
               <option value="automated">Automated only</option>
               <option value="curated">Curated only</option>
               <option value="provisional">Provisional FFPC only</option>
             </select>
           </label>
-          <button type="button" onClick={() => setRefreshToken((value) => value + 1)} disabled={loading}>
+          <button
+            type="button"
+            onClick={() => setRefreshToken((value) => value + 1)}
+            disabled={loading}
+          >
             {loading ? "Refreshing…" : "Refresh now"}
           </button>
         </div>
         <div className="muted" style={{ fontSize: "0.68rem", marginTop: 9 }}>
-          Sleeper: {coverage.sleeper?.status || "unknown"} · {coverage.sleeper?.movements || 0} movements{" | "}
-          FFPC: {coverage.ffpc?.status || (coverage.ffpc?.enabled === false ? "disabled" : "unknown")} · {coverage.ffpc?.movements || 0} movements
-          {(market?.coverage?.unmappedAssets || 0) > 0 ? ` · ${market.coverage.unmappedAssets} FFPC assets awaiting mapping` : ""}
-          {lastRefreshedAt ? ` · refreshed ${new Date(lastRefreshedAt).toLocaleTimeString()}` : ""}
+          Sleeper: {coverage.sleeper?.status || "unknown"} · {coverage.sleeper?.movements || 0}{" "}
+          movements{" | "}
+          FFPC:{" "}
+          {coverage.ffpc?.status || (coverage.ffpc?.enabled === false ? "disabled" : "unknown")} ·{" "}
+          {coverage.ffpc?.movements || 0} movements
+          {(market?.coverage?.unmappedAssets || 0) > 0
+            ? ` · ${market.coverage.unmappedAssets} FFPC assets awaiting mapping`
+            : ""}
+          {lastRefreshedAt
+            ? ` · refreshed ${new Date(lastRefreshedAt).toLocaleTimeString()}`
+            : ""}
         </div>
         {marketError && market ? (
           <div className="muted" style={{ fontSize: "0.68rem", marginTop: 6 }}>
-            Latest refresh failed ({marketError}); showing the last successful result and retrying automatically.
+            Latest refresh failed ({marketError}); showing the last successful result and retrying
+            automatically.
           </div>
         ) : null}
         {cohortError ? (
@@ -257,14 +297,21 @@ export default function SharpTrackerPage() {
 
       {marketError && !market ? (
         <div className="card">
-          <EmptyState title="Sharp market temporarily unavailable" message={`${marketError}. Retrying automatically…`} />
+          <EmptyState
+            title="Sharp market temporarily unavailable"
+            message={`${marketError}. Retrying automatically…`}
+          />
         </div>
       ) : null}
       {loading && !market ? <LoadingState message="Loading unified Sharp market…" /> : null}
       {!loading && !marketError && !assets.length ? (
         <div className="card">
           <EmptyState
-            title={market?.status === "cohort_building" ? "The qualified cohort is still building" : "No activity in this view"}
+            title={
+              market?.status === "cohort_building"
+                ? "The qualified cohort is still building"
+                : "No activity in this view"
+            }
             message={
               source === "ffpc" && coverage.ffpc?.enabled === false
                 ? "FFPC collection is disabled. Sleeper remains available and unchanged."
@@ -279,8 +326,29 @@ export default function SharpTrackerPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.72rem" }}>
             <thead>
               <tr>
-                {["Player / asset", "Signal", "Buys", "Sells", "Net", "Volume", "Sharp managers", "Leagues", "Velocity", "Confidence", "Sources", "Last activity"].map((label) => (
-                  <th key={label} style={{ textAlign: "left", padding: "7px 6px", borderBottom: "1px solid var(--border-default)", whiteSpace: "nowrap" }}>
+                {[
+                  "Player / asset",
+                  "Signal",
+                  "Buys",
+                  "Sells",
+                  "Net",
+                  "Volume",
+                  "Sharp managers",
+                  "Leagues",
+                  "Velocity",
+                  "Confidence",
+                  "Sources",
+                  "Last activity",
+                ].map((label) => (
+                  <th
+                    key={label}
+                    style={{
+                      textAlign: "left",
+                      padding: "7px 6px",
+                      borderBottom: "1px solid var(--border-default)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {label}
                   </th>
                 ))}
@@ -291,11 +359,20 @@ export default function SharpTrackerPage() {
                 const row = asset.windows?.[windowName] || {};
                 return (
                   <tr key={asset.assetId}>
-                    <td style={{ padding: "8px 6px", borderBottom: "1px solid var(--border-default)", minWidth: 180 }}>
+                    <td
+                      style={{
+                        padding: "8px 6px",
+                        borderBottom: "1px solid var(--border-default)",
+                        minWidth: 180,
+                      }}
+                    >
                       <details>
-                        <summary style={{ cursor: "pointer", fontWeight: 650 }}>{asset.displayName || asset.assetId}</summary>
+                        <summary style={{ cursor: "pointer", fontWeight: 650 }}>
+                          {asset.displayName || asset.assetId}
+                        </summary>
                         <div className="muted" style={{ marginTop: 4 }}>
-                          {asset.position || asset.assetType}{asset.nflTeam ? ` · ${asset.nflTeam}` : ""} · {asset.assetId}
+                          {asset.position || asset.assetType}
+                          {asset.nflTeam ? ` · ${asset.nflTeam}` : ""} · {asset.assetId}
                         </div>
                         <SourceBreakdown sources={asset.sources} />
                       </details>
@@ -303,16 +380,23 @@ export default function SharpTrackerPage() {
                     <td>{Number(asset.signalStrength || 0).toFixed(1)}</td>
                     <td>{row.buys || 0}</td>
                     <td>{row.sells || 0}</td>
-                    <td>{row.net > 0 ? "+" : ""}{row.net || 0}</td>
+                    <td>
+                      {row.net > 0 ? "+" : ""}
+                      {row.net || 0}
+                    </td>
                     <td>{row.volume || 0}</td>
                     <td>{row.uniqueManagers || 0}</td>
                     <td>{row.uniqueLeagues || 0}</td>
                     <td>{asset.velocity == null ? "—" : `${asset.velocity.toFixed(2)}×`}</td>
                     <td>{asset.confidence}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
-                      {(asset.sourceLabels || []).map((label) => <Badge key={label}>{label}</Badge>)}
+                      {(asset.sourceLabels || []).map((label) => (
+                        <Badge key={label}>{label}</Badge>
+                      ))}
                     </td>
-                    <td style={{ whiteSpace: "nowrap" }}>{asset.lastTs ? new Date(asset.lastTs).toLocaleDateString() : "—"}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {asset.lastTs ? new Date(asset.lastTs).toLocaleDateString() : "—"}
+                    </td>
                   </tr>
                 );
               })}
@@ -322,9 +406,15 @@ export default function SharpTrackerPage() {
       ) : null}
 
       <div className="card" style={{ marginTop: 12 }}>
-        <div style={{ fontWeight: 600, fontSize: "0.82rem", marginBottom: 5 }}>Qualification guardrail</div>
+        <div style={{ fontWeight: 600, fontSize: "0.82rem", marginBottom: 5 }}>
+          Qualification guardrail
+        </div>
         <div className="muted" style={{ fontSize: "0.7rem", lineHeight: 1.6 }}>
-          Automated managers passed the unchanged Sharp Score v2 evidence gates. Curated FFPC high-stakes managers and provisional public FFPC observations are separately labeled methods with configured weights. Provisional activity can populate the market table, but it is never presented as sharp-v2 qualification. Name-only or league-scoped FFPC identities cannot satisfy automated multi-league qualification.
+          Automated managers passed the unchanged Sharp Score v2 evidence gates. Curated FFPC
+          high-stakes managers and provisional public FFPC observations are separately labeled
+          methods with configured weights. Provisional activity can populate the market table, but
+          it is never presented as sharp-v2 qualification. Name-only or league-scoped FFPC
+          identities cannot satisfy automated multi-league qualification.
         </div>
       </div>
     </section>
