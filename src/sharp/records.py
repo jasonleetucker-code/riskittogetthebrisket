@@ -70,16 +70,21 @@ _CHAIN_TERMINATOR = "0"
 # 4 calls per league-season (league, users, rosters, winners_bracket).
 CALLS_PER_SEASON = 4
 DEFAULT_BUDGET = 1200
-DEFAULT_SLEEP_S = 0.12
+DEFAULT_SLEEP_S = 0.15
 MAX_SEASONS_PER_LEAGUE = 6
 
 HttpGet = Callable[[str], Any]
 
 
 def _default_http_get(url: str) -> Any:
-    from src.api import sleeper_overlay
+    # The records crawler is a scheduled, paced batch job. It must not use
+    # sleeper_overlay's user-request circuit breaker: once that breaker
+    # opens, thousands of budget slots can be consumed by instant None
+    # responses without touching Sleeper. Reuse the pooled public-league
+    # client instead; it has connection reuse and never caches failures.
+    from src.public_league import sleeper_client
 
-    return sleeper_overlay._http_get_json(url)
+    return sleeper_client._request_json(url)
 
 
 @dataclass

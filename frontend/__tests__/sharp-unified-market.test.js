@@ -21,9 +21,20 @@ describe("unified Sharp Tracker surface", () => {
     expect(route).toContain("searchParams");
   });
 
-  it("labels automated and curated qualification separately", () => {
+  it("labels automated, curated, and provisional qualification separately", () => {
     expect(page).toContain("Automated Sharp Score");
     expect(page).toContain("Curated FFPC high-stakes cohort");
+    expect(page).toContain("Provisional public FFPC activity");
     expect(page).toContain("Mixed cohort");
+  });
+
+  it("bypasses stale 404 responses and refreshes automatically", () => {
+    expect(page).toContain('cache: "no-store"');
+    expect(page).toContain("_sharpRefresh");
+    expect(page).toContain("RETRYABLE_STATUSES");
+    expect(page).toContain("AUTO_REFRESH_MS");
+    expect(page).toContain("Refresh now");
+    expect(route).toContain('dynamic = "force-dynamic"');
+    expect(route).toContain('"Cache-Control": "private, no-store');
   });
 });

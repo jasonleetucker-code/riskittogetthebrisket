@@ -107,8 +107,12 @@ show_diagnostics() {
   "${VENV_DIR}/bin/python" "${APP_DIR}/scripts/crawl_sharp_records.py" --stats || true
   log "Current Sharp Score tiers:"
   "${VENV_DIR}/bin/python" "${APP_DIR}/scripts/crawl_sharp_records.py" --score || true
+  log "Current qualified-manager activity coverage:"
+  "${VENV_DIR}/bin/python" "${APP_DIR}/scripts/crawl_sharp_activity.py" --stats || true
   log "Recent records-crawler journal:"
   sudo -n "${JOURNALCTL_BIN}" -u "${SERVICE_NAME}-sharp-records.service" -n 80 --no-pager || true
+  log "Recent Sleeper activity-crawler journal:"
+  sudo -n "${JOURNALCTL_BIN}" -u "${SERVICE_NAME}-sharp-activity.service" -n 80 --no-pager || true
 }
 
 run_oneshot() {
@@ -186,11 +190,12 @@ main() {
   local discovery_timer="${SERVICE_NAME}-sharp-discovery.timer"
   local records_service="${SERVICE_NAME}-sharp-records.service"
   local records_timer="${SERVICE_NAME}-sharp-records.timer"
+  local activity_service="${SERVICE_NAME}-sharp-activity.service"
+  local activity_timer="${SERVICE_NAME}-sharp-activity.timer"
 
-  # Re-render all four units on every run. This intentionally bypasses the
+  # Re-render all six units on every run. This intentionally bypasses the
   # generic installer's historical presence-check blind spot and guarantees
-  # that a changed timer template reaches production, even when the unit
-  # already exists.
+  # that changed unit templates reach production even when units exist.
   render_unit \
     "${APP_DIR}/deploy/systemd/dynasty-sharp-discovery.service.template" \
     "/etc/systemd/system/${discovery_service}"
@@ -203,12 +208,23 @@ main() {
   render_unit \
     "${APP_DIR}/deploy/systemd/dynasty-sharp-records.timer.template" \
     "/etc/systemd/system/${records_timer}"
+  render_unit \
+    "${APP_DIR}/deploy/systemd/dynasty-sharp-activity.service.template" \
+    "/etc/systemd/system/${activity_service}"
+  render_unit \
+    "${APP_DIR}/deploy/systemd/dynasty-sharp-activity.timer.template" \
+    "/etc/systemd/system/${activity_timer}"
 
   sudo -n "${SYSTEMCTL_BIN}" daemon-reload
   log "Reloaded systemd after installing Sharp Tracker units."
   sudo -n "${SYSTEMCTL_BIN}" enable --now "${discovery_timer}"
   sudo -n "${SYSTEMCTL_BIN}" enable --now "${records_timer}"
-  log "Enabled both Sharp Tracker timers."
+  sudo -n "${SYSTEMCTL_BIN}" enable --now "${activity_timer}"
+  log "Enabled discovery, records, and qualified-manager activity timers."
+
+  # FFPC is independent from Sleeper qualification. Always populate it even
+  # when the longer Sleeper historical pass is still building its cohort.
+  run_ffpc_now
 
   local eligible
   eligible="$(queue_field eligibleLeagues)"
@@ -259,6 +275,13 @@ main() {
     force="false"
   done
 
+  if (( qualified > 0 )); then
+    log "Sharp Tracker has ${qualified} qualified manager(s); crawling their Sleeper activity now."
+    run_oneshot "${activity_service}"
+  else
+    warn "No manager has cleared every Sharp Score gate yet; activity timer will retry after future records passes."
+  fi
+
   show_diagnostics
 
   if (( complete_rows == 0 )); then
@@ -267,13 +290,11 @@ main() {
   fi
 
   if (( qualified == 0 )); then
-    warn "Historical records now exist, but no manager has cleared every Sharp Score gate yet."
-    warn "The enabled daily timer will continue through the fair queue until coverage expands."
+    warn "Historical records exist, but no manager has cleared every Sharp Score gate yet."
+    warn "The enabled daily records and activity timers will continue through the fair queue."
   else
-    log "Sharp Tracker is populated with ${qualified} qualified manager(s)."
+    log "Sharp Tracker is populated with ${qualified} qualified manager(s) and their Sleeper activity."
   fi
-
-  run_ffpc_now
 }
 
 main "$@"
