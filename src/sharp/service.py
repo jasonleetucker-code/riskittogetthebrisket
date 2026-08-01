@@ -21,6 +21,7 @@ from src.sharp import score as sharp_score
 log = logging.getLogger(__name__)
 STATUS_OK = "ok"
 STATUS_BUILDING = "cohort_building"
+_PUBLIC_AGGREGATE_PATHS = frozenset({"/api/sharp/cohort", "/api/sharp/market"})
 
 
 def _utc_now_iso() -> str:
@@ -47,9 +48,9 @@ def _records_coverage() -> dict[str, Any]:
 def cohort_status() -> dict[str, Any]:
     # The cohort endpoint is declared directly in ``server.py`` and remains
     # reachable even when this module was imported transitively before the
-    # FastAPI app existed.  Re-running the idempotent registrar here turns
-    # that guaranteed request into a production self-heal: the next market
-    # retry sees the route instead of remaining a permanent 404.
+    # FastAPI app existed. Re-running both idempotent registration hooks here
+    # turns that request into a production self-heal for routes and auth scope.
+    _register_public_api_paths()
     _register_http_routes()
 
     try:
@@ -144,6 +145,36 @@ def market_audit_payload(asset_id: str, **kwargs: Any) -> dict[str, Any]:
     return sharp_market.audit_payload(asset_id, **kwargs)
 
 
+def _server_modules():
+    """Yield server modules for imported and ``python server.py`` startup modes."""
+    seen: set[int] = set()
+    for module_name in ("server", "__main__"):
+        module = sys.modules.get(module_name)
+        if module is None or id(module) in seen:
+            continue
+        seen.add(id(module))
+        yield module
+
+
+def _register_public_api_paths() -> None:
+    """Expose only aggregate Sharp reads through the server's default-deny gate.
+
+    The Sharp market and cohort payloads contain normalized counts and asset
+    aggregates derived from public platform data. They do not read the private
+    dynasty contract, roster recommendations, or user state. The row-level
+    audit endpoint deliberately remains private.
+
+    ``server.py`` owns the gate. This module is imported after that gate is
+    defined, so extending its immutable allowlist here keeps Sharp's dynamic
+    route registration and access policy together without weakening any other
+    ``/api/*`` path.
+    """
+    for module in _server_modules():
+        public_paths = getattr(module, "_PUBLIC_API_EXACT", None)
+        if isinstance(public_paths, frozenset):
+            setattr(module, "_PUBLIC_API_EXACT", public_paths | _PUBLIC_AGGREGATE_PATHS)
+
+
 def _server_app():
     """Return the FastAPI app whether ``server.py`` was imported or executed.
 
@@ -152,8 +183,7 @@ def _server_app():
     Looking only for ``server`` silently skipped the market route registration
     while the explicitly declared cohort endpoint continued to work.
     """
-    for module_name in ("server", "__main__"):
-        module = sys.modules.get(module_name)
+    for module in _server_modules():
         app = getattr(module, "app", None)
         if app is not None:
             return app
@@ -167,6 +197,7 @@ def _register_http_routes() -> None:
     section. Keeping registration here avoids a second API application or
     a parallel FFPC router while preserving ``/api/sharp/cohort`` exactly.
     """
+    _register_public_api_paths()
     app = _server_app()
     if app is None:
         return
@@ -205,7 +236,7 @@ def _register_http_routes() -> None:
             )
         return JSONResponse(
             content=payload,
-            headers={"Cache-Control": "private, max-age=120, stale-while-revalidate=300"},
+            headers={"Cache-Control": "public, max-age=30, stale-while-revalidate=120"},
         )
 
     async def get_market_audit(request: Request):
@@ -243,4 +274,5 @@ def _register_http_routes() -> None:
     )
 
 
+_register_public_api_paths()
 _register_http_routes()
