@@ -58,6 +58,7 @@ jobs:
 
           python - <<'PY'
           import importlib.util
+          import re
           from pathlib import Path
 
           patcher_path = Path("scripts/_materialize_curated_sharps.py")
@@ -67,36 +68,27 @@ jobs:
           spec.loader.exec_module(patcher)
           original = patcher.replace_once
 
-          pretty_headings = '''[
-                  "Player / asset",
-                  "Signal",
-                  "Buys",
-                  "Sells",
-                  "Net",
-                  "Volume",
-                  "Sharp managers",
-                  "Leagues",
-                  "Velocity",
-                  "Confidence",
-                  "Sources",
-                  "Last activity",
-                ]'''
-          pretty_cells = '''                    <td>{row.buys || 0}</td>
-                    <td>{row.sells || 0}</td>
-                    <td>
-                      {row.net > 0 ? "+" : ""}
-                      {row.net || 0}
-                    </td>
-                    <td>{row.volume || 0}</td>
-                    <td>{row.uniqueManagers || 0}</td>
-                    <td>{row.uniqueLeagues || 0}</td>
-                    <td>{asset.velocity == null ? "—" : `${asset.velocity.toFixed(2)}×`}</td>'''
+          heading_pattern = re.compile(
+              r'''\[\s*"Player / asset",\s*"Signal",\s*"Buys",\s*"Sells",\s*"Net",\s*"Volume",\s*"Sharp managers",\s*"Leagues",\s*"Velocity",\s*"Confidence",\s*"Sources",\s*"Last activity",?\s*\]''',
+              re.MULTILINE,
+          )
+          cells_pattern = re.compile(
+              r'''\s*<td>\{row\.buys \|\| 0\}</td>\s*<td>\{row\.sells \|\| 0\}</td>\s*<td>\s*\{row\.net > 0 \? "\+" : ""\}\s*\{row\.net \|\| 0\}\s*</td>\s*<td>\{row\.volume \|\| 0\}</td>\s*<td>\{row\.uniqueManagers \|\| 0\}</td>\s*<td>\{row\.uniqueLeagues \|\| 0\}</td>\s*<td>\{asset\.velocity == null \? "—" : `\$\{asset\.velocity\.toFixed\(2\)\}×`\}</td>''',
+              re.MULTILINE,
+          )
 
           def formatted_replace(text: str, old: str, new: str, label: str) -> str:
-              if label == "tracker table headings" and old not in text:
-                  old = pretty_headings
-              elif label == "tracker consensus cells" and old not in text:
-                  old = pretty_cells
+              if old in text:
+                  return original(text, old, new, label)
+              pattern = None
+              if label == "tracker table headings":
+                  pattern = heading_pattern
+              elif label == "tracker consensus cells":
+                  pattern = cells_pattern
+              if pattern is not None:
+                  updated, count = pattern.subn(lambda _: new, text, count=1)
+                  if count == 1:
+                      return updated
               return original(text, old, new, label)
 
           patcher.replace_once = formatted_replace
