@@ -1,9 +1,8 @@
 name: Materialize Sharp Board Draft-Pick Removal
 
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
+  push:
+    branches: [fix/sharp-board-hide-draft-picks]
     paths:
       - ".github/workflows/materialize-sharp-hide-picks.yml"
 
