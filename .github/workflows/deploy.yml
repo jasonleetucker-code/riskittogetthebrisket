@@ -1,4 +1,4 @@
-﻿name: Deploy Production
+name: Deploy Production
 
 on:
   push:
@@ -32,10 +32,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -179,7 +179,7 @@ jobs:
       # data-refresh commits, hotfixes) and a bloated chunk would
       # otherwise ship to prod without ever hitting the gate.
       - name: Set up Node (for bundle gate)
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: "npm"
@@ -208,7 +208,7 @@ jobs:
       # between the sha being deployed and the sha already in
       # production, so it needs real history here.
       - name: Checkout (full history for the deploy-skip guard)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
