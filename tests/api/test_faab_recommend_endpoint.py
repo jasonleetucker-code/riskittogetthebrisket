@@ -24,8 +24,15 @@ from fastapi.testclient import TestClient
 import server
 from src.api import league_registry
 
+# Captured at import time — BEFORE the fixture stubs the module
+# attribute — so the fast-path tripwire test can restore the real
+# implementation.
+from src.api.sleeper_overlay import fetch_sleeper_teams_overlay as _REAL_TEAMS_OVERLAY
+from src.trade import faab_contention
+
 # The analytics snapshot's freshness stamp, anchored to NOW rather than
-# to a literal date.
+# to a literal date.  (Defined below the imports on purpose: a statement
+# above them makes them E402 "import not at top of file".)
 #
 # ``faab_contention.stale_inputs`` compares this against the real wall
 # clock (``STALENESS_MAX_AGE_S["leagueAnalytics"]`` is 7 days), so a
@@ -39,12 +46,6 @@ from src.api import league_registry
 # ``STALENESS_MAX_AGE_S`` (the tightest is trending at 3h) while still
 # exercising the real not-stale path.
 _SNAPSHOT_GENERATED_AT = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-
-# Captured at import time — BEFORE the fixture stubs the module
-# attribute — so the fast-path tripwire test can restore the real
-# implementation.
-from src.api.sleeper_overlay import fetch_sleeper_teams_overlay as _REAL_TEAMS_OVERLAY
-from src.trade import faab_contention
 
 # The v1 response keys — the frozen backward-compat surface.
 V1_KEYS = {
