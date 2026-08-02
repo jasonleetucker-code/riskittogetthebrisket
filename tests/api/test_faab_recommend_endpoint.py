@@ -16,12 +16,29 @@ All Sleeper/analytics/intel inputs are stubbed — no live network.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
 
 import server
 from src.api import league_registry
+
+# The analytics snapshot's freshness stamp, anchored to NOW rather than
+# to a literal date.
+#
+# ``faab_contention.stale_inputs`` compares this against the real wall
+# clock (``STALENESS_MAX_AGE_S["leagueAnalytics"]`` is 7 days), so a
+# hardcoded timestamp does not pin behaviour — it pins a countdown. The
+# previous literal, 2026-07-25T11:00Z, silently expired at
+# 2026-08-01T11:00Z and took the deploy pipeline's unit gate with it:
+# the last green production deploy ran at 10:25Z that morning and every
+# run afterwards failed, with no code change in between.
+#
+# One hour old keeps it comfortably inside every ceiling in
+# ``STALENESS_MAX_AGE_S`` (the tightest is trending at 3h) while still
+# exercising the real not-stale path.
+_SNAPSHOT_GENERATED_AT = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
 
 # Captured at import time — BEFORE the fixture stubs the module
 # attribute — so the fast-path tripwire test can restore the real
@@ -205,7 +222,7 @@ def _install_snapshot(monkeypatch, league_id, summary=None):
 
     snap = types.SimpleNamespace(
         root_league_id=league_id,
-        generated_at="2026-07-25T11:00:00+00:00",
+        generated_at=_SNAPSHOT_GENERATED_AT,
     )
     monkeypatch.setattr(server.public_snapshot_store, "load_snapshot", lambda: snap)
     if summary is not None:
@@ -580,7 +597,7 @@ def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):
             {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"},
         )
     payload = res.json()
-    assert payload["inputsAsOf"]["leagueAnalytics"] == "2026-07-25T11:00:00+00:00"
+    assert payload["inputsAsOf"]["leagueAnalytics"] == _SNAPSHOT_GENERATED_AT
     assert "leagueAnalytics" not in payload["staleInputs"]
     contention = payload["contention"]
     per = {r["ownerId"]: r for r in contention["perOpponent"]}
