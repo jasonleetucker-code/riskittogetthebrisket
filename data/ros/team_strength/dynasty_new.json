@@ -756,7 +756,7 @@
         "playerId": "11638",
         "canonicalName": "ricky pearsall",
         "position": "WR",
-        "rosValue": 23.22,
+        "rosValue": 23.17,
         "fantasyPositions": [
           "WR"
         ],
@@ -2083,9 +2083,9 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 303.18,
+    "teamRosStrength": 303.17,
     "startingLineupScore": 376.02,
-    "benchDepthScore": 124.7,
+    "benchDepthScore": 124.63,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2227,9 +2227,9 @@
         "playerId": "10236",
         "canonicalName": "dalton kincaid",
         "position": "TE",
-        "rosValue": 20.32,
+        "rosValue": 20.25,
         "depthFactor": 1.0,
-        "depthContribution": 20.32
+        "depthContribution": 20.25
       },
       {
         "playerId": "11583",
@@ -2283,7 +2283,7 @@
         "playerId": "10236",
         "canonicalName": "dalton kincaid",
         "position": "TE",
-        "rosValue": 20.32,
+        "rosValue": 20.25,
         "fantasyPositions": [
           "TE"
         ],
@@ -2605,7 +2605,7 @@
     "teamName": "shayden18",
     "teamRosStrength": 298.37,
     "startingLineupScore": 369.87,
-    "benchDepthScore": 122.56,
+    "benchDepthScore": 122.6,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2747,9 +2747,9 @@
         "playerId": "8131",
         "canonicalName": "isaiah likely",
         "position": "TE",
-        "rosValue": 18.44,
+        "rosValue": 18.48,
         "depthFactor": 1.0,
-        "depthContribution": 18.44
+        "depthContribution": 18.48
       },
       {
         "playerId": "4981",
@@ -3002,7 +3002,7 @@
         "playerId": "8131",
         "canonicalName": "isaiah likely",
         "position": "TE",
-        "rosValue": 18.44,
+        "rosValue": 18.48,
         "fantasyPositions": [
           "TE"
         ],
@@ -3126,7 +3126,7 @@
     "teamName": "Jhall2002",
     "teamRosStrength": 279.27,
     "startingLineupScore": 340.23,
-    "benchDepthScore": 135.01,
+    "benchDepthScore": 135.02,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -3268,9 +3268,9 @@
         "playerId": "12484",
         "canonicalName": "jayden higgins",
         "position": "WR",
-        "rosValue": 23.31,
+        "rosValue": 23.34,
         "depthFactor": 0.423,
-        "depthContribution": 9.85
+        "depthContribution": 9.86
       },
       {
         "playerId": "11586",
@@ -3390,7 +3390,7 @@
         "playerId": "12484",
         "canonicalName": "jayden higgins",
         "position": "WR",
-        "rosValue": 23.31,
+        "rosValue": 23.34,
         "fantasyPositions": [
           "WR"
         ],
@@ -4153,8 +4153,8 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 260.62,
-    "startingLineupScore": 319.96,
+    "teamRosStrength": 260.64,
+    "startingLineupScore": 319.99,
     "benchDepthScore": 112.5,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -4244,8 +4244,8 @@
         "playerId": "9500",
         "canonicalName": "josh downs",
         "position": "WR",
-        "rosValue": 22.77,
-        "adjustedValue": 22.77,
+        "rosValue": 22.8,
+        "adjustedValue": 22.8,
         "confidence": 0.914,
         "flagged": null
       },
@@ -4639,7 +4639,7 @@
         "playerId": "9500",
         "canonicalName": "josh downs",
         "position": "WR",
-        "rosValue": 22.77,
+        "rosValue": 22.8,
         "fantasyPositions": [
           "WR"
         ],
