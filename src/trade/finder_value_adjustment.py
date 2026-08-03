@@ -97,7 +97,11 @@ def install(finder: ModuleType) -> None:
             if flag not in candidate.flags:
                 candidate.flags.append(flag)
             candidate.ranking_factors["marketValueAdjustment"] = adjustment.value
-            label = "your give side" if adjustment_side == "give" else "your receive side"
+            label = (
+                "your give side"
+                if adjustment_side == "give"
+                else "your receive side"
+            )
             candidate.summary += (
                 f" Market package adjustment: +{adjustment.value:,} to {label}."
             )
