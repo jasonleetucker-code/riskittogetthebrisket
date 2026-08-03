@@ -9,82 +9,48 @@ on:
 
 permissions:
   contents: write
-  actions: write
 
 jobs:
-  patch-and-dispatch:
+  patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main
+      - name: Checkout current main
         uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
 
-      - name: Patch fire-sale boundary fixtures
+      - name: Patch and commit stale boundary fixtures
         shell: bash
         run: |
           set -Eeuo pipefail
+          git pull --ff-only origin main
           python - <<'PY'
           from pathlib import Path
 
           path = Path("tests/test_trade_finder.py")
           text = path.read_text(encoding="utf-8")
-
-          replacements = [
-              (
-                  '''        a1 = _make_asset("A", model=int(target_val * 0.400), ktc=3500)
-        a2 = _make_asset("B", model=int(target_val * 0.172), ktc=2000)
-        target = _make_asset("Target", model=target_val, ktc=5000)''',
-                  '''        # Market values deliberately clear the package-adjusted opponent-win
-        # gate so this test isolates only the 55% model-value boundary.
-        a1 = _make_asset("A", model=int(target_val * 0.400), ktc=4000)
-        a2 = _make_asset("B", model=int(target_val * 0.172), ktc=3500)
-        target = _make_asset("Target", model=target_val, ktc=5000)''',
-              ),
-              (
-                  '''        a1 = _make_asset("A", model=int(target_val * 0.386), ktc=3500)
-        a2 = _make_asset("B", model=int(target_val * 0.157), ktc=2000)
-        target = _make_asset("Target", model=target_val, ktc=5000)''',
-                  '''        # Use the same package-adjusted market-valid shape as the passing
-        # boundary case; rejection must come from the 55% model guard.
-        a1 = _make_asset("A", model=int(target_val * 0.386), ktc=4000)
-        a2 = _make_asset("B", model=int(target_val * 0.157), ktc=3500)
-        target = _make_asset("Target", model=target_val, ktc=5000)''',
-              ),
-          ]
-
-          for old, new in replacements:
-              if old in text:
-                  text = text.replace(old, new, 1)
-              elif new not in text:
-                  raise SystemExit("fixture was neither original nor already patched")
-
+          replacements = {
+              'a1 = _make_asset("A", model=int(target_val * 0.400), ktc=3500)':
+                  'a1 = _make_asset("A", model=int(target_val * 0.400), ktc=4000)',
+              'a2 = _make_asset("B", model=int(target_val * 0.172), ktc=2000)':
+                  'a2 = _make_asset("B", model=int(target_val * 0.172), ktc=3500)',
+              'a1 = _make_asset("A", model=int(target_val * 0.386), ktc=3500)':
+                  'a1 = _make_asset("A", model=int(target_val * 0.386), ktc=4000)',
+              'a2 = _make_asset("B", model=int(target_val * 0.157), ktc=2000)':
+                  'a2 = _make_asset("B", model=int(target_val * 0.157), ktc=3500)',
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected one fixture match, found {count}: {old}")
+              text = text.replace(old, new, 1)
           path.write_text(text, encoding="utf-8")
           PY
 
-      - name: Commit corrected fixtures
-        id: commit
-        shell: bash
-        run: |
-          set -Eeuo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add tests/test_trade_finder.py
           git rm .github/workflows/trade-finder-boundary-hotfix.yml
           git commit -m "Fix trade finder fire-sale boundary fixtures"
           git push origin HEAD:main
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Dispatch production validation for corrected commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          FIXED_SHA: ${{ steps.commit.outputs.sha }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          gh workflow run deploy.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref main \
-            -f deploy_ref="$FIXED_SHA" \
-            -f allow_non_fast_forward=false
-          echo "Dispatched deploy.yml for $FIXED_SHA"
