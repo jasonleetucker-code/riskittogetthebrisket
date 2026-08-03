@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from src.intel import platform_ledger, signals
+from src.sharp import consensus
+from src.sharp import curated as curated_model
 from src.sharp import platform_records
 from src.sharp import score as sharp_score
 
@@ -18,7 +20,27 @@ FFPC_CONFIG_PATH = REPO_ROOT / "config" / "sharp" / "ffpc_sources.json"
 _ALLOWED_WINDOWS = ("48h", "7d", "14d", "30d", "90d", "all")
 _ALLOWED_SORTS = ("strength", "net", "volume", "velocity", "buys", "sells")
 _ALLOWED_PLATFORMS = ("all", "sleeper", "ffpc")
-_ALLOWED_QUALIFICATION = ("all", "automated", "curated", "provisional")
+# ``curated`` is the pre-existing FFPC high-stakes allow-list from
+# ffpc_sources.json.  ``industry``/``super``/``both`` are the curated-people
+# model: the researched Final 100 and the subset with a verified public
+# identity.  They are deliberately separate words because they answer
+# different questions and must never be presented as one population.
+_ALLOWED_QUALIFICATION = (
+    "all",
+    "automated",
+    "curated",
+    "provisional",
+    "industry",
+    "super",
+    "both",
+)
+# qualification -> curated_cohort_members(mode=...)
+_CURATED_COHORT_MODE = {
+    "industry": "curated_industry",
+    "super": "super",
+    "both": "both",
+    "all": "curated_industry",
+}
 
 
 @lru_cache(maxsize=4)
@@ -109,6 +131,12 @@ class CohortMember:
     display_name: str | None = None
     methodology_version: str | None = None
     source_rationale: str | None = None
+    # ``person_id`` collapses one human's several accounts into one vote and
+    # ``network`` lets colleagues at a shared outlet be discounted toward each
+    # other. Both feed ``consensus.aggregate_person_consensus``; both are None
+    # for managers we only know as an anonymous platform account.
+    person_id: str | None = None
+    network: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -119,7 +147,44 @@ class CohortMember:
             "displayName": self.display_name,
             "methodologyVersion": self.methodology_version,
             "sourceRationale": self.source_rationale,
+            "personId": self.person_id,
+            "network": self.network,
         }
+
+
+def curated_industry_members(qualification: str) -> list[CohortMember]:
+    """Curated people with a VERIFIED platform identity, as cohort members.
+
+    ``curated_cohort_members`` gates on ``verification_status='verified'``, so
+    this returns nothing until the review queue promotes an identity -- which
+    is the correct and honest state, not a failure. A missing or unbuilt
+    curated store degrades to an empty cohort rather than taking down the
+    market: this population is additive to the automated one.
+    """
+    mode = _CURATED_COHORT_MODE.get(qualification)
+    if mode is None:
+        return []
+    try:
+        rows = curated_model.curated_cohort_members(mode=mode)
+    except Exception:  # noqa: BLE001 — an optional population must never 500 the board
+        return []
+    return [
+        CohortMember(
+            manager_key=str(row.manager_key),
+            platform=str(row.platform),
+            qualification_method=str(row.qualification_method),
+            quality=max(0.0, min(1.0, float(row.quality or 0.0))),
+            display_name=row.display_name,
+            person_id=row.person_id,
+            network=row.network,
+            source_rationale=(
+                "Researched dynasty-industry sharp with an explicitly verified "
+                "public identity. Curated inclusion is expertise evidence, not "
+                "a measured win rate."
+            ),
+        )
+        for row in rows
+    ]
 
 
 def curated_members(config: dict[str, Any]) -> list[CohortMember]:
@@ -237,14 +302,21 @@ def cohort_members(
     provisional = (
         provisional_members(config, ledger_path=ledger_path) if provisional_enabled else []
     )
+    industry = curated_industry_members(qualification)
     if qualification == "automated":
         selected = automatic
     elif qualification == "curated":
         selected = curated
     elif qualification == "provisional":
         selected = provisional
+    elif qualification in _CURATED_COHORT_MODE and qualification != "all":
+        # ``industry``/``super``/``both`` are curated-people views and do NOT
+        # fall back to the automated cohort. Mixing them would answer a
+        # question about researched experts with a population that never met
+        # that bar.
+        selected = industry
     else:
-        selected = [*automatic, *curated, *provisional]
+        selected = [*automatic, *curated, *provisional, *industry]
 
     # A manager may be explicitly linked to one canonical identity and
     # appear through two methods. Automated qualification wins; otherwise
@@ -253,7 +325,13 @@ def cohort_members(
     priority = {
         "provisional_public": 1,
         "curated_high_stakes": 2,
-        "automated_qualified": 3,
+        "curated_industry": 3,
+        "automated_qualified": 4,
+        # Curated AND measured is the strongest claim available, so it must
+        # outrank plain automated qualification -- otherwise the merge below
+        # would relabel a double-qualified person as merely "automated" and
+        # lose the curated half of their provenance.
+        "both_curated_and_performance": 5,
     }
     for item in selected:
         prior = by_key.get(item.manager_key)
@@ -262,16 +340,21 @@ def cohort_members(
             prior.quality,
         ):
             by_key[item.manager_key] = item
+    members = list(by_key.values())
     coverage = {
         "automatedQualifiedManagers": len(automatic),
         "curatedManagers": len(curated),
         "curatedContributionEnabled": curated_enabled,
         "provisionalManagers": len(provisional),
         "provisionalContributionEnabled": provisional_enabled,
+        # Accounts, not people: one researched sharp may hold several. The
+        # person count is what consensus votes on; this is the tracking surface.
+        "curatedIndustryTrackedAccounts": len(industry),
+        "curatedIndustryPeople": len({m.person_id for m in industry if m.person_id}),
         "evidenceManagers": len(evidence),
         "methodologyVersion": sharp_score.methodology_version(),
     }
-    return list(by_key.values()), coverage
+    return members, coverage
 
 
 def _aggregate_window(
@@ -441,10 +524,12 @@ def market_payload(
     )
     manager_keys = [item.manager_key for item in members]
     quality = {item.manager_key: item.quality for item in members}
+    network_by_manager = {item.manager_key: item.network for item in members}
     platforms = None if platform == "all" else [platform]
 
     needed_windows = list(dict.fromkeys((window, "48h", "30d")))
     per_window: dict[str, dict[str, dict[str, Any]]] = {}
+    person_view: dict[str, dict[str, Any]] = {}
     for name in needed_windows:
         since, until = signals.window_bounds(name, now)
         movements = platform_ledger.query_movements(
@@ -457,6 +542,15 @@ def market_payload(
             path=ledger_path,
         )
         per_window[name] = _aggregate_window(movements, quality)
+        if name == window:
+            # One vote per PERSON, with a diminishing-independence discount for
+            # analysts sharing an outlet. Movement counts above stay untouched
+            # and remain the audit trail -- this is an additional lens, not a
+            # replacement, so a person's ten leagues stop reading as ten
+            # independent experts without any raw data being hidden.
+            person_view = consensus.aggregate_person_consensus(
+                movements, quality, network_by_manager
+            )
 
     primary = per_window.get(window, {})
     short = per_window.get("48h", {})
@@ -482,6 +576,7 @@ def market_payload(
             "Sleeper" if value == "sleeper" else "FFPC" if value == "ffpc" else value
             for value in sorted(item["sources"])
         ]
+        person = person_view.get(asset_id) or {}
         rows.append(
             {
                 "assetId": asset_id,
@@ -497,6 +592,10 @@ def market_payload(
                 "uniqueLeagues": item["uniqueLeagues"],
                 "tradeCount": item["tradeCount"],
                 "movementCount": item["movementCount"],
+                # Person-level consensus for THIS window only. Never summed
+                # with another window, and never a substitute for the movement
+                # counts above.
+                "personConsensus": person or None,
                 "windows": {
                     window: {
                         k: item[k]

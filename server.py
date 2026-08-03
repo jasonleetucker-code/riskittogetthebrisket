@@ -12567,6 +12567,25 @@ async def get_intel_refresh_status(request: Request):
 
 from src.sharp import service as _sharp_service  # noqa: E402
 
+# ``curated_service`` was previously imported by nothing but its own test,
+# which left /api/sharp/people, /api/sharp/people/{id}, /api/sharp/review,
+# /api/sharp/review/{id}, /api/sharp/curated/summary and
+# /api/sharp/curated/refresh returning 404, and with them the whole
+# /market/sharp-people and /admin/sharp-identities surface.
+from src.sharp import curated_service as _sharp_curated_service  # noqa: E402
+
+# Both modules self-register on import via the ``_server_app()`` lookup, but
+# an import side effect is the wrong thing to depend on: if either module is
+# already in ``sys.modules`` when this line runs — anything that transitively
+# imported ``src.sharp.market`` first — the registrar does NOT re-run, ``app``
+# never receives the routes, and they 404 with no error anywhere. That is the
+# failure ``service.cohort_status()``'s self-heal was written to recover from
+# after it happened in production. Calling the registrars explicitly here
+# makes registration a consequence of the app existing rather than of import
+# order. Both are idempotent (they return early once their path is present).
+_sharp_service._register_http_routes()
+_sharp_curated_service._register_http_routes()
+
 
 @app.get("/api/sharp/cohort")
 async def get_sharp_cohort(request: Request):
