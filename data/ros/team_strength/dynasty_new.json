@@ -236,7 +236,7 @@
         "playerId": "11650",
         "canonicalName": "luke mccaffrey",
         "position": "WR",
-        "rosValue": 7.75,
+        "rosValue": 7.74,
         "fantasyPositions": [
           "WR"
         ],
@@ -269,7 +269,7 @@
         "playerId": "13329",
         "canonicalName": "malik benson",
         "position": "WR",
-        "rosValue": 8.19,
+        "rosValue": 8.21,
         "fantasyPositions": [
           "WR"
         ],
@@ -844,7 +844,7 @@
         "playerId": "13348",
         "canonicalName": "jmari taylor",
         "position": "RB",
-        "rosValue": 5.16,
+        "rosValue": 5.18,
         "fantasyPositions": [
           "RB"
         ],
@@ -1320,7 +1320,7 @@
         "playerId": "13324",
         "canonicalName": "matt hibner",
         "position": "TE",
-        "rosValue": 8.2,
+        "rosValue": 8.24,
         "fantasyPositions": [
           "TE"
         ],
@@ -2459,7 +2459,7 @@
         "playerId": "13303",
         "canonicalName": "cade klubnik",
         "position": "QB",
-        "rosValue": 4.48,
+        "rosValue": 4.46,
         "fantasyPositions": [
           "QB"
         ],
@@ -2892,7 +2892,7 @@
         "playerId": "13411",
         "canonicalName": "zavion thomas",
         "position": "WR",
-        "rosValue": 9.77,
+        "rosValue": 9.79,
         "fantasyPositions": [
           "WR"
         ],
@@ -3456,7 +3456,7 @@
         "playerId": "13289",
         "canonicalName": "drew allar",
         "position": "QB",
-        "rosValue": 4.28,
+        "rosValue": 4.26,
         "fantasyPositions": [
           "QB"
         ],
@@ -3533,7 +3533,7 @@
         "playerId": "7591",
         "canonicalName": "justin fields",
         "position": "QB",
-        "rosValue": 9.69,
+        "rosValue": 9.64,
         "fantasyPositions": [
           "QB"
         ],
@@ -4153,9 +4153,9 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 260.38,
+    "teamRosStrength": 260.37,
     "startingLineupScore": 319.72,
-    "benchDepthScore": 112.1,
+    "benchDepthScore": 112.08,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -4265,9 +4265,9 @@
         "playerId": "1479",
         "canonicalName": "keenan allen",
         "position": "WR",
-        "rosValue": 20.11,
+        "rosValue": 20.09,
         "depthFactor": 1.0,
-        "depthContribution": 20.11
+        "depthContribution": 20.09
       },
       {
         "playerId": "13346",
@@ -4430,7 +4430,7 @@
         "playerId": "1479",
         "canonicalName": "keenan allen",
         "position": "WR",
-        "rosValue": 20.11,
+        "rosValue": 20.09,
         "fantasyPositions": [
           "WR"
         ],
@@ -4606,7 +4606,7 @@
         "playerId": "7670",
         "canonicalName": "joshua palmer",
         "position": "WR",
-        "rosValue": 11.97,
+        "rosValue": 11.98,
         "fantasyPositions": [
           "WR"
         ],
@@ -5027,7 +5027,7 @@
         "playerId": "12541",
         "canonicalName": "donte thornton",
         "position": "WR",
-        "rosValue": 8.83,
+        "rosValue": 8.82,
         "fantasyPositions": [
           "WR"
         ],
@@ -5104,7 +5104,7 @@
         "playerId": "13413",
         "canonicalName": "cyrus allen",
         "position": "WR",
-        "rosValue": 11.1,
+        "rosValue": 11.27,
         "fantasyPositions": [
           "WR"
         ],

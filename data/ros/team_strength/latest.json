@@ -313,7 +313,7 @@
         "playerId": "13289",
         "canonicalName": "drew allar",
         "position": "QB",
-        "rosValue": 4.28,
+        "rosValue": 4.26,
         "fantasyPositions": [
           "QB"
         ],
@@ -802,7 +802,7 @@
         "playerId": "11650",
         "canonicalName": "luke mccaffrey",
         "position": "WR",
-        "rosValue": 7.75,
+        "rosValue": 7.74,
         "fantasyPositions": [
           "WR"
         ],
@@ -824,7 +824,7 @@
         "playerId": "8117",
         "canonicalName": "jalen tolbert",
         "position": "WR",
-        "rosValue": 9.88,
+        "rosValue": 9.9,
         "fantasyPositions": [
           "WR"
         ],
@@ -1271,7 +1271,7 @@
         "playerId": "13324",
         "canonicalName": "matt hibner",
         "position": "TE",
-        "rosValue": 8.2,
+        "rosValue": 8.24,
         "fantasyPositions": [
           "TE"
         ],
@@ -1282,7 +1282,7 @@
         "playerId": "11619",
         "canonicalName": "jalynn polk",
         "position": "WR",
-        "rosValue": 8.15,
+        "rosValue": 8.2,
         "fantasyPositions": [
           "WR"
         ],
@@ -3342,7 +3342,7 @@
         "playerId": "7670",
         "canonicalName": "joshua palmer",
         "position": "WR",
-        "rosValue": 11.97,
+        "rosValue": 11.98,
         "fantasyPositions": [
           "WR"
         ],
@@ -4272,7 +4272,7 @@
         "playerId": "12541",
         "canonicalName": "donte thornton",
         "position": "WR",
-        "rosValue": 8.83,
+        "rosValue": 8.82,
         "fantasyPositions": [
           "WR"
         ],
@@ -4373,7 +4373,7 @@
         "playerId": "12641",
         "canonicalName": "jaylin lane",
         "position": "WR",
-        "rosValue": 10.43,
+        "rosValue": 10.41,
         "fantasyPositions": [
           "WR"
         ],
@@ -4572,7 +4572,7 @@
         "playerId": "8125",
         "canonicalName": "calvin austin",
         "position": "WR",
-        "rosValue": 11.25,
+        "rosValue": 11.26,
         "fantasyPositions": [
           "WR"
         ],
@@ -5074,7 +5074,7 @@
         "playerId": "12500",
         "canonicalName": "quinn ewers",
         "position": "QB",
-        "rosValue": 7.41,
+        "rosValue": 7.43,
         "fantasyPositions": [
           "QB"
         ],
@@ -6935,7 +6935,7 @@
         "playerId": "13404",
         "canonicalName": "garrett nussmeier",
         "position": "QB",
-        "rosValue": 7.85,
+        "rosValue": 7.9,
         "fantasyPositions": [
           "QB"
         ],
@@ -6979,7 +6979,7 @@
         "playerId": "11199",
         "canonicalName": "emari demercado",
         "position": "RB",
-        "rosValue": 6.59,
+        "rosValue": 6.6,
         "fantasyPositions": [
           "RB"
         ],
@@ -7134,7 +7134,7 @@
         "playerId": "8917",
         "canonicalName": "kavontae turpin",
         "position": "WR",
-        "rosValue": 10.43,
+        "rosValue": 10.44,
         "fantasyPositions": [
           "WR"
         ],
@@ -7388,7 +7388,7 @@
         "playerId": "5906",
         "canonicalName": "dawson knox",
         "position": "TE",
-        "rosValue": 8.72,
+        "rosValue": 8.73,
         "fantasyPositions": [
           "TE"
         ],
@@ -7454,7 +7454,7 @@
         "playerId": "8119",
         "canonicalName": "jahan dotson",
         "position": "WR",
-        "rosValue": 9.35,
+        "rosValue": 9.36,
         "fantasyPositions": [
           "WR"
         ],
@@ -7871,7 +7871,7 @@
         "playerId": "13306",
         "canonicalName": "taylen green",
         "position": "QB",
-        "rosValue": 3.62,
+        "rosValue": 3.64,
         "fantasyPositions": [
           "QB"
         ],
@@ -7992,7 +7992,7 @@
         "playerId": "13348",
         "canonicalName": "jmari taylor",
         "position": "RB",
-        "rosValue": 5.16,
+        "rosValue": 5.18,
         "fantasyPositions": [
           "RB"
         ],
@@ -8448,8 +8448,8 @@
     "ownerId": "472206636534984704",
     "rosterId": 7,
     "teamName": "Roy",
-    "teamRosStrength": 379.78,
-    "startingLineupScore": 488.72,
+    "teamRosStrength": 379.77,
+    "startingLineupScore": 488.7,
     "benchDepthScore": 100.69,
     "positionalCoverageScore": 95.63,
     "healthAvailabilityScore": 100.0,
@@ -8619,8 +8619,8 @@
         "playerId": "1479",
         "canonicalName": "keenan allen",
         "position": "WR",
-        "rosValue": 20.11,
-        "adjustedValue": 20.11,
+        "rosValue": 20.09,
+        "adjustedValue": 20.09,
         "confidence": 0.802,
         "flagged": null
       },
@@ -8957,7 +8957,7 @@
         "playerId": "1479",
         "canonicalName": "keenan allen",
         "position": "WR",
-        "rosValue": 20.11,
+        "rosValue": 20.09,
         "fantasyPositions": [
           "WR"
         ],
@@ -9321,7 +9321,7 @@
     "teamName": "Blaine",
     "teamRosStrength": 360.07,
     "startingLineupScore": 467.39,
-    "benchDepthScore": 75.71,
+    "benchDepthScore": 75.72,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -9557,9 +9557,9 @@
         "playerId": "13411",
         "canonicalName": "zavion thomas",
         "position": "WR",
-        "rosValue": 9.77,
+        "rosValue": 9.79,
         "depthFactor": 0.65,
-        "depthContribution": 6.35
+        "depthContribution": 6.36
       },
       {
         "playerId": "13384",
@@ -9762,7 +9762,7 @@
         "playerId": "13411",
         "canonicalName": "zavion thomas",
         "position": "WR",
-        "rosValue": 9.77,
+        "rosValue": 9.79,
         "fantasyPositions": [
           "WR"
         ],
@@ -10755,7 +10755,7 @@
         "playerId": "13303",
         "canonicalName": "cade klubnik",
         "position": "QB",
-        "rosValue": 4.48,
+        "rosValue": 4.46,
         "fantasyPositions": [
           "QB"
         ],
@@ -10832,7 +10832,7 @@
         "playerId": "7591",
         "canonicalName": "justin fields",
         "position": "QB",
-        "rosValue": 9.69,
+        "rosValue": 9.64,
         "fantasyPositions": [
           "QB"
         ],
