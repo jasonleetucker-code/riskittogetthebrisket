@@ -1,0 +1,30 @@
+name: One-time deploy retrigger cleanup
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/retrigger-deploy-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Remove one-time trigger
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/retrigger-deploy-once.yml
+          git commit -m "Remove one-time deploy retrigger"
+          git push origin HEAD:main
