@@ -680,8 +680,8 @@ class TestFireSaleGuard:
         constant to 6600.
         """
         target_val = int(ELITE_THRESHOLD * 0.93)
-        a1 = _make_asset("A", model=int(target_val * 0.400), ktc=3500)
-        a2 = _make_asset("B", model=int(target_val * 0.172), ktc=2000)
+        a1 = _make_asset("A", model=int(target_val * 0.400), ktc=4000)
+        a2 = _make_asset("B", model=int(target_val * 0.172), ktc=3500)
         target = _make_asset("Target", model=target_val, ktc=5000)
         tc = _score_trade([a1, a2], [target])
         # give/recv ~= 0.572 > 0.55
@@ -690,8 +690,8 @@ class TestFireSaleGuard:
     def test_2for1_barely_below_threshold_rejected(self):
         """Just below the 55% ratio → rejected."""
         target_val = int(ELITE_THRESHOLD * 0.93)
-        a1 = _make_asset("A", model=int(target_val * 0.386), ktc=3500)
-        a2 = _make_asset("B", model=int(target_val * 0.157), ktc=2000)
+        a1 = _make_asset("A", model=int(target_val * 0.386), ktc=4000)
+        a2 = _make_asset("B", model=int(target_val * 0.157), ktc=3500)
         target = _make_asset("Target", model=target_val, ktc=5000)
         tc = _score_trade([a1, a2], [target])
         # give/recv ~= 0.543 < 0.55
