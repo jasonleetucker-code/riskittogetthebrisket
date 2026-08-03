@@ -42,8 +42,8 @@ jobs:
                   "    snap = types.SimpleNamespace(\n        root_league_id=league_id,\n        generated_at=generated_at or \"2026-07-25T11:00:00+00:00\",\n    )",
               ),
               (
-                  "    _install_snapshot(monkeypatch, \"L-MAIN\", summary=_FAKE_SUMMARY)\n    with TestClient(server.app, raise_server_exceptions=True) as c:",
-                  "    generated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()\n    _install_snapshot(\n        monkeypatch,\n        \"L-MAIN\",\n        summary=_FAKE_SUMMARY,\n        generated_at=generated_at,\n    )\n    with TestClient(server.app, raise_server_exceptions=True) as c:",
+                  "def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):\n    \"\"\"Counterpart to the wrong-league test: a snapshot for the\n    RESOLVED league flows through — o1's real aggression history is\n    used and the departed owner's entry never reaches the model.\"\"\"\n    _install_snapshot(monkeypatch, \"L-MAIN\", summary=_FAKE_SUMMARY)",
+                  "def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):\n    \"\"\"Counterpart to the wrong-league test: a snapshot for the\n    RESOLVED league flows through — o1's real aggression history is\n    used and the departed owner's entry never reaches the model.\"\"\"\n    generated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()\n    _install_snapshot(\n        monkeypatch,\n        \"L-MAIN\",\n        summary=_FAKE_SUMMARY,\n        generated_at=generated_at,\n    )",
               ),
               (
                   "    assert payload[\"inputsAsOf\"][\"leagueAnalytics\"] == \"2026-07-25T11:00:00+00:00\"",
