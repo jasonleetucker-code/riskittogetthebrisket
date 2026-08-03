@@ -45,6 +45,50 @@ def _make_asset(name, model, ktc=None, pos="WR", team="NYJ", is_pick=False, sour
     )
 
 
+def _appealing_ktc_split(recv_ktc_total, weights=(0.6, 0.4), margin=1.10):
+    """Give-side KTC values the opponent still WINS after KTC's package
+    Value Adjustment.
+
+    DERIVED, never hardcoded — and that is the whole point.
+
+    ``src/trade/finder_value_adjustment`` scores multi-for-one packages
+    with KTC's real consolidation premium: giving two pieces for one
+    better player costs a premium on top of the raw totals, because that
+    is what KTC's own calculator charges.  So a give side that merely
+    out-totals the receive side *linearly* is NOT appealing, and every
+    2-for-1 fixture in this file that assumed otherwise expired the
+    moment that premium landed.
+
+    This is the second time fixtures here have gone stale against a
+    moving constant (see ``TestEliteTargetProtection``'s docstring for
+    the first).  Deriving the split from the real adjustment function
+    means the next change to that math re-calibrates these fixtures
+    instead of breaking them.
+    """
+    from src.trade.market_value_adjustment import ktc_adjust_package
+
+    def _clears(give_vals, recv_total):
+        adj = ktc_adjust_package(list(give_vals), [recv_total])
+        give_eff = sum(give_vals) + (adj.value if adj.displayed and adj.side == 1 else 0)
+        recv_eff = recv_total + (adj.value if adj.displayed and adj.side == 2 else 0)
+        return give_eff > recv_eff
+
+    total = recv_ktc_total
+    for _ in range(400):
+        total += max(50, recv_ktc_total // 40)
+        split = [int(total * w) for w in weights[:-1]]
+        split.append(total - sum(split))
+        if _clears(split, recv_ktc_total):
+            break
+    else:  # pragma: no cover — defensive
+        raise AssertionError(f"no clearing split found for recv={recv_ktc_total}")
+
+    total = int(total * margin)
+    split = [int(total * w) for w in weights[:-1]]
+    split.append(total - sum(split))
+    return split
+
+
 def _make_player_data(model, ktc=None, pos="WR", team="NYJ", sites=5):
     """Build a raw player data dict matching the live payload shape."""
     d = {
@@ -722,8 +766,9 @@ class TestEliteTargetProtection:
 
     def test_2for1_elite_above_65pct_passes(self):
         """Two solid pieces totaling 70% of elite target → passes."""
-        a1 = _make_asset("Good A", model=3500, ktc=4000)
-        a2 = _make_asset("Good B", model=2500, ktc=3000)
+        k1, k2 = _appealing_ktc_split(6000)
+        a1 = _make_asset("Good A", model=3500, ktc=k1)
+        a2 = _make_asset("Good B", model=2500, ktc=k2)
         elite = _make_asset("Elite WR", model=8000, ktc=6000)
         tc = _score_trade([a1, a2], [elite])
         # 6000/8000 = 0.75 > 0.65
@@ -732,8 +777,9 @@ class TestEliteTargetProtection:
     def test_2for1_non_elite_uses_normal_ratio(self):
         """A target below ELITE_THRESHOLD uses the standard 55% ratio."""
         target_val = int(ELITE_THRESHOLD * 0.93)  # comfortably non-elite
-        a1 = _make_asset("A", model=int(target_val * 0.40), ktc=3500)
-        a2 = _make_asset("B", model=int(target_val * 0.243), ktc=2500)
+        k1, k2 = _appealing_ktc_split(5500)
+        a1 = _make_asset("A", model=int(target_val * 0.40), ktc=k1)
+        a2 = _make_asset("B", model=int(target_val * 0.243), ktc=k2)
         target = _make_asset("Target", model=target_val, ktc=5500)
         tc = _score_trade([a1, a2], [target])
         # give/recv = 0.643 > 0.55; target < ELITE_THRESHOLD so the elite
@@ -749,8 +795,9 @@ class TestEliteTargetProtection:
 
     def test_elite_blockbuster_2for1_still_works(self):
         """Legit blockbuster (two starters for one elite) passes."""
-        a1 = _make_asset("Starter A", model=5000, ktc=5500)
-        a2 = _make_asset("Starter B", model=4000, ktc=4500)
+        k1, k2 = _appealing_ktc_split(8000)
+        a1 = _make_asset("Starter A", model=5000, ktc=k1)
+        a2 = _make_asset("Starter B", model=4000, ktc=k2)
         elite = _make_asset("Top 3 RB", model=9500, ktc=8000)
         tc = _score_trade([a1, a2], [elite])
         # 9000/9500 = 0.95 > 0.65
@@ -774,8 +821,9 @@ class TestPackageAnchorQuality:
 
     def test_anchor_plus_filler_passes(self):
         """One real starter + one depth piece → anchor present (3000/5000=0.60 > 0.35)."""
-        a1 = _make_asset("Starter A", model=3000, ktc=3500)
-        a2 = _make_asset("Depth", model=1000, ktc=1500)
+        k1, k2 = _appealing_ktc_split(4500)
+        a1 = _make_asset("Starter A", model=3000, ktc=k1)
+        a2 = _make_asset("Depth", model=1000, ktc=k2)
         target = _make_asset("Target", model=5000, ktc=4500)
         tc = _score_trade([a1, a2], [target])
         # max_give=3000/5000 = 0.60 > 0.35, total 4000/5000 = 0.80 > 0.55
@@ -873,7 +921,8 @@ class TestTradeRankingRealism:
         tc_1for1 = _score_trade(give_1, recv_1)
 
         # 2-for-1: slightly better total edge but more complex
-        give_2 = [_make_asset("C", model=2500, ktc=3200), _make_asset("D", model=2000, ktc=2800)]
+        k1, k2 = _appealing_ktc_split(4500)
+        give_2 = [_make_asset("C", model=2500, ktc=k1), _make_asset("D", model=2000, ktc=k2)]
         recv_2 = [_make_asset("E", model=5200, ktc=4500)]
         tc_2for1 = _score_trade(give_2, recv_2)
 
@@ -953,13 +1002,15 @@ class TestRepresentativeScenarios:
     def test_scenario_2_legit_blockbuster_for_elite(self):
         """Scenario 2: Two solid starters for elite RB → allowed.
         We gain on our board (elite undervalued by KTC), opponent gains on KTC."""
-        starter_wr = _make_asset("Garrett Wilson", model=4000, ktc=5000, pos="WR")
-        starter_rb = _make_asset("Breece Hall", model=3500, ktc=4500, pos="RB")
+        k1, k2 = _appealing_ktc_split(8500)
+        starter_wr = _make_asset("Garrett Wilson", model=4000, ktc=k1, pos="WR")
+        starter_rb = _make_asset("Breece Hall", model=3500, ktc=k2, pos="RB")
         elite = _make_asset("Bijan Robinson", model=9000, ktc=8500, pos="RB")
         tc = _score_trade([starter_wr, starter_rb], [elite])
         # give_model=7500, recv_model=9000 → board_delta=+1500 ✓
         # 7500/9000 = 0.833 > 0.65 ✓  anchor: 4000/9000 = 0.444 > 0.35 ✓
-        # opp appeal: (9500-8500)/8500 = 0.118 > -0.12 ✓
+        # opp appeal is derived, not asserted arithmetically: KTC's
+        # package premium makes the raw totals misleading here.
         assert tc is not None
         assert tc.board_delta > 0
 
@@ -1006,8 +1057,9 @@ class TestRepresentativeScenarios:
 
     def test_scenario_6_starter_plus_bench_for_starter_passes(self):
         """Scenario 6: One real starter + filler for target → anchor present, passes."""
-        starter = _make_asset("WR2", model=3500, ktc=4000)
-        filler = _make_asset("Depth RB", model=1200, ktc=1800)
+        k1, k2 = _appealing_ktc_split(5200)
+        starter = _make_asset("WR2", model=3500, ktc=k1)
+        filler = _make_asset("Depth RB", model=1200, ktc=k2)
         target = _make_asset("Target WR1", model=6000, ktc=5200)
         tc = _score_trade([starter, filler], [target])
         # anchor: 3500/6000 = 0.583 > 0.35 ✓  total: 4700/6000 = 0.783 > 0.55 ✓
@@ -1028,8 +1080,9 @@ class TestRepresentativeScenarios:
 
     def test_scenario_8_fair_2for1_non_elite(self):
         """Scenario 8: Fair 2-for-1 trade below elite threshold — should pass."""
-        a1 = _make_asset("Solid WR", model=3500, ktc=4200, source_count=4)
-        a2 = _make_asset("Pick", model=2500, ktc=3000, pos="PICK", is_pick=True, source_count=4)
+        k1, k2 = _appealing_ktc_split(6000)
+        a1 = _make_asset("Solid WR", model=3500, ktc=k1, source_count=4)
+        a2 = _make_asset("Pick", model=2500, ktc=k2, pos="PICK", is_pick=True, source_count=4)
         target = _make_asset("Good RB", model=7000, ktc=6000, source_count=5, pos="RB")
         tc = _score_trade([a1, a2], [target])
         # 6000/7000 = 0.857 > 0.55 ✓ (not elite so no 0.65 check)
@@ -1214,8 +1267,9 @@ class TestExplainabilityFields:
 
     def test_2for1_elite_has_elite_and_anchor_flags(self):
         """2-for-1 targeting an elite should carry both elite_target and anchor_verified flags."""
-        a1 = _make_asset("Starter", model=4000, ktc=5000)
-        a2 = _make_asset("Piece", model=3500, ktc=4000)
+        k1, k2 = _appealing_ktc_split(8000)
+        a1 = _make_asset("Starter", model=4000, ktc=k1)
+        a2 = _make_asset("Piece", model=3500, ktc=k2)
         elite = _make_asset("Elite", model=9000, ktc=8000)
         tc = _score_trade([a1, a2], [elite])
         assert tc is not None
@@ -1225,8 +1279,9 @@ class TestExplainabilityFields:
     def test_2for1_non_elite_has_anchor_not_elite(self):
         """2-for-1 below elite threshold has anchor_verified but not elite_target."""
         target_val = int(ELITE_THRESHOLD * 0.93)
-        a1 = _make_asset("A", model=int(target_val * 0.40), ktc=3500)
-        a2 = _make_asset("B", model=int(target_val * 0.243), ktc=2500)
+        k1, k2 = _appealing_ktc_split(5500)
+        a1 = _make_asset("A", model=int(target_val * 0.40), ktc=k1)
+        a2 = _make_asset("B", model=int(target_val * 0.243), ktc=k2)
         target = _make_asset("Target", model=target_val, ktc=5500)
         tc = _score_trade([a1, a2], [target])
         assert tc is not None
