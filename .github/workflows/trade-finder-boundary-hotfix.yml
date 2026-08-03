@@ -1,13 +1,15 @@
 name: One-time trade finder boundary test hotfix
 
 on:
-  create:
+  issues:
+    types: [opened]
 
 permissions:
   contents: write
 
 jobs:
   patch:
+    if: github.event.issue.title == 'TRIGGER: trade finder boundary hotfix'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current main
