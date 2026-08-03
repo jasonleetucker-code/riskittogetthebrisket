@@ -47,9 +47,7 @@ def ktc_process_value(
     if not (value > 0 and max_in_trade > 0 and top_reference > 0):
         return 0.0
     adjusted = (
-        0.05 * (value / top_reference) ** 1.3
-        + 0.05 * (value / (1.05 * max_in_trade)) ** 6
-        + 0.1
+        0.05 * (value / top_reference) ** 1.3 + 0.05 * (value / (1.05 * max_in_trade)) ** 6 + 0.1
     ) * value
     if nerf_index > 0:
         adjusted *= max(0.6, 1 - 0.15 * nerf_index)

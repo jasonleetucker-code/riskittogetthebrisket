@@ -97,14 +97,8 @@ def install(finder: ModuleType) -> None:
             if flag not in candidate.flags:
                 candidate.flags.append(flag)
             candidate.ranking_factors["marketValueAdjustment"] = adjustment.value
-            label = (
-                "your give side"
-                if adjustment_side == "give"
-                else "your receive side"
-            )
-            candidate.summary += (
-                f" Market package adjustment: +{adjustment.value:,} to {label}."
-            )
+            label = "your give side" if adjustment_side == "give" else "your receive side"
+            candidate.summary += f" Market package adjustment: +{adjustment.value:,} to {label}."
         else:
             candidate.ranking_factors.setdefault("marketValueAdjustment", 0)
 
@@ -139,9 +133,7 @@ def install(finder: ModuleType) -> None:
                 "adjustedReceiveKtcTotal": adjusted_receive,
                 "marketValueAdjustment": adjustment_value,
                 "marketValueAdjustmentSide": adjustment_side,
-                "marketValueAdjustmentApplied": bool(
-                    adjustment_value > 0 and adjustment_side
-                ),
+                "marketValueAdjustmentApplied": bool(adjustment_value > 0 and adjustment_side),
             }
         )
         return payload
