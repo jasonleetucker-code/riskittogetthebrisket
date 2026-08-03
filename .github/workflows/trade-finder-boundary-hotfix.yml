@@ -1,17 +1,14 @@
 name: One-time trade finder boundary test hotfix
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/trade-finder-boundary-hotfix.yml
+  create:
 
 permissions:
   contents: write
 
 jobs:
   patch:
+    if: github.ref_type == 'branch' && github.ref == 'trigger-trade-finder-hotfix'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current main
