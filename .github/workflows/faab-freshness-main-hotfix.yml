@@ -1,0 +1,78 @@
+name: One-time FAAB freshness test hotfix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/faab-freshness-main-hotfix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Patch expired FAAB snapshot fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/api/test_faab_recommend_endpoint.py")
+          text = path.read_text(encoding="utf-8")
+          replacements = [
+              (
+                  "import json\n\nimport pytest",
+                  "import json\nfrom datetime import datetime, timezone\n\nimport pytest",
+              ),
+              (
+                  "def _install_snapshot(monkeypatch, league_id, summary=None):",
+                  "def _install_snapshot(\n    monkeypatch, league_id, summary=None, generated_at=None\n):",
+              ),
+              (
+                  "    snap = types.SimpleNamespace(\n        root_league_id=league_id,\n        generated_at=\"2026-07-25T11:00:00+00:00\",\n    )",
+                  "    snap = types.SimpleNamespace(\n        root_league_id=league_id,\n        generated_at=generated_at or \"2026-07-25T11:00:00+00:00\",\n    )",
+              ),
+              (
+                  "    _install_snapshot(monkeypatch, \"L-MAIN\", summary=_FAKE_SUMMARY)\n    with TestClient(server.app, raise_server_exceptions=True) as c:",
+                  "    generated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()\n    _install_snapshot(\n        monkeypatch,\n        \"L-MAIN\",\n        summary=_FAKE_SUMMARY,\n        generated_at=generated_at,\n    )\n    with TestClient(server.app, raise_server_exceptions=True) as c:",
+              ),
+              (
+                  "    assert payload[\"inputsAsOf\"][\"leagueAnalytics\"] == \"2026-07-25T11:00:00+00:00\"",
+                  "    assert payload[\"inputsAsOf\"][\"leagueAnalytics\"] == generated_at",
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected exactly one match, found {count}: {old[:80]!r}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Format modified test
+        run: |
+          python -m pip install "ruff~=0.6.0"
+          python -m ruff format tests/api/test_faab_recommend_endpoint.py
+          python -m ruff format --check tests/api/test_faab_recommend_endpoint.py
+
+      - name: Commit patch and remove one-time workflow
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/api/test_faab_recommend_endpoint.py
+          git rm .github/workflows/faab-freshness-main-hotfix.yml
+          git commit -m "Fix calendar-expired FAAB freshness test"
+          git push origin HEAD:main
