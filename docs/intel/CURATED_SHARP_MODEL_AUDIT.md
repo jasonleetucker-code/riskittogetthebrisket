@@ -139,6 +139,34 @@ mis-transcription of the source, and it is fixed:
 - X handles remain `verified` **accounts**: a public handle is a public
   identifier, and no fantasy behaviour hangs off it.
 - Account existence or a similar display name may raise a candidate to probable, never verified.
+- **The queried username can never corroborate itself.** We search Sleeper *by*
+  username, so the API echoes it back in the `username` field. Including it on
+  both sides of the name-overlap test made that test a tautology — on the first
+  live sweep it promoted **all 42** existing accounts to
+  `high_confidence_probable`, among them `hrr5010` for Hasan Rahim and
+  `amicsta` for Anthony Amico, where nothing corresponds at all. Corroboration
+  now means the **person's name** matches what the account actually shows.
+
+### First live sweep (92 Sleeper candidates)
+
+| | |
+|---|---|
+| checked | 92 |
+| exists on Sleeper | 42 |
+| not found | 50 |
+| cross-person conflicts | 0 |
+| raised to `high_confidence_probable` | **6** |
+| **verified** | **0** |
+
+The six that corroborate: `GrahamBarfield`, `jjzachariason`, `justinboone`,
+`JustinHerzig`, `mattykiwoom` (via the pseudonym split on "Matty Kiwoom") and
+`MattWaldman`. All 36 other existing accounts stay `possible` — someone holds
+the handle, and that is all we know.
+
+Of the eight usernames the workbook claimed, all eight exist, **two** corroborate
+by name, and **none** is verified. `carpentiernfl` does not match "Cody
+Carpentier" and correctly stays `possible` — it is the X handle, which is how it
+was generated in the first place.
 - FFPC display/team/entry names are matched against already ingested public FFPC managers and remain probable until explicitly reviewed.
 - One verified platform account cannot be linked to two people.
 - Co-managed entries are represented as separate people/accounts/evidence and are never collapsed into a team name.

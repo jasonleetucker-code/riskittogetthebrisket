@@ -1193,16 +1193,31 @@ def inspect_sleeper_candidates(
             stats["found"] += 1
             user_id = str(payload["user_id"])
             display_name = str(payload.get("display_name") or "").strip() or None
+            # Corroboration means the account carries the PERSON'S NAME.
+            #
+            # The queried username must not appear on both sides: we searched
+            # for it, so Sleeper echoes it back verbatim in ``username``, and
+            # including it made ``overlap`` structurally always true. On the
+            # first live sweep that promoted all 42 existing accounts to
+            # "high confidence probable" -- including ``hrr5010`` for Hasan
+            # Rahim and ``amicsta`` for Anthony Amico, where nothing
+            # corresponds at all. A tautology reported as evidence is exactly
+            # the false certainty this model exists to avoid.
+            #
+            # What survives is a real test: the person's name against what the
+            # account actually shows. ``jjzachariason`` matches "JJ
+            # Zachariason" and is genuine evidence; ``carpentiernfl`` does not
+            # match "Cody Carpentier" and correctly stays merely possible --
+            # it is the X handle, which is how it was generated.
             candidate_norms = {
                 normalize_identity(row["canonical_name"]),
                 normalize_identity(row["public_display_name"]),
-                normalize_identity(username),
-            }
+            } - {""}
             observed_norms = {
                 normalize_identity(display_name),
                 normalize_identity(payload.get("username")),
-            }
-            overlap = bool((candidate_norms - {""}) & (observed_norms - {""}))
+            } - {""}
+            overlap = bool(candidate_norms & observed_norms)
             collisions = conn.execute(
                 """
                 SELECT DISTINCT person_id FROM sharp_identity_candidates

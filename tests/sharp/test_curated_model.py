@@ -249,6 +249,89 @@ def test_candidate_existence_never_silently_verifies_identity(tmp_path):
         conn.close()
 
 
+def _inspect_one(ledger, *, candidate_username, display_name):
+    """Point the sweep at one candidate and answer with a chosen profile."""
+    conn = curated.ensure_schema(ledger)
+    try:
+        conn.execute(
+            "DELETE FROM sharp_identity_candidates WHERE platform='sleeper' AND candidate_username<>?",
+            (candidate_username,),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT candidate_id FROM sharp_identity_candidates WHERE candidate_username=?",
+            (candidate_username,),
+        ).fetchone()
+        candidate_id = str(row["candidate_id"])
+    finally:
+        conn.close()
+    curated.inspect_sleeper_candidates(
+        ledger_path=ledger,
+        fetch_json=lambda _url: (
+            200,
+            # Sleeper echoes the queried username back verbatim.
+            {"user_id": "555", "username": candidate_username, "display_name": display_name},
+        ),
+        request_sleep=0,
+        budget=1,
+    )
+    conn = curated.ensure_schema(ledger)
+    try:
+        return dict(
+            conn.execute(
+                "SELECT verification_status, confidence, metadata_json FROM sharp_identity_candidates WHERE candidate_id=?",
+                (candidate_id,),
+            ).fetchone()
+        )
+    finally:
+        conn.close()
+
+
+def test_the_queried_username_can_never_corroborate_itself(tmp_path):
+    """A username we searched for is not evidence that the person owns it.
+
+    The first live sweep raised ALL 42 existing accounts to
+    ``high_confidence_probable`` because the queried username sat in both
+    the candidate set and the observed set, so the name-overlap test was a
+    tautology. ``hrr5010`` "corroborated" Hasan Rahim on nothing at all.
+    """
+    ledger = tmp_path / "intel.sqlite"
+    curated.import_snapshot(_snapshot(), ledger_path=ledger)
+    # An opaque handle that resembles the person in no way, with a display
+    # name that is just the handle echoed back -- the exact shape that used
+    # to score as high confidence.
+    result = _inspect_one(ledger, candidate_username="hrr5010", display_name="hrr5010")
+    assert result["verification_status"] == "possible"
+    assert json.loads(result["metadata_json"])["nameOverlap"] is False
+
+
+def test_a_handle_encoding_the_persons_name_is_real_corroboration(tmp_path):
+    ledger = tmp_path / "intel.sqlite"
+    curated.import_snapshot(_snapshot(), ledger_path=ledger)
+    result = _inspect_one(ledger, candidate_username="jjzachariason", display_name="JJ Zachariason")
+    assert result["verification_status"] == "high_confidence_probable"
+    assert json.loads(result["metadata_json"])["nameOverlap"] is True
+    # Still not verified. Corroboration is not ownership.
+    conn = curated.ensure_schema(ledger)
+    try:
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM sharp_platform_accounts WHERE platform='sleeper'"
+            ).fetchone()[0]
+            == 0
+        )
+    finally:
+        conn.close()
+
+
+def test_a_handle_derived_workbook_claim_stays_merely_possible(tmp_path):
+    """`carpentiernfl` is the X handle, not the name -- it must not promote."""
+    ledger = tmp_path / "intel.sqlite"
+    curated.import_snapshot(_snapshot(), ledger_path=ledger)
+    result = _inspect_one(ledger, candidate_username="carpentiernfl", display_name="CarpentierNFL")
+    assert result["verification_status"] == "possible"
+
+
 def test_one_platform_account_cannot_be_verified_for_two_people(tmp_path):
     ledger = tmp_path / "intel.sqlite"
     curated.import_snapshot(_snapshot(), ledger_path=ledger)

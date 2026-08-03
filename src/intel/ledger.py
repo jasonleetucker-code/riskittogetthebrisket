@@ -299,6 +299,15 @@ def _migrate(conn: sqlite3.Connection, from_version: int) -> None:
             for table in _MIGRATION_CLEARS[version]:
                 try:
                     conn.execute(f"DELETE FROM {table}")  # noqa: S608 — fixed literals above
+                except sqlite3.OperationalError as exc:
+                    # A brand-new file has no version recorded, so it arrives
+                    # here as version 0 with none of these tables created yet.
+                    # There is nothing to clear and nothing wrong; logging a
+                    # traceback for it would cry wolf on every fresh ledger.
+                    if "no such table" not in str(exc).lower():
+                        log.exception(
+                            "intel.ledger: migration v%s could not clear %s", version, table
+                        )
                 except sqlite3.DatabaseError:
                     log.exception("intel.ledger: migration v%s could not clear %s", version, table)
     conn.commit()
