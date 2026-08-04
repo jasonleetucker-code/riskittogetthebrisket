@@ -667,8 +667,30 @@ leave-one-out/base is **2.270** against the 1.35 the shipped test pins —
 784, so **45 of 243 priced IDP rows land on the identical fair value
 1587** and their "mispricing" is `1587 / market price` — an inverted
 ranking of the anchor's own price (Spearman 0.53 against 0.13 on the
-offense control). Worth reopening only with that saturation fixed, and
-re-measured against a clamp-suppressed default board.
+offense control).
+
+**That saturation is a third reason the design fails, NOT a pipeline
+defect to fix first.** An earlier draft of this ADR closed with "worth
+reopening only with that saturation fixed", which points a reader at
+`_PERCENTILE_REFERENCE_N` — a site-wide top-500-board decision
+(`CLAUDE.md`, live pipeline step 2) that reprices everything. Do not
+change it on the strength of this ADR. The clamp is **inert on the live
+board**, because `idpTradeCalc` sits in `_VALUE_BASED_SOURCES`
+(`data_contract.py:5381`) and votes `raw / site_max × 9999`, never
+entering the rank → percentile → clamp path at all. Measured on the
+default board:
+
+```
+IDP rows priced: 225   distinct values: 196   largest tie block: 5 rows
+deepest 85 rows:  64 distinct values spanning 773..1394
+                  84 of 85 carry a value-direct idpTradeCalc vote
+```
+
+No collapse anywhere. The tie block appears only once the value-direct
+vote is removed, which is precisely what this design does — and doing so
+exposes the 46% of the IDP ladder (118 of 258 entries) that sits past
+combined rank 500 to a clamp production never reaches. The design
+creates the condition; the constant is not at fault.
 
 **Rejected: narrow the class-wide IDP refusal to per-row**, mirroring
 the rookie guard. Of 220 valued IDP rows, 211 carry a surviving
