@@ -6284,6 +6284,35 @@ def _apply_pick_year_discount_to_blend(
 
     Applied BEFORE the unified Phase 4 sort so future-year picks
     naturally drift to lower positions in the global ladder.
+
+    ONLY SYNTHESISED YEARS ARE DISCOUNTED (audit finding T-3/C-2,
+    2026-08-04).  The discount used to apply to every future-year pick,
+    including the years the vendors publish a real per-slot price for.
+    That double-counts, and in the WRONG DIRECTION: both ingested pick
+    markets price the next class ABOVE the imminent one, because the
+    unknown class carries option value while the imminent one is priced
+    to known prospects.  Measured on the 2026-08-04 boards::
+
+        ktcSfTep      2026 Early 1st 5595 | 2027 7061 | 2028 5122
+        idpTradeCalc  2026 Early 1st 5554 | 2027 7052 | 2028 5034
+
+    The market term structure is +26% from 2026 to 2027 and then down;
+    ``offsetDiscounts`` assumes a smooth 1.00/0.82/0.66/0.53 decay.
+    Multiplying one onto the other published 2027 firsts 18% and 2028
+    firsts 34% BELOW what both markets agreed on, which biased every
+    trade involving future capital the same way: sell futures cheap,
+    buy futures expensive.
+
+    A vendor-priced year needs no correction — the price already
+    encodes the term structure.  What DOES need the step-down is a year
+    this pipeline invented by cloning a nearer year's values
+    (``_inject_far_future_pick_sources``), because that clone carries
+    the nearer year's price verbatim.  ``_SYNTHETIC_FAR_FUTURE_PICK_NAMES``
+    is exactly that set, so it is the gate.
+
+    NOTE this does not close audit finding V-12/C-11: for a synthesised
+    year the multiplier is still an uncalibrated prior applied to a
+    cloned price.  It closes only the double-count on real years.
     """
     cfg = _load_pick_year_discount()
     cdy = current_rookie_draft_year()
@@ -6292,7 +6321,12 @@ def _apply_pick_year_discount_to_blend(
     for value, row_idx in row_normalized:
         row = players_array[row_idx]
         if row.get("assetClass") == "pick":
-            year = _pick_year_from_name(row.get("canonicalName") or "")
+            cname = row.get("canonicalName") or ""
+            if _canonical_match_key(cname) not in _SYNTHETIC_FAR_FUTURE_PICK_NAMES:
+                # Vendor-priced year: the market already priced the year.
+                out.append((value, row_idx))
+                continue
+            year = _pick_year_from_name(cname)
             mult = _pick_year_discount_for(year, cfg, current_draft_year=cdy)
             if mult != 1.0:
                 value = value * mult

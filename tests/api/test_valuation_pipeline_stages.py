@@ -365,15 +365,21 @@ class TestPickYearDiscountThroughTheBlend:
     path is that the multiplier actually reaches ``rankDerivedValue``.
     """
 
-    def test_future_year_picks_are_multiplied_by_the_configured_factor(self):
-        """Identical raw picks must diverge by exactly the config factors.
+    def test_vendor_priced_future_years_are_NOT_discounted(self):
+        """A future year the vendors priced must pass through untouched.
 
-        ``config/weights/pick_year_discount.json`` offsets:
-          offset 0 → 1.00, offset 1 → 0.82, offset 2 → 0.66.
-        All three picks vote an identical 7000, so:
-          offset 0 → 7000
-          offset 1 → 7000 × 0.82 = 5740
-          offset 2 → 7000 × 0.66 = 4620
+        CHANGED 2026-08-04, audit finding T-3/C-2.  This test previously
+        asserted 7000 → 5740 → 4620 for offsets 0/1/2, i.e. the config
+        factors applied to every future year.  That is the defect: these
+        rows carry a real per-slot vendor price, and both ingested
+        markets price the NEXT class ABOVE the imminent one (ktcSfTep
+        2026 Early 1st 5595 vs 2027 7061).  Composing a decay prior onto
+        a price that already encodes the year published 2027 firsts 18%
+        and 2028 firsts 34% below what both markets agreed.
+
+        Rows reach the discount stage un-cloned here — exactly like a
+        vendor-priced year on the live board — so none may be stepped
+        down.  The synthesised case is asserted in the next test.
         """
         year = dc.current_rookie_draft_year()
         rows = [
@@ -386,8 +392,31 @@ class TestPickYearDiscountThroughTheBlend:
         got = _by_name(rows)
 
         assert got[f"{year} Pick 1.01"]["rankDerivedValue"] == 7000
-        assert got[f"{year + 1} Pick 1.01"]["rankDerivedValue"] == 5740
-        assert got[f"{year + 2} Pick 1.01"]["rankDerivedValue"] == 4620
+        assert got[f"{year + 1} Pick 1.01"]["rankDerivedValue"] == 7000
+        assert got[f"{year + 2} Pick 1.01"]["rankDerivedValue"] == 7000
+
+    def test_synthesised_far_future_years_ARE_still_discounted(self):
+        """A year this pipeline invented by cloning still needs the step-down.
+
+        ``_inject_far_future_pick_sources`` clones the nearest published
+        future year's values under the missing year's names, so the row
+        carries the NEARER year's price verbatim.  That is the one case
+        where the config factor is doing real work.
+        """
+        year = dc.current_rookie_draft_year()
+        name = f"{year + 2} Pick 1.01"
+        rows = [
+            _row(name, "PICK", ktcSfTep=7000, idpTradeCalc=7000),
+            _anchor_qb(),
+        ]
+        prev = dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES
+        dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = {dc._canonical_match_key(name)}
+        try:
+            dc._compute_unified_rankings(rows, {})
+        finally:
+            dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = prev
+
+        assert _by_name(rows)[name]["rankDerivedValue"] == 4620  # 7000 × 0.66
 
     def test_current_year_pick_carries_no_discount_stamp(self):
         """offset 0 → multiplier 1.0 → the row is left untouched."""
@@ -400,13 +429,34 @@ class TestPickYearDiscountThroughTheBlend:
         assert _by_name(rows)[f"{year} Pick 1.01"].get("pickYearDiscount") is None
 
     def test_discount_is_stamped_for_audit_on_discounted_picks(self):
+        """The audit stamp appears only where a discount was really applied.
+
+        Post-T-3 that means a SYNTHESISED year; a vendor-priced year
+        carries no stamp because it takes no discount.
+        """
+        year = dc.current_rookie_draft_year()
+        name = f"{year + 1} Pick 1.01"
+        rows = [
+            _row(name, "PICK", ktcSfTep=7000, idpTradeCalc=7000),
+            _anchor_qb(),
+        ]
+        prev = dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES
+        dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = {dc._canonical_match_key(name)}
+        try:
+            dc._compute_unified_rankings(rows, {})
+        finally:
+            dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = prev
+        assert _by_name(rows)[name]["pickYearDiscount"] == 0.82
+
+    def test_vendor_priced_future_year_carries_no_discount_stamp(self):
+        """The complement: no discount applied means no stamp to explain."""
         year = dc.current_rookie_draft_year()
         rows = [
             _row(f"{year + 1} Pick 1.01", "PICK", ktcSfTep=7000, idpTradeCalc=7000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
-        assert _by_name(rows)[f"{year + 1} Pick 1.01"]["pickYearDiscount"] == 0.82
+        assert _by_name(rows)[f"{year + 1} Pick 1.01"].get("pickYearDiscount") is None
 
     def test_players_are_never_year_discounted(self):
         """The discount is gated to ``assetClass == 'pick'``.
@@ -519,7 +569,7 @@ class TestRetiredPassesStayRetired:
                 if row.get(stamp) is not None:
                     offenders.append(f"{row.get('displayName')}::{stamp}={row[stamp]}")
         assert not offenders, (
-            "a retired value-moving pass appears to have been revived: " f"{offenders[:5]}"
+            f"a retired value-moving pass appears to have been revived: {offenders[:5]}"
         )
 
     def test_idp_calibration_config_and_helper_are_really_gone(self):

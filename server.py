@@ -4970,6 +4970,19 @@ async def post_waiver_faab_recommend(request: Request):
 
     # One pass over the pool: top FA value (baseline share) AND the
     # next-best same-position FA (replaceability gate for FAAB v2).
+    #
+    # THE POOL IS PLAYERS ONLY (audit finding W-1, 2026-08-04).  This
+    # loop used to filter on "is this name on a roster" alone.  Draft
+    # picks are never on a Sleeper roster's ``players`` list — picks are
+    # not players — so every pick row passed the filter and counted as
+    # an available free agent.  The highest-value pick then set
+    # ``top_pool_value``, and since the whole bid formula is
+    # ``0.05 + 0.25 * (candidate / top_pool_value)``
+    # (src/trade/waiver.py:91), every recommended bid was divided by a
+    # first-round pick instead of by the best actual free agent.
+    # Measured on the live board: the desk recommended $12 standard
+    # where a free-agent-only denominator gives $29 — every bid roughly
+    # 2.4x too low, on the number users act on to win a claim.
     rostered_norms: set[str] = set()
     for t in sleeper_teams:
         for n in t.get("players") or []:
@@ -4980,6 +4993,8 @@ async def post_waiver_faab_recommend(request: Request):
     for row in arr:
         if not isinstance(row, dict):
             continue
+        if str(row.get("assetClass") or "").lower() == "pick":
+            continue  # not addable from waivers — cannot anchor the pool
         rname = _norm(row.get("displayName") or row.get("name"))
         if not rname or rname in rostered_norms:
             continue
