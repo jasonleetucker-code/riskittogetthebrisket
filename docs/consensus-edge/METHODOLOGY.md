@@ -81,6 +81,71 @@ leakage. Instead each measurement stamps its `configuration`, each board
 stamps `validationScope`, and a mismatch becomes a caveat on the payload
 and a note on the page. See `src/consensus_edge/validation_scope.py`.
 
+## What happens if you follow the board
+
+The ρ above is a statement about a number inside the engine. What a user
+sees is a **list of twenty names**, and nothing scored that until
+`scripts/validate_consensus_edge_board.py`. It replays the full labelled
+board — `service.build_board` and `service.top_movers`, the shipped
+functions, not a reimplementation — for every fold origin on the panel.
+
+**Headline: the top-20 buy list beats a random-20 draw from the same
+priced universe.**
+
+| horizon | folds | top-20 median excess | folds positive | beat random |
+|---|---|---|---|---|
+| 7d | 15 | +0.92% | 11/15 | 12/15 |
+| 14d | 7 | +1.57% | 6/7 | 6/7 |
+
+**The median, not the mean, is the headline, and that is forced by the
+data.** These are percentage returns on assets priced 152 to 9999. On one
+real fold, four players priced 152–306 returned +327%, +268%, +210% and
++195%, pulling the top-20 mean to **+59.44%** while the median sat at
+**+1.04%**. Reporting the mean would have manufactured an edge out of
+four floor-priced rookies. Every bucket carries `topContributorShare` so
+that dependence is visible rather than implicit.
+
+Labels come out monotone in the right order (14d medians):
+
+| label | median excess | folds positive | rows |
+|---|---|---|---|
+| Buy *(demoted from Strong)* | **+2.53%** | **6/6** | 136 |
+| Buy | +0.07% | 2/7 | 568 |
+| Sell *(demoted from Strong)* | +0.04% | 2/7 | 65 |
+| Neutral | −0.00% | 1/7 | 2842 |
+| Sell | −0.04% | 0/7 | 677 |
+| Insufficient Evidence | −0.23% | 0/7 | 877 |
+
+Three findings that matter more than the headline:
+
+- **The label the board refuses to show is the one that works.** Every
+  would-be Strong Buy is demoted into `Buy` because the confidence
+  ceiling (69.34) sits under the Strong threshold (70). That demoted
+  bucket is the only consistently positive group on the board — 6/6
+  folds at 14d, 11/14 at 7d. The ceiling is suppressing the best signal
+  we have.
+- **The sell side has no edge at all.** 0 of 7 folds positive at 14d, 0
+  of 15 at 7d. The buy side carries everything, and the payload now says
+  so in its caveats.
+- **The edge is concentrated in assets too cheap to trade for, and this
+  is the most consequential finding.** **127 of 140** top-20 buys across
+  the 14-day folds — **91%** — are priced under 2000 on the 0-9999
+  scale, with a median top-20 market value of **1026**. Restricted to
+  assets at or above 2000, the edge falls to +0.10% (4/7 folds) at 14d
+  and +0.07% (6/15) at 7d: essentially nothing. The mispricing score is
+  a log ratio, which is easiest to make large on a floor-priced asset,
+  so `top_movers` — which ranks on score alone — surfaces a deep-sleeper
+  list rather than a trade-calculator list. The signal is real; what it
+  is a signal *about* is not what the page implies.
+
+Also measured, and previously an uncontrolled confound in ρ: **the panel
+is not homogeneous.** `CSVs/site_raw/` holds 9 files on 2026-04-16 and 24
+from 2026-06-01. The single negative 14-day fold is the thinnest one (9
+sources, 184 scored rows). The edge is if anything *dragged down* by the
+thin era rather than carried by it.
+
+Reproduce: `python scripts/validate_consensus_edge_board.py --horizon-days 14`.
+
 ## What this does not establish
 
 - **Market movement, not production.** The panel covers an offseason, so

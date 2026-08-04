@@ -277,18 +277,40 @@ class TestInputsAreResolvedOnce(unittest.TestCase):
                 "the recorded history would then describe a board no user saw",
             )
 
+    # Parameters that are NOT data inputs and must not be resolved from
+    # the environment. `params` and `hours_stale` are caller policy;
+    # `csv_root` and `scoring_fit_board` exist for historical replay —
+    # resolving those from the environment is precisely the leak the
+    # replay guards against, since "whatever is on disk right now" is
+    # today's data.
+    _NOT_DATA_INPUTS = frozenset(
+        {"contract", "params", "hours_stale", "csv_root", "scoring_fit_board"}
+    )
+
     def test_the_resolver_covers_every_optional_input(self):
         from src.consensus_edge import inputs as inputs_mod
 
         optional = {
             name
             for name, param in inspect.signature(service.build_board).parameters.items()
-            if param.default is None and name not in ("contract", "params", "hours_stale")
+            if param.default is None and name not in self._NOT_DATA_INPUTS
         }
         self.assertEqual(
             optional,
             set(inputs_mod.resolve(None)),
-            "build_board grew an optional input the shared resolver does not supply",
+            "build_board grew an optional data input the shared resolver does not "
+            "supply. If the new parameter is replay-only rather than a data input, "
+            "add it to _NOT_DATA_INPUTS and say why.",
+        )
+
+    def test_the_exclusion_list_only_names_real_parameters(self):
+        # Otherwise the exclusion list becomes a place stale names hide,
+        # and a genuinely unresolved input could be masked by a typo.
+        actual = set(inspect.signature(service.build_board).parameters)
+        self.assertTrue(
+            self._NOT_DATA_INPUTS <= actual,
+            f"exclusion list names parameters that no longer exist: "
+            f"{sorted(self._NOT_DATA_INPUTS - actual)}",
         )
 
     def test_resolution_never_raises_on_a_bare_environment(self):

@@ -152,6 +152,32 @@ def _scoring_cards() -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict
     return my_scoring, baseline_scoring, meta
 
 
+def inert_board(reason: str) -> ScoringFitBoard:
+    """A fit that provably does nothing, for callers that must not measure.
+
+    A historical replay needs this for two independent reasons, and both
+    are correctness rather than convenience:
+
+    * :func:`measure` reaches nflverse over the network on a cache miss
+      (``season`` comes from ``currentDraftYear``, which the contract
+      always carries, and the ``nfl_data_ingest`` flag defaults ON), so
+      a replay would make one network call per process and fail closed
+      in an offline run.
+    * An *active* fit is precisely the configuration divergence
+      :mod:`consensus_edge.validation_scope` exists to flag. The
+      published rho was measured with the fit inert; a replay that
+      applies it measures a different board and may not be compared
+      against that number.
+
+    ``for_player`` returns 1.0 for everything here, and ``active`` is
+    False, so ``validation_scope.scope_for_board`` reports a match.
+    """
+    board = ScoringFitBoard()
+    board.absent_axes = ["idpPositionFit", "receptionDepthFit"]
+    board.reasons["summary"] = reason
+    return board
+
+
 def measure(*, season: int | None = None, refresh: bool = False) -> ScoringFitBoard:
     """Measure both axes, cached per process.
 

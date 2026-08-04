@@ -302,3 +302,80 @@ page. A test asserts the backtest really does run inert, so the day
 someone teaches it otherwise they must also update the recorded
 configuration alongside a re-run.
 **Status:** accepted 2026-08-04.
+
+## ADR-015: market movement is the right target, and points is another product's bar
+For three sessions the docs listed "validated against realized fantasy
+points" as an outstanding gate and dated it to September. That was a
+category error. Consensus Edge answers "should I trade for this player" —
+if the board says buy, you acquire at 5000, and the market reprices to
+6000, the call was right whatever he scored. Points answer a *start/sit*
+question. Holding a trade tool to a start/sit bar deferred a decision
+that the market-movement evidence could already inform.
+**The mechanism was also stated wrongly**, which sent the reasoning
+somewhere useless. It is not "no games are played until September":
+`fetch_weekly_stats([2025])` returns 18,539 regular-season rows today,
+they are already cached on disk, and `nflverse_direct` explicitly
+refuses to gate on `current_nfl_season` because a finished season's data
+is served all offseason. What is missing is the *other* half of the
+correlation — board history from a period when games were played. The
+repository's first commit is 2026-03-09 and the 2025 season ended in
+January 2026. We have the answer key and not the exam papers.
+**Decision:** market movement is the validation target of record. Points
+validation is recorded as a future *extension*, not an outstanding gate,
+and requires in-season board history that will exist from September
+onward. Anyone reaching for the 2025 points should be told the boards,
+not the points, are what is missing.
+**Status:** accepted 2026-08-04.
+
+## ADR-016: the offseason panel is a stated limit with a scheduled re-run
+The whole 110-day panel sits between the 2026 draft and the season.
+Offseason repricing is driven by rookie hype and ADP drift; in-season
+repricing by injuries and usage. A signal measured only on the former
+may not transfer.
+Two options were live: withhold the feature until in-season dates
+accrue, or ship with the limit stated. Withholding forgoes evidence we
+already have to buy evidence we will get anyway, and the re-run costs
+nothing new — it is the same `run_consensus_edge_backtest.py` and the
+same `validate_consensus_edge_board.py` against a panel that by then
+includes in-season dates, directly comparable to today's numbers.
+**Decision:** ship with the limit stated. `service._caveats` carries it
+on every payload, every measurement stamps `panelStart`/`panelEnd`, and
+the re-run is scheduled rather than hoped for.
+**Also recorded so nobody re-derives it:** the panel *could* reach back
+to 2026-03-22 (`data/legacy_data_2026-03-22.json` and the March payloads
+embed 15 sources directly, and there is a second tracked CSV tree at
+`exports/latest/site_raw/` that `available_dates` never consults). It is
+not worth doing: seven of the fifteen March source keys have no modern
+registry entry, `ktc` stopped voting on 2026-04-28, and `ktcSfTep` — the
+offense market anchor — did not exist in March, so a naive extension
+produces exactly the "looks like a real board, scores like a broken one"
+failure the intersection guard was written to prevent. And 2026-03-22 is
+still ten weeks after the last 2025 game, so it buys offseason days, not
+the in-season ones that motivated looking.
+**Status:** accepted 2026-08-04.
+
+## ADR-017: the top-20 list is scored, and the median decides
+`run_consensus_edge_backtest.py` measures a number inside the engine.
+Users see a list of twenty names and a label per player, and nothing
+scored either until `validate_consensus_edge_board.py`. It replays
+`service.build_board` and `service.top_movers` — the shipped functions,
+not a reimplementation — so the thing measured is the thing served.
+**The median is the headline and the mean is a diagnostic.** These are
+percentage returns on assets priced 152 to 9999. On one real fold, four
+players priced 152-306 returned +327%, +268%, +210% and +195%, dragging
+the top-20 mean to +59.44% against a median of +1.04%. A 60-point move
+on a floor-priced rookie is noise wearing a large percentage. Every
+bucket also reports `topContributorShare` so single-row dependence is
+visible rather than inferred.
+**The bar was set before the numbers:** positive median AND beat a
+random-20 draw in a majority of folds AND the edge is not confined to
+one asset class. Result: +1.57% over 7 folds at 14d (6/7 positive, beat
+random 6/7) and +0.92% over 15 at 7d (11/15, 12/15). It passes.
+**Three findings the headline hides, all now in the payload and the
+docs:** the demoted-from-Strong bucket is the only consistently positive
+label (6/6 and 11/14 folds) — the confidence ceiling is suppressing the
+board's best signal; the sell side is positive in 0 of 7 and 0 of 15
+folds and is therefore unvalidated; and restricted to assets worth
+≥ 2000 the edge falls to +0.10%, so it lives mostly in players too cheap
+to trade for.
+**Status:** accepted 2026-08-04.

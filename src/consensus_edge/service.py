@@ -12,6 +12,7 @@ present, so the prose cannot claim more than the data supports.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from src.consensus_edge import MODEL_VERSION, opportunity, params as params_mod, score as score_mod
@@ -242,6 +243,8 @@ def build_board(
     player_context_by_player: dict[str, dict[str, Any]] | None = None,
     params: dict[str, Any] | None = None,
     hours_stale: float | None = None,
+    csv_root: "Path | None" = None,
+    scoring_fit_board: Any = None,
 ) -> dict[str, Any]:
     """Score every player on the contract.
 
@@ -254,6 +257,25 @@ def build_board(
     opportunity component falls back to the board-momentum risk axis
     alone, which can only ever subtract — so a missing snapshot cannot
     manufacture a buy.
+
+    ``csv_root`` **must** be supplied when replaying a historical date.
+    The pipeline enriches ``canonicalSiteValues`` from ``CSVs/site_raw``
+    on disk, so omitting it silently mixes today's source values into a
+    past board — the look-ahead leak that contaminated 682 of 692 rows
+    the one time it happened (ADR-006), and which still produces a board
+    that looks entirely valid. Its absence here is why both existing
+    backtests bypass this function and rebuild the composite by hand;
+    with it they no longer have to, and a study can score the board the
+    site actually serves rather than a reimplementation of it.
+
+    ``scoring_fit_board`` lets a caller supply an INERT fit rather than
+    letting this measure one. Two reasons a replay needs that, and both
+    are correctness rather than speed: ``scoring_fit.measure`` reaches
+    nflverse over the network on a cache miss, and an *active* scoring
+    fit is exactly the configuration divergence
+    :mod:`consensus_edge.validation_scope` exists to flag — the
+    published rho describes a board measured with the fit inert, so a
+    replay that applies it is measuring something else.
     """
     if not contract:
         return {
@@ -276,9 +298,12 @@ def build_board(
     # rather than resolved inside it: identity is the identity package's
     # job, and a second join grown inside a scoring module is how a repo
     # ends up with two answers to "which player is this".
-    scoring_fit.set_gsis_join(identity_join.build_gsis_to_player_key(contract))
-    fit_board = scoring_fit.measure(season=contract.get("currentDraftYear"))
-    index = fair_value_index(contract, scoring_fit_board=fit_board)
+    if scoring_fit_board is not None:
+        fit_board = scoring_fit_board
+    else:
+        scoring_fit.set_gsis_join(identity_join.build_gsis_to_player_key(contract))
+        fit_board = scoring_fit.measure(season=contract.get("currentDraftYear"))
+    index = fair_value_index(contract, scoring_fit_board=fit_board, csv_root=csv_root)
     mispricing = score_index(index)
     flow = sf.sharp_flow_index(movements_by_asset, p)
 
@@ -430,6 +455,19 @@ def _caveats(scope: dict[str, Any]) -> list[str]:
         "measured and carries zero weight: it is shown as evidence and does "
         "not move any score.",
         "Validated against market movement, not fantasy production.",
+        # The panel every measurement rests on runs 2026-04-16 → 2026-08-03,
+        # entirely between the draft and the season. Offseason repricing is
+        # driven by rookie hype and ADP drift; in-season repricing by
+        # injuries and usage. The measurements may not transfer, and the
+        # re-run is scheduled rather than hoped for.
+        "Measured over an offseason panel only — no in-season board history "
+        "exists in this repository. Re-measure once in-season dates accrue.",
+        # Measured, not asserted: docs/measurements/consensus-edge-board-
+        # validation-2026-08-04-h14.json. Sell rows returned -0.04% median
+        # cohort-excess with 0 of 7 folds positive (0 of 15 at a 7-day
+        # horizon). The buy side carries the whole edge.
+        "The sell side has no measured edge: sell-labelled rows were positive "
+        "in 0 of 7 folds. Treat sells as unvalidated.",
     ]
     for difference in scope.get("differences") or []:
         out.append(f"This board is NOT running the configuration that was measured — {difference}.")
