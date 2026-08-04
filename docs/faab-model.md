@@ -826,9 +826,12 @@ comparison, and the script says so at the top of every run.
 | Mean overpayment when winning | — | **$34.73** | **$44.77** |
 | Average recommendation | $7.79 (avg actual) | $39.12 | $28.11 |
 
-Edge cases, against the backtest's own anchors (`V_allin` 2341, `V_repl` 1383 —
-the same anchors the endpoint resolves, now that the backtest excludes kicker
-slots from the starter count as the endpoint does):
+Edge cases, against the backtest's own anchors (`V_allin` 2341, `V_repl` 1383,
+band 958). The all-in line now matches the endpoint's exactly, because the
+backtest excludes kicker slots from the starter count as `server.py` does. The
+replacement line still differs from the live 1525.5: the backtest has no
+free-agent pool to blend in, so it uses the format-only figure and runs on a
+958-point band rather than the live 815.5.
 
 | Failure mode | Population | OLD | NEW |
 |---|---|---|---|
@@ -849,28 +852,34 @@ Per value band, average recommendation as % of budget:
 that is intended, not a regression. OLD buys its win rate by committing 45.5
 budget-units against the 9.25 actually spent — it wins nearly everything
 because it bids roughly five times the market on every claim. All 156 of NEW's
-"losses" are claims that genuinely cost money, at a median of $5; 138 of them
-are players NEW priced at $0 because they grade below the replacement anchor
+"losses" are claims that genuinely cost money, at a median of $5; **148 of them
+are players NEW priced at $0** because they grade below the replacement anchor
 on today's board. NEW is declining to buy players it says are freely
-replaceable, and the cost of declining them was a small fraction of a budget-unit of claims
-it did not make.
+replaceable. Do not round that cost away: the 156 claims NEW walked away from
+cost **8.00 budget-units** in total (7.02 of them in the $0-bid subset). That
+is real forgone roster, and it is the price of the discipline — against OLD
+committing 45.51 units to win them.
 
 **Honest reading of the overpayment.** NEW's *median* overpayment when winning
 is $0 against OLD's $20 — NEW routinely pays the market price exactly. Its
 *mean* is worse, $44.77 against $34.73, and that number should not be waved
-away. It is dragged by 32 wins with overpayment above $100, essentially all of
-them 2024 ($1,000 budget) and 2025 ($200 budget) claims on players who cleared
-for $0–$13 at the time and grade 3,500–3,900 today: Edgerrin Cooper ($0 actual
-vs $705 recommended), Dallas Turner ($0 vs $887), Brenton Strange ($5 vs $891).
-Those are look-ahead artifacts — the model is being asked to price a breakout
-that had not happened yet — but the mean is the mean, and a reader is entitled
-to know NEW's tail is fatter than OLD's on the joined sample.
+away. It is dragged by **24** wins with overpayment above $100, essentially all
+of them 2024 claims on a $1,000 budget where the player cleared for $0–$13 at
+the time and grades 3,500–3,900 today: Dallas Turner ($0 actual vs $729
+recommended), Brenton Strange ($5 vs $733), Edgerrin Cooper ($0 vs $579),
+Parker Washington ($13 vs $579). Those are look-ahead artifacts — the model is
+being asked to price a breakout that had not happened yet — but the mean is the
+mean, and a reader is entitled to know NEW's tail is fatter than OLD's on the
+joined sample.
 
 **The one clean signal.** Below the replacement anchor, where look-ahead bias
 cuts the *other* way (a player who is bad today was probably not better then),
-NEW eliminates all 166 low-value overbids and misses nothing impactful. That
-band is 38% of the sample and it is the failure mode the redesign existed to
-fix.
+NEW eliminates all **166 of 166** low-value overbids that OLD commits. That
+band is **43.2%** of the sample and it is the failure mode the redesign existed
+to fix. Note that "impactful player missed" no longer separates the two models
+at all — with the corrected anchors both score **0 of 45**, so that row is
+evidence NEW gave up nothing at the top, not evidence it improved anything
+there.
 
 ---
 
@@ -913,7 +922,9 @@ fix.
    **all** starter slots including K (21 for `dynasty_main`) while `server.py`
    excluded K (20), so the backtest ran with `V_allin = 2168` at rank 252
    rather than the live 2341 at rank 240. Both now exclude K. The correction
-   moved NEW's total commitment from 31.18 down to 23.18 budget-units — the
+   moved NEW's total commitment from 31.14 down to 23.18 budget-units, its win
+   rate from 62.2% to 59.4%, and its mean overpayment from $57.38 to $44.77 —
+   the
    figures in §9.4 are the post-fix ones.
 
 7. **In-code fallback defaults diverge from the shipped config.**

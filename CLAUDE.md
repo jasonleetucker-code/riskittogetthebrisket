@@ -532,14 +532,18 @@ a nonzero-only median.
 Did it work?  ``scripts/faab_backtest.py`` replays this league's real
 claims through both models (384 of 695 join to a canonical value today).
 Low-value overbids — below replacement, bid > 5% of budget — go from
-**145 of 145 (OLD) to 0 of 145 (NEW)**; impactful players missed go from
-1 to 0; total committed falls from 45.51 budget-units (OLD) to 31.14
-(NEW) against 9.25 actually spent.  NEW's win rate is *lower* (62.2% vs
+**166 of 166 (OLD) to 0 of 166 (NEW)**, and that band is 43% of the
+sample.  Total committed falls from 45.51 budget-units (OLD) to 23.18
+(NEW) against 9.25 actually spent.  NEW's win rate is *lower* (59.4% vs
 95.3%) **by design** — OLD buys its win rate by bidding roughly 5x the
-market on everything.  Report this honestly: NEW's median overpayment is
-$0 vs OLD's $20, but its **mean is worse** ($57.38 vs $34.73), dragged
-by look-ahead artifacts above the all-in line.  The script states five
-structural caveats at the top of every run; read them before quoting it.
+market on everything.  Report this honestly rather than cherry-picking:
+NEW's median overpayment is $0 vs OLD's $20 but its **mean is worse**
+($44.77 vs $34.73, dragged by look-ahead artifacts above the all-in
+line); the claims NEW declined cost 8.00 budget-units of forgone roster;
+and "impactful players missed" is 0 for BOTH models, so it is evidence
+NEW gave nothing up at the top, not evidence it improved there.  The
+script states five structural caveats at the top of every run; read them
+before quoting it.
 
 ### Canonical Data Mode
 The offline canonical-build path (``scripts/canonical_build.py`` +
