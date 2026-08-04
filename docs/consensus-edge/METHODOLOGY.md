@@ -313,8 +313,9 @@ Two axes, both real, neither carrying weight:
   can temper a buy, never create one. (It previously scored a rising
   price *positively*, which is momentum-chasing; see ADR-013.)
 - **`snapTrend`** — recent snap share against the season average, from
-  `data/playerctx/snapshot.json`. Production-only, so unreplayable and
-  unmeasured.
+  `data/playerctx/snapshot.json`. Replayable but not yet measured; see
+  "Components not yet validated" below for the distinction, which is
+  not the one this section used to draw.
 
 The momentum axis turned out to be backtestable after all. Board history
 was assumed unrecoverable because `data/rank_history.jsonl` is untracked
@@ -342,17 +343,85 @@ The evidence is real; only its authority is withdrawn. Reproduce:
 - **Sharp Flow** — the qualified-manager ledger lives in prod-only
   gitignored `data/intel/`, so it is unit-testable here and not
   empirically checkable. It is also not merely unmeasured but
-  **unmeasurable** as the code stands: the qualified cohort is
-  recomputed live per request and `src/sharp/` has no as-of concept at
-  all, so a historical value cannot be reconstructed however much ledger
-  data accumulates. Other known defects on `main` documented in the
-  audit: no per-manager or per-league contribution cap, a dead
-  `rosterQuality` term carrying 0.22 of the Sharp Score, and a
-  quality-lookup key mismatch that silently gives cross-platform
-  managers quality 1.0.
-- **`snapTrend`** (the Opportunity axis above) — the playerctx snapshot
-  is refreshed weekly and never committed, so there is no history to
-  replay. Unmeasurable until snapshots accrue.
+  **unmeasurable by any historical route**, and for two reasons rather
+  than the one recorded here until 2026-08-04.
+
+  The recorded reason: the qualified cohort is recomputed live per
+  request and `src/sharp/` has no as-of concept, so a historical value
+  cannot be reconstructed however much ledger data accumulates. True,
+  and a blocker.
+
+  The reason that makes it terminal: **the movement corpus is itself
+  conditioned on today's cohort.** `scripts/crawl_sharp_activity.py`
+  crawls only managers who qualify *at crawl time* (the first 250,
+  sorted by user-id string). A manager who qualified at date D but does
+  not now had their movements **never collected**; one who qualified
+  later carries only a ~30-day backfill stub. So the corpus is
+  survivorship-biased on a proxy for the outcome, the bias is upstream
+  of every filter, and an as-of cohort cannot recover data that was
+  never gathered. `MOVEMENT_RETENTION_DAYS = 400` caps the rest.
+
+  A historical Sharp Flow backtest is therefore unsound at any budget,
+  and deliberately not attempted — a number produced that way would be
+  plausible and wrong. The only sound route is forward-only:
+  `component_sharp_flow` is snapshotted daily with forward-return
+  labelling (`src/consensus_edge/snapshot.py`), which accrues one
+  genuine observation per day and needs no reconstruction.
+
+  Two defects that WERE fixable are fixed (2026-08-04). The cohort
+  filter is now applied rather than claimed: `inputs.sharp_movements`
+  queried `WHERE tx_type = 'trade'` and nothing else while its docstring
+  said "qualified-manager", so the filtering was incidental — a property
+  of what the crawler happened to collect, not of this code. And
+  `managerQuality` is now supplied from the same `CohortMember` records
+  the Sharp Tracker weights by; it was never passed, so every manager
+  defaulted to 1.0 and the quality term in `aggregate_asset` was a
+  constant. `STATUS_NO_COHORT` — declared and unreachable until the
+  filter became real — now reaches the payload, so "a ledger exists but
+  nobody qualifies" stops reading as "no ledger".
+
+  Other known defects on `main` documented in the audit: no per-manager
+  or per-league contribution cap, a dead `rosterQuality` term carrying
+  0.22 of the Sharp Score, and a quality-lookup key mismatch that
+  silently gives cross-platform managers quality 1.0.
+- **`snapTrend`** (the Opportunity axis above) — replayable since
+  2026-08-04, and **not measured for a different reason than the one
+  documented here until then**.
+
+  The old reason: the playerctx snapshot is refreshed weekly and never
+  committed, so there is no history to replay; unmeasurable until
+  snapshots accrue. That was wrong, and wrong in a way that turned a
+  missing function argument into a data-collection project. nflverse
+  publishes `snap_counts_{season}.csv` as one row per player **per
+  game** with a `week` column, and appends a dated snapshot to
+  `depth_charts_{season}.csv` on every upstream scrape. The history was
+  always upstream; `parse_snap_counts` was the thing discarding it.
+  `src/playerctx/asof.py` now resolves a date to the weeks whose games
+  had all finished before it (from the nflverse schedule), and
+  `service.reconstruct_playerctx` replays the snapshot for that window.
+  Verified: the week-22 replay of 2025 is byte-identical to the live
+  unbounded read.
+
+  The real reason it is still unmeasured: **the panel is entirely
+  offseason.** It spans 2026-04-16 → 2026-08-04, and every one of those
+  111 dates resolves to the same completed season and the same final
+  week — so `snapTrend` is the identical per-player number on 16 April
+  and on 3 August. Each fold yields a valid cross-sectional rho, but the
+  folds share one signal snapshot, so averaging them would report N
+  folds' confidence for one observation. The backtest's `snapTrend` arm
+  measures it anyway and stamps `snapWindows` and
+  `effectiveSignalObservations: 1` so the number cannot be read as more
+  than it is.
+
+  Retention would not have helped: weekly snapshots across this window
+  would have captured ~16 byte-identical blocks. What resolves it is
+  in-season dates entering the panel, which happens on its own.
+
+  One residual bias, reported rather than assumed away: the replay joins
+  through the **live** Sleeper directory — there is no historical
+  edition — so a player out of the league by run time cannot join. The
+  arm reports per-source join rates (80.7% for snap counts on the 2025
+  season as of 2026-08-04).
 
 ## League scoring fit
 

@@ -704,3 +704,178 @@ for a narrower and harder reason than ADR-021 stated. IDP returns to the
 board when a source publishes offense and IDP in one value pool under
 one registry key — not when a flag is set.
 **Status:** accepted 2026-08-04.
+
+---
+
+## ADR-026: `snapTrend` was never unmeasurable — the panel was the wrong season
+
+**Context.** Four places in this repo attributed the `snapTrend` axis's
+lack of validation to the same cause: `data/playerctx/snapshot.json` is
+refreshed weekly and overwritten in place, so "there is no history to
+replay" and the axis is "unmeasurable until snapshots accrue"
+(`score.py`, `backtest_consensus_edge_composite.py`, `METHODOLOGY.md`
+twice). The implied fix was a retention project — start committing
+snapshots and wait.
+
+**The attribution was wrong.** nflverse publishes
+`snap_counts_{season}.csv` as one row per player **per game**, carrying
+`season`, `game_type` and `week`; `depth_charts_{season}.csv` appends a
+full dated snapshot on every upstream scrape. The history was always in
+the files. `parse_snap_counts` was the thing discarding it — a
+newest-season filter with no week cutoff — and `parse_depth_charts` kept
+only the newest `dt`. As-of reconstruction was a missing function
+argument, not a missing dataset.
+
+**But retention would not have helped either**, and this is the part
+that decides the work. The panel runs 2026-04-16 → 2026-08-04, entirely
+between the draft and kickoff. Every one of those 111 dates resolves to
+the same completed season and the same final week, so `snapTrend` is the
+identical per-player number on 16 April and on 3 August. Weekly
+retention across that window would have captured ~16 byte-identical
+blocks. Every "fold" would be a resampling of one observation.
+
+Both halves were verified, not reasoned about:
+
+```
+2026-04-16 → AsOf(season=2025, through_week=22)
+2026-06-01 → AsOf(season=2025, through_week=22)
+2026-08-04 → AsOf(season=2025, through_week=22)
+
+week-22 replay of 2025 == unbounded live read:  True  (1,766 players)
+week-10 replay:  1,592 players with snaps, mean trend +0.39
+week-4  replay:  1,400 players with snaps, mean trend +0.21
+```
+
+The first block is the finding; the second confirms the replay path is
+faithful to what production reads; the third confirms the signal
+actually moves with the cutoff, which is the property a backtest needs
+and the one an offseason panel cannot supply.
+
+**Decision.**
+
+1. `parse_snap_counts` takes `season` / `through_week`;
+   `parse_depth_charts` takes `as_of`. Both default to the previous
+   unbounded behaviour, test-pinned as byte-identical.
+2. `src/playerctx/asof.py` resolves a date to the window observable on
+   it, from the nflverse schedule already fetched for BDVM's ROS. A week
+   counts only when all its games are done, and same-day games do not
+   count — snaps publish after the game.
+3. `service.reconstruct_playerctx` replays the snapshot in memory. It is
+   **not** a parameter on `refresh_playerctx`: that would leave a
+   historical replay one default argument away from overwriting the file
+   production serves live.
+4. The composite backtest grows a `snapTrend` arm that measures the axis
+   anyway and stamps `snapWindows` + `effectiveSignalObservations: 1`,
+   so the number cannot be read as more than one cross-section. First
+   run: mean rho +0.037 over 5 folds, 4/5 positive, beating the
+   market-value benchmark in 0/5 — "no effect detected", from one frozen
+   observation.
+
+**Two bugs the new parameters exposed**, both of the class this audit
+keeps finding — code that works until you use it:
+
+- The parse loop bound its row-season local to the name `season`,
+  shadowing the new parameter. The caller's argument was destroyed on
+  the first row and the filter silently used the newest season.
+- `parse_depth_charts` compared `dt > as_of` on whole strings. `dt` is a
+  full timestamp, so the natural bound `"2025-11-09"` dropped that
+  entire day and fell back to the previous snapshot — an off-by-one-day
+  that still returns a plausible depth chart. Fixed with a same-length
+  prefix compare; verified the two covering tests fail without it.
+
+**Residual bias, reported not assumed away.** The join anchor is the
+live-only Sleeper directory, so a player out of the league by run time
+cannot join. `reconstruct_playerctx` returns per-source join rates
+(80.7% for the 2025 snap counts as of 2026-08-04) rather than an
+unqualified player list.
+
+**What this does not claim.** The axis is measurable, not measured. It
+becomes a real multi-fold measurement when in-season dates enter the
+panel — automatically, with no further work.
+
+**Status:** accepted 2026-08-04.
+
+---
+
+## ADR-027: Sharp Flow's filter is now applied, and it still cannot be backtested
+
+**Context.** `inputs.sharp_movements` documented itself as
+"Qualified-manager trade movements" and `sharp_flow.py`'s module
+docstring opens with "Qualified-manager acquisition direction". The
+query was:
+
+```sql
+SELECT asset_id, action, user_id, league_id, ts
+  FROM asset_movements
+ WHERE tx_type = 'trade'
+```
+
+No cohort filter. The claim was nevertheless *true* in production,
+because `scripts/crawl_sharp_activity.py` only visits managers who
+qualify at crawl time — so the corpus arrived pre-conditioned and the
+component behaved as advertised. The filtering was incidental, a
+property of what the crawler happened to collect rather than of this
+code, and it would fail silently and flatteringly the day anything else
+wrote to the ledger.
+
+Two more of the same shape, found alongside it:
+
+- **`managerQuality` was never supplied.** `movements_from_ledger_rows`
+  reads it off the row and defaults to 1.0, so every manager weighed the
+  same and the quality term in `aggregate_asset` was a constant.
+  `src/sharp/market.py` computes a real one per `CohortMember` and
+  Consensus Edge simply never received it.
+- **`STATUS_NO_COHORT` was declared and unreachable.** A status naming a
+  check no code performed. Everything collapsed to `no_ledger`,
+  including "a ledger exists but nobody qualifies" — a different
+  situation with a different fix.
+- **The query read the per-platform raw columns.** After the additive
+  platform migration, `asset_id` / `user_id` keep the SOURCE ids while
+  `canonical_asset_id` / `manager_key` carry canonical identity. On a
+  multi-platform ledger the same player would arrive under two asset
+  keys and no manager would match a cohort key.
+
+**Decision.** Apply the filter rather than restate the docstring. The
+cohort comes from `src.sharp.market.cohort_members` — the one definition
+of who qualifies — rather than a second set of criteria; quality is
+stamped per movement from the same records; the canonical columns are
+preferred with a `PRAGMA table_info` check rather than a try/except that
+would make a schema mismatch look like an empty ledger; and
+`STATUS_NO_COHORT` reaches the payload.
+
+**What none of that fixes, and it is the larger problem.** The corpus is
+conditioned on TODAY's cohort, not the cohort at the time of each trade.
+`crawl_sharp_activity.py` crawls the first 250 currently-qualified
+managers sorted by user-id string, so a manager qualified at date D but
+not now had their movements **never collected**, and one who qualified
+later carries only a ~30-day backfill stub. That is survivorship on a
+proxy for the outcome, it is upstream of every filter, and no as-of
+cohort can recover data that was never gathered.
+`MOVEMENT_RETENTION_DAYS = 400` caps the rest.
+
+So the reason recorded in `METHODOLOGY.md` and `params_v1.json` —
+"unvalidatable until `src/sharp/` gains an as-of cohort" — was necessary
+but **not sufficient**, and stating it alone implied a fix that would
+not have worked. Both files now say so.
+
+**Explicitly rejected: a historical Sharp Flow backtest.** It is unsound
+at any budget, and a number produced that way would be exactly the
+plausible-but-wrong result this audit spent its time removing.
+
+**Adopted instead: the forward-only path that already existed.**
+`snapshot.write_board` has been storing `component_sharp_flow` per
+player per day, and `label_outcomes` fills cohort-excess forward returns
+once the horizon has elapsed. Signal and outcome are written weeks apart
+by two different code paths, so there is no window to leak through and
+nothing to reconstruct. `scripts/validate_components_forward.py` reads
+it — for every stored component and the served ranking key, so a Sharp
+Flow number has something to be judged against.
+
+It accrues one observation per day from the day the board runs, and it
+reports `labelledRows` per series so an empty component column reads as
+"no ledger" rather than "no signal". Origins are correlated separately
+and averaged, never pooled, and the output states plainly that
+consecutive daily origins overlap and are therefore a count of
+cross-sections, not of independent observations.
+
+**Status:** accepted 2026-08-04.
