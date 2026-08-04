@@ -155,3 +155,55 @@ explicitly. When an in-season panel exists, production outcomes get their
 own evaluation and their own verdict rather than being folded into this
 one.
 **Status:** accepted 2026-08-04.
+
+## ADR-010: the mispricing score saturates smoothly rather than clamping
+**The defect.** The z-score was hard-clamped at ±3 sigma. Compressing the
+tail is right — it is populated by identity errors and stale rows as well
+as genuine mispricing, and an 8-sigma row should not dominate a ranking.
+But a clamp discards ORDER, not just magnitude. Measured on the live
+board: 23 of 699 scored rows sat exactly on the clip, and among the
+clipped buys the underlying gaps ran from +20% to +229%, every one scored
+identically. The published "Top 20 Buys" was an arbitrary tie-break over
+eleven players, ordered by whatever sequence they happened to be in — at
+precisely the point of the product a user reads first.
+**Decision:** `score = tanh(z / 3)`. Same compression, still bounded,
+strictly monotone everywhere, so ordering survives into the tail. The raw
+`z` is reported unsaturated so two extreme rows remain comparable.
+**Verified not to change the measurement:** Spearman is rank-based and
+tanh is monotone, so the backtest returns exactly +0.126 over 7/7 folds
+as before. Re-run rather than assumed.
+**Status:** accepted 2026-08-04.
+
+## ADR-011: Sharp Flow bounds any single contributor
+**The defect on main.** There is no per-manager or per-league cap
+anywhere in the signal. One qualified manager active in ten leagues
+contributes ten observations to an asset, and `breadth_factor`
+(`m/(m+3)`) saturates too quickly to push back.
+**Decision:** cap each manager's and each league's SHARE of one asset's
+evidence, applied as a scaling factor on the observations so buys and
+sells shrink together and capping can never flip a direction. Capping
+shares rather than counts keeps it scale-free — ten managers at 10% each
+are untouched; one at 80% is cut.
+**Also decided here:** a beta-binomial posterior replaces the
+multiply-everything heuristic, so direction and certainty travel
+separately; evidence decays on a declared half-life; and below a minimum
+effective sample the answer is `None` with a reason, because "we do not
+know" and "the market is neutral" are different claims. The incumbent
+formula is retained as `legacy_signal_strength` for benchmarking.
+**Unfixable here, and stamped rather than hidden:** the ledger stores no
+consideration, so an acquisition is direction and never evidence of a
+good price. `priceAware: false` rides on every payload.
+**Status:** accepted 2026-08-04. Not validated — no ledger exists outside
+production, so none of this has been checked against an outcome.
+
+## ADR-012: the feature flag defaults OFF, and /methodology ignores it
+Two of the three components have never been validated. A composite of
+one measured and two unmeasured components is defensible as a labelled
+experiment and not as advice, so `consensus_edge` defaults OFF and every
+payload carries `experimental: true` plus a per-component `validated`
+flag sourced from `COMPONENT_VALIDATION` — a property of the data, so the
+UI cannot drift from the truth by restating it.
+**The one exception:** `/api/consensus-edge/methodology` answers even
+when the flag is off. A user who cannot see the board should still be
+able to read what it is and what it does not claim.
+**Status:** accepted 2026-08-04.

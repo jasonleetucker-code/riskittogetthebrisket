@@ -1,9 +1,11 @@
 # Consensus Edge — methodology
 
-**Status:** shadow / experimental as of 2026-08-04. The market-mispricing
-component has an out-of-sample result; the composite does not exist yet
-and will ship behind a flag defaulting OFF. Decisions and their reasoning
-live in `DECISIONS.md` beside this file; this page is the short version.
+**Status:** shipped behind the `consensus_edge` feature flag, which
+defaults **OFF**, as of 2026-08-04. The market-mispricing component has
+an out-of-sample result; the other two do not, which is why the flag is
+off and why every payload stamps `experimental: true` and a per-component
+`validated` flag. Decisions and their reasoning live in `DECISIONS.md`
+beside this file; this page is the short version.
 
 ## The problem
 
@@ -75,6 +77,36 @@ measurements are committed under `docs/measurements/`.
   current. Valid for "would this have ranked players usefully?", not for
   "what did the site show that day?".
 - **Modest effect.** rho ≈ 0.1 is a real edge, not a strong one.
+
+## The composite
+
+`L` is a weighted blend of the present components, squashed by `tanh` to
+`[-100, 100]`. The weights (0.50 / 0.30 / 0.20) are **declared priors,
+not fitted** — see ADR-008 for why fitting them against one measured and
+two unmeasured components would have been worse than declaring them.
+
+Four behaviours matter more than the arithmetic:
+
+- **Absent components are dropped, not zeroed.** Weights renormalise over
+  what is present. A player with no sharp data is not scored as though
+  qualified managers had looked and shrugged.
+- **A core component is required.** Opportunity alone describes a player
+  without saying whether he is mispriced; calling that a Buy is a
+  category error, so the score is `None`.
+- **Conflict beats the arithmetic.** Strong opposing components force
+  `Conflicted` regardless of where the average lands. `+0.8` against
+  `−0.8` averages to zero and would otherwise render as Neutral, which is
+  the opposite of what the evidence says.
+- **Confidence is a conjunction.** A geometric mean over coverage,
+  reliability and freshness, so one absent factor collapses the score
+  rather than being hidden by three strong ones.
+
+Labels: Strong Buy / Buy / Neutral / Sell / Strong Sell, plus
+`Conflicted`, `Insufficient Evidence`, `No Market Price` and `Withheld`.
+Strong labels additionally require high confidence — so on today's data,
+where only one of three components is available, coverage caps confidence
+below that threshold and **no player can earn a Strong Buy**. That is the
+design working, not a gap to be tuned away.
 
 ## Components not yet validated
 
