@@ -30,10 +30,17 @@ import {
   realizedResults,
   computeMaxBid,
   displacementCost,
+  evaluateBid,
   logPriceDispersion,
   priceBand,
   PRICE_DISPERSION_PRIOR,
+  planPositionBalance,
+  positionalNeeds,
+  contestedPrice,
   priceSigmaByTier,
+  releaseCost,
+  releaseCostForK,
+  replacementCost,
   solveFrontier,
   strategyMultiplier,
   surplusOverReplacement,
@@ -934,5 +941,421 @@ describe("live draft progress", () => {
       openRosterSpots: 1,
     });
     expect(out).toMatchObject({ count: 0, spend: 0, netValue: 0 });
+  });
+});
+
+
+describe("replacement level declines — W(k)", () => {
+  // The shipped model charged every addition the SAME waiverValue(pos), which
+  // quietly assumes you can sign the best free agent k times over. You cannot.
+
+  it("accumulates the ladder rather than repeating its first rung", () => {
+    const rungs = [2000, 1800, 1700, 1600];
+    expect(replacementCost(0, rungs, 4)).toBe(0);
+    expect(replacementCost(1, rungs, 1)).toBe(2000);
+    expect(replacementCost(3, rungs, 3)).toBe(5500);
+    // Not 3 x 2000 — that is the bug this replaces.
+    expect(replacementCost(3, rungs, 3)).toBeLessThan(3 * rungs[0]);
+  });
+
+  it("charges the LAST free agents forgone, not the best ones", () => {
+    // The subtlety that makes this a tail. An idle team fills all five open
+    // spots off the wire, so buying one rookie costs the FIFTH-best free
+    // agent — the top four are still signed.
+    const rungs = [2000, 1800, 1700, 1600, 900];
+    expect(replacementCost(1, rungs, 5)).toBe(900);
+    expect(replacementCost(2, rungs, 5)).toBe(2500);
+    // Once every open spot is used the charge saturates at the whole ladder.
+    expect(replacementCost(5, rungs, 5)).toBe(8000);
+    expect(replacementCost(9, rungs, 5)).toBe(8000);
+  });
+
+  it("charges nothing when the roster has more spots than the league has free agents", () => {
+    // Five spots, three free agents: buying two rookies still leaves room to
+    // sign all three. Nothing is given up.
+    expect(replacementCost(2, [1500, 1400, 1300], 5)).toBe(0);
+  });
+
+  it("costs a release its whole value, not its value over waivers", () => {
+    // ECC is measured over waiver level because the shipped model measured
+    // rookie gain the same way and the two cancelled. Under a ladder they no
+    // longer cancel, and ECC would take the waiver credit twice.
+    const rung = { baseValue: 1500, effectiveCutCost: 0, scarcityMultiplier: 1 };
+    expect(releaseCost(rung)).toBe(1500);
+    // An unranked player is the case that mattered: ECC of exactly zero made
+    // him a free cut, which is the failure ADR-010 set out to prevent.
+    const unranked = {
+      baseValue: 1400,
+      effectiveCutCost: 0,
+      valueBasis: "assumedWaiver",
+      scarcityMultiplier: 1,
+    };
+    expect(releaseCost(unranked)).toBe(1400);
+  });
+
+  it("takes the cheapest cuts by release cost, not in ECC order", () => {
+    // Exact, not a heuristic: the backend's rungs are jointly droppable, and
+    // every subset of an independent set in a matroid is independent.
+    const rungs = [
+      { baseValue: 3000, effectiveCutCost: 0, scarcityMultiplier: 1 },
+      { baseValue: 1000, effectiveCutCost: 500, scarcityMultiplier: 1 },
+    ];
+    expect(releaseCostForK(1, rungs, 0)).toBe(1000);
+    expect(releaseCostForK(2, rungs, 0)).toBe(4000);
+    expect(releaseCostForK(3, rungs, 0)).toBeNull();
+  });
+
+  it("treats a missing ladder as the previous flat model, not as zero cost", () => {
+    const flat = optimizeDraft({
+      budget: 50,
+      openRosterSpots: 5,
+      cutLadder: ladder(1, 1, 1, 1, 1),
+      waiverValues: { WR: 1500 },
+      rookies: [rookie("a", 2000, 10), rookie("b", 1900, 10)],
+    });
+    expect(flat.plan.netValue).toBe(900);
+    expect(flat.plan.replacement).toBe(0);
+  });
+
+  it("nets gross minus R(k) minus releases, and the rows add up to it", () => {
+    const out = optimizeDraft({
+      budget: 50,
+      openRosterSpots: 2,
+      cutLadder: ladder(1, 1, 1),
+      waiverValues: { WR: 1500 },
+      waiverLadder: [1500, 1400, 1300],
+      rookies: [rookie("a", 2000, 10), rookie("b", 1900, 10)],
+    });
+    expect(out.plan.k).toBe(2);
+    expect(out.plan.grossSurplus).toBe(3900);
+    expect(out.plan.replacement).toBe(2900);
+    expect(out.plan.displacement).toBe(0);
+    expect(out.plan.netValue).toBe(1000);
+    const forgone = out.plan.players.map((p) => p.replacementForgone).sort((x, y) => y - x);
+    expect(forgone).toEqual([1500, 1400]);
+    expect(forgone.reduce((s, v) => s + v, 0)).toBe(out.plan.replacement);
+  });
+
+  it("pairs the best rookie with the best free agent forgone", () => {
+    const out = optimizeDraft({
+      budget: 50,
+      openRosterSpots: 2,
+      cutLadder: ladder(1, 1, 1),
+      waiverValues: {},
+      waiverLadder: [1500, 1400, 1300],
+      rookies: [rookie("big", 5000, 10), rookie("small", 2000, 10)],
+    });
+    expect(out.plan.players.find((p) => p.id === "big").replacementForgone).toBe(1500);
+    expect(out.plan.players.find((p) => p.id === "small").replacementForgone).toBe(1400);
+  });
+
+  it("charges a concentrated plan MORE than the flat model did", () => {
+    // The documented direction, checked rather than trusted: k additions at
+    // one position paid k x that position's single best free agent, below the
+    // top-k of the pool whenever other positions rank higher.
+    const shared = {
+      budget: 50,
+      openRosterSpots: 3,
+      cutLadder: ladder(1, 1, 1),
+      waiverValues: { WR: 1400 },
+      rookies: [rookie("a", 3000, 5), rookie("b", 2900, 5), rookie("c", 2800, 5)],
+    };
+    const flat = optimizeDraft(shared);
+    const wk = optimizeDraft({ ...shared, waiverLadder: [1800, 1700, 1600] });
+    expect(wk.plan.replacement).toBe(5100);
+    expect(3 * shared.waiverValues.WR).toBe(4200);
+    expect(wk.plan.k).toBe(flat.plan.k);
+    expect(wk.plan.netValue).toBeLessThan(flat.plan.netValue);
+  });
+
+  it("can change WHICH plan wins, not just its score", () => {
+    const shared = {
+      budget: 30,
+      openRosterSpots: 3,
+      cutLadder: ladder(1, 1, 1),
+      waiverValues: { WR: 100 },
+      rookies: [
+        rookie("stud", 5000, 30),
+        rookie("x", 1800, 10),
+        rookie("y", 1800, 10),
+        rookie("z", 1800, 10),
+      ],
+    };
+    const flat = optimizeDraft(shared);
+    const wk = optimizeDraft({ ...shared, waiverLadder: [1600, 1600, 1600] });
+    expect(flat.plan.players.map((p) => p.id).sort()).toEqual(["x", "y", "z"]);
+    expect(wk.plan.players.map((p) => p.id)).toEqual(["stud"]);
+  });
+
+  it("stops filling the roster once releases cost what rookies are worth", () => {
+    // The behaviour the ECC-of-zero bug suppressed: with 23 of 30 rungs free,
+    // the model filled every spot with $1 rookies. Charging the release its
+    // real value is what terminates it.
+    const rungs = Array.from({ length: 5 }, () => ({
+      playerId: "x",
+      name: "Bench",
+      position: "WR",
+      baseValue: 1800,
+      effectiveCutCost: 0,
+      valueBasis: "assumedWaiver",
+      scarcityMultiplier: 1,
+    }));
+    const rookies = Array.from({ length: 5 }, (_, i) => rookie(`r${i}`, 1700, 1));
+    const out = optimizeDraft({
+      budget: 20,
+      openRosterSpots: 0,
+      cutLadder: rungs,
+      waiverValues: {},
+      waiverLadder: [1600, 1600, 1600, 1600, 1600],
+      rookies,
+    });
+    // Every rookie is worth less than the player he would replace.
+    expect(out.plan.k).toBe(0);
+  });
+
+  it("leaves a spot open rather than displacing a genuinely good free agent", () => {
+    // Six open spots and six free agents, one of whom is a star. Filling all
+    // six means giving him up; filling five keeps him. The tail model sees
+    // that, and a top-k charge could not: it would price every plan against
+    // the star and recommend taking all six.
+    const rookies = Array.from({ length: 6 }, (_, i) => rookie(`r${i}`, 1650, 5));
+    const out = optimizeDraft({
+      budget: 30,
+      openRosterSpots: 6,
+      cutLadder: [],
+      waiverValues: {},
+      waiverLadder: [5000, 100, 100, 100, 100, 100],
+      rookies,
+    });
+    expect(out.plan.k).toBe(5);
+    // 5 x 1650 gross, forgoing the five cheap free agents (5 x 100).
+    expect(out.plan.netValue).toBe(5 * 1650 - 500);
+    // Taking the sixth would cost the 5000-value star and lose 3350 of net.
+    const six = out.frontier.find((p) => p.k === 6);
+    expect(six.netValue).toBe(6 * 1650 - 5500);
+    expect(six.netValue).toBeLessThan(out.plan.netValue);
+  });
+
+  it("keeps realized results on the same footing as the plan", () => {
+    const stats = {
+      enrichedPlayers: [
+        { id: "a", name: "A", pos: "WR", boardValue: 2000, drafted: true, mine: true, pick: { amount: 10 } },
+        { id: "b", name: "B", pos: "WR", boardValue: 1900, drafted: true, mine: true, pick: { amount: 8 } },
+      ],
+    };
+    const out = realizedResults({
+      stats,
+      waiverValues: { WR: 1500 },
+      waiverLadder: [1500, 1400, 1300],
+      cutLadder: ladder(1, 1, 1),
+      openRosterSpots: 2,
+    });
+    expect(out.grossSurplus).toBe(3900);
+    expect(out.replacement).toBe(2900);
+    expect(out.netValue).toBe(1000);
+  });
+});
+
+
+describe("confidence scores the same objective the solver optimized", () => {
+  it("subtracts R(k) in the bootstrap, not only in the frontier", () => {
+    // The defect this pins: under the ladder model an item's `surplus` is the
+    // RAW board value, so a bootstrap that nets only `displacement` leaves the
+    // whole k-dependent waiver charge out — and systematically flatters the
+    // largest plan, which is exactly the plan the charge exists to discipline.
+    const plans = [
+      // Smaller plan, genuinely better once R(k) is paid.
+      { k: 1, players: [{ id: "a", surplus: 5000, price: 10 }], replacement: 100, displacement: 0 },
+      // Bigger plan: more gross, but it forgoes far more on waivers.
+      {
+        k: 3,
+        players: [
+          { id: "b", surplus: 2000, price: 5 },
+          { id: "c", surplus: 2000, price: 5 },
+          { id: "d", surplus: 2000, price: 5 },
+        ],
+        replacement: 5000,
+        displacement: 0,
+      },
+    ];
+    // net: plan1 = 4900, plan2 = 1000. Plan 1 must win nearly every draw.
+    const out = assessPlans(plans, { draws: 200 });
+    expect(out.plans[0].winProbability).toBeGreaterThan(0.9);
+    // Ignoring `replacement` would score them 5000 vs 6000 and flip the winner.
+    expect(out.plans[1].winProbability).toBeLessThan(0.1);
+  });
+
+  it("agrees with the solver's own ranking on a real ladder solve", () => {
+    const out = optimizeDraft({
+      budget: 40,
+      openRosterSpots: 4,
+      cutLadder: ladder(1, 1, 1, 1),
+      waiverValues: {},
+      waiverLadder: [3000, 200, 200, 200],
+      rookies: [
+        rookie("big", 6000, 20),
+        rookie("m1", 2500, 7),
+        rookie("m2", 2500, 7),
+        rookie("m3", 2500, 6),
+      ],
+    });
+    // The recommendation is the solver's own best, and the bootstrap agrees
+    // with its ordering rather than scoring a different objective. Confidence
+    // itself is deliberately NOT asserted to be high: these plans are close,
+    // and a low number there is the honest answer.
+    const top = out.frontier[0];
+    expect(out.plan.k).toBe(top.k);
+    const ranked = [...out.frontier]
+      .filter((p) => p.k > 0)
+      .sort((a, b) => b.netValue - a.netValue);
+    expect(ranked[0].k).toBe(out.plan.k);
+    expect(out.confidence).toBeGreaterThan(0);
+  });
+});
+
+describe("positional balance is reported, not optimized", () => {
+  const ctx = {
+    rosterByPosition: { QB: 5, RB: 1, WR: 9, TE: 7, DL: 9, LB: 7, DB: 10, K: 1 },
+    startersByPosition: {
+      QB: 1, RB: 2, WR: 3, TE: 2, K: 1, DL: 3, LB: 3, DB: 3,
+      FLEX: 2, SUPER_FLEX: 1,
+    },
+  };
+
+  it("measures need against the league's own starters, not a constant", () => {
+    const { needs, requirements } = positionalNeeds(ctx);
+    // One RB short of the two this league starts.
+    expect(needs).toEqual({ RB: 1 });
+    // FLEX slots are not a position anybody can be short of.
+    expect(requirements.FLEX).toBeUndefined();
+    expect(requirements.SUPER_FLEX).toBeUndefined();
+  });
+
+  it("says nothing is short when the roster already covers every slot", () => {
+    const { needs } = positionalNeeds({
+      rosterByPosition: { QB: 3, RB: 4 },
+      startersByPosition: { QB: 1, RB: 2 },
+    });
+    expect(needs).toEqual({});
+  });
+
+  it("reports which needs a plan fills and which it leaves open", () => {
+    const plan = { players: [rookie("a", 5000, 10), { ...rookie("b", 4000, 10), pos: "RB" }] };
+    const out = planPositionBalance(plan, ctx);
+    expect(out.filled).toEqual(["RB"]);
+    expect(out.unmet).toEqual({});
+  });
+
+  it("does not pretend a plan filled a need it ignored", () => {
+    const plan = { players: [rookie("a", 5000, 10)] }; // WR
+    const out = planPositionBalance(plan, ctx);
+    expect(out.filled).toEqual([]);
+    expect(out.unmet).toEqual({ RB: 1 });
+  });
+
+  it("degrades to empty rather than guessing when the context is absent", () => {
+    expect(positionalNeeds().needs).toEqual({});
+    expect(planPositionBalance({ players: [] }, {}).unmet).toEqual({});
+  });
+});
+
+describe("opponent-aware pricing", () => {
+  it("leaves fair value alone by default", () => {
+    expect(contestedPrice({ price: 40, bayesianTopCompetitor: 5 })).toBe(40);
+    expect(contestedPrice({ price: 40, bayesianTopCompetitor: 5 }, "fair")).toBe(40);
+  });
+
+  it("caps the price at one dollar past the richest interested rival", () => {
+    // The late-draft failure mode: the board still asks $40 for a rookie
+    // nobody left can bid $10 on.
+    expect(contestedPrice({ price: 40, bayesianTopCompetitor: 9 }, "contested")).toBe(10);
+  });
+
+  it("never raises a price above fair value", () => {
+    expect(contestedPrice({ price: 12, bayesianTopCompetitor: 900 }, "contested")).toBe(12);
+  });
+
+  it("never goes below the auction minimum", () => {
+    expect(contestedPrice({ price: 40, bayesianTopCompetitor: 0 }, "contested")).toBe(1);
+  });
+
+  it("falls back to fair value when no opponent estimate exists", () => {
+    expect(contestedPrice({ price: 25 }, "contested")).toBe(25);
+    expect(contestedPrice({ price: 25, bayesianTopCompetitor: null }, "contested")).toBe(25);
+  });
+
+  it("buys more of the board once rivals are broke", () => {
+    const shared = {
+      budget: 30,
+      openRosterSpots: 5,
+      cutLadder: ladder(1, 1, 1, 1, 1),
+      waiverValues: {},
+      waiverLadder: [100, 100, 100, 100, 100],
+    };
+    const raw = [
+      { ...rookie("a", 5000, 25), bayesianTopCompetitor: 4 },
+      { ...rookie("b", 4800, 25), bayesianTopCompetitor: 4 },
+    ];
+    const fair = optimizeDraft({ ...shared, rookies: raw });
+    const contested = optimizeDraft({
+      ...shared,
+      rookies: raw.map((r) => ({ ...r, price: contestedPrice(r, "contested") })),
+    });
+    // At fair prices only one is affordable; against a broke room, both are.
+    expect(fair.plan.k).toBe(1);
+    expect(contested.plan.k).toBe(2);
+  });
+});
+
+describe("live bidding", () => {
+  const input = {
+    budget: 60,
+    openRosterSpots: 5,
+    cutLadder: ladder(1, 1, 1, 1, 1),
+    waiverValues: {},
+    waiverLadder: [100, 100, 100, 100, 100],
+    rookies: [rookie("star", 6000, 30), rookie("alt", 5800, 30), rookie("cheap", 900, 5)],
+  };
+
+  it("says keep bidding while the price is well under the max", () => {
+    const out = evaluateBid(input, "star", 5);
+    expect(out.verdict).toBe("go");
+    expect(out.planMaxBid).toBeGreaterThan(5);
+  });
+
+  it("warns as the bidding approaches the indifference price", () => {
+    const max = computeMaxBid(input, "star").planMaxBid;
+    expect(evaluateBid(input, "star", max).verdict).toBe("limit");
+    expect(evaluateBid(input, "star", Math.round(max * 0.95)).verdict).toBe("limit");
+  });
+
+  it("says let him go past the max", () => {
+    const max = computeMaxBid(input, "star").planMaxBid;
+    expect(evaluateBid(input, "star", max + 1).verdict).toBe("stop");
+  });
+
+  it("prices the CURRENT bid, not the expected price", () => {
+    // The two diverge exactly when it matters: mid-auction with the bid
+    // climbing past what the board assumed.
+    const cheapBid = evaluateBid(input, "star", 5);
+    const dearBid = evaluateBid(input, "star", 50);
+    expect(cheapBid.netIfWon).toBeGreaterThan(dearBid.netIfWon);
+  });
+
+  it("names the fallback plan for when the bidding is lost", () => {
+    const out = evaluateBid(input, "star", 999);
+    expect(out.verdict).toBe("stop");
+    expect(out.pivot.players.length).toBeGreaterThan(0);
+    expect(out.pivot.players.some((p) => p.id === "star")).toBe(false);
+  });
+
+  it("reports the gain over walking away, negative when there is none", () => {
+    const good = evaluateBid(input, "star", 5);
+    expect(good.gain).toBeGreaterThan(0);
+    // A bid above the budget leaves no buildable plan containing him.
+    const impossible = evaluateBid(input, "star", 500);
+    expect(impossible.netIfWon).toBeNull();
+    expect(impossible.gain).toBeNull();
+    expect(impossible.verdict).toBe("stop");
   });
 });

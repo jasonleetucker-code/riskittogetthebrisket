@@ -99,20 +99,97 @@ def _pick_value_from_contract(
     return flat.get(round_num, 100.0)
 
 
+#: Last-resort round count.  Kept because Sleeper can be unreachable, but it is
+#: now a fallback rather than the only value the function ever sees — see
+#: ``resolve_draft_rounds``.
+DEFAULT_DRAFT_ROUNDS = 4
+
+#: Sleeper's own clamp; a league cannot configure a rookie draft outside it.
+MIN_DRAFT_ROUNDS = 1
+MAX_DRAFT_ROUNDS = 6
+
+
+def resolve_draft_rounds(
+    sleeper_league_id: str,
+    declared: Any = None,
+) -> tuple[int, str]:
+    """``(rounds, source)`` for a league's rookie draft.
+
+    Order: Sleeper's own draft settings, then whatever the registry declares,
+    then the fallback constant.  ``source`` is returned so the payload can say
+    which one answered instead of presenting a guess as a fact.
+
+    This exists because the round count was a parameter nobody passed.  The
+    caller supplied ``num_teams`` and not ``draft_rounds``, so every non-default
+    league was built as a 4-round draft — while the default league runs 6.  That
+    is not cosmetic: ``_TARGET_TOTAL_BUDGET`` is normalized across whatever
+    picks the loop produces, so a wrong round count silently redistributes the
+    entire $1200 across every team's ``auctionDollars``.
+    """
+    drafts = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/drafts")
+    if isinstance(drafts, list):
+        for d in drafts:
+            if not isinstance(d, dict):
+                continue
+            rounds = (d.get("settings") or {}).get("rounds")
+            try:
+                n = int(rounds)
+            except (TypeError, ValueError):
+                continue
+            if MIN_DRAFT_ROUNDS <= n <= MAX_DRAFT_ROUNDS:
+                return n, "sleeper"
+
+    try:
+        n = int(declared)
+        if MIN_DRAFT_ROUNDS <= n <= MAX_DRAFT_ROUNDS:
+            return n, "registry"
+    except (TypeError, ValueError):
+        pass
+
+    return DEFAULT_DRAFT_ROUNDS, "default"
+
+
 def build_sleeper_derived(
     sleeper_league_id: str,
     contract: dict[str, Any],
     *,
     current_season: int,
-    num_teams: int = 12,
-    draft_rounds: int = 4,
+    draft_rounds: int | None = None,
+    declared_draft_rounds: Any = None,
+    rookies: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Fetch owner / pick data from Sleeper and produce a draft-
     capital board.  Returns the same shape as the workbook path so
     the frontend's ``DraftCapitalSection`` can render it verbatim.
 
     ``contract`` is the in-memory canonical contract (for pick values).
+
+    ``draft_rounds`` pins the count explicitly (tests); leaving it ``None``
+    resolves it from Sleeper, then from ``declared_draft_rounds``, then from
+    ``DEFAULT_DRAFT_ROUNDS``.
+
+    There is deliberately no ``num_teams`` parameter any more.  It was declared,
+    never referenced, and shadowed by ``actual_num_teams`` derived from the
+    roster feed — so the caller's carefully-computed value did nothing.  That
+    asymmetry is what hid the ``draft_rounds`` bug at the call site: team count
+    self-corrected from Sleeper, round count did not, and both looked equally
+    wired.
+
+    ``rookies`` staples the rookie board onto the current season's slots, the
+    same way the workbook path does.  Passing it is legitimate across leagues
+    and is not a leak of one league's data into another: rookie values follow
+    the **scoring profile**, not the league key (CLAUDE.md, "Rankings vs league
+    context"), and the two live leagues share ``superflex_tep15_ppr1``.  The
+    caller is responsible for checking that; omit the argument and the board
+    renders exactly as before, with no rookie fields at all.
     """
+    rounds_source = "explicit"
+    if draft_rounds is None:
+        draft_rounds, rounds_source = resolve_draft_rounds(
+            sleeper_league_id, declared_draft_rounds
+        )
+    draft_rounds = max(MIN_DRAFT_ROUNDS, min(MAX_DRAFT_ROUNDS, int(draft_rounds)))
+
     rosters = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters")
     users = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users")
     traded = (
@@ -215,6 +292,11 @@ def build_sleeper_derived(
         "season": current_season,
         "numTeams": actual_num_teams,
         "draftRounds": draft_rounds,
+        # Which source answered.  ``"default"`` means neither Sleeper nor the
+        # registry knew, and the board is built on an assumption — worth being
+        # able to see, since the round count silently rescales every team's
+        # auction dollars.
+        "draftRoundsSource": rounds_source,
         "totalBudget": _TARGET_TOTAL_BUDGET,
         # This path builds picks for BOTH the current and next season
         # (see the ``for season in (current_season, current_season + 1)``
@@ -227,22 +309,60 @@ def build_sleeper_derived(
             {"team": t, "auctionDollars": d}
             for t, d in sorted(team_totals.items(), key=lambda kv: -kv[1])
         ],
+        "rookieSource": "contract" if rookies else "none",
         "picks": [
-            {
-                "pick": p.pick,
-                "season": p.season,
-                "round": p.round,
-                "slot": p.slot,
-                "currentOwner": p.current_owner,
-                "originalOwner": p.original_owner,
-                "isTraded": p.is_traded,
-                "isExpansion": False,
-                "adjustedDollarValue": p.dollar_value,
-                "dollarValue": p.dollar_value,
-            }
-            for p in picks
+            _serialize_pick(p, i, current_season, rookies or [])
+            for i, p in enumerate(picks)
         ],
     }
+
+
+def _serialize_pick(
+    p: SleeperDerivedPick,
+    index: int,
+    current_season: int,
+    rookies: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """One pick row, with the rookie board stapled onto current-season slots.
+
+    ``overallPick`` is emitted because the frontend sorts on it before mapping
+    rookies onto slots; without it the whole sync path bailed and fell back to
+    a hardcoded rookie list.
+
+    Rookie `i` goes to overall slot `i`, matching the workbook path's rule
+    (``server._fetch_draft_capital``).  Only the CURRENT season's slots get one
+    — next year's class does not exist yet, and inventing names for it is
+    exactly the kind of plausible-looking fiction this repo refuses.
+    """
+    row: dict[str, Any] = {
+        "pick": p.pick,
+        "season": p.season,
+        "round": p.round,
+        "slot": p.slot,
+        "overallPick": index + 1,
+        "currentOwner": p.current_owner,
+        "originalOwner": p.original_owner,
+        "isTraded": p.is_traded,
+        "isExpansion": False,
+        "adjustedDollarValue": p.dollar_value,
+        "dollarValue": p.dollar_value,
+    }
+    if p.season != int(current_season):
+        return row
+    # Current-season slots are numbered from 1 in the same order they were
+    # built, so the index IS the overall slot within this season.
+    if index >= len(rookies):
+        return row
+    r = rookies[index]
+    row["rookieName"] = r.get("name")
+    row["rookiePos"] = r.get("pos")
+    row["rookieKtcValue"] = r.get("dollar")
+    row["rookieKtcDollar"] = r.get("ktcDollar")
+    row["rookieIdpDollar"] = r.get("idpTradeCalcDollar")
+    row["rookieBoardValue"] = r.get("boardValue")
+    row["rookieDispersionCV"] = r.get("dispersionCV")
+    row["rookieSingleSource"] = r.get("singleSource")
+    return row
 
 
 def _round_to_budget(values: list[float], target_total: int) -> list[int]:

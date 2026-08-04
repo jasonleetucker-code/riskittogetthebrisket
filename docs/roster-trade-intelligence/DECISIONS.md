@@ -462,6 +462,60 @@ observation. It lives in `perfect-draft.js` beside the estimator rather
 than in `config/`, because `frontend/` is its own bundler root and
 nothing there resolves paths outside it.
 
+**Amended again 2026-08-04 — replacement level is a ladder, and the cut
+side had to move with it.** The formula above charges each addition
+`waiverValue(pos)`, which assumes the best free agent at a position can
+fill every spot you give him. He cannot. `R(k)` charges off a ladder of
+freely-available values — and off its **tail**, which is the part that
+inverts if you reason quickly: the baseline is "buy nothing", and an idle
+team fills its open spots off the wire, so a plan that uses `k` of them
+forgoes the *last* `k` free agents it would have signed. With five open
+spots, buying one rookie costs the fifth-best free agent. The charge
+saturates at `W(open)`; past that, rookies displace rostered players.
+
+Making that change surfaced two defects, each larger than the change:
+
+* **The auction's own rookies were on the waiver wire.** Five of the six
+  best "free agents" on the live board were lots in the draft being
+  optimized, so the model priced a rookie tight end against himself.
+  `src/draft/rookie_pool.py` is now the one definition of "in this
+  auction", consumed by `server._our_rookie_pool` (which shapes it into
+  the payload) and by the roster context (which excludes it).
+* **`ECC = max(0, base − waiver)` made most releases free.** 23 of 30
+  rungs scored exactly zero, twelve of them unranked players whose
+  `max(0, waiver − waiver)` is structurally 0 — the free-cut-on-a-join-
+  miss failure this ADR set out to prevent, caused by the formula meant
+  to prevent it. Under the flat model it was invisible because the two
+  waiver terms cancelled; under a ladder they do not. The client charges
+  `releaseCost = baseValue × scarcityMultiplier`. `effective_cut_cost`
+  is unchanged for every other consumer.
+
+Taking the **cheapest releases rather than ladder order** is exact rather
+than a heuristic, and reuses this ADR's own matroid argument from the
+other end: the backend's greedy built its rungs as a nested sequence of
+legal cut-sets, so all thirty are jointly droppable, and every subset of
+an independent set is independent.
+
+**Measured, and it did not do what the deferred note predicted.** That
+note claimed the flat charge caused the model's preference for large
+plans and that `W(k)` would correct it. On the live board the
+recommendation moved from 35 rookies to 34. The real cause is that
+**roster value is an unweighted sum of market values** — a 58-man roster
+starts 21, but the model books bench player #40 at full market value, so
+swapping deep bench bodies (~1300) for marginal rookies (~2400) scores
+positive every time. Lineup-aware roster value is the honest fix;
+`src/ros/lineup.py::solve_optimal_assignment` already computes it and is
+already used here for *droppability*, but using it for *value* breaks the
+cardinality decomposition this ADR rests on. Left open and stated
+plainly in `docs/perfect-draft.md` §9 rather than half-fixed.
+
+One performance note, because it is a trap rather than a tuning detail:
+the charge table must be built once per solve. `computeMaxBid` evaluates
+its indifference price over every dollar from the budget down, times
+every cardinality, times every recommended rookie — sorting the release
+ladder inside that loop measured **1129 ms** against 327 ms before,
+roughly 460,000 sorts of the same thirty numbers.
+
 ---
 
 ## ADR-011: the Perfect Draft solve runs on the client, the roster context on the server

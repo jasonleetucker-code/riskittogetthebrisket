@@ -81,7 +81,9 @@ __all__ = [
     "CutCandidate",
     "RosterAsset",
     "build_cut_ladder",
+    "count_free_agents",
     "effective_cut_cost",
+    "free_agent_ladder",
     "scarcity_multiplier",
     "waiver_values_by_position",
 ]
@@ -205,29 +207,33 @@ def scarcity_multiplier(sc: ScarcityComponents | None) -> float:
     return _SCARCITY_BASE + _SCARCITY_GAIN * _clamp(float(sc.waiver_scarcity), 0.0, 1.0)
 
 
-def waiver_values_by_position(
+def _available_players(
     contract: Mapping[str, Any] | None,
     rostered_keys: Iterable[str],
-) -> dict[str, float]:
-    """Best available (unrostered) ``rankDerivedValue`` at each position.
+    unavailable_keys: Iterable[str] = (),
+) -> list[tuple[float, str]]:
+    """``(value, position)`` for every player nobody can have for free.
 
-    This is the opportunity cost of a roster spot: what you could put in it
-    without spending a draft dollar.  A player rostered by *any* team in the
-    league is not available, so ``rostered_keys`` must be the league-wide set,
-    not one team's.
+    A player is available when he is on no roster in the league AND is not in
+    ``unavailable_keys`` — which is how rookies in the live auction are kept
+    out.  See ``src/draft/rookie_pool.py`` for why that exclusion is not
+    cosmetic: on the 2026-08-04 board 5 of the 6 best "free agents" were lots
+    in the very auction being optimized.
 
     Keys are matched case-insensitively against ``playerId`` and all three name
     fields the contract carries (``legacyRef`` / ``canonicalName`` /
     ``displayName``), mirroring ``board_values_from_contract``.
     """
     if not isinstance(contract, Mapping):
-        return {}
+        return []
     rows = contract.get("playersArray")
     if not isinstance(rows, list):
-        return {}
+        return []
 
     taken = {str(k).strip().lower() for k in rostered_keys if str(k or "").strip()}
-    out: dict[str, float] = {}
+    taken |= {str(k).strip().lower() for k in unavailable_keys if str(k or "").strip()}
+
+    out: list[tuple[float, str]] = []
     for row in rows:
         if not isinstance(row, Mapping):
             continue
@@ -247,9 +253,73 @@ def waiver_values_by_position(
         keys.discard("")
         if keys & taken:
             continue
-        if float(value) > out.get(pos, 0.0):
-            out[pos] = float(value)
+        out.append((float(value), pos))
     return out
+
+
+def waiver_values_by_position(
+    contract: Mapping[str, Any] | None,
+    rostered_keys: Iterable[str],
+    unavailable_keys: Iterable[str] = (),
+) -> dict[str, float]:
+    """Best available (unrostered) ``rankDerivedValue`` at each position.
+
+    This is the opportunity cost of a roster spot: what you could put in it
+    without spending a draft dollar.  A player rostered by *any* team in the
+    league is not available, so ``rostered_keys`` must be the league-wide set,
+    not one team's — and neither is a rookie you would have to outbid eleven
+    rivals for, which is what ``unavailable_keys`` removes.
+    """
+    out: dict[str, float] = {}
+    for value, pos in _available_players(contract, rostered_keys, unavailable_keys):
+        if value > out.get(pos, 0.0):
+            out[pos] = value
+    return out
+
+
+def free_agent_ladder(
+    contract: Mapping[str, Any] | None,
+    rostered_keys: Iterable[str],
+    unavailable_keys: Iterable[str] = (),
+    *,
+    limit: int = 60,
+) -> list[float]:
+    """The best ``limit`` freely-available values, highest first.
+
+    ``waiver_values_by_position`` answers "what is the best free player at this
+    position"; this answers "what are the best free players, in order".  The
+    difference is the whole point of ``W(k)``: a plan that takes *k* roster
+    spots does not forgo the best free agent *k* times over — there is only one
+    of him.  The second spot forgoes the second-best, and so on down a ladder
+    that declines.
+
+    Deliberately position-agnostic.  A roster spot can hold anyone, and this
+    model values a roster as the sum of its players' market values throughout
+    (the cut side included), so the alternative use of a spot is simply the
+    best player still going free.  One consequence is worth knowing rather than
+    discovering: on the 2026-08-04 board 13 of the top 20 free agents are tight
+    ends, a downstream effect of the TE++ basis this league is scored on.  That
+    is what the board says, not a bug here — but it does mean W(k) is largely a
+    tight-end ladder for this league.
+    """
+    values = sorted(
+        (v for v, _ in _available_players(contract, rostered_keys, unavailable_keys)),
+        reverse=True,
+    )
+    return values[: max(0, int(limit))]
+
+
+def count_free_agents(
+    contract: Mapping[str, Any] | None,
+    rostered_keys: Iterable[str],
+    unavailable_keys: Iterable[str] = (),
+) -> int:
+    """How many players the free-agent universe actually contains.
+
+    Distinct from ``len(free_agent_ladder(...))``, which is capped by ``limit``
+    and would otherwise report the cap as if it were the population.
+    """
+    return len(_available_players(contract, rostered_keys, unavailable_keys))
 
 
 def _waiver_value_for(position: str, waiver_values: Mapping[str, float]) -> float:

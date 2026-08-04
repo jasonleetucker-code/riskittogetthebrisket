@@ -30,8 +30,11 @@ import {
 import { useRosterContext } from "@/components/useRosterContext";
 import {
   applyDraftProgress,
+  contestedPrice,
   draftPhase,
+  evaluateBid,
   optimizeDraft,
+  planPositionBalance,
   priceBand,
   priceSigmaByTier,
   realizedResults,
@@ -74,9 +77,21 @@ export function planShape(plan) {
 }
 
 export function PerfectDraftPanel({ stats, workspace }) {
-  const myTeamName = workspace?.teams?.[workspace?.myTeamIdx]?.name || "";
+  // `myTeamIdx` lives under `settings` — every other reader in the app uses
+  // `workspace.settings.myTeamIdx` (draft-logic.js, page.jsx). Reading it off
+  // the root returned undefined, so `myTeamName` was always "", the roster
+  // context was requested with no team, the server answered `context: null`,
+  // and the panel silent-vanished BEFORE its own team selector could render —
+  // making the feature unreachable in the browser while every unit test
+  // passed, because the test fixture used the flat shape.
+  const myTeamIdx = workspace?.settings?.myTeamIdx ?? workspace?.myTeamIdx ?? 0;
+  const myTeamName = workspace?.teams?.[myTeamIdx]?.name || "";
   const [teamName, setTeamName] = useState(myTeamName);
   const [strategy, setStrategy] = useState("balanced");
+  const [priceBasis, setPriceBasis] = useState("fair");
+  // Live bidding: which rookie is on the block, and where the bidding is now.
+  const [bidTarget, setBidTarget] = useState("");
+  const [bidAmount, setBidAmount] = useState("");
   const { teams, context, failure, loading, refetch } = useRosterContext({
     teamName: teamName || myTeamName,
   });
@@ -96,9 +111,14 @@ export function PerfectDraftPanel({ stats, workspace }) {
         price: Math.max(1, Number(p.inflatedFair) || Number(p.preDraft) || 0),
         marketDispersionCV: p.marketDispersionCV,
         singleSource: p.singleSource,
+        // Computed on every board render since it was written and, until now,
+        // read by nothing: the richest rival's budget weighted by that rival's
+        // demonstrated interest in this player's tier.
+        bayesianTopCompetitor: p.bayesianTopCompetitor,
         tier: p.tier,
-      }));
-  }, [stats?.enrichedPlayers]);
+      }))
+      .map((p) => ({ ...p, price: contestedPrice(p, priceBasis) }));
+  }, [stats?.enrichedPlayers, priceBasis]);
 
   const rookiesBought = Number(stats?.myRookiesBought) || 0;
 
@@ -150,6 +170,7 @@ export function PerfectDraftPanel({ stats, workspace }) {
             cutLadder: progress.cutLadder,
             openRosterSpots: progress.openRosterSpots,
             waiverValues: context.waiverValues || {},
+            waiverLadder: context.waiverLadder || null,
             strategy,
             priceSigmaFor,
           }
@@ -175,6 +196,7 @@ export function PerfectDraftPanel({ stats, workspace }) {
         ? realizedResults({
             stats,
             waiverValues: context.waiverValues || {},
+            waiverLadder: context.waiverLadder || null,
             cutLadder: context.cutLadder?.rungs || [],
             openRosterSpots: context.openRosterSpots || 0,
             strategy,
@@ -198,12 +220,17 @@ export function PerfectDraftPanel({ stats, workspace }) {
     const cutIdx = i - openSpots;
     const cut = cutIdx >= 0 ? cutRungs[cutIdx] : null;
     const cutCost = cut ? Number(cut.effectiveCutCost) || 0 : 0;
-    const net = (Number(p.surplus) || 0) - cutCost;
+    // `replacementForgone` is this rookie's rung of the waiver ladder — the
+    // free agent his roster spot gives up. Present only under the ladder
+    // model; without it the subtraction is already inside `surplus`.
+    const forgone = Number(p.replacementForgone) || 0;
+    const net = (Number(p.surplus) || 0) - forgone - cutCost;
     const band = priceBand(p.price, priceSigmaFor(p));
     return {
       ...p,
       cut,
       cutCost,
+      forgone,
       net,
       band,
       perDollar: p.price > 0 ? net / p.price : null,
@@ -211,13 +238,32 @@ export function PerfectDraftPanel({ stats, workspace }) {
     };
   });
 
+  // "The bidding is at $X — do I go?" Both branches come free from the same
+  // solve computeMaxBid already performs; nothing new is modelled here.
+  const liveBid =
+    deferredInput && bidTarget && bidAmount !== ""
+      ? evaluateBid(deferredInput, bidTarget, bidAmount)
+      : null;
+  const bidTargetName =
+    rookies.find((r) => r.id === bidTarget)?.name || "";
+
+  // Positional consequence of the plan, reported rather than optimized —
+  // see planPositionBalance for why that boundary is deliberate.
+  const balance = context
+    ? planPositionBalance(plan, {
+        rosterByPosition: context.rosterByPosition,
+        startersByPosition: context.startersByPosition,
+      })
+    : null;
+
   const totals = rows.reduce(
     (acc, r) => ({
       surplus: acc.surplus + (Number(r.surplus) || 0),
+      forgone: acc.forgone + r.forgone,
       cut: acc.cut + r.cutCost,
       spend: acc.spend + (Number(r.price) || 0),
     }),
-    { surplus: 0, cut: 0, spend: 0 },
+    { surplus: 0, forgone: 0, cut: 0, spend: 0 },
   );
 
   const columns = [
@@ -346,7 +392,11 @@ export function PerfectDraftPanel({ stats, workspace }) {
       <StatTile
         label="Net roster value"
         value={fmtVal(plan.netValue)}
-        meta={`${fmtVal(totals.surplus)} added − ${fmtVal(totals.cut)} released`}
+        meta={
+          totals.forgone > 0
+            ? `${fmtVal(totals.surplus)} added − ${fmtVal(totals.forgone)} off waivers − ${fmtVal(totals.cut)} released`
+            : `${fmtVal(totals.surplus)} added − ${fmtVal(totals.cut)} released`
+        }
       />
       <StatTile
         label="Per dollar"
@@ -387,6 +437,11 @@ export function PerfectDraftPanel({ stats, workspace }) {
 
   return (
     <CollapsiblePanel
+      // Stable E2E hook beside the ds classes, so the copy inside can keep
+      // evolving without touching the spec. The panel silent-vanishes on any
+      // non-ok response, which is DOM-identical to a regression — a spec needs
+      // something specific to assert on.
+      className="perfect-draft-panel"
       title="Perfect Draft"
       subtitle={subtitle}
       defaultCollapsed={false}
@@ -427,6 +482,15 @@ export function PerfectDraftPanel({ stats, workspace }) {
             value: s,
             label: STRATEGY_LABELS[s] || s,
           }))}
+        />
+        <SegmentedControl
+          label="Prices"
+          value={priceBasis}
+          onChange={setPriceBasis}
+          options={[
+            { value: "fair", label: "Fair value" },
+            { value: "contested", label: "Beat the room" },
+          ]}
         />
       </div>
 
@@ -515,6 +579,106 @@ export function PerfectDraftPanel({ stats, workspace }) {
             </p>
           ) : null}
         </div>
+      ) : null}
+
+      <div className={styles.pageActions}>
+        <Select
+          label="Live bid"
+          value={bidTarget}
+          onChange={(e) => setBidTarget(e.target.value)}
+        >
+          <option value="">Player on the block…</option>
+          {rookies.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </Select>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <span className="muted" style={{ fontSize: "var(--font-size-2xs)" }}>
+            Current bid $
+          </span>
+          <input
+            className="ds-input"
+            type="number"
+            min="0"
+            style={{ width: "5rem" }}
+            value={bidAmount}
+            onChange={(e) => setBidAmount(e.target.value)}
+            aria-label="Current bid"
+            disabled={!bidTarget}
+          />
+        </label>
+        {liveBid ? (
+          <span style={{ fontSize: "var(--font-size-2xs)" }}>
+            <Badge
+              tone={
+                liveBid.verdict === "go"
+                  ? "positive"
+                  : liveBid.verdict === "limit"
+                    ? "warning"
+                    : "negative"
+              }
+            >
+              {liveBid.verdict === "go"
+                ? "Keep bidding"
+                : liveBid.verdict === "limit"
+                  ? "At your limit"
+                  : "Let him go"}
+            </Badge>{" "}
+            <span className="muted">
+              max {fmt$(liveBid.planMaxBid)} ·{" "}
+              {liveBid.gain == null
+                ? "no plan at this price"
+                : `${liveBid.gain >= 0 ? "+" : ""}${fmtVal(liveBid.gain)} vs walking away`}
+            </span>
+          </span>
+        ) : null}
+      </div>
+
+      {liveBid && liveBid.verdict === "stop" && liveBid.pivot?.players?.length ? (
+        <p className="muted" style={{ fontSize: "var(--font-size-2xs)" }}>
+          If you lose {bidTargetName}, the best remaining plan is{" "}
+          {liveBid.pivot.players.map((q) => q.name).join(", ")}.
+        </p>
+      ) : null}
+
+      {balance ? (
+        <p className="muted" style={{ fontSize: "var(--font-size-2xs)" }}>
+          <strong>Positional shape.</strong>{" "}
+          {Object.keys(balance.needs).length === 0 ? (
+            <>
+              This roster already covers every starting slot, so no rookie is
+              needed to fill one — the plan above is chosen purely on value.
+            </>
+          ) : (
+            <>
+              Short of starters at{" "}
+              {Object.entries(balance.needs)
+                .map(([pos, n]) => `${pos} (${n})`)
+                .join(", ")}
+              .{" "}
+              {balance.filled.length > 0
+                ? `The plan adds ${balance.filled.join(", ")}. `
+                : ""}
+              {Object.keys(balance.unmet).length > 0
+                ? `It still leaves ${Object.keys(balance.unmet).join(", ")} short.`
+                : "That covers every gap."}
+            </>
+          )}{" "}
+          <InfoTip label="Why this is not in the score">
+            <p>
+              The plan is chosen on value alone, and the positional consequence
+              is reported beside it rather than folded in. Turning a positional
+              minimum into part of the objective would need the optimizer to
+              track how many of each position a plan holds, which is exactly
+              the state explosion the one-number-per-plan-size design avoids —
+              and it would mean inventing a rate at which a filled starting
+              slot is worth giving up board value. That rate is a judgement,
+              so it is left to you.
+            </p>
+          </InfoTip>
+        </p>
       ) : null}
 
       <p className="muted" style={{ fontSize: "var(--font-size-2xs)" }}>

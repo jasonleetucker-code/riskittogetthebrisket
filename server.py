@@ -7030,20 +7030,18 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
     if not isinstance(pa, list) or not pa:
         return []
 
+    # Selection lives in src/draft/rookie_pool.py because the Perfect Draft
+    # roster context needs the SAME set for the opposite purpose — to exclude
+    # it from the free-agent pool.  Two copies of "who is in this auction"
+    # would eventually disagree, and the failure would be silent.
+    from src.draft.rookie_pool import select_rookie_rows  # noqa: PLC0415
+
     out: list[dict] = []
-    for p in pa:
-        if not isinstance(p, dict):
-            continue
-        if not p.get("rookie"):
-            continue
-        if not p.get("playerId"):
-            continue
+    for p in select_rookie_rows(contract, top_n):
         val = p.get("rankDerivedValue")
         if val is None:
             vals = p.get("values") or {}
             val = vals.get("overall") if isinstance(vals, dict) else None
-        if val is None or float(val) <= 0:
-            continue
         csv = p.get("canonicalSiteValues") or {}
         if not isinstance(csv, dict):
             csv = {}
@@ -7066,9 +7064,7 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
                 "singleSource": bool(p.get("isSingleSource")),
             }
         )
-    out = [r for r in out if r["name"]]
-    out.sort(key=lambda r: -r["value"])
-    return out[:top_n]
+    return out
 
 
 def _vendor_dollars_for_rookies(
@@ -8255,13 +8251,58 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         # "workbook-calibrated".
         from src.api.draft_capital_fallback import build_sleeper_derived
 
+        # ``draft_rounds`` used to be omitted here, so every non-default league
+        # was built as a 4-round draft while the default runs 6 — and the $1200
+        # budget is normalized across whatever picks that loop produces, so the
+        # wrong count silently redistributed every team's auction dollars.
+        # ``num_teams`` is gone: it was declared, never referenced, and shadowed
+        # by the roster feed's own count, which is exactly what made the missing
+        # parameter next to it look wired.
+        # The rookie board follows the SCORING PROFILE, not the league key
+        # (CLAUDE.md, "Rankings vs league context"), so a league sharing the
+        # loaded contract's profile can be served the same rookies — which is
+        # what stops /draft there falling back to a hardcoded list. A league on
+        # a different profile gets no rookie fields rather than another
+        # profile's board.
+        rookie_rows = None
+        try:
+            from src.api.league_registry import get_scoring_profile  # noqa: PLC0415
+
+            loaded_key = ((latest_contract_data or {}).get("meta") or {}).get("leagueKey")
+            if loaded_key and get_scoring_profile(loaded_key) == get_scoring_profile(
+                league_cfg.key
+            ):
+                pool = _our_rookie_pool(_KTC_TOTAL_PICKS)
+                if pool:
+                    dollars = _rookie_dollars_from_values(
+                        [r["value"] for r in pool], DRAFT_TOTAL_BUDGET
+                    )
+                    ktc_by_name, idp_by_name = _vendor_dollars_for_rookies(
+                        pool, DRAFT_TOTAL_BUDGET
+                    )
+                    rookie_rows = [
+                        {
+                            "name": r["name"],
+                            "pos": r["pos"],
+                            "dollar": d,
+                            "boardValue": r["value"],
+                            "ktcDollar": ktc_by_name.get(r["name"].lower()),
+                            "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
+                            "dispersionCV": r.get("dispersionCV"),
+                            "singleSource": r.get("singleSource"),
+                        }
+                        for r, d in zip(pool, dollars)
+                    ]
+        except Exception:  # noqa: BLE001 — a missing rookie board must not 500 the page
+            logging.warning("draft-capital fallback: rookie board unavailable", exc_info=True)
+            rookie_rows = None
+
         return build_sleeper_derived(
             league_cfg.sleeper_league_id,
             latest_contract_data or {},
             current_season=datetime.now(timezone.utc).year,
-            num_teams=league_cfg.roster_settings.get("teamCount", 12)
-            if hasattr(league_cfg, "roster_settings")
-            else 12,
+            declared_draft_rounds=(league_cfg.roster_settings or {}).get("draftRounds"),
+            rookies=rookie_rows,
         )
 
     lock = _DRAFT_CAPITAL_LOCKS.get(league_cfg.key)

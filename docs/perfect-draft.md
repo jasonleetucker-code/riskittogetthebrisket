@@ -168,24 +168,64 @@ this against brute force at every cardinality rather than asserting it.
 
 ```
 openRosterSpots = rosterSize − currentRosterCount
-surplus(i)      = max(0, boardValue(i)·tilt − waiverValue(pos(i)))
-D(k)            = Σ of the (k − openRosterSpots) cheapest ECCs   ( 0 when k ≤ open )
+L               = free-agent values, descending, EXCLUDING this auction's rookies
+W(n)            = Σ of L's first n rungs
+R(k)            = W(open) − W(open − min(k, open))       ← the TAIL, see below
+releaseCost(p)  = baseValue(p) · scarcityMult(p)
+D(k)            = Σ of the (k − open) cheapest releaseCosts   ( 0 when k ≤ open )
 
-maximize  Σ_{i∈S} surplus(i) − D(|S|)     s.t.  Σ_{i∈S} price(i) ≤ budget
+maximize  Σ_{i∈S} boardValue(i)·tilt − R(|S|) − D(|S|)   s.t.  Σ price(i) ≤ budget
 ```
 
-`D` depends only on `k`, so this decomposes into a cardinality-constrained 0/1
-knapsack `F[k][b]`, then `argmax_k (F[k][B] − D(k))`. Exact, pure JS, integer
-dollars.
+Both `R` and `D` depend only on `k`, so this decomposes into a
+cardinality-constrained 0/1 knapsack `F[k][b]`, then
+`argmax_k (F[k][B] − R(k) − D(k))`. Exact, pure JS, integer dollars.
+
+**Why `R(k)` is the tail and not the top-k.** The baseline is "buy nothing",
+and an idle team does not leave roster spots empty — it fills them off the
+wire. A plan that uses `k` of those spots therefore forgoes the *last* `k` free
+agents it would have signed, not the best: with five open spots, buying one
+rookie costs the fifth-best free agent, because you still sign the top four.
+Once `k` reaches `open` the charge saturates at `W(open)` — every spot is
+spoken for, and further rookies displace rostered players instead.
+
+**Why the cut side is `releaseCost` and not `ECC`.** ECC is measured *over*
+waiver level, which was consistent while a rookie's gain was measured over
+waiver level too — the two terms cancelled and the model was coherent by
+construction. Under a ladder they do not cancel, and keeping ECC would take the
+waiver credit twice. This is not a rounding difference: **23 of 30 rungs on the
+2026-08-04 board have an ECC of exactly zero**, twelve of them unranked players
+whose `max(0, waiver − waiver)` is structurally 0 — the free-cut-on-an-
+identity-join-miss failure §4 says the design prevents, and did not.
+`releaseCost` charges `baseValue × scarcityMultiplier`, and `baseValue` already
+carries the unranked fallback, so a join miss costs a full waiver level to
+release rather than nothing.
+
+Taking the **cheapest releases rather than ladder order** is exact, not a
+heuristic: the backend's greedy built its rungs as a nested sequence of legal
+cut-sets, so all of them are jointly droppable, and every subset of an
+independent set in a matroid is independent.
 
 `k` is a **free variable** — the league caps nobody's rookie count. The
 optimizer may return zero rookies, one, or many, and is never required to spend
 the full budget.
 
-`kMax` is bounded exactly, not capped heuristically: an exchange argument bounds
-the gain of the k-th rookie by the k-th largest surplus, its cost is at least
-the k-th marginal cut, and marginal cuts are non-decreasing — so once
-`surplusDesc[k−1] − m(k) ≤ 0` no larger `k` can win.
+`kMax` is bounded soundly rather than heuristically, but the *form* of the
+bound had to change with `R(k)`. The old early-exit relied on marginal cost
+being non-decreasing, which held when the only cost was the cheapest-first cut
+ladder. `R`'s marginal term is not monotone across the `k = open` boundary
+(it jumps from the ladder's best rung to zero as cuts take over), so a first
+failure no longer implies every later one. The ladder path instead scans
+`UB(k) = Σ(top-k values) − R(k) − D(k)` — an upper bound on net at that
+cardinality — and keeps the largest `k` with `UB(k) > 0`. The flat path keeps
+the tighter monotone stop, which is still valid there.
+
+**Performance note.** The charge table is built once per solve, not per query.
+`computeMaxBid` evaluates its indifference price over every dollar from the
+budget down, times every cardinality, times every recommended rookie; sorting
+the release ladder inside that loop measured **1129 ms** against 327 ms before
+— roughly 460,000 sorts of the same thirty numbers. Precomputed prefix sums
+bring it back to 312 ms.
 
 Rookies the board cannot price, or with no expected price, are **excluded and
 reported** in `excluded[]` (per the `assetsUnpricedByBoard` precedent), never
@@ -382,38 +422,115 @@ structurally prevents one team's results reaching another.
 - **Second league unsupported.** The Sleeper-derived draft-capital fallback
   emits no rookie fields, so `/draft` there falls back to a hardcoded rookie
   list. The panel vanishes rather than optimizing against placeholders.
-- **Multiple additions are each measured against the SAME waiver level.**
-  `surplus(i) = boardValue − waiverValue(pos)` is exact for one addition. For
-  a `k`-rookie plan the honest comparison is against the 1st, 2nd, … k-th best
-  free agent, which declines — so total surplus is optimistic, and increasingly
-  so as `k` grows. Measured effect on the live board: waiver levels sit at
-  1711-2302 by position with ~500 unrostered ranked players, so the top of each
-  positional pool is fairly flat and the per-addition error is small, but it
-  accumulates. It is the mirror of the `D(k)` treatment on the cut side and has
-  the same fix: subtract a `W(k)` term (the sum of the top-`k` free-agent
-  values) instead of a flat per-item waiver level. That preserves the
-  cardinality decomposition, so it is a contained change — deferred rather than
-  hard.
+- **RESOLVED (2026-08-04), and the fix did not do what this entry predicted.**
+  The flat per-addition waiver charge is gone, replaced by the `R(k)` ladder in
+  §5, and the auction's own rookies no longer count as free agents. But this
+  entry claimed the flat charge was the cause of the model's preference for
+  large `k`, and that `W(k)` would correct it. Measured on the live board, it
+  does not: the recommendation moved from 35 rookies to 34.
 
-  Practical consequence today: high-`k` plans look better than they are. The
-  frontier and the star-focused alternative are the mitigation — a plan
-  recommending 18 rookies and 17 releases is arithmetically defensible under
-  the model but should be read alongside its lower-`k` neighbours, and the
-  confidence figure on such plans is typically low (0.4 or so) precisely
-  because they are not clearly separated.
+  The actual cause was on the **cut** side. `ECC = max(0, base − waiver)` is
+  zero for any player at or below his position's waiver level, and that was 23
+  of 30 rungs — so the model believed it could release 23 rostered players for
+  nothing and would fill the roster to capacity with $1 rookies every time.
+  Charging `releaseCost` instead is what makes the cut side bite. See §5.
 
-- **Opponent modelling is coarse.** The plan is priced at expected cost; the
-  board's `bayesianTopCompetitor` (nomination-decayed tier interest) is not yet
-  fed into plan feasibility. Price *dispersion* is now learned from realized
-  sales (§3), but it is a symmetric spread around the expected price and knows
-  nothing about which specific rival wants which specific rookie.
+  What remains, and is now the honest statement of the limitation: **roster
+  value is an unweighted sum of market values.** A 58-man roster starts 21, so
+  bench player #40 does not contribute his full market value — but the model
+  says he does, which is why swapping deep bench bodies (~1300) for marginal
+  rookies (~2400) still scores positive 34 times over. The frontier and the
+  star-focused alternative remain the mitigation, and the confidence figure on
+  such plans is low (0.11 on the live board) precisely because the top
+  cardinalities are not separated. The real fix is lineup-aware roster value —
+  `src/ros/lineup.py::solve_optimal_assignment` already computes it, and is
+  already used on the cut side for *droppability* but not for *value*. That
+  breaks the `k`-decomposition, so it is genuinely harder than this entry
+  previously implied.
+
+- **Opponent modelling is a price cap, not a bidding model.** `bayesianTopCompetitor`
+  (nomination-decayed tier interest) now reaches the optimizer through the
+  **Prices** control: `"fair"` is the board's inflation-adjusted price and the
+  default; `"contested"` caps it at one dollar past the richest rival who still
+  wants that tier, which is what an auction actually settles at. The cap only
+  ever LOWERS a price, so it is never more optimistic about affordability — it
+  just stops requiring you to outbid budgets that no longer exist, which is the
+  late-draft failure mode. It still knows nothing about bid ORDER, or about a
+  rival who wants one specific player badly.
 - **The price prior is declared, not fitted.** `PRICE_DISPERSION_PRIOR = 0.35`
   is a plausible starting width, not a measurement, and before the first sale
   of a draft it is doing all the work. Fitting it needs one auction recorded
   end to end; `priceSigmaByTier(...).measured` distinguishes the two regimes in
   the meantime.
+- **Positional balance is reported, not optimized.** The plan is chosen on
+  value alone; `planPositionBalance` states the consequence beside it — which
+  starting slots this roster cannot fill (measured against the league's own
+  `starters` block, not a constant), which of them the plan fills, and which it
+  leaves open. Folding a positional minimum into the objective would need
+  per-position counts in the dynamic program's state, which is exactly the
+  explosion the `k`-only decomposition avoids, and it would mean inventing a
+  rate at which a filled starting slot is worth giving up board value. That
+  rate is a judgement, so it is surfaced rather than assumed.
 - **Nomination order is not modelled.** A plan requiring three specific wins is
   more fragile than the confidence number alone conveys; the pivots partially
   cover this.
 - **Roster-tail values are noisy.** Cut costs at the bottom of a roster rest on
   thin-coverage rows; the `assumedWaiver` stamp marks them but cannot fix them.
+
+
+### Live bidding
+
+`evaluateBid(input, rookieId, bid)` answers the question a live auction
+actually asks — *"the bidding is at $X, do I go?"* — which is **not** the one
+`planMaxBid` alone answers. `planMaxBid` is an indifference price computed
+against the board's expected prices for everyone else; a bidder in the moment
+needs the comparison between two concrete futures: win him at this number, or
+lose him and run the pivot.
+
+Both branches come free from the solve `computeMaxBid` already performs —
+`Φ(bid)` is the best plan containing him at that price, `bestNetWithout` is the
+pivot. No new model and no second price concept.
+
+`verdict` is deliberately coarse (`go` / `limit` / `stop`). The numbers behind
+it carry uncertainty the panel reports separately, and a finer scale here would
+read as more confidence than exists.
+
+---
+
+## 10. Backtesting: what is missing, and what was done about it
+
+`scripts/backtest_perfect_draft.py` exists and **cannot produce a verdict on
+any data in this repository**. It exits 2 (skipped) and says why, rather than
+scoring something else and calling it a backtest.
+
+Four inputs are needed. Three were absent and one cannot be backfilled:
+
+| # | Input | Status |
+|---|---|---|
+| 1 | realized `(player, price)` pairs from a completed auction | **partly unblocked** — see below |
+| 2 | a season-agnostic draft resolver | partly unblocked with (1) |
+| 3 | a pre-draft board snapshot from before that auction | **cannot be backfilled** |
+| 4 | a pre-draft roster snapshot (open spots, cut ladder) | now capturable |
+
+`CSVs/Draft Data.xlsx`'s `Final Price` column is three literal zeroes over a
+class that has not drafted. Realized prices otherwise live only in the browser's
+`localStorage` draft workspace and were never persisted anywhere.
+
+**What was fixed:** `src/public_league/draft.py::_normalize_pick` was reading
+Sleeper's pick metadata for names, position and team and **discarding
+`metadata.amount`** — the sale price. The multi-season raw picks were already
+being fetched. Carrying one field through turns an existing fetch into a
+realized-price corpus. `amount` is `None` for a snake draft, which is a
+different statement from `0`, and the two must not be allowed to read alike.
+
+**What cannot be fixed:** `rank_history` appends one entry per scrape date and
+does not reach back past `exports/archive/`'s 2026-07-14 start. The pre-draft
+board for any earlier auction was never observed, and no code recovers an
+observation nobody made. So the first honestly backtestable event is the 2026
+rookie auction itself.
+
+`--record-snapshot` captures the pre-draft board and every team's roster
+context together, because a recommendation can only be scored against the state
+it was made from — and the roster context stops being recoverable the moment
+the first pick lands. Run it **before** the auction. That is the missing step,
+and it is the only one code can fix.

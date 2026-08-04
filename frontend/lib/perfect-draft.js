@@ -24,28 +24,58 @@
  *
  * ── The model ──────────────────────────────────────────────────────────────
  *
- *   surplus(i)  = max(0, boardValue(i) - waiverValue(pos_i))
- *   D(k)        = sum of the (k - openRosterSpots) cheapest cut costs
- *   NetValue(S) = sum surplus(i) - D(|S|)
+ *   R(k)        = waiver value the plan gives up (the free-agent ladder's TAIL)
+ *   D(k)        = release cost of the (k - openRosterSpots) cheapest cuts
+ *   NetValue(S) = sum boardValue(i) - R(|S|) - D(|S|)
  *
  *   maximize NetValue(S)  subject to  sum price(i) <= budget
  *
- * Both sides are measured over replacement, and that symmetry is the whole
- * trick.  A rookie's gain is not his rating — it is his rating minus what you
- * could have streamed into that roster spot for free.  An empty roster spot is
- * worth waiver level, not zero.  Without this the objective is degenerate:
- * value-per-dollar rises ~30x down the rookie ladder (value and price both come
- * from the same convex Hill curve), so a raw `max sum(value)` just reads the
- * price curve back out and buys thirty $1 dart throws.
+ * Every roster spot is priced against what it could hold instead, and that
+ * symmetry is the whole trick.  A rookie's gain is not his rating — it is his
+ * rating minus what you could have streamed into that spot for free.  Without
+ * it the objective is degenerate: value-per-dollar rises ~30x down the rookie
+ * ladder (value and price both come from the same convex Hill curve), so a raw
+ * `max sum(value)` just reads the price curve back out and buys $1 dart throws.
  *
- * ── Why D depends only on k ────────────────────────────────────────────────
+ * ── Why replacement is a LADDER, and why it is the tail ────────────────────
+ *
+ * The obvious version — charge every addition the best free agent at its
+ * position — quietly assumes you can sign him k times.  You cannot.  So the
+ * charge comes off a ladder of the freely-available values in order.
+ *
+ * Which rungs, though, is the part that is easy to get backwards.  The baseline
+ * is "buy nothing", and an idle team does not sit with empty roster spots — it
+ * fills them off the wire.  A plan that uses `k` of those spots therefore
+ * forgoes the LAST k free agents it would have signed, not the first: with five
+ * open spots, buying one rookie costs you the fifth-best free agent, because
+ * you still sign the top four.  Once `k` reaches `open` the charge saturates —
+ * every spot is spoken for, and further rookies displace rostered players
+ * instead.
+ *
+ * The ladder also has to EXCLUDE the rookies in this very auction, which the
+ * shipped version did not: on the 2026-08-04 board five of the six best "free
+ * agents" were lots in the auction being optimized, so the model was advising
+ * you not to bid for a rookie tight end because you could have that same
+ * rookie tight end for nothing.  See `src/draft/rookie_pool.py`.
+ *
+ * ── Why the cut side changed with it ───────────────────────────────────────
+ *
+ * `effectiveCutCost` is measured OVER waiver level.  That was consistent while
+ * a rookie's gain was measured over waiver level too — the two terms cancelled.
+ * Under a ladder they no longer cancel, and keeping ECC on the cost side takes
+ * the waiver credit twice.  It is not a rounding difference: 23 of 30 rungs on
+ * the live board have an ECC of exactly zero, so the model believed releasing
+ * 23 rostered players was free.  `releaseCost` charges the whole value instead.
+ *
+ * ── Why R and D depend only on k ───────────────────────────────────────────
  *
  * The cut ladder is cheapest-first and independent of WHICH rookies are bought,
  * so total displacement cost is a function of how many you buy. That is what
  * lets one dynamic program answer every cardinality at once — and it is exact,
  * not an approximation: legal cut-sets are the independent sets of the dual of
  * a transversal matroid, where greedy is optimal and successive minimum-weight
- * sets nest.  See `src/draft/displacement.py` for the full argument.
+ * sets nest.  See `src/draft/displacement.py` for the full argument.  `W(k)` is
+ * a cardinality function for the same reason and composes with it.
  *
  * There is no fixed-slot constraint anywhere in here, deliberately.  This
  * league sets no minimum or maximum on how many rookies a team may draft; `k`
@@ -146,6 +176,113 @@ export function surplusOverReplacement(rookie, waiverValues, strategy = DEFAULT_
   return Math.max(0, v * tilt - waiverValueFor(rookie?.pos, waiverValues));
 }
 
+/** Tilt-adjusted board value — the item value when a waiver ladder is in play. */
+export function tiltedBoardValue(rookie, strategy = DEFAULT_STRATEGY) {
+  const v = Number(rookie?.boardValue);
+  if (!Number.isFinite(v) || v <= 0) return 0;
+  return v * strategyMultiplier(rookie?.yearsExp, strategy);
+}
+
+/** Cumulative sum of the first `n` ladder rungs. */
+function ladderPrefix(waiverLadder, n) {
+  const ladder = Array.isArray(waiverLadder) ? waiverLadder : [];
+  const count = Math.max(0, Math.min(Math.floor(Number(n) || 0), ladder.length));
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    const v = Number(ladder[i]);
+    if (Number.isFinite(v) && v > 0) total += v;
+  }
+  return total;
+}
+
+/**
+ * `R(k)` — the waiver value a k-rookie plan actually gives up.
+ *
+ * Not simply the top k rungs, and the difference is the whole subtlety.  The
+ * baseline this is measured against is "buy nothing", which does NOT leave the
+ * roster short: an idle team fills its `open` spots off the wire.  So a plan
+ * that uses `k` of those spots forgoes the LAST k of the free agents it would
+ * otherwise have signed — the worst ones — not the best.  With five open spots,
+ * buying one rookie costs you the fifth-best free agent, because you still sign
+ * the top four.
+ *
+ * Once `k` reaches `open` there is nothing left to give up: every spot is
+ * spoken for and the charge saturates at `W(open)`.  Rookies past that point
+ * displace rostered players instead, which is what `displacementCost` prices.
+ *
+ * Running off the end of the ladder means the league has fewer free agents than
+ * the roster has spots.  Those spots are then genuinely free — there is nobody
+ * left to stream — so exhausted rungs contribute 0 rather than repeating the
+ * last value, which would invent players.
+ */
+export function replacementCost(k, waiverLadder, openRosterSpots = Infinity) {
+  const n = Math.max(0, Math.floor(Number(k) || 0));
+  if (n === 0) return 0;
+  const open = Number.isFinite(Number(openRosterSpots))
+    ? Math.max(0, Math.floor(Number(openRosterSpots)))
+    : n;
+  const used = Math.min(n, open);
+  return ladderPrefix(waiverLadder, open) - ladderPrefix(waiverLadder, open - used);
+}
+
+/**
+ * What releasing a rostered player really costs, in board-value units.
+ *
+ * NOT `effectiveCutCost`, and the distinction matters more than it looks.  ECC
+ * is measured *over waiver level* — `(value - waiver) x scarcity` — because the
+ * shipped model also measured a rookie's gain over waiver level, so the two
+ * waiver terms cancelled and the accounting was consistent by construction.
+ *
+ * Once replacement is a ladder that cancellation is gone, and keeping ECC on
+ * the cost side would take the waiver credit twice: once by discounting the
+ * release, once by charging `R(k)`.  Measured on the 2026-08-04 board that is
+ * not a rounding difference — **23 of 30 cut rungs have an ECC of exactly
+ * zero**, so the model believed releasing 23 rostered players was free and
+ * would fill the roster to capacity with $1 rookies every time.  Twelve of
+ * those rungs are unranked players whose ECC is `max(0, waiver - waiver) = 0`,
+ * which is precisely the free-cut-on-an-identity-join-miss failure ADR-010 set
+ * out to prevent and did not.
+ *
+ * So the ladder model charges the player's whole value.  `baseValue` already
+ * carries the unranked fallback (waiver level stands in), so an identity-join
+ * miss costs a full waiver level to release rather than nothing.
+ */
+export function releaseCost(rung) {
+  const base = Number(rung?.baseValue);
+  if (!Number.isFinite(base) || base <= 0) {
+    // No base shipped (older payload): fall back to ECC, which understates but
+    // never invents a number.
+    const ecc = Number(rung?.effectiveCutCost);
+    return Number.isFinite(ecc) && ecc > 0 ? ecc : 0;
+  }
+  const mult = Number(rung?.scarcityMultiplier);
+  return base * (Number.isFinite(mult) && mult > 0 ? mult : 1);
+}
+
+/**
+ * Cumulative release cost of the cuts a k-rookie plan forces.
+ *
+ * Takes the CHEAPEST cuts by release cost rather than in ladder order, which is
+ * exact rather than a heuristic: the backend's greedy built its rungs as a
+ * nested sequence of legal cut-sets, so all of them are jointly droppable, and
+ * every subset of an independent set in a matroid is independent.  The `j`
+ * cheapest of the 30 are therefore themselves a legal cut-set — and the
+ * minimum-weight one of that size.
+ *
+ * Returns `null` when the roster cannot absorb `k`, which the caller must treat
+ * as infeasible rather than free.
+ */
+export function releaseCostForK(k, cutLadder, openRosterSpots) {
+  const cuts = Math.max(0, Math.floor(Number(k) || 0) - Math.max(0, openRosterSpots || 0));
+  if (cuts === 0) return 0;
+  const ladder = Array.isArray(cutLadder) ? cutLadder : [];
+  if (cuts > ladder.length) return null;
+  const costs = ladder.map(releaseCost).sort((a, b) => a - b);
+  let total = 0;
+  for (let i = 0; i < cuts; i++) total += costs[i];
+  return total;
+}
+
 /**
  * Cumulative displacement cost of taking `k` rookies.
  * Returns `null` when `k` exceeds what the roster can actually absorb — the
@@ -172,14 +309,31 @@ function marginalCut(k, cutLadder, openRosterSpots) {
 /**
  * Largest `k` worth considering.
  *
- * Exact, not a heuristic cap.  An exchange argument bounds the gain of the
- * k-th rookie by the k-th largest surplus in the pool, while its cost is at
- * least the k-th marginal cut.  Because the cut ladder is cheapest-first, that
- * marginal cost is non-decreasing, so once
- *   `surplusDesc[k-1] - marginalCut(k) <= 0`
- * it stays there and no larger k can ever win.
+ * Sound, not a heuristic cap: it bounds `net(k)` from above and keeps only the
+ * cardinalities whose bound is positive.  Taking the `k` largest item values
+ * over-states the gain, and `W(k) + D(k)` is exact, so
+ *
+ *   `UB(k) = sum(valuesDesc[0..k-1]) - W(k) - D(k)`
+ *
+ * is an upper bound on the best achievable net at that cardinality.  Any `k`
+ * with `UB(k) <= 0` loses to the empty plan and can be skipped.
+ *
+ * Deliberately scans the whole range rather than stopping at the first
+ * failure.  The previous early-exit relied on the marginal cost being
+ * non-decreasing, which held while the only cost was the cheapest-first cut
+ * ladder — but `W(k)`'s marginal term DECLINES (the free-agent ladder gets
+ * worse the deeper you go), so the sum is no longer monotone and a first
+ * failure no longer implies every later one.  The scan is O(n) against a
+ * dynamic program that is O(n·k·B), so the rigour is free.
  */
-export function maxUsefulK(surplusesDesc, cutLadder, openRosterSpots, budget, pricesAsc) {
+export function maxUsefulK(
+  valuesDesc,
+  cutLadder,
+  openRosterSpots,
+  budget,
+  pricesAsc,
+  waiverLadder = null,
+) {
   const nAffordable = (() => {
     let spent = 0;
     let n = 0;
@@ -190,12 +344,32 @@ export function maxUsefulK(surplusesDesc, cutLadder, openRosterSpots, budget, pr
     }
     return n;
   })();
-  const hardMax = Math.min(surplusesDesc.length, nAffordable);
-  for (let k = 1; k <= hardMax; k++) {
-    const m = marginalCut(k, cutLadder, openRosterSpots);
-    if (!Number.isFinite(m) || surplusesDesc[k - 1] - m <= 0) return k - 1;
+  const hardMax = Math.min(valuesDesc.length, nAffordable);
+  const ladder = Array.isArray(waiverLadder) && waiverLadder.length ? waiverLadder : null;
+
+  if (!ladder) {
+    // No ladder: the only marginal cost is the cheapest-first cut, which is
+    // non-decreasing, while the marginal gain is non-increasing.  So the
+    // difference is non-increasing and the first failure IS the last — a
+    // strictly tighter stop than the scan below, and still exact.
+    for (let k = 1; k <= hardMax; k++) {
+      const m = marginalCut(k, cutLadder, openRosterSpots);
+      if (!Number.isFinite(m) || valuesDesc[k - 1] - m <= 0) return k - 1;
+    }
+    return hardMax;
   }
-  return hardMax;
+
+  const table = buildChargeTable({ cutLadder, openRosterSpots }, ladder);
+  let cumValue = 0;
+  let best = 0;
+  for (let k = 1; k <= hardMax; k++) {
+    cumValue += Number(valuesDesc[k - 1]) || 0;
+    const charges = table.at(k);
+    // The roster cannot absorb this many, and it never will for larger k.
+    if (charges === null) break;
+    if (cumValue - charges.replacement - charges.displacement > 0) best = k;
+  }
+  return best;
 }
 
 /**
@@ -294,8 +468,16 @@ export function solveFrontier(input) {
     cutLadder = [],
     openRosterSpots = 0,
     waiverValues = {},
+    waiverLadder = null,
     strategy = DEFAULT_STRATEGY,
   } = input || {};
+
+  // Two exact modes, and which one is live depends only on whether the backend
+  // supplied a ladder.  With it, replacement is a cardinality term W(k); the
+  // item value is the plain (tilted) board value.  Without it — an older
+  // roster-context payload — each item carries its own flat positional charge,
+  // which is the previous model.  Both feed one dynamic program.
+  const ladder = Array.isArray(waiverLadder) && waiverLadder.length ? waiverLadder : null;
 
   const excluded = [];
   const pool = [];
@@ -315,40 +497,53 @@ export function solveFrontier(input) {
     pool.push({
       ...r,
       price,
-      surplus: surplusOverReplacement(r, waiverValues, strategy),
+      surplus: ladder
+        ? tiltedBoardValue(r, strategy)
+        : surplusOverReplacement(r, waiverValues, strategy),
     });
   }
 
   const B = Math.max(0, Math.floor(Number(budget) || 0));
   const affordable = pool.filter((r) => r.price <= B && r.surplus > 0);
-  const surplusesDesc = affordable.map((r) => r.surplus).sort((a, b) => b - a);
+  const valuesDesc = affordable.map((r) => r.surplus).sort((a, b) => b - a);
   const pricesAsc = affordable.map((r) => r.price).sort((a, b) => a - b);
 
   const kMax = Math.max(
     0,
-    maxUsefulK(surplusesDesc, cutLadder, openRosterSpots, B, pricesAsc),
+    maxUsefulK(valuesDesc, cutLadder, openRosterSpots, B, pricesAsc, ladder),
   );
 
   const frontier = [];
   // k = 0 is always a legitimate candidate: the team is never required to
   // spend, and "no rookie creates positive value" must be expressible.
-  frontier.push({ k: 0, players: [], grossSurplus: 0, displacement: 0, netValue: 0, spend: 0 });
+  frontier.push({
+    k: 0,
+    players: [],
+    grossSurplus: 0,
+    replacement: 0,
+    displacement: 0,
+    netValue: 0,
+    spend: 0,
+  });
 
   if (kMax > 0 && affordable.length > 0) {
     const { F, took, width, B: bb } = solveKnapsack(affordable, B, kMax);
+    const charges0 = buildChargeTable({ cutLadder, openRosterSpots }, ladder);
     for (let k = 1; k <= kMax; k++) {
-      const disp = displacementCost(k, cutLadder, openRosterSpots);
-      if (disp === null) break;
+      const charges = charges0.at(k);
+      if (charges === null) break;
+      const { replacement: repl, displacement: disp } = charges;
       const { value, b } = bestAtK(F, k, bb);
       if (!Number.isFinite(value) || b < 0) continue;
       const players = reconstruct(affordable, took, width, bb, k, b);
       if (!players) continue;
       frontier.push({
         k,
-        players,
+        players: ladder ? assignLadderRungs(players, ladder, openRosterSpots) : players,
         grossSurplus: value,
+        replacement: repl,
         displacement: disp,
-        netValue: value - disp,
+        netValue: value - repl - disp,
         spend: players.reduce((s, p) => s + p.price, 0),
       });
     }
@@ -356,6 +551,34 @@ export function solveFrontier(input) {
 
   frontier.sort((a, b) => b.netValue - a.netValue || a.spend - b.spend);
   return { frontier, excluded, kMax, budget: B, poolSize: affordable.length };
+}
+
+/**
+ * Pair each chosen rookie with the ladder rung his roster spot forgoes.
+ *
+ * The plan total does not depend on the pairing — any bijection sums to `W(k)`
+ * — but a per-row display does, so the best rookie is set against the best free
+ * agent and so on down. That keeps the panel's arithmetic legible: each row's
+ * `surplus - forgone` sums exactly to the plan's gross-minus-replacement.
+ */
+function assignLadderRungs(players, ladder, openRosterSpots = Infinity) {
+  const k = players.length;
+  const open = Number.isFinite(Number(openRosterSpots))
+    ? Math.max(0, Math.floor(Number(openRosterSpots)))
+    : k;
+  // R(k) charges the LAST `min(k, open)` rungs the team would have signed, so
+  // the rungs actually forgone start at index `open - used`.
+  const used = Math.min(k, open);
+  const firstRung = Math.max(0, open - used);
+  const order = players
+    .map((p, i) => [i, Number(p.surplus) || 0])
+    .sort((a, b) => b[1] - a[1]);
+  const out = players.slice();
+  order.forEach(([idx], n) => {
+    const v = n < used ? Number(ladder[firstRung + n]) : 0;
+    out[idx] = { ...players[idx], replacementForgone: Number.isFinite(v) && v > 0 ? v : 0 };
+  });
+  return out;
 }
 
 // ── Max bid, pivots, and uncertainty ───────────────────────────────────────
@@ -516,32 +739,96 @@ function poolFrom(input) {
   return solveFrontier(input);
 }
 
+/** The ladder actually in play for an input, or null for the flat model. */
+function ladderOf(input) {
+  const l = input?.waiverLadder;
+  return Array.isArray(l) && l.length ? l : null;
+}
+
+/**
+ * Precomputed cardinality charges, under whichever model is live.
+ *
+ * Flat model: replacement is already inside each item's value, and the cut side
+ * is ECC (also measured over waiver) — the two waiver terms cancel.
+ * Ladder model: item value is the raw board value, replacement is `R(k)`, and
+ * cuts cost their full release value. Mixing the two halves is the one thing
+ * that must not happen; keeping the choice in one place is how.
+ *
+ * Built ONCE per solve rather than per query, and that is not a micro-
+ * optimization: `computeMaxBid` evaluates its indifference price over every
+ * dollar from the budget down to zero, times every cardinality, times every
+ * recommended rookie. Sorting the release ladder inside that loop measured
+ * 1129 ms on the live board against 327 ms before — roughly 460,000 sorts of
+ * the same thirty numbers. The table makes each lookup an array index.
+ */
+function buildChargeTable(input, ladder) {
+  const { cutLadder = [], openRosterSpots = 0 } = input || {};
+  const rungs = Array.isArray(cutLadder) ? cutLadder : [];
+  const open = Math.max(0, Math.floor(Number(openRosterSpots) || 0));
+  const kMaxAbsorbable = open + rungs.length;
+
+  // Release costs, cheapest first, as a prefix sum. Exact rather than a
+  // heuristic ordering: the backend's rungs are jointly droppable, so every
+  // subset of them is a legal cut-set and the j cheapest are the minimum-weight
+  // one of that size.
+  const sortedReleases = rungs.map(releaseCost).sort((a, b) => a - b);
+  const releasePrefix = [0];
+  for (let i = 0; i < sortedReleases.length; i++) {
+    releasePrefix.push(releasePrefix[i] + sortedReleases[i]);
+  }
+
+  const eccPrefix = [0];
+  for (let i = 0; i < rungs.length; i++) {
+    eccPrefix.push(eccPrefix[i] + (Number(rungs[i]?.effectiveCutCost) || 0));
+  }
+
+  return {
+    kMaxAbsorbable,
+    /** `null` when the roster cannot absorb `k`. */
+    at(k) {
+      const n = Math.max(0, Math.floor(Number(k) || 0));
+      const cuts = Math.max(0, n - open);
+      if (cuts > rungs.length) return null;
+      if (!ladder) return { replacement: 0, displacement: eccPrefix[cuts] };
+      return {
+        replacement: replacementCost(n, ladder, open),
+        displacement: releasePrefix[cuts],
+      };
+    },
+  };
+}
+
 function buildItems(input) {
   const { rookies = [], budget = 0, waiverValues = {}, strategy = DEFAULT_STRATEGY } = input || {};
   const B = Math.max(0, Math.floor(Number(budget) || 0));
+  const ladder = ladderOf(input);
   return rookies
     .filter((r) => r && !r.drafted)
     .map((r) => ({
       ...r,
       price: Math.max(0, Math.round(Number(r.price))),
-      surplus: surplusOverReplacement(r, waiverValues, strategy),
+      surplus: ladder
+        ? tiltedBoardValue(r, strategy)
+        : surplusOverReplacement(r, waiverValues, strategy),
     }))
     .filter((r) => Number.isFinite(r.price) && r.price <= B && r.surplus > 0);
 }
 
 /** Best achievable net value over a set of items, plus the winning plan. */
 function bestNetOver(items, input, kCap) {
-  const { budget = 0, cutLadder = [], openRosterSpots = 0 } = input || {};
+  const { budget = 0 } = input || {};
   const B = Math.max(0, Math.floor(Number(budget) || 0));
+  const ladder = ladderOf(input);
   let best = { netValue: 0, players: [], k: 0, spend: 0 };
   if (!items.length || kCap <= 0) return best;
   const { F, took, width } = solveKnapsack(items, B, kCap);
+  const table = buildChargeTable(input, ladder);
   for (let k = 1; k <= kCap; k++) {
-    const disp = displacementCost(k, cutLadder, openRosterSpots);
-    if (disp === null) break;
+    const charges = table.at(k);
+    if (charges === null) break;
     const { value, b } = bestAtK(F, k, B);
     if (!Number.isFinite(value) || b < 0) continue;
-    const net = value - disp;
+    const net = value - charges.replacement - charges.displacement;
     if (net > best.netValue) {
       const players = reconstruct(items, took, width, B, k, b) || [];
       best = { netValue: net, players, k, spend: players.reduce((s, p) => s + p.price, 0) };
@@ -572,13 +859,14 @@ function bestNetOver(items, input, kCap) {
  * best plan that does not contain this rookie — the "if you lose him, go here"
  * branch, free from the same solve.
  */
-export function computeMaxBid(input, rookieId) {
+export function computeMaxBid(input, rookieId, { bid = null } = {}) {
   const items = buildItems(input);
   const target = items.find((r) => r.id === rookieId);
   const { cutLadder = [], openRosterSpots = 0 } = input || {};
   const B = Math.max(0, Math.floor(Number(input?.budget) || 0));
   const others = items.filter((r) => r.id !== rookieId);
 
+  const ladder = ladderOf(input);
   const kCapAll = Math.max(
     1,
     maxUsefulK(
@@ -587,6 +875,7 @@ export function computeMaxBid(input, rookieId) {
       openRosterSpots,
       B,
       items.map((r) => r.price).sort((a, b) => a - b),
+      ladder,
     ),
   );
 
@@ -597,16 +886,17 @@ export function computeMaxBid(input, rookieId) {
 
   // Phi(q): best net over plans containing the target priced at q.
   const { F } = solveKnapsack(others, B, Math.max(0, kCapAll - 1) + 1);
+  const table = buildChargeTable(input, ladder);
   const phi = (q) => {
     const rem = B - q;
     if (rem < 0) return -Infinity;
     let best = -Infinity;
     for (let k = 1; k <= kCapAll; k++) {
-      const disp = displacementCost(k, cutLadder, openRosterSpots);
-      if (disp === null) break;
+      const charges = table.at(k);
+      if (charges === null) break;
       const { value } = bestAtK(F, k - 1, rem);
       if (!Number.isFinite(value)) continue;
-      best = Math.max(best, value + target.surplus - disp);
+      best = Math.max(best, value + target.surplus - charges.replacement - charges.displacement);
     }
     return best;
   };
@@ -618,11 +908,55 @@ export function computeMaxBid(input, rookieId) {
       break;
     }
   }
+  const askedBid = Number(bid);
+  const atBid = Number.isFinite(askedBid) && askedBid >= 0 ? phi(Math.round(askedBid)) : null;
   return {
     planMaxBid: maxBid,
     netWith: phi(target.price),
     netWithout: without.netValue,
+    // Only present when a live bid was supplied: the best plan you can still
+    // build if you win him AT THAT PRICE, rather than at the price the board
+    // expected. The two diverge exactly when it matters — mid-auction, with
+    // the bid climbing past expectations.
+    netAtBid: atBid,
     pivot: without,
+  };
+}
+
+/**
+ * "The bidding is at $X — do I go?"
+ *
+ * The question a live auction actually asks, and it is not the one
+ * `planMaxBid` alone answers. `planMaxBid` is the indifference price computed
+ * against the board's expected prices for everyone else; what a bidder needs
+ * in the moment is the comparison between two concrete futures: win him at
+ * this number, or lose him and run the pivot plan.
+ *
+ * Both branches come free from the same solve `computeMaxBid` already does —
+ * `phi(bid)` is the best plan containing him at that price, and
+ * `bestNetWithout` is the pivot. No new model, no second price concept.
+ *
+ * `verdict` is deliberately coarse (`"go"` / `"limit"` / `"stop"`), because the
+ * underlying numbers carry uncertainty the panel already reports separately and
+ * a false precision here would read as more confidence than exists.
+ */
+export function evaluateBid(input, rookieId, bid) {
+  const q = Math.max(0, Math.round(Number(bid) || 0));
+  const { planMaxBid, netWithout, netAtBid, pivot } = computeMaxBid(input, rookieId, { bid: q });
+  const winning = Number.isFinite(netAtBid) ? netAtBid : null;
+  const gain = winning === null ? null : winning - netWithout;
+  let verdict = "stop";
+  if (planMaxBid > 0 && q <= planMaxBid) verdict = q >= planMaxBid * 0.9 ? "limit" : "go";
+  return {
+    bid: q,
+    planMaxBid,
+    netIfWon: winning,
+    netIfLost: netWithout,
+    // What this specific purchase is worth relative to walking away. Negative
+    // means the pivot plan is better — the honest "let him go" signal.
+    gain,
+    pivot,
+    verdict,
   };
 }
 
@@ -729,7 +1063,11 @@ export function assessPlans(
       }
       let gross = 0;
       for (const p of players) gross += p.surplus * shockFor(p);
-      const net = gross - (plan.displacement || 0);
+      // BOTH cardinality charges, or the bootstrap ranks plans on a different
+      // objective than the solver did. Under the ladder model `p.surplus` is
+      // the raw board value, so omitting `replacement` leaves the k-dependent
+      // waiver charge out entirely and systematically flatters large plans.
+      const net = gross - (plan.replacement || 0) - (plan.displacement || 0);
       if (net > bestVal) {
         bestVal = net;
         bestIdx = i;
@@ -809,22 +1147,32 @@ export function optimizeDraft(input) {
     seen.add(key);
     candidates.push(plan);
   }
+  const planLadder = ladderOf(input);
   for (const rec of recommendations) {
     const players = (input.rookies || [])
       .filter((r) => rec.pivot.players.some((q) => q.id === r.id))
       .map((r) => ({
         ...r,
         price: Math.max(0, Math.round(Number(r.price))),
-        surplus: surplusOverReplacement(r, input.waiverValues || {}, input.strategy),
+        surplus: planLadder
+          ? tiltedBoardValue(r, input.strategy)
+          : surplusOverReplacement(r, input.waiverValues || {}, input.strategy),
       }));
+    const charges = buildChargeTable(input, planLadder).at(players.length) || {
+      replacement: 0,
+      displacement: 0,
+    };
     const plan = {
       k: players.length,
-      players,
-      displacement: displacementCost(players.length, input.cutLadder, input.openRosterSpots) || 0,
+      players: planLadder
+        ? assignLadderRungs(players, planLadder, input.openRosterSpots)
+        : players,
+      replacement: charges.replacement,
+      displacement: charges.displacement,
       spend: players.reduce((s, q) => s + q.price, 0),
     };
     plan.grossSurplus = players.reduce((s, q) => s + q.surplus, 0);
-    plan.netValue = plan.grossSurplus - plan.displacement;
+    plan.netValue = plan.grossSurplus - plan.replacement - plan.displacement;
     const key = planKey(plan);
     if (seen.has(key)) continue;
     seen.add(key);
@@ -973,6 +1321,7 @@ export function draftPhase(stats) {
 export function realizedResults({
   stats,
   waiverValues = {},
+  waiverLadder = null,
   cutLadder = [],
   openRosterSpots = 0,
   strategy = DEFAULT_STRATEGY,
@@ -986,10 +1335,19 @@ export function realizedResults({
     rookiesBought: bought.length,
   });
 
+  // Same two modes as the plan side, for the same reason: a results figure
+  // computed on a different definition of replacement would not be comparable
+  // to the plan it is meant to be scored against.
+  const ladder = Array.isArray(waiverLadder) && waiverLadder.length ? waiverLadder : null;
   const grossSurplus = bought.reduce(
-    (s, p) => s + surplusOverReplacement(p, waiverValues, strategy),
+    (s, p) =>
+      s +
+      (ladder
+        ? tiltedBoardValue(p, strategy)
+        : surplusOverReplacement(p, waiverValues, strategy)),
     0,
   );
+  const replacement = ladder ? replacementCost(bought.length, ladder, openRosterSpots) : 0;
   const displacement = (Array.isArray(cutLadder) ? cutLadder : [])
     .slice(0, rungsUsed)
     .reduce((s, r) => s + (Number(r?.effectiveCutCost) || 0), 0);
@@ -999,8 +1357,117 @@ export function realizedResults({
     count: bought.length,
     spend,
     grossSurplus,
+    replacement,
     displacement,
-    netValue: grossSurplus - displacement,
+    netValue: grossSurplus - replacement - displacement,
     players: bought,
   };
+}
+
+// ── Positional balance ─────────────────────────────────────────────────────
+
+/**
+ * Slot names that are not positions.
+ *
+ * The registry's `starters` block mixes real positions (`QB`, `RB`) with FLEX
+ * slots that several positions can fill.  Counting `FLEX: 2` as a requirement
+ * for two players "at position FLEX" would invent a need nobody can fill, so
+ * flex slots are excluded from the per-position requirement and reported
+ * separately as spare capacity.
+ */
+const FLEX_SLOTS = new Set(["FLEX", "SUPER_FLEX", "SFLEX", "IDP_FLEX", "REC_FLEX", "WRT"]);
+
+/**
+ * Positions where this roster cannot fill its own starting lineup.
+ *
+ * Deliberately measured against the league's OWN `starters` block rather than
+ * a constant: `DEFAULT_POSITION_MINS` in `draft-logic.js` is a hand-tuned
+ * shape for a generic superflex league, and this league's registry entry says
+ * exactly what it starts. A threshold that disagrees with the league is worse
+ * than no threshold.
+ *
+ * Returns `{ needs, counts, requirements }`; `needs` is `{POS: shortfall}` and
+ * is empty when the roster already covers every starting slot — which is the
+ * usual case on a 58-man roster, and the honest answer when it happens.
+ */
+export function positionalNeeds({ rosterByPosition = {}, startersByPosition = {} } = {}) {
+  const counts = {};
+  for (const [pos, n] of Object.entries(rosterByPosition || {})) {
+    const k = String(pos).toUpperCase();
+    counts[k] = Number(n) || 0;
+  }
+  const requirements = {};
+  for (const [slot, n] of Object.entries(startersByPosition || {})) {
+    const k = String(slot).toUpperCase();
+    if (FLEX_SLOTS.has(k)) continue;
+    const v = Number(n) || 0;
+    if (v > 0) requirements[k] = v;
+  }
+  const needs = {};
+  for (const [pos, req] of Object.entries(requirements)) {
+    const have = counts[pos] || 0;
+    if (have < req) needs[pos] = req - have;
+  }
+  return { needs, counts, requirements };
+}
+
+/**
+ * How a plan changes the roster's positional shape.
+ *
+ * Reporting, not optimization, and that is a deliberate boundary. Folding a
+ * positional minimum into the objective would need per-position counts in the
+ * dynamic program's state — the product of every requirement — which is what
+ * the `k`-only decomposition exists to avoid. So the plan is scored on value
+ * and the positional consequence is stated beside it, where a human can weigh
+ * it against a number the model is not pretending to have priced.
+ */
+export function planPositionBalance(plan, context) {
+  const { needs, counts, requirements } = positionalNeeds(context || {});
+  const added = {};
+  for (const p of plan?.players || []) {
+    const pos = String(p?.pos || "").toUpperCase();
+    if (pos) added[pos] = (added[pos] || 0) + 1;
+  }
+  const unmet = {};
+  for (const [pos, short] of Object.entries(needs)) {
+    const remaining = short - (added[pos] || 0);
+    if (remaining > 0) unmet[pos] = remaining;
+  }
+  const filled = Object.keys(needs).filter((pos) => (added[pos] || 0) > 0);
+  return { needs, counts, requirements, added, unmet, filled };
+}
+
+// ── Opponent-aware pricing ─────────────────────────────────────────────────
+
+export const PRICE_BASES = ["fair", "contested"];
+
+/**
+ * What a rookie costs to actually win, given who else can bid.
+ *
+ * An auction settles one dollar above the last rival still in, so a rookie
+ * nobody can afford is cheap however he is valued. `bayesianTopCompetitor`
+ * (`draft-logic.js`) already computes the richest rival's effective budget
+ * weighted by that rival's demonstrated interest in this player's tier — it
+ * has been computed on every board render since it was written and read by
+ * nothing outside its own tests.
+ *
+ * `"fair"` is the default and is the shipped behaviour: the board's
+ * inflation-adjusted fair price. `"contested"` caps that at what the room can
+ * actually pay. The cap only ever LOWERS a price, so a contested plan is never
+ * more optimistic about affordability than a fair one — it just stops
+ * pretending you must outbid budgets that no longer exist, which is the whole
+ * late-draft failure mode.
+ */
+export function contestedPrice(rookie, basis = "fair") {
+  const fair = Math.max(0, Math.round(Number(rookie?.price) || 0));
+  if (basis !== "contested") return fair;
+  const raw = rookie?.bayesianTopCompetitor;
+  // `Number(null) === 0` — the same trap that once made every player with no
+  // `yearsExp` read as a rookie. An absent opponent estimate means UNKNOWN,
+  // and capping an unknown at $1 would recommend the whole board for a dollar.
+  if (raw === null || raw === undefined || raw === "") return fair;
+  const rival = Number(raw);
+  if (!Number.isFinite(rival) || rival < 0) return fair;
+  // One dollar beats the field; never below $1, which is the auction minimum.
+  return Math.max(1, Math.min(fair, Math.floor(rival) + 1));
 }

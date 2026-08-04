@@ -504,18 +504,76 @@ Its two uncertainty inputs were documented before they were wired (fixed
   of its lazy chunk.  ``meta.budgetHeadroomAtP75`` is ``null`` — never 0 —
   when no sigma was supplied.
 
+**Opponent awareness is a price CAP, not a bidding model.**  The
+``Prices`` control switches between ``fair`` (the board's
+inflation-adjusted price — the default) and ``contested``, which caps it
+at one dollar past the richest rival who still wants that tier
+(``bayesianTopCompetitor``, computed on every board render since it was
+written and read by nothing until now).  The cap only ever LOWERS a
+price, so it is never more optimistic about affordability — it stops
+requiring you to outbid budgets that no longer exist.
+
+**Positional balance is REPORTED, not optimized**, and that boundary is
+deliberate.  ``planPositionBalance`` names which starting slots the
+roster cannot fill (measured against the league's own ``starters``
+block, never a constant — ``DEFAULT_POSITION_MINS`` is a generic shape
+and this league's registry says exactly what it starts), which the plan
+fills and which it leaves open.  Folding a positional minimum into the
+objective would need per-position counts in the DP state — the explosion
+the k-only decomposition exists to avoid — and would mean inventing a
+rate at which a filled starting slot is worth giving up board value.
+
+``evaluateBid`` answers the live question (*"bidding is at $X, do I
+go?"*) from the same solve ``computeMaxBid`` already runs: win-at-this-
+price versus the pivot.  Verdicts are coarse on purpose.
+
+**Backtesting is BLOCKED and ``scripts/backtest_perfect_draft.py`` says
+so** (exit 2, never 0 — "no data" must not read as "passed").  Realized
+auction prices existed nowhere: ``_normalize_pick`` in
+``src/public_league/draft.py`` was reading Sleeper's pick metadata and
+discarding ``metadata.amount``, which is now carried through (``None``
+for a snake draft — a different statement from ``0``).  What cannot be
+fixed is the pre-draft BOARD snapshot: ``rank_history`` does not reach
+past ``exports/archive/``'s 2026-07-14 start, and no code recovers an
+observation nobody made.  ``--record-snapshot`` captures the board and
+every roster context together before an auction; run it first.
+
 Not sourced from BDVM: it returns ``no_projection`` for the 2026 rookie
 class (upstream nflverse gap).  ``strategyMultiplier`` is the seam to
 replace when that changes.
 
-**Known limitation:** every addition in a k-rookie plan is measured
-against the SAME ``waiverValue(pos)``, but the honest comparison is
-against the 1st..k-th best free agent, which declines.  Total surplus is
-therefore optimistic and increasingly so as k grows, which biases toward
-high-k plans.  The fix is the mirror of ``D(k)`` — subtract a ``W(k)``
-term (sum of the top-k free-agent values) instead of a flat per-item
-waiver level, which preserves the cardinality decomposition.  Deferred,
-documented in ``docs/perfect-draft.md``.
+**Replacement level is a LADDER, and its rungs are the TAIL** (2026-08-04,
+ADR-010 amendment).  The flat per-addition ``waiverValue(pos)`` charge
+assumed you could sign the best free agent k times over.  ``R(k)`` charges
+off ``context.waiverLadder`` instead — and off its *tail*, which is the
+part that is easy to get backwards: the baseline is "buy nothing", and an
+idle team fills its open spots off the wire, so a plan using k of them
+forgoes the LAST k free agents it would have signed, not the best.  With
+five open spots, buying one rookie costs the fifth-best.  The charge
+saturates at ``W(open)``.
+
+Two defects were found and fixed alongside it, both bigger than the
+change that exposed them:
+
+* **The auction's own rookies were counted as free agents.**  Five of the
+  six best "free agents" on the 2026-08-04 board were lots in the very
+  draft being optimized, so the model advised against paying for a rookie
+  TE because that same rookie TE was notionally free.
+  ``src/draft/rookie_pool.py`` is now the single definition of "in this
+  auction", shared by ``_our_rookie_pool`` and the roster context.
+* **Releasing 23 of 30 rostered players cost exactly zero.**
+  ``ECC = max(0, base − waiver)`` is 0 for anyone at or below waiver
+  level, which under the ladder is a double credit — so the client uses
+  ``releaseCost = baseValue × scarcityMultiplier``.  ECC itself is
+  unchanged for its other consumers.
+
+**Measured, and it did NOT do what the old note predicted**: the
+recommendation moved 35 → 34 rookies, not to a small plan.  The high-k
+preference was never the replacement term — it is that **roster value is
+an unweighted sum of market values**, so a 58-man roster that starts 21
+still books bench player #40 at full market value.  Lineup-aware roster
+value is the real fix and breaks the k-decomposition.  Documented in
+``docs/perfect-draft.md`` §9.
 
 ### Trade Engines
 Two independent trade suggestion systems in `src/trade/`:

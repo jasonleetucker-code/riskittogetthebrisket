@@ -31,8 +31,11 @@ from typing import Any
 from src.draft.displacement import (
     RosterAsset,
     build_cut_ladder,
+    count_free_agents,
+    free_agent_ladder,
     waiver_values_by_position,
 )
+from src.draft.rookie_pool import auction_rookie_keys
 
 __all__ = [
     "CONTEXT_VERSION",
@@ -41,7 +44,13 @@ __all__ = [
 ]
 
 #: Bumped when the payload shape changes in a way the client must notice.
-CONTEXT_VERSION = "2026-07-30.v1"
+#:
+#: v2 (2026-08-04) adds ``waiverLadder`` — the declining free-agent ladder
+#: behind W(k) — and excludes rookies in the live auction from every
+#: free-agent measurement, which moves ``waiverValues`` too.
+#: v3 (2026-08-04) adds ``rosterByPosition`` / ``startersByPosition`` so the
+#: client can say whether a plan leaves a starting slot unfilled.
+CONTEXT_VERSION = "2026-08-04.v3"
 
 
 def _norm(s: Any) -> str:
@@ -229,9 +238,34 @@ def build_roster_context(
             if _norm(nm):
                 rostered_keys.add(_norm(nm))
 
-    waiver_values = waiver_values_by_position(contract, rostered_keys)
+    # Rookies in this auction are NOT free alternatives to buying rookies in
+    # this auction.  Without this exclusion the board's best "free agent" tight
+    # end was lot number one (see src/draft/rookie_pool.py), which suppressed
+    # every rookie TE's surplus by comparing him against himself.
+    auction_keys = auction_rookie_keys(contract)
+    # The size of the defect this exclusion fixes, measured rather than
+    # asserted: the difference between the free-agent universe with the auction
+    # in it and without.  Counted this way and not by "auction rookies nobody
+    # rosters", which overstates it — a rookie with no position never reached
+    # the free-agent pool to begin with.
+    free_agents_total = count_free_agents(contract, rostered_keys, auction_keys)
+    auction_rookies_excluded = (
+        count_free_agents(contract, rostered_keys) - free_agents_total
+    )
+    waiver_values = waiver_values_by_position(contract, rostered_keys, auction_keys)
     if not waiver_values:
         notes.append("no waiver-level values available — cut costs fall back to raw board value")
+
+    # The declining ladder behind W(k): taking k roster spots forgoes the top-k
+    # free agents, not the single best one k times over.  The cap is generous
+    # relative to any plan the optimizer will produce (open spots plus at most
+    # MAX_LADDER_RUNGS cuts) so the client never runs off the end of it.
+    waiver_ladder = free_agent_ladder(contract, rostered_keys, auction_keys, limit=90)
+    if not waiver_ladder:
+        notes.append(
+            "no free agents available — replacement level is unmeasurable and "
+            "rookie surplus is therefore the raw board value"
+        )
 
     # Join this team's roster to the board.
     names = [str(n) for n in (team.get("players") or []) if str(n or "").strip()]
@@ -298,6 +332,21 @@ def build_roster_context(
 
     assumed_waiver = sum(1 for r in ladder.rungs if r.value_basis == "assumedWaiver")
 
+    # Positional shape, so the client can say whether a plan leaves a hole.
+    # Counted from the joined assets rather than from the cut ladder: the
+    # ladder truncates at MAX_LADDER_RUNGS and excludes the undroppable, so its
+    # positions are a sample of the roster, not the roster.
+    roster_by_position: dict[str, int] = {}
+    for asset in assets:
+        pos = (asset.position or "").strip().upper()
+        if pos:
+            roster_by_position[pos] = roster_by_position.get(pos, 0) + 1
+    starters_by_position: dict[str, int] = {}
+    for slot in starter_slots:
+        key = str(slot or "").strip().upper()
+        if key:
+            starters_by_position[key] = starters_by_position.get(key, 0) + 1
+
     return {
         "contextVersion": CONTEXT_VERSION,
         "leagueKey": league_key,
@@ -313,6 +362,17 @@ def build_roster_context(
         "taxiSize": taxi_size,
         "taxiSlotsAvailable": 0,
         "waiverValues": {k: round(v, 1) for k, v in sorted(waiver_values.items())},
+        # Descending free-agent values — the W(k) ladder.  ``waiverValues``
+        # above stays for the cut side (a released player IS replaced at his
+        # own position) and for display; this is the addition side, where the
+        # spots are fungible and the same free agent cannot fill two of them.
+        "waiverLadder": [round(v, 1) for v in waiver_ladder],
+        # Positional shape.  ``rosterByPosition`` is this team's joined roster;
+        # ``startersByPosition`` is the league's own lineup requirement from the
+        # registry (FLEX / SUPER_FLEX / IDP_FLEX appear as their own keys — they
+        # are slots, not positions, and the client must not treat them as one).
+        "rosterByPosition": dict(sorted(roster_by_position.items())),
+        "startersByPosition": dict(sorted(starters_by_position.items())),
         "cutLadder": ladder.to_dict(),
         "counts": {
             "rosterPlayers": roster_count,
@@ -320,6 +380,8 @@ def build_roster_context(
             "cutRungs": len(ladder.rungs),
             "undroppable": len(ladder.undroppable),
             "assumedWaiverRungs": assumed_waiver,
+            "freeAgents": free_agents_total,
+            "auctionRookiesExcludedFromWaivers": auction_rookies_excluded,
         },
         "unmatchedRosterPlayers": unmatched[:25],
         "notes": notes,

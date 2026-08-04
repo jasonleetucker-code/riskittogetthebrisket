@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PerfectDraftPanel, bidStanding, planShape } from "@/components/draft/PerfectDraftPanel";
 
 const CONTEXT = {
-  contextVersion: "2026-07-30.v1",
+  contextVersion: "2026-08-04.v2",
   leagueKey: "pd_main",
   valueScale: "rankDerivedValue",
   team: { name: "Alpha", ownerId: "owner-a", rosterId: 1 },
@@ -27,6 +27,9 @@ const CONTEXT = {
   taxiSize: 0,
   taxiSlotsAvailable: 0,
   waiverValues: { WR: 1200, RB: 1100 },
+  waiverLadder: [1200, 1150, 1100, 1050, 1000],
+  rosterByPosition: { QB: 5, RB: 1, WR: 9, TE: 7 },
+  startersByPosition: { QB: 1, RB: 2, WR: 3, TE: 2, FLEX: 2, SUPER_FLEX: 1 },
   cutLadder: {
     rungs: [
       {
@@ -89,7 +92,14 @@ const STATS = {
   ],
 };
 
-const WORKSPACE = { myTeamIdx: 0, teams: [{ name: "Alpha" }, { name: "Beta" }] };
+// The REAL workspace shape: `myTeamIdx` lives under `settings`
+// (createDefaultWorkspace in lib/draft-logic.js). The fixture used to put it at
+// the root, which is the only reason a panel that could never resolve a team in
+// the browser passed every test here.
+const WORKSPACE = {
+  settings: { myTeamIdx: 0 },
+  teams: [{ name: "Alpha" }, { name: "Beta" }],
+};
 
 function jsonResponse(status, body) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -448,5 +458,87 @@ describe("price uncertainty is shown for what it is", () => {
       />,
     );
     expect(bandWidth(await screen.findByRole("table"))).toBeLessThan(priorWidth);
+  });
+});
+
+
+describe("the workspace shape it actually receives", () => {
+  beforeEach(() => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+  });
+
+  it("resolves the user's team from settings.myTeamIdx", async () => {
+    // The bug this pins: reading `workspace.myTeamIdx` off the root returns
+    // undefined, so no team reaches the roster-context request, the server
+    // answers `context: null`, and the panel silent-vanishes BEFORE its own
+    // team selector renders — unreachable in the browser, green in tests.
+    render(
+      <PerfectDraftPanel
+        stats={STATS}
+        workspace={{ settings: { myTeamIdx: 1 }, teams: [{ name: "Alpha" }, { name: "Beta" }] }}
+      />,
+    );
+    await screen.findByRole("table");
+    const url = fetch.mock.calls[0][0];
+    expect(String(url)).toContain("teamName=Beta");
+  });
+
+  it("still renders when a workspace has no settings block at all", async () => {
+    render(<PerfectDraftPanel stats={STATS} workspace={{ teams: [{ name: "Alpha" }] }} />);
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+  });
+});
+
+describe("the waiver ladder reaches the solve", () => {
+  beforeEach(() => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+  });
+
+  it("shows what the plan gives up on waivers, not just what it releases", async () => {
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    expect(screen.getByText(/off waivers/i)).toBeInTheDocument();
+  });
+});
+
+
+describe("positional balance and opponent-aware pricing", () => {
+  beforeEach(() => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+  });
+
+  it("names the starting slots this roster cannot fill", async () => {
+    // The context has 1 RB against 2 RB starters.
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    expect(screen.getByText(/Short of starters at/i)).toBeInTheDocument();
+    expect(screen.getByText(/RB \(1\)/)).toBeInTheDocument();
+  });
+
+  it("does not invent a need for a FLEX slot", async () => {
+    // FLEX and SUPER_FLEX are slots several positions can fill, not positions
+    // anybody can be short of.
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    const line = screen.getByText(/Short of starters at/i).textContent;
+    expect(line).not.toMatch(/FLEX/);
+  });
+
+  it("says plainly when the roster already covers every slot", async () => {
+    const ctx = {
+      ...CONTEXT,
+      rosterByPosition: { QB: 5, RB: 4, WR: 9, TE: 7 },
+    };
+    fetch.mockResolvedValue(jsonResponse(200, { ...okPayload(), context: ctx }));
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    expect(screen.getByText(/already covers every starting slot/i)).toBeInTheDocument();
+  });
+
+  it("offers a price basis and defaults to fair value", async () => {
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    expect(screen.getByText("Fair value")).toBeInTheDocument();
+    expect(screen.getByText("Beat the room")).toBeInTheDocument();
   });
 });
