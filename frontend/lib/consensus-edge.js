@@ -148,6 +148,23 @@ export function componentRows(row, validation) {
 }
 
 /**
+ * The order the board is ranked in, read off the backend's stamp.
+ *
+ * `conviction` is score x (confidence / 100) — a point estimate shrunk
+ * by its own precision. It is computed in `service.py::conviction` and
+ * stamped on every row; this reads it and never recomputes it, for the
+ * same reason `qualified` is read rather than re-derived from label
+ * strings. Falling back to 0 rather than to `score` is deliberate: a
+ * missing stamp then leaves the backend's own array order intact, which
+ * is already conviction order, instead of quietly reinstating the
+ * score-ranked list the measurements do not describe.
+ */
+export function rankKey(row) {
+  const value = row && row.conviction;
+  return typeof value === "number" ? value : 0;
+}
+
+/**
  * Position leaders, threshold-gated. Returns one entry per position
  * that HAS a qualifying player and omits the rest — the caller renders
  * "no qualifying buy" rather than reaching further down the board,
@@ -168,9 +185,17 @@ export function positionLeaders(rows, { direction = "buy" } = {}) {
     const position = row.position;
     if (!position) continue;
     const current = best.get(position);
+    // Ranked on the BACKEND's conviction stamp (score shrunk by its own
+    // confidence), not on raw score. Ranking on score alone was measured
+    // to surface the thinnest-evidence rows — the published top-20 had a
+    // median source reliability of 0.75 against 1.00 for the board — and
+    // it is the ordering every committed measurement uses. Reading the
+    // stamp rather than multiplying here keeps that a backend fact.
     const better =
       !current ||
-      (direction === "buy" ? row.score > current.score : row.score < current.score);
+      (direction === "buy"
+        ? rankKey(row) > rankKey(current)
+        : rankKey(row) < rankKey(current));
     if (better) best.set(position, row);
   }
   return Array.from(best.entries())

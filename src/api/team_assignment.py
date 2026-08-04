@@ -260,7 +260,11 @@ def _score_player(
       - IDP starter (T5): depth-chart-based, only when league has IDP
     """
     weights = config["weights"]
-    thresholds = config["thresholds"]
+    # config["thresholds"] is deliberately not read here — see the T3
+    # comment below: those keys are forward-looking, documented as
+    # position-rank-based for a future canonicalConsensusRank drop-in.
+    # The one threshold in live use, assignmentMinPoints, is read where
+    # it is applied.
     pos = _normalize_position(meta.get("position"))
     if not pos:
         return 0, []

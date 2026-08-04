@@ -313,9 +313,39 @@ class TestParams(unittest.TestCase):
 
 
 class TestComponentValidationHonesty(unittest.TestCase):
-    def test_only_mispricing_claims_validation(self):
-        validated = {k for k, v in score.COMPONENT_VALIDATION.items() if v["validated"]}
-        self.assertEqual(validated, {"mispricing"})
+    def test_a_validated_component_has_a_positive_outcome_behind_it(self):
+        """This asserted ``validated == {"mispricing"}``.
+
+        That was a statement about which component happened to have a
+        result, not about what ``validated`` means, and it went stale the
+        moment mispricing's rho was re-measured on the scale-repaired
+        board and came back a null (ADR-021 / ADR-023). Today the set is
+        EMPTY, and hardcoding that would go stale the same way in the
+        other direction.
+
+        The invariant that actually matters: ``validated`` is the field
+        driving the UI's badge, so it may only be True where the outcome
+        is positive and the measurement that says so exists on disk.
+        """
+        for name, meta in score.COMPONENT_VALIDATION.items():
+            if not meta.get("validated"):
+                continue
+            self.assertTrue(meta.get("measured"), f"{name} claims validated but not measured")
+            self.assertEqual(
+                meta.get("outcome"),
+                "positive",
+                f"{name} claims validated on a {meta.get('outcome')!r} outcome",
+            )
+
+    def test_a_measured_null_never_reads_as_validated(self):
+        # The case that motivated splitting the two fields, now true of
+        # two components rather than one.
+        for name, meta in score.COMPONENT_VALIDATION.items():
+            if meta.get("outcome") != "null":
+                continue
+            self.assertTrue(meta.get("measured"), name)
+            self.assertFalse(meta.get("validated"), f"{name}: a null result is not a validation")
+            self.assertTrue(meta.get("evidence"), f"{name}: a measured null must cite its file")
 
     def test_every_component_states_its_evidence_or_lack_of_it(self):
         for name, meta in score.COMPONENT_VALIDATION.items():

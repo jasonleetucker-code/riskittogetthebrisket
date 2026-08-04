@@ -1515,7 +1515,6 @@ def _rivalry_of_the_year(
     if not pair_scores:
         return None
 
-    best_key: tuple[str, str] | None = None
     best_score = -1.0
     best_row: dict[str, Any] | None = None
     for key, rec in pair_scores.items():
@@ -1530,7 +1529,6 @@ def _rivalry_of_the_year(
         rec["rivalryIndex"] = score
         if score > best_score:
             best_score = score
-            best_key = key
             best_row = rec
 
     if best_row is None:

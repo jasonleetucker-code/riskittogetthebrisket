@@ -91,8 +91,6 @@ def _simulate_bracket(
                 finishes[owner] = i
         return finishes
 
-    bye_set = set(field[:bye_seeds])
-
     # Round 1: byes auto-advance; remaining seeds play in
     # higher-seed-vs-lower-seed pairs.
     advancing_to_semis: list[str] = list(field[:bye_seeds])

@@ -24,7 +24,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from src.api.data_contract import build_api_data_contract
+from src.api.data_contract import build_api_data_contract  # noqa: E402 — must follow the sys.path bootstrap above
 
 
 def _load_payload(json_path: str | None) -> dict:

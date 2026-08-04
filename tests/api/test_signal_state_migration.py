@@ -125,6 +125,13 @@ def test_migration_preserves_newer_entries_on_conflict(kv):
     )
     result = mig.migrate_user("alice", default_league_key="dynasty_main", path=kv)
     # Already-migrated state detected → skipped (legacy cleaned).
+    # This assertion was missing: the comment above stated the expected
+    # action and nothing checked it, so a regression that migrated instead
+    # of skipping would have passed. Every other test in this file pins
+    # result["action"] (see :32, :54, :69, :79); this one captured the
+    # diagnostic and dropped it.
+    assert result["action"] == "skipped"
+    assert result["reason"] == "already_migrated"
     # But both entries should now live in the bucket.
     state = user_kv.get_user_state("alice", path=kv)
     bucket = state["signalAlertStateByLeague"]["dynasty_main"]

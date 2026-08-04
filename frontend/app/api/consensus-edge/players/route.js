@@ -6,11 +6,14 @@ import { proxyGet } from "@/lib/backend-proxy";
 // cold cache, hence the long timeout.
 export async function GET(request) {
   try {
+    // No leagueKey. The backend never read it, and forwarding a
+    // parameter the answer does not depend on tells a caller the answer
+    // is league-specific when it is not — see the note in
+    // consensus_edge/scoring_fit.py. This board follows the SCORING
+    // PROFILE (the repo's core split: rankings follow scoring, context
+    // follows league), and its one league-dependent input reads the
+    // canonical league config directly.
     const searchParams = {};
-    for (const key of ["leagueKey"]) {
-      const value = request?.nextUrl?.searchParams?.get(key);
-      if (value) searchParams[key] = value;
-    }
     const { data, status } = await proxyGet("/api/consensus-edge/players", {
       searchParams,
       timeoutMs: 30000,

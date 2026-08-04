@@ -11,7 +11,7 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from src.canonical.calibration import (
+from src.canonical.calibration import (  # noqa: E402 — must follow the sys.path bootstrap above
     calibrate_canonical_values,
     get_calibration_params,
     UNIVERSE_SCALES,

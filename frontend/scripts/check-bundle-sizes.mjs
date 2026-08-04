@@ -2,12 +2,14 @@
 /**
  * Bundle-size budget enforcement for Next.js builds.
  *
- * Run after ``next build`` from the frontend dir.  Parses
- * ``.next/app-build-manifest.json``, isolates each page's
- * page-specific JS chunks (the chunks under
- * ``static/chunks/app/<route>/page-*.js``), sums their on-disk
- * size, and fails non-zero if any page is over its configured
- * budget.
+ * Run after ``next build`` from the frontend dir.  Resolves each
+ * page's own JS chunks from disk (``static/chunks/app/<route>/
+ * page-*.js``), sums their size, and fails non-zero if any page is
+ * over its configured budget — or if it could not measure at all.
+ *
+ * Chunks come from DISK, not from ``app-build-manifest.json``: Next
+ * 16 stopped emitting that file, and no Next 16 manifest maps an
+ * app-router page key to its chunks.  See the APP_CHUNK_DIR note.
  *
  * Per-page budgets live in ``BUDGETS_KB`` below.  Adjust
  * deliberately — bumping a budget because "the page got
@@ -39,7 +41,32 @@ const DIST_DIR_NAME = process.env.NEXT_DIST_DIR || ".next";
 const NEXT_DIR = path.isAbsolute(DIST_DIR_NAME)
   ? DIST_DIR_NAME
   : path.join(ROOT, DIST_DIR_NAME);
-const MANIFEST = path.join(NEXT_DIR, "app-build-manifest.json");
+// Where the app-router page chunks live.  Derived from DISK, not from
+// ``app-build-manifest.json``, because that manifest is gone.
+//
+// Next 16 does not emit it at all — under either builder.  Worse, no
+// Next 16 manifest maps an app-router page key to its chunks:
+// ``build-manifest.json``'s ``pages`` holds only the legacy pages-router
+// ``/_app``, and ``app-path-routes-manifest.json`` maps page keys to
+// ROUTE paths, not chunk files.  Reading any of those would hand this
+// script an object whose ``pages[pageKey]`` is undefined, every page
+// would log "no chunks — skipped", and the gate would PASS while
+// measuring nothing.  That silent-pass is the failure mode this
+// rewrite exists to prevent; see assertGateIsMeasuring() below.
+//
+// The on-disk layout, by contrast, is identical across Next 15 and
+// Next 16 --webpack, and maps 1:1 from the page key (verified against
+// real builds of both on 2026-08-04):
+//
+//     /page           -> static/chunks/app/page-<hash>.js
+//     /rankings/page  -> static/chunks/app/rankings/page-<hash>.js
+//
+// Under Next 16's DEFAULT builder (Turbopack) there is no such layout —
+// chunks are flat and content-hashed (``static/chunks/1de9myc15dqxx.js``)
+// with nothing tying a file to a route. Per-page attribution is simply
+// not available there, so this script refuses loudly rather than
+// reporting a pass it cannot justify.
+const APP_CHUNK_DIR = path.join(NEXT_DIR, "static", "chunks", "app");
 
 // Per-page budgets in KB (raw on-disk size of the page-specific
 // JS chunks, NOT gzipped).  Values are intentionally a little
@@ -61,8 +88,20 @@ const BUDGETS_KB = {
   // /trade by 51, /rankings by 42 — while three page-specific slices
   // grew, because code that used to be everyone's is now attributed to
   // its owner. These bumps record that reattribution; they are not
-  // headroom for new bloat. The `[first-load …]` column now printed
-  // beside each line is the number to watch.
+  // headroom for new bloat.
+  //
+  // Note what this gate still cannot see, because R6 tried to add it and
+  // the attempt is instructive: the shared graph. Per-route first load is
+  // `layout chunks ∪ page chunks`, and knowing WHICH shared chunks a
+  // route pulls needs the build manifest — which Next 16 does not emit
+  // (see the APP_CHUNK_DIR note above). The disk-derived substitute,
+  // "every .js sitting directly in static/chunks/", was measured on this
+  // branch and is WRONG: a dynamic import emits its chunk there too, so
+  // the metric counts on-demand code as always-loaded. It scored R6's own
+  // refactor as +213 KB shared while /league's slice fell 163→38 KB —
+  // reporting an improvement as a regression, which is the exact failure
+  // this comment block was written to describe. Left unmeasured on
+  // purpose until it can be measured truthfully.
   "/page": 90, // landing
   "/rankings/page": 75, // dense table + filter bar + popups; 65→75 (R6 reattribution)
   "/trade/page": 92, // calculator + simulator + breakdown; bumped 75→82 for the BDVM fundamentals-check panel (CES trade eval); 82→92 (R6 reattribution)
@@ -97,78 +136,95 @@ function fmtKb(bytes) {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
-function pageChunks(manifest, pageKey) {
-  const chunks = manifest.pages[pageKey] || [];
-  // Page-specific = chunks emitted under ``app/<route>/`` only.  The
-  // shared framework / common chunks are amortised across every
-  // page and don't represent an incremental cost for this page.
-  return chunks.filter((c) => c.startsWith("static/chunks/app/"));
-}
-
-/**
- * Every JS chunk the browser loads for a route: the root layout's chunk
- * set unioned with the page's own.  This is what a visitor actually
- * downloads and — the part that dominates on a slow CPU — parses.
- *
- * Reported, not budgeted, and the distinction is deliberate.  The
- * per-page budgets above police the incremental cost of a page, which is
- * the right gate for "did this feature bloat its own route".  But they
- * see only that slice, and the slice is the SMALL one: measured on this
- * repo the root layout is ~464 KB while page chunks run 42-147 KB, so
- * the budgets covered 9-24% of the real cost.  A 500 KB shared graph
- * could grow forever without tripping anything.
- *
- * That blind spot is not hypothetical.  Moving PlayerPopup and the
- * /league sections out of the shared graph cut real first-load JS on
- * every route (/league by 215 KB) while PUSHING TWO PAGES OVER their
- * page-specific budgets, because code stopped being shared and started
- * being attributed to the routes that actually use it.  Judged on the
- * old number alone, an unambiguous improvement looked like a regression.
- */
-function firstLoadChunks(manifest, pageKey) {
-  const layout = manifest.pages["/layout"] || [];
-  const page = manifest.pages[pageKey] || [];
-  return [...new Set([...layout, ...page])].filter((c) => c.endsWith(".js"));
-}
-
-function sumBytes(nextDir, chunks) {
-  let total = 0;
-  for (const chunk of chunks) {
-    try {
-      total += fs.statSync(path.join(nextDir, chunk)).size;
-    } catch {
-      // Listed in the manifest but absent on disk — should not happen on
-      // a clean build; skip rather than fail spuriously.
-    }
+// Page key -> that page's own chunk files, resolved on disk.
+//
+// ``/rankings/page`` becomes ``<app>/rankings/page-*.js``: the key
+// minus its leading slash, with a hash suffix.  Only chunks under
+// ``static/chunks/app/`` count — shared framework/common chunks are
+// amortised across every page and are not an incremental cost here.
+// That is the same set the old manifest filter produced; verified
+// against a real Next 15 build where every page key mapped to exactly
+// the file this derives.
+function pageChunks(pageKey) {
+  const rel = pageKey.replace(/^\//, "");
+  const dir = path.join(APP_CHUNK_DIR, path.dirname(rel));
+  const base = path.basename(rel);
+  let entries;
+  try {
+    entries = fs.readdirSync(dir);
+  } catch {
+    return [];
   }
-  return total;
+  // ``page-<hash>.js`` — anchored so ``/page`` cannot also swallow
+  // ``page-legacy-*.js`` or a sibling route sharing the prefix.
+  const re = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-[^/]+\\.js$`);
+  return entries.filter((e) => re.test(e)).map((e) => path.join(dir, e));
+}
+
+// Refuse to report success when the gate could not actually measure.
+//
+// Every earlier version of this script degraded silently when its
+// assumption about Next's output broke: a missing page logged
+// "no chunks — skipped" and the run still exited 0.  That is fine for
+// ONE removed route and catastrophic when the layout changes wholesale,
+// which is exactly what Next 16 + Turbopack does.  If nothing resolved,
+// something structural is wrong and a green tick would be a lie.
+function assertGateIsMeasuring(resolvedCount) {
+  if (resolvedCount > 0) return;
+  console.error(
+    "[check-bundle-sizes] resolved chunks for ZERO of the " +
+      `${Object.keys(BUDGETS_KB).length} budgeted pages under ${APP_CHUNK_DIR}.\n` +
+      "\n" +
+      "Refusing to pass: this gate cannot measure anything, and exiting 0\n" +
+      "would report a budget check that never ran.\n" +
+      "\n" +
+      "Most likely cause: the build used Turbopack, which emits a flat,\n" +
+      "content-hashed chunk layout with no per-route attribution. Next 16\n" +
+      "makes Turbopack the default builder. Build with ``next build\n" +
+      "--webpack`` to restore the per-route layout this gate reads, or\n" +
+      "replace this script with a Turbopack-native measurement.",
+  );
+  process.exit(2);
 }
 
 function main() {
-  if (!fs.existsSync(MANIFEST)) {
+  if (!fs.existsSync(NEXT_DIR)) {
     console.error(
-      `[check-bundle-sizes] manifest not found at ${MANIFEST}.\n` +
+      `[check-bundle-sizes] build output not found at ${NEXT_DIR}.\n` +
         "Run ``npm run build`` first.",
     );
     process.exit(2);
   }
-  const manifest = JSON.parse(fs.readFileSync(MANIFEST, "utf-8"));
+  if (!fs.existsSync(APP_CHUNK_DIR)) {
+    console.error(
+      `[check-bundle-sizes] no app-router chunk dir at ${APP_CHUNK_DIR}.\n` +
+        "\n" +
+        "Under Next 16 the default builder is Turbopack, which emits a flat,\n" +
+        "content-hashed chunk layout and no per-route attribution — this gate\n" +
+        "cannot measure it. Build with ``next build --webpack``, or replace\n" +
+        "this script with a Turbopack-native measurement.",
+    );
+    process.exit(2);
+  }
   const failures = [];
   const lines = [];
+  let resolvedCount = 0;
 
   for (const [pageKey, budgetKb] of Object.entries(BUDGETS_KB)) {
-    const chunks = pageChunks(manifest, pageKey);
+    const chunks = pageChunks(pageKey);
     if (chunks.length === 0) {
       // Page may not exist (e.g. removed) — skip silently rather
       // than fail.  ``--strict`` flag below would change this.
       lines.push(`  ${pageKey.padEnd(22)} (no chunks — skipped)`);
       continue;
     }
-    const totalBytes = sumBytes(NEXT_DIR, chunks);
-    const firstLoadBytes = sumBytes(
-      NEXT_DIR,
-      firstLoadChunks(manifest, pageKey),
-    );
+    resolvedCount += 1;
+    let totalBytes = 0;
+    for (const fullPath of chunks) {
+      // Paths come from readdir, so a stat failure here means the file
+      // vanished mid-run rather than a stale manifest entry.
+      totalBytes += fs.statSync(fullPath).size;
+    }
     const totalKb = totalBytes / 1024;
     const overshoot = totalKb - budgetKb;
     const verdict =
@@ -176,23 +232,16 @@ function main() {
         ? `OVER  by ${overshoot.toFixed(1)} KB`
         : `ok    (${(-overshoot).toFixed(1)} KB headroom)`;
     lines.push(
-      `  ${pageKey.padEnd(22)} ${fmtKb(totalBytes).padStart(10)} / ${budgetKb} KB budget   ${verdict}` +
-        `   [first-load ${fmtKb(firstLoadBytes)}]`,
+      `  ${pageKey.padEnd(22)} ${fmtKb(totalBytes).padStart(10)} / ${budgetKb} KB budget   ${verdict}`,
     );
     if (overshoot > 0) {
       failures.push({ pageKey, totalKb, budgetKb });
     }
   }
 
-  const layoutBytes = sumBytes(
-    NEXT_DIR,
-    (manifest.pages["/layout"] || []).filter((c) => c.endsWith(".js")),
-  );
   console.log("[check-bundle-sizes] per-page chunk sizes:");
-  console.log(
-    `  (root layout, loaded by EVERY route: ${fmtKb(layoutBytes)} — budgeted below is the page-specific slice only)`,
-  );
   for (const line of lines) console.log(line);
+  assertGateIsMeasuring(resolvedCount);
 
   if (failures.length > 0) {
     console.error(

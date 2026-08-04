@@ -459,3 +459,248 @@ under a market value of 2000, and above that floor the measured edge is
 say about the players a big trade is built around. The row now shows
 market value so a user can see which they are looking at.
 **Status:** accepted 2026-08-04.
+
+## ADR-021: a leave-one-out board must keep its units, not just lose the anchor
+The three leaks this package documents (correlated sources, the rookie
+ladder, the corridor clamp) all ask *does the anchor's opinion still
+reach the result?* An independent audit found a second question nobody
+had asked: *is the result still denominated in the same units?* For two
+row classes the answer was no, and both were being published as buys.
+**IDP had no scale at all.** Three IDP-only expert boards — `dlfIdp`,
+`idpShow` and `fantasyProsIdp`, all flagged
+`needs_shared_market_translation` — rank players within the IDP class
+only. The backbone's shared-market ladder lifts that ordinal into the
+combined offense+IDP rank space, and `idpTradeCalc` is what builds the
+ladder. Excluding it empties the ladder, so those votes fall back to the
+untranslated rank and IDP #1 scores as asset #1. Measured on the
+2026-08-03 payload: the three sources flip method `exact` → `fallback`
+on 159 / 235 / 177 rows, and the values move by **220 IDP rows, median
+leave-one-out/base ratio 1.224, range 0.45x to 3.48x**. Caleb Banks went
+1183 → 4115 and was the published #19 buy on that strength alone.
+**CORRECTED 2026-08-04 (same day):** this paragraph originally said
+`position_idp` sources lose a within-DL/LB/DB crosswalk. That branch is
+dead — no registered source carries the `position_idp` scope and no row
+on the live board carries that stamp. The measurement was right; the
+mechanism named was not, and it had been copied into five other files.
+See ADR-025.
+**Rookies lost their ladder.** Closing leak #2 means skipping the
+translation, and skipping it is what breaks the scale: the untranslated
+vote says rookie #1 is asset #1. Non-rookie offense is sound (400 rows,
+median 0.992, max 1.17x — one vote leaving, which is the point) while
+**87 rookie rows reached 2.44x**.
+**Decision:** affected rows are returned **unpriced** with
+`anchor_free_board_lost_idp_backbone` /
+`anchor_free_board_lost_rookie_ladder`, never with a substituted number.
+The board stamps `assetClassCoverage` and a derived caveat so a wholly
+unscored class is a legible refusal rather than an offense-only list.
+Surviving rows measure median 0.992, p95 1.015, max 1.173 — one board,
+one set of units.
+**Rejected: keep `idpTradeCalc` as the backbone while dropping its
+vote.** The backbone *defines the scale*, so a fair value calibrated on
+it is still the anchor measured against itself. ADR-025 re-tested this
+option properly and it fails on measurement as well as on premise —
+read that ADR before reopening it, because the argument here alone is
+not what settles it.
+**Why no other source can supply the scale.** Not "there is exactly one
+IDP cross-market source" — there are two registered `is_cross_market`
+with scope `overall_idp`. The constraint is narrower:
+`build_backbone_from_rows` seeds its ladder from ONE registry key, so a
+backbone needs a source whose own value column spans both pools.
+`idpTradeCalc` is the only key that does (529 positive offense + 258
+positive IDP).
+**The guard is a MEASUREMENT, not a registry flag.** This ADR originally
+claimed `scale_integrity_lost` was structural, so "registering a second
+IDP cross-market source lifts the refusal automatically instead of
+leaving a hardcoded refusal behind". That was the hazard described as a
+feature, and ADR-025 documents the one-line edit it invites. The
+deciding gate is now `data_contract.shared_market_crosswalk_failed`,
+which reads the translation stamps off the board and cannot be satisfied
+by editing the registry. The rookie half is checked per row against the
+row's own votes, so a rookie the broken source never ranked keeps his
+score.
+**Status:** accepted 2026-08-04.
+
+## ADR-022: the list that is served is the list that was measured
+ADR-018 moved the top list from raw score to conviction (score shrunk by
+its own confidence) because ranking on the point estimate alone threw
+away the precision the board already computes, and doing so more than
+doubled the measured edge. That change reached `top_movers`. It did not
+reach `build_board`, which kept sorting `players` by raw score — and
+`/api/consensus-edge/players` is the **only** endpoint the page fetches.
+So the study that justified turning the flag on measured an ordering no
+user ever saw, and `TestConvictionRanking` passed on two-row synthetic
+boards while the shipped page ignored conviction entirely.
+**Decision:** `build_board` stamps `conviction` on every row and sorts
+`players` by it. The top of the served board is now literally the head
+of the measured list. `test_served_order_is_the_measured_order` asserts
+that equality against the running API rather than against a fixture, so
+the two orderings cannot drift apart again silently.
+**The client reads the stamp; it does not recompute it.** The sells view
+reverses the same key and `positionLeaders` ranks on it, both via
+`lib/consensus-edge.js::rankKey`. A missing stamp falls back to `0`, not
+to `score` — that leaves the backend's own array order (already
+conviction order) intact instead of quietly reinstating the ranking the
+measurements do not describe.
+**Status:** accepted 2026-08-04.
+
+## ADR-023: the flag goes back OFF, on the gate that turned it on
+Supersedes ADR-020. Nothing about the reasoning in ADR-020 was wrong;
+the board it reasoned about was. Every measurement it cited — the
+top-20's +3.59%, `Strong Buy`'s +8.83%, mispricing's ρ +0.126 — was
+produced on a board whose IDP fair values came from a leave-one-out
+build with no IDP backbone, and were therefore not on any scale
+(ADR-021).
+**Re-run against the repaired board, the same pre-registered gate
+fails.** `validate_consensus_edge_board.py` is unchanged; only its input
+is:
+
+| measurement | before repair | after repair |
+|---|---|---|
+| top-20 buys, 14d | +3.59%, beat random 6/7 | **−1.01%**, beat random **0/6** |
+| top-20 buys, 7d | +1.51%, beat random 11/15 | **−0.55%**, beat random **0/12** |
+| mispricing ρ, 14d | +0.126, 7/7 folds positive | **+0.031**, 4/6 |
+| mispricing ρ, 7d | +0.089, 12/14 | **+0.040**, 8/12 |
+| vs market-value benchmark, 14d | we beat it 7/7 | **it beats us 5/6** |
+
+The benchmark line is the one to read twice. `marketValue` — a plain
+"buy cheap players" rule — went from ρ −0.020 to **+0.116**, and our
+buy list skews cheap by construction. On the offense rows that survive,
+the board is on the wrong side of the only benchmark that matters.
+**Decision:** `consensus_edge` defaults **False**. It is not removed and
+nothing is deleted: the endpoints, the page, the refusal states and the
+snapshot timer all work, and `RISKIT_FEATURE_CONSENSUS_EDGE=1` plus a
+restart brings them back for evaluation. What is withdrawn is the claim
+that this board tells a user something a coin flip would not.
+**`test_feature_flags.py` moves it from `safe_on` to `off_only`**, so
+flipping the default back is a code change that has to name the
+measurement that changed. The bar is the gate passing on a re-run — not
+a judgement that the panel was unlucky.
+**What this does not say.** It does not say the model is wrong in
+principle, and it does not say the panel is decisive: 6 usable 14-day
+folds over an offseason is a small sample, the sell side actually
+improved on repair (−0.31% at 14d, right sign, where it had been
++0.02%), and the tradeable-only slice is roughly flat (+0.23%) rather
+than negative. Those are reasons to keep measuring, not reasons to ship.
+**Status:** accepted 2026-08-04.
+
+## ADR-024: what Consensus Edge does not have, and why none of it is coming soon
+Recorded because "not implemented" and "implemented badly" are different
+states and the brief asks for the difference to be legible. Each of these
+is absent at every layer — no endpoint, no field, no partial UI — rather
+than stubbed:
+
+- **Liquidity.** Would need a measure of how easily an asset trades. The
+  repo has trade *records* (`src/intel/ledger`) but no as-of cohort, the
+  same gap that makes Sharp Flow unvalidatable, so a liquidity number
+  would be unmeasurable in exactly the way a liquidity number must not
+  be.
+- **A risk component.** Distinct from confidence, which is about our
+  evidence; risk is about the asset. It needs a dispersion of outcomes
+  per player, which is BDVM's territory (`src/bdvm/`) and would be a
+  second value concept smuggled into a market-value board.
+- **Contender / balanced / rebuilder views.** Roster-derived, therefore
+  `leagueKey`-scoped, and this board is scoring-profile scoped. Building
+  it means a per-league cache first — see ADR-023's note on `leagueKey`.
+- **A historical-signal chart.** The store now records what is needed
+  (`snapshot.history_for_player` returns it). There is no UI.
+- **A player-detail route.** `GET /api/consensus-edge/player/{key}`
+  exists and works; nothing calls it and there is no bridge route.
+- **Machine learning.** There is none, and there never was. The honest
+  classification is a **deterministic valuation model**: log-ratio
+  mispricing, a robust z against a cohort, a beta-binomial posterior,
+  and a weighted mean. No model is trained, no parameters are fitted.
+  `params_v1.json` calls its weights priors for exactly this reason and
+  `weightsAreFitted: false` rides on every methodology payload.
+- **`Conflicted` is structurally unreachable.** It needs two opposing
+  components that both carry weight; one is live. This is reported by
+  the board (`componentAvailability`, `confidenceCeiling`) rather than
+  hidden, and it resolves by itself if Sharp Flow ever earns its weight.
+**Status:** accepted 2026-08-04.
+
+## ADR-025: idptradecalculator.com is the IDP market, and it cannot also be the IDP scale
+Raised by the user: *"We're supposed to be using idptradecalculator.com
+values for market IDP."* Correct, and we are — 258 of 281 IDP rows carry
+an `idpTradeCalc` market value and that path was never touched. What
+ADR-021 removed is the OTHER number: the anchor-free fair value the
+market price is compared against. The question this ADR answers is
+whether that half is recoverable.
+
+**The mechanism ADR-021 gave was wrong.** No registered source carries
+the `position_idp` scope; a census of every `sourceRankMeta` stamp on
+the 973-row live board returns `overall_offense: 5772`,
+`overall_idp: 965`, and **zero** `position_idp`. The per-position ladders
+are still built and never read. The live path is the shared-market
+crosswalk used by `dlfIdp` / `idpShow` / `fantasyProsIdp`, which flip
+method `exact` → `fallback` on 159 / 235 / 177 rows when `idpTradeCalc`
+leaves. Corrected in six files.
+
+**Rejected: promote `draftSharksIdp` to a second backbone.** It looks
+like the obvious candidate — registered `is_cross_market`, and it does
+*not* need the crosswalk. It cannot work.
+`build_backbone_from_rows` seeds its ladder from ONE registry key, and
+`draftSharksIdp` carries **0 positive offense values** under its key
+(its offense half is the separate `draftSharks` key). `idpTradeCalc` is
+the only key spanning both pools: 529 positive offense + 258 positive
+IDP. Promoting `draftSharksIdp` yields the identity ladder `[1, 2, 3, …]`
+— which is exactly the fallback — so the refusal lifts and the board
+stays **bit-for-bit broken**: median 1.224, max 3.478, Caleb Banks still
+3.48x. Verified directly, and pinned by
+`TestTheGuardIsACapabilityNotAFlag`.
+
+**This is why the guard became a measurement.** `is_backbone` is a
+label, and four shipped documents recommended granting it as the way
+forward. `data_contract.shared_market_crosswalk_failed` reads the
+translation stamps off the board instead; a registry edit cannot satisfy
+it. Note also that ladder *depth* is not a usable capability test —
+`dlfIdp` (163 > 162) and `idpShow` (247 > 245) both clear a depth
+comparison while producing identity ladders. Only "the ladder does not
+start at 1" separates them (`idpTradeCalc` starts at 30).
+
+**Rejected: keep the ladder, drop the vote.** The strongest option and
+the one the user's framing implies — if IDPTC is the *market*, it should
+supply the coordinate system and the price but cast no vote. It is
+implementable, and it does repair the headline case (Caleb Banks
+1183 → 594, a sell). It still fails, twice over. Measured max
+leave-one-out/base is **2.270** against the 1.35 the shipped test pins —
+68% over. And the circularity ADR-021 asserted turns up as an artefact:
+`_PERCENTILE_REFERENCE_N` is 500 while the ladder runs to combined rank
+784, so **45 of 243 priced IDP rows land on the identical fair value
+1587** and their "mispricing" is `1587 / market price` — an inverted
+ranking of the anchor's own price (Spearman 0.53 against 0.13 on the
+offense control).
+
+**That saturation is a third reason the design fails, NOT a pipeline
+defect to fix first.** An earlier draft of this ADR closed with "worth
+reopening only with that saturation fixed", which points a reader at
+`_PERCENTILE_REFERENCE_N` — a site-wide top-500-board decision
+(`CLAUDE.md`, live pipeline step 2) that reprices everything. Do not
+change it on the strength of this ADR. The clamp is **inert on the live
+board**, because `idpTradeCalc` sits in `_VALUE_BASED_SOURCES`
+(`data_contract.py:5381`) and votes `raw / site_max × 9999`, never
+entering the rank → percentile → clamp path at all. Measured on the
+default board:
+
+```
+IDP rows priced: 225   distinct values: 196   largest tie block: 5 rows
+deepest 85 rows:  64 distinct values spanning 773..1394
+                  84 of 85 carry a value-direct idpTradeCalc vote
+```
+
+No collapse anywhere. The tie block appears only once the value-direct
+vote is removed, which is precisely what this design does — and doing so
+exposes the 46% of the IDP ladder (118 of 258 entries) that sits past
+combined rank 500 to a clamp production never reaches. The design
+creates the condition; the constant is not at fault.
+
+**Rejected: narrow the class-wide IDP refusal to per-row**, mirroring
+the rookie guard. Of 220 valued IDP rows, 211 carry a surviving
+crosswalk-dependent or rookie vote; all 191 rows moving above 1.0 do.
+The 9 rescued rows are single-source `draftSharksIdp` rows moving
+0.58–0.66x under the single-source haircut, so narrowing would publish
+nine thinly-evidenced sells to close a stylistic inconsistency.
+
+**Decision:** keep the refusal. There is no anchor-free IDP scale today,
+for a narrower and harder reason than ADR-021 stated. IDP returns to the
+board when a source publishes offense and IDP in one value pool under
+one registry key — not when a flag is set.
+**Status:** accepted 2026-08-04.

@@ -122,6 +122,46 @@ def player_context(contract: dict[str, Any] | None) -> dict[str, dict[str, Any]]
     return joined or None
 
 
+def fingerprint() -> str:
+    """A cheap string that changes when any optional input changes.
+
+    Exists for one caller — the API's board cache — and for one reason:
+    that cache was keyed on ``scrapeTimestamp|paramSetId`` and its
+    docstring said "nothing else invalidates it", which is a statement
+    of the bug rather than of the design. The ledger moves per trade and
+    the playerctx snapshot moves weekly, both on their own schedules;
+    between two scrapes the served board could not see either. The API
+    would go on serving a board built before the data arrived.
+
+    Deliberately a **stat**, not a read: mtime and size of the two files
+    that back the two file-shaped inputs. Hashing their contents on
+    every request would cost more than rebuilding the board. Rank
+    history is covered by the scrape timestamp already — it is written
+    by the same scrape.
+
+    Unreadable inputs contribute a stable ``-``, matching the resolvers'
+    own posture: "we could not look" is a state, not an error, and it
+    must not churn the cache key every request.
+    """
+    parts: list[str] = []
+    try:
+        from src.intel import ledger  # noqa: PLC0415
+
+        path = ledger.default_path()
+        stat = path.stat()
+        parts.append(f"ledger:{stat.st_mtime_ns}:{stat.st_size}")
+    except Exception:  # noqa: BLE001 — a missing input is a state, not a failure
+        parts.append("ledger:-")
+    try:
+        from src.playerctx import store as playerctx_store  # noqa: PLC0415
+
+        stat = playerctx_store.SNAPSHOT_PATH.stat()
+        parts.append(f"playerctx:{stat.st_mtime_ns}:{stat.st_size}")
+    except Exception:  # noqa: BLE001
+        parts.append("playerctx:-")
+    return "|".join(parts)
+
+
 def resolve(contract: dict[str, Any] | None) -> dict[str, Any]:
     """All three inputs, ready to splat into ``build_board``.
 

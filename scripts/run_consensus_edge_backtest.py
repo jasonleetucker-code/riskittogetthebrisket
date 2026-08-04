@@ -152,8 +152,18 @@ def main(argv: list[str] | None = None) -> int:
 
     cache = _DayCache()
 
+    # Rows the signal scored that the outcome layer could not score.
+    # `forward_returns` reports a reason per row and every consumer then
+    # filters on `excessReturn is not None`, so without this the drop is
+    # invisible — and it is not a random drop: a player who leaves the
+    # anchor board between origin and horizon has usually been dropped by
+    # the market. rho is computed on the survivors either way; this is
+    # what lets a reader know how many there were.
+    attrition_by_fold: dict[str, dict] = {}
+
     def outcome_fn(origin: date, horizon: date) -> dict[str, float]:
         returns = oc.forward_returns(cache.prices(origin), cache.prices(horizon))
+        attrition_by_fold[origin.isoformat()] = oc.attrition(cache.signal(origin).keys(), returns)
         return {
             k: v["excessReturn"] for k, v in returns.items() if v.get("excessReturn") is not None
         }
@@ -186,6 +196,24 @@ def main(argv: list[str] | None = None) -> int:
     # does not say what it measured cannot be checked against the thing
     # it is quoted about.
     summary["configuration"] = dict(validation_scope.MEASURED_CONFIGURATION)
+    _offered = sum(int(a.get("of") or 0) for a in attrition_by_fold.values())
+    _dropped = sum(int(a.get("dropped") or 0) for a in attrition_by_fold.values())
+    _reasons: dict[str, int] = {}
+    for a in attrition_by_fold.values():
+        for reason, count in (a.get("byReason") or {}).items():
+            _reasons[str(reason)] = _reasons.get(str(reason), 0) + int(count)
+    summary["attrition"] = {
+        "scoredRows": _offered,
+        "unscorable": _dropped,
+        "rate": (_dropped / _offered) if _offered else None,
+        "byReason": dict(sorted(_reasons.items())),
+        "byFold": attrition_by_fold,
+        "note": (
+            "Rows the signal scored that had no measurable outcome, and so were "
+            "absent from rho. Not a random sample — a player usually leaves the "
+            "anchor board because the market dropped him."
+        ),
+    }
     summary["caveats"] = [
         "Replays today's pipeline over past inputs: inputs cannot leak, but the model is current.",
         "Measures market movement, not fantasy production — the panel covers an offseason.",

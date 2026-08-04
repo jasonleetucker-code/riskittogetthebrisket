@@ -439,8 +439,6 @@ def _summary(recap: dict[str, Any], seed: int) -> str:
     # 100-pt threshold = "low" baseline; tuned for SF + TEP fantasy
     # scoring where 110-150 is a typical pace.
     if matchups and len(top) >= 2:
-        sides_total = len(top) + sum(2 for _ in matchups[len(top) :])
-        side_count = max(1, len(top) + 2 * max(0, len(matchups) - len(top) // 2))
         avg_side = scored_total / max(1, 2 * len(matchups))
         if avg_side >= 130:
             above = sum(1 for s in top if s["points"] >= 150)
