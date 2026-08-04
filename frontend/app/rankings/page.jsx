@@ -9,6 +9,7 @@ import {
   useRef,
   useTransition,
 } from "react";
+import dynamic from "next/dynamic";
 import { useDynastyData } from "@/components/useDynastyData";
 import {
   resolvedRank,
@@ -61,8 +62,6 @@ import {
   formatBdvmGap,
   formatBdvmValue,
 } from "@/lib/bdvm";
-import HillCurveExplorer from "@/components/graphs/HillCurveExplorer";
-import TierGapWaterfall from "@/components/graphs/TierGapWaterfall";
 import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
 import { PlayerImage } from "@/components/ui";
 import {
@@ -98,6 +97,20 @@ import {
   SourceAuditPanel,
 } from "./board-sections";
 import styles from "./board.module.css";
+
+// Methodology charts: rendered only when `showMethodology` is true, and
+// that state starts false — so on every page load this was ~18 KB of
+// chart code parsed for a panel nobody had opened. Gated at the render
+// site already, so `dynamic()` is enough here; no mount-latch needed
+// the way /trade's collapsed panel required one.
+const HillCurveExplorer = dynamic(
+  () => import("@/components/graphs/HillCurveExplorer"),
+  { ssr: false },
+);
+const TierGapWaterfall = dynamic(
+  () => import("@/components/graphs/TierGapWaterfall"),
+  { ssr: false },
+);
 
 // ── UNIFIED RANKINGS PAGE (Redesign R2) ──────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.

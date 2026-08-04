@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useDynastyData } from "@/components/useDynastyData";
 import {
   VALUE_MODES,
@@ -34,16 +35,11 @@ import {
 } from "@/lib/pick-stack";
 import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
-import TradeDeltaHistogram from "@/components/graphs/TradeDeltaHistogram";
-import RosTradeFitPanel from "@/components/RosTradeFitPanel";
-import BdvmTradePanel from "@/components/BdvmTradePanel";
-import MultiTradeFlow from "@/components/graphs/MultiTradeFlow";
 import { useApp } from "@/components/AppShell";
 import { buildShareUrl, parseShareParam } from "@/lib/trade-share";
 import { useTradeSimulator } from "@/components/useTradeSimulator";
 import { useTeam } from "@/components/useTeam";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
-import SharedTradeSourceBreakdown from "@/components/trade/TradeSourceBreakdown";
 import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
 import {
   Banner,
@@ -88,7 +84,18 @@ const TEAM_KEY = "next_trade_team_v1";
 // frontend/components/trade/ so /waivers can reuse the same fairness bar
 // and per-source breakdown for its add/drop calculator.
 const TradeMeter = SharedTradeMeter;
-const TradeSourceBreakdown = SharedTradeSourceBreakdown;
+// The "Second opinions" block — every component below — lives inside a
+// `defaultCollapsed` CollapsiblePanel, so none of it is on screen until
+// the user asks for it. ~44 KB of charts. Paired with
+// `mountCollapsedChildren={false}` on that panel: `hidden` still MOUNTS
+// children, so without it these dynamic imports would fetch on page load
+// and the split would buy nothing.
+const dyn = (loader) => dynamic(loader, { ssr: false });
+const TradeSourceBreakdown = dyn(() => import("@/components/trade/TradeSourceBreakdown"));
+const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"));
+const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"));
+const TradeDeltaHistogram = dyn(() => import("@/components/graphs/TradeDeltaHistogram"));
+const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"));
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
@@ -1990,6 +1997,7 @@ export default function TradePage() {
             title="Second opinions"
             subtitle="Per-source breakdown, rest-of-season fit, fundamentals and the value split"
             defaultCollapsed
+            mountCollapsedChildren={false}
           >
           <TradeSourceBreakdown
             sides={sides}
