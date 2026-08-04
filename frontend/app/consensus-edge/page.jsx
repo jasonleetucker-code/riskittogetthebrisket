@@ -58,12 +58,13 @@ const VIEWS = [
 const RENDER_LIMIT = 50;
 
 // Positions offered by the filter, derived from the board rather than
-// listed. The hardcoded list held 7 of the 11 asset classes the board
-// actually produces, so K, PICK, T and unpositioned rows — 18% of the
-// board — were unreachable by filter and silently absent from the
-// leaders panel. Sorted with the familiar offence-then-defence order
-// first and anything new appended, so adding a position to the pipeline
-// cannot quietly drop it from the UI again.
+// listed. The hardcoded list held 7 of the 11 position values the board
+// actually produces; measured on the 2026-08-03 payload, PICK (144), K
+// (19), unpositioned (12) and T (1) came to 176 of 973 rows — 18.1% —
+// unreachable by filter and silently absent from the leaders panel.
+// Sorted with the familiar offence-then-defence order first and anything
+// new appended, so adding a position to the pipeline cannot quietly drop
+// it from the UI again.
 const POSITION_ORDER = ["QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"];
 
 function positionsOnBoard(rows) {
