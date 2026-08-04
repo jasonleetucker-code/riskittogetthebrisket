@@ -58,13 +58,20 @@ evidence; removing the source that *defines the scale* changes what the
 numbers mean, and the result still looks like an ordinary board. Two row
 classes were affected (ADR-021):
 
-- **IDP: no score at all.** `idpTradeCalc` is the only registered
-  cross-market IDP source, and it is the one being judged. Without it a
-  within-DL/LB/DB rank has nothing to crosswalk against, so the #1 DL
-  prices as the #1 asset in the league — measured at 220 rows, median
+- **IDP: no score at all.** `idpTradeCalc` — idptradecalculator.com — is
+  both the IDP market anchor and the only source that can build the
+  shared-market ladder, because it is the only registry key whose value
+  column spans offense *and* IDP (529 positive offense + 258 positive
+  IDP). Without it the three IDP-only boards (`dlfIdp`, `idpShow`,
+  `fantasyProsIdp`) lose their within-class-to-combined crosswalk and
+  vote as though IDP #1 were asset #1 — measured at 220 rows, median
   1.224x, up to 3.48x. All 281 IDP rows come back unpriced with
-  `anchor_free_board_lost_idp_backbone`. This lifts by itself if a
-  second cross-market IDP source is ever registered.
+  `anchor_free_board_lost_idp_backbone`; their idptradecalculator.com
+  MARKET value is unaffected and still stamped. This lifts when a source
+  publishes offense and IDP in one value pool under one registry key —
+  **not** when a flag is set: promoting the other cross-market IDP
+  source yields an identity ladder and a bit-identical broken board
+  (ADR-025).
 - **Rookies whose ladder reference was the anchor: no score.** 75 rows,
   `anchor_free_board_lost_rookie_ladder`. Rookies the affected sources
   never ranked keep their score — the check is per row, against the

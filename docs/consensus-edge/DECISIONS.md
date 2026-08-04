@@ -466,14 +466,23 @@ ladder, the corridor clamp) all ask *does the anchor's opinion still
 reach the result?* An independent audit found a second question nobody
 had asked: *is the result still denominated in the same units?* For two
 row classes the answer was no, and both were being published as buys.
-**IDP had no scale at all.** `idpTradeCalc` is the only source
-registered `is_backbone`, and the backbone crosswalks a within-DL/LB/DB
-rank into a combined-pool rank. Excluding it makes the pipeline take its
-documented fallback — treat a position rank as a combined rank — so the
-#1 DL is priced as the #1 asset in the league. Measured on the
-2026-08-03 payload: **220 IDP rows, median leave-one-out/base ratio
-1.224, range 0.45x to 3.48x**. Caleb Banks went 1183 → 4115 and was the
-published #19 buy on that strength alone.
+**IDP had no scale at all.** Three IDP-only expert boards — `dlfIdp`,
+`idpShow` and `fantasyProsIdp`, all flagged
+`needs_shared_market_translation` — rank players within the IDP class
+only. The backbone's shared-market ladder lifts that ordinal into the
+combined offense+IDP rank space, and `idpTradeCalc` is what builds the
+ladder. Excluding it empties the ladder, so those votes fall back to the
+untranslated rank and IDP #1 scores as asset #1. Measured on the
+2026-08-03 payload: the three sources flip method `exact` → `fallback`
+on 159 / 235 / 177 rows, and the values move by **220 IDP rows, median
+leave-one-out/base ratio 1.224, range 0.45x to 3.48x**. Caleb Banks went
+1183 → 4115 and was the published #19 buy on that strength alone.
+**CORRECTED 2026-08-04 (same day):** this paragraph originally said
+`position_idp` sources lose a within-DL/LB/DB crosswalk. That branch is
+dead — no registered source carries the `position_idp` scope and no row
+on the live board carries that stamp. The measurement was right; the
+mechanism named was not, and it had been copied into five other files.
+See ADR-025.
 **Rookies lost their ladder.** Closing leak #2 means skipping the
 translation, and skipping it is what breaks the scale: the untranslated
 vote says rookie #1 is asset #1. Non-rookie offense is sound (400 rows,
@@ -487,16 +496,26 @@ unscored class is a legible refusal rather than an offense-only list.
 Surviving rows measure median 0.992, p95 1.015, max 1.173 — one board,
 one set of units.
 **Rejected: keep `idpTradeCalc` as the backbone while dropping its
-vote.** Not on cost — on the module's own premise. The backbone *defines
-the scale*, so a fair value calibrated on it is still the anchor
-measured against itself, which is the circularity the whole module
-exists to avoid. There is no anchor-free IDP scale today because there
-is exactly one IDP cross-market source.
-**The guard is structural, not a key list.**
-`data_contract.scale_integrity_lost` asks the registry which scale
-dependencies the exclusion severed, so registering a second IDP
-cross-market source lifts the refusal automatically instead of leaving a
-hardcoded refusal behind. The rookie half is checked per row against the
+vote.** The backbone *defines the scale*, so a fair value calibrated on
+it is still the anchor measured against itself. ADR-025 re-tested this
+option properly and it fails on measurement as well as on premise —
+read that ADR before reopening it, because the argument here alone is
+not what settles it.
+**Why no other source can supply the scale.** Not "there is exactly one
+IDP cross-market source" — there are two registered `is_cross_market`
+with scope `overall_idp`. The constraint is narrower:
+`build_backbone_from_rows` seeds its ladder from ONE registry key, so a
+backbone needs a source whose own value column spans both pools.
+`idpTradeCalc` is the only key that does (529 positive offense + 258
+positive IDP).
+**The guard is a MEASUREMENT, not a registry flag.** This ADR originally
+claimed `scale_integrity_lost` was structural, so "registering a second
+IDP cross-market source lifts the refusal automatically instead of
+leaving a hardcoded refusal behind". That was the hazard described as a
+feature, and ADR-025 documents the one-line edit it invites. The
+deciding gate is now `data_contract.shared_market_crosswalk_failed`,
+which reads the translation stamps off the board and cannot be satisfied
+by editing the registry. The rookie half is checked per row against the
 row's own votes, so a rookie the broken source never ranked keeps his
 score.
 **Status:** accepted 2026-08-04.
@@ -596,4 +615,70 @@ than stubbed:
   components that both carry weight; one is live. This is reported by
   the board (`componentAvailability`, `confidenceCeiling`) rather than
   hidden, and it resolves by itself if Sharp Flow ever earns its weight.
+**Status:** accepted 2026-08-04.
+
+## ADR-025: idptradecalculator.com is the IDP market, and it cannot also be the IDP scale
+Raised by the user: *"We're supposed to be using idptradecalculator.com
+values for market IDP."* Correct, and we are — 258 of 281 IDP rows carry
+an `idpTradeCalc` market value and that path was never touched. What
+ADR-021 removed is the OTHER number: the anchor-free fair value the
+market price is compared against. The question this ADR answers is
+whether that half is recoverable.
+
+**The mechanism ADR-021 gave was wrong.** No registered source carries
+the `position_idp` scope; a census of every `sourceRankMeta` stamp on
+the 973-row live board returns `overall_offense: 5772`,
+`overall_idp: 965`, and **zero** `position_idp`. The per-position ladders
+are still built and never read. The live path is the shared-market
+crosswalk used by `dlfIdp` / `idpShow` / `fantasyProsIdp`, which flip
+method `exact` → `fallback` on 159 / 235 / 177 rows when `idpTradeCalc`
+leaves. Corrected in six files.
+
+**Rejected: promote `draftSharksIdp` to a second backbone.** It looks
+like the obvious candidate — registered `is_cross_market`, and it does
+*not* need the crosswalk. It cannot work.
+`build_backbone_from_rows` seeds its ladder from ONE registry key, and
+`draftSharksIdp` carries **0 positive offense values** under its key
+(its offense half is the separate `draftSharks` key). `idpTradeCalc` is
+the only key spanning both pools: 529 positive offense + 258 positive
+IDP. Promoting `draftSharksIdp` yields the identity ladder `[1, 2, 3, …]`
+— which is exactly the fallback — so the refusal lifts and the board
+stays **bit-for-bit broken**: median 1.224, max 3.478, Caleb Banks still
+3.48x. Verified directly, and pinned by
+`TestTheGuardIsACapabilityNotAFlag`.
+
+**This is why the guard became a measurement.** `is_backbone` is a
+label, and four shipped documents recommended granting it as the way
+forward. `data_contract.shared_market_crosswalk_failed` reads the
+translation stamps off the board instead; a registry edit cannot satisfy
+it. Note also that ladder *depth* is not a usable capability test —
+`dlfIdp` (163 > 162) and `idpShow` (247 > 245) both clear a depth
+comparison while producing identity ladders. Only "the ladder does not
+start at 1" separates them (`idpTradeCalc` starts at 30).
+
+**Rejected: keep the ladder, drop the vote.** The strongest option and
+the one the user's framing implies — if IDPTC is the *market*, it should
+supply the coordinate system and the price but cast no vote. It is
+implementable, and it does repair the headline case (Caleb Banks
+1183 → 594, a sell). It still fails, twice over. Measured max
+leave-one-out/base is **2.270** against the 1.35 the shipped test pins —
+68% over. And the circularity ADR-021 asserted turns up as an artefact:
+`_PERCENTILE_REFERENCE_N` is 500 while the ladder runs to combined rank
+784, so **45 of 243 priced IDP rows land on the identical fair value
+1587** and their "mispricing" is `1587 / market price` — an inverted
+ranking of the anchor's own price (Spearman 0.53 against 0.13 on the
+offense control). Worth reopening only with that saturation fixed, and
+re-measured against a clamp-suppressed default board.
+
+**Rejected: narrow the class-wide IDP refusal to per-row**, mirroring
+the rookie guard. Of 220 valued IDP rows, 211 carry a surviving
+crosswalk-dependent or rookie vote; all 191 rows moving above 1.0 do.
+The 9 rescued rows are single-source `draftSharksIdp` rows moving
+0.58–0.66x under the single-source haircut, so narrowing would publish
+nine thinly-evidenced sells to close a stylistic inconsistency.
+
+**Decision:** keep the refusal. There is no anchor-free IDP scale today,
+for a narrower and harder reason than ADR-021 stated. IDP returns to the
+board when a source publishes offense and IDP in one value pool under
+one registry key — not when a flag is set.
 **Status:** accepted 2026-08-04.

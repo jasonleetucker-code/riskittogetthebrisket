@@ -286,13 +286,21 @@ class TestFairValueIndex(unittest.TestCase):
         # assertion was wrong: IDP rows WERE being priced, on a scale
         # that does not exist.
         #
-        # ``idpTradeCalc`` is the only source registered ``is_backbone``,
-        # and the backbone is what crosswalks a within-DL/LB/DB rank into
-        # a combined-pool rank. The leave-one-out board excludes it by
-        # construction, so the pipeline takes its documented fallback and
-        # scores the #1 DL as the #1 asset in the league. Measured on the
-        # 2026-08-03 payload: 220 IDP rows, median LOO/base ratio 1.224,
-        # range 0.45x to 3.48x.
+        # ``idpTradeCalc`` builds the shared-market ladder that lifts the
+        # three IDP-only boards' within-class ordinal (``dlfIdp``,
+        # ``idpShow``, ``fantasyProsIdp``, all flagged
+        # ``needs_shared_market_translation``) into the combined
+        # offense+IDP rank space. The leave-one-out board excludes it by
+        # construction, so those votes fall back to the untranslated rank
+        # and IDP #1 scores as asset #1. Measured on the 2026-08-03
+        # payload: 220 IDP rows, median LOO/base ratio 1.224, range 0.45x
+        # to 3.48x.
+        #
+        # This comment used to say ``position_idp`` sources lost a
+        # within-DL/LB/DB crosswalk. No registered source has that scope
+        # and no row on the live board carries that stamp; the branch is
+        # dead. The assertions below were right throughout — only the
+        # stated reason was wrong.
         #
         # So the invariant that matters is not "IDP is priced" — it is
         # "IDP is never SILENTLY absent". Every IDP row must still be in
@@ -366,3 +374,143 @@ class TestAnchorParity(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheGuardIsACapabilityNotAFlag(unittest.TestCase):
+    """`is_backbone` is a label, and a label can be granted by an edit.
+
+    `scale_integrity_lost` gates the IDP refusal on "does any surviving
+    overall_idp source carry is_backbone". Four shipped documents used to
+    describe that as a feature — "registering a second cross-market IDP
+    source lifts the refusal automatically" — and recommend it as the
+    forward path. It is the opposite of a feature:
+
+    * A second cross-market IDP source is ALREADY registered
+      (`draftSharksIdp`, is_cross_market=True) and the refusal correctly
+      does not lift, because the gate is `is_backbone`.
+    * `build_backbone_from_rows` seeds its ladder from ONE registry key,
+      so a backbone needs a source whose own value column spans offense
+      AND IDP. `idpTradeCalc` is the only one (529 positive offense +
+      258 positive IDP). `draftSharksIdp` has ZERO positive offense
+      values under its key — its offense half is the separate
+      `draftSharks` key — so promoting it produces the identity ladder,
+      which is exactly the fallback.
+    * So the one-line edit those docs recommend lifts the guard and
+      leaves the board bit-for-bit broken: median 1.224, max 3.478,
+      Caleb Banks still 3.48x.
+
+    These tests pin that the MEASURED gate holds where the declared one
+    folds. They are the reason `shared_market_crosswalk_failed` exists.
+    """
+
+    @_needs_payload
+    def test_the_declared_gate_can_be_satisfied_by_an_edit(self):
+        # Not a bug being asserted as correct — this is the hazard, pinned
+        # so that anyone who changes the declaration sees what it does not
+        # buy them.
+        patched = []
+        for src in dc._RANKING_SOURCES:
+            copy = dict(src)
+            if copy["key"] == "draftSharksIdp":
+                copy["is_backbone"] = True
+            patched.append(copy)
+        with mock.patch.object(dc, "_RANKING_SOURCES", patched):
+            declared = dc.scale_integrity_lost(["idpTradeCalc"])
+        self.assertEqual(
+            declared["assetClasses"],
+            {},
+            "the registry gate no longer lifts on this edit — if that is deliberate, "
+            "this test should be rewritten rather than deleted",
+        )
+
+    @_needs_payload
+    def test_but_the_board_still_reports_the_crosswalk_as_failed(self):
+        patched = []
+        for src in dc._RANKING_SOURCES:
+            copy = dict(src)
+            if copy["key"] == "draftSharksIdp":
+                copy["is_backbone"] = True
+            patched.append(copy)
+        with mock.patch.object(dc, "_RANKING_SOURCES", patched):
+            board = fv.leave_one_out_board(_RAW, exclude=["idpTradeCalc"])
+            failed = dc.shared_market_crosswalk_failed(board.get("playersArray") or [])
+        self.assertTrue(
+            failed,
+            "promoting a source with no offense values produced a working ladder — "
+            "if a real second backbone was registered, re-measure before trusting this",
+        )
+        self.assertIn("idpShow", failed)
+
+    @_needs_payload
+    def test_and_the_refusal_therefore_holds(self):
+        # The property that actually protects a user: the flag edit must
+        # not put IDP rows back on the board.
+        patched = []
+        for src in dc._RANKING_SOURCES:
+            copy = dict(src)
+            if copy["key"] == "draftSharksIdp":
+                copy["is_backbone"] = True
+            patched.append(copy)
+        with mock.patch.object(dc, "_RANKING_SOURCES", patched):
+            index = fv.fair_value_index(_RAW)
+        idp_priced = [
+            e for e in index.values() if e.get("assetClass") == "idp" and e.get("fairValue")
+        ]
+        self.assertEqual(
+            idp_priced,
+            [],
+            "a registry flag edit put IDP rows back on the board without repairing the scale",
+        )
+
+    @_needs_payload
+    def test_the_default_board_translates_cleanly(self):
+        # The probe must not cry wolf: with idpTradeCalc present, every
+        # crosswalk-dependent source is translated.
+        contract = dc.build_api_data_contract(_RAW)
+        self.assertEqual(dc.shared_market_crosswalk_failed(contract.get("playersArray") or []), {})
+
+    @_needs_payload
+    def test_the_anchor_free_board_reports_which_sources_fell_back(self):
+        board = fv.leave_one_out_board(_RAW, exclude=["idpTradeCalc"])
+        failed = dc.shared_market_crosswalk_failed(board.get("playersArray") or [])
+        self.assertEqual(sorted(failed), ["dlfIdp", "fantasyProsIdp", "idpShow"])
+
+
+class TestBothScaleFailuresAreNamed(unittest.TestCase):
+    """A row can lose two dependencies; the payload must say so.
+
+    A rookie IDP row loses the shared-market crosswalk AND its rookie
+    ladder — `dlfRookieIdp` is paired with `idpTradeCalc` in
+    `ROOKIE_LADDER_PAIRS`. The reason field tested the asset class first
+    and stopped, so Caleb Banks, the worst row on the board at 3.48x,
+    was stamped with the smaller of his two causes. Scoring was never
+    affected (both paths refuse); the label was, and the label is what a
+    person debugging this reads.
+    """
+
+    @_needs_payload
+    def test_a_row_with_two_broken_dependencies_lists_both(self):
+        index = fv.fair_value_index(_RAW)
+        both = [
+            e
+            for e in index.values()
+            if len((e.get("scaleIntegrity") or {}).get("reasons") or []) > 1
+        ]
+        self.assertTrue(both, "no row reported two causes — expected the rookie IDP overlap")
+        for entry in both:
+            self.assertEqual(
+                sorted(entry["scaleIntegrity"]["reasons"]),
+                sorted({fv.UNPRICED_SCALE_IDP_BACKBONE, fv.UNPRICED_SCALE_ROOKIE_LADDER}),
+                entry["playerKey"],
+            )
+
+    @_needs_payload
+    def test_the_headline_reason_is_still_one_of_the_reasons(self):
+        # `unpricedReason` stays a scalar for every existing consumer.
+        index = fv.fair_value_index(_RAW)
+        for entry in index.values():
+            integrity = entry.get("scaleIntegrity") or {}
+            if not integrity.get("lost"):
+                continue
+            self.assertIn(integrity["reason"], integrity["reasons"])
+            self.assertEqual(entry["unpricedReason"], integrity["reason"])

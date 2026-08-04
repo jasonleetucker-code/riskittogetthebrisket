@@ -2270,16 +2270,29 @@ def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
 # Two such dependencies exist today, and both are declarative rather
 # than inferred, so this list is the single place they are written down:
 #
-#   * The IDP backbone.  ``position_idp`` sources rank within DL / LB /
-#     DB; the backbone crosswalks those into combined-pool ranks.  With
-#     no backbone the pipeline deliberately falls back to treating a
-#     position rank as a combined rank — the #1 DL is scored as if he
-#     were the #1 asset in the league.
+#   * The IDP shared-market crosswalk.  Sources flagged
+#     ``needs_shared_market_translation`` — today ``dlfIdp``, ``idpShow``
+#     and ``fantasyProsIdp`` — rank players within the IDP class only.
+#     The backbone's shared-market ladder crosswalks that within-class
+#     ordinal into the combined offense+IDP rank space.  With no backbone
+#     the ladder is empty and ``translate_position_rank`` returns the raw
+#     rank as ``TRANSLATION_FALLBACK``, so IDP #1 votes as if he were
+#     asset #1.
 #   * The rookie ladders.  ``needs_rookie_translation`` sources rank
 #     within the rookie class; the ladder crosswalks rookie #1 into the
 #     combined rank the reference source gives ITS #1 rookie.  With no
 #     reference the pipeline falls back to the untranslated rank, so
 #     rookie #1 is scored as asset #1.
+#
+# CORRECTION (2026-08-04).  This block used to name ``position_idp``
+# sources ranking within DL / LB / DB as the first mechanism.  That is a
+# dead branch: NO registered source carries the ``position_idp`` scope,
+# and a census of every ``sourceRankMeta`` stamp across the 973-row live
+# board returns ``overall_offense: 5772, overall_idp: 965`` and zero
+# ``position_idp``.  The per-position ladders are still built at
+# ``_compute_unified_rankings`` and never read.  The measured symptom was
+# always real; the explanation named the wrong crosswalk, and it had been
+# copied into five other files.
 #
 # Both fallbacks are correct for the default board, where an absent
 # source is one we never scraped.  They are wrong for a board built by
@@ -2323,6 +2336,13 @@ def scale_integrity_lost(excluded_keys: Iterable[str]) -> dict[str, dict[str, st
     more honest than guessing at a rookie flag.
 
     Empty dicts mean the exclusion costs evidence but not meaning.
+
+    **This is a DECLARATION, not a measurement, and it must not be the
+    only gate.**  It reports what the registry claims; use
+    :func:`shared_market_crosswalk_failed` on the board itself to find
+    out what happened.  The difference is not academic — see that
+    function's docstring for the one-line registry edit that satisfies
+    this check while leaving the board exactly as broken.
     """
     excluded = expand_correlation_groups(excluded_keys)
     surviving = {
@@ -2331,10 +2351,15 @@ def scale_integrity_lost(excluded_keys: Iterable[str]) -> dict[str, dict[str, st
 
     asset_classes: dict[str, str] = {}
     # Mirrors the backbone selection in ``_compute_unified_rankings``:
-    # primary scope overall_idp AND is_backbone.  Written as "does any
-    # survive" rather than "was ktcSfTep/idpTradeCalc named" so that
-    # registering a second IDP backbone lifts this guard automatically
-    # instead of leaving a hardcoded refusal behind.
+    # primary scope overall_idp AND is_backbone.
+    #
+    # This used to carry a comment promising that "registering a second
+    # IDP backbone lifts this guard automatically instead of leaving a
+    # hardcoded refusal behind", which read as a feature and is in fact
+    # the hazard.  ``is_backbone`` is a LABEL: setting it True on any of
+    # the five other IDP sources empties ``assetClasses`` while the board
+    # stays at median 1.224 / max 3.478.  Measured, not argued —
+    # ``tests/consensus_edge/test_fair_value.py`` pins it.
     if not any(
         str(s.get("key") or "") in surviving
         and s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
@@ -2349,6 +2374,69 @@ def scale_integrity_lost(excluded_keys: Iterable[str]) -> dict[str, dict[str, st
             sources[rookie_key] = SCALE_LOST_ROOKIE_LADDER
 
     return {"assetClasses": asset_classes, "sources": sources}
+
+
+def shared_market_crosswalk_failed(rows: Iterable[dict[str, Any]]) -> dict[str, int]:
+    """Which sources voted on an UNTRANSLATED within-class rank, per source.
+
+    The measured counterpart to :func:`scale_integrity_lost`, and the one
+    that should decide.  A source flagged ``needs_shared_market_translation``
+    ranks players within the IDP class only; the backbone's shared-market
+    ladder lifts that ordinal into the combined offense+IDP rank space and
+    stamps ``method: "exact"``.  With no usable ladder,
+    ``translate_position_rank`` returns the raw rank and stamps
+    ``TRANSLATION_FALLBACK`` — the vote then says IDP #1 is asset #1.
+
+    So this reads what the board DID rather than what the registry
+    promised.  Measured on the 2026-08-03 payload:
+
+    ==========================  ==================  ==================
+    source                      default board       idpTradeCalc gone
+    ==========================  ==================  ==================
+    ``dlfIdp``                  exact    135        fallback   159
+    ``idpShow``                 exact    215        fallback   235
+    ``fantasyProsIdp``          exact    151        fallback   177
+    ``draftSharksIdp``          combined 215        combined   243
+    ==========================  ==================  ==================
+
+    **Why the registry check alone is not enough.**  The backbone is
+    selected by the ``is_backbone`` flag, and that flag is a label rather
+    than a capability.  ``build_backbone_from_rows`` can only seed a
+    shared-market ladder from a source whose OWN value column spans both
+    pools, and ``idpTradeCalc`` is the only key that does (529 positive
+    offense + 258 positive IDP).  ``draftSharksIdp`` looks like a
+    candidate — it is registered ``is_cross_market`` — but carries 0
+    positive offense values under its own key; its offense half lives
+    under the separate ``draftSharks`` key.  Setting ``is_backbone=True``
+    on it yields the identity ladder ``[1, 2, 3, …]``, which is precisely
+    the fallback: the refusal lifts and the board is bit-for-bit the
+    broken one.  ``draftSharksIdp`` itself is unaffected either way —
+    it needs no crosswalk and stays on ``ds_combined_cross_market``.
+
+    Note the *depth* of a ladder is NOT a usable capability test either:
+    ``dlfIdp`` (163 > 162) and ``idpShow`` (247 > 245) both clear a
+    depth comparison while producing identity ladders.  Only "the ladder
+    does not start at 1" separates them (``idpTradeCalc`` starts at 30).
+
+    Returns ``{sourceKey: rowsVotedOnUntranslatedRank}``, empty when
+    every crosswalk-dependent source was translated (or none voted).
+    """
+    needs_translation = {
+        str(s.get("key") or "")
+        for s in _RANKING_SOURCES
+        if s.get("needs_shared_market_translation")
+    }
+    failed: dict[str, int] = {}
+    for row in rows or []:
+        meta_by_source = row.get("sourceRankMeta")
+        if not isinstance(meta_by_source, dict):
+            continue
+        for key, meta in meta_by_source.items():
+            if key not in needs_translation or not isinstance(meta, dict):
+                continue
+            if meta.get("method") == TRANSLATION_FALLBACK:
+                failed[str(key)] = failed.get(str(key), 0) + 1
+    return failed
 
 
 # Top-level keys in the override POST body that are NOT per-source
@@ -6670,9 +6758,21 @@ def _compute_unified_rankings(
 
     # ── Phase 0: Build IDP backbone from the designated backbone source ──
     # The first enabled source with scope=overall_idp and is_backbone=True
-    # wins.  If no backbone source is present, position_idp sources fall
-    # back to treating their raw rank as a synthetic overall rank and get
-    # a caution flag on the per-source meta.
+    # wins.  With no backbone source the ladder is empty and every
+    # crosswalk-dependent source falls back to treating its raw rank as a
+    # synthetic overall rank, with a caution flag on the per-source meta.
+    #
+    # WHICH sources that actually affects, measured rather than assumed:
+    # the ``needs_shared_market_translation`` ones — today ``dlfIdp``,
+    # ``idpShow`` and ``fantasyProsIdp``, which flip method ``exact`` →
+    # ``fallback`` on 159 / 235 / 177 rows of the live board.  The
+    # ``position_idp`` branch below is ALSO backbone-dependent and is
+    # currently dead: no registered source carries that scope, and a
+    # census of every ``sourceRankMeta`` stamp across the 973-row live
+    # board returns zero of them.  The facility works and is kept; it
+    # simply has no users, so do not reach for it when explaining an
+    # observed IDP scale problem.  See ``scale_integrity_lost`` and
+    # ``shared_market_crosswalk_failed``.
     #
     # The backbone also carries a *shared-market IDP ladder* — the
     # combined offense+IDP ranks at which IDP entries appear in the
@@ -6736,36 +6836,17 @@ def _compute_unified_rankings(
     # preserved via its own Phase 1 ordinal sort; only the SCALE
     # comes from the reference ladder.  Offense rookies anchor to
     # KTC; IDP rookies anchor to IDPTC (the IDP backbone).
-    rookie_ladder_cache: dict[str, list[int]] = {}
-
-    def _build_rookie_ladder(reference_src_key: str, idp: bool) -> list[int]:
-        cache_key = f"{reference_src_key}:{'idp' if idp else 'off'}"
-        cached = rookie_ladder_cache.get(cache_key)
-        if cached is not None:
-            return cached
-        ref_ranks: list[tuple[int, int]] = []  # (ref_rank, row_idx)
-        for _ridx, _rec in row_source_ranks.items():
-            _rank = _rec.get(reference_src_key)
-            if _rank is None:
-                continue
-            _row = players_array[_ridx]
-            if not bool(_row.get("rookie")):
-                continue
-            if _row.get("assetClass") == "pick":
-                continue
-            _pos = str(_row.get("position") or "").strip().upper()
-            if idp:
-                if _pos not in _IDP_POSITIONS:
-                    continue
-            else:
-                if _pos not in _OFFENSE_POSITIONS:
-                    continue
-            ref_ranks.append((int(_rank), _ridx))
-        ref_ranks.sort(key=lambda t: t[0])
-        ladder = [r for r, _ in ref_ranks]
-        rookie_ladder_cache[cache_key] = ladder
-        return ladder
-
+    # NOTE: a SECOND, shadowed ``_build_rookie_ladder`` used to sit here,
+    # together with the ``rookie_ladder_cache`` dict that was its only
+    # consumer.  Both were dead — the sole call site is below, after the
+    # surviving definition — and dead in a way that was a live hazard
+    # rather than merely untidy: the two signatures were
+    # ``(reference_src_key: str, idp: bool)`` and
+    # ``(reference_source: str, universe_positions: set[str])``, so a
+    # careless de-duplication would pass a set where a bool was expected.
+    # Every non-empty set is truthy, so that mistake would silently route
+    # offense rookies through the IDP ladder instead of raising.
+    # Removal verified inert: the default board is byte-identical.
     for src in active_sources:
         source_key: str = src["key"]
         position_group: str | None = src.get("position_group")
