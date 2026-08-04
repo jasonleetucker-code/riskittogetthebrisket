@@ -59,6 +59,12 @@ MISPRICING_Z_SCALE = 2.0
 #: Robust-sigma conversion for the median absolute deviation.
 MAD_TO_SIGMA = 1.4826
 
+#: Minimum MAD, in log-gap units, before a cohort's spread is treated as real.
+#: 0.08 log ~= 8% — below that the members are priced alike and their ordering
+#: is noise, not a ranking. Without this a degenerate cohort yields z-scores
+#: near 10 from hundredth-of-a-log differences.
+MIN_COHORT_MAD = 0.08
+
 #: Below this many cohort members a robust z-score is not meaningful, so the
 #: component returns None rather than a confident-looking number from four
 #: observations.
@@ -130,7 +136,15 @@ def robust_z(value: float, cohort: Sequence[float]) -> float | None:
     mad = median(deviations)
     if mad <= 0:
         return None
-    return (value - centre) / (MAD_TO_SIGMA * mad)
+    # Floor the MAD. Guarding only against exactly zero is not enough: a cohort
+    # of near-identical gaps — common in a deep positional tier where the whole
+    # group is priced off one thin board — produces a MAD of ~0.01 and turns a
+    # 0.02 difference into z = 10. On the live board that put a cluster of deep
+    # defensive linemen at the top of the buy list on differences of two
+    # hundredths of a log point. The floor is in log-gap units, so it says: a
+    # gap difference smaller than this is not evidence, whatever the cohort's
+    # internal spread happens to be.
+    return (value - centre) / (MAD_TO_SIGMA * max(mad, MIN_COHORT_MAD))
 
 
 def cohort_key(position: str | None, asset_class: str, market_value: float) -> str:

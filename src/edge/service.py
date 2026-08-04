@@ -53,6 +53,32 @@ def _latest_contract() -> Mapping[str, Any] | None:
     return None
 
 
+def _market_freshness(contract: Mapping[str, Any], anchor: str) -> tuple[bool, int]:
+    """Age of the anchor's data, from the contract's own freshness block.
+
+    Previously hardcoded to ``(False, 0)``, which made every staleness guard in
+    ``components.py`` dead code on the live path: a month-old market price
+    produced the same confidence as one fetched minutes ago, and the
+    "a stale source must never look current" rule held only in the panel.
+
+    Degrades to "unknown, treat as fresh" rather than refusing, because a
+    missing freshness block should not blank the whole board — but it says so
+    via ``freshnessKnown`` in the payload rather than silently asserting fresh.
+    """
+    freshness = contract.get("dataFreshness") or contract.get("sourceFreshness") or {}
+    if not isinstance(freshness, Mapping):
+        return False, 0
+    entry = freshness.get(anchor)
+    if not isinstance(entry, Mapping):
+        return False, 0
+    for field in ("ageDays", "age_days", "staleDays"):
+        value = entry.get(field)
+        if isinstance(value, (int, float)):
+            age = int(value)
+            return age > edge_history.DEFAULT_STALE_AFTER_DAYS, age
+    return False, 0
+
+
 def _asset_class(row: Mapping[str, Any]) -> str:
     position = str(row.get("position") or "").strip().upper()
     return "idp" if position in {"DL", "LB", "DB"} else "offense"
@@ -76,9 +102,9 @@ def _market_value(row: Mapping[str, Any], asset_class: str) -> tuple[float | Non
 
 
 def _fair_value(row: Mapping[str, Any], anchor: str) -> tuple[float | None, int, list[str]]:
-    """Leave-one-out consensus over the row's own per-source values.
+    """Leave-one-out consensus over the row's own per-source votes.
 
-    Reads ``sourceRankMeta[key].valueContribution`` — NOT ``canonicalSiteValues``.
+    Reads ``sourceRankMeta`` — NOT ``canonicalSiteValues``.
 
     That distinction is not stylistic. For the 17 rank-signal sources
     (``rank_signal_source_keys()``) the ``canonicalSiteValues`` slot holds a
@@ -93,29 +119,56 @@ def _fair_value(row: Mapping[str, Any], anchor: str) -> tuple[float | None, int,
     records that it has already caused two shipped bugs (trade dispersion CV;
     rankings copy/export, both fixed in PR #530). This was the third.
 
-    ``valueContribution`` is the number that source actually contributed to the
-    blend, on the common 0-9999 scale, for value-direct and rank-signal sources
-    alike. Returns ``(value, source_count, contributing_sources)``.
+    It reconstructs each source's vote the SAME WAY the validated panel does —
+    ``effectiveRank`` → percentile against the fixed reference N → the production
+    Hill curve → count-aware mean-median blend.
+
+    That identity is the point, and getting it wrong is not cosmetic. The first
+    version of this function averaged ``valueContribution``, which is a
+    *different quantity* from what ``src/edge/panel.py`` measured: the +0.09
+    out-of-sample evidence in ``docs/edge/BACKTEST.md`` was earned by the
+    rank→percentile→Hill construction, and a live endpoint computing something
+    else while citing that evidence is claiming validation it does not have.
+    If the live and backtested quantities ever diverge again, the honest move is
+    to re-run the backtest on the new quantity, not to re-word the docs.
+
+    Returns ``(value, source_count, contributing_sources)``.
     """
     meta = row.get("sourceRankMeta") or {}
     if not isinstance(meta, Mapping):
         return None, 0, []
-    from src.edge.panel import MARKET_DERIVED_SOURCES
+    from src.api.data_contract import _PERCENTILE_REFERENCE_N, count_aware_mean_median_blend
+    from src.edge.panel import (
+        MARKET_DERIVED_SOURCES,
+        NON_DYNASTY_BOARD_SOURCES,
+        _hill_constants,
+    )
+    from src.canonical.player_valuation import percentile_to_value
+
+    asset_class = "idp" if anchor == edge_history.IDP_MARKET_ANCHOR else "offense"
+    midpoint, slope = _hill_constants(asset_class)
+    denominator = max(1.0, float(_PERCENTILE_REFERENCE_N - 1))
 
     contributions: list[float] = []
     used: list[str] = []
     for key, entry in meta.items():
         if key in MARKET_DERIVED_SOURCES:
             continue
+        # The panel excludes rookie-only and ROS boards because they rank a
+        # different population; applying the same filter here keeps the two
+        # constructions identical rather than merely similar.
+        if key in NON_DYNASTY_BOARD_SOURCES:
+            continue
         if not isinstance(entry, Mapping):
             continue
-        value = entry.get("valueContribution")
-        if isinstance(value, (int, float)) and value > 0:
-            contributions.append(float(value))
-            used.append(str(key))
+        rank = entry.get("effectiveRank")
+        if not isinstance(rank, (int, float)) or rank <= 0:
+            continue
+        percentile = min(1.0, max(0.0, (float(rank) - 1.0) / denominator))
+        contributions.append(float(percentile_to_value(percentile, midpoint=midpoint, slope=slope)))
+        used.append(str(key))
     if not contributions:
         return None, 0, []
-    from src.api.data_contract import count_aware_mean_median_blend
 
     centre, _mad = count_aware_mean_median_blend(contributions)
     return float(centre), len(contributions), sorted(used)
@@ -164,6 +217,7 @@ def build_player_result(
     *,
     cohort_gaps: Mapping[str, Sequence[float]],
     sharp_index: Mapping[str, Mapping[str, Any]] | None = None,
+    freshness: Mapping[str, tuple[bool, int]] | None = None,
 ) -> edge_score.EdgeResult | None:
     """One player's Consensus Edge result, or None if he cannot be priced."""
     import math
@@ -183,6 +237,7 @@ def build_player_result(
 
     position = str(row.get("position") or "").strip().upper() or None
     key = edge_components.cohort_key(position, asset_class, market_value or 0.0)
+    is_stale, age_days = (freshness or {}).get(anchor, (False, 0))
 
     built: dict[str, edge_components.ComponentScore] = {
         "mispricing": edge_components.mispricing_component(
@@ -190,15 +245,15 @@ def build_player_result(
             cohort_gaps=cohort_gaps.get(key, ()),
             fair_value_source_count=source_count,
             fair_value_dispersion=None,
-            market_is_stale=False,
+            market_is_stale=is_stale,
         ),
         "momentum": edge_components.momentum_component(
             trailing_log_change_30d=None,
             trailing_log_change_7d=None,
         ),
         "data_quality": edge_components.data_quality_component(
-            market_is_stale=False,
-            market_age_days=0,
+            market_is_stale=is_stale,
+            market_age_days=age_days,
             fair_value_available=fair_value is not None,
             sharp_available=bool((sharp_index or {}).get(_normalized(name))),
             position_known=position is not None,
@@ -262,10 +317,16 @@ def build_board() -> dict[str, Any]:
     # Computed ONCE for the whole board: market_payload is a full ledger
     # aggregation and calling it per player would be a thousand of them.
     sharp_index = sharp_activity_index()
+    freshness = {
+        anchor: _market_freshness(contract, anchor)
+        for anchor in (edge_history.OFFENSE_MARKET_ANCHOR, edge_history.IDP_MARKET_ANCHOR)
+    }
     results = [
         result
         for result in (
-            build_player_result(row, cohort_gaps=cohort_gaps, sharp_index=sharp_index)
+            build_player_result(
+                row, cohort_gaps=cohort_gaps, sharp_index=sharp_index, freshness=freshness
+            )
             for row in rows
         )
         if result is not None

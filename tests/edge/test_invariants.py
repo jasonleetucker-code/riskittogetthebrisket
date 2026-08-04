@@ -307,3 +307,55 @@ def test_an_absent_data_quality_assessment_cannot_raise_confidence():
         {"mispricing": component, "data_quality": perfect_quality}
     )
     assert with_quality >= without_quality
+
+
+def test_a_degenerate_cohort_cannot_manufacture_a_huge_z():
+    """Near-identical gaps are not a ranking, however tight their spread.
+
+    Guarding only against MAD == 0 is not enough: a deep positional tier priced
+    off one thin board produces MAD ~0.01, and a two-hundredths difference
+    became z = 10 on the live board.
+    """
+    cohort = [0.20 + (index % 3) * 0.001 for index in range(40)]
+    z = components.robust_z(0.24, cohort)
+    assert z is not None
+    assert abs(z) < 1.0, f"degenerate cohort produced z={z}"
+
+
+def test_the_unnormalized_fallback_cannot_outrank_a_real_measurement():
+    """A row we could not cohort-normalize must never top one we could."""
+    normalized = components.mispricing_component(
+        log_gap=0.5,
+        cohort_gaps=[0.0 + i * 0.01 for i in range(40)],
+        fair_value_source_count=6,
+        fair_value_dispersion=None,
+        market_is_stale=False,
+    )
+    fallback = components.mispricing_component(
+        log_gap=5.0,  # absurdly large, but uncohorted
+        cohort_gaps=[],
+        fair_value_source_count=6,
+        fair_value_dispersion=None,
+        market_is_stale=False,
+    )
+    assert fallback.value is not None and normalized.value is not None
+    assert abs(fallback.value) <= components.UNNORMALIZED_SHRINKAGE
+    assert abs(fallback.value) < abs(normalized.value)
+    assert fallback.confidence < normalized.confidence
+
+
+def test_the_live_fair_value_uses_the_same_construction_as_the_panel():
+    """The validated evidence only transfers if the quantities match.
+
+    ``docs/edge/BACKTEST.md``'s +0.09 was earned by rank -> percentile -> Hill.
+    An earlier live version averaged ``valueContribution`` instead, i.e. cited
+    evidence for a quantity it did not compute.
+    """
+    from src.edge import service
+
+    source = __import__("inspect").getsource(service._fair_value)
+    assert "effectiveRank" in source
+    assert "percentile_to_value" in source
+    assert (
+        "valueContribution" not in source.split('"""')[2]
+    ), "live fair value must not average valueContribution — the panel does not"

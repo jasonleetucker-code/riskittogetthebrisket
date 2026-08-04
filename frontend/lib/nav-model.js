@@ -194,6 +194,17 @@ export const NAV_MODEL = [
         hint: "What qualified dynasty managers are buying and selling",
         keywords: ["sharp", "market intelligence", "smart money", "cohort"],
       },
+      // Consensus Edge CONSUMES Sharp Tracker and the board rather than
+      // replacing either, so it sits beside them rather than above them. It is
+      // in shadow mode: the page leads with that, and the label says so, because
+      // an unvalidated buy/sell signal presented as ordinary product is exactly
+      // how a ranked list gets trusted before it has earned it.
+      {
+        href: "/consensus-edge",
+        label: "Consensus Edge (shadow)",
+        hint: "Independent fair value vs the market — unvalidated, for comparison only",
+        keywords: ["consensus edge", "buy", "sell", "mispricing", "shadow"],
+      },
     ],
   },
   {
