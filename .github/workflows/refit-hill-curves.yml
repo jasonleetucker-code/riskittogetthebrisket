@@ -187,8 +187,20 @@ jobs:
       # Note also that this shares the `calibration` label with
       # audit-rank-form-drift.yml, whose auto-close therefore matches on
       # TITLE rather than label so it cannot reach over and close these.
+      # Mainline only, like the other issue-writing workflows — see the
+      # long note in e2e.yml (#716).  It matters MORE here than there,
+      # for two reasons that are specific to this file: there is no
+      # dedup (no `EXISTING` lookup, just `gh issue create`), so every
+      # branch dispatch mints a NEW issue rather than commenting on one;
+      # and there is no auto-close by design, so nothing ever retires
+      # them.  A promotion request is also a claim about the COMMITTED
+      # champion, which a branch's constants cannot make.
+      #
+      # This adds only an open-side guard.  The reasoning above against
+      # auto-closing promotion requests is untouched — not filing from a
+      # branch is not the same as closing something.
       - name: Open an issue when a human must act
-        if: steps.refit.outputs.exit_code == '1' || steps.refit.outputs.exit_code == '3'
+        if: (steps.refit.outputs.exit_code == '1' || steps.refit.outputs.exit_code == '3') && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
