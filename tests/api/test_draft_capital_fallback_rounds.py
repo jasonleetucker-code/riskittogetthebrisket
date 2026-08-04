@@ -84,20 +84,46 @@ def test_the_board_is_built_for_the_number_of_rounds_the_league_runs(_no_network
     assert len(out["picks"]) == 24
 
 
+# Prices every current-season slot up to six rounds.  A contract is REQUIRED to
+# state the budget claim below: since the D-2 / audit-finding-C1 fix an unpriced
+# pick carries ``dollarValue: None`` and is excluded from the pool, so an empty
+# contract yields a board with no dollars at all rather than one priced off a
+# flat per-round table.  Next-year picks stay unpriced here, exactly as they are
+# live — the live contract carries current-year slot picks only.
+_PRICED_CONTRACT = {
+    "playersArray": [
+        {
+            "displayName": f"2026 Pick {rnd}.0{slot}",
+            "rankDerivedValue": 9000 - 500 * (2 * (rnd - 1) + (slot - 1)),
+            "assetClass": "pick",
+        }
+        for rnd in range(1, 7)
+        for slot in (1, 2)
+    ]
+}
+
+
 def test_the_round_count_rescales_every_team_total(_no_network):
     """Why the bug mattered, stated as arithmetic rather than as a worry."""
     _no_network.update(_sleeper(6))
-    six = fb.build_sleeper_derived("123", {}, current_season=2026)
+    six = fb.build_sleeper_derived("123", _PRICED_CONTRACT, current_season=2026)
     _no_network.update(_sleeper(4))
-    four = fb.build_sleeper_derived("123", {}, current_season=2026)
+    four = fb.build_sleeper_derived("123", _PRICED_CONTRACT, current_season=2026)
 
     assert six["draftRounds"] == 6
     assert four["draftRounds"] == 4
     # The same $1200 is spread over a different number of picks, so per-pick
     # dollars — and therefore every team's auction budget composition — differ.
     assert len(six["picks"]) != len(four["picks"])
-    assert sum(p["dollarValue"] for p in six["picks"]) == fb._TARGET_TOTAL_BUDGET
-    assert sum(p["dollarValue"] for p in four["picks"]) == fb._TARGET_TOTAL_BUDGET
+    priced = lambda board: [p for p in board["picks"] if not p["isUnpriced"]]
+    assert len(priced(six)) == 12  # 6 rounds x 2 teams, current season only
+    assert len(priced(four)) == 8
+    assert sum(p["dollarValue"] for p in priced(six)) == fb._TARGET_TOTAL_BUDGET
+    assert sum(p["dollarValue"] for p in priced(four)) == fb._TARGET_TOTAL_BUDGET
+    # The rescaling itself: the same top pick is worth less when the budget has
+    # to cover more picks.
+    top = lambda board: next(p for p in priced(board) if p["pick"] == "1.01")
+    assert top(six)["dollarValue"] < top(four)["dollarValue"]
 
 
 def test_an_explicit_count_wins_and_is_labelled_as_such(_no_network):

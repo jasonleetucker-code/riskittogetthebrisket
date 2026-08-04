@@ -189,7 +189,9 @@ def test_unpriced_picks_are_excluded_from_the_dollar_pool(monkeypatch):
         "L1",
         contract,
         current_season=2026,
-        num_teams=2,
+        # ``num_teams`` was removed in #655 — the count comes from the roster
+        # feed, which the stub above declares as two.  The arithmetic this test
+        # pins is unchanged.
         draft_rounds=1,
     )
     by_key = {(p["season"], p["pick"]): p for p in result["picks"]}
