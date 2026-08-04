@@ -25,14 +25,31 @@ history at any past date is therefore derivable from data already in the
 repo, and the ``boardMomentumRisk`` axis can be measured out of sample
 like any other signal.
 
-**What this measures, precisely.**  Opportunity as it actually ships
-today, which is the momentum axis alone.  Its other axis, ``snapTrend``,
-reads ``data/playerctx/snapshot.json`` — a weekly artifact with no
-history in the repo — so it is absent in every environment except
-production and CANNOT be replayed.  That is stated in the output rather
-than papered over: this validates the configuration the board serves
-everywhere but production, and leaves the production-only axis
-unvalidated.
+**What the composite arm measures, precisely.**  Opportunity as it
+actually ships outside production, which is the momentum axis alone.
+
+Its other axis, ``snapTrend``, gets its own arm, and the reason it is
+separate is worth stating because this file used to say the axis
+"CANNOT be replayed".  That was wrong, and wrong in a way that made a
+data-collection project out of a missing function argument.  The claim
+rested on ``data/playerctx/snapshot.json`` being a weekly artifact
+overwritten in place — true — and concluded the history was gone.  It is
+not: nflverse publishes ``snap_counts_{season}.csv`` as one row per
+player PER GAME, and ``parse_snap_counts`` was discarding the week
+column.  With an as-of bound (``src/playerctx/asof.py`` resolves a date
+to the weeks whose games had all finished before it, from the schedule)
+the axis replays like any other signal.
+
+What genuinely blocks it is different, and no amount of retention would
+have fixed it: **the panel is entirely offseason**, so every origin date
+resolves to the same completed season and the same final week.
+``snapTrend`` is the same per-player number on 16 April as on 3 August.
+Each fold still yields a valid cross-sectional rho, but the folds share
+ONE signal snapshot, so averaging them reports N folds of confidence for
+one observation.  The arm measures it anyway and stamps ``snapWindows``
+and ``effectiveSignalObservations`` so the number cannot be read as more
+than it is.  It becomes a real multi-fold measurement when the panel
+covers in-season dates — automatically, with no further work.
 
 **Production's window is 30 days, so this replays 30 days.**
 ``inputs.rank_history()`` calls ``load_history(days=30)`` and the axis
@@ -71,6 +88,7 @@ if str(REPO) not in sys.path:
 from src.api.data_contract import build_api_data_contract  # noqa: E402
 from src.consensus_edge import MODEL_VERSION  # noqa: E402
 from src.consensus_edge import backtest as bt  # noqa: E402
+from src.consensus_edge import identity_join  # noqa: E402
 from src.consensus_edge import opportunity  # noqa: E402
 from src.consensus_edge import outcomes as oc  # noqa: E402
 from src.consensus_edge import panel  # noqa: E402
@@ -79,6 +97,9 @@ from src.consensus_edge import score as score_mod  # noqa: E402
 from src.consensus_edge.fair_value import _row_key, fair_value_index  # noqa: E402
 from src.consensus_edge.inputs import RANK_HISTORY_DAYS  # noqa: E402
 from src.consensus_edge.mispricing import score_index  # noqa: E402
+from src.playerctx import asof as ctx_asof  # noqa: E402
+from src.playerctx import fetch as ctx_fetch  # noqa: E402
+from src.playerctx import service as ctx_service  # noqa: E402
 
 OUT_DIR = REPO / "docs" / "measurements"
 
@@ -128,6 +149,16 @@ class _DayCache:
         """
         return {k: float(v["price"]) for k, v in self.prices(when).items()}
 
+    def identity_rows(self, when: date) -> dict:
+        """That day's board, reduced to the fields a playerctx join reads.
+
+        Trimmed rather than the whole contract because the cache holds a
+        dozen days at once and full contracts at that depth are hundreds
+        of megabytes. ``identity_join.identity_rows`` owns the field list
+        and a test pins that the trimmed join equals the full one.
+        """
+        return self._board(when)["identityRows"]
+
     def _board(self, when: date) -> dict:
         hit = self._boards.get(when)
         if hit is not None:
@@ -141,7 +172,11 @@ class _DayCache:
             raw = row.get("rankDerivedValue")
             if key and isinstance(raw, (int, float)) and raw > 0:
                 values[key] = float(raw)
-        entry = {"values": values, "prices": oc.market_prices(contract)}
+        entry = {
+            "values": values,
+            "prices": oc.market_prices(contract),
+            "identityRows": identity_join.identity_rows(contract),
+        }
         self._boards[when] = entry
         self.builds += 1
         self._evict(when)
@@ -172,6 +207,133 @@ class _DayCache:
             stale = self._order.pop(0)
             if stale not in self._order:
                 self._boards.pop(stale, None)
+
+
+class _PlayerctxReplay:
+    """The playerctx snapshot as it read on each origin date.
+
+    Two caches, because the two costs are different. The nflverse
+    download happens once for the whole run (the files are seasonal, not
+    per-date). The parse-and-join happens once per DISTINCT as-of window
+    — which in an offseason panel is once for the entire run, since every
+    offseason date resolves to the same completed season.
+
+    Unavailable is a first-class state: no network, no Sleeper dump, or a
+    date before any football all leave this reporting itself absent so
+    the arm is skipped, rather than measuring an empty signal and calling
+    it a null result.
+    """
+
+    def __init__(self) -> None:
+        self._bundle = None
+        self._players_dir = None
+        self._fetch_failed: str | None = None
+        self._by_window: dict[object, dict | None] = {}
+        self._windows_by_origin: dict[date, object] = {}
+        self.reconstructions = 0
+
+    def window(self, origin: date):
+        """The (season, throughWeek) observable on ``origin``, or None."""
+        if origin in self._windows_by_origin:
+            return self._windows_by_origin[origin]
+        resolved = ctx_asof.observable_as_of(origin.isoformat())
+        self._windows_by_origin[origin] = resolved
+        return resolved
+
+    def distinct_windows(self) -> set:
+        """Distinct SNAP windows seen, ignoring the depth-chart date.
+
+        The depth date is the origin itself and so always differs; the
+        snap window is the half that drives ``snapTrend``, and it being
+        a single value across every fold is the finding that decides
+        whether this arm's folds are independent observations or one
+        observation resampled.
+        """
+        return {
+            (w.season, w.through_week) for w in self._windows_by_origin.values() if w is not None
+        }
+
+    def snapshot(self, origin: date) -> dict | None:
+        window = self.window(origin)
+        if window is None or self._fetch_failed:
+            return None
+        cached = self._by_window.get(window)
+        if window in self._by_window:
+            return cached
+        if not self._ensure_bundle():
+            return None
+        started = time.time()
+        try:
+            payload = ctx_service.reconstruct_playerctx(
+                as_of=window,
+                fetcher=lambda **_kw: self._bundle,
+                players_dir=self._players_dir,
+            )
+        except Exception as exc:  # noqa: BLE001 — degrade, never fabricate
+            log(f"  playerctx replay {window} failed: {exc}")
+            self._by_window[window] = None
+            return None
+        self.reconstructions += 1
+        joined = payload["survivorship"]["snapCounts"]
+        log(
+            f"  playerctx {window.season} wk<={window.through_week} in "
+            f"{time.time() - started:.1f}s ({len(payload['players'])} players, "
+            f"snap join {joined['matched']}/{joined['parsed']})"
+        )
+        self._by_window[window] = payload
+        return payload
+
+    def _ensure_bundle(self) -> bool:
+        if self._bundle is not None:
+            return True
+        if self._fetch_failed:
+            return False
+        try:
+            bundle = ctx_fetch.fetch_all()
+            if bundle.sleeper_players is None:
+                raise RuntimeError("no sleeper players dump")
+            players_dir = ctx_service._load_sleeper_pool(bundle.sleeper_players)
+        except Exception as exc:  # noqa: BLE001 — CLI boundary
+            self._fetch_failed = str(exc)
+            log(f"  playerctx sources unavailable: {exc}")
+            return False
+        self._bundle = bundle
+        self._players_dir = players_dir
+        return True
+
+    def fetch_failure(self) -> str | None:
+        """Why the sources could not be read, or None."""
+        return self._fetch_failed
+
+    def survivorship(self, origin: date) -> dict | None:
+        payload = self.snapshot(origin)
+        return payload["survivorship"] if payload else None
+
+
+def snap_trend_signal(origin: date, cache: _DayCache, replay: _PlayerctxReplay) -> dict[str, float]:
+    """``snapTrend`` per player, exactly as the board computes it.
+
+    Calls the production axis and the production join, for the same
+    reason ``momentum_signal`` does: a backtest that validates a
+    reimplementation carries the authority of one without the property.
+
+    **This axis cannot leak from the future, and the reason is
+    structural rather than a convention.** ``snap_counts_{season}.csv``
+    is republished with every completed week, so an unbounded read would
+    hand a replay of 9 November the games of 30 November.
+    ``playerctx.asof`` bounds it to the weeks whose games had all
+    finished BEFORE the origin date, from the nflverse schedule.
+    """
+    snapshot = replay.snapshot(origin)
+    if not snapshot:
+        return {}
+    context = identity_join.player_context_index(cache.identity_rows(origin), snapshot)
+    out: dict[str, float] = {}
+    for key, record in context.items():
+        axis = opportunity.snap_trend_axis(record)
+        if axis["score"] is not None:
+            out[key] = float(axis["score"])
+    return out
 
 
 def lookback_dates(origin: date, available: list[date], lookback_days: int) -> list[date] | None:
@@ -296,6 +458,87 @@ def _run(
     )
 
 
+def _run_snap_trend(
+    replay: _PlayerctxReplay,
+    cache: _DayCache,
+    *,
+    origins: list[date],
+    horizon_days: int,
+    benchmark_fns: dict,
+    max_folds: int | None,
+    skip: bool,
+) -> dict:
+    """The ``snapTrend`` arm, with the two ways it can be dishonest named.
+
+    Returns a ``{"status": ...}`` block rather than a run when it cannot
+    measure. An arm that quietly returns an empty signal and reports
+    "no correlation" is worse than one that refuses, because a null
+    result and an absent measurement look identical in the output.
+
+    **Refusal 1 — no sources.** The replay needs the nflverse snap file
+    and a Sleeper dump. Without them there is no signal, which is not
+    the same as a signal of zero.
+
+    **Refusal 2 — one frozen observation.** Every offseason date resolves
+    to the same completed season and the same final week, so `snapTrend`
+    is literally the same per-player number on every origin. Each fold
+    would still yield a valid cross-sectional rho, and averaging them
+    would report N folds' worth of confidence for ONE signal snapshot
+    correlated against N overlapping return windows. The folds are
+    non-overlapping in their outcomes and perfectly overlapping in their
+    signal, so the effective sample is one. It is measured anyway and
+    reported with ``snapWindows`` and ``effectiveSignalObservations: 1``
+    so the number exists without the fold count vouching for it.
+    """
+    if skip:
+        log("")
+        log("── snapTrend axis alone ── skipped (--skip-snap-trend)")
+        return {"status": "skipped", "reason": "requested via --skip-snap-trend"}
+
+    dated = [(o, replay.window(o)) for o in origins]
+    if not any(w is not None for _, w in dated):
+        log("")
+        log("── snapTrend axis alone ── no origin has a completed NFL week behind it")
+        return {
+            "status": "unmeasurable",
+            "reason": "no origin date has a completed NFL week behind it",
+        }
+    if replay.snapshot(next(o for o, w in dated if w is not None)) is None:
+        log("")
+        log("── snapTrend axis alone ── sources unavailable; refusing to report a null")
+        return {
+            "status": "unavailable",
+            "reason": replay.fetch_failure() or "playerctx replay produced no snapshot",
+        }
+
+    run = _run(
+        "snapTrend axis alone",
+        lambda o: snap_trend_signal(o, cache, replay),
+        available=origins,
+        horizon_days=horizon_days,
+        cache=cache,
+        benchmark_fns=benchmark_fns,
+        max_folds=max_folds,
+    )
+    windows = sorted(replay.distinct_windows())
+    run["status"] = "measured"
+    run["snapWindows"] = [{"season": s, "throughWeek": w} for s, w in windows]
+    run["effectiveSignalObservations"] = len(windows)
+    if len(windows) <= 1:
+        run["independenceCaveat"] = (
+            "Every fold shares ONE snap window, so the signal is identical on "
+            "every origin and the fold count does not represent independent "
+            "observations of it. Read this as a single cross-section, not as "
+            f"{run.get('foldsUsable')} folds. This is what an all-offseason "
+            "panel does to this axis; it resolves when the panel covers "
+            "in-season dates."
+        )
+        log(f"  ONE frozen snap window {windows} — folds are not independent")
+    else:
+        log(f"  {len(windows)} distinct snap windows across the folds")
+    return run
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--horizon-days", type=int, default=14)
@@ -310,6 +553,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--end", type=str, default=None, help="YYYY-MM-DD")
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--skip-snap-trend",
+        action="store_true",
+        help="skip the snapTrend arm (it reaches nflverse for snap counts and a schedule)",
+    )
     args = ap.parse_args(argv)
 
     if panel.is_shallow():
@@ -364,6 +612,7 @@ def main(argv: list[str] | None = None) -> int:
 
     params = params_mod.load()
     cache = _DayCache()
+    replay = _PlayerctxReplay()
     benchmarks = {
         # The incumbent. "Beats random" is not the bar; "beats the
         # component we already validated" is the entire question.
@@ -391,6 +640,15 @@ def main(argv: list[str] | None = None) -> int:
             benchmark_fns=benchmarks,
             max_folds=args.max_folds,
         )
+        snap_trend = _run_snap_trend(
+            replay,
+            cache,
+            origins=origins,
+            horizon_days=args.horizon_days,
+            benchmark_fns=benchmarks,
+            max_folds=args.max_folds,
+            skip=args.skip_snap_trend,
+        )
     except Exception as exc:  # noqa: BLE001 — CLI boundary
         print(f"[ce-composite] failed: {exc}", file=sys.stderr)
         return 1
@@ -404,15 +662,29 @@ def main(argv: list[str] | None = None) -> int:
         "lookbackDays": args.lookback_days,
         "lookbackPoints": _LOOKBACK_POINTS,
         "compositeWeights": (params.get("composite") or {}).get("weights"),
-        "runs": {"composite": composite, "momentum": momentum},
+        "runs": {"composite": composite, "momentum": momentum, "snapTrend": snap_trend},
         "decision": verdict,
         "panelBuilds": cache.builds,
+        "playerctxReconstructions": replay.reconstructions,
         "elapsedSeconds": round(time.time() - started, 1),
         "caveats": [
-            "Measures Opportunity as it ships OUTSIDE production: the momentum "
-            "axis alone. The snapTrend axis reads data/playerctx/snapshot.json, "
-            "which has no history in the repo and cannot be replayed, so it "
-            "remains unvalidated.",
+            "The composite arm measures Opportunity as it ships OUTSIDE "
+            "production: the momentum axis alone. snapTrend is measured "
+            "SEPARATELY rather than folded in, because the composite's declared "
+            "0.2 Opportunity weight describes the two axes together and this "
+            "panel cannot support that combination — see the snapTrend run.",
+            "snapTrend is replayed from nflverse's own per-game snap counts "
+            "bounded to the weeks completed before each origin, not from "
+            "data/playerctx/snapshot.json (which is overwritten weekly and has "
+            "no history). It is NOT unreplayable, but on an all-offseason panel "
+            "every origin resolves to the same completed season and the same "
+            "final week, so the axis is one frozen cross-section rather than a "
+            "signal that varies across folds. The run reports snapWindows and "
+            "effectiveSignalObservations so that is legible in the output.",
+            "The snapTrend replay joins through the LIVE Sleeper directory — "
+            "there is no historical edition of it — so a player out of the "
+            "league by run time cannot join. The run's per-source join rates "
+            "quantify that survivorship rather than assuming it away.",
             "Sharp Flow is absent throughout — the ledger is empty in every "
             "reachable environment — so this is a two-component composite.",
             "Replays today's pipeline over past inputs: inputs cannot leak, but "
@@ -430,6 +702,7 @@ def main(argv: list[str] | None = None) -> int:
     log("")
     log(f"composite: {composite['verdict']}")
     log(f"momentum:  {momentum['verdict']}")
+    log(f"snapTrend: {snap_trend.get('verdict') or snap_trend.get('reason')}")
     log("")
     log(f"DECISION: {verdict['recommendation']}")
     log(f"  {verdict['rationale']}")

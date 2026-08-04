@@ -27,8 +27,10 @@ value ever produces a buy-ward contribution again.
 from __future__ import annotations
 
 import inspect
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from src.api import rank_history as rh
 from src.consensus_edge import identity_join, opportunity, service
@@ -239,6 +241,69 @@ class TestPlayerContextJoin(unittest.TestCase):
         self.assertEqual(identity_join.row_sleeper_id({}), "")
 
 
+class TestIdentityRowsTrimming(unittest.TestCase):
+    """The trimmed contract must join identically to the full one.
+
+    `identity_rows` exists so the snapTrend backtest arm can hold a
+    rolling window of days without holding a rolling window of 4 MB
+    contracts. That is only safe while the field list it keeps covers
+    every field the joins actually read — a coupling that would
+    otherwise rot silently, dropping the join to zero rows the day
+    someone adds a fallback spelling.
+    """
+
+    FAT_CONTRACT = {
+        "meta": {"leagueKey": "dynasty_main"},
+        "playersArray": [
+            {
+                "playerId": "4046",
+                "displayName": "Patrick Mahomes",
+                "canonicalName": "patrick mahomes",
+                "rankDerivedValue": 7321.0,
+                "canonicalSiteValues": {"ktcSfTep": 7000},
+                "assetClass": "offense",
+            },
+            {"_sleeperId": "6794", "displayName": "Justin Jefferson"},
+            {"displayName": "No Sleeper Id"},
+        ],
+    }
+    SNAPSHOT = {
+        "sleeperIndex": {"4046": "00-0033873", "6794": "00-0036322"},
+        "players": {
+            "00-0033873": {"snaps": {"trend": 4.0, "games": 12}},
+            "00-0036322": {"snaps": {"trend": -2.0, "games": 15}},
+        },
+    }
+
+    def test_the_trimmed_join_equals_the_full_join(self):
+        trimmed = identity_join.identity_rows(self.FAT_CONTRACT)
+        self.assertEqual(
+            identity_join.player_context_index(trimmed, self.SNAPSHOT),
+            identity_join.player_context_index(self.FAT_CONTRACT, self.SNAPSHOT),
+        )
+
+    def test_it_keeps_every_spelling_row_sleeper_id_consults(self):
+        trimmed = identity_join.identity_rows(self.FAT_CONTRACT)
+        by_name = {r.get("displayName"): r for r in trimmed["playersArray"]}
+        self.assertEqual(identity_join.row_sleeper_id(by_name["Patrick Mahomes"]), "4046")
+        self.assertEqual(identity_join.row_sleeper_id(by_name["Justin Jefferson"]), "6794")
+
+    def test_it_actually_drops_the_heavy_fields(self):
+        # If it kept everything the memory argument would be a fiction.
+        trimmed = identity_join.identity_rows(self.FAT_CONTRACT)
+        first = trimmed["playersArray"][0]
+        self.assertNotIn("canonicalSiteValues", first)
+        self.assertNotIn("rankDerivedValue", first)
+
+    def test_an_absent_or_malformed_contract_is_an_empty_board(self):
+        self.assertEqual(identity_join.identity_rows(None), {"playersArray": []})
+        self.assertEqual(identity_join.identity_rows({}), {"playersArray": []})
+        self.assertEqual(
+            identity_join.identity_rows({"playersArray": ["junk", None]}),
+            {"playersArray": []},
+        )
+
+
 class TestGsisJoinRefusesRatherThanGuessing(unittest.TestCase):
     """A wrong multiplier on the right-looking player is worse than none."""
 
@@ -259,6 +324,174 @@ class TestGsisJoinRefusesRatherThanGuessing(unittest.TestCase):
         contract = {"playersArray": [{"displayName": "Patrick Mahomes"}]}  # no sleeper id
         directory = {"4046": {"gsis_id": "00-0033873", "full_name": "Patrick Mahomes"}}
         self.assertEqual(identity_join.build_gsis_to_player_key(contract, directory), {})
+
+
+class TestSharpMovementsAppliesTheFilterItClaims(unittest.TestCase):
+    """The cohort filter, on a real ledger file rather than a mock.
+
+    `inputs.sharp_movements` documented itself as "qualified-manager
+    trade movements" while the query was `WHERE tx_type = 'trade'` and
+    nothing else. The filtering was real but incidental — the crawler
+    only visits qualified managers — so the corpus arrived
+    pre-conditioned and the claim looked true. It stops being true the
+    day anything else writes to the ledger, and it fails silently in the
+    direction that flatters the component.
+
+    `managerQuality` was likewise never supplied, so every manager
+    weighed 1.0 and the quality term in `aggregate_asset` could not vary.
+    """
+
+    def _ledger(self, tmpdir, rows):
+        import sqlite3
+
+        path = Path(tmpdir) / "intel.db"
+        conn = sqlite3.connect(path)
+        conn.execute(
+            """
+            CREATE TABLE asset_movements (
+              movement_id TEXT PRIMARY KEY, tx_id TEXT, league_id TEXT,
+              tx_type TEXT, asset_id TEXT, asset_type TEXT, action TEXT,
+              user_id TEXT, roster_id TEXT, counterparty_user_id TEXT,
+              ts INTEGER, week INTEGER, faab_bid INTEGER, ingested_ms INTEGER
+            )
+            """
+        )
+        conn.executemany(
+            "INSERT INTO asset_movements (movement_id, tx_id, league_id, tx_type, "
+            "asset_id, asset_type, action, user_id, ts, ingested_ms) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            rows,
+        )
+        conn.commit()
+        conn.close()
+        return path
+
+    def _patched(self, path, cohort):
+        """Point `sharp_movements` at our ledger and our cohort."""
+        from src.consensus_edge import inputs as inputs_mod
+        from src.intel import ledger
+
+        return (
+            mock.patch.object(ledger, "default_path", lambda: path),
+            mock.patch.object(inputs_mod, "_qualified_cohort", lambda: cohort),
+        )
+
+    ROWS = [
+        ("m1", "t1", "L1", "trade", "4046", "player", "add", "sharpguy", 1_700_000_000_000, 0),
+        ("m2", "t2", "L1", "trade", "4046", "player", "add", "randomguy", 1_700_000_000_000, 0),
+        ("m3", "t3", "L1", "waiver", "4046", "player", "add", "sharpguy", 1_700_000_000_000, 0),
+    ]
+
+    def test_an_unqualified_managers_trade_is_excluded(self):
+        from src.consensus_edge import inputs as inputs_mod
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._ledger(tmp, self.ROWS)
+            p1, p2 = self._patched(path, {"sleeper:sharpguy": 0.8})
+            with p1, p2:
+                movements, reason = inputs_mod.sharp_movements()
+        self.assertIsNone(reason)
+        managers = {m.manager_key for m in movements["4046"]}
+        self.assertEqual(managers, {"sleeper:sharpguy"})
+
+    def test_quality_reaches_the_movement_rather_than_defaulting_to_one(self):
+        from src.consensus_edge import inputs as inputs_mod
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._ledger(tmp, self.ROWS)
+            p1, p2 = self._patched(path, {"sleeper:sharpguy": 0.8})
+            with p1, p2:
+                movements, _ = inputs_mod.sharp_movements()
+        self.assertEqual(movements["4046"][0].manager_quality, 0.8)
+
+    def test_a_ledger_with_no_qualifying_trades_is_no_ledger_not_empty(self):
+        # An empty dict would mean "read it, nobody traded" — a finding.
+        # Nobody in the cohort trading is not that finding.
+        from src.consensus_edge import inputs as inputs_mod
+        from src.consensus_edge import sharp_flow
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._ledger(tmp, self.ROWS)
+            p1, p2 = self._patched(path, {"sleeper:nobody-here": 0.9})
+            with p1, p2:
+                movements, reason = inputs_mod.sharp_movements()
+        self.assertIsNone(movements)
+        self.assertEqual(reason, sharp_flow.STATUS_NO_LEDGER)
+
+    def test_an_empty_cohort_is_its_own_status_not_no_ledger(self):
+        from src.consensus_edge import inputs as inputs_mod
+        from src.consensus_edge import sharp_flow
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._ledger(tmp, self.ROWS)
+            p1, p2 = self._patched(path, {})
+            with p1, p2:
+                movements, reason = inputs_mod.sharp_movements()
+        self.assertIsNone(movements)
+        self.assertEqual(reason, sharp_flow.STATUS_NO_COHORT)
+
+    def test_the_no_cohort_status_reaches_the_payload(self):
+        # It was declared and unreachable — a status naming a check no
+        # code performed. It only becomes real once the filter is real.
+        from src.consensus_edge import sharp_flow
+
+        result = sharp_flow.sharp_flow_index(
+            None, {}, unavailable_reason=sharp_flow.STATUS_NO_COHORT
+        )
+        self.assertEqual(result["status"], sharp_flow.STATUS_NO_COHORT)
+        self.assertIn("no manager currently qualifies", result["message"])
+
+    def test_the_default_reason_is_still_no_ledger(self):
+        from src.consensus_edge import sharp_flow
+
+        self.assertEqual(
+            sharp_flow.sharp_flow_index(None, {})["status"], sharp_flow.STATUS_NO_LEDGER
+        )
+
+    def test_the_canonical_columns_win_when_the_platform_schema_is_present(self):
+        """A migrated ledger must join on canonical identity, not raw ids.
+
+        The old query read `asset_id` / `user_id` — the per-platform raw
+        columns. After the platform migration those stay populated with
+        the SOURCE ids, so on a multi-platform ledger the same player
+        arrives under two different asset keys and no manager matches a
+        cohort key.
+        """
+        import sqlite3
+
+        from src.consensus_edge import inputs as inputs_mod
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._ledger(tmp, self.ROWS[:1])
+            conn = sqlite3.connect(path)
+            for column in ("canonical_asset_id", "manager_key", "league_key"):
+                conn.execute(f"ALTER TABLE asset_movements ADD COLUMN {column} TEXT")
+            conn.execute("ALTER TABLE asset_movements ADD COLUMN timestamp_ms INTEGER")
+            conn.execute(
+                "UPDATE asset_movements SET canonical_asset_id='canon-4046', "
+                "manager_key='ffpc:sharpguy', league_key='ffpc:L1', timestamp_ms=42"
+            )
+            conn.commit()
+            conn.close()
+            p1, p2 = self._patched(path, {"ffpc:sharpguy": 0.5})
+            with p1, p2:
+                movements, reason = inputs_mod.sharp_movements()
+        self.assertIsNone(reason)
+        self.assertIn("canon-4046", movements)
+        self.assertEqual(movements["canon-4046"][0].manager_key, "ffpc:sharpguy")
+        self.assertEqual(movements["canon-4046"][0].timestamp_ms, 42)
+
+    def test_a_missing_ledger_file_is_no_ledger(self):
+        from src.consensus_edge import inputs as inputs_mod
+        from src.consensus_edge import sharp_flow
+        from src.intel import ledger
+
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "nope.db"
+            with mock.patch.object(ledger, "default_path", lambda: missing):
+                movements, reason = inputs_mod.sharp_movements()
+        self.assertIsNone(movements)
+        self.assertEqual(reason, sharp_flow.STATUS_NO_LEDGER)
 
 
 class TestInputsAreResolvedOnce(unittest.TestCase):
@@ -314,17 +547,21 @@ class TestInputsAreResolvedOnce(unittest.TestCase):
         )
 
     def test_resolution_never_raises_on_a_bare_environment(self):
+        # The key set is DERIVED from build_board rather than listed:
+        # the list above already asserts the two agree, and a second
+        # hardcoded copy only adds a place to forget. What is specific
+        # to this test is the bare environment — no ledger, no history,
+        # no playerctx snapshot — where every resolver must return a
+        # value rather than raise.
         from src.consensus_edge import inputs as inputs_mod
 
+        expected = {
+            name
+            for name, param in inspect.signature(service.build_board).parameters.items()
+            if param.default is None and name not in self._NOT_DATA_INPUTS
+        }
         resolved = inputs_mod.resolve({"playersArray": []})
-        self.assertEqual(
-            set(resolved),
-            {
-                "movements_by_asset",
-                "rank_history_by_player",
-                "player_context_by_player",
-            },
-        )
+        self.assertEqual(set(resolved), expected)
 
 
 if __name__ == "__main__":

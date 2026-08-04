@@ -238,27 +238,51 @@ def aggregate_asset(
     return result
 
 
+_UNAVAILABLE_MESSAGES: dict[str, str] = {
+    STATUS_NO_LEDGER: (
+        "No qualified-manager ledger available. Sharp Flow is omitted from "
+        "the composite rather than contributing a neutral zero, which would "
+        "read as 'no lean detected'."
+    ),
+    STATUS_NO_COHORT: (
+        "A ledger exists but no manager currently qualifies, so no movement "
+        "in it can be attributed to the cohort this component is about. "
+        "Reported separately from 'no ledger' because the two have "
+        "different fixes."
+    ),
+    "ledger_unreadable": (
+        "The ledger could not be read. Sharp Flow is omitted rather than "
+        "reported as empty, which would claim the ledger was consulted."
+    ),
+}
+
+
 def sharp_flow_index(
     movements_by_asset: dict[str, Sequence[Movement]] | None,
     params: dict[str, Any],
     *,
     now_ms: int | None = None,
+    unavailable_reason: str | None = None,
 ) -> dict[str, Any]:
     """Sharp Flow for every asset with movements.
 
-    ``movements_by_asset`` of ``None`` means "no ledger available", which
-    is reported as an explicit status rather than as an empty result.
-    The distinction matters: an empty dict means the ledger was read and
-    nobody traded, and that IS a finding.
+    ``movements_by_asset`` of ``None`` means "no movements available",
+    which is reported as an explicit status rather than as an empty
+    result. The distinction matters: an empty dict means the ledger was
+    read and nobody traded, and that IS a finding.
+
+    ``unavailable_reason`` says WHICH kind of unavailable. Absent it,
+    everything collapses to ``no_ledger`` — including the case where a
+    ledger exists but nobody qualifies, which has a different fix.
+    ``STATUS_NO_COHORT`` was declared for exactly that case and, until
+    the cohort filter was actually applied in ``inputs.sharp_movements``,
+    was unreachable dead code.
     """
     if movements_by_asset is None:
+        status = unavailable_reason or STATUS_NO_LEDGER
         return {
-            "status": STATUS_NO_LEDGER,
-            "message": (
-                "No qualified-manager ledger available. Sharp Flow is "
-                "omitted from the composite rather than contributing a "
-                "neutral zero, which would read as 'no lean detected'."
-            ),
+            "status": status,
+            "message": _UNAVAILABLE_MESSAGES.get(status, _UNAVAILABLE_MESSAGES[STATUS_NO_LEDGER]),
             "assets": {},
             "priceAware": False,
         }

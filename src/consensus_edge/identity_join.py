@@ -144,6 +144,42 @@ def row_sleeper_id(row: Any) -> str:
     return ""
 
 
+# Every field the joins in this module read off a board row. Kept next
+# to them so `identity_rows` cannot silently fall out of step with what
+# they actually consult.
+_IDENTITY_FIELDS: tuple[str, ...] = (
+    "displayName",
+    "canonicalName",
+    "playerId",
+    "_sleeperId",
+    "sleeperId",
+)
+
+
+def identity_rows(contract: dict[str, Any] | None) -> dict[str, Any]:
+    """A contract reduced to the fields this module's joins read.
+
+    For callers that need to hold many days' boards at once — the
+    ``snapTrend`` arm of ``scripts/backtest_consensus_edge_composite.py``
+    keeps a rolling window of them — where retaining full contracts is
+    hundreds of megabytes for five string fields per row.
+
+    The equivalence is pinned by a test rather than asserted here:
+    ``player_context_index`` must return the same map for the trimmed
+    contract as for the full one. That is what stops this from becoming
+    a quietly-stale copy of the field list if a join grows a new
+    fallback spelling.
+    """
+    rows = (contract or {}).get("playersArray") or []
+    return {
+        "playersArray": [
+            {field: row[field] for field in _IDENTITY_FIELDS if field in row}
+            for row in rows
+            if isinstance(row, dict)
+        ]
+    }
+
+
 def player_context_index(
     contract: dict[str, Any] | None,
     snapshot: dict[str, Any] | None,

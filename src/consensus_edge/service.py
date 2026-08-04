@@ -294,6 +294,7 @@ def build_board(
     contract: dict[str, Any] | None,
     *,
     movements_by_asset: dict[str, Any] | None = None,
+    movements_unavailable_reason: str | None = None,
     rank_history_by_player: dict[str, list[dict[str, Any]]] | None = None,
     player_context_by_player: dict[str, dict[str, Any]] | None = None,
     params: dict[str, Any] | None = None,
@@ -360,7 +361,9 @@ def build_board(
         fit_board = scoring_fit.measure(season=contract.get("currentDraftYear"))
     index = fair_value_index(contract, scoring_fit_board=fit_board, csv_root=csv_root)
     mispricing = score_index(index)
-    flow = sf.sharp_flow_index(movements_by_asset, p)
+    flow = sf.sharp_flow_index(
+        movements_by_asset, p, unavailable_reason=movements_unavailable_reason
+    )
 
     # How many components could contribute at all, given the weights.
     # Guarded at 1 so a params file that zeroed everything divides by

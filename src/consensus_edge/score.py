@@ -98,7 +98,12 @@ COMPONENT_VALIDATION: dict[str, dict[str, Any]] = {
             "rho (7d -0.010 over 11 folds, 14d -0.009 over 5) and beat mispricing "
             "alone in only 3/11 and 2/5 folds. Weight is zero; the axis is "
             "displayed as evidence but does not move the score. The snapTrend "
-            "axis is production-only and remains unmeasured."
+            "axis is replayable since 2026-08-04 (nflverse publishes snap "
+            "counts per game; src/playerctx/asof.py bounds the read to the "
+            "weeks completed before each origin) but is not yet MEASURED: "
+            "every date in the current all-offseason panel resolves to the "
+            "same completed season, so the axis is one frozen cross-section "
+            "rather than a signal varying across folds."
         ),
     },
 }
