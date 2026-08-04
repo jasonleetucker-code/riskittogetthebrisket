@@ -379,3 +379,83 @@ folds and is therefore unvalidated; and restricted to assets worth
 ≥ 2000 the edge falls to +0.10%, so it lives mostly in players too cheap
 to trade for.
 **Status:** accepted 2026-08-04.
+
+## ADR-018: the top list ranks by conviction, not by score
+**The defect.** `top_movers` sorted on score alone. A score is a point
+estimate and confidence is its precision, and ranking on the estimate
+discards the precision the board already computed. That is not
+theoretical: measured over 7 fold origins, the published top-20 buys had
+a median reliability of **0.75** against **1.00** for the board as a
+whole. The highest scores were coming from the *least-sourced* players,
+because fewer sources means a wider spread against the market anchor and
+therefore a bigger z. The list was mining thin evidence.
+**The fix and its measurement.** Rank by `score x (confidence/100)`.
+
+| horizon | score (old) | score x confidence |
+|---|---|---|
+| 7d, 15 folds | +0.92% | **+1.51%** |
+| 14d, 7 folds | +1.57% | **+3.59%** |
+
+Chosen over a confidence *threshold* — `conf >= 65` and
+`reliability == 1` both scored comparably (+3.15%, 6/6) — because a
+threshold is a tuned constant, shrinkage introduces no new number, and
+it degrades smoothly rather than falling off a cliff at an arbitrary
+line. Four variants were tried on one fold set, which is a
+multiple-comparisons trap, so the winner was re-checked on the other
+horizon before adoption; it replicated.
+**Status:** accepted 2026-08-04.
+
+## ADR-019: coverage counts only components that can contribute
+**The inconsistency.** ADR-013 excluded zero-weight components from
+`componentsPresent` so a rejected signal could not raise confidence. It
+left them in the DENOMINATOR. So every row carried a coverage deficit
+for a component we had measured and deliberately removed — a shortfall
+no amount of data could ever close, which is not information about the
+player. Coverage read 1/3, the ceiling sat at 69.34, and the Strong
+threshold is 70.
+**What that was costing.** The rows this suppressed were not marginal.
+Every would-be Strong Buy was demoted into `Buy` carrying a
+`labelReason`, and that demoted bucket was measured as the only
+consistently positive group on the board (+2.53%, 6 of 6 folds) — the
+model was producing its best signal and then refusing to say so.
+**Decision:** exclude zero-weight components from both sides. Coverage
+becomes 1/2, the ceiling 79.37, and Strong labels are reachable.
+Verified after the change rather than assumed: **Strong Buy returns
++8.83% cohort-excess at 6 of 6 folds (14d) and +3.39% at 10 of 12 (7d)**
+— the strongest group measured. The ordering of the reasoning matters
+and is recorded deliberately: the suppressed population was measured
+first, and the ceiling was changed because it was hiding something that
+worked. Changing it to make a nicer label appear would be tuning away a
+refusal, which this file has argued against twice.
+**A second bug found while testing it.** `confidence_ceiling` assumed
+freshness 1.0. Freshness is board-wide and KNOWN — pinned at 0.5 when
+staleness is unknown — so the published ceiling advertised 79.37 on
+boards where every row was capped at 62.996 and none could earn a Strong
+label. Reliability varies per player and is still assumed at best case,
+which keeps this an upper bound; freshness is now passed in.
+**Status:** accepted 2026-08-04.
+
+## ADR-020: the flag defaults ON, and what that does not claim
+Held OFF since 2026-08-04 morning on the grounds that a composite of one
+measured component and two declared priors is a labelled experiment, not
+advice. Both premises changed by that afternoon: Opportunity was
+measured and zeroed (ADR-013), and the artifact users actually see — a
+list of twenty names — was scored for the first time (ADR-017), then
+improved twice on measurement (ADR-018, ADR-019).
+**Decision:** `consensus_edge` defaults **True**. Rollback is
+`RISKIT_FEATURE_CONSENSUS_EDGE=0` plus a restart, since flag reads are
+process-cached.
+**Shipping ON is not shipping unqualified.** Four things remain
+unclaimed and each rides on the payload rather than on this file:
+`experimental: true` is still stamped; the target is market movement and
+not fantasy points (ADR-015); the panel is entirely offseason with a
+scheduled re-run (ADR-016); and **the sell side has no measured edge at
+all**, which `sellSideValidation` states on every response and the sells
+view renders before a user can act on it.
+**One product fact worth stating plainly**, because it is not a defect
+to be fixed but a property to be understood: 91% of the top-20 sits
+under a market value of 2000, and above that floor the measured edge is
++0.10%. The board finds underpriced *deep* assets well and has little to
+say about the players a big trade is built around. The row now shows
+market value so a user can see which they are looking at.
+**Status:** accepted 2026-08-04.

@@ -1,7 +1,7 @@
 {
   "modelVersion": "ce.2026-08-04.v0-shadow",
   "paramSetId": "b90ef7db61a10905",
-  "measuredAt": "2026-08-04T09:29:10.813718+00:00",
+  "measuredAt": "2026-08-04T10:07:49.192163+00:00",
   "target": "cohort-excess market return of the anchor board",
   "horizonDays": 7,
   "topN": 20,
@@ -33,7 +33,7 @@
         "topContributorShare": null
       },
       "topSells": {
-        "n": 9,
+        "n": 14,
         "medianExcess": 0.0,
         "meanExcess": 0.0,
         "trimmedMeanExcess": 0.0,
@@ -72,7 +72,7 @@
           "topContributorShare": null
         },
         "Neutral": {
-          "n": 135,
+          "n": 130,
           "medianExcess": 0.0,
           "meanExcess": 0.0,
           "trimmedMeanExcess": 0.0,
@@ -80,7 +80,7 @@
           "topContributorShare": null
         },
         "Sell": {
-          "n": 4,
+          "n": 9,
           "medianExcess": 0.0,
           "meanExcess": 0.0,
           "trimmedMeanExcess": 0.0,
@@ -118,7 +118,7 @@
           "hitRate": null
         },
         "35-50": {
-          "n": 94,
+          "n": 11,
           "medianExcess": 0.0,
           "meanExcess": 0.0,
           "trimmedMeanExcess": 0.0,
@@ -126,7 +126,7 @@
           "topContributorShare": null
         },
         "50-60": {
-          "n": 90,
+          "n": 83,
           "medianExcess": 0.0,
           "meanExcess": 0.0,
           "trimmedMeanExcess": 0.0,
@@ -134,10 +134,12 @@
           "topContributorShare": null
         },
         "60+": {
-          "n": 0,
-          "meanExcess": null,
-          "medianExcess": null,
-          "hitRate": null
+          "n": 90,
+          "medianExcess": 0.0,
+          "meanExcess": 0.0,
+          "trimmedMeanExcess": 0.0,
+          "hitRate": 0.0,
+          "topContributorShare": null
         }
       },
       "byAssetClass": {
@@ -275,18 +277,18 @@
       "topBuys": {
         "n": 20,
         "medianExcess": -0.003175520106254579,
-        "meanExcess": -0.03537446050012849,
-        "trimmedMeanExcess": -0.02337354037859795,
-        "hitRate": 0.3,
-        "topContributorShare": 0.19634467523050983
+        "meanExcess": -0.034368620136728104,
+        "trimmedMeanExcess": -0.022116239924347462,
+        "hitRate": 0.35,
+        "topContributorShare": 0.1936902672357522
       },
       "topSells": {
         "n": 19,
         "medianExcess": 0.002415994369476776,
-        "meanExcess": -0.06732542150321598,
+        "meanExcess": -0.06998779047043552,
         "trimmedMeanExcess": -0.059741180456234694,
         "hitRate": 0.5789473684210527,
-        "topContributorShare": 0.21955547411548484
+        "topContributorShare": 0.22737311238876373
       },
       "topBuysTradeable": {
         "n": 15,
@@ -297,8 +299,8 @@
         "topContributorShare": 0.4930091592258342
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1369.0,
-        "belowTradeableFloor": 14,
+        "medianMarketValue": 1376.5,
+        "belowTradeableFloor": 13,
         "of": 20,
         "floor": 2000.0
       },
@@ -308,7 +310,7 @@
         "p05": -0.054750821046008334,
         "p95": 0.03836365930660263
       },
-      "topBuysPercentileVsRandom": 0.177,
+      "topBuysPercentileVsRandom": 0.1845,
       "topBuysBeatRandomMedian": false,
       "byLabel": {
         "Buy (demoted from Strong)": {
@@ -374,6 +376,12 @@
           "hitRate": null
         },
         "35-50": {
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
+        },
+        "50-60": {
           "n": 58,
           "medianExcess": 0.004321039130622306,
           "meanExcess": -0.009281960078601728,
@@ -381,21 +389,13 @@
           "hitRate": 0.6551724137931034,
           "topContributorShare": 0.22087464336105547
         },
-        "50-60": {
-          "n": 187,
-          "medianExcess": -0.0016153375150260389,
-          "meanExcess": -0.012062712294854052,
-          "trimmedMeanExcess": -0.016512057187604748,
-          "hitRate": 0.43315508021390375,
-          "topContributorShare": 0.044584717180541605
-        },
         "60+": {
-          "n": 83,
-          "medianExcess": 0.0,
-          "meanExcess": -0.007345869151190406,
-          "trimmedMeanExcess": -0.002291766530235513,
-          "hitRate": 0.40963855421686746,
-          "topContributorShare": 0.22345205355807793
+          "n": 270,
+          "medianExcess": -0.0004157043950852113,
+          "meanExcess": -0.010612719772913006,
+          "trimmedMeanExcess": -0.008025895491688003,
+          "hitRate": 0.42592592592592593,
+          "topContributorShare": 0.03741180371771173
         }
       },
       "byAssetClass": {
@@ -532,19 +532,19 @@
       "universeMeanExcess": 0.021579437887199203,
       "topBuys": {
         "n": 19,
-        "medianExcess": 0.0,
-        "meanExcess": 0.4944814106438776,
-        "trimmedMeanExcess": 0.374355975375964,
-        "hitRate": 0.47368421052631576,
-        "topContributorShare": 0.32226214413945725
+        "medianExcess": 0.02350058082648744,
+        "meanExcess": 0.5051904202420023,
+        "trimmedMeanExcess": 0.3863248684562211,
+        "hitRate": 0.6842105263157895,
+        "topContributorShare": 0.3168682280534037
       },
       "topSells": {
         "n": 20,
         "medianExcess": 0.0,
-        "meanExcess": -0.0091071345725096,
-        "trimmedMeanExcess": -0.007807471949419547,
-        "hitRate": 0.2,
-        "topContributorShare": 0.17528528178234187
+        "meanExcess": -0.006027004684095531,
+        "trimmedMeanExcess": -0.003990972930766649,
+        "hitRate": 0.3,
+        "topContributorShare": 0.1853507245602799
       },
       "topBuysTradeable": {
         "n": 20,
@@ -555,8 +555,8 @@
         "topContributorShare": 0.2694730040810428
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1010.0,
-        "belowTradeableFloor": 19,
+        "medianMarketValue": 1049.5,
+        "belowTradeableFloor": 18,
         "of": 20,
         "floor": 2000.0
       },
@@ -570,12 +570,20 @@
       "topBuysBeatRandomMedian": true,
       "byLabel": {
         "Buy (demoted from Strong)": {
-          "n": 17,
-          "medianExcess": 0.001832016009444421,
-          "meanExcess": 0.554940620220677,
-          "trimmedMeanExcess": 0.42564711741532146,
-          "hitRate": 0.5294117647058824,
-          "topContributorShare": 0.3235815681481641
+          "n": 9,
+          "medianExcess": 0.0,
+          "meanExcess": 0.34549210338320224,
+          "trimmedMeanExcess": 0.34549210338320224,
+          "hitRate": 0.2222222222222222,
+          "topContributorShare": 0.9743551210286449
+        },
+        "Strong Buy": {
+          "n": 8,
+          "medianExcess": 0.20945812959317794,
+          "meanExcess": 0.7905702016628362,
+          "trimmedMeanExcess": 0.7905702016628362,
+          "hitRate": 0.875,
+          "topContributorShare": 0.38021042984252074
         },
         "Buy": {
           "n": 87,
@@ -602,11 +610,19 @@
           "topContributorShare": 0.08657417621002925
         },
         "Sell (demoted from Strong)": {
-          "n": 11,
+          "n": 6,
           "medianExcess": 0.0,
-          "meanExcess": -0.003527722940720045,
+          "meanExcess": 0.0,
           "trimmedMeanExcess": 0.0,
-          "hitRate": 0.09090909090909091,
+          "hitRate": 0.0,
+          "topContributorShare": null
+        },
+        "Strong Sell": {
+          "n": 5,
+          "medianExcess": 0.0,
+          "meanExcess": -0.007760990469584099,
+          "trimmedMeanExcess": -0.007760990469584099,
+          "hitRate": 0.2,
           "topContributorShare": 0.9432374153663005
         },
         "No Market Price": {
@@ -632,6 +648,12 @@
           "hitRate": null
         },
         "35-50": {
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
+        },
+        "50-60": {
           "n": 4,
           "medianExcess": 0.0,
           "meanExcess": 0.0,
@@ -639,21 +661,13 @@
           "hitRate": 0.0,
           "topContributorShare": null
         },
-        "50-60": {
-          "n": 224,
-          "medianExcess": 0.0,
-          "meanExcess": -0.0017617745483296044,
-          "trimmedMeanExcess": 0.0,
-          "hitRate": 0.04017857142857143,
-          "topContributorShare": 0.2267917906382092
-        },
         "60+": {
-          "n": 461,
+          "n": 685,
           "medianExcess": 0.0,
-          "meanExcess": 0.03310817831476374,
-          "trimmedMeanExcess": 0.00045431880352505064,
-          "hitRate": 0.44685466377440347,
-          "topContributorShare": 0.14086978630622107
+          "meanExcess": 0.021705449203328835,
+          "trimmedMeanExcess": 8.888796606930534e-05,
+          "hitRate": 0.31386861313868614,
+          "topContributorShare": 0.13710692053509313
         }
       },
       "byAssetClass": {
@@ -791,20 +805,20 @@
       "panelSourceCount": 22,
       "universeMeanExcess": 0.0018454248633650455,
       "topBuys": {
-        "n": 17,
-        "medianExcess": 0.03372933331748541,
-        "meanExcess": 0.036506898611722655,
-        "trimmedMeanExcess": 0.03546209535209594,
-        "hitRate": 0.7058823529411765,
-        "topContributorShare": 0.16513828022425697
+        "n": 18,
+        "medianExcess": 0.03959228664137359,
+        "meanExcess": 0.04263632920352146,
+        "trimmedMeanExcess": 0.04326019526494426,
+        "hitRate": 0.7777777777777778,
+        "topContributorShare": 0.13294620562749407
       },
       "topSells": {
         "n": 20,
         "medianExcess": 0.0,
-        "meanExcess": -4.121276444127657e-05,
-        "trimmedMeanExcess": 0.0001353163599859701,
-        "hitRate": 0.3,
-        "topContributorShare": 0.2885765929386006
+        "meanExcess": -0.0013890914169289816,
+        "trimmedMeanExcess": -0.0006252780301552567,
+        "hitRate": 0.35,
+        "topContributorShare": 0.30476751752923875
       },
       "topBuysTradeable": {
         "n": 20,
@@ -815,7 +829,7 @@
         "topContributorShare": 0.16599958137539403
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1051.0,
+        "medianMarketValue": 1181.5,
         "belowTradeableFloor": 19,
         "of": 20,
         "floor": 2000.0
@@ -829,13 +843,21 @@
       "topBuysPercentileVsRandom": 1.0,
       "topBuysBeatRandomMedian": true,
       "byLabel": {
+        "Strong Buy": {
+          "n": 11,
+          "medianExcess": 0.04036942210512524,
+          "meanExcess": 0.05300757518529819,
+          "trimmedMeanExcess": 0.05086164314504245,
+          "hitRate": 1.0,
+          "topContributorShare": 0.18744163029033015
+        },
         "Buy (demoted from Strong)": {
-          "n": 18,
-          "medianExcess": 0.027617228818444903,
-          "meanExcess": 0.03447873757773806,
-          "trimmedMeanExcess": 0.03324571439258994,
-          "hitRate": 0.6666666666666666,
-          "topContributorShare": 0.16513828022425697
+          "n": 7,
+          "medianExcess": 0.0,
+          "meanExcess": 0.005361992765857876,
+          "trimmedMeanExcess": 0.005361992765857876,
+          "hitRate": 0.14285714285714285,
+          "topContributorShare": 0.7383094703256405
         },
         "Buy": {
           "n": 96,
@@ -862,11 +884,19 @@
           "topContributorShare": 0.12238553301869533
         },
         "Sell (demoted from Strong)": {
-          "n": 13,
+          "n": 7,
           "medianExcess": 0.0,
-          "meanExcess": 0.0003749793050343974,
-          "trimmedMeanExcess": 0.00015469824129520803,
-          "hitRate": 0.23076923076923078,
+          "meanExcess": 0.0,
+          "trimmedMeanExcess": 0.0,
+          "hitRate": 0.0,
+          "topContributorShare": null
+        },
+        "Strong Sell": {
+          "n": 6,
+          "medianExcess": 0.00018806021357807605,
+          "meanExcess": 0.0008124551609078609,
+          "trimmedMeanExcess": 0.0008124551609078609,
+          "hitRate": 0.5,
           "topContributorShare": 0.6281005946756805
         },
         "No Market Price": {
@@ -892,6 +922,12 @@
           "hitRate": null
         },
         "35-50": {
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
+        },
+        "50-60": {
           "n": 3,
           "medianExcess": 0.0,
           "meanExcess": 0.0,
@@ -899,21 +935,13 @@
           "hitRate": 0.0,
           "topContributorShare": null
         },
-        "50-60": {
-          "n": 228,
-          "medianExcess": 0.0,
-          "meanExcess": -0.0014084723903432322,
-          "trimmedMeanExcess": 0.0,
-          "hitRate": 0.05701754385964912,
-          "topContributorShare": 0.35233594909779176
-        },
         "60+": {
-          "n": 462,
+          "n": 690,
           "medianExcess": 0.0,
-          "meanExcess": 0.003463227565606566,
-          "trimmedMeanExcess": 0.0010688100560835678,
-          "hitRate": 0.4155844155844156,
-          "topContributorShare": 0.03324144200731799
+          "meanExcess": 0.0018534484497275024,
+          "trimmedMeanExcess": 0.0003713697044976423,
+          "hitRate": 0.2971014492753623,
+          "topContributorShare": 0.039472056900484165
         }
       },
       "byAssetClass": {
@@ -1052,19 +1080,19 @@
       "universeMeanExcess": 0.0021702581504260262,
       "topBuys": {
         "n": 20,
-        "medianExcess": 0.02074451909273093,
-        "meanExcess": 0.03997950047095928,
-        "trimmedMeanExcess": 0.029773088318183025,
-        "hitRate": 0.75,
-        "topContributorShare": 0.2782132746065505
+        "medianExcess": 0.030141818273311846,
+        "meanExcess": 0.03833893157675201,
+        "trimmedMeanExcess": 0.032373746653391086,
+        "hitRate": 0.8,
+        "topContributorShare": 0.24806720732011855
       },
       "topSells": {
         "n": 20,
         "medianExcess": 0.0,
-        "meanExcess": -0.00011033661443513437,
-        "trimmedMeanExcess": 0.00015201154340119125,
-        "hitRate": 0.25,
-        "topContributorShare": 0.3164772434050624
+        "meanExcess": -0.0006763266387815664,
+        "trimmedMeanExcess": -5.935510147463869e-05,
+        "hitRate": 0.3,
+        "topContributorShare": 0.25660297782133507
       },
       "topBuysTradeable": {
         "n": 20,
@@ -1075,7 +1103,7 @@
         "topContributorShare": 0.5859047204410242
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1156.0,
+        "medianMarketValue": 1231.5,
         "belowTradeableFloor": 19,
         "of": 20,
         "floor": 2000.0
@@ -1089,13 +1117,21 @@
       "topBuysPercentileVsRandom": 1.0,
       "topBuysBeatRandomMedian": true,
       "byLabel": {
+        "Strong Buy": {
+          "n": 16,
+          "medianExcess": 0.03820674834798872,
+          "meanExcess": 0.03189222752447647,
+          "trimmedMeanExcess": 0.035234745678416966,
+          "hitRate": 0.875,
+          "topContributorShare": 0.1502072795415005
+        },
         "Buy (demoted from Strong)": {
-          "n": 25,
-          "medianExcess": 0.014377436548880683,
-          "meanExcess": 0.029706250752118718,
-          "trimmedMeanExcess": 0.023517027796294537,
-          "hitRate": 0.64,
-          "topContributorShare": 0.2424794078855616
+          "n": 9,
+          "medianExcess": 0.0,
+          "meanExcess": 0.025820069823482714,
+          "trimmedMeanExcess": 0.025820069823482714,
+          "hitRate": 0.2222222222222222,
+          "topContributorShare": 0.8365154709976492
         },
         "Buy": {
           "n": 84,
@@ -1122,11 +1158,19 @@
           "topContributorShare": 0.0823989259845104
         },
         "Sell (demoted from Strong)": {
-          "n": 15,
+          "n": 6,
           "medianExcess": 0.0,
-          "meanExcess": 0.0005556011842584834,
-          "trimmedMeanExcess": 0.00044618100084382477,
-          "hitRate": 0.26666666666666666,
+          "meanExcess": 0.0,
+          "trimmedMeanExcess": 0.0,
+          "hitRate": 0.0,
+          "topContributorShare": null
+        },
+        "Strong Sell": {
+          "n": 9,
+          "medianExcess": 0.0,
+          "meanExcess": 0.0009260019737641392,
+          "trimmedMeanExcess": 0.0009260019737641392,
+          "hitRate": 0.4444444444444444,
           "topContributorShare": 0.3164682698476214
         },
         "No Market Price": {
@@ -1152,6 +1196,12 @@
           "hitRate": null
         },
         "35-50": {
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
+        },
+        "50-60": {
           "n": 1,
           "medianExcess": 0.0,
           "meanExcess": 0.0,
@@ -1159,21 +1209,13 @@
           "hitRate": 0.0,
           "topContributorShare": null
         },
-        "50-60": {
-          "n": 218,
-          "medianExcess": 0.0,
-          "meanExcess": -0.0005888065258877361,
-          "trimmedMeanExcess": 0.0,
-          "hitRate": 0.03211009174311927,
-          "topContributorShare": 0.10540943162455571
-        },
         "60+": {
-          "n": 472,
+          "n": 690,
           "medianExcess": 0.0,
-          "meanExcess": 0.0034491699249743868,
-          "trimmedMeanExcess": 0.0006588335437706987,
-          "hitRate": 0.4088983050847458,
-          "topContributorShare": 0.05106207818764748
+          "meanExcess": 0.0021734034520933102,
+          "trimmedMeanExcess": 0.00013591559303558702,
+          "hitRate": 0.2898550724637681,
+          "topContributorShare": 0.04912887860329075
         }
       },
       "byAssetClass": {
@@ -1311,20 +1353,20 @@
       "panelSourceCount": 24,
       "universeMeanExcess": 0.001716094698908474,
       "topBuys": {
-        "n": 18,
-        "medianExcess": 0.028497051643535866,
-        "meanExcess": 0.037931264026852075,
-        "trimmedMeanExcess": 0.03565845627909621,
-        "hitRate": 0.6111111111111112,
-        "topContributorShare": 0.1786356510474113
+        "n": 19,
+        "medianExcess": 0.04447133317363021,
+        "meanExcess": 0.05063930284712049,
+        "trimmedMeanExcess": 0.046691541453872575,
+        "hitRate": 0.7894736842105263,
+        "topContributorShare": 0.1851434147928836
       },
       "topSells": {
         "n": 20,
         "medianExcess": 0.0,
-        "meanExcess": -0.0021459226429851037,
-        "trimmedMeanExcess": -0.0012117658735330058,
-        "hitRate": 0.2,
-        "topContributorShare": 0.31072635737333354
+        "meanExcess": -0.002108092663139067,
+        "trimmedMeanExcess": -0.0011644783987254596,
+        "hitRate": 0.25,
+        "topContributorShare": 0.3069811076344201
       },
       "topBuysTradeable": {
         "n": 20,
@@ -1335,8 +1377,8 @@
         "topContributorShare": 0.38967709837278736
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1198.5,
-        "belowTradeableFloor": 19,
+        "medianMarketValue": 1290.5,
+        "belowTradeableFloor": 18,
         "of": 20,
         "floor": 2000.0
       },
@@ -1349,13 +1391,21 @@
       "topBuysPercentileVsRandom": 1.0,
       "topBuysBeatRandomMedian": true,
       "byLabel": {
+        "Strong Buy": {
+          "n": 20,
+          "medianExcess": 0.028287282785529715,
+          "meanExcess": 0.04130959422127344,
+          "trimmedMeanExcess": 0.035166305103932594,
+          "hitRate": 0.75,
+          "topContributorShare": 0.1959427131427161
+        },
         "Buy (demoted from Strong)": {
-          "n": 28,
-          "medianExcess": 0.02341579879884343,
-          "meanExcess": 0.03467218478069429,
-          "trimmedMeanExcess": 0.029470423795703863,
-          "hitRate": 0.6428571428571429,
-          "topContributorShare": 0.1681131793236077
+          "n": 8,
+          "medianExcess": 0.0,
+          "meanExcess": 0.018078661179246405,
+          "trimmedMeanExcess": 0.018078661179246405,
+          "hitRate": 0.375,
+          "topContributorShare": 0.6342883011532624
         },
         "Buy": {
           "n": 90,
@@ -1382,11 +1432,19 @@
           "topContributorShare": 0.06025347006126088
         },
         "Sell (demoted from Strong)": {
-          "n": 9,
+          "n": 2,
           "medianExcess": 0.0,
-          "meanExcess": -0.0023718838777129557,
-          "trimmedMeanExcess": -0.0023718838777129557,
-          "hitRate": 0.1111111111111111,
+          "meanExcess": 0.0,
+          "trimmedMeanExcess": 0.0,
+          "hitRate": 0.0,
+          "topContributorShare": null
+        },
+        "Strong Sell": {
+          "n": 7,
+          "medianExcess": 0.0,
+          "meanExcess": -0.003049564985630943,
+          "trimmedMeanExcess": -0.003049564985630943,
+          "hitRate": 0.14285714285714285,
           "topContributorShare": 0.5650741335752621
         },
         "No Market Price": {
@@ -1418,20 +1476,18 @@
           "hitRate": null
         },
         "50-60": {
-          "n": 204,
-          "medianExcess": 0.0,
-          "meanExcess": 0.00012017382063012416,
-          "trimmedMeanExcess": 0.0,
-          "hitRate": 0.05392156862745098,
-          "topContributorShare": 0.13248957638959527
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
         },
         "60+": {
-          "n": 478,
+          "n": 682,
           "medianExcess": 0.0,
-          "meanExcess": 0.002397199006792958,
-          "trimmedMeanExcess": 0.00042549589731569475,
-          "hitRate": 0.40794979079497906,
-          "topContributorShare": 0.0423210279152871
+          "meanExcess": 0.001716094698908474,
+          "trimmedMeanExcess": 0.0002677555197348075,
+          "hitRate": 0.3020527859237537,
+          "topContributorShare": 0.040456357224161514
         }
       },
       "byAssetClass": {
@@ -1569,20 +1625,20 @@
       "panelSourceCount": 24,
       "universeMeanExcess": 0.002170235783942119,
       "topBuys": {
-        "n": 16,
-        "medianExcess": 0.024051333639157395,
-        "meanExcess": 0.033330461380808245,
-        "trimmedMeanExcess": 0.0324658671576786,
-        "hitRate": 0.6875,
-        "topContributorShare": 0.2171658742969252
+        "n": 18,
+        "medianExcess": 0.036393173049329826,
+        "meanExcess": 0.04530623587326362,
+        "trimmedMeanExcess": 0.0460466877395821,
+        "hitRate": 0.8333333333333334,
+        "topContributorShare": 0.15156230512316315
       },
       "topSells": {
         "n": 20,
         "medianExcess": 0.0,
-        "meanExcess": -0.0005112720614509267,
-        "trimmedMeanExcess": -8.703948847318749e-06,
+        "meanExcess": -0.0018573878458633785,
+        "trimmedMeanExcess": -0.0014648673469677522,
         "hitRate": 0.25,
-        "topContributorShare": 0.39670010589887733
+        "topContributorShare": 0.26536794749178655
       },
       "topBuysTradeable": {
         "n": 20,
@@ -1593,8 +1649,8 @@
         "topContributorShare": 0.2784160631306444
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1026.5,
-        "belowTradeableFloor": 19,
+        "medianMarketValue": 1181.0,
+        "belowTradeableFloor": 17,
         "of": 20,
         "floor": 2000.0
       },
@@ -1604,16 +1660,24 @@
         "p05": -0.007889189403059894,
         "p95": 0.014883829031518258
       },
-      "topBuysPercentileVsRandom": 0.999,
+      "topBuysPercentileVsRandom": 1.0,
       "topBuysBeatRandomMedian": true,
       "byLabel": {
+        "Strong Buy": {
+          "n": 16,
+          "medianExcess": 0.04054613736271326,
+          "meanExcess": 0.04137771710217816,
+          "trimmedMeanExcess": 0.04487925236322306,
+          "hitRate": 0.8125,
+          "topContributorShare": 0.12721690957598045
+        },
         "Buy (demoted from Strong)": {
-          "n": 27,
-          "medianExcess": 0.01721029377931572,
-          "meanExcess": 0.03209197272324285,
-          "trimmedMeanExcess": 0.030527555109826444,
-          "hitRate": 0.6666666666666666,
-          "topContributorShare": 0.13494581582211124
+          "n": 11,
+          "medianExcess": 0.0,
+          "meanExcess": 0.018585435444791482,
+          "trimmedMeanExcess": 0.008202692715653933,
+          "hitRate": 0.45454545454545453,
+          "topContributorShare": 0.5621507637793921
         },
         "Buy": {
           "n": 93,
@@ -1639,13 +1703,21 @@
           "hitRate": 0.27184466019417475,
           "topContributorShare": 0.06930270209925203
         },
-        "Sell (demoted from Strong)": {
-          "n": 9,
+        "Strong Sell": {
+          "n": 7,
           "medianExcess": 0.0,
-          "meanExcess": -0.0024155357296508184,
-          "trimmedMeanExcess": -0.0024155357296508184,
-          "hitRate": 0.1111111111111111,
+          "meanExcess": -0.003105688795265338,
+          "trimmedMeanExcess": -0.003105688795265338,
+          "hitRate": 0.14285714285714285,
           "topContributorShare": 0.9018795396240588
+        },
+        "Sell (demoted from Strong)": {
+          "n": 2,
+          "medianExcess": 0.0,
+          "meanExcess": 0.0,
+          "trimmedMeanExcess": 0.0,
+          "hitRate": 0.0,
+          "topContributorShare": null
         },
         "No Market Price": {
           "n": 0,
@@ -1676,20 +1748,18 @@
           "hitRate": null
         },
         "50-60": {
-          "n": 202,
-          "medianExcess": 0.0,
-          "meanExcess": -0.0008813985813181938,
-          "trimmedMeanExcess": 0.0,
-          "hitRate": 0.019801980198019802,
-          "topContributorShare": 0.11785709704573001
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
         },
         "60+": {
-          "n": 485,
+          "n": 687,
           "medianExcess": 0.0,
-          "meanExcess": 0.0034412257669989917,
-          "trimmedMeanExcess": 0.0009725981355312857,
-          "hitRate": 0.4309278350515464,
-          "topContributorShare": 0.04564619831902689
+          "meanExcess": 0.002170235783942119,
+          "trimmedMeanExcess": 0.0003815384585011779,
+          "hitRate": 0.31004366812227074,
+          "topContributorShare": 0.0434077133844493
         }
       },
       "byAssetClass": {
@@ -1829,18 +1899,18 @@
       "topBuys": {
         "n": 18,
         "medianExcess": 0.0,
-        "meanExcess": 0.0,
+        "meanExcess": -6.819935749026374e-05,
         "trimmedMeanExcess": 0.0,
         "hitRate": 0.0,
-        "topContributorShare": null
+        "topContributorShare": 1.0
       },
       "topSells": {
         "n": 20,
         "medianExcess": 0.0,
-        "meanExcess": 0.0,
+        "meanExcess": -0.0006390892323856698,
         "trimmedMeanExcess": 0.0,
         "hitRate": 0.0,
-        "topContributorShare": null
+        "topContributorShare": 1.0
       },
       "topBuysTradeable": {
         "n": 13,
@@ -1851,8 +1921,8 @@
         "topContributorShare": null
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1274.5,
-        "belowTradeableFloor": 13,
+        "medianMarketValue": 1332.0,
+        "belowTradeableFloor": 12,
         "of": 20,
         "floor": 2000.0
       },
@@ -1862,7 +1932,7 @@
         "p05": -0.002877191028133163,
         "p95": 0.0011004074164671861
       },
-      "topBuysPercentileVsRandom": 0.2745,
+      "topBuysPercentileVsRandom": 0.247,
       "topBuysBeatRandomMedian": false,
       "byLabel": {
         "Buy (demoted from Strong)": {
@@ -1882,19 +1952,19 @@
           "topContributorShare": 1.0
         },
         "Neutral": {
-          "n": 219,
+          "n": 215,
           "medianExcess": 0.0,
-          "meanExcess": -0.00017197785836071594,
+          "meanExcess": -0.0001751774464232409,
           "trimmedMeanExcess": 0.0,
-          "hitRate": 0.0228310502283105,
+          "hitRate": 0.023255813953488372,
           "topContributorShare": 0.3685059213603856
         },
         "Sell": {
-          "n": 30,
+          "n": 34,
           "medianExcess": 0.0,
-          "meanExcess": -0.0005471265725494862,
+          "meanExcess": -0.00048275874048484083,
           "trimmedMeanExcess": 0.0,
-          "hitRate": 0.03333333333333333,
+          "hitRate": 0.029411764705882353,
           "topContributorShare": 0.41710060463287457
         },
         "Sell (demoted from Strong)": {
@@ -1928,6 +1998,12 @@
           "hitRate": null
         },
         "35-50": {
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
+        },
+        "50-60": {
           "n": 45,
           "medianExcess": 0.0,
           "meanExcess": 0.0,
@@ -1935,20 +2011,12 @@
           "hitRate": 0.0,
           "topContributorShare": null
         },
-        "50-60": {
-          "n": 182,
-          "medianExcess": 0.0,
-          "meanExcess": 0.0,
-          "trimmedMeanExcess": 0.0,
-          "hitRate": 0.0,
-          "topContributorShare": null
-        },
         "60+": {
-          "n": 103,
+          "n": 285,
           "medianExcess": 0.0,
-          "meanExcess": -0.0005369372484689915,
+          "meanExcess": -0.000194051005587039,
           "trimmedMeanExcess": 0.0,
-          "hitRate": 0.05825242718446602,
+          "hitRate": 0.021052631578947368,
           "topContributorShare": 0.27070783919281993
         }
       },
@@ -2088,19 +2156,19 @@
       "universeMeanExcess": 0.0010324150175767685,
       "topBuys": {
         "n": 20,
-        "medianExcess": 0.005872474427945353,
-        "meanExcess": 0.012304630884817399,
-        "trimmedMeanExcess": 0.011413333083036348,
-        "hitRate": 0.65,
-        "topContributorShare": 0.15630083856690483
+        "medianExcess": 0.010934444693355949,
+        "meanExcess": 0.014296964912048524,
+        "trimmedMeanExcess": 0.013903750617075257,
+        "hitRate": 0.75,
+        "topContributorShare": 0.14948684033832627
       },
       "topSells": {
         "n": 20,
         "medianExcess": 0.0,
-        "meanExcess": 0.0020631508429979225,
-        "trimmedMeanExcess": 0.00120344555297976,
-        "hitRate": 0.35,
-        "topContributorShare": 0.24874318638741785
+        "meanExcess": 0.002054441824833416,
+        "trimmedMeanExcess": 0.0011925592802741272,
+        "hitRate": 0.4,
+        "topContributorShare": 0.24665551082625067
       },
       "topBuysTradeable": {
         "n": 20,
@@ -2111,8 +2179,8 @@
         "topContributorShare": 0.19670888975714446
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1161.0,
-        "belowTradeableFloor": 18,
+        "medianMarketValue": 1237.5,
+        "belowTradeableFloor": 17,
         "of": 20,
         "floor": 2000.0
       },
@@ -2125,13 +2193,21 @@
       "topBuysPercentileVsRandom": 1.0,
       "topBuysBeatRandomMedian": true,
       "byLabel": {
+        "Strong Buy": {
+          "n": 13,
+          "medianExcess": 0.006193485629641313,
+          "meanExcess": 0.01449831331602074,
+          "trimmedMeanExcess": 0.015130059898976254,
+          "hitRate": 0.6923076923076923,
+          "topContributorShare": 0.19043932704447664
+        },
         "Buy (demoted from Strong)": {
-          "n": 24,
-          "medianExcess": 0.005872474427945353,
-          "meanExcess": 0.010695508651204099,
-          "trimmedMeanExcess": 0.009660645963056599,
-          "hitRate": 0.625,
-          "topContributorShare": 0.14648577825475181
+          "n": 11,
+          "medianExcess": 0.003956666495563101,
+          "meanExcess": 0.006201284956420799,
+          "trimmedMeanExcess": 0.004846000802325856,
+          "hitRate": 0.5454545454545454,
+          "topContributorShare": 0.35687625977855275
         },
         "Buy": {
           "n": 94,
@@ -2158,10 +2234,18 @@
           "topContributorShare": 0.07217399777986377
         },
         "Sell (demoted from Strong)": {
-          "n": 9,
+          "n": 3,
           "medianExcess": 0.0,
-          "meanExcess": -0.0011363770902556897,
-          "trimmedMeanExcess": -0.0011363770902556897,
+          "meanExcess": 0.0,
+          "trimmedMeanExcess": 0.0,
+          "hitRate": 0.0,
+          "topContributorShare": null
+        },
+        "Strong Sell": {
+          "n": 6,
+          "medianExcess": -0.0011612475116124753,
+          "meanExcess": -0.0017045656353835345,
+          "trimmedMeanExcess": -0.0017045656353835345,
           "hitRate": 0.0,
           "topContributorShare": 0.5652969533380915
         },
@@ -2188,6 +2272,12 @@
           "hitRate": null
         },
         "35-50": {
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
+        },
+        "50-60": {
           "n": 1,
           "medianExcess": 0.0,
           "meanExcess": 0.0,
@@ -2195,21 +2285,13 @@
           "hitRate": 0.0,
           "topContributorShare": null
         },
-        "50-60": {
-          "n": 204,
-          "medianExcess": 0.0,
-          "meanExcess": 0.00010709709265535134,
-          "trimmedMeanExcess": 0.0,
-          "hitRate": 0.0392156862745098,
-          "topContributorShare": 0.18931441156499865
-        },
         "60+": {
-          "n": 477,
+          "n": 681,
           "medianExcess": 0.0,
-          "meanExcess": 0.0014303128618148098,
-          "trimmedMeanExcess": 0.00047717895895728134,
-          "hitRate": 0.4171907756813417,
-          "topContributorShare": 0.018965275812809417
+          "meanExcess": 0.0010339310455027256,
+          "trimmedMeanExcess": 0.00025939686279326924,
+          "hitRate": 0.3039647577092511,
+          "topContributorShare": 0.01820115925668548
         }
       },
       "byAssetClass": {
@@ -2348,19 +2430,19 @@
       "universeMeanExcess": 0.0008681508026544093,
       "topBuys": {
         "n": 19,
-        "medianExcess": 0.007287776556059302,
-        "meanExcess": 0.01188752556734426,
-        "trimmedMeanExcess": 0.015425084913607183,
-        "hitRate": 0.631578947368421,
-        "topContributorShare": 0.23601957283394778
+        "medianExcess": 0.01861065045144647,
+        "meanExcess": 0.013337125687834777,
+        "trimmedMeanExcess": 0.017045226224743644,
+        "hitRate": 0.6842105263157895,
+        "topContributorShare": 0.22458685254245006
       },
       "topSells": {
         "n": 20,
         "medianExcess": 0.0,
-        "meanExcess": -0.0012363107791387134,
-        "trimmedMeanExcess": -0.0008914432453344287,
-        "hitRate": 0.25,
-        "topContributorShare": 0.22507615737999537
+        "meanExcess": -0.0006364016584371932,
+        "trimmedMeanExcess": -0.0007654355300259152,
+        "hitRate": 0.3,
+        "topContributorShare": 0.17720456191313178
       },
       "topBuysTradeable": {
         "n": 20,
@@ -2371,7 +2453,7 @@
         "topContributorShare": 0.24515949435122378
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1017.0,
+        "medianMarketValue": 1051.5,
         "belowTradeableFloor": 19,
         "of": 20,
         "floor": 2000.0
@@ -2385,13 +2467,21 @@
       "topBuysPercentileVsRandom": 1.0,
       "topBuysBeatRandomMedian": true,
       "byLabel": {
-        "Buy (demoted from Strong)": {
-          "n": 24,
-          "medianExcess": 0.010682522603342692,
-          "meanExcess": 0.011542786624790802,
-          "trimmedMeanExcess": 0.014047279762618436,
+        "Strong Buy": {
+          "n": 8,
+          "medianExcess": 0.017434670961606856,
+          "meanExcess": 0.015361286472884532,
+          "trimmedMeanExcess": 0.015361286472884532,
           "hitRate": 0.625,
-          "topContributorShare": 0.19871557346466037
+          "topContributorShare": 0.31669127071248476
+        },
+        "Buy (demoted from Strong)": {
+          "n": 16,
+          "medianExcess": 0.010313196790825905,
+          "meanExcess": 0.009633536700743937,
+          "trimmedMeanExcess": 0.013607146068834586,
+          "hitRate": 0.625,
+          "topContributorShare": 0.2772501639119082
         },
         "Buy": {
           "n": 92,
@@ -2417,13 +2507,21 @@
           "hitRate": 0.21818181818181817,
           "topContributorShare": 0.051365485539704436
         },
-        "Sell (demoted from Strong)": {
-          "n": 12,
+        "Strong Sell": {
+          "n": 9,
           "medianExcess": 0.0,
-          "meanExcess": 9.57063900322538e-05,
-          "trimmedMeanExcess": -7.0997423332033e-05,
-          "hitRate": 0.25,
+          "meanExcess": 0.00012760852004300505,
+          "trimmedMeanExcess": 0.00012760852004300505,
+          "hitRate": 0.3333333333333333,
           "topContributorShare": 0.5029128608018821
+        },
+        "Sell (demoted from Strong)": {
+          "n": 3,
+          "medianExcess": 0.0,
+          "meanExcess": 0.0,
+          "trimmedMeanExcess": 0.0,
+          "hitRate": 0.0,
+          "topContributorShare": null
         },
         "No Market Price": {
           "n": 0,
@@ -2448,6 +2546,12 @@
           "hitRate": null
         },
         "35-50": {
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
+        },
+        "50-60": {
           "n": 1,
           "medianExcess": 0.0,
           "meanExcess": 0.0,
@@ -2455,21 +2559,13 @@
           "hitRate": 0.0,
           "topContributorShare": null
         },
-        "50-60": {
-          "n": 193,
-          "medianExcess": 0.0,
-          "meanExcess": -8.019335008156792e-05,
-          "trimmedMeanExcess": 0.0,
-          "hitRate": 0.025906735751295335,
-          "topContributorShare": 0.3621408142096509
-        },
         "60+": {
-          "n": 477,
+          "n": 670,
           "medianExcess": 0.0,
-          "meanExcess": 0.0012536824007271517,
-          "trimmedMeanExcess": 0.000608747415685227,
-          "hitRate": 0.40670859538784065,
-          "topContributorShare": 0.03820228720442861
+          "meanExcess": 0.0008694465501210577,
+          "trimmedMeanExcess": 0.0003222642545624781,
+          "hitRate": 0.29701492537313434,
+          "topContributorShare": 0.037743435398184734
         }
       },
       "byAssetClass": {
@@ -2608,19 +2704,19 @@
       "universeMeanExcess": 0.0006525634571514718,
       "topBuys": {
         "n": 19,
-        "medianExcess": 0.004970686108713301,
-        "meanExcess": 0.006023551582998751,
-        "trimmedMeanExcess": 0.007950479340996304,
-        "hitRate": 0.5263157894736842,
-        "topContributorShare": 0.17670219029222023
+        "medianExcess": 0.010643775374979953,
+        "meanExcess": 0.009042939644154776,
+        "trimmedMeanExcess": 0.00990215790740462,
+        "hitRate": 0.5789473684210527,
+        "topContributorShare": 0.15890081490132785
       },
       "topSells": {
         "n": 20,
         "medianExcess": 0.0,
-        "meanExcess": -0.0006862977517040634,
-        "trimmedMeanExcess": -0.00037535123781592684,
-        "hitRate": 0.25,
-        "topContributorShare": 0.2633926353012423
+        "meanExcess": -0.001598023939679181,
+        "trimmedMeanExcess": -0.000993117659485035,
+        "hitRate": 0.3,
+        "topContributorShare": 0.29171345131026105
       },
       "topBuysTradeable": {
         "n": 20,
@@ -2631,8 +2727,8 @@
         "topContributorShare": 0.4635220597542995
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1011.0,
-        "belowTradeableFloor": 19,
+        "medianMarketValue": 1090.5,
+        "belowTradeableFloor": 18,
         "of": 20,
         "floor": 2000.0
       },
@@ -2642,16 +2738,24 @@
         "p05": -0.0024768876207624953,
         "p95": 0.004412149652195563
       },
-      "topBuysPercentileVsRandom": 0.9825,
+      "topBuysPercentileVsRandom": 0.998,
       "topBuysBeatRandomMedian": true,
       "byLabel": {
+        "Strong Buy": {
+          "n": 8,
+          "medianExcess": -0.0012050817062426058,
+          "meanExcess": 0.0027350428860039616,
+          "trimmedMeanExcess": 0.0027350428860039616,
+          "hitRate": 0.375,
+          "topContributorShare": 0.3195071561785373
+        },
         "Buy (demoted from Strong)": {
-          "n": 20,
-          "medianExcess": 0.0024853430543566504,
-          "meanExcess": 0.005722374003848814,
-          "trimmedMeanExcess": 0.007569755648811522,
-          "hitRate": 0.5,
-          "topContributorShare": 0.17670219029222023
+          "n": 12,
+          "medianExcess": 0.007807230741846627,
+          "meanExcess": 0.007713928082412048,
+          "trimmedMeanExcess": 0.011327780570890547,
+          "hitRate": 0.5833333333333334,
+          "topContributorShare": 0.27501183218521985
         },
         "Buy": {
           "n": 89,
@@ -2678,11 +2782,19 @@
           "topContributorShare": 0.06693739817722867
         },
         "Sell (demoted from Strong)": {
-          "n": 9,
+          "n": 3,
           "medianExcess": 0.0,
-          "meanExcess": 0.0008613762272686224,
-          "trimmedMeanExcess": 0.0008613762272686224,
-          "hitRate": 0.2222222222222222,
+          "meanExcess": 0.0,
+          "trimmedMeanExcess": 0.0,
+          "hitRate": 0.0,
+          "topContributorShare": null
+        },
+        "Strong Sell": {
+          "n": 6,
+          "medianExcess": 0.0,
+          "meanExcess": 0.0012920643409029336,
+          "trimmedMeanExcess": 0.0012920643409029336,
+          "hitRate": 0.3333333333333333,
           "topContributorShare": 0.7605515799239438
         },
         "No Market Price": {
@@ -2708,6 +2820,12 @@
           "hitRate": null
         },
         "35-50": {
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
+        },
+        "50-60": {
           "n": 2,
           "medianExcess": 0.010806262230919765,
           "meanExcess": 0.010806262230919765,
@@ -2715,21 +2833,13 @@
           "hitRate": 0.5,
           "topContributorShare": 1.0
         },
-        "50-60": {
-          "n": 192,
-          "medianExcess": 0.0,
-          "meanExcess": 0.00025347046919923393,
-          "trimmedMeanExcess": 0.0,
-          "hitRate": 0.026041666666666668,
-          "topContributorShare": 0.39203080471240875
-        },
         "60+": {
-          "n": 479,
+          "n": 671,
           "medianExcess": 0.0,
-          "meanExcess": 0.0007701385221604345,
-          "trimmedMeanExcess": 2.7129183384226347e-05,
-          "hitRate": 0.3966597077244259,
-          "topContributorShare": 0.03604947004673677
+          "meanExcess": 0.0006222990792862907,
+          "trimmedMeanExcess": 3.764701968255105e-06,
+          "hitRate": 0.2906110283159464,
+          "topContributorShare": 0.035017772599501854
         }
       },
       "byAssetClass": {
@@ -2868,19 +2978,19 @@
       "universeMeanExcess": 0.01212322135096028,
       "topBuys": {
         "n": 19,
-        "medianExcess": 0.011029411764705883,
-        "meanExcess": 0.0686090459383855,
-        "trimmedMeanExcess": 0.04566854191210406,
-        "hitRate": 0.7368421052631579,
-        "topContributorShare": 0.391037037472102
+        "medianExcess": 0.009887582421541898,
+        "meanExcess": 0.03586918719018062,
+        "trimmedMeanExcess": 0.009076935075875071,
+        "hitRate": 0.6842105263157895,
+        "topContributorShare": 0.6657937709547392
       },
       "topSells": {
-        "n": 19,
-        "medianExcess": -3.978940264965595e-05,
-        "meanExcess": -0.01062045599110468,
-        "trimmedMeanExcess": -0.009629774972072598,
-        "hitRate": 0.42105263157894735,
-        "topContributorShare": 0.27607092765164337
+        "n": 20,
+        "medianExcess": -1.9894701324827974e-05,
+        "meanExcess": -0.008395113747020257,
+        "trimmedMeanExcess": -0.0008702397873780516,
+        "hitRate": 0.4,
+        "topContributorShare": 0.5306702890336608
       },
       "topBuysTradeable": {
         "n": 20,
@@ -2891,8 +3001,8 @@
         "topContributorShare": 0.6670064429177339
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 976.0,
-        "belowTradeableFloor": 18,
+        "medianMarketValue": 1128.0,
+        "belowTradeableFloor": 17,
         "of": 20,
         "floor": 2000.0
       },
@@ -2902,16 +3012,24 @@
         "p05": -0.032721342314256954,
         "p95": 0.06047738224866408
       },
-      "topBuysPercentileVsRandom": 0.968,
+      "topBuysPercentileVsRandom": 0.7915,
       "topBuysBeatRandomMedian": true,
       "byLabel": {
+        "Strong Buy": {
+          "n": 9,
+          "medianExcess": 0.011029411764705883,
+          "meanExcess": 0.009666263743360803,
+          "trimmedMeanExcess": 0.009666263743360803,
+          "hitRate": 0.6666666666666666,
+          "topContributorShare": 0.2245950145537724
+        },
         "Buy (demoted from Strong)": {
-          "n": 20,
-          "medianExcess": 0.010800238103576894,
-          "meanExcess": 0.0649753416089459,
-          "trimmedMeanExcess": 0.021128117232297423,
-          "hitRate": 0.7,
-          "topContributorShare": 0.38991637415521385
+          "n": 11,
+          "medianExcess": 0.010571064442447906,
+          "meanExcess": 0.11022822349897007,
+          "trimmedMeanExcess": 0.07571581228363304,
+          "hitRate": 0.7272727272727273,
+          "topContributorShare": 0.4376398549929352
         },
         "Buy": {
           "n": 83,
@@ -2937,13 +3055,21 @@
           "hitRate": 0.4351851851851852,
           "topContributorShare": 0.0734172456919659
         },
-        "Sell (demoted from Strong)": {
-          "n": 8,
+        "Strong Sell": {
+          "n": 6,
           "medianExcess": 0.0008313360176291119,
-          "meanExcess": 0.016137312825497036,
-          "trimmedMeanExcess": 0.016137312825497036,
+          "meanExcess": -0.024671161744975283,
+          "trimmedMeanExcess": -0.024671161744975283,
           "hitRate": 0.5,
-          "topContributorShare": 0.39605358131298535
+          "topContributorShare": 0.6445513661340873
+        },
+        "Sell (demoted from Strong)": {
+          "n": 2,
+          "medianExcess": 0.13856273653691398,
+          "meanExcess": 0.13856273653691398,
+          "trimmedMeanExcess": 0.13856273653691398,
+          "hitRate": 0.5,
+          "topContributorShare": 0.9536465539827785
         },
         "No Market Price": {
           "n": 0,
@@ -2968,6 +3094,12 @@
           "hitRate": null
         },
         "35-50": {
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
+        },
+        "50-60": {
           "n": 1,
           "medianExcess": -0.0018221849444327951,
           "meanExcess": -0.0018221849444327951,
@@ -2975,21 +3107,13 @@
           "hitRate": 0.0,
           "topContributorShare": 1.0
         },
-        "50-60": {
-          "n": 193,
-          "medianExcess": 0.001539260332947527,
-          "meanExcess": 0.023945108894076476,
-          "trimmedMeanExcess": 0.012137530859746427,
-          "hitRate": 0.5284974093264249,
-          "topContributorShare": 0.021839796443794968
-        },
         "60+": {
-          "n": 473,
-          "medianExcess": 0.0005002701470807446,
-          "meanExcess": 0.007328974227226594,
-          "trimmedMeanExcess": 0.0008521399381463064,
-          "hitRate": 0.5158562367864693,
-          "topContributorShare": 0.04342290102168678
+          "n": 666,
+          "medianExcess": 0.0007762362334928672,
+          "meanExcess": 0.01214416039945186,
+          "trimmedMeanExcess": 0.001624810768847232,
+          "hitRate": 0.5195195195195195,
+          "topContributorShare": 0.015013385158437814
         }
       },
       "byAssetClass": {
@@ -3127,20 +3251,20 @@
       "panelSourceCount": 24,
       "universeMeanExcess": 0.0024532317767738013,
       "topBuys": {
-        "n": 17,
-        "medianExcess": 0.0040128410914927765,
-        "meanExcess": 0.009668033628775904,
-        "trimmedMeanExcess": 0.012887792615836776,
-        "hitRate": 0.6470588235294118,
-        "topContributorShare": 0.2662482758165007
+        "n": 18,
+        "medianExcess": 0.0054527946395136655,
+        "meanExcess": 0.01484100050375823,
+        "trimmedMeanExcess": 0.017018637745216607,
+        "hitRate": 0.5555555555555556,
+        "topContributorShare": 0.19156453615793106
       },
       "topSells": {
         "n": 20,
-        "medianExcess": 0.0006003302341813439,
-        "meanExcess": 0.015004200609773408,
-        "trimmedMeanExcess": -0.0002977661713674827,
-        "hitRate": 0.5,
-        "topContributorShare": 0.6850091907648708
+        "medianExcess": 0.0,
+        "meanExcess": -0.002051485317842911,
+        "trimmedMeanExcess": -0.0010743709971060523,
+        "hitRate": 0.45,
+        "topContributorShare": 0.2415298694532978
       },
       "topBuysTradeable": {
         "n": 20,
@@ -3151,8 +3275,8 @@
         "topContributorShare": 0.29286304059877866
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 988.0,
-        "belowTradeableFloor": 18,
+        "medianMarketValue": 1058.5,
+        "belowTradeableFloor": 16,
         "of": 20,
         "floor": 2000.0
       },
@@ -3162,16 +3286,24 @@
         "p05": -0.013135628113169515,
         "p95": 0.020377210114003095
       },
-      "topBuysPercentileVsRandom": 0.8085,
+      "topBuysPercentileVsRandom": 0.873,
       "topBuysBeatRandomMedian": true,
       "byLabel": {
+        "Strong Buy": {
+          "n": 10,
+          "medianExcess": 0.016182762647827132,
+          "meanExcess": 0.020169824196772233,
+          "trimmedMeanExcess": 0.025857304602942496,
+          "hitRate": 0.7,
+          "topContributorShare": 0.2590917325878591
+        },
         "Buy (demoted from Strong)": {
-          "n": 26,
-          "medianExcess": 0.003226925020929464,
-          "meanExcess": 0.012751166604488247,
-          "trimmedMeanExcess": 0.01170297335007068,
-          "hitRate": 0.5769230769230769,
-          "topContributorShare": 0.18994005531509653
+          "n": 16,
+          "medianExcess": 0.000514668039114771,
+          "meanExcess": 0.008114505609310754,
+          "trimmedMeanExcess": 0.00427283358044203,
+          "hitRate": 0.5,
+          "topContributorShare": 0.4808773834884182
         },
         "Buy": {
           "n": 80,
@@ -3198,12 +3330,20 @@
           "topContributorShare": 0.17092175886546873
         },
         "Sell (demoted from Strong)": {
-          "n": 8,
-          "medianExcess": 0.004793541391383984,
-          "meanExcess": 0.04297026833122896,
-          "trimmedMeanExcess": 0.04297026833122896,
-          "hitRate": 0.625,
-          "topContributorShare": 0.8820674468718476
+          "n": 3,
+          "medianExcess": 0.00717458148274684,
+          "meanExcess": 0.10907256164367424,
+          "trimmedMeanExcess": 0.10907256164367424,
+          "hitRate": 0.6666666666666666,
+          "topContributorShare": 0.9780739800654135
+        },
+        "Strong Sell": {
+          "n": 5,
+          "medianExcess": 0.003049550683874854,
+          "meanExcess": 0.0033088923437617954,
+          "trimmedMeanExcess": 0.0033088923437617954,
+          "hitRate": 0.6,
+          "topContributorShare": 0.463081751795134
         },
         "No Market Price": {
           "n": 0,
@@ -3234,20 +3374,18 @@
           "hitRate": null
         },
         "50-60": {
-          "n": 219,
-          "medianExcess": 0.0,
-          "meanExcess": 0.004677530516245528,
-          "trimmedMeanExcess": 0.0006287525107644727,
-          "hitRate": 0.3515981735159817,
-          "topContributorShare": 0.08921427570016795
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
         },
         "60+": {
-          "n": 471,
+          "n": 690,
           "medianExcess": 0.0,
-          "meanExcess": 0.0014190037004589218,
-          "trimmedMeanExcess": 0.0006788442276817782,
-          "hitRate": 0.4861995753715499,
-          "topContributorShare": 0.033261328070235165
+          "meanExcess": 0.0024532317767738013,
+          "trimmedMeanExcess": 0.000743377031380205,
+          "hitRate": 0.4434782608695652,
+          "topContributorShare": 0.029877084849905672
         }
       },
       "byAssetClass": {
@@ -3386,19 +3524,19 @@
       "universeMeanExcess": 0.00181508565941622,
       "topBuys": {
         "n": 18,
-        "medianExcess": 0.0005217853908802859,
-        "meanExcess": 0.02726628025010488,
-        "trimmedMeanExcess": 0.013947643920412063,
-        "hitRate": 0.5555555555555556,
-        "topContributorShare": 0.4931220199520193
+        "medianExcess": 0.0014043003599740196,
+        "meanExcess": 0.011205972575144846,
+        "trimmedMeanExcess": 0.012178092960876102,
+        "hitRate": 0.6111111111111112,
+        "topContributorShare": 0.17727267063762006
       },
       "topSells": {
         "n": 20,
-        "medianExcess": -0.004866902449778896,
-        "meanExcess": -0.041889416496748995,
-        "trimmedMeanExcess": -0.038607012899657296,
-        "hitRate": 0.25,
-        "topContributorShare": 0.21251525612773825
+        "medianExcess": -0.0035763873946294644,
+        "meanExcess": -0.05667243862238398,
+        "trimmedMeanExcess": -0.037577682298725296,
+        "hitRate": 0.3,
+        "topContributorShare": 0.24046243824316121
       },
       "topBuysTradeable": {
         "n": 20,
@@ -3409,8 +3547,8 @@
         "topContributorShare": 0.7067992614430988
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 925.0,
-        "belowTradeableFloor": 18,
+        "medianMarketValue": 1050.0,
+        "belowTradeableFloor": 19,
         "of": 20,
         "floor": 2000.0
       },
@@ -3420,16 +3558,24 @@
         "p05": -0.01758211953750243,
         "p95": 0.02782881779912084
       },
-      "topBuysPercentileVsRandom": 0.949,
+      "topBuysPercentileVsRandom": 0.7805,
       "topBuysBeatRandomMedian": true,
       "byLabel": {
+        "Strong Buy": {
+          "n": 7,
+          "medianExcess": 0.001851851851851852,
+          "meanExcess": -0.0004870205414718885,
+          "trimmedMeanExcess": -0.0004870205414718885,
+          "hitRate": 0.7142857142857143,
+          "topContributorShare": 0.45463523084828233
+        },
         "Buy (demoted from Strong)": {
-          "n": 23,
-          "medianExcess": 0.0005217853908802859,
-          "meanExcess": 0.020582597258280363,
-          "trimmedMeanExcess": 0.010468998746661259,
-          "hitRate": 0.5652173913043478,
-          "topContributorShare": 0.3695855401228047
+          "n": 16,
+          "medianExcess": 0.00026089269544014295,
+          "meanExcess": 0.029800555045671973,
+          "trimmedMeanExcess": 0.014941295639675481,
+          "hitRate": 0.5,
+          "topContributorShare": 0.5020240673129144
         },
         "Buy": {
           "n": 90,
@@ -3456,12 +3602,20 @@
           "topContributorShare": 0.19139580501354297
         },
         "Sell (demoted from Strong)": {
-          "n": 13,
-          "medianExcess": -0.0029255778192165552,
-          "meanExcess": -0.06496181616489662,
-          "trimmedMeanExcess": -0.05171948933030301,
-          "hitRate": 0.3076923076923077,
-          "topContributorShare": 0.3277127763131426
+          "n": 5,
+          "medianExcess": -0.01703940362087327,
+          "meanExcess": -0.11452164664792627,
+          "trimmedMeanExcess": -0.11452164664792627,
+          "hitRate": 0.0,
+          "topContributorShare": 0.468055704665453
+        },
+        "Strong Sell": {
+          "n": 8,
+          "medianExcess": 0.00026089269544014295,
+          "meanExcess": -0.03398692211300308,
+          "trimmedMeanExcess": -0.03398692211300308,
+          "hitRate": 0.5,
+          "topContributorShare": 0.9047325188825158
         },
         "No Market Price": {
           "n": 0,
@@ -3492,20 +3646,18 @@
           "hitRate": null
         },
         "50-60": {
-          "n": 220,
-          "medianExcess": 0.0,
-          "meanExcess": 0.0050330886333637016,
-          "trimmedMeanExcess": -0.0006756051240739959,
-          "hitRate": 0.45,
-          "topContributorShare": 0.09079017158845533
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
         },
         "60+": {
-          "n": 470,
+          "n": 690,
           "medianExcess": 0.0,
-          "meanExcess": 0.00030878639501527106,
-          "trimmedMeanExcess": -0.001332570840014719,
-          "hitRate": 0.474468085106383,
-          "topContributorShare": 0.05959248054825751
+          "meanExcess": 0.00181508565941622,
+          "trimmedMeanExcess": -0.0010633878679767203,
+          "hitRate": 0.4666666666666667,
+          "topContributorShare": 0.0378926619944675
         }
       },
       "byAssetClass": {
@@ -3644,19 +3796,19 @@
       "universeMeanExcess": 0.0010248502560074198,
       "topBuys": {
         "n": 18,
-        "medianExcess": 0.0003411779510882624,
-        "meanExcess": 0.003423923428656043,
-        "trimmedMeanExcess": 0.002020680907738281,
-        "hitRate": 0.5,
-        "topContributorShare": 0.29791514580364903
+        "medianExcess": -0.0007872233220871523,
+        "meanExcess": -0.004311021273325297,
+        "trimmedMeanExcess": -0.006138902076914676,
+        "hitRate": 0.3333333333333333,
+        "topContributorShare": 0.1826366121342772
       },
       "topSells": {
         "n": 20,
-        "medianExcess": -0.00010790435887429912,
-        "meanExcess": 0.0026506427422514885,
-        "trimmedMeanExcess": 7.199374942803566e-05,
-        "hitRate": 0.4,
-        "topContributorShare": 0.42318072336432694
+        "medianExcess": -0.0026005226775960752,
+        "meanExcess": -0.017284565183309265,
+        "trimmedMeanExcess": -0.0043532841910792815,
+        "hitRate": 0.35,
+        "topContributorShare": 0.6415235565045818
       },
       "topBuysTradeable": {
         "n": 20,
@@ -3667,7 +3819,7 @@
         "topContributorShare": 0.10782432285490912
       },
       "topBuysValueProfile": {
-        "medianMarketValue": 1076.5,
+        "medianMarketValue": 1116.5,
         "belowTradeableFloor": 19,
         "of": 20,
         "floor": 2000.0
@@ -3678,16 +3830,24 @@
         "p05": -0.008851336514676093,
         "p95": 0.012718856980107576
       },
-      "topBuysPercentileVsRandom": 0.745,
-      "topBuysBeatRandomMedian": true,
+      "topBuysPercentileVsRandom": 0.1535,
+      "topBuysBeatRandomMedian": false,
       "byLabel": {
+        "Strong Buy": {
+          "n": 9,
+          "medianExcess": -0.0015744466441743046,
+          "meanExcess": 0.0009599828981747239,
+          "trimmedMeanExcess": 0.0009599828981747239,
+          "hitRate": 0.4444444444444444,
+          "topContributorShare": 0.33399580912483195
+        },
         "Buy (demoted from Strong)": {
-          "n": 23,
+          "n": 14,
           "medianExcess": 0.0,
-          "meanExcess": 0.001943504585636757,
-          "trimmedMeanExcess": 0.00018530037625996316,
-          "hitRate": 0.43478260869565216,
-          "topContributorShare": 0.22262439018676317
+          "meanExcess": 0.0025757685275766356,
+          "trimmedMeanExcess": 0.002339740352412163,
+          "hitRate": 0.42857142857142855,
+          "topContributorShare": 0.2749903782706223
         },
         "Buy": {
           "n": 86,
@@ -3714,12 +3874,20 @@
           "topContributorShare": 0.06432875693111455
         },
         "Sell (demoted from Strong)": {
-          "n": 12,
-          "medianExcess": 0.000278281933090852,
-          "meanExcess": 0.005253112848831904,
-          "trimmedMeanExcess": 0.0019386461192097155,
-          "hitRate": 0.5,
-          "topContributorShare": 0.48320991389587875
+          "n": 5,
+          "medianExcess": 0.002044989775051125,
+          "meanExcess": 0.06573989756248354,
+          "trimmedMeanExcess": 0.06573989756248354,
+          "hitRate": 0.6,
+          "topContributorShare": 0.8813037301592316
+        },
+        "Strong Sell": {
+          "n": 7,
+          "medianExcess": -0.0008277774290705977,
+          "meanExcess": -0.03795173337520498,
+          "trimmedMeanExcess": -0.03795173337520498,
+          "hitRate": 0.42857142857142855,
+          "topContributorShare": 0.9238327177249568
         },
         "No Market Price": {
           "n": 0,
@@ -3750,20 +3918,18 @@
           "hitRate": null
         },
         "50-60": {
-          "n": 221,
-          "medianExcess": 0.0,
-          "meanExcess": 0.0003405998007467718,
-          "trimmedMeanExcess": -0.0005288029303426264,
-          "hitRate": 0.2579185520361991,
-          "topContributorShare": 0.22178143565095176
+          "n": 0,
+          "meanExcess": null,
+          "medianExcess": null,
+          "hitRate": null
         },
         "60+": {
-          "n": 466,
+          "n": 687,
           "medianExcess": 0.0,
-          "meanExcess": 0.001349355300240474,
-          "trimmedMeanExcess": 0.0002228206634000024,
-          "hitRate": 0.44849785407725323,
-          "topContributorShare": 0.05593156118552666
+          "meanExcess": 0.0010248502560074198,
+          "trimmedMeanExcess": -4.967584762539004e-05,
+          "hitRate": 0.38719068413391555,
+          "topContributorShare": 0.04617448457820382
         }
       },
       "byAssetClass": {
@@ -3905,23 +4071,23 @@
     {
       "from": "2026-04-23",
       "to": "2026-04-30",
-      "overlap": 2,
+      "overlap": 1,
       "of": 20,
-      "retentionRate": 0.1
+      "retentionRate": 0.05
     },
     {
       "from": "2026-04-30",
       "to": "2026-05-07",
-      "overlap": 11,
+      "overlap": 10,
       "of": 20,
-      "retentionRate": 0.55
+      "retentionRate": 0.5
     },
     {
       "from": "2026-05-07",
       "to": "2026-05-14",
-      "overlap": 14,
+      "overlap": 16,
       "of": 20,
-      "retentionRate": 0.7
+      "retentionRate": 0.8
     },
     {
       "from": "2026-05-14",
@@ -3933,23 +4099,23 @@
     {
       "from": "2026-05-21",
       "to": "2026-05-28",
-      "overlap": 12,
+      "overlap": 13,
       "of": 20,
-      "retentionRate": 0.6
+      "retentionRate": 0.65
     },
     {
       "from": "2026-05-28",
       "to": "2026-06-04",
-      "overlap": 2,
+      "overlap": 0,
       "of": 20,
-      "retentionRate": 0.1
+      "retentionRate": 0.0
     },
     {
       "from": "2026-06-04",
       "to": "2026-06-11",
-      "overlap": 2,
+      "overlap": 3,
       "of": 20,
-      "retentionRate": 0.1
+      "retentionRate": 0.15
     },
     {
       "from": "2026-06-11",
@@ -3975,9 +4141,9 @@
     {
       "from": "2026-07-02",
       "to": "2026-07-09",
-      "overlap": 14,
+      "overlap": 15,
       "of": 20,
-      "retentionRate": 0.7
+      "retentionRate": 0.75
     },
     {
       "from": "2026-07-09",
@@ -3989,52 +4155,52 @@
     {
       "from": "2026-07-16",
       "to": "2026-07-23",
-      "overlap": 15,
+      "overlap": 14,
       "of": 20,
-      "retentionRate": 0.75
+      "retentionRate": 0.7
     }
   ],
-  "topBuysBeatRandomInFolds": 12,
+  "topBuysBeatRandomInFolds": 11,
   "pooled": {
     "topBuys": {
       "folds": 15,
-      "medianExcess": 0.009192191391836014,
-      "meanExcess": 0.049735871061011606,
+      "medianExcess": 0.015137999765106876,
+      "meanExcess": 0.04946377129921587,
       "foldsPositive": 11,
-      "totalRows": 278,
+      "totalRows": 283,
       "perFoldMedian": [
         0.0,
         -0.003175520106254579,
+        0.02350058082648744,
+        0.03959228664137359,
+        0.030141818273311846,
+        0.04447133317363021,
+        0.036393173049329826,
         0.0,
-        0.03372933331748541,
-        0.02074451909273093,
-        0.028497051643535866,
-        0.024051333639157395,
-        0.0,
-        0.005872474427945353,
-        0.007287776556059302,
-        0.004970686108713301,
-        0.011029411764705883,
-        0.0040128410914927765,
-        0.0005217853908802859,
-        0.0003411779510882624
+        0.010934444693355949,
+        0.01861065045144647,
+        0.010643775374979953,
+        0.009887582421541898,
+        0.0054527946395136655,
+        0.0014043003599740196,
+        -0.0007872233220871523
       ],
       "perFoldMean": [
         0.0,
-        -0.03537446050012849,
-        0.4944814106438776,
-        0.036506898611722655,
-        0.03997950047095928,
-        0.037931264026852075,
-        0.033330461380808245,
-        0.0,
-        0.012304630884817399,
-        0.01188752556734426,
-        0.006023551582998751,
-        0.0686090459383855,
-        0.009668033628775904,
-        0.02726628025010488,
-        0.003423923428656043
+        -0.034368620136728104,
+        0.5051904202420023,
+        0.04263632920352146,
+        0.03833893157675201,
+        0.05063930284712049,
+        0.04530623587326362,
+        -6.819935749026374e-05,
+        0.014296964912048524,
+        0.013337125687834777,
+        0.009042939644154776,
+        0.03586918719018062,
+        0.01484100050375823,
+        0.011205972575144846,
+        -0.004311021273325297
       ]
     },
     "topBuysTradeable": {
@@ -4080,10 +4246,10 @@
     },
     "topSells": {
       "folds": 15,
-      "medianExcess": -0.00013321810717631543,
-      "meanExcess": -0.00759705246551411,
-      "foldsPositive": 2,
-      "totalRows": 287,
+      "medianExcess": -0.00025205402693823944,
+      "meanExcess": -0.01115122463969794,
+      "foldsPositive": 1,
+      "totalRows": 293,
       "perFoldMedian": [
         0.0,
         0.002415994369476776,
@@ -4096,27 +4262,27 @@
         0.0,
         0.0,
         0.0,
-        -3.978940264965595e-05,
-        0.0006003302341813439,
-        -0.004866902449778896,
-        -0.00010790435887429912
+        -1.9894701324827974e-05,
+        0.0,
+        -0.0035763873946294644,
+        -0.0026005226775960752
       ],
       "perFoldMean": [
         0.0,
-        -0.06732542150321598,
-        -0.0091071345725096,
-        -4.121276444127657e-05,
-        -0.00011033661443513437,
-        -0.0021459226429851037,
-        -0.0005112720614509267,
-        0.0,
-        0.0020631508429979225,
-        -0.0012363107791387134,
-        -0.0006862977517040634,
-        -0.01062045599110468,
-        0.015004200609773408,
-        -0.041889416496748995,
-        0.0026506427422514885
+        -0.06998779047043552,
+        -0.006027004684095531,
+        -0.0013890914169289816,
+        -0.0006763266387815664,
+        -0.002108092663139067,
+        -0.0018573878458633785,
+        -0.0006390892323856698,
+        0.002054441824833416,
+        -0.0006364016584371932,
+        -0.001598023939679181,
+        -0.008395113747020257,
+        -0.002051485317842911,
+        -0.05667243862238398,
+        -0.017284565183309265
       ]
     },
     "byLabel": {
@@ -4163,41 +4329,41 @@
       },
       "Buy (demoted from Strong)": {
         "folds": 14,
-        "medianExcess": 0.0059292246778580035,
-        "meanExcess": 0.05564786630897982,
-        "foldsPositive": 11,
-        "totalRows": 279,
+        "medianExcess": -0.00011494270433642848,
+        "meanExcess": 0.03946951056798132,
+        "foldsPositive": 6,
+        "totalRows": 144,
         "perFoldMedian": [
           -0.03503291706594845,
-          0.001832016009444421,
-          0.027617228818444903,
-          0.014377436548880683,
-          0.02341579879884343,
-          0.01721029377931572,
           0.0,
-          0.005872474427945353,
-          0.010682522603342692,
-          0.0024853430543566504,
-          0.010800238103576894,
-          0.003226925020929464,
-          0.0005217853908802859,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.003956666495563101,
+          0.010313196790825905,
+          0.007807230741846627,
+          0.010571064442447906,
+          0.000514668039114771,
+          0.00026089269544014295,
           0.0
         ],
         "perFoldMean": [
           -0.03503291706594845,
-          0.554940620220677,
-          0.03447873757773806,
-          0.029706250752118718,
-          0.03467218478069429,
-          0.03209197272324285,
+          0.34549210338320224,
+          0.005361992765857876,
+          0.025820069823482714,
+          0.018078661179246405,
+          0.018585435444791482,
           0.0,
-          0.010695508651204099,
-          0.011542786624790802,
-          0.005722374003848814,
-          0.0649753416089459,
-          0.012751166604488247,
-          0.020582597258280363,
-          0.001943504585636757
+          0.006201284956420799,
+          0.009633536700743937,
+          0.007713928082412048,
+          0.11022822349897007,
+          0.008114505609310754,
+          0.029800555045671973,
+          0.0025757685275766356
         ]
       },
       "Insufficient Evidence": {
@@ -4244,9 +4410,9 @@
       "Neutral": {
         "folds": 15,
         "medianExcess": 1.5792675299076614e-05,
-        "meanExcess": 0.0013410496837334765,
+        "meanExcess": 0.0013408363778626415,
         "foldsPositive": 1,
-        "totalRows": 5996,
+        "totalRows": 5987,
         "perFoldMedian": [
           0.0,
           0.0,
@@ -4272,7 +4438,7 @@
           0.0023187181922088187,
           6.89367317044489e-06,
           0.00021827420053900407,
-          -0.00017197785836071594,
+          -0.0001751774464232409,
           7.673373861775044e-05,
           7.511940162674893e-05,
           -9.417795445142473e-05,
@@ -4291,9 +4457,9 @@
       "Sell": {
         "folds": 15,
         "medianExcess": -6.209053083580548e-05,
-        "meanExcess": -0.00417143006372353,
+        "meanExcess": -0.00416713887491922,
         "foldsPositive": 0,
-        "totalRows": 1395,
+        "totalRows": 1404,
         "perFoldMedian": [
           0.0,
           0.0,
@@ -4319,7 +4485,7 @@
           -0.0010408335713631418,
           -0.0009092866438096106,
           8.712434786511137e-05,
-          -0.0005471265725494862,
+          -0.00048275874048484083,
           0.0004851587625755324,
           -6.0638174839941154e-05,
           -0.0008647117300427761,
@@ -4331,10 +4497,10 @@
       },
       "Sell (demoted from Strong)": {
         "folds": 15,
-        "medianExcess": 0.00035957172615761125,
-        "meanExcess": -0.004426127069333455,
+        "medianExcess": 0.008877259902887697,
+        "meanExcess": 0.009375108116415209,
         "foldsPositive": 4,
-        "totalRows": 196,
+        "totalRows": 115,
         "perFoldMedian": [
           0.0,
           0.002415994369476776,
@@ -4347,37 +4513,120 @@
           0.0,
           0.0,
           0.0,
-          0.0008313360176291119,
-          0.004793541391383984,
-          -0.0029255778192165552,
-          0.000278281933090852
+          0.13856273653691398,
+          0.00717458148274684,
+          -0.01703940362087327,
+          0.002044989775051125
         ],
         "perFoldMean": [
           0.0,
           -0.05822692734891735,
-          -0.003527722940720045,
-          0.0003749793050343974,
-          0.0005556011842584834,
-          -0.0023718838777129557,
-          -0.0024155357296508184,
           0.0,
-          -0.0011363770902556897,
-          9.57063900322538e-05,
-          0.0008613762272686224,
-          0.016137312825497036,
-          0.04297026833122896,
-          -0.06496181616489662,
-          0.005253112848831904
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.13856273653691398,
+          0.10907256164367424,
+          -0.11452164664792627,
+          0.06573989756248354
+        ]
+      },
+      "Strong Buy": {
+        "folds": 12,
+        "medianExcess": 0.033898364558312584,
+        "meanExcess": 0.08508841738898397,
+        "foldsPositive": 10,
+        "totalRows": 135,
+        "perFoldMedian": [
+          0.20945812959317794,
+          0.04036942210512524,
+          0.03820674834798872,
+          0.028287282785529715,
+          0.04054613736271326,
+          0.006193485629641313,
+          0.017434670961606856,
+          -0.0012050817062426058,
+          0.011029411764705883,
+          0.016182762647827132,
+          0.001851851851851852,
+          -0.0015744466441743046
+        ],
+        "perFoldMean": [
+          0.7905702016628362,
+          0.05300757518529819,
+          0.03189222752447647,
+          0.04130959422127344,
+          0.04137771710217816,
+          0.01449831331602074,
+          0.015361286472884532,
+          0.0027350428860039616,
+          0.009666263743360803,
+          0.020169824196772233,
+          -0.0004870205414718885,
+          0.0009599828981747239
+        ]
+      },
+      "Strong Sell": {
+        "folds": 12,
+        "medianExcess": 0.00019506788915325934,
+        "meanExcess": -0.00881363373163896,
+        "foldsPositive": 4,
+        "totalRows": 81,
+        "perFoldMedian": [
+          0.0,
+          0.00018806021357807605,
+          0.0,
+          0.0,
+          0.0,
+          -0.0011612475116124753,
+          0.0,
+          0.0,
+          0.0008313360176291119,
+          0.003049550683874854,
+          0.00026089269544014295,
+          -0.0008277774290705977
+        ],
+        "perFoldMean": [
+          -0.007760990469584099,
+          0.0008124551609078609,
+          0.0009260019737641392,
+          -0.003049564985630943,
+          -0.003105688795265338,
+          -0.0017045656353835345,
+          0.00012760852004300505,
+          0.0012920643409029336,
+          -0.024671161744975283,
+          0.0033088923437617954,
+          -0.03398692211300308,
+          -0.03795173337520498
         ]
       }
     },
     "byConfidence": {
       "35-50": {
+        "folds": 1,
+        "medianExcess": 0.0,
+        "meanExcess": 0.0,
+        "foldsPositive": 0,
+        "totalRows": 11,
+        "perFoldMedian": [
+          0.0
+        ],
+        "perFoldMean": [
+          0.0
+        ]
+      },
+      "50-60": {
         "folds": 10,
         "medianExcess": 0.0013305116417109276,
         "meanExcess": -2.9788279211475853e-05,
         "foldsPositive": 2,
-        "totalRows": 210,
+        "totalRows": 199,
         "perFoldMedian": [
           0.0,
           0.004321039130622306,
@@ -4403,55 +4652,15 @@
           -0.0018221849444327951
         ]
       },
-      "50-60": {
-        "folds": 15,
-        "medianExcess": -5.0718121385674605e-06,
-        "meanExcess": 0.0011795807690735199,
-        "foldsPositive": 1,
-        "totalRows": 2977,
-        "perFoldMedian": [
-          0.0,
-          -0.0016153375150260389,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.001539260332947527,
-          0.0,
-          0.0,
-          0.0
-        ],
-        "perFoldMean": [
-          0.0,
-          -0.012062712294854052,
-          -0.0017617745483296044,
-          -0.0014084723903432322,
-          -0.0005888065258877361,
-          0.00012017382063012416,
-          -0.0008813985813181938,
-          0.0,
-          0.00010709709265535134,
-          -8.019335008156792e-05,
-          0.00025347046919923393,
-          0.023945108894076476,
-          0.004677530516245528,
-          0.0050330886333637016,
-          0.0003405998007467718
-        ]
-      },
       "60+": {
-        "folds": 14,
-        "medianExcess": 3.5733581934338904e-05,
-        "meanExcess": 0.003702603399080064,
+        "folds": 15,
+        "medianExcess": 2.4035455893843726e-05,
+        "meanExcess": 0.0025849910384039714,
         "foldsPositive": 1,
-        "totalRows": 5857,
+        "totalRows": 8834,
         "perFoldMedian": [
           0.0,
+          -0.0004157043950852113,
           0.0,
           0.0,
           0.0,
@@ -4461,26 +4670,27 @@
           0.0,
           0.0,
           0.0,
-          0.0005002701470807446,
+          0.0007762362334928672,
           0.0,
           0.0,
           0.0
         ],
         "perFoldMean": [
-          -0.007345869151190406,
-          0.03310817831476374,
-          0.003463227565606566,
-          0.0034491699249743868,
-          0.002397199006792958,
-          0.0034412257669989917,
-          -0.0005369372484689915,
-          0.0014303128618148098,
-          0.0012536824007271517,
-          0.0007701385221604345,
-          0.007328974227226594,
-          0.0014190037004589218,
-          0.00030878639501527106,
-          0.001349355300240474
+          0.0,
+          -0.010612719772913006,
+          0.021705449203328835,
+          0.0018534484497275024,
+          0.0021734034520933102,
+          0.001716094698908474,
+          0.002170235783942119,
+          -0.000194051005587039,
+          0.0010339310455027256,
+          0.0008694465501210577,
+          0.0006222990792862907,
+          0.01214416039945186,
+          0.0024532317767738013,
+          0.00181508565941622,
+          0.0010248502560074198
         ]
       },
       "<35": {
@@ -4578,13 +4788,11 @@
     }
   },
   "unreachableLabels": {
-    "Strong Buy": "confidence ceiling 69.34 < threshold 70 with one weighted component",
-    "Strong Sell": "same",
     "Conflicted": "needs two opposing components with weight > 0; opportunity is weight 0 and sharpFlow is absent wherever the ledger is empty",
     "Withheld": "classify's quarantined kwarg is never passed by build_board"
   },
   "panelBuilds": 16,
-  "elapsedSeconds": 43.7,
+  "elapsedSeconds": 45.4,
   "caveats": [
     "Scores the SHIPPED artifact \u2014 service.build_board and service.top_movers \u2014 not a reimplementation of the composite.",
     "Every board is built with csv_root threaded, the scoring fit held inert, and hoursStale pinned. Omitting any one silently invalidates the result rather than erroring.",
@@ -4595,10 +4803,10 @@
   ],
   "decision": {
     "recommendation": "ship it (flag ON)",
-    "rationale": "top-20 buys returned a median +0.92% cohort-excess across 15 folds and beat a random-20 draw in 12/15. Asset classes with a positive measured edge: offense, idp (of offense, idp measured).",
-    "medianExcessTop20": 0.009192191391836014,
-    "meanExcessTop20": 0.049735871061011606,
-    "foldsBeatRandom": 12,
+    "rationale": "top-20 buys returned a median +1.51% cohort-excess across 15 folds and beat a random-20 draw in 11/15. Asset classes with a positive measured edge: offense, idp (of offense, idp measured).",
+    "medianExcessTop20": 0.015137999765106876,
+    "meanExcessTop20": 0.04946377129921587,
+    "foldsBeatRandom": 11,
     "foldsUsable": 15,
     "positiveAssetClasses": [
       "offense",

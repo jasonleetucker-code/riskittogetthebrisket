@@ -377,6 +377,15 @@ class TestOpportunityReachesRealBoardRows(unittest.TestCase):
         gain coverage — and therefore confidence, and therefore possibly
         a Strong label — from a signal contributing exactly zero to its
         score.
+
+        Note what this does NOT assert. It used to end on
+        `assertFalse(strongLabelsReachable)`, which was never the point:
+        that followed from the denominator ALSO counting the zero-weight
+        component, which was the other half of the same inconsistency
+        and has since been fixed. Excluding it from both sides is what
+        makes the treatment coherent — the invariant here is that the
+        component earns no weight on any row, not that the board is
+        forbidden a Strong label.
         """
         from src.consensus_edge import service as svc
 
@@ -387,8 +396,10 @@ class TestOpportunityReachesRealBoardRows(unittest.TestCase):
                 continue
             checked += 1
             self.assertNotIn("opportunity", row["effectiveWeights"])
+            self.assertNotIn(
+                "opportunity", row["componentsPresent"] if "componentsPresent" in row else []
+            )
         self.assertGreater(checked, 100, "no row exercised the zero-weight path")
-        self.assertFalse(board["strongLabelsReachable"])
 
     def test_no_real_row_gets_a_buy_ward_push_from_price_alone(self):
         """The direction guarantee, on every row of a real board.
@@ -464,12 +475,39 @@ class TestPlayerContextUnlocksASecondComponent(unittest.TestCase):
             f"playerctx join reached only {len(self.context)} of {rows} rows",
         )
 
-    def test_one_component_cannot_reach_a_strong_label(self):
+    def test_one_live_component_out_of_two_weighted_ones_still_reaches_strong(self):
+        """The ceiling is a ratio, and the denominator is what changed.
+
+        This asserted that one live component made Strong labels
+        impossible. That was true while the denominator counted all
+        three components — including one carrying zero weight, which is
+        not evidence we are missing but evidence we measured and
+        declined. Coverage is now 1 of 2, the ceiling is 79.37, and the
+        rows this had been suppressing turned out to be the best group
+        on the board (+8.83% cohort-excess, 6 of 6 folds).
+        """
         from src.consensus_edge import service as svc
 
-        board = svc.build_board(_CONTRACT)
+        board = svc.build_board(_CONTRACT, hours_stale=svc.resolve_hours_stale(_CONTRACT))
         live = sum(1 for v in board["componentAvailability"].values() if v["available"])
         self.assertEqual(live, 1, "expected only mispricing live with no inputs supplied")
+        self.assertTrue(board["strongLabelsReachable"])
+        self.assertIn("Strong Buy", {r["label"] for r in board["players"]})
+
+    def test_unknown_staleness_still_suppresses_strong_labels(self):
+        """The ceiling must not promise what the board cannot deliver.
+
+        With no `hours_stale`, `score.confidence` pins freshness at 0.5
+        — the safe reading of "we don't know how old this is". The
+        published ceiling assumed freshness 1.0 and so advertised 79.37
+        while every row was capped at 62.996 and none could reach a
+        Strong label. Freshness is board-wide and known, so the ceiling
+        now uses it.
+        """
+        from src.consensus_edge import service as svc
+
+        board = svc.build_board(_CONTRACT)  # deliberately no hours_stale
+        self.assertLess(board["confidenceCeiling"], board["strongLabelThreshold"])
         self.assertFalse(board["strongLabelsReachable"])
         self.assertNotIn("Strong Buy", {r["label"] for r in board["players"]})
 
@@ -504,13 +542,30 @@ class TestPlayerContextUnlocksASecondComponent(unittest.TestCase):
         live = sum(1 for v in board["componentAvailability"].values() if v["available"])
         self.assertEqual(live, expected_live)
 
-        threshold = 70.0
-        self.assertEqual(board["confidenceCeiling"], svc.confidence_ceiling(live, 3))
+        # The ceiling's denominator is the WEIGHTED component count, not
+        # the total — a component carrying zero weight is excluded from
+        # both sides of the coverage ratio or the treatment is
+        # incoherent.
+        weighted = max(1, sum(1 for v in weights.values() if float(v or 0.0) > 0.0))
+        threshold = board["strongLabelThreshold"]
+        # Freshness is board-wide and known, so it is a factor of the
+        # published ceiling rather than an assumed 1.0 — otherwise the
+        # ceiling promises Strong labels a stale board cannot deliver.
+        freshness = max(
+            r["confidenceFactors"]["freshness"]
+            for r in board["players"]
+            if r.get("confidenceFactors")
+        )
+        self.assertAlmostEqual(
+            board["confidenceCeiling"],
+            svc.confidence_ceiling(live, weighted, freshness),
+            places=6,
+        )
         self.assertEqual(board["strongLabelsReachable"], board["confidenceCeiling"] >= threshold)
-        # The arithmetic itself, independent of today's weights: one
-        # weighted component cannot reach Strong, two can.
-        self.assertLess(svc.confidence_ceiling(1, 3), threshold)
-        self.assertGreaterEqual(svc.confidence_ceiling(2, 3), threshold)
+        # The arithmetic itself, independent of today's weights.
+        self.assertLess(svc.confidence_ceiling(1, 3), 70.0)
+        self.assertGreater(svc.confidence_ceiling(1, 2), 70.0)
+        self.assertGreaterEqual(svc.confidence_ceiling(2, 3), 70.0)
 
     def test_the_board_reports_the_context_it_received(self):
         from src.consensus_edge import service as svc

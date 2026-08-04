@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import os
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from fastapi.testclient import TestClient
 
 import server
 from src.api import feature_flags
+
+REPO = Path(__file__).resolve().parents[2]
 
 
 class _Base(unittest.TestCase):
@@ -38,10 +41,35 @@ class _Base(unittest.TestCase):
 
 
 class TestFlagDefault(_Base):
-    def test_the_flag_defaults_off(self):
-        # Not a style preference: two of three components have never been
-        # validated, so the composite must not be on by default.
-        self.assertFalse(feature_flags._DEFAULTS["consensus_edge"])
+    def test_the_flag_defaults_on_and_the_evidence_exists(self):
+        """ON since 2026-08-04, and only because the evidence arrived.
+
+        This test asserted OFF for as long as the composite rested on one
+        measured component and two declared priors. What changed is not
+        a judgement call: Opportunity was measured and zeroed, and the
+        board a user actually sees was scored — the top-20 buy list
+        returns a median +3.59% cohort-excess over 7 non-overlapping
+        folds, beating a random-20 draw in 6 of 7.
+
+        The flag flips only alongside a committed measurement, so this
+        asserts both. Turning it on without one should fail here.
+        """
+        self.assertTrue(feature_flags._DEFAULTS["consensus_edge"])
+        measurements = sorted(
+            (REPO / "docs" / "measurements").glob("consensus-edge-board-validation-*.json")
+        )
+        self.assertTrue(
+            measurements,
+            "the flag is on with no committed board-validation measurement behind it",
+        )
+
+    def test_what_is_still_unvalidated_is_stated_rather_than_implied(self):
+        # Shipping ON does not mean shipping unqualified. The sell side
+        # carries no measured edge and every payload has to say so.
+        from src.consensus_edge import service
+
+        self.assertFalse(service.SELL_SIDE_VALIDATION["validated"])
+        self.assertTrue(service.SELL_SIDE_VALIDATION["note"])
 
     def test_routes_are_registered(self):
         paths = {r.path for r in server.app.routes}

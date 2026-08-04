@@ -337,26 +337,50 @@ class TestTheLeakGuardDoesRealWork(unittest.TestCase):
         self.assertTrue(board["validationScope"]["matchesMeasured"])
         self.assertFalse(board["scoringFit"]["active"])
 
-    def test_only_the_reachable_labels_appear(self):
+    def _replay_board(self):
         from src.api.data_contract import build_api_data_contract
         from src.consensus_edge import panel, service
 
         with panel.panel_day(self.when) as day:
             contract = build_api_data_contract(day.payload, csv_root=day.csv_root)
-            board = service.build_board(
+            return service.build_board(
                 contract,
                 hours_stale=8.0,
                 csv_root=day.csv_root,
                 scoring_fit_board=scoring_fit.inert_board("test"),
             )
+
+    def test_the_structurally_unreachable_labels_stay_unreachable(self):
+        """Two labels remain impossible, and for reasons unrelated to coverage.
+
+        `Conflicted` needs two opposing components each carrying weight;
+        with one live component there is nothing to oppose. `Withheld`
+        needs `classify`'s `quarantined` kwarg, which `build_board`
+        never passes. Neither was fixed by raising the ceiling, and a
+        study reporting empty buckets for them must keep saying why.
+        """
+        labels = {r["label"] for r in self._replay_board()["players"]}
+        for unreachable in ("Conflicted", "Withheld"):
+            self.assertNotIn(unreachable, labels)
+
+    def test_strong_labels_ARE_now_reachable(self):
+        """The coverage fix has to actually reach the board.
+
+        Before it, coverage was 1/3 against a denominator that counted a
+        zero-weight component, capping confidence at 69.34 under a
+        threshold of 70. The rows this suppressed turned out to be the
+        best-performing group measured: +8.83% cohort-excess at 6 of 6
+        folds once they could be labelled.
+        """
+        board = self._replay_board()
+        self.assertTrue(board["strongLabelsReachable"])
+        self.assertGreater(board["confidenceCeiling"], board["strongLabelThreshold"])
         labels = {r["label"] for r in board["players"]}
-        for unreachable in ("Strong Buy", "Strong Sell", "Conflicted", "Withheld"):
-            self.assertNotIn(
-                unreachable,
-                labels,
-                f"{unreachable} appeared on a one-component board; the study's "
-                "unreachableLabels block is now wrong",
-            )
+        self.assertTrue(
+            labels & {"Strong Buy", "Strong Sell"},
+            "the ceiling permits Strong labels but no row earned one — the "
+            "population that motivated the change is not being reached",
+        )
 
 
 class TestCommittedMeasurementsAreHonest(unittest.TestCase):
@@ -403,3 +427,115 @@ class TestCommittedMeasurementsAreHonest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestConvictionRanking(unittest.TestCase):
+    """The top list must not throw away the precision the board computes.
+
+    Ranking on score alone systematically surfaced the thinnest-evidence
+    rows: measured over 7 fold origins, the published top-20 buys had a
+    median reliability of 0.75 against 1.00 for the board. Shrinking by
+    confidence more than doubled the measured edge (+1.57% -> +3.59% at
+    14d, +0.92% -> +1.51% at 7d) and replicated at both horizons.
+    """
+
+    def test_confidence_breaks_ties_on_equal_scores(self):
+        from src.consensus_edge import service
+
+        thin = {"score": 60.0, "confidence": 40.0}
+        thick = {"score": 60.0, "confidence": 75.0}
+        self.assertGreater(service.conviction(thick), service.conviction(thin))
+
+    def test_a_thin_high_score_can_lose_to_a_thick_lower_one(self):
+        from src.consensus_edge import service
+
+        thin = {"score": 70.0, "confidence": 40.0}  # 28.0
+        thick = {"score": 50.0, "confidence": 75.0}  # 37.5
+        self.assertGreater(service.conviction(thick), service.conviction(thin))
+
+    def test_a_row_without_confidence_ranks_last_rather_than_crashing(self):
+        from src.consensus_edge import service
+
+        self.assertEqual(service.conviction({"score": 90.0, "confidence": None}), 0.0)
+
+    def test_top_movers_orders_buys_by_conviction(self):
+        from src.consensus_edge import service
+
+        board = {
+            "players": [
+                {"playerKey": "thin", "score": 70.0, "confidence": 40.0, "qualified": True},
+                {"playerKey": "thick", "score": 50.0, "confidence": 75.0, "qualified": True},
+            ]
+        }
+        buys = service.top_movers(board, limit=5)["buys"]
+        self.assertEqual([r["playerKey"] for r in buys], ["thick", "thin"])
+
+    def test_sells_are_ordered_most_negative_conviction_first(self):
+        from src.consensus_edge import service
+
+        board = {
+            "players": [
+                {"playerKey": "mild", "score": -40.0, "confidence": 60.0, "qualified": True},
+                {"playerKey": "strong", "score": -70.0, "confidence": 75.0, "qualified": True},
+            ]
+        }
+        sells = service.top_movers(board, limit=5)["sells"]
+        self.assertEqual([r["playerKey"] for r in sells], ["strong", "mild"])
+
+
+class TestCoverageCountsOnlyWeightedComponents(unittest.TestCase):
+    """A component we removed is not evidence we are missing.
+
+    Zero-weight components were excluded from the numerator but left in
+    the denominator, so every row carried a coverage deficit that no
+    data could ever close. That pinned the ceiling at 69.34 — under the
+    Strong threshold of 70 — and suppressed the best-performing group on
+    the board.
+    """
+
+    def test_the_ceiling_clears_the_strong_threshold_with_one_of_two(self):
+        from src.consensus_edge import service
+
+        self.assertGreater(service.confidence_ceiling(1, 2), 70.0)
+        self.assertLess(service.confidence_ceiling(1, 3), 70.0)
+
+    def test_a_real_board_reaches_strong_labels(self):
+        from src.consensus_edge import params as params_mod, service
+
+        weights = (params_mod.load().get("composite") or {}).get("weights") or {}
+        weighted = sum(1 for v in weights.values() if float(v or 0) > 0)
+        self.assertGreaterEqual(weighted, 2, "fewer than two weighted components")
+        self.assertGreater(
+            service.confidence_ceiling(1, weighted),
+            70.0,
+            "the confidence ceiling no longer permits a Strong label",
+        )
+
+    def test_zeroing_every_weight_does_not_report_perfect_coverage(self):
+        from src.consensus_edge import service
+
+        # Guarded at 1: dividing by zero weighted components would make
+        # coverage 1/0, and reporting perfect coverage of nothing is the
+        # worst possible failure here.
+        self.assertLessEqual(service.confidence_ceiling(0, 1), 1e-9)
+
+
+class TestSellSideIsMarkedUnvalidated(unittest.TestCase):
+    """Buys and sells are not equally grounded and must not read as such."""
+
+    def test_the_board_stamps_the_sell_side_verdict(self):
+        from src.consensus_edge import service
+
+        self.assertFalse(service.SELL_SIDE_VALIDATION["validated"])
+        self.assertTrue(service.SELL_SIDE_VALIDATION["measured"])
+        self.assertEqual(service.SELL_SIDE_VALIDATION["outcome"], "null")
+
+    def test_it_cites_a_measurement_that_exists(self):
+        from src.consensus_edge import service
+
+        self.assertTrue((REPO / service.SELL_SIDE_VALIDATION["evidence"]).exists())
+
+    def test_the_frontend_surfaces_it_on_the_sells_view(self):
+        page = (REPO / "frontend" / "app" / "consensus-edge" / "page.jsx").read_text()
+        self.assertIn("sellSideValidation", page)
+        self.assertIn('view === "sells"', page)

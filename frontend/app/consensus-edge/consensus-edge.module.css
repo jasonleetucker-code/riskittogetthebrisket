@@ -217,6 +217,19 @@
   opacity: 0.55;
 }
 
+/* The sell side carries no measured edge. Warned in a colour that
+   reads as caution rather than as a neutral footnote, because a user
+   is one click from acting on it. */
+.sellWarning {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--warn, #d29a3a);
+  border-radius: 0 4px 4px 0;
+  background: color-mix(in srgb, var(--warn, #d29a3a) 10%, transparent);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .notCounted {
   font-size: 0.68rem;
   color: var(--text-muted, #8b93a7);

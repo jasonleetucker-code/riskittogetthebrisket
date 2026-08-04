@@ -11,6 +11,7 @@ present, so the prose cannot claim more than the data supports.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,25 @@ STATUS_NO_CONTRACT = "no_contract"
 DIRECTIONAL_LABELS = frozenset(
     {score_mod.STRONG_BUY, score_mod.BUY, score_mod.SELL, score_mod.STRONG_SELL}
 )
+
+# The sell side was measured and found to carry nothing. Stamped on every
+# payload so no consumer has to know this from a doc, and so the UI can
+# say it where a user is about to act on it. Kept as data rather than
+# prose because the numbers should move if the next re-measure moves.
+SELL_SIDE_VALIDATION: dict[str, Any] = {
+    "validated": False,
+    "measured": True,
+    "outcome": "null",
+    "evidence": "docs/measurements/consensus-edge-board-validation-2026-08-04-h14.json",
+    "note": (
+        "Measured over 22 non-overlapping folds and found to carry nothing. Sell "
+        "rows moved -0.04% (0 of 7 folds correct) at a 14-day horizon and -0.01% "
+        "(0 of 15) at 7 days. Strong Sell is no exception: +0.12% and +0.02%, the "
+        "WRONG sign for a sell. Ranking by conviction did not help. The buy side "
+        "carries the entire measured edge — Strong Buy returned +8.83% at 6 of 6 "
+        "folds — so buys and sells must not be presented as equally grounded."
+    ),
+}
 
 
 def resolve_hours_stale(contract: dict[str, Any] | None) -> float | None:
@@ -130,22 +150,32 @@ def component_availability(
     return out
 
 
-def confidence_ceiling(available_components: int, total_components: int = 3) -> float:
-    """Highest confidence attainable given how many components are live.
+def confidence_ceiling(
+    available_components: int,
+    total_components: int = 3,
+    freshness: float = 1.0,
+) -> float:
+    """Highest confidence attainable on this board, as it stands.
 
     Confidence is a geometric mean over coverage, reliability and
-    freshness. With only ``available_components`` of ``total_components``
-    ever present, coverage is capped, and so is the whole score — which
-    silently suppresses every Strong label. Publishing the ceiling means
-    "why are there no Strong Buys" is answerable without reading source.
+    freshness. With only ``available_components`` of
+    ``total_components`` ever present, coverage is capped, and so is the
+    whole score — which silently suppresses every Strong label.
+    Publishing the ceiling means "why are there no Strong Buys" is
+    answerable without reading source.
 
-    Assumes the best case for the other two factors (both 1.0), so this
-    is a genuine upper bound rather than an estimate.
+    ``freshness`` is a KNOWN factor, not an assumed one, and that
+    distinction was a bug. Reliability varies per player, so assuming
+    its best case keeps this an upper bound. Freshness does not: it is
+    one number for the whole board, and when staleness is unknown it is
+    pinned at 0.5. Assuming 1.0 there published a ceiling of 79.37 and
+    promised Strong labels on a board where every row was capped at
+    62.996 and none could earn one. Caller passes what it actually used.
     """
     if total_components <= 0:
         return 0.0
     coverage = max(0, available_components) / total_components
-    return 100.0 * (coverage ** (1.0 / 3.0))
+    return 100.0 * ((coverage * max(0.0, min(1.0, freshness))) ** (1.0 / 3.0))
 
 
 def _explain(row: dict[str, Any]) -> list[str]:
@@ -307,6 +337,19 @@ def build_board(
     mispricing = score_index(index)
     flow = sf.sharp_flow_index(movements_by_asset, p)
 
+    # How many components could contribute at all, given the weights.
+    # Guarded at 1 so a params file that zeroed everything divides by
+    # something rather than reporting perfect coverage of nothing.
+    _weights = (p.get("composite") or {}).get("weights") or {}
+    weighted_components = max(
+        1,
+        sum(
+            1
+            for name in ("mispricing", "sharpFlow", "opportunity")
+            if float(_weights.get(name) or 0.0) > 0.0
+        ),
+    )
+
     players: list[dict[str, Any]] = []
     for key, entry in index.items():
         mis = mispricing.get(key) or {}
@@ -327,7 +370,20 @@ def build_board(
         conf = score_mod.confidence(
             params=p,
             components_present=len(comp["componentsPresent"]),
-            components_possible=len(components),
+            # Only components that CAN contribute count toward coverage.
+            # This was inconsistent: zero-weight components were excluded
+            # from the numerator (they cannot raise coverage) but left in
+            # the denominator, so every row was penalised for a component
+            # we measured and deliberately removed — a deficit no amount
+            # of data could ever close, which is not information about
+            # the player. With opportunity zeroed the ceiling was 69.34,
+            # under the Strong threshold of 70, which suppressed the
+            # best-performing group on the board: rows demoted out of
+            # Strong Buy returned +2.53% cohort-excess at 6 of 6 folds,
+            # the strongest bucket measured. Excluding it from both sides
+            # lifts the ceiling to 79.37 and lets those rows say what
+            # they are.
+            components_possible=weighted_components,
             cohort_level=mis.get("cohortLevel"),
             source_count=int(entry.get("sourceCount") or 0),
             hours_stale=hours_stale,
@@ -382,7 +438,18 @@ def build_board(
 
     availability = component_availability(players, (p.get("composite") or {}).get("weights"))
     live_components = sum(1 for meta in availability.values() if meta["available"])
-    ceiling = confidence_ceiling(live_components, len(availability))
+    # Same denominator as the per-row confidence, or the published
+    # ceiling would not describe the confidences actually on the board.
+    # Freshness is a board-wide known, so the ceiling reflects it rather
+    # than assuming its best case. Mirrors score.confidence's own branch:
+    # unknown staleness is treated as stale (0.5), not as fresh.
+    _half_life = float((p.get("confidence") or {}).get("stalenessHalfLifeHours") or 48.0)
+    board_freshness = (
+        0.5
+        if hours_stale is None
+        else math.exp(-math.log(2.0) * max(0.0, float(hours_stale)) / _half_life)
+    )
+    ceiling = confidence_ceiling(live_components, weighted_components, board_freshness)
     scope = validation_scope.scope_for_board(fit_board.to_meta())
     caveats = _caveats(scope)
     strong_threshold = float((p.get("classification") or {}).get("minConfidenceForStrong") or 70.0)
@@ -396,6 +463,9 @@ def build_board(
         "coverage": fv_coverage(index),
         "sharpFlowStatus": flow.get("status"),
         "componentValidation": score_mod.COMPONENT_VALIDATION,
+        # Buys and sells are not equally grounded and must not render as
+        # though they were.
+        "sellSideValidation": SELL_SIDE_VALIDATION,
         # League scoring fit is applied INSIDE fair value, never as a
         # separate component. Reported here so a reader can see which
         # axes were measured and at what level, without being able to
@@ -474,18 +544,60 @@ def _caveats(scope: dict[str, Any]) -> list[str]:
     return out
 
 
+def conviction(row: dict[str, Any]) -> float:
+    """Score shrunk by its own confidence — the ranking key.
+
+    A score is a point estimate and confidence is its precision, and
+    ranking on the estimate alone throws the precision away. That is not
+    an abstraction: the board computes both, and the top-20 was sorted
+    on score only, which systematically surfaced the thinnest-evidence
+    rows. Measured over 7 fold origins, the published top-20 buys had a
+    median reliability of **0.75** against **1.00** for the board as a
+    whole — the highest scores were coming from the least-sourced
+    players, because fewer sources means a wider spread against the
+    anchor and therefore a bigger z.
+
+    Shrinking by confidence more than doubled the measured edge, and it
+    replicates across both horizons:
+
+    ===============  ==================  ===================
+    horizon          score (old)         score x confidence
+    ===============  ==================  ===================
+    7d (15 folds)    +0.92%              +1.51%
+    14d (7 folds)    +1.57%              +3.59%
+    ===============  ==================  ===================
+
+    Chosen over a confidence *threshold* (``conf >= 65`` scored
+    similarly) because a threshold is a tuned constant and this is not:
+    ranking a point estimate by its precision is the standard move, it
+    introduces no new number, and it degrades smoothly instead of
+    falling off a cliff at an arbitrary line.
+    """
+    score = float(row.get("score") or 0.0)
+    conf = row.get("confidence")
+    if not isinstance(conf, (int, float)):
+        return 0.0
+    return score * (float(conf) / 100.0)
+
+
 def top_movers(board: dict[str, Any], limit: int = 20) -> dict[str, list[dict[str, Any]]]:
-    """Qualified top buys and sells.
+    """Qualified top buys and sells, ranked by conviction.
 
     Merit-ranked with no positional quota: a weak player promoted to
     represent his position would be labelled a buy because of a display
     rule, which is exactly the thing the brief forbids. Positions with
     nothing qualifying are simply absent, and the caller renders that as
     "no qualifying buy" rather than reaching further down the list.
+
+    **The sell list has no measured edge** and the caller must not
+    present it as the buy list's equal — see ``SELL_SIDE_VALIDATION``.
+    It is still returned, because suppressing the model's output is a
+    bigger claim than labelling it, and a user who wants it should be
+    told what it is worth rather than shown nothing.
     """
     qualified = [
         r for r in board.get("players") or [] if r.get("score") is not None and r.get("qualified")
     ]
-    buys = [r for r in qualified if r["score"] > 0][:limit]
-    sells = sorted((r for r in qualified if r["score"] < 0), key=lambda r: r["score"])[:limit]
+    buys = sorted((r for r in qualified if r["score"] > 0), key=conviction, reverse=True)[:limit]
+    sells = sorted((r for r in qualified if r["score"] < 0), key=conviction)[:limit]
     return {"buys": buys, "sells": sells}

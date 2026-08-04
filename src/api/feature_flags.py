@@ -223,15 +223,32 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # to the same honest empty payload it served before.
     # See docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md.
     "bdvm_engine": True,
-    # Consensus Edge — the unified buy/sell board.  DEFAULT OFF, and it
-    # should stay off until more than one of its components has an
-    # out-of-sample result.  Market Mispricing has one (rho +0.126 over
-    # 7 non-overlapping folds, docs/measurements/); Sharp Flow and
-    # Opportunity do not, because neither has data to validate against
-    # outside production.  Turning this on shows users a composite whose
-    # weights are declared priors — defensible as a labelled experiment,
-    # not as advice.  Payloads stamp ``experimental: true`` regardless.
-    "consensus_edge": False,
+    # Consensus Edge — the unified buy/sell board.  DEFAULT **ON** since
+    # 2026-08-04, on evidence rather than on time passing.  It was held
+    # off while the composite rested on one measured component and two
+    # declared priors; what changed is that the other two were measured.
+    #
+    #   * Opportunity was backtested and returned a NULL, so its weight
+    #     is zero — it is displayed as evidence and moves no score
+    #     (ADR-013).
+    #   * The board a user actually sees was scored, not just the ranking
+    #     inside it: the top-20 buy list returns a median +3.59%
+    #     cohort-excess over 7 non-overlapping folds (+1.51% over 15 at a
+    #     7-day horizon), beating a random-20 draw from the same priced
+    #     universe in 6 of 7 and 11 of 15 (ADR-017).
+    #   * ``Strong Buy`` returns +8.83% at 6 of 6 folds and +3.39% at 10
+    #     of 12 — the strongest group on the board.
+    #
+    # What is still NOT claimed rides on every payload rather than
+    # relying on this comment: the panel is entirely offseason, the
+    # target is market movement rather than fantasy points, Sharp Flow's
+    # weight remains a declared prior, and **the sell side has no
+    # measured edge at all** (0 of 7 folds).  ``experimental: true`` is
+    # still stamped on every response.
+    #
+    # Rollback is ``RISKIT_FEATURE_CONSENSUS_EDGE=0`` — flag reads are
+    # cached per process, so a restart is required.
+    "consensus_edge": True,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"

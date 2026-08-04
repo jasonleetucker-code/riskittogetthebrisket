@@ -93,6 +93,12 @@ const BOARD = {
   strongLabelThreshold: 70,
   strongLabelsReachable: false,
   validationScope: { matchesMeasured: true, differences: [] },
+  sellSideValidation: {
+    validated: false,
+    measured: true,
+    outcome: "null",
+    note: "Measured over 22 non-overlapping folds and found to carry nothing.",
+  },
   inputs: { hoursStale: 8.3 },
 };
 
@@ -210,6 +216,47 @@ describe("/consensus-edge page", () => {
       render(<ConsensusEdgePage />);
       expect(await screen.findByText(/confidence ceiling is/)).toBeTruthy();
       expect(screen.queryByText(/threshold of 70/)).toBeNull();
+    });
+  });
+
+  describe("the sell side", () => {
+    // Buys and sells share one control, which makes them look equally
+    // grounded. They are not: the sell side was measured over 22 folds
+    // and carries no edge, so the sells view has to say so where a user
+    // is one click from acting on it.
+    it("warns on the sells view", async () => {
+      render(<ConsensusEdgePage />);
+      await screen.findAllByText("Bijan Robinson");
+      await userEvent.click(screen.getByRole("radio", { name: /sells/i }));
+      expect(await screen.findByText(/not validated/i)).toBeTruthy();
+    });
+
+    it("does not warn on the buys view", async () => {
+      render(<ConsensusEdgePage />);
+      await screen.findAllByText("Bijan Robinson");
+      expect(screen.queryByText(/These are not validated/i)).toBeNull();
+    });
+
+    it("stays quiet if the backend ever marks sells validated", async () => {
+      global.fetch = mockFetch({
+        ...BOARD,
+        sellSideValidation: { validated: true, measured: true, outcome: "positive", note: "" },
+      });
+      render(<ConsensusEdgePage />);
+      await screen.findAllByText("Bijan Robinson");
+      await userEvent.click(screen.getByRole("radio", { name: /sells/i }));
+      expect(screen.queryByText(/These are not validated/i)).toBeNull();
+    });
+  });
+
+  describe("market value on the row", () => {
+    // 91% of the top-20 is priced under 2000, so a user needs to see
+    // what a player is worth before deciding a call is worth acting on
+    // — without having to open the card.
+    it("shows the market value in the collapsed header", async () => {
+      render(<ConsensusEdgePage />);
+      const cards = await screen.findAllByRole("button", { name: /Bijan Robinson/ });
+      expect(cards[0].textContent).toContain("5,000");
     });
   });
 

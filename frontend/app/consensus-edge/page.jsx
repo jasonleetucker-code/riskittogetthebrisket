@@ -240,6 +240,14 @@ function PlayerCard({ row, validation, expanded, onToggle }) {
           <span className={styles.meta}>
             {row.position}
             {row.assetClass === "idp" ? " · IDP" : ""}
+            {/* Market value on the collapsed row, because the measured
+                edge is concentrated in cheap assets — 91% of the top-20
+                sits under 2000 — and a user deciding whether a call is
+                worth acting on needs to see what the player is worth
+                without opening the card. */}
+            {typeof row.marketValue === "number" && (
+              <> · {formatValue(row.marketValue)}</>
+            )}
           </span>
         </span>
         <span className={`${styles.label} ${styles[tone]}`}>{row.label}</span>
@@ -394,6 +402,17 @@ export default function ConsensusEdgePage() {
               Players the model declined to call, and why. Conflicted means
               strong evidence pointing both ways — deliberately not shown as
               Neutral, because that would read as "nothing is happening".
+            </p>
+          )}
+
+          {/* Buys and sells are not equally grounded. The sell side was
+              measured over 22 folds and carries no edge, so it must not
+              render as the buy list's peer just because the UI happens
+              to give them the same control. */}
+          {view === "sells" && data.sellSideValidation?.validated === false && (
+            <p className={styles.sellWarning}>
+              <strong>These are not validated.</strong>{" "}
+              {data.sellSideValidation.note}
             </p>
           )}
 

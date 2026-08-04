@@ -1,8 +1,15 @@
 # Consensus Edge — methodology
 
 **Status:** shipped behind the `consensus_edge` feature flag, which
-defaults **OFF**, as of 2026-08-04. Market Mispricing has a positive
-out-of-sample result and is the only component that moves a score.
+defaults **ON** as of 2026-08-04 — on evidence, not on time passing.
+The flag was held off while the composite rested on one measured
+component and two declared priors; what changed is that the other two
+were measured (one returned a null and was zeroed) and the board a user
+actually sees was scored, not just the ranking inside it. See "What
+happens if you follow the board" below, and ADR-013 / ADR-017.
+
+Market Mispricing has a positive out-of-sample result and is the only
+component that moves a score.
 Opportunity has an out-of-sample result too — a **null**, so its weight
 is zero. Sharp Flow has none and cannot get one until `src/sharp/` can
 freeze its cohort as-of a date. Every payload stamps `experimental:
@@ -94,8 +101,29 @@ priced universe.**
 
 | horizon | folds | top-20 median excess | folds positive | beat random |
 |---|---|---|---|---|
-| 7d | 15 | +0.92% | 11/15 | 12/15 |
-| 14d | 7 | +1.57% | 6/7 | 6/7 |
+| 7d | 15 | +1.51% | 11/15 | 11/15 |
+| 14d | 7 | +3.59% | 6/7 | 6/7 |
+
+Those figures are **after** two fixes the first run of this study
+motivated, both measured before adoption:
+
+- **The list is ranked by conviction — score shrunk by its own
+  confidence — not by score alone.** A score is a point estimate and
+  confidence is its precision; ranking on the estimate threw the
+  precision away, and it showed. Measured over 7 fold origins, the old
+  top-20 had a median reliability of **0.75** against **1.00** for the
+  board: the highest scores were coming from the *least-sourced*
+  players, because fewer sources means a wider spread against the anchor
+  and a bigger z. Shrinking by confidence took 14d from +1.57% to
+  **+3.59%** and 7d from +0.92% to **+1.51%**, replicating at both
+  horizons. Chosen over a confidence threshold (which scored similarly)
+  because a threshold is a tuned constant and this is not.
+- **Coverage counts only components that can contribute.** Zero-weight
+  components were excluded from the numerator but left in the
+  denominator, so every row carried a deficit no data could ever close.
+  That pinned the ceiling at 69.34 against a Strong threshold of 70 —
+  and the rows it suppressed turned out to be the best group on the
+  board (see below).
 
 **The median, not the mean, is the headline, and that is forced by the
 data.** These are percentage returns on assets priced 152 to 9999. On one
@@ -105,28 +133,33 @@ real fold, four players priced 152–306 returned +327%, +268%, +210% and
 four floor-priced rookies. Every bucket carries `topContributorShare` so
 that dependence is visible rather than implicit.
 
-Labels come out monotone in the right order (14d medians):
+Labels come out monotone in the right order on the buy side (14d medians):
 
 | label | median excess | folds positive | rows |
 |---|---|---|---|
-| Buy *(demoted from Strong)* | **+2.53%** | **6/6** | 136 |
+| **Strong Buy** | **+8.83%** | **6/6** | 69 |
+| Buy *(demoted from Strong)* | +0.62% | 2/6 | 67 |
 | Buy | +0.07% | 2/7 | 568 |
-| Sell *(demoted from Strong)* | +0.04% | 2/7 | 65 |
-| Neutral | −0.00% | 1/7 | 2842 |
-| Sell | −0.04% | 0/7 | 677 |
+| Neutral | −0.00% | 1/7 | 2837 |
+| Sell | −0.04% | 0/7 | 682 |
 | Insufficient Evidence | −0.23% | 0/7 | 877 |
 
 Three findings that matter more than the headline:
 
-- **The label the board refuses to show is the one that works.** Every
-  would-be Strong Buy is demoted into `Buy` because the confidence
-  ceiling (69.34) sits under the Strong threshold (70). That demoted
-  bucket is the only consistently positive group on the board — 6/6
-  folds at 14d, 11/14 at 7d. The ceiling is suppressing the best signal
-  we have.
-- **The sell side has no edge at all.** 0 of 7 folds positive at 14d, 0
-  of 15 at 7d. The buy side carries everything, and the payload now says
-  so in its caveats.
+- **The label the board used to refuse to show is by far the best one.**
+  Before the coverage fix, every would-be Strong Buy was demoted into
+  `Buy` and that demoted bucket was the only consistently positive group
+  on the board. Once the ceiling stopped counting a zero-weight
+  component against every row, those rows could say what they were:
+  **Strong Buy returns +8.83% at 6 of 6 folds** (+3.39% at 10 of 12 for
+  7d). Note the direction of the reasoning — the measurement came first,
+  and the ceiling was changed because it was suppressing a signal that
+  demonstrably worked, not to make a nicer-looking label appear.
+- **The sell side has no edge at all**, and `Strong Sell` is no
+  exception. Sell: 0 of 7 folds correct at 14d, 0 of 15 at 7d. Strong
+  Sell: +0.12% and +0.02% — the *wrong sign* for a sell. Conviction
+  ranking did not help. Every payload now carries `sellSideValidation`
+  and the sells view says so before a user acts on it.
 - **The edge is concentrated in assets too cheap to trade for, and this
   is the most consequential finding.** **127 of 140** top-20 buys across
   the 14-day folds — **91%** — are priced under 2000 on the 0-9999

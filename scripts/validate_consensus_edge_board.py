@@ -611,9 +611,11 @@ def main(argv: list[str] | None = None) -> int:
                 name: _pool(usable, ["byAssetClass", name]) for name in ("offense", "idp", "pick")
             },
         },
+        # Two remain impossible, for reasons coverage cannot fix. Strong
+        # Buy / Strong Sell were here too until the coverage denominator
+        # stopped counting zero-weight components; they are now reachable
+        # and are measured above like any other label.
         "unreachableLabels": {
-            "Strong Buy": "confidence ceiling 69.34 < threshold 70 with one weighted component",
-            "Strong Sell": "same",
             "Conflicted": (
                 "needs two opposing components with weight > 0; opportunity is weight 0 "
                 "and sharpFlow is absent wherever the ledger is empty"
