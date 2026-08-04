@@ -688,6 +688,12 @@ it is a real change rather than a one-liner.
 *Decision needed:* none on the math — it is unambiguous. Flagged here rather than
 rushed because it is the last item found and deserves its own change with its own
 before/after, not a tail-end edit to a large branch.
+*Stated at the call site.* The comment in `terminal.py` originally closed with
+"nothing enters one sum without a counterpart in the other", which is false in
+the remaining direction — the same shape as the two documentation defects this
+audit found (C1's 503 claim, C3's grading-parity claim). It now names the
+surviving bias, its measured magnitude, the `comparedCount < resolved` tell, and
+this entry. The report and the code agree; only the arithmetic is outstanding.
 
 **U5 — BDVM priors vs the live league.** Every prior in `params_v1.json` was tuned
 for a SF/TEP/PPR card; the live league has `bonus_rec_te = 0.0` and `rec = 0.08`.

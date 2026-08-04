@@ -1527,8 +1527,7 @@ def build_terminal_payload(
         #
         # The present-day side is now built with the SAME eligibility
         # test as the past side: a player HELD at ``past_date`` whose
-        # past value could not be resolved is dropped from both sides,
-        # so nothing enters one sum without a counterpart in the other.
+        # past value could not be resolved is dropped from both sides.
         # Roster-awareness survives intact, because the test is on
         # priceability, not on membership: a player acquired inside
         # the window was legitimately worth 0 to this roster then and
@@ -1537,6 +1536,29 @@ def build_terminal_payload(
         # one.  ``presentValue`` / ``pastValue`` /
         # ``excludedFromPresent`` say exactly which population the
         # emitted number is over.
+        #
+        # STILL ONE-DIRECTIONAL — see U6 in
+        # ``docs/audits/math-formula-audit-2026-07-30.md``.  This closes
+        # the past-unpriceable direction and ONLY that one.  The mirror
+        # case is untouched: a player held on BOTH sides who is
+        # priceable then but not now still enters ``pastValue`` with no
+        # present counterpart, which biases the delta NEGATIVE by the
+        # same mechanism the positive bias above came from.  Reproduced
+        # at -5880 where the honest two-player answer is +90.
+        #
+        # Not hypothetical: the contract's own ``rowsUnpricedByBoard``
+        # (audit H1) is exactly the population that can lose a price
+        # between two dates, and ``_row_value`` returns 0.0 for a row
+        # with no ``rankDerivedValue``, no ``values.full`` and no rank.
+        # The only tell in the payload is ``comparedCount`` coming in
+        # under ``resolved`` while ``excludedFromPresent`` is empty —
+        # nothing flags it.
+        #
+        # The fix is to build the compared population once, over
+        # ``held_then | held_now``, skipping anyone priceable on only
+        # one side.  That needs ``_sum_roster_value_at_date`` to return
+        # per-name AMOUNTS rather than just names, so it is a real
+        # change with its own before/after rather than an edit here.
         latest_date = _latest_snapshot_date(history)
         # Value history is a richer source (28+ days backfilled
         # from exports vs 2 days of live rank log).  If rank
