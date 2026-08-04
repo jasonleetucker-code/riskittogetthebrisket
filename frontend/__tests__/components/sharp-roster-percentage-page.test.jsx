@@ -82,13 +82,15 @@ describe("Sharp Roster Percentage page", () => {
 
   it("surfaces the transparency disclosures", async () => {
     render(<SharpRosterPercentagePage />);
-    // Await a DATA-dependent value, not a static label. The stat
-    // labels render immediately with "—" placeholders while the fetch
-    // is still in flight, so `findByText("Sharp managers")` resolves
-    // against the loading state and synchronises nothing — the
-    // subsequent sync assertion on "80%" then races the fetch. Fast
-    // enough locally to always pass; on a loaded CI runner it fails
-    // with every label present and every value still "—".
+    // Await a DATA value, not a label.  The page paints the stat labels
+    // immediately with "—" placeholders and fills the values in only
+    // after the fetch resolves, so `findByText("Sharp managers")`
+    // resolves on the first paint — before any data — and the
+    // synchronous `getByText("80%")` below then raced the fetch.  It
+    // won that race on an unloaded machine and lost it on a busy CI
+    // runner, which is what made this test intermittently red with no
+    // product defect behind it.  Anchoring the await on the
+    // last-arriving value makes the rest of the assertions safe.
     expect(await screen.findByText("80%")).toBeInTheDocument();
     expect(screen.getByText("Sharp managers")).toBeInTheDocument();
     expect(screen.getByText("Eligible rosters")).toBeInTheDocument();

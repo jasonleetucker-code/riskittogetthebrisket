@@ -368,12 +368,59 @@ def board_values_from_contract(contract: dict[str, Any]) -> dict[str, int]:
     return out
 
 
+def positions_from_contract(contract: dict[str, Any]) -> dict[str, str]:
+    """Map ``legacyRef``/``canonicalName``/``displayName`` → ``position``.
+
+    WHY THIS IS NEEDED AT ALL
+    =========================
+    ``build_asset_pool`` routes each asset to the retail board its
+    counterparty would consult — ``idpTradeCalc`` for IDP, ``ktcSfTep``
+    for everything else — by reading ``pdata["position"]`` off the
+    legacy ``players`` dict.
+
+    That dict has **no ``position`` key**.  Measured on the pinned
+    2026-07-30 contract: 0 of 1093 entries carry one.  So
+    ``_norm_pos("")`` was falsy for every asset, ``pos in
+    IDP_POSITIONS`` was never true, and every asset — defenders
+    included — routed to the KTC board.  KTC publishes no IDP, so every
+    defender scored ``market_value = None`` and was dropped before
+    scoring.  In an IDP league the arbitrage finder silently returned
+    offense-only results.
+
+    This is the SAME defect class WS-J F-3 fixed once already: that
+    round introduced the per-market gate so IDP would stop being
+    measured against a board that does not cover it.  The gate was
+    correct; the key it switched on was never populated, so the fix
+    could not take effect and nothing said so.
+
+    Keyed exactly like :func:`board_values_from_contract` — on all three
+    name fields — because the ``players`` dict is keyed by the legacy
+    scraper name, which is not always the canonical one.  Sharing the
+    keying is deliberate: an asset that resolves a board value must
+    resolve a position from the same row, or the two lookups would
+    disagree about which player they mean.
+    """
+    out: dict[str, str] = {}
+    for row in contract.get("playersArray") or []:
+        if not isinstance(row, dict):
+            continue
+        position = row.get("position")
+        if not isinstance(position, str) or not position:
+            continue
+        for key in ("legacyRef", "canonicalName", "displayName"):
+            name = row.get(key)
+            if isinstance(name, str) and name:
+                out.setdefault(name, position)
+    return out
+
+
 def build_asset_pool(
     players: dict[str, Any],
     *,
     market_top_n: int | None = None,
     ktc_top_n: int | None = None,
     board_values: dict[str, int] | None = None,
+    positions: dict[str, str] | None = None,
 ) -> list[Asset]:
     """Convert raw players dict into Asset objects with model + market values.
 
@@ -474,7 +521,12 @@ def build_asset_pool(
             if source_count == 1:
                 model = int(model * _LEGACY_SINGLE_SOURCE_DISCOUNT)
 
-        pos = _norm_pos(pdata.get("position", ""))
+        # Position comes from the contract when we have it: the legacy
+        # ``players`` dict carries no ``position`` key at all (0 of 1093
+        # rows on the live payload), which silently routed every IDP
+        # asset to the KTC board and dropped it.  See
+        # ``positions_from_contract``.
+        pos = _norm_pos((positions or {}).get(name) or pdata.get("position", "") or "")
 
         # Retail market value, read from the board the counterparty
         # would actually consult for this position (WS-J F-3).  IDP
@@ -923,7 +975,15 @@ def find_trades(
     # ``players`` dict came from — ``/api/data`` carries both — so a
     # caller holding the live contract can pass it for both arguments.
     board_values = board_values_from_contract(contract) if contract else None
-    pool = build_asset_pool(players, market_top_n=market_top_n, board_values=board_values)
+    # The legacy ``players`` dict has no ``position`` key, so without
+    # this every IDP asset routes to the KTC board and is dropped.
+    positions = positions_from_contract(contract) if contract else None
+    pool = build_asset_pool(
+        players,
+        market_top_n=market_top_n,
+        board_values=board_values,
+        positions=positions,
+    )
 
     # How many assets the board declined to price.  Surfaced rather than
     # left to be inferred from a smaller pool: migrating to the canonical
@@ -989,9 +1049,18 @@ def find_trades(
 
     # An IDP league whose pool contains no priced IDP assets is the
     # exact failure this engine used to hit silently.  Say so.
+    #
+    # This check read ``p["position"]`` off the legacy ``players`` dict —
+    # the SAME absent key that caused the failure it was written to
+    # announce.  ``league_has_idp`` was therefore permanently False and
+    # the warning could never fire, while ``marketCoveragePercent``
+    # reported 100% because the unpriced defenders had already been
+    # dropped from the pool upstream.  A detector that reads the broken
+    # input is not a detector.
+    _positions = positions or {}
     league_has_idp = any(
-        _norm_pos(str((p or {}).get("position", ""))) in IDP_POSITIONS
-        for p in players.values()
+        _norm_pos(_positions.get(name) or str((p or {}).get("position", "")) or "") in IDP_POSITIONS
+        for name, p in players.items()
         if isinstance(p, dict)
     )
     idp_priced = sum(market_coverage.get(key, 0) for key in IDP_MARKET_KEYS)

@@ -188,8 +188,14 @@ export default function MoversPanel() {
       {!loading && !error && (
         <div className={styles.moverColumns}>
           <div className={styles.moverColumn}>
+            {/* A riser's price has already gone UP, so it is a candidate to
+                sell HIGH — not to buy low.  These two headings were the
+                wrong way round (audit finding S-8): the panel instructed
+                the user to buy what had just appreciated and sell what had
+                just depreciated, the inverse of both phrases, on the
+                terminal's most prominent movement widget. */}
             <h3 className={`${styles.moverColumnTitle} ${styles.moverColumnTitleUp}`}>
-              Risers — buy-low candidates
+              Risers — sell-high candidates
             </h3>
             {risers.length === 0 ? (
               <p className={styles.moverEmpty}>No qualifying movers in this window.</p>
@@ -205,7 +211,7 @@ export default function MoversPanel() {
           </div>
           <div className={styles.moverColumn}>
             <h3 className={`${styles.moverColumnTitle} ${styles.moverColumnTitleDown}`}>
-              Fallers — sell-high candidates
+              Fallers — buy-low candidates
             </h3>
             {fallers.length === 0 ? (
               <p className={styles.moverEmpty}>No qualifying movers in this window.</p>

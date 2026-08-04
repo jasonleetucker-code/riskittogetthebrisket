@@ -671,7 +671,10 @@ jobs:
         # if an open ``stale-sources`` issue already exists, post a
         # comment with the new run details rather than spamming new
         # issues each cycle.
-        if: failure()
+        #
+        # Mainline only — see the long note on the same guard in e2e.yml
+        # (#716); workflow_dispatch is this workflow's only non-main path.
+        if: failure() && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -742,7 +745,12 @@ jobs:
         # green run IS the all-clear.  Re-deriving "is it really fixed?"
         # from individual step outcomes would duplicate that logic and
         # let the two drift.
-        if: success()
+        #
+        # The one thing ``success()`` alone cannot establish is WHOSE run
+        # was green.  Mainline only, for the reason in e2e.yml (#716): a
+        # green dispatch from a branch would close a real open mainline
+        # issue with an all-clear it never measured.
+        if: success() && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

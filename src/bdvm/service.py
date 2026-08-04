@@ -640,7 +640,10 @@ def run_valuation(
             "market": {
                 "marketValue": view.market_value,
                 "marketSource": view.market_source,
-                "liquidity": round(view.liquidity, 4),
+                # None when this row carried no dispersion measurement —
+                # reported as unmeasured rather than as a number.
+                "liquidity": round(view.liquidity, 4) if view.liquidity is not None else None,
+                "liquidityMeasured": view.liquidity is not None,
             },
         }
         if parsed is not None:
