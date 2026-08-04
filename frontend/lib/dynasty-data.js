@@ -231,6 +231,11 @@ export const RANKING_SOURCES = [
     isRetail: true,
     isRankSignal: false,
     isTepPremium: true,
+    // Head of the `ktc` correlation group: `fantasyNavigatorSf`
+    // republishes KTC-derived values, so the two are one vote's worth
+    // of evidence, not two.  Sources with no declared group are
+    // independent and default to a singleton named after themselves.
+    correlationGroup: "ktc",
   },
   {
     // IDP Trade Calculator's value pool covers both offense (via the
@@ -497,6 +502,10 @@ export const RANKING_SOURCES = [
     isTepPremium: false,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
+    // Member of the `ktc` correlation group — every FN row carries a
+    // `ktc_player_id` and the site credits KeepTradeCut as a source.
+    // FN agreeing with KTC is not independent confirmation.
+    correlationGroup: "ktc",
   },
   {
     // Play for Keeps Dynasty master board — PFK's hand-maintained

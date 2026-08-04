@@ -1,0 +1,202 @@
+{
+  "modelVersion": "ce.2026-08-04.v0-shadow",
+  "paramSetId": "b381862f7fc54feb",
+  "measuredAt": "2026-08-04T08:35:27.476355+00:00",
+  "target": "cohort-excess market return of the anchor board",
+  "lookbackDays": 30,
+  "lookbackPoints": 3,
+  "compositeWeights": {
+    "mispricing": 0.5,
+    "sharpFlow": 0.3,
+    "opportunity": 0.2
+  },
+  "runs": {
+    "composite": {
+      "foldsAttempted": 11,
+      "foldsUsable": 11,
+      "unusableReasons": [],
+      "meanSpearman": 0.09080830577163301,
+      "medianSpearman": 0.09979496208826753,
+      "spearmanByFold": [
+        {
+          "origin": "2026-05-16",
+          "n": 692,
+          "rho": 0.10830654953271086
+        },
+        {
+          "origin": "2026-05-23",
+          "n": 682,
+          "rho": 0.13602335352708664
+        },
+        {
+          "origin": "2026-05-30",
+          "n": 676,
+          "rho": -0.0011537082448212256
+        },
+        {
+          "origin": "2026-06-06",
+          "n": 681,
+          "rho": 0.160419643711054
+        },
+        {
+          "origin": "2026-06-13",
+          "n": 681,
+          "rho": 0.052045319126828936
+        },
+        {
+          "origin": "2026-06-20",
+          "n": 668,
+          "rho": 0.043572198920232376
+        },
+        {
+          "origin": "2026-06-27",
+          "n": 667,
+          "rho": 0.13082791236492936
+        },
+        {
+          "origin": "2026-07-04",
+          "n": 669,
+          "rho": 0.16804886922356713
+        },
+        {
+          "origin": "2026-07-11",
+          "n": 704,
+          "rho": 0.050794499854526984
+        },
+        {
+          "origin": "2026-07-18",
+          "n": 687,
+          "rho": 0.09979496208826753
+        },
+        {
+          "origin": "2026-07-25",
+          "n": 688,
+          "rho": 0.05021176338358062
+        }
+      ],
+      "benchmarks": {
+        "marketValue": {
+          "meanSpearman": -0.020878501245596915,
+          "beatenInFolds": 11
+        },
+        "mispricing": {
+          "meanSpearman": 0.10112559609718691,
+          "beatenInFolds": 3
+        },
+        "random": {
+          "meanSpearman": 0.008363274971400157,
+          "beatenInFolds": 10
+        }
+      },
+      "verdict": "inconsistent across folds (mean rho +0.091 over 11 non-overlapping folds; 10/11 folds positive; beat market-value benchmark in 11/11)",
+      "foldsPositive": 10,
+      "horizonDays": 7,
+      "panelStart": "2026-05-16",
+      "panelEnd": "2026-08-03",
+      "foldsTruncated": false
+    },
+    "momentum": {
+      "foldsAttempted": 11,
+      "foldsUsable": 11,
+      "unusableReasons": [],
+      "meanSpearman": -0.07238036852705249,
+      "medianSpearman": -0.10588160476870753,
+      "spearmanByFold": [
+        {
+          "origin": "2026-05-16",
+          "n": 243,
+          "rho": 0.18220944556253754
+        },
+        {
+          "origin": "2026-05-23",
+          "n": 254,
+          "rho": 0.11042127140024498
+        },
+        {
+          "origin": "2026-05-30",
+          "n": 629,
+          "rho": -0.20343614152259154
+        },
+        {
+          "origin": "2026-06-06",
+          "n": 620,
+          "rho": -0.24789607604075892
+        },
+        {
+          "origin": "2026-06-13",
+          "n": 623,
+          "rho": -0.16962247197430305
+        },
+        {
+          "origin": "2026-06-20",
+          "n": 619,
+          "rho": -0.136048745746106
+        },
+        {
+          "origin": "2026-06-27",
+          "n": 621,
+          "rho": 0.0020920968271063967
+        },
+        {
+          "origin": "2026-07-04",
+          "n": 270,
+          "rho": -0.10875759656996675
+        },
+        {
+          "origin": "2026-07-11",
+          "n": 638,
+          "rho": -0.10588160476870753
+        },
+        {
+          "origin": "2026-07-18",
+          "n": 638,
+          "rho": -0.013950287669799133
+        },
+        {
+          "origin": "2026-07-25",
+          "n": 637,
+          "rho": -0.10531394329523336
+        }
+      ],
+      "benchmarks": {
+        "marketValue": {
+          "meanSpearman": -0.029456822073295683,
+          "beatenInFolds": 4
+        },
+        "mispricing": {
+          "meanSpearman": 0.14385964304206653,
+          "beatenInFolds": 0
+        },
+        "random": {
+          "meanSpearman": -0.007676543492651831,
+          "beatenInFolds": 3
+        }
+      },
+      "verdict": "inconsistent across folds (mean rho -0.072 over 11 non-overlapping folds; 3/11 folds negative; beat market-value benchmark in 4/11)",
+      "foldsPositive": 3,
+      "horizonDays": 7,
+      "panelStart": "2026-05-16",
+      "panelEnd": "2026-08-03",
+      "foldsTruncated": false
+    }
+  },
+  "decision": {
+    "recommendation": "set the momentum weight to zero",
+    "rationale": "composite mean rho +0.091 vs mispricing +0.101 (delta -0.010); composite beat mispricing in 3/11 folds. The axis does not improve on the component already validated, so it must not move scores. Note this returns the board to ONE live component, which puts Strong labels out of reach again \u2014 that is the design working, not a regression.",
+    "compositeMeanRho": 0.09080830577163301,
+    "mispricingMeanRho": 0.10112559609718691,
+    "deltaRho": -0.010317290325553896,
+    "foldsBeaten": 3,
+    "foldsUsable": 11
+  },
+  "panelBuilds": 68,
+  "elapsedSeconds": 85.1,
+  "caveats": [
+    "Measures Opportunity as it ships OUTSIDE production: the momentum axis alone. The snapTrend axis reads data/playerctx/snapshot.json, which has no history in the repo and cannot be replayed, so it remains unvalidated.",
+    "Sharp Flow is absent throughout \u2014 the ledger is empty in every reachable environment \u2014 so this is a two-component composite.",
+    "Replays today's pipeline over past inputs: inputs cannot leak, but the model is current.",
+    "Measures market movement, not fantasy production \u2014 the panel covers an offseason.",
+    "Folds are non-overlapping; the fold count is the honest sample size.",
+    "Fewer folds than the mispricing-only backtest, because the lookback window reserves the first 30 days of the panel as history. The head-to-head is still like-for-like: every series in a run is scored on the same folds and the same player intersection."
+  ]
+}

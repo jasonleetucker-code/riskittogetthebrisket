@@ -11,11 +11,14 @@ import {
   resolvePickRow,
   ktcAdjustPackage,
 } from "@/lib/trade-logic";
-import { normalizePos } from "@/lib/dynasty-data";
+import { fillLineup, lineupPosition } from "@/lib/starter-slots";
 
 // ── Position Group Helpers ──────────────────────────────────────────────
 export const POS_GROUPS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICKS"];
 export const OFFENSE_GROUPS = ["QB", "RB", "WR", "TE"];
+// POS_GROUPS minus the synthetic "PICKS" bucket: the groups a real
+// player can land in, and therefore the ones that can fill a lineup slot.
+export const PLAYER_GROUPS = POS_GROUPS.filter((g) => g !== "PICKS");
 
 export const POS_GROUP_COLORS = {
   QB: "#e74c3c",
@@ -39,16 +42,28 @@ export const POS_GROUP_LABELS = {
   PICKS: "Draft Picks",
 };
 
-const STARTER_SLOTS = { QB: 2, RB: 3, WR: 4, TE: 2, DL: 2, LB: 2, DB: 2 };
+// Starter slots are NOT defined here.  They come from the league's own
+// ``sleeper.rosterPositions`` via ``lib/starter-slots.js`` — see that
+// module for why (short version: this file used to carry
+// `STARTER_SLOTS = { QB: 2, RB: 3, WR: 4, TE: 2, DL: 2, LB: 2, DB: 2 }`,
+// which started 2 of each IDP position in a league that starts 3, and
+// was a single-league literal on a page that serves two leagues with
+// different lineups).
 
+/**
+ * Position → value-bucket group for this page's tables.
+ *
+ * Delegates to `lineupPosition` so the grouping a player is DISPLAYED
+ * under and the grouping used to fill a lineup slot cannot drift apart.
+ * The only difference is the tail: K and DEF are real lineup slots but
+ * not buckets on /rosters (`buildPlayerMetaMap` drops kickers before
+ * they reach here), so anything outside the seven value groups lands in
+ * "Other".
+ */
 export function posGroup(pos) {
   if (!pos) return "Other";
-  const p = normalizePos(pos);
-  if (["QB", "RB", "WR", "TE"].includes(p)) return p;
-  if (["DL", "DE", "DT", "EDGE", "NT"].includes(p)) return "DL";
-  if (["LB", "OLB", "ILB"].includes(p)) return "LB";
-  if (["DB", "CB", "S", "FS", "SS"].includes(p)) return "DB";
-  return "Other";
+  const g = lineupPosition(pos);
+  return PLAYER_GROUPS.includes(g) ? g : "Other";
 }
 
 // ── Timestamp Helpers ───────────────────────────────────────────────────
@@ -673,15 +688,6 @@ export function buildPlayerMetaMap(rows) {
 }
 
 // ── Team Value Breakdown ────────────────────────────────────────────────
-function sumTopN(values, n) {
-  if (!Array.isArray(values) || n <= 0) return 0;
-  return values
-    .filter((v) => Number.isFinite(v) && v > 0)
-    .sort((a, b) => b - a)
-    .slice(0, n)
-    .reduce((s, v) => s + v, 0);
-}
-
 /**
  * Compute per-position-group value breakdown for a team.
  * @param {object} team - { players: string[], picks: string[] }
@@ -693,13 +699,25 @@ function sumTopN(values, n) {
  *   ("full" | "raw") meaning which value NUMBER to read.  Both use the
  *   key "full", so mixing them up runs clean and returns wrong totals.
  * @param {object} [pickAliases] - optional backend alias map
- * @returns {{ total, byGroup, playerDetails, pickDetails }}
+ * @param {string[]} [rosterPositions] - the league's Sleeper lineup-slot
+ *   array (`rawData.sleeper.rosterPositions`).  REQUIRED for the
+ *   "starters" scope; without it that scope reports
+ *   `starterSlotsUnavailable` instead of guessing a lineup.
+ * @returns {{ total, byGroup, playerDetails, pickDetails,
+ *   starterSlotsUnavailable }}
  */
-export function buildTeamValueBreakdown(team, playerMeta, rows, assetScope = "full", pickAliases = null) {
+export function buildTeamValueBreakdown(
+  team,
+  playerMeta,
+  rows,
+  assetScope = "full",
+  pickAliases = null,
+  rosterPositions = null,
+) {
   const byGroup = {};
   POS_GROUPS.forEach((g) => { byGroup[g] = 0; });
   const playerDetails = [];
-  const buckets = { QB: [], RB: [], WR: [], TE: [], DL: [], LB: [], DB: [] };
+  const lineupPool = [];
   let pickValue = 0;
   const pickDetails = [];
 
@@ -718,7 +736,7 @@ export function buildTeamValueBreakdown(team, playerMeta, rows, assetScope = "fu
     if (assetScope !== "starters") {
       if (byGroup[pm.group] !== undefined) byGroup[pm.group] += pm.meta;
     }
-    if (buckets[pm.group]) buckets[pm.group].push(pm.meta);
+    if (PLAYER_GROUPS.includes(pm.group)) lineupPool.push(pm);
   }
 
   // Resolve pick values using multi-candidate lookup so Sleeper labels
@@ -737,16 +755,32 @@ export function buildTeamValueBreakdown(team, playerMeta, rows, assetScope = "fu
     }
   }
 
+  // Starters: fill the league's ACTUAL lineup slots, then bucket the
+  // players that won a slot.  A per-group top-N cannot express this
+  // league — 3 of its 21 slots are FLEX/SUPER_FLEX, so "how many WRs
+  // start" depends on the rest of the roster, not a constant.
+  let starterSlotsUnavailable = false;
   if (assetScope === "starters") {
-    Object.keys(buckets).forEach((g) => {
-      byGroup[g] = sumTopN(buckets[g], STARTER_SLOTS[g] || 0);
+    const fill = fillLineup({
+      assets: lineupPool,
+      rosterPositions,
+      // The un-collapsed vocabulary: DL, LB and DB stay distinct, so a
+      // DL slot matches only defensive linemen.  This is the exact
+      // answer; /terminal's collapsed vocabulary credits the top N
+      // defenders regardless of whether the roster can fill each slot.
+      positionOf: (p) => p.group,
+      valueFor: (p) => p.meta,
     });
+    starterSlotsUnavailable = !fill.available;
+    for (const p of fill.starters) {
+      if (byGroup[p.group] !== undefined) byGroup[p.group] += p.meta;
+    }
   }
 
   byGroup.PICKS = assetScope === "full" ? pickValue : 0;
   const total = POS_GROUPS.reduce((s, g) => s + (byGroup[g] || 0), 0);
 
-  return { total, byGroup, playerDetails, pickDetails };
+  return { total, byGroup, playerDetails, pickDetails, starterSlotsUnavailable };
 }
 
 // ── Build All Team Summaries ────────────────────────────────────────────
@@ -754,9 +788,23 @@ export function buildTeamValueBreakdown(team, playerMeta, rows, assetScope = "fu
  * Build summary data for all teams in the league.
  * Returns sorted array of team objects with value breakdowns.
  */
-export function buildAllTeamSummaries(sleeperTeams, playerMeta, rows, assetScope = "full", pickAliases = null) {
+export function buildAllTeamSummaries(
+  sleeperTeams,
+  playerMeta,
+  rows,
+  assetScope = "full",
+  pickAliases = null,
+  rosterPositions = null,
+) {
   const teams = (sleeperTeams || []).map((team) => {
-    const breakdown = buildTeamValueBreakdown(team, playerMeta, rows, assetScope, pickAliases);
+    const breakdown = buildTeamValueBreakdown(
+      team,
+      playerMeta,
+      rows,
+      assetScope,
+      pickAliases,
+      rosterPositions,
+    );
     return {
       name: team.name,
       roster_id: team.roster_id,
@@ -766,6 +814,7 @@ export function buildAllTeamSummaries(sleeperTeams, playerMeta, rows, assetScope
       pickCount: Array.isArray(team.picks) ? team.picks.length : 0,
       players: breakdown.playerDetails,
       pickDetails: breakdown.pickDetails,
+      starterSlotsUnavailable: breakdown.starterSlotsUnavailable,
     };
   });
 
@@ -1007,27 +1056,47 @@ export function analyzeTradeTendencies(rawData, rows) {
  *
  *   score = 0.7 × starterValue + 0.2 × depthValue − 0.1 × pickValue
  *
- * Starter value = the team's top 10 OFFENSIVE players.
+ * Starter value = the players who fill the league's real lineup.
  * Depth        = every other player the team owns — picks excluded.
  * Picks        = pick capital, penalized at −10% (rebuild signal).
  *
- * Picks sit OUTSIDE depthValue deliberately.  Depth used to be
- * `totalValue − starterValue`, and totalValue includes pick capital, so
- * every pick dollar earned +0.2 as depth and paid −0.1 as pick surplus
- * for a NET +0.1: the "penalty" REWARDED hoarding picks, the opposite
- * of the documented intent, and a pick-rich rebuilder could out-score a
- * contender.  Each dollar of a roster now feeds exactly one term.
+ * Two separate defects were fixed here, and both corrections are live.
+ *
+ * Starter value was the top 10 OFFENSIVE players, flat, until
+ * 2026-07-30.  In a league that starts 9 IDP alongside 12 offensive
+ * slots that read a defense-heavy contender as a rebuilder, and it was
+ * a second single-league constant on a page that serves two leagues
+ * with different lineups.  It now fills the real lineup via the shared
+ * `fillLineup`, across every group.
+ *
+ * Picks sit OUTSIDE depthValue deliberately (math audit 2026-08-04,
+ * H5).  Depth was `totalValue − starterValue`, and totalValue includes
+ * pick capital, so every pick dollar earned +0.2 as depth and paid
+ * −0.1 as pick surplus for a NET +0.1: the "penalty" REWARDED hoarding
+ * picks, the opposite of the documented intent, and a pick-rich
+ * rebuilder could out-score a contender.  Each dollar of a roster now
+ * feeds exactly one term.
  *
  * The three coefficients do not sum to 1 and don't need to — the score
  * is an ordinal ranking key (the sorted list is cut into thirds), so
  * only the RATIOS between the terms move a team's tier.
+ *
+ * @param {string[]} [rosterPositions] - the league's Sleeper lineup-slot
+ *   array.  Without it there is no lineup to fill and every team scores
+ *   as pure depth, so callers should pass it; `/rosters` does.
  */
-export function scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases = null) {
+export function scoreTeamTiers(
+  sleeperTeams,
+  playerMeta,
+  rows,
+  pickAliases = null,
+  rosterPositions = null,
+) {
   const rowLookup = buildRowLookup(rows);
 
   const scored = (sleeperTeams || []).map((team) => {
     let totalValue = 0;
-    const topPlayers = [];
+    const lineupPool = [];
     let pickValue = 0;
 
     for (const pName of team.players || []) {
@@ -1035,8 +1104,8 @@ export function scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases = nul
       const pm = playerMeta[(pName || "").toLowerCase()];
       if (!pm) continue;
       totalValue += pm.meta;
-      if (OFFENSE_GROUPS.includes(pm.group)) {
-        topPlayers.push(pm.meta);
+      if (PLAYER_GROUPS.includes(pm.group)) {
+        lineupPool.push(pm);
       }
     }
 
@@ -1049,8 +1118,13 @@ export function scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases = nul
       pickValue += val;
     }
 
-    topPlayers.sort((a, b) => b - a);
-    const starterValue = topPlayers.slice(0, 10).reduce((s, v) => s + v, 0);
+    const { starters } = fillLineup({
+      assets: lineupPool,
+      rosterPositions,
+      positionOf: (p) => p.group,
+      valueFor: (p) => p.meta,
+    });
+    const starterValue = starters.reduce((s, p) => s + p.meta, 0);
     // Players only: totalValue carries pick capital too, and picks are
     // scored by their own term below.
     const depthValue = totalValue - starterValue - pickValue;

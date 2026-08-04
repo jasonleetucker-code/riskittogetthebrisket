@@ -41,7 +41,16 @@ if str(_REPO_ROOT) not in sys.path:
 os.environ.pop("SLEEPER_LEAGUE_ID", None)
 os.environ["LEAGUE_REGISTRY_PATH"] = "/nonexistent/path/for/audit.json"
 
-_DEFAULT_PAYLOAD = _REPO_ROOT / "exports" / "latest" / "dynasty_data_2026-07-30.json"
+def _latest_payload() -> Path:
+    """Newest export under ``exports/latest/``.
+
+    Pinning a dated filename here rots: the scheduled refresh renames the
+    export every run.  Resolve it instead — and note that a before/after
+    diff is only meaningful if BOTH runs used the SAME payload, so pass
+    ``--payload`` explicitly when comparing across a data refresh.
+    """
+    candidates = sorted((_REPO_ROOT / "exports" / "latest").glob("dynasty_data_*.json"))
+    return candidates[-1] if candidates else _REPO_ROOT / "exports" / "latest" / "dynasty_data.json"
 
 
 def _load_payload(path: Path) -> dict[str, Any]:
@@ -140,7 +149,7 @@ def diff_snapshots(before: dict[str, Any], after: dict[str, Any], *, top: int) -
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--payload", type=Path, default=_DEFAULT_PAYLOAD, help="raw scraper payload to rebuild from")
+    ap.add_argument("--payload", type=Path, default=_latest_payload(), help="raw scraper payload to rebuild from")
     ap.add_argument("--out", type=Path, help="write a snapshot JSON here")
     ap.add_argument("--diff", nargs=2, type=Path, metavar=("BEFORE", "AFTER"), help="diff two snapshot files")
     ap.add_argument("--top", type=int, default=25, help="how many movers to print (default 25)")

@@ -93,15 +93,57 @@ class TestNamedFilesExist:
                     missing.append(f"{c['id']}: {path}")
         assert not missing, f"registry names files that do not exist: {missing}"
 
-    def test_consumer_and_duplicate_paths_resolve(self, concepts):
+    def test_consumer_and_live_duplicate_paths_resolve(self, concepts):
+        """Consumers, and any duplicate that still EXISTS, must resolve.
+
+        A duplicate whose disposition is ``REMOVED`` is excluded — naming
+        the module that used to hold a defect is the point of the record,
+        and by definition that file should be gone.  It gets the opposite
+        assertion instead, below.
+        """
         missing: list[str] = []
         for c in concepts:
-            blobs = list(c["consumers"]) + [d["impl"] for d in c["duplicates"]]
+            blobs = list(c["consumers"])
+            blobs += [d["impl"] for d in c["duplicates"] if not d["disposition"].startswith("REMOVED")]
             for blob in blobs:
                 for path in self._paths(blob):
                     if not (_REPO_ROOT / path).exists():
                         missing.append(f"{c['id']}: {path}")
         assert not missing, f"registry names files that do not exist: {missing}"
+
+    def test_removed_duplicates_are_actually_gone(self, concepts):
+        """The registry claims a duplicate implementation was removed. Check it.
+
+        "Removed" means two different things and the registry has to say which,
+        so each REMOVED entry carries a ``removedMarker`` — a literal from the
+        deleted construct:
+
+        * the whole module went away (``src/intel/aggregate.py``) — the file
+          does not exist, which satisfies this trivially;
+        * a construct was cut out of a surviving file (the invented flat pick
+          table inside ``draft_capital_fallback.py``) — the file is still
+          there, so the marker must be absent from it.
+
+        A silently-resurrected duplicate is exactly what this registry exists
+        to catch, and checking for the construct rather than the file catches
+        both shapes.
+        """
+        resurrected: list[str] = []
+        for c in concepts:
+            for dup in c["duplicates"]:
+                if not dup["disposition"].startswith("REMOVED"):
+                    continue
+                marker = dup.get("removedMarker")
+                assert marker, f"{c['id']}: a REMOVED duplicate needs a removedMarker"
+                for path in self._paths(dup["impl"]):
+                    target = _REPO_ROOT / path
+                    if not target.exists():
+                        continue  # whole module gone — nothing to resurrect
+                    if marker in target.read_text(encoding="utf-8"):
+                        resurrected.append(f"{c['id']}: {path} still contains {marker!r}")
+        assert not resurrected, (
+            f"registry says these were removed but they are back: {resurrected}"
+        )
 
 
 class TestClaimedInvariantsAreEnforced:

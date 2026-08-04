@@ -664,8 +664,58 @@ ensure_systemd_service() {
     fi
   fi
 
-  if [[ "${backend_present}" == "true" && "${frontend_present}" == "true" && "${force_reinstall}" != "true" ]]; then
+  # Timer units are NOT covered by the two checks above, and for a long
+  # time nothing checked them at all.
+  #
+  # This early return used to fire whenever the backend and frontend
+  # units existed — and since both have existed since the original
+  # bootstrap, the installer never ran again on any deploy. Every timer
+  # added to the repo after that point therefore never existed in
+  # production. Measured on the live box 2026-07-30: the repo shipped
+  # nine timer pairs and only two (dlf-fetch, idpshow-fetch, both
+  # predating the bootstrap) were installed. The BDVM refresh had never
+  # run once — `journalctl -u dynasty-bdvm-refresh` was empty and
+  # `data/bdvm/` did not exist — so `/api/bdvm/*` served nothing while
+  # the deploy reported success every time. Signal alerts, custom
+  # alerts, player context, sharp discovery and reception depth were
+  # equally absent.
+  #
+  # So the presence check is now derived from what the repo actually
+  # ships rather than from two hardcoded unit names. Note this runs the
+  # installer WITHOUT FORCE_SERVICE_INSTALL, so existing units are left
+  # alone and no service is restarted — the installer only fills gaps.
+  local missing_timers=""
+  local timer_template timer_unit
+  shopt -s nullglob
+  for timer_template in "${APP_DIR}"/deploy/systemd/*.timer.template; do
+    timer_unit="$(basename "${timer_template}" .template)"
+    # Templates are named dynasty-*; installed units use SERVICE_NAME.
+    timer_unit="${SERVICE_NAME}-${timer_unit#dynasty-}"
+    # The alert timers install only when the token is present, matching
+    # install-systemd-service.sh. Without this they would read as
+    # permanently missing and run the installer on every deploy.
+    case "${timer_unit}" in
+      *-signal-alerts.timer | *-custom-alerts.timer)
+        if [[ ! -f "${APP_DIR}/.env" ]] ||
+          ! grep -Eq '^[[:space:]]*SIGNAL_ALERT_CRON_TOKEN=.+$' "${APP_DIR}/.env"; then
+          continue
+        fi
+        ;;
+    esac
+    if ! sudo -n "${SYSTEMCTL_BIN}" cat "${timer_unit}" >/dev/null 2>&1 || \
+       ! sudo -n "${SYSTEMCTL_BIN}" is-enabled "${timer_unit}" >/dev/null 2>&1; then
+      missing_timers="${missing_timers} ${timer_unit}"
+    fi
+  done
+  shopt -u nullglob
+
+  if [[ "${backend_present}" == "true" && "${frontend_present}" == "true" &&
+    "${force_reinstall}" != "true" && -z "${missing_timers}" ]]; then
     return 0
+  fi
+
+  if [[ -n "${missing_timers}" ]]; then
+    warn "Timer units missing from this host:${missing_timers}. Running installer to add them."
   fi
 
   local installer_script

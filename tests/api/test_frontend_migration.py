@@ -10,16 +10,42 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class TestFrontendRuntimeDefault(unittest.TestCase):
-    """FRONTEND_RUNTIME must be hardcoded to 'next' (Static removed)."""
+    """The backend must not serve pages under any runtime setting (#555).
 
-    def test_server_py_uses_next(self):
-        """server.py must set FRONTEND_RUNTIME to 'next'."""
+    This class used to assert ``FRONTEND_RUNTIME = "next"`` was present in
+    server.py, guarding against a relapse to the removed Static frontend.
+    That constant is gone: it recorded which frontend THIS PROCESS served
+    pages from, and this process serves no pages. It had no runtime reader
+    even before the deletion — ``docs/OWNER_ACTION_AUDIT_2026-07-29.md``
+    already listed it "obsolete as a variable".
+
+    The underlying concern — no second frontend, no fallback shell — is
+    still worth guarding, so the assertions are inverted rather than
+    dropped. Every symbol below is one the deleted proxy needed, so any of
+    them reappearing means page serving came back.
+    """
+
+    def test_server_py_serves_no_frontend(self):
         server_py = REPO_ROOT / "server.py"
         text = server_py.read_text()
-        self.assertIn('FRONTEND_RUNTIME = "next"', text)
-        # Static mode must not exist
+        # The removed Static frontend, still guarded.
         self.assertNotIn('FRONTEND_RUNTIME = "static"', text)
         self.assertNotIn("LEGACY_STATIC_DIR", text)
+        # The page proxy and its helpers. A comment may NAME these (this
+        # PR leaves several explaining what went and why), so match on the
+        # definition, not on a bare mention.
+        for symbol in ("_proxy_next", "_serve_app_shell", "_require_auth_or_redirect"):
+            self.assertNotIn(
+                f"def {symbol}(",
+                text,
+                f"{symbol} is defined again — the page proxy is back (#555)",
+            )
+        self.assertNotIn(
+            '@app.get("/{full_path:path}"',
+            text,
+            "the page catch-all is back — this is the route that actually "
+            "served every page, so its return is the whole regression",
+        )
 
 
 class TestLoginPageUsesServerAuth(unittest.TestCase):
@@ -50,14 +76,16 @@ class TestLoginPageUsesServerAuth(unittest.TestCase):
         self.assertIn("data.error", text)
 
 
-class TestSettingsRoute(unittest.TestCase):
-    """Server must have an auth-gated /settings route for the Next.js settings page."""
-
-    def test_server_has_settings_route(self):
-        server_py = REPO_ROOT / "server.py"
-        text = server_py.read_text()
-        self.assertIn('"/settings"', text)
-        self.assertIn("serve_settings", text)
+# ``TestSettingsRoute`` was here, asserting server.py contained the string
+# ``"/settings"`` and a ``serve_settings`` handler. Both went with the page
+# proxy (#555): Next serves /settings, and its auth gate is
+# frontend/middleware.js, which frontend/__tests__/public-routes.test.js
+# pins as private.
+#
+# Worth noting HOW this test breaks, because it is the shape most likely to
+# be missed next time: it reads server.py AS TEXT and makes no HTTP
+# request, so no route-shaped grep, no route-table assertion and no live
+# probe would ever have surfaced it. It only appears when the suite runs.
 
 
 class TestCanonicalOverlayRemoved(unittest.TestCase):
@@ -215,17 +243,15 @@ class TestEdgeAndFinderRoutes(unittest.TestCase):
     where the filtering lives.
     """
 
-    def test_server_has_edge_route(self):
-        server_py = REPO_ROOT / "server.py"
-        text = server_py.read_text()
-        self.assertIn('"/edge"', text)
-        self.assertIn("serve_edge", text)
-
-    def test_server_has_finder_route(self):
-        server_py = REPO_ROOT / "server.py"
-        text = server_py.read_text()
-        self.assertIn('"/finder"', text)
-        self.assertIn("serve_finder", text)
+    # ``test_server_has_edge_route`` and ``test_server_has_finder_route``
+    # were here. Both asserted server.py's SOURCE TEXT contained a route
+    # literal and a handler name; both went with the page proxy (#555).
+    #
+    # The four methods below are the ones that carry this class's actual
+    # claim — that /edge and /finder still resolve for saved links — and
+    # they check the frontend, which is where that now lives. Deleting the
+    # whole class would have dropped real coverage along with the two dead
+    # assertions.
 
     def test_edge_page_exists(self):
         page = REPO_ROOT / "frontend" / "app" / "edge" / "page.jsx"

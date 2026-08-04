@@ -136,7 +136,7 @@ export default function ActivityPage() {
   if (error) {
     return (
       <section>
-        <PageHeader title="League activity" subtitle="Trades + news in one feed." />
+        <PageHeader title="Activity" subtitle="Trades + news in one feed." />
         <div className="card">
           <EmptyState title="Couldn't load data" message={String(error)} />
         </div>
@@ -150,7 +150,7 @@ export default function ActivityPage() {
         <Link href="/league" style={{ color: "var(--cyan)" }}>← League home</Link>
       </div>
       <PageHeader
-        title="League activity"
+        title="Activity"
         subtitle="Trades + news in one chronological feed.  Scope to your roster to see only events involving your players."
       />
 

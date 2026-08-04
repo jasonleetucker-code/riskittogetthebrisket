@@ -63,10 +63,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -164,6 +164,29 @@ jobs:
           git pull --rebase origin main
           git push
 
+      # NO AUTO-CLOSE STEP HERE, DELIBERATELY.
+      #
+      # Every other rolling-issue workflow in this repo gained one on
+      # 2026-07-31 (they had copied only the failure half of
+      # scheduled-refresh.yml's pattern, so their issues could never say
+      # "recovered"). This one is excluded on purpose, and the exclusion
+      # needs to survive the next person tidying up the inconsistency.
+      #
+      # The issues below are NOT failure alerts. Exit code 1 means "a
+      # challenger beat the champion out of sample and is waiting for a
+      # human to promote it" — a work item, and the step is named for it.
+      # A green run next week does not mean that request was handled; it
+      # means the refit ran again. Auto-closing on success would silently
+      # discard promotion requests, which is strictly worse than a stale
+      # alert.
+      #
+      # These issues close when a human runs `scripts/model_registry.py
+      # promote` + `apply`, per ADR-008 in
+      # docs/roster-trade-intelligence/DECISIONS.md.
+      #
+      # Note also that this shares the `calibration` label with
+      # audit-rank-form-drift.yml, whose auto-close therefore matches on
+      # TITLE rather than label so it cannot reach over and close these.
       - name: Open an issue when a human must act
         if: steps.refit.outputs.exit_code == '1' || steps.refit.outputs.exit_code == '3'
         shell: bash

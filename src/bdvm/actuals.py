@@ -51,6 +51,28 @@ def current_nfl_season(today: date | None = None) -> int | None:
     return None
 
 
+def nfl_projection_season(today: date | None = None) -> int:
+    """The NFL season a projection snapshot / valuation describes.
+
+    Jan → last year (the season still being played); every other month →
+    the calendar year (Feb–Aug the season about to be played, Sept–Dec
+    the one in progress).  So this AGREES with ``current_nfl_season`` by
+    construction wherever that returns a season, and simply keeps
+    answering outside the in-season window instead of returning None.
+
+    That agreement is the point.  The §8.4 posterior blends realized
+    weekly points into a projection, so the projection season and the
+    actuals season have to be the same season; keying the projection on
+    the contract's ``currentDraftYear`` — the upcoming ROOKIE-DRAFT year,
+    which rolls to calendar+1 in May — would blend one season's results
+    into another season's prior for the whole Sept–Jan window.  The two
+    concepts are separate and are stamped separately (``meta.season``
+    vs. ``meta.rookieDraftYear``).
+    """
+    d = today or datetime.now(timezone.utc).date()
+    return d.year - 1 if d.month == 1 else d.year
+
+
 def weekly_points_from_rows(
     weekly_rows: list[Mapping[str, Any]],
     scoring_settings: Mapping[str, Any],

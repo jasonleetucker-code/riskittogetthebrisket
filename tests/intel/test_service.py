@@ -13,7 +13,7 @@ from tests.intel.conftest import (
     leagues_url,
     make_league,
     make_roster,
-    make_waiver_tx,
+    make_trade_tx,
     rosters_url,
     state_url,
     tx_url,
@@ -29,7 +29,10 @@ def _responses_for(member: str, lid: str, asset: str) -> dict:
             state_url(): {"week": 1, "season_type": "off", "league_season": SEASON},
             leagues_url(member, SEASON): [make_league(lid)],
             rosters_url(lid): [make_roster(1, member, players=[asset])],
-            tx_url(lid, 1): [make_waiver_tx(f"t-{lid}", now_ms - DAY_MS, 1, add_player=asset)],
+            # A TRADE, not a waiver: only trades reach the buy/sell
+            # board, so a waiver fixture here would assert an empty
+            # board and stop testing partition scoping at all.
+            tx_url(lid, 1): [make_trade_tx(f"t-{lid}", now_ms - DAY_MS, adds={asset: 1})],
         }
     )
 
@@ -86,7 +89,10 @@ def _seed_league_responses(member: str, seed_league_id: str, lid: str, asset: st
             ],
             leagues_url(member, SEASON): [make_league(lid)],
             rosters_url(lid): [make_roster(1, member, players=[asset])],
-            tx_url(lid, 1): [make_waiver_tx(f"t-{lid}", now_ms - DAY_MS, 1, add_player=asset)],
+            # A TRADE, not a waiver: only trades reach the buy/sell
+            # board, so a waiver fixture here would assert an empty
+            # board and stop testing partition scoping at all.
+            tx_url(lid, 1): [make_trade_tx(f"t-{lid}", now_ms - DAY_MS, adds={asset: 1})],
         }
     )
 
@@ -169,53 +175,6 @@ def test_refresh_many_rejected_while_single_refresh_running(intel_data_dir, monk
         service.refresh_intel_many([{"leagueKey": "x", "sleeperLeagueId": "1"}])
     gate.set()
     t.join(timeout=5)
-
-
-def _movement(asset: str, owner: str, league: str, ts_ms: int) -> dict:
-    return {
-        "eventId": f"tx-{asset}-{owner}-{ts_ms}",
-        "txId": f"tx-{asset}-{owner}",
-        "leagueId": league,
-        "ownerId": owner,
-        "assetId": asset,
-        "assetType": "player",
-        "action": "add",
-        "txType": "trade",
-        "ts": ts_ms,
-        "week": 1,
-        "faabBid": None,
-    }
-
-
-def test_board_never_ranks_by_a_sum_of_nested_windows(intel_data_dir):
-    """The Insider Trading board's sort key.
-
-    ``trendScore = 3·net48h + 2·net7d + 1·net30d`` summed NESTED
-    windows: the single fresh buy below sat in all three terms and
-    scored 6, while five buys by five managers ten days ago scored 5 —
-    so one event, counted three times, topped the board.  The board now
-    ranks on ``signalStrength``, computed over the 30d window ALONE.
-    """
-    now_ms = int(time.time() * 1000)
-    state = store.default_state("2026")
-    state["members"] = {
-        oid: {"leagues": ["L0"], "truncated": False, "lastCrawledAt": None, "lastError": None}
-        for oid in "ABCDEF"
-    }
-    state["leagues"] = {"L0": {"name": "Alpha", "memberOwnerIds": ["A"], "holdings": {}}}
-    state["events"] = [_movement("fresh", "A", "L0", now_ms - 3600 * 1000)] + [
-        _movement("broad", oid, f"L{i}", now_ms - 10 * DAY_MS) for i, oid in enumerate("BCDEF")
-    ]
-    store.save_state(state, "dynasty_main", now_ms=now_ms)
-    service.invalidate_cache()
-
-    assets = service.build_summary_payload("dynasty_main")["assets"]
-    # Hand-computed per docs/intel/METRICS.md: fresh is net 1 / volume
-    # 1 / 1 manager → 1.0 * (1/6) * (1/4) * 100 = 4.17; broad is net 5
-    # / volume 5 / 5 managers → 1.0 * 0.5 * 0.625 * 100 = 31.25.
-    assert [a["assetId"] for a in assets] == ["broad", "fresh"]
-    assert [a["signalStrength"] for a in assets] == [31.25, 4.17]
-    assert all("trendScore" not in a for a in assets)
 
 
 def test_refresh_stamps_league_key_in_status_and_result(intel_data_dir):

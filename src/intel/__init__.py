@@ -26,10 +26,16 @@ Modules:
     signals.py       — window-safe metrics (volume, breadth, velocity,
                        confidence).  SHARED.  Replaced ``trend_score``
     ingest.py        — snapshot → ledger bridge + migration
-    aggregate.py     — legacy read-time aggregation (being retired in
-                       favour of ledger queries)
     store.py         — atomic snapshot persistence under ``data/intel/``
-    service.py       — crawl→merge→store orchestration with a lock
+    service.py       — crawl→merge→store orchestration with a lock,
+                       plus the ledger-backed endpoint payload builders
+
+RETIRED: ``aggregate.py``.  It was the read-time aggregator, and it
+counted waiver claims as trade "buys" (it never read the ``txType`` its
+own crawler stamped) and ranked the board by a ``trendScore`` that
+summed nested windows.  The read path now goes through ``ledger.py`` +
+``signals.py``; the old module is deleted rather than deprecated so no
+competing formula can stay reachable.
 """
 
 from __future__ import annotations

@@ -1520,6 +1520,13 @@ the two that remain are deliberate.
   routing, plus `tests/api/test_page_route_coverage.py` to stop the
   drift recurring. **A hand-maintained mirror of another router's route
   table is a permanent drift trap** — that is the generalizable lesson.
+  **SUPERSEDED 2026-07-31 (#555):** both the catch-all and
+  `test_page_route_coverage.py` are gone — the backend serves no pages at
+  all now, which is the stronger form of the same lesson (do not mirror
+  another router's route table; do not route to it either). The one
+  assertion worth keeping, that an unknown `/api/*` path answers with
+  JSON rather than a proxied page, moved to
+  `tests/api/test_private_auth.py`.
 - **FIXED (#558) — `useAuth` resolved to *unauthenticated* with no
   retry.** Now retries on a `[1000, 2000, 4000, 8000, 30000]` ms backoff
   and only commits an unauthenticated verdict on an authoritative
@@ -1736,8 +1743,13 @@ credentials cross the network in plaintext until a new domain + certbot).
 - **The nightly E2E has never executed** (§2c instance 1). First
   scheduled run 2026-07-27 06:23 UTC. Until it produces one result, the
   suite's CI behaviour is unproven regardless of local green runs.
-- **The page proxy renders signed-in sessions logged out** — issue #555,
-  unresolved decision (repair vs. declare non-representative).
+- ~~**The page proxy renders signed-in sessions logged out**~~ —
+  **CLOSED 2026-07-31 (#555): deleted.** The decision (repair vs. declare
+  non-representative) was taken in favour of deletion; `server.py` serves
+  no pages and a page path on `:8000` returns a JSON 404. nginx routed
+  `location /` to Next throughout, so production behaviour is unchanged.
+  Note the `/league` SSR slowness filed under the same issue is NOT
+  resolved by this — 7-19s measured, tracked separately.
 - **No TLS on the bare IP** — login credentials cross the network in
   plaintext until a new domain + certbot. Operator action.
 - Credit outages (mitigated: liveness tick auto-resumes agents); LI

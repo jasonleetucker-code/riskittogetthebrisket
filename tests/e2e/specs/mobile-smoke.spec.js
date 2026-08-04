@@ -24,6 +24,8 @@ const {
   gotoRankingsBoard,
   attachConsoleGuards,
   pageUrl,
+  pageHeading,
+  titleFor,
 } = require("../helpers/journey");
 
 test.describe("mobile smoke (390x844)", () => {
@@ -80,7 +82,9 @@ test.describe("mobile smoke (390x844)", () => {
     // Tapping Trade navigates to the trade builder.
     await nav.getByText("Trade", { exact: true }).click();
     await expect(page).toHaveURL(/\/trade/, { timeout: 15_000 });
-    await expect(page.locator("body")).toContainText(/Trade Builder/i, { timeout: 30_000 });
+    await expect(pageHeading(page, titleFor("/trade"))).toBeVisible({
+      timeout: 30_000,
+    });
 
     // Tapping Ranks navigates back to the board.
     await nav.getByText("Ranks", { exact: true }).click();

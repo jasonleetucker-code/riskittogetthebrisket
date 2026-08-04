@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily qualified-manager Sleeper activity crawl for __SERVICE_NAME__
+
+[Timer]
+OnCalendar=*-*-* 06:30:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-sharp-activity.service
+
+[Install]
+WantedBy=timers.target

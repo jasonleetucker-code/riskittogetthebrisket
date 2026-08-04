@@ -178,6 +178,9 @@ def _pick_holdings(
     draft_rounds: int,
     now_year: int,
     num_years: int = PICK_HOLDINGS_YEARS,
+    *,
+    season_year: int | None = None,
+    draft_status: str | None = None,
 ) -> dict[str, list[str]]:
     """``{rosterId: ["pick:<season>:<round>", ...]}`` — current pick
     ownership per roster.
@@ -195,7 +198,24 @@ def _pick_holdings(
     if not roster_ids:
         return {}
     rounds = max(1, min(MAX_DRAFT_ROUNDS, int(draft_rounds or DEFAULT_DRAFT_ROUNDS)))
-    seasons = [str(now_year + y) for y in range(num_years)]
+    # D9: start the horizon at the FIRST SEASON WHOSE PICKS STILL EXIST.
+    #
+    # Two things used to be wrong here.  The base year came from the
+    # wall clock, which disagrees with the league's own season for most
+    # of the calendar (Sleeper rolls a league over around Aug/Sept, so
+    # Jan-Aug 2027 has now_year=2027 while the league still says 2026).
+    # And the current season's picks were seeded even after that
+    # season's rookie draft had been held, crediting every roster with
+    # assets that no longer exist.
+    #
+    # Both are answered by data already in the league payload the crawl
+    # fetches — ``season`` and ``status`` — so this costs no extra API
+    # call.  ``pre_draft``/``drafting`` mean this season's picks are
+    # still live assets; anything later means they have been spent.
+    base_year = int(season_year if season_year is not None else now_year)
+    if str(draft_status or "").strip().lower() not in ("", "pre_draft", "drafting"):
+        base_year += 1
+    seasons = [str(base_year + y) for y in range(num_years)]
     ownership: dict[tuple[str, int, str], str] = {}
     for season in seasons:
         for rnd in range(1, rounds + 1):
@@ -541,6 +561,9 @@ def crawl(
             # League metadata comes free with the leagues-list call.
             league_entry["name"] = str(lg.get("name") or league_entry.get("name") or "")
             league_entry["season"] = str(lg.get("season") or season)
+            # Captured for the pick horizon (D9): once a league is past
+            # drafting, the current season's picks are spent assets.
+            league_entry["status"] = str(lg.get("status") or league_entry.get("status") or "")
             league_entry["totalRosters"] = lg.get("total_rosters") or league_entry.get(
                 "totalRosters"
             )
@@ -600,11 +623,17 @@ def crawl(
             # pick assets get real holder/held-league counts.
             traded_picks = b.get(f"{SLEEPER_BASE}/league/{lid}/traded_picks")
             if isinstance(traded_picks, list):
+                try:
+                    league_season_year = int(str(league_entry.get("season") or "").strip())
+                except (TypeError, ValueError):
+                    league_season_year = None
                 pick_map = _pick_holdings(
                     sorted(rid_to_owner.keys()),
                     traded_picks,
                     int(league_entry.get("draftRounds") or DEFAULT_DRAFT_ROUNDS),
                     now_year,
+                    season_year=league_season_year,
+                    draft_status=league_entry.get("status"),
                 )
                 for rid, picks in pick_map.items():
                     owner = rid_to_owner.get(str(rid))

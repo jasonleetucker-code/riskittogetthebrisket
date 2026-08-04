@@ -36,30 +36,40 @@ from src.ros.lineup import RosterPlayer, optimize_lineup  # noqa: E402
 FIX = REPO / "tests/league_intel/fixtures/matchups_2025"
 META = json.loads((FIX / "players_meta.json").read_text())
 
-NEW = (
-    ["QB"]
-    + ["RB"] * 2
-    + ["WR"] * 3
-    + ["TE"] * 2
-    + ["FLEX"] * 2
-    + ["SUPER_FLEX"]
-    + ["K"]
-    + ["DL"] * 3
-    + ["LB"] * 3
-    + ["DB"] * 3
-)
-OLD = (
-    ["QB"]
-    + ["RB"] * 2
-    + ["WR"] * 3
-    + ["TE"]
-    + ["FLEX"] * 2
-    + ["SUPER_FLEX"]
-    + ["K"]
-    + ["DL"] * 2
-    + ["LB"] * 2
-    + ["DB"] * 2
-)
+
+def _slots(te_count: int) -> list[str]:
+    """This league's lineup with ONLY the TE count parameterised.
+
+    The two arms must differ in exactly one slot or the comparison
+    measures something other than TE premium.  They are built from one
+    expression for that reason: the OLD arm used to be written out
+    longhand and carried ``DL 2 / LB 2 / DB 2`` against NEW's 3/3/3, so
+    it quietly dropped a slot at each IDP position too — the same wrong
+    2/2/2 table that was deleted from the frontend on 2026-07-30, and a
+    direct contradiction of this module's own docstring claim that the
+    vectors are "measured symmetrically".
+
+    The IDP slots do not compete with TE for a slot (the eligibility
+    pools are disjoint), so this does not move the measured ratio — but
+    "it happened not to matter" is not a reason to leave an asymmetry in
+    a symmetric measurement.
+    """
+    return (
+        ["QB"]
+        + ["RB"] * 2
+        + ["WR"] * 3
+        + ["TE"] * te_count
+        + ["FLEX"] * 2
+        + ["SUPER_FLEX"]
+        + ["K"]
+        + ["DL"] * 3
+        + ["LB"] * 3
+        + ["DB"] * 3
+    )
+
+
+NEW = _slots(2)  # our league: 2 TE
+OLD = _slots(1)  # 1-TE reference
 
 
 def base_pos(pid: str) -> str:

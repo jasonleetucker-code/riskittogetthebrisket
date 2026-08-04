@@ -210,28 +210,47 @@ def _classify_window(
     """Posture from current roster: contender / balanced / rebuilder.
 
     Heuristic:
-      contendIndex = top10 starter value share
-                   - (rookie pick share + young (<24) starter share)
+      contendIndex = top10 WIN-NOW value share
+                   - (rookie pick share + young (<24) player share)
+
+    "Win-now" means an asset that is neither a rookie pick nor a young
+    player — i.e. the ones that score points for you THIS season.  The
+    top-10 slice used to be taken over every asset, which counted the
+    future twice with opposite signs: a rebuilder whose ten most
+    valuable assets ARE first-round picks scored a near-1.0
+    ``top10_share`` and a near-1.0 ``pick_share``, the two cancelled,
+    and the engine called them "balanced".  Excluding picks and kids
+    from the positive term makes every dollar feed at most one side of
+    the subtraction, so a pick-stuffed roster reads as the rebuilder it
+    is.
+
+    Picks are also excluded from ``young_value`` — a pick row that
+    carries an ``age`` (defensive; they normally don't) would otherwise
+    be charged to the negative term twice.
     """
     threshold = float(config.get("windowFit", {}).get("contendIndexThreshold", 0.15))
     young_max = int(config.get("windowFit", {}).get("youngStarterMaxAge", 23))
 
+    def _is_pick(asset: dict[str, Any]) -> bool:
+        return (asset.get("assetClass") or "").lower() == "pick"
+
+    def _is_young(asset: dict[str, Any]) -> bool:
+        return isinstance(asset.get("age"), int) and asset["age"] <= young_max
+
     total_value = sum(int(a.get("value") or 0) for a in before_assets) or 1
-    by_value = sorted(before_assets, key=lambda a: int(a.get("value") or 0), reverse=True)
+
+    win_now = [a for a in before_assets if not _is_pick(a) and not _is_young(a)]
+    by_value = sorted(win_now, key=lambda a: int(a.get("value") or 0), reverse=True)
     top10_value = sum(int(a.get("value") or 0) for a in by_value[:10])
     top10_share = top10_value / total_value
 
-    pick_value = sum(
-        int(a.get("value") or 0)
-        for a in before_assets
-        if (a.get("assetClass") or "").lower() == "pick"
-    )
+    pick_value = sum(int(a.get("value") or 0) for a in before_assets if _is_pick(a))
     pick_share = pick_value / total_value
 
     young_value = sum(
         int(a.get("value") or 0)
         for a in before_assets
-        if isinstance(a.get("age"), int) and a["age"] <= young_max
+        if not _is_pick(a) and _is_young(a)
     )
     young_share = young_value / total_value
 

@@ -54,13 +54,33 @@ export default function RostersPage() {
   const sleeperTeams = rawData?.sleeper?.teams || [];
   const pickAliases = rawData?.pickAliases || null;
   const myTeam = settings.selectedTeam || "";
+  // The league's actual lineup slots, straight off the contract's
+  // leagueKey-stamped sleeper block.  This is what "Starters only"
+  // means — it is a per-league fact, not a constant, and the two live
+  // leagues run different lineups on the same scoring profile.
+  const rosterPositions = rawData?.sleeper?.rosterPositions || null;
 
   const playerMeta = useMemo(() => buildPlayerMetaMap(rows), [rows]);
 
   const teams = useMemo(
-    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, assetScope, pickAliases),
-    [sleeperTeams, playerMeta, rows, assetScope, pickAliases],
+    () =>
+      buildAllTeamSummaries(
+        sleeperTeams,
+        playerMeta,
+        rows,
+        assetScope,
+        pickAliases,
+        rosterPositions,
+      ),
+    [sleeperTeams, playerMeta, rows, assetScope, pickAliases, rosterPositions],
   );
+
+  // Say so rather than guessing a lineup.  This board ranks 12 teams
+  // against each other, so an invented slot table doesn't just shift
+  // the totals — it reorders the leaderboard, and nothing on screen
+  // would indicate the order came from a guess.
+  const starterSlotsUnavailable =
+    assetScope === "starters" && teams.some((t) => t.starterSlotsUnavailable);
 
   // Sort by active group totals
   const sortedTeams = useMemo(() => {
@@ -90,8 +110,8 @@ export default function RostersPage() {
   );
 
   const teamTiers = useMemo(
-    () => scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases),
-    [sleeperTeams, playerMeta, rows, pickAliases],
+    () => scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases, rosterPositions),
+    [sleeperTeams, playerMeta, rows, pickAliases, rosterPositions],
   );
 
   function toggleGroup(g) {
@@ -151,6 +171,20 @@ export default function RostersPage() {
         />
 
         <ValueBasisNote contract={rawData} />
+
+        {/* "Starters only" needs the league's lineup-slot array, and
+            there is no honest default for it: this board ranks every
+            team against every other, so a guessed slot table reorders
+            the leaderboard rather than merely shifting the totals.
+            Say what is missing instead. */}
+        {starterSlotsUnavailable && (
+          <p className="ds-value-basis-note starter-slots-unavailable" role="note">
+            <strong>Starter totals unavailable.</strong> This league&rsquo;s lineup
+            slots aren&rsquo;t in the current data, so there is no way to say which
+            players start. Switch to &ldquo;Players only&rdquo; or &ldquo;Players +
+            Picks&rdquo; for a complete comparison.
+          </p>
+        )}
 
         {/* Position filter — toggle chips.  The previous 13x13 native
             checkbox + 11px label was impossible to tap on mobile.

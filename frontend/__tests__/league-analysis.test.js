@@ -8,6 +8,7 @@ import {
   analyzeTradeTendencies,
   buildCombinedPairTrade,
   buildSleeperIdentityMaps,
+  scoreTeamTiers,
 } from "@/lib/league-analysis";
 
 // Fake dynasty rows — just enough to resolve a single player value so
@@ -590,5 +591,120 @@ describe("buildCombinedPairTrade — two-team net history", () => {
     expect(
       buildCombinedPairTrade(analysis, "Brent", "Roy", rawData, rows),
     ).toBeNull();
+  });
+});
+
+// ── Contender / rebuilder tiers ────────────────────────────────────────
+//
+// Regression pins for the math audit's H5(a): pick capital used to be
+// counted TWICE — once inside `depthValue` (which was
+// `totalValue − starterValue`, and totalValue includes picks) at +0.2,
+// and once in its own term at −0.1 — so every pick dollar was a NET
+// +0.1 REWARD under a docstring that called it a penalty.
+//
+// Numbers below are hand-computed from
+// `score = 0.7 × starterValue + 0.2 × depthValue − 0.1 × pickValue`.
+
+const tierRosterPositions = ["QB", "WR", "LB", "BN", "BN"];
+
+const tierPlayerMeta = {
+  "star qb": { name: "Star QB", pos: "QB", group: "QB", meta: 5000 },
+  "star wr": { name: "Star WR", pos: "WR", group: "WR", meta: 4000 },
+  "star lb": { name: "Star LB", pos: "LB", group: "LB", meta: 3000 },
+  "bench wr": { name: "Bench WR", pos: "WR", group: "WR", meta: 2000 },
+  "solid qb": { name: "Solid QB", pos: "QB", group: "QB", meta: 3000 },
+  "solid wr": { name: "Solid WR", pos: "WR", group: "WR", meta: 2000 },
+  "depth lb": { name: "Depth LB", pos: "LB", group: "LB", meta: 1000 },
+  "spare wr": { name: "Spare WR", pos: "WR", group: "WR", meta: 1500 },
+  "lone wr": { name: "Lone WR", pos: "WR", group: "WR", meta: 1000 },
+};
+
+// Six premium firsts at 8000 apiece — the pick-hoarding rebuilder's
+// entire portfolio.
+const tierPickNames = [
+  "2026 Early 1st",
+  "2026 Mid 1st",
+  "2026 Late 1st",
+  "2027 Early 1st",
+  "2027 Mid 1st",
+  "2027 Late 1st",
+];
+
+const tierRows = tierPickNames.map((name) => ({
+  name,
+  pos: "PICK",
+  values: { full: 8000, raw: 8000 },
+}));
+
+const tierTeams = [
+  {
+    name: "Win Now",
+    players: ["Star QB", "Star WR", "Star LB", "Bench WR"],
+    picks: [],
+  },
+  {
+    name: "Balanced",
+    players: ["Solid QB", "Solid WR", "Depth LB", "Spare WR"],
+    picks: [],
+  },
+  {
+    name: "Pick Hoard",
+    players: ["Lone WR"],
+    picks: tierPickNames,
+  },
+];
+
+function tiersByName() {
+  const out = {};
+  for (const t of scoreTeamTiers(
+    tierTeams,
+    tierPlayerMeta,
+    tierRows,
+    null,
+    tierRosterPositions,
+  )) {
+    out[t.name] = t;
+  }
+  return out;
+}
+
+describe("scoreTeamTiers", () => {
+  it("counts each roster dollar once — picks are NOT also depth", () => {
+    const hoard = tiersByName()["Pick Hoard"];
+    // 1000 (Lone WR) + 6 × 8000 picks.
+    expect(hoard.totalValue).toBe(49000);
+    expect(hoard.pickValue).toBe(48000);
+    // Lone WR fills the WR slot; QB and LB slots go unfilled.
+    expect(hoard.starterValue).toBe(1000);
+    // Everything else this team owns IS the picks, so nothing is left
+    // over as depth.  This read 48000 while picks lived inside depth.
+    expect(hoard.depthValue).toBe(0);
+    // 0.7 × 1000 − 0.1 × 48000 = 700 − 4800.
+    expect(hoard.score).toBe(-4100);
+  });
+
+  it("still counts non-starting PLAYERS as depth", () => {
+    const winNow = tiersByName()["Win Now"];
+    // Star QB/WR/LB start (12000); Bench WR is the only depth piece.
+    expect(winNow.starterValue).toBe(12000);
+    expect(winNow.depthValue).toBe(2000);
+    // 0.7 × 12000 + 0.2 × 2000 = 8400 + 400.
+    expect(winNow.score).toBe(8800);
+  });
+
+  it("tiers a pick-hoarding team as a rebuilder, not a mid-tier team", () => {
+    const tiers = tiersByName();
+    // Balanced: starters 3000+2000+1000 = 6000, depth 1500.
+    // 0.7 × 6000 + 0.2 × 1500 = 4200 + 300 = 4500.
+    expect(tiers["Balanced"].score).toBe(4500);
+    // With picks double-counted the hoarder scored 700 + 9600 − 4800 =
+    // 5500 and OUTRANKED Balanced, taking the mid-tier slot and pushing
+    // a deeper roster into the rebuilder bucket.
+    expect(tiers["Pick Hoard"].rank).toBe(3);
+    expect(tiers["Pick Hoard"].tier).toBe("rebuilder");
+    expect(tiers["Balanced"].rank).toBe(2);
+    expect(tiers["Balanced"].tier).toBe("middle");
+    expect(tiers["Win Now"].rank).toBe(1);
+    expect(tiers["Win Now"].tier).toBe("contender");
   });
 });

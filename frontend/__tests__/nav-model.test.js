@@ -18,6 +18,7 @@ import {
   systemItemsFor,
 } from "@/lib/nav-model";
 import { isPublicPath } from "@/lib/public-routes";
+import { CANON } from "./helpers/naming-canon.js";
 
 // Every user-facing route in frontend/app (excluding dynamic-only
 // public-league subroutes reached from the hub, the /login page, the
@@ -147,33 +148,14 @@ describe("naming canon", () => {
    * four "finder" labels.  These tests pin the resolved names; the
    * page <h1>s are asserted against the same strings in
    * __tests__/components/page-title-canon.test.jsx.
+   *
+   * The canon itself moved to __tests__/helpers/naming-canon.js on
+   * 2026-07-30.  It used to be a `const CANON` local to this file,
+   * which is how the sentence above came to describe a file that did
+   * not exist: nothing could import the canon, so the <h1> half was
+   * never written, and PR #625 renamed /trade's heading with no fast
+   * test objecting.  One definition, every consumer importing it.
    */
-  const CANON = {
-    "/rankings": "Rankings",
-    "/trending": "Trending",
-    "/idptc-rookies": "Rookie Board",
-    "/players/compare": "Compare Players",
-    "/bdvm": "Fundamental Values",
-    "/news": "News",
-    "/trade": "Trade Calculator",
-    "/angle": "Package Builder",
-    "/arbitrage": "Arbitrage",
-    "/trades": "Trade History",
-    "/rosters": "Team Strength",
-    "/waivers": "Waivers",
-    "/draft": "Draft Board",
-    "/phases": "Win-now vs Rebuild",
-    "/edge": "Source Disagreement",
-    // /intel retired into two products. It shipped Sharp Tracker's
-    // NAME on Insider Trading's COHORT; the split gives each its own
-    // route, and Sharp Tracker is deliberately not league-scoped.
-    "/market/sharp-tracker": "Sharp Tracker",
-    "/league/insider-trading": "Insider Trading",
-    "/league": "Hub",
-    "/league/activity": "Activity",
-    "/league-comparison": "Scoring Comparison",
-  };
-
   it("every canonical route carries its canonical label in the nav", () => {
     const byHref = new Map(flattenNav(NAV_MODEL).map((i) => [i.href, i.label]));
     for (const [href, label] of Object.entries(CANON)) {

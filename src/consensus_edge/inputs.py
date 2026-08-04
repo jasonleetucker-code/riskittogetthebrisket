@@ -1,0 +1,137 @@
+"""Resolve the board's optional inputs, in exactly one place.
+
+:func:`consensus_edge.service.build_board` takes three optional inputs —
+the sharp-money ledger, board rank history, and player context. Each is
+absent in some environments and present in others, and each degrades to
+``None`` rather than to a neutral zero.
+
+**Why this is a module and not two copies of three functions.** There
+are two callers: the API, which answers requests, and
+``scripts/snapshot_consensus_edge.py``, the daily job that records what
+the model actually said. The snapshot job passed *none* of the three, so
+the history it accrued was a board built from strictly less evidence
+than the one users were served — and the whole purpose of that history
+is to answer "was what we showed right". A recorded board that was never
+shown answers nothing. Worse, the discrepancy is invisible: both boards
+are well-formed, and the components the job dropped simply report
+themselves absent, which is a legitimate state.
+
+So the resolution lives here and both callers spend it whole. Adding a
+fourth input means adding it to :func:`resolve` and both callers get it.
+
+**Every resolver is total.** A missing file, a schema change, a locked
+database — all return ``None``. Consensus Edge degrades to "this
+component is dark" and never takes the board down with it.
+
+**``None`` and ``{}`` are different answers.** ``None`` is "we could not
+look"; ``{}`` is "we looked and found nothing". Only the second is a
+finding, so an unreadable or empty source returns ``None`` and the
+dependent component reports itself unavailable rather than neutral.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+# Days of board history the momentum-risk axis considers. Matches the
+# retention the snapshot log is written with.
+RANK_HISTORY_DAYS = 30
+
+
+def sharp_movements() -> dict[str, Any] | None:
+    """Qualified-manager trade movements, or None when there is no ledger.
+
+    Reads only; imports the ledger lazily so this module stays free of
+    ``src/intel`` at import time (PR #670 is rewriting that package).
+    """
+    try:
+        from src.consensus_edge import sharp_flow  # noqa: PLC0415
+        from src.intel import ledger  # noqa: PLC0415
+
+        path = ledger.default_path()
+        if not path.exists():
+            return None
+        with ledger.connect(path) as conn:
+            rows = conn.execute(
+                """
+                SELECT asset_id, action, user_id, league_id, ts
+                  FROM asset_movements
+                 WHERE tx_type = 'trade'
+                """
+            ).fetchall()
+    except Exception:  # noqa: BLE001 — a dark component must never 500 the board
+        return None
+
+    if not rows:
+        # The ledger exists but holds no trades. Still None: with zero
+        # observations every posterior is the prior, and reporting that
+        # as a measured neutral would be a finding we have not earned.
+        return None
+
+    return sharp_flow.movements_from_ledger_rows(
+        {
+            "asset_id": r[0],
+            "action": r[1],
+            "user_id": r[2],
+            "league_id": r[3],
+            "ts": r[4],
+        }
+        for r in rows
+    )
+
+
+def rank_history() -> dict[str, list[dict[str, Any]]] | None:
+    """Per-player board history, or None when the log is absent.
+
+    The log IS written in production on every fresh scrape
+    (``src/api/rank_history.py``); it simply never reached the board.
+    Absent outside production because ``data/`` is gitignored.
+
+    Keys are ``{canonicalName}::{assetClass}`` — see
+    ``service.rank_history_key``, which is the only correct way to index
+    this dict.
+    """
+    try:
+        from src.api import rank_history as rh  # noqa: PLC0415
+
+        history = rh.load_history(days=RANK_HISTORY_DAYS)
+    except Exception:  # noqa: BLE001 — same posture as the ledger
+        return None
+    return history or None
+
+
+def player_context(contract: dict[str, Any] | None) -> dict[str, dict[str, Any]] | None:
+    """Snap share and depth per board player, or None when there is none.
+
+    ``data/playerctx/snapshot.json`` is refreshed weekly in production by
+    an unconditional systemd timer and is gitignored, so this is
+    populated there and empty everywhere else.
+    """
+    if not contract:
+        return None
+    try:
+        from src.consensus_edge import identity_join  # noqa: PLC0415
+        from src.playerctx.service import load_playerctx  # noqa: PLC0415
+
+        snapshot = load_playerctx()
+        if not snapshot:
+            return None
+        joined = identity_join.player_context_index(contract, snapshot)
+    except Exception:  # noqa: BLE001 — same posture as the ledger
+        return None
+    return joined or None
+
+
+def resolve(contract: dict[str, Any] | None) -> dict[str, Any]:
+    """All three inputs, ready to splat into ``build_board``.
+
+    Returned as kwargs precisely so a caller cannot take two of the
+    three: ``build_board(contract, **resolve(contract))`` is the whole
+    calling convention, and a partially-fed board is what this module
+    exists to make impossible.
+    """
+    return {
+        "movements_by_asset": sharp_movements(),
+        "rank_history_by_player": rank_history(),
+        "player_context_by_player": player_context(contract),
+    }

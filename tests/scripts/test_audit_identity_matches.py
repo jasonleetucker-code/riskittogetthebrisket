@@ -177,4 +177,154 @@ class TestCommittedDataRegression:
         assert set(report["sources"]) == set(_SOURCE_CSV_PATHS)
         # The live board must never contain an alias-introduced
         # collision — the collision-delta invariant.
-        assert report["aliasCollisions"] == []
+        #
+        # Verified same-player pool duplicates are excluded, which is
+        # the carve-out `alias_collision_delta`'s docstring already
+        # described ("unless the pool genuinely contains one player
+        # twice") and the code did not implement until 2026-07-30.
+        # They are still reported and still printed in the summary;
+        # only the GATE ignores them. Every other collision fails, so
+        # this cannot quietly absorb a genuine WR-absorbs-CB merge.
+        unexpected = [c for c in report["aliasCollisions"] if not c.get("knownPoolDuplicate")]
+        assert unexpected == []
+
+    def test_gate_exits_zero_under_the_flag_ci_actually_passes(self, tmp_path):
+        """The CI invocation, verbatim — including ``--fail-on-collision``.
+
+        Every other end-to-end test here omits that flag, so none of them
+        exercised the GATE.  That gap is not hypothetical: the
+        ``_KNOWN_POOL_DUPLICATES`` carve-out landed on 2026-07-30 stamping
+        ``knownPoolDuplicate`` on the report while the gate ignored the
+        stamp, so the whole suite stayed green and
+        ``Audit Identity Matches`` went red on ``main`` anyway.  A test
+        that does not pass the flag cannot see that.
+        """
+        out = tmp_path / "report.json"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--json-path",
+                str(_latest_export()),
+                "--json",
+                str(out),
+                "--limit",
+                "10",
+                "--fail-on-collision",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO),
+            timeout=600,
+        )
+        assert proc.returncode == 0, (
+            "identity audit gate failed:\n" + proc.stdout[-3000:] + proc.stderr[-2000:]
+        )
+        # Allow-listed collisions stay VISIBLE — marked, not hidden.
+        report = json.loads(out.read_text(encoding="utf-8"))
+        known = [c for c in report["aliasCollisions"] if c.get("knownPoolDuplicate")]
+        if known:
+            assert "::notice title=Known pool duplicate" in proc.stdout
+            assert "::error title=Alias collision" not in proc.stdout
+
+    def test_gate_still_fails_on_a_collision_outside_the_allowlist(self, tmp_path):
+        """The exemption must not become a blanket pass.
+
+        Feeds a payload whose pool carries two genuinely different
+        players that an alias merges, with the name absent from
+        ``_KNOWN_POOL_DUPLICATES``.  Exit MUST be 1.
+        """
+        # The same cross-family pair the unit test above uses: an alias
+        # merges a WR and a CB onto one canonical name, which is the
+        # vote-replication hazard this gate exists for.
+        assert "michael jackson" not in _mod._KNOWN_POOL_DUPLICATES
+        payload = {
+            "players": {
+                "Michael Jackson": {"pos": "WR", "_finalAdjusted": 5000},
+                "Mike Jackson": {"pos": "CB", "_finalAdjusted": 4000},
+            }
+        }
+        payload_path = tmp_path / "payload.json"
+        payload_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--json-path",
+                str(payload_path),
+                "--json",
+                str(tmp_path / "r.json"),
+                "--limit",
+                "1",
+                "--fail-on-collision",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO),
+            timeout=600,
+        )
+        assert proc.returncode == 1, (
+            "an un-allow-listed cross-family collision did NOT fail the "
+            "gate:\n" + proc.stdout[-3000:]
+        )
+        assert "::error title=Alias collision" in proc.stdout
+
+    def test_the_allowlist_still_describes_the_aliases_it_exempts(self):
+        """An exemption must still match the alias table it was verified against.
+
+        This started life asserting that every allowlisted name is
+        colliding in the CURRENTLY COMMITTED pool, and that predicate
+        was wrong in the way ``docs/ORCHESTRATION.md`` §6.15 names: its
+        stated purpose ("a stale exemption silently covers whatever
+        normalizes to that name next") and its actual predicate did not
+        match.
+
+        The pool is refreshed from external sources every two hours.
+        "Robert Henry" entered ``CSVs/dynasty_full.csv`` on
+        2026-07-30T18:06Z and was gone again by 2026-07-31T04:09Z, so
+        the collision blinks in and out on a schedule nobody controls —
+        and this test failed CI on the second of those refreshes while
+        the exemption was still entirely correct.  Left as it was, the
+        pair would churn forever: drop the entry, next refresh
+        re-introduces the row, the GATE fails and opens an issue, re-add
+        the entry.
+
+        What actually justifies the exemption is committed code — the
+        ``robert henry -> rob henry`` alias, verified same player on both
+        sides.  An alias-introduced collision on name ``X`` is only
+        POSSIBLE while some entry in ``CANONICAL_NAME_ALIASES`` targets
+        ``X``, so that is the live/dead test.
+
+        It is also strictly stronger than what it replaces on the risk
+        that mattered.  The old check said nothing about WHICH names an
+        exemption covers, so a second alias pointing at "rob henry"
+        would have inherited the carve-out in silence — exactly the
+        widening it claimed to prevent.  Pinning the source set means
+        that new alias fails here and has to be verified on its own.
+        """
+        from scripts.audit_identity_matches import _KNOWN_POOL_DUPLICATES
+        from src.utils.name_clean import CANONICAL_NAME_ALIASES
+
+        actual: dict[str, set[str]] = {}
+        for source, target in CANONICAL_NAME_ALIASES.items():
+            if target in _KNOWN_POOL_DUPLICATES:
+                actual.setdefault(target, set()).add(source)
+
+        drift = {
+            name: {
+                "verified": sorted(verified),
+                "aliasTableNow": sorted(actual.get(name, set())),
+            }
+            for name, verified in _KNOWN_POOL_DUPLICATES.items()
+            if actual.get(name, set()) != set(verified)
+        }
+        assert drift == {}, (
+            "_KNOWN_POOL_DUPLICATES no longer describes the alias table.\n"
+            f"{json.dumps(drift, indent=2)}\n"
+            "An empty 'aliasTableNow' means nothing can route into that "
+            "name any more — the exemption is dead weight, drop it. A "
+            "LARGER set means a new alias inherited a carve-out it was "
+            "never verified for: check it is the same player, then widen "
+            "the entry deliberately."
+        )

@@ -25,6 +25,7 @@ from typing import Any, Iterable, Mapping
 from dataclasses import replace as _dc_replace
 
 from src.bdvm import MODEL_VERSION
+from src.bdvm.actuals import nfl_projection_season
 from src.bdvm.context import PlayerContext
 from src.bdvm.curves import compute_kappa
 from src.bdvm.engine import DynastyEngine, PlayerInput, Valuation
@@ -254,7 +255,21 @@ def run_valuation(
     """
     params = params or load_param_set()
     as_of = _utc_now_iso()
-    season = int(season or contract.get("currentDraftYear") or datetime.now(timezone.utc).year)
+    # ``season`` is the NFL SEASON these projections describe — the
+    # snapshot to load, the events file to read, the season ages and
+    # nfl_season are measured at, and the season the §8.4 actuals
+    # posterior blends into.  It is NOT the contract's
+    # ``currentDraftYear``, which is the upcoming ROOKIE-DRAFT year and
+    # rolls to calendar+1 in May: from then through January the two name
+    # different seasons, and using the draft year would have looked up
+    # next season's (nonexistent) snapshot while blending this season's
+    # realized points into it.  Both are stamped in meta.
+    season = int(season) if season is not None else nfl_projection_season()
+    rookie_draft_year = contract.get("currentDraftYear")
+    try:
+        rookie_draft_year = int(rookie_draft_year) if rookie_draft_year is not None else None
+    except (TypeError, ValueError):
+        rookie_draft_year = None
 
     waiver_cfg = params["replacement"]
     cfg = from_contract(
@@ -275,7 +290,8 @@ def run_valuation(
         "configHash": cfg.config_hash,
         "configSource": cfg.source,
         "asOf": as_of,
-        "season": season,
+        "season": season,  # NFL season the projections describe
+        "rookieDraftYear": rookie_draft_year,  # contract's upcoming rookie draft
         "surplusMode": surplus_mode,
         "contractGeneratedAt": contract.get("generatedAt"),
         "marketReadAfterFundamental": True,
@@ -469,6 +485,16 @@ def run_valuation(
         except LeagueConfigError:
             unpriced.append({"name": display, "reason": "no_lineup_group", "position": position})
             continue
+        if not repl.has_replacement(grp):
+            # No measurable replacement level for this group (no projected
+            # pool, or a replacement rank past the end of one).  R is the
+            # ORIGIN of the value scale, so pricing this player anyway
+            # would hand back his entire FPG as surplus in a payload that
+            # looks exactly like a real one — §6.3 says say so instead.
+            unpriced.append(
+                {"name": display, "reason": "no_replacement_level", "position": position}
+            )
+            continue
         mean, stdev = group_stats.get(grp, (blended.mu_fpg, 1.0))
         production_z = max(-2.0, min(2.0, (blended.mu_fpg - mean) / stdev))
         risk = _risk_profile_for_row(row, modelling_pos, production_z, any_proxy=blended.any_proxy)
@@ -619,6 +645,10 @@ def run_valuation(
         }
         if parsed is not None:
             overall_slot, pick_year = parsed
+            # Measured against the NFL SEASON, not the rookie-draft year:
+            # a 2027 pick's class plays the 2027 season, so during the
+            # 2026 season it is one season of discounting away.  (The two
+            # agree before the draft-year roll and diverge after it.)
             years_out = max(0, pick_year - season)
             entry.update(
                 {

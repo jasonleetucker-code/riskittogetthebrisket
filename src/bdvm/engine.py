@@ -110,6 +110,7 @@ class DynastyEngine:
         names = params.strategy_names()
         self.anchors: dict[str, float] = dict(anchors) if anchors else {k: 1.0 for k in names}
         self._gamma = float(params["scale"]["stud_gamma"])
+        self._value_max = float(params["scale"]["trade_value_max"])
         self._lambda_disp = float(params["risk_lambda_dispersion_coeff"])
 
     # ------------------------------------------------------------------
@@ -170,13 +171,22 @@ class DynastyEngine:
                     + float(games_cfg["future_games_durability_coeff"]) * p.risk.durability
                 )
             )
+            # Quantile paths shift the season's MEAN by z·σ and then price
+            # the same surplus functional the expected path uses.  They used
+            # to switch to truncated surplus (max(0, µ_z − R)·G) on the
+            # reading that a quantile outcome is "pinned", but that made the
+            # band a different quantity from the median it brackets:
+            # E[max(0, X−R)] ≥ max(0, E[X]−R) by Jensen, so a high-σ player
+            # near replacement got a p85 CEILING below his median — measured
+            # floor 0 / median 41 / ceiling 0 (audit H6).  Sharing the
+            # functional makes the band monotone by construction: σ, games
+            # and survival do not depend on z, so ssv is non-decreasing in
+            # µ_eval, the discounted sum has non-negative weights, Ψ is
+            # identical across the three paths, and to_trade_value is
+            # monotone — floor ≤ median ≤ ceiling falls out, it is not
+            # clamped in afterwards.
             mu_eval = mu + mu_shift_z * sigma
-            if mu_shift_z == 0.0:
-                ssv = season_starter_value(mu, sigma, R, games, mode=self.surplus_mode)
-            else:
-                # Quantile path: the outcome is pinned at the quantile, so
-                # the surplus is the truncated difference at that outcome.
-                ssv = max(0.0, mu_eval - R) * games
+            ssv = season_starter_value(mu_eval, sigma, R, games, mode=self.surplus_mode)
             if t > 0:
                 h = hazard(self.params, pos, age_t, p.risk, dc_decay)
                 if p.event_hazard_mult != 1.0:
@@ -242,8 +252,25 @@ class DynastyEngine:
         }
 
     def to_trade_value(self, v: float, strategy: str) -> float:
+        """DV → the bounded 0-``trade_value_max`` display scale.
+
+        The cap is enforced HERE, on the transform, rather than on any
+        one output: every number the engine puts on the 0-10000 scale —
+        the per-strategy trade values AND the floor/median/ceiling band —
+        leaves through this function, so this is the only place that
+        makes ``scale.trade_value_max`` mean anything (before this it had
+        exactly one reference in the repo: its own declaration).
+
+        Capping the transform is deliberately NOT the same as capping the
+        display: ``calibrate`` solves the anchors on raw DV and never
+        calls this function, so the cap bounds outputs without touching
+        the calibration target.  ``target_top_value`` (9800) sits below
+        the cap by design, which is what keeps the board itself
+        uncapped-in-practice — only paths that ran off the top of the
+        scale (p85 ceilings measured near 20k) are clipped.
+        """
         anchor = self.anchors.get(strategy, 1.0)
-        return 10000.0 * ((max(0.0, v) / anchor) ** self._gamma)
+        return min(self._value_max, 10000.0 * ((max(0.0, v) / anchor) ** self._gamma))
 
     # ------------------------------------------------------------------
     def value(self, p: PlayerInput) -> Valuation:
@@ -352,9 +379,16 @@ class DynastyEngine:
         """Floor/median/ceiling on the trade-value scale.
 
         Approximation (documented): quantile paths shift every season's
-        outcome by the same z — i.e. perfectly correlated seasons — which
+        mean by the same z — i.e. perfectly correlated seasons — which
         widens the band vs. independent draws.  Honest until the Phase-10
-        simulation replaces it.
+        simulation replaces it.  (Ψ, the dispersion the risk penalty in
+        ``_discounted_value`` reads, assumes the opposite — independent
+        seasons.  The two risk representations do not agree; see the
+        "known divergences" section of the BDVM implementation report.)
+
+        The ordering floor ≤ median ≤ ceiling holds by construction —
+        see the monotonicity argument in ``season_path`` — and is pinned
+        by ``tests/bdvm/test_dynasty_math.py``.
         """
         st = self.params.strategy("balanced")
         horizon = int(st["horizon"])

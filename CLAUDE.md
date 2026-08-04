@@ -270,9 +270,38 @@ in new code.
 ## Architecture Concepts
 
 ### Frontend Runtime
-Next.js is the sole production frontend. `FRONTEND_RUNTIME` is hardcoded to `next` in server.py — all page routes proxy to Next.js at port 3000. Returns 503 if Next is down; there is no Static fallback.
+Next.js is the sole production frontend, and since 2026-07-31 (#555) it is
+the **only** thing that serves a page. `server.py` registers no page routes
+at all: `/`, `/rankings`, `/league`, `/_next/*`, `/favicon.ico` and the
+catch-all `@app.get("/{full_path:path}")` are gone, along with `_proxy_next`,
+`_serve_app_shell`, `_require_auth_or_redirect` and `_auth_redirect_response`.
+A page path requested from `:8000` now returns a JSON **404**.
 
-Production deployment requires both `dynasty.service` (backend) and `dynasty-frontend.service` (Next.js) running.
+This matches what production already did — `deploy/nginx/chaseupside-proxy.conf`
+routes `location /` to the Next upstream and only `location /api/` reaches the
+backend, so FastAPI never saw a page request. What the proxy did serve was a
+*divergent* copy: it took a path string rather than a `Request`, so it
+structurally could not forward cookies or the query string, and after
+`frontend/middleware.js` landed it returned **200 carrying the login page body**
+for an authenticated session. Two definitions of the page auth gate that had to
+be kept in sync is what produced the incident `middleware.js` was written for.
+There is now one, in Next.
+
+**`frontend/middleware.js` + `frontend/lib/public-routes.js` are the only page
+auth gate.** Adding a private page means adding it there; there is no backend
+half to update. Anonymous access to a private page is a Next **307** to
+`/login?next=…`, not the old backend 302.
+
+`FRONTEND_RUNTIME` and `FRONTEND_URL` no longer exist in `server.py` — both
+described this process's relationship with Next, and it has none.
+
+Production deployment still requires both `dynasty.service` (backend) and
+`dynasty-frontend.service` (Next.js) running: nginx needs the Next upstream.
+
+E2E note: page navigations go through `pageUrl()` (`E2E_PAGE_ORIGIN`, :3000)
+while `baseURL` stays :8000 for the API. Do **not** move `baseURL` to :3000 —
+session minting posts to `${baseURL}/api/test/create-session` and there is no
+Next bridge route for `/api/test`.
 
 ### Live Value Pipeline
 The live ``/api/data`` contract is produced by
@@ -846,9 +875,13 @@ Key variables (see `.env.example` for full list):
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `FRONTEND_RUNTIME` | `next` (hardcoded) | `next` |
-| `FRONTEND_URL` | Next.js dev server URL | `http://127.0.0.1:3000` |
 | `SLEEPER_LEAGUE_ID` | Primary Sleeper league | -- |
+| `BACKEND_API_URL` | Backend origin for the Next bridge routes | `http://127.0.0.1:8000` |
+
+`FRONTEND_RUNTIME` and `FRONTEND_URL` were removed from `server.py` with the
+page proxy (#555). The backend no longer talks to Next, so Next's location is
+nginx's business; `BACKEND_API_URL` is the surviving direction of that link,
+read by the Next bridge routes.
 
 ## Safety
 

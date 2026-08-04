@@ -10,9 +10,9 @@ Two assignment sources, layered in this priority:
 
   2. **Roster-based correlation** — score every (fantasy team,
      NFL team) pair using a tiered point model that rewards
-     starting QBs, skill-position starters/committee backs, elite
-     production, rookie draft capital, and IDP starters.  NFL teams
-     scoring ≥ ``assignmentMinPoints`` (default 15) qualify.
+     starting QBs, skill-position starters/committee backs, rookie
+     draft capital, and IDP starters.  NFL teams scoring ≥
+     ``assignmentMinPoints`` (default 15) qualify.
 
 Each fantasy team gets at most ``maxTeamsPerOwner`` (default 3) NFL
 teams.  Favorite always counts toward the cap.  When more teams
@@ -78,26 +78,26 @@ _CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "team_assignment
 _DEFAULT_CONFIG: dict[str, Any] = {
     "favorites": {},
     "displayNameAliases": {},
+    # Every weight here is read by ``_score_player``.  The set used to
+    # be larger — ``eliteProductionTop10``/``Top24`` and ``idpElite``
+    # were declared but the first two paid for a signal the tier above
+    # had already paid for (see the T3 note in ``_score_player``) and
+    # the third was never read at all.  A declared-but-unread knob is
+    # worse than no knob: editing it looks like it does something.
     "weights": {
         "qbAnchor": 10,
         "skillStarter": 5,
         "skillCommittee": 2,
-        "eliteProductionTop10": 5,
-        "eliteProductionTop24": 3,
         "rookieRound1": 4,
         "rookieRound2": 2,
-        "idpElite": 4,
         "idpStarter": 2,
     },
+    # Likewise the ``*Rank`` thresholds: they described a
+    # position-rank model this module never had the data for, and
+    # nothing read them.  Starter status comes from Sleeper's
+    # ``depth_chart_order``, which needs no threshold.
     "thresholds": {
         "assignmentMinPoints": 15,
-        "eliteProductionTop10Rank": 10,
-        "eliteProductionTop24Rank": 24,
-        "qbStarterPositionRank": 32,
-        "skillStarterPositionRank": 24,
-        "skillCommitteePositionRank": 60,
-        "idpEliteSourcesPositionRank": 12,
-        "idpStarterPositionRank": 36,
     },
     "limits": {
         "maxTeamsPerOwner": 3,
@@ -171,8 +171,8 @@ def _resolve_favorite_key(
 
 def _normalize_position(raw: str) -> str:
     """Uppercase + canonical alias fold (DE/DT → DL family kept as
-    raw codes; we don't collapse here because the position-rank
-    thresholds use the canonical Sleeper code).
+    raw codes; we don't collapse here because ``_IDP_POSITIONS`` and
+    ``_SKILL_POSITIONS`` are keyed on the canonical Sleeper code).
     """
     return str(raw or "").strip().upper()
 
@@ -210,37 +210,6 @@ def _draft_round(meta: dict[str, Any]) -> int | None:
     return n if isinstance(n, int) and n > 0 else None
 
 
-def _build_position_ranks(
-    snapshot: PublicLeagueSnapshot,
-) -> dict[tuple[str, str], int]:
-    """Build a ``{(nflTeam, position): depth_chart_order}`` map.
-
-    Sleeper's player record carries ``depth_chart_order`` (1 = team's
-    primary at that position, 2 = backup, …).  When missing, the
-    caller falls through to position-rank heuristics elsewhere.
-    """
-    out: dict[tuple[str, str], int] = {}
-    for pid, meta in snapshot.nfl_players.items():
-        if not isinstance(meta, dict):
-            continue
-        team = str(meta.get("team") or "").upper()
-        pos = _normalize_position(meta.get("position"))
-        if not team or not pos:
-            continue
-        order = meta.get("depth_chart_order")
-        try:
-            order_n = int(order) if order is not None else None
-        except (TypeError, ValueError):
-            order_n = None
-        if order_n is None or order_n <= 0:
-            continue
-        # Track the BEST (lowest) order we've seen for this team+pos.
-        prev = out.get((team, pos))
-        if prev is None or order_n < prev:
-            out[(team, pos)] = order_n
-    return out
-
-
 def _score_player(
     meta: dict[str, Any],
     *,
@@ -252,15 +221,24 @@ def _score_player(
     ``{points, reason}`` dicts so the debug UI can show the
     breakdown.
 
-    All scoring rules layer additively:
+    All scoring rules layer additively, and each one pays for a
+    DISTINCT signal:
       - QB anchor (T1): primary depth-chart QB → +qbAnchor
       - Skill starter / committee (T2): RB/WR/TE
-      - Elite production (T3): top-N at position by depth-chart proxy
       - Rookie capital (T4): NFL draft round 1 / 2
       - IDP starter (T5): depth-chart-based, only when league has IDP
+
+    There is no T3.  It was an "elite production" tier that fired on
+    ``depth_order == 1`` for QB/RB/WR/TE — the exact condition T1 and
+    T2 already pay for — so being primary on the depth chart scored
+    twice: a starting RB was worth 8 points where the config reads 5,
+    and a starting QB 13 where it reads 10.  Its own comment called it
+    a "stand-in" for a top-10/top-24 list, and a stand-in for a signal
+    we already have is a double-count, not a proxy.  Reinstating an
+    elite tier needs a genuinely independent input (projections, or
+    ``canonicalConsensusRank``) — not another read of depth order.
     """
     weights = config["weights"]
-    thresholds = config["thresholds"]
     pos = _normalize_position(meta.get("position"))
     if not pos:
         return 0, []
@@ -295,21 +273,6 @@ def _score_player(
             contributors.append({"points": pts, "reason": f"{pos} committee"})
         # depth_order >= 4 → 0 (bench / camp body)
 
-    # T3 — Elite production.  Use depth-chart order as a stand-in
-    # for "elite at position" (real top-10/top-24 lists would need
-    # external projections data we don't carry in this snapshot).
-    # The thresholds in config are documented as position-rank-based
-    # so a future drop-in of canonicalConsensusRank can swap this
-    # branch without touching the rest of the formula.
-    if depth_order == 1 and pos in (_SKILL_POSITIONS | {"QB"}):
-        # Primary at a fantasy-relevant position is a reasonable
-        # proxy for "this is one of the best at their position."
-        pts = int(weights["eliteProductionTop24"])
-        points += pts
-        contributors.append(
-            {"points": pts, "reason": f"Top {pos} at {meta.get('team', 'NFL team')}"}
-        )
-
     # T4 — Rookie capital.
     if _is_rookie(meta):
         rd = _draft_round(meta)
@@ -328,7 +291,9 @@ def _score_player(
             pts = int(weights["idpStarter"])
             points += pts
             contributors.append({"points": pts, "reason": f"IDP {pos} starter"})
-        # Elite IDP would need projection data; left as future hook.
+        # An elite-IDP tier would need projection data we don't carry.
+        # Its ``idpElite`` weight was removed from the config rather
+        # than left sitting there unread.
 
     return points, contributors
 

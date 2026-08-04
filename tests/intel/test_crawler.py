@@ -352,11 +352,13 @@ class TestPickHoldings:
         assert len(out6["1"]) == 18  # clamped to 6 rounds
 
     def test_crawl_folds_pick_holdings_into_member_holdings(self):
-        from datetime import datetime, timezone
+        from src.intel import service
 
-        from src.intel import aggregate
-
-        now_year = datetime.fromtimestamp(NOW_MS / 1000, tz=timezone.utc).year
+        # D9: the pick horizon anchors on the LEAGUE'S SEASON, not the
+        # wall clock — Sleeper rolls a league over around Aug/Sept, so
+        # the two disagree for most of the calendar.  make_league's
+        # default season is what the crawl will use.
+        now_year = int(make_league("x")["season"])
         league = make_league("L1")
         league["settings"] = {"draft_rounds": 2}
         responses = _base_responses()
@@ -381,15 +383,16 @@ class TestPickHoldings:
         assert holdings["A"].count(f"pick:{now_year}:1") == 2  # own + acquired
         assert f"pick:{now_year}:2" in holdings["A"]
 
-        # Drill-down join: the pick asset now has a real held count.
-        exposure = aggregate.build_member_exposure(
-            result.state["events"],
-            aggregate.holdings_from_state(result.state),
-            f"pick:{now_year}:1",
-            NOW_MS,
-        )
-        assert exposure[0]["ownerId"] == "A"
-        assert exposure[0]["heldLeagueCount"] == 1
+        # Drill-down join: the pick asset resolves to a real held count.
+        # (``holdings_from_state`` moved to service.py when aggregate.py
+        # was retired; the join it feeds is the same one.)
+        by_league = service.holdings_from_state(result.state)
+        held_leagues = {
+            lid
+            for lid, by_owner in by_league.items()
+            if f"pick:{now_year}:1" in (by_owner.get("A") or [])
+        }
+        assert held_leagues == {"L1"}
 
     def test_multiple_same_round_picks_produce_distinct_events(self):
         # One trade sends manager A TWO 2027 2nds (different original
@@ -427,9 +430,11 @@ class TestPickHoldings:
         assert len({e["eventId"] for e in events}) == 4
 
     def test_traded_picks_failure_never_fabricates_defaults(self):
-        from datetime import datetime, timezone
-
-        now_year = datetime.fromtimestamp(NOW_MS / 1000, tz=timezone.utc).year
+        # D9: the pick horizon anchors on the LEAGUE'S SEASON, not the
+        # wall clock — Sleeper rolls a league over around Aug/Sept, so
+        # the two disagree for most of the calendar.  make_league's
+        # default season is what the crawl will use.
+        now_year = int(make_league("x")["season"])
         league = make_league("L1")
         league["settings"] = {"draft_rounds": 1}
         responses = _base_responses()

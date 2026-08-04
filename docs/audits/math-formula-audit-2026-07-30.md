@@ -47,9 +47,11 @@ what their labels claimed.
 | Duplicate implementations found | 11 concepts with >1 implementation; 5 legitimately different, 6 accidental |
 | Value-moving corrections | 2 (both measured on the real board; see §8) |
 | Corrections with zero board movement | most — the majority of defects were downstream of the board, not in it |
-| Tests added | 49 backend + 42 frontend, all failing-before / passing-after |
-| Open decisions recorded, not forced | 3 (§9) |
+| Tests added | ~516 backend + ~180 frontend cases, all failing-before / passing-after |
+| Open decisions recorded, not forced | 5 (§9) |
 | Findings **refuted** on verification | 3 (§4.4) — recorded so nobody re-raises them |
+| Fixes **rejected after measurement** | 1 (C4's rank-space alternative), recorded with its numbers |
+| Defects found but deliberately NOT fixed | 3 — `_PERCENTILE_REFERENCE_N` (§9 U1), BDVM's spec-faithful risk double-count (M5), the scraper's `_market_confidence` divisor (known debt D15) |
 
 ### Highest-risk problems found
 
@@ -301,14 +303,16 @@ depthValue`); `team_assignment.py:286-311` pays the same depth-chart signal twic
 
 **H6 — BDVM's declared value ceiling was decorative** · `trade_value_max: 10000.0`
 had exactly one reference in the repo: its own declaration. Measured p85 ceilings
-of **19,736** and **21,997**, and the band could invert (ceiling < median).
+of **19,736** and **21,997**, and the band could invert (ceiling < median). *The
+engine now reads the declared cap and the band is monotone by construction.*
 
 **H7 — BDVM replacement level silently became 0.0** · three routes to `R = 0`,
 which makes every player's surplus their entire FPG — the value scale's origin
-collapses.
+collapses. *Missing data now returns an explicit unpriced reason, following the
+module's own existing policy rather than imputing a normal-looking zero.*
 
 **H8 — the trade simulator's verdict is VA-blind** while the trade meter beside it
-is not, so the same trade shows two different equity numbers.
+is not, so the same trade shows two different equity numbers. *Recorded; see §9.*
 
 ### 4.3 Medium and low
 
@@ -343,9 +347,49 @@ scheme (career-to-date PPG, season recent form, single-week all-play) and mixes
 two metric types, while its docstring and served `methodology` string both say
 "season-to-date".
 
-**M5-M8** — BDVM double-counted risk aversion and consolidation; BDVM's `season`
-conflates the rookie-draft year with the NFL season (latent, see §9); BDVM dead
-knobs and unreachable signal states; the scraper's second math stack.
+**M5 — BDVM double-counts risk aversion and consolidation.** The p20/p85 quantile
+paths already *are* the downside/upside, then `_discounted_value` subtracts
+`λ·0.35·Ψ` again — measured 6.7% (balanced) to 14.2% (contender) over-penalty,
+and the rebuilder's "floor" is *raised* 9.3% above its own p20 path. Separately Ψ
+assumes independent seasons while the quantile band shifts every season by the
+same `z` — measured **2.39×** apart inside one `Valuation`. **Deliberately not
+changed:** it is spec-faithful, so changing it breaks Appendix-C parity.
+Documented in `docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md` with the measured
+numbers.
+
+**M6 — BDVM's `season` conflated the rookie-draft year with the NFL season.**
+Latent today (§4.4). *Corrected:* a dedicated `nfl_projection_season()` now
+resolves the projection season, and it agrees with the actuals season by
+construction — the two concepts are stamped separately (`meta.season` vs
+`meta.rookieDraftYear`) so they can never silently diverge again.
+
+**M7 — BDVM dead knobs and unreachable states.** `STRONG_BUY` required a
+`gap_persisted_days` the caller never passed, so it could never fire while
+`ACTIONABLE_BDVM_SIGNALS` listed it; `STRONG_SELL` fired at `alpha = −1` with no
+magnitude floor; rookie-pick EV was **flat past overall slot 36** (every pick from
+3.12 on priced identically); and liquidity *rose* with cross-source disagreement
+while `τ_market` *fell* with it — the same input meaning opposite things in one
+function. *Corrected:* dispersion now subtracts in both places (`base` retuned to
+1.0 so a typical row lands where it did before), the signal ladder is reachable
+and magnitude-gated, and the pick table extrapolates past its last slot.
+
+**M8 — the scraper's second math stack.** *Corrected:* `_rank_percentile`'s two
+"no information" branches returned opposite ends of the scale (1.0 for empty, 0.0
+for a single element) and now both return 0.5; `_build_idp_anchor_points` no
+longer pads with repeated trailing values, so the tail extrapolation has a real
+slope instead of a flat one (rank 96 and rank 300 no longer price identically);
+`SITE_WEIGHTS` is renamed `LEGACY_COMPOSITE_SITE_WEIGHTS` so it cannot be mistaken
+for the blend weights (its *values* are deliberately unchanged — moving them would
+shift the composite with no evidence); and the elite-separation boost now reads
+the **post-trim** population it multiplies rather than the untrimmed one, so an
+observation already discarded from the value can no longer veto a boost the
+survivors earned. `_market_confidence`'s 8.0 divisor is **deliberately left**
+(known debt D15, measured and deferred in `docs/open-modeling-decisions.md` §3).
+
+**Note on measuring M8:** the scraper is not imported by the contract builder, so
+these changes cannot move a board rebuilt from an existing export — their effect
+lands on the next scrape. That is why they carry unit tests
+(`tests/pool/test_scraper_composite_math.py`) rather than a board diff.
 
 **Low tier** (~20): pick-round fallback to round **1** instead of the worst round;
 a `source_weights` block whose second loop has no body; a tier map zipped by index
@@ -453,20 +497,32 @@ to produce its own expected value. Expected numbers are hand-computed or
 re-derived from the committed constants. A test that uses the implementation for
 both sides proves nothing.
 
-**Results**
+**Results** (after merging `origin/main`, which advanced 20+ commits during the audit)
 
 ```
 python -m pytest tests/ -q
-  5597 passed, 25 skipped, 1 failed        (baseline: 5548 passed, 1 failed)
+  6064 passed, 39 skipped, 0 failed        (baseline: 5548 passed, 1 failed)
 
 cd frontend && npx vitest run
-  90 files, 1568 passed                    (baseline: 89 files, 1526 passed)
+  101 files, 1706 passed                   (baseline: 89 files, 1526 passed)
 ```
 
-The single failure is **pre-existing and environmental**:
-`test_faab_recommend_endpoint.py::test_matching_league_snapshot_consumed_normally`
-asserts a fixture stamped `2026-07-25` is not stale, and this container's data is
-now 122h old. It failed identically on the untouched baseline.
+Fully green. The one baseline failure
+(`test_faab_recommend_endpoint.py::test_matching_league_snapshot_consumed_normally`,
+a staleness fixture asserted against a container clock 122h ahead of the data)
+was resolved by the data refresh that arrived with the merge — it was never a
+code defect.
+
+**A note on the merge.** `main` moved while this audit ran, and one of its commits
+(PR #697, "Consensus Edge") **independently fixed C2** by deleting
+`src/intel/aggregate.py` outright and restructuring the intel module to
+per-window indexed queries. That resolution is more thorough than this audit's —
+it removes the summed-window metric rather than merely un-ranking by it — so the
+merge deferred to it wholesale. `scoreTeamTiers` needed a genuine three-way
+resolution: `main` fixed a *different* defect in the same function (starter value
+was the top 10 offensive players, which reads a defense-heavy contender as a
+rebuilder in a 9-IDP league) while this audit fixed the pick double-count. Both
+corrections are live; neither was dropped.
 
 ---
 
