@@ -12,27 +12,37 @@ activity = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(activity)
 
 
-def test_qualified_sleeper_ids_excludes_other_platforms_and_unqualified(monkeypatch):
-    records = [SimpleNamespace(user_id="sleeper:one"), SimpleNamespace(user_id="ffpc:two")]
-    scores = [
-        SimpleNamespace(user_id="sleeper:one", evaluable=True, qualified=True),
-        SimpleNamespace(user_id="sleeper:no", evaluable=True, qualified=False),
-        SimpleNamespace(user_id="ffpc:two", evaluable=True, qualified=True),
+def test_qualified_sleeper_ids_selects_from_the_shared_cohort(monkeypatch):
+    """The activity crawl selects from the ONE cohort, not its own copy.
+
+    It used to re-derive the pool here — ``build_manager_records`` then
+    ``score_managers`` then filter on ``qualified`` — which meant a
+    change to qualification moved the Sharp boards while the crawl that
+    feeds them kept selecting the old set. The selection now comes from
+    ``src/sharp/cohort.py``, so this test patches that seam and asserts
+    only what the function still does itself: keep the Sleeper accounts.
+    """
+    members = [
+        SimpleNamespace(manager_key="sleeper:one"),
+        SimpleNamespace(manager_key="ffpc:two"),
     ]
-    monkeypatch.setattr(
-        activity.platform_records, "build_manager_records", lambda: (records, {"a": 1})
-    )
-    monkeypatch.setattr(activity.sharp_score, "score_managers", lambda _records: scores)
+    captured = {}
+
+    def fake_cohort_members(**kwargs):
+        captured.update(kwargs)
+        return members, {"evidenceManagers": 1}
+
+    monkeypatch.setattr(activity.sharp_cohort, "cohort_members", fake_cohort_members)
     monkeypatch.setattr(activity.sharp_score, "methodology_version", lambda: "sharp-v2")
 
     manager_ids, summary = activity.qualified_sleeper_ids()
 
     assert manager_ids == ["one"]
+    # Curated and provisional members are FFPC-only; this pass crawls Sleeper.
+    assert captured == {"qualification": "automated"}
     assert summary == {
         "methodologyVersion": "sharp-v2",
-        "managerRecords": 2,
         "evidenceManagers": 1,
-        "evaluableManagers": 3,
         "qualifiedManagers": 2,
         "qualifiedSleeperManagers": 1,
     }

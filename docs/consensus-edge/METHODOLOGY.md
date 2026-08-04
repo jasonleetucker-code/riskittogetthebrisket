@@ -1,21 +1,33 @@
 # Consensus Edge — methodology
 
-**Status:** shipped behind the `consensus_edge` feature flag, which
-defaults **ON** as of 2026-08-04 — on evidence, not on time passing.
-The flag was held off while the composite rested on one measured
-component and two declared priors; what changed is that the other two
-were measured (one returned a null and was zeroed) and the board a user
-actually sees was scored, not just the ranking inside it. See "What
-happens if you follow the board" below, and ADR-013 / ADR-017.
+**Status:** built, wired end to end, and behind the `consensus_edge`
+feature flag, which defaults **OFF**.
 
-Market Mispricing has a positive out-of-sample result and is the only
-component that moves a score.
-Opportunity has an out-of-sample result too — a **null**, so its weight
-is zero. Sharp Flow has none and cannot get one until `src/sharp/` can
-freeze its cohort as-of a date. Every payload stamps `experimental:
-true` plus per-component `validated` / `measured` / `outcome` flags.
-Decisions and their reasoning live in `DECISIONS.md` beside this file;
-this page is the short version.
+It was ON for part of 2026-08-04, on a top-20 study returning +3.59%
+median cohort-excess. An independent audit then found that every IDP
+fair value in that study came from a leave-one-out board with no IDP
+backbone — numbers on no scale at all. With those rows refused and every
+measurement re-run, the same pre-registered gate returns **−1.01%,
+beating a random-20 draw in 0 of 6 folds**, so the flag went back OFF the
+same day. See "What happens if you follow the board" below, and
+ADR-021 / ADR-023.
+
+Nothing here is broken and nothing was deleted: `RISKIT_FEATURE_CONSENSUS_EDGE=1`
+plus a restart brings the page and endpoints back for evaluation. What
+is withdrawn is the claim that the board tells a user something a coin
+flip would not.
+
+**No component has a positive out-of-sample result.** Market Mispricing
+has a measured **null** (ρ +0.031 at 14d, beaten by a plain
+"buy cheap players" benchmark in 5 of 6 folds) and is the only component
+that moves a score. Opportunity has a null too, so its weight is zero.
+Sharp Flow has no result and cannot get one until `src/sharp/` can
+freeze its cohort as-of a date; its 0.3 is a declared prior. Every
+payload stamps `experimental: true` plus per-component `validated` /
+`measured` / `outcome` flags. Decisions and their reasoning live in
+`DECISIONS.md` beside this file; this page is the short version, and
+`AUDIT-2026-08-04.md` is the adversarial one — the status matrix, what
+is excluded and why, and what is NOT VERIFIABLE from this repository.
 
 ## The problem
 
@@ -41,6 +53,38 @@ correlated sources (`fantasyNavigatorSf` is KTC-derived — 440 rows), the
 KTC-built rookie ladder (already guarded upstream, now pinned), and the
 market-corridor clamp (101 IDP rows, mean shift 552). See ADR-002/3/4.
 
+**What the board refuses to price, and why.** Removing a source costs
+evidence; removing the source that *defines the scale* changes what the
+numbers mean, and the result still looks like an ordinary board. Two row
+classes were affected (ADR-021):
+
+- **IDP: no score at all.** `idpTradeCalc` — idptradecalculator.com — is
+  both the IDP market anchor and the only source that can build the
+  shared-market ladder, because it is the only registry key whose value
+  column spans offense *and* IDP (529 positive offense + 258 positive
+  IDP). Without it the three IDP-only boards (`dlfIdp`, `idpShow`,
+  `fantasyProsIdp`) lose their within-class-to-combined crosswalk and
+  vote as though IDP #1 were asset #1 — measured at 220 rows, median
+  1.224x, up to 3.48x. All 281 IDP rows come back unpriced with
+  `anchor_free_board_lost_idp_backbone`; their idptradecalculator.com
+  MARKET value is unaffected and still stamped. This lifts when a source
+  publishes offense and IDP in one value pool under one registry key —
+  **not** when a flag is set: promoting the other cross-market IDP
+  source yields an identity ladder and a bit-identical broken board
+  (ADR-025).
+- **Rookies whose ladder reference was the anchor: no score.** 75 rows,
+  `anchor_free_board_lost_rookie_ladder`. Rookies the affected sources
+  never ranked keep their score — the check is per row, against the
+  row's own votes.
+- **Picks: no score, permanently.** No retail source publishes a pick
+  market, so there is no price to call wrong (144 rows).
+
+Every wholly unscored class is counted in `assetClassCoverage` and named
+in `caveats`, because an offense-only buy list looks identical whether
+that is a decision or a broken join. What survives measures median
+0.992, p95 1.015, max 1.173 against the default board — one set of
+units.
+
 **Scoring** is `log(fair / market)`, then a robust z against a cohort of
 position family × value tier. A raw point gap cannot be ranked across a
 board — 500 points is noise on an elite QB and a doubling on a deep LB —
@@ -64,12 +108,23 @@ Non-overlapping folds only.
 
 | horizon | usable folds | mean rho | folds positive | beat market-value |
 |---|---|---|---|---|
-| 7d | 14 | +0.089 | 12/14 | 13/14 |
-| 14d | 7 | +0.126 | 7/7 | 7/7 |
-| 30d | 3 | +0.111 | 3/3 | 3/3 |
+| 7d | 12 | +0.040 | 8/12 | 3/12 |
+| 14d | 6 | +0.031 | 4/6 | 1/6 |
+| 30d | 2 | — | — | — |
 
-~680 players per fold. Beats the market-value benchmark in 23 of 24 folds
-and a seeded random benchmark in 22 of 24.
+~340 players per fold, offense only (see the refusals above). The script
+calls both powered horizons **"no effect detected"** and refuses to call
+a direction at 30d on 2 folds. The `marketValue` benchmark — rank the
+board by price and buy the expensive end — returns ρ +0.090 and +0.116
+against our +0.040 and +0.031: over this offseason panel, expensive
+offense assets outperformed their cohort, and our buy list skews cheap
+by construction.
+
+An earlier run of this table read +0.089 / +0.126 / +0.111 with 23 of 24
+folds beating the market-value benchmark. Those folds included ~350 IDP
+rows per fold priced on a scale that does not exist; the edge did not
+survive their removal. Attrition is now reported alongside: 0.77% of
+scored rows had no measurable outcome at 14d.
 
 Reproduce: `python scripts/run_consensus_edge_backtest.py --horizon-days 14`
 (requires `git fetch --unshallow`; the script exits 2 on a shallow clone
@@ -95,35 +150,25 @@ sees is a **list of twenty names**, and nothing scored that until
 `scripts/validate_consensus_edge_board.py`. It replays the full labelled
 board — `service.build_board` and `service.top_movers`, the shipped
 functions, not a reimplementation — for every fold origin on the panel.
+Its `decision` block is the ship gate, and it was written before the
+numbers were.
 
-**Headline: the top-20 buy list beats a random-20 draw from the same
-priced universe.**
+**Headline: the top-20 buy list does not beat a random-20 draw from the
+same priced universe. Not once, at either horizon.**
 
 | horizon | folds | top-20 median excess | folds positive | beat random |
 |---|---|---|---|---|
-| 7d | 15 | +1.51% | 11/15 | 11/15 |
-| 14d | 7 | +3.59% | 6/7 | 6/7 |
+| 7d | 12 | **−0.55%** | 2/12 | **0/12** |
+| 14d | 6 | **−1.01%** | 1/6 | **0/6** |
 
-Those figures are **after** two fixes the first run of this study
-motivated, both measured before adoption:
-
-- **The list is ranked by conviction — score shrunk by its own
-  confidence — not by score alone.** A score is a point estimate and
-  confidence is its precision; ranking on the estimate threw the
-  precision away, and it showed. Measured over 7 fold origins, the old
-  top-20 had a median reliability of **0.75** against **1.00** for the
-  board: the highest scores were coming from the *least-sourced*
-  players, because fewer sources means a wider spread against the anchor
-  and a bigger z. Shrinking by confidence took 14d from +1.57% to
-  **+3.59%** and 7d from +0.92% to **+1.51%**, replicating at both
-  horizons. Chosen over a confidence threshold (which scored similarly)
-  because a threshold is a tuned constant and this is not.
-- **Coverage counts only components that can contribute.** Zero-weight
-  components were excluded from the numerator but left in the
-  denominator, so every row carried a deficit no data could ever close.
-  That pinned the ceiling at 69.34 against a Strong threshold of 70 —
-  and the rows it suppressed turned out to be the best group on the
-  board (see below).
+An earlier run of this same study returned +1.51% and +3.59%, beating
+random in 11/15 and 6/7, and that is what turned the feature flag ON on
+2026-08-04. The study did not change; its input did. Every IDP fair
+value in that run came from a leave-one-out board built without the only
+registered `is_backbone` source, so those rows carried no scale at all
+(see "What the board refuses to price" above, and ADR-021). Refusing
+them and re-running is what produced the table above, and it is why the
+flag is OFF again — ADR-023.
 
 **The median, not the mean, is the headline, and that is forced by the
 data.** These are percentage returns on assets priced 152 to 9999. On one
@@ -133,43 +178,59 @@ real fold, four players priced 152–306 returned +327%, +268%, +210% and
 four floor-priced rookies. Every bucket carries `topContributorShare` so
 that dependence is visible rather than implicit.
 
-Labels come out monotone in the right order on the buy side (14d medians):
+**Survivorship is reported, not assumed away.** `forward_returns` gives
+every row a reason rather than dropping it, but every consumer then
+filters on `excessReturn is not None`, so the drop happened one layer
+down and went unreported. It is not a random drop — a player leaves the
+anchor board because the market let him go. Now measured per bucket:
+**12.5% of top-20 buys (15 of 120) could not be scored at 14d**, 8.75%
+at 7d, against **0%** for the tradeable-only slice. The rows that vanish
+are the cheap ones, which is exactly where the old headline came from.
+
+Labels are **not** monotone, and the best-labelled rows are the worst
+(14d medians):
 
 | label | median excess | folds positive | rows |
 |---|---|---|---|
-| **Strong Buy** | **+8.83%** | **6/6** | 69 |
-| Buy *(demoted from Strong)* | +0.62% | 2/6 | 67 |
-| Buy | +0.07% | 2/7 | 568 |
-| Neutral | −0.00% | 1/7 | 2837 |
-| Sell | −0.04% | 0/7 | 682 |
-| Insufficient Evidence | −0.23% | 0/7 | 877 |
+| Buy | +0.01% | 4/6 | 317 |
+| Insufficient Evidence | +0.03% | 1/6 | 2774 |
+| Neutral | −0.04% | 2/6 | 1343 |
+| Buy *(demoted from Strong)* | −0.29% | 2/6 | 38 |
+| Sell | −0.31% | 0/6 | 307 |
+| Strong Sell | −0.28% | 2/6 | 24 |
+| **Strong Buy** | **−1.10%** | 2/6 | 30 |
 
-Three findings that matter more than the headline:
+Four findings that matter more than the headline:
 
-- **The label the board used to refuse to show is by far the best one.**
-  Before the coverage fix, every would-be Strong Buy was demoted into
-  `Buy` and that demoted bucket was the only consistently positive group
-  on the board. Once the ceiling stopped counting a zero-weight
-  component against every row, those rows could say what they were:
-  **Strong Buy returns +8.83% at 6 of 6 folds** (+3.39% at 10 of 12 for
-  7d). Note the direction of the reasoning — the measurement came first,
-  and the ceiling was changed because it was suppressing a signal that
-  demonstrably worked, not to make a nicer-looking label appear.
-- **The sell side has no edge at all**, and `Strong Sell` is no
-  exception. Sell: 0 of 7 folds correct at 14d, 0 of 15 at 7d. Strong
-  Sell: +0.12% and +0.02% — the *wrong sign* for a sell. Conviction
-  ranking did not help. Every payload now carries `sellSideValidation`
-  and the sells view says so before a user acts on it.
-- **The edge is concentrated in assets too cheap to trade for, and this
-  is the most consequential finding.** **127 of 140** top-20 buys across
-  the 14-day folds — **91%** — are priced under 2000 on the 0-9999
-  scale, with a median top-20 market value of **1026**. Restricted to
-  assets at or above 2000, the edge falls to +0.10% (4/7 folds) at 14d
-  and +0.07% (6/15) at 7d: essentially nothing. The mispricing score is
-  a log ratio, which is easiest to make large on a floor-priced asset,
-  so `top_movers` — which ranks on score alone — surfaces a deep-sleeper
-  list rather than a trade-calculator list. The signal is real; what it
-  is a signal *about* is not what the page implies.
+- **`Strong Buy` is the worst bucket on the board.** It was the best one
+  before the scale repair (+8.83% at 6 of 6 folds), and it was the
+  measurement that justified raising the confidence ceiling so those
+  rows could be shown at all. Both statements were about rows priced off
+  an IDP board with no backbone. On the repaired board the same bucket
+  returns −1.10%. This is the single clearest illustration of how far
+  the defect reached: it did not merely add noise, it produced the
+  finding that changed the model.
+- **The sell side is now the better-behaved half, and still is not
+  validated.** Sell-labelled rows return −0.31% at 14d with 6 of 6 folds
+  negative (−0.18%, 10 of 12, at 7d) — the correct direction, where
+  before the repair they were the *wrong* sign. But no random benchmark
+  was pre-registered for sells, and a third of a percent sits inside the
+  noise the buy side fails in. `sellSideValidation` says exactly this on
+  every payload.
+- **The edge, such as it is, is not where the list points.** 78% of
+  top-20 buys are priced under 2000 on the 0-9999 scale (median 1173).
+  The mispricing score is a log ratio, easiest to make large on a
+  floor-priced asset, so the list is a deep-sleeper list. Restricted to
+  assets at or above 2000 the number turns slightly positive — +0.23%
+  (4/6) at 14d, +0.13% (6/12) at 7d — which is the opposite of the
+  pre-repair pattern and is still not a result anyone should trade on.
+- **A plain "buy cheap players" rule beats us.** The `marketValue`
+  benchmark went from ρ −0.020 to **+0.116** at 14d when the IDP rows
+  left the universe: over this panel, expensive offense assets
+  outperformed their cohort. Our buy list skews cheap by construction,
+  so on the rows that survive we are on the wrong side of the only
+  benchmark that matters. It beats us in 5 of 6 folds at 14d and 9 of 12
+  at 7d.
 
 Also measured, and previously an uncontrolled confound in ρ: **the panel
 is not homogeneous.** `CSVs/site_raw/` holds 9 files on 2026-04-16 and 24

@@ -116,6 +116,8 @@ npm run regression                   # Full pipeline: preflight + tests
 | `/api/trade/suggestions` | POST | Roster-aware trade suggestions (reads live contract) |
 | `/api/trade/finder` | POST | KTC arbitrage finder |
 | `/api/leagues` | GET | Active league registry (stable `key` → `displayName` + roster settings; **no Sleeper IDs leaked**) |
+| `/api/sharp/roster-percentage` | GET | Sharp Roster Percentage board (global cohort — takes no `leagueKey`) |
+| `/api/sharp/roster-percentage/audit` | GET | Every roster behind one player's count, for manual verification |
 
 ### Rankings vs. league context — the core split
 
@@ -785,6 +787,79 @@ The `POST /api/rankings/overrides` endpoint supports two response views:
 Regression test: `tests/api/test_source_overrides.py::TestBuildRankingsDeltaPayload` pins the delta shape, byte-size bounds, and the invariant that every field in `_DELTA_PLAYER_FIELDS` round-trips through a manual merge identically to the full-contract path.
 
 See `tests/api/test_source_overrides.py` for the full contract spec.
+
+### The sharp cohort: one pool, many surfaces
+
+`src/sharp/cohort.py::cohort_members` is THE definition of "who is a
+sharp". Every sharp-powered surface resolves its manager pool through
+it, and none of them may keep a second list or add a qualification rule:
+
+| surface | module |
+|---|---|
+| Sharp Buy/Sell Tracker (`/market/sharp-tracker`) | `src/sharp/market.py` |
+| Sharp Roster Percentage (`/market/sharp-roster-percentage`) | `src/sharp/roster_percentage.py` |
+| roster collection pass | `src/sharp/roster_collect.py` |
+| activity crawl | `scripts/crawl_sharp_activity.py` |
+
+`market.py` re-exports `CohortMember`, `cohort_members`,
+`curated_members`, `provisional_members` and `load_ffpc_config`, so
+`sharp_market.cohort_members` still resolves and the monkeypatch seam
+existing tests use is preserved. Note the re-export is a
+`from ... import` binding taken at import time — a test that patches
+the cohort module before importing `market` captures the stub.
+
+Qualification is decided in `src/sharp/score.py` +
+`config/sharp/scoring_v2.json` over evidence from
+`src/sharp/platform_records.py`; league eligibility in
+`src/intel/league_filter.py` (dynasty only, ≥ 2 seasons). `cohort.py`
+only SELECTS and DEDUPLICATES.
+
+**Three sharp crawl passes, in order** — each depends on the one before,
+which is why the timers are staggered:
+
+1. `scripts/discover_sharp_graph.py` (04:20 UTC) — finds MANAGERS
+2. `scripts/crawl_sharp_records.py` (04:50) — finds their RESULTS, which
+   is what makes them scoreable
+3. `scripts/crawl_sharp_rosters.py` (05:50) — finds what they currently
+   OWN, which is what the roster-percentage board is made of
+
+Two things the roster pass depends on, both fixed rather than worked
+around:
+
+- `discovery.py` records a `league_memberships` row at USER-expansion
+  time as well as league-expansion time. It used to record one only when
+  a league was expanded, so leagues left on the frontier by the budget
+  had none — invisible to anything asking "which leagues does this
+  manager play in", which silently bounded the roster crawl to the
+  expanded subgraph.
+- The roster pass orders leagues through
+  `record_queue.prioritize_league_ids` (never-collected first, then
+  oldest), the same fair ordering the records crawl uses. Sorting by
+  league id meant a budget-capped run re-collected the same prefix
+  forever and never reached the tail.
+
+`server.py` calls `_sharp_service.register_http_routes()` explicitly
+after importing the module. The import-time side effect alone is not
+enough: anything that imports `src.sharp.service` before the app exists
+makes it a no-op, and the module cache means the later import re-runs
+nothing — `/api/sharp/market` then 404s with no other symptom.
+
+Roster observations live in `sharp_rosters` / `sharp_roster_assets` /
+`sharp_roster_asset_spans` / `sharp_roster_observations`
+(`src/sharp/roster_store.py`), created by a plain
+`CREATE TABLE IF NOT EXISTS` that is deliberately NOT wired to
+`platform_ledger.PLATFORM_SCHEMA_VERSION` — bumping that re-runs the
+whole platform migration on every deployed ledger to add four additive
+tables.
+
+Counting rules are enforced by primary keys rather than by caller
+discipline: one row per roster, one row per (roster, player). The
+denominator is ROSTERS, not people — a sharp with five dynasty teams
+contributes five observations — and it is computed PER PLAYER, because a
+linebacker cannot be rostered in a league with no IDP slots. Full
+methodology and the known limitations (no general-dynasty ownership feed
+exists; FFPC contributes zero rosters until a roster-bearing URL is
+configured) are in `docs/sharp-roster-percentage/METHODOLOGY.md`.
 
 ### Adapter Pattern
 Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). All adapters emit `RawAssetRecord` dataclasses with normalized fields.

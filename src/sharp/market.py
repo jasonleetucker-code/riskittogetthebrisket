@@ -1,34 +1,40 @@
-"""Unified Sleeper + FFPC Sharp market signals from normalized movements."""
+"""Unified Sleeper + FFPC Sharp market signals from normalized movements.
+
+The MANAGER POOL this board reads is not defined here — it comes from
+``src/sharp/cohort.py``, which is the one definition shared with every
+other sharp feature (today: the Sharp Roster Percentage board).  The
+cohort names are re-exported below so ``sharp_market.cohort_members``
+and ``sharp_market.CohortMember`` keep resolving for existing callers
+and tests, and so ``market_payload`` still reads ``cohort_members`` as
+a module global that tests can monkeypatch.
+"""
 
 from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Sequence
 
 from src.intel import platform_ledger, signals
-from src.sharp import platform_records
 from src.sharp import score as sharp_score
+from src.sharp.cohort import (  # noqa: F401 — re-exported shared cohort surface
+    ALLOWED_QUALIFICATION as _ALLOWED_QUALIFICATION,
+)
+from src.sharp.cohort import (  # noqa: F401
+    FFPC_CONFIG_PATH,
+    CohortMember,
+    cohort_members,
+    curated_members,
+    load_ffpc_config,
+    provisional_members,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-FFPC_CONFIG_PATH = REPO_ROOT / "config" / "sharp" / "ffpc_sources.json"
 _ALLOWED_WINDOWS = ("48h", "7d", "14d", "30d", "90d", "all")
 _ALLOWED_SORTS = ("strength", "net", "volume", "velocity", "buys", "sells")
 _ALLOWED_PLATFORMS = ("all", "sleeper", "ffpc")
-_ALLOWED_QUALIFICATION = ("all", "automated", "curated", "provisional")
-
-
-@lru_cache(maxsize=4)
-def load_ffpc_config(path: str | None = None) -> dict[str, Any]:
-    target = Path(path) if path else FFPC_CONFIG_PATH
-    try:
-        raw = json.loads(target.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return raw if isinstance(raw, dict) else {}
 
 
 @lru_cache(maxsize=1)
@@ -98,180 +104,6 @@ def _fallback_asset_metadata(asset_id: str) -> dict[str, Any]:
             display += f" ({':'.join(parts[3:])})"
         return {"displayName": display, "position": "PICK", "nflTeam": None}
     return _local_asset_catalog().get(asset_id, {})
-
-
-@dataclass(frozen=True)
-class CohortMember:
-    manager_key: str
-    platform: str
-    qualification_method: str
-    quality: float
-    display_name: str | None = None
-    methodology_version: str | None = None
-    source_rationale: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "managerKey": self.manager_key,
-            "platform": self.platform,
-            "qualificationMethod": self.qualification_method,
-            "quality": round(self.quality, 4),
-            "displayName": self.display_name,
-            "methodologyVersion": self.methodology_version,
-            "sourceRationale": self.source_rationale,
-        }
-
-
-def curated_members(config: dict[str, Any]) -> list[CohortMember]:
-    out = []
-    for raw in config.get("curatedManagers") or []:
-        if not isinstance(raw, dict):
-            continue
-        manager_key = str(raw.get("managerKey") or "").strip()
-        if not manager_key.startswith("ffpc:"):
-            continue
-        if not bool(raw.get("verified")) or not bool(raw.get("allowedToContribute")):
-            continue
-        weight = max(0.0, min(1.0, float(raw.get("weight") or 0.75)))
-        out.append(
-            CohortMember(
-                manager_key=manager_key,
-                platform="ffpc",
-                qualification_method="curated_high_stakes",
-                quality=weight,
-                display_name=str(raw.get("publicDisplayName") or "") or None,
-                source_rationale=str(raw.get("sourceRationale") or "") or None,
-            )
-        )
-    return out
-
-
-def provisional_members(
-    config: dict[str, Any],
-    *,
-    ledger_path: Path | None = None,
-) -> list[CohortMember]:
-    """Select public FFPC observations without claiming sharp-v2 qualification."""
-    if not bool(config.get("enabled")) or not bool(
-        config.get("allowProvisionalPublicInCombinedSignals")
-    ):
-        return []
-    league_keys = [
-        f"ffpc:{str(source.get('sourceLeagueId') or '').strip()}"
-        for source in config.get("seedLeagues") or []
-        if isinstance(source, dict)
-        and bool(source.get("enabled", True))
-        and bool(source.get("allowProvisionalContribution"))
-        and str(source.get("sourceLeagueId") or "").strip()
-    ]
-    if not league_keys:
-        return []
-    weight = max(
-        0.0,
-        min(1.0, float(config.get("provisionalPublicWeight") or 0.5)),
-    )
-    placeholders = ",".join("?" for _ in league_keys)
-    conn = platform_ledger.ensure_platform_schema(ledger_path)
-    try:
-        rows = conn.execute(
-            f"""
-            SELECT DISTINCT am.manager_key, pm.display_name
-              FROM asset_movements am
-              JOIN transactions tx
-                ON tx.transaction_key=am.transaction_key
-              LEFT JOIN platform_managers pm
-                ON pm.manager_key=am.manager_key
-             WHERE am.platform='ffpc'
-               AND am.league_key IN ({placeholders})
-               AND tx.tx_type='trade'
-               AND am.manager_key IS NOT NULL
-            """,
-            league_keys,
-        ).fetchall()
-    finally:
-        conn.close()
-    return [
-        CohortMember(
-            manager_key=str(row["manager_key"]),
-            platform="ffpc",
-            qualification_method="provisional_public",
-            quality=weight,
-            display_name=str(row["display_name"] or "") or None,
-            source_rationale=(
-                "Observed on an explicitly configured public FFPC dynasty page; "
-                "has not passed Sharp Score v2 history gates."
-            ),
-        )
-        for row in rows
-    ]
-
-
-def cohort_members(
-    *,
-    qualification: str = "all",
-    ledger_path: Path | None = None,
-    ffpc_config: dict[str, Any] | None = None,
-) -> tuple[list[CohortMember], dict[str, Any]]:
-    if qualification not in _ALLOWED_QUALIFICATION:
-        raise ValueError(f"unsupported qualification: {qualification}")
-    records, evidence = platform_records.build_manager_records(ledger_path=ledger_path)
-    scored = sharp_score.score_managers(records)
-    config = ffpc_config if ffpc_config is not None else load_ffpc_config()
-    ffpc_enabled = bool(config.get("enabled"))
-    automatic = [
-        CohortMember(
-            manager_key=item.user_id,
-            platform=item.user_id.split(":", 1)[0],
-            qualification_method="automated_qualified",
-            quality=max(0.0, min(1.0, float(item.score or 0.0) / 100.0)),
-            methodology_version=item.methodology_version,
-        )
-        for item in scored
-        if item.qualified and (item.user_id.split(":", 1)[0] != "ffpc" or ffpc_enabled)
-    ]
-    curated_enabled = bool(ffpc_enabled and config.get("allowCuratedInCombinedSignals"))
-    curated = curated_members(config) if curated_enabled else []
-    provisional_enabled = bool(
-        ffpc_enabled and config.get("allowProvisionalPublicInCombinedSignals")
-    )
-    provisional = (
-        provisional_members(config, ledger_path=ledger_path) if provisional_enabled else []
-    )
-    if qualification == "automated":
-        selected = automatic
-    elif qualification == "curated":
-        selected = curated
-    elif qualification == "provisional":
-        selected = provisional
-    else:
-        selected = [*automatic, *curated, *provisional]
-
-    # A manager may be explicitly linked to one canonical identity and
-    # appear through two methods. Automated qualification wins; otherwise
-    # the higher configured quality wins.
-    by_key: dict[str, CohortMember] = {}
-    priority = {
-        "provisional_public": 1,
-        "curated_high_stakes": 2,
-        "automated_qualified": 3,
-    }
-    for item in selected:
-        prior = by_key.get(item.manager_key)
-        if prior is None or (priority.get(item.qualification_method, 0), item.quality) > (
-            priority.get(prior.qualification_method, 0),
-            prior.quality,
-        ):
-            by_key[item.manager_key] = item
-    coverage = {
-        "automatedQualifiedManagers": len(automatic),
-        "curatedManagers": len(curated),
-        "curatedContributionEnabled": curated_enabled,
-        "provisionalManagers": len(provisional),
-        "provisionalContributionEnabled": provisional_enabled,
-        "evidenceManagers": len(evidence),
-        "methodologyVersion": sharp_score.methodology_version(),
-    }
-    return list(by_key.values()), coverage
 
 
 def _aggregate_window(

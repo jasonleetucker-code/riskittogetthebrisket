@@ -11,7 +11,7 @@ Today that is a distinction without a difference — the checked-in Sleeper
 directory is a 15-row stub with zero ``gsis_id``s, so the join is empty,
 the reception axis refuses, and the fit is exactly 1.0 everywhere.  The
 day a real directory reaches production, served fair values get
-multiplied by per-player multipliers that ρ +0.126 never saw, and
+multiplied by per-player multipliers that the published ρ never saw, and
 nothing anywhere would say so.
 
 **Why the backtest is not simply taught to apply the fit.**  It cannot,

@@ -3,8 +3,26 @@
 Consensus Edge shipped claiming "custom-league scoring adjustments" and
 imported nothing from the scoring or league-intelligence packages — zero
 references to VORP, zero to ``src.scoring``, zero to ``src.league_intel``.
-The frontend even sent a ``leagueKey`` that the API accepted and threw
-away. This module closes that gap.
+This module closes that gap.
+
+**It does NOT make the board league-parameterised, and an earlier
+version of this docstring implied otherwise.** The frontend used to send
+a ``leagueKey`` the API accepted and threw away, and the sentence here
+read as though this module had fixed that. It had not:
+:func:`_scoring_cards` loads *the* canonical league config, and there is
+exactly one. The parameter is now gone from the four bridge routes and
+the hook rather than left accepted-and-ignored, because a parameter that
+is accepted and ignored tells a caller the answer is league-specific
+when it is not.
+
+That is also the correct shape under the repo's core split — rankings
+follow the SCORING PROFILE, context follows the leagueKey (see
+``CLAUDE.md``). Fair value versus market price is a rankings artifact.
+Honouring a leagueKey against the single global board cache would have
+been strictly worse than ignoring it: it would serve league A's board to
+league B. Making the board genuinely per-league means a per-league cache
+AND per-league scoring cards, and is a real piece of work rather than a
+missing ``if``.
 
 **Where it enters, and why that matters.** The multiplier is applied to
 FAIR VALUE, inside :mod:`consensus_edge.fair_value`, never as a fourth

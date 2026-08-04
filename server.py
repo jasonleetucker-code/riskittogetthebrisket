@@ -12578,6 +12578,21 @@ async def get_intel_refresh_status(request: Request):
 
 from src.sharp import service as _sharp_service  # noqa: E402
 
+# Register the sharp market routes EXPLICITLY rather than relying on the
+# import-time side effect inside ``_sharp_service``.
+#
+# That side effect only finds this app when ``server`` is the first thing
+# to import the module. Anything that imports ``src.sharp.service``
+# earlier — a test module, a script, another package — runs the
+# registrar against a not-yet-existing app, and Python's module cache
+# then means importing it here re-runs nothing. The routes silently
+# never attach and every ``/api/sharp/market`` request 404s.
+#
+# ``_register_http_routes`` is idempotent (it returns early when the
+# path is already present), so calling it here is safe alongside the
+# module-level call and the self-heal in ``cohort_status``.
+_sharp_service.register_http_routes()
+
 
 @app.get("/api/sharp/cohort")
 async def get_sharp_cohort(request: Request):
@@ -12594,6 +12609,102 @@ async def get_sharp_cohort(request: Request):
         content=payload,
         headers={"Cache-Control": "private, max-age=300, stale-while-revalidate=900"},
     )
+
+
+@app.get("/api/sharp/roster-percentage")
+async def get_sharp_roster_percentage(request: Request):
+    """Which players the sharp cohort rosters most, and how reliably.
+
+    Shares the Buy/Sell Tracker's cohort exactly — both boards resolve
+    their pool through ``src/sharp/cohort.py::cohort_members`` — so it is
+    global for the same reason the cohort endpoint is, and takes no
+    ``leagueKey``.
+
+    Declared HERE rather than registered from ``src/sharp/service.py``.
+    That module's self-registration only finds the app when it is
+    imported by ``server.py`` first; when a test imports it earlier the
+    routes never attach, which is the failure
+    ``tests/sharp/test_public_api_allowlist.py`` hits under a full-suite
+    run.  A plain decorator has no such ordering dependency.
+
+    Always 200 with an explicit ``status``: an empty roster store is a
+    real state on a cohort whose rosters have not been collected yet,
+    and the page explains it rather than showing an error.
+    """
+    query = request.query_params
+
+    def _bool(name: str) -> bool:
+        return str(query.get(name) or "").strip().lower() in ("1", "true", "yes")
+
+    try:
+        payload = await run_in_threadpool(
+            _sharp_service.roster_percentage_payload,
+            contract=latest_contract_data,
+            qualification=str(query.get("qualification") or "all"),
+            position=str(query.get("position") or "all"),
+            platform=str(query.get("platform") or "all"),
+            league_format=str(query.get("format") or "all"),
+            contention=str(query.get("contention") or "all"),
+            experience=str(query.get("experience") or "all"),
+            sort=str(query.get("sort") or "rostered"),
+            limit=int(query.get("limit") or 50),
+            include_picks=_bool("includePicks"),
+        )
+    except (ValueError, TypeError) as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": str(exc)},
+            headers={"Cache-Control": "no-store"},
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.exception("sharp roster percentage failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "sharp_roster_percentage_unavailable", "message": str(exc)},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        content=payload,
+        headers={"Cache-Control": "private, max-age=300, stale-while-revalidate=900"},
+    )
+
+
+@app.get("/api/sharp/roster-percentage/audit")
+async def get_sharp_roster_percentage_audit(request: Request):
+    """Every roster behind one player's percentage, listed individually.
+
+    The manual-verification surface required before this feature could
+    be called done: a count is checkable against the underlying rosters
+    without database access, and the excluded rosters are reported with
+    their reasons alongside.
+    """
+    asset_id = str(request.query_params.get("assetId") or "").strip()
+    if not asset_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "missing_param", "message": "assetId required"},
+            headers={"Cache-Control": "no-store"},
+        )
+    try:
+        payload = await run_in_threadpool(
+            _sharp_service.roster_percentage_audit_payload,
+            asset_id,
+            qualification=str(request.query_params.get("qualification") or "all"),
+        )
+    except (ValueError, TypeError) as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": str(exc)},
+            headers={"Cache-Control": "no-store"},
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.exception("sharp roster percentage audit failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "sharp_roster_percentage_unavailable", "message": str(exc)},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, max-age=60"})
 
 
 # ── PLAYER CONTEXT (contracts / snap share / depth chart) ───────────────
