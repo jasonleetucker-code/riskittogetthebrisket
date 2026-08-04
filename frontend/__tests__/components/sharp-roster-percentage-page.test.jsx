@@ -82,12 +82,21 @@ describe("Sharp Roster Percentage page", () => {
 
   it("surfaces the transparency disclosures", async () => {
     render(<SharpRosterPercentagePage />);
-    expect(await screen.findByText("Sharp managers")).toBeInTheDocument();
+    // Await a DATA value, not a label.  The page paints the stat labels
+    // immediately with "—" placeholders and fills the values in only
+    // after the fetch resolves, so `findByText("Sharp managers")`
+    // resolves on the first paint — before any data — and the
+    // synchronous `getByText("80%")` below then raced the fetch.  It
+    // won that race on an unloaded machine and lost it on a busy CI
+    // runner, which is what made this test intermittently red with no
+    // product defect behind it.  Anchoring the await on the
+    // last-arriving value makes the rest of the assertions safe.
+    expect(await screen.findByText("80%")).toBeInTheDocument();
+    expect(screen.getByText("Sharp managers")).toBeInTheDocument();
     expect(screen.getByText("Eligible rosters")).toBeInTheDocument();
     expect(screen.getByText("Sleeper rosters")).toBeInTheDocument();
     expect(screen.getByText("FFPC rosters")).toBeInTheDocument();
     expect(screen.getByText("Cohort represented")).toBeInTheDocument();
-    expect(screen.getByText("80%")).toBeInTheDocument();
   });
 
   it("explains that no market comparison exists rather than showing a zero", async () => {

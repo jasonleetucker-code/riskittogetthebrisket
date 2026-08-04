@@ -200,6 +200,18 @@ export function buildBdvmIndex(payload) {
       fundamental: _num(p?.tradeValue?.balanced),
       signal: p?.signal?.signal ?? "",
       signalReason: p?.signal?.reason ?? "",
+      // Carried so the /rankings and /draft "Fund gap" columns can
+      // disclose what the /bdvm page already does (audit finding B-8).
+      // Where no real projection source covers a player the fundamental
+      // is the §8.3 reconstructed baseline — last season's realized PPG —
+      // so the gap is structurally "the market knows things last year's
+      // box scores don't", i.e. a momentum-fade signal rather than
+      // fundamental analysis.  The /bdvm page badges that honestly; this
+      // index omitted the flag entirely, so the two joined columns
+      // rendered a signed gap and a signal-coloured pill with a tooltip
+      // asserting "positive means the market underprices the player" —
+      // an interpretation that is unwarranted on a proxy-backed row.
+      anyProxy: Boolean(p?.projection?.anyProxy),
     };
     const id = p?.playerId != null ? String(p.playerId).trim() : "";
     if (id) byId.set(id, entry);
