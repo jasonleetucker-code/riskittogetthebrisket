@@ -911,23 +911,37 @@ vitest and lint; it never opens a browser.  Every metric in this document
 every page twice.  Dispatch `e2e.yml` manually on any branch that touches
 the shell.
 
-### A pre-existing flake this surfaced, on `/arbitrage`
+### The same duplication is a pre-existing, app-wide race — measured
 
-`journey-trade.spec.js`'s `/arbitrage` assertion sees two "Pick a team and
-scan" empty states.  It is the same transient staging-container copy, and
-**it is not round 6's doing** — measured over 15 loads each against builds
-of `main` and of the branch:
+The table above says "clean" for the shipped fix, and that is true of the
+**deterministic** failure `dynamic()` caused.  It is not true that the
+duplicate never happens: the app has an ambient SSR-streaming race in
+which React's `#S:1` staging copy is left behind, and it predates round 6.
 
-| build | loads showing the duplicate |
-|---|---|
-| `main` (db3135e2) | 1/15 |
-| round-6 branch | 1/15 |
+Measured by loading a route repeatedly and counting how many loads show
+two copies, against builds of `main` and of this branch on the same box,
+same backend, same browser:
 
-Identical rate.  `main`'s own e2e runs pass because the spec navigates
-once and the race is ~7% per load; it presented as "flaky, passed on
-retry" on the branch's first run for the same reason.  Left open and
-unfixed rather than silenced — the assertion is correct and the duplicate
-is real.
+| route | needle | `main` | round-6 branch |
+|---|---|---|---|
+| `/arbitrage` | "Pick a team and scan" | 1/15 | 1/15 |
+| `/waivers` | "Include rookies" | **1/45** | **1/45** |
+
+Identical on both routes.  So:
+
+* **What round 6 did wrong** was make an ambient ~2–7%-per-load race fire
+  on *every* load of *every* route, by putting a lazy boundary around
+  `{children}` in the root layout.  That is fixed.
+* **What round 6 did not cause, and has not fixed**, is the underlying
+  race.  `main` has it at the same rate.
+
+Consequence for CI: `e2e.yml` is intermittently red on `main`'s own
+defect.  `main`'s runs mostly pass because each spec navigates once;
+`waivers-smoke.spec.js` and `journey-trade.spec.js` are simply the two
+specs whose assertions are strict enough to notice.  Do not "fix" this by
+loosening those locators — they are the only detector the repo has for a
+class of bug that no performance metric in this document can see.  Track
+it as its own defect.
 
 ### Regression check
 

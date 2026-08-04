@@ -32,14 +32,19 @@ import { buildTeamByPlayer } from "@/lib/waiver-logic";
 // was a Playwright strict-mode violation ("resolved to 2 elements"), and
 // that suite does not run on PRs.
 //
-// Measured on Next 16.2.12:
-//   static imports                 /waivers clean, /arbitrage clean, +69 KB everywhere
-//   dynamic() bare                 /waivers 3 <main> + #S:1, /arbitrage duplicated
-//   dynamic() + local <Suspense>   /waivers clean, /arbitrage still duplicated (transient)
-//   imperative import (this)       both clean, split preserved
+// Measured on Next 16.2.12, /waivers:
+//   static imports                 1 copy, +69 KB on every route
+//   dynamic() bare                 2 copies on EVERY load, 3 <main>, #S:1 present
+//   dynamic() + local <Suspense>   1 copy
+//   imperative import (this)       1 copy, split preserved
 // It reproduces with and without `ssr: false` — that flag was a red herring.
-// Wrapping each render site in its own <Suspense> fixed /waivers but only
-// narrowed the window on /arbitrage, because the boundary still exists.
+//
+// One caveat, so nobody re-opens this on a red CI run: the app has an
+// AMBIENT version of the same race that predates all of this, measured at
+// 1/45 loads on /waivers and 1/15 on /arbitrage — identical rates on a
+// build of main and a build of this branch. What `dynamic()` did was turn
+// that occasional race into a certainty on every load of every route.
+// Fixing it here does not fix the ambient one, which is its own defect.
 //
 // So the boundary must not exist. Loading the module imperatively is the
 // idiom this repo already uses for exactly this (components/ScreenshotFab.jsx
