@@ -206,11 +206,13 @@ heuristic: the backend's greedy built its rungs as a nested sequence of legal
 cut-sets, so all of them are jointly droppable, and every subset of an
 independent set in a matroid is independent.
 
-The panel pairs each rookie with a cut from that same re-sorted order, not from
-the backend's. The two genuinely differ — the backend orders by ECC (value
-*over* waiver level) while the plan is charged the whole release value — and
-showing one order beside a cost taken from the other would name a roster player
-the plan never released.
+`consumptionOrder` is the single answer to "which cut is next", and **every**
+consumer must use it: the charge table, `applyDraftProgress` (mid-draft),
+`realizedResults` (what you bought) and the panel's cut column. The backend
+orders by ECC and the plan charges by release value; those orders are
+unrelated, so a consumer walking the wrong one charges a player twice and
+another never. Three separate places got this wrong before it was unified —
+worth remembering before adding a fourth.
 
 `k` is a **free variable** — the league caps nobody's rookie count. The
 optimizer may return zero rookies, one, or many, and is never required to spend
