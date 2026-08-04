@@ -350,18 +350,37 @@ class TestTheLeakGuardDoesRealWork(unittest.TestCase):
                 scoring_fit_board=scoring_fit.inert_board("test"),
             )
 
-    def test_the_structurally_unreachable_labels_stay_unreachable(self):
-        """Two labels remain impossible, and for reasons unrelated to coverage.
+    def test_conflicted_stays_structurally_unreachable(self):
+        """One label remains impossible, for a reason unrelated to coverage.
 
-        `Conflicted` needs two opposing components each carrying weight;
-        with one live component there is nothing to oppose. `Withheld`
-        needs `classify`'s `quarantined` kwarg, which `build_board`
-        never passes. Neither was fixed by raising the ceiling, and a
-        study reporting empty buckets for them must keep saying why.
+        `Conflicted` needs two opposing components each carrying WEIGHT;
+        with one live component there is nothing to oppose. Raising the
+        confidence ceiling did not change that and cannot, so a study
+        reporting an empty bucket for it must keep saying why.
+
+        This used to assert `Withheld` was equally unreachable, which
+        was true and was a BUG: `classify` has always had a
+        `quarantined` branch and `build_board` never passed it, because
+        `fair_value` dropped a flag the contract had already computed.
+        A row with a suspect identity join could reach the top-20 with a
+        confident Buy on it. Now wired — see
+        `test_wiring.TestIdentityQuarantineReachesTheLabel`, which owns
+        that invariant against the live API rather than a replay.
         """
         labels = {r["label"] for r in self._replay_board()["players"]}
-        for unreachable in ("Conflicted", "Withheld"):
-            self.assertNotIn(unreachable, labels)
+        self.assertNotIn("Conflicted", labels)
+
+    def test_withheld_is_no_longer_structurally_unreachable(self):
+        # The complement of the above, asserted on the CODE rather than
+        # on a payload: whether any row is quarantined on a given day is
+        # a property of that day's data, but whether the flag can reach
+        # `classify` at all is a property of the wiring.
+        import inspect
+
+        from src.consensus_edge import service
+
+        source = inspect.getsource(service.build_board)
+        self.assertIn("quarantined=", source, "build_board never passes the quarantine flag")
 
     def test_strong_labels_ARE_now_reachable(self):
         """The coverage fix has to actually reach the board.

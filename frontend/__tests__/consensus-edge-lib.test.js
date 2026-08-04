@@ -183,10 +183,34 @@ describe("no duplicated qualification logic", () => {
   // label server-side silently emptied the position-leaders panel. This
   // is the same class of drift the client-side rank fallback caused, and
   // this guard is what stops it coming back.
+  //
+  // It used to read `lib/consensus-edge.js` only, and check four of the
+  // eight labels. A later audit found `WITHHELD_LABELS` — a JS copy of
+  // `service.REFUSAL_LABELS` — sitting in `page.jsx`, which is the one
+  // file this guard did not read, covering four labels it did not
+  // check. Both gaps are closed below.
   const source = fs.readFileSync(
     path.join(process.cwd(), "lib", "consensus-edge.js"),
     "utf8",
   );
+  const page = fs.readFileSync(
+    path.join(process.cwd(), "app", "consensus-edge", "page.jsx"),
+    "utf8",
+  );
+
+  // All eight labels the backend can emit, not the four directional
+  // ones. The refusal set is exactly as load-bearing: it decides which
+  // rows the Withheld tab shows.
+  const ALL_LABELS = [
+    "Strong Buy",
+    "Buy",
+    "Neutral",
+    "Sell",
+    "Strong Sell",
+    "Conflicted",
+    "Insufficient Evidence",
+    "No Market Price",
+  ];
 
   // Scoped to positionLeaders. Styling BY label is legitimate — that is
   // what labelTone does, and the frontend has to know label names to
@@ -197,12 +221,30 @@ describe("no duplicated qualification logic", () => {
   );
 
   it("does not decide qualification from label strings", () => {
-    for (const label of ["Strong Buy", "Strong Sell", "Buy", "Sell"]) {
+    for (const label of ALL_LABELS) {
       expect(positionLeadersBody).not.toContain(`"${label}"`);
     }
   });
 
   it("reads the backend qualified flag instead", () => {
     expect(positionLeadersBody).toContain("row.qualified");
+  });
+
+  it("keeps no label set in the page either", () => {
+    // The page has no labelTone equivalent — it imports one — so it has
+    // no legitimate reason to name a label at all. "Withheld" is exempt
+    // as the VIEW name a user reads on the control, which is copy
+    // rather than logic.
+    const code = page
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("//"))
+      .join("\n");
+    for (const label of ALL_LABELS) {
+      expect(code).not.toContain(`"${label}"`);
+    }
+  });
+
+  it("filters the withheld view on the backend's stamp", () => {
+    expect(page).toContain("r.withheld");
   });
 });

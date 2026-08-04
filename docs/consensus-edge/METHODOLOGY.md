@@ -25,7 +25,9 @@ Sharp Flow has no result and cannot get one until `src/sharp/` can
 freeze its cohort as-of a date; its 0.3 is a declared prior. Every
 payload stamps `experimental: true` plus per-component `validated` /
 `measured` / `outcome` flags. Decisions and their reasoning live in
-`DECISIONS.md` beside this file; this page is the short version.
+`DECISIONS.md` beside this file; this page is the short version, and
+`AUDIT-2026-08-04.md` is the adversarial one — the status matrix, what
+is excluded and why, and what is NOT VERIFIABLE from this repository.
 
 ## The problem
 

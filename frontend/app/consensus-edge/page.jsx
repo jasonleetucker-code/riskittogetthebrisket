@@ -45,14 +45,36 @@ const VIEWS = [
   { value: "withheld", label: "Withheld" },
 ];
 
-const WITHHELD_LABELS = new Set([
-  "Conflicted",
-  "Insufficient Evidence",
-  "No Market Price",
-  "Withheld",
-]);
+// No WITHHELD_LABELS set here. It used to be a JS copy of
+// service.REFUSAL_LABELS matched by English string, in the one file the
+// anti-duplication test does not read — so renaming a label server-side
+// would have silently emptied this tab with nothing failing. The backend
+// stamps `withheld` per row, the same way it stamps `qualified`.
 
-const POSITIONS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
+// How many rows the list renders before it stops. The board is ~1,000
+// rows and roughly 1.5 MB; rendering all of it is neither useful nor
+// fast. The count is used to SAY how many were hidden — an unannounced
+// slice reads as "that is the whole answer".
+const RENDER_LIMIT = 50;
+
+// Positions offered by the filter, derived from the board rather than
+// listed. The hardcoded list held 7 of the 11 asset classes the board
+// actually produces, so K, PICK, T and unpositioned rows — 18% of the
+// board — were unreachable by filter and silently absent from the
+// leaders panel. Sorted with the familiar offence-then-defence order
+// first and anything new appended, so adding a position to the pipeline
+// cannot quietly drop it from the UI again.
+const POSITION_ORDER = ["QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"];
+
+function positionsOnBoard(rows) {
+  const seen = new Set();
+  for (const row of rows || []) {
+    if (row.position) seen.add(row.position);
+  }
+  const known = POSITION_ORDER.filter((p) => seen.has(p));
+  const extra = [...seen].filter((p) => !POSITION_ORDER.includes(p)).sort();
+  return [...known, ...extra];
+}
 
 function FailureState({ failure }) {
   if (failure.kind === "disabled") {
@@ -124,13 +146,17 @@ function AvailabilityBanner({ board }) {
         <strong>Experimental.</strong> {live.length} of{" "}
         {Object.keys(availability).length} components are live
         {noData.length > 0 && (
-          <> — {joinLabels(noData)} {noData.length === 1 ? "has" : "have"} no data</>
+          <>
+            {" "}
+            — {joinLabels(noData)} {noData.length === 1 ? "has" : "have"} no
+            data
+          </>
         )}
         {rejected.length > 0 && (
           <>
-            {" "}— {joinLabels(rejected)}{" "}
-            {rejected.length === 1 ? "was" : "were"} measured and carries no
-            weight
+            {" "}
+            — {joinLabels(rejected)} {rejected.length === 1 ? "was" : "were"}{" "}
+            measured and carries no weight
           </>
         )}
         . Validated against market movement, not fantasy production.
@@ -150,7 +176,9 @@ function AvailabilityBanner({ board }) {
           Strong Buy and Strong Sell cannot appear: with {live.length} live
           component{live.length === 1 ? "" : "s"} the confidence ceiling is{" "}
           {Math.round(board.confidenceCeiling)}
-          {typeof threshold === "number" && <>, below the threshold of {threshold}</>}
+          {typeof threshold === "number" && (
+            <>, below the threshold of {threshold}</>
+          )}
           . This is the model declining to make a strong call on partial
           evidence, not an absence of candidates.
         </p>
@@ -159,6 +187,15 @@ function AvailabilityBanner({ board }) {
         <p className={styles.ceilingNote}>
           Market data is {hours < 1 ? "under an hour" : `${Math.round(hours)}h`}{" "}
           old (oldest market anchor); confidence is discounted accordingly.
+        </p>
+      )}
+      {/* When the DATA was gathered, not when this board was assembled.
+          The payload only ever carried `generatedAt` — build time — which
+          refreshes on every cache miss and so reads as fresh beside
+          day-old prices. */}
+      {board.contractScrapedAt && (
+        <p className={styles.ceilingNote}>
+          Prices scraped {new Date(board.contractScrapedAt).toLocaleString()}.
         </p>
       )}
     </div>
@@ -261,7 +298,9 @@ function PlayerCard({ row, validation, expanded, onToggle }) {
 
       {expanded && (
         <div className={styles.cardBody}>
-          {row.labelReason && <p className={styles.reason}>{row.labelReason}</p>}
+          {row.labelReason && (
+            <p className={styles.reason}>{row.labelReason}</p>
+          )}
 
           <ul className={styles.explanation}>
             {(row.explanation || []).map((line, i) => (
@@ -318,16 +357,22 @@ export default function ConsensusEdgePage() {
   const [minConfidence, setMinConfidence] = useState(0);
   const [openKey, setOpenKey] = useState(null);
 
-  const { loading, data, failure } = useConsensusEdge("/api/consensus-edge/players");
+  const { loading, data, failure } = useConsensusEdge(
+    "/api/consensus-edge/players",
+  );
   const methodology = useConsensusEdge("/api/consensus-edge/methodology");
   const validation = methodology.data?.components || {};
 
   const allRows = useMemo(() => data?.players || [], [data]);
+  const positions = useMemo(() => positionsOnBoard(allRows), [allRows]);
 
   const rows = useMemo(() => {
     let out = allRows;
     if (view === "withheld") {
-      out = out.filter((r) => WITHHELD_LABELS.has(r.label));
+      // `withheld` is stamped by the backend. Note it is NOT the
+      // complement of `qualified` — a Neutral row is neither, because
+      // "the evidence points nowhere" is a finding and not a refusal.
+      out = out.filter((r) => r.withheld);
     } else {
       const wantPositive = view === "buys";
       out = out.filter(
@@ -342,12 +387,17 @@ export default function ConsensusEdgePage() {
     // alone. Sells are the same list read from the other end, and the
     // reverse has to use the SAME key — sorting them by raw score gave
     // the sells view an ordering no measurement describes.
-    return view === "sells" ? [...out].sort((a, b) => rankKey(a) - rankKey(b)) : out;
+    return view === "sells"
+      ? [...out].sort((a, b) => rankKey(a) - rankKey(b))
+      : out;
   }, [allRows, view, position, minConfidence]);
 
   // Position leaders read the FULL board, never the displayed slice.
   const leaders = useMemo(
-    () => positionLeaders(allRows, { direction: view === "sells" ? "sell" : "buy" }),
+    () =>
+      positionLeaders(allRows, {
+        direction: view === "sells" ? "sell" : "buy",
+      }),
     [allRows, view],
   );
 
@@ -380,7 +430,7 @@ export default function ConsensusEdgePage() {
                 onChange={(e) => setPosition(e.target.value)}
               >
                 <option value="">All</option>
-                {POSITIONS.map((p) => (
+                {positions.map((p) => (
                   <option key={p} value={p}>
                     {p}
                   </option>
@@ -427,7 +477,7 @@ export default function ConsensusEdgePage() {
             </p>
           ) : (
             <ul className={styles.list}>
-              {rows.slice(0, 50).map((row) => (
+              {rows.slice(0, RENDER_LIMIT).map((row) => (
                 <PlayerCard
                   key={row.playerKey}
                   row={row}
@@ -441,6 +491,13 @@ export default function ConsensusEdgePage() {
             </ul>
           )}
 
+          {rows.length > RENDER_LIMIT && (
+            <p className={styles.truncation}>
+              Showing {RENDER_LIMIT} of {rows.length.toLocaleString()} matching
+              players. Narrow by position or confidence to see further down.
+            </p>
+          )}
+
           {view !== "withheld" && (
             <section className={styles.leaders}>
               <h2>Position leaders</h2>
@@ -451,13 +508,15 @@ export default function ConsensusEdgePage() {
                 further down.
               </p>
               <ul className={styles.leaderList}>
-                {POSITIONS.map((pos) => {
+                {positions.map((pos) => {
                   const found = leaders.find((l) => l.position === pos);
                   return (
                     <li key={pos}>
                       <span className={styles.leaderPos}>{pos}</span>
                       <span>
-                        {found ? found.row.displayName : (
+                        {found ? (
+                          found.row.displayName
+                        ) : (
                           <em className={styles.componentAbsent}>
                             No qualifying {view === "sells" ? "sell" : "buy"}
                           </em>

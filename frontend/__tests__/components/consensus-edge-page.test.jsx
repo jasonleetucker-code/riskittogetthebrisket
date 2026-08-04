@@ -35,8 +35,18 @@ const VALIDATION = {
   // scale-repaired board — but the badge logic still has to work, and a
   // fixture pinned to whatever the registry currently says would stop
   // testing the rendering it exists for.
-  mispricing: { validated: true, measured: true, outcome: "positive", note: "positive rho" },
-  sharpFlow: { validated: false, measured: false, outcome: null, note: "no ledger" },
+  mispricing: {
+    validated: true,
+    measured: true,
+    outcome: "positive",
+    note: "positive rho",
+  },
+  sharpFlow: {
+    validated: false,
+    measured: false,
+    outcome: null,
+    note: "no ledger",
+  },
   opportunity: {
     validated: false,
     measured: true,
@@ -55,6 +65,8 @@ function playerRow(overrides = {}) {
     label: "Buy",
     confidence: 61,
     qualified: true,
+    withheld: false,
+    conviction: 25.62,
     components: { mispricing: 0.42, sharpFlow: null, opportunity: -0.6 },
     componentsAbsent: ["sharpFlow"],
     componentsZeroWeight: ["opportunity"],
@@ -105,6 +117,7 @@ const BOARD = {
     note: "Measured over 22 non-overlapping folds and found to carry nothing.",
   },
   inputs: { hoursStale: 8.3 },
+  contractScrapedAt: "2026-08-03T22:00:00Z",
 };
 
 function mockFetch(board = BOARD) {
@@ -121,7 +134,9 @@ function mockFetch(board = BOARD) {
 // plural. Using a singular query would fail on ambiguity rather than on
 // the thing being tested.
 async function openTheCard() {
-  const cards = await screen.findAllByRole("button", { name: /Bijan Robinson/ });
+  const cards = await screen.findAllByRole("button", {
+    name: /Bijan Robinson/,
+  });
   await userEvent.click(cards[0]);
 }
 
@@ -135,7 +150,9 @@ describe("/consensus-edge page", () => {
 
   it("renders the board", async () => {
     render(<ConsensusEdgePage />);
-    expect((await screen.findAllByText("Bijan Robinson")).length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByText("Bijan Robinson")).length,
+    ).toBeGreaterThan(0);
   });
 
   describe("a zero-weight component", () => {
@@ -197,7 +214,9 @@ describe("/consensus-edge page", () => {
   describe("the availability banner", () => {
     it("distinguishes no-data from measured-and-rejected", async () => {
       render(<ConsensusEdgePage />);
-      expect(await screen.findByText(/measured and carries no weight/i)).toBeTruthy();
+      expect(
+        await screen.findByText(/measured and carries no weight/i),
+      ).toBeTruthy();
       expect(screen.getByText(/has no data/i)).toBeTruthy();
     });
 
@@ -245,7 +264,12 @@ describe("/consensus-edge page", () => {
     it("stays quiet if the backend ever marks sells validated", async () => {
       global.fetch = mockFetch({
         ...BOARD,
-        sellSideValidation: { validated: true, measured: true, outcome: "positive", note: "" },
+        sellSideValidation: {
+          validated: true,
+          measured: true,
+          outcome: "positive",
+          note: "",
+        },
       });
       render(<ConsensusEdgePage />);
       await screen.findAllByText("Bijan Robinson");
@@ -260,7 +284,9 @@ describe("/consensus-edge page", () => {
     // — without having to open the card.
     it("shows the market value in the collapsed header", async () => {
       render(<ConsensusEdgePage />);
-      const cards = await screen.findAllByRole("button", { name: /Bijan Robinson/ });
+      const cards = await screen.findAllByRole("button", {
+        name: /Bijan Robinson/,
+      });
       expect(cards[0].textContent).toContain("5,000");
     });
   });
@@ -271,12 +297,16 @@ describe("/consensus-edge page", () => {
         ...BOARD,
         validationScope: {
           matchesMeasured: false,
-          differences: ["league scoring fit is applied to fair value on this board"],
+          differences: [
+            "league scoring fit is applied to fair value on this board",
+          ],
         },
       });
       render(<ConsensusEdgePage />);
       expect(
-        await screen.findByText(/not running the configuration the published measurement/i),
+        await screen.findByText(
+          /not running the configuration the published measurement/i,
+        ),
       ).toBeTruthy();
     });
 
@@ -285,5 +315,112 @@ describe("/consensus-edge page", () => {
       await screen.findAllByText("Bijan Robinson");
       expect(screen.queryByText(/not running the configuration/i)).toBeNull();
     });
+  });
+});
+
+describe("the board's own limits, stated on screen", () => {
+  beforeEach(() => {
+    global.fetch = mockFetch();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("says how many rows it is not showing", async () => {
+    // A 1,000-row board sliced to 50 with no indicator reads as "that
+    // is the whole answer", which is wrong by an order of magnitude.
+    const many = Array.from({ length: 120 }, (_, i) =>
+      playerRow({
+        playerKey: `P${i}`,
+        displayName: `Player ${i}`,
+        score: 90 - i * 0.1,
+        conviction: 50 - i * 0.1,
+      }),
+    );
+    global.fetch = mockFetch({ ...BOARD, players: many });
+    render(<ConsensusEdgePage />);
+    expect(await screen.findByText(/Showing 50 of 120/)).toBeTruthy();
+  });
+
+  it("stays quiet when nothing is hidden", async () => {
+    render(<ConsensusEdgePage />);
+    await screen.findAllByText("Bijan Robinson");
+    expect(screen.queryByText(/Showing 50 of/)).toBeNull();
+  });
+
+  it("shows when the prices were scraped, not when the board was built", async () => {
+    // `generatedAt` is board-build time and refreshes on every cache
+    // miss, so it reads as fresh beside day-old prices.
+    render(<ConsensusEdgePage />);
+    expect(await screen.findByText(/Prices scraped/)).toBeTruthy();
+  });
+});
+
+describe("the position filter", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("offers every position the board actually contains", async () => {
+    // The list was hardcoded to seven positions, so K, PICK and T rows
+    // were unreachable by filter and absent from the leaders panel —
+    // 18% of the board, silently.
+    global.fetch = mockFetch({
+      ...BOARD,
+      players: [
+        playerRow(),
+        playerRow({ playerKey: "K1", displayName: "A Kicker", position: "K" }),
+        playerRow({
+          playerKey: "P1",
+          displayName: "2027 Pick 1.01",
+          position: "PICK",
+        }),
+      ],
+    });
+    render(<ConsensusEdgePage />);
+    await screen.findAllByText("Bijan Robinson");
+    const select = screen.getByRole("combobox", { name: /position/i });
+    const offered = Array.from(select.options).map((o) => o.value);
+    expect(offered).toContain("K");
+    expect(offered).toContain("PICK");
+  });
+
+  it("does not offer positions the board has none of", async () => {
+    render(<ConsensusEdgePage />);
+    await screen.findAllByText("Bijan Robinson");
+    const select = screen.getByRole("combobox", { name: /position/i });
+    const offered = Array.from(select.options).map((o) => o.value);
+    expect(offered).not.toContain("QB");
+  });
+});
+
+describe("the withheld view", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("reads the backend's stamp rather than a copy of the label set", async () => {
+    // The page kept its own `WITHHELD_LABELS` set matched by English
+    // string — in the one file the anti-duplication test does not read.
+    // A row stamped `withheld` shows here whatever its label says.
+    global.fetch = mockFetch({
+      ...BOARD,
+      players: [
+        playerRow(),
+        playerRow({
+          playerKey: "W1",
+          displayName: "Withheld Guy",
+          label: "Some New Refusal Label",
+          qualified: false,
+          withheld: true,
+          score: null,
+        }),
+      ],
+    });
+    render(<ConsensusEdgePage />);
+    await screen.findAllByText("Bijan Robinson");
+    await userEvent.click(screen.getByRole("radio", { name: /withheld/i }));
+    expect(await screen.findAllByText("Withheld Guy")).toBeTruthy();
+    expect(screen.queryAllByText("Bijan Robinson")).toHaveLength(0);
   });
 });

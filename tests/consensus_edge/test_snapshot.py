@@ -181,9 +181,7 @@ class TestOutcomeLabelling(_TempDB):
 
     def test_labelling_is_idempotent(self):
         snapshot.write_board(_board(n=1), as_of="2026-08-01", path=self.db)
-        prices = _prices(
-            {"2026-08-01": {"Player 0": 1000.0}, "2026-08-15": {"Player 0": 1100.0}}
-        )
+        prices = _prices({"2026-08-01": {"Player 0": 1000.0}, "2026-08-15": {"Player 0": 1100.0}})
         snapshot.label_outcomes(horizon_days=14, prices_by_date=prices, path=self.db)
         again = snapshot.label_outcomes(horizon_days=14, prices_by_date=prices, path=self.db)
         self.assertEqual(again["updated"], 0, "an already-labelled row was relabelled")

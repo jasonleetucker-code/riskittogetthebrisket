@@ -151,7 +151,10 @@ def main(argv: list[str] | None = None) -> int:
         hours_stale=service.resolve_hours_stale(contract),
         **inputs_mod.resolve(contract),
     )
-    board["contractScrapedAt"] = contract.get("scrapeTimestamp")
+    # ``build_board`` stamps this itself now; the assignment stays as a
+    # belt-and-braces for a board built by an older service, and is a
+    # no-op otherwise.
+    board.setdefault("contractScrapedAt", contract.get("scrapeTimestamp"))
 
     if board.get("status") != "ok":
         print(f"[ce-snapshot] board status {board.get('status')!r}", file=sys.stderr)

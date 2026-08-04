@@ -36,6 +36,25 @@ DIRECTIONAL_LABELS = frozenset(
     {score_mod.STRONG_BUY, score_mod.BUY, score_mod.SELL, score_mod.STRONG_SELL}
 )
 
+# Labels where the model declined to make a call, as distinct from
+# calling it neutral. ``Neutral`` is a finding — the evidence points
+# nowhere — so it is deliberately NOT in here.
+#
+# Stamped per row as ``withheld`` for the same reason ``qualified`` is:
+# the /consensus-edge page kept its own JS copy of this set, matched by
+# English string against these Python constants. That is the drift the
+# no-frontend-ranker rule exists to prevent, in miniature — rename a
+# label here and the page's Withheld tab silently empties, with no test
+# failing because the test read the LIB and the copy was in the PAGE.
+REFUSAL_LABELS = frozenset(
+    {
+        score_mod.CONFLICTED,
+        score_mod.INSUFFICIENT,
+        score_mod.NO_MARKET_PRICE,
+        score_mod.WITHHELD,
+    }
+)
+
 # The sell side was measured and found to carry nothing. Stamped on every
 # payload so no consumer has to know this from a doc, and so the UI can
 # say it where a user is about to act on it. Kept as data rather than
@@ -451,6 +470,10 @@ def build_board(
             # string against Python constants, which is the same drift
             # the client-side rank fallback caused.
             "qualified": label["label"] in DIRECTIONAL_LABELS,
+            # The refusal states, likewise stamped rather than
+            # re-derived. Note ``qualified`` and ``withheld`` are not
+            # complements: a Neutral row is neither.
+            "withheld": label["label"] in REFUSAL_LABELS,
         }
         row["explanation"] = _explain(row)
         # The ranking key, stamped so nothing downstream re-derives it.
@@ -490,7 +513,16 @@ def build_board(
         "status": STATUS_OK,
         "modelVersion": MODEL_VERSION,
         "paramSetId": p.get("paramSetId"),
+        # When this board was BUILT — which is not when its data was
+        # gathered, and the package docstring's claim that payloads carry
+        # "the timestamps of the data it was computed from" was only true
+        # of ``inputs.hoursStale``. A user reading a freshly-generated
+        # timestamp beside day-old prices is being told the wrong thing.
         "generatedAt": datetime.now(timezone.utc).isoformat(),
+        # When the DATA was gathered. Copied off the contract rather than
+        # recomputed, so it is the same instant the rest of the site
+        # shows.
+        "contractScrapedAt": (contract or {}).get("scrapeTimestamp"),
         "players": players,
         "coverage": fv_coverage(index),
         "sharpFlowStatus": flow.get("status"),

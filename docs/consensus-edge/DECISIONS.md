@@ -563,3 +563,37 @@ improved on repair (−0.31% at 14d, right sign, where it had been
 +0.02%), and the tradeable-only slice is roughly flat (+0.23%) rather
 than negative. Those are reasons to keep measuring, not reasons to ship.
 **Status:** accepted 2026-08-04.
+
+## ADR-024: what Consensus Edge does not have, and why none of it is coming soon
+Recorded because "not implemented" and "implemented badly" are different
+states and the brief asks for the difference to be legible. Each of these
+is absent at every layer — no endpoint, no field, no partial UI — rather
+than stubbed:
+
+- **Liquidity.** Would need a measure of how easily an asset trades. The
+  repo has trade *records* (`src/intel/ledger`) but no as-of cohort, the
+  same gap that makes Sharp Flow unvalidatable, so a liquidity number
+  would be unmeasurable in exactly the way a liquidity number must not
+  be.
+- **A risk component.** Distinct from confidence, which is about our
+  evidence; risk is about the asset. It needs a dispersion of outcomes
+  per player, which is BDVM's territory (`src/bdvm/`) and would be a
+  second value concept smuggled into a market-value board.
+- **Contender / balanced / rebuilder views.** Roster-derived, therefore
+  `leagueKey`-scoped, and this board is scoring-profile scoped. Building
+  it means a per-league cache first — see ADR-023's note on `leagueKey`.
+- **A historical-signal chart.** The store now records what is needed
+  (`snapshot.history_for_player` returns it). There is no UI.
+- **A player-detail route.** `GET /api/consensus-edge/player/{key}`
+  exists and works; nothing calls it and there is no bridge route.
+- **Machine learning.** There is none, and there never was. The honest
+  classification is a **deterministic valuation model**: log-ratio
+  mispricing, a robust z against a cohort, a beta-binomial posterior,
+  and a weighted mean. No model is trained, no parameters are fitted.
+  `params_v1.json` calls its weights priors for exactly this reason and
+  `weightsAreFitted: false` rides on every methodology payload.
+- **`Conflicted` is structurally unreachable.** It needs two opposing
+  components that both carry weight; one is live. This is reported by
+  the board (`componentAvailability`, `confidenceCeiling`) rather than
+  hidden, and it resolves by itself if Sharp Flow ever earns its weight.
+**Status:** accepted 2026-08-04.
