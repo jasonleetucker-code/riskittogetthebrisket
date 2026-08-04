@@ -164,7 +164,13 @@ def _league_format(league_key: str) -> tuple[int, int, str]:
     team_count = int(settings.get("teamCount") or 12)
     starters = settings.get("starters") or {}
     total_starters = 0
-    for slots in starters.values():
+    for slot_name, slots in starters.items():
+        # K is excluded, matching the endpoint: kickers carry no
+        # canonical value, so counting their slots would walk the
+        # all-in anchor one rank further down the board per team
+        # against no corresponding player supply.
+        if str(slot_name).upper() == "K":
+            continue
         try:
             total_starters += int(slots or 0)
         except (TypeError, ValueError):

@@ -162,9 +162,15 @@ class FaabConfig:
     """Thin typed accessor over the JSON config.
 
     Exists so the engine never reaches into raw dicts with string keys
-    scattered through the math, and so a missing key fails loudly at
-    the boundary instead of silently becoming ``None`` inside a
-    formula.
+    scattered through the math, and so a missing key resolves at the
+    boundary instead of silently becoming ``None`` inside a formula.
+
+    ``num`` SUBSTITUTES a caller-supplied default rather than raising.
+    That is deliberate — a corrupt or partial ``faab.json`` degrades to
+    documented behaviour instead of taking the waiver page down — but
+    it means the in-code defaults are a second, silent source of truth.
+    They are kept equal to the shipped config values, and
+    ``tests/trade/test_faab_config_parity.py`` fails if they drift.
     """
 
     def __init__(self, raw: dict[str, Any] | None = None):
@@ -717,9 +723,9 @@ def _rival_engagement(
     adds for $0.  The ceiling is the nonlinear "does anyone actually
     want him" signal, which is the one that matches the history.
     """
-    base = config.num("market", "engagementBaseRate", 0.06)
-    top = config.num("market", "engagementMaxRate", 0.85)
-    exponent = config.num("market", "engagementExponent", 1.5)
+    base = config.num("market", "engagementBaseRate", 0.05)
+    top = config.num("market", "engagementMaxRate", 0.7)
+    exponent = config.num("market", "engagementExponent", 0.9)
     s = max(0.0, min(1.0, demand_signal))
     p = base + (top - base) * (s**exponent)
 
@@ -757,7 +763,7 @@ def rival_bid_cdf(
     """
     budget = max(1, int(league.original_budget))
     median_share = config.num("market", "rivalDisciplineFactor", 1.0)
-    sigma = max(1e-6, config.num("market", "rivalSigma", 0.95))
+    sigma = max(1e-6, config.num("market", "rivalSigma", 1.1))
     tie_break = config.num("market", "tieBreakWinProbability", 0.5)
     lo, hi = (config.section("market").get("aggressionClamp") or [0.5, 2.0])[:2]
 
@@ -781,7 +787,7 @@ def rival_bid_cdf(
         # are.  What the market PAYS and what the player is WORTH are
         # separate quantities, and this is where that separation lives.
         base_share = config.num("market", "rivalBaseSharePct", 1.5) / 100.0
-        max_share = config.num("market", "rivalMaxSharePct", 38.0) / 100.0
+        max_share = config.num("market", "rivalMaxSharePct", 45.0) / 100.0
         demand_exp = config.num("market", "rivalShareExponent", 1.3)
         share = base_share + (max_share - base_share) * (
             max(0.0, min(1.0, demand_signal)) ** demand_exp

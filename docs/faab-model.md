@@ -92,9 +92,16 @@ being described as adjusting *value*; because there was only one number, a
 demand signal and a worth signal were indistinguishable once applied.
 
 It is also what produces the model's most counter-intuitive and most important
-output: **"worth $100, bid $36"**. Bidding the ceiling captures zero surplus by
-construction, so the expected-surplus optimum is always strictly below it. A
-system that reports only one number cannot say that.
+output: **"worth the whole budget, bid a fraction of it"**. Bidding the ceiling
+captures zero surplus by construction, so the expected-surplus optimum is
+always strictly below it. Verified on the 2026-08-04 board: a `dynasty_main`
+player sitting exactly on the all-in line (2341) is worth **$100 of $100** and
+the engine recommends **$33** in week 8 (§6.3). A system that reports only one
+number cannot say that.
+
+The engine module docstring and `config/trade/faab.json` both illustrate this
+with the phrase *"worth $100, bid $36"*. That $36 is illustrative shorthand,
+not a figure this document reproduced — the real numbers are in §6 and §7.
 
 ---
 
@@ -571,24 +578,31 @@ league than in a 20-starter one.
 
 Josh Jacobs (3901), `dynasty_main`, week 8, neutral full-budget team.
 `objectiveCeiling = $100` (the full budget). `teamRawCeiling = $140.30`
-(need 1.0 × option factor 0.717 × raw 1.958 budgets). Demand signal 0.7826.
+(objective raw ceiling 1.9565 budgets × need 1.0 × option factor 0.717).
+Demand signal 0.7826.
 
-| Bid | P(win) | Expected surplus |
-|---|---|---|
-| $0 | 0.000 | 0.01 |
-| $20 | 0.005 | 0.56 |
-| $40 | 0.044 | 4.44 |
-| $60 | 0.132 | 10.58 |
-| $74 | 0.209 | 13.82 |
-| $80 | 0.243 | 14.63 |
-| **$90** | **0.299** | **15.06** ← optimum |
-| $100 | 0.354 | 14.28 |
+| Bid | P(win) | Expected surplus | |
+|---|---|---|---|
+| $0 | 0.000 | 0.01 | |
+| $20 | 0.005 | 0.56 | |
+| $40 | 0.044 | 4.44 | |
+| $60 | 0.132 | 10.58 | |
+| $74 | 0.209 | 13.82 | |
+| $80 | 0.243 | 14.63 | |
+| **$82** | **0.254** | **14.81** | ← **returned** (cheapest within `minEdge`) |
+| $85 | 0.271 | 14.99 | |
+| $89 | 0.288 | **15.069** | ← true `argmax` |
+| $90 | 0.299 | 15.06 | |
+| $95 | 0.327 | 14.82 | |
+| $100 | 0.354 | 14.28 | |
 
-Bidding $100 wins *more often* than $90 and is worth *less*, because the
-surplus captured shrinks faster than the win probability grows. The engine
-returns **$82** here — the cheapest bid within `minEdge` of the plateau — not
-$90 and not $100. The player is worth the whole budget; the correct bid is not
-the whole budget.
+Bidding $100 wins *more often* than $89 and is worth *less*, because the
+surplus captured shrinks faster than the win probability grows. The EV plateau
+between $82 and $95 is genuinely flat (14.81 → 15.07 → 14.82), so `minEdge`
+picks the **cheapest** point on it: the engine returns
+`{recommended: $82, conservative: $59, aggressive: $91, maxRational: $100,
+clearing: $100}` at `winProbability 0.254`. The player is worth the whole
+budget; the correct bid is not the whole budget.
 
 At the very top of the board the two do converge: a 9999 player in the same
 spot returns `recommended = $100` with `winProbability = 0.14`, and the
@@ -806,18 +820,20 @@ comparison, and the script says so at the top of every run.
 | Metric | Actually spent | OLD | NEW |
 |---|---|---|---|
 | Claims priced | 384 | 384 | 384 |
-| Would have won | — | 366 (95.3%) | 239 (62.2%) |
-| Total FAAB committed (budget-units) | **9.25** | **45.51** | **31.14** |
+| Would have won | — | 366 (95.3%) | 228 (59.4%) |
+| Total FAAB committed (budget-units) | **9.25** | **45.51** | **23.18** |
 | Median overpayment when winning | — | **$20.00** | **$0.00** |
-| Mean overpayment when winning | — | **$34.73** | **$57.38** |
-| Average recommendation | $7.79 (avg actual) | $39.12 | $37.62 |
+| Mean overpayment when winning | — | **$34.73** | **$44.77** |
+| Average recommendation | $7.79 (avg actual) | $39.12 | $28.11 |
 
-Edge cases, against the backtest's own anchors (`V_allin` 2168, `V_repl` 1376):
+Edge cases, against the backtest's own anchors (`V_allin` 2341, `V_repl` 1383 —
+the same anchors the endpoint resolves, now that the backtest excludes kicker
+slots from the starter count as the endpoint does):
 
 | Failure mode | Population | OLD | NEW |
 |---|---|---|---|
-| Low-value overbid — below replacement, bid > 5% of budget | 145 claims | **145 of 145** | **0 of 145** |
-| Impactful player missed — above the all-in line, bid below the winner | 50 claims | 1 | **0** |
+| Low-value overbid — below replacement, bid > 5% of budget | 166 claims | **166 of 166** | **0 of 166** |
+| Impactful player missed — above the all-in line, bid below the winner | 45 claims | **0** | **0** |
 
 Per value band, average recommendation as % of budget:
 
@@ -825,23 +841,23 @@ Per value band, average recommendation as % of budget:
 |---|---|---|---|---|---|---|
 | < 1200 | 74 | 1.76% | 9.33% | **0.00%** | 95.9 | 44.6 |
 | 1200–1700 | 191 | 2.32% | 10.91% | **0.00%** | 93.7 | 55.0 |
-| 1700–2100 | 63 | 3.03% | 13.56% | 7.55% | 98.4 | 73.0 |
-| 2100–2600 | 24 | 4.54% | 14.84% | 35.40% | 91.7 | 95.8 |
-| 2600+ | 32 | 1.64% | 17.69% | 55.90% | 100.0 | 100.0 |
+| 1700–2100 | 63 | 3.03% | 13.56% | 2.35% | 98.4 | 55.6 |
+| 2100–2600 | 24 | 4.54% | 14.84% | 28.14% | 91.7 | 95.8 |
+| 2600+ | 32 | 1.64% | 17.69% | 46.69% | 100.0 | 100.0 |
 
-**Honest reading of the win rate.** NEW's 62.2% is lower than OLD's 95.3%, and
+**Honest reading of the win rate.** NEW's 59.4% is lower than OLD's 95.3%, and
 that is intended, not a regression. OLD buys its win rate by committing 45.5
 budget-units against the 9.25 actually spent — it wins nearly everything
-because it bids roughly five times the market on every claim. All 145 of NEW's
+because it bids roughly five times the market on every claim. All 156 of NEW's
 "losses" are claims that genuinely cost money, at a median of $5; 138 of them
 are players NEW priced at $0 because they grade below the replacement anchor
 on today's board. NEW is declining to buy players it says are freely
-replaceable, and the cost of declining all 145 was 7.56 budget-units of claims
+replaceable, and the cost of declining them was a small fraction of a budget-unit of claims
 it did not make.
 
 **Honest reading of the overpayment.** NEW's *median* overpayment when winning
 is $0 against OLD's $20 — NEW routinely pays the market price exactly. Its
-*mean* is worse, $57.38 against $34.73, and that number should not be waved
+*mean* is worse, $44.77 against $34.73, and that number should not be waved
 away. It is dragged by 32 wins with overpayment above $100, essentially all of
 them 2024 ($1,000 budget) and 2025 ($200 budget) claims on players who cleared
 for $0–$13 at the time and grade 3,500–3,900 today: Edgerrin Cooper ($0 actual
@@ -852,7 +868,7 @@ to know NEW's tail is fatter than OLD's on the joined sample.
 
 **The one clean signal.** Below the replacement anchor, where look-ahead bias
 cuts the *other* way (a player who is bad today was probably not better then),
-NEW eliminates all 145 low-value overbids and misses nothing impactful. That
+NEW eliminates all 166 low-value overbids and misses nothing impactful. That
 band is 38% of the sample and it is the failure mode the redesign existed to
 fix.
 
@@ -892,13 +908,13 @@ fix.
    that league exists in this working copy, so every `dynasty_new` number in
    §6 omits the live-pool blend. On the live server it is included.
 
-6. **The backtest and the server disagree on `startersPerTeam`.**
-   `scripts/faab_backtest.py::_league_format` sums **all** starter slots
-   including K (21 for `dynasty_main`), while `server.py` excludes K (20). The
-   backtest therefore ran with `V_allin = 2168` at rank 252 rather than the
-   live 2341 at rank 240. The direction is conservative for the backtest (a
-   lower all-in line makes NEW bid *more*, so NEW's spend figures are if
-   anything overstated), but the two should agree.
+6. **RESOLVED — the backtest and the server now agree on
+   `startersPerTeam`.** `scripts/faab_backtest.py::_league_format` used to sum
+   **all** starter slots including K (21 for `dynasty_main`) while `server.py`
+   excluded K (20), so the backtest ran with `V_allin = 2168` at rank 252
+   rather than the live 2341 at rank 240. Both now exclude K. The correction
+   moved NEW's total commitment from 31.18 down to 23.18 budget-units — the
+   figures in §9.4 are the post-fix ones.
 
 7. **In-code fallback defaults diverge from the shipped config.**
    `FaabConfig.num` substitutes a default when a key is missing — it does not
@@ -933,7 +949,9 @@ fix.
    `medianShare` "as a share of their own ceiling", which is not what the code
    does — `rivalDisciplineFactor` multiplies a share of the **original budget**
    (the code comment in `rival_bid_cdf` explains why the decoupling is
-   deliberate).
+   deliberate). `rival_bid_cdf`'s own docstring compounds this by naming a key
+   `rivalMedianShareOfCeiling` that exists neither in `faab.json` nor anywhere
+   in the code.
 
 10. **`dropCost.dropSurplusWeight` ships at 1.0 while its own comment argues
     for less than 1.0.** The swap is currently treated as pure zero-sum; the

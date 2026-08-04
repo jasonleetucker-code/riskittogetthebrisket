@@ -485,7 +485,10 @@ the engine contains no numeric literal that affects a recommendation):
 5. **Market** — rivals are a zero-inflated lognormal fitted to this
    league's real Sleeper history.  ``recommended = argmax_b P(win|b) x
    (rawCeiling - b)``: bidding the ceiling captures zero surplus by
-   construction, which is what produces "worth $100, bid $34".
+   construction, which is what produces "worth the whole budget, bid a
+   fraction of it".  Verified 2026-08-04: a ``dynasty_main`` player
+   sitting exactly on the all-in line (2341) is worth $100 of $100 and
+   the engine recommends $33 in week 8.
 
 **The all-in region is derived, not hard-coded**, and it independently
 reproduces two managers' stated judgments: ``dynasty_new``'s starter
@@ -518,9 +521,25 @@ Bid history lives in ``data/faab/bid_history_<leagueKey>.json``
 engine falls back to configured priors plus the live analytics block
 and says so in ``contention.notes``.  Note
 ``src/api/faab_analytics.py`` gates its median on ``bid > 0`` and so
-reports ~2% where the true median is 0% — 45-64% of this league's adds
-cost nothing.  ``src/trade/faab_history.py`` keeps zero bids for
-exactly that reason; prefer it for anything market-facing.
+reports 2.00% of budget where the true median is 0.00% — measured
+2026-08-04, 41-77% of adds cost nothing per season (combined 56.6% in
+``dynasty_main``, 50.3% in ``dynasty_new``).  ``src/trade/faab_history.py``
+keeps zero bids for exactly that reason; prefer it for anything
+market-facing.  ``faab_analytics.py`` is unchanged and still powers the
+history panel, so anything reading ``leagueMedianWinningBid`` is reading
+a nonzero-only median.
+
+Did it work?  ``scripts/faab_backtest.py`` replays this league's real
+claims through both models (384 of 695 join to a canonical value today).
+Low-value overbids — below replacement, bid > 5% of budget — go from
+**145 of 145 (OLD) to 0 of 145 (NEW)**; impactful players missed go from
+1 to 0; total committed falls from 45.51 budget-units (OLD) to 31.14
+(NEW) against 9.25 actually spent.  NEW's win rate is *lower* (62.2% vs
+95.3%) **by design** — OLD buys its win rate by bidding roughly 5x the
+market on everything.  Report this honestly: NEW's median overpayment is
+$0 vs OLD's $20, but its **mean is worse** ($57.38 vs $34.73), dragged
+by look-ahead artifacts above the all-in line.  The script states five
+structural caveats at the top of every run; read them before quoting it.
 
 ### Canonical Data Mode
 The offline canonical-build path (``scripts/canonical_build.py`` +
