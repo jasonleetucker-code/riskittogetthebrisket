@@ -1,11 +1,29 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useDynastyData } from "@/components/useDynastyData";
 import { buildTeamByPlayer } from "@/lib/waiver-logic";
-import PlayerPopup from "@/components/PlayerPopup";
-import CommandPalette from "@/components/shell/CommandPalette";
+// Both live in the ROOT LAYOUT, so a static import puts them in the
+// chunk set every one of ~90 routes downloads and parses — 69 KB of it,
+// measured. Neither is reachable until the user acts: PlayerPopup needs
+// a player click, CommandPalette needs "/" or the search button.
+//
+// On /league it is worse than deferred, it is dead: `privateDataEnabled`
+// is false there (PUBLIC_ONLY_ROUTE_PREFIXES below), so PlayerPopup was
+// provably unreachable on the route with the largest bundle.
+//
+// `ssr: false` because both are interaction-only surfaces with no
+// server-rendered content to hydrate. Pattern matches
+// app/league/sections/draft-capital.jsx.
+const PlayerPopup = dynamic(() => import("@/components/PlayerPopup"), {
+  ssr: false,
+});
+const CommandPalette = dynamic(
+  () => import("@/components/shell/CommandPalette"),
+  { ssr: false },
+);
 
 // ── App-wide context for popup and search ────────────────────────────────
 const AppContext = createContext({
@@ -201,7 +219,20 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
     >
       {children}
 
-      {privateDataEnabled && (
+      {/* Gated on `popupRow` / `searchOpen`, not just the enable flags —
+          and that is what makes the dynamic import above pay. A
+          `dynamic()` component fetches its chunk when it RENDERS, so
+          rendering it unconditionally would merely move 69 KB off the
+          critical path instead of off the page. Both gates are
+          behaviour-preserving: PlayerPopup already rendered a
+          `<Drawer open={Boolean(row)}>` (null without a row) and
+          CommandPalette a dialog that returns null while closed, so the
+          rendered output is identical either way.
+
+          The "/" shortcut lives here in AppShell (see the keydown
+          handler above), not inside CommandPalette, so gating on
+          `searchOpen` cannot break the way it is opened. */}
+      {privateDataEnabled && popupRow && (
         <PlayerPopup
           row={popupRow}
           siteKeys={siteKeys}
@@ -210,7 +241,7 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
         />
       )}
 
-      {searchEnabled && (
+      {searchEnabled && searchOpen && (
         <CommandPalette
           rows={rows}
           teamByPlayer={teamByPlayer}
