@@ -21,6 +21,13 @@ name: E2E Safety Net
 # Failure handling mirrors scheduled-refresh.yml: an idempotent
 # tracking issue labelled ``e2e-failures`` is opened (or commented
 # on) so a broken journey can't sit unnoticed between manual runs.
+#
+# That tracker is about MAIN, and only main writes to it — both the
+# open and the close step require ``github.ref == 'refs/heads/main'``.
+# Dispatching this on a branch is a first-class use (it is how a branch
+# gets arbitrated against the green baseline), and its result is
+# reported in the run itself.  It just does not get to speak for main.
+# See the note on the alert step for the incident, #716.
 
 on:
   schedule:
