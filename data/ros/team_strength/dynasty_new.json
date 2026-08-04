@@ -3,8 +3,8 @@
     "ownerId": "1002085133723299840",
     "rosterId": 7,
     "teamName": "Brent",
-    "teamRosStrength": 462.43,
-    "startingLineupScore": 579.28,
+    "teamRosStrength": 462.51,
+    "startingLineupScore": 579.39,
     "benchDepthScore": 196.36,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -74,8 +74,8 @@
         "playerId": "7569",
         "canonicalName": "nico collins",
         "position": "WR",
-        "rosValue": 47.0,
-        "adjustedValue": 47.0,
+        "rosValue": 47.11,
+        "adjustedValue": 47.11,
         "confidence": 0.903,
         "flagged": null
       },
@@ -423,7 +423,7 @@
         "playerId": "7569",
         "canonicalName": "nico collins",
         "position": "WR",
-        "rosValue": 47.0,
+        "rosValue": 47.11,
         "fantasyPositions": [
           "WR"
         ],
@@ -512,9 +512,9 @@
     "ownerId": "984270279268446208",
     "rosterId": 9,
     "teamName": "Comacho",
-    "teamRosStrength": 386.94,
+    "teamRosStrength": 386.95,
     "startingLineupScore": 482.56,
-    "benchDepthScore": 163.89,
+    "benchDepthScore": 163.93,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -624,9 +624,9 @@
         "playerId": "11584",
         "canonicalName": "bucky irving",
         "position": "RB",
-        "rosValue": 35.58,
+        "rosValue": 35.62,
         "depthFactor": 1.0,
-        "depthContribution": 35.58
+        "depthContribution": 35.62
       },
       {
         "playerId": "12529",
@@ -712,7 +712,7 @@
         "playerId": "11584",
         "canonicalName": "bucky irving",
         "position": "RB",
-        "rosValue": 35.58,
+        "rosValue": 35.62,
         "fantasyPositions": [
           "RB"
         ],
@@ -756,7 +756,7 @@
         "playerId": "11638",
         "canonicalName": "ricky pearsall",
         "position": "WR",
-        "rosValue": 22.48,
+        "rosValue": 22.34,
         "fantasyPositions": [
           "WR"
         ],
@@ -1563,9 +1563,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 328.01,
+    "teamRosStrength": 327.99,
     "startingLineupScore": 406.19,
-    "benchDepthScore": 141.95,
+    "benchDepthScore": 141.84,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1675,9 +1675,9 @@
         "playerId": "6804",
         "canonicalName": "jordan love",
         "position": "QB",
-        "rosValue": 34.73,
+        "rosValue": 34.62,
         "depthFactor": 1.0,
-        "depthContribution": 34.73
+        "depthContribution": 34.62
       },
       {
         "playerId": "5947",
@@ -1950,7 +1950,7 @@
         "playerId": "4217",
         "canonicalName": "george kittle",
         "position": "TE",
-        "rosValue": 26.63,
+        "rosValue": 26.66,
         "fantasyPositions": [
           "TE"
         ],
@@ -1994,7 +1994,7 @@
         "playerId": "6804",
         "canonicalName": "jordan love",
         "position": "QB",
-        "rosValue": 34.73,
+        "rosValue": 34.62,
         "fantasyPositions": [
           "QB"
         ],
@@ -3124,8 +3124,8 @@
     "ownerId": "1202075501976375296",
     "rosterId": 6,
     "teamName": "Jhall2002",
-    "teamRosStrength": 277.62,
-    "startingLineupScore": 338.17,
+    "teamRosStrength": 277.64,
+    "startingLineupScore": 338.2,
     "benchDepthScore": 134.08,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -3215,8 +3215,8 @@
         "playerId": "11624",
         "canonicalName": "xavier worthy",
         "position": "WR",
-        "rosValue": 26.04,
-        "adjustedValue": 26.04,
+        "rosValue": 26.07,
+        "adjustedValue": 26.07,
         "confidence": 0.914,
         "flagged": null
       },
@@ -3357,7 +3357,7 @@
         "playerId": "11624",
         "canonicalName": "xavier worthy",
         "position": "WR",
-        "rosValue": 26.04,
+        "rosValue": 26.07,
         "fantasyPositions": [
           "WR"
         ],
@@ -3544,7 +3544,7 @@
         "playerId": "8110",
         "canonicalName": "jake ferguson",
         "position": "TE",
-        "rosValue": 19.04,
+        "rosValue": 19.07,
         "fantasyPositions": [
           "TE"
         ],
@@ -4153,8 +4153,8 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 257.73,
-    "startingLineupScore": 318.26,
+    "teamRosStrength": 257.76,
+    "startingLineupScore": 318.3,
     "benchDepthScore": 103.25,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -4254,8 +4254,8 @@
         "playerId": "4943",
         "canonicalName": "sam darnold",
         "position": "QB",
-        "rosValue": 28.03,
-        "adjustedValue": 28.03,
+        "rosValue": 28.07,
+        "adjustedValue": 28.07,
         "confidence": 0.951,
         "flagged": null
       }
@@ -4496,7 +4496,7 @@
         "playerId": "4943",
         "canonicalName": "sam darnold",
         "position": "QB",
-        "rosValue": 28.03,
+        "rosValue": 28.07,
         "fantasyPositions": [
           "QB"
         ],
@@ -4684,8 +4684,8 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "tedkinney",
-    "teamRosStrength": 243.95,
-    "startingLineupScore": 304.18,
+    "teamRosStrength": 243.86,
+    "startingLineupScore": 304.06,
     "benchDepthScore": 82.98,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -4705,9 +4705,9 @@
         "playerId": "13286",
         "canonicalName": "jadarian price",
         "position": "RB",
-        "rosValue": 27.95,
-        "adjustedValue": 27.95,
-        "confidence": 0.82,
+        "rosValue": 27.83,
+        "adjustedValue": 27.83,
+        "confidence": 0.821,
         "flagged": null
       },
       {
@@ -5060,7 +5060,7 @@
         "playerId": "13286",
         "canonicalName": "jadarian price",
         "position": "RB",
-        "rosValue": 27.95,
+        "rosValue": 27.83,
         "fantasyPositions": [
           "RB"
         ],
