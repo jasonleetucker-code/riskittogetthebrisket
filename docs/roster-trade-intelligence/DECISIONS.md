@@ -413,6 +413,55 @@ brute force in `tests/draft/test_displacement.py`, and the
 greedy-loses-to-exact instance is pinned in
 `frontend/__tests__/perfect-draft.test.js`.
 
+**Amended 2026-08-04 — the uncertainty half was described but not
+wired.** As shipped, three of the statements above about confidence were
+true of the code's *shape* and false of its *behaviour*:
+`marketDispersionCV` and `singleSource` were read by the bootstrap but
+set by nothing in the draft data path, so every rookie drew from one flat
+constant and the single-source floor could never fire; the panel called
+`priceBand(price, 0.35)` with the sigma hardcoded, leaving
+`logPriceDispersion` dead; and the docstring's "joint draws of value and
+price uncertainty" described a loop with no price term at all. A panel
+presenting a placeholder as a measurement is worse than one that omits
+the measurement.
+
+Now wired, with two decisions worth recording:
+
+* **A zero CV is *unobserved*, not *agreed*.** The scraper's dispersion
+  is undefined below two comparable site values, and on the 2026-08-04
+  board that is 31 of the top 72 rookies — the thinnest-covered rows.
+  Shipping the literal `0.0` would have made exactly the least
+  trustworthy values look like the most certain ones, which is strictly
+  worse than the flat constant it replaced. `_our_rookie_pool` nulls
+  non-positive at the source, and an unobserved row is placed at the
+  **p90 of the dispersion observed across the pool** — the pessimistic
+  end of the real distribution rather than another declared number.
+* **Price is a feasibility risk, not a value risk.** Surplus is measured
+  over replacement and does not depend on what a rookie cost, so a price
+  draw cannot move a plan's net value; what it moves is whether the plan
+  can be bought. Plans under budget are unaffected, ceiling plans lose
+  confidence, and the frontier's empty `k = 0` plan absorbs scenarios in
+  which nothing is affordable.
+
+Honest measurement of what this bought: on the live board the
+recommendation is **unchanged** and confidence matches to three
+significant figures (39.5% either way), because the measured stand-in
+(0.075) lands almost exactly where the old constant (0.08) sat. The
+wiring is live rather than inert — 5x the real CVs moves confidence to
+22.0% and surfaces a near-tie — but the value-side fix is correctness,
+not an improvement to today's numbers. The **price** side is the one that
+moves things: the same $53 rookie's band is $42–$67 on the prior and
+$52–$54 after six calm sales, and a plan spending the full budget shows
+−$28 of headroom at p75.
+
+`PRICE_DISPERSION_PRIOR = 0.35` remains a **declared prior** in the BDVM
+"priors, not validated truth" posture — no completed auction exists in
+this repo to fit it against, and `priceSigmaByTier(...).measured` reports
+which regime a band is in rather than letting an assumption read as an
+observation. It lives in `perfect-draft.js` beside the estimator rather
+than in `config/`, because `frontend/` is its own bundler root and
+nothing there resolves paths outside it.
+
 ---
 
 ## ADR-011: the Perfect Draft solve runs on the client, the roster context on the server

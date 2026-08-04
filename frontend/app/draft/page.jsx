@@ -3622,6 +3622,11 @@ export default function DraftDashboardPage() {
           // roster value is measured against a displaced player in value
           // units, and the $ ladder is not convertible back.
           const boardValue = Number(pk.rookieBoardValue);
+          // Per-rookie board trust.  A null CV means the board could not
+          // OBSERVE dispersion for this rookie (one source), which is a
+          // different statement from "the sources agreed" — the solver
+          // widens those rather than treating them as certain.
+          const dispersionCV = Number(pk.rookieDispersionCV);
           incoming.push({
             name: String(pk.rookieName),
             preDraft,
@@ -3630,6 +3635,11 @@ export default function DraftDashboardPage() {
             idpTradeCalcDollar: Number.isFinite(idp) && idp > 0 ? idp : null,
             boardValue:
               Number.isFinite(boardValue) && boardValue > 0 ? boardValue : null,
+            marketDispersionCV:
+              Number.isFinite(dispersionCV) && dispersionCV > 0
+                ? dispersionCV
+                : null,
+            singleSource: !!pk.rookieSingleSource,
           });
         }
         // Publish the vendor-dollar map immediately so the Market
@@ -4297,6 +4307,14 @@ export default function DraftDashboardPage() {
             boardValue: Number.isFinite(Number(pk.rookieBoardValue))
               ? Number(pk.rookieBoardValue)
               : null,
+            // Null CV = dispersion unobservable, not agreement.  See the
+            // mount auto-sync above.
+            marketDispersionCV:
+              Number.isFinite(Number(pk.rookieDispersionCV)) &&
+              Number(pk.rookieDispersionCV) > 0
+                ? Number(pk.rookieDispersionCV)
+                : null,
+            singleSource: !!pk.rookieSingleSource,
           });
         }
         return out.length > 0 ? out : null;
@@ -4315,6 +4333,14 @@ export default function DraftDashboardPage() {
             preDraftFromServer: r.preDraft,
             ktcDollarFromServer: r.ktcDollar,
             idpTradeCalcDollarFromServer: r.idpTradeCalcDollar,
+            // Board-value + trust fields have no client-side fallback (the
+            // $ ladder is not invertible), so they ride straight through
+            // from the server pool.  The contract-derived branch below
+            // leaves them undefined, which is honest: that path has no
+            // draft-capital payload to read them from.
+            boardValue: r.boardValue,
+            marketDispersionCV: r.marketDispersionCV,
+            singleSource: r.singleSource,
           }))
         : pa
             .filter((p) => p?.rookie === true)
@@ -4448,6 +4474,19 @@ export default function DraftDashboardPage() {
         )
           ? Number(r.idpTradeCalcDollarFromServer)
           : (idpTradeCalcDollarsByName.get(r.name) ?? null),
+        // Carried verbatim from the server pool.  Previously dropped
+        // here, so a MANUAL sync silently replaced the pool with rows
+        // carrying no board value at all and left Perfect Draft with
+        // nothing to price until the next mount auto-sync repopulated
+        // it.  There is no client-side fallback to compute: the $
+        // ladder cannot be inverted back to a 0-9999 value.
+        boardValue: Number.isFinite(Number(r.boardValue))
+          ? Number(r.boardValue)
+          : null,
+        marketDispersionCV: Number.isFinite(Number(r.marketDispersionCV))
+          ? Number(r.marketDispersionCV)
+          : null,
+        singleSource: !!r.singleSource,
       }));
 
       // Dry-run against current workspace to show a preview diff.

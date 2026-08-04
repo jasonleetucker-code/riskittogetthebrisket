@@ -11,7 +11,7 @@
  * as a wall of raw model output.
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PerfectDraftPanel, bidStanding, planShape } from "@/components/draft/PerfectDraftPanel";
@@ -386,5 +386,67 @@ describe("live updating as the auction proceeds", () => {
     render(<PerfectDraftPanel stats={withBought(1, 20)} workspace={WORKSPACE} />);
     await screen.findByRole("table");
     expect(screen.getByRole("button", { name: /refresh roster/i })).toBeInTheDocument();
+  });
+});
+
+describe("price uncertainty is shown for what it is", () => {
+  beforeEach(() => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+  });
+
+  /** The explainer lives behind an InfoTip, which renders its children lazily. */
+  async function openExplainer() {
+    await screen.findByRole("table");
+    fireEvent.click(screen.getByRole("button", { name: /how this is calculated/i }));
+  }
+
+  it("says the range is an assumption before any sale is recorded", async () => {
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await openExplainer();
+    expect(
+      screen.getByText(/price range is a starting assumption/i),
+    ).toBeInTheDocument();
+  });
+
+  it("says it is measured once this draft has sales to learn from", async () => {
+    const withSales = {
+      ...STATS,
+      tierPriceRatios: { S: [1.1, 0.95, 1.05], A: [] },
+      allPriceRatios: [1.1, 0.95, 1.05],
+    };
+    render(<PerfectDraftPanel stats={withSales} workspace={WORKSPACE} />);
+    await openExplainer();
+    expect(screen.getByText(/from the 3 sales recorded so far/i)).toBeInTheDocument();
+  });
+
+  it("reports what the plan costs if bids run high", async () => {
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    // Spare or short, but never silent — a plan's exposure to bidding above
+    // expectation is the number a live bidder actually needs.
+    expect(screen.getByText(/if bids run high/i)).toBeInTheDocument();
+  });
+
+  it("narrows the band as the room proves itself calm", async () => {
+    const bandWidth = (table) => {
+      const cell = within(table)
+        .getAllByTitle(/Likely range/i)
+        .map((el) => el.getAttribute("title"))[0];
+      const [lo, hi] = cell.match(/\d+/g).map(Number);
+      return hi - lo;
+    };
+
+    const { unmount } = render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    const priorWidth = bandWidth(await screen.findByRole("table"));
+    unmount();
+
+    const calm = [1.0, 1.01, 0.99, 1.0, 1.02, 0.98];
+    render(
+      <PerfectDraftPanel
+        stats={{ ...STATS, tierPriceRatios: { S: calm }, allPriceRatios: calm }}
+        workspace={WORKSPACE}
+      />,
+    );
+    expect(bandWidth(await screen.findByRole("table"))).toBeLessThan(priorWidth);
   });
 });

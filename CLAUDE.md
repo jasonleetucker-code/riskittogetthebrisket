@@ -478,6 +478,32 @@ the per-rookie pivots — without the pivots, two tied plans of the same
 size are invisible.  Near-tie at ``P ≥ 0.25``.  Seeded PRNG so the number
 does not flicker across re-renders.
 
+Its two uncertainty inputs were documented before they were wired (fixed
+2026-08-04, ADR-010 amendment), and both carry a trap worth knowing:
+
+* **A zero ``marketDispersionCV`` means UNOBSERVED, not agreed.**  The
+  scraper's dispersion is undefined below two comparable site values — 31
+  of the top 72 rookies on the 2026-08-04 board, i.e. the thinnest-covered
+  rows.  ``_our_rookie_pool`` nulls non-positive at the source and
+  ``valueSigmas`` places those rows at the **p90 of the dispersion observed
+  across the pool**; passing the literal ``0.0`` through would present the
+  least trustworthy values on the board as the most certain.  The
+  ``singleSource`` floor (0.35) is a much narrower term — it fires on 2 of
+  72, because the pipeline's flag requires that matching COULD have
+  produced more than one source.  Measured effect of wiring it: none on
+  the live recommendation (39.5% either way — the 0.075 stand-in lands
+  where the old flat 0.08 sat), but live rather than inert (5x the CVs →
+  22.0% and a near-tie).
+* **Price is a FEASIBILITY risk, not a value risk.**  Surplus is measured
+  over replacement and does not depend on price, so a price draw cannot
+  move net value — only whether the plan is buyable.  Sigma comes from
+  ``sd(ln(paid / preDraftAtPick))`` per tier, shrunk toward the board-wide
+  sample and then toward the declared ``PRICE_DISPERSION_PRIOR``;
+  ``computeDraftStats`` publishes the raw ratios and ``perfect-draft.js``
+  estimates, split that way so the estimator does not drag the solver out
+  of its lazy chunk.  ``meta.budgetHeadroomAtP75`` is ``null`` — never 0 —
+  when no sigma was supplied.
+
 Not sourced from BDVM: it returns ``no_projection`` for the 2026 rookie
 class (upstream nflverse gap).  ``strategyMultiplier`` is the seam to
 replace when that changes.

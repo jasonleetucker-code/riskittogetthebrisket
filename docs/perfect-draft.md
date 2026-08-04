@@ -82,17 +82,44 @@ multiplicative ("went for 1.4x sheet") and a symmetric linear band would go
 negative at the cheap end:
 
 ```
-s_T   = sd( ln(paid / preDraftAtPick) ) over recorded picks in tier T
-s_eff = conf·s_T + (1 − conf)·s_global,   conf = min(1, n / TIER_CONFIDENCE_MIN_SAMPLES)
-band  = expectedPrice × exp(∓ z·s_eff),   floored at $1
+s_T      = sd( ln(paid / preDraftAtPick) ) over recorded picks in tier T
+conf(n)  = min(1, n / TIER_CONFIDENCE_MIN_SAMPLES)
+s_global = conf(n_all)·s_all + (1 − conf(n_all))·PRICE_DISPERSION_PRIOR
+s_eff(T) = conf(n_T)·s_T     + (1 − conf(n_T))·s_global
+band     = expectedPrice × exp(∓ z·s_eff),   floored at $1
 ```
 
-The shrinkage weight is the same one the tier-heat centre already uses, so the
-page carries one confidence concept rather than two.
+Two levels of shrinkage: a tier's own dispersion toward the board-wide sample,
+and the board-wide sample toward `PRICE_DISPERSION_PRIOR`. The weight is the
+same one the tier-heat centre already uses, so the page carries one confidence
+concept rather than three.
 
-The range is used for display and as a bootstrap input. It is **not** used to
-optimize: minimax-regret over auction prices says "buy nothing expensive",
-which is exactly the wrong bias for a rookie draft where the stud is the point.
+`computeDraftStats` publishes the raw ratios (`tierPriceRatios`,
+`allPriceRatios`) and `perfect-draft.js` estimates from them — deliberately
+split, because importing the estimator into `draft-logic.js` would drag the
+knapsack solver out of its lazy chunk and back into the main `/draft` bundle.
+
+**`PRICE_DISPERSION_PRIOR` is a declared prior, not a measurement.** Nothing in
+this repo has a completed rookie auction to fit against, so before the first
+sale the band is entirely an assumption; `priceSigmaByTier(...).measured` says
+which regime you are in. It is worth knowing how much this matters — the same
+$53 rookie, top of a real board:
+
+| state | sigma | band |
+|---|---|---|
+| before any sale (prior) | 0.350 | $42–$67 |
+| a calm room, 6 sales | 0.023 | $52–$54 |
+| a hot room, 6 sales | 0.137 | $48–$58 |
+| a chaotic room, 6 sales | 0.752 | $32–$88 |
+
+Until 2026-08-04 this whole section was aspirational: the panel called
+`priceBand(price, 0.35)` with the sigma hardcoded, and `logPriceDispersion`
+was never called in production.
+
+The range is used for display, as a bootstrap input, and for the p75 headroom
+figure (§7). It is **not** used to optimize: minimax-regret over auction prices
+says "buy nothing expensive", which is exactly the wrong bias for a rookie
+draft where the stud is the point.
 
 ---
 
@@ -207,6 +234,60 @@ without them.
 
 A flat "within 2%" band was rejected: 2% of a large total is an arbitrary
 absolute number on an arbitrary scale, and it ignores correlation entirely.
+
+### Reading the CV's zero
+
+The scraper's `_coeff_var` returns `0.0` whenever it has fewer than two
+comparable site values, so **a zero CV means dispersion was unobserved, not
+that the sources agreed** — and it is the thinnest-covered rows that get it.
+Measured on the 2026-08-04 board, 31 of the top 72 rookies have no observable
+dispersion. Passing that `0.0` through as a sigma would have presented the
+least trustworthy values on the board as the most certain ones.
+
+So `_our_rookie_pool` nulls non-positive at the source, and `valueSigmas`
+places an unobserved row at the **p90 of the dispersion observed across this
+pool** — the pessimistic end of the real distribution rather than a declared
+constant, falling back to `defaultCv` only when there are too few observations
+to form a p90.
+
+Until 2026-08-04 neither `marketDispersionCV` nor `singleSource` was set
+anywhere in the draft data path, so every rookie took one flat `defaultCv` and
+the single-source floor could never fire. Two honest notes on what fixing it
+bought:
+
+- **On today's board it changes nothing visible.** The recommended plan is
+  identical and confidence matches to 3 s.f. (39.5% either way), because the
+  measured stand-in (0.075) lands almost exactly where the old constant (0.08)
+  sat and the observed CVs are small relative to the surplus gaps. The wiring
+  is live, not inert — scaling the real CVs 5x moves confidence to 22.0% and
+  surfaces a near-tie — but this was a correctness fix, not an improvement to
+  today's numbers.
+- **`singleSource` is a narrow term, not a broad one.** Only 2 of the top 72
+  rookies carry the pipeline's semantic single-source flag (Rahsul Faison,
+  Caullin Lacy) — it requires that matching *could* have produced more than one
+  source, a much stricter condition than "we only observed one value". Both sit
+  inside the 31 unobserved rows, so the 0.35 floor raises those two above the
+  p90 stand-in and the unobserved-CV path covers the other 29 on its own.
+
+### Price risk
+
+Price enters as **feasibility** risk, which is the only honest route: surplus
+is value over replacement and does not depend on what a rookie cost, so a price
+draw cannot move a plan's net value. What it can do is push a plan's spend past
+the budget, and an unaffordable plan is not the best plan. Plans resting well
+under budget are untouched; a plan spending to the ceiling loses confidence.
+
+The frontier carries an empty `k = 0` plan, so scenarios in which nothing is
+affordable are absorbed by "buy nothing" competing as a plan rather than
+vanishing. (`assessPlans` also counts `infeasibleDraws` for callers that assess
+a hand-built list with no empty plan in it.)
+
+`meta.budgetHeadroomAtP75` re-prices the recommended plan with every rookie at
+the top of his band. It is `null` — never `0` — when no price sigma was
+supplied, because "not measured" and "no risk" must not render identically.
+On the live board a plan spending the full $400 shows −$28 of headroom at a
+modest sigma of 0.1, which is precisely the thing the panel previously could
+not say.
 
 ---
 
@@ -323,7 +404,14 @@ structurally prevents one team's results reaching another.
 
 - **Opponent modelling is coarse.** The plan is priced at expected cost; the
   board's `bayesianTopCompetitor` (nomination-decayed tier interest) is not yet
-  fed into plan feasibility.
+  fed into plan feasibility. Price *dispersion* is now learned from realized
+  sales (§3), but it is a symmetric spread around the expected price and knows
+  nothing about which specific rival wants which specific rookie.
+- **The price prior is declared, not fitted.** `PRICE_DISPERSION_PRIOR = 0.35`
+  is a plausible starting width, not a measurement, and before the first sale
+  of a draft it is doing all the work. Fitting it needs one auction recorded
+  end to end; `priceSigmaByTier(...).measured` distinguishes the two regimes in
+  the meantime.
 - **Nomination order is not modelled.** A plan requiring three specific wins is
   more fragile than the confidence number alone conveys; the pivots partially
   cover this.

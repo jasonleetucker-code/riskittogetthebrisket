@@ -388,6 +388,47 @@ function gauss(rand) {
 }
 
 /**
+ * Log-space price dispersion assumed before this draft has taught us anything.
+ *
+ * A DECLARED PRIOR, not a measurement — the same posture as BDVM's
+ * `params_v1.json`.  Nothing in this repo has a completed rookie auction to fit
+ * it against; the number is a plausible starting width (an IQR of roughly
+ * x0.79 to x1.27 around the expected price) chosen so the band is neither
+ * absurdly tight nor uninformative.  It is shrunk away as real picks land, and
+ * `priceSigmaByTier(...).measured` reports which regime a band is in so a
+ * prior-dominated band is never presented as an observation.  Replace it with
+ * a fit the first time an auction is recorded end to end.
+ */
+export const PRICE_DISPERSION_PRIOR = 0.35;
+
+/**
+ * Per-tier price sigma with two levels of shrinkage.
+ *
+ * A tier with three sales says more about that tier than the board-wide sample
+ * does; a tier with one says nothing.  So each tier's own dispersion shrinks
+ * toward the board-wide dispersion, and the board-wide dispersion shrinks
+ * toward `PRICE_DISPERSION_PRIOR` — both on the `n / minSamples` weight the
+ * board's tier-heat model already uses, so the page carries one confidence
+ * concept rather than three.
+ *
+ * Returns sigmas keyed by tier plus `global`, and `measured` — false while the
+ * prior is still doing the work, which is what the UI needs to avoid
+ * presenting an assumption as an observation.
+ */
+export function priceSigmaByTier(
+  { tierPriceRatios = {}, allPriceRatios = [] } = {},
+  { minSamples = 3, prior = PRICE_DISPERSION_PRIOR } = {},
+) {
+  const global = logPriceDispersion(allPriceRatios, { globalPrior: prior, minSamples });
+  const byTier = {};
+  for (const [tier, ratios] of Object.entries(tierPriceRatios || {})) {
+    byTier[tier] = logPriceDispersion(ratios, { globalPrior: global, minSamples });
+  }
+  const n = (allPriceRatios || []).filter((r) => Number.isFinite(Number(r)) && Number(r) > 0).length;
+  return { ...byTier, global, measured: n >= minSamples, sampleCount: n };
+}
+
+/**
  * Log-space dispersion of realized auction prices.
  *
  * Prices are multiplicative (a player goes for "1.4x his sheet value", not
@@ -399,7 +440,7 @@ function gauss(rand) {
  * `n / minSamples` weight the board's tier-heat model already uses, so the page
  * carries one confidence concept rather than two.
  */
-export function logPriceDispersion(ratios, { globalPrior = 0.35, minSamples = 3 } = {}) {
+export function logPriceDispersion(ratios, { globalPrior = PRICE_DISPERSION_PRIOR, minSamples = 3 } = {}) {
   const xs = (ratios || [])
     .map((r) => Number(r))
     .filter((r) => Number.isFinite(r) && r > 0)
@@ -410,6 +451,54 @@ export function logPriceDispersion(ratios, { globalPrior = 0.35, minSamples = 3 
   const sd = Math.sqrt(Math.max(0, varr));
   const conf = Math.min(1, xs.length / Math.max(1, minSamples));
   return conf * sd + (1 - conf) * globalPrior;
+}
+
+/**
+ * Per-player value sigma for the confidence bootstrap.
+ *
+ * The board publishes `marketDispersionCV` — the coefficient of variation of a
+ * player's normalized values across the sites that cover him.  Two things about
+ * it are load-bearing here:
+ *
+ *   * **It is absent, not zero, when it cannot be measured.**  The scraper's
+ *     dispersion is undefined below two comparable site values, and the server
+ *     nulls it rather than shipping a `0.0` that would read as "every source
+ *     agreed".  On the 2026-08-04 board that is 31 of the top 72 rookies, and
+ *     they are precisely the thinnest-covered rows.  Treating them as certain
+ *     would invert the truth.
+ *   * **So the fallback must be pessimistic, and it should be measured.**  A
+ *     row whose dispersion is unobservable is placed at the p90 of the
+ *     dispersion actually observed across this pool — the pessimistic end of
+ *     the real distribution rather than a declared constant.  With too few
+ *     observations to form a p90, `defaultCv` is the last resort.
+ *
+ * `singleSource` (the pipeline's semantic single-source flag, which already
+ * carries a 30% value haircut) floors the sigma independently.
+ */
+export function valueSigmas(plans, { defaultCv = 0.08, singleSourceFloor = 0.35 } = {}) {
+  const observed = [];
+  const players = new Map();
+  for (const plan of plans || []) {
+    for (const p of plan?.players || []) {
+      if (players.has(p.id)) continue;
+      players.set(p.id, p);
+      const cv = Number(p.marketDispersionCV);
+      if (Number.isFinite(cv) && cv > 0) observed.push(cv);
+    }
+  }
+  observed.sort((a, b) => a - b);
+  // Needs enough observations for a p90 to mean anything; below that the
+  // declared default is more honest than a percentile of two numbers.
+  const unobservedCv =
+    observed.length >= 3 ? observed[Math.min(observed.length - 1, Math.floor(0.9 * observed.length))] : defaultCv;
+
+  const sigmas = new Map();
+  for (const [id, p] of players) {
+    const cv = Number(p.marketDispersionCV);
+    const base = Number.isFinite(cv) && cv > 0 ? cv : unobservedCv;
+    sigmas.set(id, p.singleSource ? Math.max(base, singleSourceFloor) : base);
+  }
+  return { sigmas, unobservedCv, observedCount: observed.length };
 }
 
 /** Multiplicative price band from a log-space sigma. */
@@ -552,48 +641,102 @@ export function computeMaxBid(input, rookieId) {
  * total is a big absolute number, and the threshold is arbitrary on an
  * arbitrary scale.
  *
- * Value sigma uses the board's own `marketDispersionCV`, with a floor for
- * single-source rows (they already carry the pipeline's 30% haircut, so their
- * remaining uncertainty is real and large).
+ * Value sigma comes from `valueSigmas` above — the board's own
+ * `marketDispersionCV` where it exists, a measured pessimistic stand-in where
+ * it does not, and a floor for single-source rows.
+ *
+ * Price risk enters as **feasibility** risk, which is the only way it can enter
+ * honestly: surplus is value over replacement and does not depend on what the
+ * rookie cost, so a price draw cannot move a plan's net value.  What it can do
+ * is push a plan's spend past the budget, and a plan that cannot be bought is
+ * not the best plan.  A plan resting well under the budget is untouched by
+ * this; a plan spending to the ceiling loses confidence, which is the whole
+ * point.  When every candidate is unaffordable in a draw the honest outcome is
+ * "buy nothing", so that draw is credited to no plan and still counts in the
+ * denominator — confidence is `P(best AND affordable)`, which is what a bidder
+ * needs mid-auction.  In practice `optimizeDraft` passes a frontier that
+ * already carries an empty `k = 0` plan, so "buy nothing" competes as a plan
+ * and `infeasibleDraws` stays at zero; the counter is for callers assessing a
+ * hand-built list without one.
+ *
+ * `priceSigmaFor` returns a log-space sigma per rookie (see
+ * `logPriceDispersion`).  It defaults to no price risk so that a caller who
+ * has no realized auction history to measure from gets the value-only
+ * behaviour rather than an invented spread.
  */
-export function assessPlans(frontier, { draws = 200, seed = 12345, defaultCv = 0.08 } = {}) {
+export function assessPlans(
+  frontier,
+  { draws = 200, seed = 12345, defaultCv = 0.08, budget = Infinity, priceSigmaFor = null } = {},
+) {
   const plans = (frontier || []).slice(0, 8);
   if (plans.length === 0) return { confidence: null, nearTies: [], plans: [] };
-  if (plans.length === 1) {
-    return { confidence: 1, nearTies: [], plans: [{ ...plans[0], winProbability: 1 }] };
+
+  const { sigmas, unobservedCv, observedCount } = valueSigmas(plans, { defaultCv });
+  const B = Number.isFinite(Number(budget)) ? Number(budget) : Infinity;
+  const priceSigma = (p) => {
+    if (typeof priceSigmaFor !== "function") return 0;
+    const s = Number(priceSigmaFor(p));
+    return Number.isFinite(s) && s > 0 ? s : 0;
+  };
+  const priceRisk =
+    B !== Infinity && plans.some((plan) => (plan?.players || []).some((p) => priceSigma(p) > 0));
+
+  // With one candidate there is nothing to be uncertain BETWEEN, and the
+  // affordability draw below would be comparing it against itself.  Its
+  // confidence is 1 by construction — but only when price cannot make it
+  // unaffordable; otherwise it still has to survive the draws.
+  if (plans.length === 1 && !priceRisk) {
+    return {
+      confidence: 1,
+      nearTies: [],
+      plans: [{ ...plans[0], winProbability: 1 }],
+      meta: { unobservedCv, observedCount, infeasibleDraws: 0 },
+    };
   }
 
   const rand = mulberry32(seed);
   const wins = new Array(plans.length).fill(0);
+  let infeasibleDraws = 0;
 
   for (let d = 0; d < draws; d++) {
-    // One shock per distinct player, shared across every plan containing him.
-    const shocks = new Map();
+    // One shock per distinct player, shared across every plan containing him —
+    // two plans differing by a single swap must move together.
+    const valueShocks = new Map();
+    const priceShocks = new Map();
     const shockFor = (p) => {
-      if (!shocks.has(p.id)) {
-        const cv = Number.isFinite(Number(p.marketDispersionCV))
-          ? Math.max(Number(p.marketDispersionCV), p.singleSource ? 0.35 : 0)
-          : p.singleSource
-            ? 0.35
-            : defaultCv;
-        shocks.set(p.id, Math.exp(gauss(rand) * cv));
+      if (!valueShocks.has(p.id)) {
+        valueShocks.set(p.id, Math.exp(gauss(rand) * (sigmas.get(p.id) ?? defaultCv)));
       }
-      return shocks.get(p.id);
+      return valueShocks.get(p.id);
+    };
+    const paidFor = (p) => {
+      if (!priceShocks.has(p.id)) {
+        const s = priceSigma(p);
+        priceShocks.set(p.id, (Number(p.price) || 0) * (s > 0 ? Math.exp(gauss(rand) * s) : 1));
+      }
+      return priceShocks.get(p.id);
     };
 
-    let bestIdx = 0;
+    let bestIdx = -1;
     let bestVal = -Infinity;
     for (let i = 0; i < plans.length; i++) {
       const plan = plans[i];
+      const players = plan.players || [];
+      if (priceRisk) {
+        let spend = 0;
+        for (const p of players) spend += paidFor(p);
+        if (spend > B) continue;
+      }
       let gross = 0;
-      for (const p of plan.players || []) gross += p.surplus * shockFor(p);
+      for (const p of players) gross += p.surplus * shockFor(p);
       const net = gross - (plan.displacement || 0);
       if (net > bestVal) {
         bestVal = net;
         bestIdx = i;
       }
     }
-    wins[bestIdx]++;
+    if (bestIdx < 0) infeasibleDraws++;
+    else wins[bestIdx]++;
   }
 
   const scored = plans.map((p, i) => ({ ...p, winProbability: wins[i] / draws }));
@@ -601,7 +744,12 @@ export function assessPlans(frontier, { draws = 200, seed = 12345, defaultCv = 0
   // A rival plan winning a quarter of the scenarios is a genuine coin-flip,
   // and the UI says so rather than presenting a false single answer.
   const nearTies = scored.slice(1).filter((p) => p.winProbability >= 0.25);
-  return { confidence: top.winProbability, nearTies, plans: scored };
+  return {
+    confidence: top.winProbability,
+    nearTies,
+    plans: scored,
+    meta: { unobservedCv, observedCount, infeasibleDraws },
+  };
 }
 
 // ── The entry point ────────────────────────────────────────────────────────
@@ -684,10 +832,27 @@ export function optimizeDraft(input) {
   }
   candidates.sort((a, b) => b.netValue - a.netValue || a.spend - b.spend);
 
+  const priceSigmaFor = typeof input?.priceSigmaFor === "function" ? input.priceSigmaFor : null;
   const assessed = assessPlans(candidates, {
     draws: input?.draws || 200,
     seed: input?.seed || 12345,
+    budget,
+    priceSigmaFor,
   });
+
+  // What the recommended plan costs if every rookie in it goes at the top of
+  // his band rather than the middle.  A plan can be comfortably affordable at
+  // the expected price and unbuyable at p75, and that is the single most
+  // actionable uncertainty number during a live auction: it answers "do I have
+  // room to be outbid on all of these, or am I counting on catching a break?"
+  const Z75 = 0.674;
+  const spendAtP75 = priceSigmaFor
+    ? (bestPlan.players || []).reduce((s, p) => {
+        const sig = Number(priceSigmaFor(p));
+        const mult = Number.isFinite(sig) && sig > 0 ? Math.exp(Z75 * sig) : 1;
+        return s + (Number(p.price) || 0) * mult;
+      }, 0)
+    : null;
 
   // Star- and depth-focused variants are read off the frontier, never
   // manufactured: if the pool supports only one shape, there is no alternative
@@ -713,8 +878,19 @@ export function optimizeDraft(input) {
       budget,
       poolSize,
       budgetRemaining: budget - (bestPlan.spend || 0),
+      // Null when no price sigma was supplied — "not measured" and "no risk"
+      // must not render identically.
+      spendAtP75,
+      budgetHeadroomAtP75: spendAtP75 == null ? null : budget - spendAtP75,
       valueScale: "rankDerivedValue",
       strategy: input?.strategy || DEFAULT_STRATEGY,
+      // How much of the confidence number rests on measured dispersion versus
+      // the stand-in for rows the board could not measure.
+      valueSigma: {
+        unobservedCv: assessed.meta?.unobservedCv ?? null,
+        observedCount: assessed.meta?.observedCount ?? 0,
+      },
+      infeasibleDraws: assessed.meta?.infeasibleDraws ?? 0,
     },
   };
 }

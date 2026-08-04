@@ -525,6 +525,31 @@ export function computeDraftStats(workspace) {
   // Blended with 1.0 via a confidence weight based on sample count,
   // then multiplied on top of global inflation to produce
   // ``tierInflation`` (the actual modifier applied to fair/max bids).
+  //
+  // ── Realized paid/expected ratios ─────────────────────────────────
+  // The individual observations BEHIND tier heat.  Heat is their mean
+  // (Σpaid / Σpre); a spread needs the observations themselves, and
+  // Perfect Draft's price band was shipping a hardcoded sigma purely
+  // because nothing published them.
+  //
+  // Deliberately raw ratios rather than a finished sigma: the estimator
+  // lives in ``lib/perfect-draft.js`` (``logPriceDispersion``), and
+  // importing it here would drag the whole knapsack solver out of its
+  // lazy chunk and back into the main /draft bundle — the exact
+  // regression the React.lazy split exists to prevent.  Stats module
+  // measures; solver module estimates.
+  const tierPriceRatios = {};
+  const allPriceRatios = [];
+  const ratioForPick = (pk) => {
+    const snap = Number.isFinite(Number(pk.preDraftAtPick))
+      ? Math.max(0, Number(pk.preDraftAtPick))
+      : playerPreDraftById.get(pk.playerId) || 0;
+    const paid = Number(pk.amount) || 0;
+    // A $0 expectation has no ratio, and a $0 sale is a giveaway rather than
+    // an observation of price pressure; both are dropped, not clamped.
+    return snap > 0 && paid > 0 ? paid / snap : null;
+  };
+
   const tierHeat = {};
   const tierConfidence = {};
   const tierSampleCount = {};
@@ -536,6 +561,9 @@ export function computeDraftStats(workspace) {
       return tierForPreDraft(snap) === def.key;
     });
     tierSampleCount[def.key] = tierPicks.length;
+    const ratios = tierPicks.map(ratioForPick).filter((r) => r != null);
+    tierPriceRatios[def.key] = ratios;
+    allPriceRatios.push(...ratios);
     if (tierPicks.length === 0) {
       tierHeat[def.key] = null;
       tierConfidence[def.key] = 0;
@@ -976,6 +1004,10 @@ export function computeDraftStats(workspace) {
     tierHeat,
     tierConfidence,
     tierSampleCount,
+    // Realized paid/expected ratios — the observations behind tierHeat, for
+    // any consumer that needs the spread rather than the mean.
+    tierPriceRatios,
+    allPriceRatios,
     tierStats,
     rookiePoolSize,
     totalPicksMade,
@@ -1530,6 +1562,15 @@ export function replacePlayerPool(workspace, newPlayers) {
       // displaced player.
       ...(Number.isFinite(Number(p.boardValue)) && Number(p.boardValue) > 0
         ? { boardValue: Number(p.boardValue) } : {}),
+      // Board trust, for Perfect Draft's confidence bootstrap.  Only a
+      // POSITIVE CV is carried: the pipeline emits no dispersion for a
+      // rookie covered by a single source, and a stored 0 would read as
+      // "the sources agreed" — the opposite of what it means.  Absent
+      // is the honest encoding for unobserved.
+      ...(Number.isFinite(Number(p.marketDispersionCV)) &&
+      Number(p.marketDispersionCV) > 0
+        ? { marketDispersionCV: Number(p.marketDispersionCV) } : {}),
+      ...(p.singleSource ? { singleSource: true } : {}),
     }))
     .filter((p) => p.id);
 
@@ -1664,6 +1705,10 @@ export function hydrateWorkspace(parsed) {
           ? { idpTradeCalcDollar: Number(p.idpTradeCalcDollar) } : {}),
         ...(Number.isFinite(Number(p?.boardValue)) && Number(p.boardValue) > 0
           ? { boardValue: Number(p.boardValue) } : {}),
+        ...(Number.isFinite(Number(p?.marketDispersionCV)) &&
+        Number(p.marketDispersionCV) > 0
+          ? { marketDispersionCV: Number(p.marketDispersionCV) } : {}),
+        ...(p?.singleSource ? { singleSource: true } : {}),
       }));
     })(),
     picks: Array.isArray(parsed.picks)

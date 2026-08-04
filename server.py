@@ -6768,6 +6768,12 @@ _DRAFT_CAPITAL_PRIVATE_PICK_FIELDS = (
     # most proprietary number on the payload, and blocklisted outright by
     # the public-league guard.  Added with the field itself, not after.
     "rookieBoardValue",
+    # Per-rookie board trust diagnostics (source dispersion, single-source
+    # flag).  Board internals, not Sleeper facts, so they redact with the
+    # rest of the rookie board rather than leaking how confident our
+    # pipeline is in each row.  Added with the fields, not after.
+    "rookieDispersionCV",
+    "rookieSingleSource",
 )
 
 
@@ -7004,6 +7010,18 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
     ``ktcRaw`` / ``idpRaw`` are the per-vendor raw values used to
     derive each rookie's KTC and IDPTradeCalc dollar equivalents on
     the same $1200 scale (see ``_vendor_dollars_for_rookies``).
+
+    ``dispersionCV`` / ``singleSource`` are trust diagnostics carried
+    for Perfect Draft's confidence bootstrap, which needs a per-player
+    sigma and was previously falling back to one flat constant for the
+    whole board.  Read the CV's ZERO carefully: the scraper's
+    ``_coeff_var`` returns 0.0 whenever it has fewer than two
+    comparable site values, so ``0.0`` means *dispersion unobserved*,
+    not *perfect agreement*.  Measured on the 2026-08-04 board that is
+    31 of the top 72 rookies, and they are exactly the thinnest-covered
+    rows — handing them a literal sigma of zero would present the least
+    trustworthy values as the most certain.  The client treats
+    non-positive as unobserved for that reason.
     """
     contract = latest_contract_data or {}
     if not isinstance(contract, dict):
@@ -7031,6 +7049,7 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
             csv = {}
         ktc_raw = csv.get("ktcSfTep") or csv.get("ktc")
         idp_raw = csv.get("idpTradeCalc")
+        cv = p.get("marketDispersionCV")
         out.append(
             {
                 "name": str(p.get("canonicalName") or p.get("displayName") or ""),
@@ -7043,6 +7062,8 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
                 if isinstance(idp_raw, (int, float)) and idp_raw > 0
                 else None,
                 "assetClass": p.get("assetClass"),
+                "dispersionCV": float(cv) if isinstance(cv, (int, float)) and cv > 0 else None,
+                "singleSource": bool(p.get("isSingleSource")),
             }
         )
     out = [r for r in out if r["name"]]
@@ -8059,6 +8080,11 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 # value is measured in rankDerivedValue units against the
                 # displaced player, and the $ ladder is not convertible back.
                 "boardValue": r["value"],
+                # Per-rookie trust, for the confidence bootstrap.  ``None``
+                # on the CV means dispersion was unobservable (one site),
+                # NOT that the sources agreed — see ``_our_rookie_pool``.
+                "dispersionCV": r.get("dispersionCV"),
+                "singleSource": r.get("singleSource"),
             }
             for r, d in zip(our_rookies, rookie_dollar_overrides)
         ]
@@ -8082,6 +8108,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 pick["rookieIdpDollar"] = rookies[i]["idpTradeCalcDollar"]
             if "boardValue" in rookies[i]:
                 pick["rookieBoardValue"] = rookies[i]["boardValue"]
+            if "dispersionCV" in rookies[i]:
+                pick["rookieDispersionCV"] = rookies[i]["dispersionCV"]
+                pick["rookieSingleSource"] = rookies[i]["singleSource"]
 
     sorted_teams = sorted(team_totals.items(), key=lambda x: -x[1])
 

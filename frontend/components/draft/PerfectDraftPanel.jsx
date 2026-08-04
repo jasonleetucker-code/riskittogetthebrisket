@@ -33,6 +33,7 @@ import {
   draftPhase,
   optimizeDraft,
   priceBand,
+  priceSigmaByTier,
   realizedResults,
   STRATEGIES,
 } from "@/lib/perfect-draft";
@@ -101,6 +102,30 @@ export function PerfectDraftPanel({ stats, workspace }) {
 
   const rookiesBought = Number(stats?.myRookiesBought) || 0;
 
+  // Price uncertainty, learned from this draft's own realized sales. Before any
+  // pick lands this is entirely the declared prior; each recorded sale shrinks
+  // it toward what the room is actually doing. `measured` says which regime
+  // we're in so the UI can decline to present an assumption as an observation.
+  const priceSigmas = useMemo(
+    () =>
+      priceSigmaByTier({
+        tierPriceRatios: stats?.tierPriceRatios || {},
+        allPriceRatios: stats?.allPriceRatios || [],
+      }),
+    [stats?.tierPriceRatios, stats?.allPriceRatios],
+  );
+  // Tier keys share an object with the `measured` / `sampleCount` metadata, so
+  // resolve through a numeric check rather than key presence — a player whose
+  // tier string collided with a metadata key would otherwise pick up `true` as
+  // a sigma of 1.0.
+  const priceSigmaFor = useMemo(
+    () => (p) => {
+      const s = Number(priceSigmas[p?.tier]);
+      return Number.isFinite(s) ? s : priceSigmas.global;
+    },
+    [priceSigmas],
+  );
+
   // The roster context describes the roster as it stood BEFORE the draft, and
   // neither its open spots nor its cut ladder move when a rookie sells. Advance
   // both past what has already been bought so the recommendation below is the
@@ -126,9 +151,10 @@ export function PerfectDraftPanel({ stats, workspace }) {
             openRosterSpots: progress.openRosterSpots,
             waiverValues: context.waiverValues || {},
             strategy,
+            priceSigmaFor,
           }
         : null,
-    [context, rookies, stats?.myRemaining, progress, strategy],
+    [context, rookies, stats?.myRemaining, progress, strategy, priceSigmaFor],
   );
 
   // The solve is ~140ms at a full budget, and live Sleeper picks can arrive in
@@ -173,7 +199,7 @@ export function PerfectDraftPanel({ stats, workspace }) {
     const cut = cutIdx >= 0 ? cutRungs[cutIdx] : null;
     const cutCost = cut ? Number(cut.effectiveCutCost) || 0 : 0;
     const net = (Number(p.surplus) || 0) - cutCost;
-    const band = priceBand(p.price, 0.35);
+    const band = priceBand(p.price, priceSigmaFor(p));
     return {
       ...p,
       cut,
@@ -306,7 +332,15 @@ export function PerfectDraftPanel({ stats, workspace }) {
       <StatTile
         label="Plan spend"
         value={fmt$(totals.spend)}
-        meta={`${fmt$(meta.budgetRemaining)} left over`}
+        meta={
+          meta.budgetHeadroomAtP75 == null
+            ? `${fmt$(meta.budgetRemaining)} left over`
+            : `${fmt$(meta.budgetRemaining)} left over · ${
+                meta.budgetHeadroomAtP75 < 0
+                  ? `${fmt$(-meta.budgetHeadroomAtP75)} short`
+                  : `${fmt$(meta.budgetHeadroomAtP75)} spare`
+              } if bids run high`
+        }
       />
       <StatTile label="Rookies" value={String(plan.players.length)} />
       <StatTile
@@ -503,7 +537,14 @@ export function PerfectDraftPanel({ stats, workspace }) {
           <p>
             Prices are the board&apos;s live inflation-adjusted values and are
             uncertain — confidence is the share of simulated scenarios in which
-            this plan still comes out best.
+            this plan still comes out best, counting both how much sources
+            disagree about each rookie and the chance that bidding pushes the
+            plan past your budget.
+          </p>
+          <p>
+            {priceSigmas.measured
+              ? `The price range comes from the ${priceSigmas.sampleCount} sales recorded so far in this draft.`
+              : "The price range is a starting assumption until sales are recorded — it will tighten or widen to match this room as picks land."}
           </p>
           {meta.strategy !== "balanced" ? (
             <p>

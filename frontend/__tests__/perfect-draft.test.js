@@ -32,9 +32,12 @@ import {
   displacementCost,
   logPriceDispersion,
   priceBand,
+  PRICE_DISPERSION_PRIOR,
+  priceSigmaByTier,
   solveFrontier,
   strategyMultiplier,
   surplusOverReplacement,
+  valueSigmas,
 } from "@/lib/perfect-draft";
 
 /** Cut ladder helper: ascending effective cut costs. */
@@ -422,6 +425,244 @@ describe("uncertainty is expressed, not hidden", () => {
     const a = assessPlans(out.frontier, { draws: 200 });
     const b = assessPlans(out.frontier, { draws: 200 });
     expect(a.confidence).toBe(b.confidence);
+  });
+});
+
+describe("per-player value uncertainty is real, not a flat constant", () => {
+  // This block exists because the code READ `marketDispersionCV` and
+  // `singleSource` from day one while nothing in the draft data path ever set
+  // them. Every rookie silently took the same `defaultCv`, so the sigma term
+  // was decorative. These assertions fail against that version.
+
+  const plansWith = (...players) => [{ players, displacement: 0 }];
+
+  it("uses the board's own dispersion where the board measured it", () => {
+    const { sigmas } = valueSigmas(
+      plansWith(
+        { id: "a", marketDispersionCV: 0.02, surplus: 1, price: 1 },
+        { id: "b", marketDispersionCV: 0.14, surplus: 1, price: 1 },
+      ),
+    );
+    expect(sigmas.get("a")).toBe(0.02);
+    expect(sigmas.get("b")).toBe(0.14);
+  });
+
+  it("treats an unmeasured rookie as the pessimistic end of the measured range", () => {
+    // The trap this encodes: on the live board a missing CV means "covered by
+    // one source", i.e. the LEAST trustworthy rows. Handing them a low sigma —
+    // or the 0.0 the pipeline literally computes — would present them as the
+    // most certain values on the board.
+    const observed = [0.01, 0.02, 0.03, 0.04, 0.2];
+    const { sigmas, unobservedCv } = valueSigmas(
+      plansWith(
+        ...observed.map((cv, i) => ({
+          id: `obs-${i}`,
+          marketDispersionCV: cv,
+          surplus: 1,
+          price: 1,
+        })),
+        { id: "thin", marketDispersionCV: null, surplus: 1, price: 1 },
+      ),
+    );
+    expect(unobservedCv).toBe(0.2);
+    expect(sigmas.get("thin")).toBe(0.2);
+    expect(sigmas.get("thin")).toBeGreaterThan(sigmas.get("obs-0"));
+  });
+
+  it("falls back to the declared default when there is nothing to measure", () => {
+    const { sigmas, unobservedCv, observedCount } = valueSigmas(
+      plansWith({ id: "a", marketDispersionCV: null, surplus: 1, price: 1 }),
+      { defaultCv: 0.08 },
+    );
+    expect(observedCount).toBe(0);
+    expect(unobservedCv).toBe(0.08);
+    expect(sigmas.get("a")).toBe(0.08);
+  });
+
+  it("floors a single-source rookie above its own reported dispersion", () => {
+    const { sigmas } = valueSigmas(
+      plansWith({ id: "a", marketDispersionCV: 0.02, singleSource: true, surplus: 1, price: 1 }),
+    );
+    expect(sigmas.get("a")).toBe(0.35);
+  });
+
+  it("changes the confidence when a single-source rookie enters the plan", () => {
+    // The assertion that would have caught the unwired field. Against the
+    // shipped version both branches return the same number, because
+    // `singleSource` never reached the solver.
+    const shared = {
+      budget: 20,
+      openRosterSpots: 5,
+      cutLadder: ladder(1, 1, 1, 1, 1),
+      waiverValues: {},
+    };
+    const trusted = optimizeDraft({
+      ...shared,
+      rookies: [rookie("p", 5200, 20, { marketDispersionCV: 0.02 }), rookie("q", 5000, 20)],
+    });
+    const shaky = optimizeDraft({
+      ...shared,
+      rookies: [
+        rookie("p", 5200, 20, { marketDispersionCV: 0.02, singleSource: true }),
+        rookie("q", 5000, 20),
+      ],
+    });
+    expect(shaky.confidence).not.toBe(trusted.confidence);
+    // And in the right direction: a wobblier favourite wins fewer scenarios.
+    expect(shaky.confidence).toBeLessThan(trusted.confidence);
+  });
+});
+
+describe("price dispersion is measured from this draft, not assumed", () => {
+  it("is the declared prior before any pick has landed", () => {
+    const s = priceSigmaByTier({ tierPriceRatios: { S: [], A: [] }, allPriceRatios: [] });
+    expect(s.global).toBe(PRICE_DISPERSION_PRIOR);
+    expect(s.S).toBe(PRICE_DISPERSION_PRIOR);
+    expect(s.measured).toBe(false);
+    expect(s.sampleCount).toBe(0);
+  });
+
+  it("learns a tight room and a loose room differently", () => {
+    const tight = priceSigmaByTier({
+      tierPriceRatios: { S: [1.01, 0.99, 1.0, 1.02, 0.98, 1.0] },
+      allPriceRatios: [1.01, 0.99, 1.0, 1.02, 0.98, 1.0],
+    });
+    const loose = priceSigmaByTier({
+      tierPriceRatios: { S: [1.8, 0.5, 1.4, 0.7, 2.1, 0.6] },
+      allPriceRatios: [1.8, 0.5, 1.4, 0.7, 2.1, 0.6],
+    });
+    expect(tight.S).toBeLessThan(loose.S);
+    expect(tight.S).toBeLessThan(PRICE_DISPERSION_PRIOR);
+    expect(tight.measured).toBe(true);
+  });
+
+  it("gives a one-sale tier the board-wide number, not a spread of its own", () => {
+    const calm = [1.0, 1.01, 0.99, 1.0, 1.02, 0.98];
+    const s = priceSigmaByTier({
+      tierPriceRatios: { S: calm, A: [1.4] },
+      allPriceRatios: [...calm, 1.4],
+    });
+    // One observation has no spread; A inherits the board's exactly.
+    expect(s.A).toBe(s.global);
+    // And S, which has a real sample, is allowed to be tighter than the board.
+    expect(s.S).toBeLessThan(s.global);
+  });
+
+  it("lands a thin-but-real tier sample between its own spread and the board's", () => {
+    const calm = Array.from({ length: 12 }, (_, i) => 1 + (i % 2 ? 0.01 : -0.01));
+    const wild = [1.9, 0.55];
+    const s = priceSigmaByTier({
+      tierPriceRatios: { S: calm, A: wild },
+      allPriceRatios: [...calm, ...wild],
+    });
+    const aAlone = logPriceDispersion(wild, { globalPrior: 0, minSamples: 2 });
+    expect(s.A).toBeLessThan(aAlone);
+    expect(s.A).toBeGreaterThan(s.global);
+  });
+
+  it("drops giveaways and unpriced rows instead of clamping them", () => {
+    // ln(paid/expected) is undefined at zero on either side; a $0 sale is not
+    // an observation of price pressure.
+    expect(logPriceDispersion([1.1, 0, -2, 1.3, null])).toBe(
+      logPriceDispersion([1.1, 1.3]),
+    );
+  });
+});
+
+describe("price risk shows up as affordability risk", () => {
+  const ceilingPlan = {
+    budget: 100,
+    openRosterSpots: 5,
+    cutLadder: ladder(1, 1, 1, 1, 1),
+    waiverValues: {},
+    rookies: [rookie("p", 6000, 60), rookie("q", 5800, 40), rookie("r", 900, 5)],
+  };
+
+  it("reports how much the plan costs if bids run high", () => {
+    const out = optimizeDraft({ ...ceilingPlan, priceSigmaFor: () => 0.3 });
+    expect(out.meta.spendAtP75).toBeGreaterThan(out.plan.spend);
+    expect(out.meta.budgetHeadroomAtP75).toBe(out.meta.budget - out.meta.spendAtP75);
+  });
+
+  it("says nothing rather than zero when no price sigma was supplied", () => {
+    // "Not measured" and "no risk" must not render identically.
+    const out = optimizeDraft(ceilingPlan);
+    expect(out.meta.spendAtP75).toBeNull();
+    expect(out.meta.budgetHeadroomAtP75).toBeNull();
+  });
+
+  it("finds a plan that is affordable at the median and short at p75", () => {
+    const out = optimizeDraft({ ...ceilingPlan, priceSigmaFor: () => 0.4 });
+    expect(out.plan.spend).toBeLessThanOrEqual(out.meta.budget);
+    expect(out.meta.budgetHeadroomAtP75).toBeLessThan(0);
+  });
+
+  it("costs a budget-ceiling plan the confidence a cheap fallback keeps", () => {
+    const calm = optimizeDraft(ceilingPlan);
+    const stormy = optimizeDraft({ ...ceilingPlan, priceSigmaFor: () => 0.5 });
+    expect(stormy.confidence).toBeLessThan(calm.confidence);
+    // Nothing is ever infeasible here — the $5 rookie is always affordable, so
+    // the favourite loses share to a cheaper plan rather than to nothing.
+    // That IS the mechanism when a fallback exists.
+    expect(stormy.meta.infeasibleDraws).toBe(0);
+  });
+
+  it("hands scenarios it cannot afford to the do-nothing plan", () => {
+    // Both rookies sit against the ceiling, so in many draws neither is
+    // buyable. The frontier already carries an empty k=0 plan, so "buy
+    // nothing" competes as a plan rather than being an uncredited hole — and
+    // the recommendation's confidence falls accordingly.
+    const shared = {
+      budget: 100,
+      openRosterSpots: 5,
+      cutLadder: ladder(1, 1, 1, 1, 1),
+      waiverValues: {},
+      rookies: [rookie("p", 6000, 95), rookie("q", 5800, 92)],
+    };
+    const calm = optimizeDraft(shared);
+    const stormy = optimizeDraft({ ...shared, priceSigmaFor: () => 0.5 });
+    expect(stormy.confidence).toBeLessThan(calm.confidence);
+    const doNothing = stormy.frontier.find((p) => p.k === 0);
+    expect(doNothing).toBeTruthy();
+  });
+
+  it("counts the draws in which nothing at all was affordable", () => {
+    // Only reachable when a caller assesses a hand-built list with no
+    // do-nothing plan in it — which is why the counter exists rather than
+    // being folded into the empty plan's win share.
+    const plan = (id, price) => ({
+      k: 1,
+      players: [{ id, price, surplus: 1000 }],
+      displacement: 0,
+      spend: price,
+      netValue: 1000,
+    });
+    const out = assessPlans([plan("p", 95), plan("q", 92)], {
+      budget: 100,
+      priceSigmaFor: () => 0.5,
+      draws: 400,
+    });
+    expect(out.meta.infeasibleDraws).toBeGreaterThan(0);
+    expect(out.plans.reduce((s, p) => s + p.winProbability, 0)).toBeLessThan(1);
+  });
+
+  it("leaves a plan with plenty of room alone", () => {
+    const roomy = {
+      budget: 400,
+      openRosterSpots: 5,
+      cutLadder: ladder(1, 1, 1, 1, 1),
+      waiverValues: {},
+      rookies: [rookie("p", 6000, 20), rookie("q", 500, 5)],
+    };
+    const calm = optimizeDraft(roomy);
+    const stormy = optimizeDraft({ ...roomy, priceSigmaFor: () => 0.5 });
+    expect(stormy.confidence).toBe(calm.confidence);
+    expect(stormy.meta.infeasibleDraws).toBe(0);
+  });
+
+  it("stays deterministic once price is in the draw", () => {
+    const opts = { ...ceilingPlan, priceSigmaFor: () => 0.4 };
+    expect(optimizeDraft(opts).confidence).toBe(optimizeDraft(opts).confidence);
   });
 });
 

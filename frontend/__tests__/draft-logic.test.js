@@ -2424,6 +2424,75 @@ describe("replacePlayerPool", () => {
     expect(next.players.find((p) => p.name === "Idp Rook").assetClass).toBe("idp");
     expect(next.players.find((p) => p.name === "Bogus Rook").assetClass).toBeUndefined();
   });
+
+  it("carries board trust through, and drops a zero CV rather than storing it", () => {
+    // The pipeline emits no dispersion for a rookie only one source covers, so
+    // a stored 0 would read as "every source agreed" — the opposite of what it
+    // means, and on the live board it is 27 of the top 72 rookies. Absent is
+    // the honest encoding, and the solver widens absent rows.
+    const ws = createDefaultWorkspace();
+    const { workspace: next } = replacePlayerPool(ws, [
+      { name: "Covered Rook", preDraft: 30, marketDispersionCV: 0.033 },
+      { name: "Thin Rook", preDraft: 25, marketDispersionCV: 0, singleSource: true },
+      { name: "Null Rook", preDraft: 20, marketDispersionCV: null },
+    ]);
+    const covered = next.players.find((p) => p.name === "Covered Rook");
+    const thin = next.players.find((p) => p.name === "Thin Rook");
+    const nul = next.players.find((p) => p.name === "Null Rook");
+    expect(covered.marketDispersionCV).toBe(0.033);
+    expect(covered.singleSource).toBeUndefined();
+    expect(thin.marketDispersionCV).toBeUndefined();
+    expect(thin.singleSource).toBe(true);
+    expect(nul.marketDispersionCV).toBeUndefined();
+  });
+});
+
+describe("computeDraftStats — realized price ratios", () => {
+  // Perfect Draft's price band was hardcoded because nothing published the
+  // observations behind tier heat. Heat is the tier's MEAN ratio; a spread
+  // needs the individual sales.
+  function wsWith(picks) {
+    const ws = createDefaultWorkspace();
+    return {
+      ...ws,
+      players: [
+        { id: "elite", rank: 1, name: "Elite", preDraft: 100 },
+        { id: "depth", rank: 2, name: "Depth", preDraft: 10 },
+        { id: "dart", rank: 3, name: "Dart", preDraft: 4 },
+      ],
+      picks,
+    };
+  }
+
+  it("emits paid/expected per tier alongside the tier mean", () => {
+    const stats = computeDraftStats(
+      wsWith([
+        { playerId: "elite", teamIdx: 0, amount: 120, preDraftAtPick: 100, ts: 1 },
+        { playerId: "depth", teamIdx: 1, amount: 8, preDraftAtPick: 10, ts: 2 },
+      ]),
+    );
+    expect(stats.tierPriceRatios.S).toEqual([1.2]);
+    expect(stats.tierPriceRatios.B).toEqual([0.8]);
+    expect(stats.tierPriceRatios.A).toEqual([]);
+    expect(stats.allPriceRatios.sort()).toEqual([0.8, 1.2]);
+  });
+
+  it("drops a giveaway rather than recording it as a 0x ratio", () => {
+    const stats = computeDraftStats(
+      wsWith([
+        { playerId: "elite", teamIdx: 0, amount: 120, preDraftAtPick: 100, ts: 1 },
+        { playerId: "dart", teamIdx: 1, amount: 0, preDraftAtPick: 4, ts: 2 },
+      ]),
+    );
+    expect(stats.allPriceRatios).toEqual([1.2]);
+    // The pick itself still counts toward tier heat and sample count.
+    expect(stats.tierSampleCount.C).toBe(1);
+  });
+
+  it("is empty before a draft starts", () => {
+    const stats = computeDraftStats(wsWith([]));
+    expect(stats.allPriceRatios).toEqual([]);
+  });
 });
 
 describe("nominationCandidates — vendor split (offense=KTC, IDP=IDPTC)", () => {
