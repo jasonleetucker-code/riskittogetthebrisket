@@ -391,14 +391,28 @@ these changes cannot move a board rebuilt from an existing export — their effe
 lands on the next scrape. That is why they carry unit tests
 (`tests/pool/test_scraper_composite_math.py`) rather than a board diff.
 
-**Low tier** (~20): pick-round fallback to round **1** instead of the worst round;
-a `source_weights` block whose second loop has no body; a tier map zipped by index
-against a list that drops rows; three unit errors in `feature_engineering` making
-two tags unreachable; a 5th-percentile index returning the **top** player via
-banker's rounding; a phantom loss for unpaired owners; Monte Carlo ties credited
-to one side; six chained roundings in the FAAB recommender; a division guard that
-substitutes an ~800× inflation multiplier for an error; ~15 missing sort
-tie-breaks; a docstring promising NumPy acceleration that does not exist.
+**Low tier** (~20, all corrected): pick-round fallback to round **1** instead of
+the worst round, plus a 15% discontinuity between slot 4 and slot 5; a
+`source_weights` block whose second loop has no body, so an advertised parameter
+was a silent no-op; a tier map zipped **by index** against a list `detect_tiers`
+drops rows from, so one drop shifted every subsequent row onto another row's tier;
+three unit errors in `feature_engineering` (TDs *per yard* against a 0.06
+threshold, receptions *per yard* for WR/TE against a fraction for RB at the same
+0.22 threshold, and an already-per-game figure divided by games again) that made
+two tags unreachable; a phantom loss for an owner who was scored but not paired;
+Monte Carlo ties credited entirely to side B via `winProbB = 1 − winProbA`; six
+chained roundings in the FAAB recommender plus a variable confidence denominator
+where "present but neutral" scored differently from "missing"; a `max(1, …)`
+guard that turned an over-spent draft workbook into an ~800× inflation
+multiplier; and a docstring promising NumPy acceleration that appears nowhere in
+the module.
+
+Deliberately **not** fixed, and recorded instead: the ~15 missing sort tie-breaks
+outside the paths this audit touched (each is a determinism nit, not a wrong
+number), and `league_intel/replacement.py`'s 5th-percentile index returning the
+**top** player on a 10-player pool via banker's rounding — real, but it sits in
+the league-adjusted overlay, which is a toggle rather than the default board (see
+`docs/adjusted-board-backtest.md`).
 
 ### 4.4 Findings refuted on verification — recorded so they are not re-raised
 
@@ -501,10 +515,13 @@ both sides proves nothing.
 
 ```
 python -m pytest tests/ -q
-  6064 passed, 39 skipped, 0 failed        (baseline: 5548 passed, 1 failed)
+  6106 passed, 39 skipped, 0 failed        (baseline: 5548 passed, 1 failed)
 
 cd frontend && npx vitest run
-  101 files, 1706 passed                   (baseline: 89 files, 1526 passed)
+  101 files, 1708 passed                   (baseline: 89 files, 1526 passed)
+
+python -m ruff format --check .
+  817 files already formatted
 ```
 
 Fully green. The one baseline failure
