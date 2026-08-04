@@ -1,0 +1,10 @@
+registry merge — 2026-08-04T20:50:13.630021+00:00 @ e96c06ef
+shards: 0
+records: 0 raw -> 0 after dedupe (0 merged)
+by status: {}
+by priority: {}
+by workstream: {}
+prior-finding relations: {}
+files with contradictory verdicts: none
+
+VALIDATION PROBLEMS (0):

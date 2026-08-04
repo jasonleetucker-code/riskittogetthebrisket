@@ -1,0 +1,40 @@
+# Test suite results — measured 2026-08-04 on the live checkout (HEAD e96c06ef)
+# Python: .venv/bin/python 3.11.15 (NOTE: CI uses 3.12; pyproject/.python-version pin 3.12)
+# Command: .venv/bin/python -m pytest tests/ -q --tb=short -rf
+
+RESULT: 6278 passed, 40 skipped, 2 warnings, 496 subtests passed in 1929.98s (32m10s). Exit 0.
+
+# Frontend: npm --prefix frontend test (vitest)
+RESULT: 104 test files passed, 1754 tests passed, 32.38s. Exit 0.
+
+# Warning emitted during the run (route registration defect, not a test failure):
+#   UserWarning: Duplicate Operation ID get_health_api_health_get for function get_health
+
+## Static census of skip/xfail markers (skips are runtime, so this is the declared set)
+  tests/api/test_realized_points_endpoint.py:105:        pytest.skip("no weekly stats available")
+  tests/api/test_per_source_freshness.py:41:        pytest.skip("no CSV sources present in this checkout")
+  tests/api/test_draft_capital_data_not_ready.py:144:        pytest.skip("registry has no non-default active league to exercise the fallback")
+  tests/api/test_draft_capital_data_not_ready.py:198:        pytest.skip("no default league configured")
+  tests/integration/test_ktc_import_e2e.py:40:        pytest.skip(f"KTC upstream unreachable: {exc}")
+  tests/integration/test_ktc_import_e2e.py:57:        pytest.skip(f"KTC upstream unreachable: {exc}")
+  tests/integration/test_multi_source_pipeline.py:27:            pytest.skip("ktc.csv not present in exports")
+  tests/integration/test_multi_source_pipeline.py:40:            pytest.skip("idpTradeCalc.csv not present in exports")
+  tests/scripts/test_audit_identity_matches.py:153:    @pytest.mark.skipif(_latest_export() is None, reason="no committed export payload")
+  tests/league_intel/test_flag_docs_match_reality.py:48:        pytest.skip(f"{flag} is not a registered flag")
+  tests/league_intel/test_twin.py:179:            pytest.skip("league pool fixture not present")
+  tests/league_intel/test_calibration.py:295:            pytest.skip("baseline snapshot not present")
+  tests/league_intel/test_calibration.py:369:            pytest.skip("baseline contract snapshot not present")
+  tests/league_intel/test_sim.py:189:            pytest.skip("league pool fixture not present")
+  tests/league_intel/test_cross_market.py:405:            pytest.skip("baseline contract snapshot not present")
+  tests/league_intel/test_board_adjustment.py:232:            pytest.skip("baseline contract snapshot not present")
+  tests/model_registry/test_refit_path_characterisation.py:227:            pytest.skip("KTC fixture missing")
+  tests/model_registry/test_refit_driver.py:61:        pytest.skip("holdout boards not present in this checkout")
+  tests/pool/test_builder.py:435:            pytest.skip("adamidp artifact not present")
+  tests/roster_intel/test_real_rosters.py:74:        pytest.skip("live snapshots not present in this checkout")
+  tests/roster_intel/test_real_rosters.py:87:        pytest.skip("nfl player dump not present in this checkout")
+  tests/roster_intel/test_real_rosters.py:111:        pytest.skip("league registry not present")
+  tests/roster_intel/test_real_rosters.py:119:        pytest.skip("default league not found in registry")
+  tests/adapters/test_scraper_bridge_adapter.py:212:            pytest.skip("KTC export not available")
+  tests/canonical/test_ktc_reconciliation.py:159:        pytest.skip(f"KTC fixture missing at {KTC_CSV}")
+  tests/canonical/test_ktc_reconciliation.py:162:        pytest.skip(f"KTC fixture too small ({len(players)} players, need >= 400)")
+  tests/canonical/test_calibration.py:206:            pytest.skip("No legacy data")
