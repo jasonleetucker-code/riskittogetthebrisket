@@ -42,7 +42,39 @@ difference — verified here by checking that every non-TE row has a byte-
 identical value across the two files.  So the rank movement IS the premium,
 with no modelling assumption needed to isolate it.
 
-Output: ``config/weights/te_premium_rank_shift.json``
+THE RESULT WAS MEASURED AND THEN REJECTED — READ THIS BEFORE WIRING IT
+======================================================================
+Everything above is why a rank shift *looked* like the right answer.  It
+is not, and this script is kept as the record of how that was settled
+rather than as a live input.
+
+Scored against the thing the premium is actually trying to reproduce —
+KTC's own measured TE++ VALUE ratio, across all 72 paired tight ends —
+the rank shift is materially worse than the value-space conversion it
+would have replaced:
+
+    method                       mean |error|   median
+    value-space (kept)                  0.090    0.081
+    rank-space (this script)            0.175    0.085
+
+and it is worse across the whole deep half of the board: at KTC base
+rank 496 the true ratio is 2.045, value space gives 1.633, rank space
+1.122.  Pushing a rank shift through the Hill curve cannot recover a
+value ratio, because the curve's shape is not KTC's value distribution —
+which is the same mismatch that caused the original defect, just in the
+other direction.
+
+Wiring it moved 125 board values and 567 ranks.  The saturation it was
+built to prevent is instead fixed at the bound, by
+``data_contract._te_lift_under_ceiling`` — a strictly increasing squash
+in place of the hard clamp, which keeps distinct votes distinct without
+touching the measured ratio at all.
+
+So this script writes a config that NOTHING READS.  ``--write`` is left
+in place so the measurement can be reproduced and re-inspected; if you
+are tempted to wire the output, re-run the comparison above first.
+
+Output: ``config/weights/te_premium_rank_shift.json`` (not consumed)
 
     python scripts/audit/fit_ktc_te_rank_shift.py            # print
     python scripts/audit/fit_ktc_te_rank_shift.py --write    # write config
@@ -67,6 +99,16 @@ _OUT = _REPO_ROOT / "config" / "weights" / "te_premium_rank_shift.json"
 # deep tail.  Sampling evenly in log-rank keeps the shape where it moves
 # fastest (the top of the board) and thins the flat tail.
 _KNOT_COUNT = 14
+
+
+def _latest_payload() -> Path:
+    """Newest export under ``exports/latest/``.
+
+    Pinning a dated filename here rots — the scheduled refresh renames the
+    export on every run.
+    """
+    candidates = sorted((_REPO_ROOT / "exports" / "latest").glob("dynasty_data_*.json"))
+    return candidates[-1] if candidates else _REPO_ROOT / "exports" / "latest" / "dynasty_data.json"
 
 
 def _load_values(path: Path) -> dict[str, float]:
@@ -94,8 +136,7 @@ def _positions(payload_path: Path) -> dict[str, str]:
         payload = json.load(fh)
     sleeper = payload.get("sleeper") or {}
     return {
-        str(k).strip().lower(): str(v).upper()
-        for k, v in (sleeper.get("positions") or {}).items()
+        str(k).strip().lower(): str(v).upper() for k, v in (sleeper.get("positions") or {}).items()
     }
 
 
@@ -150,9 +191,11 @@ def fit(payload_path: Path) -> dict:
     return {
         "_comment": (
             "KTC's TE-premium measured as a RANK shift, base SF -> TE++ level 2. "
-            "Consumed by src/league_intel/te_premium.py::convert_te_rank, which the "
-            "canonical blend applies BEFORE the Hill curve so the premium cannot "
-            "saturate the 9999 ceiling. Fitter: scripts/audit/fit_ktc_te_rank_shift.py. "
+            "NOT CONSUMED BY ANYTHING — this is the record of a rejected "
+            "alternative, kept because it was measured. It reproduces KTC's own "
+            "TE++ value ratio worse than the value-space conversion the blend "
+            "actually uses (mean abs error 0.175 vs 0.090). Fitter and full "
+            "reasoning: scripts/audit/fit_ktc_te_rank_shift.py. "
             "See docs/audits/math-formula-audit-2026-07-30.md finding C4."
         ),
         "version": "te.rankshift.2026-07-30.v1",
@@ -174,14 +217,18 @@ def fit(payload_path: Path) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument(
         "--payload",
         type=Path,
-        default=_REPO_ROOT / "exports" / "latest" / "dynasty_data_2026-07-30.json",
+        default=_latest_payload(),
         help="raw payload supplying the name -> position map",
     )
-    ap.add_argument("--write", action="store_true", help="write config/weights/te_premium_rank_shift.json")
+    ap.add_argument(
+        "--write", action="store_true", help="write config/weights/te_premium_rank_shift.json"
+    )
     args = ap.parse_args(argv)
 
     result = fit(args.payload)

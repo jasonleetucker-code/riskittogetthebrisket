@@ -109,8 +109,6 @@ def test_tiers_scale_the_unrounded_aggressive_bid() -> None:
     Hand-derived: share 0.5 → 0.05 + 0.125 = 0.175 → $100 × 0.175 =
     $17.50.  Rounding first and scaling second is what produced $13.
     """
-    aggressive, reasonable, _ = _compute_faab_bid(
-        2500, budget=100, top_value_in_pool=5000
-    )
+    aggressive, reasonable, _ = _compute_faab_bid(2500, budget=100, top_value_in_pool=5000)
     assert aggressive == 18
     assert reasonable == 12

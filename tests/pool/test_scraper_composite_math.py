@@ -117,8 +117,8 @@ class IdpAnchorTailTests(unittest.TestCase):
         self.assertLessEqual(max(ranks), len(vals))
         # every anchor value is distinct because every source value is
         self.assertEqual(len({v for _, v in pts}), len(pts))
-        # the deepest observation is represented
-        self.assertEqual(pts[-1], (27, 740.0))
+        # the ladder terminates on its last backed rung, not on vals[-1]
+        self.assertEqual(pts, [(1, 1000.0), (3, 980.0), (6, 950.0), (12, 890.0), (24, 770.0)])
 
     def test_tail_is_rank_sensitive(self) -> None:
         """Past the last anchor the curve must still separate ranks.
@@ -133,28 +133,52 @@ class IdpAnchorTailTests(unittest.TestCase):
         v200 = self.interp(200, pts)
         self.assertLess(v200, v96)
 
-        # Hand-derived: last two anchors are (24, 770) and (27, 740), so the
-        # log-log slope is ln(740/770) / ln(27/24) and
-        #   v(r) = 740 * (r / 27) ** slope
-        slope = math.log(740.0 / 770.0) / math.log(27.0 / 24.0)
-        self.assertAlmostEqual(v200, 740.0 * ((200.0 / 27.0) ** slope), places=6)
-        self.assertAlmostEqual(v96, 740.0 * ((96.0 / 27.0) ** slope), places=6)
+        # Hand-derived: last two anchors are (12, 890) and (24, 770), so the
+        # log-log slope is ln(770/890) / ln(24/12) and
+        #   v(r) = 770 * (r / 24) ** slope
+        slope = math.log(770.0 / 890.0) / math.log(2.0)
+        self.assertAlmostEqual(v200, 770.0 * ((200.0 / 24.0) ** slope), places=6)
+        self.assertAlmostEqual(v96, 770.0 * ((96.0 / 24.0) ** slope), places=6)
+
+    def test_tail_does_not_collapse_on_a_truncated_sample(self) -> None:
+        """The other failure mode, pinned so a future fix can't swap one for
+        the other.
+
+        Terminating the ladder on ``vals[-1]`` instead would measure the tail
+        slope over rank 24 → 27, which on a truncated sample is a cliff (the
+        source stops covering the position, the market does not).  These are
+        the shape of the live DL bucket: 1226 at rank 24 down to 768 at 27.
+        That slope extrapolates rank 150 to ~1.0.
+        """
+        vals = [
+            5414.0, 4200.0, 3605.0, 3200.0, 3000.0, 2940.0, 2600.0, 2400.0, 2250.0,
+            2150.0, 2050.0, 1924.0, 1800.0, 1700.0, 1620.0, 1550.0, 1480.0, 1420.0,
+            1370.0, 1330.0, 1300.0, 1270.0, 1245.0, 1226.0, 900.0, 800.0, 768.0,
+        ]  # fmt: skip
+        pts = self.build(vals, 6250.0)
+        self.assertEqual(pts[-2:], [(12, 1924.0), (24, 1226.0)])
+        # slope = ln(1226 / 1924) / ln(2)  →  v(r) = 1226 * (r / 24) ** slope
+        slope = math.log(1226.0 / 1924.0) / math.log(2.0)
+        v150 = self.interp(150, pts)
+        self.assertAlmostEqual(v150, 1226.0 * ((150.0 / 24.0) ** slope), places=6)
+        self.assertGreater(v150, 300.0)
 
     def test_two_observation_curve_uses_both(self) -> None:
-        """A 2-value bucket must produce a real slope, not a flat line."""
+        """Below two ladder rungs the deepest observation IS the second
+        anchor — otherwise a one-point curve prices every rank at the top."""
         pts = self.build([1000.0, 500.0], 6250.0)
         self.assertEqual(pts, [(1, 1000.0), (2, 500.0)])
         # slope = ln(500/1000) / ln(2/1) = -1  →  v(r) = 500 * (r/2) ** -1
         self.assertAlmostEqual(self.interp(8, pts), 125.0, places=6)
         self.assertAlmostEqual(self.interp(4, pts), 250.0, places=6)
 
-    def test_deep_bucket_keeps_its_sampled_anchors(self) -> None:
-        """With more observations than the deepest sampled rank, the full
-        [1, 3, 6, 12, 24, 48, 72, 96] ladder survives plus a terminal
-        anchor at the deepest observation."""
+    def test_deep_bucket_is_unchanged(self) -> None:
+        """A bucket deeper than the ladder keeps exactly the shipped rungs —
+        this fix must not move the well-populated ALL/LB/DB curves."""
         vals = [1000.0 - (2.0 * i) for i in range(120)]
         pts = self.build(vals, 6250.0)
-        self.assertEqual([r for r, _ in pts], [1, 3, 6, 12, 24, 48, 72, 96, 120])
+        self.assertEqual([r for r, _ in pts], [1, 3, 6, 12, 24, 48, 72, 96])
+        self.assertEqual([v for _, v in pts], [vals[r - 1] for r in [1, 3, 6, 12, 24, 48, 72, 96]])
 
     def test_anchor_values_are_monotone_non_increasing(self) -> None:
         vals = [500.0, 900.0, 700.0, 100.0, 300.0, 800.0]

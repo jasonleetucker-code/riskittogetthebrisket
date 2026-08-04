@@ -41,6 +41,7 @@ if str(_REPO_ROOT) not in sys.path:
 os.environ.pop("SLEEPER_LEAGUE_ID", None)
 os.environ["LEAGUE_REGISTRY_PATH"] = "/nonexistent/path/for/audit.json"
 
+
 def _latest_payload() -> Path:
     """Newest export under ``exports/latest/``.
 
@@ -132,7 +133,9 @@ def diff_snapshots(before: dict[str, Any], after: dict[str, Any], *, top: int) -
         bv, av = b["rankDerivedValue"], a["rankDerivedValue"]
         if bv != av:
             delta = float(av or 0) - float(bv or 0)
-            moved.append((abs(delta), name, bv, av, b["canonicalConsensusRank"], a["canonicalConsensusRank"]))
+            moved.append(
+                (abs(delta), name, bv, av, b["canonicalConsensusRank"], a["canonicalConsensusRank"])
+            )
         if b["canonicalConsensusRank"] != a["canonicalConsensusRank"]:
             rank_moved += 1
 
@@ -143,15 +146,26 @@ def diff_snapshots(before: dict[str, Any], after: dict[str, Any], *, top: int) -
         print(f"  {'player':34s} {'before':>8s} {'after':>8s} {'Δ':>8s}  rank")
         for _, name, bv, av, br, ar in moved[:top]:
             d = float(av or 0) - float(bv or 0)
-            print(f"  {name[:34]:34s} {_fmt(bv):>8s} {_fmt(av):>8s} {d:>+8.0f}  {_fmt(br)}->{_fmt(ar)}")
+            print(
+                f"  {name[:34]:34s} {_fmt(bv):>8s} {_fmt(av):>8s} {d:>+8.0f}  {_fmt(br)}->{_fmt(ar)}"
+            )
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--payload", type=Path, default=_latest_payload(), help="raw scraper payload to rebuild from")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--payload",
+        type=Path,
+        default=_latest_payload(),
+        help="raw scraper payload to rebuild from",
+    )
     ap.add_argument("--out", type=Path, help="write a snapshot JSON here")
-    ap.add_argument("--diff", nargs=2, type=Path, metavar=("BEFORE", "AFTER"), help="diff two snapshot files")
+    ap.add_argument(
+        "--diff", nargs=2, type=Path, metavar=("BEFORE", "AFTER"), help="diff two snapshot files"
+    )
     ap.add_argument("--top", type=int, default=25, help="how many movers to print (default 25)")
     args = ap.parse_args(argv)
 

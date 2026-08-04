@@ -157,6 +157,48 @@ class TestPickCurveValue:
         vals = [_pick_curve_value({"round": r}) for r in range(1, 7)]
         assert vals == sorted(vals, reverse=True)
 
+    def test_round_past_the_curve_falls_back_to_the_worst_round(self):
+        """A round the curve doesn't tabulate must price as the WORST
+        tabulated round, not the best.
+
+        The fallback used to be ``min(LEGACY_PICK_ROUND_CURVE.keys())``
+        — round 1 — so a 7th-round pick came out at 6124, the median
+        value of a FIRST.  The curve stops at round 6 (2600), and that
+        is the ceiling for anything past it.
+        """
+        assert _pick_curve_value({"round": 7}) == 2600
+        assert _pick_curve_value({"round": 12}) == 2600
+        assert _pick_curve_value({"round": 7}) < _pick_curve_value({"round": 1})
+
+    def test_unparseable_round_is_priced_conservatively(self):
+        """No round at all is not evidence of a 1st."""
+        assert _pick_curve_value({}) == LEGACY_PICK_ROUND_CURVE[6]
+
+    def test_slot_ladder_is_monotonic_across_the_whole_round(self):
+        """Slots 5-8 used to fall through BOTH slot branches, so a 1.05
+        kept the untouched round median (6124) while a 1.04 got the
+        early-band treatment (7042) — a 13% cliff between adjacent
+        picks.  The ladder must decrease slot-by-slot with no cliff.
+
+        Hand-derived anchors for round 1 (median 6124):
+          early_val = int(6124 × 1.15) = 7042
+          late_val  = int(6124 × 0.85) = 5205
+          slot 4 → frac 0    → 7042
+          slot 5 → frac 0.25 → int(7042×0.75 + 6124×0.25) = 6812
+          slot 8 → frac 1.0  → 6124  (where the late band starts)
+          slot 9 → frac 0.25 → int(6124×0.75 + 5205×0.25) = 5894
+        """
+        ladder = [_pick_curve_value({"round": 1, "slot": s}) for s in range(1, 13)]
+        assert ladder == sorted(ladder, reverse=True)
+        assert _pick_curve_value({"round": 1, "slot": 4}) == 7042
+        assert _pick_curve_value({"round": 1, "slot": 5}) == 6812
+        assert _pick_curve_value({"round": 1, "slot": 8}) == 6124
+        assert _pick_curve_value({"round": 1, "slot": 9}) == 5894
+        # No adjacent step may be a cliff — the largest gap inside the
+        # round is now ~3.5%, the same order as every other step.
+        steps = [(ladder[i] - ladder[i + 1]) / ladder[i] for i in range(len(ladder) - 1)]
+        assert max(steps) < 0.05
+
 
 class TestPickCalibrationWithLegacy:
     def test_direct_legacy_match(self):

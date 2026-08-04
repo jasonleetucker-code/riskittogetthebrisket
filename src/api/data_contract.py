@@ -5855,6 +5855,7 @@ def _te_lift_under_ceiling(lifted: float, *, knee: float = _TE_LIFT_SOFT_KNEE) -
         return min(v, ceiling)
     return min(ceiling - span * math.exp(-(v - knee) / span), ceiling - 1e-9)
 
+
 # Cached Sleeper league context.  Populated on first call via the
 # Sleeper /v1/league/{id} endpoint using ``SLEEPER_LEAGUE_ID`` from
 # the env.  Stores the full resolved payload (roster count, TE-bonus,

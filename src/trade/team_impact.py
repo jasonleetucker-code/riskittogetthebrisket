@@ -248,9 +248,7 @@ def _classify_window(
     pick_share = pick_value / total_value
 
     young_value = sum(
-        int(a.get("value") or 0)
-        for a in before_assets
-        if not _is_pick(a) and _is_young(a)
+        int(a.get("value") or 0) for a in before_assets if not _is_pick(a) and _is_young(a)
     )
     young_share = young_value / total_value
 

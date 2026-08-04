@@ -121,16 +121,21 @@ def _league_budget(snapshot: PublicLeagueSnapshot) -> int:
     return 100
 
 
-def _stats_block(values: list[int]) -> dict[str, Any]:
+def _stats_block(values: list[float]) -> dict[str, Any]:
     """Compute {avg, min, max, count} on a list of bids.  Returns a
     zero-shape block when the list is empty so the contract is
-    always destructure-safe."""
+    always destructure-safe.
+
+    ``values`` may carry fractional entries — a multi-add transaction
+    splits one bid across its added players.  Rounding happens HERE,
+    for display, never on the way in.  ``min``/``max`` round rather
+    than truncate so a $3.60 share reads as $4."""
     if not values:
         return {"avg": 0.0, "min": 0, "max": 0, "count": 0}
     return {
         "avg": round(statistics.fmean(values), 2),
-        "min": int(min(values)),
-        "max": int(max(values)),
+        "min": int(round(min(values))),
+        "max": int(round(max(values))),
         "count": len(values),
     }
 
@@ -205,7 +210,9 @@ def summarize_league_faab(
     waivers = _walk_waivers(snapshot)
 
     all_bids: list[int] = []
-    position_bids: dict[str, list[int]] = {}
+    # Per-position shares are fractional whenever a transaction added
+    # more than one player — see the split comment below.
+    position_bids: dict[str, list[float]] = {}
     tier_bids: dict[str, list[int]] = {label: [] for label, _ in _TIER_BREAKPOINTS_PCT}
     team_totals: dict[str, dict[str, Any]] = {}
     player_history: dict[str, list[dict[str, Any]]] = {}
@@ -224,13 +231,19 @@ def summarize_league_faab(
         # Per-position bid attribution.  Multi-add transactions split
         # the bid evenly across each added player's position so a
         # multi-add doesn't double-count.  Most adds are 1-player.
+        #
+        # The split is stored at FULL precision and rounded only for
+        # display in ``_stats_block``.  Rounding each share on the way
+        # in made a 3-add $10 bid contribute 3 + 3 + 3 = $9, so every
+        # multi-add quietly leaked money out of the position averages
+        # the FAAB recommender calibrates against.
         adds = tx.get("adds") or {}
         n_added = max(1, len(adds))
-        per_player_bid = bid / n_added if bid > 0 else 0
+        per_player_bid = bid / n_added if bid > 0 else 0.0
         for pid in adds.keys():
             pos = _player_position(snapshot, str(pid))
             if pos and bid > 0:
-                position_bids.setdefault(pos, []).append(int(round(per_player_bid)))
+                position_bids.setdefault(pos, []).append(per_player_bid)
             # Player history: every add (including FA pickups @ 0)
             # gets a row so the UI can show "this player has been
             # added X times historically".

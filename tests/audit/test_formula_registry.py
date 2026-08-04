@@ -47,7 +47,16 @@ class TestRegistryShape:
 
     def test_required_fields_present_and_valid(self, concepts):
         for c in concepts:
-            for field in ("id", "concept", "canonical", "units", "consumers", "duplicates", "risk", "status"):
+            for field in (
+                "id",
+                "concept",
+                "canonical",
+                "units",
+                "consumers",
+                "duplicates",
+                "risk",
+                "status",
+            ):
                 assert field in c, f"{c.get('id')} missing {field}"
             assert c["risk"] in _VALID_RISK, f"{c['id']} has risk={c['risk']}"
             assert c["status"] in _VALID_STATUS, f"{c['id']} has status={c['status']}"
@@ -58,7 +67,9 @@ class TestRegistryShape:
         for c in concepts:
             for dup in c["duplicates"]:
                 assert dup.get("impl"), f"{c['id']} has a duplicate with no impl"
-                assert dup.get("disposition"), f"{c['id']} duplicate {dup['impl']} has no disposition"
+                assert dup.get(
+                    "disposition"
+                ), f"{c['id']} duplicate {dup['impl']} has no disposition"
 
 
 class TestNamedFilesExist:
@@ -104,7 +115,9 @@ class TestNamedFilesExist:
         missing: list[str] = []
         for c in concepts:
             blobs = list(c["consumers"])
-            blobs += [d["impl"] for d in c["duplicates"] if not d["disposition"].startswith("REMOVED")]
+            blobs += [
+                d["impl"] for d in c["duplicates"] if not d["disposition"].startswith("REMOVED")
+            ]
             for blob in blobs:
                 for path in self._paths(blob):
                     if not (_REPO_ROOT / path).exists():
@@ -141,9 +154,7 @@ class TestNamedFilesExist:
                         continue  # whole module gone — nothing to resurrect
                     if marker in target.read_text(encoding="utf-8"):
                         resurrected.append(f"{c['id']}: {path} still contains {marker!r}")
-        assert not resurrected, (
-            f"registry says these were removed but they are back: {resurrected}"
-        )
+        assert not resurrected, f"registry says these were removed but they are back: {resurrected}"
 
 
 class TestClaimedInvariantsAreEnforced:

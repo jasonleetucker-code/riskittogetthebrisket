@@ -1,5 +1,5 @@
-"""Tests for src.scoring.tiering.  Pins the Cohen's-d tier walk,
-the fallback behavior when SD is zero, the grid-search fitter,
+"""Tests for src.scoring.tiering.  Pins the pool-normalized-gap tier
+walk, the fallback behavior when SD is zero, the grid-search fitter,
 and drift detection."""
 
 from __future__ import annotations
@@ -59,6 +59,49 @@ def test_stamp_tiers_is_non_destructive():
     assert all("tierId" in r for r in out)
     # input order preserved
     assert [r["name"] for r in out] == [r["name"] for r in rows]
+
+
+def test_stamp_tiers_stays_aligned_when_detect_drops_rows():
+    """``detect_tiers`` DROPS rows it can't tier (non-dicts, and dicts
+    with no position).  ``stamp_tiers_on_players`` used to zip the
+    returned entries against ``rows`` BY INDEX, so any drop shifted the
+    whole mapping and every later row inherited some other row's tier.
+
+    Here the QB pool is [9000, 1000]: pool SD is 4000, the gap is
+    8000, so the second QB's normalized gap is 2.0 — well past the
+    0.35 QB threshold — and the two land in tiers 1 and 2.  With a
+    non-dict at index 0 and a position-less row in the middle, the old
+    index zip handed QB_0 the SECOND entry's tier and left QB_1
+    unstamped.
+    """
+    qb0 = {"name": "QB_0", "pos": "QB", "rankDerivedValue": 9000}
+    no_pos = {"name": "no_pos", "rankDerivedValue": 5000}
+    qb1 = {"name": "QB_1", "pos": "QB", "rankDerivedValue": 1000}
+    rows = [None, qb0, no_pos, qb1]
+
+    out = tiering.stamp_tiers_on_players(rows)
+
+    assert out[0] is None  # non-dicts pass through untouched
+    by_name = {r["name"]: r for r in out if isinstance(r, dict)}
+    assert by_name["QB_0"]["tierId"] == 1
+    assert by_name["QB_1"]["tierId"] == 2
+    # A row detect_tiers refused to tier must not be stamped at all.
+    assert "tierId" not in by_name["no_pos"]
+
+
+def test_pool_normalized_gap_is_named_for_what_it_computes():
+    """The statistic is |tier mean − candidate| ÷ the POPULATION SD of
+    the whole position pool.  That is not Cohen's d (which divides by
+    the pooled SD of the two groups being compared), and calling it
+    that in the code invited someone to "fix" the denominator.
+
+    Pinned by name so the rename can't silently revert.
+    """
+    assert not hasattr(tiering, "_cohens_d")
+    # 9000 vs 5000 against a pool SD of 2000 → 2.0.
+    assert tiering._pool_normalized_gap(9000.0, 5000.0, 2000.0) == 2.0  # noqa: SLF001
+    # Zero / negative SD is the cold-start guard, not a division.
+    assert tiering._pool_normalized_gap(9000.0, 5000.0, 0.0) == 0.0  # noqa: SLF001
 
 
 def test_each_position_tiers_start_at_1():
