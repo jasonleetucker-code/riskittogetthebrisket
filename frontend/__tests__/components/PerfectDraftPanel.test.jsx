@@ -564,3 +564,40 @@ describe("positional balance and opponent-aware pricing", () => {
     expect(screen.getByText("Beat the room")).toBeInTheDocument();
   });
 });
+
+describe("live-bid target is reconciled with the board", () => {
+  beforeEach(() => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+  });
+
+  it("gives the control an accessible name", async () => {
+    // ds Select has no `label` prop — it spreads rest onto the native element,
+    // so `label=` shipped an invalid attribute and no accessible name.
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    const select = screen.getByRole("combobox", { name: /live bid/i });
+    expect(select).toBeInTheDocument();
+    expect(select).not.toHaveAttribute("label");
+  });
+
+  it("says the auction closed instead of advising on a sold player", async () => {
+    // A live bid ENDS by the player being sold, which removes him from the
+    // undrafted pool. Left alone the panel printed a blank name beside
+    // "max $0 / Let him go" — advice about an auction that had closed.
+    const { rerender } = render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    fireEvent.change(screen.getByRole("combobox", { name: /live bid/i }), {
+      target: { value: "jeremiyah-love" },
+    });
+    fireEvent.change(screen.getByLabelText("Current bid"), { target: { value: "20" } });
+
+    const sold = {
+      ...STATS,
+      enrichedPlayers: STATS.enrichedPlayers.map((p) =>
+        p.id === "jeremiyah-love" ? { ...p, drafted: true } : p,
+      ),
+    };
+    rerender(<PerfectDraftPanel stats={sold} workspace={WORKSPACE} />);
+    expect(await screen.findByText(/Sold — pick the next player/i)).toBeInTheDocument();
+  });
+});

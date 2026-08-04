@@ -169,3 +169,47 @@ def test_omitting_the_rookie_board_leaves_the_payload_exactly_as_before(_no_netw
     # overallPick is unconditional — the frontend sorts on it before it can
     # know whether any rookie fields are present.
     assert all("overallPick" in p for p in out["picks"])
+
+
+def test_idp_rookies_are_kept_off_a_non_idp_league_board(monkeypatch):  # noqa: PLR0915
+    """Sharing a scoring profile is necessary but NOT sufficient.
+
+    Both live leagues are ``superflex_tep15_ppr1``, yet ``dynasty_main``
+    starts DL/LB/DB and ``dynasty_new`` starts none — ``idpEnabled`` and
+    ``rosterSettings`` are leagueKey properties, not profile properties.
+    Serving the shared rookie board verbatim would put defenders nobody can
+    start onto the non-IDP league's draft board, at real dollar values, ahead
+    of the offensive rookies it can actually use.
+    """
+    from src.api import league_registry
+
+    # Other tests in the session monkeypatch LEAGUE_REGISTRY_PATH and leave the
+    # module cache pointing at a fixture, so read the REAL registry explicitly
+    # and put it back afterwards. The premise below is about this repo's actual
+    # league config; a fixture would assert nothing.
+    monkeypatch.delenv("LEAGUE_REGISTRY_PATH", raising=False)
+    league_registry.reload_registry()
+    main = league_registry.get_league_by_key("dynasty_main")
+    new = league_registry.get_league_by_key("dynasty_new")
+    assert main is not None and new is not None
+    # The premise: same profile, opposite IDP posture. If this ever stops
+    # being true the gate below needs revisiting rather than silently passing.
+    assert main.scoring_profile == new.scoring_profile
+    assert main.idp_enabled is True
+    assert new.idp_enabled is False
+
+    from src.trade.angle import _IDP_POSITIONS
+
+    pool = [
+        {"name": "Offense Rookie", "pos": "WR", "value": 5000, "assetClass": "offense"},
+        {"name": "Defender Rookie", "pos": "LB", "value": 4800, "assetClass": "idp"},
+        {"name": "Edge Rookie", "pos": "DL", "value": 4600, "assetClass": "idp"},
+    ]
+    # The filter server.py applies for a league with idp_enabled False.
+    kept = [
+        r
+        for r in pool
+        if str(r.get("assetClass") or "").lower() != "idp"
+        and str(r.get("pos") or "").upper() not in _IDP_POSITIONS
+    ]
+    assert [r["name"] for r in kept] == ["Offense Rookie"]

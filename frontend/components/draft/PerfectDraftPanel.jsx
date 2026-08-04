@@ -198,12 +198,17 @@ export function PerfectDraftPanel({ stats, workspace }) {
   // solve. Recomputing it on every render would re-solve on every keystroke
   // in the bid box. Declared here, above the early returns, because a hook
   // after a conditional return is a hook-order violation.
+  // Deferred for the same reason the main solve is: evaluateBid runs a
+  // knapsack plus a scan over every dollar of the budget, and the bid box is
+  // a text input. Memoizing alone was not enough — `bidAmount` is a dependency,
+  // so each keystroke still invalidated it and re-solved synchronously.
+  const deferredBidAmount = useDeferredValue(bidAmount);
   const liveBid = useMemo(
     () =>
-      deferredInput && bidTarget && bidAmount !== ""
-        ? evaluateBid(deferredInput, bidTarget, bidAmount)
+      deferredInput && bidTarget && deferredBidAmount !== ""
+        ? evaluateBid(deferredInput, bidTarget, deferredBidAmount)
         : null,
-    [deferredInput, bidTarget, bidAmount],
+    [deferredInput, bidTarget, deferredBidAmount],
   );
 
   const phase = draftPhase(stats);
@@ -227,10 +232,16 @@ export function PerfectDraftPanel({ stats, workspace }) {
   if (!result) return null;
 
   const { plan, alternatives, confidence, nearTies, meta } = result;
-  const cutRungs = progress.cutLadder;
-  const openSpots = progress.openRosterSpots;
+  const cutRungs = deferredInput?.cutLadder ?? progress.cutLadder;
+  const openSpots = deferredInput?.openRosterSpots ?? progress.openRosterSpots;
 
-  const bidTargetName = rookies.find((r) => r.id === bidTarget)?.name || "";
+  // A live bid ends when the player is sold, and selling him removes him from
+  // `rookies` (filtered on !drafted). Left alone, `bidTarget` kept his id and
+  // the panel printed a blank name beside "max $0 / Let him go" — advice about
+  // an auction that had already closed.
+  const bidTargetRookie = rookies.find((r) => r.id === bidTarget) || null;
+  const bidTargetName = bidTargetRookie?.name || "";
+  const bidTargetSold = Boolean(bidTarget) && !bidTargetRookie;
 
   // The cuts the plan was CHARGED for, in the order it was charged for them.
   //
@@ -239,7 +250,11 @@ export function PerfectDraftPanel({ stats, workspace }) {
   // ladder's own order beside a cost taken from a different ordering would
   // name a player the plan never released. Legal because the backend's rungs
   // are jointly droppable, so any subset of them is a legal cut-set.
-  const usingLadder = Array.isArray(context?.waiverLadder) && context.waiverLadder.length > 0;
+  // Read from the DEFERRED input, not live context: `plan` comes from the
+  // deferred solve, so pairing its rookies against live open-spot counts would
+  // mislabel the cut column for the whole duration of every recalculation.
+  const usingLadder =
+    Array.isArray(deferredInput?.waiverLadder) && deferredInput.waiverLadder.length > 0;
   const chargedCuts = usingLadder
     ? [...cutRungs].sort((a, b) => releaseCost(a) - releaseCost(b))
     : cutRungs;
@@ -605,7 +620,7 @@ export function PerfectDraftPanel({ stats, workspace }) {
 
       <div className={styles.pageActions}>
         <Select
-          label="Live bid"
+          aria-label="Live bid — player on the block"
           value={bidTarget}
           onChange={(e) => setBidTarget(e.target.value)}
         >
@@ -631,7 +646,11 @@ export function PerfectDraftPanel({ stats, workspace }) {
             disabled={!bidTarget}
           />
         </label>
-        {liveBid ? (
+        {bidTargetSold ? (
+          <span className="muted" style={{ fontSize: "var(--font-size-2xs)" }}>
+            Sold — pick the next player on the block.
+          </span>
+        ) : liveBid ? (
           <span style={{ fontSize: "var(--font-size-2xs)" }}>
             <Badge
               tone={
@@ -658,7 +677,7 @@ export function PerfectDraftPanel({ stats, workspace }) {
         ) : null}
       </div>
 
-      {liveBid && liveBid.verdict === "stop" && liveBid.pivot?.players?.length ? (
+      {!bidTargetSold && liveBid && liveBid.verdict === "stop" && liveBid.pivot?.players?.length ? (
         <p className="muted" style={{ fontSize: "var(--font-size-2xs)" }}>
           If you lose {bidTargetName}, the best remaining plan is{" "}
           {liveBid.pivot.players.map((q) => q.name).join(", ")}.
