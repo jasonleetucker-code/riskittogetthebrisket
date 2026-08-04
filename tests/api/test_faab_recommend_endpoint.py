@@ -195,7 +195,28 @@ _FAKE_SUMMARY = {
 }
 
 
-def _install_snapshot(monkeypatch, league_id, summary=None):
+# A snapshot timestamp that is always FRESH relative to the run.
+#
+# This was hardcoded to "2026-07-25T11:00:00+00:00".  ``leagueAnalytics``
+# goes stale after 7 days (``faab_contention.py``'s
+# ``_STALE_AFTER_SECONDS``), so the fixture aged out of freshness on
+# 2026-08-01 and ``test_matching_league_snapshot_consumed_normally`` —
+# which asserts ``"leagueAnalytics" not in staleInputs`` — became
+# permanently red on the calendar, with no code change involved.
+#
+# A test whose verdict depends on the wall clock passes by construction
+# when written and fails by construction later; either way its result is
+# not about the code.  Anchoring to "now" keeps it measuring the thing it
+# is named for: that a snapshot for the RESOLVED league flows through.
+# Staleness itself is covered separately — see the stale-input tests
+# that pass an explicitly old timestamp on purpose.
+def _fresh_generated_at() -> str:
+    from datetime import datetime, timedelta, timezone
+
+    return (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+
+
+def _install_snapshot(monkeypatch, league_id, summary=None, generated_at=None):
     """Fake public snapshot for ``league_id``; ``summary=None`` arms
     a tripwire that fails the test if the endpoint tries to build
     analytics from a wrong-league snapshot."""
@@ -205,7 +226,7 @@ def _install_snapshot(monkeypatch, league_id, summary=None):
 
     snap = types.SimpleNamespace(
         root_league_id=league_id,
-        generated_at="2026-07-25T11:00:00+00:00",
+        generated_at=generated_at or _fresh_generated_at(),
     )
     monkeypatch.setattr(server.public_snapshot_store, "load_snapshot", lambda: snap)
     if summary is not None:
@@ -572,7 +593,8 @@ def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):
     """Counterpart to the wrong-league test: a snapshot for the
     RESOLVED league flows through — o1's real aggression history is
     used and the departed owner's entry never reaches the model."""
-    _install_snapshot(monkeypatch, "L-MAIN", summary=_FAKE_SUMMARY)
+    generated_at = _fresh_generated_at()
+    _install_snapshot(monkeypatch, "L-MAIN", summary=_FAKE_SUMMARY, generated_at=generated_at)
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = _post(
             c,
@@ -580,7 +602,7 @@ def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):
             {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"},
         )
     payload = res.json()
-    assert payload["inputsAsOf"]["leagueAnalytics"] == "2026-07-25T11:00:00+00:00"
+    assert payload["inputsAsOf"]["leagueAnalytics"] == generated_at
     assert "leagueAnalytics" not in payload["staleInputs"]
     contention = payload["contention"]
     per = {r["ownerId"]: r for r in contention["perOpponent"]}
