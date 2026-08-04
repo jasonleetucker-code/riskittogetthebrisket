@@ -36,10 +36,18 @@ def event(
     league: str = "L1",
     asset_type: str = "player",
     discriminator: str = "",
+    roster: str | None = None,
 ) -> dict:
     """Mirrors the crawler's emitted shape, including its deterministic
-    eventId, so these tests exercise the real ingestion contract."""
-    event_id = f"{tx_id}:{owner}:{action}:{asset}"
+    eventId, so these tests exercise the real ingestion contract.
+
+    Since D10 the key is the ROSTER SLOT, not the attributed owner.
+    ``roster`` defaults to the owner so existing cases (which use one
+    distinct owner per slot) keep their identities, while the D10 tests
+    pass it explicitly to flip attribution without moving the slot.
+    """
+    slot = roster if roster is not None else owner
+    event_id = f"{tx_id}:r{slot}:{action}:{asset}"
     if discriminator:
         event_id = f"{event_id}:{discriminator}"
     return {
@@ -47,6 +55,7 @@ def event(
         "txId": tx_id,
         "leagueId": league,
         "ownerId": owner,
+        "rosterId": str(slot),
         "assetId": asset,
         "assetType": asset_type,
         "action": action,
@@ -419,3 +428,181 @@ class TestPruning:
         assert (
             ledger.MOVEMENT_RETENTION_DAYS >= 90
         ), "a 90-day window is unanswerable if retention is shorter than it"
+
+
+class TestCoOwnershipDoesNotDoubleCount:
+    """D10 — the last way this pipeline could count a transaction twice.
+
+    ``crawler._pool_holdings`` prefers a pool co-owner when the primary
+    owner is outside the pool, and recomputes that attribution from live
+    ``/rosters`` on every run.  While the movement key embedded that
+    user, an ownership change between crawls produced a SECOND id for a
+    movement already stored, and ``INSERT OR IGNORE`` had nothing to
+    match against.
+    """
+
+    def _run(self, owner: str) -> list[dict]:
+        """The same real-world trade, crawled while roster 1 is
+        attributed to ``owner``.  The SLOT never changes."""
+        return [
+            event(tx_id="t1", owner=owner, asset="p1", action="add", ts=NOW, roster="1"),
+            event(tx_id="t1", owner="B", asset="p1", action="drop", ts=NOW, roster="2"),
+        ]
+
+    def test_reingest_after_a_co_ownership_change_inserts_nothing(self, db):
+        first = ledger.ingest_events(self._run("A"), conn=db)
+        assert first.movements_inserted == 2
+        second = ledger.ingest_events(self._run("A2"), conn=db)
+        assert second.movements_inserted == 0
+
+    def test_the_counts_do_not_move(self, db):
+        ledger.ingest_events(self._run("A"), conn=db)
+        before = ledger.counts(conn=db)
+        ledger.ingest_events(self._run("A2"), conn=db)
+        assert ledger.counts(conn=db) == before
+
+    def test_the_asset_is_not_credited_with_a_phantom_second_buy(self, db):
+        ledger.ingest_events(self._run("A"), conn=db)
+        ledger.ingest_events(self._run("A2"), conn=db)
+        rows = ledger.asset_signals(conn=db)
+        row = next(r for r in rows if r["assetId"] == "p1")
+        assert row["buys"] == 1
+        assert row["sells"] == 1
+        assert row["volume"] == 2
+
+    def test_roster_id_is_persisted(self, db):
+        """The column existed from the start but nothing ever filled it
+        — which is why the re-key had to come with the crawler change."""
+        ledger.ingest_events(self._run("A"), conn=db)
+        stored = db.execute("SELECT roster_id FROM asset_movements WHERE action = 'add'").fetchone()
+        assert stored["roster_id"] == "1"
+
+
+class TestSchemaVersionMigration:
+    """A key change is only real if existing files stop using the old
+    one.  ``SCHEMA_VERSION`` was written from the start but never read,
+    so old-keyed rows would have sat beside new ones — double-counting
+    by a different route."""
+
+    def _stale(self, tmp_path):
+        """A v1 file holding a movement AND a slice of the discovery
+        graph, so a migration can be judged on what it preserves as well
+        as what it clears."""
+        ledger.reset_setup_cache()
+        path = tmp_path / "ledger.sqlite3"
+        conn = ledger.connect(path)
+        ledger.ingest_events(
+            [event(tx_id="t1", owner="A", asset="p1", action="add", ts=NOW)], conn=conn
+        )
+        ledger.upsert_leagues([{"leagueId": "L1", "season": "2026", "name": "Alpha"}], conn=conn)
+        ledger.upsert_users([{"userId": "A", "username": "alice"}], conn=conn)
+        conn.execute("UPDATE meta SET value = '1' WHERE key = 'schema_version'")
+        conn.commit()
+        conn.close()
+        ledger.reset_setup_cache()
+        return path
+
+    def test_old_keyed_movements_are_cleared(self, tmp_path):
+        path = self._stale(tmp_path)
+        conn = ledger.connect(path)
+        try:
+            assert ledger.counts(conn=conn)["assetMovementCount"] == 0
+        finally:
+            conn.close()
+            ledger.reset_setup_cache()
+
+    def test_the_discovery_graph_survives(self, tmp_path):
+        """The graph and the season records share this file and cost
+        hundreds of Sleeper calls.  A movement re-key must not touch
+        them — clearing them would be a far more expensive migration
+        than it looks."""
+        path = self._stale(tmp_path)
+        conn = ledger.connect(path)
+        try:
+            leagues = conn.execute("SELECT COUNT(*) AS n FROM leagues").fetchone()["n"]
+            users = conn.execute("SELECT COUNT(*) AS n FROM sleeper_users").fetchone()["n"]
+            assert leagues == 1
+            assert users == 1
+        finally:
+            conn.close()
+            ledger.reset_setup_cache()
+
+    def test_the_version_is_stamped_forward(self, tmp_path):
+        path = self._stale(tmp_path)
+        conn = ledger.connect(path)
+        try:
+            row = conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
+            assert int(row[0]) == ledger.SCHEMA_VERSION
+        finally:
+            conn.close()
+            ledger.reset_setup_cache()
+
+    def test_a_current_version_is_left_alone(self, tmp_path):
+        ledger.reset_setup_cache()
+        path = tmp_path / "ledger.sqlite3"
+        conn = ledger.connect(path)
+        ledger.ingest_events(
+            [event(tx_id="t1", owner="A", asset="p1", action="add", ts=NOW)], conn=conn
+        )
+        conn.close()
+        ledger.reset_setup_cache()
+        again = ledger.connect(path)
+        try:
+            assert ledger.counts(conn=again)["assetMovementCount"] == 1
+        finally:
+            again.close()
+            ledger.reset_setup_cache()
+
+
+def test_the_migration_clears_the_crawl_cursor_with_the_movements(tmp_path):
+    """A cursor pointing into deleted rows makes the wipe permanent.
+
+    ``sharp_league_fetch.max_created_ms`` is how far the sharp crawl already
+    got per league.  The v2 migration deletes every movement; leaving that
+    cursor behind told the crawler those transactions were already collected,
+    so it never re-fetched them and the cleared history was unrecoverable.
+    """
+    path = tmp_path / "ledger.sqlite3"
+    conn = ledger.connect(path)
+    try:
+        conn.execute(
+            """
+            INSERT INTO sharp_league_fetch(
+              league_id, max_created_ms, backfilled, last_fetched_ms
+            ) VALUES('L1', 1700000000000, 1, 1)
+            """
+        )
+        conn.execute("UPDATE meta SET value='1' WHERE key='schema_version'")
+        conn.commit()
+    finally:
+        conn.close()
+
+    # Force a fresh open so the version check runs the migration.
+    ledger._SETUP_DONE.pop(str(path), None)
+    conn = ledger.connect(path)
+    try:
+        remaining = conn.execute("SELECT COUNT(*) FROM sharp_league_fetch").fetchone()[0]
+        version = conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0]
+    finally:
+        conn.close()
+    assert remaining == 0, "cursor survived the wipe — the crawl would skip the deleted weeks"
+    assert str(version) == str(ledger.SCHEMA_VERSION)
+
+
+def test_the_migration_still_preserves_the_expensive_discovery_graph(tmp_path):
+    """Clearing the cursor must not turn into clearing everything."""
+    path = tmp_path / "ledger.sqlite3"
+    conn = ledger.connect(path)
+    try:
+        conn.execute("INSERT INTO sleeper_users(user_id, current_username) VALUES('u1', 'someone')")
+        conn.execute("UPDATE meta SET value='1' WHERE key='schema_version'")
+        conn.commit()
+    finally:
+        conn.close()
+    ledger._SETUP_DONE.pop(str(path), None)
+    conn = ledger.connect(path)
+    try:
+        users = conn.execute("SELECT COUNT(*) FROM sleeper_users").fetchone()[0]
+    finally:
+        conn.close()
+    assert users == 1

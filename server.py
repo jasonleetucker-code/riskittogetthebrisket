@@ -12931,6 +12931,17 @@ from src.sharp import service as _sharp_service  # noqa: E402
 # module-level call and the self-heal in ``cohort_status``.
 _sharp_service.register_http_routes()
 
+# ``curated_service`` was previously imported by nothing but its own test,
+# which left /api/sharp/people, /api/sharp/people/{id}, /api/sharp/review,
+# /api/sharp/review/{id}, /api/sharp/curated/summary and
+# /api/sharp/curated/refresh returning 404, and with them the whole
+# /market/sharp-people and /admin/sharp-identities surface.  Registered
+# explicitly here for the same reason as the tracker above: an import-time
+# side effect does not re-run if the module is already in ``sys.modules``.
+from src.sharp import curated_service as _sharp_curated_service  # noqa: E402
+
+_sharp_curated_service._register_http_routes()
+
 
 @app.get("/api/sharp/cohort")
 async def get_sharp_cohort(request: Request):

@@ -287,7 +287,26 @@ def _events_from_tx(
         owner = rid_to_owner.get(str(rid))
         if not owner or owner not in pool:
             return
-        event_id = f"{tx_id}:{owner}:{action}:{asset_id}"
+        # D10.  Identity is the ROSTER SLOT, never the attributed owner.
+        #
+        # ``owner`` here is the *attributed* user: ``_pool_holdings``
+        # substitutes a pool co-owner when the primary owner is outside
+        # the pool, and it recomputes that from live ``/rosters`` on
+        # every run.  Keying the event on it meant a co-ownership change
+        # produced a DIFFERENT id for an already-ingested movement, and
+        # ``INSERT OR IGNORE`` cheerfully let the same transaction land
+        # a second time — the one way this pipeline could still count a
+        # transaction twice.
+        #
+        # A Sleeper ``roster_id`` is the league slot: fixed for the life
+        # of the league and independent of who owns or co-owns it.  The
+        # attributed user rides along as a COLUMN, free to change
+        # between runs without re-keying anything.
+        #
+        # Bonus correctness: one user co-owning two rosters used to
+        # COLLAPSE into a single event under the old key (an
+        # undercount).  Keyed by slot, both movements survive.
+        event_id = f"{tx_id}:r{rid}:{action}:{asset_id}"
         if discriminator:
             event_id = f"{event_id}:{discriminator}"
         if event_id in known_event_ids:
@@ -299,6 +318,7 @@ def _events_from_tx(
                 "txId": tx_id,
                 "leagueId": str(league_id),
                 "ownerId": owner,
+                "rosterId": str(rid),
                 "assetId": asset_id,
                 "assetType": asset_type,
                 "action": action,

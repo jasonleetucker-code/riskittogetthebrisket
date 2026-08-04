@@ -81,6 +81,11 @@ tmp_sync_*/
 Thumbs.db
 *.xlsx
 !CSVs/Draft Data.xlsx
+# The curated-sharps research workbook is the SOURCE OF TRUTH for
+# config/sharp/curated_universe.json. Tracking it is what makes the import
+# reproducible -- the snapshot stamps this file's sha256, so an untracked
+# workbook would leave a derived artifact nobody could regenerate or audit.
+!config/sharp/workbooks/*.xlsx
 
 # One-off research captures — never tracked (a 19MB HAR + 13MB PDF sat
 # in the pack for months; see #527). Keep local copies out of commits.

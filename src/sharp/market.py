@@ -18,6 +18,14 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from src.intel import platform_ledger, signals
+from src.sharp import consensus
+# Re-exported for the same reason as the cohort names below: the curated
+# population moved to ``cohort.py``, but tests patch
+# ``market.curated_model.curated_cohort_members`` to isolate themselves from
+# the real curated store.  ``curated_model`` is the MODULE object, shared with
+# ``cohort``, so patching an attribute on it still reaches the live caller.
+from src.sharp import curated as curated_model  # noqa: F401 — patched seam
+from src.sharp import platform_records  # noqa: F401 — patched seam
 from src.sharp import score as sharp_score
 from src.sharp.cohort import (  # noqa: F401 — re-exported shared cohort surface
     ALLOWED_QUALIFICATION as _ALLOWED_QUALIFICATION,
@@ -26,6 +34,7 @@ from src.sharp.cohort import (  # noqa: F401
     FFPC_CONFIG_PATH,
     CohortMember,
     cohort_members,
+    curated_industry_members,
     curated_members,
     load_ffpc_config,
     provisional_members,
@@ -104,8 +113,6 @@ def _fallback_asset_metadata(asset_id: str) -> dict[str, Any]:
             display += f" ({':'.join(parts[3:])})"
         return {"displayName": display, "position": "PICK", "nflTeam": None}
     return _local_asset_catalog().get(asset_id, {})
-
-
 def _aggregate_window(
     rows: Sequence[dict[str, Any]],
     quality: dict[str, float],
@@ -273,10 +280,12 @@ def market_payload(
     )
     manager_keys = [item.manager_key for item in members]
     quality = {item.manager_key: item.quality for item in members}
+    network_by_manager = {item.manager_key: item.network for item in members}
     platforms = None if platform == "all" else [platform]
 
     needed_windows = list(dict.fromkeys((window, "48h", "30d")))
     per_window: dict[str, dict[str, dict[str, Any]]] = {}
+    person_view: dict[str, dict[str, Any]] = {}
     for name in needed_windows:
         since, until = signals.window_bounds(name, now)
         movements = platform_ledger.query_movements(
@@ -289,6 +298,15 @@ def market_payload(
             path=ledger_path,
         )
         per_window[name] = _aggregate_window(movements, quality)
+        if name == window:
+            # One vote per PERSON, with a diminishing-independence discount for
+            # analysts sharing an outlet. Movement counts above stay untouched
+            # and remain the audit trail -- this is an additional lens, not a
+            # replacement, so a person's ten leagues stop reading as ten
+            # independent experts without any raw data being hidden.
+            person_view = consensus.aggregate_person_consensus(
+                movements, quality, network_by_manager
+            )
 
     primary = per_window.get(window, {})
     short = per_window.get("48h", {})
@@ -314,6 +332,7 @@ def market_payload(
             "Sleeper" if value == "sleeper" else "FFPC" if value == "ffpc" else value
             for value in sorted(item["sources"])
         ]
+        person = person_view.get(asset_id) or {}
         rows.append(
             {
                 "assetId": asset_id,
@@ -329,6 +348,10 @@ def market_payload(
                 "uniqueLeagues": item["uniqueLeagues"],
                 "tradeCount": item["tradeCount"],
                 "movementCount": item["movementCount"],
+                # Person-level consensus for THIS window only. Never summed
+                # with another window, and never a substitute for the movement
+                # counts above.
+                "personConsensus": person or None,
                 "windows": {
                     window: {
                         k: item[k]

@@ -680,6 +680,57 @@ main() {
     fi
   fi
 
+  # ── Sharp Tracker transaction crawl timer ─────────────────────────────
+  # The THIRD sharp pass, and the one that actually produces the board:
+  # discovery finds managers, records finds their results, this finds
+  # their TRADES.  Writes the same gitignored SQLite ledger, so it runs
+  # prod-side for the same reason as the other two.
+  #
+  # Runs every 6h rather than daily because it tracks a MOVING signal —
+  # a 48h window is one of the board's headline lenses, and a
+  # once-daily crawl would make "last 48 hours" mean "as of this
+  # morning".  Exit 2 (budget exhausted, leagues remaining) is the
+  # normal steady state on a large graph, not a failure.
+  local sharptx_service_template="${APP_DIR}/deploy/systemd/dynasty-sharp-transactions.service.template"
+  local sharptx_timer_template="${APP_DIR}/deploy/systemd/dynasty-sharp-transactions.timer.template"
+  local sharptx_service_name="${SERVICE_NAME}-sharp-transactions"
+  local sharptx_service_path="/etc/systemd/system/${sharptx_service_name}.service"
+  local sharptx_timer_path="/etc/systemd/system/${sharptx_service_name}.timer"
+  local sharptx_needs_install=false
+
+  if [[ -f "${sharptx_service_template}" && -f "${sharptx_timer_template}" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${sharptx_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${sharptx_service_path} + timer."
+        sharptx_needs_install=true
+      else
+        log "Sharp-transactions timer already installed; skipping."
+      fi
+    else
+      log "Installing Sharp Tracker transaction crawl service + timer."
+      sharptx_needs_install=true
+    fi
+
+    if [[ "${sharptx_needs_install}" == "true" ]]; then
+      local tmp_sharptx_service tmp_sharptx_timer
+      tmp_sharptx_service="$(mktemp)"
+      tmp_sharptx_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+        "${sharptx_service_template}" > "${tmp_sharptx_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${sharptx_timer_template}" > "${tmp_sharptx_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharptx_service}" "${sharptx_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharptx_timer}" "${sharptx_timer_path}"
+      rm -f "${tmp_sharptx_service}" "${tmp_sharptx_timer}"
+      log "Installed ${sharptx_service_name}.service + .timer"
+    fi
+  fi
+
   # ── Reception-depth histogram timer ───────────────────────────────────
   # Streams nflverse play-by-play into per-player reception-band
   # histograms.  Like playerctx and BDVM the readers load a LOCAL file
@@ -946,6 +997,14 @@ main() {
     log "Enabled ${ffpc_service_name}.timer"
     sudo -n "${SYSTEMCTL_BIN}" start --no-block "${ffpc_service_name}.service" || \
       log "Note: initial FFPC public crawl could not be started; the timer will cover it."
+  fi
+  if [[ "${sharptx_needs_install}" == "true" ]]; then
+    # --now arms the 6-hourly timer.  No initial kick, same reason as
+    # records: the discovery crawl started above has to publish the
+    # sharp-eligible league list before there is anything to crawl, and
+    # the next slot picks it up within hours.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharptx_service_name}.timer"
+    log "Enabled ${sharptx_service_name}.timer"
   fi
   if [[ "${bdvm_needs_install}" == "true" ]]; then
     # --now arms the timer immediately; the FIRST snapshots are built

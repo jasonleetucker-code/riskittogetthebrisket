@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily curated Sharp identity and model refresh
+
+[Timer]
+OnCalendar=*-*-* 06:20:00 UTC
+RandomizedDelaySec=20m
+Persistent=true
+Unit=chase-upside-curated-sharps.service
+
+[Install]
+WantedBy=timers.target
