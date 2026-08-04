@@ -253,20 +253,44 @@ class TestParamsStillStraddleTheGate(unittest.TestCase):
     unreachable for EVERY measured row is loud rather than silent.
     """
 
-    def test_the_measured_cv_range_can_reach_strong_buy_liquidity(self):
+    def test_the_gate_is_currently_decorative_for_measured_rows(self):
+        """Pins a MEASURED fact, and it is not a flattering one.
+
+        Under ``clip(1.0 - 1.6·d, 0.2, 1.0)`` the worst observable
+        dispersion (CV 0.263, live board max) still yields 0.579, above
+        the 0.5 gate. So **no measured row can fail
+        ``strong_buy_min_liquidity``** — 833 of 833 clear it. A
+        threshold whose population sits entirely on one side is
+        decorative, which is class 4 of the audit this module belongs to.
+
+        This test does not pretend otherwise. It pins the current state
+        so that (a) the fact is discoverable rather than folklore, and
+        (b) a future re-tune that makes the gate bite — the fix — turns
+        it red and forces this docstring to be rewritten with the new
+        numbers, rather than leaving a stale claim behind.
+
+        Deliberately NOT asserting the gate straddles: it does not, and
+        an assertion that it does would fail today. Re-tuning the
+        threshold is a calibration decision, recorded rather than made
+        here.
+        """
         cv_max_observed = 0.263  # live board maximum, 2026-07-30
-        best = min(
+        worst = min(
             float(_LIQ["clip_hi"]),
-            float(_LIQ["base"]) + float(_LIQ["dispersion_coeff"]) * cv_max_observed,
+            max(
+                float(_LIQ["clip_lo"]),
+                float(_LIQ["base"]) - float(_LIQ["dispersion_coeff"]) * cv_max_observed,
+            ),
         )
         self.assertGreater(
-            best,
+            worst,
             float(_TH["strong_buy_min_liquidity"]),
             msg=(
-                f"no observable marketDispersionCV can reach "
-                f"strong_buy_min_liquidity: the most dispersed row on the live board "
-                f"(CV {cv_max_observed}) yields liquidity {best:.4f}. The gate would "
-                f"be unreachable for every measured row — decorative, not a threshold."
+                f"the most dispersed observable row (CV {cv_max_observed}) now yields "
+                f"liquidity {worst:.4f}, at or below the {_TH['strong_buy_min_liquidity']} "
+                f"gate — so the gate has started to bite. That is an IMPROVEMENT over the "
+                f"decorative state this test was written to pin. Update this test with the "
+                f"new measured distribution rather than deleting it."
             ),
         )
 

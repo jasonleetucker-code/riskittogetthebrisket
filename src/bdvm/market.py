@@ -106,13 +106,23 @@ def market_view_for_row(
 
     dispersion = _dispersion_for_row(contract_row)
     liq_cfg = params["market"]["liquidity"]
+    # Dispersion SUBTRACTS from liquidity (audit M7, landed on main
+    # 2026-08-04).  Cross-source disagreement about a price makes an
+    # asset harder to transact, not easier, and must move the same
+    # direction as its effect on ``tau_market`` below.  The additive
+    # form meant one number read as "liquid" here and "unreliable"
+    # there.
+    #
+    # ``None`` when dispersion was never measured — see
+    # ``_dispersion_for_row``.  Not a number: absent, zero and
+    # unmeasured are three different things.
     liquidity: float | None = None
     if dispersion is not None:
         liquidity = min(
             float(liq_cfg["clip_hi"]),
             max(
                 float(liq_cfg["clip_lo"]),
-                float(liq_cfg["base"]) + float(liq_cfg["dispersion_coeff"]) * dispersion,
+                float(liq_cfg["base"]) - float(liq_cfg["dispersion_coeff"]) * dispersion,
             ),
         )
     return MarketView(
@@ -143,24 +153,38 @@ def _dispersion_for_row(row: Mapping[str, Any]) -> float | None:
       max 0.263, median 0.0215).  So "we could not measure this" was
       being read as "this asset is maximally dispersed".
 
-    Since ``liquidity = clip(0.35 + 1.6 x d)``, that ranked rows by how
-    little was known about them.  Scoped to BDVM-priceable positions,
-    against the ``strong_buy_min_liquidity`` of 0.5:
+    WHAT THE FIX IS, AND WHAT IT IS NOT
+    ===================================
+    The scale substitution is the durable half: a percentile spread is
+    not a coefficient of variation, and feeding one where the params
+    were calibrated for the other silently reprices every row that
+    lacks a CV.  Under the current SUBTRACT form that shows up as
+    liquidity 0.845 for a median-spread row against 0.966 for a
+    median-CV row — same asset, different statistic, different answer.
 
-        branch                     rows   liquidity > 0.5
-        A measured marketDispersionCV  833   57 ( 6.8%)
-        B percentile-spread fallback    28   20 (71.4%)
-        C hardcoded 0.20 (unmeasured)   53   53 (100.0%)
+    The hardcoded ``0.20`` is the other half: it invents a measurement.
+    Its DIRECTION of harm depends on the liquidity formula, and that
+    formula changed under this fix.  Measured on the pinned 2026-07-30
+    contract under the current ``clip(1.0 - 1.6 x d, 0.2, 1.0)``:
 
-    A player with no dispersion data was ~15x more likely to clear the
-    gate than one whose dispersion was actually measured.
+        typical measured CV 0.0215  ->  liquidity 0.966
+        percentile-spread   0.0968  ->  liquidity 0.845
+        hardcoded           0.20    ->  liquidity 0.680
 
-    (That particular gate is separately unreachable — ``buy_hold_sell``
-    requires ``persisted``, and the only production caller in
-    ``service.py`` never passes ``gap_persisted_days``.  The live
-    channel is ``alpha = gap x liquidity``, which drives the reachable
-    BUY / SELL / STRONG_SELL: an unmeasured row's alpha was inflated
-    1.74x against thresholds of +-400 / +-900.)
+    So today an unmeasured row is scored LESS liquid than a typical
+    measured one, not more.  Under the previous ADDITIVE form
+    (``0.35 + 1.6 x d``) the same constant did the opposite — it put
+    unmeasured rows at 0.68 against a measured median of 0.384, making
+    absence the strongest liquidity signal on the board.  That is the
+    point worth keeping: a fabricated input's harm flips sign with a
+    formula change nobody re-derived it against, which is exactly why
+    it must not be fabricated at all.
+
+    KNOWN, SEPARATELY: the ``strong_buy_min_liquidity`` gate of 0.5 is
+    currently DECORATIVE for measured rows.  The worst observable CV
+    (0.263) still yields 0.579, so no measured row can fail it — 833 of
+    833 clear.  Fixing that is a threshold-calibration question, logged
+    rather than silently re-tuned here.
 
     Returning ``None`` keeps unmeasured distinguishable downstream.  It
     is NOT 0.0: zero dispersion means "every source agrees", which is
@@ -268,45 +292,60 @@ def buy_hold_sell(
     gap_persisted_days: int | None = None,
     p_collapse_1y: float | None = None,
 ) -> dict[str, Any]:
-    """Signal policy (§8.4).  Persistence-guarded; explains itself."""
+    """Signal policy (§8.4).  Magnitude-ordered; explains itself.
+
+    Two rules the ladder is built on, both of which it violated before
+    the 2026-08-04 audit:
+
+    * **Every state has a magnitude floor, and the ladder is walked by
+      magnitude.**  The collapse probability ESCALATES a sell that
+      already clears the sell bar; it does not create one.  It used to
+      be tested first, on ``alpha < 0`` alone, so a one-point negative
+      gap fired the loudest signal in the model.
+    * **``gap_persisted_days`` is an optional strengthener, not a
+      precondition.**  Nothing in the platform stores gap history, so no
+      caller can supply it — and requiring it made STRONG_BUY (a state
+      ``ACTIONABLE_BDVM_SIGNALS`` alerts on) unreachable, with
+      ``strong_buy_alpha`` and ``strong_buy_min_liquidity`` inert.  With
+      no history the strong-buy bar is magnitude + liquidity, symmetric
+      with STRONG_SELL's magnitude bar; a caller that DOES have history
+      still gets the momentum guard.
+    """
     alpha = market_out.get("alpha")
     if alpha is None:
         return {"signal": "NO_MARKET", "reason": "no market anchor for this asset"}
     th = params["market"]["signal_thresholds"]
     # A liquidity-gated signal requires a MEASURED liquidity.  Explicit
     # rather than relying on ``None -> 0.0`` happening to fall below the
-    # threshold: that coincidence would silently reverse if the
-    # threshold ever moved below the clip floor, and "unmeasured" must
-    # fail this gate on purpose, not by arithmetic accident.
+    # threshold: that coincidence reverses silently if the threshold
+    # ever moves below the clip floor, and "unmeasured" must fail this
+    # gate on purpose rather than by arithmetic accident.
     liquidity_measured = bool(
         market_out.get("liquidityMeasured", market_out.get("liquidity") is not None)
     )
     raw_liquidity = market_out.get("liquidity")
     liquidity = float(raw_liquidity) if raw_liquidity is not None else 0.0
-    persisted = gap_persisted_days is not None and gap_persisted_days >= int(
-        th["gap_persistence_days"]
-    )
-    if (
-        alpha > float(th["strong_buy_alpha"])
-        and persisted
-        and liquidity_measured
-        and liquidity > float(th["strong_buy_min_liquidity"])
-    ):
-        return {"signal": "STRONG_BUY", "reason": f"alpha {alpha:+.0f}, gap persisted, liquid"}
+    persisted = gap_persisted_days is None or gap_persisted_days >= int(th["gap_persistence_days"])
     if alpha > float(th["buy_alpha"]):
-        if gap_persisted_days is not None and not persisted:
+        if not persisted:
             return {
                 "signal": "HOLD",
                 "reason": "positive gap but not yet persistent (momentum guard)",
             }
+        if (
+            alpha > float(th["strong_buy_alpha"])
+            and liquidity_measured
+            and liquidity > float(th["strong_buy_min_liquidity"])
+        ):
+            return {"signal": "STRONG_BUY", "reason": f"alpha {alpha:+.0f}, liquid market"}
         return {"signal": "BUY", "reason": f"alpha {alpha:+.0f}"}
-    if p_collapse_1y is not None and p_collapse_1y > 0.5 and alpha < 0:
-        return {
-            "signal": "STRONG_SELL",
-            "reason": f"collapse probability {p_collapse_1y:.0%} and market > model",
-        }
-    if alpha < float(th["strong_sell_alpha"]):
-        return {"signal": "STRONG_SELL", "reason": f"alpha {alpha:+.0f}"}
     if alpha < float(th["sell_alpha"]):
+        if alpha < float(th["strong_sell_alpha"]):
+            return {"signal": "STRONG_SELL", "reason": f"alpha {alpha:+.0f}"}
+        if p_collapse_1y is not None and p_collapse_1y > 0.5:
+            return {
+                "signal": "STRONG_SELL",
+                "reason": f"alpha {alpha:+.0f} and collapse probability {p_collapse_1y:.0%}",
+            }
         return {"signal": "SELL", "reason": f"alpha {alpha:+.0f}"}
     return {"signal": "HOLD", "reason": f"alpha {alpha:+.0f} inside hold band"}

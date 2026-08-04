@@ -4,6 +4,7 @@ from __future__ import annotations
 
 
 from src.api import trade_simulator, terminal
+from src.trade import team_impact
 from src.canonical.player_valuation import rank_to_value
 
 
@@ -470,3 +471,73 @@ def test_team_impact_rationale_bullets_max_five():
         roster_settings=_IDP_LEAGUE_SETTINGS,
     )
     assert len(result["teamImpact"]["rationale"]) <= 5
+
+
+# ── Window classification (src/trade/team_impact.py::_classify_window) ──
+#
+# Regression pins for the math audit's H5(c).  ``contendIndex`` used to
+# read ``top10_share − (pick_share + young_share)`` with the top-10
+# slice taken over EVERY asset, so pick and young value landed on both
+# sides of the subtraction and cancelled: the most extreme rebuilder in
+# the league came out "balanced".  The positive term is now the top 10
+# WIN-NOW assets only.
+#
+# Shares below are hand-computed; the threshold is ±0.15.
+
+_WINDOW_CFG = {"windowFit": {"contendIndexThreshold": 0.15, "youngStarterMaxAge": 23}}
+
+
+def _pick(value: int) -> dict:
+    return {"name": f"pick-{value}", "assetClass": "pick", "value": value}
+
+
+def _player_asset(name: str, value: int, age: int) -> dict:
+    return {"name": name, "assetClass": "offense", "pos": "WR", "value": value, "age": age}
+
+
+def test_classify_window_pick_stuffed_roster_is_a_rebuilder():
+    """Ten firsts + five spare parts is the archetypal rebuild.
+
+    total = 10 × 1000 (picks) + 5 × 200 (vets) = 11,000.
+    win-now top 10 = the five vets = 1,000 → 0.0909
+    pick share      = 10,000 / 11,000        → 0.9091
+    index = 0.0909 − 0.9091 = −0.818 → rebuilder.
+
+    Counting the picks in the top-10 slice too gave 0.909 − 0.909 = 0.0,
+    i.e. "balanced", and the whole window-fit leg of the trade verdict
+    then graded this roster as if it should be buying veterans.
+    """
+    assets = [_pick(1000) for _ in range(10)]
+    assets += [_player_asset(f"Vet{i}", 200, 28) for i in range(5)]
+    assert team_impact._classify_window(assets, _WINDOW_CFG) == "rebuilder"
+
+
+def test_classify_window_young_core_is_a_rebuilder():
+    """Same double-count, other half of the negative term.
+
+    total = 10 × 1000 (age 22) + 2 × 500 (age 28) = 11,000.
+    win-now top 10 = the two vets = 1,000 → 0.0909
+    young share    = 10,000 / 11,000       → 0.9091
+    index = −0.818 → rebuilder (it read 0.0 → "balanced").
+    """
+    assets = [_player_asset(f"Kid{i}", 1000, 22) for i in range(10)]
+    assets += [_player_asset(f"Vet{i}", 500, 28) for i in range(2)]
+    assert team_impact._classify_window(assets, _WINDOW_CFG) == "rebuilder"
+
+
+def test_classify_window_veteran_roster_is_still_a_contender():
+    """No picks, no kids: index = 1.0 − 0.0.  Unchanged by the fix."""
+    assets = [_player_asset(f"Vet{i}", 1000, 27) for i in range(10)]
+    assert team_impact._classify_window(assets, _WINDOW_CFG) == "contender"
+
+
+def test_classify_window_mixed_roster_is_balanced():
+    """An even split between win-now and future sits in the band.
+
+    total = 5 × 1000 (age 27) + 5 × 1000 (picks) = 10,000.
+    win-now top 10 = 5,000 → 0.5; pick share = 0.5.
+    index = 0.0, inside ±0.15 → balanced.
+    """
+    assets = [_player_asset(f"Vet{i}", 1000, 27) for i in range(5)]
+    assets += [_pick(1000) for _ in range(5)]
+    assert team_impact._classify_window(assets, _WINDOW_CFG) == "balanced"

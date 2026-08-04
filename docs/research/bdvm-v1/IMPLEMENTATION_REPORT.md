@@ -315,7 +315,8 @@ role/event/sample multipliers + √t drift, option-value season surplus with
 API `surplusMode=`), strategy profiles (contender/balanced/rebuilder **+
 risk-neutral λ=0**) inside the horizon sum, certainty-equivalent λ·0.35·Ψ,
 stud-premium trade scaling with per-strategy anchors, 0–100 percentile score,
-P20/P85 quantile paths (documented perfectly-correlated approximation),
+P20/P85 quantile paths (documented perfectly-correlated approximation — which
+does NOT agree with Ψ's independent-season assumption; see §32),
 additive horizon-share explanations with survival drag and 5-year trajectory.
 
 ## 16. IDP methodology
@@ -337,9 +338,14 @@ Implemented per §3.11/§3.12: fundamentals computed and returned with zero
 market inputs (payload-level test strips all market values and asserts
 bit-identical fundamentals); market anchors per market (KTC SF-TEP for
 offense/picks, IDPTC for IDP) under the stamped peer normalization; dispersion
-from contract stamps; liquidity `clip(0.35 + 1.6·dispersion, 0.2, 1.0)`; gap,
+from contract stamps; liquidity `clip(1.0 − 1.6·dispersion, 0.2, 1.0)`
+(sign corrected 2026-08-04 — it was `0.35 + 1.6·dispersion`, which made
+disagreement *raise* liquidity while the same input *lowered* `tau_market`
+eight lines below; the new base keeps a typical row at ≈0.68 where the old
+form put it); gap,
 α=gap×liquidity, λ-blends (0 fundamental / 0.25 display / 0.50 clearing), and
-persistence-guarded buy/hold/sell signals with reasons. Momentum inputs
+magnitude-ordered buy/hold/sell signals with reasons (persistence is an
+optional strengthener — see §32). Momentum inputs
 (30-day market history) are **awaiting data** (rank/source history files are
 code-complete in `src/api/*_history.py` but empty on disk — backfill scripts
 exist).
@@ -505,3 +511,61 @@ snapshots are additive files under gitignored `data/`.
    at `/api/bdvm/values`.
 3. Start the ablation ledger the same week (`surplusMode=` comparisons stored
    with param_set_id).
+
+## 32. Known divergence: the model carries TWO risk representations
+
+Recorded by the sitewide math audit of 2026-08-04 (finding M5). This is
+**not a bug report against the implementation** — the production engine
+reproduces the frozen reference here exactly, and changing it would break
+Appendix-C parity (`tests/bdvm/test_engine_parity.py`). It is a
+specification-level divergence that anyone reading a BDVM number should
+know about, and the thing to resolve when the Phase-10 simulation
+replaces the closed forms.
+
+BDVM prices uncertainty twice, in two mutually inconsistent ways:
+
+1. **Ψ, the certainty-equivalent penalty** in
+   `engine.py::_discounted_value`: `DV = Σ u·d^t·E[t] − λ·0.35·Ψ` with
+   `Ψ = √Σ (d^t·σ_t·G_t·S_t)²`. The sum-of-squares says the seasons are
+   **independent** draws.
+2. **The P20/P85 band** in `engine.py::_range`: both quantile paths shift
+   *every* season's mean by the same z, which says the seasons are
+   **perfectly correlated** (and `_range`'s own docstring says so).
+
+Measured on the 13 Appendix-C archetypes, balanced horizon: the
+perfectly-correlated dispersion `Σ d^t·σ_t·G_t·S_t` is **1.41× to 2.57×**
+Ψ (median 2.29×). The two representations therefore disagree about the
+size of the risk they are pricing by more than a factor of two inside a
+single `Valuation`.
+
+The second half of the divergence is that they also **stack**. The p20
+and p85 paths already ARE the downside and upside cases, and then
+`_discounted_value` subtracts `λ·0.35·Ψ` from each of them as well —
+uncertainty charged once by moving the mean and again by penalising the
+spread around it. On the same 13 archetypes that second charge is worth,
+as a share of the pre-penalty DV:
+
+| strategy | λ | penalty share of DV (min / median / max) |
+|---|---|---|
+| contender | +0.20 | 2.5% / 3.8% / 7.2% |
+| balanced | +0.10 | 1.1% / 1.6% / 3.2% |
+| rebuilder | −0.10 | −1.2% / −1.8% / −5.2% (a BONUS, not a penalty) |
+| risk_neutral | 0.00 | 0% (by construction — the ablation baseline) |
+
+The share is `λ·0.35·Ψ / v`, so it grows without bound as DV → 0: the
+audit measured 6.7% (balanced) and 14.2% (contender) on marginal
+live-board players, above the archetype range above. And because the
+rebuilder's λ is negative, the rebuilder's *floor* comes back **raised**
+above its own p20 path (audit: 9.3%) — the risk term pays a rebuilder
+for volatility on a path that was already the bad case.
+
+Neither effect is currently corrected, deliberately: the reference
+implementation does the same arithmetic and it is the acceptance fixture.
+`risk_neutral` (λ=0) exists precisely so a consumer who does not want the
+second charge can read a board without it.
+
+What was NOT left alone, and is fixed (audit H6): the p20/p85 paths used
+to price *truncated* surplus while the median priced *option* surplus, so
+the band could come back inverted (measured floor 0 / median 41917 /
+ceiling 0). Both now use the same surplus functional, which makes
+floor ≤ median ≤ ceiling hold by construction rather than by luck.

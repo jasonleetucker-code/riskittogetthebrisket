@@ -1,95 +1,95 @@
 {
   "modelVersion": "ce.2026-08-04.v0-shadow",
-  "paramSetId": "b381862f7fc54feb",
-  "measuredAt": "2026-08-04T08:35:27.476355+00:00",
+  "paramSetId": "b90ef7db61a10905",
+  "measuredAt": "2026-08-04T11:25:58.667606+00:00",
   "target": "cohort-excess market return of the anchor board",
   "lookbackDays": 30,
   "lookbackPoints": 3,
   "compositeWeights": {
     "mispricing": 0.5,
     "sharpFlow": 0.3,
-    "opportunity": 0.2
+    "opportunity": 0.0
   },
   "runs": {
     "composite": {
       "foldsAttempted": 11,
       "foldsUsable": 11,
       "unusableReasons": [],
-      "meanSpearman": 0.09080830577163301,
-      "medianSpearman": 0.09979496208826753,
+      "meanSpearman": 0.022977927432112896,
+      "medianSpearman": 0.029212064498119344,
       "spearmanByFold": [
         {
           "origin": "2026-05-16",
-          "n": 692,
-          "rho": 0.10830654953271086
+          "n": 356,
+          "rho": -0.017046155744815425
         },
         {
           "origin": "2026-05-23",
-          "n": 682,
-          "rho": 0.13602335352708664
+          "n": 346,
+          "rho": 0.01611983875527026
         },
         {
           "origin": "2026-05-30",
-          "n": 676,
-          "rho": -0.0011537082448212256
+          "n": 344,
+          "rho": -0.10759897746538699
         },
         {
           "origin": "2026-06-06",
-          "n": 681,
-          "rho": 0.160419643711054
+          "n": 345,
+          "rho": 0.0813252215450718
         },
         {
           "origin": "2026-06-13",
-          "n": 681,
-          "rho": 0.052045319126828936
+          "n": 345,
+          "rho": -0.06289417625520373
         },
         {
           "origin": "2026-06-20",
-          "n": 668,
-          "rho": 0.043572198920232376
+          "n": 332,
+          "rho": 0.03115868109649486
         },
         {
           "origin": "2026-06-27",
-          "n": 667,
-          "rho": 0.13082791236492936
+          "n": 332,
+          "rho": 0.09189542638088433
         },
         {
           "origin": "2026-07-04",
-          "n": 669,
-          "rho": 0.16804886922356713
+          "n": 339,
+          "rho": 0.029212064498119344
         },
         {
           "origin": "2026-07-11",
-          "n": 704,
-          "rho": 0.050794499854526984
+          "n": 346,
+          "rho": 0.06921324539227063
         },
         {
           "origin": "2026-07-18",
-          "n": 687,
-          "rho": 0.09979496208826753
+          "n": 331,
+          "rho": 0.021393244521583563
         },
         {
           "origin": "2026-07-25",
-          "n": 688,
-          "rho": 0.05021176338358062
+          "n": 331,
+          "rho": 0.09997878902895321
         }
       ],
       "benchmarks": {
         "marketValue": {
-          "meanSpearman": -0.020878501245596915,
-          "beatenInFolds": 11
+          "meanSpearman": 0.10431818477836509,
+          "beatenInFolds": 2
         },
         "mispricing": {
-          "meanSpearman": 0.10112559609718691,
-          "beatenInFolds": 3
+          "meanSpearman": 0.022977927432112896,
+          "beatenInFolds": 0
         },
         "random": {
-          "meanSpearman": 0.008363274971400157,
-          "beatenInFolds": 10
+          "meanSpearman": 0.005713048705847336,
+          "beatenInFolds": 7
         }
       },
-      "verdict": "inconsistent across folds (mean rho +0.091 over 11 non-overlapping folds; 10/11 folds positive; beat market-value benchmark in 11/11)",
-      "foldsPositive": 10,
+      "verdict": "no effect detected (mean rho +0.023 over 11 non-overlapping folds; 8/11 folds positive; beat market-value benchmark in 2/11)",
+      "foldsPositive": 8,
       "horizonDays": 7,
       "panelStart": "2026-05-16",
       "panelEnd": "2026-08-03",
@@ -97,83 +97,72 @@
     },
     "momentum": {
       "foldsAttempted": 11,
-      "foldsUsable": 11,
-      "unusableReasons": [],
-      "meanSpearman": -0.07238036852705249,
-      "medianSpearman": -0.10588160476870753,
+      "foldsUsable": 8,
+      "unusableReasons": [
+        "only 1 paired rows (need 30)",
+        "only 1 paired rows (need 30)",
+        "only 2 paired rows (need 30)"
+      ],
+      "meanSpearman": -0.1225222371322201,
+      "medianSpearman": -0.14228684651355594,
       "spearmanByFold": [
         {
-          "origin": "2026-05-16",
-          "n": 243,
-          "rho": 0.18220944556253754
-        },
-        {
-          "origin": "2026-05-23",
-          "n": 254,
-          "rho": 0.11042127140024498
-        },
-        {
           "origin": "2026-05-30",
-          "n": 629,
-          "rho": -0.20343614152259154
+          "n": 330,
+          "rho": -0.1691501240528055
         },
         {
           "origin": "2026-06-06",
-          "n": 620,
-          "rho": -0.24789607604075892
+          "n": 325,
+          "rho": -0.2046774165448947
         },
         {
           "origin": "2026-06-13",
-          "n": 623,
-          "rho": -0.16962247197430305
+          "n": 325,
+          "rho": -0.15419424772138313
         },
         {
           "origin": "2026-06-20",
-          "n": 619,
-          "rho": -0.136048745746106
+          "n": 321,
+          "rho": -0.14635406422508546
         },
         {
           "origin": "2026-06-27",
-          "n": 621,
-          "rho": 0.0020920968271063967
-        },
-        {
-          "origin": "2026-07-04",
-          "n": 270,
-          "rho": -0.10875759656996675
+          "n": 325,
+          "rho": 0.0253908615443864
         },
         {
           "origin": "2026-07-11",
-          "n": 638,
-          "rho": -0.10588160476870753
+          "n": 330,
+          "rho": -0.1301125781581057
         },
         {
           "origin": "2026-07-18",
-          "n": 638,
-          "rho": -0.013950287669799133
+          "n": 325,
+          "rho": -0.06286069909784635
         },
         {
           "origin": "2026-07-25",
-          "n": 637,
-          "rho": -0.10531394329523336
+          "n": 322,
+          "rho": -0.13821962880202643
         }
       ],
       "benchmarks": {
         "marketValue": {
-          "meanSpearman": -0.029456822073295683,
-          "beatenInFolds": 4
+          "meanSpearman": 0.11566945345082508,
+          "beatenInFolds": 0
         },
         "mispricing": {
-          "meanSpearman": 0.14385964304206653,
+          "meanSpearman": 0.02069573549077032,
           "beatenInFolds": 0
         },
         "random": {
-          "meanSpearman": -0.007676543492651831,
-          "beatenInFolds": 3
+          "meanSpearman": -0.009520501327576779,
+          "beatenInFolds": 1
         }
       },
-      "verdict": "inconsistent across folds (mean rho -0.072 over 11 non-overlapping folds; 3/11 folds negative; beat market-value benchmark in 4/11)",
-      "foldsPositive": 3,
+      "verdict": "inconsistent across folds (mean rho -0.123 over 8 non-overlapping folds; 7/8 folds negative; beat market-value benchmark in 0/8)",
+      "foldsPositive": 1,
       "horizonDays": 7,
       "panelStart": "2026-05-16",
       "panelEnd": "2026-08-03",
@@ -182,15 +171,15 @@
   },
   "decision": {
     "recommendation": "set the momentum weight to zero",
-    "rationale": "composite mean rho +0.091 vs mispricing +0.101 (delta -0.010); composite beat mispricing in 3/11 folds. The axis does not improve on the component already validated, so it must not move scores. Note this returns the board to ONE live component, which puts Strong labels out of reach again \u2014 that is the design working, not a regression.",
-    "compositeMeanRho": 0.09080830577163301,
-    "mispricingMeanRho": 0.10112559609718691,
-    "deltaRho": -0.010317290325553896,
-    "foldsBeaten": 3,
+    "rationale": "composite mean rho +0.023 vs mispricing +0.023 (delta +0.000); composite beat mispricing in 0/11 folds. The axis does not improve on the component already validated, so it must not move scores. Note this returns the board to ONE live component, which puts Strong labels out of reach again \u2014 that is the design working, not a regression.",
+    "compositeMeanRho": 0.022977927432112896,
+    "mispricingMeanRho": 0.022977927432112896,
+    "deltaRho": 0.0,
+    "foldsBeaten": 0,
     "foldsUsable": 11
   },
   "panelBuilds": 68,
-  "elapsedSeconds": 85.1,
+  "elapsedSeconds": 87.2,
   "caveats": [
     "Measures Opportunity as it ships OUTSIDE production: the momentum axis alone. The snapTrend axis reads data/playerctx/snapshot.json, which has no history in the repo and cannot be replayed, so it remains unvalidated.",
     "Sharp Flow is absent throughout \u2014 the ledger is empty in every reachable environment \u2014 so this is a two-component composite.",

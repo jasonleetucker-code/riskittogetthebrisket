@@ -200,6 +200,46 @@ class TestSpiderwebExpansion:
             conn.close()
         assert {"u1", "u2"} <= ids
 
+    def test_a_league_we_never_expanded_still_records_its_membership(self, db_path):
+        """ "Which leagues does this manager play in" must not be limited
+        to the leagues the traversal happened to expand.
+
+        Sleeper's own ``/user/{id}/leagues`` proves the membership, so the
+        row is a fact even when the league sits unexpanded on the
+        frontier. Recording it only in the league->users branch silently
+        bounded the sharp ROSTER crawl to the expanded subgraph: a sharp
+        with several dynasty teams could contribute one roster to the
+        roster-percentage denominator and still read as represented.
+        """
+        http = FakeSleeper(
+            {
+                f"{BASE}/league/L0/users": [user("u1")],
+                # u1 plays in three leagues; the cap stops us expanding them.
+                f"{BASE}/user/u1/leagues/nfl/2026": [
+                    league("L1"),
+                    league("L2"),
+                    league("L3"),
+                ],
+            }
+        )
+        discovery.discover(
+            http_get=http,
+            seeds=seeds(seed_leagues=["L0"], maxGenerations=1),
+            ledger_path=db_path,
+        )
+        conn = ledger.connect(db_path)
+        try:
+            rows = {
+                (r["league_id"], r["user_id"])
+                for r in conn.execute(
+                    "SELECT league_id, user_id FROM league_memberships"
+                ).fetchall()
+            }
+        finally:
+            conn.close()
+        assert ("L0", "u1") in rows  # from the league->users branch
+        assert {("L1", "u1"), ("L2", "u1"), ("L3", "u1")} <= rows
+
     def test_generation_cap_stops_expansion(self, db_path):
         http = FakeSleeper(
             {

@@ -198,9 +198,24 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             actual, pair_pts = _actual_week_results(season, wk, registry)
 
             for oid, ap in all_play.items():
+                if oid not in actual:
+                    # Scored this week but never PAIRED — a bye, an odd
+                    # team count, or a matchup row Sleeper didn't group.
+                    # Their score still counts as a rival in everyone
+                    # else's all-play (it is a real week of scoring), but
+                    # they played no game, so there is no actual result
+                    # to compare their expected share against.  Defaulting
+                    # to 0.0 charged them a full phantom loss and, via
+                    # ``pair_pts``'s matching default, silently deflated
+                    # their career pointsFor by a real week's score.
+                    continue
+                # ``actual`` and ``pair_pts`` are populated in lockstep by
+                # ``_actual_week_results``, so the gate above also makes
+                # this default unreachable — it stays only so a future
+                # divergence degrades instead of raising.
                 pts_for, pts_against = pair_pts.get(oid, (0.0, 0.0))
                 expected_share = float(ap["expectedShare"])
-                actual_share = actual.get(oid, 0.0)
+                actual_share = actual[oid]
 
                 # Career aggregate.
                 career = by_owner_career[oid]
@@ -301,7 +316,12 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 "pointsAgainst": round(row["pointsAgainst"], 2),
             }
         )
-    career_rows.sort(key=lambda r: -r["luckDelta"])
+    # ``ownerId`` is the tie-break on every luck sort below.  Deltas are
+    # rounded to 2dp and cluster hard around 0, so ties are common; with
+    # no tie-break the order fell out of the order Sleeper happened to
+    # return that week's matchup rows in, and "luckiest manager" could
+    # change between two identical requests.
+    career_rows.sort(key=lambda r: (-r["luckDelta"], r["ownerId"]))
 
     # Finalize season rows.
     season_rows: list[dict[str, Any]] = []
@@ -332,12 +352,12 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             }
         )
     # Most recent season first; within a season, luckiest first.
-    season_rows.sort(key=lambda r: (-_season_sort_key(r["season"]), -r["luckDelta"]))
+    season_rows.sort(key=lambda r: (-_season_sort_key(r["season"]), -r["luckDelta"], r["ownerId"]))
 
     weekly_trail.sort(key=lambda t: (_season_sort_key(t["season"]), t["week"], t["ownerId"]))
 
     current_season_rows = [r for r in season_rows if r["season"] == current_season_year]
-    current_season_rows.sort(key=lambda r: -r["luckDelta"])
+    current_season_rows.sort(key=lambda r: (-r["luckDelta"], r["ownerId"]))
 
     return {
         "seasonsCovered": [s.season for s in snapshot.seasons],

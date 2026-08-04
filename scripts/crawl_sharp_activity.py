@@ -22,7 +22,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from src.intel import platform_ledger  # noqa: E402
 from src.intel import service as intel_service  # noqa: E402
-from src.sharp import platform_records  # noqa: E402
+from src.sharp import cohort as sharp_cohort  # noqa: E402
 from src.sharp import score as sharp_score  # noqa: E402
 
 DEFAULT_LEAGUE_KEY = "sharp-tracker"
@@ -32,22 +32,31 @@ DEFAULT_SLEEP_SECONDS = 0.12
 
 
 def qualified_sleeper_ids() -> tuple[list[str], dict[str, Any]]:
-    """Return source Sleeper IDs that passed every Sharp Score v2 gate."""
-    records, evidence = platform_records.build_manager_records()
-    scored = sharp_score.score_managers(records) if records else []
+    """Source Sleeper IDs of the automated-qualified sharp cohort.
+
+    Resolved through ``src/sharp/cohort.py::cohort_members`` — the same
+    call the Buy/Sell Tracker and the Roster Percentage board make.  It
+    used to re-derive the pool here (``build_manager_records`` →
+    ``score_managers`` → filter on ``qualified``), which was a second
+    copy of the selection rules living in a script: a change to
+    qualification moved the two boards and left the crawl that FEEDS
+    them selecting a different set of managers.
+
+    ``qualification="automated"`` is the deliberate slice.  Curated and
+    provisional members are FFPC-only, and this pass crawls Sleeper.
+    """
+    members, coverage = sharp_cohort.cohort_members(qualification="automated")
     qualified = sorted(
         {
-            manager.user_id.split(":", 1)[1]
-            for manager in scored
-            if manager.qualified and manager.user_id.startswith("sleeper:")
+            member.manager_key.split(":", 1)[1]
+            for member in members
+            if member.manager_key.startswith("sleeper:")
         }
     )
     summary = {
         "methodologyVersion": sharp_score.methodology_version(),
-        "managerRecords": len(records),
-        "evidenceManagers": len(evidence),
-        "evaluableManagers": sum(1 for manager in scored if manager.evaluable),
-        "qualifiedManagers": sum(1 for manager in scored if manager.qualified),
+        "evidenceManagers": coverage.get("evidenceManagers", 0),
+        "qualifiedManagers": len(members),
         "qualifiedSleeperManagers": len(qualified),
     }
     return qualified, summary

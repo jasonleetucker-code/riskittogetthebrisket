@@ -29,20 +29,28 @@ const PUBLIC_ROUTES = [
   // state — this check exists to prove the route renders at all, not to
   // pin the marketing copy.
   { path: "/", mustHave: /Chase Upside/i },
-  // ``/league`` is still absent from this list, but NOT for the reason
-  // that used to be written here.  The old note blamed the backend
-  // proxy's 5s timeout, which #555 deleted along with the proxy.
+  // ``/league`` is BACK in this list, on a measurement rather than on a
+  // hope.  It was pulled twice for reasons that both later evaporated:
+  // first the backend proxy's 5s timeout (deleted with the proxy in
+  // #555), then the SSR itself at 7-19s — 15.78s p100 — which blew the
+  // 15s content budget on the assertion below regardless of who served
+  // it.  The note here said, correctly, that "the stated cause is gone"
+  // is not the same claim as "it is fast enough now", and that it must
+  // stay out until someone measured again.
   //
-  // The reason that survives is the one underneath it: /league SSR was
-  // measured at 7-19s (15.78s p100, docs/e2e-assertion-audit.md), which
-  // blows the 15s content budget on line 87 regardless of who serves it.
-  // "The stated cause is gone" is not the same claim as "it is fast
-  // enough now", so this stays out until someone measures it again.
-  // Tracked as #667 rather than as part of #555 — deleting the proxy did
-  // not make /league faster.
+  // Measured 2026-08-04 against production, six samples: TTFB
+  // 0.55-1.01s, total 0.75-1.20s, 91.9 KB document.  The franchise
+  // deep-link that produced the 15.78s p100 is now 0.57s / 1.06s.  That
+  // is ~13x under the budget, not marginally under it.
   //
-  // /league is covered meanwhile by public-league.spec.js (against the
-  // public-league API) and by the prod-e2e-smoke cron through nginx.
+  // #667 is what fixed it, and the mechanism is worth knowing before
+  // anyone "optimises" it back: the page now fetches ONE section
+  // (overview, 15 KB) instead of the 2.01 MB aggregate.  Size was the
+  // whole problem — Next's Data Cache refuses entries over 2 MB, so
+  // ``revalidate: 60`` was silently inert on the aggregate and every
+  // render re-fetched and re-parsed it.  A section entry caches, so the
+  // revalidate window does what it says.
+  { path: "/league", mustHave: /Chase Upside/i },
   { path: "/login", mustHave: /Sign in/i },
 ];
 

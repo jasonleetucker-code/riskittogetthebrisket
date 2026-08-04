@@ -172,26 +172,48 @@ def _trending_kicker(trending_count: int | None) -> float:
 def _position_calibration(
     league_faab_summary: dict[str, Any] | None,
     position: str | None,
-    bid_estimate: int,
-) -> int:
+    bid_estimate: float,
+) -> float:
     """Blend ``bid_estimate`` 50/50 with the league's historical
     average winning bid for ``position``.  Returns ``bid_estimate``
     unchanged when the analytics block is missing or the position
-    has no historical data."""
-    if not league_faab_summary or not position:
+    has no historical data.
+
+    Returns a FLOAT — this is one link in the recommendation chain,
+    not the recommendation.  ``recommend_faab`` rounds once at the
+    end; see the comment at step 2 there."""
+    if not _position_calibration_applies(league_faab_summary, position):
         return bid_estimate
     pos_bids = (league_faab_summary.get("positionBids") or {}).get(position) or {}
     avg_for_pos = pos_bids.get("avg")
-    count_for_pos = pos_bids.get("count") or 0
-    if not isinstance(avg_for_pos, (int, float)) or count_for_pos < _POSITION_CALIBRATION_MIN_COUNT:
-        # Need at least 3 historical bids for the calibration to
-        # be meaningful; otherwise we'd be calibrating against
-        # noise.
-        return bid_estimate
     blended = _LEAGUE_CALIBRATION_BLEND * float(avg_for_pos) + (
         1.0 - _LEAGUE_CALIBRATION_BLEND
     ) * float(bid_estimate)
-    return max(0, round(blended))
+    return max(0.0, blended)
+
+
+def _position_calibration_applies(
+    league_faab_summary: dict[str, Any] | None,
+    position: str | None,
+) -> bool:
+    """Whether the per-position calibration has data to run on.
+
+    Split out of :func:`_position_calibration` so the caller can record
+    "we had this evidence" without inferring it from "the number moved".
+    Sharing the gate rather than restating it is what keeps the factor
+    row and the arithmetic from drifting apart.
+
+    Needs at least ``_POSITION_CALIBRATION_MIN_COUNT`` historical bids;
+    below that we would be calibrating against noise.
+    """
+    if not league_faab_summary or not position:
+        return False
+    pos_bids = (league_faab_summary.get("positionBids") or {}).get(position) or {}
+    avg_for_pos = pos_bids.get("avg")
+    count_for_pos = pos_bids.get("count") or 0
+    return (
+        isinstance(avg_for_pos, (int, float)) and count_for_pos >= _POSITION_CALIBRATION_MIN_COUNT
+    )
 
 
 def _env_scale_factor(
@@ -240,8 +262,8 @@ def _ktc_crowd_blend(
     ktc_crowd_bids: dict[str, Any] | None,
     player_name: str | None,
     league_budget: int,
-    bid_estimate: int,
-) -> int:
+    bid_estimate: float,
+) -> float:
     """Blend with the KTC crowd-sourced waiver-bid % when present.
     The value is a percent-of-budget median bid that league members
     assigned to this player.  Returns ``bid_estimate`` unchanged when
@@ -255,17 +277,36 @@ def _ktc_crowd_blend(
     name, so the crowd calibration factor never fired in production.
     Producer and consumer now call the same helper — do not
     re-introduce a local key here."""
-    if not ktc_crowd_bids or not player_name:
+    if not _ktc_crowd_applies(ktc_crowd_bids, player_name):
         return bid_estimate
-    norm = compact_name_key(player_name)
-    crowd_pct = ktc_crowd_bids.get(norm)
-    if not isinstance(crowd_pct, (int, float)) or crowd_pct <= 0:
-        return bid_estimate
-    crowd_bid = max(1, round(float(crowd_pct) / 100.0 * league_budget))
+    crowd_pct = ktc_crowd_bids[compact_name_key(player_name)]
+    crowd_bid = max(1.0, float(crowd_pct) / 100.0 * league_budget)
     # 70/30 blend: trust our composite a bit more than the crowd
     # since the crowd's number doesn't account for the user's
     # specific drop side.
-    return round(0.7 * bid_estimate + 0.3 * crowd_bid)
+    return 0.7 * bid_estimate + 0.3 * crowd_bid
+
+
+def _ktc_crowd_applies(
+    ktc_crowd_bids: dict[str, Any] | None,
+    player_name: str | None,
+) -> bool:
+    """Whether a usable crowd bid exists for this player.
+
+    Split out of :func:`_ktc_crowd_blend` for the same reason as
+    :func:`_position_calibration_applies`: the caller records a factor
+    row on EVIDENCE PRESENT, not on the number having moved, and the two
+    must share one gate so they cannot drift.
+
+    This predicate is also the live signal that the producer/consumer
+    name-key join still works — both sides key on
+    ``name_clean.compact_name_key``, and a regression there silently
+    removed the crowd factor in production once before.
+    """
+    if not ktc_crowd_bids or not player_name:
+        return False
+    crowd_pct = ktc_crowd_bids.get(compact_name_key(player_name))
+    return isinstance(crowd_pct, (int, float)) and crowd_pct > 0
 
 
 def recommend_faab(
@@ -321,7 +362,11 @@ def recommend_faab(
     # 1. Baseline from the existing _compute_faab_bid formula.
     aggressive_base, reasonable_base, lowball_base = _compute_faab_bid(
         candidate_value=float(add_player_value),
-        league_budget=int(league_budget),
+        # The helper's ``budget`` is whatever pool the caller wants the
+        # bid sized against; here that's the league's full season
+        # budget — step 7 below caps the result at the team's own
+        # remaining balance.
+        budget=int(league_budget),
         top_value_in_pool=top_value_in_pool,
     )
     factors.append(
@@ -333,8 +378,18 @@ def recommend_faab(
     )
 
     # 2. Value-gain modifier.
+    #
+    # ``standard`` is carried as a FLOAT from here through step 6 and
+    # rounded exactly ONCE, just before the team-FAAB cap.  Every stage
+    # below used to round, so each stage's ±$0.50 was fed to the next as
+    # though it were the real number: a value-gain result of $37.80
+    # became $38, which the trending kicker multiplied, which the league
+    # blend averaged against, which the budget-environment scale
+    # multiplied again — three round-ups compounding into a dollar of
+    # pure drift.  Whole dollars are a property of the ANSWER, not of
+    # the intermediate arithmetic.
     mod = _value_gain_modifier(float(add_player_value), float(drop_player_value or 0))
-    standard = max(0, round(reasonable_base * mod))
+    standard = max(0.0, reasonable_base * mod)
     if drop_player_value > 0:
         if mod > 1.05:
             factors.append(
@@ -364,7 +419,7 @@ def recommend_faab(
                 trending_count = None
     kicker = _trending_kicker(trending_count)
     if kicker > 1.0:
-        standard = round(standard * kicker)
+        standard = standard * kicker
         factors.append(
             _Factor(
                 label="Trending bump",
@@ -381,13 +436,42 @@ def recommend_faab(
                 missing=True,
             )
         )
+    else:
+        # Present-but-neutral: we HAVE trending data, it just doesn't
+        # clear the lowest breakpoint.  The row must still be emitted —
+        # ``compute_confidence`` divides by the SUM of the weights it is
+        # handed, so dropping a present factor silently rewrites the
+        # denominator and makes the same recommendation score a
+        # different confidence purely because the player is cold.
+        factors.append(
+            _Factor(
+                label="Trending bump",
+                contribution="none — below the lowest breakpoint",
+                weight=0.15,
+            )
+        )
 
     # 4. League-analytics calibration (per-position blend).
     if league_faab_summary:
         before = standard
         standard = _position_calibration(league_faab_summary, add_player_position, standard)
-        if standard != before:
-            delta = standard - before
+        # ``missing`` must describe whether the INPUT WAS THERE, not
+        # whether it happened to move the number.  ``compute_confidence``
+        # is a weighted realized-share over factor rows, i.e. it answers
+        # "how much of the evidence did we actually have?" — so a
+        # calibration that ran against three real historical bids and
+        # agreed with the baseline is realized evidence, not missing
+        # evidence.
+        #
+        # Branching on ``standard != before`` conflated the two, and
+        # dropping the premature rounding from this chain made that
+        # visible: at a league average of 12.0 the blend landed exactly
+        # on the baseline and the row was labelled "insufficient
+        # samples" + missing (confidence: medium), while at 12.4 it moved
+        # by cents and the row fired (confidence: high) — same player,
+        # same $12 recommendation, same league data.
+        if _position_calibration_applies(league_faab_summary, add_player_position):
+            delta = round(standard) - round(before)
             sign = "+" if delta > 0 else ""
             factors.append(
                 _Factor(
@@ -419,8 +503,13 @@ def recommend_faab(
     if ktc_crowd_bids:
         before = standard
         standard = _ktc_crowd_blend(ktc_crowd_bids, add_player_name, league_budget, standard)
-        if standard != before:
-            delta = standard - before
+        # Presence, not movement — same reasoning as the position
+        # calibration above.  A crowd bid we successfully looked up is
+        # realized evidence even when it agrees with the baseline, and
+        # this row doubles as the live signal that the name-key join
+        # still works (tests/trade/test_faab_recommender.py).
+        if _ktc_crowd_applies(ktc_crowd_bids, add_player_name):
+            delta = round(standard) - round(before)
             sign = "+" if delta > 0 else ""
             factors.append(
                 _Factor(
@@ -437,7 +526,7 @@ def recommend_faab(
     # guard, see _env_scale_factor).
     env = _env_scale_factor(league_faab_summary, add_player_position, int(league_budget))
     if env is not None and standard > 0 and abs(env - 1.0) > 1e-9:
-        standard = max(0, round(standard * env))
+        standard = max(0.0, standard * env)
         factors.append(
             _Factor(
                 label="Budget environment",
@@ -474,8 +563,11 @@ def recommend_faab(
                 )
             else:
                 d = max(0.0, min(_CEILING_DROPOFF_CLAMP, dropoff if dropoff is not None else 0.0))
-                pre_aggressive = max(0, round(standard * 1.40))
-                ceiling = round(pre_aggressive * (1.0 + _CEILING_DROPOFF_SCALE * d))
+                # The ceiling is derived from the running (unrounded)
+                # bid; only the rival's projected clearing price is a
+                # real whole-dollar figure.
+                pre_aggressive = max(0.0, standard * 1.40)
+                ceiling = pre_aggressive * (1.0 + _CEILING_DROPOFF_SCALE * d)
                 clearing = int(round(float(clearing_raw)))
                 if clearing <= standard:
                     factors.append(
@@ -492,22 +584,22 @@ def recommend_faab(
                     factors.append(
                         _Factor(
                             label="Rival contention",
-                            contribution=f"+${clearing - standard} to clear top rival",
+                            contribution=f"+${clearing - round(standard)} to clear top rival",
                             weight=0.15,
                         )
                     )
-                    standard = clearing
+                    standard = float(clearing)
                 else:
-                    warnings.append(
-                        f"Likely outbid — projected clearing price ${clearing} "
-                        f"exceeds this player's value ceiling ${ceiling}."
-                    )
                     factors.append(
                         _Factor(
                             label="Rival contention",
-                            contribution=f"stopped at value ceiling ${ceiling}",
+                            contribution=f"stopped at value ceiling ${round(ceiling)}",
                             weight=0.15,
                         )
+                    )
+                    warnings.append(
+                        f"Likely outbid — projected clearing price ${clearing} "
+                        f"exceeds this player's value ceiling ${round(ceiling)}."
                     )
                     standard = max(standard, ceiling)
 
@@ -520,12 +612,17 @@ def recommend_faab(
         warnings.append(
             "This is a marginal upgrade — your drop is worth as much as your add.  Don't overspend."
         )
-        standard = min(standard, max(1, round(reasonable_base * 0.5)))
+        # Re-anchors on the untouched baseline, not on the running bid.
+        standard = min(standard, max(1.0, reasonable_base * 0.5))
 
     # 6. Floor at $0 if the swap is strictly negative.
     if drop_player_value > 0 and add_player_value < drop_player_value:
         warnings.append("Your drop is worth more than your add — don't bid.")
-        standard = 0
+        standard = 0.0
+
+    # ── Round ONCE.  Everything above is arithmetic; everything below
+    # compares the recommendation against real whole-dollar balances.
+    standard = max(0, round(standard))
 
     # 7. Cap at team's faabRemaining.  When unknown, use the
     # league budget as a soft ceiling (defensive — better to

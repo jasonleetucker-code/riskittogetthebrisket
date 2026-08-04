@@ -120,6 +120,68 @@ def test_trending_missing_marks_factor():
     assert trending_factor["missing"] is True
 
 
+def test_neutral_trending_keeps_its_weight_in_the_denominator():
+    """``compute_confidence`` divides realized weight by TOTAL weight,
+    and the total is whatever rows happen to have been appended.  When
+    Sleeper trending was present but below the lowest breakpoint, no
+    row was appended at all — so the 0.15 weight silently left the
+    denominator and the same recommendation scored a different
+    confidence depending on how hot the player was.
+
+    "We have trending data and it says nothing" is a PRESENT factor.
+    Only "we have no trending data" is missing.
+    """
+    absent = recommend_faab(add_player_value=4000)
+    cold = recommend_faab(add_player_value=4000, sleeper_trending={"count": 0})
+    hot = recommend_faab(add_player_value=4000, sleeper_trending={"count": 12000})
+
+    totals = [sum(f["weight"] for f in r["factors"]) for r in (absent, cold, hot)]
+    assert totals[0] == totals[1] == totals[2]
+
+    def _trending(resp):
+        return next(f for f in resp["factors"] if f["label"].lower().startswith("trending"))
+
+    assert _trending(absent)["missing"] is True
+    assert _trending(cold)["missing"] is False
+    assert _trending(hot)["missing"] is False
+    # Having the data must beat not having it.
+    assert absent["confidence"] == "low"
+    assert cold["confidence"] == "medium"
+
+
+def test_multipliers_compound_at_full_precision_and_round_once():
+    """The chain used to round at every stage, so each stage's ±$0.50
+    fed the next one as if it were the real number.
+
+    This case stacks three multiplicative stages on the $21 baseline
+    (a 4000-value add in a $100 league):
+
+        value-gain  ×1.80  (4000 over a 1000 drop, clamped at the ceiling)
+        trending    ×1.20  (12000 adds → top breakpoint)
+        budget env  ×1.60  (median winning bid 16% of budget, clamped)
+
+        21 × 1.8 × 1.2 × 1.6 = 72.576  →  $73
+
+    Rounding at each stage instead walked 21 → 38 → 46 → 74: three
+    round-ups compounding into a dollar of pure rounding drift on a
+    bid the user is told to make.
+    """
+    out = recommend_faab(
+        add_player_value=4000,
+        drop_player_value=1000,
+        add_player_position="WR",
+        league_budget=100,
+        team_faab_remaining=100,
+        sleeper_trending={"count": 12000},
+        league_faab_summary={
+            "leagueMedianWinningBid": 16.0,
+            "totalBidsAnalyzed": 20,
+            "positionBids": {},  # no per-position history → env scaling applies
+        },
+    )
+    assert out["standard"] == 73
+
+
 # ── League analytics calibration ────────────────────────────────
 
 
@@ -408,18 +470,28 @@ def test_contention_already_cleared_keeps_value_bid():
 
 def test_contention_stops_at_value_ceiling_with_warning():
     """Projected clearing far above the value ceiling ⇒ stop at the
-    ceiling + 'likely outbid' warning — never chase past value."""
+    ceiling + 'likely outbid' warning — never chase past value.
+
+    Ceiling for a fully-irreplaceable player is aggressive (1.40 × the
+    value bid) scaled by (1 + 0.5 × dropoff-clamped-at-0.5) = ×1.25:
+
+        21 × 1.40 × 1.25 = 36.75  →  $37
+
+    The expectation used to be spelled ``round(round(std × 1.40) ×
+    1.25)`` = 36, which re-implemented the chain's intermediate
+    rounding in the test — so the test agreed with the defect by
+    construction.  Clearing $80 blows past the ceiling either way.
+    """
     base = _baseline_v1()
-    # Ceiling for a fully-irreplaceable player: aggressive(=1.4×std)
-    # × 1.25 ⇒ std 21 → ceiling 36.  Clearing $80 blows past it.
+    assert base["standard"] == 21  # precondition for the arithmetic above
     out = _baseline_v1(
         contention={"clearing": 80, "topRival": 79},
         next_best_fa_value=0.0,
     )
-    expected_ceiling = round(round(base["standard"] * 1.40) * 1.25)
-    assert out["standard"] == expected_ceiling
+    assert out["standard"] == 37
     assert out["standard"] < 80
     assert any("Likely outbid" in w for w in out["warnings"])
+    assert any("value ceiling $37" in w for w in out["warnings"])
 
 
 def test_dropoff_gate_blocks_clearing_chase_for_replaceable_player():
@@ -574,3 +646,49 @@ def test_explanation_present_for_every_branch():
     for out in cases:
         assert isinstance(out["explanation"], str)
         assert len(out["explanation"]) > 10  # at least a sentence
+
+
+def test_confidence_does_not_flip_on_a_blend_that_lands_on_the_baseline():
+    """Evidence PRESENT and evidence THAT MOVED THE NUMBER are different
+    questions, and ``compute_confidence`` asks the first one.
+
+    Adversarial review of the premature-rounding fix (math audit).
+    Removing the per-stage ``round()`` made ``standard`` a float, and the
+    factor rows were gated on ``standard != before`` — so whether the
+    league-calibration row counted as realized evidence or as *missing*
+    evidence depended on whether the 50/50 blend happened to land exactly
+    on the running estimate.
+
+    Measured on the shipped code before this fix: the same player, the
+    same $12 recommendation and the same league data reported ``medium``
+    at a league average of 12.0 and ``high`` at 12.4.  The confidence a
+    user sees moved while nothing about the evidence did.
+
+    Both cases have three real historical bids, so both must report the
+    calibration as realized.
+    """
+    seen = []
+    for league_avg in (12.0, 12.4, 12.6, 13.0):
+        out = recommend_faab(
+            add_player_value=2500,
+            drop_player_value=1200,
+            add_player_position="WR",
+            league_budget=100,
+            league_faab_summary={
+                "positionBids": {"WR": {"avg": league_avg, "count": 5}},
+            },
+        )
+        calibration = next(
+            (f for f in out["factors"] if f["label"].startswith("League historical")),
+            None,
+        )
+        assert calibration is not None
+        seen.append(
+            (out["confidence"], out["standard"], calibration["label"], calibration["missing"])
+        )
+
+    confidences = {s[0] for s in seen}
+    assert len(confidences) == 1, f"confidence moved with the blend landing point: {seen}"
+    # The league HAD data in every case, so none may be reported missing.
+    assert not any(s[3] for s in seen), f"real league data reported as missing: {seen}"
+    assert all(s[2] == "League historical calibration" for s in seen), seen

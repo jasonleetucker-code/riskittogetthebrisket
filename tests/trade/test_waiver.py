@@ -175,44 +175,56 @@ class TestRookieWindow:
 class TestFaabBidArithmetic:
     """``_compute_faab_bid`` decides what the user actually spends.
 
-    share      = value / max(value, top_value_in_pool)
-    aggressive = round(budget × (0.05 + 0.25 × share))
-    reasonable = round(aggressive × 0.70)
-    lowball    = round(aggressive × 0.35)
+    share          = value / max(value, top_value_in_pool)
+    aggressive_raw = budget × (0.05 + 0.25 × share)
+    aggressive     = half_up(aggressive_raw)
+    reasonable     = half_up(aggressive_raw × 0.70)
+    lowball        = half_up(aggressive_raw × 0.35)
+
+    Every tier scales the UNROUNDED aggressive figure, and the rounding
+    is explicitly half-up so the server and
+    ``frontend/lib/waiver-logic.js::computeFaabHint`` return the same
+    dollars — pinned case-by-case in
+    ``tests/trade/test_faab_bid_parity.py``.
     """
 
     def test_top_of_pool_gets_the_full_30_percent_band(self):
         """share = 1.0 → 0.05 + 0.25 = 0.30 → 100 × 0.30 = 30.
 
-        reasonable = round(30 × 0.70) = 21
-        lowball    = round(30 × 0.35) = 10.5 → 10 (banker's rounding)
+        reasonable = 30 × 0.70 = 21
+        lowball    = 30 × 0.35 = 10.5 → 11 (half-up; the built-in
+                     ``round`` would say 10 and the page says 11)
         """
-        agg, reas, low = w._compute_faab_bid(5000, league_budget=100, top_value_in_pool=5000)
+        agg, reas, low = w._compute_faab_bid(5000, budget=100, top_value_in_pool=5000)
         assert agg == 30
         assert reas == 21
-        assert low == round(30 * 0.35)
+        assert low == 11
 
     def test_half_value_player_gets_a_smaller_share(self):
-        """share = 0.5 → 0.05 + 0.125 = 0.175 → 100 × 0.175 = 17.5 → 18."""
-        agg, reas, low = w._compute_faab_bid(2500, league_budget=100, top_value_in_pool=5000)
-        assert agg == round(100 * (0.05 + 0.25 * 0.5))
+        """share = 0.5 → 0.05 + 0.125 = 0.175 → 100 × 0.175 = 17.5.
+
+        aggressive rounds to 18, but the lower tiers are percentages of
+        the raw 17.5: 12.25 → 12 and 6.125 → 6.
+        """
+        agg, reas, low = w._compute_faab_bid(2500, budget=100, top_value_in_pool=5000)
         assert agg == 18
-        assert reas == round(18 * 0.70)
-        assert low == round(18 * 0.35)
+        assert reas == 12
+        assert low == 6
 
     def test_bids_scale_with_the_budget(self):
         """A 50-point budget halves the same share's bid: 50 × 0.30 = 15."""
-        agg, _, _ = w._compute_faab_bid(5000, league_budget=50, top_value_in_pool=5000)
+        agg, _, _ = w._compute_faab_bid(5000, budget=50, top_value_in_pool=5000)
         assert agg == 15
 
     def test_zero_and_negative_inputs_bid_nothing(self):
-        assert w._compute_faab_bid(0, league_budget=100) == (0, 0, 0)
-        assert w._compute_faab_bid(-100, league_budget=100) == (0, 0, 0)
-        assert w._compute_faab_bid(5000, league_budget=0) == (0, 0, 0)
+        assert w._compute_faab_bid(0, budget=100) == (0, 0, 0)
+        assert w._compute_faab_bid(-100, budget=100) == (0, 0, 0)
+        assert w._compute_faab_bid(5000, budget=0) == (0, 0, 0)
+        assert w._compute_faab_bid(5000, budget=-5) == (0, 0, 0)
 
     def test_every_nonzero_bid_is_at_least_one_dollar(self):
         """A tiny share must never round down to a $0 bid."""
-        agg, reas, low = w._compute_faab_bid(1, league_budget=1, top_value_in_pool=9999)
+        agg, reas, low = w._compute_faab_bid(1, budget=1, top_value_in_pool=9999)
         assert agg >= 1 and reas >= 1 and low >= 1
 
     def test_bids_are_attached_to_candidates_and_use_remaining_faab(self, rookies_allowed):
@@ -223,18 +235,36 @@ class TestFaabBidArithmetic:
             user_faab_remaining=40,
         )
         bid = out["by_position"]["WR"][0]["bid"]
-        # Sole candidate ⇒ share 1.0 ⇒ 40 × 0.30 = 12.
+        # Sole candidate ⇒ share 1.0 ⇒ 40 × 0.30 = 12; 70% of 12 = 8.4.
         assert bid["aggressive"] == 12
-        assert bid["reasonable"] == round(12 * 0.70)
+        assert bid["reasonable"] == 8
 
-    def test_missing_faab_falls_back_to_a_100_budget(self, rookies_allowed):
-        for remaining in (None, 0, -5):
+    def test_unknown_faab_falls_back_to_a_100_budget(self, rookies_allowed):
+        """``None`` is "we don't know the balance", not "no money"."""
+        out = w.find_waiver_targets(
+            _contract(_player("Top Guy", "WR", 5000)),
+            sleeper_teams=[],
+            user_faab_remaining=None,
+        )
+        assert out["by_position"]["WR"][0]["bid"]["aggressive"] == 30
+
+    def test_spent_out_manager_bids_nothing(self, rookies_allowed):
+        """$0 remaining is a KNOWN balance — a manager with no money
+        cannot bid.  This used to be folded into the ``None`` fallback
+        and produced full-$100-budget bids, the exact inverse of the
+        cap it was meant to apply.
+        """
+        for remaining in (0, -5):
             out = w.find_waiver_targets(
                 _contract(_player("Top Guy", "WR", 5000)),
                 sleeper_teams=[],
                 user_faab_remaining=remaining,
             )
-            assert out["by_position"]["WR"][0]["bid"]["aggressive"] == 30
+            assert out["by_position"]["WR"][0]["bid"] == {
+                "aggressive": 0,
+                "reasonable": 0,
+                "lowball": 0,
+            }
 
 
 # ── Grouping, ordering and caps ──────────────────────────────────────

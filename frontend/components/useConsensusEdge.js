@@ -77,9 +77,15 @@ export function useConsensusEdge(path, { params, enabled = true } = {}) {
       try {
         const search = new URLSearchParams();
         for (const [k, v] of Object.entries(params || {})) {
-          if (v !== undefined && v !== null && v !== "") search.set(k, String(v));
+          if (v !== undefined && v !== null && v !== "")
+            search.set(k, String(v));
         }
-        if (league) search.set("leagueKey", league);
+        // Deliberately NOT sent. The backend has never read it, and a
+        // parameter that is accepted and ignored reads as "this answer
+        // is league-specific" — see consensus_edge/scoring_fit.py. The
+        // league still participates in `key` below, so switching
+        // leagues refetches; what it does not do is claim to change the
+        // answer.
         const qs = search.toString();
         const response = await fetch(`${path}${qs ? `?${qs}` : ""}`, {
           cache: "no-store",
@@ -98,7 +104,10 @@ export function useConsensusEdge(path, { params, enabled = true } = {}) {
         settledKeyRef.current = key;
       } catch (err) {
         if (cancelled || err?.name === "AbortError") return;
-        setFailure({ kind: "error", message: err?.message || "Request failed" });
+        setFailure({
+          kind: "error",
+          message: err?.message || "Request failed",
+        });
         setData(null);
       } finally {
         if (!cancelled) setLoading(false);

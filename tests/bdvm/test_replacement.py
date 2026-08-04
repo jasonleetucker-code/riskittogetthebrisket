@@ -11,7 +11,7 @@ import unittest
 
 from src.bdvm.league_config import BdvmLeagueConfig, DEFAULT_POS_GROUPS
 from src.bdvm.pool import PoolCurve
-from src.bdvm.replacement import ReplacementEngine
+from src.bdvm.replacement import ReplacementEngine, ReplacementUnavailableError
 
 SCORING = {"rec": 1.0}
 
@@ -181,6 +181,13 @@ class TestMechanics(unittest.TestCase):
             )
 
     def test_pool_exhaustion_is_flagged_not_fabricated(self):
+        """A replacement rank past the end of the pool is MISSING, not 0.0.
+
+        R is the origin of the whole value scale: with R = 0 every
+        player's surplus silently becomes his entire FPG, and the payload
+        looks exactly like a real answer (audit H7).  The engine refuses
+        instead — callers price such players as ``unpriced``.
+        """
         tiny = PoolCurve(tuple([10.0, 9.0, 8.0]))
         cfg = make_cfg(
             starters={"QB": 1},
@@ -190,7 +197,27 @@ class TestMechanics(unittest.TestCase):
         r = ReplacementEngine(cfg, {"QB": tiny})
         gr = r.groups["QB"]
         self.assertTrue(gr.pool_exhausted)
-        self.assertEqual(gr.replacement_fpg, 0.0)
+        self.assertIsNone(gr.replacement_fpg)
+        self.assertFalse(r.has_replacement("QB"))
+        with self.assertRaises(ReplacementUnavailableError):
+            r.R("QB")
+        self.assertIsNone(r.to_dict()["QB"]["replacementFpg"])
+
+    def test_group_without_a_pool_has_no_replacement_level(self):
+        """Second route to a fabricated zero: no projections for the group."""
+        cfg = make_cfg(starters={"QB": 1, "LB": 2}, flex={}, pos_groups={"QB": "QB", "LB": "LB"})
+        r = ReplacementEngine(cfg, {"QB": PoolCurve(tuple(24.0 - 0.1 * k for k in range(60)))})
+        self.assertTrue(r.has_replacement("QB"))
+        self.assertFalse(r.has_replacement("LB"))
+        with self.assertRaises(ReplacementUnavailableError):
+            r.R("LB")
+
+    def test_group_with_no_lineup_slots_has_no_replacement_level(self):
+        """Third route: the group never entered the flex/starter solve."""
+        r = ReplacementEngine(make_cfg(), POOLS)
+        self.assertFalse(r.has_replacement("K"))
+        with self.assertRaises(ReplacementUnavailableError):
+            r.R("K")
 
     def test_to_dict_shape(self):
         r = ReplacementEngine(make_cfg(), POOLS)
