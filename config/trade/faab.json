@@ -60,8 +60,11 @@
       "so the curve cannot jump at either threshold — requirement 6/7",
       "of the brief.  toeExponent > 1 lengthens the flat replacement-",
       "level toe so ordinary wire players stay near zero; 2.2 was chosen",
-      "because it puts the real 2026-08-04 wire top (1908) at a ~12%",
-      "ceiling and the live 12th-best free agent at ~0%, while every",
+      "because it puts the real 2026-08-04 wire top (Marlin Klein,",
+      "1908) at a 5% ceiling against the LIVE blended anchors",
+      "(V_repl 1525.5, V_allin 2341) and ~12% against the format-only",
+      "anchors (V_repl 1383) the backtest uses, with the live",
+      "12th-best free agent at ~0% either way — while every",
       "human-anchored all-in player still saturates at 100%.",
       "",
       "Above V_allin the DISPLAYED ceiling stays capped at 100% of the",
@@ -85,9 +88,13 @@
       "spot means no drop at all.  Expressed as surplus so it subtracts",
       "cleanly from the add's surplus with no double counting.",
       "",
-      "dropSurplusWeight < 1 reflects that the dropped player still has",
-      "trade/stash value you partly keep by NOT making the claim; 1.0",
-      "would treat the swap as a pure zero-sum exchange."
+      "dropSurplusWeight ships at 1.0: the drop is charged its FULL",
+      "surplus over replacement.  A value below 1.0 would say the",
+      "dropped player retains some trade/stash worth you keep by not",
+      "making the claim, which is true but unmeasured here — and the",
+      "conservative direction is to charge the whole thing, since",
+      "under-charging a drop is what produces bids on swaps that do",
+      "not improve the roster."
     ],
     "dropSurplusWeight": 1.0,
     "openRosterSpotCost": 0.0
@@ -116,8 +123,6 @@
     "optionValueEarly": 0.55,
     "optionValueLate": 1.0,
     "optionValueExponent": 1.6,
-    "regularSeasonWeeks": 14,
-    "defaultPlayoffWeekStart": 15,
     "eliminatedOptionValue": 1.0,
     "offseasonOptionValue": 0.45,
     "carryoverRetention": 0.5
@@ -157,7 +162,7 @@
     "need": 1.15,
     "neutral": 1.0,
     "surplus": 0.7,
-    "applyToObjectiveValue": false,
+    "_invariantNotAToggle_applyToObjectiveValue": false,
     "_spareComment": [
       "Need is classified by STARTABLE DEPTH: how many players at the",
       "position grade above the free-agent replacement line, against",
@@ -208,7 +213,7 @@
     },
     "aggressionClamp": [0.5, 2.0],
     "minWinningBidsForAggression": 3,
-    "unknownBalanceAssumption": "exclude",
+    "_invariantNotAToggle_unknownBalanceAssumption": "exclude",
     "tieBreakWinProbability": 0.5
   },
 

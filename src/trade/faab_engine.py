@@ -757,9 +757,12 @@ def rival_bid_cdf(
     Managers bid well below their true maximum, which is the same
     behaviour this engine recommends.
 
-    A rival with no visible balance is excluded (config
-    ``unknownBalanceAssumption``) — an unverifiable rival who might be
-    broke must never raise the user's bid.
+    A rival with no visible balance is excluded outright — an
+    unverifiable rival who might be broke must never raise the user's
+    bid.  That is a hard invariant, not a setting: the config records
+    it under ``_invariantNotAToggle_unknownBalanceAssumption`` so the
+    behaviour is documented where the other market parameters live,
+    but changing that string changes nothing.
     """
     budget = max(1, int(league.original_budget))
     median_share = config.num("market", "rivalDisciplineFactor", 1.0)
