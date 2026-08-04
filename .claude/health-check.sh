@@ -46,10 +46,27 @@ fi
 # exact false alarm at 03:05 and reached the same place.
 #
 # So the check reads `scrapeTimestamp` from the contract instead. It is an
-# internal content stamp, so unlike mtime or commit dates it survives cloning
-# and means the same thing everywhere. Per-source health is reported as
-# coverage — how many players actually carry a value — which is what a dead
-# source would change, and a line count would not.
+# internal content stamp, so unlike mtime it survives cloning. Per-source
+# health is reported as coverage — how many players actually carry a value —
+# which is what a dead source would change, and a line count would not.
+#
+# But it is CHECKOUT-RELATIVE, and that is not the same as "means the same
+# thing everywhere", which is what this comment used to claim. The stamp is
+# the content age of whatever commit is checked out. So the mtime probe's
+# SECOND failure direction — "fires falsely on a stale branch" — survived the
+# rewrite in a new shape: not "unchanged file keeps an old mtime" but "old
+# branch keeps an old contract".
+#
+# Demonstrated 2026-08-04: a session on a 4-day-old branch reported
+# `102h ago` and told the reader to go check `scheduled-refresh`, which was
+# 30/30 green and had committed data 40 minutes earlier. §6.15 names this
+# very file as instance 5 of "a guard that cannot fire" and records that it
+# failed in BOTH directions; the 07-27 rewrite closed one of them and left
+# this comment asserting it had closed both.
+#
+# Hence the branch-position check below. It narrows only the ATTRIBUTION —
+# the age line is unchanged and the warning still fires at full strength on
+# an up-to-date checkout, because that case is a real pipeline signal.
 #
 # The probe is INLINE, not a sibling file, and that is deliberate. It first
 # shipped as `.claude/freshness.py` — which `.gitignore:28` ignores, so
@@ -62,8 +79,9 @@ echo "--- Data Freshness ---"
 python - <<'PY' 2>&1 || echo "  UNKNOWN: freshness probe errored (see above)."
 """Read the artifact CONSUMERS read, not the raw-source mirror.
 
-`scrapeTimestamp` is an internal content stamp, so unlike file mtime or
-commit dates it survives cloning and means the same thing everywhere.
+`scrapeTimestamp` is an internal content stamp, so unlike file mtime it
+survives cloning. It is CHECKOUT-RELATIVE though: it dates the commit you
+have, not the pipeline. `commits_behind()` exists to tell those apart.
 
 Every degraded input must land on UNKNOWN rather than a confident "0h" —
 a probe that reports fresh when it cannot tell is the bug this replaced.
@@ -72,6 +90,7 @@ a probe that reports fresh when it cannot tell is the bug this replaced.
 import datetime as dt
 import glob
 import json
+import subprocess
 
 
 def threshold():
@@ -80,6 +99,55 @@ def threshold():
             return int(json.load(fh)["thresholds"].get("ktc", 24))
     except Exception:
         return 24
+
+
+def _git(*args):
+    """Run git, returning stdout or None on ANY failure.
+
+    Reads refs already on disk — no network, so a SessionStart hook never
+    waits on a fetch. None covers no git, not a repo, missing ref, timeout.
+    """
+    try:
+        out = subprocess.run(
+            ["git", *args], capture_output=True, text=True, timeout=5
+        )
+    except Exception:
+        return None
+    return out.stdout if out.returncode == 0 else None
+
+
+def main_contract_age_h():
+    """Age of the contract on `origin/main`, or None if it cannot be read.
+
+    This — not "how many commits behind am I" — is the predicate that
+    distinguishes a stale CHECKOUT from a stale PIPELINE. A commit count
+    cannot: one commit behind with a genuinely dead pipeline would still
+    look like a branch artifact, and the note would confidently give the
+    wrong cause. That is the exact defect this whole block exists to fix,
+    so it must not be reintroduced in miniature.
+
+    None on any failure, and the caller treats None as "cannot tell" and
+    keeps the original warning. An unproven excuse must never silence a
+    real alarm.
+    """
+    listing = _git("ls-tree", "--name-only", "origin/main", "exports/latest/")
+    if listing is None:
+        return None
+    names = sorted(
+        n for n in listing.split("\n") if n.startswith("exports/latest/dynasty_data_")
+    )
+    if not names:
+        return None
+    blob = _git("show", f"origin/main:{names[-1]}")
+    if blob is None:
+        return None
+    try:
+        stamp_ = json.loads(blob).get("scrapeTimestamp")
+        scraped_ = dt.datetime.fromisoformat(stamp_)
+    except Exception:
+        return None
+    now_ = dt.datetime.now(scraped_.tzinfo) if scraped_.tzinfo else dt.datetime.now()
+    return (now_ - scraped_).total_seconds() / 3600.0
 
 
 paths = sorted(glob.glob("exports/latest/dynasty_data_*.json"))
@@ -111,7 +179,25 @@ limit = threshold()
 
 print(f"  Contract: scraped {age_h:.0f}h ago (threshold {limit}h)")
 if age_h > limit:
-    print(f"  WARNING: no successful scrape in {age_h:.0f}h. Check scheduled-refresh workflow.")
+    # Attribute the staleness before blaming the pipeline: ask what the
+    # contract on origin/main looks like. Fresh there means this checkout is
+    # simply old, and "check scheduled-refresh" would send the reader after a
+    # workflow that is fine. Stale there means the pipeline really has
+    # stopped, and the warning stands.
+    #
+    # Only a KNOWN-FRESH main redirects. None (cannot tell) falls through to
+    # the warning — the guard must keep firing whenever the excuse is
+    # unproven.
+    main_age = main_contract_age_h()
+    if main_age is not None and main_age <= limit:
+        print(
+            f"  NOTE: origin/main's contract is {main_age:.0f}h old — the pipeline is "
+            f"fine; this is the age of the checked-out branch."
+        )
+    else:
+        print(f"  WARNING: no successful scrape in {age_h:.0f}h. Check scheduled-refresh workflow.")
+        if main_age is not None:
+            print(f"  (origin/main's contract is {main_age:.0f}h old too — not a branch artifact.)")
 
 players = data.get("players") or {}
 stats = data.get("siteStats") or {}

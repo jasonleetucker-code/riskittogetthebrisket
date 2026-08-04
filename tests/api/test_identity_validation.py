@@ -134,16 +134,17 @@ class TestIdpToOffenseContamination(unittest.TestCase):
 class TestCrossUniverseCollision(unittest.TestCase):
     """Same name appearing in both offense and IDP should be flagged."""
 
-    def test_same_name_offense_and_idp_both_flagged(self):
-        # Two players with the same name but different positions
-        payload = _payload_with_players(
-            _make_player("Zzz James Williams", "WR", ktc=7000),
-            _make_player("Zzz James Williams", "LB", idp=3000),
-        )
-        # dict keys collide → only one survives in players dict.
-        # But if the scraper produces different entries, they'd have
-        # different canonical names.  Test the validation function directly.
-        pass
+    # ``test_same_name_offense_and_idp_both_flagged`` was here and is gone.
+    #
+    # Its whole body was a payload build followed by `pass` — no assertion
+    # of any kind — while its name claimed the collision was "both_flagged".
+    # It reported PASSED for testing nothing, which is worse than absent
+    # coverage: it occupied the slot where the real check would go.
+    #
+    # Its own trailing comment explains why it was abandoned (payload dict
+    # keys collide, so only one player survives that route) and points at
+    # the replacement: test the validation function directly. That is
+    # exactly what the test below does, so no coverage is lost here.
 
     def test_collision_detection_via_validation_function(self):
         """Directly test _validate_and_quarantine_rows with crafted rows.

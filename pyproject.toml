@@ -40,6 +40,24 @@ select = ["E", "F", "W"]
 # pre-existing lines, none of them defects.
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# E741 (ambiguous name `l`) is not enforced in the KTC VA port. That module
+# is a declared VERBATIM transliteration of KTC's minified client-side
+# algorithm (`keeptradecut.com/js/site.min.js`) via
+# `frontend/lib/trade-logic.js`, and its parity with the JS is pinned by
+# `tests/trade/test_ktc_va_python_port.py` over a 139-trade fixture to ±1.
+#
+# The single-letter names are the MINIFIER's, kept so the port can be diffed
+# line-for-line against its source. Renaming only `l` — the sole letter E741
+# objects to — would break that correspondence while leaving `n`, `d`, `u`,
+# `o` and `p` untouched, making the file harder to verify, not easier.
+#
+# Scoped per-FILE rather than per-line on purpose: the exemption is a
+# property of the whole module (it is a transliteration), so a letter added
+# during a future re-sync with the JS is covered too. Every other E741 in
+# the repo was renamed rather than exempted.
+"src/trade/ktc_va.py" = ["E741"]
+
 [tool.ruff.format]
 # Black-compatible defaults (double quotes, magic trailing comma).
 # No overrides — deterministic output is what makes the CI check safe

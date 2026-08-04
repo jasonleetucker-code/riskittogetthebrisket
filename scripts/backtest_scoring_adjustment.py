@@ -19,7 +19,7 @@ ROOT = os.path.dirname(SCRIPT_DIR)
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from src.scoring.backtest import run_scoring_backtest
+from src.scoring.backtest import run_scoring_backtest  # noqa: E402 — must follow the sys.path bootstrap above
 
 
 def resolve_latest_json() -> str | None:

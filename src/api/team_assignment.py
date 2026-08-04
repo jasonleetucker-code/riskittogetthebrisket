@@ -239,6 +239,13 @@ def _score_player(
     ``canonicalConsensusRank``) — not another read of depth order.
     """
     weights = config["weights"]
+    # config["thresholds"] is deliberately not read here.  main's version
+    # of this comment described those keys as forward-looking scaffolding
+    # for a future canonicalConsensusRank drop-in; that stopped being true
+    # in the same change that removed T3 — the *Rank keys went with it
+    # because nothing read them (see the T3 note in _score_player and the
+    # config's own _doc).  The one threshold in live use,
+    # assignmentMinPoints, is read where it is applied.
     pos = _normalize_position(meta.get("position"))
     if not pos:
         return 0, []

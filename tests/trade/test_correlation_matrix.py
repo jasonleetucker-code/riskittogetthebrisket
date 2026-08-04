@@ -52,8 +52,6 @@ def test_different_teams_same_pos_group():
 
 
 def test_different_everything_zero():
-    axes = [_ax("BUF", "QB"), _ax("KC", "RB", group="offense")]
-    mat = cm.build_matrix(axes)
     # Same group offense but — wait, the rule says same_group → 0.15.
     # If we want to ensure "different everything" is zero, we need
     # different groups.  QB + DL.
@@ -82,7 +80,6 @@ def test_cholesky_succeeds_on_pd_matrix():
 
 def test_cholesky_fails_on_non_pd():
     # Correlation 0.999 × off-diagonal with many entries can fail PD.
-    mat = [[1.0, 0.99, 0.99], [0.99, 1.0, 0.99], [0.99, 0.99, 1.0]]
     # This particular matrix IS positive definite — all eigenvalues > 0.
     # A better example: negative determinant.
     # 2x2 with rho > 1 explicitly breaks.

@@ -100,8 +100,8 @@ def compare_to_baseline(
     out: List[ScoringRule] = []
     for key in keys:
         b = float(baseline.get(key, 0.0) or 0.0)
-        l = float(league.get(key, 0.0) or 0.0)
-        d = l - b
+        league_val = float(league.get(key, 0.0) or 0.0)
+        d = league_val - b
         if abs(d) < 1e-9:
             continue
         meta = RULE_META.get(key, {})
@@ -110,7 +110,7 @@ def compare_to_baseline(
                 key=key,
                 category=str(meta.get("category", "other")),
                 baseline_value=b,
-                league_value=l,
+                league_value=league_val,
                 delta=d,
                 relevant_buckets=list(meta.get("buckets", [])),
                 rule_type=str(meta.get("rule_type", "linear")),
