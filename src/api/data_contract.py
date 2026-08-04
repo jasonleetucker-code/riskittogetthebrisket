@@ -9,7 +9,7 @@ import re
 import statistics
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from src.data_models.contracts import utc_now_iso
 
@@ -1026,6 +1026,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "is_retail": True,
         "is_tep_premium": True,
+        # Head of the ``ktc`` correlation group — see
+        # ``_CORRELATION_GROUPS``.  ``fantasyNavigatorSf`` republishes
+        # KTC-derived numbers, so the two are not independent votes and
+        # must leave the blend together when a caller wants a board that
+        # does not contain KTC.
+        "correlation_group": "ktc",
     },
     {
         # IDP Trade Calculator's public value pool covers both offense
@@ -1369,6 +1375,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": False,
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
+        # Member of the ``ktc`` correlation group.  The CORRELATION
+        # CAVEAT above is no longer only a comment: it is now machine
+        # readable, so a caller asking for a KTC-free board actually
+        # gets one.  Measured 2026-08-04 on the live payload: excluding
+        # ``ktcSfTep`` alone still left 440 rows carrying an FN vote.
+        "correlation_group": "ktc",
     },
     {
         # Play for Keeps Dynasty master board — PFK's hand-maintained
@@ -2181,6 +2193,10 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
             "isRankSignal": bool(src.get("is_rank_signal")),
             "needsSharedMarketTranslation": bool(src.get("needs_shared_market_translation")),
             "excludesRookies": bool(src.get("excludes_rookies")),
+            # Undeclared groups resolve to the source's own key, so the
+            # field is never null and consumers never have to encode the
+            # "no group means independent" rule themselves.
+            "correlationGroup": str(src.get("correlation_group") or src.get("key") or ""),
         }
         out.append(entry)
     return out
@@ -2189,6 +2205,60 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
 def get_ranking_source_keys() -> list[str]:
     """Return the ordered list of registered ranking source keys."""
     return [str(s.get("key") or "") for s in _RANKING_SOURCES]
+
+
+# ── Correlation groups ──────────────────────────────────────────────────
+# Two sources are in the same correlation group when their votes are NOT
+# independent — one republishes, mirrors, or is derived from the other.
+# A source with no declared group is its own group of one.
+#
+# This exists because "number of agreeing sources" is the blend's main
+# confidence signal, and a derived source inflates that count without
+# adding evidence.  The blend itself tolerates the correlation (the
+# count-aware aggregation plus the per-player Hampel filter are robust to
+# it), so the default board is unchanged and this metadata is inert
+# there.  What it enables is the one question the blend cannot answer:
+# "what is this player worth according to sources that are independent of
+# X?" — which is precisely the question a buy/sell signal comparing our
+# board against market source X has to ask, or it is comparing X to
+# itself.  See ``src/consensus_edge/fair_value.py``.
+#
+# Declared groups today:
+#   ktc — ``ktcSfTep`` (the board itself) + ``fantasyNavigatorSf``
+#         (every FN row carries a ``ktc_player_id`` and the site credits
+#         KeepTradeCut as a data source).
+
+
+def correlation_group_for(key: str) -> str:
+    """Return the correlation-group id for ``key``.
+
+    Sources without a declared group are independent, so they get a
+    singleton group named after themselves.  That makes the "expand a
+    set of keys to everything correlated with it" operation total — no
+    caller has to special-case the undeclared majority.
+    """
+    for src in _RANKING_SOURCES:
+        if str(src.get("key") or "") == key:
+            return str(src.get("correlation_group") or key)
+    return key
+
+
+def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
+    """Expand ``keys`` to every registered source correlated with them.
+
+    ``expand_correlation_groups(["ktcSfTep"])`` returns
+    ``{"ktcSfTep", "fantasyNavigatorSf"}``.  Unknown keys pass through
+    unchanged rather than raising: a caller naming a source that has
+    since been retired should get a board without it, not an exception.
+    """
+    wanted = {str(k) for k in keys if str(k)}
+    groups = {correlation_group_for(k) for k in wanted}
+    out = set(wanted)
+    for src in _RANKING_SOURCES:
+        key = str(src.get("key") or "")
+        if str(src.get("correlation_group") or key) in groups:
+            out.add(key)
+    return out
 
 
 # Top-level keys in the override POST body that are NOT per-source
@@ -2610,9 +2680,22 @@ def assert_ranking_source_registry_parity(
             # field that controls value-vs-rank display semantics was
             # exactly the one the parity check used to skip.
             "isRankSignal",
+            # Which sources are non-independent.  Checked here because a
+            # frontend that disagrees about correlation would show a
+            # source count the backend considers inflated.
+            "correlationGroup",
         ):
             py_val = py.get(field)
             js_val = js.get(field)
+            if field == "correlationGroup":
+                # Both sides may omit the field for an independent
+                # source; the singleton default is the source's own key.
+                # Normalising here means the frontend only declares a
+                # group where one genuinely exists, so the mirror does
+                # not carry 19 lines of restated default that could
+                # drift.
+                py_val = str(py_val or key)
+                js_val = str(js_val or key)
             if field == "extraScopes":
                 py_val = list(py_val or [])
                 js_val = list(js_val or [])
@@ -3510,6 +3593,7 @@ def _enrich_from_source_csvs(
     players_array: list[dict[str, Any]],
     *,
     parse_errors: list[dict[str, str]] | None = None,
+    csv_root: "Path | None" = None,
 ) -> dict[str, dict[str, dict[str, Any]]]:
     """Fill missing canonicalSiteValues from source CSV exports.
 
@@ -3579,6 +3663,15 @@ def _enrich_from_source_csvs(
 
         grp = canonical_position_group(row.get("position"))
         row_groups_by_key.setdefault(cname, set()).add(grp)
+
+    # ``csv_root`` lets a caller point the same loader at a different
+    # tree of source CSVs.  The one caller is the historical panel
+    # builder (``src/consensus_edge/panel.py``), which materialises the
+    # CSVs as they stood on a past date out of git and needs TODAY's
+    # pipeline to read THAT date's inputs.  Defaults to the repo, so the
+    # live path is untouched.
+    if csv_root is not None:
+        repo = Path(csv_root)
 
     for source_key, cfg in _SOURCE_CSV_PATHS.items():
         if isinstance(cfg, str):
@@ -6291,6 +6384,7 @@ def _compute_unified_rankings(
     tep_native_multiplier: float | None = None,
     tep_native_correction: float = 1.0,
     tep_multiplier_is_override: bool = False,
+    suppress_market_corridor_clamp: bool = False,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -7815,7 +7909,21 @@ def _compute_unified_rankings(
     # sources have pulled a player far from the retail-market consensus
     # get pulled back to the band edge.  See
     # ``_apply_market_corridor_clamp`` for the design rationale.
-    _apply_market_corridor_clamp(players_array, players_by_name)
+    #
+    # ``suppress_market_corridor_clamp`` exists for exactly one caller:
+    # a board built to be INDEPENDENT of a market anchor (see
+    # ``src/consensus_edge/fair_value.py``).  The clamp reads the anchor
+    # out of ``canonicalSiteValues``, not out of the vote, so dropping a
+    # source from the blend does NOT stop the clamp pulling values back
+    # toward it — measured 2026-08-04 on the live payload: with
+    # ``idpTradeCalc`` excluded from voting, 101 IDP rows were still
+    # clamped toward idpTradeCalc, mean shift 552 points.  A fair value
+    # that has been pulled back toward the price it is about to be
+    # compared against is not a fair value.
+    #
+    # Default False: the live board is byte-identical to before.
+    if not suppress_market_corridor_clamp:
+        _apply_market_corridor_clamp(players_array, players_by_name)
 
     # Two-way player boost: a tiny override table that rescues players
     # whose Sleeper single-position classification excludes them from
@@ -8432,6 +8540,8 @@ def build_api_data_contract(
     source_overrides: dict[str, dict[str, Any]] | None = None,
     tep_multiplier: float | None = None,
     tep_native_multiplier: float | None = None,
+    suppress_market_corridor_clamp: bool = False,
+    csv_root: "Path | None" = None,
     _for_delta: bool = False,
 ) -> dict[str, Any]:
     """Build a full API data contract payload from a raw scraper bundle.
@@ -8616,7 +8726,9 @@ def build_api_data_contract(
     # Enrich players with source CSV values that may be missing from the
     # legacy scraper payload (e.g. KTC scrape failed but CSV exists).
     source_parse_errors: list[dict[str, str]] = []
-    csv_index = _enrich_from_source_csvs(players_array, parse_errors=source_parse_errors)
+    csv_index = _enrich_from_source_csvs(
+        players_array, parse_errors=source_parse_errors, csv_root=csv_root
+    )
 
     # Post-enrichment position guardrail: CSV enrichment happens AFTER
     # _derive_player_row, so the in-row guardrail there runs against an
@@ -8684,6 +8796,7 @@ def build_api_data_contract(
         tep_native_multiplier=tep_native_multiplier_effective,
         tep_native_correction=tep_native_correction,
         tep_multiplier_is_override=(tep_multiplier_source == "override"),
+        suppress_market_corridor_clamp=suppress_market_corridor_clamp,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the

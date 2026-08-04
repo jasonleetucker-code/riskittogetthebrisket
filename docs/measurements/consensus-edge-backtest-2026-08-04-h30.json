@@ -1,0 +1,48 @@
+{
+  "foldsAttempted": 3,
+  "foldsUsable": 3,
+  "unusableReasons": [],
+  "meanSpearman": 0.11143192170952611,
+  "medianSpearman": 0.09666608191854029,
+  "spearmanByFold": [
+    {
+      "origin": "2026-04-16",
+      "n": 182,
+      "rho": 0.04096588776188551
+    },
+    {
+      "origin": "2026-05-16",
+      "n": 690,
+      "rho": 0.09666608191854029
+    },
+    {
+      "origin": "2026-06-15",
+      "n": 675,
+      "rho": 0.19666379544815252
+    }
+  ],
+  "benchmarks": {
+    "marketValue": {
+      "meanSpearman": -0.011781180954673155,
+      "beatenInFolds": 3
+    },
+    "random": {
+      "meanSpearman": -0.01492108781147472,
+      "beatenInFolds": 3
+    }
+  },
+  "verdict": "positive and consistent (mean rho +0.111 over 3 non-overlapping folds; 3/3 folds positive; beat market-value benchmark in 3/3)",
+  "foldsPositive": 3,
+  "horizonDays": 30,
+  "panelStart": "2026-04-16",
+  "panelEnd": "2026-08-03",
+  "foldsTruncated": false,
+  "modelVersion": "ce.2026-08-04.v0-shadow",
+  "measuredAt": "2026-08-04T01:28:10.287532+00:00",
+  "target": "cohort-excess market return of the anchor board",
+  "caveats": [
+    "Replays today's pipeline over past inputs: inputs cannot leak, but the model is current.",
+    "Measures market movement, not fantasy production \u2014 the panel covers an offseason.",
+    "Folds are non-overlapping; the fold count is the honest sample size."
+  ]
+}

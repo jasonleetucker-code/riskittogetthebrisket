@@ -1,0 +1,138 @@
+{
+  "_comment": [
+    "Consensus Edge parameters, v1.",
+    "",
+    "PROVENANCE OF EVERY NUMBER IN THIS FILE, because the difference",
+    "matters more than the values themselves:",
+    "",
+    "  measured  - derived from an out-of-sample result committed under",
+    "              docs/measurements/. Quote these.",
+    "  prior     - a starting value chosen for a stated reason, never",
+    "              validated. Do NOT quote these as findings.",
+    "",
+    "The composite weights are MIXED, and each one says which it is.",
+    "Market Mispricing has an out-of-sample result (rho +0.089/+0.126/",
+    "+0.111 across 7/14/30-day horizons, 24 non-overlapping folds).",
+    "Opportunity now has one too, and it is a NULL - see its weight",
+    "below. Sharp Flow has none and cannot get one: its qualified cohort",
+    "is recomputed live per request with no as-of concept anywhere in",
+    "src/sharp/, so a historical value cannot be reconstructed at all.",
+    "Its 0.3 is therefore still a declared prior and is moot in every",
+    "reachable environment, where the ledger is empty.",
+    "",
+    "This is why the consensus_edge feature flag defaults OFF and why",
+    "components are reported separately in every payload.",
+    "",
+    "Do not edit in place once a paramSetId has shipped values - the id",
+    "is a content hash, so any edit produces a new id and stored results",
+    "stay attributable to the params that produced them."
+  ],
+  "modelVersion": "ce.2026-08-04.v0-shadow",
+
+  "composite": {
+    "_status": "mixed - see _weightProvenance",
+    "_rationale": [
+      "Mispricing carries the most weight because it is the only",
+      "component with a POSITIVE out-of-sample number. Sharp Flow is",
+      "second because qualified-manager behaviour is genuinely",
+      "independent evidence when it exists.",
+      "",
+      "Opportunity is ZERO because it was measured and did not earn a",
+      "weight. It was believed unbacktestable - rank_history.jsonl is",
+      "untracked and always has been - until the panel turned out to",
+      "reconstruct board history from committed payloads and CSVs, which",
+      "is the same series that file records. Measured that way, adding",
+      "the board-momentum axis LOWERED mean rho at both powered",
+      "horizons and beat mispricing alone in a minority of folds. The",
+      "bar was set before the number was known: beat the validated",
+      "component out of sample or carry no weight.",
+      "",
+      "The axis still computes and is still shown per row - the evidence",
+      "is real and a user can read it. It simply does not move the",
+      "score, and score.py::composite excludes zero-weight components",
+      "from componentsPresent so it cannot inflate confidence either.",
+      "",
+      "Weights are renormalised over PRESENT components only, so a",
+      "player with no sharp data is not silently scored as though sharp",
+      "evidence were neutral - see score.py::composite."
+    ],
+    "_weightProvenance": {
+      "mispricing": "measured - docs/measurements/consensus-edge-backtest-2026-08-04-h14.json",
+      "sharpFlow": "prior - unvalidatable until src/sharp/ gains an as-of cohort",
+      "opportunity": "measured null - docs/measurements/consensus-edge-composite-2026-08-04-h7.json"
+    },
+    "weights": {
+      "mispricing": 0.5,
+      "sharpFlow": 0.3,
+      "opportunity": 0.0
+    },
+    "requireCoreComponent": true,
+    "coreComponents": ["mispricing", "sharpFlow"]
+  },
+
+  "classification": {
+    "_status": "prior",
+    "_rationale": [
+      "Bands are symmetric and round. They are NOT calibrated: with a",
+      "single validated component there is no basis for asserting that",
+      "+60 means anything different in kind from +55. They exist to make",
+      "the score readable, and the UI labels them experimental."
+    ],
+    "strongBuy": 60.0,
+    "buy": 30.0,
+    "sell": -30.0,
+    "strongSell": -60.0,
+    "minConfidenceForStrong": 70.0,
+    "minConfidenceForDirectional": 50.0,
+    "insufficientEvidenceBelowConfidence": 35.0
+  },
+
+  "conflict": {
+    "_status": "prior",
+    "_rationale": [
+      "A score near zero has two completely different meanings: nothing",
+      "is happening, or strong evidence is cancelling. Averaging them to",
+      "the same number is the single most misleading thing a composite",
+      "can do, so opposing components above this magnitude force the",
+      "Conflicted label regardless of the arithmetic."
+    ],
+    "minMagnitude": 0.5
+  },
+
+  "sharpFlow": {
+    "_status": "prior",
+    "_rationale": [
+      "Beta(1,1) is a uniform prior: with no observations the posterior",
+      "mean is 0.5, i.e. direction 0.0, which is the honest answer.",
+      "",
+      "The recency half-life and the caps address defects measured on",
+      "main: today's signal applies no per-manager or per-league cap at",
+      "all, so one active manager in ten leagues contributes ten",
+      "observations. maxManagerShare/maxLeagueShare bound any single",
+      "contributor's influence on one asset."
+    ],
+    "priorAlpha": 1.0,
+    "priorBeta": 1.0,
+    "recencyHalfLifeDays": 21.0,
+    "maxManagerShare": 0.34,
+    "maxLeagueShare": 0.34,
+    "minEffectiveSampleForDirection": 3.0,
+    "credibleIntervalMass": 0.8
+  },
+
+  "confidence": {
+    "_status": "prior",
+    "_rationale": [
+      "A geometric mean, so a single zeroed factor collapses the whole",
+      "score. That is deliberate: confidence is a conjunction - fresh",
+      "data AND adequate coverage AND agreement - and an arithmetic mean",
+      "would let three strong factors hide one absent one."
+    ],
+    "factors": ["coverage", "reliability", "freshness"],
+    "stalenessHalfLifeHours": 48.0,
+    "cohortLevelPenalty": {
+      "specific": 1.0,
+      "family": 0.75
+    }
+  }
+}

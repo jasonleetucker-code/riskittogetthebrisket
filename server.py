@@ -2684,6 +2684,17 @@ from src.ros.api import router as _ros_router  # noqa: E402
 
 app.include_router(_ros_router)
 
+# Consensus Edge router.  Strict isolation: reads ``latest_contract_data``
+# and never mutates it, never writes ``rankDerivedValue``, and adds no
+# behaviour to an existing route.  That isolation is what lets the
+# ``consensus_edge`` feature flag — which gates every handler here and
+# nothing else in the codebase — default **ON** since 2026-08-04 without
+# being able to move a number that was already on screen.  Rollback:
+# RISKIT_FEATURE_CONSENSUS_EDGE=0 + restart.
+from src.consensus_edge.api import router as _consensus_edge_router  # noqa: E402
+
+app.include_router(_consensus_edge_router)
+
 
 @app.middleware("http")
 async def _count_requests(request: Request, call_next):

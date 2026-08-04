@@ -435,6 +435,56 @@ main() {
     fi
   fi
 
+  # ── Consensus Edge daily board snapshot ───────────────────────────────
+  # Records what the board said each day, with the model and parameter
+  # versions that produced it.  Without it the feature can never answer
+  # "what did we say about X on D" and no call can be scored after the
+  # fact — the previous implementation had no persistence at all.
+  #
+  # Installs unconditionally: it needs no credentials, reads the live
+  # contract this box already serves, and writes only into gitignored
+  # data/.  Safe while the consensus_edge flag is OFF — accumulating
+  # history is exactly the prerequisite for turning it on.
+  local ce_service_template="${APP_DIR}/deploy/systemd/dynasty-consensus-edge-snapshot.service.template"
+  local ce_timer_template="${APP_DIR}/deploy/systemd/dynasty-consensus-edge-snapshot.timer.template"
+  local ce_service_name="${SERVICE_NAME}-consensus-edge-snapshot"
+  local ce_service_path="/etc/systemd/system/${ce_service_name}.service"
+  local ce_timer_path="/etc/systemd/system/${ce_service_name}.timer"
+  local ce_needs_install=false
+
+  if [[ -f "${ce_service_template}" && -f "${ce_timer_template}" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${ce_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${ce_service_path} + timer."
+        ce_needs_install=true
+      else
+        log "Consensus Edge snapshot timer already installed; skipping."
+      fi
+    else
+      log "Installing Consensus Edge snapshot service + timer."
+      ce_needs_install=true
+    fi
+
+    if [[ "${ce_needs_install}" == "true" ]]; then
+      local tmp_ce_service tmp_ce_timer
+      tmp_ce_service="$(mktemp)"
+      tmp_ce_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+        "${ce_service_template}" > "${tmp_ce_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${ce_timer_template}" > "${tmp_ce_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_ce_service}" "${ce_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_ce_timer}" "${ce_timer_path}"
+      rm -f "${tmp_ce_service}" "${tmp_ce_timer}"
+      log "Installed ${ce_service_name}.service + .timer"
+    fi
+  fi
+
   # ── Sharp Tracker manager-discovery timer ─────────────────────────────
   # Grows the Sharp Tracker cohort by walking Sleeper outward from the
   # seeds in config/sharp/discovery_seeds.json.  Writes the SQLite
@@ -789,6 +839,16 @@ main() {
       sudo -n "${SYSTEMCTL_BIN}" start --no-block "${playerctx_service_name}.service" || \
         log "Note: initial player-context build could not be started; the timer will cover it."
     fi
+  fi
+  if [[ "${ce_needs_install}" == "true" ]]; then
+    # --now arms the daily timer, plus one immediate kick so the history
+    # starts accumulating on deploy day rather than on the first 07:30.
+    # Every day missed is a day that can never be backfilled — the board
+    # is only reproducible from a contract that still exists.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${ce_service_name}.timer"
+    log "Enabled ${ce_service_name}.timer"
+    sudo -n "${SYSTEMCTL_BIN}" start --no-block "${ce_service_name}.service" || \
+      log "Note: initial Consensus Edge snapshot could not be started; the timer will cover it."
   fi
   if [[ "${rd_needs_install}" == "true" ]]; then
     # --now arms the timer.  No initial kick here: the histograms for

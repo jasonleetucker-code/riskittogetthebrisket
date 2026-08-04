@@ -33,6 +33,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # Full history. Consensus Edge's as-of panel tests reconstruct
+          # past boards with `git show`, and `panel.is_shallow()` makes
+          # them SKIP on a shallow clone — silently, so the deploy path
+          # was strictly weaker than the PR path (which already sets
+          # fetch-depth: 0). A regression reaching production via
+          # force-push or workflow_dispatch would have been ungated.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -190,6 +198,11 @@ jobs:
         run: |
           set -Eeuo pipefail
           npm ci --no-audit --no-fund
+          # Frontend unit tests run on the PR path but did NOT run here,
+          # so anything reaching main outside the PR flow shipped with
+          # its JS logic ungated — the same asymmetry as the shallow
+          # clone above.
+          npm test
           npm run build
           # ``check:bundles`` runs as part of ``npm run build`` per
           # the package.json script, but call it again explicitly so

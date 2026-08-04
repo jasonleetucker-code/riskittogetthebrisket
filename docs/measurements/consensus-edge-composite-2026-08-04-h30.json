@@ -1,0 +1,111 @@
+{
+  "modelVersion": "ce.2026-08-04.v0-shadow",
+  "paramSetId": "b381862f7fc54feb",
+  "measuredAt": "2026-08-04T08:35:38.356878+00:00",
+  "target": "cohort-excess market return of the anchor board",
+  "lookbackDays": 30,
+  "lookbackPoints": 3,
+  "compositeWeights": {
+    "mispricing": 0.5,
+    "sharpFlow": 0.3,
+    "opportunity": 0.2
+  },
+  "runs": {
+    "composite": {
+      "foldsAttempted": 2,
+      "foldsUsable": 2,
+      "unusableReasons": [],
+      "meanSpearman": 0.14540904114971454,
+      "medianSpearman": 0.14540904114971454,
+      "spearmanByFold": [
+        {
+          "origin": "2026-05-16",
+          "n": 690,
+          "rho": 0.09701776115715154
+        },
+        {
+          "origin": "2026-06-15",
+          "n": 675,
+          "rho": 0.19380032114227755
+        }
+      ],
+      "benchmarks": {
+        "marketValue": {
+          "meanSpearman": -0.03447309411926919,
+          "beatenInFolds": 2
+        },
+        "mispricing": {
+          "meanSpearman": 0.1466498880465003,
+          "beatenInFolds": 1
+        },
+        "random": {
+          "meanSpearman": -0.024586326425701917,
+          "beatenInFolds": 2
+        }
+      },
+      "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.145 is reported for completeness only.",
+      "foldsPositive": 2,
+      "horizonDays": 30,
+      "panelStart": "2026-05-16",
+      "panelEnd": "2026-08-03",
+      "foldsTruncated": false
+    },
+    "momentum": {
+      "foldsAttempted": 2,
+      "foldsUsable": 2,
+      "unusableReasons": [],
+      "meanSpearman": 0.022002494220489166,
+      "medianSpearman": 0.022002494220489166,
+      "spearmanByFold": [
+        {
+          "origin": "2026-05-16",
+          "n": 243,
+          "rho": 0.16981210457559273
+        },
+        {
+          "origin": "2026-06-15",
+          "n": 618,
+          "rho": -0.1258071161346144
+        }
+      ],
+      "benchmarks": {
+        "marketValue": {
+          "meanSpearman": -0.07577150813231452,
+          "beatenInFolds": 1
+        },
+        "mispricing": {
+          "meanSpearman": 0.1780976292472603,
+          "beatenInFolds": 0
+        },
+        "random": {
+          "meanSpearman": 0.04048459846696991,
+          "beatenInFolds": 1
+        }
+      },
+      "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.022 is reported for completeness only.",
+      "foldsPositive": 1,
+      "horizonDays": 30,
+      "panelStart": "2026-05-16",
+      "panelEnd": "2026-08-03",
+      "foldsTruncated": false
+    }
+  },
+  "decision": {
+    "recommendation": "inconclusive \u2014 keep the declared prior and say so",
+    "rationale": "2 usable fold(s); below the 3-fold floor for calling a direction.",
+    "compositeMeanRho": 0.14540904114971454,
+    "mispricingMeanRho": 0.1466498880465003,
+    "foldsBeaten": 1,
+    "foldsUsable": 2
+  },
+  "panelBuilds": 6,
+  "elapsedSeconds": 9.5,
+  "caveats": [
+    "Measures Opportunity as it ships OUTSIDE production: the momentum axis alone. The snapTrend axis reads data/playerctx/snapshot.json, which has no history in the repo and cannot be replayed, so it remains unvalidated.",
+    "Sharp Flow is absent throughout \u2014 the ledger is empty in every reachable environment \u2014 so this is a two-component composite.",
+    "Replays today's pipeline over past inputs: inputs cannot leak, but the model is current.",
+    "Measures market movement, not fantasy production \u2014 the panel covers an offseason.",
+    "Folds are non-overlapping; the fold count is the honest sample size.",
+    "Fewer folds than the mispricing-only backtest, because the lookback window reserves the first 30 days of the panel as history. The head-to-head is still like-for-like: every series in a run is scored on the same folds and the same player intersection."
+  ]
+}
