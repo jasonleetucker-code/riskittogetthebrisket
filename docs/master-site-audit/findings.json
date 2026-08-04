@@ -1,18 +1,2611 @@
 {
  "schemaVersion": 1,
- "generatedAt": "2026-08-04T20:50:13.630021+00:00",
- "commit": "e96c06ef",
+ "generatedAt": "2026-08-04T21:01:35.566085+00:00",
+ "commit": "de8a1dfd",
  "totals": {
-  "findings": 0,
-  "rawRecords": 0,
+  "findings": 37,
+  "rawRecords": 37,
   "duplicatesMerged": 0,
-  "workstreams": 0,
+  "workstreams": 3,
   "validationProblems": 0
  },
- "byStatus": {},
- "byPriority": {},
- "byWorkstream": {},
- "byPriorRelation": {},
- "filesWithContradictoryVerdicts": [],
- "findings": []
+ "byStatus": {
+  "Implemented but defective": 24,
+  "Duplicate or conflicting implementation": 2,
+  "Partially implemented": 2,
+  "Deprecated but still active": 1,
+  "Implemented and verified": 6,
+  "Blocked by data": 1,
+  "Scaffolded only": 1
+ },
+ "byPriority": {
+  "P1": 7,
+  "P2": 14,
+  "P3": 14,
+  "P0": 2
+ },
+ "byWorkstream": {
+  "W00": 8,
+  "W02": 14,
+  "W03": 15
+ },
+ "byPriorRelation": {
+  "new": 11,
+  "partial": 6,
+  "confirmed": 16,
+  "not-reproducible": 1,
+  "superseded": 2,
+  "refuted": 1
+ },
+ "filesWithContradictoryVerdicts": [
+  "src/api/data_contract.py",
+  "src/league_intel/te_premium.py"
+ ],
+ "findings": [
+  {
+   "id": "W00-F001",
+   "workstream": "W00",
+   "promptSections": [
+    35,
+    37
+   ],
+   "title": "/api/draft-capital returns 200 with real pick dollar values to an unauthenticated caller, and takes 13.2s doing it",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "Draft capital / auth boundary",
+   "surface": {
+    "routes": [
+     "/api/draft-capital"
+    ],
+    "pages": [
+     "/draft"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "draft-capital route handler"
+    },
+    {
+     "path": "src/api/draft_capital_fallback.py",
+     "lines": "whole module"
+    }
+   ],
+   "claimUnderTest": "Private valuation data is behind auth; only /api/public/* is anonymous.",
+   "observed": "An anonymous GET returns HTTP 200 with a 15,989-byte board of per-pick dollar values in 13,188 ms. Every other value-bearing route (/api/data, /api/movers, /api/terminal, /api/valuation/league-adjusted) correctly 401s anonymously.",
+   "reproduction": {
+    "command": "curl -s -o /dev/null -w 'status=%{http_code} bytes=%{size_download} time=%{time_total}\\n' http://127.0.0.1:8000/api/draft-capital",
+    "expected": "401 unauthorized, consistent with every other value-bearing route",
+    "actual": "200, 15989 bytes, 13.188 s",
+    "artifact": "docs/master-site-audit/evidence/route-probe.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "route": "/api/draft-capital",
+     "auth": "none"
+    },
+    "formula": "observed HTTP status and wall time",
+    "expected": 401,
+    "actual": 200,
+    "tolerance": 0
+   },
+   "userImpact": "Pick valuations that the rest of the platform treats as private are readable by anyone who can reach the API host, and the 13 s response makes the route a cheap way to consume backend capacity.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Measured directly in this audit's unauthenticated route sweep."
+   },
+   "whatWorks": "The rest of the auth boundary is consistent \u2014 47 of 66 probed GET routes correctly 401 anonymously.",
+   "rootCause": "The route is not wrapped by the auth dependency the other value routes use; the latency comes from a blocking Sleeper call for team-name mapping that fails and is retried inline (backend log: 'Sleeper API failed for draft capital team-name mapping').",
+   "requiredRepair": "Apply the same auth gate as /api/data, and make the Sleeper team-name lookup non-blocking with a bounded timeout.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W00-F002",
+   "workstream": "W00",
+   "promptSections": [
+    35
+   ],
+   "title": "GET /api/bdvm/roster takes 48 seconds to return 310 bytes",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "M",
+   "subsystem": "BDVM",
+   "surface": {
+    "routes": [
+     "/api/bdvm/roster"
+    ],
+    "pages": [
+     "/bdvm"
+    ],
+    "flags": [
+     "bdvm_engine"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/bdvm_api.py",
+     "lines": "roster endpoint"
+    },
+    {
+     "path": "src/bdvm/service.py",
+     "lines": "whole module"
+    }
+   ],
+   "claimUnderTest": "BDVM endpoints self-suppress cheaply when no projection snapshot exists (CLAUDE.md: the /rankings gap column 'gates on status == ok so it self-suppresses').",
+   "observed": "With data/bdvm/ absent, the endpoint still spends 47,994 ms before returning a 310-byte payload. Suppression is happening, but only after the full computation path has been walked.",
+   "reproduction": {
+    "command": "time curl -s -b /tmp/audit-cookies.txt -o /dev/null -w '%{http_code} %{size_download}\\n' http://127.0.0.1:8000/api/bdvm/roster",
+    "expected": "a fast negative \u2014 the precondition (no snapshot) is knowable up front",
+    "actual": "HTTP 200, 310 bytes, 47.994 s",
+    "artifact": "docs/master-site-audit/evidence/route-probe.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "route": "/api/bdvm/roster"
+    },
+    "formula": "wall time of a single authenticated GET",
+    "expected": 1000,
+    "actual": 47994,
+    "tolerance": 500
+   },
+   "userImpact": "The /bdvm page blocks for ~48 s before rendering an empty state. On a shared backend this also occupies a worker for the whole window.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Latency measured in this audit; the prior audit noted BDVM had never run in production but not this cost."
+   },
+   "rootCause": "To be confirmed by W13/W26 profiling \u2014 the snapshot-absent check appears to run after the roster/board assembly rather than before it.",
+   "requiredRepair": "Check for the projection snapshot before doing any per-player work, and return the documented unpriced/no-snapshot payload immediately.",
+   "dependencies": "W13 (BDVM) and W26 (performance) hold the call-path profile."
+  },
+  {
+   "id": "W00-F003",
+   "workstream": "W00",
+   "promptSections": [
+    35,
+    44
+   ],
+   "title": "/api/data is 11.95 MB, not the ~4 MB CLAUDE.md documents, and view=compact is larger than view=app",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "API contract / payload size",
+   "surface": {
+    "routes": [
+     "/api/data"
+    ],
+    "pages": [
+     "/rankings",
+     "/trade",
+     "/rosters"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "CLAUDE.md",
+     "lines": "Rankings Override Payload Size Optimization"
+    },
+    {
+     "path": "src/api/compact_view.py",
+     "lines": "whole module"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'view=full (default, backward-compat): returns the full canonical contract (~4 MB uncompressed)'.",
+   "observed": "Measured 11,953,535 bytes uncompressed (1,176,182 gzipped) \u2014 about 3x the documented figure. Separately, ?view=compact returns 7,363,760 bytes while ?view=app returns 5,818,304, so the view named 'compact' is 27% LARGER than the app view.",
+   "reproduction": {
+    "command": "for v in '' '?view=app' '?view=compact'; do curl -s -b /tmp/audit-cookies.txt -o /dev/null -w \"$v %{size_download}\\n\" \"http://127.0.0.1:8000/api/data$v\"; done",
+    "expected": "~4 MB full per the documentation; compact <= app",
+    "actual": "11,953,535 full; compact 7,363,760 > app 5,818,304",
+    "artifact": "docs/master-site-audit/evidence/perf/api-data-payload-sizes.txt"
+   },
+   "numericProof": {
+    "inputs": {
+     "route": "/api/data",
+     "view": "full"
+    },
+    "formula": "content-length of one authenticated GET",
+    "expected": 4000000,
+    "actual": 11953535,
+    "tolerance": 500000
+   },
+   "userImpact": "A reader sizing work off CLAUDE.md underestimates the payload threefold, and anyone reaching for 'compact' to reduce bytes gets more of them.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 1,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Measured in this audit."
+   },
+   "whatWorks": "GZipMiddleware is effective \u2014 11.95 MB compresses to 1.18 MB on the wire.",
+   "rootCause": "Documentation was written against an older contract; the compact view's field set has grown past the app view's.",
+   "requiredRepair": "Correct the documented figures and either rename or re-scope view=compact so its name matches its size.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W00-F004",
+   "workstream": "W00",
+   "promptSections": [
+    44
+   ],
+   "title": "server.py says the consensus_edge flag defaults ON; feature_flags.py sets it False, and the live routes 503",
+   "status": "Duplicate or conflicting implementation",
+   "priority": "P2",
+   "size": "XS",
+   "subsystem": "Feature flags / documentation",
+   "surface": {
+    "routes": [
+     "/api/consensus-edge/players",
+     "/api/consensus-edge/top",
+     "/api/consensus-edge/health"
+    ],
+    "pages": [
+     "/consensus-edge"
+    ],
+    "flags": [
+     "consensus_edge"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "2688-2694"
+    },
+    {
+     "path": "src/api/feature_flags.py",
+     "lines": "260"
+    }
+   ],
+   "claimUnderTest": "server.py's comment at the router registration states the consensus_edge flag has defaulted ON since 2026-08-04.",
+   "observed": "src/api/feature_flags.py:260 sets \"consensus_edge\": False with an ADR-023 rationale for the rollback, and every /api/consensus-edge/* route returns 503 {\"error\":\"feature_disabled\",\"flag\":\"consensus_edge\"} on the running server. The code comment is the stale one \u2014 and it sits at the registration site a reader hits first.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/consensus-edge/health; sed -n '2688,2694p' server.py; sed -n '260p' src/api/feature_flags.py",
+    "expected": "comment and default agree",
+    "actual": "comment says ON; default is False; routes 503",
+    "artifact": "docs/master-site-audit/evidence/route-probe.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "route": "/api/consensus-edge/health"
+    },
+    "formula": "observed HTTP status against the documented flag default",
+    "expected": 200,
+    "actual": 503,
+    "tolerance": 0
+   },
+   "userImpact": "A maintainer reading server.py concludes the feature is live and will not look for the flag when the page renders nothing.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 5,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Found by diffing the comment against the registry and the live 503."
+   },
+   "rootCause": "ADR-023 flipped the flag back off without updating the comment written when it was turned on.",
+   "requiredRepair": "Delete or correct the server.py comment; it duplicates state that feature_flags.py owns.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W00-F005",
+   "workstream": "W00",
+   "promptSections": [
+    3,
+    43
+   ],
+   "title": "/api/health registers a duplicate OpenAPI operation ID, which pytest warns about on every run",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Routing",
+   "surface": {
+    "routes": [
+     "/api/health"
+    ],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "4503"
+    }
+   ],
+   "claimUnderTest": "Routes are registered once each.",
+   "observed": "FastAPI emits 'UserWarning: Duplicate Operation ID get_health_api_health_get for function get_health' during schema generation; it appears in the pytest run output and in /openapi.json generation. The live schema carries 100 operations across 97 unique paths.",
+   "reproduction": {
+    "command": "grep -n 'Duplicate Operation ID' docs/master-site-audit/evidence/pytest-full.txt",
+    "expected": "no duplicate-operation warnings",
+    "actual": "UserWarning raised for get_health_api_health_get",
+    "artifact": "docs/master-site-audit/evidence/pytest-full.txt"
+   },
+   "numericProof": {
+    "inputs": {
+     "schema": "/openapi.json"
+    },
+    "formula": "count of operations minus count of unique paths",
+    "expected": 0,
+    "actual": 3,
+    "tolerance": 0
+   },
+   "userImpact": "Generated clients and API docs get a colliding operation name; the warning also trains readers to ignore warnings in the test output.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Observed in this audit's own test run."
+   },
+   "requiredRepair": "Give the api_route registration an explicit distinct operation_id.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W00-F006",
+   "workstream": "W00",
+   "promptSections": [
+    7,
+    42
+   ],
+   "title": "Four value fields coexist on every contract row and diverge by up to 35.6%, with _finalAdjusted still read by a legacy branch of the arbitrage finder",
+   "status": "Partially implemented",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Value architecture",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/trade/finder"
+    ],
+    "pages": [
+     "/arbitrage"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/finder.py",
+     "lines": "498-516"
+    },
+    {
+     "path": "src/trade/finder.py",
+     "lines": "1006"
+    },
+    {
+     "path": "Dynasty Scraper.py",
+     "lines": "7120-7128"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'Both engines now read the same internal value' \u2014 finder.py reads the canonical board via board_values_from_contract.",
+   "observed": "Every row carries rankDerivedValue AND _finalAdjusted AND _composite AND _rawComposite AND (for offense) _offenseOnlyFinalAdjusted. Measured divergence of _finalAdjusted from the served rankDerivedValue: Carson Schwesinger +35.6%, Aidan Hutchinson +30.6%, Brock Bowers +6.8%, Travis Etienne -9.5%. finder.py's PRIMARY path does read the board \u2014 the _finalAdjusted reads at :498 sit in an explicit `else:` legacy branch taken only when no contract is supplied, and :1006 uses it deliberately on the composite scale to count unpriced assets. So the CLAUDE.md claim is upheld for the live path; what remains open is whether any caller can reach the legacy branch.",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/tools/trace_asset.py 'Carson Schwesinger' 'Aidan Hutchinson' 'Travis Etienne'",
+    "expected": "one value concept per row, or clearly-scoped variants",
+    "actual": "four coexisting fields; _finalAdjusted differs from the served value by up to 35.6%",
+    "artifact": "docs/master-site-audit/evidence/proof-cases/traces.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Carson Schwesinger",
+     "rankDerivedValue": 5908,
+     "_finalAdjusted": 4357
+    },
+    "formula": "(rankDerivedValue - _finalAdjusted) / _finalAdjusted * 100",
+    "expected": 0,
+    "actual": 35.6,
+    "tolerance": 1.0
+   },
+   "userImpact": "Any consumer that reaches the legacy branch prices IDP assets ~30% below the board the user sees.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "partial",
+    "note": "The headline 'the finder arbitrages an invisible board' does NOT reproduce at HEAD \u2014 the primary path reads board values. Recorded as refuted for the live path; the residual risk is the ungated legacy branch."
+   },
+   "whatWorks": "finder.py's primary path reads board_values_from_contract, and the scale reasoning at :478-497 is documented and correct.",
+   "rootCause": "The migration to the canonical board left the legacy composite path in place as a fallback rather than removing it.",
+   "requiredRepair": "Establish whether any live caller passes contract=None; if not, delete the legacy branch rather than leaving two scales reachable.",
+   "dependencies": "W09 owns the caller analysis."
+  },
+  {
+   "id": "W00-F007",
+   "workstream": "W00",
+   "promptSections": [
+    11,
+    40
+   ],
+   "title": "Confidence reads High on two-source pick rows while fourteen-source player rows read Medium",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Confidence presentation",
+   "surface": {
+    "routes": [
+     "/api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "confidence bucket assignment"
+    }
+   ],
+   "claimUnderTest": "Confidence communicates how much evidence stands behind a number.",
+   "observed": "2027 Early 1st (sourceCount 2) is labelled 'High \u2014 picks agree within 15%'. 2028 Late 1st (sourceCount 2) likewise. Travis Etienne (sourceCount 14) and George Kittle (sourceCount 14) are labelled 'Medium \u2014 multi-source, moderate spread'. The rule is agreement-based, which is defensible, but the rendered word inverts the evidence ordering: two sources agreeing outranks fourteen sources disagreeing slightly.",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/tools/trace_asset.py '2027 Early 1st' 'George Kittle' | grep -E 'sourceCount|confidenceLabel'",
+    "expected": "a two-source row cannot outrank a fourteen-source row on displayed confidence",
+    "actual": "2 sources -> High; 14 sources -> Medium",
+    "artifact": "docs/master-site-audit/evidence/proof-cases/traces.txt"
+   },
+   "numericProof": {
+    "inputs": {
+     "row_a": "2027 Early 1st",
+     "sourceCount_a": 2,
+     "bucket_a": "high",
+     "row_b": "George Kittle",
+     "sourceCount_b": 14,
+     "bucket_b": "medium"
+    },
+    "formula": "compare displayed confidence bucket against surviving source count",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "A user reads High confidence on a future pick whose value rests on two correlated pick markets and discounts a player value backed by fourteen sources.",
+   "blastRadius": {
+    "playersAffected": 121,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "The prior audit claims a 33.3% confidence misclassification rate; W03 is measuring that independently. This is a distinct, directly-observable presentation defect."
+   },
+   "rootCause": "Agreement and evidence-volume are collapsed into one displayed word.",
+   "requiredRepair": "Show source count alongside the bucket, or floor the bucket by count so a two-source row cannot render High.",
+   "dependencies": "W03 owns the full confidence-calibration measurement."
+  },
+  {
+   "id": "W00-F008",
+   "workstream": "W00",
+   "promptSections": [
+    6,
+    11
+   ],
+   "title": "A current-year pick's provenance fields name two different sources",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "S",
+   "subsystem": "Identity / provenance",
+   "surface": {
+    "routes": [
+     "/api/data"
+    ],
+    "pages": [
+     "/rankings",
+     "/draft"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "pick tethering / source stamping"
+    }
+   ],
+   "claimUnderTest": "Every visible number can identify its source (audit brief section 6).",
+   "observed": "On 2026 Pick 1.01: sourceRanks = {'idpTradeCalc': 12} while sourceOriginalRanks = {'dlfRookieSf': 1.0}. The two provenance stamps on the same row name different sources, and only idpTradeCalc appears in the committed CSVs for that asset. Separately, 2027 Early 1st reports sourceCount 2 with sourceOriginalRanks = {} (empty).",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/tools/trace_asset.py '2026 Pick 1.01' '2027 Early 1st'",
+    "expected": "provenance stamps agree on which sources produced the row",
+    "actual": "sourceRanks names idpTradeCalc; sourceOriginalRanks names dlfRookieSf",
+    "artifact": "docs/master-site-audit/evidence/proof-cases/traces.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "asset": "2026 Pick 1.01",
+     "sourceRanks": "{'idpTradeCalc': 12}",
+     "sourceOriginalRanks": "{'dlfRookieSf': 1.0}"
+    },
+    "formula": "set intersection of the two provenance maps",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "Provenance cannot be trusted to answer 'where did this number come from' for pick rows, which is precisely where values are thinnest.",
+   "blastRadius": {
+    "playersAffected": 146,
+    "routesAffected": 1,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Observed directly in the pick traces."
+   },
+   "rootCause": "Pick tethering overwrites the value from the merged rookie pool while the original-rank stamp survives from the pre-tether row.",
+   "requiredRepair": "Stamp the tethering source on tethered rows so both maps describe the same provenance.",
+   "dependencies": "W02 owns the tethering stage."
+  },
+  {
+   "id": "W02-F001",
+   "title": "IDP-only sources are handed a combined-pool percentile but scored on the IDP-slice Hill master, so they vote ~48% of the anchor's value at the identical effective rank",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "M",
+   "subsystem": "Core value blend \u2014 scope curve routing",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/rankings/overrides",
+     "/api/terminal",
+     "/api/trade/suggestions",
+     "/api/trade/finder",
+     "/api/trade/simulate",
+     "/api/angle/find",
+     "/api/waiver/faab-recommend"
+    ],
+    "pages": [
+     "/rankings",
+     "/trade",
+     "/waivers",
+     "/terminal"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "6888-6899"
+    },
+    {
+     "path": "src/canonical/player_valuation.py",
+     "lines": "126-134"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "1159-1171"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md step 3/5: 'Scope-appropriate curve routing (cross-market -> GLOBAL, overall IDP -> IDP, everything else -> OFFENSE)'; the dlfIdp registry entry says shared-market ladder translation 'correctly calibrates DLF against the retail offense market'. Both together assert every source's contribution lands in one 0-9999 coordinate system.",
+   "observed": "`needs_shared_market_translation` rewrites an IDP-only source's rank into COMBINED-pool coordinates (dlfIdp/idpShow/fantasyProsIdp raw rank 1 -> effective rank 34 for Aidan Hutchinson, the same slot idpTradeCalc gives him). `_percentile_denom_for_source` then divides by 500 (combined-pool N) and `_curve_for_source` routes by SCOPE to the IDP master (c=0.0830) which was fit on IDPTradeCalc's IDP-only slice. The two coordinate systems are inconsistent: at percentile 0.0661 the IDP master pays 5627 while the value-direct anchor on the same row pays 6444. Measured over the whole board the four IDP-scope rank-signal sources contribute a median 0.461/0.474/0.481/0.485 of idpTradeCalc's contribution on the same row. On offense \u2014 where source rank space and curve space agree \u2014 every source clusters at 0.87-1.08 of the anchor. Re-scoring the SAME percentiles through the GLOBAL master (the curve fit on the combined pool the ladder maps into) returns median ratios 0.92/1.32/1.29/0.95.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 docs/master-site-audit/evidence/W02/repro_blend.py  # then see docs/master-site-audit/evidence/W02/w02-measurements.json .idpCurveScaleMismatch",
+    "expected": "IDP-scope source contribution / idpTradeCalc contribution ~= 1.0 on the same row (as offense achieves)",
+    "actual": "median 0.4612 (dlfIdp), 0.4737 (dlfRookieIdp), 0.4806 (idpShow), 0.4845 (fantasyProsIdp)",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Aidan Hutchinson",
+     "effectiveRank_all_four_sources": 34,
+     "percentile": 0.066132,
+     "idpTradeCalc_valueContribution": 6444,
+     "IDP_HILL_PERCENTILE_C": 0.083,
+     "IDP_HILL_PERCENTILE_S": 1.11,
+     "HILL_GLOBAL_PERCENTILE_C": 0.112,
+     "HILL_GLOBAL_PERCENTILE_S": 0.725
+    },
+    "formula": "V(p) = 9999 / (1 + (p/c)^s) evaluated at the SAME p for the IDP master vs the GLOBAL master",
+    "expected": 6444,
+    "actual": 5627,
+    "tolerance": 200
+   },
+   "userImpact": "Every IDP row's 'multi-source consensus' is dragged down by a units error rather than by disagreement: three sources that rank Aidan Hutchinson their #1 IDP are shown, in the /rankings value-chain panel, as valuing him 13% below the one source that ranks him 34th. A user reads real disagreement where the sources actually agree exactly, and sells IDP assets into a board biased low.",
+   "blastRadius": {
+    "playersAffected": 398,
+    "routesAffected": 8,
+    "pagesAffected": 4
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F00",
+    "relation": "confirmed",
+    "note": "Prior said '~48% of the IDP market at the same rank'. Independently measured 46.1-48.5% median over 605 source votes on the 2026-08-04 board, plus the GLOBAL-curve counterfactual that isolates the mechanism."
+   },
+   "whatWorks": "The shared-market ladder translation itself is correct \u2014 it lands IDP rank 1 on exactly the combined-pool rank the anchor gives. Only the curve chosen afterwards is wrong.",
+   "rootCause": "`_curve_for_source` routes on `scope`, while `_percentile_denom_for_source` and the ladder both operate in combined-pool space. Scope is the wrong key: what determines the right curve is which POOL the effective rank lives in, and after `needs_shared_market_translation` that pool is the combined one.",
+   "requiredRepair": "Route any source whose effective rank has been ladder-translated into combined-pool space through the GLOBAL master (or, equivalently, key `_curve_for_source` on `sharedMarketTranslated`/`needs_rookie_translation` rather than on `scope`). Re-fit is not required \u2014 the GLOBAL master is already the combined-pool curve.",
+   "dependencies": "Fixing this changes 52 anchor ejections (W02-F002) and most of the 127 corridor clamps (W02-F003); those two findings should be re-measured after, not fixed independently.",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F002",
+   "title": "The Hampel filter ejects the designated IDP market anchor on 29.4% of Hampel-eligible IDP rows, and in 52 of 52 cases for being HIGH",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "Core value blend \u2014 per-player outlier rejection",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/rankings/overrides",
+     "/api/trade/finder",
+     "/api/trade/suggestions",
+     "/api/terminal"
+    ],
+    "pages": [
+     "/rankings",
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "6582-6640"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "7751-7788"
+    }
+   ],
+   "claimUnderTest": "`_hampel_filter_per_player` docstring: 'catches the \"FootballGuys is way off on this one player\" case without dropping the whole source globally'. The registry calls idpTradeCalc 'the retail IDP authority and the backbone source'.",
+   "observed": "On the live board `idpTradeCalc` is Hampel-dropped on 52 IDP rows \u2014 29.4% of the 177 IDP rows that carry >= 4 sources (17.7% of all 293 ranked IDP rows). Direction is not random: in 52/52 cases the anchor was ejected for sitting ABOVE the median of its peers. That is the exact signature of W02-F001 \u2014 the peers are on a ~2x compressed scale, so the correctly-scaled market anchor is the statistical outlier. Named victims include Maxx Crosby, T.J. Watt, Micah Parsons (via the same mechanism), Jalen Carter, Kyle Hamilton, Roquan Smith and Trey Hendrickson. Board-wide the filter drops 192 of 6,442 source votes (2.98%) across 168 of 800 rows (21.0%).",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 -c \"import json,statistics;p=json.load(open('/tmp/full.json'));pa=p['playersArray'];idp=[r for r in pa if r.get('assetClass')=='idp' and (r.get('sourceRankMeta') or {})];el=[r for r in idp if 'idpTradeCalc' in r['sourceRankMeta'] and len(r['sourceRankMeta'])>=4];ej=[r for r in idp if 'idpTradeCalc' in (r.get('droppedSources') or [])];print(len(ej),'/',len(el),'=',round(len(ej)/len(el)*100,1),'%')\"",
+    "expected": "the retail IDP market anchor is ejected only on genuine per-player anomalies (a low single-digit percentage, with drops in both directions)",
+    "actual": "52/177 = 29.4%, all 52 for being high",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Dallas Turner",
+     "contributions": {
+      "idpTradeCalc": 4164,
+      "idpShow": 2417,
+      "dlfIdp": 1899,
+      "draftSharksIdp": 1865,
+      "fantasyProsIdp": 673
+     },
+     "median": 1899,
+     "MAD": 518,
+     "K": 2.75,
+     "_HAMPEL_MIN_THRESHOLD": 1000.0
+    },
+    "formula": "threshold = max(K*MAD, 1000) = max(1424.5, 1000) = 1424.5 ; |4164-1899| = 2265 > 1424.5 -> eject",
+    "expected": 0,
+    "actual": 1,
+    "tolerance": 0
+   },
+   "userImpact": "The IDP board's designated market price is thrown away on 1 in 3 well-covered IDP rows and the surviving blend is then ~55% of it, so the value a user sees before the corridor clamp reinstates it is not a blend of anything \u2014 it is the four mis-scaled sources alone.",
+   "blastRadius": {
+    "playersAffected": 52,
+    "routesAffected": 5,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F01",
+    "relation": "confirmed",
+    "note": "Prior reported 28%. Reproduced at 29.4% of Hampel-eligible IDP rows on the 2026-08-04 board; the 28% figure only reconciles against that denominator (it is 17.7% of all ranked IDP rows). Direction (52/52 high) is a new measurement."
+   },
+   "whatWorks": "The Hampel implementation itself is exactly correct \u2014 an independent reimplementation reproduced the `droppedSources` stamp on 800/800 rows with zero mismatches.",
+   "rootCause": "Downstream symptom of W02-F001: the reference median is computed across sources that are not on a common scale.",
+   "requiredRepair": "Fix W02-F001 first, then re-measure. If a residual remains, exclude designated anchor sources from being ejection CANDIDATES (they may still set the median) \u2014 a filter whose job is to remove a rogue source must not be able to remove the reference price.",
+   "dependencies": "W02-F001",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F003",
+   "title": "The corridor clamp's per-bucket P90 machinery is inert \u2014 the 0.15 cap binds on 100% of clamps \u2014 and it rewrites 43.3% of ranked IDP rows to exactly idpTradeCalc x 0.85 or x 1.15",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "M",
+   "subsystem": "Core value blend \u2014 market corridor clamp",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/rankings/overrides",
+     "/api/terminal",
+     "/api/trade/finder",
+     "/api/trade/suggestions",
+     "/api/waiver/faab-recommend"
+    ],
+    "pages": [
+     "/rankings",
+     "/trade",
+     "/waivers"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "4824-4941"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "4670-4692"
+    }
+   ],
+   "claimUnderTest": "`_apply_market_corridor_clamp` docstring: 'Band width is empirical \u2014 P90 of |final - market| / market computed within each confidence bucket'; the Phase-4c call site: 'Leaves 90% of the board untouched \u2014 only the tail outliers ... get pulled back to the band edge.' CLAUDE.md step 10: 'P90 drift band per confidence bucket, hard band cap 0.15'.",
+   "observed": "Measured on the live board the per-bucket P90 drifts are 0.4805 (medium, n=91), 0.5097 (low, n=173) and 0.5228 (high, n=29) \u2014 every one of them 3x the 0.15 asset-class cap. `cappedByMaxBand` is therefore true on 127 of 127 clamped rows: the percentile computation, the per-bucket split, the `_MARKET_CORRIDOR_MIN_BUCKET_N` fallback and the `_MARKET_CORRIDOR_PERCENTILE` constant are all dead weight, and the live behaviour is a flat +/-15% band around one source. It does not leave 90% untouched: 127 of the 293 eligible rows (43.3%) are rewritten, mean move 464.7 points (28.9% of the pre-clamp value), max 110.9% (a value more than doubled). On all 127 the published `rankDerivedValue` equals `round(marketAnchor * (1 +/- 0.15))` to within 1 \u2014 i.e. the number a user sees is a pure function of a single source, with the other four contributing nothing. 126 of 127 anchor on `idpTradeCalc`; 1 anchors on `fantasyProsIdp` via the stage-2 fallback chain.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 -c \"import json,collections;p=json.load(open('/tmp/full.json'));cl=[r for r in p['playersArray'] if r.get('marketCorridorClamp')];print(len(cl),collections.Counter((r['marketCorridorClamp']['bandPct'],r['marketCorridorClamp']['cappedByMaxBand']) for r in cl));print(sum(1 for r in cl if abs(round(r['marketCorridorClamp']['marketAnchor']*(1.15 if r['marketCorridorClamp']['direction']=='down' else 0.85))-r['rankDerivedValue'])<=1))\"",
+    "expected": "a minority of clamps use the 0.15 cap; ~10% of eligible rows clamped; clamped value reflects the bucket's own empirical P90",
+    "actual": "127/127 capped at 0.15; 43.3% of eligible rows clamped; 127/127 land exactly on anchor*(1+/-0.15)",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Dallas Turner",
+     "preClampBlend": 1856,
+     "marketAnchor": 4164,
+     "bucketP90_low": 0.5097,
+     "cap": 0.15
+    },
+    "formula": "drift = |1856-4164|/4164 = 0.5543 > band(=min(0.5097, 0.15)=0.15) -> clamped = 4164*(1-0.15)",
+    "expected": 3539,
+    "actual": 3539,
+    "tolerance": 1
+   },
+   "userImpact": "On /rankings and in every trade engine, 127 IDP players carry a value that is arithmetically 0.85x or 1.15x one vendor's number. Nothing on the page says so \u2014 `marketCorridorClamp` is materialised onto the row by `buildRows` (frontend/lib/dynasty-data.js:1070) and rendered by no component. A user comparing our board to IDPTradeCalc believes they are seeing independent corroboration; they are seeing the same number scaled by a constant.",
+   "blastRadius": {
+    "playersAffected": 127,
+    "routesAffected": 6,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F02",
+    "relation": "confirmed",
+    "note": "Prior said the cap binds on 100% of clamps. Reproduced (127/127) and extended with the clamp RATE (43.3% of eligible, against a docstring claiming 90% untouched), the magnitude distribution (mean 28.9%, max 110.9%), and the exactness proof that all 127 published values equal anchor*(1+/-0.15)."
+   },
+   "whatWorks": "The clamp is correctly scoped: 0 offense rows and 0 pick rows were clamped, matching CLAUDE.md's 'IDP rows only'. The `marketCorridorClamp` stamp is complete and honest in the payload.",
+   "rootCause": "Two independent bands were layered without checking whether the empirical one ever wins. It never does, because the drift distribution the P90 is measured over is itself inflated by W02-F001.",
+   "requiredRepair": "Either delete the P90/bucket machinery and document the band as a flat +/-15% policy, or fix W02-F001 (which should collapse the drift distribution) and re-measure whether a clamp is still needed at all. Whichever is chosen, surface the clamp on the row \u2014 a value that is a constant times one vendor's price must not render identically to a genuine 14-source blend.",
+   "dependencies": "W02-F001, W02-F002",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F004",
+   "title": "The blend is not monotone in a source's own vote: raising idpTradeCalc's contribution by 3% drops the pre-clamp blended value 25.8%",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Core value blend \u2014 aggregation",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/rankings/overrides"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "7751-7788"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "7862-7910"
+    }
+   ],
+   "claimUnderTest": "Implicit and load-bearing everywhere downstream: a better source rank / higher source value produces a higher blended value. The count-aware mean-median blend and the alpha-shrinkage combine are both monotone by construction, which is what makes the property look guaranteed.",
+   "observed": "Holding Dallas Turner's four other source contributions fixed and sweeping idpTradeCalc's contribution, the pre-clamp blended value rises smoothly to 2502.3 at 3300, then falls to 1856.6 at 3400 \u2014 a 25.8% drop caused by a 3.0% INCREASE in one input, because the Hampel threshold crosses and the anchor is ejected. Above 3400 the blend is completely insensitive to the anchor (flat 1856.6 out to 5200). The composed post-clamp value happens to stay monotone on this row only because the clamp re-derives it from the ejected source; the blend itself \u2014 the number stamped as `_blendedValueUncapped` and used to price every unranked rookie and therefore every current-year pick via tethering \u2014 is discontinuous. Every other stage verified monotone: per-source `valueContribution` is strictly decreasing in effective rank with 0 inversions across all 21 sources once TE rows (where the premium deliberately repositions within the scale) are excluded.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 docs/master-site-audit/evidence/W02/repro_blend.py ; see docs/master-site-audit/evidence/W02/dallas-turner-sweep.json",
+    "expected": "blended value non-decreasing in each source's contribution",
+    "actual": "3300 -> 2502.3 ; 3400 -> 1856.6 (a 645.7-point fall on a 100-point rise)",
+    "artifact": "docs/master-site-audit/evidence/W02/dallas-turner-sweep.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "idpTradeCalc_contribution_before": 3300,
+     "idpTradeCalc_contribution_after": 3400,
+     "other_contributions": [
+      2417,
+      1899,
+      1865,
+      673
+     ]
+    },
+    "formula": "Hampel(K=2.75, floor=1000) then anchor + 0.10*(subgroup - anchor)",
+    "expected": 2502.3,
+    "actual": 1856.6,
+    "tolerance": 1.0
+   },
+   "userImpact": "A source revising a player UPWARD can move our board DOWN. Because `_blendedValueUncapped` is what the rookie pool is sorted by, a discontinuity there also reorders which rookie a current-year pick tethers to, so the instability propagates to the pick board.",
+   "blastRadius": {
+    "playersAffected": 52,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "The prior audit reported the anchor-ejection rate (A11-F01) but not that the ejection makes the blend a non-monotone function of its own inputs, nor that the blend is flat in the anchor above the ejection threshold."
+   },
+   "whatWorks": "Every deterministic stage (Hill curve, count-aware blend, alpha-shrinkage, single-source haircut, clamp) is individually monotone; only the Hampel gate breaks it.",
+   "rootCause": "Hard-thresholded outlier rejection composed with an aggregator makes the composition a step function of every input.",
+   "requiredRepair": "Replace the hard drop with a continuous down-weight (e.g. Huber/Tukey weights on the same deviation statistic) so a source's influence tapers rather than vanishing at a threshold.",
+   "dependencies": "W02-F001 (the ejections it fires on)",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F005",
+   "title": "Ranks past the fixed 500-row reference collapse to one value: 440 rank-signal votes carry zero ordering information, including 164 of idpShow's 279",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Core value blend \u2014 percentile normalization",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/rankings/overrides"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "5295-5303"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "6896-6899"
+    },
+    {
+     "path": "src/canonical/player_valuation.py",
+     "lines": "406-410"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md step 2: 'Percentile normalization against a FIXED 500-rank combined-pool reference (ranks past 500 clamp to the curve tail; this is deliberate top-500-board behavior)'.",
+   "observed": "`percentile_to_value` clamps p to [0,1], so every effective rank >= 500 evaluates at p=1.0 and returns the identical tail value. 743 of 6,442 source votes (11.5%) sit at p=1.0; 440 of those are on the rank->Hill path where the clamp actually destroys information. The effect is concentrated on IDP because the shared-market ladder pushes IDP ordinals deep into combined space: idpShow's raw ranks 146 through 344 \u2014 199 distinct ordinal positions \u2014 all contribute exactly 594; fantasyProsIdp 146-211 and dlfIdp 146-170 likewise contribute 594; draftSharksIdp's raw ranks 100-315 all contribute exactly 1698. Those sources' entire deep board is a constant. The board's own minimum ranked value is 757, so the constant sits below everything the board publishes. 'Deliberate top-500-board behavior' is a fair description for offense (5.5% of draftSharks' votes clamp) but not for IDP, where 59-64% of a source's votes are collapsed.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 -c \"import json,collections;p=json.load(open('/tmp/full.json'));f=collections.defaultdict(list);[f[k].append((m.get('rawRank'),m.get('valueContribution'))) for r in p['playersArray'] for k,m in (r.get('sourceRankMeta') or {}).items() if m.get('percentile')==1.0 and m.get('valueContributionPath')=='rank_hill'];[print(k,len(v),'rawRank',min(x[0] for x in v),'-',max(x[0] for x in v),'->',sorted({x[1] for x in v})) for k,v in f.items()]\"",
+    "expected": "a source's deeper ranks produce strictly lower contributions",
+    "actual": "idpShow raw ranks 146..344 all -> 594; draftSharksIdp 100..315 all -> 1698",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "IDP_HILL_PERCENTILE_C": 0.083,
+     "IDP_HILL_PERCENTILE_S": 1.11,
+     "p": 1.0
+    },
+    "formula": "V(1.0) = 9999/(1+(1.0/0.0830)^1.110)",
+    "expected": 594,
+    "actual": 594,
+    "tolerance": 1
+   },
+   "userImpact": "For the deep IDP board, four of the five sources cast an identical vote for every player, so relative ordering below ~IDP rank 146 is decided by idpTradeCalc alone while the UI reports 4-5 contributing sources and a 'medium' confidence bucket.",
+   "blastRadius": {
+    "playersAffected": 300,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F03",
+    "relation": "confirmed",
+    "note": "Prior counted 443 zero-information votes; independently measured 440 rank-Hill votes at p=1.0 on the 2026-08-04 board (743 including the value-direct path where the percentile is not used). The per-source collapsed rank spans are a new measurement."
+   },
+   "whatWorks": "On offense the clamp is genuinely marginal \u2014 21 of draftSharks' 381 votes, 0 for every other offense source.",
+   "rootCause": "One reference denominator (500, sized to KTC's offense pool) is applied to ranks that the IDP ladder has already pushed into the 500-900 range.",
+   "requiredRepair": "Either raise `_PERCENTILE_REFERENCE_N` to cover the combined pool the ladder maps into (the board carries 1,092 rows) or let the curve extrapolate past p=1 for translated ranks. Note `reports/percentile_reference_n_backtest_full.md` recommends N=400 \u2014 i.e. the opposite direction \u2014 because it optimises stability, not resolution (see W02-F009).",
+   "dependencies": "W02-F001 shares the same root confusion about which pool a translated rank lives in.",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F006",
+   "title": "Three publishers get two equal votes each in the blend; the registry's own correlation groups are never applied to weighting",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Core value blend \u2014 source registry",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/rankings/overrides",
+     "/api/rankings/sources"
+    ],
+    "pages": [
+     "/rankings",
+     "/settings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "1030-1035"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "2247-2262"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "7699-7712"
+    }
+   ],
+   "claimUnderTest": "Registry comment on ktcSfTep: 'fantasyNavigatorSf republishes KTC-derived numbers, so the two are not independent votes and must leave the blend together'. CLAUDE.md: 'Blend weights live in the _RANKING_SOURCES registry (all 1.0 by policy)' \u2014 i.e. one equal vote per source.",
+   "observed": "`correlation_group` is read in exactly two places \u2014 the `/api/rankings/sources` stamp and `expand_correlation_groups`, which is used only to co-exclude sources when a caller drops one. It never reaches `blend_weight_by_source`. On the live board ktcSfTep and fantasyNavigatorSf (whose rows carry `ktc_player_id`) both vote at weight 1.0 on 368 rows; fantasyProsSf and fantasyProsFitzmaurice both vote on 298 rows; dlfSf and dlfRookieSf both vote on 33 rookie rows; dlfIdp and dlfRookieIdp on 12. On a typical 14-vote offense row that is 2 of 14 votes for KTC and 2 of 14 for FantasyPros \u2014 28.6% of the consensus from two publishers.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 -c \"import json;p=json.load(open('/tmp/full.json'));pa=p['playersArray'];[print(a,b,sum(1 for r in pa if a in (r.get('sourceRankMeta') or {}) and b in (r.get('sourceRankMeta') or {}))) for a,b in [('ktcSfTep','fantasyNavigatorSf'),('fantasyProsSf','fantasyProsFitzmaurice'),('dlfSf','dlfRookieSf'),('dlfIdp','dlfRookieIdp')]]\"",
+    "expected": "correlated publishers share one vote's worth of weight, or the registry documents that they do not",
+    "actual": "368 / 298 / 33 / 12 rows with two full-weight votes from one publisher",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "votes_on_a_typical_offense_row": 14,
+     "ktc_group_votes": 2,
+     "fantasypros_group_votes": 2
+    },
+    "formula": "correlated share = (2+2)/14",
+    "expected": 0.143,
+    "actual": 0.286,
+    "tolerance": 0.01
+   },
+   "userImpact": "The board is more KTC-shaped than the 'multi-source consensus' framing implies, and a user who disables KTC on /settings expecting an independent board still gets its republisher unless the correlation-group expansion path is exercised.",
+   "blastRadius": {
+    "playersAffected": 368,
+    "routesAffected": 3,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F05",
+    "relation": "confirmed",
+    "note": "Reproduced with per-pair row counts and the code trace showing correlation_group reaches only expand_correlation_groups, never the blend weights."
+   },
+   "whatWorks": "`expand_correlation_groups` does work for its stated purpose \u2014 excluding ktcSfTep also excludes fantasyNavigatorSf.",
+   "rootCause": "Correlation was modelled as an exclusion property, not a weighting property.",
+   "requiredRepair": "Divide the declared weight of each member of a correlation group by the number of that group's members actually voting on the row, before the count-aware blend. Keep the trim observation-based so equal-weight parity is preserved when no group has 2+ voters.",
+   "dependencies": "",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F007",
+   "title": "CLAUDE.md still says the pick-year discount lowers 2027/2028 picks; the live gate applies it only to synthetic 2029 rows",
+   "status": "Deprecated but still active",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Core value blend \u2014 pick year discount",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/draft-capital"
+    ],
+    "pages": [
+     "/draft",
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "6455-6518"
+    },
+    {
+     "path": "CLAUDE.md",
+     "lines": "pipeline step 12"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md live-pipeline step 12: 'Multiplicative future-year pick discount (config/weights/pick_year_discount.json) \u2014 Phase 3a, BEFORE the global sort, applied to the blended value so 2027/2028 picks settle lower in the ladder.'",
+   "observed": "`_apply_pick_year_discount_to_blend` gates on `_SYNTHETIC_FAR_FUTURE_PICK_NAMES` (audit finding T-3/C-2, dated 2026-08-04 in-file), so a vendor-priced year is skipped. On the live board exactly 12 rows carry `pickYearDiscount`, all 2029, all 0.53. No 2027 or 2028 row is discounted, and the market's own term structure is preserved (2027 Early 1st 7049 sits ABOVE 2026 Pick 1.02 6160). CLAUDE.md describes the pre-fix behaviour.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 -c \"import json,collections;p=json.load(open('/tmp/full.json'));d=[(r['canonicalName'],r['pickYearDiscount']) for r in p['playersArray'] if r.get('pickYearDiscount') is not None];print(len(d),collections.Counter(n.split()[0] for n,_ in d),set(x for _,x in d))\"",
+    "expected": "per CLAUDE.md, 2027 and 2028 picks carry a discount",
+    "actual": "12 rows, all 2029, factor 0.53; 2027/2028 untouched",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "rows_with_pickYearDiscount": 12,
+     "years": [
+      "2029"
+     ],
+     "factor": 0.53
+    },
+    "formula": "count of playersArray rows with pickYearDiscount != null, grouped by year",
+    "expected": 0,
+    "actual": 12,
+    "tolerance": 0
+   },
+   "userImpact": "A reader of CLAUDE.md reasons about future-pick prices using a rule the code no longer applies; anyone 'restoring' the documented behaviour would reintroduce the double-count the in-file note says biased every future-capital trade.",
+   "blastRadius": {
+    "playersAffected": 12,
+    "routesAffected": 2,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F04",
+    "relation": "not-reproducible",
+    "note": "PRIOR-A11-F04 ('discount applied on top of vendor values that already price the year, in the opposite direction') is fixed at HEAD e96c06ef \u2014 the synthetic-only gate is in the tree and the live board shows zero discounted 2027/2028 rows. What survives is documentation drift, recorded here."
+   },
+   "whatWorks": "The fix is correct and verified: no pick is discounted twice. Current-year slot picks take the Phase-5.2b rookie tether (72/72 exact) and their year offset is 0, so the discount factor would be 1.0 regardless.",
+   "rootCause": "Code fix shipped the same day as the audit; CLAUDE.md's pipeline section was not updated with it.",
+   "requiredRepair": "Update CLAUDE.md step 12 to say the discount applies only to synthetically cloned far-future years, and that vendor-priced years are deliberately left alone.",
+   "dependencies": "",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F008",
+   "title": "The two-way player boost is live and correct in mechanism, but its magnitude has changed from the prior audit's +115% to +43.7%",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Core value blend \u2014 two-way player boost",
+   "surface": {
+    "routes": [
+     "/api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "5054-5293"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md step 11: 'A genuine post-blend OVERRIDE: rankDerivedValue becomes max(offense value, alt-position-family value)'.",
+   "observed": "Exactly one row is boosted (Travis Hunter, `_TWO_WAY_PLAYERS = {'Travis Hunter': 'DB'}`). Primary-family value 3062, alt-family (DB) value 4401 from dlfIdp + idpShow + idpTradeCalc, published 4401 at overall rank 89. The override is fully stamped in `twoWayPlayerBoost` with both values and the sources considered. The rank-signal branch now translates through an empirical alt-family ladder rather than feeding a within-source IDP ordinal into the combined-pool curve, which is what produced the prior audit's larger number.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 -c \"import json;p=json.load(open('/tmp/full.json'));[print(r['canonicalName'],r['rankDerivedValue'],r['twoWayPlayerBoost']) for r in p['playersArray'] if r.get('twoWayPlayerBoost')]\"",
+    "expected": "max(primary, alt) with both values stamped",
+    "actual": "Travis Hunter 4401 = max(3062, 4401); +43.7% over the primary-family blend",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "primaryFamilyValue": 3062,
+     "altFamilyValue": 4401
+    },
+    "formula": "boost% = alt/primary - 1",
+    "expected": 0.437,
+    "actual": 0.437,
+    "tolerance": 0.005
+   },
+   "userImpact": "None observed \u2014 the one affected row is transparent and its value is bounded by the real IDP board.",
+   "blastRadius": {
+    "playersAffected": 1,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F07",
+    "relation": "superseded",
+    "note": "Prior: 'overrides the whole pipeline with a plain three-source mean and is live at +115%'. At HEAD the aggregation is `count_aware_mean_median_blend` over ladder-translated values (the in-file note is dated 2026-08-04) and the measured boost is +43.7%. The override-the-pipeline characterisation still holds; the magnitude does not."
+   },
+   "whatWorks": "Ladder translation, count-aware aggregation, and complete stamping.",
+   "rootCause": "",
+   "requiredRepair": "None. Keep the `_TWO_WAY_PLAYERS` table under review \u2014 it is a hand-maintained override list with one entry and no test asserting its magnitude.",
+   "dependencies": "",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F009",
+   "title": "Every tunable in the blend was chosen against a stability metric the reports themselves say rewards ignoring 15 of 16 sources, and the one recommendation those reports make was not applied",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "L",
+   "subsystem": "Core value blend \u2014 constant provenance",
+   "surface": {
+    "routes": [
+     "/api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "5366-5443"
+    },
+    {
+     "path": "reports/alpha_lambda_joint_backtest_full.md",
+     "lines": "1-20"
+    },
+    {
+     "path": "reports/percentile_reference_n_backtest_full.md",
+     "lines": "1-30"
+    }
+   ],
+   "claimUnderTest": "The constants block presents alpha=0.10, lambda=0.0 and N=500 as backtested choices.",
+   "observed": "`reports/alpha_lambda_joint_backtest_full.md` states its own metric is 'value-weighted rank change (lower = more stable)' and carries the caveat 'this metric rewards stability. The stability optimum drifts toward alpha=0 and lambda=0 \u2014 use the anchor source alone, ignore the 15 other sources.' The chosen alpha=0.10 is therefore a hand-picked compromise, not a measured optimum, and no report in `reports/` scores the live board against realized outcomes. `reports/percentile_reference_n_backtest_full.md` explicitly recommends 'Promote N=400 (+2.01% vs N=500 on the value-weighted metric)'; the live `_PERCENTILE_REFERENCE_N` is 500. So the constants are simultaneously justified by these reports and not governed by them.",
+   "reproduction": {
+    "command": "grep -n 'Recommendation' -A2 reports/percentile_reference_n_backtest_full.md; grep -n 'Caveat' reports/alpha_lambda_joint_backtest_full.md; grep -n '_PERCENTILE_REFERENCE_N: int' src/api/data_contract.py",
+    "expected": "the promoted constant matches the report's recommendation, or a decision record explains the divergence",
+    "actual": "report says promote N=400; code ships N=500; no ADR cited at the constant",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "reportRecommendedN": 400,
+     "liveN": 500,
+     "vwDelta": 0.0201
+    },
+    "formula": "live constant vs report recommendation",
+    "expected": 400,
+    "actual": 500,
+    "tolerance": 0
+   },
+   "userImpact": "Every number on the platform inherits constants tuned to minimise day-to-day movement rather than to be right; a board optimised for stability will systematically under-react to real market moves, which is the opposite of what a dynasty trader needs.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 8,
+    "pagesAffected": 6
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F06",
+    "relation": "confirmed",
+    "note": "Reproduced from the report files themselves, plus the new observation that percentile_reference_n_backtest_full.md's own recommendation (N=400) was never applied."
+   },
+   "whatWorks": "The reports exist, are checked in, state their metric plainly, and flag their own degenerate optimum \u2014 the provenance is honest, only the validation target is wrong.",
+   "rootCause": "No accuracy target was ever defined for the live board; `docs/architecture/optimization-target.md` names 'market consensus fit', which is a stability-adjacent target, not an outcome one.",
+   "requiredRepair": "Define an outcome metric (realized dynasty scoring, or forward market price at t+90d), re-score the alpha/lambda/N grids against it, and record the promotion decision as an ADR at each constant.",
+   "dependencies": "",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F010",
+   "title": "`derived = int(norm_val)` truncates where every neighbouring stamp rounds, publishing a value 1 point below the blend on 280 rows",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Core value blend \u2014 value stamping",
+   "surface": {
+    "routes": [
+     "/api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "8126"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "7920-7922"
+    }
+   ],
+   "claimUnderTest": "`_blendedValueUncapped` and `rankDerivedValue` are the same number, one pre-cap and one post-cap.",
+   "observed": "`_blendedValueUncapped` is `int(round(blended_value))` while `rankDerivedValue` is `int(norm_val)` \u2014 truncation. 280 rows publish a `rankDerivedValue` exactly 1 lower than their own `_blendedValueUncapped`. Sub-point magnitude, but it makes the two stamps disagree on ~35% of rows and any consumer diffing them sees phantom movement.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 -c \"import json;p=json.load(open('/tmp/full.json'));print(sum(1 for r in p['playersArray'] if r.get('rankDerivedValue') is not None and r.get('_blendedValueUncapped') is not None and r['rankDerivedValue']==r['_blendedValueUncapped']-1))\"",
+    "expected": 0,
+    "actual": "280",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "blended_value_example": 2144.6
+    },
+    "formula": "int(round(x)) vs int(x)",
+    "expected": 2145,
+    "actual": 2144,
+    "tolerance": 0
+   },
+   "userImpact": "Negligible on any single value; the harm is that two fields documented as the same number are off by one on a third of the board, which wastes investigation time.",
+   "blastRadius": {
+    "playersAffected": 280,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F11",
+    "relation": "confirmed",
+    "note": "Reproduced and counted: 280 rows on the 2026-08-04 board."
+   },
+   "whatWorks": "",
+   "rootCause": "`int()` used where `round()` is used two dozen lines earlier for the same quantity.",
+   "requiredRepair": "`derived = int(round(norm_val))`. Expect a 1-point change on 280 rows and update any golden fixture that pins them.",
+   "dependencies": "",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F011",
+   "title": "`valueContributionPath` is derived from registry membership rather than the branch taken, so a source suppressed by the D-1 escalation would be mislabelled on every row",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Core value blend \u2014 audit stamps",
+   "surface": {
+    "routes": [
+     "/api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "7719-7724"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "7597-7621"
+    }
+   ],
+   "claimUnderTest": "`meta['valueContributionPath']` records which path produced this source's contribution.",
+   "observed": "The stamp is `'value_direct' if source_key in _VALUE_BASED_SOURCES and value_source_max.get(source_key,0) > 0 else 'rank_hill'` \u2014 it never consults `value_range_suppressed` (D-1 escalation C) and never consults whether the row's own raw value fell through to the Hill fallback. On the 2026-08-04 board the mislabel does not occur: all 1,195 `value_direct`-stamped votes have a positive raw site value and no source is suppressed. It is latent, not live \u2014 but the whole point of the D-1 escalation is that the operator learns a vendor changed scale, and the field they would look at would lie.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 -c \"import json;p=json.load(open('/tmp/full.json'));bad=[(r['canonicalName'],k) for r in p['playersArray'] for k,m in (r.get('sourceRankMeta') or {}).items() if m.get('valueContributionPath')=='value_direct' and not ((r.get('canonicalSiteValues') or {}).get(k) or 0)>0];print(len(bad))\"",
+    "expected": "0 today (no source suppressed); the code path is still wrong",
+    "actual": "0 mislabelled rows on this board; stamp logic does not read value_range_suppressed",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "value_direct_stamped_votes": 1195,
+     "mislabelled_today": 0
+    },
+    "formula": "count of value_direct stamps whose raw site value is missing or <= 0",
+    "expected": 0,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "None today. If a vendor rescales, the diagnostic that exists to surface it reports the wrong path.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F10",
+    "relation": "partial",
+    "note": "The code defect is confirmed by reading, but it is NOT reproducible in the live payload \u2014 0 of 1,195 value_direct stamps are wrong on the 2026-08-04 board. Recording it as latent rather than active."
+   },
+   "whatWorks": "The D-1 range guard itself is sound and no source is currently out of range.",
+   "rootCause": "Stamp computed from registry membership, not from the local branch variable.",
+   "requiredRepair": "Set the path from the branch actually taken inside the if/elif that computes `value`.",
+   "dependencies": "",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F012",
+   "title": "The blend is exactly reproducible and deterministic: an independent reimplementation matches `_blendedValueUncapped` on 800/800 rows and two in-process rebuilds hash identically",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Core value blend \u2014 determinism",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/rankings/overrides"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "6770-8516"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: the Final Framework's stated stage list (Hampel -> anchor/subgroup -> alpha=0.10 -> count-aware aggregation -> lambda*MAD retired at 0 -> single-source haircut 0.30) is what actually runs, and the pipeline is deterministic.",
+   "observed": "A clean-room reimplementation of exactly those stages, fed only the stamped per-source `valueContribution` values, reproduces `_blendedValueUncapped` on 800/800 rows with zero deviation > 1, `droppedSources` on 800/800 rows, `anchorValue` on 800/800 and `subgroupBlendValue` on 800/800. Two calls to `build_api_data_contract` on the same raw payload hash identically once the `rankChange` snapshot side-effect is excluded, and the in-process rebuild matches the SERVED contract's `rankDerivedValue` on 1,092/1,092 rows. Three CLAUDE.md claims fall out of this as proven: the retired lambda*MAD penalty touches nothing (the reimplementation applies no penalty and still matches exactly), `softFallbackCount` touches nothing (the reimplementation uses covered sources only), and alpha-shrinkage applies to IDP + pick rows only (offense rows stamp alphaShrinkage 0.0 and match the flat blend).",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 docs/master-site-audit/evidence/W02/repro_blend.py && python3 docs/master-site-audit/evidence/W02/rebuild_determinism.py",
+    "expected": "0 mismatches; identical hashes",
+    "actual": "0 mismatches on 800 rows; hash A == hash B == 0f5721cd5ce7bf338b2fd37f93f45ffca9a2611c4c6323bb4f23257a8dcc5dd0",
+    "artifact": "docs/master-site-audit/evidence/W02/repro_blend.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "rowsCompared": 800
+    },
+    "formula": "|reimplementation - _blendedValueUncapped| > 1",
+    "expected": 0,
+    "actual": 0,
+    "tolerance": 1
+   },
+   "userImpact": "None \u2014 this is the load-bearing positive result the rest of the workstream's numeric claims rest on.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding asserted or refuted end-to-end reproducibility."
+   },
+   "whatWorks": "Hampel, anchor/subgroup split, alpha-shrinkage, count-aware aggregation, the single-source haircut and the ordering are all exactly as documented.",
+   "rootCause": "",
+   "requiredRepair": "None.",
+   "dependencies": "",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F013",
+   "title": "Single-source haircut, TE basis conversion, pick tethering and board coherence all verified exact on the live board",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Core value blend \u2014 post-blend stages",
+   "surface": {
+    "routes": [
+     "/api/data"
+    ],
+    "pages": [
+     "/rankings",
+     "/draft",
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "7982-7987"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "6059-6133"
+    },
+    {
+     "path": "src/league_intel/te_premium.py",
+     "lines": "355-409"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "6292-6374"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md steps 9, 5a, 13: the 30% single-source retention, TE basis conversion applied exactly once with KTC exempt, and current-year slot picks tethered to the merged rookie pool.",
+   "observed": "Single-source haircut: 35 rows carry `singleSourceValuePenaltyApplied` and all 35 have `_blendedValueUncapped == round(0.30 * anchorValue)` exactly; no pick row is haircut (correct \u2014 picks are exempt). TE basis conversion: 536 non-value-direct TE votes were converted, and recomputing `_te_lift_under_ceiling(convert_te_value(percentile_to_value(p), 'base', 'tepp'))` from the stamped percentile reproduces the stamped contribution on 536/536; zero rows carry BOTH `tepBoostApplied` and `tepNativeCorrectionApplied`; `ktcSfTep` carries neither on all 73 of its TE rows. Only 3 votes (all Brock Bowers at source rank 8) saturate the 9,999 soft knee, and they are genuinely tied. The resulting TE board sits at median 0.943 of KTC's own TE++ values versus 0.920 for non-TE offense \u2014 a 2.5-point residual, i.e. the alignment lands where it claims to. Pick tethering: all 72 current-year slot picks equal the ((round-1)*12+slot)-th rookie's pool value exactly, 0 mismatches, and none of them is also discounted. Board coherence: 740 contiguous ranks 1..740, 0 rank/value inversions, all values inside (0, 9999], values.full == rankDerivedValue on 1,092/1,092 rows.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 -c \"import json;p=json.load(open('/tmp/full.json'));ss=[r for r in p['playersArray'] if r.get('singleSourceValuePenaltyApplied')];print(len(ss),sum(1 for r in ss if abs(round(0.30*(r['anchorValue'] if r.get('anchorValue') is not None else r['subgroupBlendValue']))-r['_blendedValueUncapped'])<=1))\"",
+    "expected": "35 35",
+    "actual": "35 35",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Avieon Terrell",
+     "singleSourceContribution": 1744,
+     "retention": 0.3
+    },
+    "formula": "blended = contribution * 0.30",
+    "expected": 523,
+    "actual": 523,
+    "tolerance": 1
+   },
+   "userImpact": "None \u2014 these stages behave as documented.",
+   "blastRadius": {
+    "playersAffected": 643,
+    "routesAffected": 1,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Positive verification of the stages the prompt asked to be tested; no prior finding contested them."
+   },
+   "whatWorks": "Haircut arithmetic, the TE double-count guard (structural, via from_basis==to_basis), the rookie tether, and rank/value monotonicity on the published board.",
+   "rootCause": "",
+   "requiredRepair": "None.",
+   "dependencies": "",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W02-F014",
+   "title": "Missing data abstains rather than defaulting: the only fabricated values on the board are the 12 synthetic 2029 picks, and their provenance is disclosed in the payload and rendered",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Core value blend \u2014 abstention posture",
+   "surface": {
+    "routes": [
+     "/api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "4426-4503"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "7803-7826"
+    },
+    {
+     "path": "frontend/app/rankings/board-sections.jsx",
+     "lines": "233-236"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: soft fallbacks are diagnostics-only and never touch the math; missing data is never imputed into a normal-looking value.",
+   "observed": "280 of 1,092 rows publish `rankDerivedValue: null` rather than a floor value. The soft-fallback count is stamped but provably unused (the clean-room reimplementation using covered sources only matches on 800/800 rows). The value-direct branch's fallback to the Hill curve only fires for a source that DID rank the player, so it is not imputation. The one genuine fabrication is `_inject_far_future_pick_sources`: 12 '2029 ...' rows are verbatim clones of the 2028 rows' per-source values (2029 Early 1st carries idpTradeCalc 5034, identical to 2028 Early 1st) multiplied by 0.53. Those rows are ranked and visible (2029 Early 1st at rank 207, value 2668). They are, however, honestly labelled: `confidenceLabel: 'Low \u2014 single pick source'`, `isSingleSource: true`, and `sourceAudit.allowlistReason` reads 'synthetic_far_future_tier: no vendor prices picks this far out; cloned from the nearest published year and year-discounted' \u2014 which `board-sections.jsx:233` renders. Side-effect worth noting: the clone loses `ktcSfTep` (present on 2028, absent on 2029), so the only surviving vote is idpTradeCalc.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 -c \"import json;p=json.load(open('/tmp/full.json'));[print(r['canonicalName'],r['canonicalSiteValues'],r['rankDerivedValue'],(r.get('sourceAudit') or {}).get('allowlistReason')) for r in p['playersArray'] if r['canonicalName'] in ('2028 Early 1st','2029 Early 1st')]\"",
+    "expected": "2029 values are clones of 2028 x 0.53 and carry a disclosure",
+    "actual": "2029 Early 1st: idpTradeCalc 5034 (== 2028's), rdv 2668 == round(5034*0.53), allowlistReason present",
+    "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "clonedAnchorValue": 5034,
+     "discount": 0.53
+    },
+    "formula": "5034 * 0.53",
+    "expected": 2668,
+    "actual": 2668,
+    "tolerance": 1
+   },
+   "userImpact": "A user pricing a 2029 pick is looking at an invented number, but the page tells them so.",
+   "blastRadius": {
+    "playersAffected": 12,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A11-F08",
+    "relation": "partial",
+    "note": "The clone-and-re-discount mechanism is CONFIRMED exactly. The prior's 'presented identically to market-priced rows' is REFUTED at HEAD: the rows carry isSingleSource, a 'Low \u2014 single pick source' confidence label, and a rendered allowlistReason naming the synthesis. What remains unflagged is that the clone silently drops the ktcSfTep vote."
+   },
+   "whatWorks": "Abstention is the default everywhere else on the board; the one exception is labelled.",
+   "rootCause": "",
+   "requiredRepair": "Carry `ktcSfTep` through the far-future clone so 2029 rows are 2-source like the 2028 rows they copy.",
+   "dependencies": "",
+   "workstream": "W02",
+   "promptSections": [
+    7,
+    9
+   ]
+  },
+  {
+   "id": "W03-F001",
+   "workstream": "W03",
+   "promptSections": [
+    7,
+    11
+   ],
+   "title": "The board /rankings renders is not the board GET /api/data serves: the stock frontend body {\"tep_multiplier\":1.15} changes 627 of 740 ranks and 654 tiers while the response stamps isCustomized:false",
+   "status": "Implemented but defective",
+   "priority": "P0",
+   "size": "M",
+   "subsystem": "Rankings override delta view",
+   "surface": {
+    "routes": [
+     "POST /api/rankings/overrides?view=delta",
+     "GET /api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": [
+     "RISKIT_FEATURE_TE_BASIS_CONVERSION"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "3832,3929-3938"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "2445-2500"
+    },
+    {
+     "path": "src/league_intel/te_premium.py",
+     "lines": "355-395"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'Custom source configurations flow through the SAME canonical pipeline as the default board'; the delta is described as 'only the override-sensitive fields' merged onto the cached base, and rankingsOverride.isCustomized reports whether the board was customised.",
+   "observed": "A live browser load of http://127.0.0.1:3000/rankings POSTs {\"tep_multiplier\":1.15} (the /settings default) to /api/rankings/overrides?view=delta. That response is a materially different board from GET /api/data: 627 of 740 canonicalConsensusRank values differ, 654 canonicalTierId values differ, 135 rankDerivedValue values differ (82 TE, 50 PICK, 3 other) \u2014 yet rankingsOverride.isCustomized is false and no field on the response says the board diverged. Cause: an explicit tep_multiplier bypasses the measured base->tepp TE basis curve (ADR-015, 1.209 at the top rising toward 2.05 down the board) and substitutes a flat 1.15 \u2014 the exact constant ADR-015 removed for sitting below the entire observed range. Deep TEs lose up to 21% of value and ~200 ranks. The server-side engines (trade suggestions, finder, angles, terminal, simulate) all read latest_contract_data, i.e. the GET /api/data board \u2014 so the page and the advice disagree by construction.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt -X POST 'http://127.0.0.1:8000/api/rankings/overrides?view=delta' -H 'Content-Type: application/json' -d '{\"tep_multiplier\":1.15}' -o /tmp/tep.json; .venv/bin/python docs/master-site-audit/evidence/W03/delta_rt.py  # and see tep-board-divergence.json",
+    "expected": "delta ranks/tiers/values identical to GET /api/data when isCustomized is false, or isCustomized:true plus a stated reason",
+    "actual": "627 rank / 654 tier / 135 value divergences with isCustomized:false",
+    "artifact": "docs/master-site-audit/evidence/W03/tep-board-divergence.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Tyler Conklin (TE)",
+     "getRank": 469,
+     "getValue": 1450,
+     "pageRank": 666,
+     "pageValue": 1142,
+     "tep_multiplier": 1.15,
+     "measuredTeppUpliftAtThisDepth": ">1.15 per ADR-015 curve (1.209 top -> 2.05 deep)"
+    },
+    "formula": "pageValue = blended_TE_value_on_base_basis * flat_tep_multiplier  (explicit slider bypasses convert_te_value base->tepp)",
+    "expected": 1450,
+    "actual": 1142,
+    "tolerance": 1
+   },
+   "userImpact": "A manager reads Tyler Conklin at #666 / 1,142 on /rankings, then opens /trade where the engine values him at 1,450 (#469) \u2014 a 21% price difference on the same asset, in the same session, with no label distinguishing the two boards. Every TE trade priced from the rankings page is priced off a board no engine uses.",
+   "blastRadius": {
+    "playersAffected": 786,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A12-F05",
+    "relation": "partial",
+    "note": "A12-F05 identified that a TEP-only body reaches the pipeline as source_overrides=={} (which is how it clears the 'not source_overrides' guard); it framed the consequence as a snapshot write. The board divergence itself and the isCustomized:false mislabel are new."
+   },
+   "whatWorks": "The delta payload is internally consistent with its own view=full sibling \u2014 zero field mismatches across all 1,092 rows and all 43 _DELTA_PLAYER_FIELDS (W03-F002).",
+   "rootCause": "normalize_tep_multiplier extracts tep_multiplier as a reserved top-level knob that normalize_source_overrides deliberately skips, so the body produces source_overrides == {} and rankingsOverride.isCustomized == False, while tep_multiplier is still threaded into build_rankings_delta_payload and does change the board. 'Customised' is defined as 'has source overrides' rather than 'differs from the canonical board'.",
+   "requiredRepair": "Either (a) build the canonical GET /api/data contract with the same default tep_multiplier the frontend posts so the two boards are one board, or (b) stamp isCustomized:true (or a distinct boardVariant/tepMultiplier field) on any response whose tep_multiplier differs from the contract's, and thread the same multiplier into the engine paths. Separately, decide whether the /settings default should be the flat 1.15 that ADR-015 retired.",
+   "dependencies": "Interacts with the value-pipeline workstream (ADR-015 TE basis) and the trade-engine workstream (engine board selection)."
+  },
+  {
+   "id": "W03-F002",
+   "workstream": "W03",
+   "promptSections": [
+    11
+   ],
+   "title": "For one and the same request the delta view round-trips every _DELTA_PLAYER_FIELDS field exactly \u2014 0 mismatches over 1,092 rows x 43 fields, verified with and without a real source override",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Rankings override delta view",
+   "surface": {
+    "routes": [
+     "POST /api/rankings/overrides?view=delta",
+     "POST /api/rankings/overrides?view=full",
+     "GET /api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "9523-9600,9685-9710"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'every field in _DELTA_PLAYER_FIELDS round-trips through a manual merge identically to the full-contract path'.",
+   "observed": "Verified three ways on the live stack. (1) Empty override body: GET /api/data vs POST ?view=full \u2014 0 mismatches on all 43 delta fields across 1,092 rows. (2) Same body, view=delta vs view=full \u2014 0 presence mismatches, 0 value mismatches. (3) Real override disabling ktcSfTep + dlfSf + fantasyCalc \u2014 delta vs full still 0 mismatches. Key sets are identical (1,092 == 1,092). The delta is 3.92 MB vs 11.79 MB full (67% smaller), matching the documented ~70%.",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/evidence/W03/delta_rt.py",
+    "expected": "0 mismatches",
+    "actual": "0 mismatches (all three comparisons)",
+    "artifact": "docs/master-site-audit/evidence/W03/delta_rt.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "rows": 1092,
+     "fields": 43,
+     "comparisons": 3
+    },
+    "formula": "count(full[row][field] != delta[row][field]) over _DELTA_PLAYER_FIELDS",
+    "expected": 0,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "None \u2014 this is a clean bill of health for the delta shape itself.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding disputed the delta round-trip for the fields it carries; the prior findings are about fields it omits (see W03-F003)."
+   },
+   "whatWorks": "The delta field list, the merge key (displayName), and activePlayerIds all behave as documented.",
+   "rootCause": "",
+   "requiredRepair": "",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F003",
+   "workstream": "W03",
+   "promptSections": [
+    11
+   ],
+   "title": "Seven fields change under a source override but are absent from _DELTA_PLAYER_FIELDS; sourceAudit (515 rows) and rankChange (602 rows) reach the UI carrying the default board's answer beside override values",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Rankings override delta view",
+   "surface": {
+    "routes": [
+     "POST /api/rankings/overrides?view=delta"
+    ],
+    "pages": [
+     "/rankings",
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "9523-9600"
+    },
+    {
+     "path": "frontend/lib/dynasty-data.js",
+     "lines": "1703-1735"
+    },
+    {
+     "path": "frontend/lib/rankings-helpers.js",
+     "lines": "109-135"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: view=delta 'returns only the override-sensitive fields per player'.",
+   "observed": "Diffing GET /api/data against POST ?view=full with {ktcSfTep:off, dlfSf:off, fantasyCalc:off}, seven fields change that are NOT in _DELTA_PLAYER_FIELDS: offenseOnlyRankDerivedValue (606 rows), rankChange (602), sourceAudit (515), _blendedValueUncapped (510), pickRookieAnchor (57), singleSourceValuePenaltyApplied (1), twoWayPlayerBoost (1). mergeRankingsDelta copies only the delta entry's own keys onto the cached base row, so all seven keep the default board's values. sourceAudit drives the single-source tooltip (rankings-helpers.js:131 reads row.sourceAudit.reason) and its expectedSources/unmatchedSources are computed without consulting the overrides at all, so a source the user switched OFF is reported as a coverage failure. rankChange drives the movement arrow in the '#' column, the risers/fallers panel and signal-engine's 'rank rising N on the last scrape' text.",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/evidence/W03/delta_rt.py  # section 'FIELDS THAT CHANGE UNDER OVERRIDE BUT ARE NOT IN _DELTA_PLAYER_FIELDS'",
+    "expected": "empty set",
+    "actual": "{offenseOnlyRankDerivedValue:606, rankChange:602, sourceAudit:515, _blendedValueUncapped:510, pickRookieAnchor:57, singleSourceValuePenaltyApplied:1, twoWayPlayerBoost:1}",
+    "artifact": "docs/master-site-audit/evidence/W03/delta_rt.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "override": "ktcSfTep=off, dlfSf=off, fantasyCalc=off",
+     "rowsInContract": 1092
+    },
+    "formula": "count(rows where base[field] != overrideFull[field] and field not in _DELTA_PLAYER_FIELDS)",
+    "expected": 0,
+    "actual": 602,
+    "tolerance": 0
+   },
+   "userImpact": "With custom source weights, a player's movement arrow and Source Audit panel describe the board the user turned off. On view=full (a public API surface) the arrow is worse than stale: it is default-rank minus override-rank, rendered with the aria-label 'moved up N since the previous scrape' when nothing scraped.",
+   "blastRadius": {
+    "playersAffected": 606,
+    "routesAffected": 1,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A12-F06",
+    "relation": "confirmed",
+    "note": "Confirmed at runtime on the live stack. A12-F06 measured 571 rankChange rows on a different override set; I measure 602 on {ktcSfTep,dlfSf,fantasyCalc} off. PRIOR-A12-F07 (sourceAudit, 510 rows) also confirmed \u2014 I measure 515, and confirm expectedSources ignores the override."
+   },
+   "whatWorks": "Every field that IS in the list round-trips exactly (W03-F002).",
+   "rootCause": "_DELTA_PLAYER_FIELDS was curated by hand and has drifted from the set of fields _compute_unified_rankings actually recomputes; nothing tests the complement.",
+   "requiredRepair": "Add the four user-visible ones (rankChange, sourceAudit, pickRookieAnchor, offenseOnlyRankDerivedValue) to _DELTA_PLAYER_FIELDS, and add a test that diffs a default build against an override build and fails on any changed field outside the list. Separately, make _expected_sources_for_position consult source_overrides so a disabled source is not reported as an unmatched one.",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F004",
+   "workstream": "W03",
+   "promptSections": [
+    7
+   ],
+   "title": "confidenceBucket rises when sources disappear: dropping one real source raises the published label on 237 of 679 rows (34.9%), and 'high' is more common at 3 sources (11.1%) than at 4 (2.3%)",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "M",
+   "subsystem": "Confidence buckets",
+   "surface": {
+    "routes": [
+     "GET /api/data",
+     "POST /api/rankings/overrides"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "1892-1922"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "4210-4258"
+    }
+   ],
+   "claimUnderTest": "The contract publishes confidenceBuckets.high = '2+ sources, sourceRankPercentileSpread <= 0.08' and the /rankings column tooltip says 'High / Medium / Low confidence based on how many sources matched and how tightly they agree.'",
+   "observed": "Source count enters the rule only as the gate source_count >= 2; beyond that the label is a pure function of the percentile spread, which is computed ONLY over sources that ranked the player. Removing a source therefore cannot widen the statistic and usually narrows it. Replaying the live board through the production functions _percentile_rank_spread + _compute_confidence_bucket and deleting exactly one real source per row: 237 of 679 rows (34.9%) get a STRICTLY HIGHER label. The board-wide distribution is non-monotone and largely inverted: n=3 -> 11.1% high, n=4 -> 2.3%, n=12 -> 45.8%, n=15 -> 0%. The 5-source trim boundary (_PERCENTILE_SPREAD_TRIM_MIN_N) adds a step discontinuity: 2.3% high at n=4 vs 26.5% at n=5. Two rows both badged 'High' therefore do not mean the same thing, and the tooltip's 'how many sources matched' is not in the formula.",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/evidence/W03/monotone.py",
+    "expected": "0 rows improve when evidence is removed; monotone non-decreasing high-rate vs source count",
+    "actual": "237/679 (34.9%) improve; high-rate n=3 11.1% > n=4 2.3%",
+    "artifact": "docs/master-site-audit/evidence/W03/monotone.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "rowsTested": 679,
+     "scope": "ranked non-pick rows with >=3 effective sources",
+     "example": "Akheem Mesidor: 4 sources, percentileSpread 0.2378 -> 'low'; drop idpShow -> 'high'"
+    },
+    "formula": "bucket = high if n>=2 and pctSpread<=0.08 else medium if n>=2 and pctSpread<=0.20 else low; pctSpread = max-min (trimmed at n>=5) of rawRank/poolSize over PRESENT sources only",
+    "expected": 0,
+    "actual": 237,
+    "tolerance": 0
+   },
+   "userImpact": "A manager filters /rankings to 'High confidence' to find safe trade targets and gets rows that are high precisely because 12 of 14 boards never rated the player. Confidence is being read as evidence strength; it measures only the agreement of whoever showed up.",
+   "blastRadius": {
+    "playersAffected": 237,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A12-F03",
+    "relation": "confirmed",
+    "note": "Confirmed and quantified board-wide: A12-F03 gave named single examples (CJ Donaldson etc.); I measure the rate at 34.9% by replaying the production functions with one source deleted, and add the n=4 vs n=5 trim discontinuity."
+   },
+   "whatWorks": "Every stamped confidenceBucket on the live board reproduces exactly from its own inputs \u2014 0 mismatches over 709 ranked non-pick rows. The rule is implemented as published; the rule itself is the defect.",
+   "rootCause": "Coverage and agreement are collapsed into one label whose only coverage term is a binary n>=2 gate, and the agreement statistic is computed over present sources only. softFallbackCount / sourceAudit.reason (which do know about absent coverage) are never consulted.",
+   "requiredRepair": "Make coverage a first-class term \u2014 e.g. cap the bucket at 'medium' when matchedSources/expectedSources is below a threshold, or publish coverage as a second badge. At minimum, stop claiming 'how many sources matched' in the tooltip while the formula ignores it.",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F005",
+   "workstream": "W03",
+   "promptSections": [
+    7
+   ],
+   "title": "confidenceBucket is agreement about RANK ORDER, not about the value it is rendered beside: 21 of 89 'high' rows have per-source value dispersion above 30% of the published value (worst 76%)",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Confidence buckets",
+   "surface": {
+    "routes": [
+     "GET /api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "1892-1922,8212-8224"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "7924-7960"
+    }
+   ],
+   "claimUnderTest": "The Confidence badge sits in the same table row as the VALUE column and is read as 'how sure are we about this number'.",
+   "observed": "The bucket's input is sourceRankPercentileSpread (rawRank/poolSize space). The number the badge sits beside is rankDerivedValue, blended from sourceRankMeta[k].valueContribution. The row already carries the value-space statistic \u2014 hillValueSpread, the stdev of those contributions \u2014 and it is never consulted. On the live board, of 89 ranked non-pick rows badged 'high', 21 (23.6%) have hillValueSpread/rankDerivedValue > 0.30. Worst: Jadon Canady, value 871, hillValueSpread 665.4 = 76% relative dispersion, badged High on 2 sources. Medians do separate correctly by bucket (high 0.072 / medium 0.130 / low 0.196), so the signal is directionally real \u2014 the tail is what is mislabelled.",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/evidence/W03/final.py  # section B",
+    "expected": "'high' implies tight value agreement",
+    "actual": "21/89 high rows exceed 30% relative value dispersion",
+    "artifact": "docs/master-site-audit/evidence/W03/final.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Jadon Canady",
+     "rankDerivedValue": 871,
+     "hillValueSpread": 665.4,
+     "effectiveSources": 2,
+     "confidenceBucket": "high"
+    },
+    "formula": "relativeValueDispersion = hillValueSpread / rankDerivedValue",
+    "expected": "<=0.30 for a 'high' badge",
+    "actual": 0.764,
+    "tolerance": 0.0
+   },
+   "userImpact": "A user sizing a trade around a 'High confidence' 871 is looking at sources that priced the player anywhere from ~200 to ~1,540. The badge suppresses exactly the uncertainty a trade needs.",
+   "blastRadius": {
+    "playersAffected": 21,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A12-F04",
+    "relation": "confirmed",
+    "note": "Confirmed; my denominator differs (89 high rows on this build vs 107 on theirs) so the rate is 23.6% vs 18.7%, same defect."
+   },
+   "whatWorks": "hillValueSpread is stamped on 895 rows and is a correct stdev of the value contributions \u2014 the value-space statistic already exists.",
+   "rootCause": "The bucket was migrated from ordinal spread to percentile spread to fix a depth-comparability problem, but neither version was ever in value space, and the row's own value-space statistic post-dates the rule.",
+   "requiredRepair": "Add a value-space guard: demote to 'medium' (or publish a second axis) when hillValueSpread/rankDerivedValue exceeds a stated threshold. Pin the threshold in tests.",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F006",
+   "workstream": "W03",
+   "promptSections": [
+    7
+   ],
+   "title": "marketGapDirection averages ordinal ranks across source pools of 169-903 rows; 55.4% of offense rows and 95.8% of pick rows carry the OPPOSITE label under pool normalization, and Calvin Ridley renders BUY on /rankings because of it",
+   "status": "Implemented but defective",
+   "priority": "P0",
+   "size": "M",
+   "subsystem": "Market gap / edge signal",
+   "surface": {
+    "routes": [
+     "GET /api/data",
+     "POST /api/rankings/overrides"
+    ],
+    "pages": [
+     "/rankings",
+     "/trade",
+     "/edge"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "3006-3057"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "4210-4235"
+    },
+    {
+     "path": "frontend/lib/display-helpers.js",
+     "lines": "106-165"
+    },
+    {
+     "path": "frontend/lib/trade-logic.js",
+     "lines": "960-1000"
+    }
+   ],
+   "claimUnderTest": "marketGapDirection/Magnitude 'quantify the disagreement between retail and expert consensus' and drive the /rankings EDGE column plus the trade page's BUY/SELL signal.",
+   "observed": "_compute_market_gap takes the arithmetic mean of retail ranks and of consensus ranks and subtracts them \u2014 raw ordinals, no pool normalization. The same module's _percentile_rank_spread docstring states this is invalid: 'an effective spread of 100 doesn't mean the sources disagree, it means one is on a 1-185 scale and the other is on a 1-600 scale.' Live pool sizes: dlfIdp 169, dlfSf 278, ktcSfTep 499, idpTradeCalc 903. Recomputing the same comparison in percentile space (rawRank/poolSize, exactly what the sibling function uses) flips the direction on 214 of 386 offense rows (55.4%) and 23 of 24 pick rows (95.8%). Confirmed in the live DOM: Calvin Ridley renders EDGE = BUY on http://127.0.0.1:3000/rankings. Separately, all 293 ranked IDP rows carry direction 'none' because KTC publishes no defenders, so the EDGE column is permanently blank for 40% of the board (honestly, but the column has no coverage note). frontend/lib/display-helpers.js::marketEdge recomputes the identical ordinal-mean logic client-side, so the frontend mirrors rather than checks the backend.",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/evidence/W03/gapbias.py; .venv/bin/python docs/master-site-audit/evidence/W03/final.py  # section C",
+    "expected": "direction stable under pool normalization",
+    "actual": "237/410 rows overall flip; offense 214/386 (55.4%), picks 23/24 (95.8%)",
+    "artifact": "docs/master-site-audit/evidence/W03/gapbias.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Calvin Ridley",
+     "ktcSfTep": {
+      "rawRank": 325,
+      "pool": 499,
+      "pct": 0.6513
+     },
+     "consensusOrdinalMean": 269.7692,
+     "consensusPercentileMean": 0.6616,
+     "retailOrdinal": 325
+    },
+    "formula": "ordinal: diff = consensusMean - retailMean = 269.769 - 325 = -55.23 -> consensus_premium (BUY). percentile: 0.6616 - 0.6513 = +0.0103 -> retail_premium (the opposite).",
+    "expected": "retail_premium",
+    "actual": "consensus_premium",
+    "tolerance": 0.0
+   },
+   "userImpact": "A manager opens /rankings, sees Calvin Ridley flagged BUY (\"experts value him above retail \u2014 buy low from a retail-first partner\"), and offers for a player the retail market actually prices ABOVE the expert consensus. The same field drives getPlayerEdge on /trade, the buy/sell advanced filter and the EdgeRail. No caveat is shown.",
+   "blastRadius": {
+    "playersAffected": 237,
+    "routesAffected": 2,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A12-F00",
+    "relation": "confirmed",
+    "note": "Confirmed independently on the live stack with a new worked example (Calvin Ridley) and live DOM proof of the rendered BUY badge. My rates: offense 55.4% (prior 47%), picks 95.8% (prior 97%)."
+   },
+   "whatWorks": "marketGapDirection/Magnitude reproduce exactly from effectiveSourceRanks \u2014 0 mismatches over 740 ranked rows. The arithmetic is right; the inputs are incommensurable.",
+   "rootCause": "_compute_market_gap predates the percentile-normalisation work that fixed the same class of bug in _percentile_rank_spread, and was never revisited when the source registry grew from 3 similar-depth boards to 21 boards spanning 169-903 rows.",
+   "requiredRepair": "Normalise both sides by each source's own pool size before differencing (reuse the pool-size map _percentile_rank_spread already builds), re-express marketGapMagnitude in percentile points, and re-derive MARKET_GAP_MIN_DIFF / MIN_EDGE_RANK_GAP for the new units. Update frontend/lib/display-helpers.js::marketEdge in lockstep or delete it in favour of the backend stamp.",
+   "dependencies": "Blocks any re-tuning of MARKET_GAP_MIN_DIFF; touches the same effectiveSourceRanks map as W03-F004."
+  },
+  {
+   "id": "W03-F007",
+   "workstream": "W03",
+   "promptSections": [
+    7
+   ],
+   "title": "127 tiers on a 740-row board, and 100% of the 122 detected boundaries are a smaller value drop than the adjacent rows' own source disagreement (93.4% are inside the standard error)",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Tiering",
+   "surface": {
+    "routes": [
+     "GET /api/data"
+    ],
+    "pages": [
+     "/rankings",
+     "/draft"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "2005-2043,2069-2145"
+    },
+    {
+     "path": "src/canonical/player_valuation.py",
+     "lines": "49-50,239"
+    },
+    {
+     "path": "frontend/lib/rankings-helpers.js",
+     "lines": "19-24"
+    }
+   ],
+   "claimUnderTest": "src/api/data_contract.py:2137-2140: 'Tiers land where the per-player value gap is unusually large relative to the local rolling-median gap: a 400-point drop from rank 12->13 is a boundary; a 3-point drop from 312->313 is not.'",
+   "observed": "detect_tiers normalises each gap by a local rolling median and breaks at score >= 2.0, which is scale-free \u2014 so boundaries fire at the same RATE at every depth regardless of how small the absolute drop is. Live: 127 tiers over 740 ranked rows, min tier size 3, max 14. Boundary raw gaps: min 1.0, median 8.0, max 370.0 on a 0-9999 scale. Eight boundaries are a 1-point drop (e.g. Upton Stout -> DeShon Elliott, gap 1.0, score 3.00) \u2014 a case the docstring says explicitly must not be a boundary. Cross-checked against the rows' own uncertainty: 122 of 122 boundaries have a gap smaller than max(sourceSpread) of the two adjacent rows (median sourceSpread on the board is 223.6), and 114 of 122 (93.4%) are smaller than max(hillValueSpread/sqrt(n)), the standard error of the blend. Tiers reproduce deterministically (0 mismatches re-running detect_tiers on the payload), so this is a methodology defect, not a bug.",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/evidence/W03/tiers.py; .venv/bin/python docs/master-site-audit/evidence/W03/tierprec.py",
+    "expected": "boundaries at genuine value cliffs, i.e. gaps large relative to measurement noise",
+    "actual": "127 tiers; median boundary gap 8.0 vs median sourceSpread 223.6; 122/122 boundaries inside adjacent-row spread; 114/122 inside SEM",
+    "artifact": "docs/master-site-audit/evidence/W03/tierprec.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "boundary": "Tee Higgins -> Baker Mayfield",
+     "rawGap": 67.0,
+     "semAbove": 72.3,
+     "semBelow": 94.9,
+     "boardScale": 9999
+    },
+    "formula": "isMeaningful = rawGap > max(hillValueSpread/sqrt(n)) for the two adjacent rows",
+    "expected": "rawGap > 94.9",
+    "actual": 67.0,
+    "tolerance": 0.0
+   },
+   "userImpact": "A manager treats 'Tier 63' and 'Tier 64' as a real quality break and refuses a trade across it, when the two players are separated by less than the noise in their own valuations. Tier is also a filter facet on /rankings (tier: exact match), so users can slice the board on a distinction that does not exist.",
+   "blastRadius": {
+    "playersAffected": 740,
+    "routesAffected": 1,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A12-F01",
+    "relation": "confirmed",
+    "note": "Confirmed exactly (127 tiers, median boundary 8.0). New: the comparison against the rows' own sourceSpread and standard error \u2014 122/122 and 114/122 respectively \u2014 which shows the boundaries are inside measurement noise, not merely small."
+   },
+   "whatWorks": "compact_ranks_and_tiers is genuinely the one ranker: ranks are contiguous 1..740, value is monotone non-increasing along rank with 0 inversions, and re-running detect_tiers on the served values reproduces every canonicalTierId exactly.",
+   "rootCause": "A scale-free gap detector with a fixed score threshold and no absolute-magnitude floor, applied to a series whose per-point uncertainty is roughly 30x the median detected gap.",
+   "requiredRepair": "Add an absolute floor (or an uncertainty-relative floor using the hillValueSpread already on each row) to detect_tiers before a break is accepted, and cap the tier count to something a user can reason about. Pin both in tests.",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F008",
+   "workstream": "W03",
+   "promptSections": [
+    7
+   ],
+   "title": "marketConfidence is structurally confined to [0.20, 0.594] because its site-count term divides by 8 while the scraper only ever sees 3 sources; 376 of 840 rows carry the identical value 0.48",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "marketConfidence",
+   "surface": {
+    "routes": [
+     "GET /api/data",
+     "POST /api/rankings/overrides"
+    ],
+    "pages": [
+     "/terminal"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "Dynasty Scraper.py",
+     "lines": "6081-6086,6270-6282"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "8833"
+    },
+    {
+     "path": "frontend/lib/dynasty-data.js",
+     "lines": "1054-1056,1232-1234"
+    }
+   ],
+   "claimUnderTest": "marketConfidence is stamped on the contract as a 0-1 confidence number and materialized onto every board row as row.confidence.",
+   "observed": "conf = clamp(0.65*clamp(siteCount/8, 0.20, 1.00) + 0.35*clamp(1 - min(cv,0.35)/0.35, 0.20, 1.00), 0.20, 1.00). siteCount counts only the scraper's own numeric dash keys \u2014 ktc, ktcSfTep, idpTradeCalc \u2014 so siteCount <= 3, siteScore <= 0.375, and conf <= 0.375*0.65 + 1.0*0.35 = 0.59375. Measured on the live payload: 840 rows, min 0.3457, max 0.5938 (equals the theoretical cap to four decimals), and 376 rows at exactly 0.48 \u2014 the value produced by siteCount=1 with perfect agreement. The other 12-18 sources that actually drive rankDerivedValue arrive via CSV enrichment AFTER the scraper's composite and are invisible to this statistic; a row with sourceCount 14 and a row with sourceCount 1 can both read 0.48. It is also listed in _DELTA_PLAYER_FIELDS as if a source override could move it, which it cannot.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt 'http://127.0.0.1:8000/api/data' | .venv/bin/python -c \"import json,sys,collections; d=json.load(sys.stdin); mc=[r['marketConfidence'] for r in d['playersArray'] if r.get('marketConfidence') is not None]; print(len(mc), min(mc), max(mc), collections.Counter(mc).most_common(3))\"",
+    "expected": "a 0-1 statistic that uses the full range",
+    "actual": "n=840, min 0.3457, max 0.5938, 376 rows at 0.48",
+    "artifact": "docs/master-site-audit/evidence/W03/idc.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Josh Allen",
+     "scraperSiteCount": 3,
+     "cv": 0.0,
+     "contractSourceCount": 14
+    },
+    "formula": "0.65*clamp(3/8,0.2,1.0) + 0.35*clamp(1-min(0,0.35)/0.35,0.2,1.0) = 0.65*0.375 + 0.35*1.0",
+    "expected": 0.59375,
+    "actual": 0.5938,
+    "tolerance": 0.0001
+   },
+   "userImpact": "Any surface that thresholds this field treats the whole board as mid-confidence. The one consumer that did (terminal's low_conf_unstable at <0.35) was retired for exactly this reason, so today the field is shipped on 840 rows and read for nothing \u2014 dead weight in the payload with a misleading name.",
+   "blastRadius": {
+    "playersAffected": 840,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A09-F04",
+    "relation": "confirmed",
+    "note": "Confirmed to four decimals on this build (max 0.5938 == theoretical cap). PRIOR-A12-F16 also confirmed: 376 rows at 0.48 (prior said 375), and the field is indeed in _DELTA_PLAYER_FIELDS."
+   },
+   "whatWorks": "The formula reproduces exactly from the scraper inputs; nothing is miscomputed.",
+   "rootCause": "A /8.0 divisor sized for a ~10-scraper-source era, never updated when source ingestion moved to post-scrape CSV enrichment.",
+   "requiredRepair": "Either recompute it from the contract's real sourceCount after enrichment, or delete the field and the row.confidence materializer. Keeping a 0-1-shaped field that cannot exceed 0.594 is worse than not shipping it.",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F009",
+   "workstream": "W03",
+   "promptSections": [
+    7
+   ],
+   "title": "identityConfidence is a four-valued proxy for 'does this row have a Sleeper ID' presented as a 0-1 score; 937 of 1,092 rows score 1.00 without any name, position or source evidence being checked, and the 0.85 branch never fires",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "S",
+   "subsystem": "Identity confidence",
+   "surface": {
+    "routes": [
+     "GET /api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "3074-3117"
+    },
+    {
+     "path": "frontend/lib/dynasty-data.js",
+     "lines": "1151,1295"
+    }
+   ],
+   "claimUnderTest": "Docstring: 'Score how confident we are that this row represents the right entity. 1.00 \u2014 has a non-empty playerId'.",
+   "observed": "has_id short-circuits before every other check, so a row with a Sleeper ID and a flat position/source contradiction still scores 1.00. Live distribution over 1,092 rows: 1.00 x937 (exactly the 937 rows with a non-empty playerId), 0.95 x144 (picks, via the asset_class=='pick' short-circuit), 0.70 x11. The 0.85 'partial_evidence' branch fires zero times. Reproduced exactly with the production function \u2014 0 mismatches \u2014 so the number is faithfully computed; it just measures ID presence rather than match correctness, while the join that attaches 19 of 21 sources' votes runs on a normalized NAME key.",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/evidence/W03/idc.py",
+    "expected": "a graded score reflecting match evidence",
+    "actual": "{1.0: 937, 0.95: 144, 0.7: 11}; rows with a playerId = 937; 0.85 branch count = 0",
+    "artifact": "docs/master-site-audit/evidence/W03/idc.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "rows": 1092,
+     "rowsWithPlayerId": 937,
+     "rowsAt1.00": 937
+    },
+    "formula": "count(identityConfidence == 1.00) vs count(playerId non-empty)",
+    "expected": "different if any evidence beyond ID presence is used",
+    "actual": "identical (937 == 937)",
+    "tolerance": 0
+   },
+   "userImpact": "Low today \u2014 no user-facing surface renders it. It is a trap for the next consumer: a filter on 'identityConfidence >= 0.95' would admit every mis-joined row that happens to carry an ID.",
+   "blastRadius": {
+    "playersAffected": 937,
+    "routesAffected": 1,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A12-F17",
+    "relation": "confirmed",
+    "note": "Confirmed exactly (937/144/11, 0.85 dead). PRIOR-A24-F02 also confirmed: 937/1092 = 85.8% at 1.00 on ID presence alone."
+   },
+   "whatWorks": "The function is deterministic and reproduces from the row verbatim; identityMethod honestly names the branch ('canonical_id'), so the provenance is at least legible.",
+   "rootCause": "ID presence is used as a stand-in for join correctness, but the source join is name-keyed, so the ID is not the thing that was matched.",
+   "requiredRepair": "Either rename the field to identityKeyKind (a categorical, not a score) or make 1.00 require ID presence AND position/source agreement, so it grades the join that actually happened.",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F010",
+   "workstream": "W03",
+   "promptSections": [
+    11
+   ],
+   "title": "POST /api/rankings/overrides rewrites the shared canonical rank snapshot on the stock frontend body, so every /rankings page load overwrites the baseline that the next scrape's rankChange arrows are measured against",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "rankChange snapshot",
+   "surface": {
+    "routes": [
+     "POST /api/rankings/overrides"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "4966-5019,8393-8401"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "2445-2460"
+    }
+   ],
+   "claimUnderTest": "_stamp_rank_changes docstring: 'write_snapshot=False is used on override / delta-payload builds so a user toggling sources on /settings doesn't clobber the canonical-board snapshot the scheduled scrape writes.'",
+   "observed": "The guard is write_snapshot=not source_overrides. normalize_source_overrides skips reserved top-level knobs, so the stock frontend body {\"tep_multiplier\":1.15} yields source_overrides == {} \u2014 falsy \u2014 and the write happens. Verified live: md5 of data/snapshots/ranks_last.json changed from daa852fbd3babbed607bcb75a92a3388 to bf80856573367183427d889716823bc4 (size 14668 -> 14666) after one POST with that body. The ranks written are the TEP-1.15 board's ranks (W03-F001), which the canonical build never produces \u2014 so after any page load the next scrape's rankChange is default-vs-TEP contamination on top of any real day-over-day move. The delta path has the same hole: _for_delta exists but is not consulted at this call site.",
+   "reproduction": {
+    "command": "md5sum data/snapshots/ranks_last.json; curl -s -b /tmp/audit-cookies.txt -X POST 'http://127.0.0.1:8000/api/rankings/overrides?view=delta' -H 'Content-Type: application/json' -d '{\"tep_multiplier\":1.15}' -o /dev/null; sleep 1; md5sum data/snapshots/ranks_last.json",
+    "expected": "identical md5 (a read endpoint must not write the canonical baseline)",
+    "actual": "md5 changes on every call",
+    "artifact": "docs/master-site-audit/evidence/W03/tep-board-divergence.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "before": "daa852fbd3babbed607bcb75a92a3388 (14668 bytes)",
+     "after": "bf80856573367183427d889716823bc4 (14666 bytes)",
+     "body": "{\"tep_multiplier\":1.15}"
+    },
+    "formula": "write_snapshot = not source_overrides; normalize_source_overrides({'tep_multiplier':1.15}) == {} -> falsy -> write",
+    "expected": 0,
+    "actual": 1,
+    "tolerance": 0
+   },
+   "userImpact": "The up/down arrows in the '#' column, the Movers panel and signal-engine's 'rank rising N on the last scrape' are all measured against a baseline that any anonymous page load can overwrite with a different board's ranks. In a multi-user deployment the arrows are effectively non-deterministic.",
+   "blastRadius": {
+    "playersAffected": 740,
+    "routesAffected": 1,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A12-F05",
+    "relation": "confirmed",
+    "note": "Confirmed at runtime with a before/after md5 on the live stack; the prior audit reasoned it from the code path only. New detail: the ranks written are the divergent TEP board's, not the canonical board's."
+   },
+   "whatWorks": "The write is atomic-ish and non-fatal on failure; the canonical scrape path does write the right thing when it is the last writer.",
+   "requiredRepair": "Gate on the request kind, not on the truthiness of source_overrides: pass write_snapshot=False from every /api/rankings/overrides path (and from delta builds) explicitly, and assert in a test that the file's mtime is unchanged by a POST.",
+   "rootCause": "A guard written as 'no overrides means this is the canonical build' when 'no SOURCE overrides' and 'is the canonical build' are different predicates.",
+   "dependencies": "Note for the audit itself: AUDIT_PROTOCOL.md lists /api/rankings/overrides among 'pure read' endpoints safe to POST. It is not \u2014 probing it mutates data/snapshots/ranks_last.json (gitignored runtime state, not a tracked file)."
+  },
+  {
+   "id": "W03-F011",
+   "workstream": "W03",
+   "promptSections": [
+    7
+   ],
+   "title": "/api/movers and /api/data/rank-history return empty because data/rank_history.jsonl does not exist; the log is written only on a fresh-scrape promotion",
+   "status": "Blocked by data",
+   "priority": "P2",
+   "size": "XS",
+   "subsystem": "Rank history / movers",
+   "surface": {
+    "routes": [
+     "GET /api/movers",
+     "GET /api/data/rank-history"
+    ],
+    "pages": [
+     "/terminal",
+     "/trending",
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/rank_history.py",
+     "lines": "74"
+    },
+    {
+     "path": "server.py",
+     "lines": "1866-1876,3416-3432"
+    }
+   ],
+   "claimUnderTest": "/api/movers returns buy-low/sell-high signals from rank history; RankChangeGlyph renders a sparkline from row.rankHistory.",
+   "observed": "GET /api/movers -> {\"window\":0,\"windowRequested\":14,\"historyDepthDays\":0,\"threshold\":15,\"asOf\":null,\"risers\":[],\"fallers\":[]} (106 bytes). GET /api/data/rank-history -> {\"days\":30,\"history\":{}} (24 bytes). The absent path is data/rank_history.jsonl. append_snapshot is called only under `if is_fresh_scrape` (server.py:1866), and the audit harness suppresses the scrape, so nothing seeds it in this container. Both endpoints degrade honestly \u2014 they report window 0 / historyDepthDays 0 rather than labelling a fabricated delta \u2014 and no row carries a rankHistory array, so the sparkline self-suppresses. Because the log is empty I could not test whether movers compares compatible snapshots at runtime; the code that would (date-anchored `newest_within` selection, per-entry spanDays, honestly-named currentSourceRanks) is present and looks correct, but is unexercised here.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/movers; echo; curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/data/rank-history; ls data/rank_history.jsonl",
+    "expected": "a populated risers/fallers list",
+    "actual": "empty lists, window 0; ls: No such file or directory",
+    "artifact": "docs/master-site-audit/evidence/W03/idc.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "path": "data/rank_history.jsonl",
+     "exists": false,
+     "moversRisers": 0,
+     "moversFallers": 0
+    },
+    "formula": "len(risers) + len(fallers)",
+    "expected": 0,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "In this container: the Movers panel, the rank sparkline and the movement arrows are all blank. In production the exposure is the write path \u2014 one warning line on failure and a log that silently stops growing (the module's own docstring says so).",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 2,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A23-F07",
+    "relation": "superseded",
+    "note": "A23-F07 (movers anchors on the first snapshot present, so a '14d' label can be a 2-day delta) and A23-F19 (perSourceDelta does not exist) both describe code that has since been rewritten: server.py:3484-3517 now resolves the anchor by DATE against asOf-window, reports windowRequested vs the measured window, derives historyDepthDays from coverage() rather than the trimmed slice, and stamps per-entry spanDays; the field is named currentSourceRanks with a docstring that says it is not a delta. Not runtime-verifiable here \u2014 Blocked by data. PRIOR-A18-F21 (both history logs absent) is confirmed for rank_history.jsonl."
+   },
+   "whatWorks": "Both endpoints report their own emptiness in the payload (window 0, historyDepthDays 0, asOf null) instead of returning a fabricated window.",
+   "rootCause": "Harness suppression of the startup scrape, plus a write path that only fires on fresh-scrape promotion.",
+   "requiredRepair": "None in-product for the emptiness. Worth adding: a health check on coverage() so a silently-stalled log surfaces before a study needs it.",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F012",
+   "workstream": "W03",
+   "promptSections": [
+    7
+   ],
+   "title": "The per-source value-history log carries 2 of 21 sources because the startup backfill mines raw scraper exports, which never contain the 18 CSV-enriched sources",
+   "status": "Partially implemented",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Per-source value history",
+   "surface": {
+    "routes": [
+     "GET /api/data/player-source-history"
+    ],
+    "pages": [
+     "/rankings (PlayerPopup)"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "2636-2651"
+    },
+    {
+     "path": "src/api/source_history.py",
+     "lines": "192-300,463-525"
+    }
+   ],
+   "claimUnderTest": "Module docstring: 'stores per-source values so the frontend can render \"how each source has valued this player over time\"', with a worked example showing ktc, fp_sf, dynasty_nerds_sf_tep and more.",
+   "observed": "data/source_value_history.jsonl holds exactly one snapshot (2026-08-04, 840 players) and only two source keys: ktcSfTep (464 rows) and idpTradeCalc (814 rows). No `blended` key on any entry, and every key is suffixed ::unknown. Cause: the startup backfill (server.py:2643) mines data/dynasty_data_*.json \u2014 the RAW scraper export, whose player rows carry only ktc/ktcSfTep/idpTradeCalc; the other 18 registered sources are grafted on later by _enrich_from_source_csvs at contract-build time and so are structurally invisible to backfill_from_exports. GET /api/data/player-source-history?name=Josh%20Allen returns two series where the board blended 14 sources, and blended.value 9983 with derived:true (median of the two) beside a live board value of 9,988. The endpoint labels the reconstruction honestly, and the read path matches on name only so the ::unknown vs ::offense key change at the first real append will not split the series.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt \"http://127.0.0.1:8000/api/data/player-source-history?name=Josh%20Allen\"; .venv/bin/python -c \"import json,collections; ls=open('data/source_value_history.jsonl').read().strip().split('\\n'); o=json.loads(ls[0]); c=collections.Counter(); [c.update((v.get('sources') or {}).keys()) for v in o['players'].values()]; print(len(ls),'snapshots', dict(c))\"",
+    "expected": "a series per contributing source (14 for Josh Allen)",
+    "actual": "2 series (ktcSfTep, idpTradeCalc); log-wide source coverage {ktcSfTep:464, idpTradeCalc:814}",
+    "artifact": "docs/master-site-audit/evidence/W03/idc.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Josh Allen",
+     "contractSourceCount": 14,
+     "historySeriesCount": 2,
+     "historyBlended": 9983,
+     "contractRankDerivedValue": 9988
+    },
+    "formula": "len(history.sources) vs row.sourceCount",
+    "expected": 14,
+    "actual": 2,
+    "tolerance": 0
+   },
+   "userImpact": "The PlayerPopup value-history chart claims to show how each source has valued a player and shows two of fourteen, with a reconstructed blend line 5 points off the live board value. A user reading source divergence off that chart is reading 14% of the evidence.",
+   "blastRadius": {
+    "playersAffected": 840,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A18-F21",
+    "relation": "partial",
+    "note": "A18-F21 said both history logs are absent from the repository. source_value_history.jsonl is present here (startup backfill ran) \u2014 the defect is what it contains, which the prior audit did not measure. The backfill's blindness to CSV-enriched sources is new."
+   },
+   "whatWorks": "load_player_history stamps derived:true on reconstructed points rather than passing them off as recorded, applies the scope filter and the retired-key mask at read time, and matches by name so the key-shape change is survivable. The live append path (append_snapshot from the blended contract) would record all 14.",
+   "rootCause": "backfill_from_exports treats the raw scraper export as if it were the blended contract; the two have different source vocabularies since source ingestion moved to post-scrape CSV enrichment.",
+   "requiredRepair": "Backfill from exports/latest/ contract payloads (which carry sourceRankMeta.valueContribution for all sources) rather than data/dynasty_data_*.json, or run the export rows through build_api_data_contract before extraction. Also stamp a per-snapshot sourceKeys list so a two-source day is visibly a two-source day on the chart.",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F013",
+   "workstream": "W03",
+   "promptSections": [
+    7,
+    11
+   ],
+   "title": "src/api/compact_view.py has no caller and its documented savings are off by 14x: view=compact is 7.36 MB, not the '~4MB to ~500KB' the docstring promises, and it still ships playersArray and the legacy players dict together",
+   "status": "Scaffolded only",
+   "priority": "P3",
+   "size": "S",
+   "subsystem": "Compact view",
+   "surface": {
+    "routes": [
+     "GET /api/data?view=compact"
+    ],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/compact_view.py",
+     "lines": "1-40,52-71"
+    }
+   ],
+   "claimUnderTest": "Docstring: 'Prunes fields that mobile / fast-first-paint views don't need so the payload drops from ~4MB to ~500KB uncompressed'; and it lists 6 pruned per-player fields.",
+   "observed": "Live: GET /api/data = 11,953,535 bytes; GET /api/data?view=compact = 7,363,760 bytes \u2014 a 38% reduction, not 87%, and 14x the promised absolute size. The reason is that compact_contract prunes fields but keeps BOTH playersArray and the legacy players dict, which is the dominant duplication. _PRUNED_PLAYER_FIELDS actually contains 18 entries, not the 6 the docstring names (it additionally drops marketCorridorClamp, twoWayPlayerBoost, subgroupBlendValue, subgroupDelta, alphaShrinkage, softFallbackCount, hillValueSpread, marketDispersionCV, blendedSourceRank, madPenaltyApplied, anchorValue). Grepping frontend/ for 'view=compact' returns no non-test caller, so nothing takes this path today. It does correctly prune poolAudit/methodology/siteStats/sites and stamps meta.view='compact'.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt 'http://127.0.0.1:8000/api/data' -o /tmp/f.json -w '%{size_download}\\n'; curl -s -b /tmp/audit-cookies.txt 'http://127.0.0.1:8000/api/data?view=compact' -o /tmp/c.json -w '%{size_download}\\n'; grep -rn 'view=compact' frontend/ --include=*.js --include=*.jsx | grep -v __tests__",
+    "expected": "~500 KB and at least one frontend caller",
+    "actual": "7,363,760 bytes; zero non-test callers",
+    "artifact": "docs/master-site-audit/evidence/W03/idc.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "fullBytes": 11953535,
+     "compactBytes": 7363760,
+     "documentedCompactBytes": 500000
+    },
+    "formula": "savedPct = (full - compact)/full",
+    "expected": 0.87,
+    "actual": 0.384,
+    "tolerance": 0.02
+   },
+   "userImpact": "None today (no caller). The risk is a future mobile path being wired to a view that saves 38% instead of 87% and silently drops confidenceLabel \u2014 which frontend/app/rankings/page.jsx::confidenceExplain reads first \u2014 and blendedSourceRank, which is the CONSENSUS column.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A12-F19",
+    "relation": "partial",
+    "note": "Confirmed that the docstring names 6 pruned fields while the code prunes 18. REFUTED on the consumer: A12-F19 asserts 'Mobile and slow-network clients take this view (frontend/lib/device-profile.js:103-107)'; grep finds no non-test reference to view=compact anywhere in frontend/, so on this build the view has no caller at all. PRIOR-A01-F08 (compact prunes four fields the rankings UI reads) is therefore latent, not live."
+   },
+   "whatWorks": "compact_contract is non-destructive, prunes the four documented top-level blocks, slims sourceRankMeta to the three consumed keys, and stamps meta.view so a client can verify what it got.",
+   "rootCause": "The docstring's size figures date from a build with a smaller contract and were never re-measured; the biggest win (dropping one of the two player collections) was never taken.",
+   "requiredRepair": "Re-measure and correct the docstring, list all 18 pruned fields, drop the legacy players dict from the compact view, and either wire a caller or mark the module dormant.",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F014",
+   "workstream": "W03",
+   "promptSections": [
+    7
+   ],
+   "title": "The contract's methodology.confidenceBuckets block is now CORRECT \u2014 it publishes the percentile rule with the 30/80 pair explicitly nested as a non-live fallback; the prior 'publishes the wrong rule' finding does not reproduce",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Confidence buckets / published methodology",
+   "surface": {
+    "routes": [
+     "GET /api/data"
+    ],
+    "pages": [
+     "/rankings (methodology panel)"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "9406-9420"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "100-118"
+    }
+   ],
+   "claimUnderTest": "PRIOR-A10-F01 / PRIOR-A09-F01: 'The contract publishes the wrong confidence-bucket rule; it misclassifies a third of the board.'",
+   "observed": "The live block reads {\"high\":\"2+ sources, sourceRankPercentileSpread <= 0.08\", \"medium\":\"... <= 0.2\", \"low\":\"single source, or sourceRankPercentileSpread > 0.2\", \"signal\":\"sourceRankPercentileSpread\", \"fallbackRule\":{\"appliesWhen\":\"caller supplied only sourceRankSpread (absolute ordinal); NOT the live /api/data path\", \"high\":\"... sourceRankSpread <= 30\", ...}}. That is exactly the live rule, with the legacy pair correctly demoted and labelled. Recomputing every stamped bucket from the row's own sourceRankPercentileSpread + len(effectiveSourceRanks) gives 0 mismatches over 709 ranked non-pick rows. The prior audit's 33.3% figure is reproducible (I measure 34.0%, 241/709) but it is the rate at which the LEGACY rule would disagree with the live one \u2014 a difference between two rules, not a misclassification against the published one.",
+   "reproduction": {
+    "command": ".venv/bin/python docs/master-site-audit/evidence/W03/recompute.py; .venv/bin/python docs/master-site-audit/evidence/W03/final.py  # section A",
+    "expected": "published rule == live rule",
+    "actual": "0/709 stamped buckets disagree with the published rule; 241/709 (34.0%) would differ under the legacy 30/80 rule the block labels as non-live",
+    "artifact": "docs/master-site-audit/evidence/W03/recompute.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "rankedNonPickRows": 709
+    },
+    "formula": "count(stampedBucket != recompute(len(effectiveSourceRanks), sourceRankPercentileSpread))",
+    "expected": 0,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "None \u2014 the panel is truthful. Recorded so the prior claim is closed rather than inherited.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A10-F01",
+    "relation": "refuted",
+    "note": "Refuted on this build (HEAD e96c06ef): the methodology block now publishes the percentile rule as primary and the 30/80 pair under fallbackRule with an explicit 'NOT the live /api/data path' note. PRIOR-A09-F01 likewise refuted. The 33.3% number survives only as the legacy-vs-live rule difference (34.0% here), which is not a misclassification."
+   },
+   "whatWorks": "hasSourceDisagreement and anomalyFlags also recompute exactly \u2014 0 mismatches over 740 ranked rows once the correct final denominator (len(tiered_rows)=740, not OVERALL_RANK_LIMIT=800) is used for the depth allowance. sourceRankPercentileSpread reproduces on 604/740 rows to 2e-4 with an approximate pool-size map; the 136 residuals are IDP rows where my pool-size approximation differs from the backend's per-scope count, not stamp errors.",
+   "rootCause": "",
+   "requiredRepair": "",
+   "dependencies": ""
+  },
+  {
+   "id": "W03-F015",
+   "workstream": "W03",
+   "promptSections": [
+    7
+   ],
+   "title": "frontend/lib/thresholds.js still exports the retired 30/80 ordinal cutoffs claiming to 'mirror the backend confidence bucket thresholds exactly', and edge-helpers uses one of them to suppress the Consensus-asset label on 49.6% of eligible high-confidence rows",
+   "status": "Duplicate or conflicting implementation",
+   "priority": "P2",
+   "size": "XS",
+   "subsystem": "Confidence buckets / frontend signal labels",
+   "surface": {
+    "routes": [],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/lib/thresholds.js",
+     "lines": "1-25"
+    },
+    {
+     "path": "frontend/lib/edge-helpers.js",
+     "lines": "79-95"
+    }
+   ],
+   "claimUnderTest": "thresholds.js:15 'These mirror the backend confidence bucket thresholds exactly. High: 2+ sources AND spread <= CONFIDENCE_SPREAD_HIGH'.",
+   "observed": "CONFIDENCE_SPREAD_HIGH=30 / CONFIDENCE_SPREAD_MEDIUM=80 are the absolute-ordinal pair the backend demoted to a non-live fallback (see W03-F014). The header comment still says they mirror Python exactly. CONFIDENCE_SPREAD_HIGH has one live consumer: edge-helpers.js:87 gates the 'Consensus asset' SIGNAL label on row.sourceRankSpread <= 30 IN ADDITION to the backend's confidenceBucket === 'high'. On the live board, of 113 rows that are backend-high with >=2 sources and no disagreement flag, 56 (49.6%) are blocked from the label by that retired ordinal gate \u2014 e.g. 2027 Early 4th, sourceRankSpread 172 but percentile spread 0.0902. The row renders 'High' in the Confidence column and nothing in the Signal column, from the same underlying data.",
+   "reproduction": {
+    "command": ".venv/bin/python -c \"import json,urllib.request; d=json.load(open('/tmp/f.json')); hi=[r for r in d['playersArray'] if r.get('canonicalConsensusRank') and r.get('confidenceBucket')=='high' and (r.get('sourceCount') or 0)>=2 and not r.get('hasSourceDisagreement')]; b=[r for r in hi if r.get('sourceRankSpread') is not None and r['sourceRankSpread']>30]; print(len(b),'/',len(hi))\"",
+    "expected": "0 rows blocked (the frontend gate should agree with the backend bucket)",
+    "actual": "56 / 113 = 49.6%",
+    "artifact": "docs/master-site-audit/evidence/W03/final.py"
+   },
+   "numericProof": {
+    "inputs": {
+     "example": "2027 Early 4th",
+     "sourceRankSpread": 172.0,
+     "sourceRankPercentileSpread": 0.0902,
+     "backendBucket": "high",
+     "frontendGate": "sourceRankSpread <= 30"
+    },
+    "formula": "blocked = confidenceBucket=='high' and sourceRankSpread > CONFIDENCE_SPREAD_HIGH",
+    "expected": 0,
+    "actual": 56,
+    "tolerance": 0
+   },
+   "userImpact": "Half the genuinely high-agreement rows never get the 'Consensus asset' signal, so a user scanning the Signal column for safe assets misses them \u2014 and the two columns visibly contradict each other on those rows.",
+   "blastRadius": {
+    "playersAffected": 56,
+    "routesAffected": 0,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A09-F02",
+    "relation": "confirmed",
+    "note": "Confirmed that thresholds.js still mirrors the retired pair and still claims to mirror Python 'exactly'. New: the live consumer in edge-helpers.js and the 49.6% suppression rate it causes."
+   },
+   "whatWorks": "The backend bucket itself is correct and the frontend does read it \u2014 the ordinal gate is an extra AND term layered on top, not a replacement.",
+   "rootCause": "A shared-constants module that was not updated when the backend migrated the rule, plus a belt-and-braces AND in edge-helpers that turned a stale constant into live behaviour.",
+   "requiredRepair": "Delete the sourceRankSpread <= 30 term from edge-helpers.js (the backend bucket already encodes agreement), and either remove CONFIDENCE_SPREAD_HIGH/MEDIUM from thresholds.js or relabel them as the non-live fallback pair. Add a parity test in the spirit of tests/api/test_source_registry_parity.py for threshold constants.",
+   "dependencies": ""
+  }
+ ]
 }

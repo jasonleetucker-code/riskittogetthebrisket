@@ -1,0 +1,7867 @@
+{
+ "note": "GET /api/data vs POST /api/rankings/overrides?view=delta with the stock frontend body {\"tep_multiplier\":1.15}",
+ "isCustomized": false,
+ "divergentRows": 786,
+ "rows": [
+  {
+   "name": "Brock Bowers",
+   "pos": "TE",
+   "getRank": 2,
+   "pageRank": 2,
+   "getTier": 1,
+   "pageTier": 1,
+   "getValue": 9947,
+   "pageValue": 9876
+  },
+  {
+   "name": "Trey McBride",
+   "pos": "TE",
+   "getRank": 8,
+   "pageRank": 9,
+   "getTier": 2,
+   "pageTier": 2,
+   "getValue": 9264,
+   "pageValue": 8993
+  },
+  {
+   "name": "Puka Nacua",
+   "pos": "WR",
+   "getRank": 9,
+   "pageRank": 8,
+   "getTier": 2,
+   "pageTier": 2,
+   "getValue": 9132,
+   "pageValue": 9132
+  },
+  {
+   "name": "Jayden Daniels",
+   "pos": "QB",
+   "getRank": 10,
+   "pageRank": 10,
+   "getTier": 3,
+   "pageTier": 2,
+   "getValue": 8898,
+   "pageValue": 8898
+  },
+  {
+   "name": "Lamar Jackson",
+   "pos": "QB",
+   "getRank": 11,
+   "pageRank": 11,
+   "getTier": 3,
+   "pageTier": 2,
+   "getValue": 8784,
+   "pageValue": 8784
+  },
+  {
+   "name": "Caleb Williams",
+   "pos": "QB",
+   "getRank": 12,
+   "pageRank": 12,
+   "getTier": 3,
+   "pageTier": 2,
+   "getValue": 8753,
+   "pageValue": 8753
+  },
+  {
+   "name": "Joe Burrow",
+   "pos": "QB",
+   "getRank": 13,
+   "pageRank": 13,
+   "getTier": 4,
+   "pageTier": 3,
+   "getValue": 8383,
+   "pageValue": 8383
+  },
+  {
+   "name": "Amon-Ra St. Brown",
+   "pos": "WR",
+   "getRank": 14,
+   "pageRank": 14,
+   "getTier": 4,
+   "pageTier": 3,
+   "getValue": 8326,
+   "pageValue": 8326
+  },
+  {
+   "name": "Justin Jefferson",
+   "pos": "WR",
+   "getRank": 15,
+   "pageRank": 15,
+   "getTier": 4,
+   "pageTier": 3,
+   "getValue": 8054,
+   "pageValue": 8054
+  },
+  {
+   "name": "Ashton Jeanty",
+   "pos": "RB",
+   "getRank": 16,
+   "pageRank": 16,
+   "getTier": 4,
+   "pageTier": 3,
+   "getValue": 8039,
+   "pageValue": 8039
+  },
+  {
+   "name": "Malik Nabers",
+   "pos": "WR",
+   "getRank": 17,
+   "pageRank": 17,
+   "getTier": 4,
+   "pageTier": 3,
+   "getValue": 7924,
+   "pageValue": 7924
+  },
+  {
+   "name": "Colston Loveland",
+   "pos": "TE",
+   "getRank": 18,
+   "pageRank": 21,
+   "getTier": 4,
+   "pageTier": 3,
+   "getValue": 7842,
+   "pageValue": 7646
+  },
+  {
+   "name": "Jeremiyah Love",
+   "pos": "RB",
+   "getRank": 19,
+   "pageRank": 18,
+   "getTier": 4,
+   "pageTier": 3,
+   "getValue": 7799,
+   "pageValue": 7799
+  },
+  {
+   "name": "CeeDee Lamb",
+   "pos": "WR",
+   "getRank": 20,
+   "pageRank": 19,
+   "getTier": 4,
+   "pageTier": 3,
+   "getValue": 7767,
+   "pageValue": 7767
+  },
+  {
+   "name": "Justin Herbert",
+   "pos": "QB",
+   "getRank": 21,
+   "pageRank": 20,
+   "getTier": 4,
+   "pageTier": 3,
+   "getValue": 7684,
+   "pageValue": 7684
+  },
+  {
+   "name": "Patrick Mahomes",
+   "pos": "QB",
+   "getRank": 22,
+   "pageRank": 22,
+   "getTier": 5,
+   "pageTier": 4,
+   "getValue": 7461,
+   "pageValue": 7461
+  },
+  {
+   "name": "Drake London",
+   "pos": "WR",
+   "getRank": 23,
+   "pageRank": 23,
+   "getTier": 5,
+   "pageTier": 4,
+   "getValue": 7348,
+   "pageValue": 7348
+  },
+  {
+   "name": "Tyler Warren",
+   "pos": "TE",
+   "getRank": 24,
+   "pageRank": 27,
+   "getTier": 5,
+   "pageTier": 4,
+   "getValue": 7210,
+   "pageValue": 7099
+  },
+  {
+   "name": "Jalen Hurts",
+   "pos": "QB",
+   "getRank": 25,
+   "pageRank": 24,
+   "getTier": 5,
+   "pageTier": 4,
+   "getValue": 7183,
+   "pageValue": 7183
+  },
+  {
+   "name": "Jaxson Dart",
+   "pos": "QB",
+   "getRank": 26,
+   "pageRank": 25,
+   "getTier": 5,
+   "pageTier": 4,
+   "getValue": 7165,
+   "pageValue": 7165
+  },
+  {
+   "name": "Omarion Hampton",
+   "pos": "RB",
+   "getRank": 27,
+   "pageRank": 26,
+   "getTier": 5,
+   "pageTier": 4,
+   "getValue": 7126,
+   "pageValue": 7126
+  },
+  {
+   "name": "2027 Early 1st",
+   "pos": "PICK",
+   "getRank": 28,
+   "pageRank": 28,
+   "getTier": 5,
+   "pageTier": 4,
+   "getValue": 7049,
+   "pageValue": 7049
+  },
+  {
+   "name": "De'Von Achane",
+   "pos": "RB",
+   "getRank": 29,
+   "pageRank": 29,
+   "getTier": 5,
+   "pageTier": 4,
+   "getValue": 6980,
+   "pageValue": 6980
+  },
+  {
+   "name": "Trevor Lawrence",
+   "pos": "QB",
+   "getRank": 30,
+   "pageRank": 30,
+   "getTier": 5,
+   "pageTier": 4,
+   "getValue": 6886,
+   "pageValue": 6886
+  },
+  {
+   "name": "Bo Nix",
+   "pos": "QB",
+   "getRank": 32,
+   "pageRank": 32,
+   "getTier": 6,
+   "pageTier": 5,
+   "getValue": 6572,
+   "pageValue": 6572
+  },
+  {
+   "name": "Jonathan Taylor",
+   "pos": "RB",
+   "getRank": 33,
+   "pageRank": 33,
+   "getTier": 6,
+   "pageTier": 5,
+   "getValue": 6431,
+   "pageValue": 6431
+  },
+  {
+   "name": "Emeka Egbuka",
+   "pos": "WR",
+   "getRank": 34,
+   "pageRank": 34,
+   "getTier": 6,
+   "pageTier": 5,
+   "getValue": 6388,
+   "pageValue": 6388
+  },
+  {
+   "name": "Brock Purdy",
+   "pos": "QB",
+   "getRank": 35,
+   "pageRank": 35,
+   "getTier": 6,
+   "pageTier": 5,
+   "getValue": 6376,
+   "pageValue": 6376
+  },
+  {
+   "name": "Aidan Hutchinson",
+   "pos": "DL",
+   "getRank": 36,
+   "pageRank": 36,
+   "getTier": 6,
+   "pageTier": 5,
+   "getValue": 6362,
+   "pageValue": 6362
+  },
+  {
+   "name": "James Cook",
+   "pos": "RB",
+   "getRank": 37,
+   "pageRank": 37,
+   "getTier": 6,
+   "pageTier": 5,
+   "getValue": 6332,
+   "pageValue": 6332
+  },
+  {
+   "name": "George Pickens",
+   "pos": "WR",
+   "getRank": 38,
+   "pageRank": 38,
+   "getTier": 6,
+   "pageTier": 5,
+   "getValue": 6271,
+   "pageValue": 6271
+  },
+  {
+   "name": "Carnell Tate",
+   "pos": "WR",
+   "getRank": 39,
+   "pageRank": 39,
+   "getTier": 7,
+   "pageTier": 5,
+   "getValue": 6160,
+   "pageValue": 6160
+  },
+  {
+   "name": "Nico Collins",
+   "pos": "WR",
+   "getRank": 40,
+   "pageRank": 40,
+   "getTier": 7,
+   "pageTier": 5,
+   "getValue": 6080,
+   "pageValue": 6080
+  },
+  {
+   "name": "Jordan Love",
+   "pos": "QB",
+   "getRank": 41,
+   "pageRank": 41,
+   "getTier": 7,
+   "pageTier": 5,
+   "getValue": 6038,
+   "pageValue": 6038
+  },
+  {
+   "name": "Carson Schwesinger",
+   "pos": "LB",
+   "getRank": 42,
+   "pageRank": 42,
+   "getTier": 8,
+   "pageTier": 6,
+   "getValue": 5908,
+   "pageValue": 5908
+  },
+  {
+   "name": "Will Anderson",
+   "pos": "DL",
+   "getRank": 43,
+   "pageRank": 43,
+   "getTier": 8,
+   "pageTier": 6,
+   "getValue": 5876,
+   "pageValue": 5876
+  },
+  {
+   "name": "Tucker Kraft",
+   "pos": "TE",
+   "getRank": 44,
+   "pageRank": 50,
+   "getTier": 8,
+   "pageTier": 7,
+   "getValue": 5816,
+   "pageValue": 5595
+  },
+  {
+   "name": "Kenneth Walker",
+   "pos": "RB",
+   "getRank": 45,
+   "pageRank": 44,
+   "getTier": 8,
+   "pageTier": 6,
+   "getValue": 5813,
+   "pageValue": 5813
+  },
+  {
+   "name": "Garrett Wilson",
+   "pos": "WR",
+   "getRank": 46,
+   "pageRank": 45,
+   "getTier": 8,
+   "pageTier": 6,
+   "getValue": 5766,
+   "pageValue": 5766
+  },
+  {
+   "name": "Harold Fannin",
+   "pos": "TE",
+   "getRank": 47,
+   "pageRank": 52,
+   "getTier": 8,
+   "pageTier": 8,
+   "getValue": 5735,
+   "pageValue": 5515
+  },
+  {
+   "name": "Chris Olave",
+   "pos": "WR",
+   "getRank": 48,
+   "pageRank": 46,
+   "getTier": 9,
+   "pageTier": 7,
+   "getValue": 5617,
+   "pageValue": 5617
+  },
+  {
+   "name": "2027 Mid 1st",
+   "pos": "PICK",
+   "getRank": 49,
+   "pageRank": 47,
+   "getTier": 9,
+   "pageTier": 7,
+   "getValue": 5606,
+   "pageValue": 5606
+  },
+  {
+   "name": "Ladd McConkey",
+   "pos": "WR",
+   "getRank": 50,
+   "pageRank": 48,
+   "getTier": 9,
+   "pageTier": 7,
+   "getValue": 5605,
+   "pageValue": 5605
+  },
+  {
+   "name": "Fernando Mendoza",
+   "pos": "QB",
+   "getRank": 51,
+   "pageRank": 49,
+   "getTier": 9,
+   "pageTier": 7,
+   "getValue": 5597,
+   "pageValue": 5597
+  },
+  {
+   "name": "Dak Prescott",
+   "pos": "QB",
+   "getRank": 52,
+   "pageRank": 51,
+   "getTier": 10,
+   "pageTier": 8,
+   "getValue": 5519,
+   "pageValue": 5519
+  },
+  {
+   "name": "Chase Brown",
+   "pos": "RB",
+   "getRank": 53,
+   "pageRank": 53,
+   "getTier": 10,
+   "pageTier": 8,
+   "getValue": 5419,
+   "pageValue": 5419
+  },
+  {
+   "name": "Breece Hall",
+   "pos": "RB",
+   "getRank": 54,
+   "pageRank": 54,
+   "getTier": 10,
+   "pageTier": 8,
+   "getValue": 5404,
+   "pageValue": 5404
+  },
+  {
+   "name": "Luther Burden",
+   "pos": "WR",
+   "getRank": 55,
+   "pageRank": 55,
+   "getTier": 10,
+   "pageTier": 8,
+   "getValue": 5353,
+   "pageValue": 5353
+  },
+  {
+   "name": "Jordyn Tyson",
+   "pos": "WR",
+   "getRank": 56,
+   "pageRank": 56,
+   "getTier": 10,
+   "pageTier": 8,
+   "getValue": 5320,
+   "pageValue": 5320
+  },
+  {
+   "name": "Quinshon Judkins",
+   "pos": "RB",
+   "getRank": 57,
+   "pageRank": 57,
+   "getTier": 10,
+   "pageTier": 8,
+   "getValue": 5309,
+   "pageValue": 5309
+  },
+  {
+   "name": "TreVeyon Henderson",
+   "pos": "RB",
+   "getRank": 58,
+   "pageRank": 58,
+   "getTier": 10,
+   "pageTier": 8,
+   "getValue": 5262,
+   "pageValue": 5262
+  },
+  {
+   "name": "Sam LaPorta",
+   "pos": "TE",
+   "getRank": 59,
+   "pageRank": 65,
+   "getTier": 10,
+   "pageTier": 9,
+   "getValue": 5222,
+   "pageValue": 5021
+  },
+  {
+   "name": "Sonny Styles",
+   "pos": "LB",
+   "getRank": 60,
+   "pageRank": 59,
+   "getTier": 10,
+   "pageTier": 8,
+   "getValue": 5222,
+   "pageValue": 5222
+  },
+  {
+   "name": "DeVonta Smith",
+   "pos": "WR",
+   "getRank": 61,
+   "pageRank": 60,
+   "getTier": 10,
+   "pageTier": 8,
+   "getValue": 5215,
+   "pageValue": 5215
+  },
+  {
+   "name": "Christian McCaffrey",
+   "pos": "RB",
+   "getRank": 62,
+   "pageRank": 61,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 5140,
+   "pageValue": 5140
+  },
+  {
+   "name": "2028 Early 1st",
+   "pos": "PICK",
+   "getRank": 63,
+   "pageRank": 62,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 5089,
+   "pageValue": 5089
+  },
+  {
+   "name": "Kyle Pitts",
+   "pos": "TE",
+   "getRank": 64,
+   "pageRank": 73,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 5074,
+   "pageValue": 4831
+  },
+  {
+   "name": "Cam Ward",
+   "pos": "QB",
+   "getRank": 65,
+   "pageRank": 63,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 5049,
+   "pageValue": 5049
+  },
+  {
+   "name": "Saquon Barkley",
+   "pos": "RB",
+   "getRank": 66,
+   "pageRank": 64,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 5026,
+   "pageValue": 5026
+  },
+  {
+   "name": "Makai Lemon",
+   "pos": "WR",
+   "getRank": 67,
+   "pageRank": 66,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 4987,
+   "pageValue": 4987
+  },
+  {
+   "name": "Zay Flowers",
+   "pos": "WR",
+   "getRank": 68,
+   "pageRank": 67,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 4953,
+   "pageValue": 4953
+  },
+  {
+   "name": "2027 Late 1st",
+   "pos": "PICK",
+   "getRank": 69,
+   "pageRank": 68,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 4933,
+   "pageValue": 4933
+  },
+  {
+   "name": "Rome Odunze",
+   "pos": "WR",
+   "getRank": 70,
+   "pageRank": 69,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 4930,
+   "pageValue": 4930
+  },
+  {
+   "name": "A.J. Brown",
+   "pos": "WR",
+   "getRank": 71,
+   "pageRank": 70,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 4925,
+   "pageValue": 4925
+  },
+  {
+   "name": "Rashee Rice",
+   "pos": "WR",
+   "getRank": 72,
+   "pageRank": 71,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 4887,
+   "pageValue": 4887
+  },
+  {
+   "name": "Jared Goff",
+   "pos": "QB",
+   "getRank": 73,
+   "pageRank": 72,
+   "getTier": 11,
+   "pageTier": 9,
+   "getValue": 4881,
+   "pageValue": 4881
+  },
+  {
+   "name": "Jack Campbell",
+   "pos": "LB",
+   "getRank": 74,
+   "pageRank": 74,
+   "getTier": 12,
+   "pageTier": 9,
+   "getValue": 4803,
+   "pageValue": 4803
+  },
+  {
+   "name": "Kenyon Sadiq",
+   "pos": "TE",
+   "getRank": 75,
+   "pageRank": 85,
+   "getTier": 12,
+   "pageTier": 11,
+   "getValue": 4796,
+   "pageValue": 4566
+  },
+  {
+   "name": "Tee Higgins",
+   "pos": "WR",
+   "getRank": 76,
+   "pageRank": 75,
+   "getTier": 12,
+   "pageTier": 10,
+   "getValue": 4726,
+   "pageValue": 4726
+  },
+  {
+   "name": "Baker Mayfield",
+   "pos": "QB",
+   "getRank": 77,
+   "pageRank": 76,
+   "getTier": 13,
+   "pageTier": 10,
+   "getValue": 4659,
+   "pageValue": 4659
+  },
+  {
+   "name": "Marvin Harrison",
+   "pos": "WR",
+   "getRank": 78,
+   "pageRank": 77,
+   "getTier": 13,
+   "pageTier": 10,
+   "getValue": 4619,
+   "pageValue": 4619
+  },
+  {
+   "name": "C.J. Stroud",
+   "pos": "QB",
+   "getRank": 79,
+   "pageRank": 78,
+   "getTier": 13,
+   "pageTier": 10,
+   "getValue": 4608,
+   "pageValue": 4608
+  },
+  {
+   "name": "Kyren Williams",
+   "pos": "RB",
+   "getRank": 80,
+   "pageRank": 79,
+   "getTier": 13,
+   "pageTier": 10,
+   "getValue": 4607,
+   "pageValue": 4607
+  },
+  {
+   "name": "Micah Parsons",
+   "pos": "DL",
+   "getRank": 81,
+   "pageRank": 80,
+   "getTier": 13,
+   "pageTier": 10,
+   "getValue": 4606,
+   "pageValue": 4606
+  },
+  {
+   "name": "Myles Garrett",
+   "pos": "DL",
+   "getRank": 82,
+   "pageRank": 81,
+   "getTier": 13,
+   "pageTier": 10,
+   "getValue": 4602,
+   "pageValue": 4602
+  },
+  {
+   "name": "Abdul Carter",
+   "pos": "DL",
+   "getRank": 83,
+   "pageRank": 82,
+   "getTier": 13,
+   "pageTier": 10,
+   "getValue": 4598,
+   "pageValue": 4598
+  },
+  {
+   "name": "Jaylen Waddle",
+   "pos": "WR",
+   "getRank": 84,
+   "pageRank": 83,
+   "getTier": 13,
+   "pageTier": 10,
+   "getValue": 4595,
+   "pageValue": 4595
+  },
+  {
+   "name": "Jared Verse",
+   "pos": "DL",
+   "getRank": 85,
+   "pageRank": 84,
+   "getTier": 13,
+   "pageTier": 10,
+   "getValue": 4593,
+   "pageValue": 4593
+  },
+  {
+   "name": "2028 Mid 1st",
+   "pos": "PICK",
+   "getRank": 86,
+   "pageRank": 86,
+   "getTier": 14,
+   "pageTier": 11,
+   "getValue": 4564,
+   "pageValue": 4564
+  },
+  {
+   "name": "Cam Skattebo",
+   "pos": "RB",
+   "getRank": 87,
+   "pageRank": 87,
+   "getTier": 14,
+   "pageTier": 11,
+   "getValue": 4488,
+   "pageValue": 4488
+  },
+  {
+   "name": "Brian Thomas",
+   "pos": "WR",
+   "getRank": 88,
+   "pageRank": 88,
+   "getTier": 14,
+   "pageTier": 11,
+   "getValue": 4466,
+   "pageValue": 4466
+  },
+  {
+   "name": "Travis Hunter",
+   "pos": "WR",
+   "getRank": 89,
+   "pageRank": 89,
+   "getTier": 15,
+   "pageTier": 12,
+   "getValue": 4401,
+   "pageValue": 4401
+  },
+  {
+   "name": "Bucky Irving",
+   "pos": "RB",
+   "getRank": 90,
+   "pageRank": 90,
+   "getTier": 15,
+   "pageTier": 12,
+   "getValue": 4369,
+   "pageValue": 4369
+  },
+  {
+   "name": "Tyler Shough",
+   "pos": "QB",
+   "getRank": 91,
+   "pageRank": 91,
+   "getTier": 15,
+   "pageTier": 12,
+   "getValue": 4321,
+   "pageValue": 4321
+  },
+  {
+   "name": "Jameson Williams",
+   "pos": "WR",
+   "getRank": 92,
+   "pageRank": 92,
+   "getTier": 15,
+   "pageTier": 12,
+   "getValue": 4308,
+   "pageValue": 4308
+  },
+  {
+   "name": "Jadarian Price",
+   "pos": "RB",
+   "getRank": 93,
+   "pageRank": 93,
+   "getTier": 15,
+   "pageTier": 12,
+   "getValue": 4286,
+   "pageValue": 4286
+  },
+  {
+   "name": "Javonte Williams",
+   "pos": "RB",
+   "getRank": 94,
+   "pageRank": 94,
+   "getTier": 16,
+   "pageTier": 12,
+   "getValue": 4224,
+   "pageValue": 4224
+  },
+  {
+   "name": "Eli Stowers",
+   "pos": "TE",
+   "getRank": 95,
+   "pageRank": 99,
+   "getTier": 16,
+   "pageTier": 13,
+   "getValue": 4214,
+   "pageValue": 4056
+  },
+  {
+   "name": "Oronde Gadsden",
+   "pos": "TE",
+   "getRank": 96,
+   "pageRank": 101,
+   "getTier": 16,
+   "pageTier": 14,
+   "getValue": 4213,
+   "pageValue": 3945
+  },
+  {
+   "name": "George Kittle",
+   "pos": "TE",
+   "getRank": 97,
+   "pageRank": 108,
+   "getTier": 17,
+   "pageTier": 15,
+   "getValue": 4088,
+   "pageValue": 3816
+  },
+  {
+   "name": "Travis Etienne",
+   "pos": "RB",
+   "getRank": 98,
+   "pageRank": 95,
+   "getTier": 17,
+   "pageTier": 13,
+   "getValue": 4081,
+   "pageValue": 4081
+  },
+  {
+   "name": "Sam Darnold",
+   "pos": "QB",
+   "getRank": 99,
+   "pageRank": 96,
+   "getTier": 17,
+   "pageTier": 13,
+   "getValue": 4080,
+   "pageValue": 4080
+  },
+  {
+   "name": "2028 Late 1st",
+   "pos": "PICK",
+   "getRank": 100,
+   "pageRank": 97,
+   "getTier": 17,
+   "pageTier": 13,
+   "getValue": 4079,
+   "pageValue": 4079
+  },
+  {
+   "name": "Kyler Murray",
+   "pos": "QB",
+   "getRank": 101,
+   "pageRank": 98,
+   "getTier": 17,
+   "pageTier": 13,
+   "getValue": 4069,
+   "pageValue": 4069
+  },
+  {
+   "name": "Isaiah Likely",
+   "pos": "TE",
+   "getRank": 102,
+   "pageRank": 113,
+   "getTier": 18,
+   "pageTier": 16,
+   "getValue": 4025,
+   "pageValue": 3732
+  },
+  {
+   "name": "Dalton Kincaid",
+   "pos": "TE",
+   "getRank": 103,
+   "pageRank": 107,
+   "getTier": 18,
+   "pageTier": 15,
+   "getValue": 4008,
+   "pageValue": 3817
+  },
+  {
+   "name": "KC Concepcion",
+   "pos": "WR",
+   "getRank": 104,
+   "pageRank": 100,
+   "getTier": 18,
+   "pageTier": 14,
+   "getValue": 4001,
+   "pageValue": 4001
+  },
+  {
+   "name": "Edgerrin Cooper",
+   "pos": "LB",
+   "getRank": 105,
+   "pageRank": 102,
+   "getTier": 19,
+   "pageTier": 14,
+   "getValue": 3919,
+   "pageValue": 3919
+  },
+  {
+   "name": "Derrick Henry",
+   "pos": "RB",
+   "getRank": 106,
+   "pageRank": 103,
+   "getTier": 19,
+   "pageTier": 15,
+   "getValue": 3884,
+   "pageValue": 3884
+  },
+  {
+   "name": "Jake Ferguson",
+   "pos": "TE",
+   "getRank": 107,
+   "pageRank": 122,
+   "getTier": 19,
+   "pageTier": 18,
+   "getValue": 3867,
+   "pageValue": 3559
+  },
+  {
+   "name": "Christian Watson",
+   "pos": "WR",
+   "getRank": 108,
+   "pageRank": 104,
+   "getTier": 19,
+   "pageTier": 15,
+   "getValue": 3867,
+   "pageValue": 3867
+  },
+  {
+   "name": "Josh Jacobs",
+   "pos": "RB",
+   "getRank": 109,
+   "pageRank": 105,
+   "getTier": 19,
+   "pageTier": 15,
+   "getValue": 3859,
+   "pageValue": 3859
+  },
+  {
+   "name": "Arvell Reese",
+   "pos": "LB",
+   "getRank": 110,
+   "pageRank": 106,
+   "getTier": 19,
+   "pageTier": 15,
+   "getValue": 3841,
+   "pageValue": 3841
+  },
+  {
+   "name": "2027 Early 2nd",
+   "pos": "PICK",
+   "getRank": 111,
+   "pageRank": 109,
+   "getTier": 19,
+   "pageTier": 15,
+   "getValue": 3815,
+   "pageValue": 3815
+  },
+  {
+   "name": "Bryce Young",
+   "pos": "QB",
+   "getRank": 112,
+   "pageRank": 110,
+   "getTier": 19,
+   "pageTier": 15,
+   "getValue": 3803,
+   "pageValue": 3803
+  },
+  {
+   "name": "Bhayshul Tuten",
+   "pos": "RB",
+   "getRank": 113,
+   "pageRank": 111,
+   "getTier": 19,
+   "pageTier": 15,
+   "getValue": 3798,
+   "pageValue": 3798
+  },
+  {
+   "name": "Nick Bolton",
+   "pos": "LB",
+   "getRank": 114,
+   "pageRank": 112,
+   "getTier": 19,
+   "pageTier": 16,
+   "getValue": 3778,
+   "pageValue": 3778
+  },
+  {
+   "name": "Jordan Addison",
+   "pos": "WR",
+   "getRank": 115,
+   "pageRank": 114,
+   "getTier": 20,
+   "pageTier": 16,
+   "getValue": 3732,
+   "pageValue": 3732
+  },
+  {
+   "name": "Alec Pierce",
+   "pos": "WR",
+   "getRank": 116,
+   "pageRank": 115,
+   "getTier": 20,
+   "pageTier": 16,
+   "getValue": 3726,
+   "pageValue": 3726
+  },
+  {
+   "name": "Daniel Jones",
+   "pos": "QB",
+   "getRank": 117,
+   "pageRank": 116,
+   "getTier": 20,
+   "pageTier": 16,
+   "getValue": 3717,
+   "pageValue": 3717
+  },
+  {
+   "name": "Matthew Stafford",
+   "pos": "QB",
+   "getRank": 118,
+   "pageRank": 117,
+   "getTier": 20,
+   "pageTier": 17,
+   "getValue": 3687,
+   "pageValue": 3687
+  },
+  {
+   "name": "Malik Willis",
+   "pos": "QB",
+   "getRank": 119,
+   "pageRank": 118,
+   "getTier": 20,
+   "pageTier": 17,
+   "getValue": 3684,
+   "pageValue": 3684
+  },
+  {
+   "name": "Omar Cooper",
+   "pos": "WR",
+   "getRank": 120,
+   "pageRank": 119,
+   "getTier": 21,
+   "pageTier": 17,
+   "getValue": 3637,
+   "pageValue": 3637
+  },
+  {
+   "name": "DJ Moore",
+   "pos": "WR",
+   "getRank": 121,
+   "pageRank": 120,
+   "getTier": 21,
+   "pageTier": 17,
+   "getValue": 3616,
+   "pageValue": 3616
+  },
+  {
+   "name": "Terry McLaurin",
+   "pos": "WR",
+   "getRank": 122,
+   "pageRank": 121,
+   "getTier": 21,
+   "pageTier": 18,
+   "getValue": 3567,
+   "pageValue": 3567
+  },
+  {
+   "name": "Jacob Rodriguez",
+   "pos": "LB",
+   "getRank": 123,
+   "pageRank": 123,
+   "getTier": 22,
+   "pageTier": 18,
+   "getValue": 3544,
+   "pageValue": 3544
+  },
+  {
+   "name": "Dallas Turner",
+   "pos": "DL",
+   "getRank": 124,
+   "pageRank": 124,
+   "getTier": 22,
+   "pageTier": 18,
+   "getValue": 3539,
+   "pageValue": 3539
+  },
+  {
+   "name": "D'Andre Swift",
+   "pos": "RB",
+   "getRank": 125,
+   "pageRank": 125,
+   "getTier": 22,
+   "pageTier": 18,
+   "getValue": 3538,
+   "pageValue": 3538
+  },
+  {
+   "name": "Brenton Strange",
+   "pos": "TE",
+   "getRank": 126,
+   "pageRank": 136,
+   "getTier": 22,
+   "pageTier": 21,
+   "getValue": 3536,
+   "pageValue": 3222
+  },
+  {
+   "name": "Parker Washington",
+   "pos": "WR",
+   "getRank": 127,
+   "pageRank": 126,
+   "getTier": 22,
+   "pageTier": 18,
+   "getValue": 3501,
+   "pageValue": 3501
+  },
+  {
+   "name": "2027 Mid 2nd",
+   "pos": "PICK",
+   "getRank": 128,
+   "pageRank": 127,
+   "getTier": 23,
+   "pageTier": 19,
+   "getValue": 3415,
+   "pageValue": 3415
+  },
+  {
+   "name": "Michael Wilson",
+   "pos": "WR",
+   "getRank": 129,
+   "pageRank": 128,
+   "getTier": 23,
+   "pageTier": 19,
+   "getValue": 3407,
+   "pageValue": 3407
+  },
+  {
+   "name": "Ty Simpson",
+   "pos": "QB",
+   "getRank": 130,
+   "pageRank": 129,
+   "getTier": 23,
+   "pageTier": 19,
+   "getValue": 3400,
+   "pageValue": 3400
+  },
+  {
+   "name": "Mark Andrews",
+   "pos": "TE",
+   "getRank": 131,
+   "pageRank": 151,
+   "getTier": 23,
+   "pageTier": 23,
+   "getValue": 3392,
+   "pageValue": 3088
+  },
+  {
+   "name": "David Montgomery",
+   "pos": "RB",
+   "getRank": 132,
+   "pageRank": 130,
+   "getTier": 24,
+   "pageTier": 20,
+   "getValue": 3371,
+   "pageValue": 3371
+  },
+  {
+   "name": "DK Metcalf",
+   "pos": "WR",
+   "getRank": 133,
+   "pageRank": 131,
+   "getTier": 24,
+   "pageTier": 20,
+   "getValue": 3370,
+   "pageValue": 3370
+  },
+  {
+   "name": "Davante Adams",
+   "pos": "WR",
+   "getRank": 134,
+   "pageRank": 132,
+   "getTier": 24,
+   "pageTier": 20,
+   "getValue": 3316,
+   "pageValue": 3316
+  },
+  {
+   "name": "Chig Okonkwo",
+   "pos": "TE",
+   "getRank": 135,
+   "pageRank": 165,
+   "getTier": 24,
+   "pageTier": 26,
+   "getValue": 3311,
+   "pageValue": 3003
+  },
+  {
+   "name": "Denzel Boston",
+   "pos": "WR",
+   "getRank": 136,
+   "pageRank": 133,
+   "getTier": 25,
+   "pageTier": 21,
+   "getValue": 3259,
+   "pageValue": 3259
+  },
+  {
+   "name": "Josh Downs",
+   "pos": "WR",
+   "getRank": 137,
+   "pageRank": 134,
+   "getTier": 25,
+   "pageTier": 21,
+   "getValue": 3250,
+   "pageValue": 3250
+  },
+  {
+   "name": "Jordyn Brooks",
+   "pos": "LB",
+   "getRank": 138,
+   "pageRank": 135,
+   "getTier": 25,
+   "pageTier": 21,
+   "getValue": 3224,
+   "pageValue": 3224
+  },
+  {
+   "name": "Mike Evans",
+   "pos": "WR",
+   "getRank": 139,
+   "pageRank": 137,
+   "getTier": 26,
+   "pageTier": 21,
+   "getValue": 3210,
+   "pageValue": 3210
+  },
+  {
+   "name": "Wan'Dale Robinson",
+   "pos": "WR",
+   "getRank": 140,
+   "pageRank": 138,
+   "getTier": 26,
+   "pageTier": 21,
+   "getValue": 3206,
+   "pageValue": 3206
+  },
+  {
+   "name": "Quentin Johnston",
+   "pos": "WR",
+   "getRank": 141,
+   "pageRank": 139,
+   "getTier": 26,
+   "pageTier": 21,
+   "getValue": 3195,
+   "pageValue": 3195
+  },
+  {
+   "name": "Dallas Goedert",
+   "pos": "TE",
+   "getRank": 142,
+   "pageRank": 186,
+   "getTier": 26,
+   "pageTier": 29,
+   "getValue": 3191,
+   "pageValue": 2833
+  },
+  {
+   "name": "CJ Allen",
+   "pos": "LB",
+   "getRank": 143,
+   "pageRank": 140,
+   "getTier": 26,
+   "pageTier": 21,
+   "getValue": 3184,
+   "pageValue": 3184
+  },
+  {
+   "name": "Fred Warner",
+   "pos": "LB",
+   "getRank": 144,
+   "pageRank": 141,
+   "getTier": 26,
+   "pageTier": 21,
+   "getValue": 3180,
+   "pageValue": 3180
+  },
+  {
+   "name": "Travis Kelce",
+   "pos": "TE",
+   "getRank": 145,
+   "pageRank": 180,
+   "getTier": 26,
+   "pageTier": 29,
+   "getValue": 3179,
+   "pageValue": 2854
+  },
+  {
+   "name": "Matthew Golden",
+   "pos": "WR",
+   "getRank": 146,
+   "pageRank": 142,
+   "getTier": 26,
+   "pageTier": 21,
+   "getValue": 3177,
+   "pageValue": 3177
+  },
+  {
+   "name": "AJ Barner",
+   "pos": "TE",
+   "getRank": 147,
+   "pageRank": 172,
+   "getTier": 26,
+   "pageTier": 27,
+   "getValue": 3174,
+   "pageValue": 2936
+  },
+  {
+   "name": "2028 Early 2nd",
+   "pos": "PICK",
+   "getRank": 148,
+   "pageRank": 143,
+   "getTier": 26,
+   "pageTier": 21,
+   "getValue": 3172,
+   "pageValue": 3172
+  },
+  {
+   "name": "2027 Late 2nd",
+   "pos": "PICK",
+   "getRank": 149,
+   "pageRank": 144,
+   "getTier": 26,
+   "pageTier": 21,
+   "getValue": 3166,
+   "pageValue": 3166
+  },
+  {
+   "name": "Caleb Downs",
+   "pos": "DB",
+   "getRank": 150,
+   "pageRank": 145,
+   "getTier": 26,
+   "pageTier": 21,
+   "getValue": 3159,
+   "pageValue": 3159
+  },
+  {
+   "name": "Jayden Higgins",
+   "pos": "WR",
+   "getRank": 151,
+   "pageRank": 146,
+   "getTier": 26,
+   "pageTier": 21,
+   "getValue": 3155,
+   "pageValue": 3155
+  },
+  {
+   "name": "Michael Pittman",
+   "pos": "WR",
+   "getRank": 152,
+   "pageRank": 147,
+   "getTier": 27,
+   "pageTier": 22,
+   "getValue": 3135,
+   "pageValue": 3135
+  },
+  {
+   "name": "RJ Harvey",
+   "pos": "RB",
+   "getRank": 153,
+   "pageRank": 148,
+   "getTier": 27,
+   "pageTier": 22,
+   "getValue": 3133,
+   "pageValue": 3133
+  },
+  {
+   "name": "Xavier Worthy",
+   "pos": "WR",
+   "getRank": 154,
+   "pageRank": 149,
+   "getTier": 27,
+   "pageTier": 22,
+   "getValue": 3126,
+   "pageValue": 3126
+  },
+  {
+   "name": "T.J. Hockenson",
+   "pos": "TE",
+   "getRank": 155,
+   "pageRank": 183,
+   "getTier": 28,
+   "pageTier": 29,
+   "getValue": 3107,
+   "pageValue": 2840
+  },
+  {
+   "name": "Ricky Pearsall",
+   "pos": "WR",
+   "getRank": 156,
+   "pageRank": 150,
+   "getTier": 28,
+   "pageTier": 23,
+   "getValue": 3088,
+   "pageValue": 3088
+  },
+  {
+   "name": "Laiatu Latu",
+   "pos": "DL",
+   "getRank": 157,
+   "pageRank": 152,
+   "getTier": 28,
+   "pageTier": 23,
+   "getValue": 3068,
+   "pageValue": 3068
+  },
+  {
+   "name": "Roquan Smith",
+   "pos": "LB",
+   "getRank": 158,
+   "pageRank": 153,
+   "getTier": 28,
+   "pageTier": 23,
+   "getValue": 3067,
+   "pageValue": 3067
+  },
+  {
+   "name": "Nick Bosa",
+   "pos": "DL",
+   "getRank": 159,
+   "pageRank": 154,
+   "getTier": 28,
+   "pageTier": 24,
+   "getValue": 3065,
+   "pageValue": 3065
+  },
+  {
+   "name": "Maxx Crosby",
+   "pos": "DL",
+   "getRank": 160,
+   "pageRank": 155,
+   "getTier": 28,
+   "pageTier": 24,
+   "getValue": 3064,
+   "pageValue": 3064
+  },
+  {
+   "name": "Nick Emmanwori",
+   "pos": "DB",
+   "getRank": 161,
+   "pageRank": 156,
+   "getTier": 28,
+   "pageTier": 24,
+   "getValue": 3063,
+   "pageValue": 3063
+  },
+  {
+   "name": "Kyle Hamilton",
+   "pos": "DB",
+   "getRank": 162,
+   "pageRank": 157,
+   "getTier": 28,
+   "pageTier": 24,
+   "getValue": 3062,
+   "pageValue": 3062
+  },
+  {
+   "name": "Brian Burns",
+   "pos": "DL",
+   "getRank": 163,
+   "pageRank": 158,
+   "getTier": 29,
+   "pageTier": 25,
+   "getValue": 3060,
+   "pageValue": 3060
+  },
+  {
+   "name": "David Bailey",
+   "pos": "DL",
+   "getRank": 164,
+   "pageRank": 159,
+   "getTier": 29,
+   "pageTier": 25,
+   "getValue": 3059,
+   "pageValue": 3059
+  },
+  {
+   "name": "Jayden Reed",
+   "pos": "WR",
+   "getRank": 165,
+   "pageRank": 160,
+   "getTier": 29,
+   "pageTier": 25,
+   "getValue": 3058,
+   "pageValue": 3058
+  },
+  {
+   "name": "Josh Hines-Allen",
+   "pos": "DL",
+   "getRank": 166,
+   "pageRank": 161,
+   "getTier": 29,
+   "pageTier": 25,
+   "getValue": 3057,
+   "pageValue": 3057
+  },
+  {
+   "name": "Terrance Ferguson",
+   "pos": "TE",
+   "getRank": 167,
+   "pageRank": 199,
+   "getTier": 30,
+   "pageTier": 31,
+   "getValue": 3054,
+   "pageValue": 2715
+  },
+  {
+   "name": "Nik Bonitto",
+   "pos": "DL",
+   "getRank": 168,
+   "pageRank": 162,
+   "getTier": 30,
+   "pageTier": 25,
+   "getValue": 3054,
+   "pageValue": 3054
+  },
+  {
+   "name": "Kyle Monangai",
+   "pos": "RB",
+   "getRank": 169,
+   "pageRank": 163,
+   "getTier": 30,
+   "pageTier": 26,
+   "getValue": 3029,
+   "pageValue": 3029
+  },
+  {
+   "name": "Jonathon Brooks",
+   "pos": "RB",
+   "getRank": 170,
+   "pageRank": 164,
+   "getTier": 31,
+   "pageTier": 26,
+   "getValue": 3005,
+   "pageValue": 3005
+  },
+  {
+   "name": "2028 Mid 2nd",
+   "pos": "PICK",
+   "getRank": 171,
+   "pageRank": 166,
+   "getTier": 31,
+   "pageTier": 27,
+   "getValue": 2987,
+   "pageValue": 2987
+  },
+  {
+   "name": "Blake Corum",
+   "pos": "RB",
+   "getRank": 172,
+   "pageRank": 167,
+   "getTier": 31,
+   "pageTier": 27,
+   "getValue": 2986,
+   "pageValue": 2986
+  },
+  {
+   "name": "Jihaad Campbell",
+   "pos": "LB",
+   "getRank": 173,
+   "pageRank": 168,
+   "getTier": 31,
+   "pageTier": 27,
+   "getValue": 2968,
+   "pageValue": 2968
+  },
+  {
+   "name": "Courtland Sutton",
+   "pos": "WR",
+   "getRank": 174,
+   "pageRank": 169,
+   "getTier": 31,
+   "pageTier": 27,
+   "getValue": 2955,
+   "pageValue": 2955
+  },
+  {
+   "name": "Rueben Bain",
+   "pos": "DL",
+   "getRank": 175,
+   "pageRank": 170,
+   "getTier": 31,
+   "pageTier": 27,
+   "getValue": 2939,
+   "pageValue": 2939
+  },
+  {
+   "name": "Jaylen Warren",
+   "pos": "RB",
+   "getRank": 176,
+   "pageRank": 171,
+   "getTier": 31,
+   "pageTier": 27,
+   "getValue": 2937,
+   "pageValue": 2937
+  },
+  {
+   "name": "Dillon Thieneman",
+   "pos": "DB",
+   "getRank": 177,
+   "pageRank": 173,
+   "getTier": 31,
+   "pageTier": 27,
+   "getValue": 2935,
+   "pageValue": 2935
+  },
+  {
+   "name": "Gunnar Helm",
+   "pos": "TE",
+   "getRank": 178,
+   "pageRank": 215,
+   "getTier": 31,
+   "pageTier": 34,
+   "getValue": 2931,
+   "pageValue": 2601
+  },
+  {
+   "name": "Devin Lloyd",
+   "pos": "LB",
+   "getRank": 179,
+   "pageRank": 174,
+   "getTier": 32,
+   "pageTier": 28,
+   "getValue": 2912,
+   "pageValue": 2912
+  },
+  {
+   "name": "Juwan Johnson",
+   "pos": "TE",
+   "getRank": 180,
+   "pageRank": 222,
+   "getTier": 32,
+   "pageTier": 36,
+   "getValue": 2897,
+   "pageValue": 2563
+  },
+  {
+   "name": "Cedric Gray",
+   "pos": "LB",
+   "getRank": 181,
+   "pageRank": 175,
+   "getTier": 32,
+   "pageTier": 28,
+   "getValue": 2887,
+   "pageValue": 2887
+  },
+  {
+   "name": "Chuba Hubbard",
+   "pos": "RB",
+   "getRank": 182,
+   "pageRank": 176,
+   "getTier": 32,
+   "pageTier": 28,
+   "getValue": 2887,
+   "pageValue": 2887
+  },
+  {
+   "name": "Zack Baun",
+   "pos": "LB",
+   "getRank": 183,
+   "pageRank": 177,
+   "getTier": 33,
+   "pageTier": 29,
+   "getValue": 2872,
+   "pageValue": 2872
+  },
+  {
+   "name": "Cooper DeJean",
+   "pos": "DB",
+   "getRank": 184,
+   "pageRank": 178,
+   "getTier": 33,
+   "pageTier": 29,
+   "getValue": 2868,
+   "pageValue": 2868
+  },
+  {
+   "name": "Nakobe Dean",
+   "pos": "LB",
+   "getRank": 185,
+   "pageRank": 179,
+   "getTier": 33,
+   "pageTier": 29,
+   "getValue": 2860,
+   "pageValue": 2860
+  },
+  {
+   "name": "Chris Godwin",
+   "pos": "WR",
+   "getRank": 186,
+   "pageRank": 181,
+   "getTier": 33,
+   "pageTier": 29,
+   "getValue": 2853,
+   "pageValue": 2853
+  },
+  {
+   "name": "Jonah Coleman",
+   "pos": "RB",
+   "getRank": 187,
+   "pageRank": 182,
+   "getTier": 33,
+   "pageTier": 29,
+   "getValue": 2846,
+   "pageValue": 2846
+  },
+  {
+   "name": "Jakobi Meyers",
+   "pos": "WR",
+   "getRank": 188,
+   "pageRank": 184,
+   "getTier": 33,
+   "pageTier": 29,
+   "getValue": 2840,
+   "pageValue": 2840
+  },
+  {
+   "name": "T.J. Watt",
+   "pos": "DL",
+   "getRank": 189,
+   "pageRank": 185,
+   "getTier": 33,
+   "pageTier": 29,
+   "getValue": 2838,
+   "pageValue": 2838
+  },
+  {
+   "name": "Zach Charbonnet",
+   "pos": "RB",
+   "getRank": 190,
+   "pageRank": 187,
+   "getTier": 33,
+   "pageTier": 29,
+   "getValue": 2826,
+   "pageValue": 2826
+  },
+  {
+   "name": "Hunter Henry",
+   "pos": "TE",
+   "getRank": 191,
+   "pageRank": 238,
+   "getTier": 34,
+   "pageTier": 37,
+   "getValue": 2797,
+   "pageValue": 2472
+  },
+  {
+   "name": "Ernest Jones",
+   "pos": "LB",
+   "getRank": 192,
+   "pageRank": 188,
+   "getTier": 34,
+   "pageTier": 30,
+   "getValue": 2795,
+   "pageValue": 2795
+  },
+  {
+   "name": "2028 Late 2nd",
+   "pos": "PICK",
+   "getRank": 193,
+   "pageRank": 189,
+   "getTier": 34,
+   "pageTier": 30,
+   "getValue": 2785,
+   "pageValue": 2785
+  },
+  {
+   "name": "Rico Dowdle",
+   "pos": "RB",
+   "getRank": 194,
+   "pageRank": 190,
+   "getTier": 34,
+   "pageTier": 30,
+   "getValue": 2775,
+   "pageValue": 2775
+  },
+  {
+   "name": "Quay Walker",
+   "pos": "LB",
+   "getRank": 195,
+   "pageRank": 191,
+   "getTier": 34,
+   "pageTier": 30,
+   "getValue": 2774,
+   "pageValue": 2774
+  },
+  {
+   "name": "Kevin Winston",
+   "pos": "DB",
+   "getRank": 196,
+   "pageRank": 192,
+   "getTier": 34,
+   "pageTier": 30,
+   "getValue": 2763,
+   "pageValue": 2763
+  },
+  {
+   "name": "Jalon Walker",
+   "pos": "DL",
+   "getRank": 197,
+   "pageRank": 193,
+   "getTier": 34,
+   "pageTier": 30,
+   "getValue": 2755,
+   "pageValue": 2755
+  },
+  {
+   "name": "Rhamondre Stevenson",
+   "pos": "RB",
+   "getRank": 198,
+   "pageRank": 194,
+   "getTier": 34,
+   "pageTier": 30,
+   "getValue": 2750,
+   "pageValue": 2750
+  },
+  {
+   "name": "Jalen Coker",
+   "pos": "WR",
+   "getRank": 199,
+   "pageRank": 195,
+   "getTier": 34,
+   "pageTier": 30,
+   "getValue": 2737,
+   "pageValue": 2737
+  },
+  {
+   "name": "Tuli Tuipulotu",
+   "pos": "DL",
+   "getRank": 200,
+   "pageRank": 196,
+   "getTier": 34,
+   "pageTier": 30,
+   "getValue": 2737,
+   "pageValue": 2737
+  },
+  {
+   "name": "Romeo Doubs",
+   "pos": "WR",
+   "getRank": 201,
+   "pageRank": 197,
+   "getTier": 34,
+   "pageTier": 30,
+   "getValue": 2732,
+   "pageValue": 2732
+  },
+  {
+   "name": "Brian Branch",
+   "pos": "DB",
+   "getRank": 202,
+   "pageRank": 198,
+   "getTier": 35,
+   "pageTier": 31,
+   "getValue": 2720,
+   "pageValue": 2720
+  },
+  {
+   "name": "Michael Penix",
+   "pos": "QB",
+   "getRank": 203,
+   "pageRank": 200,
+   "getTier": 35,
+   "pageTier": 31,
+   "getValue": 2690,
+   "pageValue": 2690
+  },
+  {
+   "name": "Alex Highsmith",
+   "pos": "DL",
+   "getRank": 204,
+   "pageRank": 201,
+   "getTier": 35,
+   "pageTier": 31,
+   "getValue": 2688,
+   "pageValue": 2688
+  },
+  {
+   "name": "De'Zhaun Stribling",
+   "pos": "WR",
+   "getRank": 205,
+   "pageRank": 202,
+   "getTier": 35,
+   "pageTier": 31,
+   "getValue": 2683,
+   "pageValue": 2683
+  },
+  {
+   "name": "Eli Raridon",
+   "pos": "TE",
+   "getRank": 206,
+   "pageRank": 244,
+   "getTier": 35,
+   "pageTier": 38,
+   "getValue": 2675,
+   "pageValue": 2372
+  },
+  {
+   "name": "2029 Early 1st",
+   "pos": "PICK",
+   "getRank": 207,
+   "pageRank": 203,
+   "getTier": 35,
+   "pageTier": 32,
+   "getValue": 2668,
+   "pageValue": 2668
+  },
+  {
+   "name": "Antonio Williams",
+   "pos": "WR",
+   "getRank": 208,
+   "pageRank": 204,
+   "getTier": 35,
+   "pageTier": 32,
+   "getValue": 2663,
+   "pageValue": 2663
+  },
+  {
+   "name": "J.K. Dobbins",
+   "pos": "RB",
+   "getRank": 209,
+   "pageRank": 205,
+   "getTier": 35,
+   "pageTier": 32,
+   "getValue": 2660,
+   "pageValue": 2660
+  },
+  {
+   "name": "Nate Landman",
+   "pos": "LB",
+   "getRank": 210,
+   "pageRank": 206,
+   "getTier": 35,
+   "pageTier": 32,
+   "getValue": 2658,
+   "pageValue": 2658
+  },
+  {
+   "name": "Tua Tagovailoa",
+   "pos": "QB",
+   "getRank": 211,
+   "pageRank": 207,
+   "getTier": 35,
+   "pageTier": 32,
+   "getValue": 2657,
+   "pageValue": 2657
+  },
+  {
+   "name": "Dalton Schultz",
+   "pos": "TE",
+   "getRank": 212,
+   "pageRank": 250,
+   "getTier": 35,
+   "pageTier": 39,
+   "getValue": 2656,
+   "pageValue": 2304
+  },
+  {
+   "name": "Byron Young",
+   "pos": "DL",
+   "getRank": 213,
+   "pageRank": 208,
+   "getTier": 36,
+   "pageTier": 33,
+   "getValue": 2644,
+   "pageValue": 2644
+  },
+  {
+   "name": "Max Klare",
+   "pos": "TE",
+   "getRank": 214,
+   "pageRank": 243,
+   "getTier": 36,
+   "pageTier": 38,
+   "getValue": 2633,
+   "pageValue": 2373
+  },
+  {
+   "name": "Tony Pollard",
+   "pos": "RB",
+   "getRank": 215,
+   "pageRank": 209,
+   "getTier": 36,
+   "pageTier": 33,
+   "getValue": 2620,
+   "pageValue": 2620
+  },
+  {
+   "name": "Nick Herbig",
+   "pos": "DL",
+   "getRank": 216,
+   "pageRank": 210,
+   "getTier": 36,
+   "pageTier": 33,
+   "getValue": 2620,
+   "pageValue": 2620
+  },
+  {
+   "name": "Jacory Croskey-Merritt",
+   "pos": "RB",
+   "getRank": 217,
+   "pageRank": 211,
+   "getTier": 37,
+   "pageTier": 34,
+   "getValue": 2608,
+   "pageValue": 2608
+  },
+  {
+   "name": "Jaelan Phillips",
+   "pos": "DL",
+   "getRank": 218,
+   "pageRank": 212,
+   "getTier": 37,
+   "pageTier": 34,
+   "getValue": 2608,
+   "pageValue": 2608
+  },
+  {
+   "name": "Kenny Gainwell",
+   "pos": "RB",
+   "getRank": 219,
+   "pageRank": 213,
+   "getTier": 37,
+   "pageTier": 34,
+   "getValue": 2605,
+   "pageValue": 2605
+  },
+  {
+   "name": "2027 Early 3rd",
+   "pos": "PICK",
+   "getRank": 220,
+   "pageRank": 214,
+   "getTier": 37,
+   "pageTier": 34,
+   "getValue": 2603,
+   "pageValue": 2603
+  },
+  {
+   "name": "Jeffery Simmons",
+   "pos": "DL",
+   "getRank": 221,
+   "pageRank": 216,
+   "getTier": 37,
+   "pageTier": 34,
+   "getValue": 2597,
+   "pageValue": 2597
+  },
+  {
+   "name": "J.J. McCarthy",
+   "pos": "QB",
+   "getRank": 222,
+   "pageRank": 217,
+   "getTier": 37,
+   "pageTier": 35,
+   "getValue": 2588,
+   "pageValue": 2588
+  },
+  {
+   "name": "George Karlaftis",
+   "pos": "DL",
+   "getRank": 223,
+   "pageRank": 218,
+   "getTier": 37,
+   "pageTier": 35,
+   "getValue": 2587,
+   "pageValue": 2587
+  },
+  {
+   "name": "Chris Bell",
+   "pos": "WR",
+   "getRank": 224,
+   "pageRank": 219,
+   "getTier": 37,
+   "pageTier": 35,
+   "getValue": 2582,
+   "pageValue": 2582
+  },
+  {
+   "name": "Blake Cashman",
+   "pos": "LB",
+   "getRank": 225,
+   "pageRank": 220,
+   "getTier": 37,
+   "pageTier": 35,
+   "getValue": 2580,
+   "pageValue": 2580
+  },
+  {
+   "name": "Khalil Shakir",
+   "pos": "WR",
+   "getRank": 226,
+   "pageRank": 221,
+   "getTier": 37,
+   "pageTier": 35,
+   "getValue": 2575,
+   "pageValue": 2575
+  },
+  {
+   "name": "Danielle Hunter",
+   "pos": "DL",
+   "getRank": 227,
+   "pageRank": 223,
+   "getTier": 38,
+   "pageTier": 36,
+   "getValue": 2558,
+   "pageValue": 2558
+  },
+  {
+   "name": "Byron Murphy",
+   "pos": "DL",
+   "getRank": 228,
+   "pageRank": 224,
+   "getTier": 38,
+   "pageTier": 36,
+   "getValue": 2549,
+   "pageValue": 2549
+  },
+  {
+   "name": "David Njoku",
+   "pos": "TE",
+   "getRank": 229,
+   "pageRank": 254,
+   "getTier": 38,
+   "pageTier": 40,
+   "getValue": 2541,
+   "pageValue": 2238
+  },
+  {
+   "name": "Tykee Smith",
+   "pos": "DB",
+   "getRank": 230,
+   "pageRank": 225,
+   "getTier": 38,
+   "pageTier": 36,
+   "getValue": 2541,
+   "pageValue": 2541
+  },
+  {
+   "name": "Shedeur Sanders",
+   "pos": "QB",
+   "getRank": 231,
+   "pageRank": 226,
+   "getTier": 38,
+   "pageTier": 36,
+   "getValue": 2534,
+   "pageValue": 2534
+  },
+  {
+   "name": "Greg Dulcich",
+   "pos": "TE",
+   "getRank": 232,
+   "pageRank": 249,
+   "getTier": 38,
+   "pageTier": 38,
+   "getValue": 2534,
+   "pageValue": 2325
+  },
+  {
+   "name": "Nicholas Singleton",
+   "pos": "RB",
+   "getRank": 233,
+   "pageRank": 227,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2526,
+   "pageValue": 2526
+  },
+  {
+   "name": "Derwin James",
+   "pos": "DB",
+   "getRank": 234,
+   "pageRank": 228,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2525,
+   "pageValue": 2525
+  },
+  {
+   "name": "Germie Bernard",
+   "pos": "WR",
+   "getRank": 235,
+   "pageRank": 229,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2521,
+   "pageValue": 2521
+  },
+  {
+   "name": "Rachaad White",
+   "pos": "RB",
+   "getRank": 236,
+   "pageRank": 230,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2520,
+   "pageValue": 2520
+  },
+  {
+   "name": "Jalen Carter",
+   "pos": "DL",
+   "getRank": 237,
+   "pageRank": 231,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2519,
+   "pageValue": 2519
+  },
+  {
+   "name": "2027 Mid 3rd",
+   "pos": "PICK",
+   "getRank": 238,
+   "pageRank": 232,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2512,
+   "pageValue": 2512
+  },
+  {
+   "name": "Cade Otton",
+   "pos": "TE",
+   "getRank": 239,
+   "pageRank": 263,
+   "getTier": 39,
+   "pageTier": 42,
+   "getValue": 2512,
+   "pageValue": 2170
+  },
+  {
+   "name": "Jonathan Greenard",
+   "pos": "DL",
+   "getRank": 240,
+   "pageRank": 233,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2512,
+   "pageValue": 2512
+  },
+  {
+   "name": "Chase Young",
+   "pos": "DL",
+   "getRank": 241,
+   "pageRank": 234,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2506,
+   "pageValue": 2506
+  },
+  {
+   "name": "Trey Hendrickson",
+   "pos": "DL",
+   "getRank": 242,
+   "pageRank": 235,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2499,
+   "pageValue": 2499
+  },
+  {
+   "name": "Jalen McMillan",
+   "pos": "WR",
+   "getRank": 243,
+   "pageRank": 236,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2498,
+   "pageValue": 2498
+  },
+  {
+   "name": "Greg Rousseau",
+   "pos": "DL",
+   "getRank": 244,
+   "pageRank": 237,
+   "getTier": 39,
+   "pageTier": 36,
+   "getValue": 2494,
+   "pageValue": 2494
+  },
+  {
+   "name": "Pat Freiermuth",
+   "pos": "TE",
+   "getRank": 245,
+   "pageRank": 279,
+   "getTier": 39,
+   "pageTier": 44,
+   "getValue": 2484,
+   "pageValue": 2091
+  },
+  {
+   "name": "Mason Taylor",
+   "pos": "TE",
+   "getRank": 246,
+   "pageRank": 256,
+   "getTier": 40,
+   "pageTier": 40,
+   "getValue": 2438,
+   "pageValue": 2225
+  },
+  {
+   "name": "Jacoby Brissett",
+   "pos": "QB",
+   "getRank": 247,
+   "pageRank": 239,
+   "getTier": 40,
+   "pageTier": 37,
+   "getValue": 2418,
+   "pageValue": 2418
+  },
+  {
+   "name": "Elijah Arroyo",
+   "pos": "TE",
+   "getRank": 248,
+   "pageRank": 288,
+   "getTier": 40,
+   "pageTier": 46,
+   "getValue": 2413,
+   "pageValue": 2052
+  },
+  {
+   "name": "2029 Mid 1st",
+   "pos": "PICK",
+   "getRank": 249,
+   "pageRank": 240,
+   "getTier": 40,
+   "pageTier": 37,
+   "getValue": 2412,
+   "pageValue": 2412
+  },
+  {
+   "name": "Tre' Harris",
+   "pos": "WR",
+   "getRank": 250,
+   "pageRank": 241,
+   "getTier": 41,
+   "pageTier": 38,
+   "getValue": 2397,
+   "pageValue": 2397
+  },
+  {
+   "name": "Rashid Shaheed",
+   "pos": "WR",
+   "getRank": 251,
+   "pageRank": 242,
+   "getTier": 41,
+   "pageTier": 38,
+   "getValue": 2391,
+   "pageValue": 2391
+  },
+  {
+   "name": "Oscar Delp",
+   "pos": "TE",
+   "getRank": 252,
+   "pageRank": 273,
+   "getTier": 41,
+   "pageTier": 43,
+   "getValue": 2384,
+   "pageValue": 2121
+  },
+  {
+   "name": "Woody Marks",
+   "pos": "RB",
+   "getRank": 253,
+   "pageRank": 245,
+   "getTier": 42,
+   "pageTier": 38,
+   "getValue": 2351,
+   "pageValue": 2351
+  },
+  {
+   "name": "Tyrone Tracy",
+   "pos": "RB",
+   "getRank": 254,
+   "pageRank": 246,
+   "getTier": 42,
+   "pageTier": 38,
+   "getValue": 2350,
+   "pageValue": 2350
+  },
+  {
+   "name": "Jordan Mason",
+   "pos": "RB",
+   "getRank": 255,
+   "pageRank": 247,
+   "getTier": 42,
+   "pageTier": 38,
+   "getValue": 2349,
+   "pageValue": 2349
+  },
+  {
+   "name": "Tyler Allgeier",
+   "pos": "RB",
+   "getRank": 256,
+   "pageRank": 248,
+   "getTier": 42,
+   "pageTier": 38,
+   "getValue": 2339,
+   "pageValue": 2339
+  },
+  {
+   "name": "Theo Johnson",
+   "pos": "TE",
+   "getRank": 257,
+   "pageRank": 309,
+   "getTier": 43,
+   "pageTier": 50,
+   "getValue": 2322,
+   "pageValue": 1938
+  },
+  {
+   "name": "Zachariah Branch",
+   "pos": "WR",
+   "getRank": 258,
+   "pageRank": 251,
+   "getTier": 43,
+   "pageTier": 39,
+   "getValue": 2293,
+   "pageValue": 2293
+  },
+  {
+   "name": "2027 Late 3rd",
+   "pos": "PICK",
+   "getRank": 259,
+   "pageRank": 252,
+   "getTier": 43,
+   "pageTier": 39,
+   "getValue": 2268,
+   "pageValue": 2268
+  },
+  {
+   "name": "Ted Hurst",
+   "pos": "WR",
+   "getRank": 260,
+   "pageRank": 253,
+   "getTier": 44,
+   "pageTier": 40,
+   "getValue": 2244,
+   "pageValue": 2244
+  },
+  {
+   "name": "Justin Joly",
+   "pos": "TE",
+   "getRank": 261,
+   "pageRank": 307,
+   "getTier": 44,
+   "pageTier": 50,
+   "getValue": 2243,
+   "pageValue": 1942
+  },
+  {
+   "name": "Michael Mayer",
+   "pos": "TE",
+   "getRank": 262,
+   "pageRank": 322,
+   "getTier": 44,
+   "pageTier": 53,
+   "getValue": 2240,
+   "pageValue": 1887
+  },
+  {
+   "name": "Evan Engram",
+   "pos": "TE",
+   "getRank": 263,
+   "pageRank": 321,
+   "getTier": 44,
+   "pageTier": 53,
+   "getValue": 2239,
+   "pageValue": 1889
+  },
+  {
+   "name": "Jauan Jennings",
+   "pos": "WR",
+   "getRank": 264,
+   "pageRank": 255,
+   "getTier": 44,
+   "pageTier": 40,
+   "getValue": 2231,
+   "pageValue": 2231
+  },
+  {
+   "name": "Dylan Sampson",
+   "pos": "RB",
+   "getRank": 265,
+   "pageRank": 257,
+   "getTier": 44,
+   "pageTier": 40,
+   "getValue": 2220,
+   "pageValue": 2220
+  },
+  {
+   "name": "Chris Rodriguez",
+   "pos": "RB",
+   "getRank": 266,
+   "pageRank": 258,
+   "getTier": 45,
+   "pageTier": 41,
+   "getValue": 2207,
+   "pageValue": 2207
+  },
+  {
+   "name": "Carson Beck",
+   "pos": "QB",
+   "getRank": 267,
+   "pageRank": 259,
+   "getTier": 45,
+   "pageTier": 41,
+   "getValue": 2198,
+   "pageValue": 2198
+  },
+  {
+   "name": "Jaylin Noel",
+   "pos": "WR",
+   "getRank": 268,
+   "pageRank": 260,
+   "getTier": 45,
+   "pageTier": 41,
+   "getValue": 2195,
+   "pageValue": 2195
+  },
+  {
+   "name": "2028 Early 3rd",
+   "pos": "PICK",
+   "getRank": 269,
+   "pageRank": 261,
+   "getTier": 45,
+   "pageTier": 41,
+   "getValue": 2190,
+   "pageValue": 2190
+  },
+  {
+   "name": "2029 Late 1st",
+   "pos": "PICK",
+   "getRank": 270,
+   "pageRank": 262,
+   "getTier": 45,
+   "pageTier": 41,
+   "getValue": 2189,
+   "pageValue": 2189
+  },
+  {
+   "name": "Jake Tonges",
+   "pos": "TE",
+   "getRank": 271,
+   "pageRank": 339,
+   "getTier": 46,
+   "pageTier": 55,
+   "getValue": 2168,
+   "pageValue": 1806
+  },
+  {
+   "name": "Stefon Diggs",
+   "pos": "WR",
+   "getRank": 272,
+   "pageRank": 264,
+   "getTier": 46,
+   "pageTier": 42,
+   "getValue": 2166,
+   "pageValue": 2166
+  },
+  {
+   "name": "Elijah Sarratt",
+   "pos": "WR",
+   "getRank": 273,
+   "pageRank": 265,
+   "getTier": 46,
+   "pageTier": 42,
+   "getValue": 2166,
+   "pageValue": 2166
+  },
+  {
+   "name": "Aaron Jones",
+   "pos": "RB",
+   "getRank": 274,
+   "pageRank": 266,
+   "getTier": 47,
+   "pageTier": 43,
+   "getValue": 2144,
+   "pageValue": 2144
+  },
+  {
+   "name": "Colby Parkinson",
+   "pos": "TE",
+   "getRank": 275,
+   "pageRank": 336,
+   "getTier": 47,
+   "pageTier": 55,
+   "getValue": 2139,
+   "pageValue": 1813
+  },
+  {
+   "name": "Geno Smith",
+   "pos": "QB",
+   "getRank": 276,
+   "pageRank": 267,
+   "getTier": 47,
+   "pageTier": 43,
+   "getValue": 2137,
+   "pageValue": 2137
+  },
+  {
+   "name": "Emmett Johnson",
+   "pos": "RB",
+   "getRank": 277,
+   "pageRank": 268,
+   "getTier": 47,
+   "pageTier": 43,
+   "getValue": 2136,
+   "pageValue": 2136
+  },
+  {
+   "name": "Deebo Samuel",
+   "pos": "WR",
+   "getRank": 278,
+   "pageRank": 269,
+   "getTier": 47,
+   "pageTier": 43,
+   "getValue": 2135,
+   "pageValue": 2135
+  },
+  {
+   "name": "Malachi Fields",
+   "pos": "WR",
+   "getRank": 279,
+   "pageRank": 270,
+   "getTier": 47,
+   "pageTier": 43,
+   "getValue": 2133,
+   "pageValue": 2133
+  },
+  {
+   "name": "Jerry Jeudy",
+   "pos": "WR",
+   "getRank": 280,
+   "pageRank": 271,
+   "getTier": 47,
+   "pageTier": 43,
+   "getValue": 2129,
+   "pageValue": 2129
+  },
+  {
+   "name": "Adonai Mitchell",
+   "pos": "WR",
+   "getRank": 281,
+   "pageRank": 272,
+   "getTier": 47,
+   "pageTier": 43,
+   "getValue": 2126,
+   "pageValue": 2126
+  },
+  {
+   "name": "Tyjae Spears",
+   "pos": "RB",
+   "getRank": 282,
+   "pageRank": 274,
+   "getTier": 47,
+   "pageTier": 43,
+   "getValue": 2121,
+   "pageValue": 2121
+  },
+  {
+   "name": "Jamien Sherwood",
+   "pos": "LB",
+   "getRank": 283,
+   "pageRank": 275,
+   "getTier": 47,
+   "pageTier": 43,
+   "getValue": 2119,
+   "pageValue": 2119
+  },
+  {
+   "name": "Ja'Tavion Sanders",
+   "pos": "TE",
+   "getRank": 284,
+   "pageRank": 349,
+   "getTier": 48,
+   "pageTier": 57,
+   "getValue": 2106,
+   "pageValue": 1760
+  },
+  {
+   "name": "2028 Mid 3rd",
+   "pos": "PICK",
+   "getRank": 285,
+   "pageRank": 276,
+   "getTier": 48,
+   "pageTier": 44,
+   "getValue": 2097,
+   "pageValue": 2097
+  },
+  {
+   "name": "Isaac TeSlaa",
+   "pos": "WR",
+   "getRank": 286,
+   "pageRank": 277,
+   "getTier": 48,
+   "pageTier": 44,
+   "getValue": 2092,
+   "pageValue": 2092
+  },
+  {
+   "name": "Mac Jones",
+   "pos": "QB",
+   "getRank": 287,
+   "pageRank": 278,
+   "getTier": 48,
+   "pageTier": 44,
+   "getValue": 2092,
+   "pageValue": 2092
+  },
+  {
+   "name": "Tremaine Edmunds",
+   "pos": "LB",
+   "getRank": 288,
+   "pageRank": 280,
+   "getTier": 49,
+   "pageTier": 45,
+   "getValue": 2084,
+   "pageValue": 2084
+  },
+  {
+   "name": "Braelon Allen",
+   "pos": "RB",
+   "getRank": 289,
+   "pageRank": 281,
+   "getTier": 49,
+   "pageTier": 45,
+   "getValue": 2081,
+   "pageValue": 2081
+  },
+  {
+   "name": "Kaytron Allen",
+   "pos": "RB",
+   "getRank": 290,
+   "pageRank": 282,
+   "getTier": 49,
+   "pageTier": 45,
+   "getValue": 2074,
+   "pageValue": 2074
+  },
+  {
+   "name": "Kayshon Boutte",
+   "pos": "WR",
+   "getRank": 291,
+   "pageRank": 283,
+   "getTier": 49,
+   "pageTier": 45,
+   "getValue": 2071,
+   "pageValue": 2071
+  },
+  {
+   "name": "Tank Bigsby",
+   "pos": "RB",
+   "getRank": 292,
+   "pageRank": 284,
+   "getTier": 49,
+   "pageTier": 45,
+   "getValue": 2071,
+   "pageValue": 2071
+  },
+  {
+   "name": "DeMarvion Overshown",
+   "pos": "LB",
+   "getRank": 293,
+   "pageRank": 285,
+   "getTier": 49,
+   "pageTier": 45,
+   "getValue": 2069,
+   "pageValue": 2069
+  },
+  {
+   "name": "Isiah Pacheco",
+   "pos": "RB",
+   "getRank": 294,
+   "pageRank": 286,
+   "getTier": 49,
+   "pageTier": 45,
+   "getValue": 2067,
+   "pageValue": 2067
+  },
+  {
+   "name": "Cole Kmet",
+   "pos": "TE",
+   "getRank": 295,
+   "pageRank": 359,
+   "getTier": 50,
+   "pageTier": 59,
+   "getValue": 2054,
+   "pageValue": 1733
+  },
+  {
+   "name": "Barrett Carter",
+   "pos": "LB",
+   "getRank": 296,
+   "pageRank": 287,
+   "getTier": 50,
+   "pageTier": 46,
+   "getValue": 2052,
+   "pageValue": 2052
+  },
+  {
+   "name": "Chris Brazzell",
+   "pos": "WR",
+   "getRank": 297,
+   "pageRank": 289,
+   "getTier": 50,
+   "pageTier": 46,
+   "getValue": 2036,
+   "pageValue": 2036
+  },
+  {
+   "name": "Darnell Washington",
+   "pos": "TE",
+   "getRank": 298,
+   "pageRank": 357,
+   "getTier": 50,
+   "pageTier": 59,
+   "getValue": 2033,
+   "pageValue": 1736
+  },
+  {
+   "name": "Foyesade Oluokun",
+   "pos": "LB",
+   "getRank": 299,
+   "pageRank": 290,
+   "getTier": 51,
+   "pageTier": 47,
+   "getValue": 2006,
+   "pageValue": 2006
+  },
+  {
+   "name": "Jack Bech",
+   "pos": "WR",
+   "getRank": 300,
+   "pageRank": 291,
+   "getTier": 51,
+   "pageTier": 47,
+   "getValue": 2006,
+   "pageValue": 2006
+  },
+  {
+   "name": "Patrick Queen",
+   "pos": "LB",
+   "getRank": 301,
+   "pageRank": 292,
+   "getTier": 51,
+   "pageTier": 47,
+   "getValue": 2003,
+   "pageValue": 2003
+  },
+  {
+   "name": "2028 Late 3rd",
+   "pos": "PICK",
+   "getRank": 302,
+   "pageRank": 293,
+   "getTier": 51,
+   "pageTier": 47,
+   "getValue": 2003,
+   "pageValue": 2003
+  },
+  {
+   "name": "Jalen Nailor",
+   "pos": "WR",
+   "getRank": 303,
+   "pageRank": 294,
+   "getTier": 51,
+   "pageTier": 47,
+   "getValue": 2001,
+   "pageValue": 2001
+  },
+  {
+   "name": "Mike Gesicki",
+   "pos": "TE",
+   "getRank": 304,
+   "pageRank": 385,
+   "getTier": 51,
+   "pageTier": 64,
+   "getValue": 1999,
+   "pageValue": 1674
+  },
+  {
+   "name": "Troy Franklin",
+   "pos": "WR",
+   "getRank": 305,
+   "pageRank": 295,
+   "getTier": 51,
+   "pageTier": 48,
+   "getValue": 1996,
+   "pageValue": 1996
+  },
+  {
+   "name": "Keaton Mitchell",
+   "pos": "RB",
+   "getRank": 306,
+   "pageRank": 296,
+   "getTier": 52,
+   "pageTier": 48,
+   "getValue": 1985,
+   "pageValue": 1985
+  },
+  {
+   "name": "Tory Horton",
+   "pos": "WR",
+   "getRank": 307,
+   "pageRank": 297,
+   "getTier": 52,
+   "pageTier": 48,
+   "getValue": 1977,
+   "pageValue": 1977
+  },
+  {
+   "name": "Aaron Rodgers",
+   "pos": "QB",
+   "getRank": 308,
+   "pageRank": 298,
+   "getTier": 52,
+   "pageTier": 48,
+   "getValue": 1975,
+   "pageValue": 1975
+  },
+  {
+   "name": "Brian Robinson",
+   "pos": "RB",
+   "getRank": 309,
+   "pageRank": 299,
+   "getTier": 53,
+   "pageTier": 49,
+   "getValue": 1967,
+   "pageValue": 1967
+  },
+  {
+   "name": "Elic Ayomanor",
+   "pos": "WR",
+   "getRank": 310,
+   "pageRank": 300,
+   "getTier": 53,
+   "pageTier": 49,
+   "getValue": 1965,
+   "pageValue": 1965
+  },
+  {
+   "name": "Mike Washington",
+   "pos": "RB",
+   "getRank": 311,
+   "pageRank": 301,
+   "getTier": 53,
+   "pageTier": 49,
+   "getValue": 1965,
+   "pageValue": 1965
+  },
+  {
+   "name": "Kaleb Johnson",
+   "pos": "RB",
+   "getRank": 312,
+   "pageRank": 302,
+   "getTier": 53,
+   "pageTier": 49,
+   "getValue": 1964,
+   "pageValue": 1964
+  },
+  {
+   "name": "Payton Wilson",
+   "pos": "LB",
+   "getRank": 313,
+   "pageRank": 303,
+   "getTier": 53,
+   "pageTier": 49,
+   "getValue": 1962,
+   "pageValue": 1962
+  },
+  {
+   "name": "Deshaun Watson",
+   "pos": "QB",
+   "getRank": 314,
+   "pageRank": 304,
+   "getTier": 53,
+   "pageTier": 49,
+   "getValue": 1962,
+   "pageValue": 1962
+  },
+  {
+   "name": "Tank Dell",
+   "pos": "WR",
+   "getRank": 315,
+   "pageRank": 305,
+   "getTier": 53,
+   "pageTier": 49,
+   "getValue": 1961,
+   "pageValue": 1961
+  },
+  {
+   "name": "Ben Sinnott",
+   "pos": "TE",
+   "getRank": 316,
+   "pageRank": 389,
+   "getTier": 53,
+   "pageTier": 66,
+   "getValue": 1959,
+   "pageValue": 1658
+  },
+  {
+   "name": "Terrel Bernard",
+   "pos": "LB",
+   "getRank": 317,
+   "pageRank": 306,
+   "getTier": 53,
+   "pageTier": 50,
+   "getValue": 1957,
+   "pageValue": 1957
+  },
+  {
+   "name": "Zaire Franklin",
+   "pos": "LB",
+   "getRank": 318,
+   "pageRank": 308,
+   "getTier": 54,
+   "pageTier": 50,
+   "getValue": 1939,
+   "pageValue": 1939
+  },
+  {
+   "name": "Pat Bryant",
+   "pos": "WR",
+   "getRank": 319,
+   "pageRank": 310,
+   "getTier": 54,
+   "pageTier": 50,
+   "getValue": 1937,
+   "pageValue": 1937
+  },
+  {
+   "name": "Daiyan Henley",
+   "pos": "LB",
+   "getRank": 320,
+   "pageRank": 311,
+   "getTier": 54,
+   "pageTier": 51,
+   "getValue": 1923,
+   "pageValue": 1923
+  },
+  {
+   "name": "Ja'Kobi Lane",
+   "pos": "WR",
+   "getRank": 321,
+   "pageRank": 312,
+   "getTier": 54,
+   "pageTier": 51,
+   "getValue": 1921,
+   "pageValue": 1921
+  },
+  {
+   "name": "Dawson Knox",
+   "pos": "TE",
+   "getRank": 322,
+   "pageRank": 418,
+   "getTier": 55,
+   "pageTier": 71,
+   "getValue": 1914,
+   "pageValue": 1559
+  },
+  {
+   "name": "Skyler Bell",
+   "pos": "WR",
+   "getRank": 323,
+   "pageRank": 313,
+   "getTier": 55,
+   "pageTier": 51,
+   "getValue": 1911,
+   "pageValue": 1911
+  },
+  {
+   "name": "T.J. Edwards",
+   "pos": "LB",
+   "getRank": 324,
+   "pageRank": 314,
+   "getTier": 55,
+   "pageTier": 51,
+   "getValue": 1911,
+   "pageValue": 1911
+  },
+  {
+   "name": "Marlin Klein",
+   "pos": "TE",
+   "getRank": 325,
+   "pageRank": 419,
+   "getTier": 55,
+   "pageTier": 72,
+   "getValue": 1908,
+   "pageValue": 1554
+  },
+  {
+   "name": "Brandon Aiyuk",
+   "pos": "WR",
+   "getRank": 326,
+   "pageRank": 315,
+   "getTier": 55,
+   "pageTier": 52,
+   "getValue": 1906,
+   "pageValue": 1906
+  },
+  {
+   "name": "Tre Tucker",
+   "pos": "WR",
+   "getRank": 327,
+   "pageRank": 316,
+   "getTier": 55,
+   "pageTier": 52,
+   "getValue": 1905,
+   "pageValue": 1905
+  },
+  {
+   "name": "Keon Coleman",
+   "pos": "WR",
+   "getRank": 328,
+   "pageRank": 317,
+   "getTier": 55,
+   "pageTier": 52,
+   "getValue": 1902,
+   "pageValue": 1902
+  },
+  {
+   "name": "Antoine Winfield",
+   "pos": "DB",
+   "getRank": 329,
+   "pageRank": 318,
+   "getTier": 55,
+   "pageTier": 52,
+   "getValue": 1900,
+   "pageValue": 1900
+  },
+  {
+   "name": "Alvin Kamara",
+   "pos": "RB",
+   "getRank": 330,
+   "pageRank": 319,
+   "getTier": 55,
+   "pageTier": 52,
+   "getValue": 1899,
+   "pageValue": 1899
+  },
+  {
+   "name": "Demetrius Knight",
+   "pos": "LB",
+   "getRank": 331,
+   "pageRank": 320,
+   "getTier": 56,
+   "pageTier": 53,
+   "getValue": 1892,
+   "pageValue": 1892
+  },
+  {
+   "name": "Luke Musgrave",
+   "pos": "TE",
+   "getRank": 332,
+   "pageRank": 425,
+   "getTier": 56,
+   "pageTier": 73,
+   "getValue": 1890,
+   "pageValue": 1544
+  },
+  {
+   "name": "Malik Washington",
+   "pos": "WR",
+   "getRank": 333,
+   "pageRank": 323,
+   "getTier": 56,
+   "pageTier": 54,
+   "getValue": 1881,
+   "pageValue": 1881
+  },
+  {
+   "name": "Kaden Elliss",
+   "pos": "LB",
+   "getRank": 334,
+   "pageRank": 324,
+   "getTier": 57,
+   "pageTier": 54,
+   "getValue": 1869,
+   "pageValue": 1869
+  },
+  {
+   "name": "Dontayvion Wicks",
+   "pos": "WR",
+   "getRank": 335,
+   "pageRank": 325,
+   "getTier": 57,
+   "pageTier": 54,
+   "getValue": 1866,
+   "pageValue": 1866
+  },
+  {
+   "name": "Tanner Koziol",
+   "pos": "TE",
+   "getRank": 336,
+   "pageRank": 415,
+   "getTier": 57,
+   "pageTier": 70,
+   "getValue": 1866,
+   "pageValue": 1566
+  },
+  {
+   "name": "Zach Allen",
+   "pos": "DL",
+   "getRank": 337,
+   "pageRank": 326,
+   "getTier": 57,
+   "pageTier": 54,
+   "getValue": 1863,
+   "pageValue": 1863
+  },
+  {
+   "name": "2027 Early 4th",
+   "pos": "PICK",
+   "getRank": 338,
+   "pageRank": 327,
+   "getTier": 57,
+   "pageTier": 54,
+   "getValue": 1858,
+   "pageValue": 1858
+  },
+  {
+   "name": "Cody Simon",
+   "pos": "LB",
+   "getRank": 339,
+   "pageRank": 328,
+   "getTier": 57,
+   "pageTier": 54,
+   "getValue": 1856,
+   "pageValue": 1856
+  },
+  {
+   "name": "Erick All",
+   "pos": "TE",
+   "getRank": 340,
+   "pageRank": 444,
+   "getTier": 57,
+   "pageTier": 78,
+   "getValue": 1853,
+   "pageValue": 1476
+  },
+  {
+   "name": "Anthony Richardson",
+   "pos": "QB",
+   "getRank": 341,
+   "pageRank": 329,
+   "getTier": 57,
+   "pageTier": 54,
+   "getValue": 1850,
+   "pageValue": 1850
+  },
+  {
+   "name": "Noah Fant",
+   "pos": "TE",
+   "getRank": 342,
+   "pageRank": 442,
+   "getTier": 57,
+   "pageTier": 77,
+   "getValue": 1846,
+   "pageValue": 1485
+  },
+  {
+   "name": "Cade Stover",
+   "pos": "TE",
+   "getRank": 343,
+   "pageRank": 426,
+   "getTier": 57,
+   "pageTier": 74,
+   "getValue": 1844,
+   "pageValue": 1540
+  },
+  {
+   "name": "Demond Claiborne",
+   "pos": "RB",
+   "getRank": 344,
+   "pageRank": 330,
+   "getTier": 57,
+   "pageTier": 54,
+   "getValue": 1844,
+   "pageValue": 1844
+  },
+  {
+   "name": "Noah Gray",
+   "pos": "TE",
+   "getRank": 345,
+   "pageRank": 443,
+   "getTier": 58,
+   "pageTier": 78,
+   "getValue": 1834,
+   "pageValue": 1476
+  },
+  {
+   "name": "Chop Robinson",
+   "pos": "DL",
+   "getRank": 346,
+   "pageRank": 331,
+   "getTier": 58,
+   "pageTier": 55,
+   "getValue": 1830,
+   "pageValue": 1830
+  },
+  {
+   "name": "Drew Allar",
+   "pos": "QB",
+   "getRank": 347,
+   "pageRank": 332,
+   "getTier": 58,
+   "pageTier": 55,
+   "getValue": 1823,
+   "pageValue": 1823
+  },
+  {
+   "name": "Kaelon Black",
+   "pos": "RB",
+   "getRank": 348,
+   "pageRank": 333,
+   "getTier": 58,
+   "pageTier": 55,
+   "getValue": 1822,
+   "pageValue": 1822
+  },
+  {
+   "name": "Robert Spillane",
+   "pos": "LB",
+   "getRank": 349,
+   "pageRank": 334,
+   "getTier": 58,
+   "pageTier": 55,
+   "getValue": 1819,
+   "pageValue": 1819
+  },
+  {
+   "name": "Quincy Williams",
+   "pos": "LB",
+   "getRank": 350,
+   "pageRank": 335,
+   "getTier": 58,
+   "pageTier": 55,
+   "getValue": 1815,
+   "pageValue": 1815
+  },
+  {
+   "name": "Kirk Cousins",
+   "pos": "QB",
+   "getRank": 351,
+   "pageRank": 337,
+   "getTier": 58,
+   "pageTier": 55,
+   "getValue": 1812,
+   "pageValue": 1812
+  },
+  {
+   "name": "Jake Golday",
+   "pos": "LB",
+   "getRank": 352,
+   "pageRank": 338,
+   "getTier": 58,
+   "pageTier": 55,
+   "getValue": 1810,
+   "pageValue": 1810
+  },
+  {
+   "name": "Chimere Dike",
+   "pos": "WR",
+   "getRank": 353,
+   "pageRank": 340,
+   "getTier": 59,
+   "pageTier": 55,
+   "getValue": 1804,
+   "pageValue": 1804
+  },
+  {
+   "name": "Nate Boerkircher",
+   "pos": "TE",
+   "getRank": 354,
+   "pageRank": 412,
+   "getTier": 59,
+   "pageTier": 70,
+   "getValue": 1803,
+   "pageValue": 1573
+  },
+  {
+   "name": "Jack Endries",
+   "pos": "TE",
+   "getRank": 355,
+   "pageRank": 436,
+   "getTier": 59,
+   "pageTier": 76,
+   "getValue": 1802,
+   "pageValue": 1505
+  },
+  {
+   "name": "Sam Roush",
+   "pos": "TE",
+   "getRank": 356,
+   "pageRank": 429,
+   "getTier": 59,
+   "pageTier": 75,
+   "getValue": 1801,
+   "pageValue": 1520
+  },
+  {
+   "name": "Derrick Moore",
+   "pos": "DL",
+   "getRank": 357,
+   "pageRank": 341,
+   "getTier": 60,
+   "pageTier": 56,
+   "getValue": 1797,
+   "pageValue": 1797
+  },
+  {
+   "name": "Will Kacmarek",
+   "pos": "TE",
+   "getRank": 358,
+   "pageRank": 471,
+   "getTier": 60,
+   "pageTier": 84,
+   "getValue": 1795,
+   "pageValue": 1417
+  },
+  {
+   "name": "Tyler Higbee",
+   "pos": "TE",
+   "getRank": 359,
+   "pageRank": 438,
+   "getTier": 60,
+   "pageTier": 77,
+   "getValue": 1789,
+   "pageValue": 1493
+  },
+  {
+   "name": "Azeez Al-Shaair",
+   "pos": "LB",
+   "getRank": 360,
+   "pageRank": 342,
+   "getTier": 60,
+   "pageTier": 56,
+   "getValue": 1787,
+   "pageValue": 1787
+  },
+  {
+   "name": "Justin Fields",
+   "pos": "QB",
+   "getRank": 361,
+   "pageRank": 343,
+   "getTier": 60,
+   "pageTier": 56,
+   "getValue": 1785,
+   "pageValue": 1785
+  },
+  {
+   "name": "Tyreek Hill",
+   "pos": "WR",
+   "getRank": 362,
+   "pageRank": 344,
+   "getTier": 61,
+   "pageTier": 57,
+   "getValue": 1777,
+   "pageValue": 1777
+  },
+  {
+   "name": "Josiah Trotter",
+   "pos": "LB",
+   "getRank": 363,
+   "pageRank": 345,
+   "getTier": 61,
+   "pageTier": 57,
+   "getValue": 1776,
+   "pageValue": 1776
+  },
+  {
+   "name": "Michael Trigg",
+   "pos": "TE",
+   "getRank": 364,
+   "pageRank": 403,
+   "getTier": 61,
+   "pageTier": 68,
+   "getValue": 1768,
+   "pageValue": 1600
+  },
+  {
+   "name": "Mitchell Evans",
+   "pos": "TE",
+   "getRank": 365,
+   "pageRank": 450,
+   "getTier": 61,
+   "pageTier": 80,
+   "getValue": 1766,
+   "pageValue": 1459
+  },
+  {
+   "name": "Tommy Tremble",
+   "pos": "TE",
+   "getRank": 366,
+   "pageRank": 447,
+   "getTier": 61,
+   "pageTier": 79,
+   "getValue": 1766,
+   "pageValue": 1466
+  },
+  {
+   "name": "Kyle Williams",
+   "pos": "WR",
+   "getRank": 367,
+   "pageRank": 346,
+   "getTier": 61,
+   "pageTier": 57,
+   "getValue": 1766,
+   "pageValue": 1766
+  },
+  {
+   "name": "Trey Benson",
+   "pos": "RB",
+   "getRank": 368,
+   "pageRank": 347,
+   "getTier": 61,
+   "pageTier": 57,
+   "getValue": 1766,
+   "pageValue": 1766
+  },
+  {
+   "name": "Jaydon Blue",
+   "pos": "RB",
+   "getRank": 369,
+   "pageRank": 348,
+   "getTier": 61,
+   "pageTier": 57,
+   "getValue": 1763,
+   "pageValue": 1763
+  },
+  {
+   "name": "2027 Mid 4th",
+   "pos": "PICK",
+   "getRank": 370,
+   "pageRank": 350,
+   "getTier": 61,
+   "pageTier": 57,
+   "getValue": 1760,
+   "pageValue": 1760
+  },
+  {
+   "name": "Kimani Vidal",
+   "pos": "RB",
+   "getRank": 371,
+   "pageRank": 351,
+   "getTier": 62,
+   "pageTier": 57,
+   "getValue": 1756,
+   "pageValue": 1756
+  },
+  {
+   "name": "Travon Walker",
+   "pos": "DL",
+   "getRank": 372,
+   "pageRank": 352,
+   "getTier": 62,
+   "pageTier": 57,
+   "getValue": 1754,
+   "pageValue": 1754
+  },
+  {
+   "name": "Akheem Mesidor",
+   "pos": "DL",
+   "getRank": 373,
+   "pageRank": 353,
+   "getTier": 62,
+   "pageTier": 58,
+   "getValue": 1748,
+   "pageValue": 1748
+  },
+  {
+   "name": "Budda Baker",
+   "pos": "DB",
+   "getRank": 374,
+   "pageRank": 354,
+   "getTier": 62,
+   "pageTier": 58,
+   "getValue": 1745,
+   "pageValue": 1745
+  },
+  {
+   "name": "Daniel Bellinger",
+   "pos": "TE",
+   "getRank": 375,
+   "pageRank": 469,
+   "getTier": 62,
+   "pageTier": 83,
+   "getValue": 1744,
+   "pageValue": 1423
+  },
+  {
+   "name": "Quinnen Williams",
+   "pos": "DL",
+   "getRank": 376,
+   "pageRank": 355,
+   "getTier": 62,
+   "pageTier": 58,
+   "getValue": 1743,
+   "pageValue": 1743
+  },
+  {
+   "name": "Matt Hibner",
+   "pos": "TE",
+   "getRank": 377,
+   "pageRank": 434,
+   "getTier": 63,
+   "pageTier": 76,
+   "getValue": 1737,
+   "pageValue": 1506
+  },
+  {
+   "name": "MarShawn Lloyd",
+   "pos": "RB",
+   "getRank": 378,
+   "pageRank": 356,
+   "getTier": 63,
+   "pageTier": 59,
+   "getValue": 1737,
+   "pageValue": 1737
+  },
+  {
+   "name": "Jacob Parrish",
+   "pos": "DB",
+   "getRank": 379,
+   "pageRank": 358,
+   "getTier": 63,
+   "pageTier": 59,
+   "getValue": 1735,
+   "pageValue": 1735
+  },
+  {
+   "name": "Jonas Sanker",
+   "pos": "DB",
+   "getRank": 380,
+   "pageRank": 360,
+   "getTier": 64,
+   "pageTier": 59,
+   "getValue": 1731,
+   "pageValue": 1731
+  },
+  {
+   "name": "Ryan Flournoy",
+   "pos": "WR",
+   "getRank": 381,
+   "pageRank": 361,
+   "getTier": 64,
+   "pageTier": 59,
+   "getValue": 1729,
+   "pageValue": 1729
+  },
+  {
+   "name": "Elijah Higgins",
+   "pos": "TE",
+   "getRank": 382,
+   "pageRank": 482,
+   "getTier": 64,
+   "pageTier": 87,
+   "getValue": 1727,
+   "pageValue": 1399
+  },
+  {
+   "name": "Ollie Gordon",
+   "pos": "RB",
+   "getRank": 383,
+   "pageRank": 362,
+   "getTier": 65,
+   "pageTier": 60,
+   "getValue": 1723,
+   "pageValue": 1723
+  },
+  {
+   "name": "Calijah Kancey",
+   "pos": "DL",
+   "getRank": 384,
+   "pageRank": 363,
+   "getTier": 65,
+   "pageTier": 60,
+   "getValue": 1719,
+   "pageValue": 1719
+  },
+  {
+   "name": "DeForest Buckner",
+   "pos": "DL",
+   "getRank": 385,
+   "pageRank": 364,
+   "getTier": 65,
+   "pageTier": 60,
+   "getValue": 1718,
+   "pageValue": 1718
+  },
+  {
+   "name": "Jaylen Wright",
+   "pos": "RB",
+   "getRank": 386,
+   "pageRank": 365,
+   "getTier": 65,
+   "pageTier": 60,
+   "getValue": 1718,
+   "pageValue": 1718
+  },
+  {
+   "name": "Dexter Lawrence",
+   "pos": "DL",
+   "getRank": 387,
+   "pageRank": 366,
+   "getTier": 66,
+   "pageTier": 61,
+   "getValue": 1714,
+   "pageValue": 1714
+  },
+  {
+   "name": "Tyler Nubin",
+   "pos": "DB",
+   "getRank": 388,
+   "pageRank": 367,
+   "getTier": 66,
+   "pageTier": 61,
+   "getValue": 1712,
+   "pageValue": 1712
+  },
+  {
+   "name": "Malachi Lawrence",
+   "pos": "DL",
+   "getRank": 389,
+   "pageRank": 368,
+   "getTier": 66,
+   "pageTier": 61,
+   "getValue": 1711,
+   "pageValue": 1711
+  },
+  {
+   "name": "Andrew Van Ginkel",
+   "pos": "DL",
+   "getRank": 390,
+   "pageRank": 369,
+   "getTier": 66,
+   "pageTier": 61,
+   "getValue": 1709,
+   "pageValue": 1709
+  },
+  {
+   "name": "Jessie Bates",
+   "pos": "DB",
+   "getRank": 391,
+   "pageRank": 370,
+   "getTier": 66,
+   "pageTier": 61,
+   "getValue": 1707,
+   "pageValue": 1707
+  },
+  {
+   "name": "Alex Singleton",
+   "pos": "LB",
+   "getRank": 392,
+   "pageRank": 371,
+   "getTier": 66,
+   "pageTier": 61,
+   "getValue": 1705,
+   "pageValue": 1705
+  },
+  {
+   "name": "Keldric Faulk",
+   "pos": "DL",
+   "getRank": 393,
+   "pageRank": 372,
+   "getTier": 67,
+   "pageTier": 62,
+   "getValue": 1694,
+   "pageValue": 1694
+  },
+  {
+   "name": "Ray Davis",
+   "pos": "RB",
+   "getRank": 394,
+   "pageRank": 373,
+   "getTier": 67,
+   "pageTier": 62,
+   "getValue": 1693,
+   "pageValue": 1693
+  },
+  {
+   "name": "Cashius Howell",
+   "pos": "DL",
+   "getRank": 395,
+   "pageRank": 374,
+   "getTier": 67,
+   "pageTier": 62,
+   "getValue": 1691,
+   "pageValue": 1691
+  },
+  {
+   "name": "TJ Parker",
+   "pos": "DL",
+   "getRank": 396,
+   "pageRank": 375,
+   "getTier": 67,
+   "pageTier": 62,
+   "getValue": 1690,
+   "pageValue": 1690
+  },
+  {
+   "name": "Montez Sweat",
+   "pos": "DL",
+   "getRank": 397,
+   "pageRank": 376,
+   "getTier": 67,
+   "pageTier": 62,
+   "getValue": 1690,
+   "pageValue": 1690
+  },
+  {
+   "name": "RJ Maryland",
+   "pos": "TE",
+   "getRank": 398,
+   "pageRank": 440,
+   "getTier": 67,
+   "pageTier": 77,
+   "getValue": 1687,
+   "pageValue": 1488
+  },
+  {
+   "name": "R Mason Thomas",
+   "pos": "DL",
+   "getRank": 399,
+   "pageRank": 377,
+   "getTier": 67,
+   "pageTier": 62,
+   "getValue": 1687,
+   "pageValue": 1687
+  },
+  {
+   "name": "Jalen Redmond",
+   "pos": "DL",
+   "getRank": 400,
+   "pageRank": 378,
+   "getTier": 68,
+   "pageTier": 63,
+   "getValue": 1685,
+   "pageValue": 1685
+  },
+  {
+   "name": "Harold Landry",
+   "pos": "LB",
+   "getRank": 401,
+   "pageRank": 379,
+   "getTier": 68,
+   "pageTier": 63,
+   "getValue": 1684,
+   "pageValue": 1684
+  },
+  {
+   "name": "Odafe Oweh",
+   "pos": "DL",
+   "getRank": 402,
+   "pageRank": 380,
+   "getTier": 68,
+   "pageTier": 63,
+   "getValue": 1684,
+   "pageValue": 1684
+  },
+  {
+   "name": "Emmanuel McNeil-Warren",
+   "pos": "DB",
+   "getRank": 403,
+   "pageRank": 381,
+   "getTier": 69,
+   "pageTier": 64,
+   "getValue": 1680,
+   "pageValue": 1680
+  },
+  {
+   "name": "2029 Early 2nd",
+   "pos": "PICK",
+   "getRank": 404,
+   "pageRank": 382,
+   "getTier": 69,
+   "pageTier": 64,
+   "getValue": 1679,
+   "pageValue": 1679
+  },
+  {
+   "name": "Calvin Ridley",
+   "pos": "WR",
+   "getRank": 405,
+   "pageRank": 383,
+   "getTier": 69,
+   "pageTier": 64,
+   "getValue": 1675,
+   "pageValue": 1675
+  },
+  {
+   "name": "Darnell Mooney",
+   "pos": "WR",
+   "getRank": 406,
+   "pageRank": 384,
+   "getTier": 69,
+   "pageTier": 64,
+   "getValue": 1674,
+   "pageValue": 1674
+  },
+  {
+   "name": "Joe Royer",
+   "pos": "TE",
+   "getRank": 407,
+   "pageRank": 550,
+   "getTier": 70,
+   "pageTier": 100,
+   "getValue": 1668,
+   "pageValue": 1356
+  },
+  {
+   "name": "Kayvon Thibodeaux",
+   "pos": "DL",
+   "getRank": 408,
+   "pageRank": 386,
+   "getTier": 70,
+   "pageTier": 65,
+   "getValue": 1667,
+   "pageValue": 1667
+  },
+  {
+   "name": "Jordan James",
+   "pos": "RB",
+   "getRank": 409,
+   "pageRank": 387,
+   "getTier": 70,
+   "pageTier": 65,
+   "getValue": 1666,
+   "pageValue": 1666
+  },
+  {
+   "name": "Sean Tucker",
+   "pos": "RB",
+   "getRank": 410,
+   "pageRank": 388,
+   "getTier": 70,
+   "pageTier": 65,
+   "getValue": 1665,
+   "pageValue": 1665
+  },
+  {
+   "name": "Charlie Kolar",
+   "pos": "TE",
+   "getRank": 411,
+   "pageRank": 424,
+   "getTier": 70,
+   "pageTier": 73,
+   "getValue": 1665,
+   "pageValue": 1546
+  },
+  {
+   "name": "Nolan Smith",
+   "pos": "DL",
+   "getRank": 412,
+   "pageRank": 390,
+   "getTier": 71,
+   "pageTier": 66,
+   "getValue": 1655,
+   "pageValue": 1655
+  },
+  {
+   "name": "2028 Early 4th",
+   "pos": "PICK",
+   "getRank": 413,
+   "pageRank": 391,
+   "getTier": 71,
+   "pageTier": 66,
+   "getValue": 1648,
+   "pageValue": 1648
+  },
+  {
+   "name": "2027 Late 4th",
+   "pos": "PICK",
+   "getRank": 414,
+   "pageRank": 392,
+   "getTier": 71,
+   "pageTier": 67,
+   "getValue": 1641,
+   "pageValue": 1641
+  },
+  {
+   "name": "Jalen Milroe",
+   "pos": "QB",
+   "getRank": 415,
+   "pageRank": 393,
+   "getTier": 72,
+   "pageTier": 67,
+   "getValue": 1639,
+   "pageValue": 1639
+  },
+  {
+   "name": "Caleb Douglas",
+   "pos": "WR",
+   "getRank": 416,
+   "pageRank": 394,
+   "getTier": 72,
+   "pageTier": 67,
+   "getValue": 1638,
+   "pageValue": 1638
+  },
+  {
+   "name": "Kobie Turner",
+   "pos": "DL",
+   "getRank": 417,
+   "pageRank": 395,
+   "getTier": 72,
+   "pageTier": 67,
+   "getValue": 1635,
+   "pageValue": 1635
+  },
+  {
+   "name": "Yaya Diaby",
+   "pos": "DL",
+   "getRank": 418,
+   "pageRank": 396,
+   "getTier": 72,
+   "pageTier": 67,
+   "getValue": 1635,
+   "pageValue": 1635
+  },
+  {
+   "name": "Tyrel Dodson",
+   "pos": "LB",
+   "getRank": 419,
+   "pageRank": 397,
+   "getTier": 72,
+   "pageTier": 67,
+   "getValue": 1632,
+   "pageValue": 1632
+  },
+  {
+   "name": "James Conner",
+   "pos": "RB",
+   "getRank": 420,
+   "pageRank": 398,
+   "getTier": 72,
+   "pageTier": 67,
+   "getValue": 1630,
+   "pageValue": 1630
+  },
+  {
+   "name": "Kam Curl",
+   "pos": "DB",
+   "getRank": 421,
+   "pageRank": 399,
+   "getTier": 72,
+   "pageTier": 67,
+   "getValue": 1630,
+   "pageValue": 1630
+  },
+  {
+   "name": "Will McDonald",
+   "pos": "DL",
+   "getRank": 422,
+   "pageRank": 400,
+   "getTier": 72,
+   "pageTier": 67,
+   "getValue": 1629,
+   "pageValue": 1629
+  },
+  {
+   "name": "Derrick Brown",
+   "pos": "DL",
+   "getRank": 423,
+   "pageRank": 401,
+   "getTier": 72,
+   "pageTier": 67,
+   "getValue": 1629,
+   "pageValue": 1629
+  },
+  {
+   "name": "Dee Winters",
+   "pos": "LB",
+   "getRank": 424,
+   "pageRank": 402,
+   "getTier": 72,
+   "pageTier": 67,
+   "getValue": 1629,
+   "pageValue": 1629
+  },
+  {
+   "name": "Jonnu Smith",
+   "pos": "TE",
+   "getRank": 425,
+   "pageRank": 545,
+   "getTier": 72,
+   "pageTier": 98,
+   "getValue": 1627,
+   "pageValue": 1368
+  },
+  {
+   "name": "Luke Schoonmaker",
+   "pos": "TE",
+   "getRank": 426,
+   "pageRank": 562,
+   "getTier": 73,
+   "pageTier": 103,
+   "getValue": 1614,
+   "pageValue": 1324
+  },
+  {
+   "name": "Riley Nowakowski",
+   "pos": "TE",
+   "getRank": 427,
+   "pageRank": 546,
+   "getTier": 73,
+   "pageTier": 99,
+   "getValue": 1611,
+   "pageValue": 1364
+  },
+  {
+   "name": "Xavier Legette",
+   "pos": "WR",
+   "getRank": 428,
+   "pageRank": 404,
+   "getTier": 73,
+   "pageTier": 68,
+   "getValue": 1600,
+   "pageValue": 1600
+  },
+  {
+   "name": "Devin Neal",
+   "pos": "RB",
+   "getRank": 429,
+   "pageRank": 405,
+   "getTier": 73,
+   "pageTier": 68,
+   "getValue": 1597,
+   "pageValue": 1597
+  },
+  {
+   "name": "2029 Mid 2nd",
+   "pos": "PICK",
+   "getRank": 430,
+   "pageRank": 406,
+   "getTier": 74,
+   "pageTier": 69,
+   "getValue": 1588,
+   "pageValue": 1588
+  },
+  {
+   "name": "Cade Klubnik",
+   "pos": "QB",
+   "getRank": 431,
+   "pageRank": 407,
+   "getTier": 74,
+   "pageTier": 69,
+   "getValue": 1588,
+   "pageValue": 1588
+  },
+  {
+   "name": "Marvin Mims",
+   "pos": "WR",
+   "getRank": 432,
+   "pageRank": 408,
+   "getTier": 74,
+   "pageTier": 69,
+   "getValue": 1583,
+   "pageValue": 1583
+  },
+  {
+   "name": "2028 Mid 4th",
+   "pos": "PICK",
+   "getRank": 433,
+   "pageRank": 409,
+   "getTier": 74,
+   "pageTier": 69,
+   "getValue": 1583,
+   "pageValue": 1583
+  },
+  {
+   "name": "Bryce Lance",
+   "pos": "WR",
+   "getRank": 434,
+   "pageRank": 410,
+   "getTier": 74,
+   "pageTier": 69,
+   "getValue": 1581,
+   "pageValue": 1581
+  },
+  {
+   "name": "Kevin Coleman",
+   "pos": "WR",
+   "getRank": 435,
+   "pageRank": 411,
+   "getTier": 74,
+   "pageTier": 69,
+   "getValue": 1579,
+   "pageValue": 1579
+  },
+  {
+   "name": "John Michael Gyllenborg",
+   "pos": "TE",
+   "getRank": 436,
+   "pageRank": 582,
+   "getTier": 74,
+   "pageTier": 106,
+   "getValue": 1574,
+   "pageValue": 1279
+  },
+  {
+   "name": "Christian Kirk",
+   "pos": "WR",
+   "getRank": 437,
+   "pageRank": 413,
+   "getTier": 75,
+   "pageTier": 70,
+   "getValue": 1567,
+   "pageValue": 1567
+  },
+  {
+   "name": "Emanuel Wilson",
+   "pos": "RB",
+   "getRank": 438,
+   "pageRank": 414,
+   "getTier": 75,
+   "pageTier": 70,
+   "getValue": 1567,
+   "pageValue": 1567
+  },
+  {
+   "name": "DJ Giddens",
+   "pos": "RB",
+   "getRank": 439,
+   "pageRank": 416,
+   "getTier": 75,
+   "pageTier": 71,
+   "getValue": 1560,
+   "pageValue": 1560
+  },
+  {
+   "name": "Adam Randall",
+   "pos": "RB",
+   "getRank": 440,
+   "pageRank": 417,
+   "getTier": 75,
+   "pageTier": 71,
+   "getValue": 1559,
+   "pageValue": 1559
+  },
+  {
+   "name": "Tez Johnson",
+   "pos": "WR",
+   "getRank": 441,
+   "pageRank": 420,
+   "getTier": 76,
+   "pageTier": 72,
+   "getValue": 1553,
+   "pageValue": 1553
+  },
+  {
+   "name": "LeQuint Allen",
+   "pos": "RB",
+   "getRank": 442,
+   "pageRank": 421,
+   "getTier": 76,
+   "pageTier": 72,
+   "getValue": 1553,
+   "pageValue": 1553
+  },
+  {
+   "name": "Jared Wiley",
+   "pos": "TE",
+   "getRank": 443,
+   "pageRank": 575,
+   "getTier": 76,
+   "pageTier": 104,
+   "getValue": 1548,
+   "pageValue": 1299
+  },
+  {
+   "name": "Rashod Bateman",
+   "pos": "WR",
+   "getRank": 444,
+   "pageRank": 422,
+   "getTier": 76,
+   "pageTier": 73,
+   "getValue": 1547,
+   "pageValue": 1547
+  },
+  {
+   "name": "Cooper Kupp",
+   "pos": "WR",
+   "getRank": 445,
+   "pageRank": 423,
+   "getTier": 76,
+   "pageTier": 73,
+   "getValue": 1547,
+   "pageValue": 1547
+  },
+  {
+   "name": "Josh Cuevas",
+   "pos": "TE",
+   "getRank": 446,
+   "pageRank": 610,
+   "getTier": 77,
+   "pageTier": 111,
+   "getValue": 1541,
+   "pageValue": 1215
+  },
+  {
+   "name": "Brenen Thompson",
+   "pos": "WR",
+   "getRank": 447,
+   "pageRank": 427,
+   "getTier": 77,
+   "pageTier": 74,
+   "getValue": 1538,
+   "pageValue": 1538
+  },
+  {
+   "name": "DeMario Douglas",
+   "pos": "WR",
+   "getRank": 448,
+   "pageRank": 428,
+   "getTier": 77,
+   "pageTier": 74,
+   "getValue": 1529,
+   "pageValue": 1529
+  },
+  {
+   "name": "Davis Allen",
+   "pos": "TE",
+   "getRank": 449,
+   "pageRank": 572,
+   "getTier": 78,
+   "pageTier": 104,
+   "getValue": 1522,
+   "pageValue": 1304
+  },
+  {
+   "name": "Isaiah Bond",
+   "pos": "WR",
+   "getRank": 450,
+   "pageRank": 430,
+   "getTier": 78,
+   "pageTier": 75,
+   "getValue": 1520,
+   "pageValue": 1520
+  },
+  {
+   "name": "Brevin Jordan",
+   "pos": "TE",
+   "getRank": 451,
+   "pageRank": 594,
+   "getTier": 78,
+   "pageTier": 108,
+   "getValue": 1519,
+   "pageValue": 1243
+  },
+  {
+   "name": "Emmanuel Henderson",
+   "pos": "WR",
+   "getRank": 452,
+   "pageRank": 431,
+   "getTier": 78,
+   "pageTier": 75,
+   "getValue": 1519,
+   "pageValue": 1519
+  },
+  {
+   "name": "Cyrus Allen",
+   "pos": "WR",
+   "getRank": 453,
+   "pageRank": 432,
+   "getTier": 78,
+   "pageTier": 76,
+   "getValue": 1511,
+   "pageValue": 1511
+  },
+  {
+   "name": "Dont'e Thornton",
+   "pos": "WR",
+   "getRank": 454,
+   "pageRank": 433,
+   "getTier": 78,
+   "pageTier": 76,
+   "getValue": 1509,
+   "pageValue": 1509
+  },
+  {
+   "name": "Cedric Tillman",
+   "pos": "WR",
+   "getRank": 455,
+   "pageRank": 435,
+   "getTier": 78,
+   "pageTier": 76,
+   "getValue": 1505,
+   "pageValue": 1505
+  },
+  {
+   "name": "Chamarri Conner",
+   "pos": "DB",
+   "getRank": 456,
+   "pageRank": 437,
+   "getTier": 78,
+   "pageTier": 76,
+   "getValue": 1502,
+   "pageValue": 1502
+  },
+  {
+   "name": "Tyren Montgomery",
+   "pos": "WR",
+   "getRank": 457,
+   "pageRank": 439,
+   "getTier": 79,
+   "pageTier": 77,
+   "getValue": 1493,
+   "pageValue": 1493
+  },
+  {
+   "name": "Isaiah Davis",
+   "pos": "RB",
+   "getRank": 458,
+   "pageRank": 441,
+   "getTier": 79,
+   "pageTier": 77,
+   "getValue": 1487,
+   "pageValue": 1487
+  },
+  {
+   "name": "2029 Late 2nd",
+   "pos": "PICK",
+   "getRank": 459,
+   "pageRank": 445,
+   "getTier": 79,
+   "pageTier": 78,
+   "getValue": 1476,
+   "pageValue": 1476
+  },
+  {
+   "name": "Brashard Smith",
+   "pos": "RB",
+   "getRank": 460,
+   "pageRank": 446,
+   "getTier": 79,
+   "pageTier": 79,
+   "getValue": 1469,
+   "pageValue": 1469
+  },
+  {
+   "name": "Trevor Etienne",
+   "pos": "RB",
+   "getRank": 461,
+   "pageRank": 448,
+   "getTier": 79,
+   "pageTier": 79,
+   "getValue": 1466,
+   "pageValue": 1466
+  },
+  {
+   "name": "Brock Wright",
+   "pos": "TE",
+   "getRank": 462,
+   "pageRank": 593,
+   "getTier": 80,
+   "pageTier": 108,
+   "getValue": 1460,
+   "pageValue": 1245
+  },
+  {
+   "name": "Mack Wilson",
+   "pos": "LB",
+   "getRank": 463,
+   "pageRank": 449,
+   "getTier": 80,
+   "pageTier": 80,
+   "getValue": 1460,
+   "pageValue": 1460
+  },
+  {
+   "name": "Jalen Royals",
+   "pos": "WR",
+   "getRank": 464,
+   "pageRank": 451,
+   "getTier": 80,
+   "pageTier": 80,
+   "getValue": 1456,
+   "pageValue": 1456
+  },
+  {
+   "name": "Najee Harris",
+   "pos": "RB",
+   "getRank": 465,
+   "pageRank": 452,
+   "getTier": 80,
+   "pageTier": 80,
+   "getValue": 1456,
+   "pageValue": 1456
+  },
+  {
+   "name": "Mike Sainristil",
+   "pos": "DB",
+   "getRank": 466,
+   "pageRank": 453,
+   "getTier": 80,
+   "pageTier": 80,
+   "getValue": 1456,
+   "pageValue": 1456
+  },
+  {
+   "name": "Jalyx Hunt",
+   "pos": "DL",
+   "getRank": 467,
+   "pageRank": 454,
+   "getTier": 80,
+   "pageTier": 80,
+   "getValue": 1455,
+   "pageValue": 1455
+  },
+  {
+   "name": "Jalen Tolbert",
+   "pos": "WR",
+   "getRank": 468,
+   "pageRank": 455,
+   "getTier": 81,
+   "pageTier": 81,
+   "getValue": 1453,
+   "pageValue": 1453
+  },
+  {
+   "name": "Tyler Conklin",
+   "pos": "TE",
+   "getRank": 469,
+   "pageRank": 666,
+   "getTier": 81,
+   "pageTier": 118,
+   "getValue": 1450,
+   "pageValue": 1142
+  },
+  {
+   "name": "Eli Heidenreich",
+   "pos": "RB",
+   "getRank": 470,
+   "pageRank": 456,
+   "getTier": 81,
+   "pageTier": 81,
+   "getValue": 1450,
+   "pageValue": 1450
+  },
+  {
+   "name": "Austin Booker",
+   "pos": "DL",
+   "getRank": 471,
+   "pageRank": 457,
+   "getTier": 82,
+   "pageTier": 81,
+   "getValue": 1448,
+   "pageValue": 1448
+  },
+  {
+   "name": "Zion Young",
+   "pos": "DL",
+   "getRank": 472,
+   "pageRank": 458,
+   "getTier": 82,
+   "pageTier": 81,
+   "getValue": 1447,
+   "pageValue": 1447
+  },
+  {
+   "name": "Marquise Brown",
+   "pos": "WR",
+   "getRank": 473,
+   "pageRank": 459,
+   "getTier": 82,
+   "pageTier": 81,
+   "getValue": 1447,
+   "pageValue": 1447
+  },
+  {
+   "name": "Jarquez Hunter",
+   "pos": "RB",
+   "getRank": 474,
+   "pageRank": 460,
+   "getTier": 82,
+   "pageTier": 81,
+   "getValue": 1446,
+   "pageValue": 1446
+  },
+  {
+   "name": "Jermaine Johnson",
+   "pos": "DL",
+   "getRank": 475,
+   "pageRank": 461,
+   "getTier": 83,
+   "pageTier": 82,
+   "getValue": 1444,
+   "pageValue": 1444
+  },
+  {
+   "name": "Will Howard",
+   "pos": "QB",
+   "getRank": 476,
+   "pageRank": 462,
+   "getTier": 83,
+   "pageTier": 82,
+   "getValue": 1443,
+   "pageValue": 1443
+  },
+  {
+   "name": "Nic Scourton",
+   "pos": "DL",
+   "getRank": 477,
+   "pageRank": 463,
+   "getTier": 83,
+   "pageTier": 82,
+   "getValue": 1442,
+   "pageValue": 1442
+  },
+  {
+   "name": "Xavier McKinney",
+   "pos": "DB",
+   "getRank": 478,
+   "pageRank": 464,
+   "getTier": 83,
+   "pageTier": 82,
+   "getValue": 1441,
+   "pageValue": 1441
+  },
+  {
+   "name": "Kendre Miller",
+   "pos": "RB",
+   "getRank": 479,
+   "pageRank": 465,
+   "getTier": 83,
+   "pageTier": 82,
+   "getValue": 1440,
+   "pageValue": 1440
+  },
+  {
+   "name": "Joshua Metellus",
+   "pos": "DB",
+   "getRank": 480,
+   "pageRank": 466,
+   "getTier": 84,
+   "pageTier": 83,
+   "getValue": 1436,
+   "pageValue": 1436
+  },
+  {
+   "name": "Kamari Lassiter",
+   "pos": "DB",
+   "getRank": 481,
+   "pageRank": 467,
+   "getTier": 84,
+   "pageTier": 83,
+   "getValue": 1434,
+   "pageValue": 1434
+  },
+  {
+   "name": "Aaron Anderson",
+   "pos": "WR",
+   "getRank": 482,
+   "pageRank": 468,
+   "getTier": 84,
+   "pageTier": 83,
+   "getValue": 1424,
+   "pageValue": 1424
+  },
+  {
+   "name": "Bradley Chubb",
+   "pos": "DL",
+   "getRank": 483,
+   "pageRank": 470,
+   "getTier": 85,
+   "pageTier": 84,
+   "getValue": 1419,
+   "pageValue": 1419
+  },
+  {
+   "name": "Dre Greenlaw",
+   "pos": "LB",
+   "getRank": 484,
+   "pageRank": 472,
+   "getTier": 85,
+   "pageTier": 84,
+   "getValue": 1416,
+   "pageValue": 1416
+  },
+  {
+   "name": "Cody Barton",
+   "pos": "LB",
+   "getRank": 485,
+   "pageRank": 473,
+   "getTier": 85,
+   "pageTier": 84,
+   "getValue": 1414,
+   "pageValue": 1414
+  },
+  {
+   "name": "Alontae Taylor",
+   "pos": "DB",
+   "getRank": 486,
+   "pageRank": 474,
+   "getTier": 85,
+   "pageTier": 84,
+   "getValue": 1412,
+   "pageValue": 1412
+  },
+  {
+   "name": "Drue Tranquill",
+   "pos": "LB",
+   "getRank": 487,
+   "pageRank": 475,
+   "getTier": 85,
+   "pageTier": 84,
+   "getValue": 1411,
+   "pageValue": 1411
+  },
+  {
+   "name": "Kool-Aid McKinstry",
+   "pos": "DB",
+   "getRank": 488,
+   "pageRank": 476,
+   "getTier": 85,
+   "pageTier": 85,
+   "getValue": 1409,
+   "pageValue": 1409
+  },
+  {
+   "name": "Riley Moss",
+   "pos": "DB",
+   "getRank": 489,
+   "pageRank": 477,
+   "getTier": 85,
+   "pageTier": 85,
+   "getValue": 1409,
+   "pageValue": 1409
+  },
+  {
+   "name": "Devaughn Vele",
+   "pos": "WR",
+   "getRank": 490,
+   "pageRank": 478,
+   "getTier": 85,
+   "pageTier": 85,
+   "getValue": 1409,
+   "pageValue": 1409
+  },
+  {
+   "name": "Josh Oliver",
+   "pos": "TE",
+   "getRank": 491,
+   "pageRank": null,
+   "getTier": 86,
+   "pageTier": null,
+   "getValue": 1405,
+   "pageValue": null
+  },
+  {
+   "name": "Myles Murphy",
+   "pos": "DL",
+   "getRank": 492,
+   "pageRank": 479,
+   "getTier": 86,
+   "pageTier": 86,
+   "getValue": 1404,
+   "pageValue": 1404
+  },
+  {
+   "name": "Jaquan Brisker",
+   "pos": "DB",
+   "getRank": 493,
+   "pageRank": 480,
+   "getTier": 86,
+   "pageTier": 86,
+   "getValue": 1403,
+   "pageValue": 1403
+  },
+  {
+   "name": "Jordan Davis",
+   "pos": "DL",
+   "getRank": 494,
+   "pageRank": 481,
+   "getTier": 86,
+   "pageTier": 86,
+   "getValue": 1403,
+   "pageValue": 1403
+  },
+  {
+   "name": "Brandon Jones",
+   "pos": "DB",
+   "getRank": 495,
+   "pageRank": 483,
+   "getTier": 87,
+   "pageTier": 87,
+   "getValue": 1398,
+   "pageValue": 1398
+  },
+  {
+   "name": "Devonte Wyatt",
+   "pos": "DL",
+   "getRank": 496,
+   "pageRank": 484,
+   "getTier": 87,
+   "pageTier": 87,
+   "getValue": 1396,
+   "pageValue": 1396
+  },
+  {
+   "name": "Trent McDuffie",
+   "pos": "DB",
+   "getRank": 497,
+   "pageRank": 485,
+   "getTier": 87,
+   "pageTier": 87,
+   "getValue": 1396,
+   "pageValue": 1396
+  },
+  {
+   "name": "Tyquan Thornton",
+   "pos": "WR",
+   "getRank": 498,
+   "pageRank": 486,
+   "getTier": 87,
+   "pageTier": 87,
+   "getValue": 1396,
+   "pageValue": 1396
+  },
+  {
+   "name": "Bryan Bresee",
+   "pos": "DL",
+   "getRank": 499,
+   "pageRank": 487,
+   "getTier": 87,
+   "pageTier": 87,
+   "getValue": 1395,
+   "pageValue": 1395
+  },
+  {
+   "name": "Grant Delpit",
+   "pos": "DB",
+   "getRank": 500,
+   "pageRank": 488,
+   "getTier": 88,
+   "pageTier": 88,
+   "getValue": 1393,
+   "pageValue": 1393
+  },
+  {
+   "name": "Jahdae Barron",
+   "pos": "DB",
+   "getRank": 501,
+   "pageRank": 489,
+   "getTier": 88,
+   "pageTier": 88,
+   "getValue": 1392,
+   "pageValue": 1392
+  },
+  {
+   "name": "Thomas Fidone",
+   "pos": "TE",
+   "getRank": 502,
+   "pageRank": null,
+   "getTier": 88,
+   "pageTier": null,
+   "getValue": 1392,
+   "pageValue": null
+  },
+  {
+   "name": "Bud Clark",
+   "pos": "DB",
+   "getRank": 503,
+   "pageRank": 490,
+   "getTier": 89,
+   "pageTier": 88,
+   "getValue": 1390,
+   "pageValue": 1390
+  },
+  {
+   "name": "Demario Davis",
+   "pos": "LB",
+   "getRank": 504,
+   "pageRank": 491,
+   "getTier": 89,
+   "pageTier": 88,
+   "getValue": 1390,
+   "pageValue": 1390
+  },
+  {
+   "name": "Kwity Paye",
+   "pos": "DL",
+   "getRank": 505,
+   "pageRank": 492,
+   "getTier": 89,
+   "pageTier": 89,
+   "getValue": 1387,
+   "pageValue": 1387
+  },
+  {
+   "name": "Vinny Anthony",
+   "pos": "WR",
+   "getRank": 506,
+   "pageRank": 493,
+   "getTier": 89,
+   "pageTier": 89,
+   "getValue": 1387,
+   "pageValue": 1387
+  },
+  {
+   "name": "Billy Bowman",
+   "pos": "DB",
+   "getRank": 507,
+   "pageRank": 494,
+   "getTier": 89,
+   "pageTier": 89,
+   "getValue": 1387,
+   "pageValue": 1387
+  },
+  {
+   "name": "Malik Mustapha",
+   "pos": "DB",
+   "getRank": 508,
+   "pageRank": 495,
+   "getTier": 90,
+   "pageTier": 90,
+   "getValue": 1384,
+   "pageValue": 1384
+  },
+  {
+   "name": "Dax Hill",
+   "pos": "DB",
+   "getRank": 509,
+   "pageRank": 496,
+   "getTier": 90,
+   "pageTier": 90,
+   "getValue": 1383,
+   "pageValue": 1383
+  },
+  {
+   "name": "Seth McGowan",
+   "pos": "RB",
+   "getRank": 510,
+   "pageRank": 497,
+   "getTier": 90,
+   "pageTier": 90,
+   "getValue": 1383,
+   "pageValue": 1383
+  },
+  {
+   "name": "Upton Stout",
+   "pos": "DB",
+   "getRank": 511,
+   "pageRank": 498,
+   "getTier": 90,
+   "pageTier": 90,
+   "getValue": 1383,
+   "pageValue": 1383
+  },
+  {
+   "name": "DeShon Elliott",
+   "pos": "DB",
+   "getRank": 512,
+   "pageRank": 499,
+   "getTier": 91,
+   "pageTier": 91,
+   "getValue": 1382,
+   "pageValue": 1382
+  },
+  {
+   "name": "Marcus Jones",
+   "pos": "DB",
+   "getRank": 513,
+   "pageRank": 500,
+   "getTier": 91,
+   "pageTier": 91,
+   "getValue": 1382,
+   "pageValue": 1382
+  },
+  {
+   "name": "Savion Williams",
+   "pos": "WR",
+   "getRank": 514,
+   "pageRank": 501,
+   "getTier": 91,
+   "pageTier": 91,
+   "getValue": 1382,
+   "pageValue": 1382
+  },
+  {
+   "name": "Khalil Mack",
+   "pos": "DL",
+   "getRank": 515,
+   "pageRank": 502,
+   "getTier": 92,
+   "pageTier": 92,
+   "getValue": 1381,
+   "pageValue": 1381
+  },
+  {
+   "name": "Paulson Adebo",
+   "pos": "DB",
+   "getRank": 516,
+   "pageRank": 503,
+   "getTier": 92,
+   "pageTier": 92,
+   "getValue": 1381,
+   "pageValue": 1381
+  },
+  {
+   "name": "Jaishawn Barham",
+   "pos": "LB",
+   "getRank": 517,
+   "pageRank": 504,
+   "getTier": 92,
+   "pageTier": 92,
+   "getValue": 1380,
+   "pageValue": 1380
+  },
+  {
+   "name": "Jakobe Thomas",
+   "pos": "DB",
+   "getRank": 518,
+   "pageRank": 505,
+   "getTier": 93,
+   "pageTier": 93,
+   "getValue": 1379,
+   "pageValue": 1379
+  },
+  {
+   "name": "Tahj Brooks",
+   "pos": "RB",
+   "getRank": 519,
+   "pageRank": 506,
+   "getTier": 93,
+   "pageTier": 93,
+   "getValue": 1379,
+   "pageValue": 1379
+  },
+  {
+   "name": "Chris Brooks",
+   "pos": "RB",
+   "getRank": 520,
+   "pageRank": 507,
+   "getTier": 93,
+   "pageTier": 93,
+   "getValue": 1379,
+   "pageValue": 1379
+  },
+  {
+   "name": "Peter Woods",
+   "pos": "DL",
+   "getRank": 521,
+   "pageRank": 508,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1378,
+   "pageValue": 1378
+  },
+  {
+   "name": "Derrick Barnes",
+   "pos": "DL",
+   "getRank": 522,
+   "pageRank": 509,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1378,
+   "pageValue": 1378
+  },
+  {
+   "name": "Dru Phillips",
+   "pos": "DB",
+   "getRank": 523,
+   "pageRank": 510,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1377,
+   "pageValue": 1377
+  },
+  {
+   "name": "Minkah Fitzpatrick",
+   "pos": "DB",
+   "getRank": 524,
+   "pageRank": 511,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1377,
+   "pageValue": 1377
+  },
+  {
+   "name": "Dani Dennis-Sutton",
+   "pos": "DL",
+   "getRank": 525,
+   "pageRank": 512,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1377,
+   "pageValue": 1377
+  },
+  {
+   "name": "JT Tuimoloau",
+   "pos": "DL",
+   "getRank": 526,
+   "pageRank": 513,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1377,
+   "pageValue": 1377
+  },
+  {
+   "name": "Cam Bynum",
+   "pos": "DB",
+   "getRank": 527,
+   "pageRank": 514,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1377,
+   "pageValue": 1377
+  },
+  {
+   "name": "Marcus Mariota",
+   "pos": "QB",
+   "getRank": 528,
+   "pageRank": 515,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1377,
+   "pageValue": 1377
+  },
+  {
+   "name": "Pete Werner",
+   "pos": "LB",
+   "getRank": 529,
+   "pageRank": 516,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1377,
+   "pageValue": 1377
+  },
+  {
+   "name": "Bryan Cook",
+   "pos": "DB",
+   "getRank": 530,
+   "pageRank": 517,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1377,
+   "pageValue": 1377
+  },
+  {
+   "name": "Jack Sawyer",
+   "pos": "DL",
+   "getRank": 531,
+   "pageRank": 518,
+   "getTier": 94,
+   "pageTier": 94,
+   "getValue": 1377,
+   "pageValue": 1377
+  },
+  {
+   "name": "Christian Rozeboom",
+   "pos": "LB",
+   "getRank": 532,
+   "pageRank": 519,
+   "getTier": 95,
+   "pageTier": 95,
+   "getValue": 1376,
+   "pageValue": 1376
+  },
+  {
+   "name": "Derick Hall",
+   "pos": "DL",
+   "getRank": 533,
+   "pageRank": 520,
+   "getTier": 95,
+   "pageTier": 95,
+   "getValue": 1376,
+   "pageValue": 1376
+  },
+  {
+   "name": "Jevon Holland",
+   "pos": "DB",
+   "getRank": 534,
+   "pageRank": 521,
+   "getTier": 95,
+   "pageTier": 95,
+   "getValue": 1376,
+   "pageValue": 1376
+  },
+  {
+   "name": "Dorance Armstrong",
+   "pos": "DL",
+   "getRank": 535,
+   "pageRank": 522,
+   "getTier": 95,
+   "pageTier": 95,
+   "getValue": 1376,
+   "pageValue": 1376
+  },
+  {
+   "name": "Henry To'oTo'o",
+   "pos": "LB",
+   "getRank": 536,
+   "pageRank": 523,
+   "getTier": 95,
+   "pageTier": 95,
+   "getValue": 1376,
+   "pageValue": 1376
+  },
+  {
+   "name": "Joseph Ossai",
+   "pos": "DL",
+   "getRank": 537,
+   "pageRank": 524,
+   "getTier": 95,
+   "pageTier": 95,
+   "getValue": 1376,
+   "pageValue": 1376
+  },
+  {
+   "name": "Zavion Thomas",
+   "pos": "WR",
+   "getRank": 538,
+   "pageRank": 525,
+   "getTier": 95,
+   "pageTier": 95,
+   "getValue": 1376,
+   "pageValue": 1376
+  },
+  {
+   "name": "Josaiah Stewart",
+   "pos": "DL",
+   "getRank": 539,
+   "pageRank": 526,
+   "getTier": 96,
+   "pageTier": 96,
+   "getValue": 1375,
+   "pageValue": 1375
+  },
+  {
+   "name": "Reed Blankenship",
+   "pos": "DB",
+   "getRank": 540,
+   "pageRank": 527,
+   "getTier": 96,
+   "pageTier": 96,
+   "getValue": 1375,
+   "pageValue": 1375
+  },
+  {
+   "name": "Zaven Collins",
+   "pos": "LB",
+   "getRank": 541,
+   "pageRank": 528,
+   "getTier": 96,
+   "pageTier": 96,
+   "getValue": 1375,
+   "pageValue": 1375
+  },
+  {
+   "name": "C.J. Gardner-Johnson",
+   "pos": "DB",
+   "getRank": 542,
+   "pageRank": 529,
+   "getTier": 96,
+   "pageTier": 96,
+   "getValue": 1375,
+   "pageValue": 1375
+  },
+  {
+   "name": "Cameron Heyward",
+   "pos": "DL",
+   "getRank": 543,
+   "pageRank": 530,
+   "getTier": 96,
+   "pageTier": 96,
+   "getValue": 1375,
+   "pageValue": 1375
+  },
+  {
+   "name": "Christian Barmore",
+   "pos": "DL",
+   "getRank": 544,
+   "pageRank": 531,
+   "getTier": 96,
+   "pageTier": 96,
+   "getValue": 1375,
+   "pageValue": 1375
+  },
+  {
+   "name": "K'Lavon Chaisson",
+   "pos": "DL",
+   "getRank": 545,
+   "pageRank": 532,
+   "getTier": 96,
+   "pageTier": 96,
+   "getValue": 1375,
+   "pageValue": 1375
+  },
+  {
+   "name": "Akeem Davis-Gaither",
+   "pos": "LB",
+   "getRank": 546,
+   "pageRank": 533,
+   "getTier": 97,
+   "pageTier": 97,
+   "getValue": 1374,
+   "pageValue": 1374
+  },
+  {
+   "name": "Alohi Gilman",
+   "pos": "DB",
+   "getRank": 547,
+   "pageRank": 534,
+   "getTier": 97,
+   "pageTier": 97,
+   "getValue": 1374,
+   "pageValue": 1374
+  },
+  {
+   "name": "Amani Hooker",
+   "pos": "DB",
+   "getRank": 548,
+   "pageRank": 535,
+   "getTier": 97,
+   "pageTier": 97,
+   "getValue": 1374,
+   "pageValue": 1374
+  },
+  {
+   "name": "Bryce Boettcher",
+   "pos": "LB",
+   "getRank": 549,
+   "pageRank": 536,
+   "getTier": 97,
+   "pageTier": 97,
+   "getValue": 1374,
+   "pageValue": 1374
+  },
+  {
+   "name": "Craig Woodson",
+   "pos": "DB",
+   "getRank": 550,
+   "pageRank": 537,
+   "getTier": 97,
+   "pageTier": 97,
+   "getValue": 1374,
+   "pageValue": 1374
+  },
+  {
+   "name": "Jonah Elliss",
+   "pos": "DL",
+   "getRank": 551,
+   "pageRank": 538,
+   "getTier": 97,
+   "pageTier": 97,
+   "getValue": 1374,
+   "pageValue": 1374
+  },
+  {
+   "name": "Kamren Kinchens",
+   "pos": "DB",
+   "getRank": 552,
+   "pageRank": 539,
+   "getTier": 97,
+   "pageTier": 97,
+   "getValue": 1374,
+   "pageValue": 1374
+  },
+  {
+   "name": "Kevin Byard",
+   "pos": "DB",
+   "getRank": 553,
+   "pageRank": 540,
+   "getTier": 97,
+   "pageTier": 97,
+   "getValue": 1374,
+   "pageValue": 1374
+  },
+  {
+   "name": "Kyler Gordon",
+   "pos": "DB",
+   "getRank": 554,
+   "pageRank": 541,
+   "getTier": 97,
+   "pageTier": 97,
+   "getValue": 1374,
+   "pageValue": 1374
+  },
+  {
+   "name": "Wade Woodaz",
+   "pos": "LB",
+   "getRank": 555,
+   "pageRank": 542,
+   "getTier": 97,
+   "pageTier": 97,
+   "getValue": 1374,
+   "pageValue": 1374
+  },
+  {
+   "name": "George Holani",
+   "pos": "RB",
+   "getRank": 556,
+   "pageRank": 543,
+   "getTier": 98,
+   "pageTier": 98,
+   "getValue": 1373,
+   "pageValue": 1373
+  },
+  {
+   "name": "Quinn Ewers",
+   "pos": "QB",
+   "getRank": 557,
+   "pageRank": 544,
+   "getTier": 98,
+   "pageTier": 98,
+   "getValue": 1373,
+   "pageValue": 1373
+  },
+  {
+   "name": "Joe Milton",
+   "pos": "QB",
+   "getRank": 558,
+   "pageRank": 547,
+   "getTier": 98,
+   "pageTier": 99,
+   "getValue": 1359,
+   "pageValue": 1359
+  },
+  {
+   "name": "Joshua Palmer",
+   "pos": "WR",
+   "getRank": 559,
+   "pageRank": 548,
+   "getTier": 98,
+   "pageTier": 99,
+   "getValue": 1359,
+   "pageValue": 1359
+  },
+  {
+   "name": "Jahan Dotson",
+   "pos": "WR",
+   "getRank": 560,
+   "pageRank": 549,
+   "getTier": 99,
+   "pageTier": 100,
+   "getValue": 1357,
+   "pageValue": 1357
+  },
+  {
+   "name": "Noah Whittington",
+   "pos": "RB",
+   "getRank": 561,
+   "pageRank": 551,
+   "getTier": 99,
+   "pageTier": 100,
+   "getValue": 1354,
+   "pageValue": 1354
+  },
+  {
+   "name": "Luke McCaffrey",
+   "pos": "WR",
+   "getRank": 562,
+   "pageRank": 552,
+   "getTier": 99,
+   "pageTier": 100,
+   "getValue": 1352,
+   "pageValue": 1352
+  },
+  {
+   "name": "Jaylin Lane",
+   "pos": "WR",
+   "getRank": 563,
+   "pageRank": 553,
+   "getTier": 100,
+   "pageTier": 101,
+   "getValue": 1346,
+   "pageValue": 1346
+  },
+  {
+   "name": "Isaac Guerendo",
+   "pos": "RB",
+   "getRank": 564,
+   "pageRank": 554,
+   "getTier": 100,
+   "pageTier": 101,
+   "getValue": 1345,
+   "pageValue": 1345
+  },
+  {
+   "name": "Garrett Nussmeier",
+   "pos": "QB",
+   "getRank": 565,
+   "pageRank": 555,
+   "getTier": 100,
+   "pageTier": 101,
+   "getValue": 1345,
+   "pageValue": 1345
+  },
+  {
+   "name": "Tyson Bagent",
+   "pos": "QB",
+   "getRank": 566,
+   "pageRank": 556,
+   "getTier": 100,
+   "pageTier": 101,
+   "getValue": 1345,
+   "pageValue": 1345
+  },
+  {
+   "name": "Trevin Wallace",
+   "pos": "LB",
+   "getRank": 567,
+   "pageRank": 557,
+   "getTier": 100,
+   "pageTier": 101,
+   "getValue": 1342,
+   "pageValue": 1342
+  },
+  {
+   "name": "Andrei Iosivas",
+   "pos": "WR",
+   "getRank": 568,
+   "pageRank": 558,
+   "getTier": 100,
+   "pageTier": 101,
+   "getValue": 1342,
+   "pageValue": 1342
+  },
+  {
+   "name": "Grant Calcaterra",
+   "pos": "TE",
+   "getRank": 569,
+   "pageRank": null,
+   "getTier": 100,
+   "pageTier": null,
+   "getValue": 1340,
+   "pageValue": null
+  },
+  {
+   "name": "Darius Slayton",
+   "pos": "WR",
+   "getRank": 570,
+   "pageRank": 559,
+   "getTier": 100,
+   "pageTier": 102,
+   "getValue": 1338,
+   "pageValue": 1338
+  },
+  {
+   "name": "Jerome Ford",
+   "pos": "RB",
+   "getRank": 571,
+   "pageRank": 560,
+   "getTier": 101,
+   "pageTier": 102,
+   "getValue": 1331,
+   "pageValue": 1331
+  },
+  {
+   "name": "Justice Hill",
+   "pos": "RB",
+   "getRank": 572,
+   "pageRank": 561,
+   "getTier": 101,
+   "pageTier": 102,
+   "getValue": 1329,
+   "pageValue": 1329
+  },
+  {
+   "name": "Taylen Green",
+   "pos": "QB",
+   "getRank": 573,
+   "pageRank": 563,
+   "getTier": 101,
+   "pageTier": 103,
+   "getValue": 1324,
+   "pageValue": 1324
+  },
+  {
+   "name": "Roman Wilson",
+   "pos": "WR",
+   "getRank": 574,
+   "pageRank": 564,
+   "getTier": 101,
+   "pageTier": 103,
+   "getValue": 1321,
+   "pageValue": 1321
+  },
+  {
+   "name": "Will Shipley",
+   "pos": "RB",
+   "getRank": 575,
+   "pageRank": 565,
+   "getTier": 101,
+   "pageTier": 103,
+   "getValue": 1320,
+   "pageValue": 1320
+  },
+  {
+   "name": "Roschon Johnson",
+   "pos": "RB",
+   "getRank": 576,
+   "pageRank": 566,
+   "getTier": 101,
+   "pageTier": 103,
+   "getValue": 1319,
+   "pageValue": 1319
+  },
+  {
+   "name": "Dadrion Taylor-Demerson",
+   "pos": "DB",
+   "getRank": 577,
+   "pageRank": 567,
+   "getTier": 101,
+   "pageTier": 103,
+   "getValue": 1316,
+   "pageValue": 1316
+  },
+  {
+   "name": "Riley Leonard",
+   "pos": "QB",
+   "getRank": 578,
+   "pageRank": 568,
+   "getTier": 101,
+   "pageTier": 103,
+   "getValue": 1315,
+   "pageValue": 1315
+  },
+  {
+   "name": "Devontez Walker",
+   "pos": "WR",
+   "getRank": 579,
+   "pageRank": 569,
+   "getTier": 101,
+   "pageTier": 103,
+   "getValue": 1314,
+   "pageValue": 1314
+  },
+  {
+   "name": "Harrison Wallace",
+   "pos": "WR",
+   "getRank": 580,
+   "pageRank": 570,
+   "getTier": 101,
+   "pageTier": 103,
+   "getValue": 1311,
+   "pageValue": 1311
+  },
+  {
+   "name": "CJ Donaldson",
+   "pos": "RB",
+   "getRank": 581,
+   "pageRank": 571,
+   "getTier": 101,
+   "pageTier": 103,
+   "getValue": 1308,
+   "pageValue": 1308
+  },
+  {
+   "name": "Calvin Austin",
+   "pos": "WR",
+   "getRank": 582,
+   "pageRank": 573,
+   "getTier": 102,
+   "pageTier": 104,
+   "getValue": 1302,
+   "pageValue": 1302
+  },
+  {
+   "name": "Keenan Allen",
+   "pos": "WR",
+   "getRank": 583,
+   "pageRank": 574,
+   "getTier": 102,
+   "pageTier": 104,
+   "getValue": 1300,
+   "pageValue": 1300
+  },
+  {
+   "name": "2028 Late 4th",
+   "pos": "PICK",
+   "getRank": 584,
+   "pageRank": 576,
+   "getTier": 102,
+   "pageTier": 104,
+   "getValue": 1297,
+   "pageValue": 1297
+  },
+  {
+   "name": "Teddye Buchanan",
+   "pos": "LB",
+   "getRank": 585,
+   "pageRank": 577,
+   "getTier": 102,
+   "pageTier": 104,
+   "getValue": 1296,
+   "pageValue": 1296
+  },
+  {
+   "name": "Jameis Winston",
+   "pos": "QB",
+   "getRank": 586,
+   "pageRank": 578,
+   "getTier": 103,
+   "pageTier": 105,
+   "getValue": 1288,
+   "pageValue": 1288
+  },
+  {
+   "name": "Rashan Gary",
+   "pos": "DL",
+   "getRank": 587,
+   "pageRank": 579,
+   "getTier": 103,
+   "pageTier": 105,
+   "getValue": 1288,
+   "pageValue": 1288
+  },
+  {
+   "name": "Spencer Rattler",
+   "pos": "QB",
+   "getRank": 588,
+   "pageRank": 580,
+   "getTier": 103,
+   "pageTier": 105,
+   "getValue": 1284,
+   "pageValue": 1284
+  },
+  {
+   "name": "Konata Mumpfield",
+   "pos": "WR",
+   "getRank": 589,
+   "pageRank": 581,
+   "getTier": 103,
+   "pageTier": 105,
+   "getValue": 1284,
+   "pageValue": 1284
+  },
+  {
+   "name": "Treylon Burks",
+   "pos": "WR",
+   "getRank": 590,
+   "pageRank": 583,
+   "getTier": 104,
+   "pageTier": 106,
+   "getValue": 1277,
+   "pageValue": 1277
+  },
+  {
+   "name": "Keionte Scott",
+   "pos": "DB",
+   "getRank": 591,
+   "pageRank": 584,
+   "getTier": 104,
+   "pageTier": 106,
+   "getValue": 1276,
+   "pageValue": 1276
+  },
+  {
+   "name": "Adam Thielen",
+   "pos": "WR",
+   "getRank": 592,
+   "pageRank": 585,
+   "getTier": 104,
+   "pageTier": 106,
+   "getValue": 1275,
+   "pageValue": 1275
+  },
+  {
+   "name": "John Metchie",
+   "pos": "WR",
+   "getRank": 593,
+   "pageRank": 586,
+   "getTier": 104,
+   "pageTier": 107,
+   "getValue": 1269,
+   "pageValue": 1269
+  },
+  {
+   "name": "Malik Benson",
+   "pos": "WR",
+   "getRank": 594,
+   "pageRank": 587,
+   "getTier": 104,
+   "pageTier": 107,
+   "getValue": 1268,
+   "pageValue": 1268
+  },
+  {
+   "name": "Audric Estime",
+   "pos": "RB",
+   "getRank": 595,
+   "pageRank": 588,
+   "getTier": 104,
+   "pageTier": 107,
+   "getValue": 1266,
+   "pageValue": 1266
+  },
+  {
+   "name": "Deion Burks",
+   "pos": "WR",
+   "getRank": 596,
+   "pageRank": 589,
+   "getTier": 105,
+   "pageTier": 108,
+   "getValue": 1259,
+   "pageValue": 1259
+  },
+  {
+   "name": "Malik Davis",
+   "pos": "RB",
+   "getRank": 597,
+   "pageRank": 590,
+   "getTier": 105,
+   "pageTier": 108,
+   "getValue": 1255,
+   "pageValue": 1255
+  },
+  {
+   "name": "Jonathon Cooper",
+   "pos": "DL",
+   "getRank": 598,
+   "pageRank": 591,
+   "getTier": 105,
+   "pageTier": 108,
+   "getValue": 1250,
+   "pageValue": 1250
+  },
+  {
+   "name": "Ja'Lynn Polk",
+   "pos": "WR",
+   "getRank": 599,
+   "pageRank": 592,
+   "getTier": 105,
+   "pageTier": 108,
+   "getValue": 1248,
+   "pageValue": 1248
+  },
+  {
+   "name": "Danny Stutsman",
+   "pos": "LB",
+   "getRank": 600,
+   "pageRank": 595,
+   "getTier": 106,
+   "pageTier": 108,
+   "getValue": 1242,
+   "pageValue": 1242
+  },
+  {
+   "name": "Tutu Atwell",
+   "pos": "WR",
+   "getRank": 601,
+   "pageRank": 596,
+   "getTier": 106,
+   "pageTier": 108,
+   "getValue": 1241,
+   "pageValue": 1241
+  },
+  {
+   "name": "Walter Nolen",
+   "pos": "DL",
+   "getRank": 602,
+   "pageRank": 597,
+   "getTier": 106,
+   "pageTier": 108,
+   "getValue": 1240,
+   "pageValue": 1240
+  },
+  {
+   "name": "Joe Flacco",
+   "pos": "QB",
+   "getRank": 603,
+   "pageRank": 598,
+   "getTier": 107,
+   "pageTier": 109,
+   "getValue": 1236,
+   "pageValue": 1236
+  },
+  {
+   "name": "Kaden Wetjen",
+   "pos": "WR",
+   "getRank": 604,
+   "pageRank": 599,
+   "getTier": 107,
+   "pageTier": 109,
+   "getValue": 1236,
+   "pageValue": 1236
+  },
+  {
+   "name": "Boye Mafe",
+   "pos": "DL",
+   "getRank": 605,
+   "pageRank": 600,
+   "getTier": 107,
+   "pageTier": 109,
+   "getValue": 1235,
+   "pageValue": 1235
+  },
+  {
+   "name": "Christian Harris",
+   "pos": "LB",
+   "getRank": 606,
+   "pageRank": 601,
+   "getTier": 107,
+   "pageTier": 109,
+   "getValue": 1234,
+   "pageValue": 1234
+  },
+  {
+   "name": "Xavier Hutchinson",
+   "pos": "WR",
+   "getRank": 607,
+   "pageRank": 602,
+   "getTier": 107,
+   "pageTier": 109,
+   "getValue": 1233,
+   "pageValue": 1233
+  },
+  {
+   "name": "Ventrell Miller",
+   "pos": "LB",
+   "getRank": 608,
+   "pageRank": 603,
+   "getTier": 108,
+   "pageTier": 110,
+   "getValue": 1227,
+   "pageValue": 1227
+  },
+  {
+   "name": "Jimmy Horn",
+   "pos": "WR",
+   "getRank": 609,
+   "pageRank": 604,
+   "getTier": 108,
+   "pageTier": 110,
+   "getValue": 1226,
+   "pageValue": 1226
+  },
+  {
+   "name": "Jordan Whittington",
+   "pos": "WR",
+   "getRank": 610,
+   "pageRank": 605,
+   "getTier": 108,
+   "pageTier": 110,
+   "getValue": 1225,
+   "pageValue": 1225
+  },
+  {
+   "name": "Alex Anzalone",
+   "pos": "LB",
+   "getRank": 611,
+   "pageRank": 606,
+   "getTier": 108,
+   "pageTier": 110,
+   "getValue": 1224,
+   "pageValue": 1224
+  },
+  {
+   "name": "Cole Payton",
+   "pos": "QB",
+   "getRank": 612,
+   "pageRank": 607,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1220,
+   "pageValue": 1220
+  },
+  {
+   "name": "KeAndre Lambert-Smith",
+   "pos": "WR",
+   "getRank": 613,
+   "pageRank": 608,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1217,
+   "pageValue": 1217
+  },
+  {
+   "name": "Mykel Williams",
+   "pos": "DL",
+   "getRank": 614,
+   "pageRank": 609,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1215,
+   "pageValue": 1215
+  },
+  {
+   "name": "Tanner McKee",
+   "pos": "QB",
+   "getRank": 615,
+   "pageRank": 611,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1213,
+   "pageValue": 1213
+  },
+  {
+   "name": "Devin Singletary",
+   "pos": "RB",
+   "getRank": 616,
+   "pageRank": 612,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1212,
+   "pageValue": 1212
+  },
+  {
+   "name": "Jaydn Ott",
+   "pos": "RB",
+   "getRank": 617,
+   "pageRank": 613,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1209,
+   "pageValue": 1209
+  },
+  {
+   "name": "Chris Jones",
+   "pos": "DL",
+   "getRank": 618,
+   "pageRank": 614,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1204,
+   "pageValue": 1204
+  },
+  {
+   "name": "Bobby Wagner",
+   "pos": "LB",
+   "getRank": 619,
+   "pageRank": 615,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1201,
+   "pageValue": 1201
+  },
+  {
+   "name": "Damien Martinez",
+   "pos": "RB",
+   "getRank": 620,
+   "pageRank": 616,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1200,
+   "pageValue": 1200
+  },
+  {
+   "name": "Emari Demercado",
+   "pos": "RB",
+   "getRank": 621,
+   "pageRank": 617,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1200,
+   "pageValue": 1200
+  },
+  {
+   "name": "Tahj Washington",
+   "pos": "WR",
+   "getRank": 622,
+   "pageRank": 618,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1197,
+   "pageValue": 1197
+  },
+  {
+   "name": "Nnamdi Madubuike",
+   "pos": "DL",
+   "getRank": 623,
+   "pageRank": 619,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1193,
+   "pageValue": 1193
+  },
+  {
+   "name": "Dyami Brown",
+   "pos": "WR",
+   "getRank": 624,
+   "pageRank": 620,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1190,
+   "pageValue": 1190
+  },
+  {
+   "name": "Derrick Harmon",
+   "pos": "DL",
+   "getRank": 625,
+   "pageRank": 621,
+   "getTier": 109,
+   "pageTier": 111,
+   "getValue": 1190,
+   "pageValue": 1190
+  },
+  {
+   "name": "Kareem Hunt",
+   "pos": "RB",
+   "getRank": 626,
+   "pageRank": 622,
+   "getTier": 110,
+   "pageTier": 112,
+   "getValue": 1186,
+   "pageValue": 1186
+  },
+  {
+   "name": "Roman Hemby",
+   "pos": "RB",
+   "getRank": 627,
+   "pageRank": 623,
+   "getTier": 110,
+   "pageTier": 112,
+   "getValue": 1185,
+   "pageValue": 1185
+  },
+  {
+   "name": "Kaleb Elarms-Orr",
+   "pos": "LB",
+   "getRank": 628,
+   "pageRank": 624,
+   "getTier": 110,
+   "pageTier": 112,
+   "getValue": 1185,
+   "pageValue": 1185
+  },
+  {
+   "name": "Caleb Banks",
+   "pos": "DL",
+   "getRank": 629,
+   "pageRank": 625,
+   "getTier": 110,
+   "pageTier": 112,
+   "getValue": 1183,
+   "pageValue": 1183
+  },
+  {
+   "name": "Dillon Gabriel",
+   "pos": "QB",
+   "getRank": 630,
+   "pageRank": 626,
+   "getTier": 111,
+   "pageTier": 113,
+   "getValue": 1180,
+   "pageValue": 1180
+  },
+  {
+   "name": "Raheim Sanders",
+   "pos": "RB",
+   "getRank": 631,
+   "pageRank": 627,
+   "getTier": 111,
+   "pageTier": 113,
+   "getValue": 1180,
+   "pageValue": 1180
+  },
+  {
+   "name": "Eric Rivers",
+   "pos": "WR",
+   "getRank": 632,
+   "pageRank": 628,
+   "getTier": 111,
+   "pageTier": 113,
+   "getValue": 1179,
+   "pageValue": 1179
+  },
+  {
+   "name": "Davis Mills",
+   "pos": "QB",
+   "getRank": 633,
+   "pageRank": 629,
+   "getTier": 112,
+   "pageTier": 114,
+   "getValue": 1177,
+   "pageValue": 1177
+  },
+  {
+   "name": "Ty Johnson",
+   "pos": "RB",
+   "getRank": 634,
+   "pageRank": 630,
+   "getTier": 112,
+   "pageTier": 114,
+   "getValue": 1177,
+   "pageValue": 1177
+  },
+  {
+   "name": "Jam Miller",
+   "pos": "RB",
+   "getRank": 635,
+   "pageRank": 631,
+   "getTier": 112,
+   "pageTier": 114,
+   "getValue": 1175,
+   "pageValue": 1175
+  },
+  {
+   "name": "Zach Sieler",
+   "pos": "DL",
+   "getRank": 636,
+   "pageRank": 632,
+   "getTier": 112,
+   "pageTier": 114,
+   "getValue": 1175,
+   "pageValue": 1175
+  },
+  {
+   "name": "Lathan Ransom",
+   "pos": "DB",
+   "getRank": 637,
+   "pageRank": 633,
+   "getTier": 112,
+   "pageTier": 114,
+   "getValue": 1175,
+   "pageValue": 1175
+  },
+  {
+   "name": "Kameron Johnson",
+   "pos": "WR",
+   "getRank": 638,
+   "pageRank": 634,
+   "getTier": 112,
+   "pageTier": 114,
+   "getValue": 1174,
+   "pageValue": 1174
+  },
+  {
+   "name": "Kenneth Grant",
+   "pos": "DL",
+   "getRank": 639,
+   "pageRank": 635,
+   "getTier": 112,
+   "pageTier": 114,
+   "getValue": 1174,
+   "pageValue": 1174
+  },
+  {
+   "name": "Desmond Reid",
+   "pos": "RB",
+   "getRank": 640,
+   "pageRank": 636,
+   "getTier": 112,
+   "pageTier": 114,
+   "getValue": 1174,
+   "pageValue": 1174
+  },
+  {
+   "name": "Keeanu Benton",
+   "pos": "DL",
+   "getRank": 641,
+   "pageRank": 637,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1173,
+   "pageValue": 1173
+  },
+  {
+   "name": "Ivan Pace",
+   "pos": "LB",
+   "getRank": 642,
+   "pageRank": 638,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1172,
+   "pageValue": 1172
+  },
+  {
+   "name": "Xavier Restrepo",
+   "pos": "WR",
+   "getRank": 643,
+   "pageRank": 639,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1172,
+   "pageValue": 1172
+  },
+  {
+   "name": "Lukas Van Ness",
+   "pos": "DL",
+   "getRank": 644,
+   "pageRank": 640,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1171,
+   "pageValue": 1171
+  },
+  {
+   "name": "Braden Fiske",
+   "pos": "DL",
+   "getRank": 645,
+   "pageRank": 641,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1170,
+   "pageValue": 1170
+  },
+  {
+   "name": "Treydan Stukes",
+   "pos": "DB",
+   "getRank": 646,
+   "pageRank": 642,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1170,
+   "pageValue": 1170
+  },
+  {
+   "name": "Junior Colson",
+   "pos": "LB",
+   "getRank": 647,
+   "pageRank": 643,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1170,
+   "pageValue": 1170
+  },
+  {
+   "name": "Nick Martin",
+   "pos": "LB",
+   "getRank": 648,
+   "pageRank": 644,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1169,
+   "pageValue": 1169
+  },
+  {
+   "name": "Shemar Stewart",
+   "pos": "DL",
+   "getRank": 649,
+   "pageRank": 645,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1169,
+   "pageValue": 1169
+  },
+  {
+   "name": "Eric McAlister",
+   "pos": "WR",
+   "getRank": 650,
+   "pageRank": 646,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1168,
+   "pageValue": 1168
+  },
+  {
+   "name": "Andrew Mukuba",
+   "pos": "DB",
+   "getRank": 651,
+   "pageRank": 647,
+   "getTier": 113,
+   "pageTier": 115,
+   "getValue": 1167,
+   "pageValue": 1167
+  },
+  {
+   "name": "Bobby Okereke",
+   "pos": "LB",
+   "getRank": 652,
+   "pageRank": 648,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1165,
+   "pageValue": 1165
+  },
+  {
+   "name": "Uchenna Nwosu",
+   "pos": "DL",
+   "getRank": 653,
+   "pageRank": 649,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1165,
+   "pageValue": 1165
+  },
+  {
+   "name": "Elijah Moore",
+   "pos": "WR",
+   "getRank": 654,
+   "pageRank": 650,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1164,
+   "pageValue": 1164
+  },
+  {
+   "name": "Eric Wilson",
+   "pos": "LB",
+   "getRank": 655,
+   "pageRank": 651,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1164,
+   "pageValue": 1164
+  },
+  {
+   "name": "Jack Kiser",
+   "pos": "LB",
+   "getRank": 656,
+   "pageRank": 652,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1163,
+   "pageValue": 1163
+  },
+  {
+   "name": "Jalen Thompson",
+   "pos": "DB",
+   "getRank": 657,
+   "pageRank": 653,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1163,
+   "pageValue": 1163
+  },
+  {
+   "name": "Christian Elliss",
+   "pos": "LB",
+   "getRank": 658,
+   "pageRank": 654,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1162,
+   "pageValue": 1162
+  },
+  {
+   "name": "Gervon Dexter",
+   "pos": "DL",
+   "getRank": 659,
+   "pageRank": 655,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1162,
+   "pageValue": 1162
+  },
+  {
+   "name": "SirVocea Dennis",
+   "pos": "LB",
+   "getRank": 660,
+   "pageRank": 656,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1162,
+   "pageValue": 1162
+  },
+  {
+   "name": "Ashton Gillotte",
+   "pos": "DL",
+   "getRank": 661,
+   "pageRank": 657,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1161,
+   "pageValue": 1161
+  },
+  {
+   "name": "Dorian Williams",
+   "pos": "LB",
+   "getRank": 662,
+   "pageRank": 658,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1161,
+   "pageValue": 1161
+  },
+  {
+   "name": "CJ Daniels",
+   "pos": "WR",
+   "getRank": 663,
+   "pageRank": 659,
+   "getTier": 114,
+   "pageTier": 116,
+   "getValue": 1160,
+   "pageValue": 1160
+  },
+  {
+   "name": "Phil Mafah",
+   "pos": "RB",
+   "getRank": 664,
+   "pageRank": 660,
+   "getTier": 115,
+   "pageTier": 117,
+   "getValue": 1155,
+   "pageValue": 1155
+  },
+  {
+   "name": "Nick Chubb",
+   "pos": "RB",
+   "getRank": 665,
+   "pageRank": 661,
+   "getTier": 115,
+   "pageTier": 117,
+   "getValue": 1155,
+   "pageValue": 1155
+  },
+  {
+   "name": "2029 Early 3rd",
+   "pos": "PICK",
+   "getRank": 666,
+   "pageRank": 662,
+   "getTier": 115,
+   "pageTier": 117,
+   "getValue": 1152,
+   "pageValue": 1152
+  },
+  {
+   "name": "Kendrick Law",
+   "pos": "WR",
+   "getRank": 667,
+   "pageRank": 663,
+   "getTier": 116,
+   "pageTier": 118,
+   "getValue": 1150,
+   "pageValue": 1150
+  },
+  {
+   "name": "Jeff Caldwell",
+   "pos": "WR",
+   "getRank": 668,
+   "pageRank": 664,
+   "getTier": 116,
+   "pageTier": 118,
+   "getValue": 1148,
+   "pageValue": 1148
+  },
+  {
+   "name": "Tyler Huntley",
+   "pos": "QB",
+   "getRank": 669,
+   "pageRank": 665,
+   "getTier": 116,
+   "pageTier": 118,
+   "getValue": 1145,
+   "pageValue": 1145
+  },
+  {
+   "name": "Kendrick Bourne",
+   "pos": "WR",
+   "getRank": 670,
+   "pageRank": 667,
+   "getTier": 117,
+   "pageTier": 118,
+   "getValue": 1138,
+   "pageValue": 1138
+  },
+  {
+   "name": "KaVontae Turpin",
+   "pos": "WR",
+   "getRank": 671,
+   "pageRank": 668,
+   "getTier": 117,
+   "pageTier": 118,
+   "getValue": 1137,
+   "pageValue": 1137
+  },
+  {
+   "name": "J'Mari Taylor",
+   "pos": "RB",
+   "getRank": 672,
+   "pageRank": 669,
+   "getTier": 117,
+   "pageTier": 118,
+   "getValue": 1136,
+   "pageValue": 1136
+  },
+  {
+   "name": "Jaleel McLaughlin",
+   "pos": "RB",
+   "getRank": 673,
+   "pageRank": 670,
+   "getTier": 117,
+   "pageTier": 118,
+   "getValue": 1135,
+   "pageValue": 1135
+  },
+  {
+   "name": "Will Levis",
+   "pos": "QB",
+   "getRank": 674,
+   "pageRank": 671,
+   "getTier": 117,
+   "pageTier": 118,
+   "getValue": 1132,
+   "pageValue": 1132
+  },
+  {
+   "name": "Olamide Zaccheaus",
+   "pos": "WR",
+   "getRank": 675,
+   "pageRank": 672,
+   "getTier": 117,
+   "pageTier": 119,
+   "getValue": 1124,
+   "pageValue": 1124
+  },
+  {
+   "name": "Trey Lance",
+   "pos": "QB",
+   "getRank": 676,
+   "pageRank": 673,
+   "getTier": 117,
+   "pageTier": 119,
+   "getValue": 1123,
+   "pageValue": 1123
+  },
+  {
+   "name": "Evan Williams",
+   "pos": "DB",
+   "getRank": 677,
+   "pageRank": 677,
+   "getTier": 118,
+   "pageTier": 120,
+   "getValue": 1094,
+   "pageValue": 1094
+  },
+  {
+   "name": "Jimmy Rolder",
+   "pos": "LB",
+   "getRank": 678,
+   "pageRank": 678,
+   "getTier": 118,
+   "pageTier": 120,
+   "getValue": 1087,
+   "pageValue": 1087
+  },
+  {
+   "name": "Jalen Ramsey",
+   "pos": "DB",
+   "getRank": 679,
+   "pageRank": 679,
+   "getTier": 118,
+   "pageTier": 120,
+   "getValue": 1080,
+   "pageValue": 1080
+  },
+  {
+   "name": "Kerby Joseph",
+   "pos": "DB",
+   "getRank": 680,
+   "pageRank": 680,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1067,
+   "pageValue": 1067
+  },
+  {
+   "name": "Romello Height",
+   "pos": "LB",
+   "getRank": 681,
+   "pageRank": 681,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1061,
+   "pageValue": 1061
+  },
+  {
+   "name": "Coby Bryant",
+   "pos": "DB",
+   "getRank": 682,
+   "pageRank": 682,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1050,
+   "pageValue": 1050
+  },
+  {
+   "name": "Justin Reid",
+   "pos": "DB",
+   "getRank": 683,
+   "pageRank": 683,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1044,
+   "pageValue": 1044
+  },
+  {
+   "name": "DeMarcus Lawrence",
+   "pos": "DL",
+   "getRank": 684,
+   "pageRank": 684,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1038,
+   "pageValue": 1038
+  },
+  {
+   "name": "Joshua Josephs",
+   "pos": "DL",
+   "getRank": 685,
+   "pageRank": 685,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1034,
+   "pageValue": 1034
+  },
+  {
+   "name": "Jordan Burch",
+   "pos": "DL",
+   "getRank": 686,
+   "pageRank": 686,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1028,
+   "pageValue": 1028
+  },
+  {
+   "name": "Christian Gonzalez",
+   "pos": "DB",
+   "getRank": 687,
+   "pageRank": 687,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1023,
+   "pageValue": 1023
+  },
+  {
+   "name": "Micah McFadden",
+   "pos": "LB",
+   "getRank": 688,
+   "pageRank": 688,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1014,
+   "pageValue": 1014
+  },
+  {
+   "name": "Javon Bullard",
+   "pos": "DB",
+   "getRank": 689,
+   "pageRank": 689,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1005,
+   "pageValue": 1005
+  },
+  {
+   "name": "Taron Johnson",
+   "pos": "DB",
+   "getRank": 690,
+   "pageRank": 690,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 1002,
+   "pageValue": 1002
+  },
+  {
+   "name": "Oluwafemi Oladejo",
+   "pos": "DL",
+   "getRank": 691,
+   "pageRank": 691,
+   "getTier": 119,
+   "pageTier": 121,
+   "getValue": 994,
+   "pageValue": 994
+  },
+  {
+   "name": "Alex Wright",
+   "pos": "DL",
+   "getRank": 692,
+   "pageRank": 692,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 982,
+   "pageValue": 982
+  },
+  {
+   "name": "Harold Perkins",
+   "pos": "LB",
+   "getRank": 693,
+   "pageRank": 693,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 972,
+   "pageValue": 972
+  },
+  {
+   "name": "Calen Bullock",
+   "pos": "DB",
+   "getRank": 694,
+   "pageRank": 694,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 965,
+   "pageValue": 965
+  },
+  {
+   "name": "Kenny Moore",
+   "pos": "DB",
+   "getRank": 695,
+   "pageRank": 695,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 959,
+   "pageValue": 959
+  },
+  {
+   "name": "Christen Miller",
+   "pos": "DL",
+   "getRank": 696,
+   "pageRank": 696,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 957,
+   "pageValue": 957
+  },
+  {
+   "name": "Joey Porter",
+   "pos": "DB",
+   "getRank": 697,
+   "pageRank": 697,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 953,
+   "pageValue": 953
+  },
+  {
+   "name": "Justin Strnad",
+   "pos": "LB",
+   "getRank": 698,
+   "pageRank": 698,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 949,
+   "pageValue": 949
+  },
+  {
+   "name": "Deommodore Lenoir",
+   "pos": "DB",
+   "getRank": 699,
+   "pageRank": 699,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 943,
+   "pageValue": 943
+  },
+  {
+   "name": "Geno Stone",
+   "pos": "DB",
+   "getRank": 700,
+   "pageRank": 700,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 941,
+   "pageValue": 941
+  },
+  {
+   "name": "Genesis Smith",
+   "pos": "DB",
+   "getRank": 701,
+   "pageRank": 701,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 934,
+   "pageValue": 934
+  },
+  {
+   "name": "Marlon Humphrey",
+   "pos": "DB",
+   "getRank": 702,
+   "pageRank": 702,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 930,
+   "pageValue": 930
+  },
+  {
+   "name": "Keisean Nixon",
+   "pos": "DB",
+   "getRank": 703,
+   "pageRank": 703,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 926,
+   "pageValue": 926
+  },
+  {
+   "name": "Kamari Ramsey",
+   "pos": "DB",
+   "getRank": 704,
+   "pageRank": 704,
+   "getTier": 120,
+   "pageTier": 122,
+   "getValue": 922,
+   "pageValue": 922
+  },
+  {
+   "name": "Tarheeb Still",
+   "pos": "DB",
+   "getRank": 705,
+   "pageRank": 705,
+   "getTier": 121,
+   "pageTier": 123,
+   "getValue": 911,
+   "pageValue": 911
+  },
+  {
+   "name": "DaRon Bland",
+   "pos": "DB",
+   "getRank": 706,
+   "pageRank": 706,
+   "getTier": 121,
+   "pageTier": 123,
+   "getValue": 908,
+   "pageValue": 908
+  },
+  {
+   "name": "Jourdan Lewis",
+   "pos": "DB",
+   "getRank": 707,
+   "pageRank": 707,
+   "getTier": 121,
+   "pageTier": 123,
+   "getValue": 905,
+   "pageValue": 905
+  },
+  {
+   "name": "Brandon Dorlus",
+   "pos": "DL",
+   "getRank": 708,
+   "pageRank": 708,
+   "getTier": 121,
+   "pageTier": 123,
+   "getValue": 903,
+   "pageValue": 903
+  },
+  {
+   "name": "Jaycee Horn",
+   "pos": "DB",
+   "getRank": 709,
+   "pageRank": 709,
+   "getTier": 121,
+   "pageTier": 123,
+   "getValue": 902,
+   "pageValue": 902
+  },
+  {
+   "name": "Dayo Odeyingbo",
+   "pos": "DL",
+   "getRank": 710,
+   "pageRank": 710,
+   "getTier": 121,
+   "pageTier": 123,
+   "getValue": 900,
+   "pageValue": 900
+  },
+  {
+   "name": "Christian Benford",
+   "pos": "DB",
+   "getRank": 711,
+   "pageRank": 711,
+   "getTier": 121,
+   "pageTier": 123,
+   "getValue": 899,
+   "pageValue": 899
+  },
+  {
+   "name": "Tyson Campbell",
+   "pos": "DB",
+   "getRank": 712,
+   "pageRank": 712,
+   "getTier": 122,
+   "pageTier": 124,
+   "getValue": 897,
+   "pageValue": 897
+  },
+  {
+   "name": "Jonathan Allen",
+   "pos": "DL",
+   "getRank": 713,
+   "pageRank": 713,
+   "getTier": 122,
+   "pageTier": 124,
+   "getValue": 896,
+   "pageValue": 896
+  },
+  {
+   "name": "John Franklin-Myers",
+   "pos": "DL",
+   "getRank": 714,
+   "pageRank": 714,
+   "getTier": 122,
+   "pageTier": 124,
+   "getValue": 896,
+   "pageValue": 896
+  },
+  {
+   "name": "Elijah Molden",
+   "pos": "DB",
+   "getRank": 715,
+   "pageRank": 715,
+   "getTier": 122,
+   "pageTier": 124,
+   "getValue": 895,
+   "pageValue": 895
+  },
+  {
+   "name": "Omar Speights",
+   "pos": "LB",
+   "getRank": 716,
+   "pageRank": 716,
+   "getTier": 122,
+   "pageTier": 124,
+   "getValue": 894,
+   "pageValue": 894
+  },
+  {
+   "name": "Jonah Laulu",
+   "pos": "DL",
+   "getRank": 717,
+   "pageRank": 717,
+   "getTier": 123,
+   "pageTier": 125,
+   "getValue": 892,
+   "pageValue": 892
+  },
+  {
+   "name": "Jaden Dugger",
+   "pos": "LB",
+   "getRank": 718,
+   "pageRank": 718,
+   "getTier": 123,
+   "pageTier": 125,
+   "getValue": 891,
+   "pageValue": 891
+  },
+  {
+   "name": "B.J. Hill",
+   "pos": "DL",
+   "getRank": 719,
+   "pageRank": 719,
+   "getTier": 123,
+   "pageTier": 125,
+   "getValue": 890,
+   "pageValue": 890
+  },
+  {
+   "name": "Zach Harrison",
+   "pos": "DL",
+   "getRank": 720,
+   "pageRank": 720,
+   "getTier": 123,
+   "pageTier": 125,
+   "getValue": 889,
+   "pageValue": 889
+  },
+  {
+   "name": "DJ Wonnum",
+   "pos": "DL",
+   "getRank": 721,
+   "pageRank": 721,
+   "getTier": 123,
+   "pageTier": 125,
+   "getValue": 888,
+   "pageValue": 888
+  },
+  {
+   "name": "Ja'Quan McMillian",
+   "pos": "DB",
+   "getRank": 722,
+   "pageRank": 722,
+   "getTier": 123,
+   "pageTier": 125,
+   "getValue": 888,
+   "pageValue": 888
+  },
+  {
+   "name": "Derek Stingley",
+   "pos": "DB",
+   "getRank": 723,
+   "pageRank": 723,
+   "getTier": 124,
+   "pageTier": 126,
+   "getValue": 884,
+   "pageValue": 884
+  },
+  {
+   "name": "Keyron Crawford",
+   "pos": "DL",
+   "getRank": 724,
+   "pageRank": 724,
+   "getTier": 124,
+   "pageTier": 126,
+   "getValue": 882,
+   "pageValue": 882
+  },
+  {
+   "name": "Zakee Wheatley",
+   "pos": "DB",
+   "getRank": 725,
+   "pageRank": 725,
+   "getTier": 124,
+   "pageTier": 126,
+   "getValue": 882,
+   "pageValue": 882
+  },
+  {
+   "name": "Ji'Ayir Brown",
+   "pos": "DB",
+   "getRank": 726,
+   "pageRank": 726,
+   "getTier": 125,
+   "pageTier": 127,
+   "getValue": 880,
+   "pageValue": 880
+  },
+  {
+   "name": "Kendal Daniels",
+   "pos": "LB",
+   "getRank": 727,
+   "pageRank": 727,
+   "getTier": 125,
+   "pageTier": 127,
+   "getValue": 879,
+   "pageValue": 879
+  },
+  {
+   "name": "Pat Surtain",
+   "pos": "DB",
+   "getRank": 728,
+   "pageRank": 728,
+   "getTier": 125,
+   "pageTier": 127,
+   "getValue": 877,
+   "pageValue": 877
+  },
+  {
+   "name": "Nate Wiggins",
+   "pos": "DB",
+   "getRank": 729,
+   "pageRank": 729,
+   "getTier": 125,
+   "pageTier": 127,
+   "getValue": 876,
+   "pageValue": 876
+  },
+  {
+   "name": "Ronnie Hickman",
+   "pos": "DB",
+   "getRank": 730,
+   "pageRank": 730,
+   "getTier": 125,
+   "pageTier": 127,
+   "getValue": 876,
+   "pageValue": 876
+  },
+  {
+   "name": "Quinyon Mitchell",
+   "pos": "DB",
+   "getRank": 731,
+   "pageRank": 731,
+   "getTier": 125,
+   "pageTier": 127,
+   "getValue": 875,
+   "pageValue": 875
+  },
+  {
+   "name": "Sauce Gardner",
+   "pos": "DB",
+   "getRank": 732,
+   "pageRank": 732,
+   "getTier": 125,
+   "pageTier": 127,
+   "getValue": 875,
+   "pageValue": 875
+  },
+  {
+   "name": "Will Johnson",
+   "pos": "DB",
+   "getRank": 733,
+   "pageRank": 733,
+   "getTier": 126,
+   "pageTier": 128,
+   "getValue": 873,
+   "pageValue": 873
+  },
+  {
+   "name": "Mansoor Delane",
+   "pos": "DB",
+   "getRank": 734,
+   "pageRank": 734,
+   "getTier": 126,
+   "pageTier": 128,
+   "getValue": 872,
+   "pageValue": 872
+  },
+  {
+   "name": "David Walker",
+   "pos": "LB",
+   "getRank": 735,
+   "pageRank": 735,
+   "getTier": 126,
+   "pageTier": 128,
+   "getValue": 872,
+   "pageValue": 872
+  },
+  {
+   "name": "Kayden McDonald",
+   "pos": "DL",
+   "getRank": 736,
+   "pageRank": 736,
+   "getTier": 126,
+   "pageTier": 128,
+   "getValue": 872,
+   "pageValue": 872
+  },
+  {
+   "name": "Alim McNeill",
+   "pos": "DL",
+   "getRank": 737,
+   "pageRank": 737,
+   "getTier": 126,
+   "pageTier": 128,
+   "getValue": 872,
+   "pageValue": 872
+  },
+  {
+   "name": "Jadon Canady",
+   "pos": "DB",
+   "getRank": 738,
+   "pageRank": 738,
+   "getTier": 127,
+   "pageTier": 129,
+   "getValue": 871,
+   "pageValue": 871
+  },
+  {
+   "name": "Theo Jackson",
+   "pos": "DB",
+   "getRank": 739,
+   "pageRank": 739,
+   "getTier": 127,
+   "pageTier": 129,
+   "getValue": 871,
+   "pageValue": 871
+  },
+  {
+   "name": "Malachi Moore",
+   "pos": "DB",
+   "getRank": 740,
+   "pageRank": 740,
+   "getTier": 127,
+   "pageTier": 129,
+   "getValue": 757,
+   "pageValue": 757
+  },
+  {
+   "name": "2026 Pick 1.07",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 4796,
+   "pageValue": 4566
+  },
+  {
+   "name": "2026 Pick 1.09",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 4214,
+   "pageValue": 4056
+  },
+  {
+   "name": "2026 Pick 2.11",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2675,
+   "pageValue": 2663
+  },
+  {
+   "name": "2026 Pick 2.12",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2663,
+   "pageValue": 2582
+  },
+  {
+   "name": "2026 Pick 3.01",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2633,
+   "pageValue": 2526
+  },
+  {
+   "name": "2026 Pick 3.02",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2582,
+   "pageValue": 2521
+  },
+  {
+   "name": "2026 Pick 3.03",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2526,
+   "pageValue": 2373
+  },
+  {
+   "name": "2026 Pick 3.04",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2521,
+   "pageValue": 2372
+  },
+  {
+   "name": "2026 Pick 3.05",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2384,
+   "pageValue": 2293
+  },
+  {
+   "name": "2026 Pick 3.06",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2293,
+   "pageValue": 2244
+  },
+  {
+   "name": "2026 Pick 3.07",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2244,
+   "pageValue": 2198
+  },
+  {
+   "name": "2026 Pick 3.08",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2243,
+   "pageValue": 2166
+  },
+  {
+   "name": "2026 Pick 3.09",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2198,
+   "pageValue": 2136
+  },
+  {
+   "name": "2026 Pick 3.10",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2166,
+   "pageValue": 2133
+  },
+  {
+   "name": "2026 Pick 3.11",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2136,
+   "pageValue": 2121
+  },
+  {
+   "name": "2026 Pick 3.12",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2133,
+   "pageValue": 2074
+  },
+  {
+   "name": "2026 Pick 4.01",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2074,
+   "pageValue": 2036
+  },
+  {
+   "name": "2026 Pick 4.02",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 2036,
+   "pageValue": 1965
+  },
+  {
+   "name": "2026 Pick 4.03",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1965,
+   "pageValue": 1942
+  },
+  {
+   "name": "2026 Pick 4.06",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1908,
+   "pageValue": 1844
+  },
+  {
+   "name": "2026 Pick 4.07",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1866,
+   "pageValue": 1823
+  },
+  {
+   "name": "2026 Pick 4.08",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1844,
+   "pageValue": 1822
+  },
+  {
+   "name": "2026 Pick 4.09",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1823,
+   "pageValue": 1810
+  },
+  {
+   "name": "2026 Pick 4.10",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1822,
+   "pageValue": 1797
+  },
+  {
+   "name": "2026 Pick 4.11",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1810,
+   "pageValue": 1776
+  },
+  {
+   "name": "2026 Pick 4.12",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1803,
+   "pageValue": 1748
+  },
+  {
+   "name": "2026 Pick 5.01",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1802,
+   "pageValue": 1711
+  },
+  {
+   "name": "2026 Pick 5.02",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1801,
+   "pageValue": 1694
+  },
+  {
+   "name": "2026 Pick 5.03",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1797,
+   "pageValue": 1691
+  },
+  {
+   "name": "2026 Pick 5.04",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1795,
+   "pageValue": 1690
+  },
+  {
+   "name": "2026 Pick 5.05",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1776,
+   "pageValue": 1687
+  },
+  {
+   "name": "2026 Pick 5.06",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1768,
+   "pageValue": 1680
+  },
+  {
+   "name": "2026 Pick 5.07",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1748,
+   "pageValue": 1638
+  },
+  {
+   "name": "2026 Pick 5.08",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1737,
+   "pageValue": 1600
+  },
+  {
+   "name": "2026 Pick 5.09",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1711,
+   "pageValue": 1588
+  },
+  {
+   "name": "2026 Pick 5.10",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1694,
+   "pageValue": 1581
+  },
+  {
+   "name": "2026 Pick 5.11",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1691,
+   "pageValue": 1579
+  },
+  {
+   "name": "2026 Pick 5.12",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1690,
+   "pageValue": 1573
+  },
+  {
+   "name": "2026 Pick 6.01",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1687,
+   "pageValue": 1566
+  },
+  {
+   "name": "2026 Pick 6.02",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1687,
+   "pageValue": 1559
+  },
+  {
+   "name": "2026 Pick 6.03",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1680,
+   "pageValue": 1554
+  },
+  {
+   "name": "2026 Pick 6.04",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1668,
+   "pageValue": 1538
+  },
+  {
+   "name": "2026 Pick 6.05",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1638,
+   "pageValue": 1520
+  },
+  {
+   "name": "2026 Pick 6.06",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1611,
+   "pageValue": 1519
+  },
+  {
+   "name": "2026 Pick 6.07",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1588,
+   "pageValue": 1511
+  },
+  {
+   "name": "2026 Pick 6.08",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1581,
+   "pageValue": 1506
+  },
+  {
+   "name": "2026 Pick 6.09",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1579,
+   "pageValue": 1505
+  },
+  {
+   "name": "2026 Pick 6.10",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1574,
+   "pageValue": 1493
+  },
+  {
+   "name": "2026 Pick 6.11",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1559,
+   "pageValue": 1488
+  },
+  {
+   "name": "2026 Pick 6.12",
+   "pos": "PICK",
+   "getRank": null,
+   "pageRank": null,
+   "getTier": null,
+   "pageTier": null,
+   "getValue": 1541,
+   "pageValue": 1450
+  },
+  {
+   "name": "Gardner Minshew",
+   "pos": "QB",
+   "getRank": null,
+   "pageRank": 675,
+   "getTier": null,
+   "pageTier": 119,
+   "getValue": null,
+   "pageValue": 1115
+  },
+  {
+   "name": "Samaje Perine",
+   "pos": "RB",
+   "getRank": null,
+   "pageRank": 674,
+   "getTier": null,
+   "pageTier": 119,
+   "getValue": null,
+   "pageValue": 1117
+  },
+  {
+   "name": "Tai Felton",
+   "pos": "WR",
+   "getRank": null,
+   "pageRank": 676,
+   "getTier": null,
+   "pageTier": 119,
+   "getValue": null,
+   "pageValue": 1112
+  }
+ ]
+}

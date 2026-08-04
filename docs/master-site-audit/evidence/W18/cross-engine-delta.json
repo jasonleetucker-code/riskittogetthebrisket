@@ -1,0 +1,208 @@
+{
+ "n": 636,
+ "withinTol": 406,
+ "medianAbs": 0.0,
+ "meanAbs": 1.292335779175402,
+ "worst": [
+  {
+   "name": "Ka'imi Fairbairn",
+   "pos": "K",
+   "week": 5,
+   "exact": 21.42,
+   "realized": 0.0,
+   "delta": -21.42
+  },
+  {
+   "name": "Jason Myers",
+   "pos": "K",
+   "week": 14,
+   "exact": 18.060000000000002,
+   "realized": 0.0,
+   "delta": -18.060000000000002
+  },
+  {
+   "name": "Joe Flacco",
+   "pos": "QB",
+   "week": 9,
+   "exact": 39.836666666666666,
+   "realized": 57.51666666666666,
+   "delta": 17.679999999999993
+  },
+  {
+   "name": "Eddy Pineiro",
+   "pos": "K",
+   "week": 5,
+   "exact": 15.61,
+   "realized": 0.0,
+   "delta": -15.61
+  },
+  {
+   "name": "Eddy Pineiro",
+   "pos": "K",
+   "week": 9,
+   "exact": 15.330000000000002,
+   "realized": 0.0,
+   "delta": -15.330000000000002
+  },
+  {
+   "name": "Jason Myers",
+   "pos": "K",
+   "week": 9,
+   "exact": 14.420000000000002,
+   "realized": 0.0,
+   "delta": -14.420000000000002
+  },
+  {
+   "name": "Patrick Mahomes",
+   "pos": "QB",
+   "week": 14,
+   "exact": 0.8233333333333341,
+   "realized": 14.823333333333334,
+   "delta": 14.0
+  },
+  {
+   "name": "Cairo Santos",
+   "pos": "K",
+   "week": 9,
+   "exact": 13.3,
+   "realized": 0.0,
+   "delta": -13.3
+  },
+  {
+   "name": "Cooper Rush",
+   "pos": "QB",
+   "week": 5,
+   "exact": -1.5633333333333326,
+   "realized": 11.436666666666667,
+   "delta": 13.0
+  },
+  {
+   "name": "Dak Prescott",
+   "pos": "QB",
+   "week": 14,
+   "exact": 23.69333333333333,
+   "realized": 36.03333333333333,
+   "delta": 12.34
+  },
+  {
+   "name": "Geno Smith",
+   "pos": "QB",
+   "week": 5,
+   "exact": 7.3500000000000005,
+   "realized": 19.35,
+   "delta": 12.0
+  },
+  {
+   "name": "Michael Badgley",
+   "pos": "K",
+   "week": 9,
+   "exact": 11.97,
+   "realized": 0.0,
+   "delta": -11.97
+  },
+  {
+   "name": "Chris Boswell",
+   "pos": "K",
+   "week": 9,
+   "exact": 11.9,
+   "realized": 0.0,
+   "delta": -11.9
+  },
+  {
+   "name": "Jake Elliott",
+   "pos": "K",
+   "week": 14,
+   "exact": 11.690000000000003,
+   "realized": 0.0,
+   "delta": -11.690000000000003
+  },
+  {
+   "name": "Matt Prater",
+   "pos": "K",
+   "week": 14,
+   "exact": 11.06,
+   "realized": 0.0,
+   "delta": -11.06
+  },
+  {
+   "name": "Ka'imi Fairbairn",
+   "pos": "K",
+   "week": 9,
+   "exact": 11.06,
+   "realized": 0.0,
+   "delta": -11.06
+  },
+  {
+   "name": "Chris Boswell",
+   "pos": "K",
+   "week": 14,
+   "exact": 10.5,
+   "realized": 0.0,
+   "delta": -10.5
+  },
+  {
+   "name": "Josh Allen",
+   "pos": "QB",
+   "week": 5,
+   "exact": 30.163333333333334,
+   "realized": 40.50333333333333,
+   "delta": 10.339999999999996
+  },
+  {
+   "name": "Jared Goff",
+   "pos": "QB",
+   "week": 5,
+   "exact": 27.9,
+   "realized": 37.910000000000004,
+   "delta": 10.010000000000005
+  },
+  {
+   "name": "Matt Prater",
+   "pos": "K",
+   "week": 5,
+   "exact": 9.940000000000001,
+   "realized": 0.0,
+   "delta": -9.940000000000001
+  },
+  {
+   "name": "Dak Prescott",
+   "pos": "QB",
+   "week": 9,
+   "exact": 18.733333333333334,
+   "realized": 28.403333333333336,
+   "delta": 9.670000000000002
+  },
+  {
+   "name": "Tyler Lockett",
+   "pos": "WR",
+   "week": 5,
+   "exact": 10.29,
+   "realized": 0.68,
+   "delta": -9.61
+  },
+  {
+   "name": "Harrison Butker",
+   "pos": "K",
+   "week": 5,
+   "exact": 9.24,
+   "realized": 0.0,
+   "delta": -9.24
+  },
+  {
+   "name": "Brandon McManus",
+   "pos": "K",
+   "week": 14,
+   "exact": 9.24,
+   "realized": 0.0,
+   "delta": -9.24
+  },
+  {
+   "name": "Jason Myers",
+   "pos": "K",
+   "week": 5,
+   "exact": 9.100000000000001,
+   "realized": 0.0,
+   "delta": -9.100000000000001
+  }
+ ]
+}

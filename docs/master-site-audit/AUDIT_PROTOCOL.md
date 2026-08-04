@@ -9,7 +9,44 @@ instead of 26 essays.
 | | |
 |---|---|
 | Backend | `http://127.0.0.1:8000` — FastAPI, booted from `data/dynasty_data_2026-08-04.json` (1,074 raw players → 1,092-row contract) |
-| Frontend | `http://127.0.0.1:3000` — Next.js 16.2.12 production build |
+| Pages | `http://127.0.0.1:3000` — Next.js 16.2.12 production build. **Read the topology rule below before loading any page in a browser.** |
+
+### ⚠ Browser page loads MUST re-route `/api/*` to the backend
+
+`deploy/nginx/chaseupside-proxy.conf` routes `location /api/` to FastAPI and
+`location /` to Next. Next itself has only **36 bridge routes for 100 backend
+routes**, so a browser pointed straight at `:3000` gets a **Next 404 that production
+never produces** for `/api/health`, `/api/leagues`, `/api/user/state`,
+`/api/terminal`, `/api/movers`, `/api/data/rank-history`, `/api/ros/player-values`
+and more.
+
+**Do it with Playwright request interception** — the browser keeps talking to Next
+for pages, and only `/api/*` is redirected:
+
+```python
+async def route(r):
+    u = r.request.url
+    if "/api/" in u and u.startswith("http://127.0.0.1:3000"):
+        await r.continue_(url=u.replace("http://127.0.0.1:3000", "http://127.0.0.1:8000"))
+    else:
+        await r.continue_()
+await ctx.route("**/*", route)
+```
+
+Measured proof that this is the only method that works — same two pages, three ways:
+
+| method | `/rankings` HTML | `<h1>` | table rows |
+|---|---|---|---|
+| plain `:3000` | large, but **222 console errors / 261 failed requests** across 41 pages | present | present |
+| hand-rolled HTTP proxy on `:3001` | **5,895 b — dead pre-hydration shell** | `None` | **0** |
+| **request interception (use this)** | **593,422 b** | `Rankings` | **230** |
+
+A hand-rolled proxy was tried and **abandoned**: it returns byte-identical HTML on
+curl yet the app never hydrates behind it. `evidence/page-probe-direct-next-INVALID.json`
+and `evidence/page-probe-via-proxy-INVALID.json` are both retained and both invalid.
+**Any page-level observation not taken through request interception is void** — in
+particular the `[dynasty-data] buildRows … zero backend rank stamps` console error and
+the mass of 404s in the first capture are topology artifacts, not product defects.
 | Repo | `/home/user/riskittogetthebrisket`, branch `claude/fantasy-football-master-audit-umvex5`, HEAD `e96c06ef` |
 | Python | `.venv/bin/python` (3.11.15 — note CI uses 3.12; stamp this on any test-derived claim) |
 | Session secret | `/tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt` |
@@ -58,6 +95,9 @@ one as a defect gets the finding rejected. If you believe one is genuinely a def
 | `data/dynasty_data_2026-08-04.json` was seeded from `exports/latest/` | `tests/e2e/preflight.py` is the sanctioned mechanism; a clean checkout has no `data/` snapshot by design. |
 | `npm` warns `EBADENGINE` (node 22 vs `>=20 <21`) | Container toolchain, not repo state. Worth one note, not a per-workstream finding. |
 | `Sleeper API ... Connection reset by peer` in the backend log | Container egress behavior. Only report the *code's handling* of the failure (does it degrade honestly or fabricate?), never the failure itself. |
+| 404s on `/api/*` when a page is loaded from **:3000** | Wrong topology — see the warning above. Re-measure on :3001. Production's nginx routes `/api/` to the backend. |
+| `buildRows received a payload with zero backend rank stamps` in the browser console on :3000 | Downstream of the same artifact: the data fetch 404'd, so the materializer correctly hit its fail-fast path. Only a finding if it reproduces on :3001. |
+| `sleepercdn.com` avatar images failing | External CDN is not reachable from this container. |
 
 ## Status vocabulary — use these EXACT strings
 

@@ -1,10 +1,10 @@
-registry merge — 2026-08-04T20:50:13.630021+00:00 @ e96c06ef
-shards: 0
-records: 0 raw -> 0 after dedupe (0 merged)
-by status: {}
-by priority: {}
-by workstream: {}
-prior-finding relations: {}
-files with contradictory verdicts: none
+registry merge — 2026-08-04T21:01:35.566085+00:00 @ de8a1dfd
+shards: 3
+records: 37 raw -> 37 after dedupe (0 merged)
+by status: {'Implemented but defective': 24, 'Duplicate or conflicting implementation': 2, 'Partially implemented': 2, 'Deprecated but still active': 1, 'Implemented and verified': 6, 'Blocked by data': 1, 'Scaffolded only': 1}
+by priority: {'P1': 7, 'P2': 14, 'P3': 14, 'P0': 2}
+by workstream: {'W00': 8, 'W02': 14, 'W03': 15}
+prior-finding relations: {'new': 11, 'partial': 6, 'confirmed': 16, 'not-reproducible': 1, 'superseded': 2, 'refuted': 1}
+files with contradictory verdicts: ['src/api/data_contract.py', 'src/league_intel/te_premium.py']
 
 VALIDATION PROBLEMS (0):

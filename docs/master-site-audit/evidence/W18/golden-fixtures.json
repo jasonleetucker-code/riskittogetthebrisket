@@ -1,0 +1,472 @@
+[
+ {
+  "group": "offense",
+  "week": 14,
+  "sleeperId": "4984",
+  "gsisId": "00-0034857",
+  "name": "Josh Allen",
+  "position": "QB",
+  "exactScorerPoints": 50.5767,
+  "realizedPointsPoints": 56.2567,
+  "delta": 5.68,
+  "exactComponents": {
+   "bonus_fd_qb": [
+    13.0,
+    0.67,
+    8.71
+   ],
+   "pass_2pt": [
+    1.0,
+    2.0,
+    2.0
+   ],
+   "pass_cmp": [
+    22.0,
+    0.15,
+    3.3
+   ],
+   "pass_inc": [
+    6.0,
+    -0.22,
+    -1.32
+   ],
+   "pass_sack": [
+    3.0,
+    -1.0,
+    -3.0
+   ],
+   "pass_td": [
+    3.0,
+    6.0,
+    18.0
+   ],
+   "pass_yd": [
+    251.0,
+    0.03333333333333333,
+    8.3667
+   ],
+   "rush_att": [
+    9.0,
+    0.08,
+    0.72
+   ],
+   "rush_td": [
+    1.0,
+    6.0,
+    6.0
+   ],
+   "rush_yd": [
+    78.0,
+    0.1,
+    7.8
+   ]
+  },
+  "realizedBreakdown": [
+   [
+    "Pass Yds",
+    251.0,
+    8.3667
+   ],
+   [
+    "Pass TD",
+    3.0,
+    18.0
+   ],
+   [
+    "Rush Yds",
+    78.0,
+    7.8
+   ],
+   [
+    "Rush TD",
+    1.0,
+    6.0
+   ],
+   [
+    "Completions",
+    22.0,
+    3.3
+   ],
+   [
+    "Rush Att",
+    9.0,
+    0.72
+   ],
+   [
+    "Incompletions",
+    6.0,
+    -1.32
+   ],
+   [
+    "First Downs",
+    17.0,
+    11.39
+   ],
+   [
+    "Pass 2pt",
+    1.0,
+    2.0
+   ]
+  ]
+ },
+ {
+  "group": "offense",
+  "week": 9,
+  "sleeperId": "4034",
+  "gsisId": "00-0033280",
+  "name": "Christian McCaffrey",
+  "position": "RB",
+  "exactScorerPoints": 40.79,
+  "realizedPointsPoints": 39.94,
+  "delta": -0.85,
+  "exactComponents": {
+   "bonus_fd_rb": [
+    6.0,
+    1.0,
+    6.0
+   ],
+   "rec": [
+    5.0,
+    0.08,
+    0.4
+   ],
+   "rec_0_4": [
+    1.0,
+    0.17,
+    0.17
+   ],
+   "rec_10_19": [
+    1.0,
+    0.67,
+    0.67
+   ],
+   "rec_30_39": [
+    1.0,
+    1.17,
+    1.17
+   ],
+   "rec_5_9": [
+    2.0,
+    0.42,
+    0.84
+   ],
+   "rec_td": [
+    1.0,
+    6.0,
+    6.0
+   ],
+   "rec_yd": [
+    67.0,
+    0.1,
+    6.7
+   ],
+   "rush_att": [
+    28.0,
+    0.08,
+    2.24
+   ],
+   "rush_td": [
+    1.0,
+    6.0,
+    6.0
+   ],
+   "rush_yd": [
+    106.0,
+    0.1,
+    10.6
+   ]
+  },
+  "realizedBreakdown": [
+   [
+    "Rush Yds",
+    106.0,
+    10.6
+   ],
+   [
+    "Rush TD",
+    1.0,
+    6.0
+   ],
+   [
+    "Rec",
+    5.0,
+    0.4
+   ],
+   [
+    "Rec Yds",
+    67.0,
+    6.7
+   ],
+   [
+    "Rec TD",
+    1.0,
+    6.0
+   ],
+   [
+    "Rush Att",
+    28.0,
+    2.24
+   ],
+   [
+    "First Downs",
+    8.0,
+    8.0
+   ]
+  ]
+ },
+ {
+  "group": "offense",
+  "week": 5,
+  "sleeperId": "2449",
+  "gsisId": "00-0031588",
+  "name": "Stefon Diggs",
+  "position": "WR",
+  "exactScorerPoints": 30.1,
+  "realizedPointsPoints": 23.4,
+  "delta": -6.7,
+  "exactComponents": {
+   "bonus_fd_wr": [
+    8.0,
+    1.0,
+    8.0
+   ],
+   "rec": [
+    10.0,
+    0.08,
+    0.8
+   ],
+   "rec_0_4": [
+    2.0,
+    0.17,
+    0.34
+   ],
+   "rec_10_19": [
+    6.0,
+    0.67,
+    4.02
+   ],
+   "rec_30_39": [
+    2.0,
+    1.17,
+    2.34
+   ],
+   "rec_yd": [
+    146.0,
+    0.1,
+    14.6
+   ]
+  },
+  "realizedBreakdown": [
+   [
+    "Rec",
+    10.0,
+    0.8
+   ],
+   [
+    "Rec Yds",
+    146.0,
+    14.6
+   ],
+   [
+    "First Downs",
+    8.0,
+    8.0
+   ]
+  ]
+ },
+ {
+  "group": "idp",
+  "week": 14,
+  "sleeperId": "4259",
+  "gsisId": "00-0033964",
+  "name": "Al-Quadin Muhammad",
+  "position": "DE",
+  "exactScorerPoints": 36.6867,
+  "realizedPointsPoints": 36.6867,
+  "delta": -0.0,
+  "exactComponents": {
+   "idp_qb_hit": [
+    4.0,
+    2.13,
+    8.52
+   ],
+   "idp_sack": [
+    3.0,
+    2.92,
+    8.76
+   ],
+   "idp_sack_yd": [
+    24.0,
+    0.1111111111111111,
+    2.6667
+   ],
+   "idp_tkl_loss": [
+    3.0,
+    4.25,
+    12.75
+   ],
+   "idp_tkl_solo": [
+    3.0,
+    1.33,
+    3.99
+   ]
+  },
+  "realizedBreakdown": [
+   [
+    "TFL",
+    3.0,
+    12.75
+   ],
+   [
+    "Sack",
+    3.0,
+    8.76
+   ],
+   [
+    "Sack Yds",
+    24.0,
+    2.6667
+   ],
+   [
+    "QB Hit",
+    4.0,
+    8.52
+   ],
+   [
+    "Solo Tkl",
+    3.0,
+    3.99
+   ]
+  ]
+ },
+ {
+  "group": "idp",
+  "week": 9,
+  "sleeperId": "4999",
+  "gsisId": "00-0034381",
+  "name": "Josh Sweat",
+  "position": "DE",
+  "exactScorerPoints": 34.7478,
+  "realizedPointsPoints": 34.7478,
+  "delta": 0.0,
+  "exactComponents": {
+   "idp_pass_def": [
+    1.0,
+    5.32,
+    5.32
+   ],
+   "idp_qb_hit": [
+    5.0,
+    2.13,
+    10.65
+   ],
+   "idp_sack": [
+    2.0,
+    2.92,
+    5.84
+   ],
+   "idp_sack_yd": [
+    16.0,
+    0.1111111111111111,
+    1.7778
+   ],
+   "idp_tkl_loss": [
+    2.0,
+    4.25,
+    8.5
+   ],
+   "idp_tkl_solo": [
+    2.0,
+    1.33,
+    2.66
+   ]
+  },
+  "realizedBreakdown": [
+   [
+    "TFL",
+    2.0,
+    8.5
+   ],
+   [
+    "Sack",
+    2.0,
+    5.84
+   ],
+   [
+    "Sack Yds",
+    16.0,
+    1.7778
+   ],
+   [
+    "QB Hit",
+    5.0,
+    10.65
+   ],
+   [
+    "PD",
+    1.0,
+    5.32
+   ],
+   [
+    "Solo Tkl",
+    2.0,
+    2.66
+   ]
+  ]
+ },
+ {
+  "group": "idp",
+  "week": 14,
+  "sleeperId": "4136",
+  "gsisId": "00-0033551",
+  "name": "Rasul Douglas",
+  "position": "CB",
+  "exactScorerPoints": 34.0756,
+  "realizedPointsPoints": 34.0756,
+  "delta": 0.0,
+  "exactComponents": {
+   "idp_int": [
+    1.0,
+    5.32,
+    5.32
+   ],
+   "idp_int_ret_yd": [
+    5.0,
+    0.1111111111111111,
+    0.5556
+   ],
+   "idp_pass_def": [
+    5.0,
+    5.32,
+    26.6
+   ],
+   "idp_tkl_ast": [
+    2.0,
+    0.8,
+    1.6
+   ]
+  },
+  "realizedBreakdown": [
+   [
+    "PD",
+    5.0,
+    26.6
+   ],
+   [
+    "INT",
+    1.0,
+    5.32
+   ],
+   [
+    "INT Ret Yds",
+    5.0,
+    0.5556
+   ],
+   [
+    "Ast Tkl",
+    2.0,
+    1.6
+   ]
+  ]
+ }
+]

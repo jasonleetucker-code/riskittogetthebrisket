@@ -1,0 +1,321 @@
+{
+ "ktc": {
+  "csvRows": 500,
+  "csvCanonicalKeys": 500,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 1,
+  "unmatchedPct": 0.2,
+  "unmatchedExamples": [
+   "bam knight"
+  ]
+ },
+ "ktcSfTep": {
+  "csvRows": 500,
+  "csvCanonicalKeys": 500,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 1,
+  "unmatchedPct": 0.2,
+  "unmatchedExamples": [
+   "bam knight"
+  ]
+ },
+ "idpTradeCalc": {
+  "csvRows": 900,
+  "csvCanonicalKeys": 898,
+  "csvNameCollisionKeys": 2,
+  "collisionExamples": {
+   "dru phillips": [
+    "Andru Phillips",
+    "Dru Phillips"
+   ],
+   "demario douglas": [
+    "DeMario Douglas",
+    "Demario Douglas"
+   ]
+  },
+  "unmatchedKeys": 1,
+  "unmatchedPct": 0.1,
+  "unmatchedExamples": [
+   "bam knight"
+  ]
+ },
+ "dlfIdp": {
+  "csvRows": 171,
+  "csvCanonicalKeys": 171,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 0,
+  "unmatchedPct": 0.0,
+  "unmatchedExamples": []
+ },
+ "idpShow": {
+  "csvRows": 350,
+  "csvCanonicalKeys": 349,
+  "csvNameCollisionKeys": 1,
+  "collisionExamples": {
+   "byron murphy": [
+    "Byron Murphy II",
+    "Byron Murphy Jr."
+   ]
+  },
+  "unmatchedKeys": 0,
+  "unmatchedPct": 0.0,
+  "unmatchedExamples": []
+ },
+ "dlfSf": {
+  "csvRows": 281,
+  "csvCanonicalKeys": 281,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 1,
+  "unmatchedPct": 0.4,
+  "unmatchedExamples": [
+   "russell wilson"
+  ]
+ },
+ "dynastyNerdsSfTep": {
+  "csvRows": 294,
+  "csvCanonicalKeys": 294,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 1,
+  "unmatchedPct": 0.3,
+  "unmatchedExamples": [
+   "dare ogunbowale"
+  ]
+ },
+ "fantasyProsSf": {
+  "csvRows": 540,
+  "csvCanonicalKeys": 540,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 66,
+  "unmatchedPct": 12.2,
+  "unmatchedExamples": [
+   "dallen bentley",
+   "jaren kanak",
+   "carsen ryan",
+   "seydou traore",
+   "daequan wright",
+   "austin hooper",
+   "chase roberts",
+   "bam knight"
+  ]
+ },
+ "fantasyProsIdp": {
+  "csvRows": 219,
+  "csvCanonicalKeys": 218,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 7,
+  "unmatchedPct": 3.2,
+  "unmatchedExamples": [
+   "christian wilkins",
+   "marcus davenport",
+   "dremont jones",
+   "jaylinn hawkins",
+   "jason pinnock",
+   "jack gibbens",
+   "germaine pratt"
+  ]
+ },
+ "fantasyCalc": {
+  "csvRows": 399,
+  "csvCanonicalKeys": 399,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 5,
+  "unmatchedPct": 1.3,
+  "unmatchedExamples": [
+   "tyrod taylor",
+   "mason rudolph",
+   "jahdae walker",
+   "odell beckham",
+   "tommy devito"
+  ]
+ },
+ "otcffbSf": {
+  "csvRows": 347,
+  "csvCanonicalKeys": 345,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 2,
+  "unmatchedPct": 0.6,
+  "unmatchedExamples": [
+   "odell beckham",
+   "tyrod taylor"
+  ]
+ },
+ "dynastyDaddySf": {
+  "csvRows": 367,
+  "csvCanonicalKeys": 367,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 2,
+  "unmatchedPct": 0.5,
+  "unmatchedExamples": [
+   "mason rudolph",
+   "tyrod taylor"
+  ]
+ },
+ "flockFantasySf": {
+  "csvRows": 439,
+  "csvCanonicalKeys": 438,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 23,
+  "unmatchedPct": 5.3,
+  "unmatchedExamples": [
+   "cole beck",
+   "taysom hill",
+   "russell wilson",
+   "lewis bond",
+   "amari cooper",
+   "antonio gibson",
+   "deuce vaughn",
+   "zonovan knight"
+  ]
+ },
+ "flockFantasySfRookies": {
+  "csvRows": 84,
+  "csvCanonicalKeys": 84,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 8,
+  "unmatchedPct": 9.5,
+  "unmatchedExamples": [
+   "seydou traore",
+   "daequan wright",
+   "terion stewart",
+   "dallen bentley",
+   "diego pavia",
+   "chase roberts",
+   "jalon daniels",
+   "lewis bond"
+  ]
+ },
+ "yahooBoone": {
+  "csvRows": 410,
+  "csvCanonicalKeys": 410,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 33,
+  "unmatchedPct": 8.0,
+  "unmatchedExamples": [
+   "jalon daniels",
+   "jackson hawes",
+   "taysom hill",
+   "odell beckham",
+   "andy dalton",
+   "carson wentz",
+   "jimmy garoppolo",
+   "kyle allen"
+  ]
+ },
+ "fantasyProsFitzmaurice": {
+  "csvRows": 299,
+  "csvCanonicalKeys": 299,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 0,
+  "unmatchedPct": 0.0,
+  "unmatchedExamples": []
+ },
+ "dlfRookieSf": {
+  "csvRows": 55,
+  "csvCanonicalKeys": 55,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 0,
+  "unmatchedPct": 0.0,
+  "unmatchedExamples": []
+ },
+ "dlfRookieIdp": {
+  "csvRows": 29,
+  "csvCanonicalKeys": 29,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 0,
+  "unmatchedPct": 0.0,
+  "unmatchedExamples": []
+ },
+ "draftSharks": {
+  "csvRows": 454,
+  "csvCanonicalKeys": 454,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 34,
+  "unmatchedPct": 7.5,
+  "unmatchedExamples": [
+   "nathaniel dell",
+   "antonio gibson",
+   "mitchell tinsley",
+   "lewis bond",
+   "cj williams",
+   "dallen bentley",
+   "anthony smith",
+   "athan kaliakmanis"
+  ]
+ },
+ "draftSharksIdp": {
+  "csvRows": 410,
+  "csvCanonicalKeys": 409,
+  "csvNameCollisionKeys": 1,
+  "collisionExamples": {
+   "byron murphy": [
+    "Byron Murphy",
+    "Byron Murphy II"
+   ]
+  },
+  "unmatchedKeys": 90,
+  "unmatchedPct": 22.0,
+  "unmatchedExamples": [
+   "maxwell hairston",
+   "dangelo ponds",
+   "benjamin morrison",
+   "dremont jones",
+   "tommy togiai",
+   "moro ojomo",
+   "karl brooks",
+   "antonio johnson"
+  ]
+ },
+ "fantasyNavigatorSf": {
+  "csvRows": 758,
+  "csvCanonicalKeys": 758,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 303,
+  "unmatchedPct": 40.0,
+  "unmatchedExamples": [
+   "jerrion ealy",
+   "odell beckham",
+   "mitchell trubisky",
+   "tony jones",
+   "tre turner",
+   "chase claypool",
+   "deon jackson",
+   "amari cooper"
+  ]
+ },
+ "pfkDynasty": {
+  "csvRows": 496,
+  "csvCanonicalKeys": 496,
+  "csvNameCollisionKeys": 0,
+  "collisionExamples": {},
+  "unmatchedKeys": 20,
+  "unmatchedPct": 4.0,
+  "unmatchedExamples": [
+   "tyrod taylor",
+   "hunter long",
+   "austin hooper",
+   "will dissly",
+   "adam trautman",
+   "van jefferson",
+   "mason rudolph",
+   "aidan oconnell"
+  ]
+ }
+}
