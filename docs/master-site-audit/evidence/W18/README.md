@@ -15,3 +15,10 @@ they are byte-reproducible from the running stack:
 
 The derived comparison artifacts in this directory ARE committed — they are the
 audit evidence; the raw inputs are just large.
+
+**Correction:** two of these dumps (`api_data_app.json`, `api_data_dynasty_new.json`)
+were tracked by the audit's first commit before this exclusion was applied, so their
+blobs remain in this branch's history. They are untracked from the working tree as of
+the CI-fix commit. Noted rather than history-rewritten: the repo already carries ~1.6 GB
+of committed generated data, and a force-push to hide 11 MB would be a worse trade than
+saying so.

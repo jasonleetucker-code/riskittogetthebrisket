@@ -1,10 +1,10 @@
-registry merge — 2026-08-04T21:01:35.566085+00:00 @ de8a1dfd
-shards: 3
-records: 37 raw -> 37 after dedupe (0 merged)
-by status: {'Implemented but defective': 24, 'Duplicate or conflicting implementation': 2, 'Partially implemented': 2, 'Deprecated but still active': 1, 'Implemented and verified': 6, 'Blocked by data': 1, 'Scaffolded only': 1}
-by priority: {'P1': 7, 'P2': 14, 'P3': 14, 'P0': 2}
-by workstream: {'W00': 8, 'W02': 14, 'W03': 15}
-prior-finding relations: {'new': 11, 'partial': 6, 'confirmed': 16, 'not-reproducible': 1, 'superseded': 2, 'refuted': 1}
-files with contradictory verdicts: ['src/api/data_contract.py', 'src/league_intel/te_premium.py']
+registry merge — 2026-08-04T21:16:48.398188+00:00 @ c807040e
+shards: 6
+records: 72 raw -> 72 after dedupe (0 merged)
+by status: {'Implemented but defective': 45, 'Duplicate or conflicting implementation': 4, 'Partially implemented': 4, 'Deprecated but still active': 1, 'Implemented and verified': 10, 'Blocked by data': 1, 'Scaffolded only': 2, 'Implemented but disconnected': 2, 'Mocked or hard-coded': 2, 'Missing': 1}
+by priority: {'P1': 18, 'P2': 27, 'P3': 24, 'P0': 3}
+by workstream: {'W00': 8, 'W02': 14, 'W03': 15, 'W09': 16, 'W18': 11, 'W29': 8}
+prior-finding relations: {'new': 25, 'partial': 10, 'confirmed': 30, 'not-reproducible': 1, 'superseded': 3, 'refuted': 3}
+files with contradictory verdicts: ['server.py', 'src/trade/finder.py', 'src/api/data_contract.py', 'src/league_intel/te_premium.py', 'frontend/lib/dynasty-data.js', 'config/leagues/registry.json', 'src/league_intel/config.py', 'tests/league_intel/test_registry_consumers.py']
 
 VALIDATION PROBLEMS (0):

@@ -1,45 +1,57 @@
 {
  "schemaVersion": 1,
- "generatedAt": "2026-08-04T21:01:35.566085+00:00",
- "commit": "de8a1dfd",
+ "generatedAt": "2026-08-04T21:16:48.398188+00:00",
+ "commit": "c807040e",
  "totals": {
-  "findings": 37,
-  "rawRecords": 37,
+  "findings": 72,
+  "rawRecords": 72,
   "duplicatesMerged": 0,
-  "workstreams": 3,
+  "workstreams": 6,
   "validationProblems": 0
  },
  "byStatus": {
-  "Implemented but defective": 24,
-  "Duplicate or conflicting implementation": 2,
-  "Partially implemented": 2,
+  "Implemented but defective": 45,
+  "Duplicate or conflicting implementation": 4,
+  "Partially implemented": 4,
   "Deprecated but still active": 1,
-  "Implemented and verified": 6,
+  "Implemented and verified": 10,
   "Blocked by data": 1,
-  "Scaffolded only": 1
+  "Scaffolded only": 2,
+  "Implemented but disconnected": 2,
+  "Mocked or hard-coded": 2,
+  "Missing": 1
  },
  "byPriority": {
-  "P1": 7,
-  "P2": 14,
-  "P3": 14,
-  "P0": 2
+  "P1": 18,
+  "P2": 27,
+  "P3": 24,
+  "P0": 3
  },
  "byWorkstream": {
   "W00": 8,
   "W02": 14,
-  "W03": 15
+  "W03": 15,
+  "W09": 16,
+  "W18": 11,
+  "W29": 8
  },
  "byPriorRelation": {
-  "new": 11,
-  "partial": 6,
-  "confirmed": 16,
+  "new": 25,
+  "partial": 10,
+  "confirmed": 30,
   "not-reproducible": 1,
-  "superseded": 2,
-  "refuted": 1
+  "superseded": 3,
+  "refuted": 3
  },
  "filesWithContradictoryVerdicts": [
+  "server.py",
+  "src/trade/finder.py",
   "src/api/data_contract.py",
-  "src/league_intel/te_premium.py"
+  "src/league_intel/te_premium.py",
+  "frontend/lib/dynasty-data.js",
+  "config/leagues/registry.json",
+  "src/league_intel/config.py",
+  "tests/league_intel/test_registry_consumers.py"
  ],
  "findings": [
   {
@@ -2605,6 +2617,2549 @@
    "whatWorks": "The backend bucket itself is correct and the frontend does read it \u2014 the ordinal gate is an extra AND term layered on top, not a replacement.",
    "rootCause": "A shared-constants module that was not updated when the backend migrated the rule, plus a belt-and-braces AND in edge-helpers that turned a stale constant into live behaviour.",
    "requiredRepair": "Delete the sourceRankSpread <= 30 term from edge-helpers.js (the backend bucket already encodes agreement), and either remove CONFIDENCE_SPREAD_HIGH/MEDIUM from thresholds.js or relabel them as the non-live fallback pair. Add a parity test in the spirit of tests/api/test_source_registry_parity.py for threshold constants.",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F001",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "Trade suggestions returns zero suggestions for 8 of 12 live teams, with no diagnosis in the payload",
+   "status": "Implemented but defective",
+   "priority": "P0",
+   "size": "M",
+   "subsystem": "Trade suggestions",
+   "surface": {
+    "routes": [
+     "/api/trade/suggestions"
+    ],
+    "pages": [
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/suggestions.py",
+     "lines": "239,646-653"
+    },
+    {
+     "path": "src/trade/suggestions.py",
+     "lines": "1027-1108"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: suggestions.py produces 'roster-aware trade suggestions (sell-high, buy-low, consolidation, upgrades)' gated on BOARD_TOP_N_FILTER=150.",
+   "observed": "Posting each of the 12 real Sleeper rosters (plus all 12 as league_rosters) returns totalSuggestions=0 for Ed, Ty, Collin, Roy, Joey, Kich, jstuedle and Blaine. Of the 4 that return anything, 3 return sellHigh only. positionalUpgrades is 0 for all 12 teams. Cause: the single-population top-150 board gate leaves rosterMatched at 3-21 of the 44-58 players actually rostered (jstuedle 3/44, Blaine 5/53), so the engine analyses 5-36% of the roster it was handed. metadata reports rosterMatched/rosterProvided but the payload carries no error, warning or 'insufficient coverage' note.",
+   "reproduction": {
+    "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python - <<'EOF'\nimport json,subprocess\nd=json.load(open('/tmp/full.json')); T=d['sleeper']['teams']\nlr=[{'team_name':t['name'],'players':t['players']} for t in T]\nfor t in T:\n    p=subprocess.run(['curl','-s','-b','/tmp/c.txt','-X','POST','http://127.0.0.1:8000/api/trade/suggestions','-H','Content-Type: application/json','-d',json.dumps({'roster':t['players'],'league_rosters':lr})],capture_output=True)\n    r=json.loads(p.stdout); print(t['name'], r['totalSuggestions'], r['metadata']['rosterMatched'],'/',r['metadata']['rosterProvided'])\nEOF",
+    "expected": "every team receives at least one actionable suggestion, or an explicit reason why not",
+    "actual": "8/12 return {sellHigh:[],buyLow:[],consolidation:[],positionalUpgrades:[],totalSuggestions:0} with HTTP 200 and no warning field",
+    "artifact": "docs/master-site-audit/evidence/W09/per-team-tabulation.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "teams": 12,
+     "boardTopNFilter": 150,
+     "rosterMatchedByTeam": {
+      "Jason": 16,
+      "Ed": 10,
+      "Ty": 7,
+      "Collin": 10,
+      "MaKayla": 14,
+      "Eric": 15,
+      "Roy": 7,
+      "Joey": 10,
+      "Brent": 21,
+      "Kich": 9,
+      "jstuedle": 3,
+      "Blaine": 5
+     },
+     "rosterProvidedByTeam": {
+      "Jason": 57,
+      "Ed": 58,
+      "Ty": 56,
+      "Collin": 58,
+      "MaKayla": 58,
+      "Eric": 58,
+      "Roy": 51,
+      "Joey": 58,
+      "Brent": 57,
+      "Kich": 58,
+      "jstuedle": 44,
+      "Blaine": 53
+     }
+    },
+    "formula": "teamsWithZeroSuggestions = count(totalSuggestions == 0)",
+    "expected": 0,
+    "actual": 8,
+    "tolerance": 0
+   },
+   "userImpact": "A user on /trade asking for trade ideas is told, silently, that there are none. Two thirds of the league concludes the feature is broken or that their roster has no trades available; neither is true \u2014 the engine simply never looked at 79-93% of their roster.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A14-F04",
+    "relation": "confirmed",
+    "note": "Prior said 7 of 12; I measure 8 of 12 with league_rosters supplied. PRIOR-A14-F19 ('no refuses-to-answer path') is also confirmed by the same run \u2014 the empty payload carries no diagnosis."
+   },
+   "whatWorks": "metadata.rosterMatched / rosterProvided are honestly stamped, so the shortfall is at least measurable from the payload. starter_needs_for_league correctly derives per-league lineups (QB2/RB3/WR4/TE2/DL3/LB3/DB3 for dynasty_main).",
+   "rootCause": "build_asset_pool_from_contract ranks ALL asset classes in one population and cuts at 150 (suggestions.py:646-651). Offense dominates the top of a 0-9999 board, so a 58-man roster in a 58-slot IDP league resolves to a handful of eligible assets.",
+   "requiredRepair": "Gate per asset class / per position family (as finder.py already does per market), or make the gate roster-relative. Failing that, emit an explicit 'coverage insufficient' warning naming rosterMatched/rosterProvided so an empty feed reads as 'not measured', never 'nothing available'.",
+   "dependencies": "W09-F004 (DB exclusion) is the same root cause seen from the position axis."
+  },
+  {
+   "id": "W09-F002",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "Every trade the arbitrage finder returns is a 1-for-2; 1-for-1 candidates exist but rank 2,159th and 2-for-1 never qualifies at all",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "M",
+   "subsystem": "Trade finder",
+   "surface": {
+    "routes": [
+     "/api/trade/finder"
+    ],
+    "pages": [
+     "/arbitrage"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/finder.py",
+     "lines": "776-816"
+    },
+    {
+     "path": "src/trade/finder.py",
+     "lines": "864-918"
+    },
+    {
+     "path": "src/trade/finder.py",
+     "lines": "1138"
+    }
+   ],
+   "claimUnderTest": "finder.py generates three package shapes (_generate_1for1, _generate_2for1, _generate_1for2) and ranks them together by arbitrage_score.",
+   "observed": "480 returned trades across all 12 teams: 480 are '1-for-2'. Zero 1-for-1, zero 2-for-1. Running find_trades for Jason with max_results=100000 yields 5,562 qualified trades \u2014 5,399 1-for-2, 163 1-for-1, and ZERO 2-for-1 \u2014 and the first 1-for-1 appears at rank 2,159. The scoring function is the cause: board_gain_norm = board_delta / give_model divides by the give side only, so shrinking the give side to one asset inflates the dominant term (f_board_edge = board_gain_norm*50) without bound, while the entire counterweight is f_simplicity = -(pkg_size-2)*3 = -3.",
+   "reproduction": {
+    "command": ".venv/bin/python -c \"import json,sys;sys.path.insert(0,'.');from src.trade import finder as F;from collections import Counter;d=json.load(open('/tmp/w09-full.json'));T=d['sleeper']['teams'];r=F.find_trades(d['players'],'Jason',[t['name'] for t in T if t['name']!='Jason'],T,max_results=100000,ktc_top_n=150,contract=d);print(Counter(x['packageSize'] for x in r['trades']));print('first 1-for-1 at rank',[i for i,x in enumerate(r['trades']) if x['packageSize']=='1-for-1'][0]+1)\"",
+    "expected": "a mix of shapes in the top 40",
+    "actual": "Counter({'1-for-2': 5399, '1-for-1': 163}); first 1-for-1 at rank 2159; MAX_RESULTS=40",
+    "artifact": "docs/master-site-audit/evidence/W09/per-team-tabulation.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "bestScore1for2": 35.09,
+     "bestScore1for1": 21.38,
+     "simplicityPenalty1for2": -3,
+     "simplicityPenalty1for1": 0,
+     "maxResults": 40,
+     "qualifiedTotal": 5562
+    },
+    "formula": "share of returned trades with packageSize == '1-for-2' = returned1for2 / returnedTotal",
+    "expected": 0.5,
+    "actual": 1.0,
+    "tolerance": 0.2
+   },
+   "userImpact": "/arbitrage presents itself as a general trade finder. A user never sees a straight player-for-player swap or a consolidation offer, only 'give one good player, get two lesser ones' \u2014 the single shape that is hardest to get accepted and that structurally worsens roster-spot pressure in a 58-slot league.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A14-F03",
+    "relation": "confirmed",
+    "note": "Prior measured 98% of output in the 1-for-N direction; the live measurement is 100% of returned output (480/480) and 97.1% of qualified output (5399/5562). The 2-for-1 direction that the guards WERE written for produces zero qualifying trades, so those guards are dead in production."
+   },
+   "whatWorks": "_deduplicate correctly collapses same-asset permutations; the multi-for-one guards (MULTI_FOR_ONE_MIN_RATIO, ELITE_MULTI_MIN_RATIO, PACKAGE_ANCHOR_MIN_PCT) are correctly implemented \u2014 they just guard a direction that never survives the output filter.",
+   "rootCause": "The normalizer in board_gain_norm is give_model, not (give_model+recv_model)/2 or max(); combined with a flat -3 simplicity penalty this makes score monotonically increasing in receive-side count.",
+   "requiredRepair": "Normalize board_delta against the larger of the two sides (or their mean), and/or reserve slots per package shape in the returned list so each shape gets representation. Either fix must be re-measured against the shape distribution above.",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F003",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "Draft picks can never appear in a trade-finder or trade-suggestion result: both engines resolve rosters from sleeper.teams[].players, which contains zero picks",
+   "status": "Implemented but disconnected",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "Trade finder",
+   "surface": {
+    "routes": [
+     "/api/trade/finder",
+     "/api/trade/suggestions"
+    ],
+    "pages": [
+     "/arbitrage",
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/finder.py",
+     "lines": "621-643"
+    },
+    {
+     "path": "server.py",
+     "lines": "6114-6121"
+    },
+    {
+     "path": "server.py",
+     "lines": "6006-6013"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'offense + picks -> ktcSfTep' \u2014 picks are a first-class asset class in the finder's per-market gate, and build_asset_pool explicitly classifies is_pick and routes picks to the KTC board.",
+   "observed": "25 picks survive the top-150 offense-market gate and sit in the finder's asset pool. Zero picks appear in any of the 480 returned trades, for any of the 12 teams. _resolve_roster (finder.py:621) reads only t['players'] from the Sleeper team dict; that list contains 0 pick entries on all 12 teams. The picks the league owns live in the SIBLING keys t['picks'] (e.g. ['2026 1st','2026 2nd',...]) and t['pickDetails'], which neither engine reads. /api/trade/suggestions has the same shape: the route passes body['roster'] straight through, and the /trade page sources it from the same players list.",
+   "reproduction": {
+    "command": ".venv/bin/python -c \"import json,sys;sys.path.insert(0,'.');from src.trade import finder as F;d=json.load(open('/tmp/w09-full.json'));t=d['sleeper']['teams'][0];print('pick-like entries in t[players]:',[p for p in t['players'] if p.startswith('20')]);print('t[picks]:',t['picks'][:6]);bv=F.board_values_from_contract(d);po=F.positions_from_contract(d);pool=F.build_asset_pool(d['players'],market_top_n=150,board_values=bv,positions=po);print('picks in gated pool:',sum(1 for a in pool if a.is_pick))\"",
+    "expected": "picks tradeable, since 25 of them clear the market gate",
+    "actual": "pick-like entries in t[players]: []; t[picks]: ['2026 1st','2026 2nd','2026 3rd','2026 4th','2026 5th','2026 6th']; picks in gated pool: 25",
+    "artifact": "docs/master-site-audit/evidence/W09/per-team-tabulation.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "picksInGatedPool": 25,
+     "tradesReturnedAllTeams": 480,
+     "pickEntriesInTeamPlayersList": 0
+    },
+    "formula": "tradesContainingPick summed over 12 teams",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "Player-plus-pick and pick-for-player are the two most common real dynasty trade shapes. A user on /arbitrage is shown a search that structurally cannot propose either, with nothing saying so \u2014 and the 18 picks occupying the top-150 offense-market gate displace 18 real players that COULD have been traded.",
+   "blastRadius": {
+    "playersAffected": 25,
+    "routesAffected": 2,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Not in the prior index. Prior A14 covered the finder's IDP blindness but not its pick blindness."
+   },
+   "whatWorks": "build_asset_pool's pick classification (is_pick, EXCLUDED_POSITIONS, market routing) is correct \u2014 25 picks are priced and ranked. The break is purely in roster resolution.",
+   "rootCause": "_resolve_roster reads one of the three asset-bearing keys on the Sleeper team dict.",
+   "requiredRepair": "Extend _resolve_roster to concatenate t['players'] with t['picks'] (normalising pickDetails labels to the contract's pick row names via contract['pickAliases']), and pass picks through the suggestions route the same way. Also exclude picks from the offense-market top-N population, or rank them as their own market, so they stop displacing players from the gate.",
+   "dependencies": "Requires pick-name alias resolution \u2014 the contract keys picks as '2026 Pick 1.01'/'2027 Early 1st' while Sleeper labels them '2026 1st'."
+  },
+  {
+   "id": "W09-F004",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "No defensive back is eligible for any trade suggestion: the best DB on the board ranks 167th, past the top-150 gate, in a league that starts three of them",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "Trade suggestions",
+   "surface": {
+    "routes": [
+     "/api/trade/suggestions"
+    ],
+    "pages": [
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/suggestions.py",
+     "lines": "239,646-651"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: suggestions.py gates on BOARD_TOP_N_FILTER (150) against 'our blended board \u2014 display_value order, covers every asset class'. The route derives starter_needs including DB:3.",
+   "observed": "The 150-asset pool contains 41 WR, 28 QB, 26 RB, 23 PICK, 18 TE, 7 DL, 7 LB and ZERO DB. The board carries 96 DBs; the highest, Caleb Downs (3159), sits at overall rank 167 \u2014 17 places past the cut, against a rank-150 cutoff value of 3259. dynasty_main starts 3 DB per team (36 league-wide starting DB slots) and the engine's own starterNeeds echo 'DB: 3'. Consequently every suggestion generated for the one team that gets a full feed (Brent) targets an LB or a QB; the receive-side position histogram over all 9 of its suggestions is {LB: 8, QB: 1}.",
+   "reproduction": {
+    "command": ".venv/bin/python -c \"import json,sys;sys.path.insert(0,'.');from collections import Counter;from src.trade.suggestions import build_asset_pool_from_contract as B;d=json.load(open('/tmp/w09-full.json'));p=B(d,ktc_top_n=150);print(Counter(x.position for x in p));f=B(d,ktc_top_n=0);dbs=sorted([x for x in f if x.position=='DB'],key=lambda z:-z.display_value);print('total DBs on board',len(dbs),'best',dbs[0].name,dbs[0].display_value,'rank',dbs[0].board_rank);print('rank-150 cutoff value',sorted(f,key=lambda z:-z.display_value)[149].display_value)\"",
+    "expected": "DB representation proportional to its 3 starting slots",
+    "actual": "Counter has no 'DB' key; total DBs on board 96, best Caleb Downs 3159 at rank 167; rank-150 cutoff value 3259",
+    "artifact": "docs/master-site-audit/evidence/W09/per-team-tabulation.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "boardTopNFilter": 150,
+     "bestDbValue": 3159,
+     "bestDbBoardRank": 167,
+     "rank150CutoffValue": 3259,
+     "dbsOnBoard": 96,
+     "dbStarterSlotsPerTeam": 3
+    },
+    "formula": "eligibleDBs = count(DB with board_rank <= 150)",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "A manager whose actual weakness is at DB is told their roster needs DB (starterNeeds says so) and is then offered zero DB targets \u2014 and no message explains that DBs were excluded rather than considered and rejected.",
+   "blastRadius": {
+    "playersAffected": 96,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A14-F04",
+    "relation": "partial",
+    "note": "Same root cause as the zero-suggestion finding, measured on the position axis instead of the roster-coverage axis. Not separately stated in the prior index."
+   },
+   "whatWorks": "finder.py already solved exactly this problem by ranking each market's own population from 1 (MARKET_TOP_N_FILTER) \u2014 the pattern to copy exists in the sibling module.",
+   "rootCause": "One global top-N cut over a value scale on which offense occupies the entire top of the board.",
+   "requiredRepair": "Gate per position family (or per asset class) inside build_asset_pool_from_contract, mirroring finder.py's per-market grouping, and stamp the per-family counts in metadata so the composition is visible.",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F005",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "Monte Carlo uncertainty is a hard-coded flat +/-15% band on zero live rows, and the 9999 clamp makes it understate an elite asset by 5.07%",
+   "status": "Mocked or hard-coded",
+   "priority": "P1",
+   "size": "M",
+   "subsystem": "Monte Carlo trade simulator",
+   "surface": {
+    "routes": [
+     "/api/trade/simulate-mc"
+    ],
+    "pages": [
+     "/trade"
+    ],
+    "flags": [
+     "monte_carlo_trade"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/monte_carlo.py",
+     "lines": "368-387"
+    },
+    {
+     "path": "frontend/components/ui/MonteCarloButton.jsx",
+     "lines": "41-54"
+    }
+   ],
+   "claimUnderTest": "monte_carlo.py module docstring: 'Given side-A and side-B as lists of players, each with a valueBand from Phase 4 (p10, p50, p90)... Depends on: Phase 4 confidence intervals'. build_trade_player: 'Prefers the Phase 4 valueBand dict; falls back to +/-15% band'.",
+   "observed": "0 of 1,092 playersArray rows carry a valueBand, so the fallback IS the production path for every asset \u2014 every player, pick and defender is drawn from an identical +/-15% triangle regardless of whether the board blended 1 source or 14 (effectiveSourceRanks ranges 0-14 across the contract). The frontend synthesizes the same +/-15% band client-side. Worse, _shifted() clamps to 9999 while the +15% leg is not, so for a top-of-board asset the upper half of the band is truncated and the sampled mean falls BELOW the board value: Brock Bowers (rankDerivedValue 9947) simulates at sideAMean 9441.9. No convergence diagnostic, standard error, confidence interval or seed echo is returned; ten identical calls give winProbA 0.0001-0.0003 and meanDelta -4455.2 to -4439.3.",
+   "reproduction": {
+    "command": ".venv/bin/python -c \"import json;d=json.load(open('/tmp/w09-full.json'));print('rows with valueBand:',sum(1 for r in d['playersArray'] if r.get('valueBand')),'of',len(d['playersArray']))\" ; curl -s -b /tmp/audit-cookies-w09.txt -X POST http://127.0.0.1:8000/api/trade/simulate-mc -H 'Content-Type: application/json' -d '{\"sideA\":[{\"name\":\"Brock Bowers\",\"rankDerivedValue\":9947,\"pos\":\"TE\",\"team\":\"LV\"}],\"sideB\":[{\"name\":\"Jonathan Taylor\",\"rankDerivedValue\":6431,\"pos\":\"RB\",\"team\":\"IND\"},{\"name\":\"Patrick Mahomes\",\"rankDerivedValue\":7461,\"pos\":\"QB\",\"team\":\"KC\"}]}' | python -c 'import json,sys;r=json.load(sys.stdin);print(r[\"sideAMean\"], r[\"nSims\"])'",
+    "expected": "sideAMean == 9947 (the board value the user is shown)",
+    "actual": "rows with valueBand: 0 of 1092; sideAMean 9441.9",
+    "artifact": "docs/master-site-audit/evidence/W09/mc-10runs.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "rankDerivedValue": 9947,
+     "p10": 8454.95,
+     "p50": 9947.0,
+     "p90": "min(9999, 9947*1.15) = 9999.0",
+     "segments": [
+      [
+       6962.9,
+       8454.95,
+       0.1
+      ],
+      [
+       8454.95,
+       9947.0,
+       0.4
+      ],
+      [
+       9947.0,
+       9999.0,
+       0.4
+      ],
+      [
+       9999.0,
+       10051.0,
+       0.1
+      ]
+     ]
+    },
+    "formula": "E[draw] = sum over segments of ((lo+hi)/2)*weight, using the piecewise-linear _triangular_draw quantile map",
+    "expected": 9947.0,
+    "actual": 9443.0,
+    "tolerance": 25.0
+   },
+   "userImpact": "On /trade the MC panel says 'Side B came out ahead in 100% of 20,000 simulations'. That number is produced from an invented, uniform uncertainty and a mean that is 5% low for exactly the elite assets a trade usually hinges on. A user rejects an even trade because the simulator's fabricated distribution says it is not close.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A14-F05",
+    "relation": "confirmed",
+    "note": "Also confirms PRIOR-A09-F03 and PRIOR-A10-F02, which state the same defect from the constants and documentation angles. New here is the 9999-clamp bias: the fabricated band is not merely uninformative, it is directionally WRONG at the top of the board, understating the board value by 504 points (5.07%) with an analytic derivation that matches the live sideAMean to 1.1 points."
+   },
+   "whatWorks": "The direction-symmetrization is real and effective (symmetryCheck.drift 0.0001, enforced true), the labelHint/disclaimer contract fields ARE returned by the backend, and run-to-run variance is genuinely small (meanDelta sd 5.1 on a magnitude of 4,447 over 10 runs at 100k sims) \u2014 the estimator is stable, it is just estimating a fabricated quantity.",
+   "rootCause": "The band producer (src/canonical/confidence_intervals) never stamps valueBand onto contract rows, so the documented input does not exist on any live row; the fallback was written as a degradation path and became the only path.",
+   "requiredRepair": "Either stamp valueBand from the data the contract already carries (effectiveSourceRanks spread / sourceSpread / confidenceBucket are all present per row), or stop reporting a win probability and report the point delta only. At minimum, clamp p50 and p90 consistently so the sampled mean equals the displayed board value, and return a convergence statistic (MC standard error on winProbA) so the reader can tell a stable 0.50 from a noisy one.",
+   "dependencies": "src/canonical/confidence_intervals.py has no producer wired into the contract build."
+  },
+  {
+   "id": "W09-F006",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "The leagueAdjusted valuation lens is a silent no-op on every all-offense trade in /api/trade/simulate and /api/trade/finder, while the response still stamps valuationMode: leagueAdjusted",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "Valuation lens threading",
+   "surface": {
+    "routes": [
+     "/api/trade/simulate",
+     "/api/trade/finder"
+    ],
+    "pages": [
+     "/trade",
+     "/arbitrage"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/league_intel/overlay.py",
+     "lines": "86-93"
+    },
+    {
+     "path": "src/api/trade_simulator.py",
+     "lines": "60-65"
+    },
+    {
+     "path": "src/trade/finder.py",
+     "lines": "686-691"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'No engine knows the feature exists, because every engine reads exactly one value \u2014 rankDerivedValue' and 'Every response stamps valuationMode \u2014 including \"market\". \"This is the market board\" and \"this field is missing\" must not read the same.'",
+   "observed": "overlay.adjusted_rows multiplies ONLY row['rankDerivedValue'] by the position factor. But both trade_simulator._resolve_asset and finder._score_trade prefer offenseOnlyRankDerivedValue when the trade contains no IDP asset \u2014 a field the overlay never touches. A Bowers-for-(Taylor+Mahomes) simulate call returns equity 4004 and per-player values 9950/6472/7482 under BOTH valuationMode=market and valuationMode=leagueAdjusted, and stamps 'leagueAdjusted' on the second. Substituting an IDP asset makes the lens visible immediately (Bowers 9947->10062, Hutchinson 6362->6984), proving the plumbing works and only the offense-only field is missed.",
+   "reproduction": {
+    "command": "for M in market leagueAdjusted; do curl -s -b /tmp/audit-cookies-w09.txt -X POST http://127.0.0.1:8000/api/trade/simulate -H 'Content-Type: application/json' -d \"{\\\"teamName\\\":\\\"Jason\\\",\\\"playersOut\\\":[\\\"Brock Bowers\\\"],\\\"playersIn\\\":[\\\"Jonathan Taylor\\\",\\\"Patrick Mahomes\\\"],\\\"valuationMode\\\":\\\"$M\\\"}\" | python -c 'import json,sys;r=json.load(sys.stdin);print(r[\"valuationMode\"], r[\"equity\"], [(x[\"name\"],x[\"value\"]) for x in r[\"sending\"]+r[\"receiving\"]])'; done",
+    "expected": "equity differs between the two modes",
+    "actual": "market 4004 [...9950, 6472, 7482]; leagueAdjusted 4004 [...9950, 6472, 7482] \u2014 byte identical",
+    "artifact": "docs/master-site-audit/evidence/W09/valuation-mode-threading.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "bowersOffenseOnly": 9950,
+     "taylorOffenseOnly": 6472,
+     "mahomesOffenseOnly": 7482,
+     "factorTE_Bowers": 1.011595,
+     "factorRB_Taylor": 1.041554,
+     "factorQB_Mahomes": 1.018366
+    },
+    "formula": "equityAdjusted = taylor*f_RB + mahomes*f_QB - bowers*f_TE",
+    "expected": 4295.0,
+    "actual": 4004,
+    "tolerance": 5.0
+   },
+   "userImpact": "A user who switches the board to 'league adjusted' and re-runs a player-for-player trade sees an unchanged verdict labelled as adjusted. They conclude the lens has no effect on trades \u2014 or, worse, act on a market-priced equity number believing it is scarcity-corrected. The 291-point gap on this one trade is 7.3% of the equity.",
+   "blastRadius": {
+    "playersAffected": 812,
+    "routesAffected": 2,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A20-F06",
+    "relation": "confirmed",
+    "note": "Prior stated the overlay scales only rankDerivedValue and named suggestions.py as the mixer. New here: route-level live proof on /api/trade/simulate and /api/trade/finder, the exact 291-point arithmetic gap, and the observation that the honest 'valuationMode' stamp CLAUDE.md is proud of is what turns a silent no-op into an active misstatement."
+   },
+   "whatWorks": "valuation_mode threading itself is real and correct on all five engine routes I tested: each accepts both the snake_case body field and the camelCase form, each stamps valuationMode on the response, and the finder's top-10 result set genuinely changes between modes (driven by the IDP rows, which DO get repriced).",
+   "rootCause": "overlay.adjusted_rows repriced the field CLAUDE.md says every engine reads, but two engines read a second field (offenseOnlyRankDerivedValue) for all-offense trades \u2014 a case the 'every engine reads exactly one value' invariant does not cover.",
+   "requiredRepair": "Scale offenseOnlyRankDerivedValue by the same factor inside overlay.adjusted_rows (and audit values.* for the same omission), or have the engines stop preferring the offense-only field when a lens is active. Add a test that asserts an all-offense simulate differs between the two modes.",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F007",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "The Next bridge route for /api/trade/suggestions is the only one of four trade/angle bridges that drops the session cookie, so the suggestions feed 401s from the browser",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "XS",
+   "subsystem": "Frontend bridge routes",
+   "surface": {
+    "routes": [
+     "/api/trade/suggestions"
+    ],
+    "pages": [
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/app/api/trade/suggestions/route.js",
+     "lines": "20-27"
+    },
+    {
+     "path": "frontend/app/api/trade/finder/route.js",
+     "lines": "27-36"
+    }
+   ],
+   "claimUnderTest": "The bridge routes exist so the page works without a reverse proxy in front (finder/route.js header comment).",
+   "observed": "finder/route.js, angle/find/route.js and angle/packages/route.js each read request.headers.get('cookie') and forward it as a Cookie header. suggestions/route.js sends only Content-Type. The identical request that returns HTTP 200 with a full payload against :8000 returns HTTP 401 {'error':'auth_required'} through :3000. Secondary: the suggestions bridge's abort timeout is 5s while the finder's is 30s, even though the backend suggestions call measures 0.04s and the finder 5.48s \u2014 the timeouts are on the wrong routes.",
+   "reproduction": {
+    "command": "BODY=$(python -c \"import json;d=json.load(open('/tmp/w09-full.json'));print(json.dumps({'roster':d['sleeper']['teams'][0]['players'][:20]}))\"); for O in http://127.0.0.1:8000 http://127.0.0.1:3000; do echo -n \"$O \"; curl -s -o /dev/null -w '%{http_code}\\n' -b /tmp/audit-cookies-w09.txt -X POST $O/api/trade/suggestions -H 'Content-Type: application/json' -d \"$BODY\"; done",
+    "expected": "200 from both origins",
+    "actual": "http://127.0.0.1:8000 200 / http://127.0.0.1:3000 401",
+    "artifact": "docs/master-site-audit/evidence/W09/per-team-tabulation.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "bridgeRoutesInspected": 4,
+     "routesForwardingCookie": 3,
+     "backendStatus": 200,
+     "bridgeStatus": 401
+    },
+    "formula": "grep -c Cookie over the four bridge route files",
+    "expected": 4,
+    "actual": 3,
+    "tolerance": 0
+   },
+   "userImpact": "Under `npm run dev` and under any deployment where Next serves /api/ directly (as this audit container does), the trade-suggestions panel is permanently signed out. In production nginx routes /api/ to the backend and the bridge is bypassed, so the failure is dev/staging-only \u2014 which is exactly why it survives.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A06-F10",
+    "relation": "confirmed",
+    "note": "Prior stated the class ('bridge routes are inconsistent about forwarding the session cookie'); this pins the specific route, the specific status codes, and the three siblings that get it right."
+   },
+   "whatWorks": "finder, angle/find and angle/packages bridges all forward the cookie correctly and return the backend's status verbatim.",
+   "rootCause": "Omitted header in one hand-written proxy; no test covers bridge-route cookie forwarding.",
+   "requiredRepair": "Add `Cookie: request.headers.get('cookie') || ''` to suggestions/route.js. Swap the two abort timeouts. Add one test that asserts every file under frontend/app/api/**/route.js that POSTs to BACKEND_API_URL forwards the cookie header.",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F008",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "The finder's 'high confidence' tier is structurally unreachable: it measures the scraper's 3-source site count against a 5-source baseline while the board blends up to 14",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Trade finder",
+   "surface": {
+    "routes": [
+     "/api/trade/finder"
+    ],
+    "pages": [
+     "/arbitrage"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/finder.py",
+     "lines": "145,466,790-804"
+    },
+    {
+     "path": "src/trade/finder.py",
+     "lines": "297-302"
+    }
+   ],
+   "claimUnderTest": "finder.py: confidence = source_confidence * ktc_confidence with CONFIDENCE_SOURCE_BASELINE = 5 'Expected source count for full confidence'; _confidence_tier returns 'high' at >= 0.75.",
+   "observed": "source_count is read from the legacy players dict's _sites field. Across the whole live payload _sites takes only the values 1 (526 rows), 2 (110), 3 (438) and null (18) \u2014 the maximum is 3. source_confidence therefore maxes at min(1, 3/5) = 0.60, and with ktc_confidence = 1.0 the confidence score cannot exceed 0.60, one tier below the 0.75 'high' threshold. All 480 returned trades across 12 teams are 'moderate' (244) or 'low' (236); 'high' appears zero times. The board's real blend count is on the contract rows: Brock Bowers has 12 effective post-Hampel sources while his _sites reads 3, and the contract's effectiveSourceRanks distribution runs to 14.",
+   "reproduction": {
+    "command": ".venv/bin/python -c \"import json;from collections import Counter;d=json.load(open('/tmp/w09-full.json'));print('_sites:',Counter(p.get('_sites') for p in d['players'].values()));r=[x for x in d['playersArray'] if x.get('canonicalName')=='Brock Bowers'][0];print('Bowers effectiveSourceRanks:',len(r['effectiveSourceRanks']),'vs _sites:',d['players'][r['legacyRef']]['_sites'])\" ; python -c \"import json,glob;from collections import Counter;print(Counter(t['confidenceTier'] for f in glob.glob('docs/master-site-audit/evidence/W09/finder-*.json') for t in json.load(open(f))['trades']))\"",
+    "expected": "some trades reach confidenceTier 'high'",
+    "actual": "_sites max is 3; Bowers effectiveSourceRanks 12 vs _sites 3; Counter({'moderate': 244, 'low': 236})",
+    "artifact": "docs/master-site-audit/evidence/W09/per-team-tabulation.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "maxSites": 3,
+     "confidenceSourceBaseline": 5,
+     "ktcConfidenceFullCoverage": 1.0,
+     "highTierThreshold": 0.75
+    },
+    "formula": "maxConfidence = min(1, maxSites/CONFIDENCE_SOURCE_BASELINE) * ktc_confidence",
+    "expected": 0.75,
+    "actual": 0.6,
+    "tolerance": 0.0
+   },
+   "userImpact": "Every arbitrage recommendation on /arbitrage is labelled at most 'moderate confidence', including trades resting on a 12-source consensus. The label is uninformative in one direction and misleadingly pessimistic in the other, and the confidence multiplier (0.7 + 0.3*conf) applies a permanent 0.88 haircut to every score, so it also cannot reorder anything.",
+   "blastRadius": {
+    "playersAffected": 812,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A14-F10",
+    "relation": "partial",
+    "note": "Prior called the tier 'a constant'. It is not constant \u2014 it varies between moderate and low across 480 live trades \u2014 but the prior's mechanism claim (it reads the scraper's site count instead of the board's blend count) is exactly right, and the sharper consequence is that the top tier is arithmetically unreachable and the multiplier is a fixed 0.88 for every full-coverage trade."
+   },
+   "whatWorks": "ktc_confidence and the full/partial coverage distinction are computed correctly; the confidence field is honestly surfaced in the payload rather than hidden.",
+   "rootCause": "build_asset_pool populates source_count from pdata['_sites'] (the scraper's site count) even on the migrated board path, where the correct quantity is len(row['effectiveSourceRanks']) from the contract.",
+   "requiredRepair": "Read the blend count from the contract row alongside board_values and positions (a third `source_counts_from_contract` map in the same keying), or lower CONFIDENCE_SOURCE_BASELINE to match _sites' actual range. The first is correct; the second only hides it.",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F009",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "The finder's 'arbitrage' score is 80% own-side gain and 20% opponent appeal, so it ranks lopsidedness rather than the market/board gap it is named for",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Trade finder",
+   "surface": {
+    "routes": [
+     "/api/trade/finder"
+    ],
+    "pages": [
+     "/arbitrage"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/finder.py",
+     "lines": "776-816"
+    }
+   ],
+   "claimUnderTest": "finder.py header: 'Arbitrage score: how much we gain on our board while the opponent sees a fair/favorable deal on KTC.'",
+   "observed": "Measured over all 480 returned trades: mean f_board_edge = 21.81, mean f_ktc_appeal = 4.95. |boardEdge| accounts for 80.2% of |boardEdge|+|ktcAppeal|. The weights are literal (board_gain_norm*50 vs opp_appeal*30) but the two inputs are not on comparable scales \u2014 board_gain_norm routinely exceeds 0.4 on 1-for-2 packages while opp_appeal is gated to be merely positive and averages 0.165. The opponent-appeal term is effectively a pass/fail gate (opp_appeal <= 0 returns None) with a small tiebreaker attached, not half of an arbitrage measure.",
+   "reproduction": {
+    "command": "python -c \"import json,glob,statistics;c=[t['rankingFactors'] for f in glob.glob('docs/master-site-audit/evidence/W09/finder-*.json') for t in json.load(open(f))['trades']];print('mean boardEdge',round(statistics.mean(x['boardEdge'] for x in c),2),'mean ktcAppeal',round(statistics.mean(x['ktcAppeal'] for x in c),2));print('boardEdge share',round(statistics.mean(abs(x['boardEdge'])/(abs(x['boardEdge'])+abs(x['ktcAppeal'])) for x in c)*100,1))\"",
+    "expected": "roughly balanced contribution between the two named halves",
+    "actual": "mean boardEdge 21.81, mean ktcAppeal 4.95, boardEdge share 80.2%",
+    "artifact": "docs/master-site-audit/evidence/W09/per-team-tabulation.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "nTrades": 480,
+     "meanBoardEdge": 21.81,
+     "meanKtcAppeal": 4.95
+    },
+    "formula": "boardEdgeShare = mean(|boardEdge| / (|boardEdge| + |ktcAppeal|))",
+    "expected": 0.5,
+    "actual": 0.802,
+    "tolerance": 0.1
+   },
+   "userImpact": "The top of /arbitrage is ordered by how much the user gains, not by how likely the counterparty is to say yes. A user works the list top-down and gets refused, because the ordering optimises the wrong half of the pitch.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A14-F11",
+    "relation": "confirmed",
+    "note": "Prior claimed 93/7; the live measurement over 480 trades is 80/20. The direction and the mechanism are confirmed; the magnitude differs, which matters because the prior's number would have implied ktcAppeal is nearly inert and it is not."
+   },
+   "whatWorks": "rankingFactors is a genuinely useful disclosure \u2014 every component of the score is stamped per trade, which is what made this measurable at all without instrumenting the engine.",
+   "rootCause": "Two multipliers (50 and 30) applied to inputs with very different natural ranges, one of which is additionally floor-gated at zero.",
+   "requiredRepair": "Standardise both terms (e.g. rank-percentile or z-score within the candidate set) before weighting, or state the intended ratio and assert it in a test against a live payload.",
+   "dependencies": "W09-F002 \u2014 the 1-for-2 monoculture is what inflates board_gain_norm in the first place."
+  },
+  {
+   "id": "W09-F010",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "Finder metadata.myRosterSize reports the post-filter asset count, understating a 57-man roster as 34 and a 44-man roster as 12",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Trade finder",
+   "surface": {
+    "routes": [
+     "/api/trade/finder"
+    ],
+    "pages": [
+     "/arbitrage"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/finder.py",
+     "lines": "1013,1148"
+    }
+   ],
+   "claimUnderTest": "metadata.myRosterSize alongside assetPoolSize and marketTopNFilter reads as the size of the roster analysed.",
+   "observed": "my_roster is the output of _resolve_roster against the ALREADY top-N-filtered pool, so myRosterSize is the count of eligible assets, not roster size. Live: Jason 34 reported / 57 rostered, jstuedle 12 / 44, Blaine 16 / 53, Kich 14 / 58. Nothing in the payload carries the true roster size, so a reader cannot recover the coverage ratio \u2014 the same information gap that makes W09-F001's empty feed undiagnosable.",
+   "reproduction": {
+    "command": "python -c \"import json,glob,os;[print(os.path.basename(f)[7:-5], json.load(open(f))['metadata']['myRosterSize']) for f in sorted(glob.glob('docs/master-site-audit/evidence/W09/finder-*.json'))]\" ; python -c \"import json;d=json.load(open('/tmp/w09-full.json'));print({t['name']:len(t['players']) for t in d['sleeper']['teams']})\"",
+    "expected": "myRosterSize matches len(sleeper team players)",
+    "actual": "Jason 34 vs 57; jstuedle 12 vs 44; Kich 14 vs 58",
+    "artifact": "docs/master-site-audit/evidence/W09/per-team-tabulation.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "reportedJason": 34,
+     "actualJason": 57,
+     "reportedJstuedle": 12,
+     "actualJstuedle": 44
+    },
+    "formula": "myRosterSize == len(sleeper.teams[me].players)",
+    "expected": 57,
+    "actual": 34,
+    "tolerance": 0
+   },
+   "userImpact": "Low direct impact \u2014 the field is diagnostic. But it is the one number that would tell an operator the finder is looking at 40% of the roster, and it reports the filtered number as though it were the roster.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A14-F15",
+    "relation": "confirmed",
+    "note": "Prior said a 53-man roster reports as 4. I measure less extreme values (12-34) because the current pool is larger, but the defect is identical."
+   },
+   "whatWorks": "assetPoolSize (300) and marketTopNFilter (150) are correct and, together with the true roster size, would make the coverage ratio computable.",
+   "rootCause": "_resolve_roster is called with pool_by_name built from the post-filter pool.",
+   "requiredRepair": "Stamp both: myRosterSize (from sleeper_teams) and myEligibleAssets (post-filter). One line.",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F011",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "No untouchable / excluded-player control exists anywhere in the trade stack \u2014 not in the engines, not in the request contracts, not in the UI",
+   "status": "Missing",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Trade finder",
+   "surface": {
+    "routes": [
+     "/api/trade/finder",
+     "/api/trade/suggestions",
+     "/api/angle/find",
+     "/api/angle/packages"
+    ],
+    "pages": [
+     "/arbitrage",
+     "/angle",
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/finder.py",
+     "lines": "937-947"
+    },
+    {
+     "path": "src/trade/suggestions.py",
+     "lines": "1578-1610"
+    }
+   ],
+   "claimUnderTest": "Prompt section 14 asks whether untouchable/excluded-player controls are wired to candidate generation or only to display filtering.",
+   "observed": "Neither. A repo-wide search for untouchable / excludePlayer / excludedPlayers / doNotTrade / noTrade across src/, server.py, frontend/app, frontend/components and frontend/lib returns zero hits. find_trades and generate_suggestions_from_pool take no exclusion parameter; /api/trade/finder validates only myTeam, opponentTeams and ktc_top_n; the /arbitrage page has no exclusion UI. The nearest thing is angle/packages' optional `positions` filter and the finder's opponentTeams list, neither of which is per-player. Consequence observed live: the finder recommends Brock Bowers (Jason's #1 asset, board rank 2) in 20 of the 40 trades it returns for Jason, with no way to say 'not him'.",
+   "reproduction": {
+    "command": "grep -rn \"untouchable\\|excludePlayer\\|excluded_player\\|excludedPlayers\\|doNotTrade\\|noTrade\" src/ server.py frontend/app frontend/components frontend/lib ; echo \"exit=$?\"",
+    "expected": "at least one wiring point",
+    "actual": "no matches (exit=1)",
+    "artifact": "docs/master-site-audit/evidence/W09/finder-Jason.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "searchTerms": 6,
+     "pathsSearched": 5
+    },
+    "formula": "count of source matches",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "A user cannot remove their cornerstone player from consideration, so the top of the recommendation list is dominated by the one asset they will never move, and the genuinely actionable trades are pushed below the 40-result cap.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 4,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Not in the prior index."
+   },
+   "whatWorks": "opponentTeams already demonstrates the pattern for team-level restriction, and angle/packages accepts a positions filter \u2014 a per-player exclude list would slot into the same request-validation block.",
+   "rootCause": "Feature never built.",
+   "requiredRepair": "Accept `excludePlayers: [name]` on the four POST routes and apply it during candidate generation (drop from my_roster / the pool), not after scoring. Applying it post-hoc would waste the result cap on trades that are then filtered away.",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F012",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "The finder performs no dominance pruning: 40 returned trades for Jason are built from only 4 distinct give-side assets, one of which appears in 20 of them",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Trade finder",
+   "surface": {
+    "routes": [
+     "/api/trade/finder"
+    ],
+    "pages": [
+     "/arbitrage"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/finder.py",
+     "lines": "921-934,1120-1138"
+    }
+   ],
+   "claimUnderTest": "_deduplicate 'Remove duplicate trade packages (same assets, different order)' followed by a score sort and a MAX_RESULTS=40 cap.",
+   "observed": "_deduplicate only collapses exact asset-set repeats. Nothing prunes dominated packages (same give side, strictly worse receive side) and nothing enforces diversity. For Jason, the 40 returned trades draw their give side from 4 distinct players \u2014 Brock Bowers 20 times, Jake Golday 11, Andrew Van Ginkel 8, Jalen Redmond 1. The distinct-give-side count across the other 11 teams is comparably narrow. The list is therefore 40 slightly different ways to trade the same handful of players rather than 40 trade ideas.",
+   "reproduction": {
+    "command": "python -c \"import json;from collections import Counter;d=json.load(open('docs/master-site-audit/evidence/W09/finder-Jason.json'));print(Counter(a['name'] for t in d['trades'] for a in t['give']))\"",
+    "expected": "a spread of give-side assets across 40 results",
+    "actual": "Counter({'Brock Bowers': 20, 'Jake Golday': 11, 'Andrew Van Ginkel': 8, 'Jalen Redmond': 1})",
+    "artifact": "docs/master-site-audit/evidence/W09/finder-Jason.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "tradesReturned": 40,
+     "distinctGiveSideAssets": 4,
+     "topAssetOccurrences": 20
+    },
+    "formula": "distinctGiveSideAssets / tradesReturned",
+    "expected": 0.5,
+    "actual": 0.1,
+    "tolerance": 0.15
+   },
+   "userImpact": "The user scrolls a 40-row list believing it surveys their trade options; it surveys four of their players. Genuinely different opportunities on the rest of the roster are below the cap and never rendered.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Not in the prior index; adjacent to PRIOR-A14-F03 (shape monoculture) but a distinct axis \u2014 asset diversity rather than package shape."
+   },
+   "whatWorks": "_deduplicate does correctly remove genuine permutation duplicates; the defect is that it is the only pruning that runs.",
+   "rootCause": "No dominance test and no per-asset quota between the sort and the [:max_results] slice.",
+   "requiredRepair": "Drop packages whose give side is identical and whose receive side is a strict value-subset of a better-scoring package, then cap occurrences per give-side asset (e.g. 3) before slicing to MAX_RESULTS.",
+   "dependencies": "W09-F002"
+  },
+  {
+   "id": "W09-F013",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "Trade suggestions emits the same trade under two categories, so totalSuggestions overstates the distinct ideas produced",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Trade suggestions",
+   "surface": {
+    "routes": [
+     "/api/trade/suggestions"
+    ],
+    "pages": [
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/suggestions.py",
+     "lines": "1027-1160"
+    }
+   ],
+   "claimUnderTest": "Response separates sellHigh / buyLow / consolidation / positionalUpgrades as distinct suggestion categories with totalSuggestions as their sum.",
+   "observed": "Brent's feed reports totalSuggestions 9 but contains 7 distinct (give, receive) pairs: 'Rashee Rice -> Jack Campbell' and 'George Pickens -> Carson Schwesinger' each appear in BOTH sellHigh and buyLow with different rationale text. Additionally all 9 suggestions target only two positions (receive-side histogram {LB: 8, QB: 1}), which is the DB-exclusion defect (W09-F004) surfacing in the output.",
+   "reproduction": {
+    "command": "python -c \"import json;s=json.load(open('docs/master-site-audit/evidence/W09/suggestions-Brent-detail.json'));seen={};\\nfor k in ('sellHigh','buyLow','consolidation','positionalUpgrades'):\\n  for x in (s.get(k) or []):\\n    key=(tuple(sorted(p['name'] for p in x.get('give') or [])),tuple(sorted(p['name'] for p in x.get('receive') or [])));seen.setdefault(key,[]).append(k)\\nprint('total',s['totalSuggestions'],'distinct',len(seen));print([ (k,v) for k,v in seen.items() if len(v)>1])\"",
+    "expected": "totalSuggestions == number of distinct trades",
+    "actual": "total 9 distinct 7; 2 pairs appear in both sellHigh and buyLow",
+    "artifact": "docs/master-site-audit/evidence/W09/suggestions-Brent-detail.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "totalSuggestions": 9,
+     "distinctTrades": 7,
+     "duplicatedAcrossCategories": 2
+    },
+    "formula": "totalSuggestions - distinctTrades",
+    "expected": 0,
+    "actual": 2,
+    "tolerance": 0
+   },
+   "userImpact": "On a feed that already returns 0-9 items for the whole league, presenting the same trade twice under two headings inflates the apparent output by 22% and makes two categories look like corroborating evidence when they are one computation.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Not in the prior index."
+   },
+   "whatWorks": "Each category's rationale text is genuinely category-specific and correct in isolation ('You have WR surplus (7 rostered, need 4)' vs 'Target Jack Campbell (LB) fills your roster need').",
+   "rootCause": "sell-high and buy-low search the same surplus/need axes from opposite directions and are not cross-deduplicated before totalSuggestions is summed.",
+   "requiredRepair": "Deduplicate on (give, receive) across categories, keeping the higher-scoring category and merging the rationale, then recompute totalSuggestions.",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F014",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "VERIFIED WORKING: the finder is no longer offense-only \u2014 positions_from_contract fixes the per-market gate, IDP assets trade, and the IDP-blindness warning does fire",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Trade finder",
+   "surface": {
+    "routes": [
+     "/api/trade/finder"
+    ],
+    "pages": [
+     "/arbitrage"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/finder.py",
+     "lines": "371-414"
+    },
+    {
+     "path": "src/trade/finder.py",
+     "lines": "1060-1071"
+    },
+    {
+     "path": "server.py",
+     "lines": "6174-6191"
+    }
+   ],
+   "claimUnderTest": "The 2026-08-04 prior audit asserts the finder receives no position data on the live path, is STILL offense-only, and that its own IDP-blindness warning cannot fire. CLAUDE.md asserts the opposite on all three counts plus board_values_from_contract and per-market marketCoverage.",
+   "observed": "All four CLAUDE.md claims hold on the live path. (1) metadata.valueSource == 'rankDerivedValue' on all 12 team runs, so board_values_from_contract IS the live value source. (2) positions_from_contract populates positions for every row; the gated pool is 300 assets \u2014 Counter({DL:70, LB:52, WR:46, RB:31, DB:28, QB:28, PICK:25, TE:20}) \u2014 i.e. 150 offense-market + 150 IDP-market, exactly the per-market gate CLAUDE.md describes. (3) IDP assets appear in returned trades for all 12 teams (3 to 40 of the 40 returned per team; 348 of 480 overall). (4) metadata.marketCoverage is emitted per market: {ktcSfTep: 132, ktc: 18, idpTradeCalc: 150}. (5) The IDP-blindness warning is reachable: deleting idpTradeCalc from a deep copy of the players dict makes find_trades emit 'No IDP asset carries an IDPTradeCalc value, so this result is offense-only.' league_has_idp evaluates True from the contract positions and False from the legacy dict alone, which is precisely the bug the fix addressed. Answering the mixed-market question directly: YES, the finder does sum a KTC offense value with an IDPTradeCalc defence value in ktcDelta \u2014 154 of the 480 returned trades \u2014 but every such trade stamps marketsUsed: ['idpTradeCalc','ktc'] and mixedMarket: true, and metadata.mixedMarketTrades counts them, so the caveat is disclosed rather than hidden.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies-w09.txt -X POST http://127.0.0.1:8000/api/trade/finder -H 'Content-Type: application/json' -d '{\"myTeam\":\"Jason\",\"opponentTeams\":[\"all\"]}' | python -c \"import json,sys;r=json.load(sys.stdin);m=r['metadata'];print(m['valueSource'], m['marketCoverage'], m['mixedMarketTrades']);IDP={'DL','LB','DB'};print('trades containing IDP:',sum(1 for t in r['trades'] if any(a['position'] in IDP for a in t['give']+t['receive'])),'of',len(r['trades']))\"",
+    "expected": "rankDerivedValue, per-market coverage including a non-zero idpTradeCalc, IDP present in results",
+    "actual": "rankDerivedValue {'ktcSfTep': 132, 'ktc': 18, 'idpTradeCalc': 150} 0; trades containing IDP: 20 of 40",
+    "artifact": "docs/master-site-audit/evidence/W09/per-team-tabulation.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "gatedPoolSize": 300,
+     "offenseMarketAssets": 150,
+     "idpMarketAssets": 150,
+     "tradesReturnedAllTeams": 480,
+     "tradesContainingIdp": 348,
+     "mixedMarketTradesAllTeams": 164
+    },
+    "formula": "idpPricedAssets = sum(marketCoverage[k] for k in IDP_MARKET_KEYS)",
+    "expected": 150,
+    "actual": 150,
+    "tolerance": 0
+   },
+   "userImpact": "None \u2014 this is a verified negative. Recording it so the prior audit's Critical F-00/F-01 are not carried forward into a repair plan.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A14-F00",
+    "relation": "refuted",
+    "note": "Also refutes PRIOR-A14-F01 (warning cannot fire \u2014 I made it fire), PRIOR-A14-F14 (fits ' ' need on an empty position string \u2014 the live rationale reads 'sheds DL surplus, fills DB need'), PRIOR-A14-F02 (finder applies KTC's Value Adjustment to the market side only \u2014 the current finder.py imports no VA at all; angle.py applies _adjusted_pair_totals symmetrically to BOTH my-values and market-values at lines 778 and 798), and PRIOR-A14-F20 in part (of the three CLAUDE.md claims it disputes, the per-market gate and the IDP warning are correct; only the assetsUnpricedByBoard number differs \u2014 live is 186, the docstring says 189/202). The prior audit's evidence was code reading; the live path disagrees with it."
+   },
+   "whatWorks": "The whole per-market anchoring design. Ranking each market's own population from 1 is also the exact fix W09-F004 needs in suggestions.py.",
+   "rootCause": "",
+   "requiredRepair": "",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F015",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "The partner-fit / acceptance model is rigorous and honest about its own unidentifiability, and no page in the product can reach it",
+   "status": "Implemented but disconnected",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Partner fit and acceptance",
+   "surface": {
+    "routes": [
+     "/api/gameplan"
+    ],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/roster_intel/partner.py",
+     "lines": "1-110"
+    },
+    {
+     "path": "src/api/gameplan.py",
+     "lines": "922"
+    }
+   ],
+   "claimUnderTest": "Prompt section 15: with only 12 managers there is little behavioural history \u2014 is manager-specific history shrunk toward a prior, does any output claim a manager WILL accept, is sample size visible?",
+   "observed": "The model answers all three correctly, on a live call. Manager-specific history is not merely shrunk, it is REFUSED: managerEvidence.admissible is false for all 11 partners with the reason 'no decision data: the league snapshot records only completed trades, so rejections are unobserved and an acceptance rate is unidentifiable. Manager-specific term contributes zero', and contributions.managerSpecific is 0.0 for every partner. Sample size is explicit (decisionsObserved 0, acceptsObserved 0, rejectsObserved 0). Nothing claims acceptance: the field is named tradeAcceptanceEstimate, ships beside acceptanceConfidence capped at 0.255 (declared ceiling 0.4 without rejection data), carries evidence: 'shapeOnly', and a note stating it 'is a plausibility score in probability units, not a calibrated acceptance probability'. The contributions breakdown is fully itemised (prior -1.5163, rosterFit -0.5274, windowFit 0.3935, everything else 0.0). THE DEFECT IS REACH: /api/gameplan is the only route serving it, it has no Next bridge route (404 via :3000), and grep across frontend/app, frontend/components and frontend/lib finds zero references to gameplan, tradePartnerFitScore, acceptanceConfidence or partnerNeedAlignment. The best-calibrated uncertainty disclosure in this codebase is unreachable by a user.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies-w09.txt 'http://127.0.0.1:8000/api/gameplan?team=468418790212759552' | python -c \"import json,sys;r=json.load(sys.stdin);p=r['partners'][0];print(p['acceptanceConfidence'], p['evidence'], p['managerEvidence']['decisionsObserved'], p['contributions'])\" ; curl -s -o /dev/null -w 'bridge=%{http_code}\\n' -b /tmp/audit-cookies-w09.txt http://127.0.0.1:3000/api/gameplan ; grep -rn 'tradePartnerFitScore\\|acceptanceConfidence\\|gameplan' frontend/app frontend/components frontend/lib | grep -v node_modules",
+    "expected": "a page consumes it",
+    "actual": "0.255 shapeOnly 0 {'leagueHistory': 0.0, 'managerSpecific': 0.0, 'marketFairness': 0.0, 'prior': -1.5163, 'rosterFit': -0.5274, 'windowFit': 0.3935}; bridge=404; the only frontend match is frontend/app/api/valuation/league-adjusted/route.js, which uses gameplan for factors, not partners",
+    "artifact": "docs/master-site-audit/evidence/W09/gameplan-jason.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "partnersReturned": 11,
+     "acceptanceConfidenceAll": 0.255,
+     "declaredCeiling": 0.4,
+     "decisionsObservedAll": 0,
+     "fitScoreObservedRange": [
+      10.76,
+      16.0
+     ],
+     "fitScoreDeclaredReachableRange": [
+      7.24,
+      43.12
+     ],
+     "frontendReferences": 0
+    },
+    "formula": "observed max tradePartnerFitScore vs declared reachable max",
+    "expected": 43.12,
+    "actual": 16.0,
+    "tolerance": 1.0
+   },
+   "userImpact": "Users get acceptance-flavoured guidance from other surfaces with none of this discipline, while the surface that would have told them 'this is a plausibility score, not a probability, and we have zero decision observations' is not rendered anywhere.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A18-F03",
+    "relation": "confirmed",
+    "note": "Prior stated the reachable range [7.24, 43.12] is unreachable through the only wiring that serves it, with a measured live ceiling of 16.x. I measure exactly 16.0 as the maximum across 11 partners (range 10.76-16.0), so the declared max is 2.7x the observed one. Also confirms PRIOR-A10-F15 in part (authoritative docstrings, no production consumer) for this module specifically."
+   },
+   "whatWorks": "Nearly everything about the model itself: the refusal to estimate from accepts-only data, the confidence ceiling tied to evidence rather than to the partner, the per-term contributions breakdown, the five explanatory notes per partner, the modelVersion stamp, and the limitations block with explicit canSupport / cannotSupport / keyAssumptions including which assumptions are measured and which are not. This is the standard the rest of the trade stack should be held to.",
+   "rootCause": "No page and no bridge route were built for /api/gameplan.",
+   "requiredRepair": "Either render partners on /trade or /arbitrage (with acceptanceConfidence and managerEvidence.decisionsObserved shown, not just the score), or narrow the declared tradePartnerFitScoreRange to what the live wiring can produce so the declared range stops describing a configuration that does not exist.",
+   "dependencies": ""
+  },
+  {
+   "id": "W09-F016",
+   "workstream": "W09",
+   "promptSections": [
+    14,
+    15
+   ],
+   "title": "Monte Carlo run-to-run variance is small but no convergence statistic is exposed, and the panel that calls it 404s through the Next origin",
+   "status": "Partially implemented",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Monte Carlo trade simulator",
+   "surface": {
+    "routes": [
+     "/api/trade/simulate-mc",
+     "/api/trade/simulate"
+    ],
+    "pages": [
+     "/trade"
+    ],
+    "flags": [
+     "monte_carlo_trade"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/symmetrize.py",
+     "lines": "74"
+    },
+    {
+     "path": "frontend/components/ui/MonteCarloButton.jsx",
+     "lines": "131-137"
+    }
+   ],
+   "claimUnderTest": "Prompt section 15: run simulate-mc 10 times on the same input and measure variance; is convergence exposed; does simulate disagree with simulate-mc?",
+   "observed": "Variance is genuinely low \u2014 10 identical calls give meanDelta in [-4455.2, -4439.3] (population sd 5.13 on a magnitude of 4,447, i.e. 0.12%), stdDelta in [1439.3, 1449.6], winProbA in [0.0001, 0.0003]. But no convergence statistic, standard error, confidence interval or seed echo is returned, so a caller cannot distinguish a stable 0.50 from a noisy one; the only diagnostic is symmetryCheck.drift, which measures ordering bias, not convergence. nSims is also reported as double the request (asked 50000, got 100000) because symmetrize sums the two directional passes (symmetrize.py:74) \u2014 the UI renders that as 'X% of 100,000 simulations'. simulate and simulate-mc do NOT disagree on value source: both prefer offenseOnlyRankDerivedValue for all-offense trades and agree at 4004 / -3945 respectively once the same inputs are used (the 59-point gap is entirely explained by the frontend sending effectiveValue while the backend simulate reads the row). Separately, POST /api/trade/simulate-mc and /api/trade/simulate return 404 through http://127.0.0.1:3000, which is the origin the page is served from \u2014 MonteCarloButton fetches the relative path, so the panel is dead outside a reverse-proxied deployment.",
+   "reproduction": {
+    "command": "for i in $(seq 10); do curl -s -b /tmp/audit-cookies-w09.txt -X POST http://127.0.0.1:8000/api/trade/simulate-mc -H 'Content-Type: application/json' -d '{\"sideA\":[{\"name\":\"Brock Bowers\",\"rankDerivedValue\":9947,\"pos\":\"TE\",\"team\":\"LV\"}],\"sideB\":[{\"name\":\"Jonathan Taylor\",\"rankDerivedValue\":6431,\"pos\":\"RB\",\"team\":\"IND\"},{\"name\":\"Patrick Mahomes\",\"rankDerivedValue\":7461,\"pos\":\"QB\",\"team\":\"KC\"}]}' | python -c 'import json,sys;r=json.load(sys.stdin);print(r[\"meanDelta\"], r[\"winProbA\"], r[\"nSims\"])'; done ; curl -s -o /dev/null -w 'next-origin simulate-mc=%{http_code}\\n' -X POST http://127.0.0.1:3000/api/trade/simulate-mc -H 'Content-Type: application/json' -d '{}'",
+    "expected": "a convergence/SE field, nSims matching the request, and a reachable route from the page origin",
+    "actual": "meanDelta spread 15.9 over 10 runs; no SE/CI/seed field; nSims 100000 for a 50000 request; next-origin simulate-mc=404",
+    "artifact": "docs/master-site-audit/evidence/W09/mc-10runs.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "runs": 10,
+     "meanDeltaValues": [
+      -4446.9,
+      -4455.2,
+      -4439.3
+     ],
+     "populationSd": 5.13,
+     "magnitude": 4447,
+     "nSimsRequested": 50000,
+     "nSimsReported": 100000
+    },
+    "formula": "relativeRunToRunSd = sd(meanDelta) / |mean(meanDelta)|",
+    "expected": 0.01,
+    "actual": 0.00115,
+    "tolerance": 0.005
+   },
+   "userImpact": "A user cannot tell whether a 50/50 result is a genuine coin flip or sampling noise, and the sim count quoted in the plain-English summary is twice what was requested. In any deployment where Next serves /api/ (dev, and this audit container), the button errors out.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A14-F23",
+    "relation": "confirmed",
+    "note": "The missing-bridge-route half is exactly PRIOR-A14-F23, verified live (404 on both simulate and simulate-mc through :3000 while finder/angle bridges answer). The convergence-exposure and nSims-doubling observations are new. I could NOT reproduce PRIOR-A14-F06's claim that the frontend strips the disclaimer in a way that makes the result unreadable \u2014 the backend does return labelHint + disclaimer, and MonteCarloButton does substitute its own plain-English text; whether that violates the contract is a judgement call I am recording as partial rather than confirmed."
+   },
+   "whatWorks": "The estimator is stable and the symmetrization is real and verified (drift 0.0001, enforced true). The 503 feature-disabled path is clean.",
+   "rootCause": "No SE computation in monte_carlo.py; nSims summed across the two symmetrization passes; no route.js under frontend/app/api/trade/simulate*.",
+   "requiredRepair": "Return mcStandardError = sqrt(p*(1-p)/nSims) on winProbA and echo the seed. Report nSims as requested (or rename to nDraws). Add the two bridge routes, forwarding the cookie.",
+   "dependencies": "W09-F005 \u2014 a convergence statistic on a fabricated distribution still describes the wrong quantity."
+  },
+  {
+   "id": "W18-F001",
+   "workstream": "W18",
+   "promptSections": [
+    4,
+    5
+   ],
+   "title": "scoringProfile is a hand-typed label, not a fact about scoring: dynasty_main and dynasty_new carry the same string while their host scoring differs on 35 of 48 shared keys, so /api/data serves dynasty_main's board verbatim for dynasty_new",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "M",
+   "subsystem": "League registry / rankings routing",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/rankings/overrides",
+     "/api/leagues"
+    ],
+    "pages": [
+     "/rankings",
+     "/trade",
+     "/rosters",
+     "/waivers",
+     "/terminal"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "config/leagues/registry.json",
+     "lines": "9,46"
+    },
+    {
+     "path": "src/api/league_registry.py",
+     "lines": "144,467-507"
+    },
+    {
+     "path": "server.py",
+     "lines": "3069-3091"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'Two leagues that use identical scoring share ONE ranking pipeline and ONE output... 503 data_not_ready only fires when the scoring profiles genuinely differ.' src/api/league_registry.py:480 calls scoringProfile 'the identifier for which set of rules produces this league's player values'.",
+   "observed": "scoringProfile is an opaque free-text field parsed at league_registry.py:144 and never validated against any scoring_settings. Both registry entries carry \"superflex_tep15_ppr1\". The live host says the two leagues share only 48 scoring keys and DISAGREE on 35 of them (rec 0.08 vs 1.0, pass_td 6.0 vs 4.0, pass_yd 1/30 vs 1/25, pass_int -4.0 vs -1.0, fum_lost -4.0 vs -2.0, bonus_rec_te 0.0 vs 0.5), plus 48 nonzero keys exist only in dynasty_main (the entire IDP card, first-down bonuses, completion/incompletion scoring, reception-distance bonuses). server.py:3076 compares the two label strings, they match, the 503 never fires, and GET /api/data?leagueKey=dynasty_new returns the dynasty_main board with rankDerivedValue identical on 1092 of 1092 rows. The only test that touches the field (tests/api/test_config_parity.py:199) asserts the string is non-empty and not literally \"default\".",
+   "reproduction": {
+    "command": "bash docs/master-site-audit/evidence/W18/repro.sh   # section R3",
+    "expected": "either a 503 data_not_ready for dynasty_new, or a board computed under dynasty_new's own 48-key full-PPR non-IDP scoring",
+    "actual": "HTTP 200, identical rankDerivedValue on 1092/1092 rows, meta.scoringProfile \"superflex_tep15_ppr1\"",
+    "artifact": "docs/master-site-audit/evidence/W18/scoring-matrix-dynasty_new.csv"
+   },
+   "numericProof": {
+    "inputs": {
+     "dynasty_main_scoring_keys": 141,
+     "dynasty_new_scoring_keys": 48,
+     "shared_keys": 48,
+     "players_compared": 1092
+    },
+    "formula": "count(k in shared : main[k] != new[k]) ; count(rows : rankDerivedValue_main == rankDerivedValue_new)",
+    "expected": 0,
+    "actual": 35,
+    "tolerance": 0
+   },
+   "userImpact": "A user who switches to 'Blood, Sweat, and Beers' in the LeagueSwitcher sees a full-PPR, no-IDP, 4-pt-passing-TD league priced with a 0.08-PPR IDP superflex board. Every trade value, every rank, every tier on /rankings and /trade is computed under the wrong league's rules, and nothing on the page says so.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 8
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Adjacent to PRIOR-A20-F04 (TE++ basis wrong for dynasty_new) but that finding assumes the shared-profile premise; this one refutes the premise itself."
+   },
+   "whatWorks": "The 503 gate and the leagues_share_scoring helper are correctly wired and would fire if the labels differed; the mechanism is sound and only its input is unverified.",
+   "rootCause": "scoringProfile is authored by hand in registry.json with no derivation from, or check against, the league's actual scoring_settings. src/league_comparison/sleeper_scoring.py already computes a content hash of a scoring dict (_scoring_hash, sha1[:12]) \u2014 the registry does not use it.",
+   "requiredRepair": "Derive the profile identity from a content hash of the league's live scoring_settings (the mechanism already exists in sleeper_scoring._scoring_hash), or add a startup/CI check that every pair of leagues sharing a scoringProfile has byte-identical scoring_settings. Until then dynasty_new must get its own profile string.",
+   "dependencies": "Requires one read-only GET per league to api.sleeper.app, which config.py::fetch_live_league already does."
+  },
+  {
+   "id": "W18-F002",
+   "workstream": "W18",
+   "promptSections": [
+    4,
+    5
+   ],
+   "title": "The cross-league Sleeper overlay stamps sleeperDataReady:true on a chimeric block \u2014 dynasty_new's real teams welded to dynasty_main's scoringSettings, rosterPositions and num_teams \u2014 which un-gates every team-dependent page",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "Sleeper overlay / contract meta",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/terminal"
+    ],
+    "pages": [
+     "/trade",
+     "/waivers",
+     "/rosters",
+     "/terminal",
+     "/draft"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "3243-3262"
+    },
+    {
+     "path": "frontend/components/useTeam.js",
+     "lines": "83-101"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md contract annotations: 'meta.sleeperDataReady \u2014 true iff sleeper block is valid for the *requested* league; false when the server served the shared rankings but doesn't have the requested league's rosters loaded' and 'meta.sleeperLoadedLeagueKey \u2014 which league the sleeper block *would* be for, when sleeperDataReady: false (diagnostic only)'.",
+   "observed": "On the sleeper_matches=False branch, server.py:3244-3256 carries positions / playerIds / idToPlayer / scoringSettings / rosterPositions / leagueSettings forward from the LOADED league and lays the requested league's overlay (teams, trades, waivers) on top, then unconditionally sets meta.sleeperDataReady = True at :3259. GET /api/data?view=app&leagueKey=dynasty_new returns sleeperDataReady:true AND sleeperLoadedLeagueKey:\"dynasty_main\" simultaneously \u2014 a combination the documented contract says cannot occur. The block reports leagueId 1320092771247222784 and 10 real teams (correct) alongside num_teams 12, 58 roster slots and dynasty_main's 141-key IDP scoring card (all wrong; the real league is 10 teams, 27 slots, 48 keys, no IDP). useTeam.js:84-94 reads the flag: true -> leagueMismatch false -> the data-not-ready state that exists precisely for this case never renders.",
+   "reproduction": {
+    "command": "bash docs/master-site-audit/evidence/W18/repro.sh   # section R3",
+    "expected": "sleeperDataReady:false (per the documented contract) OR a sleeper block whose scoringSettings/rosterPositions/leagueSettings belong to dynasty_new",
+    "actual": "sleeperDataReady:true with num_teams 12, 58 roster slots, rec 0.08 and idp_sack 2.92 \u2014 dynasty_main's values under dynasty_new's leagueId and leagueName",
+    "artifact": "docs/master-site-audit/evidence/W18/scoring-matrix-dynasty_new.csv"
+   },
+   "numericProof": {
+    "inputs": {
+     "keys_compared": 164,
+     "host_league": "1320092771247222784"
+    },
+    "formula": "count(setting : value_served_for_dynasty_new != value_on_host)",
+    "expected": 0,
+    "actual": 144,
+    "tolerance": 0
+   },
+   "userImpact": "On /trade, /waivers and /rosters under dynasty_new the starter/bench split comes from sleeper.rosterPositions (frontend/lib/portfolio-insights.js:105), so the user is shown a 21-slot IDP lineup with 3 DL / 3 LB / 3 DB / 1 K starting slots for a league that has none of those positions, plus 37 bench slots for a 17-bench league \u2014 and the 'no roster data yet' banner that would have prevented all of it is suppressed.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 5
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "PRIOR-A19-F20 and PRIOR-A21-F05 report the same class (hardcoded league context leaking across leagues) in ROS/public-league; this is the contract-level source those inherit from."
+   },
+   "whatWorks": "The no-overlay fallback path directly below (server.py:3288-3298) does it correctly: it nulls the sleeper block and sets sleeperDataReady:false. The defect is only on the overlay-succeeded branch.",
+   "rootCause": "The overlay merge treats 'we fetched the requested league's rosters' as equivalent to 'the sleeper block is valid for the requested league', but the overlay only supplies teams/trades/waivers \u2014 scoringSettings, rosterPositions and leagueSettings are never overlaid and silently retain the loaded league's values.",
+   "requiredRepair": "On the sleeper_matches=False branch, either drop scoringSettings/rosterPositions/leagueSettings from the carried-forward key list (leaving them absent rather than wrong) and keep sleeperDataReady:false, or fetch the requested league's own config in the overlay so the block is genuinely that league's. Do not stamp sleeperDataReady:true unless every field in the block belongs to the requested league.",
+   "dependencies": "W18-F001 \u2014 with a correct scoringProfile this path would 503 before reaching the overlay."
+  },
+  {
+   "id": "W18-F003",
+   "workstream": "W18",
+   "promptSections": [
+    5
+   ],
+   "title": "src/nfl_data/realized_points.py disagrees with the league host on 36% of player-weeks: it never reads the six reception-distance rules, maps pass_int/pass_sack/fum_lost to nflverse columns that no longer exist, and has no kicker scoring at all",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "M",
+   "subsystem": "Realized fantasy points / BDVM fundamentals",
+   "surface": {
+    "routes": [
+     "/api/player/{sleeper_id}/realized",
+     "/api/league-comparison",
+     "/api/bdvm/values",
+     "/api/bdvm/roster",
+     "/api/bdvm/trades"
+    ],
+    "pages": [
+     "/league-comparison",
+     "/bdvm",
+     "/rankings"
+    ],
+    "flags": [
+     "realized_points_api",
+     "bdvm_engine"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "src/nfl_data/realized_points.py",
+     "lines": "82-106"
+    },
+    {
+     "path": "src/nfl_data/realized_points.py",
+     "lines": "171-186"
+    },
+    {
+     "path": "src/nfl_data/realized_points.py",
+     "lines": "449-457"
+    },
+    {
+     "path": "src/league_comparison/scoring_engine.py",
+     "lines": "5-9"
+    },
+    {
+     "path": "src/bdvm/scoring.py",
+     "lines": "41-75"
+    }
+   ],
+   "claimUnderTest": "src/league_comparison/scoring_engine.py:6 \u2014 'compute_weekly_points ... is already the single source of truth for Sleeper-format fantasy scoring'. CLAUDE.md \u2014 BDVM's baseline is 'realized nflverse PPG under the league's exact scoring'.",
+   "observed": "Scored 636 real 2025 player-weeks (nflverse rows) against the same 636 Sleeper host stat lines under the SAME live dynasty_main scoring_settings. Only 406 (63.8%) agree within 0.011. Three independent causes, each confirmed by decomposing individual players: (1) rec_0_4/rec_5_9/rec_10_19/rec_20_29/rec_30_39/rec_40p appear in neither _SIMPLE_KEYS nor the threshold-bonus list, costing 157.03 points across 197 rows \u2014 Stefon Diggs 2025 wk5 exact 30.100 vs realized 23.400, delta -6.700 = 0.34+4.02+2.34 exactly. (2) _SIMPLE_KEYS maps pass_int->'interceptions', pass_sack->'sacks', fum_lost->'fumbles_lost'; the 2025 unified nflverse release names them passing_interceptions, sacks_suffered and fumbles_lost_total, so stat_row.get returns None -> _num -> 0.0 and the key is skipped. Patrick Mahomes wk14 exact 0.823 vs realized 14.823, delta exactly +14.000 = 3 INT x 4.00 + 2 sacks x 1.00. Across the sample these three penalties are worth 208 points that are never charged. (3) No kicker key is read at all (fgm_yds 0.07, xpm 2.31, xpmiss -3.15, six fgmiss_* bands) although K is a starting slot; every kicker scores 0.000 (33/33 rows wrong, mean -9.251). Per-group agreement: IDP 312/350 (89.1%, mean -0.034 \u2014 this path is essentially correct), other 66/71, WR 11/64, TE 10/48, RB 4/32, QB 3/38 (mean +6.533), K 0/33 (mean -9.251).",
+   "reproduction": {
+    "command": "bash docs/master-site-audit/evidence/W18/repro.sh   # section R5",
+    "expected": "636/636 agree within 0.011 (the tolerance src/league_intel/scorer.py's own docstring sets)",
+    "actual": "406/636 agree; QB mean +6.533, K mean -9.251, WR mean -1.558",
+    "artifact": "docs/master-site-audit/evidence/W18/cross-engine-summary.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player_weeks": 636,
+     "weeks": "2025 wk5, wk9, wk14",
+     "scoring": "live dynasty_main scoring_settings (141 keys)",
+     "reference": "src/league_intel/scorer.score_stat_line, itself validated 1339/1339 vs Sleeper players_points"
+    },
+    "formula": "delta = compute_weekly_points(nflverse_row) - score_stat_line(sleeper_stat_line); agreement = count(|delta| <= 0.011)",
+    "expected": 636,
+    "actual": 406,
+    "tolerance": 0.011
+   },
+   "userImpact": "The direction is systematic, not random: QBs are over-scored by ~6.5 pts/week and pass-catchers under-scored by 0.8-1.6 pts/week, so any fundamental value built on this engine tilts the board toward QBs and away from WR/TE/RB. On /rankings the 'Fund gap' column and on /bdvm the entire value board are derived from it; on /league-comparison the positional-balance verdict a user reads to decide whether their league over-pays QBs is computed from the engine that over-pays QBs.",
+   "blastRadius": {
+    "playersAffected": 636,
+    "routesAffected": 5,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A15-F01",
+    "relation": "confirmed",
+    "note": "Confirms the reception-band half exactly (6 rules, WR most affected) and extends it with two causes that audit did not report: three dead nflverse column mappings worth +208 pts of uncharged QB penalties, and the complete absence of kicker scoring in a league that starts a K. Also partially confirms PRIOR-A24-F19 and refutes the implication in PRIOR-A22-F02 that IDP is the broken half \u2014 measured, IDP is the ONE group this engine gets right."
+   },
+   "whatWorks": "The IDP path is correct and well-defended: the _SCORING_KEY_ALIASES derivation from sleeper_ingest.KEY_ALIASES resolves idp_pass_def->idp_pd and idp_qb_hit->idp_hit, _tackle_view reconstructs gamebook solo from the post-2025 columns, and the group agrees with the host at 89.1% with mean signed error -0.034.",
+   "rootCause": "realized_points is an allow-list engine keyed on nflverse column names, in a codebase that also contains a scoring-key-agnostic dot-product engine (src/league_intel/scorer.py) that is provably exact. The allow-list silently degrades in two ways \u2014 a live scoring rule with no entry, and an entry whose column was renamed \u2014 and _num(None) -> 0.0 makes both indistinguishable from 'the player did nothing'.",
+   "requiredRepair": "Add rec_0_4..rec_40p (nflverse publishes no reception-depth split, so they must come from src/nfl_data/reception_depth.py or be reported as uncovered, not silently zero); repoint pass_int/pass_sack/fum_lost at passing_interceptions/sacks_suffered/fumbles_lost_total via the existing candidate-tuple mechanism; add the kicker family. Structurally: make the engine assert that every NONZERO key in the league's scoring_settings is either mapped or explicitly declared uncoverable, and surface the uncovered set on the payload (src/nfl_data/scoring_coverage.py already exists for this and is not consulted at scoring time).",
+   "dependencies": "None. src/nfl_data/scoring_coverage.py already enumerates the gap."
+  },
+  {
+   "id": "W18-F004",
+   "workstream": "W18",
+   "promptSections": [
+    5
+   ],
+   "title": "/api/player/{id}/realized returns reason:'unmapped_player' for every player because it reads a players directory key the sleeper block does not have, and the PlayerPopup that now calls it 404s on the Next origin",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Realized points endpoint",
+   "surface": {
+    "routes": [
+     "/api/player/{sleeper_id}/realized"
+    ],
+    "pages": [
+     "/rankings (PlayerPopup)",
+     "/trade (PlayerPopup)"
+    ],
+    "flags": [
+     "realized_points_api"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "11233-11267"
+    },
+    {
+     "path": "frontend/components/PlayerPopup.jsx",
+     "lines": "388-408"
+    }
+   ],
+   "claimUnderTest": "server.py:11213 \u2014 'What kept the row-filter bug below invisible was not the flag but the absence of a caller: nothing in the frontend requests this.' The 2026-07-27 fix comment at :11271-11288 claims the endpoint now matches rows correctly.",
+   "observed": "Two independent failures, both live. (a) server.py:11264 does players_dir = sleeper_block.get('players') or sleeper_block.get('playerDict'). The contract's sleeper block has neither key \u2014 its actual keys are idToPlayer, playerIds, positions, rosterPositions, scoringSettings, leagueSettings, teams, trades, waivers, tradeWindow*, overlay*. players_dir is therefore always None, unified_mapper.resolve_player(None, ...) returns None, and the route short-circuits to reason:'unmapped_player' with an empty weeks list for every player id \u2014 verified for 5849 (Kyler Murray), 9756, 10891 and 6794. The weekly stats DO load (19,421 nflverse rows for 2025 in this container), which is why the response is 'unmapped_player' and not 'no_stats_available'. Even if a directory were passed, idToPlayer is {id: name} and carries no gsis_id, so the `not resolved.gsis_id` guard would still fire. (b) The claim that nothing calls it is now false: frontend/components/PlayerPopup.jsx:397 fetches /api/player/{id}/realized \u2014 but there is no bridge route under frontend/app/api/player/, so on the production origin (:3000) the request returns HTTP 404 (an HTML page), res.ok is false, and the RealizedPointsSection silently renders nothing. (c) Separately, line 11234 reads latest_contract_data['sleeper'] directly rather than the league it just resolved at :11229, so a non-default leagueKey would be scored with the loaded league's settings.",
+   "reproduction": {
+    "command": "bash docs/master-site-audit/evidence/W18/repro.sh   # section R6",
+    "expected": "a weeks array scored under the league's settings for a rostered player",
+    "actual": "backend :8000 -> {\"sleeperId\":\"5849\",\"leagueKey\":\"dynasty_main\",\"reason\":\"unmapped_player\",\"weeks\":[]} ; Next :3000 -> HTTP 404 text/html",
+    "artifact": "docs/master-site-audit/evidence/W18/repro.sh"
+   },
+   "numericProof": {
+    "inputs": {
+     "sleeper_ids_probed": [
+      "5849",
+      "9756",
+      "10891",
+      "6794"
+     ],
+     "nflverse_2025_rows_available": 19421,
+     "sleeper_block_keys": 16
+    },
+    "formula": "count(probe : response.weeks is non-empty)",
+    "expected": 4,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "The 'Realized points \u2014 scored on your league's settings' panel on the player popup never appears for any player. The user is not shown a wrong number; they are shown nothing, with no indication the feature exists. Low severity precisely because the section self-suppresses.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 1,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A22-F02",
+    "relation": "superseded",
+    "note": "PRIOR-A22-F02 says 'never fetches defensive stats, so every IDP player silently returns zero weeks'. Measured, the route returns zero weeks for EVERY player of every position, and the cause is upstream of stat selection (players_dir is None). PRIOR-A22-F03 and PRIOR-A21-F16 ('scores against whatever league's contract happens to be loaded') are CONFIRMED at server.py:11234 but are moot while (a) holds."
+   },
+   "whatWorks": "The feature flag, auth gate, league resolution and nflverse fetch all work; _rp.compute_cumulative_points is reached with a well-formed empty row list.",
+   "rootCause": "The route was written against a sleeper-block shape that the contract does not produce, and the in-code comment asserting no caller exists went stale when PlayerPopup added one without a Next bridge route.",
+   "requiredRepair": "Resolve the player through a directory that carries gsis_id (src/identity/unified_mapper's own override/config layer, or the scraper's player master) rather than sleeper_block['players']; add frontend/app/api/player/[sleeperId]/realized/route.js; and read the sleeper block for the resolved league, not latest_contract_data, at server.py:11234.",
+   "dependencies": "W18-F003 \u2014 once this route returns rows, it will return rows computed by the defective engine."
+  },
+  {
+   "id": "W18-F005",
+   "workstream": "W18",
+   "promptSections": [
+    4
+   ],
+   "title": "/api/league-comparison benchmarks a hardcoded Sleeper league that is not in the registry, and its per-position sample sizes are hardcoded to a lineup that is not this league's (TE 12 against 24 real TE starters, IDP 96 against 108)",
+   "status": "Duplicate or conflicting implementation",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "League comparison",
+   "surface": {
+    "routes": [
+     "/api/league-comparison"
+    ],
+    "pages": [
+     "/league-comparison"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "config/league_comparison.json",
+     "lines": "1-16"
+    },
+    {
+     "path": "src/league_comparison/sleeper_scoring.py",
+     "lines": "1-10"
+    }
+   ],
+   "claimUnderTest": "src/league_comparison/sleeper_scoring.py:3 \u2014 'This module deliberately bypasses src.api.league_registry because the league-comparison feature only needs scoring rules'. CLAUDE.md \u2014 'never read os.getenv(\"SLEEPER_LEAGUE_ID\") in new code' / all league resolution goes through the registry.",
+   "observed": "config/league_comparison.json pins my_league to Sleeper id 1312736351547850752, a league named 'Scoring' that does not appear in config/leagues/registry.json. Fetched live: it is a 12-team 2026 league whose 141-key scoring_settings are currently byte-identical to dynasty_main's (diff is empty), but whose roster_positions are NOT \u2014 55 slots with TE1, DL2, LB2, DB2 and IDP_FLEX2, against dynasty_main's 58 slots with TE2, DL3, LB3, DB3 and IDP_FLEX0. Nothing binds the clone to the real league: a commissioner edit to dynasty_main leaves /api/league-comparison silently benchmarking the stale copy. Separately, sample_sizes in the same file are hardcoded {QB 24, RB 24, WR 36, TE 12, FLEX 96, IDP_TOTAL 96}; for a 12-team league starting TE2 the replacement-level cohort should be 24, and starting DL3+LB3+DB3 it should be 108. The live payload confirms both: meta.sampleSizes.TE = 12, meta.myLeague.id = 1312736351547850752. The IDP half of the page is a declared placeholder ('IDP comparison is scaffolded but not yet enabled').",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies-w18.txt http://127.0.0.1:8000/api/league-comparison | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['meta']['myLeague'],d['meta']['sampleSizes'],d['idp']['status'])\" ; curl -s https://api.sleeper.app/v1/league/1312736351547850752 | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['name'],len(d['roster_positions']),d['roster_positions'].count('TE'))\"",
+    "expected": "myLeague.id == 1312006700437352448 (the registry's dynasty_main) and TE sample size 24",
+    "actual": "myLeague.id 1312736351547850752 ('Scoring', 55 slots, TE1); sampleSizes.TE 12; idp.status 'placeholder'",
+    "artifact": "docs/master-site-audit/evidence/W18/league_comparison.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "team_count": 12,
+     "host_TE_starter_slots": 2,
+     "host_IDP_starter_slots": 9
+    },
+    "formula": "replacement_cohort_size = team_count * starter_slots_for_position",
+    "expected": 24,
+    "actual": 12,
+    "tolerance": 0
+   },
+   "userImpact": "The 'TE replacement level' and the TE share-of-value the page reports are measured at TE12 in a league that starts 24 TEs, so the page understates how deep the user must draft at TE and overstates elite-TE scarcity relative to the real lineup. The scoring half of the comparison is currently correct only by coincidence.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A20-F03",
+    "relation": "confirmed",
+    "note": "Confirms 'scoringFit and receptionFit are measured against a Sleeper league that is not in the registry' and names the league (1312736351547850752, 'Scoring'). Adds the independent sample-size defect, which that finding does not cover, and the measured fact that the clone's SCORING currently matches exactly while its LINEUP does not."
+   },
+   "whatWorks": "The scoring values themselves currently agree with dynasty_main byte-for-byte, and sleeper_scoring._scoring_hash already stamps a content hash of each league's card \u2014 the mechanism that would detect divergence exists and is computed, it is simply never compared against the registry league.",
+   "rootCause": "A second, file-based league identity was introduced alongside the registry rather than through it, and lineup-derived constants were frozen into the same file instead of being read from roster_positions.",
+   "requiredRepair": "Point my_league at the registry's default league id (or resolve it through league_registry.get_sleeper_league_id) and derive sample_sizes from team_count x roster_positions rather than storing them.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W18-F006",
+   "workstream": "W18",
+   "promptSections": [
+    4
+   ],
+   "title": "/draft's roster-gap panel uses a hardcoded, league-blind position-minimums table, so it reports DL/LB/DB shortages in a league that has no IDP starting slots",
+   "status": "Mocked or hard-coded",
+   "priority": "P2",
+   "size": "XS",
+   "subsystem": "Draft board / roster gaps",
+   "surface": {
+    "routes": [],
+    "pages": [
+     "/draft"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/lib/draft-logic.js",
+     "lines": "2431-2447"
+    },
+    {
+     "path": "frontend/app/draft/page.jsx",
+     "lines": "3685"
+    }
+   ],
+   "claimUnderTest": "draft-logic.js:2434 \u2014 'Values chosen to fit a 2-QB/2-RB/3-WR/1-TE + flex IDP starter shape common in SF leagues \u2014 adjust via options when a league's shape differs significantly.'",
+   "observed": "DEFAULT_POSITION_MINS = {QB 3, RB 4, WR 5, TE 2, DL 3, LB 3, DB 3} is a module constant. frontend/app/draft/page.jsx:3685 calls computeRosterBreakdown(rosterPlayers, allPlayersArray) with no third argument, so the default is used verbatim on every render for every league. The stated shape ('1 TE') is already wrong for dynasty_main, which starts TE2 per the live host \u2014 a TE minimum of 2 leaves zero bench depth at a position the league starts two of. For dynasty_new the host publishes roster_positions with zero DL, LB and DB slots, yet the panel will still flag those three as needs. The frontend has the correct data available: lib/starter-slots.js exists specifically to expand the league's own rosterPositions, and useTeam() already returns rosterSettings.",
+   "reproduction": {
+    "command": "grep -n 'computeRosterBreakdown(' frontend/app/draft/page.jsx && sed -n '2439,2447p' frontend/lib/draft-logic.js && curl -s https://api.sleeper.app/v1/league/1320092771247222784 | python3 -c \"import json,sys;from collections import Counter;print(Counter(json.load(sys.stdin)['roster_positions']))\"",
+    "expected": "position minimums derived from the active league's roster_positions",
+    "actual": "constant {QB:3,RB:4,WR:5,TE:2,DL:3,LB:3,DB:3} for both leagues; dynasty_new host roster_positions contains no DL/LB/DB at all",
+    "artifact": "docs/master-site-audit/evidence/W18/scoring-matrix-dynasty_new.csv"
+   },
+   "numericProof": {
+    "inputs": {
+     "dynasty_new_DL_slots": 0,
+     "dynasty_new_LB_slots": 0,
+     "dynasty_new_DB_slots": 0,
+     "hardcoded_min_DL": 3,
+     "hardcoded_min_LB": 3,
+     "hardcoded_min_DB": 3
+    },
+    "formula": "shortage = max(0, positionMins[pos] - rostered[pos]); a league with 0 starting slots at pos must yield shortage 0",
+    "expected": 0,
+    "actual": 9,
+    "tolerance": 0
+   },
+   "userImpact": "A user drafting in 'Blood, Sweat, and Beers' is told they need 9 more defensive players in a league that cannot start one, and a dynasty_main user is told a 2-TE cushion is sufficient for a lineup that starts 2 TEs every week.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A14-F07",
+    "relation": "partial",
+    "note": "Same class as 'nine other call sites hardcode the dynasty_main lineup', but that finding is scoped to src/trade/. This is the frontend instance and it is not the dynasty_main lineup either \u2014 the constant matches no configured league."
+   },
+   "whatWorks": "computeRosterBreakdown already accepts a positionMins override; the plumbing needed for the fix is present and unused.",
+   "rootCause": "A single-league heuristic constant survived the multi-league migration because the only caller never passes the override the API offers.",
+   "requiredRepair": "Derive positionMins from expandStarterSlots(rosterSettings.starters) / sleeper.rosterPositions at the /draft call site, and drop positions the league does not start.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W18-F007",
+   "workstream": "W18",
+   "promptSections": [
+    4
+   ],
+   "title": "src/scoring/baseline_config.py and the twelve other scoring-adjustment symbols the production scraper imports are never called \u2014 a fourth scoring constant set that reaches no live path",
+   "status": "Scaffolded only",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Scoring adjustment / baseline comparison",
+   "surface": {
+    "routes": [],
+    "pages": [],
+    "flags": [
+     "consensus_edge"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "src/scoring/baseline_config.py",
+     "lines": "12-62"
+    },
+    {
+     "path": "Dynasty Scraper.py",
+     "lines": "66-92"
+    }
+   ],
+   "claimUnderTest": "Dynasty Scraper.py imports build_default_baseline_config, build_league_scoring_config, bucket_rule_contributions, compare_to_baseline, persist_scoring_delta_map, compute_profile_features, infer_archetype, build_scoring_tags, build_player_scoring_adjustment, choose_final_multiplier, compute_sample_size_score, run_scoring_backtest and persist_scoring_config inside a try/except, implying the scraper applies scoring-delta adjustments.",
+   "observed": "All thirteen symbols appear exactly twice in Dynasty Scraper.py \u2014 once in the import list and once in the except-branch that nulls them. Grep for '<name>(' returns zero call sites for every one of them. BASELINE_SCORING_MAP itself is a fourth, mutually inconsistent scoring card (pass_yd 0.04, pass_td 4.0, rec 1.0, idp_sack 4.0, idp_tkl_solo 1.5, bonus_rec_te 0.5) and correctly labels itself 'Baseline is a comparison environment only. It is not the live league.' Its only non-test consumer is src/consensus_edge/scoring_fit.py:160, and consensus_edge is flag-off by default per ADR-023. Note also that its key vocabulary (idp_hit, idp_pd, bonus_pass_td_50+) is the pre-alias spelling, not the live league's (idp_qb_hit, idp_pass_def).",
+   "reproduction": {
+    "command": "cd /home/user/riskittogetthebrisket && for f in build_default_baseline_config build_league_scoring_config compare_to_baseline persist_scoring_delta_map build_player_scoring_adjustment run_scoring_backtest; do echo \"$f mentions=$(grep -c $f 'Dynasty Scraper.py') calls=$(grep -c \\\"$f(\\\" 'Dynasty Scraper.py')\"; done",
+    "expected": "at least one call site per imported symbol",
+    "actual": "mentions=2 calls=0 for all thirteen",
+    "artifact": "docs/master-site-audit/evidence/W18/repro.sh"
+   },
+   "numericProof": {
+    "inputs": {
+     "symbols_imported": 13
+    },
+    "formula": "count(symbol : call sites in Dynasty Scraper.py > 0)",
+    "expected": 13,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "None directly \u2014 it is dead weight. The risk is to the next reader: the import block is the strongest available signal that the scraper applies scoring adjustments, and it does not, so a fix aimed at the live board could be applied here and change nothing.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "PRIOR-A24-F19 concerns RULE_META coverage inside this package; the fact that the package's entry points are unreachable from the scraper is not in the prior set."
+   },
+   "whatWorks": "baseline_config.py is honest about itself in a docstring, and the map is never mistaken for live scoring by anything that runs.",
+   "rootCause": "An adjustment pipeline was wired at the import layer and the call sites were either never added or later removed, leaving the imports behind.",
+   "requiredRepair": "Delete the unused import block from Dynasty Scraper.py (or restore the call sites), and label src/scoring/baseline_config.py's status in CLAUDE.md's directory map so it is not mistaken for a live scoring source.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W18-F008",
+   "workstream": "W18",
+   "promptSections": [
+    4
+   ],
+   "title": "refresh_snapshot's drift filter omits daily_waivers_last_ran, so a pure in-season bookkeeping counter reports as league-rule drift and writes a spurious dated snapshot",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "League config snapshot refresh",
+   "surface": {
+    "routes": [],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/league_intel/config.py",
+     "lines": "249"
+    },
+    {
+     "path": "src/league_intel/config.py",
+     "lines": "341-377"
+    }
+   ],
+   "claimUnderTest": "src/league_intel/config.py:244-249 \u2014 'Drift diffs are scoped to behavior-relevant payload fields ... so chatter (last_message_id etc.) never reads as drift', with _SETTINGS_NOISE_KEYS = {leg, last_scored_leg, last_report}.",
+   "observed": "Diffing the stored 2026-07-26 snapshot against the live host today produces exactly one settings difference: daily_waivers_last_ran 26 -> 4. That key is Sleeper's counter for which daily-waiver run last executed; it changes every waiver day and encodes no league rule. It is not in _SETTINGS_NOISE_KEYS, so LeagueConfigDrift.has_drift is True and refresh_snapshot(write=True) writes a new sleeper_league_snapshot_<today>.json into config/league_intel/ \u2014 which then becomes the file find_latest_snapshot returns. Because the counter moves on a fixed cadence, this will recur indefinitely, accumulating snapshots and producing drift reports that reviewers learn to ignore.",
+   "reproduction": {
+    "command": "bash docs/master-site-audit/evidence/W18/repro.sh   # section R2 shows scoring drift {} and roster_positions equal True; then: python3 -c \"import json;s=json.load(open('config/league_intel/sleeper_league_snapshot_2026-07-26.json'))['settings'];l=json.load(open('docs/master-site-audit/evidence/W18/sleeper_league_1312006700437352448.json'))['settings'];print({k:(s.get(k),l.get(k)) for k in set(s)|set(l) if s.get(k)!=l.get(k)})\"",
+    "expected": "{} \u2014 no drift, because no rule changed",
+    "actual": "{'daily_waivers_last_ran': (26, 4)}",
+    "artifact": "docs/master-site-audit/evidence/W18/scoring-matrix.csv"
+   },
+   "numericProof": {
+    "inputs": {
+     "scoring_keys_diffed": 141,
+     "settings_keys_diffed": 51,
+     "roster_slots_diffed": 58
+    },
+    "formula": "count(rule-bearing fields that changed)",
+    "expected": 0,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "None to a user. It degrades the operator's drift signal: the one mechanism that would announce a real commissioner scoring change cries wolf on a schedule.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding covers src/league_intel/config.py's drift filter."
+   },
+   "whatWorks": "Everything else about the refresh path: the diff is correctly scoped to scoring_settings/roster_positions/settings/status/season/total_rosters, the stored snapshot is never overwritten, and build_config_from_snapshot validates the live payload before it is allowed to become the newest file.",
+   "rootCause": "_SETTINGS_NOISE_KEYS was written from the keys that were noisy at the time and never extended to the daily-waiver counters.",
+   "requiredRepair": "Add daily_waivers_last_ran (and, for safety, the other run-state counters) to _SETTINGS_NOISE_KEYS.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W18-F009",
+   "workstream": "W18",
+   "promptSections": [
+    4
+   ],
+   "title": "The canonical league config for dynasty_main is byte-exact against the live Sleeper host: 141/141 scoring keys, 58/58 roster slots and 51/51 settings match, and all 38 published scoring values and 14 published league facts verify",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "League configuration",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/leagues"
+    ],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "config/league_intel/sleeper_league_snapshot_2026-07-26.json",
+     "lines": "1"
+    },
+    {
+     "path": "config/leagues/registry.json",
+     "lines": "5-41"
+    },
+    {
+     "path": "src/league_intel/config.py",
+     "lines": "174-239"
+    },
+    {
+     "path": "tests/league_intel/test_registry_consumers.py",
+     "lines": "53-76"
+    }
+   ],
+   "claimUnderTest": "src/league_intel/config.py:3 \u2014 'Single source of truth for what the league's rules actually are: scoring settings (every Sleeper key, verbatim)' and 'The two must agree \u2014 tests/league_intel/test_registry_consumers.py pins that.'",
+   "observed": "Every claim holds for dynasty_main. Full key-by-key matrix built at docs/master-site-audit/evidence/W18/scoring-matrix.csv: 222 rows, 213 MATCH, 7 NOT-MODELLED (fields the registry deliberately does not carry: IR size, playoff teams/week/type, median game, waiver type, FAAB budget), 2 non-MATCH (the daily_waivers_last_ran counter of W18-F008, and the scoringProfile label of W18-F010). Verified: 141/141 scoring keys identical across host, stored snapshot and the live contract's sleeper block; roster_positions identical (QB1 RB2 WR3 TE2 FLEX2 SUPER_FLEX1 K1 DL3 LB3 DB3 + 37 BN = 58, IDP_FLEX 0); 12 teams; best_ball 1; taxi_slots 0; reserve_slots 0; playoff_teams 7, playoff_week_start 15, playoff_type 1, playoff_round_type 0; league_average_match 1 (median game ON); waiver_type 2 with waiver_budget 100 (FAAB); trade_deadline week 13; 3 divisions; 6 draft rounds. All 38 published scoring rates verify exactly, including pass_yd 0.033333=1/30, the six reception-distance bonuses, bonus_fd_qb 0.67 vs bonus_fd_rb/wr/te 1.00, and the full 15-key IDP card with the three 1/9 return-yard rates. The frontend holds NO copy of the scoring settings and derives lineup shape from the contract's sleeper.rosterPositions via frontend/lib/starter-slots.js, so there is nothing there to drift.",
+   "reproduction": {
+    "command": "bash docs/master-site-audit/evidence/W18/repro.sh   # sections R1 and R2",
+    "expected": "scoring drift {} and roster_positions equal True",
+    "actual": "scoring drift {} ; roster_positions equal True ; 141 keys / 58 slots / 12 teams on both sides",
+    "artifact": "docs/master-site-audit/evidence/W18/scoring-matrix.csv"
+   },
+   "numericProof": {
+    "inputs": {
+     "rows_compared": 222,
+     "scoring_keys": 141,
+     "roster_slots": 58,
+     "settings_keys": 51,
+     "published_claims": 38
+    },
+    "formula": "count(row : host == repo == served)",
+    "expected": 213,
+    "actual": 213,
+    "tolerance": 0
+   },
+   "userImpact": "None \u2014 this is the part that is right, and it is the foundation everything else in this workstream is measured against.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding asserts or refutes the accuracy of the stored snapshot against the live host; this is the first live verification."
+   },
+   "whatWorks": "The whole dynasty_main config path: dated-snapshot discovery, _coerce_scoring's required-key canary, the total_rosters vs num_teams cross-check, and the live contract's sleeper block carrying the same 141 keys through to the API. tests/league_intel/test_registry_consumers.py genuinely un-neutralizes the registry (monkeypatched LEAGUE_REGISTRY_PATH plus a direct file read) and pins registry rosterSettings against the snapshot, so this agreement is CI-enforced \u2014 for dynasty_main only.",
+   "rootCause": "",
+   "requiredRepair": "Extend the same pinning to dynasty_new, which has no snapshot and no equivalent test (see W18-F011).",
+   "dependencies": ""
+  },
+  {
+   "id": "W18-F010",
+   "workstream": "W18",
+   "promptSections": [
+    5
+   ],
+   "title": "ADR-006's 'pure dot product, no stacking rules' claim independently reproduced against 1,339 host-scored player-weeks (max |delta| 0.005), and stacking answered on real host stat lines: pick-six charges -6.00, distance bonuses stack on the base reception, and one sack pays eight IDP categories",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Exact scoring engine",
+   "surface": {
+    "routes": [],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/league_intel/scorer.py",
+     "lines": "1-136"
+    },
+    {
+     "path": "docs/league-intelligence/DECISIONS.md",
+     "lines": "ADR-005/ADR-006"
+    }
+   ],
+   "claimUnderTest": "src/league_intel/scorer.py:3-25 \u2014 'a pure dot product over the keys shared between a player's weekly stat line and the league's scoring_settings ... No exclusions, no de-duplication, no special-casing ... reproduced Sleeper's own players_points exactly (|delta| <= 0.011) for 1,415 of 1,415 rostered player-weeks.'",
+   "observed": "Reproduced independently, not inherited. Fetched the 2025 predecessor league (1180092661344120832) with its own scoring_settings plus GET /v1/league/.../matchups/{5,9,14} for host-awarded players_points and GET /v1/stats/nfl/regular/2025/{5,9,14} for the raw stat lines. score_stat_line reproduces the host on 1,339 of 1,339 player-weeks with max |delta| = 0.005, inside the module's own 0.011 tolerance. Stacking, answered from host stat lines rather than from docs: (1) PICK-SIX STACKS \u2014 the host emits pass_int and pass_int_td on the same line (3 real cases, e.g. player 4046 wk5: pass_int 1.0, pass_int_td 1.0), so under 2026 rates a pick-six costs -4.00 AND -2.00 = -6.00. (2) RECEPTION-DISTANCE BONUSES STACK ON THE BASE RECEPTION \u2014 the buckets partition the receptions (rec_0_4 + rec_5_9 + rec_10_19 + rec_20_29 + rec_30_39 + rec_40p == rec) and are paid in addition to rec x 0.08; an 8-catch line at 1/3/3/0/1/0 scores 0.64 + 4.61 = 5.25 before yardage. (3) ONE SACK PAYS EVERYTHING APPLICABLE \u2014 194 host lines carry idp_sack together with idp_sack_yd, idp_tkl_solo, idp_tkl_ast, idp_tkl_loss, idp_qb_hit and often idp_ff / idp_fum_rec. Worked case (player 4967, wk5, 2026 rates): ff 4.25 + fum_rec 3.19 + qb_hit 2.13 + sack 2.92 + sack_yd 1.111 + tkl_ast 0.80 + tkl_loss 4.25 + tkl_solo 1.33 = 19.981. The host also emits idp_tkl (combined), which carries no rate in this league, so solo+assist are not double-counted \u2014 a league that DID set idp_tkl would triple-count, and that would be Sleeper's behaviour too.",
+   "reproduction": {
+    "command": "bash docs/master-site-audit/evidence/W18/repro.sh   # section R4",
+    "expected": "max |delta| <= 0.011 across all compared player-weeks",
+    "actual": "1,339 player-weeks, max |delta| = 0.0050",
+    "artifact": "docs/master-site-audit/evidence/W18/stacking-proof.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player_weeks": 1339,
+     "weeks": "2025 wk5, wk9, wk14",
+     "league": "1180092661344120832",
+     "reference": "Sleeper matchups[].players_points"
+    },
+    "formula": "points = sum over k in (stat_line & scoring_settings) of stat_line[k] * scoring_settings[k]",
+    "expected": 0,
+    "actual": 0.005,
+    "tolerance": 0.011
+   },
+   "userImpact": "None \u2014 this establishes which engine in the repo is correct, and therefore what every other engine must be measured against.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding tests ADR-006. Establishing it is what makes W18-F003's 36% disagreement attributable to realized_points rather than to an unknown."
+   },
+   "whatWorks": "score_stat_line is exact, pure, deterministic and vocabulary-agnostic \u2014 it needs no per-rule mapping and cannot silently drop a live scoring rule. It is also, by grep, reachable from exactly one non-test caller (src/league_intel/sim_calibration.py); the engine wired to the live routes and to BDVM is the allow-list one in src/nfl_data/realized_points.py.",
+   "rootCause": "",
+   "requiredRepair": "Consider making score_stat_line the scoring core and reducing realized_points to a nflverse-row -> Sleeper-stat-key normalizer, so that adding a scoring rule stops requiring a code change.",
+   "dependencies": ""
+  },
+  {
+   "id": "W18-F011",
+   "workstream": "W18",
+   "promptSections": [
+    4
+   ],
+   "title": "The registry's dynasty_new entry is wrong against its own live host on every roster field it models, and models neither the WRRB_FLEX slot the league actually uses nor IR \u2014 and no test or snapshot covers it",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "League registry",
+   "surface": {
+    "routes": [
+     "/api/leagues",
+     "/api/data",
+     "/api/draft-capital"
+    ],
+    "pages": [
+     "/rosters",
+     "/draft",
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "config/leagues/registry.json",
+     "lines": "42-66"
+    },
+    {
+     "path": "tests/league_intel/test_registry_consumers.py",
+     "lines": "1-76"
+    }
+   ],
+   "claimUnderTest": "src/league_intel/config.py:10-14 \u2014 'the registry stays the lightweight per-league pointer used for routing and roster-shape consumers ... The two must agree \u2014 tests/league_intel/test_registry_consumers.py pins that.' /api/leagues serves rosterSettings to the frontend as fact.",
+   "observed": "Fetched the live host for dynasty_new (1320092771247222784) read-only. Every roster field the registry models is wrong: rosterSize 24 vs 27 real slots; taxiSize 5 vs taxi_slots 3; starters FLEX 2 vs a host lineup of FLEX 1 + WRRB_FLEX 1. The registry has no vocabulary for WRRB_FLEX at all, so the second flex is served to the frontend as an RB/WR/TE slot when the host restricts it to RB/WR \u2014 a TE placed there is not a legal starter. reserve_slots 3 (this league DOES have IR, unlike dynasty_main) is not modelled anywhere. bestBall is absent from the entry and the host says best_ball 0, so the default happens to be right by luck. /api/leagues serves all of this verbatim. tests/league_intel/test_registry_consumers.py pins ONLY dynasty_main (its _registry_main helper selects key == 'dynasty_main'), and there is no config/league_intel snapshot for dynasty_new, so nothing in the 5,867-test suite compares this entry to anything.",
+   "reproduction": {
+    "command": "curl -s https://api.sleeper.app/v1/league/1320092771247222784 | python3 -c \"import json,sys;from collections import Counter;d=json.load(sys.stdin);print('slots',len(d['roster_positions']),Counter(d['roster_positions']));print({k:d['settings'][k] for k in ('num_teams','taxi_slots','reserve_slots','best_ball')})\" ; python3 -c \"import json;print(json.load(open('config/leagues/registry.json'))['leagues'][1]['rosterSettings'])\"",
+    "expected": "registry rosterSize 27, taxiSize 3, starters {QB1,RB2,WR3,TE1,FLEX1,WRRB_FLEX1,SFLEX1}",
+    "actual": "registry rosterSize 24, taxiSize 5, starters {QB1,RB2,WR3,TE1,FLEX2,SFLEX1}; WRRB_FLEX and IR unmodelled",
+    "artifact": "docs/master-site-audit/evidence/W18/scoring-matrix-dynasty_new.csv"
+   },
+   "numericProof": {
+    "inputs": {
+     "host_roster_slots": 27,
+     "registry_rosterSize": 24,
+     "host_taxi_slots": 3,
+     "registry_taxiSize": 5,
+     "host_FLEX": 1,
+     "host_WRRB_FLEX": 1,
+     "registry_FLEX": 2
+    },
+    "formula": "count(modelled roster field : registry == host)",
+    "expected": 3,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "Every roster-shape consumer for this league is off: /rosters splits starters from bench using a 24-slot lineup against a 27-slot roster (3 real players fall off the end), the taxi squad is shown as 5 when it is 3, and a TE can be recommended into a slot the host will not let it start in.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 3,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "The prior set covers dynasty_main's registry correction (test_registry_consumers.py's own docstring records it) but contains no finding that dynasty_new's entry was never given the same treatment."
+   },
+   "whatWorks": "The registry loader, alias resolution and /api/leagues serialization are all correct \u2014 they faithfully serve whatever the file says. src/bdvm/league_config.py already prefers the contract's sleeper block over the registry and calls rosterSettings 'advisory and known to drift', which is the correct posture.",
+   "rootCause": "dynasty_new was added to the registry by hand and never validated against its own host; the test that would have caught it is hardcoded to dynasty_main and there is no snapshot for the second league.",
+   "requiredRepair": "Capture a config/league_intel snapshot for dynasty_new (config.py's snapshot machinery is per-league-id already), extend test_registry_consumers.py to loop over every registry entry instead of selecting dynasty_main, and add WRRB_FLEX / REC_FLEX and a reserveSize field to the registry's roster vocabulary (src/bdvm/league_config._FLEX_SLOTS already knows WRRB_FLEX and REC_FLEX; frontend/lib/starter-slots.js does not).",
+   "dependencies": "W18-F001 and W18-F002 \u2014 a correct dynasty_new config is prerequisite to serving that league correctly at all."
+  },
+  {
+   "id": "W29-F001",
+   "workstream": "W29",
+   "promptSections": [
+    7
+   ],
+   "title": "/api/trade/suggestions emits two different value concepts under one field name, showing Travis Hunter at 5,637 on /trade while /rankings shows 4,401",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "Trade suggestions / value architecture",
+   "surface": {
+    "routes": [
+     "/api/trade/suggestions"
+    ],
+    "pages": [
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/trade/suggestions.py",
+     "lines": "1737-1746"
+    },
+    {
+     "path": "src/trade/suggestions.py",
+     "lines": "1762-1766"
+    },
+    {
+     "path": "src/trade/suggestions.py",
+     "lines": "760-773"
+    },
+    {
+     "path": "frontend/app/trade/trade-sections.jsx",
+     "lines": "907-922"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "stage 11 _apply_two_way_player_boost"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'The whole trick is that every engine reads exactly one value - rankDerivedValue' (src/league_intel/overlay.py:17-21), and stage 11 two-way boost is 'A genuine post-blend OVERRIDE: rankDerivedValue becomes max(offense value, alt-position-family value)'.",
+   "observed": "suggestions.py READS rankDerivedValue at intake (:561) but RE-SERIALIZES it from offense_only_value whenever _trade_is_idp_free(give, receive) is true (_serialize_suggestion :1762 -> _serialize_player :1737-1741). Both concepts ship under the same key 'displayValue'. On the live payload 19 of 51 asset legs across all 12 teams disagree with the board in DEFAULT market mode. Worst case Travis Hunter: the offense-only board never saw the two-way boost, so /trade shows 5,637 while /rankings shows 4,401. The same player can carry two different displayValues inside ONE response - Brian Thomas appears at 4,436 in one suggestion leg and 4,466 in rosterAnalysis.byPosition.",
+   "reproduction": {
+    "command": "OUT=/tmp/w29 bash docs/master-site-audit/evidence/W29/repro.sh",
+    "expected": "every displayValue equals the row's rankDerivedValue",
+    "actual": "market mode : 19/51 legs disagree with rankDerivedValue; worst: Travis Hunter shown=5637 board=4401 (+28.08%)",
+    "artifact": "docs/master-site-audit/evidence/W29/market-mode-mismatch.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Travis Hunter",
+     "rankDerivedValue": 4401,
+     "offenseOnlyRankDerivedValue": 5637,
+     "twoWayPlayerBoost": {
+      "applied": true,
+      "altFamily": "DB",
+      "altFamilyValue": 4401,
+      "primaryFamilyValue": 3062
+     }
+    },
+    "formula": "displayValue = offenseOnlyRankDerivedValue when _trade_is_idp_free else rankDerivedValue; pct = (5637-4401)/4401*100",
+    "expected": 4401,
+    "actual": 5637,
+    "tolerance": 0
+   },
+   "userImpact": "A user reading a sell-high suggestion on /trade sees Travis Hunter valued 28% above the board that /rankings, /rosters, the TradeMeter and every team total use. Accepting a package built on that number gives away ~1,236 board points of surplus. 19 of 51 legs are wrong by some amount with no indication which value concept is on screen.",
+   "blastRadius": {
+    "playersAffected": 606,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A20-F06",
+    "relation": "partial",
+    "note": "PRIOR-A20-F06 identified the overlay/offense-only scale mix as a leagueAdjusted problem. This finding shows the SAME mechanism is already wrong in DEFAULT market mode, independent of any lens, and that the two-way boost (stage 11) is silently reverted on a user-facing surface - which PRIOR-A08-F01/A11-F07 examined only as a math/test-coverage question."
+   },
+   "whatWorks": "finder.py made this migration correctly: metadata.valueSource is stamped 'rankDerivedValue' on a live probe and unpriced assets are counted rather than dropped silently.",
+   "rootCause": "The offense-only board is a legitimate second value concept (an IDP-disabled re-run of the pipeline) but it is serialized into the field name the board value owns, so the response has no way to say which concept a number belongs to.",
+   "requiredRepair": "Either (a) drop the offense_only branch in _serialize_player and always emit rankDerivedValue, keeping offense-only for the internal _eff_val gap math only, or (b) emit it as a distinct key (offenseOnlyDisplayValue) plus a per-suggestion valueBasis stamp, and have trade-sections.jsx render the board value. Special-case the two-way players: max(offense, alt) must not be discardable by an offense-only re-read.",
+   "dependencies": "Fixing this also removes most of W29-F002's surface."
+  },
+  {
+   "id": "W29-F002",
+   "workstream": "W29",
+   "promptSections": [
+    7
+   ],
+   "title": "valuationMode=leagueAdjusted is stamped on responses where 41% of asset legs are still priced on the unadjusted market board",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "League-adjusted valuation lens",
+   "surface": {
+    "routes": [
+     "/api/trade/suggestions",
+     "/api/valuation/league-adjusted"
+    ],
+    "pages": [
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/league_intel/overlay.py",
+     "lines": "86-95"
+    },
+    {
+     "path": "src/trade/suggestions.py",
+     "lines": "1737-1741"
+    },
+    {
+     "path": "frontend/lib/dynasty-data.js",
+     "lines": "1941-1952"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'Mechanism, in one place: server.py::_valuation_scoped_contract fetches the league's factors and hands the engine a contract whose playersArray rows are already repriced. No engine knows the feature exists, because every engine reads exactly one value.' And: 'Every response stamps valuationMode - including \"market\". \"This is the market board\" and \"this field is missing\" must not read the same.'",
+   "observed": "overlay.adjusted_rows multiplies exactly one field: copy['rankDerivedValue'] = round(base*factor) (overlay.py:90-93). offenseOnlyRankDerivedValue is copied through unchanged. Because suggestions.py serializes all-offense trades from that field (W29-F001), 21 of 51 legs (41.2%) across all 12 teams come back at the unadjusted market value while the response header says valuationMode: leagueAdjusted. For the 'Jason' roster it is 12 of 12 - the entire suggestion set. The same response's rosterAnalysis block IS adjusted, so one screen mixes both boards. The client-side applier is inconsistent with the server one: dynasty-data.js:1946-1948 additionally scales values.overall/finalAdjusted/displayValue and :1980 _finalAdjusted.",
+   "reproduction": {
+    "command": "OUT=/tmp/w29 bash docs/master-site-audit/evidence/W29/repro.sh",
+    "expected": "0 legs at the unadjusted value when valuationMode=leagueAdjusted",
+    "actual": "adjusted : 21/51 legs still at the UNADJUSTED offense-only market value",
+    "artifact": "docs/master-site-audit/evidence/W29/lens-blast.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Kenneth Walker",
+     "rankDerivedValue": 5813,
+     "positionFactor": 1.041554,
+     "offenseOnlyRankDerivedValue": 5831
+    },
+    "formula": "expected_adjusted = round(rankDerivedValue * factor) = round(5813*1.041554)",
+    "expected": 6055,
+    "actual": 5831,
+    "tolerance": 0
+   },
+   "userImpact": "A user who switches to the league-adjusted board gets trade suggestions priced on the market board, labelled adjusted, sitting on the same screen as a roster analysis that IS adjusted. The stated purpose of the lens - 'adjusted rankings, market-priced trades, in the same session, with nothing on screen saying so' - is the exact condition still present, now with a label asserting otherwise.",
+   "blastRadius": {
+    "playersAffected": 606,
+    "routesAffected": 6,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A20-F06",
+    "relation": "confirmed",
+    "note": "Prior identified the mechanism by code reading. Reproduced here at runtime across all 12 rosters with per-leg arithmetic: 21/51 legs, and 12/12 for one roster. Prior did not measure blast radius or note that the response stamps the mode it is not honouring."
+   },
+   "whatWorks": "The lens itself is real and correct where it applies: 709/1092 rows carry a factor, monotonicityViolations is empty, and Jayden Daniels moves 8898 -> 9061 exactly as factor 1.018366 predicts. adjusted_rows correctly returns ALL rows rather than compact_ranks_and_tiers' ranked subset.",
+   "rootCause": "The overlay was written against the invariant 'every engine reads exactly one value'. That invariant is false for suggestions.py, and nothing enforces it - tests/api/test_valuation_mode_threading.py checks that handlers STAMP the mode, not that the served numbers moved.",
+   "requiredRepair": "Scale offenseOnlyRankDerivedValue by the same factor in overlay.adjusted_rows (and mirror _offenseOnlyFinalAdjusted), OR remove the offense-only serialization per W29-F001. Add an assertion to the threading test that at least one served value differs between modes for a roster with known non-unit factors.",
+   "dependencies": "W29-F001"
+  },
+  {
+   "id": "W29-F003",
+   "workstream": "W29",
+   "promptSections": [
+    7
+   ],
+   "title": "exports/latest/dynasty_full.csv publishes the scraper composite under the column name 'Composite'; 804 of 805 rows disagree with the board the site shows",
+   "status": "Duplicate or conflicting implementation",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Exports / release artifacts",
+   "surface": {
+    "routes": [],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "Dynasty Scraper.py",
+     "lines": "7433"
+    },
+    {
+     "path": "Dynasty Scraper.py",
+     "lines": "7120-7128"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "9225-9236"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'The live /api/data contract is the single source of truth'. exports/latest/ is the released artifact set (141 tracked files).",
+   "observed": "dynasty_full.csv's Composite column is _finalAdjusted, which Dynasty Scraper.py:7128 sets directly from _composite - the raw pre-Hill scraper blend. It is not the board. Matching the 1,074 CSV rows against the live contract: 805 players match by name, exactly 1 has an identical value, median ratio composite/board = 1.0855 with p10 0.956 and p90 1.260. The disagreement is not a constant rescale, so it cannot be corrected by a factor: QBs and IDP read low (Lamar Jackson 7,631 vs 8,784; Carson Schwesinger 4,357 vs 5,908) while others read high.",
+   "reproduction": {
+    "command": "OUT=/tmp/w29 bash docs/master-site-audit/evidence/W29/repro.sh",
+    "expected": "CSV values equal the board values shown on /rankings",
+    "actual": "matched 805 | exact-equal 1 | median ratio 1.0855",
+    "artifact": "docs/master-site-audit/evidence/W29/export-vs-board.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "player": "Lamar Jackson",
+     "csvComposite": 7631,
+     "boardRankDerivedValue": 8784
+    },
+    "formula": "ratio = csvComposite / boardRankDerivedValue",
+    "expected": 1.0,
+    "actual": 0.869,
+    "tolerance": 0.001
+   },
+   "userImpact": "Anyone who takes dynasty_full.csv as the site's values - the obvious reading of a file named dynasty_full with a column named Composite - trades against numbers up to 26% away from what the site shows. No HTTP route serves the file (openapi.json has only /api/public/league/{section}.csv and /api/trade/export-ktc), so reach is limited to whoever opens the repo or the release bundle.",
+   "blastRadius": {
+    "playersAffected": 804,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "PRIOR-A25-F15 mentions dynasty_full.csv only as a path that a different audit script fails to find. No prior compares its contents to the board."
+   },
+   "whatWorks": "Every in-app export agrees with the screen. /rankings' Export CSV and Copy values both go through buildExportLines using the identical expression as the render (rankings/page.jsx:764 vs :1050). dynasty_values.csv is per-source raw vendor values and is correctly labelled Player,KTC,IDPTradeCalc.",
+   "rootCause": "The CSV writers live in Dynasty Scraper.py and predate the canonical pipeline. They emit what the scraper knows; nothing re-writes them from the contract after _compute_unified_rankings runs.",
+   "requiredRepair": "Either rename the column to RawComposite and add a Board column populated from the contract, or regenerate the file from latest_contract_data after the contract build. Renaming alone is the smaller correct change.",
+   "dependencies": ""
+  },
+  {
+   "id": "W29-F004",
+   "workstream": "W29",
+   "promptSections": [
+    7
+   ],
+   "title": "Every visible trade-history grade is today's board applied retroactively to trades up to a year old; the as-of path exists but only drives a secondary badge and is dead without rank_history.jsonl",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Trade history grading",
+   "surface": {
+    "routes": [
+     "/api/data/rank-history"
+    ],
+    "pages": [
+     "/trades"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/lib/league-analysis.js",
+     "lines": "120-180"
+    },
+    {
+     "path": "frontend/lib/league-analysis.js",
+     "lines": "533-578"
+    },
+    {
+     "path": "frontend/app/trades/page.jsx",
+     "lines": "387-416"
+    },
+    {
+     "path": "frontend/lib/trade-retro-value.js",
+     "lines": "71-104"
+    }
+   ],
+   "claimUnderTest": "frontend/lib/trade-retro-value.js:1-8: 'The existing analyzeSleeperTradeHistory grades trades at *current* values. This helper layers in the at-trade snapshot so the UI can show a trade's age.' frontend/app/trades/page.jsx:392: 'Rank history lets each trade be valued at the date it happened.'",
+   "observed": "resolveTradeItemValue reads row.values.full - today's board - for players (:146) and for picks (:132). Everything a user reads is built from it: pctGap, the letter grade, the 'won by X%' headline (trades/page.jsx:264) and the teamScores won/lost/totalGain leaderboard (:552-573). gradeRetro IS wired with asOfMs but produces only an aged_well/aged_poorly/stable badge, never the headline. Its own at-trade leg has two holes: picks always take the current value by design (trade-retro-value.js:76-83, source 'current'), and trades predating coverage fall back to the earliest sample (pointAt :52-56). Live contract carries 110 trades spanning 2025-08-05 to 2026-07-31; 24% of the 1,002 traded assets are picks and 60% of trades contain at least one. In this container the badge is inert: data/rank_history.jsonl does not exist and GET /api/data/rank-history?days=365 returns {\"days\":365,\"history\":{}}, so every asset takes current_fallback and verdictDelta is identically 0.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies-w29.txt 'http://127.0.0.1:8000/api/data/rank-history?days=365'; ls data/rank_history.jsonl",
+    "expected": "populated per-player history so gradeRetro can value assets at the trade date",
+    "actual": "{\"days\":365,\"history\":{}} and 'ls: cannot access data/rank_history.jsonl: No such file or directory'",
+    "artifact": "docs/master-site-audit/evidence/W29/value-flow-map.md"
+   },
+   "numericProof": {
+    "inputs": {
+     "tradesInContract": 110,
+     "earliestTrade": "2025-08-05",
+     "latestTrade": "2026-07-31",
+     "boardDate": "2026-08-04",
+     "tradedAssets": 1002,
+     "pickAssets": 242,
+     "tradesContainingAPick": 66
+    },
+    "formula": "share = pickAssets/tradedAssets ; tradeShare = tradesContainingAPick/110",
+    "expected": 0,
+    "actual": 0.2415,
+    "tolerance": 0.001
+   },
+   "userImpact": "Every 'A+ / won by 38%' verdict and the whole manager win/loss leaderboard on /trades is hindsight. A manager who traded for a player who later broke out is scored as prescient; the counterparty is scored as fleeced, when at the time the deal may have been even. Nothing on the page discloses the as-of basis.",
+   "blastRadius": {
+    "playersAffected": 760,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A02-F04",
+    "relation": "confirmed",
+    "note": "Prior identified the hindsight grade and the badge-not-grade structure by code reading. Added here: runtime proof the retro path is currently inert (rank_history.jsonl absent, endpoint returns an empty history object), and the pick share that the retro path can never fix even when populated - 24% of assets, 60% of trades."
+   },
+   "whatWorks": "The as-of machinery is genuinely built and correctly shaped: pointAt picks the closest-before sample, valueFromPoint prefers the server-stamped canonical val over a local Hill approximation, and data/source_value_history.jsonl exists with a documented 180-snapshot retention.",
+   "rootCause": "gradeRetro was layered on as an enhancement rather than substituted into analyzeRawTrade, so the correct valuation never reaches the number the user reads.",
+   "requiredRepair": "Make the at-trade valuation the primary grade when history covers the trade date, and label the current-value number explicitly as 'today'. Stamp per-item source (rankHistory | current_fallback) on the rendered grade so a partially-covered trade says so. Ensure rank_history.jsonl is produced in production. Pick history is the real gap - either persist pick values per snapshot or exclude pick-bearing trades from the graded leaderboard.",
+   "dependencies": "Requires rank_history.jsonl to be written by the scrape/refresh path."
+  },
+  {
+   "id": "W29-F005",
+   "workstream": "W29",
+   "promptSections": [
+    7
+   ],
+   "title": "The 'Seller cash-out' tag compares a 0-9999 board value against a 0-100 ROS index and is unreachable for all 1,092 rows",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "ROS context tags",
+   "surface": {
+    "routes": [
+     "/api/ros/player-values"
+    ],
+    "pages": [
+     "/trade",
+     "/rankings"
+    ],
+    "flags": [
+     "showRosTags"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/components/PlayerPopup.jsx",
+     "lines": "108"
+    },
+    {
+     "path": "frontend/components/PlayerPopup.jsx",
+     "lines": "142"
+    },
+    {
+     "path": "frontend/components/RosTradeFitPanel.jsx",
+     "lines": "75"
+    },
+    {
+     "path": "src/ros/tags.py",
+     "lines": "76"
+    }
+   ],
+   "claimUnderTest": "src/api/gameplan.py:34-38: 'Two scales that must never be mixed - rosValue (0-100, rest-of-season STRENGTH INDEX) and canonicalSiteValues (0-9999, dynasty market) are different currencies with no validated conversion between them.'",
+   "observed": "The predicate is `dynastyValue < rosValue * 0.7` with `isStrong` requiring rosValue >= 60, and dynastyValue supplied as `row.values?.full ?? row.rankDerivedValue` (PlayerPopup.jsx:142) - the 0-9999 board. Live /api/ros/player-values gives max rosValue 86.79, so the right-hand side maxes at 60.8. The live board's minimum rankDerivedValue is 757. The two ranges do not overlap: 0 of 1,092 rows can satisfy it. The tag has never rendered. The same predicate is duplicated in three places (two JS, one Python).",
+   "reproduction": {
+    "command": "OUT=/tmp/w29 bash docs/master-site-audit/evidence/W29/repro.sh",
+    "expected": "some players qualify for the 'Seller cash-out' tag",
+    "actual": "max(rosValue*0.7)=60.8  min(rankDerivedValue)=757  rows able to fire: 0",
+    "artifact": "docs/master-site-audit/evidence/W29/value-flow-map.md"
+   },
+   "numericProof": {
+    "inputs": {
+     "maxRosValue": 86.79,
+     "threshold": 0.7,
+     "minRankDerivedValue": 757,
+     "rowsOnBoard": 1092
+    },
+    "formula": "fires iff rankDerivedValue < maxRosValue*0.7 = 60.75",
+    "expected": 0,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "A veteran with strong short-term value and a collapsed dynasty price - exactly the sell-now case the tag exists to surface - is never flagged, on the popup and on the /trade RosTradeFitPanel. Silent absence, not a wrong number.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A01-F14",
+    "relation": "confirmed",
+    "note": "Also PRIOR-A02-F06 (RosTradeFitPanel copy) and PRIOR-A19-F13 (src/ros/tags.py original). All three describe the same predicate in three locations. Reproduced here against the live /api/ros/player-values max (86.79) and the live board minimum (757) rather than against source constants, and counted the affected rows at exactly 0 of 1,092."
+   },
+   "whatWorks": "src/api/gameplan.py deliberately withholds site_values from the ROS target engines for precisely this reason and documents that feeding them 0-9999 numbers would return an edge of ~-0.99 for every player. The firewall is right; these three tag call sites are the leak.",
+   "rootCause": "The predicate was written against a percentile-like dynasty value and the call sites now pass the raw board value. Duplicating it into three files made the mismatch survive review three times.",
+   "requiredRepair": "Convert one side before comparing - e.g. compare dynasty percentile rank against ROS percentile rank - and collapse the three copies to one shared helper. Add a unit test asserting the tag fires on a constructed case, which would have caught this at zero cost.",
+   "dependencies": ""
+  },
+  {
+   "id": "W29-F006",
+   "workstream": "W29",
+   "promptSections": [
+    7
+   ],
+   "title": "REFUTED: the /rankings Value column does not fall back to the raw scraper composite - the values.* trio is null exactly when rankDerivedValue is null",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Rankings display / prior-audit reconciliation",
+   "surface": {
+    "routes": [
+     "/api/data"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "9225-9236"
+    },
+    {
+     "path": "frontend/lib/dynasty-data.js",
+     "lines": "978-985"
+    },
+    {
+     "path": "frontend/app/rankings/page.jsx",
+     "lines": "1050"
+    }
+   ],
+   "claimUnderTest": "PRIOR-A01-F00 (severity critical): 'The Value column silently switches from the Hill-curve board to the raw scraper composite for 260 rows, and 158 of them display a LARGER number than the deepest genuinely-priced player', citing Devin Bush as values={overall:2549, finalAdjusted:2549, displayValue:null}.",
+   "observed": "Does not reproduce on this build. data_contract.py:9229-9236 writes overall, finalAdjusted and displayValue together in one branch gated on `rdv is not None and rdv > 0`, and leaves all three null otherwise. Live payload: 0 rows have displayValue null while overall or finalAdjusted is non-null; 280 rows have the whole trio null. Devin Bush reads values={overall:null, finalAdjusted:null, displayValue:null, rawComposite:2544} and rankDerivedValue:null. Simulating _materializePlayerArrayRow exactly over all 1,092 rows: 0 rows would display a non-zero value while rankDerivedValue is null. The prior's evidence cites exports/latest/dynasty_data.js - the SCRAPER output, where _finalAdjusted is present on all 1,074 rows - not the contract, which nulls the values.* trio. The two were conflated. Related: PRIOR-A09-F07 ('values.displayValue is read by two modules and produced by none') is also refuted - it is produced at data_contract.py:9233 and is non-null on 812 rows. Only _canonicalDisplayValue is unproduced, and nothing reads it any more (dynasty-data.js:156 records this).",
+   "reproduction": {
+    "command": "OUT=/tmp/w29 bash docs/master-site-audit/evidence/W29/repro.sh",
+    "expected": "260 rows per the prior finding",
+    "actual": "rows with values.displayValue null but overall/finalAdjusted set: 0 (prior claimed 260)",
+    "artifact": "docs/master-site-audit/evidence/W29/prior-a01-f00-test.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "rowsTotal": 1092,
+     "displayValueNullButOverallSet": 0,
+     "tripleNull": 280,
+     "frontendShowsValueWithNullRdv": 0,
+     "devinBushValuesOverall": null,
+     "devinBushRawComposite": 2544
+    },
+    "formula": "count(rows where values.displayValue is null AND (values.overall is not null OR values.finalAdjusted is not null))",
+    "expected": 260,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "None. Unpriced rows display 0 and sort to the bottom, which is the intended behaviour.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A01-F00",
+    "relation": "refuted",
+    "note": "Not reproducible on HEAD e96c06ef / contract 2026-03-10.v2. Either the guard at data_contract.py:9229 landed after the prior audit, or the prior read the scraper export rather than the contract. Reported so a P0-shaped claim is not carried forward unverified. PRIOR-A09-F07 refuted on the same evidence."
+   },
+   "whatWorks": "The scale-contract comment block at dynasty-data.js:140-157 is accurate: raw and full are held apart, an unpriced row reports 0 and drops out of sums rather than contributing a composite-scale number.",
+   "rootCause": "n/a - prior finding does not reproduce.",
+   "requiredRepair": "None. Keep the single-branch write at data_contract.py:9229-9236; splitting it is what would reintroduce the prior's scenario.",
+   "dependencies": ""
+  },
+  {
+   "id": "W29-F007",
+   "workstream": "W29",
+   "promptSections": [
+    7
+   ],
+   "title": "The league-adjusted board's scarcity is measured entirely in ROS log-rank units, so a 0-100 ordinal index sets the multiplier on every dynasty trade value under the adjusted lens",
+   "status": "Partially implemented",
+   "priority": "P2",
+   "size": "L",
+   "subsystem": "League-adjusted valuation / ROS coupling",
+   "surface": {
+    "routes": [
+     "/api/valuation/league-adjusted",
+     "/api/trade/suggestions",
+     "/api/trade/finder",
+     "/api/angle/find",
+     "/api/terminal",
+     "/api/waiver/faab-recommend"
+    ],
+    "pages": [
+     "/rankings",
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/league_intel/replacement.py",
+     "lines": "616-672"
+    },
+    {
+     "path": "src/league_intel/replacement.py",
+     "lines": "20-52"
+    },
+    {
+     "path": "src/league_intel/adjustment.py",
+     "lines": "247"
+    },
+    {
+     "path": "src/api/gameplan.py",
+     "lines": "357-402"
+    },
+    {
+     "path": "src/ros/aggregate.py",
+     "lines": "171"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: the valuation overlay is driven by 'positional scarcity from this league's 12 rosters'. It does not say the scarcity is measured in ROS units.",
+   "observed": "compute_scarcity reads value = float(p.get('rosValue')) for every rostered player (replacement.py:631) out of data/ros/team_strength/<league>.json, and measure_endogenous_starters solves the lineup over the same field. lineupScarcity is a RATIO of two rosValues, so it is dimensionless and no scale is mixed - but rosValue is 100*(ln(N+1)-ln(r))/ln(N+1), an ordinal log-rank index (ros/aggregate.py:171, gameplan.py:40-49). A ratio of two ordinal indices is not a cardinal 'drop from the top player to the last starter'. That ratio becomes factor = 1 + (lineupScarcity - 0.5)*0.20 (adjustment.py:247) and multiplies every dynasty value the engines serve. Live: WR lineupScarcity 0.634 -> factor 1.0268; DL 0.767 -> 1.0978; LB 0.598 -> 0.9797. replacement.py:20-52 documents the known bias honestly (projection path measures FLEX-TE share at 0.0% vs 10.4% on weekly actuals) but the docstring lives on the measurement function, not on the published board.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies-w29.txt http://127.0.0.1:8000/api/valuation/league-adjusted | .venv/bin/python -c \"import json,sys; d=json.load(sys.stdin); print({k:round(v['lineupScarcity'],4) for k,v in d['scarcity'].items()}); print({k:d['factors'][k] for k in list(d['factors'])[:4]})\"",
+    "expected": "scarcity documented as derived from a cardinal value scale",
+    "actual": "lineupScarcity values 0.436-0.767 are ratios of rosValue, a 0-100 ordinal log-rank index; factors 0.953-1.043 multiply the 0-9999 board",
+    "artifact": "docs/master-site-audit/evidence/W29/league-adjusted-overlay.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "WR_lineupScarcity": 0.6339912280701755,
+     "reference": 0.5,
+     "sensitivity": 0.2
+    },
+    "formula": "factor = 1 + (lineupScarcity - reference) * sensitivity",
+    "expected": 1.0268,
+    "actual": 1.026798,
+    "tolerance": 0.0001
+   },
+   "userImpact": "A user selecting the adjusted board gets every trade value multiplied by a number derived from rest-of-season ordinal ranks. The direction is plausible and bounded (MAX_TOTAL_ADJUSTMENT 0.25, observed +-4.5%), but the quantity is not the cardinal scarcity the name implies, and the /rankings toggle says nothing about ROS being its input.",
+   "blastRadius": {
+    "playersAffected": 709,
+    "routesAffected": 6,
+    "pagesAffected": 2
+   },
+   "confidence": "medium",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Priors reference rosValue scale mixing at the tag call sites (A01-F14 / A02-F06 / A19-F13) but none trace rosValue through compute_scarcity into the adjusted board that the engines serve."
+   },
+   "whatWorks": "The coupling is dimensionally SAFE - a ratio of rosValues cancels units, so this is not the 0-9999-vs-0-100 error of W29-F005. Guardrails are real: evidence tier is STRUCTURAL_ONLY, absent axes contribute exactly 0, MAX_TOTAL_ADJUSTMENT clamps to +-25%, monotonicityViolations is empty on the live board, and docs/adjusted-board-backtest.md records that the adjusted board is deliberately a toggle rather than the default because four backtest framings found no improvement.",
+   "rootCause": "ROS is the only per-player quantity the platform has that is defined over a full roster including bench, so it is the only thing an endogenous lineup solve can run on. That is a real constraint, not an oversight.",
+   "requiredRepair": "Two separable steps. (1) Cheap and correct now: state the input in the overlay payload (a scarcityBasis: 'rosValue-ordinal' stamp) and in the /rankings toggle copy, so the lens does not read as board-derived. (2) The real fix: measure lineup scarcity from realized weekly scoring under the league's rate card - the same source scripts/measure_te_demand_actuals.py already uses - rather than from projection point estimates, which replacement.py itself shows understate flex demand for high-variance positions.",
+   "dependencies": "Step 2 depends on weekly actuals coverage; src/bdvm/actuals.py already scores nflverse weekly rows under exact league settings."
+  },
+  {
+   "id": "W29-F008",
+   "workstream": "W29",
+   "promptSections": [
+    7
+   ],
+   "title": "trade-logic.js::displayValue ignores the user's per-player value override and its docstring describes a pick-year discount effectiveValue does not apply",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Trade calculator value selection",
+   "surface": {
+    "routes": [],
+    "pages": [
+     "/trade"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/lib/trade-logic.js",
+     "lines": "181-209"
+    },
+    {
+     "path": "frontend/app/trade/page.jsx",
+     "lines": "534-544"
+    },
+    {
+     "path": "frontend/app/trade/trade-sections.jsx",
+     "lines": "118"
+    }
+   ],
+   "claimUnderTest": "trade-logic.js:192-201: 'Use this anywhere a row's \"Our Value\" number is shown (picker cells, sort comparators, headers). Don't use effectiveValue directly for display - it also applies the pick-year discount which is trade-math-only, not display.'",
+   "observed": "effectiveValue (:181-185) applies no pick-year discount at all - it returns row.customValue when set, else row.values[valueMode]. The stated reason for displayValue's existence is therefore stale; the pick-year discount is applied in the backend pipeline (stage 12, config/weights/pick_year_discount.json) and is already baked into the value both functions read. The two functions now differ in exactly one way the docstring does not mention: displayValue (:203-209) never consults customValue, so a user's typed override drives the trade math but not any surface that renders through displayValue. Today the only displayValue call site is the search-results dropdown (trade-sections.jsx:118), which shows candidates before they are added and therefore before an override can exist - so the divergence is latent, not live.",
+   "reproduction": {
+    "command": "sed -n '181,209p' frontend/lib/trade-logic.js",
+    "expected": "effectiveValue applies a pick-year discount, per its own docstring",
+    "actual": "effectiveValue body is `if (row.customValue != null && row.customValue > 0) return row.customValue; return Number(row.values?.[valueMode] || 0);` - no discount term",
+    "artifact": "docs/master-site-audit/evidence/W29/value-flow-map.md"
+   },
+   "numericProof": {
+    "inputs": {
+     "effectiveValueTerms": 2,
+     "discountTermsPresent": 0
+    },
+    "formula": "count of pick-year-discount operations in effectiveValue body",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "None today. The risk is the next call site: the docstring instructs developers to use displayValue for 'picker cells, sort comparators, headers', and any such use inside a side would render the pre-override number beside a total computed from the override.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior covers the effectiveValue/displayValue divergence or the stale discount rationale."
+   },
+   "whatWorks": "The override plumbing itself is clean: sidesWithOverrides (trade/page.jsx:534-544) copies rows rather than mutating, and every total, flow and Monte Carlo payload routes through effectiveValue so the override is applied consistently in the math.",
+   "rootCause": "The pick-year discount moved into the backend pipeline and the client-side implementation was removed, but the docstring that justified the two-function split was not updated.",
+   "requiredRepair": "Correct the docstring to state the real difference (customValue awareness), and make displayValue honour customValue so the two cannot diverge on a row inside a side. If a genuine 'show the board number, not the override' surface is wanted, name it that.",
    "dependencies": ""
   }
  ]

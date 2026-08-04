@@ -52,10 +52,13 @@ def main() -> None:
         "source": str(SRC.relative_to(ROOT)),
         "sourceSha256": hashlib.sha256(raw).hexdigest(),
         "areas": [
-            {"areaIdx": i, "area": (a.get("area") or "")[:200],
-             "findings": len(a.get("findings") or []),
-             "systems": len(a.get("systems") or []),
-             "formulas": len(a.get("formulas") or [])}
+            {
+                "areaIdx": i,
+                "area": (a.get("area") or "")[:200],
+                "findings": len(a.get("findings") or []),
+                "systems": len(a.get("systems") or []),
+                "formulas": len(a.get("formulas") or []),
+            }
             for i, a in enumerate(areas)
         ],
         "totals": {
@@ -67,7 +70,9 @@ def main() -> None:
         "findings": findings,
     }
     OUT.write_text(json.dumps(out, indent=1))
-    print(f"areas={len(areas)} findings={len(findings)} systems={systems_count} formulas={formulas_count}")
+    print(
+        f"areas={len(areas)} findings={len(findings)} systems={systems_count} formulas={formulas_count}"
+    )
     sev: dict[str, int] = {}
     for f in findings:
         sev[str(f["severity"])] = sev.get(str(f["severity"]), 0) + 1

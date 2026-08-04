@@ -47,8 +47,12 @@ RELATIONS = {"confirmed", "refuted", "not-reproducible", "superseded", "new", "p
 def head() -> str:
     try:
         return subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT,
-            capture_output=True, text=True, check=True).stdout.strip()
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
     except Exception:  # noqa: BLE001
         return "unknown"
 
@@ -92,7 +96,7 @@ def validate(f: dict, where: str) -> list[str]:
         out.append(f"{where} {fid}: claims 'Implemented and verified' with no passing proof")
     if not f.get("codeRefs"):
         out.append(f"{where} {fid}: no codeRefs")
-    rel = ((f.get("priorFinding") or {}).get("relation"))
+    rel = (f.get("priorFinding") or {}).get("relation")
     if rel not in RELATIONS:
         out.append(f"{where} {fid}: priorFinding.relation {rel!r} invalid")
     if f.get("priority") == "P0" and not (f.get("surface") or {}).get("pages"):
@@ -129,9 +133,10 @@ def main() -> None:
         for ref in f.get("codeRefs") or []:
             by_path[ref.get("path", "")].add(f.get("status"))
     conflicts = [
-        p for p, statuses in by_path.items()
-        if "Implemented and verified" in statuses and (statuses & {
-            "Implemented but defective", "Mocked or hard-coded", "Scaffolded only"})
+        p
+        for p, statuses in by_path.items()
+        if "Implemented and verified" in statuses
+        and (statuses & {"Implemented but defective", "Mocked or hard-coded", "Scaffolded only"})
     ]
 
     by_status = Counter(f.get("status") for f in merged)

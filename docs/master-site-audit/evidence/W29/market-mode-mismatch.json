@@ -1,0 +1,216 @@
+{
+ "totalLegs": 51,
+ "disagreeing": 19,
+ "distinctPlayers": 17,
+ "rows": [
+  {
+   "team": "Brent",
+   "bucket": "consolidation",
+   "side": "give",
+   "name": "Travis Hunter",
+   "pos": "WR",
+   "shownInTradeSuggestion": 5637,
+   "boardValueOnRankings": 4401,
+   "offenseOnlyRankDerivedValue": 5637,
+   "deltaPct": 28.08
+  },
+  {
+   "team": "Jason",
+   "bucket": "sellHigh",
+   "side": "receive",
+   "name": "Jake Ferguson",
+   "pos": "TE",
+   "shownInTradeSuggestion": 3794,
+   "boardValueOnRankings": 3867,
+   "offenseOnlyRankDerivedValue": 3794,
+   "deltaPct": -1.89
+  },
+  {
+   "team": "Jason",
+   "bucket": "sellHigh",
+   "side": "receive",
+   "name": "Derrick Henry",
+   "pos": "RB",
+   "shownInTradeSuggestion": 3837,
+   "boardValueOnRankings": 3884,
+   "offenseOnlyRankDerivedValue": 3837,
+   "deltaPct": -1.21
+  },
+  {
+   "team": "MaKayla",
+   "bucket": "sellHigh",
+   "side": "give",
+   "name": "Jameson Williams",
+   "pos": "WR",
+   "shownInTradeSuggestion": 4262,
+   "boardValueOnRankings": 4308,
+   "offenseOnlyRankDerivedValue": 4262,
+   "deltaPct": -1.07
+  },
+  {
+   "team": "MaKayla",
+   "bucket": "sellHigh",
+   "side": "receive",
+   "name": "Josh Jacobs",
+   "pos": "RB",
+   "shownInTradeSuggestion": 3889,
+   "boardValueOnRankings": 3859,
+   "offenseOnlyRankDerivedValue": 3889,
+   "deltaPct": 0.78
+  },
+  {
+   "team": "MaKayla",
+   "bucket": "sellHigh",
+   "side": "give",
+   "name": "Michael Wilson",
+   "pos": "WR",
+   "shownInTradeSuggestion": 3383,
+   "boardValueOnRankings": 3407,
+   "offenseOnlyRankDerivedValue": 3383,
+   "deltaPct": -0.7
+  },
+  {
+   "team": "Jason",
+   "bucket": "sellHigh",
+   "side": "give",
+   "name": "Brian Thomas",
+   "pos": "WR",
+   "shownInTradeSuggestion": 4436,
+   "boardValueOnRankings": 4466,
+   "offenseOnlyRankDerivedValue": 4436,
+   "deltaPct": -0.67
+  },
+  {
+   "team": "Jason",
+   "bucket": "sellHigh",
+   "side": "receive",
+   "name": "Harold Fannin",
+   "pos": "TE",
+   "shownInTradeSuggestion": 5700,
+   "boardValueOnRankings": 5735,
+   "offenseOnlyRankDerivedValue": 5700,
+   "deltaPct": -0.61
+  },
+  {
+   "team": "Brent",
+   "bucket": "consolidation",
+   "side": "give",
+   "name": "George Pickens",
+   "pos": "WR",
+   "shownInTradeSuggestion": 6307,
+   "boardValueOnRankings": 6271,
+   "offenseOnlyRankDerivedValue": 6307,
+   "deltaPct": 0.57
+  },
+  {
+   "team": "Jason",
+   "bucket": "sellHigh",
+   "side": "give",
+   "name": "Chris Olave",
+   "pos": "WR",
+   "shownInTradeSuggestion": 5640,
+   "boardValueOnRankings": 5617,
+   "offenseOnlyRankDerivedValue": 5640,
+   "deltaPct": 0.41
+  },
+  {
+   "team": "Jason",
+   "bucket": "sellHigh",
+   "side": "give",
+   "name": "Chris Olave",
+   "pos": "WR",
+   "shownInTradeSuggestion": 5640,
+   "boardValueOnRankings": 5617,
+   "offenseOnlyRankDerivedValue": 5640,
+   "deltaPct": 0.41
+  },
+  {
+   "team": "Jason",
+   "bucket": "sellHigh",
+   "side": "receive",
+   "name": "Kenneth Walker",
+   "pos": "RB",
+   "shownInTradeSuggestion": 5831,
+   "boardValueOnRankings": 5813,
+   "offenseOnlyRankDerivedValue": 5831,
+   "deltaPct": 0.31
+  },
+  {
+   "team": "MaKayla",
+   "bucket": "sellHigh",
+   "side": "receive",
+   "name": "Jadarian Price",
+   "pos": "RB",
+   "shownInTradeSuggestion": 4274,
+   "boardValueOnRankings": 4286,
+   "offenseOnlyRankDerivedValue": 4274,
+   "deltaPct": -0.28
+  },
+  {
+   "team": "Jason",
+   "bucket": "sellHigh",
+   "side": "receive",
+   "name": "Cam Skattebo",
+   "pos": "RB",
+   "shownInTradeSuggestion": 4482,
+   "boardValueOnRankings": 4488,
+   "offenseOnlyRankDerivedValue": 4482,
+   "deltaPct": -0.13
+  },
+  {
+   "team": "Jason",
+   "bucket": "sellHigh",
+   "side": "give",
+   "name": "Jordan Addison",
+   "pos": "WR",
+   "shownInTradeSuggestion": 3728,
+   "boardValueOnRankings": 3732,
+   "offenseOnlyRankDerivedValue": 3728,
+   "deltaPct": -0.11
+  },
+  {
+   "team": "Jason",
+   "bucket": "sellHigh",
+   "side": "give",
+   "name": "Jordan Addison",
+   "pos": "WR",
+   "shownInTradeSuggestion": 3728,
+   "boardValueOnRankings": 3732,
+   "offenseOnlyRankDerivedValue": 3728,
+   "deltaPct": -0.11
+  },
+  {
+   "team": "MaKayla",
+   "bucket": "sellHigh",
+   "side": "give",
+   "name": "Christian Watson",
+   "pos": "WR",
+   "shownInTradeSuggestion": 3865,
+   "boardValueOnRankings": 3867,
+   "offenseOnlyRankDerivedValue": 3865,
+   "deltaPct": -0.05
+  },
+  {
+   "team": "MaKayla",
+   "bucket": "sellHigh",
+   "side": "receive",
+   "name": "David Montgomery",
+   "pos": "RB",
+   "shownInTradeSuggestion": 3370,
+   "boardValueOnRankings": 3371,
+   "offenseOnlyRankDerivedValue": 3370,
+   "deltaPct": -0.03
+  },
+  {
+   "team": "Brent",
+   "bucket": "consolidation",
+   "side": "receive",
+   "name": "Josh Allen",
+   "pos": "QB",
+   "shownInTradeSuggestion": 9987,
+   "boardValueOnRankings": 9988,
+   "offenseOnlyRankDerivedValue": 9987,
+   "deltaPct": -0.01
+  }
+ ]
+}

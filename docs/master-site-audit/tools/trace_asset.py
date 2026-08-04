@@ -20,8 +20,10 @@ from pathlib import Path
 import requests
 
 ROOT = Path(__file__).resolve().parents[3]
-SCRATCH = Path("/tmp/claude-0/-home-user-riskittogetthebrisket/"
-               "0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad")
+SCRATCH = Path(
+    "/tmp/claude-0/-home-user-riskittogetthebrisket/"
+    "0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad"
+)
 API = "http://127.0.0.1:8000"
 RAW_CSV_DIR = ROOT / "CSVs/site_raw"
 
@@ -30,8 +32,9 @@ _contract_cache: dict | None = None
 
 def cookie() -> dict:
     secret = (SCRATCH / "e2e_secret.txt").read_text().strip()
-    r = requests.post(f"{API}/api/test/create-session",
-                      headers={"Authorization": f"Bearer {secret}"}, timeout=60)
+    r = requests.post(
+        f"{API}/api/test/create-session", headers={"Authorization": f"Bearer {secret}"}, timeout=60
+    )
     r.raise_for_status()
     return r.cookies.get_dict()
 
@@ -151,8 +154,10 @@ def trace(name: str, ck: dict) -> dict:
     out["position"] = row.get("position")
     out["team"] = row.get("team")
     out["playerId"] = row.get("playerId")
-    print(f"  {row.get('displayName')}  pos={row.get('position')} team={row.get('team')} "
-          f"playerId={row.get('playerId')!r} assetClass={row.get('assetClass')}")
+    print(
+        f"  {row.get('displayName')}  pos={row.get('position')} team={row.get('team')} "
+        f"playerId={row.get('playerId')!r} assetClass={row.get('assetClass')}"
+    )
 
     print("\n  --- STAGE 1: what the raw committed source CSVs say ---")
     raws = raw_source_rows(str(row.get("displayName") or name))
