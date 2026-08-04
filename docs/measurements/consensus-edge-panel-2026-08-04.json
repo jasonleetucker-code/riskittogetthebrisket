@@ -1,0 +1,212 @@
+{
+  "measuredAt": "2026-08-04T01:03:15.114350+00:00",
+  "method": "git history of CSVs/site_raw/*.csv, committed every 2h by scheduled-refresh.yml; as-of state for any date is the last commit <= that date touching each file",
+  "totalCommits": 4385,
+  "panel": {
+    "start": "2026-04-16",
+    "end": "2026-08-03",
+    "calendarDays": 110,
+    "sources": 24
+  },
+  "usableAsOfDatesByMinSourceCount": {
+    "3": 110,
+    "5": 110,
+    "10": 107,
+    "15": 106,
+    "20": 98
+  },
+  "forwardOutcomeCapacity": {
+    "7": {
+      "originDates": 103,
+      "nonOverlappingFolds": 15
+    },
+    "14": {
+      "originDates": 96,
+      "nonOverlappingFolds": 7
+    },
+    "30": {
+      "originDates": 80,
+      "nonOverlappingFolds": 3
+    },
+    "60": {
+      "originDates": 50,
+      "nonOverlappingFolds": 1
+    },
+    "90": {
+      "originDates": 20,
+      "nonOverlappingFolds": 1
+    },
+    "180": {
+      "originDates": 0,
+      "nonOverlappingFolds": 0
+    }
+  },
+  "deepSources": [
+    "dynastyDaddySf",
+    "ktc",
+    "flockFantasySf",
+    "ktcSfTep",
+    "fantasyCalc",
+    "draftSharksRosIdp",
+    "draftSharksIdp",
+    "draftSharksRosSf",
+    "draftSharksSf",
+    "flockFantasySfRookies",
+    "otcffbSf"
+  ],
+  "thinSources": [
+    "fantasyNavigatorSf",
+    "fantasyProsIdp",
+    "pfkDynasty",
+    "dynastyNerdsSfTep",
+    "idpShow",
+    "yahooBoone",
+    "fantasyProsFitzmaurice"
+  ],
+  "perSource": {
+    "dlfIdp": {
+      "path": "CSVs/site_raw/dlfIdp.csv",
+      "changeDates": 19,
+      "first": "2026-04-16",
+      "last": "2026-08-02"
+    },
+    "dlfRookieIdp": {
+      "path": "CSVs/site_raw/dlfRookieIdp.csv",
+      "changeDates": 18,
+      "first": "2026-04-20",
+      "last": "2026-08-02"
+    },
+    "dlfRookieSf": {
+      "path": "CSVs/site_raw/dlfRookieSf.csv",
+      "changeDates": 25,
+      "first": "2026-04-20",
+      "last": "2026-07-30"
+    },
+    "dlfSf": {
+      "path": "CSVs/site_raw/dlfSf.csv",
+      "changeDates": 23,
+      "first": "2026-04-20",
+      "last": "2026-08-01"
+    },
+    "draftSharksIdp": {
+      "path": "CSVs/site_raw/draftSharksIdp.csv",
+      "changeDates": 75,
+      "first": "2026-04-19",
+      "last": "2026-08-03"
+    },
+    "draftSharksRosIdp": {
+      "path": "CSVs/site_raw/draftSharksRosIdp.csv",
+      "changeDates": 76,
+      "first": "2026-04-28",
+      "last": "2026-08-03"
+    },
+    "draftSharksRosSf": {
+      "path": "CSVs/site_raw/draftSharksRosSf.csv",
+      "changeDates": 75,
+      "first": "2026-04-28",
+      "last": "2026-08-03"
+    },
+    "draftSharksSf": {
+      "path": "CSVs/site_raw/draftSharksSf.csv",
+      "changeDates": 75,
+      "first": "2026-04-19",
+      "last": "2026-08-03"
+    },
+    "dynastyDaddySf": {
+      "path": "CSVs/site_raw/dynastyDaddySf.csv",
+      "changeDates": 110,
+      "first": "2026-04-16",
+      "last": "2026-08-03"
+    },
+    "dynastyNerdsSfTep": {
+      "path": "CSVs/site_raw/dynastyNerdsSfTep.csv",
+      "changeDates": 5,
+      "first": "2026-04-16",
+      "last": "2026-07-31"
+    },
+    "fantasyCalc": {
+      "path": "CSVs/site_raw/fantasyCalc.csv",
+      "changeDates": 83,
+      "first": "2026-05-13",
+      "last": "2026-08-03"
+    },
+    "fantasyNavigatorSf": {
+      "path": "CSVs/site_raw/fantasyNavigatorSf.csv",
+      "changeDates": 1,
+      "first": "2026-07-25",
+      "last": "2026-07-25"
+    },
+    "fantasyProsFitzmaurice": {
+      "path": "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+      "changeDates": 8,
+      "first": "2026-04-20",
+      "last": "2026-08-03"
+    },
+    "fantasyProsIdp": {
+      "path": "CSVs/site_raw/fantasyProsIdp.csv",
+      "changeDates": 2,
+      "first": "2026-04-16",
+      "last": "2026-07-27"
+    },
+    "fantasyProsSf": {
+      "path": "CSVs/site_raw/fantasyProsSf.csv",
+      "changeDates": 10,
+      "first": "2026-04-16",
+      "last": "2026-08-03"
+    },
+    "flockFantasySf": {
+      "path": "CSVs/site_raw/flockFantasySf.csv",
+      "changeDates": 105,
+      "first": "2026-04-17",
+      "last": "2026-08-03"
+    },
+    "flockFantasySfRookies": {
+      "path": "CSVs/site_raw/flockFantasySfRookies.csv",
+      "changeDates": 75,
+      "first": "2026-04-21",
+      "last": "2026-07-30"
+    },
+    "idpShow": {
+      "path": "CSVs/site_raw/idpShow.csv",
+      "changeDates": 6,
+      "first": "2026-04-21",
+      "last": "2026-07-22"
+    },
+    "idpTradeCalc": {
+      "path": "CSVs/site_raw/idpTradeCalc.csv",
+      "changeDates": 14,
+      "first": "2026-04-16",
+      "last": "2026-08-02"
+    },
+    "ktc": {
+      "path": "CSVs/site_raw/ktc.csv",
+      "changeDates": 110,
+      "first": "2026-04-16",
+      "last": "2026-08-03"
+    },
+    "ktcSfTep": {
+      "path": "CSVs/site_raw/ktcSfTep.csv",
+      "changeDates": 99,
+      "first": "2026-04-27",
+      "last": "2026-08-03"
+    },
+    "otcffbSf": {
+      "path": "CSVs/site_raw/otcffbSf.csv",
+      "changeDates": 75,
+      "first": "2026-05-15",
+      "last": "2026-08-03"
+    },
+    "pfkDynasty": {
+      "path": "CSVs/site_raw/pfkDynasty.csv",
+      "changeDates": 4,
+      "first": "2026-07-25",
+      "last": "2026-08-03"
+    },
+    "yahooBoone": {
+      "path": "CSVs/site_raw/yahooBoone.csv",
+      "changeDates": 7,
+      "first": "2026-04-19",
+      "last": "2026-07-15"
+    }
+  }
+}
