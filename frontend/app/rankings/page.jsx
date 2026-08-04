@@ -1187,6 +1187,10 @@ export default function RankingsPage() {
         headerInfo:
           "BDVM fundamental value (balanced) minus market anchor — " +
           "positive means the market underprices the player. " +
+          "A trailing * marks a proxy-backed fundamental: no real " +
+          "projection source covers that player, so the value is last " +
+          "season's realized scoring and the gap is not a clean " +
+          "fundamental-vs-market read. " +
           "Visible only while the BDVM engine is enabled.",
         render: (row) => {
           const entry = bdvmEntryForRow(bdvmIndex, row);
@@ -1202,16 +1206,28 @@ export default function RankingsPage() {
             );
           }
           const css = bdvmSignalEdgeCss(entry.signal);
+          // Disclose a proxy-backed fundamental (audit finding B-8).  The
+          // /bdvm page badges this; this column used to render the gap
+          // with no indication that the fundamental side may be last
+          // season's realized PPG rather than a projection.
+          const proxyNote = entry.anyProxy
+            ? " — PROXY: fundamental is the reconstructed baseline (last " +
+              "season's realized scoring), not a real projection, so this " +
+              "gap partly reflects information the market has and it does not"
+            : "";
           const title =
             `${entry.signal}: ${entry.signalReason} — fundamental ` +
             `${formatBdvmValue(entry.fundamental)} vs market ` +
-            `${formatBdvmValue(entry.marketValue)}`;
+            `${formatBdvmValue(entry.marketValue)}${proxyNote}`;
+          const shown = entry.anyProxy
+            ? `${formatBdvmGap(entry.gap)}*`
+            : formatBdvmGap(entry.gap);
           return css ? (
             <span className={`edge-label ${css}`} title={title}>
-              {formatBdvmGap(entry.gap)}
+              {shown}
             </span>
           ) : (
-            <span title={title}>{formatBdvmGap(entry.gap)}</span>
+            <span title={title}>{shown}</span>
           );
         },
       });
