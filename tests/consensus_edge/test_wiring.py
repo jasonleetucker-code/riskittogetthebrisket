@@ -270,6 +270,255 @@ class TestRefusalStatesAreReachable(_Enabled):
                 self.assertTrue(row.get("unpricedReason"))
 
 
+@_needs_contract
+class TestOpportunityReachesRealBoardRows(unittest.TestCase):
+    """The axis must match real board keys, not just hand-made fixtures.
+
+    Everything about this component was correct in isolation and dead in
+    aggregate: the service indexed rank history by bare `displayName`
+    while the log files players under `{name}::{assetClass}`, so the
+    lookup matched **zero of 973** rows in every environment including
+    production. A unit test cannot see that — its fixture supplies both
+    sides of the join.
+
+    So this builds real history through the real producer, reads it back
+    through the real loader, and asserts the service's key finds it on
+    the real contract. Nothing here is hand-shaped.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import json
+        import tempfile
+
+        from src.api import rank_history
+
+        cls.history_path = Path(tempfile.mkdtemp()) / "rank_history.jsonl"
+        # Three snapshots with a deterministic per-player drift, so both
+        # directions of the momentum axis are exercised on real rows.
+        for step, day in enumerate(("2026-07-01", "2026-07-02", "2026-07-03")):
+            snapshot = json.loads(json.dumps(_CONTRACT))
+            for i, row in enumerate(snapshot["playersArray"]):
+                value = row.get("rankDerivedValue")
+                if isinstance(value, (int, float)):
+                    row["rankDerivedValue"] = value * (1 + (0.04 if i % 2 else -0.04) * step)
+            rank_history.append_snapshot(snapshot, path=cls.history_path, date=day)
+        cls.history = rank_history.load_history(days=30, path=cls.history_path)
+
+    def test_history_was_actually_written(self):
+        self.assertGreater(len(self.history), 100, "producer wrote nothing to replay")
+
+    def test_the_service_key_finds_real_rows(self):
+        from src.consensus_edge import service as svc
+
+        rows = _CONTRACT["playersArray"]
+        hits = sum(
+            1
+            for r in rows
+            if svc.rank_history_key(str(r.get("displayName") or ""), r.get("assetClass"))
+            in self.history
+        )
+        self.assertGreater(
+            hits / len(rows),
+            0.5,
+            "the service's history key matches under half the board — this is "
+            "the composite-key bug, which matched exactly zero rows",
+        )
+
+    def test_a_bare_name_lookup_would_still_match_nothing(self):
+        # Pins the bug itself: if this ever starts matching, the log's
+        # key format changed and `rank_history_key` must change with it.
+        rows = _CONTRACT["playersArray"]
+        bare = sum(1 for r in rows if str(r.get("displayName") or "") in self.history)
+        self.assertEqual(bare, 0)
+
+    def test_opportunity_produces_values_on_the_real_board(self):
+        """It must compute. Whether it *counts* is a separate question.
+
+        Before the key fix this measured zero rows in every environment.
+        It now measures hundreds — and carries zero weight, because the
+        backtest that became possible once board history turned out to
+        be reconstructable returned a null. Both facts are asserted
+        here, separately, because collapsing them is how a
+        measured-and-rejected component becomes indistinguishable from
+        a broken one.
+        """
+        from src.consensus_edge import service as svc
+
+        board = svc.build_board(_CONTRACT, rank_history_by_player=self.history)
+        availability = board["componentAvailability"]["opportunity"]
+        self.assertGreater(
+            availability["rowsWithValue"],
+            100,
+            "opportunity produced no value on any row despite real history",
+        )
+
+    def test_a_zero_weight_component_is_not_counted_as_live(self):
+        from src.consensus_edge import service as svc
+
+        board = svc.build_board(_CONTRACT, rank_history_by_player=self.history)
+        availability = board["componentAvailability"]["opportunity"]
+        if availability["weight"] > 0:
+            self.skipTest("opportunity carries weight again; this guard does not apply")
+        self.assertFalse(availability["available"])
+        self.assertEqual(availability["unavailableReason"], "zero_weight")
+        self.assertEqual(
+            sum(1 for v in board["componentAvailability"].values() if v["available"]),
+            1,
+            "a component contributing nothing to any score was counted toward "
+            "the confidence ceiling",
+        )
+
+    def test_a_zero_weight_component_cannot_raise_confidence(self):
+        """The specific way this would go wrong, pinned.
+
+        Confidence is a geometric mean over coverage. If a zero-weight
+        component entered `componentsPresent`, every row it valued would
+        gain coverage — and therefore confidence, and therefore possibly
+        a Strong label — from a signal contributing exactly zero to its
+        score.
+        """
+        from src.consensus_edge import service as svc
+
+        board = svc.build_board(_CONTRACT, rank_history_by_player=self.history)
+        checked = 0
+        for row in board["players"]:
+            if "opportunity" not in (row.get("componentsZeroWeight") or []):
+                continue
+            checked += 1
+            self.assertNotIn("opportunity", row["effectiveWeights"])
+        self.assertGreater(checked, 100, "no row exercised the zero-weight path")
+        self.assertFalse(board["strongLabelsReachable"])
+
+    def test_no_real_row_gets_a_buy_ward_push_from_price_alone(self):
+        """The direction guarantee, on every row of a real board.
+
+        Half these players' values rise across the replayed snapshots.
+        Under the previous axis each of those was a positive
+        contribution — momentum-chasing worth up to 20% of the
+        composite. Not one may be positive now.
+        """
+        from src.consensus_edge import service as svc
+
+        board = svc.build_board(_CONTRACT, rank_history_by_player=self.history)
+        checked = 0
+        for row in board["players"]:
+            for axis in (row.get("opportunity") or {}).get("axes") or []:
+                if axis["axis"] != "boardMomentumRisk" or axis["score"] is None:
+                    continue
+                checked += 1
+                self.assertLessEqual(
+                    axis["score"],
+                    0.0,
+                    f"{row['displayName']}: a board-value move produced a buy-ward "
+                    f"contribution of {axis['score']}",
+                )
+        self.assertGreater(checked, 100, "no row exercised the momentum axis at all")
+
+
+@_needs_contract
+class TestPlayerContextUnlocksASecondComponent(unittest.TestCase):
+    """Two live components is what makes Strong labels reachable at all.
+
+    Confidence is a geometric mean over coverage, so with one live
+    component the ceiling sits at 69.3 against a Strong threshold of 70
+    — Strong Buy and Strong Sell are not rare, they are *impossible*.
+    The second component moves the ceiling to 87.4.
+
+    The playerctx snapshot is gitignored, so this synthesises one in the
+    store's real shape. What that proves is the JOIN and the ceiling
+    arithmetic; the snap numbers themselves come from production.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        from src.consensus_edge import identity_join
+
+        index, players = {}, {}
+        for i, row in enumerate(_CONTRACT["playersArray"]):
+            sleeper_id = identity_join.row_sleeper_id(row)
+            if not sleeper_id or row.get("assetClass") == "pick":
+                continue
+            gsis = f"00-{i:07d}"
+            index[sleeper_id] = gsis
+            players[gsis] = {
+                "gsisId": gsis,
+                "sleeperId": sleeper_id,
+                "snaps": {
+                    "season": 2025,
+                    "games": 12,
+                    "side": "offense",
+                    "pct": 55.0,
+                    "recentPct": 55.0 + (6.0 if i % 3 else -6.0),
+                    "trend": 6.0 if i % 3 else -6.0,
+                },
+            }
+        cls.snapshot = {"schemaVersion": "playerctx.v1", "sleeperIndex": index, "players": players}
+        cls.context = identity_join.player_context_index(_CONTRACT, cls.snapshot)
+
+    def test_the_join_reaches_most_of_the_board(self):
+        rows = len(_CONTRACT["playersArray"])
+        self.assertGreater(
+            len(self.context) / rows,
+            0.5,
+            f"playerctx join reached only {len(self.context)} of {rows} rows",
+        )
+
+    def test_one_component_cannot_reach_a_strong_label(self):
+        from src.consensus_edge import service as svc
+
+        board = svc.build_board(_CONTRACT)
+        live = sum(1 for v in board["componentAvailability"].values() if v["available"])
+        self.assertEqual(live, 1, "expected only mispricing live with no inputs supplied")
+        self.assertFalse(board["strongLabelsReachable"])
+        self.assertNotIn("Strong Buy", {r["label"] for r in board["players"]})
+
+    def test_a_second_WEIGHTED_component_is_what_unlocks_strong_labels(self):
+        """Weight, not mere presence, is what makes a component count.
+
+        This test used to assert that supplying player context made
+        Strong labels reachable, and it passed. Then the composite
+        backtest returned a null for the opportunity axis and its weight
+        went to zero — at which point the old assertion was measuring
+        the wrong thing entirely: a component that contributes nothing
+        to any score was raising the confidence ceiling and unlocking
+        the strongest labels the board can emit.
+
+        So the ceiling arithmetic is asserted directly, against the
+        component count it is a function of, rather than through a
+        component whose weight is a live decision.
+        """
+        from src.consensus_edge import service as svc
+
+        board = svc.build_board(
+            _CONTRACT,
+            hours_stale=svc.resolve_hours_stale(_CONTRACT),
+            player_context_by_player=self.context,
+        )
+        weights = (svc.params_mod.load().get("composite") or {}).get("weights") or {}
+        expected_live = sum(
+            1
+            for name, meta in board["componentAvailability"].items()
+            if meta["rowsWithValue"] > 0 and float(weights.get(name) or 0.0) > 0
+        )
+        live = sum(1 for v in board["componentAvailability"].values() if v["available"])
+        self.assertEqual(live, expected_live)
+
+        threshold = 70.0
+        self.assertEqual(board["confidenceCeiling"], svc.confidence_ceiling(live, 3))
+        self.assertEqual(board["strongLabelsReachable"], board["confidenceCeiling"] >= threshold)
+        # The arithmetic itself, independent of today's weights: one
+        # weighted component cannot reach Strong, two can.
+        self.assertLess(svc.confidence_ceiling(1, 3), threshold)
+        self.assertGreaterEqual(svc.confidence_ceiling(2, 3), threshold)
+
+    def test_the_board_reports_the_context_it_received(self):
+        from src.consensus_edge import service as svc
+
+        board = svc.build_board(_CONTRACT, player_context_by_player=self.context)
+        self.assertEqual(board["inputs"]["playerContextPlayers"], len(self.context))
+
+
 class TestServiceSignature(unittest.TestCase):
     """The dead `_rawPayload` key documented an architecture that never existed."""
 

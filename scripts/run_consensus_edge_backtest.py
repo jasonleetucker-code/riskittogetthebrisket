@@ -49,6 +49,7 @@ from src.consensus_edge import MODEL_VERSION  # noqa: E402
 from src.consensus_edge import backtest as bt  # noqa: E402
 from src.consensus_edge import outcomes as oc  # noqa: E402
 from src.consensus_edge import panel  # noqa: E402
+from src.consensus_edge import validation_scope  # noqa: E402
 from src.consensus_edge.fair_value import fair_value_index  # noqa: E402
 from src.consensus_edge.mispricing import score_index  # noqa: E402
 
@@ -89,6 +90,13 @@ class _DayCache:
         with panel.panel_day(when) as day:
             contract = build_api_data_contract(day.payload, csv_root=day.csv_root)
             prices = oc.market_prices(contract)
+            # No `scoring_fit_board`, deliberately, and asserted below
+            # rather than left to a reader: the reception multipliers
+            # are fitted on a whole season's data and the panel cannot
+            # reconstruct them as-of, so applying them to a board from
+            # three months ago would be look-ahead leakage. The service
+            # DOES pass one, and `validation_scope` is what keeps that
+            # divergence visible instead of silent.
             index = fair_value_index(day.payload, csv_root=day.csv_root)
         scores = score_index(index)
         signal = {k: v["score"] for k, v in scores.items() if v.get("score") is not None}
@@ -174,6 +182,10 @@ def main(argv: list[str] | None = None) -> int:
     summary["modelVersion"] = MODEL_VERSION
     summary["measuredAt"] = datetime.now(timezone.utc).isoformat()
     summary["target"] = "cohort-excess market return of the anchor board"
+    # Stamp the configuration this number describes. A measurement that
+    # does not say what it measured cannot be checked against the thing
+    # it is quoted about.
+    summary["configuration"] = dict(validation_scope.MEASURED_CONFIGURATION)
     summary["caveats"] = [
         "Replays today's pipeline over past inputs: inputs cannot leak, but the model is current.",
         "Measures market movement, not fantasy production — the panel covers an offseason.",

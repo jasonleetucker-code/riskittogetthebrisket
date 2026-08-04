@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.consensus_edge import MODEL_VERSION, opportunity, params as params_mod, score as score_mod
-from src.consensus_edge import scoring_fit, sharp_flow as sf
+from src.consensus_edge import identity_join, scoring_fit, sharp_flow as sf, validation_scope
 from src.consensus_edge.fair_value import (
     MARKET_ANCHOR_BY_ASSET_CLASS,
     coverage as fv_coverage,
@@ -86,26 +86,46 @@ def resolve_hours_stale(contract: dict[str, Any] | None) -> float | None:
     return max(all_ages) if all_ages else None
 
 
-def component_availability(players: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Which components actually produced a value, and on how many rows.
+def component_availability(
+    players: list[dict[str, Any]],
+    weights: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Which components actually contribute, and on how many rows.
 
     A component that is dark because its data source is empty looks
     exactly like a component that is dark because nobody wired it up.
     Both were true here at different times, and neither was visible.
     This makes the distinction a reported fact.
+
+    **A zero-weight component is not available**, however many rows it
+    values. Opportunity is exactly that case since 2026-08-04: measured
+    against forward market movement, it made the ranking slightly worse,
+    so its weight is zero. Counting it as live would raise the confidence
+    ceiling — and with it make Strong labels reachable — on the strength
+    of a component contributing nothing to any score. `rowsWithValue`
+    still reports what it measured, because the evidence is real and is
+    shown to users; only its status as *usable* evidence changes.
     """
     names = ("mispricing", "sharpFlow", "opportunity")
+    weights = weights or {}
     scored = [r for r in players if r.get("score") is not None]
     out: dict[str, dict[str, Any]] = {}
     for name in names:
         present = sum(
             1 for r in players if isinstance((r.get("components") or {}).get(name), (int, float))
         )
-        out[name] = {
-            "available": present > 0,
+        weight = float(weights.get(name) or 0.0)
+        entry: dict[str, Any] = {
+            "available": present > 0 and weight > 0,
             "rowsWithValue": present,
             "rowsScored": len(scored),
+            "weight": weight,
         }
+        if present > 0 and weight <= 0:
+            entry["unavailableReason"] = "zero_weight"
+        elif present == 0:
+            entry["unavailableReason"] = "no_data"
+        out[name] = entry
     return out
 
 
@@ -160,8 +180,32 @@ def _explain(row: dict[str, Any]) -> list[str]:
         parts.append("No qualified-manager activity supports or contradicts this.")
 
     opp = row.get("opportunity") or {}
+    zero_weighted = "opportunity" in (row.get("componentsZeroWeight") or [])
     if opp.get("score") is None and opp.get("absentAxes"):
         parts.append("Role and usage evidence was not available, so this rests on price alone.")
+    elif zero_weighted:
+        # Shown, but explicitly not counted. A reader who sees a role
+        # signal on the card and a score that ignores it deserves to be
+        # told which of the two is the model's answer.
+        parts.append(
+            "Role and momentum evidence is shown below but does not move this "
+            "score: measured against forward market movement it did not improve "
+            "on price alone, so it carries no weight."
+        )
+    else:
+        # Each axis carries its own sentence, because the two point in
+        # opposite directions by design and a single combined number
+        # would read as one finding when it is two.
+        for axis in opp.get("axes") or []:
+            if axis.get("score") is None or not axis.get("detail"):
+                continue
+            if axis.get("axis") == "snapTrend":
+                verb = "growing" if axis["score"] > 0 else "shrinking"
+                parts.append(f"His snap-share role is {verb} — {axis['detail']}.")
+            elif axis.get("axis") == "boardMomentumRisk" and axis["score"] < 0:
+                parts.append(
+                    f"Tempered because the market is already closing this gap — {axis['detail']}."
+                )
 
     conflict = row.get("conflict") or {}
     if conflict.get("conflicted"):
@@ -169,11 +213,33 @@ def _explain(row: dict[str, Any]) -> list[str]:
     return parts
 
 
+def rank_history_key(player_key: str, asset_class: Any) -> str:
+    """The key ``rank_history.load_history`` files this player under.
+
+    The log is keyed ``{canonicalName}::{assetClass}`` — deliberately,
+    because Sleeper allows one display name to mean two different humans
+    on the offense and IDP boards. Looking a player up by bare name
+    therefore misses **every** entry, which is exactly what this module
+    did: the opportunity axis read a dict that could never contain its
+    keys and reported "no history" for every player in every
+    environment, production included.
+
+    Mirrors ``rank_history._player_key`` for rows that carry
+    ``assetClass`` — which every fair-value entry does, since it comes
+    straight off the ``playersArray`` row that function prefers.
+    ``tests/consensus_edge/test_wiring.py`` pins the two formats
+    together rather than importing a private helper across packages.
+    """
+    asset = str(asset_class or "").strip().lower()
+    return f"{player_key}::{asset or 'unknown'}"
+
+
 def build_board(
     contract: dict[str, Any] | None,
     *,
     movements_by_asset: dict[str, Any] | None = None,
     rank_history_by_player: dict[str, list[dict[str, Any]]] | None = None,
+    player_context_by_player: dict[str, dict[str, Any]] | None = None,
     params: dict[str, Any] | None = None,
     hours_stale: float | None = None,
 ) -> dict[str, Any]:
@@ -182,6 +248,12 @@ def build_board(
     ``movements_by_asset`` of ``None`` means no ledger — Sharp Flow is
     then reported unavailable and omitted from the composite rather than
     contributing a neutral zero.
+
+    ``player_context_by_player`` is the playerctx snapshot joined to
+    board keys (see :mod:`consensus_edge.identity_join`). Absent, the
+    opportunity component falls back to the board-momentum risk axis
+    alone, which can only ever subtract — so a missing snapshot cannot
+    manufacture a buy.
     """
     if not contract:
         return {
@@ -197,6 +269,14 @@ def build_board(
     # dict either way — verified byte-identical over 973 rows. This used
     # to read a ``_rawPayload`` key that nothing in the repo ever wrote,
     # which documented an indirection that did not exist.
+    # The reception-depth axis measures per-player multipliers keyed by
+    # GSIS id and REFUSES to apply them without a join to board keys —
+    # so supplying the join is what turns a measured-but-dark axis into
+    # a live one. Resolved here, once, and handed to the scoring module
+    # rather than resolved inside it: identity is the identity package's
+    # job, and a second join grown inside a scoring module is how a repo
+    # ends up with two answers to "which player is this".
+    scoring_fit.set_gsis_join(identity_join.build_gsis_to_player_key(contract))
     fit_board = scoring_fit.measure(season=contract.get("currentDraftYear"))
     index = fair_value_index(contract, scoring_fit_board=fit_board)
     mispricing = score_index(index)
@@ -206,7 +286,11 @@ def build_board(
     for key, entry in index.items():
         mis = mispricing.get(key) or {}
         flow_entry = (flow.get("assets") or {}).get(key) or {}
-        opp = opportunity.assess(rank_history=(rank_history_by_player or {}).get(key))
+        history = (rank_history_by_player or {}).get(rank_history_key(key, entry.get("assetClass")))
+        opp = opportunity.assess(
+            rank_history=history,
+            player_context=(player_context_by_player or {}).get(key),
+        )
 
         components: dict[str, float | None] = {
             "mispricing": mis.get("score"),
@@ -243,6 +327,12 @@ def build_board(
             "confidenceFactors": conf["factors"],
             "components": components,
             "componentsAbsent": comp["componentsAbsent"],
+            # Components that produced a value the model deliberately
+            # does not act on. Distinct from absent: the evidence exists
+            # and is shown, it just carries no weight. Collapsing the two
+            # would make a measured-and-rejected signal indistinguishable
+            # from a missing one.
+            "componentsZeroWeight": comp.get("componentsZeroWeight") or [],
             "effectiveWeights": comp["effectiveWeights"],
             "mispricing": mis,
             "sharpFlow": flow_entry or {"reason": flow.get("status")},
@@ -265,9 +355,12 @@ def build_board(
 
     players.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0.0)))
 
-    availability = component_availability(players)
+    availability = component_availability(players, (p.get("composite") or {}).get("weights"))
     live_components = sum(1 for meta in availability.values() if meta["available"])
     ceiling = confidence_ceiling(live_components, len(availability))
+    scope = validation_scope.scope_for_board(fit_board.to_meta())
+    caveats = _caveats(scope)
+    strong_threshold = float((p.get("classification") or {}).get("minConfidenceForStrong") or 70.0)
 
     return {
         "status": STATUS_OK,
@@ -290,8 +383,13 @@ def build_board(
         # unreachable. That is a legitimate state, but it must never
         # again be mistaken for the model simply not finding any.
         "confidenceCeiling": ceiling,
-        "strongLabelsReachable": ceiling
-        >= float((p.get("classification") or {}).get("minConfidenceForStrong") or 70.0),
+        # Published alongside the boolean because the UI explains the
+        # boolean by naming the number. It used to hardcode 70 in JSX —
+        # the same backend/frontend drift that produced the client-side
+        # rank fallback, in miniature: change the threshold here and the
+        # sentence on the page would keep quoting the old one.
+        "strongLabelThreshold": strong_threshold,
+        "strongLabelsReachable": ceiling >= strong_threshold,
         # What this board was actually handed. An input that never
         # arrived is the defect class this whole feature suffered from,
         # so the inputs are part of the payload, not an implementation
@@ -304,14 +402,38 @@ def build_board(
             "rankHistoryPlayers": len(rank_history_by_player or {})
             if rank_history_by_player is not None
             else None,
+            "playerContextPlayers": len(player_context_by_player or {})
+            if player_context_by_player is not None
+            else None,
         },
         "experimental": True,
-        "caveats": [
-            "Composite weights are declared priors, not fitted — only the "
-            "mispricing component has an out-of-sample result.",
-            "Validated against market movement, not fantasy production.",
-        ],
+        # Whether this board is running the configuration the committed
+        # measurements were produced under. The backtest measures fair
+        # value with league scoring fit INERT; this path applies it. The
+        # two agree today and would silently stop agreeing the moment a
+        # real Sleeper directory reaches production.
+        "validationScope": scope,
+        "caveats": caveats,
     }
+
+
+def _caveats(scope: dict[str, Any]) -> list[str]:
+    """What this board does not claim. Configuration-aware.
+
+    The first two are permanent properties of the model. The third
+    appears only when the board has drifted off the measured
+    configuration, because a caveat that is always present is one nobody
+    reads — and this particular one needs to be read.
+    """
+    out = [
+        "Sharp Flow's weight is a declared prior, not fitted. Opportunity was "
+        "measured and carries zero weight: it is shown as evidence and does "
+        "not move any score.",
+        "Validated against market movement, not fantasy production.",
+    ]
+    for difference in scope.get("differences") or []:
+        out.append(f"This board is NOT running the configuration that was measured — {difference}.")
+    return out
 
 
 def top_movers(board: dict[str, Any], limit: int = 20) -> dict[str, list[dict[str, Any]]]:

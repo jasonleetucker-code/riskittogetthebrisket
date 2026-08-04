@@ -35,7 +35,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from src.consensus_edge import service, snapshot  # noqa: E402
+from src.consensus_edge import inputs as inputs_mod, service, snapshot  # noqa: E402
 
 
 def log(msg: str) -> None:
@@ -76,9 +76,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     started = datetime.now(timezone.utc)
+    # Shares input resolution with the API. Building this board from
+    # fewer inputs than the served one would accrue a history of
+    # something no user ever saw, which answers none of the questions
+    # the history exists for — and the discrepancy would be invisible,
+    # since a board missing a component is a legitimate state.
     board = service.build_board(
         contract,
         hours_stale=service.resolve_hours_stale(contract),
+        **inputs_mod.resolve(contract),
     )
     board["contractScrapedAt"] = contract.get("scrapeTimestamp")
 

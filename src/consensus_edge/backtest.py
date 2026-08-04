@@ -246,9 +246,15 @@ def _verdict(summary: dict[str, Any]) -> str:
     beat = summary["benchmarks"].get("marketValue", {}).get("beatenInFolds")
     consistent = positive == n or positive == 0
     direction = "positive" if mean > 0 else "negative"
+    # Count the folds that agree with the MEAN's direction. Reporting
+    # `positive` under a "negative" label — which is what this did — turns
+    # 3-of-5-negative into the sentence "2/5 folds negative". Nobody
+    # noticed while every measured mean happened to be positive; the
+    # momentum axis produced the first negative one.
+    agreeing = positive if mean > 0 else n - positive
     parts = [
         f"mean rho {mean:+.3f} over {n} non-overlapping folds",
-        f"{positive}/{n} folds {direction}",
+        f"{agreeing}/{n} folds {direction}",
     ]
     if beat is not None:
         parts.append(f"beat market-value benchmark in {beat}/{n}")

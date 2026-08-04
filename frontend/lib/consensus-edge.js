@@ -81,28 +81,65 @@ export function formatValue(value) {
   return Math.round(value).toLocaleString();
 }
 
+/** Display names for the three components, in stable display order. */
+export const COMPONENT_ORDER = ["mispricing", "sharpFlow", "opportunity"];
+
+export const COMPONENT_LABELS = {
+  mispricing: "Market mispricing",
+  sharpFlow: "Sharp flow",
+  opportunity: "Opportunity / risk",
+};
+
+export function componentLabel(key) {
+  return COMPONENT_LABELS[key] || key;
+}
+
 /**
- * Components in a stable display order, annotated with whether each has
- * been validated. Surfacing that per component is the honest way to
- * show a composite whose parts have unequal standing.
+ * Components in a stable display order, annotated with their standing.
+ *
+ * Four states, not two. The page used to render only "has a value" and
+ * "not assessed", which flattened two distinctions that matter:
+ *
+ * - `zeroWeight` — the component produced a real value that the model
+ *   deliberately does not act on. Opportunity is this since its
+ *   composite backtest returned a null. Drawn as an ordinary bar it
+ *   would look exactly like a contributing signal, and a user comparing
+ *   a −0.60 opportunity reading against a score that ignores it has no
+ *   way to tell which is the model's answer.
+ * - `partial` — scored, but some axes had no evidence. A row carrying
+ *   only `boardMomentumRisk` (which is clamped ≤ 0) drew an ordinary
+ *   negative bar indistinguishable from a fully-evidenced negative
+ *   reading. That is the common case outside production, where the
+ *   playerctx snapshot that feeds `snapTrend` does not exist.
+ *
+ * Still a pure materializer: every field here is read off the payload,
+ * none is computed.
  */
 export function componentRows(row, validation) {
   const components = (row && row.components) || {};
-  const order = ["mispricing", "sharpFlow", "opportunity"];
-  const labels = {
-    mispricing: "Market mispricing",
-    sharpFlow: "Sharp flow",
-    opportunity: "Opportunity / risk",
-  };
-  return order.map((key) => {
+  const zeroWeighted = new Set((row && row.componentsZeroWeight) || []);
+  return COMPONENT_ORDER.map((key) => {
     const value = components[key];
     const meta = (validation && validation[key]) || {};
+    const hasValue = typeof value === "number" && Number.isFinite(value);
+    // Per-component evidence blocks sit at the row's top level
+    // (`row.opportunity`, `row.sharpFlow`, `row.mispricing`), alongside
+    // the scalar in `row.components`.
+    const evidence = (row && row[key]) || {};
+    const absentAxes = Array.isArray(evidence.absentAxes) ? evidence.absentAxes : [];
+    const observedAxes = Array.isArray(evidence.observedAxes) ? evidence.observedAxes : [];
     return {
       key,
-      label: labels[key],
-      value: typeof value === "number" && Number.isFinite(value) ? value : null,
-      absent: !(typeof value === "number" && Number.isFinite(value)),
+      label: componentLabel(key),
+      value: hasValue ? value : null,
+      absent: !hasValue,
+      zeroWeight: hasValue && zeroWeighted.has(key),
+      partial: hasValue && absentAxes.length > 0,
+      absentAxes,
+      observedAxes,
       validated: Boolean(meta.validated),
+      measured: Boolean(meta.measured),
+      outcome: meta.outcome || null,
       note: meta.note || "",
       weight:
         row && row.effectiveWeights ? row.effectiveWeights[key] ?? null : null,

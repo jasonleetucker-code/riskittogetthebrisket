@@ -142,7 +142,13 @@ unmeasured through the measured.
 **Decision:** components are scored and reported separately. The
 composite ships behind a flag, default OFF, with weights labelled
 provisional, and does not claim validation the parts do not have.
-**Status:** accepted 2026-08-04.
+**Status:** accepted 2026-08-04. **Partly superseded by ADR-013 the same
+day:** the claim that Opportunity "has no forward-projection feed to
+rest on" was wrong twice over — it rests on board history and playerctx,
+not projections, and its momentum axis turned out to be measurable after
+all. It was measured, the result was a null, and its weight is now zero.
+The reasoning about Sharp Flow, and the general rule against laundering
+unmeasured components through measured ones, stand unchanged.
 
 ## ADR-009: the measured target is market movement, and the docs say so
 The panel covers the 2026 offseason. No games were played in it, so a
@@ -206,4 +212,93 @@ UI cannot drift from the truth by restating it.
 **The one exception:** `/api/consensus-edge/methodology` answers even
 when the flag is off. A user who cannot see the board should still be
 able to read what it is and what it does not claim.
+**Status:** accepted 2026-08-04.
+
+## ADR-013: the momentum axis was measurable, and it did not earn a weight
+**The defect.** `opportunity.rank_momentum_axis` scored a *rising* board
+value POSITIVELY while its own docstring said momentum was used only as
+a risk check. That is momentum-chasing — "the price went up" as evidence
+the price should go up — worth up to 20% of the composite pushed toward
+Buy. It also never ran: the service looked up rank history by bare
+`displayName` while the log files players under `{name}::{assetClass}`,
+and the axis read `rankDerivedValue` where the producer writes `val`.
+Measured on a live 973-row board, the lookup matched **zero** rows, in
+every environment including production. Both are shape errors, and the
+unit test built its fixture in a shape the producer never emits, so the
+test agreed with the code and both were wrong together.
+
+**The assumption that was wrong.** With the axis fixed and live, the
+composite became 80% validated instead of 100% — a dark component
+contributes nothing, a live unvalidated one moves scores. Validating it
+looked impossible: `data/rank_history.jsonl` is untracked and always has
+been, so board history cannot be read out of git. But the history file
+is not the only route to past board values. `panel.panel_day()` already
+reconstructs each of the 110 as-of dates from committed payloads and
+source CSVs, and `build_api_data_contract` on that payload yields
+exactly the value series that file records. The axis was backtestable
+the whole time.
+
+**The measurement.** Candidate: the composite as `score.composite`
+computes it, mispricing plus momentum. Benchmark: mispricing alone, on
+the same folds and the same player intersection, so the comparison is
+like-for-like rather than two numbers from two studies. The 30-day
+production lookback is replayed as-is; a shorter window would measure a
+different signal under the shipping signal's name.
+
+| horizon | folds | composite | mispricing | delta | composite beat it |
+|---|---|---|---|---|---|
+| 7d | 11 | +0.091 | +0.101 | -0.010 | 3/11 |
+| 14d | 5 | +0.119 | +0.129 | -0.009 | 2/5 |
+
+The axis alone: -0.072 and -0.068, inconsistent per fold. Both powered
+horizons agree that adding it makes the ranking slightly worse.
+
+**Decision:** the momentum weight is zero. The bar — beat the validated
+component out of sample or carry no weight — was set before the number
+was known, and a validated null is a result, not a failure. The axis is
+still computed and still shown per row, marked "not counted": the
+evidence is real, only its authority is withdrawn.
+
+**Three consequences that had to be handled, not just noted.** A weight
+of zero stops a component reaching the score and nothing else, so a
+rejected signal would have kept steering the output through two side
+doors. `score.composite` now excludes zero-weight components from
+`componentsPresent` (they were inflating coverage, and therefore
+confidence, and therefore which labels were reachable);
+`detect_conflict` now ignores them (conflict suppresses directional
+calls, so a rejected signal could veto a call it was not allowed to
+contribute to); and `component_availability` no longer counts them as
+live, which returns the confidence ceiling to 69.3 and puts Strong
+labels out of reach again. That last is not a regression — it is the
+board declining to make a strong call on one component's evidence.
+
+**Status:** accepted 2026-08-04. Supersedes the Opportunity half of
+ADR-008.
+
+## ADR-014: the measurement stamps its configuration, and the board stamps its scope
+**The defect.** `COMPONENT_VALIDATION["mispricing"]` claims rho +0.126
+and cites the file that produced it. That file came from a path calling
+`fair_value_index` with **no** `scoring_fit_board`; `service.build_board`
+passes one. The two agree today only because the repo's Sleeper
+directory is a 15-row stub with zero `gsis_id`s, so the join is empty and
+the fit is exactly 1.0 — an accident of the fixture, not a property of
+the code. A real directory in production would multiply served fair
+values by per-player multipliers the measurement never saw, and every
+payload would go on citing the same rho. Nothing would break; the number
+would just quietly stop being about the thing it is quoted about.
+
+**Why the backtest is not simply taught to apply the fit.** It cannot,
+honestly. The reception multipliers are measured from a season of weekly
+rows and a reception-depth payload, neither of which the panel
+reconstructs as-of. Applying today's multipliers to a board from three
+months ago would be look-ahead leakage — they were fitted on data from
+*after* the origin date — dressed as a fix.
+
+**Decision:** make the gap a reported fact on both sides rather than
+making the two identical. Each measurement stamps the `configuration` it
+was produced under; each board stamps `validationScope` comparing itself
+against it; a mismatch becomes a caveat on the payload and a note on the
+page. A test asserts the backtest really does run inert, so the day
+someone teaches it otherwise they must also update the recorded
+configuration alongside a re-run.
 **Status:** accepted 2026-08-04.

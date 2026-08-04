@@ -24,6 +24,7 @@ import { useMemo, useState } from "react";
 import { SegmentedControl } from "@/components/ds";
 import { useConsensusEdge } from "@/components/useConsensusEdge";
 import {
+  componentLabel,
   componentRows,
   formatConfidence,
   formatPct,
@@ -98,25 +99,58 @@ function FailureState({ failure }) {
 function AvailabilityBanner({ board }) {
   const availability = board.componentAvailability || {};
   const live = Object.entries(availability).filter(([, v]) => v.available);
-  const dark = Object.entries(availability).filter(([, v]) => !v.available);
+  // A component is dark for two very different reasons, and lumping
+  // them under "has no data" was wrong for one of them: opportunity
+  // measures hundreds of rows and carries zero weight because its
+  // backtest returned a null.
+  const noData = Object.entries(availability).filter(
+    ([, v]) => !v.available && v.unavailableReason !== "zero_weight",
+  );
+  const rejected = Object.entries(availability).filter(
+    ([, v]) => v.unavailableReason === "zero_weight",
+  );
   const hours = board.inputs?.hoursStale;
+  // Read from the payload rather than hardcoded. A literal here is the
+  // same backend/frontend drift this file's own comments warn against —
+  // change the threshold server-side and the sentence starts lying.
+  const threshold = board.strongLabelThreshold;
+  const diverged = board.validationScope?.matchesMeasured === false;
 
   return (
     <div className={styles.experimental}>
       <p>
         <strong>Experimental.</strong> {live.length} of{" "}
         {Object.keys(availability).length} components are live
-        {dark.length > 0 && <> — {dark.map(([k]) => k).join(", ")} has no data</>}.
-        Composite weights are declared priors, not fitted. Validated against
-        market movement, not fantasy production.
+        {noData.length > 0 && (
+          <> — {joinLabels(noData)} {noData.length === 1 ? "has" : "have"} no data</>
+        )}
+        {rejected.length > 0 && (
+          <>
+            {" "}— {joinLabels(rejected)}{" "}
+            {rejected.length === 1 ? "was" : "were"} measured and carries no
+            weight
+          </>
+        )}
+        . Validated against market movement, not fantasy production.
       </p>
+      {diverged && (
+        <p className={styles.ceilingNote}>
+          <strong>Note:</strong> this board is not running the configuration the
+          published measurement was produced under
+          {board.validationScope.differences?.length > 0 && (
+            <> — {board.validationScope.differences.join("; ")}</>
+          )}
+          .
+        </p>
+      )}
       {board.strongLabelsReachable === false && (
         <p className={styles.ceilingNote}>
           Strong Buy and Strong Sell cannot appear: with {live.length} live
           component{live.length === 1 ? "" : "s"} the confidence ceiling is{" "}
-          {Math.round(board.confidenceCeiling)}, below the threshold of 70. This
-          is the model declining to make a strong call on partial evidence, not
-          an absence of candidates.
+          {Math.round(board.confidenceCeiling)}
+          {typeof threshold === "number" && <>, below the threshold of {threshold}</>}
+          . This is the model declining to make a strong call on partial
+          evidence, not an absence of candidates.
         </p>
       )}
       {typeof hours === "number" && (
@@ -129,6 +163,10 @@ function AvailabilityBanner({ board }) {
   );
 }
 
+function joinLabels(entries) {
+  return entries.map(([key]) => componentLabel(key)).join(", ");
+}
+
 function ComponentBar({ component }) {
   if (component.absent) {
     return (
@@ -139,24 +177,52 @@ function ComponentBar({ component }) {
     );
   }
   const pct = Math.min(100, Math.abs(component.value) * 100);
+  // A zero-weight component is shown because the evidence is real, and
+  // muted because it does not move the score. Drawing it identically to
+  // a contributing component would leave a reader unable to tell which
+  // number the model actually used.
+  const barClass = component.zeroWeight
+    ? styles.barInert
+    : component.value >= 0
+      ? styles.barPos
+      : styles.barNeg;
   return (
     <div className={styles.component} title={component.note}>
       <span className={styles.componentLabel}>
         {component.label}
-        {!component.validated && (
-          <span className={styles.unvalidated} title={component.note}>
+        {component.zeroWeight ? (
+          <span className={styles.notCounted} title={component.note}>
             {" "}
-            unvalidated
+            not counted
+          </span>
+        ) : (
+          !component.validated && (
+            <span className={styles.unvalidated} title={component.note}>
+              {" "}
+              unvalidated
+            </span>
+          )
+        )}
+        {component.partial && (
+          <span
+            className={styles.partial}
+            title={`No evidence for: ${component.absentAxes.join(", ")}`}
+          >
+            {" "}
+            partial evidence
           </span>
         )}
       </span>
       <span className={styles.componentTrack}>
-        <span
-          className={component.value >= 0 ? styles.barPos : styles.barNeg}
-          style={{ width: `${pct}%` }}
-        />
+        <span className={barClass} style={{ width: `${pct}%` }} />
       </span>
-      <span className={styles.componentValue}>
+      <span
+        className={
+          component.zeroWeight
+            ? `${styles.componentValue} ${styles.componentValueInert}`
+            : styles.componentValue
+        }
+      >
         {component.value >= 0 ? "+" : ""}
         {component.value.toFixed(2)}
       </span>

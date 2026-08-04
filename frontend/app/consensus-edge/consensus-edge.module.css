@@ -200,9 +200,42 @@
 .barPos { display: block; height: 100%; background: #58c98a; }
 .barNeg { display: block; height: 100%; background: #e08a8a; }
 
+/* A component that produced a real value the model does not act on.
+   Deliberately colourless and hatched rather than a dimmer green or
+   red: a muted-but-still-directional bar would read as "a weak buy
+   signal", which is the opposite of "measured and found not to help".
+   The bar's WIDTH still carries the magnitude, because the evidence is
+   real and worth reading — only its authority is withdrawn. */
+.barInert {
+  display: block;
+  height: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--text-muted, #8b93a7) 0 3px,
+    transparent 3px 6px
+  );
+  opacity: 0.55;
+}
+
+.notCounted {
+  font-size: 0.68rem;
+  color: var(--text-muted, #8b93a7);
+  text-decoration: line-through;
+}
+
+.partial {
+  font-size: 0.68rem;
+  color: var(--text-muted, #8b93a7);
+}
+
 .componentValue {
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+.componentValueInert {
+  color: var(--text-muted, #8b93a7);
+  text-decoration: line-through;
 }
 
 .footnote,

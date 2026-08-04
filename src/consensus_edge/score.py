@@ -47,18 +47,46 @@ WITHHELD = "Withheld"
 COMPONENT_VALIDATION: dict[str, dict[str, Any]] = {
     "mispricing": {
         "validated": True,
+        "measured": True,
+        "outcome": "positive",
         "evidence": "docs/measurements/consensus-edge-backtest-2026-08-04-h14.json",
         "note": "rho +0.126 over 7 non-overlapping folds; beat market-value benchmark 7/7",
     },
     "sharpFlow": {
         "validated": False,
+        # Not merely unmeasured — unmeasurABLE with the code as it
+        # stands. The qualified cohort is recomputed live on every
+        # request and `src/sharp/` has no as-of concept at all, so a
+        # historical value cannot be reconstructed however much ledger
+        # data accumulates.
+        "measured": False,
+        "outcome": None,
         "evidence": None,
-        "note": "no ledger outside production; never checked against an outcome",
+        "note": (
+            "no ledger outside production; never checked against an outcome, and "
+            "cannot be until the qualified cohort can be frozen as-of a date"
+        ),
     },
     "opportunity": {
+        # `validated` stays False, and that is deliberate. This component
+        # WAS measured — which `measured` says — but the result was a
+        # null: it did not earn a weight. `validated` drives the UI's
+        # "unvalidated" badge, so flipping it True for a negative result
+        # would tell a user the component is trustworthy on the strength
+        # of evidence that it is not. "Measured" and "validated" are
+        # different claims and this is exactly the case that separates
+        # them.
         "validated": False,
-        "evidence": None,
-        "note": "no forward-projection feed; contributes only where evidenced",
+        "measured": True,
+        "outcome": "null",
+        "evidence": "docs/measurements/consensus-edge-composite-2026-08-04-h7.json",
+        "note": (
+            "measured and rejected: adding the board-momentum axis lowered mean "
+            "rho (7d -0.010 over 11 folds, 14d -0.009 over 5) and beat mispricing "
+            "alone in only 3/11 and 2/5 folds. Weight is zero; the axis is "
+            "displayed as evidence but does not move the score. The snapTrend "
+            "axis is production-only and remains unmeasured."
+        ),
     },
 }
 
@@ -132,22 +160,42 @@ def composite(
     core = set(cfg.get("coreComponents") or [])
     require_core = bool(cfg.get("requireCoreComponent", True))
 
-    present = {k: v for k, v in components.items() if isinstance(v, (int, float))}
-    absent = sorted(k for k in components if k not in present)
+    valued = {k: v for k, v in components.items() if isinstance(v, (int, float))}
+    # A component carrying a value but ZERO weight is not evidence. It
+    # is a measurement we deliberately decided not to act on, and it must
+    # not enter `componentsPresent` — that list feeds `confidence` as the
+    # coverage numerator, so counting it would raise a player's
+    # confidence on the strength of a signal contributing exactly nothing
+    # to his score. Reported separately so it also cannot be mistaken for
+    # missing data.
+    zero_weight = sorted(k for k in valued if float(weights.get(k) or 0.0) == 0.0)
+    present = {k: v for k, v in valued.items() if k not in zero_weight}
+    absent = sorted(k for k in components if k not in valued)
 
     out: dict[str, Any] = {
         "score": None,
         "componentsPresent": sorted(present),
         "componentsAbsent": absent,
+        "componentsZeroWeight": zero_weight,
         "effectiveWeights": {},
         "reason": None,
     }
 
-    if not present:
+    if not valued:
         out["reason"] = "no components available"
         return out
-    if require_core and core and not (core & set(present)):
+    # The core check reads `valued`, not `present`, and runs FIRST. It is
+    # a statement about the KIND of evidence — an opportunity signal
+    # alone describes a player without saying whether he is mispriced —
+    # and that holds whatever the weights happen to be. Checking it
+    # against the post-weight set would report "everything carries zero
+    # weight" for a case whose real defect is that no core component was
+    # supplied at all.
+    if require_core and core and not (core & set(valued)):
         out["reason"] = "no core component available (need one of " + ", ".join(sorted(core)) + ")"
+        return out
+    if not present:
+        out["reason"] = "every available component carries zero weight"
         return out
 
     total_weight = sum(float(weights.get(k) or 0.0) for k in present)
@@ -172,12 +220,24 @@ def detect_conflict(
     components: dict[str, float | None],
     params: dict[str, Any],
 ) -> dict[str, Any]:
-    """Flag strong evidence pointing in opposite directions."""
+    """Flag strong evidence pointing in opposite directions.
+
+    Zero-weight components are excluded, for the same reason
+    :func:`composite` excludes them from ``componentsPresent``. Conflict
+    is a refusal mechanism — it suppresses a directional call — so a
+    component that was measured and rejected must not be able to veto a
+    call it is not allowed to contribute to. Letting it would mean a
+    signal we decided is non-predictive still steers the output, just
+    through a different door.
+    """
     threshold = float((params.get("conflict") or {}).get("minMagnitude") or 0.5)
+    weights = (params.get("composite") or {}).get("weights") or {}
     strong = {
         k: float(v)
         for k, v in components.items()
-        if isinstance(v, (int, float)) and abs(float(v)) >= threshold
+        if isinstance(v, (int, float))
+        and abs(float(v)) >= threshold
+        and float(weights.get(k) or 0.0) > 0.0
     }
     positive = sorted(k for k, v in strong.items() if v > 0)
     negative = sorted(k for k, v in strong.items() if v < 0)

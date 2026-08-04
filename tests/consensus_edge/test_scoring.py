@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 import unittest
+from pathlib import Path
 
 from src.consensus_edge import mispricing, opportunity, params as params_mod, score, sharp_flow
 
@@ -233,10 +234,21 @@ class TestOpportunityInertness(unittest.TestCase):
         self.assertEqual(out["reason"], opportunity.UNSCORED_NO_EVIDENCE)
 
     def test_absent_axes_are_named(self):
-        self.assertIn("rankMomentum", opportunity.assess(rank_history=None)["absentAxes"])
+        absent = opportunity.assess(rank_history=None)["absentAxes"]
+        self.assertIn("snapTrend", absent)
+        self.assertIn("boardMomentumRisk", absent)
 
     def test_evidence_produces_a_score(self):
-        history = [{"rankDerivedValue": v} for v in (1000, 1100, 1200)]
+        # ``val`` is what ``rank_history.load_history`` emits. This
+        # fixture previously said ``rankDerivedValue`` — a key that
+        # producer has never written — so the axis returned ABSENT here
+        # too, and the test passed only because ``assertIsNotNone`` was
+        # never reached with a real shape. Direction is asserted in
+        # ``test_opportunity_wiring.py``; this stays a liveness check.
+        history = [
+            {"date": "2026-07-0%d" % (i + 1), "rank": 1, "val": v}
+            for i, v in enumerate((1200, 1100, 1000))
+        ]
         self.assertIsNotNone(opportunity.assess(rank_history=history)["score"])
 
 
@@ -308,6 +320,106 @@ class TestComponentValidationHonesty(unittest.TestCase):
     def test_every_component_states_its_evidence_or_lack_of_it(self):
         for name, meta in score.COMPONENT_VALIDATION.items():
             self.assertTrue(meta.get("note"), f"{name} has no validation note")
+
+    def test_measured_and_validated_are_separate_claims(self):
+        """A null result is measured, not validated.
+
+        `validated` drives the UI's "unvalidated" badge, so a component
+        measured and found NOT to help must keep it False — otherwise a
+        negative result reads to a user as a positive one. Opportunity
+        is exactly that case and is the reason the two fields exist.
+        """
+        opportunity = score.COMPONENT_VALIDATION["opportunity"]
+        self.assertTrue(opportunity["measured"])
+        self.assertFalse(opportunity["validated"])
+        self.assertEqual(opportunity["outcome"], "null")
+        self.assertTrue(opportunity["evidence"], "a measured null must cite its measurement")
+
+    def test_a_measured_component_cites_a_measurement_that_exists(self):
+        repo = Path(__file__).resolve().parents[2]
+        for name, meta in score.COMPONENT_VALIDATION.items():
+            if not meta.get("measured"):
+                self.assertIsNone(meta.get("evidence"), f"{name} cites evidence but is unmeasured")
+                continue
+            self.assertTrue(
+                (repo / meta["evidence"]).exists(), f"{name}: {meta['evidence']} missing"
+            )
+
+
+class TestZeroWeightComponentsAreInert(unittest.TestCase):
+    """A measured-and-rejected component must not act through side doors.
+
+    Setting a weight to zero stops a component contributing to the
+    SCORE. It does not, on its own, stop it contributing to coverage
+    (and so to confidence, and so to which labels are reachable) or to
+    conflict detection (which suppresses directional calls). Both were
+    live paths by which a signal we decided is non-predictive would
+    still have steered output.
+    """
+
+    ZEROED = {
+        "composite": {
+            "weights": {"mispricing": 0.5, "sharpFlow": 0.3, "opportunity": 0.0},
+            "requireCoreComponent": True,
+            "coreComponents": ["mispricing", "sharpFlow"],
+        },
+        "conflict": {"minMagnitude": 0.5},
+    }
+
+    def test_a_zero_weight_component_does_not_count_as_present(self):
+        out = score.composite(
+            {"mispricing": 0.5, "sharpFlow": None, "opportunity": 0.9}, self.ZEROED
+        )
+        self.assertEqual(out["componentsPresent"], ["mispricing"])
+        self.assertEqual(out["componentsZeroWeight"], ["opportunity"])
+
+    def test_a_zero_weight_component_is_not_reported_as_absent(self):
+        # Absent means "no data". This component has data we chose not
+        # to act on; calling that absent would hide a real measurement.
+        out = score.composite(
+            {"mispricing": 0.5, "sharpFlow": None, "opportunity": 0.9}, self.ZEROED
+        )
+        self.assertEqual(out["componentsAbsent"], ["sharpFlow"])
+
+    def test_the_score_is_identical_with_and_without_it(self):
+        with_it = score.composite(
+            {"mispricing": 0.5, "sharpFlow": None, "opportunity": 0.9}, self.ZEROED
+        )
+        without = score.composite(
+            {"mispricing": 0.5, "sharpFlow": None, "opportunity": None}, self.ZEROED
+        )
+        self.assertEqual(with_it["score"], without["score"])
+        self.assertEqual(with_it["effectiveWeights"], without["effectiveWeights"])
+
+    def test_it_cannot_trigger_a_conflict(self):
+        # Opposing a core component at full strength must not suppress
+        # the directional call when the opposition carries no weight.
+        conflict = score.detect_conflict(
+            {"mispricing": 0.8, "sharpFlow": None, "opportunity": -0.9}, self.ZEROED
+        )
+        self.assertFalse(conflict["conflicted"])
+
+    def test_a_weighted_component_still_triggers_a_conflict(self):
+        conflict = score.detect_conflict(
+            {"mispricing": 0.8, "sharpFlow": -0.9, "opportunity": None}, self.ZEROED
+        )
+        self.assertTrue(conflict["conflicted"])
+
+    def test_only_zero_weight_evidence_yields_no_score(self):
+        out = score.composite(
+            {"mispricing": None, "sharpFlow": None, "opportunity": 0.9}, self.ZEROED
+        )
+        self.assertIsNone(out["score"])
+
+    def test_the_core_refusal_still_names_the_core_problem(self):
+        # Ordering matters: "no core component" is a statement about the
+        # KIND of evidence and holds whatever the weights are. Reporting
+        # "everything carries zero weight" here would describe a
+        # symptom rather than the defect.
+        out = score.composite(
+            {"mispricing": None, "sharpFlow": None, "opportunity": 0.9}, self.ZEROED
+        )
+        self.assertIn("core", out["reason"])
 
 
 if __name__ == "__main__":

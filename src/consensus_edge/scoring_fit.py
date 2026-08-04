@@ -313,7 +313,16 @@ def set_gsis_join(mapping: dict[str, str] | None) -> None:
     Deliberately injected rather than resolved in here: the identity
     mapping is the identity package's job, and guessing at it inside a
     scoring module is how two subtly different joins end up in one repo.
+
+    **Idempotent on purpose.** ``build_board`` calls this on every build,
+    and the join is the same map nearly every time. Dropping the cache
+    unconditionally would re-run the IDP axis — which rescores every
+    weekly stat row under two rate cards — on every single request. The
+    cache is only invalidated when the join genuinely changed.
     """
+    incoming = dict(mapping or {})
     with _LOCK:
-        _CACHE["gsisJoin"] = dict(mapping or {})
+        if _CACHE.get("gsisJoin") == incoming:
+            return
+        _CACHE["gsisJoin"] = incoming
         _CACHE.pop("key", None)  # force a re-measure against the new join
