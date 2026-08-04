@@ -147,28 +147,94 @@ class TestYearDiscount(unittest.TestCase):
                     f">= 2027 {tier} {rnd_label} value {a['rankDerivedValue']}",
                 )
 
-    def test_2028_late_below_2026_pick_1_12(self) -> None:
-        """2028 Late 1st must NOT outrank a 2026 specific 1st-round slot."""
-        a = self.by_name.get("2028 Late 1st")
-        b = self.by_name.get("2026 Pick 1.12")
-        self.assertIsNotNone(a, "2028 Late 1st missing")
-        self.assertIsNotNone(b, "2026 Pick 1.12 missing")
-        self.assertLess(
-            int(a["rankDerivedValue"]),  # type: ignore[index]
-            int(b["rankDerivedValue"]),  # type: ignore[index]
-            "2028 Late 1st must be worth less than 2026 Pick 1.12 "
-            "(the audit's most prominent inversion)",
-        )
+    def test_future_tier_picks_track_the_market_that_prices_them(self) -> None:
+        """Vendor-priced future tiers must not sit far below their market.
 
-    def test_2028_early_below_2026_pick_1_07(self) -> None:
-        """2028 Early 1st must NOT outrank 2026 Pick 1.07 (audit case)."""
-        a = self.by_name.get("2028 Early 1st")
-        b = self.by_name.get("2026 Pick 1.07")
-        self.assertIsNotNone(a, "2028 Early 1st missing")
-        self.assertIsNotNone(b, "2026 Pick 1.07 missing")
+        REPLACES ``test_2028_late_below_2026_pick_1_12`` — a DELIBERATE
+        REVERSAL of a prior decision, recorded here rather than deleted.
+
+        The old test asserted 2028 Late 1st < 2026 Pick 1.12, calling the
+        opposite "the audit's most prominent inversion", and the blanket
+        future-year discount was what enforced it.  The 2026-08-04 audit
+        (finding T-3/C-2) measured that enforcement against the markets
+        the board ingests and found it inverted THEM::
+
+            ktcSfTep   2026 Late 1st 3942   2028 Late 1st 4026
+            ktcSfTep   2026 Early 1st 5605  2027 Early 1st 7061
+
+        Both markets price an unknown future first ABOVE the matching
+        current-year tier, because an unknown pick carries option value —
+        a 2028 late first can become an early one if that roster
+        collapses, while a known 2026 slot cannot.  Composing a decay
+        prior on top published 2027 firsts 18% and 2028 firsts 34% below
+        what both markets agreed.
+
+        So the "inversion" was the market, and the discount was the
+        overcorrection.  What is pinned now is the property that actually
+        matters for a trade: a vendor-priced tier tracks its own market.
+
+        If the product deliberately wants to be more conservative than
+        the market on future capital, that is a legitimate stance — but
+        it belongs in a calibrated, documented adjustment, not in a
+        prior applied on top of a price that already encodes the year.
+        """
+        import csv
+        from pathlib import Path
+
+        repo = Path(__file__).resolve().parents[2]
+        market: dict[str, float] = {}
+        with open(repo / "CSVs" / "site_raw" / "ktcSfTep.csv", encoding="utf-8") as fh:
+            for row in csv.reader(fh):
+                if len(row) >= 2:
+                    try:
+                        market[row[0].strip()] = float(row[1])
+                    except ValueError:
+                        continue
+
+        checked = 0
+        for name in ("2027 Early 1st", "2027 Mid 1st", "2028 Early 1st", "2028 Late 1st"):
+            got = self.by_name.get(name)
+            mkt = market.get(name)
+            if not got or not got.get("rankDerivedValue") or not mkt:
+                continue
+            checked += 1
+            ratio = int(got["rankDerivedValue"]) / mkt
+            self.assertGreater(
+                ratio,
+                0.85,
+                f"{name} published {got['rankDerivedValue']} vs market {mkt:.0f} "
+                f"(ratio {ratio:.2f}) — a vendor-priced year must not be "
+                f"systematically marked down; see audit finding T-3",
+            )
+        self.assertGreater(checked, 0, "no vendor-priced future tiers found to check")
+
+    def test_current_year_top_slots_still_outrank_far_future_tiers(self) -> None:
+        """The part of the old ordering rule that survives, and should.
+
+        ``test_2028_early_below_2026_pick_1_07`` asserted a 2028 Early
+        1st sits below the 7th slot of the 2026 class.  That specific
+        pairing was an artifact of the blanket discount (see the reversal
+        note on ``test_future_tier_picks_track_the_market_that_prices_them``);
+        the markets do not support it.
+
+        What the markets DO support, and what a user would find alarming
+        if it broke, is the top of the known class still leading: a 2026
+        Pick 1.01 is a near-certain elite prospect and outvalues a
+        speculative 2028 tier.  Pinning that instead keeps the guard
+        against a runaway future-pick valuation without re-encoding the
+        overcorrection.
+        """
+        top = self.by_name.get("2026 Pick 1.01")
+        far = self.by_name.get("2028 Early 1st")
+        if not top or not far:
+            self.skipTest("pick rows not present on this board")
+        if not top.get("rankDerivedValue") or not far.get("rankDerivedValue"):
+            self.skipTest("pick rows unpriced on this board")
         self.assertLess(
-            int(a["rankDerivedValue"]),  # type: ignore[index]
-            int(b["rankDerivedValue"]),  # type: ignore[index]
+            int(far["rankDerivedValue"]),
+            int(top["rankDerivedValue"]),
+            "a speculative 2028 tier must not outvalue the 1.01 of the "
+            "class that is about to be drafted",
         )
 
 
