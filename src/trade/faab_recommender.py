@@ -321,7 +321,11 @@ def recommend_faab(
     # 1. Baseline from the existing _compute_faab_bid formula.
     aggressive_base, reasonable_base, lowball_base = _compute_faab_bid(
         candidate_value=float(add_player_value),
-        league_budget=int(league_budget),
+        # The helper's ``budget`` is whatever pool the caller wants the
+        # bid sized against; here that's the league's full season
+        # budget — step 7 below caps the result at the team's own
+        # remaining balance.
+        budget=int(league_budget),
         top_value_in_pool=top_value_in_pool,
     )
     factors.append(

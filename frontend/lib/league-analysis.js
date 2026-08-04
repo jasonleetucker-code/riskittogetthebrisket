@@ -1004,9 +1004,23 @@ export function analyzeTradeTendencies(rawData, rows) {
 // ── Contender / Rebuilder Tiers ─────────────────────────────────────────
 /**
  * Score and tier all teams: contender / mid-tier / rebuilder.
- * Starter value = top 10 offensive players, weighted 70%.
- * Depth = total minus starters, weighted 20%.
- * Pick surplus penalized at -10% (rebuild signal).
+ *
+ *   score = 0.7 × starterValue + 0.2 × depthValue − 0.1 × pickValue
+ *
+ * Starter value = the team's top 10 OFFENSIVE players.
+ * Depth        = every other player the team owns — picks excluded.
+ * Picks        = pick capital, penalized at −10% (rebuild signal).
+ *
+ * Picks sit OUTSIDE depthValue deliberately.  Depth used to be
+ * `totalValue − starterValue`, and totalValue includes pick capital, so
+ * every pick dollar earned +0.2 as depth and paid −0.1 as pick surplus
+ * for a NET +0.1: the "penalty" REWARDED hoarding picks, the opposite
+ * of the documented intent, and a pick-rich rebuilder could out-score a
+ * contender.  Each dollar of a roster now feeds exactly one term.
+ *
+ * The three coefficients do not sum to 1 and don't need to — the score
+ * is an ordinal ranking key (the sorted list is cut into thirds), so
+ * only the RATIOS between the terms move a team's tier.
  */
 export function scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases = null) {
   const rowLookup = buildRowLookup(rows);
@@ -1037,7 +1051,9 @@ export function scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases = nul
 
     topPlayers.sort((a, b) => b - a);
     const starterValue = topPlayers.slice(0, 10).reduce((s, v) => s + v, 0);
-    const depthValue = totalValue - starterValue;
+    // Players only: totalValue carries pick capital too, and picks are
+    // scored by their own term below.
+    const depthValue = totalValue - starterValue - pickValue;
     const score = starterValue * 0.7 + depthValue * 0.2 + (pickValue > 0 ? -pickValue * 0.1 : 0);
 
     return {
