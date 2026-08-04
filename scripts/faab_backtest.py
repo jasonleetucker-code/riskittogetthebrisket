@@ -483,9 +483,7 @@ def _model_stats(rows: Sequence[ClaimRow], *, model: str) -> dict[str, Any]:
         "wouldHaveLost": len(rows) - len(wins),
         "winRatePct": round(100.0 * len(wins) / len(rows), 1) if rows else 0.0,
         "avgOverpaymentWhenWinning": round(_mean(overpay), 2),
-        "medianOverpaymentWhenWinning": (
-            round(statistics.median(overpay), 2) if overpay else 0.0
-        ),
+        "medianOverpaymentWhenWinning": (round(statistics.median(overpay), 2) if overpay else 0.0),
         "avgRecommendation": round(_mean(recs), 2),
         "avgDeltaVsActual": round(_mean(deltas), 2),
         "totalRecommendedAllClaims": int(sum(recs)),
@@ -501,9 +499,7 @@ def _actual_stats(rows: Sequence[ClaimRow]) -> dict[str, Any]:
     return {
         "claims": len(rows),
         "totalActuallySpent": int(sum(actuals)),
-        "totalActuallySpentBudgetUnits": round(
-            sum(c.actual / max(1, c.budget) for c in rows), 2
-        ),
+        "totalActuallySpentBudgetUnits": round(sum(c.actual / max(1, c.budget) for c in rows), 2),
         "avgWinningBid": round(_mean(actuals), 2),
         "medianWinningBid": round(statistics.median(actuals), 2) if actuals else 0.0,
         "maxWinningBid": max(actuals) if actuals else 0,
@@ -529,12 +525,8 @@ def _breakdown(
             {
                 "key": str(key),
                 "n": len(group),
-                "oldWinRatePct": round(
-                    100.0 * sum(1 for c in group if c.old_won) / len(group), 1
-                ),
-                "newWinRatePct": round(
-                    100.0 * sum(1 for c in group if c.new_won) / len(group), 1
-                ),
+                "oldWinRatePct": round(100.0 * sum(1 for c in group if c.old_won) / len(group), 1),
+                "newWinRatePct": round(100.0 * sum(1 for c in group if c.new_won) / len(group), 1),
                 "avgActualBidPctOfBudget": round(
                     _mean(100.0 * c.actual / max(1, c.budget) for c in group), 2
                 ),
@@ -665,17 +657,23 @@ def _render(report: dict[str, Any], *, limit: int) -> str:
     add(_rule("="))
     add(f"FAAB BACKTEST — OLD formula vs NEW engine — league {meta['leagueKey']}")
     add(_rule("="))
-    add(f"  league          {meta['leagueDisplayName']} "
-        f"({meta['teamCount']} teams x {meta['startersPerTeam']} starters)")
+    add(
+        f"  league          {meta['leagueDisplayName']} "
+        f"({meta['teamCount']} teams x {meta['startersPerTeam']} starters)"
+    )
     add(f"  board           {meta['exportPath']}")
     add(f"  history         {meta['historyPath']}")
     add(f"  seasons         {', '.join(meta['seasons'])}")
-    add(f"  anchors         all-in {meta['anchors']['vAllIn']} | "
-        f"replacement {meta['anchors']['vReplacement']} | source {meta['anchors']['source']}")
-    add(f"  join            {report['join']['claimsPriced']} of "
+    add(
+        f"  anchors         all-in {meta['anchors']['vAllIn']} | "
+        f"replacement {meta['anchors']['vReplacement']} | source {meta['anchors']['source']}"
+    )
+    add(
+        f"  join            {report['join']['claimsPriced']} of "
         f"{report['join']['claimsInHistory']} claims priced "
         f"({report['join']['coveragePct']}%) — "
-        f"{report['join']['claimsUnmatched']} unmatched on the board")
+        f"{report['join']['claimsUnmatched']} unmatched on the board"
+    )
     add(f"  old-pool proxy  {meta['oldPool']}")
     add("")
 
@@ -727,15 +725,23 @@ def _render(report: dict[str, Any], *, limit: int) -> str:
     add(f"{'would have WON':<34}{old['wouldHaveWon']:>14}{new['wouldHaveWon']:>14}")
     add(f"{'would have LOST':<34}{old['wouldHaveLost']:>14}{new['wouldHaveLost']:>14}")
     add(f"{'win rate':<34}{old['winRatePct']:>13.1f}%{new['winRatePct']:>13.1f}%")
-    add(f"{'avg overpayment when winning':<34}"
-        f"{old['avgOverpaymentWhenWinning']:>14.2f}{new['avgOverpaymentWhenWinning']:>14.2f}")
-    add(f"{'median overpay when winning':<34}"
+    add(
+        f"{'avg overpayment when winning':<34}"
+        f"{old['avgOverpaymentWhenWinning']:>14.2f}{new['avgOverpaymentWhenWinning']:>14.2f}"
+    )
+    add(
+        f"{'median overpay when winning':<34}"
         f"{old['medianOverpaymentWhenWinning']:>14.2f}"
-        f"{new['medianOverpaymentWhenWinning']:>14.2f}")
-    add(f"{'avg recommendation ($)':<34}"
-        f"{old['avgRecommendation']:>14.2f}{new['avgRecommendation']:>14.2f}")
-    add(f"{'avg delta vs actual ($)':<34}"
-        f"{old['avgDeltaVsActual']:>+14.2f}{new['avgDeltaVsActual']:>+14.2f}")
+        f"{new['medianOverpaymentWhenWinning']:>14.2f}"
+    )
+    add(
+        f"{'avg recommendation ($)':<34}"
+        f"{old['avgRecommendation']:>14.2f}{new['avgRecommendation']:>14.2f}"
+    )
+    add(
+        f"{'avg delta vs actual ($)':<34}"
+        f"{old['avgDeltaVsActual']:>+14.2f}{new['avgDeltaVsActual']:>+14.2f}"
+    )
     add("")
 
     add(_rule("="))
@@ -746,25 +752,40 @@ def _render(report: dict[str, Any], *, limit: int) -> str:
     add("  = one full season budget.")
     add("")
     add(f"{'':<40}{'dollars':>14}{'budget-units':>16}")
-    add(f"{'ACTUALLY spent (winning bids)':<40}"
-        f"{actual['totalActuallySpent']:>14}{actual['totalActuallySpentBudgetUnits']:>16.2f}")
-    add(f"{'OLD — sum of recommendations':<40}"
-        f"{old['totalRecommendedAllClaims']:>14}{old['totalRecommendedBudgetUnits']:>16.2f}")
-    add(f"{'OLD — spend on claims it would win':<40}"
-        f"{old['totalSpendOnWonClaims']:>14}{old['totalSpendOnWonBudgetUnits']:>16.2f}")
-    add(f"{'NEW — sum of recommendations':<40}"
-        f"{new['totalRecommendedAllClaims']:>14}{new['totalRecommendedBudgetUnits']:>16.2f}")
-    add(f"{'NEW — spend on claims it would win':<40}"
-        f"{new['totalSpendOnWonClaims']:>14}{new['totalSpendOnWonBudgetUnits']:>16.2f}")
+    add(
+        f"{'ACTUALLY spent (winning bids)':<40}"
+        f"{actual['totalActuallySpent']:>14}{actual['totalActuallySpentBudgetUnits']:>16.2f}"
+    )
+    add(
+        f"{'OLD — sum of recommendations':<40}"
+        f"{old['totalRecommendedAllClaims']:>14}{old['totalRecommendedBudgetUnits']:>16.2f}"
+    )
+    add(
+        f"{'OLD — spend on claims it would win':<40}"
+        f"{old['totalSpendOnWonClaims']:>14}{old['totalSpendOnWonBudgetUnits']:>16.2f}"
+    )
+    add(
+        f"{'NEW — sum of recommendations':<40}"
+        f"{new['totalRecommendedAllClaims']:>14}{new['totalRecommendedBudgetUnits']:>16.2f}"
+    )
+    add(
+        f"{'NEW — spend on claims it would win':<40}"
+        f"{new['totalSpendOnWonClaims']:>14}{new['totalSpendOnWonBudgetUnits']:>16.2f}"
+    )
     add("")
-    add(f"  actual market: avg winning bid ${actual['avgWinningBid']:.2f}, "
+    add(
+        f"  actual market: avg winning bid ${actual['avgWinningBid']:.2f}, "
         f"median ${actual['medianWinningBid']:.2f}, max ${actual['maxWinningBid']}, "
-        f"{actual['zeroBidSharePct']}% of claims cost $0")
+        f"{actual['zeroBidSharePct']}% of claims cost $0"
+    )
     add("")
 
     for title, key, note in (
-        ("BY VALUE BAND", "byValueBand",
-         "n is the sample size — LOOK-AHEAD BIAS makes the high bands unreliable"),
+        (
+            "BY VALUE BAND",
+            "byValueBand",
+            "n is the sample size — LOOK-AHEAD BIAS makes the high bands unreliable",
+        ),
         ("BY WEEK", "byWeek", "week of the NFL season the claim was made"),
         ("BY SEASON", "bySeason", "each season ran a different budget"),
     ):
@@ -795,20 +816,28 @@ def _render(report: dict[str, Any], *, limit: int) -> str:
     add(f"  claims above the all-in anchor:      {edge['claimsAboveAllIn']}")
     add(f"  claims below the replacement anchor: {edge['claimsBelowReplacement']}")
     add("")
-    add(f"  IMPACTFUL PLAYERS MISSED (value > all-in anchor, bid below the winning bid)")
-    add(f"      OLD {edge['impactfulMissed']['old']:>4}   NEW {edge['impactfulMissed']['new']:>4}"
-        f"   of {edge['claimsAboveAllIn']} such claims")
+    add("  IMPACTFUL PLAYERS MISSED (value > all-in anchor, bid below the winning bid)")
+    add(
+        f"      OLD {edge['impactfulMissed']['old']:>4}   NEW {edge['impactfulMissed']['new']:>4}"
+        f"   of {edge['claimsAboveAllIn']} such claims"
+    )
     for ex in edge["impactfulMissedExamplesNew"]:
-        add(f"      NEW missed: {ex['player'][:24]:<25} value {ex['value']:>5.0f}  "
-            f"{ex['season']} wk{ex['week']:<3} actual ${ex['actual']:<5} vs NEW ${ex['new']}")
+        add(
+            f"      NEW missed: {ex['player'][:24]:<25} value {ex['value']:>5.0f}  "
+            f"{ex['season']} wk{ex['week']:<3} actual ${ex['actual']:<5} vs NEW ${ex['new']}"
+        )
     add("")
-    add(f"  LOW-VALUE PLAYERS OVERBID (value < replacement anchor, bid > 5% of budget)")
-    add(f"      OLD {edge['lowValueOverbid']['old']:>4}   NEW {edge['lowValueOverbid']['new']:>4}"
-        f"   of {edge['claimsBelowReplacement']} such claims")
+    add("  LOW-VALUE PLAYERS OVERBID (value < replacement anchor, bid > 5% of budget)")
+    add(
+        f"      OLD {edge['lowValueOverbid']['old']:>4}   NEW {edge['lowValueOverbid']['new']:>4}"
+        f"   of {edge['claimsBelowReplacement']} such claims"
+    )
     for ex in edge["lowValueOverbidExamplesOld"]:
-        add(f"      OLD overbid: {ex['player'][:24]:<25} value {ex['value']:>5.0f}  "
+        add(
+            f"      OLD overbid: {ex['player'][:24]:<25} value {ex['value']:>5.0f}  "
             f"{ex['season']} wk{ex['week']:<3} actual ${ex['actual']:<5} vs OLD "
-            f"${ex['old']} of ${ex['budget']}")
+            f"${ex['old']} of ${ex['budget']}"
+        )
     add("")
     add(_rule("="))
     add("Reminder: bands are look-ahead biased and 'would have won' is measured only")
@@ -871,8 +900,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         board_rows = _build_board(export_path)
     except Exception as exc:  # noqa: BLE001 — report, don't traceback
-        print(f"error: could not build the canonical contract from {export_path}: {exc}",
-              file=sys.stderr)
+        print(
+            f"error: could not build the canonical contract from {export_path}: {exc}",
+            file=sys.stderr,
+        )
         return EXIT_ERROR
 
     if not board_rows:

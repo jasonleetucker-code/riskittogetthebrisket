@@ -80,7 +80,7 @@ contains no numeric literal that affects a recommendation.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -1121,9 +1121,7 @@ def recommend(
         factors.append(_FactorRow("Drop cost", ceil["dropNote"], 0.15))
     elif team.open_roster_spots > 0:
         factors.append(_FactorRow("Roster space", "open spot — no drop needed", 0.15))
-    factors.append(
-        _FactorRow("Season timing", ceil["optionValueReason"], 0.15)
-    )
+    factors.append(_FactorRow("Season timing", ceil["optionValueReason"], 0.15))
 
     usable_rivals = [r for r in rivals if r.faab_remaining is not None]
     if rivals and usable_rivals:

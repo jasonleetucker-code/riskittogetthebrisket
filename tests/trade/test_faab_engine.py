@@ -111,7 +111,18 @@ class TestAnchors:
 # ── Startable-depth need ─────────────────────────────────────────────
 
 
-STARTERS = {"QB": 1, "RB": 2, "WR": 3, "TE": 2, "FLEX": 2, "SFLEX": 1, "K": 1, "DL": 3, "LB": 3, "DB": 3}
+STARTERS = {
+    "QB": 1,
+    "RB": 2,
+    "WR": 3,
+    "TE": 2,
+    "FLEX": 2,
+    "SFLEX": 1,
+    "K": 1,
+    "DL": 3,
+    "LB": 3,
+    "DB": 3,
+}
 
 
 class TestStarterSlots:
@@ -231,9 +242,7 @@ class TestCeilingCurve:
 
     def test_the_relationship_is_not_a_fixed_cents_per_point_conversion(self):
         a = _anchors()
-        ratios = [
-            FE.objective_ceiling(v, a)[0] / v for v in (2000, 3000, 5000, 9000)
-        ]
+        ratios = [FE.objective_ceiling(v, a)[0] / v for v in (2000, 3000, 5000, 9000)]
         assert max(ratios) > 2 * min(ratios)
 
     def test_5000_value_does_not_mean_fifty_dollars(self):
@@ -288,9 +297,7 @@ class TestSeasonOptionValue:
 
 class TestMarketModel:
     def test_no_rivals_means_a_certain_win_at_any_price(self):
-        p = FE.rival_bid_cdf(
-            0.0, [], demand_signal=1.0, league=_league(), config=FE.FaabConfig()
-        )
+        p = FE.rival_bid_cdf(0.0, [], demand_signal=1.0, league=_league(), config=FE.FaabConfig())
         assert p == 1.0
 
     def test_win_probability_is_monotonic_in_the_bid(self):
@@ -298,9 +305,7 @@ class TestMarketModel:
         rivals = _rivals()
         prev = -1.0
         for b in range(0, 101):
-            p = FE.rival_bid_cdf(
-                float(b), rivals, demand_signal=0.6, league=_league(), config=cfg
-            )
+            p = FE.rival_bid_cdf(float(b), rivals, demand_signal=0.6, league=_league(), config=cfg)
             assert p >= prev - 1e-9
             prev = p
 
@@ -308,9 +313,7 @@ class TestMarketModel:
         """An unverifiable rival who might be broke must never raise
         the user's bid."""
         cfg = FE.FaabConfig()
-        known = FE.rival_bid_cdf(
-            10.0, _rivals(3), demand_signal=0.8, league=_league(), config=cfg
-        )
+        known = FE.rival_bid_cdf(10.0, _rivals(3), demand_signal=0.8, league=_league(), config=cfg)
         unknown = FE.rival_bid_cdf(
             10.0,
             [FE.RivalTeam(owner_id=f"r{i}", faab_remaining=None) for i in range(3)],

@@ -5164,9 +5164,9 @@ async def post_waiver_faab_recommend(request: Request):
     # K is excluded: kickers are not on the valued board, so counting
     # their slots would push the all-in anchor down the board by one
     # slot per team for no corresponding player supply.
-    starters_per_team = sum(
-        int(v or 0) for k, v in starters_map.items() if str(k).upper() != "K"
-    ) or 20
+    starters_per_team = (
+        sum(int(v or 0) for k, v in starters_map.items() if str(k).upper() != "K") or 20
+    )
     team_count = int(roster_settings.get("teamCount") or len(sleeper_teams) or 12)
     roster_size = int(roster_settings.get("rosterSize") or 0)
 
@@ -5334,14 +5334,10 @@ async def post_waiver_faab_recommend(request: Request):
                 "rival FAAB balances unavailable for most opponents — rival contention skipped."
             )
     if requested_team and requested_team_matched and contention_skip_reason is None:
-        # teamAggression keyed by historical ownerIds — filter to
-        # CURRENT owners so departed managers' histories don't
-        # drift into the estimates.
-        current_owner_ids = {str(t.get("ownerId") or "") for t in opponents}
-        raw_aggression = (league_summary or {}).get("teamAggression") or {}
-        team_aggression = {
-            oid: entry for oid, entry in raw_aggression.items() if oid in current_owner_ids
-        }
+        # Aggression is resolved per rival inside ``build_rivals``,
+        # which looks each CURRENT opponent up by owner id — so a
+        # departed manager's history is inert without a pre-filter,
+        # and the filtered copy this block used to build was dead.
         intel_index = None
         if intel_snapshot is not None:
             intel_index = _faab_contention.build_intel_index(
@@ -5433,7 +5429,9 @@ async def post_waiver_faab_recommend(request: Request):
             )
         rec["contention"] = {
             "clearing": rec["bids"]["clearing"],
-            "topRival": max((r["expBid"] for r in per_opponent if not r["balanceUnknown"]), default=0),
+            "topRival": max(
+                (r["expBid"] for r in per_opponent if not r["balanceUnknown"]), default=0
+            ),
             "perOpponent": per_opponent,
             "estimateOnly": True,
             "notes": notes,

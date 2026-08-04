@@ -33,7 +33,7 @@ import statistics
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from src.utils.config_loader import repo_root, save_json
 
@@ -138,9 +138,7 @@ def fetch_bid_history(
         except Exception:  # noqa: BLE001
             rosters = []
         roster_to_owner = {
-            r.get("roster_id"): str(r.get("owner_id") or "")
-            for r in rosters
-            if isinstance(r, dict)
+            r.get("roster_id"): str(r.get("owner_id") or "") for r in rosters if isinstance(r, dict)
         }
         for row in rows:
             row["ownerId"] = roster_to_owner.get(row.get("rosterId")) or ""
@@ -288,7 +286,9 @@ def summarize_bid_history(payload: dict[str, Any] | None) -> MarketPriors:
     league_mean = priors.mean_pct or 1.0
     for owner, vals in by_owner.items():
         priors.owner_sample[owner] = len(vals)
-        priors.owner_aggression[owner] = (statistics.fmean(vals) / league_mean) if league_mean else 1.0
+        priors.owner_aggression[owner] = (
+            (statistics.fmean(vals) / league_mean) if league_mean else 1.0
+        )
 
     for week, vals in by_week.items():
         priors.by_week[week] = statistics.fmean(vals)

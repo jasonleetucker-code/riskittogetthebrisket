@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import glob
 import json
-import os
 
 import pytest
 
@@ -162,12 +161,8 @@ class TestAllInRegion:
     def test_a_shallower_league_moves_the_allin_line_up(self, values):
         """dynasty_new is 10 teams x 10 starters, so its wire is much
         better and the bar for going all-in must be higher."""
-        deep = FE.resolve_anchors(
-            values, FE.LeagueContext(team_count=12, starters_per_team=20)
-        )
-        shallow = FE.resolve_anchors(
-            values, FE.LeagueContext(team_count=10, starters_per_team=10)
-        )
+        deep = FE.resolve_anchors(values, FE.LeagueContext(team_count=12, starters_per_team=20))
+        shallow = FE.resolve_anchors(values, FE.LeagueContext(team_count=10, starters_per_team=10))
         assert shallow.v_allin > deep.v_allin
 
 
@@ -186,7 +181,7 @@ class TestRequiredValuePoints:
         DOLLARS rather than on the raw curve: the smootherstep toe
         leaves a vanishing non-zero fraction just above the
         replacement line, which is the point of a smooth curve and
-        rounds to nothing.""" 
+        rounds to nothing."""
         for v in (500, 1000, 1500):
             assert round(FE.objective_ceiling(v, anchors)[0] * 100) == 0, v
 
@@ -337,7 +332,11 @@ class TestScenarioMatrix:
         a field that does not exist.
         """
         poor = _recommend(
-            mid, anchors, league, team=FE.TeamContext(faab_remaining=100), rivals=_rivals(remaining=5)
+            mid,
+            anchors,
+            league,
+            team=FE.TeamContext(faab_remaining=100),
+            rivals=_rivals(remaining=5),
         )
         assert poor["bids"]["recommended"] <= 8
         assert poor["winProbability"] == pytest.approx(1.0, abs=0.01)
@@ -432,7 +431,9 @@ class TestArchetypes:
             "starter": anchors.v_allin,
             "elite": 9999,
         }
-        bids = {k: _recommend(v, anchors, league)["objective"]["dollars"] for k, v in archetypes.items()}
+        bids = {
+            k: _recommend(v, anchors, league)["objective"]["dollars"] for k, v in archetypes.items()
+        }
         ordered = list(archetypes)
         for earlier, later in zip(ordered, ordered[1:]):
             assert bids[earlier] <= bids[later], f"{earlier} priced above {later}"

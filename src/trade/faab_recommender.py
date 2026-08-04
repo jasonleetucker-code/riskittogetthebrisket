@@ -127,8 +127,7 @@ def _need_level(
         at_position = [
             value
             for value, pos in (
-                roster_index.get(str(name).strip().lower(), (None, ""))
-                for name in roster_players
+                roster_index.get(str(name).strip().lower(), (None, "")) for name in roster_players
             )
             if value is not None and engine.position_family(pos) == target_family
         ]
