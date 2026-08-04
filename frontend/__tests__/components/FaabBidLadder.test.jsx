@@ -218,7 +218,15 @@ describe("FAAB bid desk — risk posture reaches the backend", () => {
 
     // The panel reports the posture the BACKEND said it used, so an
     // ignored posture is visible rather than silent.
-    expect(within(bidGroup()).getByText("Aggressive posture")).toBeInTheDocument();
+    //
+    // waitFor, not a bare assertion: the wait above only proves the
+    // fetch was CALLED.  Rendering the result needs the promise to
+    // resolve and React to flush, which is fast enough locally to hide
+    // the gap and slow enough on a loaded CI runner to fail on the
+    // loading skeleton.
+    await waitFor(() =>
+      expect(within(bidGroup()).getByText("Aggressive posture")).toBeInTheDocument(),
+    );
   });
 
   it("normalizes an unknown posture to balanced instead of shipping it", async () => {
