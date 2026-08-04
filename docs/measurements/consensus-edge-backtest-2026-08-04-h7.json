@@ -1,102 +1,222 @@
 {
   "foldsAttempted": 15,
-  "foldsUsable": 14,
+  "foldsUsable": 12,
   "unusableReasons": [
-    "correlation undefined (zero variance in signal or outcome)"
+    "only 0 paired rows (need 30)",
+    "only 0 paired rows (need 30)",
+    "only 0 paired rows (need 30)"
   ],
-  "meanSpearman": 0.08902504820452549,
-  "medianSpearman": 0.08878340783035649,
+  "meanSpearman": 0.03990782303088273,
+  "medianSpearman": 0.0594129590822305,
   "spearmanByFold": [
     {
-      "origin": "2026-04-23",
-      "n": 328,
-      "rho": -0.049302401100893296
-    },
-    {
       "origin": "2026-04-30",
-      "n": 689,
-      "rho": 0.16582822521874024
+      "n": 351,
+      "rho": 0.1374702354792189
     },
     {
       "origin": "2026-05-07",
-      "n": 693,
-      "rho": 0.09964275406850676
+      "n": 352,
+      "rho": 0.058718137737275355
     },
     {
       "origin": "2026-05-14",
-      "n": 691,
-      "rho": 0.08355329739650912
+      "n": 345,
+      "rho": -0.036225779460130426
     },
     {
       "origin": "2026-05-21",
-      "n": 682,
-      "rho": 0.1417455132082002
+      "n": 346,
+      "rho": 0.06530095563752039
     },
     {
       "origin": "2026-05-28",
-      "n": 687,
-      "rho": 0.04080008276817754
-    },
-    {
-      "origin": "2026-06-04",
-      "n": 330,
-      "rho": -0.0006532254248476837
+      "n": 351,
+      "rho": -0.10236564343668791
     },
     {
       "origin": "2026-06-11",
-      "n": 682,
-      "rho": 0.0882358632435087
+      "n": 346,
+      "rho": -0.004423383747360419
     },
     {
       "origin": "2026-06-18",
-      "n": 671,
-      "rho": 0.1319594469192901
+      "n": 335,
+      "rho": 0.06010778042718564
     },
     {
       "origin": "2026-06-25",
-      "n": 673,
-      "rho": 0.08933095241720428
+      "n": 337,
+      "rho": 0.07637115852218475
     },
     {
       "origin": "2026-07-02",
-      "n": 667,
-      "rho": 0.19481172621758225
+      "n": 335,
+      "rho": -0.0047158406186208375
     },
     {
       "origin": "2026-07-09",
-      "n": 690,
-      "rho": 0.07927242102408329
+      "n": 333,
+      "rho": 0.08491273475724254
     },
     {
       "origin": "2026-07-16",
-      "n": 690,
-      "rho": 0.09346451920410914
+      "n": 333,
+      "rho": 0.021003186318856254
     },
     {
       "origin": "2026-07-23",
-      "n": 687,
-      "rho": 0.08766149970318617
+      "n": 329,
+      "rho": 0.12274033475390851
     }
   ],
   "benchmarks": {
     "marketValue": {
-      "meanSpearman": -0.02550520062219475,
-      "beatenInFolds": 13
+      "meanSpearman": 0.08981539837308317,
+      "beatenInFolds": 3
     },
     "random": {
-      "meanSpearman": -0.017133742735163583,
-      "beatenInFolds": 12
+      "meanSpearman": -0.017370280793506717,
+      "beatenInFolds": 8
     }
   },
-  "verdict": "inconsistent across folds (mean rho +0.089 over 14 non-overlapping folds; 12/14 folds positive; beat market-value benchmark in 13/14)",
-  "foldsPositive": 12,
+  "verdict": "no effect detected (mean rho +0.040 over 12 non-overlapping folds; 8/12 folds positive; beat market-value benchmark in 3/12)",
+  "foldsPositive": 8,
   "horizonDays": 7,
   "panelStart": "2026-04-16",
   "panelEnd": "2026-08-03",
   "foldsTruncated": false,
   "modelVersion": "ce.2026-08-04.v0-shadow",
-  "measuredAt": "2026-08-04T01:29:20.048909+00:00",
+  "measuredAt": "2026-08-04T11:23:12.934964+00:00",
   "target": "cohort-excess market return of the anchor board",
+  "configuration": {
+    "scoringFitApplied": false,
+    "sharpFlowPresent": false,
+    "note": "Measured with league scoring fit INERT and no sharp ledger. The reception-depth multipliers cannot be reconstructed as-of a past date, so applying them in a replay would be look-ahead leakage rather than a closer match to production."
+  },
+  "attrition": {
+    "scoredRows": 4116,
+    "unscorable": 23,
+    "rate": 0.005587949465500486,
+    "byReason": {
+      "no_price_at_horizon": 23
+    },
+    "byFold": {
+      "2026-04-16": {
+        "of": 0,
+        "dropped": 0,
+        "rate": null,
+        "byReason": {}
+      },
+      "2026-04-23": {
+        "of": 0,
+        "dropped": 0,
+        "rate": null,
+        "byReason": {}
+      },
+      "2026-04-30": {
+        "of": 354,
+        "dropped": 3,
+        "rate": 0.00847457627118644,
+        "byReason": {
+          "no_price_at_horizon": 3
+        }
+      },
+      "2026-05-07": {
+        "of": 354,
+        "dropped": 2,
+        "rate": 0.005649717514124294,
+        "byReason": {
+          "no_price_at_horizon": 2
+        }
+      },
+      "2026-05-14": {
+        "of": 347,
+        "dropped": 2,
+        "rate": 0.005763688760806916,
+        "byReason": {
+          "no_price_at_horizon": 2
+        }
+      },
+      "2026-05-21": {
+        "of": 348,
+        "dropped": 2,
+        "rate": 0.005747126436781609,
+        "byReason": {
+          "no_price_at_horizon": 2
+        }
+      },
+      "2026-05-28": {
+        "of": 355,
+        "dropped": 4,
+        "rate": 0.011267605633802818,
+        "byReason": {
+          "no_price_at_horizon": 4
+        }
+      },
+      "2026-06-04": {
+        "of": 0,
+        "dropped": 0,
+        "rate": null,
+        "byReason": {}
+      },
+      "2026-06-11": {
+        "of": 346,
+        "dropped": 0,
+        "rate": 0.0,
+        "byReason": {}
+      },
+      "2026-06-18": {
+        "of": 337,
+        "dropped": 2,
+        "rate": 0.005934718100890208,
+        "byReason": {
+          "no_price_at_horizon": 2
+        }
+      },
+      "2026-06-25": {
+        "of": 338,
+        "dropped": 1,
+        "rate": 0.0029585798816568047,
+        "byReason": {
+          "no_price_at_horizon": 1
+        }
+      },
+      "2026-07-02": {
+        "of": 336,
+        "dropped": 1,
+        "rate": 0.002976190476190476,
+        "byReason": {
+          "no_price_at_horizon": 1
+        }
+      },
+      "2026-07-09": {
+        "of": 335,
+        "dropped": 2,
+        "rate": 0.005970149253731343,
+        "byReason": {
+          "no_price_at_horizon": 2
+        }
+      },
+      "2026-07-16": {
+        "of": 335,
+        "dropped": 2,
+        "rate": 0.005970149253731343,
+        "byReason": {
+          "no_price_at_horizon": 2
+        }
+      },
+      "2026-07-23": {
+        "of": 331,
+        "dropped": 2,
+        "rate": 0.006042296072507553,
+        "byReason": {
+          "no_price_at_horizon": 2
+        }
+      }
+    },
+    "note": "Rows the signal scored that had no measurable outcome, and so were absent from rho. Not a random sample \u2014 a player usually leaves the anchor board because the market dropped him."
+  },
   "caveats": [
     "Replays today's pipeline over past inputs: inputs cannot leak, but the model is current.",
     "Measures market movement, not fantasy production \u2014 the panel covers an offseason.",

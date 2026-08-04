@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import statistics
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, Iterable
 
 from src.consensus_edge.fair_value import MARKET_ANCHOR_BY_ASSET_CLASS, _market_value, _row_key
 from src.consensus_edge.mispricing import cohort_key
@@ -79,10 +79,15 @@ def forward_returns(
     """Per-player raw and cohort-excess return between two price maps.
 
     Returns ``{playerKey: {rawReturn, excessReturn, cohort, reason}}``.
-    A row that cannot be measured carries ``None`` returns and a reason;
-    it is never silently dropped, because "we could not measure this
+    A row that cannot be measured carries ``None`` returns and a reason
+    rather than being dropped here, because "we could not measure this
     player" and "this player did not move" must not look alike to the
     evaluation that consumes them.
+
+    That is only half the guarantee, and the half this function controls.
+    Every consumer then filters on ``excessReturn is not None``, so the
+    drop happens one layer down — see :func:`attrition`, which is how a
+    consumer reports it instead of inheriting it silently.
     """
     raw: dict[str, dict[str, Any]] = {}
     for key, start in origin_prices.items():
@@ -124,6 +129,45 @@ def forward_returns(
             continue
         entry["excessReturn"] = entry["rawReturn"] - median
     return raw
+
+
+def attrition(
+    player_keys: "Iterable[str]",
+    returns: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """How many of ``player_keys`` could not be scored, and why.
+
+    ``{"of": n, "dropped": n, "rate": f, "byReason": {reason: n}}``.
+
+    **The dropped rows are not a random sample.** A player who leaves the
+    anchor's board between origin and horizon has usually been dropped
+    *by* the market — which is systematically the worst outcome there is,
+    and precisely the one a buy list needs to be charged for. Filtering
+    on ``excessReturn is not None`` and reporting only what survives is
+    survivorship bias; reporting the rate beside the headline turns it
+    into a stated limit a reader can weigh.
+
+    A key with no entry at all is counted under ``not_in_panel`` rather
+    than ignored: a row the board scored and the outcome layer never saw
+    is the same kind of silence.
+    """
+    total = 0
+    dropped = 0
+    by_reason: dict[str, int] = {}
+    for key in player_keys:
+        total += 1
+        entry = returns.get(key)
+        if entry is not None and entry.get("excessReturn") is not None:
+            continue
+        dropped += 1
+        reason = str((entry or {}).get("reason") or "not_in_panel")
+        by_reason[reason] = by_reason.get(reason, 0) + 1
+    return {
+        "of": total,
+        "dropped": dropped,
+        "rate": (dropped / total) if total else None,
+        "byReason": dict(sorted(by_reason.items())),
+    }
 
 
 def horizon_date(origin: date, horizon_days: int, available: list[date]) -> date | None:

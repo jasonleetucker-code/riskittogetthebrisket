@@ -223,32 +223,41 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # to the same honest empty payload it served before.
     # See docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md.
     "bdvm_engine": True,
-    # Consensus Edge — the unified buy/sell board.  DEFAULT **ON** since
-    # 2026-08-04, on evidence rather than on time passing.  It was held
-    # off while the composite rested on one measured component and two
-    # declared priors; what changed is that the other two were measured.
+    # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
-    #   * Opportunity was backtested and returned a NULL, so its weight
-    #     is zero — it is displayed as evidence and moves no score
-    #     (ADR-013).
-    #   * The board a user actually sees was scored, not just the ranking
-    #     inside it: the top-20 buy list returns a median +3.59%
-    #     cohort-excess over 7 non-overlapping folds (+1.51% over 15 at a
-    #     7-day horizon), beating a random-20 draw from the same priced
-    #     universe in 6 of 7 and 11 of 15 (ADR-017).
-    #   * ``Strong Buy`` returns +8.83% at 6 of 6 folds and +3.39% at 10
-    #     of 12 — the strongest group on the board.
+    # It was flipped ON on 2026-08-04 on the strength of a top-20 study
+    # (+3.59% median cohort-excess at 14d, beating a random-20 draw in 6
+    # of 7 folds) and flipped back OFF the same day, on the same bar,
+    # after an independent audit found the board those numbers were
+    # measured on.  Every IDP fair value came from a leave-one-out board
+    # that had excluded the only registered ``is_backbone`` source, so
+    # the crosswalk that turns a within-DL/LB/DB rank into a
+    # combined-pool rank was gone and the numbers were not on any scale
+    # (220 rows, median 1.224x the default board, up to 3.48x).
     #
-    # What is still NOT claimed rides on every payload rather than
-    # relying on this comment: the panel is entirely offseason, the
-    # target is market movement rather than fantasy points, Sharp Flow's
-    # weight remains a declared prior, and **the sell side has no
-    # measured edge at all** (0 of 7 folds).  ``experimental: true`` is
-    # still stamped on every response.
+    # With those rows refused (ADR-021) and every measurement re-run
+    # against the repaired board, the pre-registered ship gate returns
+    # **do not ship**:
     #
-    # Rollback is ``RISKIT_FEATURE_CONSENSUS_EDGE=0`` — flag reads are
-    # cached per process, so a restart is required.
-    "consensus_edge": True,
+    #   * top-20 buys: median **-1.01%** at 14d over 6 folds, beating a
+    #     random-20 draw in **0 of 6**; **-0.55%** at 7d over 12 folds,
+    #     **0 of 12**.
+    #   * mispricing rho: **+0.031** at 14d (was +0.126) and **+0.040**
+    #     at 7d (was +0.089) — "no effect detected" at both, and the
+    #     market-value benchmark now beats it in 5 of 6 and 9 of 12.
+    #
+    # So the edge that justified shipping was carried by rows priced in
+    # units that do not exist.  Nothing here is broken — the endpoints,
+    # the page and the refusal states all work — but a buy/sell call
+    # with no measured edge is not something to put in front of a user
+    # by default.
+    #
+    # Turn it on with ``RISKIT_FEATURE_CONSENSUS_EDGE=1`` (plus a
+    # restart; flag reads are process-cached) to keep evaluating it.
+    # Flipping this default back to True requires the gate in
+    # ``scripts/validate_consensus_edge_board.py`` to pass on a re-run,
+    # not a judgement call.  See ADR-023.
+    "consensus_edge": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
