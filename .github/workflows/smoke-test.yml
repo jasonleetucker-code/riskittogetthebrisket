@@ -1,4 +1,4 @@
-﻿name: Scheduled Smoke Test
+name: Scheduled Smoke Test
 
 on:
   schedule:
@@ -17,10 +17,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
