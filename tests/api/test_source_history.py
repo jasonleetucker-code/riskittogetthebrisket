@@ -123,7 +123,7 @@ def test_retention_trims_to_max_snapshots(path):
             max_snapshots=180,
         )
     with path.open("r", encoding="utf-8") as f:
-        lines = [json.loads(l) for l in f if l.strip()]
+        lines = [json.loads(line) for line in f if line.strip()]
     assert len(lines) == 180
 
 

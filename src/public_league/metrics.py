@@ -242,16 +242,16 @@ def playoff_placement(bracket: list[dict[str, Any]]) -> dict[int, int]:
             place = int(p)
         except (TypeError, ValueError):
             continue
-        w = m.get("w")
-        l = m.get("l")
-        if w is not None:
+        winner_rid = m.get("w")
+        loser_rid = m.get("l")
+        if winner_rid is not None:
             try:
-                placement.setdefault(int(w), place)
+                placement.setdefault(int(winner_rid), place)
             except (TypeError, ValueError):
                 pass
-        if l is not None:
+        if loser_rid is not None:
             try:
-                placement.setdefault(int(l), place + 1)
+                placement.setdefault(int(loser_rid), place + 1)
             except (TypeError, ValueError):
                 pass
     return placement
@@ -315,9 +315,9 @@ def season_runner_up(season: SeasonSnapshot) -> int | None:
     # Fallback: loser of the final matchup.
     final = final_playoff_matchup(season.winners_bracket)
     if final is not None:
-        l = final.get("l")
+        loser_rid = final.get("l")
         try:
-            return int(l) if l is not None else None
+            return int(loser_rid) if loser_rid is not None else None
         except (TypeError, ValueError):
             return None
     return None
