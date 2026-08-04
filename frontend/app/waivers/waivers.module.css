@@ -190,20 +190,113 @@
   flex-direction: column;
   gap: var(--space-3);
 }
-.bidRow {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-2);
-}
-@media (width < 480px) {
-  .bidRow {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
+/* (.bidRow — the old undifferentiated four-pill strip — was removed with
+   the two-group bid desk; .objectiveRow and .bidLadder replace it.) */
 /* The recommended bid is the one number the user acts on — it gets the
    accent rule, and it is the only accented element in the panel. */
 .bidPrimary {
   border-color: var(--accent-border);
+}
+
+/* ── Bid desk groups ──
+   "What the player is worth" and "What you should bid" are different
+   quantities, so they are separate sections with their own headings
+   rather than one undifferentiated strip of pills. The visual break is
+   structural (a rule + spacing), not decorative. */
+.bidGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bidGroup + .bidGroup {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-3);
+}
+.bidGroupHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.bidGroupBadges {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.bidGroupTitle {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-secondary);
+}
+.bidGroupNote {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  line-height: var(--line-height-snug);
+  color: var(--text-tertiary);
+}
+.objectiveRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (width < 480px) {
+  .objectiveRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.bidLadder {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (width < 1024px) {
+  .bidLadder {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (width < 640px) {
+  .bidLadder {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Quiet qualifiers under the ladder — percentages and posture, which
+   contextualise the bid without competing with it. */
+.bidMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+}
+.bidMetaItem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--font-size-2xs);
+}
+.bidMetaLabel {
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.bidMetaValue {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Risk posture control (page controls rail) ── */
+.postureField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 220px;
 }
 
 .explanation {

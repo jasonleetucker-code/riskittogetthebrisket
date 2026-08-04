@@ -96,6 +96,18 @@ export const SETTINGS_DEFAULTS = {
   // the site, including in trade evaluation.
   valuationMode: "market",
 
+  // FAAB bid risk posture — how far up the engine's bid curve the
+  // /waivers bid desk should sit.  "conservative" | "balanced" |
+  // "aggressive", matching ``config/trade/faab.json`` →
+  // ``bidPolicy.riskPosture``.  Sent as ``riskPosture`` on
+  // POST /api/waiver/faab-recommend; the engine shifts only the TARGET
+  // on the bid curve, never the objective ceiling, so this changes what
+  // you are advised to pay and never what the player is worth.
+  //
+  // "balanced" is the engine's own default, so a user who never touches
+  // the control gets exactly the backend's unmodified recommendation.
+  faabRiskPosture: "balanced",
+
   // Trade history
   tradeHistoryWindowDays: 365,       // rolling 1-year window for trade analysis
 

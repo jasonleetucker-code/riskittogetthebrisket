@@ -39,7 +39,9 @@ import {
 import ResilientSection from "@/components/ResilientSection";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
 import SharedTradeSourceBreakdown from "@/components/trade/TradeSourceBreakdown";
-import FaabRecommendation from "@/components/waivers/FaabRecommendation";
+import FaabRecommendation, {
+  DEFAULT_RISK_POSTURE,
+} from "@/components/waivers/FaabRecommendation";
 import { MonteCarloButton, PlayerImage } from "@/components/ui";
 import { Badge, Button, Input, Panel, SkeletonTable, StatTile } from "@/components/ds";
 import styles from "@/app/waivers/waivers.module.css";
@@ -282,6 +284,9 @@ export default function ManualAddDrop({
   settings,
   leagueKey,
   teamLoading = false,
+  // Owned by /waivers (persisted in useSettings) and passed straight
+  // through to the bid desk — this component has no opinion on it.
+  riskPosture = DEFAULT_RISK_POSTURE,
 }) {
   const [dropRow, setDropRow] = useState(null);
   const [addRow, setAddRow] = useState(null);
@@ -448,6 +453,7 @@ export default function ManualAddDrop({
                 ownerId={selectedTeam?.ownerId}
                 selectedTeam={selectedTeam}
                 leagueFaab={leagueFaab}
+                riskPosture={riskPosture}
               />
             </ResilientSection>
           )}
