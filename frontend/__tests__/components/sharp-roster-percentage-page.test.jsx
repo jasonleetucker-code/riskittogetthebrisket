@@ -82,12 +82,19 @@ describe("Sharp Roster Percentage page", () => {
 
   it("surfaces the transparency disclosures", async () => {
     render(<SharpRosterPercentagePage />);
-    expect(await screen.findByText("Sharp managers")).toBeInTheDocument();
+    // Await a DATA-dependent value, not a static label. The stat
+    // labels render immediately with "—" placeholders while the fetch
+    // is still in flight, so `findByText("Sharp managers")` resolves
+    // against the loading state and synchronises nothing — the
+    // subsequent sync assertion on "80%" then races the fetch. Fast
+    // enough locally to always pass; on a loaded CI runner it fails
+    // with every label present and every value still "—".
+    expect(await screen.findByText("80%")).toBeInTheDocument();
+    expect(screen.getByText("Sharp managers")).toBeInTheDocument();
     expect(screen.getByText("Eligible rosters")).toBeInTheDocument();
     expect(screen.getByText("Sleeper rosters")).toBeInTheDocument();
     expect(screen.getByText("FFPC rosters")).toBeInTheDocument();
     expect(screen.getByText("Cohort represented")).toBeInTheDocument();
-    expect(screen.getByText("80%")).toBeInTheDocument();
   });
 
   it("explains that no market comparison exists rather than showing a zero", async () => {
