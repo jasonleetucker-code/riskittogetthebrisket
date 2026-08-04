@@ -552,3 +552,57 @@ class TestSchemaVersionMigration:
         finally:
             again.close()
             ledger.reset_setup_cache()
+
+
+def test_the_migration_clears_the_crawl_cursor_with_the_movements(tmp_path):
+    """A cursor pointing into deleted rows makes the wipe permanent.
+
+    ``sharp_league_fetch.max_created_ms`` is how far the sharp crawl already
+    got per league.  The v2 migration deletes every movement; leaving that
+    cursor behind told the crawler those transactions were already collected,
+    so it never re-fetched them and the cleared history was unrecoverable.
+    """
+    path = tmp_path / "ledger.sqlite3"
+    conn = ledger.connect(path)
+    try:
+        conn.execute(
+            """
+            INSERT INTO sharp_league_fetch(
+              league_id, max_created_ms, backfilled, last_fetched_ms
+            ) VALUES('L1', 1700000000000, 1, 1)
+            """
+        )
+        conn.execute("UPDATE meta SET value='1' WHERE key='schema_version'")
+        conn.commit()
+    finally:
+        conn.close()
+
+    # Force a fresh open so the version check runs the migration.
+    ledger._SETUP_DONE.pop(str(path), None)
+    conn = ledger.connect(path)
+    try:
+        remaining = conn.execute("SELECT COUNT(*) FROM sharp_league_fetch").fetchone()[0]
+        version = conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0]
+    finally:
+        conn.close()
+    assert remaining == 0, "cursor survived the wipe — the crawl would skip the deleted weeks"
+    assert str(version) == str(ledger.SCHEMA_VERSION)
+
+
+def test_the_migration_still_preserves_the_expensive_discovery_graph(tmp_path):
+    """Clearing the cursor must not turn into clearing everything."""
+    path = tmp_path / "ledger.sqlite3"
+    conn = ledger.connect(path)
+    try:
+        conn.execute("INSERT INTO sleeper_users(user_id, current_username) VALUES('u1', 'someone')")
+        conn.execute("UPDATE meta SET value='1' WHERE key='schema_version'")
+        conn.commit()
+    finally:
+        conn.close()
+    ledger._SETUP_DONE.pop(str(path), None)
+    conn = ledger.connect(path)
+    try:
+        users = conn.execute("SELECT COUNT(*) FROM sleeper_users").fetchone()[0]
+    finally:
+        conn.close()
+    assert users == 1

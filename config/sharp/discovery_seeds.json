@@ -17,6 +17,11 @@
       "userId": "468418790212759552",
       "username": "JasonLeeTucker",
       "note": "Platform owner. Their current leagues are re-read every run, so newly joined leagues enter the graph automatically."
+    },
+    {
+      "userId": "428330181405446144",
+      "username": "jjzachariason",
+      "note": "Curated industry sharp (Final 100 workbook), promoted to a verified identity by explicit admin review on 2026-08-04 — see sharp_review_decisions for the audit row. Seeded because the movement ledger is empty and a wider seed set is the only thing that fills it; an industry analyst's league portfolio reaches managers the owner's own leagues never touch. Public unauthenticated traversal only, same call budget and inter-call sleep as every other seed. Being a seed confers nothing: whether his trades COUNT is decided at read time by the qualified-cohort filter, not by appearing here."
     }
   ],
 

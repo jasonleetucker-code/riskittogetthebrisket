@@ -12586,6 +12586,15 @@ from src.sharp import curated_service as _sharp_curated_service  # noqa: E402
 _sharp_service._register_http_routes()
 _sharp_curated_service._register_http_routes()
 
+# Consensus Edge — SHADOW MODE. Registered so it can be compared against the
+# incumbent buy/sell signals on live data; every payload stamps
+# ``shadow: true`` and ``weightsValidated: false``. See src/edge/score.py for
+# why the weights are not fitted and docs/edge/BACKTEST.md for what would have
+# to be true to promote it.
+from src.edge import service as _edge_service  # noqa: E402
+
+_edge_service._register_http_routes()
+
 
 @app.get("/api/sharp/cohort")
 async def get_sharp_cohort(request: Request):

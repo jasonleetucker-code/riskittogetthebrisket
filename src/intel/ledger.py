@@ -107,12 +107,27 @@ def default_path() -> Path:
 #     the key change, so they are preserved.  Movements are the cheap
 #     part: league-mate rows heal on the next read via
 #     ``service.ensure_ledger_synced``, and sharp rows re-crawl.
+#
+#     "and sharp rows re-crawl" was NOT TRUE as first written, and the
+#     omission was silent and permanent.  ``sharp_league_fetch`` is the
+#     sharp crawl's per-league cursor: it records the last week already
+#     fetched so a budgeted run resumes instead of restarting.  Clearing
+#     the movements while leaving that cursor told the crawler it had
+#     already collected weeks whose rows had just been deleted, so it
+#     advanced past them forever and the wiped history was unrecoverable
+#     without hand-editing the database.  The cursor is therefore cleared
+#     in the same step.  It is the cheap thing to lose — losing it costs
+#     one re-crawl, whereas keeping it costs the data.
 SCHEMA_VERSION = 2
 
 # Tables whose rows are invalidated by each schema step.  Anything not
 # listed here SURVIVES the migration.
+#
+# A cursor that points into deleted data is itself invalid — any table
+# recording "how far we already got" MUST be listed beside the table it
+# points into, or the migration quietly becomes destructive.
 _MIGRATION_CLEARS: dict[int, tuple[str, ...]] = {
-    2: ("asset_movements", "transactions"),
+    2: ("asset_movements", "transactions", "sharp_league_fetch"),
 }
 
 # Retention.  The predecessor's 45 days made "last 90 days" and any
