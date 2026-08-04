@@ -793,6 +793,28 @@ unqualified player list.
 becomes a real multi-fold measurement when in-season dates enter the
 panel — automatically, with no further work.
 
+**Deferred, and the reason changed: retaining the joined snapshot as
+dated git-tracked files.** This was planned alongside the as-of
+parameters, on the argument that reconstruction recovers the *inputs*
+while retention preserves the *artifact production actually served*.
+That argument is now much weaker than when it was made. The week-22
+replay of 2025 is byte-identical to the live unbounded read, so the
+joined artifact IS reproducible from upstream given the same Sleeper
+pool — and the pool is the only thing retention would add, worth the
+80.7% → 100% join rate and nothing else.
+
+Against that: the mechanism is a production push (dedicated clone,
+`git add -f`, push retry, per `deploy/dlf_fetch_and_push.sh`), and it
+commits generated data by design. This session produced a live
+demonstration of the hazard — a `git add -A` swept two scheduled-refresh
+timestamp files into a commit and that alone put the PR into merge
+conflict with `main`.
+
+So it is not built here. If the survivorship term turns out to matter
+once in-season folds exist, the measurement will say so — the join rate
+is stamped on every replay — and that is a better trigger for a prod
+deployment change than a prior.
+
 **Status:** accepted 2026-08-04.
 
 ---
