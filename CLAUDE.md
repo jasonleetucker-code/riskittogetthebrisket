@@ -515,6 +515,34 @@ Rules for new code:
   ``surplus`` for 68 of 84 team/position pairs and ``need`` once — it
   cannot discriminate here.
 
+**Two independent market signals**, deliberately separate:
+
+* ``data/faab/bid_history_<leagueKey>.json`` — what OUR league pays.
+  Full Sleeper transaction history, but one league's culture.
+* ``data/faab/crowd_history_<leagueKey>.json`` — what COMPARABLE
+  leagues pay for the same player right now, from KTC's public waiver
+  database (``scripts/fetch_crowd_faab.py``).  The feed is a ~5-day
+  200-row rolling window across ~83 MyFantasyLeague leagues, so it is
+  ACCUMULATED (deduped by KTC row id) rather than snapshotted, and
+  filtered to leagues matching this league's format.  Measured
+  2026-08-04: the wider superflex+TEP market's median claim is 0.30%
+  of budget with a p90 of 8.5%, which brackets this league's own 0% /
+  6% — the two markets agree.
+
+  It is an anonymous crowd, NOT experts; no ranking source in the
+  pipeline is attached to a league at all.  **It prices the MARKET,
+  never the PLAYER**: crowd evidence raises rival engagement and the
+  expected clearing price, and is structurally unable to move the
+  objective ceiling (which is computed before any crowd data is read).
+  A player our board grades below replacement stays a $0
+  recommendation however hot he is elsewhere — the explanation names
+  the disagreement instead of hiding it.  Pinned by
+  ``tests/trade/test_faab_crowd.py``.  Note the crowd figure is a
+  WINNING bid, already a max over its league's field, so
+  ``crowdWinningBidToRivalMedian`` converts it back to the per-rival
+  level before it is compared with the modelled share; without that
+  the order statistic is counted twice.
+
 Bid history lives in ``data/faab/bid_history_<leagueKey>.json``
 (gitignored like the rest of ``data/``), written by
 ``scripts/fetch_faab_history.py``; run it on prod.  Without it the

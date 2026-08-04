@@ -708,6 +708,7 @@ def _rival_engagement(
     rival: RivalTeam,
     *,
     config: FaabConfig,
+    crowd_share: float | None = None,
 ) -> float:
     """P(this rival bids at all).
 
@@ -736,6 +737,18 @@ def _rival_engagement(
     except (TypeError, ValueError):
         pass
 
+    # Observed contention overrides a modelled lack of it.  Our demand
+    # signal is derived from OUR board, so a player our board grades at
+    # replacement level scores near-zero engagement — even when the
+    # crowd feed shows comparable leagues actively bidding on him.
+    # Take the higher of the two: a claim that is demonstrably being
+    # contested elsewhere is contested here too, whatever we think he
+    # is worth.  (This raises the expected PRICE, never the ceiling.)
+    if crowd_share is not None and crowd_share > 0:
+        lift = config.num("market", "crowdEngagementLift", 5.0)
+        floor = config.num("market", "engagementBaseRate", 0.05) + lift * float(crowd_share)
+        p = max(p, min(config.num("market", "engagementMaxRate", 0.7), floor))
+
     if rival.faab_remaining is not None and rival.faab_remaining <= 0:
         return 0.0
     return max(0.0, min(1.0, p))
@@ -748,6 +761,8 @@ def rival_bid_cdf(
     demand_signal: float,
     league: LeagueContext,
     config: FaabConfig,
+    crowd_median_pct: float | None = None,
+    crowd_share: float | None = None,
 ) -> float:
     """P(every rival bids <= ``bid``) — i.e. P(we win at ``bid``).
 
@@ -774,7 +789,7 @@ def rival_bid_cdf(
     for rival in rivals:
         if rival.faab_remaining is None:
             continue  # unverifiable — excluded by policy
-        p = _rival_engagement(demand_signal, rival, config=config)
+        p = _rival_engagement(demand_signal, rival, config=config, crowd_share=crowd_share)
         if p <= 0.0:
             continue
 
@@ -795,6 +810,31 @@ def rival_bid_cdf(
         share = base_share + (max_share - base_share) * (
             max(0.0, min(1.0, demand_signal)) ** demand_exp
         )
+        # Observed beats modelled.  When comparable leagues have
+        # actually paid for THIS player in the last few months, that
+        # price is direct evidence about the clearing price and the
+        # modelled share is only a prior — so blend toward it.
+        #
+        # ORDER-STATISTIC CORRECTION.  The crowd figure is a WINNING
+        # bid: KTC only publishes claims that were won, so it is
+        # already the maximum over that league's field.  ``share`` here
+        # is one rival's TYPICAL bid, and the clearing price is the max
+        # over ours.  Blending a max into a median and then maxing
+        # again double-counts the order statistic and overstates the
+        # clearing price — measured, it inflated a 10%-of-budget crowd
+        # observation to a 19% estimate.  Scaling by
+        # ``crowdWinningBidToRivalMedian`` converts the observation
+        # back to the per-rival level it has to be compared at.
+        #
+        # This moves the MARKET only.  It cannot touch the objective
+        # ceiling, which is computed before any of this and bounds the
+        # bid regardless: a hype cycle can tell us a claim will be
+        # expensive, never that the player is worth more.
+        if crowd_median_pct is not None and crowd_median_pct >= 0:
+            w = max(0.0, min(1.0, config.num("market", "crowdBlendWeight", 0.6)))
+            to_rival = config.num("market", "crowdWinningBidToRivalMedian", 0.53)
+            observed = (float(crowd_median_pct) / 100.0) * to_rival
+            share = (1.0 - w) * share + w * observed
         median_bid = max(0.25, budget * share * median_share * aggression)
         median_bid = min(median_bid, float(rival.faab_remaining))
 
@@ -894,6 +934,8 @@ def _market_clearing_price(
     demand_signal: float,
     league: LeagueContext,
     config: FaabConfig,
+    crowd_median_pct: float | None = None,
+    crowd_share: float | None = None,
 ) -> int:
     """The price at which the top rival bid is as likely to be under
     as over — the median of the top-rival distribution.
@@ -910,6 +952,8 @@ def _market_clearing_price(
                 demand_signal=demand_signal,
                 league=league,
                 config=config,
+                crowd_median_pct=crowd_median_pct,
+                crowd_share=crowd_share,
             )
             >= 0.5
         ):
@@ -926,6 +970,8 @@ def optimal_bid(
     league: LeagueContext,
     team: TeamContext,
     config: FaabConfig,
+    crowd_median_pct: float | None = None,
+    crowd_share: float | None = None,
 ) -> dict[str, Any]:
     """Stage E — the bid ladder from one expected-surplus curve.
 
@@ -958,6 +1004,8 @@ def optimal_bid(
         demand_signal=demand_signal,
         league=league,
         config=config,
+        crowd_median_pct=crowd_median_pct,
+        crowd_share=crowd_share,
     )
 
     if hard_cap <= 0:
@@ -985,6 +1033,8 @@ def optimal_bid(
             demand_signal=demand_signal,
             league=league,
             config=config,
+            crowd_median_pct=crowd_median_pct,
+            crowd_share=crowd_share,
         )
         ev = p_win * max(0.0, raw_ceiling_dollars - b)
         curve.append((b, p_win, ev))
@@ -1084,6 +1134,7 @@ def recommend(
     rivals: Sequence[RivalTeam] = (),
     config: FaabConfig | None = None,
     extra_factors: Sequence[dict[str, Any]] = (),
+    crowd: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The one FAAB recommendation call.
 
@@ -1137,6 +1188,16 @@ def recommend(
             _FactorRow("Expected competition", "no rival balances available", 0.25, missing=True)
         )
 
+    if crowd and isinstance(crowd.get("medianPct"), (int, float)):
+        factors.append(
+            _FactorRow(
+                "Cross-league market",
+                f"comparable leagues paid a median {crowd['medianPct']:.1f}% of budget "
+                f"({crowd.get('claims', 0)} claims)",
+                0.20,
+            )
+        )
+
     # Rival demand keys on the OBJECTIVE ceiling — team-independent by
     # construction, so rival behaviour never becomes a function of our
     # roster or budget.  It reads the UNCAPPED raw ceiling, normalised
@@ -1157,6 +1218,8 @@ def recommend(
         league=league,
         team=team,
         config=cfg,
+        crowd_median_pct=crowd.get("medianPct") if crowd else None,
+        crowd_share=crowd.get("shareOfClaims") if crowd else None,
     )
 
     remaining = ceil["remaining"]
@@ -1188,7 +1251,7 @@ def recommend(
                 )
             )
 
-    explanation = _explain(player, ceil, bids, anchors, league, team, usable_rivals)
+    explanation = _explain(player, ceil, bids, anchors, league, team, usable_rivals, crowd)
 
     return {
         "objective": {
@@ -1229,18 +1292,34 @@ def _explain(
     league: LeagueContext,
     team: TeamContext,
     rivals: Sequence[RivalTeam],
+    crowd: dict[str, Any] | None = None,
 ) -> str:
     """One or two sentences naming the factors that actually moved this
     recommendation — not a restatement of the number."""
     rec = bids["recommended"]
     obj = ceil["objectiveDollars"]
 
+    crowd_pct = (crowd or {}).get("medianPct")
+    has_crowd = isinstance(crowd_pct, (int, float))
+
     if ceil["addSurplus"] <= 0:
-        return (
+        base = (
             f"No bid. {player.name or 'This player'} grades at or below the "
             f"{anchors.v_repl:.0f} free-agent baseline — comparable production is "
             "available for nothing."
         )
+        # The disagreement worth surfacing: our board says replacement
+        # level, the wider market is paying real money.  Say so rather
+        # than quietly recommending $0 against visible evidence — the
+        # user can overrule us, but only if we show our working.
+        if has_crowd and crowd_pct >= 1.0:
+            base += (
+                f"  Note that comparable leagues have paid a median "
+                f"{crowd_pct:.0f}% of budget for him "
+                f"({crowd.get('claims', 0)} claims) — the market disagrees with our "
+                "board here, and we are not chasing it."
+            )
+        return base
 
     parts: list[str] = []
     if rec <= 0:
@@ -1267,4 +1346,18 @@ def _explain(
     elif team.open_roster_spots > 0:
         parts.append("and you have an open roster spot")
 
-    return f"{parts[0]} — {', '.join(parts[1:])}."
+    sentence = f"{parts[0]} — {', '.join(parts[1:])}."
+    if has_crowd:
+        obj_pct = 100.0 * ceil["objectivePct"]
+        if crowd_pct > obj_pct + 1.0:
+            sentence += (
+                f"  Comparable leagues have paid a median {crowd_pct:.0f}% of budget, "
+                f"above the {obj_pct:.0f}% our board says he is worth — expect to be "
+                "outbid rather than overpay."
+            )
+        elif crowd_pct >= 1.0:
+            sentence += (
+                f"  Comparable leagues have paid a median {crowd_pct:.0f}% of budget, "
+                "which this bid is in line with."
+            )
+    return sentence

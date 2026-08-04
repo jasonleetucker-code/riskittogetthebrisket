@@ -332,6 +332,7 @@ def recommend_faab(
     risk_posture: str = "balanced",
     faab_carries_over: bool = False,
     league_key: str = "",
+    crowd: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Recommend a FAAB bid for a single add/drop pair.
 
@@ -409,6 +410,7 @@ def recommend_faab(
         rivals=rivals,
         config=cfg,
         extra_factors=extra,
+        crowd=crowd,
     )
 
     bids = result["bids"]

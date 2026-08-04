@@ -214,7 +214,27 @@
     "aggressionClamp": [0.5, 2.0],
     "minWinningBidsForAggression": 3,
     "_invariantNotAToggle_unknownBalanceAssumption": "exclude",
-    "tieBreakWinProbability": 0.5
+    "tieBreakWinProbability": 0.5,
+    "_crowdComment": [
+      "crowdBlendWeight: how far to move the modelled rival price",
+      "toward what comparable leagues ACTUALLY paid for this player",
+      "(KTC waiver database, accumulated by",
+      "scripts/fetch_crowd_faab.py).  Observed beats modelled, so the",
+      "weight is above 0.5 — but not 1.0, because the crowd sample per",
+      "player is small (often 1-6 claims), MyFantasyLeague-only, and",
+      "an anonymous crowd rather than a panel of experts.",
+      "",
+      "This moves the MARKET only.  The objective ceiling is computed",
+      "before any crowd data is read and bounds the bid regardless: a",
+      "hype cycle can tell us a claim will be expensive, never that",
+      "the player is worth more.  Measured 2026-08-04: the wider",
+      "market's superflex+TEP median is 0.30% of budget with a p90 of",
+      "8.5%, which brackets this league's own 0% / 6% — the two",
+      "markets agree, which is why the blend is safe."
+    ],
+    "crowdBlendWeight": 0.6,
+    "crowdEngagementLift": 5.0,
+    "crowdWinningBidToRivalMedian": 0.53
   },
 
   "bidPolicy": {

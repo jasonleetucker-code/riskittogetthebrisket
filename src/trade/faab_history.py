@@ -32,8 +32,9 @@ import logging
 import statistics
 import urllib.request
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from src.utils.config_loader import repo_root, save_json
 
@@ -294,6 +295,162 @@ def summarize_bid_history(payload: dict[str, Any] | None) -> MarketPriors:
         priors.by_week[week] = statistics.fmean(vals)
 
     return priors
+
+
+# ── Cross-league crowd bids (KTC waiver database) ──────────────────
+#
+# A SECOND, INDEPENDENT market signal, and deliberately kept separate
+# from the Sleeper history above.
+#
+#   Sleeper history  what OUR league pays.  Full transaction history,
+#                    but one league's culture and a small sample.
+#   Crowd history    what OTHER leagues pay for the same player, right
+#                    now, in comparable formats.  Much wider, but only
+#                    a ~5-day 200-row rolling window per fetch, so it
+#                    has to be ACCUMULATED — a single scrape is a
+#                    snapshot, not a history.
+#
+# The crowd feed is MyFantasyLeague-only and anonymous; it is a crowd,
+# not a panel of experts.  It is used to price the MARKET (how
+# contested a claim will be), never to price the PLAYER — our board
+# owns that, and letting a hype cycle bid up our own valuation is
+# exactly the double-count the engine exists to prevent.
+
+CROWD_RETENTION_DAYS = 120
+
+
+def crowd_history_path(league_key: str) -> Path:
+    """Per-league partition, because the format gate that decides which
+    crowd leagues are comparable is a league-format property."""
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in str(league_key or "default"))
+    return HISTORY_DIR / f"crowd_history_{safe}.json"
+
+
+def merge_crowd_rows(
+    existing: dict[str, Any] | None,
+    rows: Iterable[dict[str, Any]],
+    *,
+    now_iso: str,
+    retention_days: int = CROWD_RETENTION_DAYS,
+) -> dict[str, Any]:
+    """Accumulate a fetched crowd snapshot into the persisted history.
+
+    Dedup is by the KTC waiver row id, which is stable across fetches —
+    the feed re-serves the same recent claims every scrape, so without
+    it a 2-hourly refresh would multiply every row by ~60.  Existing
+    rows win, so a re-fetch never rewrites history.
+
+    Rows older than ``retention_days`` are pruned on write: bidding
+    behaviour drifts across a season, and an unbounded file would let
+    2024's market outvote this week's.
+    """
+    payload: dict[str, Any] = dict(existing or {})
+    by_id: dict[str, dict[str, Any]] = {}
+    for row in payload.get("rows") or []:
+        if isinstance(row, dict) and row.get("id") is not None:
+            by_id[str(row["id"])] = row
+
+    added = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        rid = row.get("id")
+        if rid is None:
+            continue
+        key = str(rid)
+        if key in by_id:
+            continue  # existing wins
+        by_id[key] = {**row, "firstSeenAt": now_iso}
+        added += 1
+
+    cutoff = _iso_days_before(now_iso, retention_days)
+    kept = [r for r in by_id.values() if str(r.get("date") or "") >= cutoff]
+
+    payload["schemaVersion"] = 1
+    payload["rows"] = sorted(kept, key=lambda r: str(r.get("date") or ""), reverse=True)
+    payload["updatedAt"] = now_iso
+    payload["addedLastRun"] = added
+    payload["prunedOlderThan"] = cutoff
+    return payload
+
+
+def _iso_days_before(now_iso: str, days: int) -> str:
+    """``now - days`` as a date string, for lexicographic comparison
+    against the feed's ``YYYY-MM-DDT...`` dates."""
+    try:
+        base = datetime.fromisoformat(str(now_iso).replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    return (base - timedelta(days=max(0, int(days)))).date().isoformat()
+
+
+def load_crowd_history(league_key: str) -> dict[str, Any] | None:
+    path = crowd_history_path(league_key)
+    try:
+        if not path.exists():
+            return None
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 — defensive by contract
+        log.warning("crowd history read failed (%s): %s", path, exc)
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def save_crowd_history(league_key: str, payload: dict[str, Any]) -> Path:
+    path = crowd_history_path(league_key)
+    save_json(path, payload)
+    return path
+
+
+def crowd_bid_index(payload: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """``compact_name_key → {medianPct, maxPct, claims, leagues}``.
+
+    Median rather than mean, and **zeros retained**: a $0 add is the
+    modal outcome and the single most informative thing the feed says
+    about a player — dropping zeros is what made the legacy analytics
+    read a quiet wire as a contested one.
+    """
+    from src.utils.name_clean import compact_name_key  # noqa: PLC0415
+
+    if not isinstance(payload, dict):
+        return {}
+    buckets: dict[str, list[float]] = {}
+    leagues: dict[str, set[str]] = {}
+    for row in payload.get("rows") or []:
+        if not isinstance(row, dict):
+            continue
+        name = row.get("added")
+        pct = row.get("bidPct")
+        if not name or not isinstance(pct, (int, float)):
+            continue
+        # Unresolvable KTC ids surface as "Player#1234" — they cannot
+        # join our board by name, so they would only add noise.
+        if str(name).startswith("Player#"):
+            continue
+        key = compact_name_key(str(name))
+        if not key:
+            continue
+        buckets.setdefault(key, []).append(float(pct))
+        lid = str((row.get("settings") or {}).get("leagueId") or "")
+        if lid:
+            leagues.setdefault(key, set()).add(lid)
+
+    total_claims = sum(len(v) for v in buckets.values()) or 1
+    out: dict[str, dict[str, Any]] = {}
+    for key, pcts in buckets.items():
+        out[key] = {
+            "medianPct": round(statistics.median(pcts), 2),
+            "maxPct": round(max(pcts), 2),
+            "claims": len(pcts),
+            "leagues": len(leagues.get(key, ())),
+            # Share of ALL crowd claims in the window that were for this
+            # player.  This — not the bid size — is what says "rivals
+            # will contest him": a player taking 6% of every add across
+            # comparable leagues is demonstrably in demand, however our
+            # own board grades him.
+            "shareOfClaims": round(len(pcts) / total_claims, 4),
+        }
+    return out
 
 
 def owner_aggression_factor(

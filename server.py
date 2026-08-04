@@ -5154,8 +5154,11 @@ async def post_waiver_faab_recommend(request: Request):
     # roster shape.  All of it is resolved dynamically — nothing about
     # which team is asking is hard-coded.
     from src.trade import faab_engine as _faab_engine  # noqa: PLC0415
+    from src.utils.name_clean import compact_name_key  # noqa: PLC0415
     from src.trade.faab_history import (  # noqa: PLC0415
+        crowd_bid_index,
         load_bid_history,
+        load_crowd_history,
         summarize_bid_history,
     )
 
@@ -5197,6 +5200,18 @@ async def post_waiver_faab_recommend(request: Request):
     # Market priors fitted from THIS league's real bid history, when a
     # snapshot exists (scripts/fetch_faab_history.py writes it).
     market_priors = summarize_bid_history(load_bid_history(league_cfg.key))
+
+    # Cross-league crowd prices for THIS player, when we have them
+    # (scripts/fetch_crowd_faab.py accumulates them).  A second,
+    # independent read on how contested the claim will be — it moves
+    # the expected clearing price and never the objective ceiling.
+    crowd_for_player: dict | None = None
+    try:
+        crowd_index = crowd_bid_index(load_crowd_history(league_cfg.key))
+        if crowd_index:
+            crowd_for_player = crowd_index.get(compact_name_key(add_name))
+    except Exception as exc:  # noqa: BLE001 — an optional signal must never 500
+        log.warning("crowd bid lookup failed for %s: %s", league_cfg.key, exc)
 
     # The selected team's own roster shape.
     selected_team_row: dict | None = None
@@ -5277,6 +5292,7 @@ async def post_waiver_faab_recommend(request: Request):
         need_level=own_need,
         risk_posture=risk_posture,
         league_key=league_cfg.key,
+        crowd=crowd_for_player,
     )
 
     # First pass — value only, no rivals.  Kept so the response is
