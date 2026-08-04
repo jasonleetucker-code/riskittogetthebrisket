@@ -1,4 +1,4 @@
-﻿name: PR Validation
+name: PR Validation
 
 # Runs on every pull request to provide pre-merge feedback.
 # This is the "preview/staging" gate â€” validates code quality before merge.
@@ -58,14 +58,14 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Full history so the changed-files ruff gate can diff the
           # PR against its base SHA.
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -205,7 +205,7 @@ jobs:
       # output even on success, while the check step's exit code is
       # what determines the gate.
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
 
