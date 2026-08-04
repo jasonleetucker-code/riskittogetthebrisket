@@ -60,8 +60,8 @@ Baker Mayfield,58,QB,TB
 Rome Odunze,59,WR,CHI
 TreVeyon Henderson,60,RB,NE
 Cam Ward,61,QB,TEN
-Quinshon Judkins,62,RB,CLE
-C.J. Stroud,63,QB,HOU
+C.J. Stroud,62,QB,HOU
+Quinshon Judkins,63,RB,CLE
 Saquon Barkley,64,RB,PHI
 Tucker Kraft,65,TE,GB
 Marvin Harrison Jr.,66,WR,ARI
@@ -77,11 +77,11 @@ Kyler Murray,75,QB,MIN
 Kyle Pitts Sr.,76,TE,ATL
 Christian Watson,77,WR,GB
 Cam Skattebo,78,RB,NYG
-KC Concepcion,79,WR,CLE
-Javonte Williams,80,RB,DAL
-Sam Darnold,81,QB,SEA
-Bucky Irving,82,RB,TB
-Jadarian Price,83,RB,SEA
+Javonte Williams,79,RB,DAL
+KC Concepcion,80,WR,CLE
+Bucky Irving,81,RB,TB
+Jadarian Price,82,RB,SEA
+Sam Darnold,83,QB,SEA
 Malik Willis,84,QB,MIA
 Kenyon Sadiq,85,TE,NYJ
 Terry McLaurin,86,WR,WAS
@@ -345,7 +345,7 @@ John Metchie III,343,WR,CAR
 Jalen Milroe,344,QB,SEA
 Samaje Perine,345,RB,CIN
 Treylon Burks,346,WR,WAS
-Aaron Anderson,347,WR,CLE
+Aaron Anderson,347,WR,FA
 Noah Gray,348,TE,KC
 Barion Brown,349,WR,NO
 Jaleel McLaughlin,350,RB,DEN
@@ -429,7 +429,7 @@ Demarcus Robinson,427,WR,SF
 Jeremy McNichols,428,RB,WAS
 Taysom Hill,429,TE,FA
 Isaiah Hodgins,430,WR,NYG
-RJ Maryland,431,TE,GB
+RJ Maryland,431,TE,FA
 Foster Moreau,432,TE,HOU
 Dameon Pierce,433,RB,PHI
 Luke Schoonmaker,434,TE,DAL

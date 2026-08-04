@@ -512,9 +512,9 @@
     "ownerId": "984270279268446208",
     "rosterId": 9,
     "teamName": "Comacho",
-    "teamRosStrength": 386.95,
+    "teamRosStrength": 386.96,
     "startingLineupScore": 482.56,
-    "benchDepthScore": 163.93,
+    "benchDepthScore": 163.98,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -624,9 +624,9 @@
         "playerId": "11584",
         "canonicalName": "bucky irving",
         "position": "RB",
-        "rosValue": 35.62,
+        "rosValue": 35.67,
         "depthFactor": 1.0,
-        "depthContribution": 35.62
+        "depthContribution": 35.67
       },
       {
         "playerId": "12529",
@@ -712,7 +712,7 @@
         "playerId": "11584",
         "canonicalName": "bucky irving",
         "position": "RB",
-        "rosValue": 35.62,
+        "rosValue": 35.67,
         "fantasyPositions": [
           "RB"
         ],
@@ -2083,8 +2083,8 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 300.08,
-    "startingLineupScore": 372.58,
+    "teamRosStrength": 300.12,
+    "startingLineupScore": 372.63,
     "benchDepthScore": 121.26,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -2114,8 +2114,8 @@
         "playerId": "7588",
         "canonicalName": "javonte williams",
         "position": "RB",
-        "rosValue": 39.41,
-        "adjustedValue": 39.41,
+        "rosValue": 39.46,
+        "adjustedValue": 39.46,
         "confidence": 0.891,
         "flagged": null
       },
@@ -2536,7 +2536,7 @@
         "playerId": "7588",
         "canonicalName": "javonte williams",
         "position": "RB",
-        "rosValue": 39.41,
+        "rosValue": 39.46,
         "fantasyPositions": [
           "RB"
         ],
@@ -2603,8 +2603,8 @@
     "ownerId": "1202064845743071232",
     "rosterId": 10,
     "teamName": "shayden18",
-    "teamRosStrength": 296.1,
-    "startingLineupScore": 367.58,
+    "teamRosStrength": 296.04,
+    "startingLineupScore": 367.5,
     "benchDepthScore": 119.11,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -2634,8 +2634,8 @@
         "playerId": "12512",
         "canonicalName": "quinshon judkins",
         "position": "RB",
-        "rosValue": 31.65,
-        "adjustedValue": 31.65,
+        "rosValue": 31.57,
+        "adjustedValue": 31.57,
         "confidence": 0.826,
         "flagged": null
       },
@@ -2825,7 +2825,7 @@
         "playerId": "12512",
         "canonicalName": "quinshon judkins",
         "position": "RB",
-        "rosValue": 31.65,
+        "rosValue": 31.57,
         "fantasyPositions": [
           "RB"
         ],
@@ -3124,9 +3124,9 @@
     "ownerId": "1202075501976375296",
     "rosterId": 6,
     "teamName": "Jhall2002",
-    "teamRosStrength": 277.64,
+    "teamRosStrength": 277.65,
     "startingLineupScore": 338.2,
-    "benchDepthScore": 134.08,
+    "benchDepthScore": 134.14,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -3236,9 +3236,9 @@
         "playerId": "9758",
         "canonicalName": "cj stroud",
         "position": "QB",
-        "rosValue": 28.74,
+        "rosValue": 28.8,
         "depthFactor": 1.0,
-        "depthContribution": 28.74
+        "depthContribution": 28.8
       },
       {
         "playerId": "5967",
@@ -3610,7 +3610,7 @@
         "playerId": "9758",
         "canonicalName": "cj stroud",
         "position": "QB",
-        "rosValue": 28.74,
+        "rosValue": 28.8,
         "fantasyPositions": [
           "QB"
         ],
@@ -4153,8 +4153,8 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 257.76,
-    "startingLineupScore": 318.3,
+    "teamRosStrength": 257.7,
+    "startingLineupScore": 318.22,
     "benchDepthScore": 103.25,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -4254,8 +4254,8 @@
         "playerId": "4943",
         "canonicalName": "sam darnold",
         "position": "QB",
-        "rosValue": 28.07,
-        "adjustedValue": 28.07,
+        "rosValue": 27.99,
+        "adjustedValue": 27.99,
         "confidence": 0.951,
         "flagged": null
       }
@@ -4496,7 +4496,7 @@
         "playerId": "4943",
         "canonicalName": "sam darnold",
         "position": "QB",
-        "rosValue": 28.07,
+        "rosValue": 27.99,
         "fantasyPositions": [
           "QB"
         ],
@@ -4684,8 +4684,8 @@
     "ownerId": "720513970041061376",
     "rosterId": 5,
     "teamName": "tedkinney",
-    "teamRosStrength": 243.86,
-    "startingLineupScore": 304.06,
+    "teamRosStrength": 243.85,
+    "startingLineupScore": 304.05,
     "benchDepthScore": 82.98,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -4705,8 +4705,8 @@
         "playerId": "13286",
         "canonicalName": "jadarian price",
         "position": "RB",
-        "rosValue": 27.83,
-        "adjustedValue": 27.83,
+        "rosValue": 27.89,
+        "adjustedValue": 27.89,
         "confidence": 0.821,
         "flagged": null
       },
@@ -4755,9 +4755,9 @@
         "playerId": "13298",
         "canonicalName": "kc concepcion",
         "position": "WR",
-        "rosValue": 24.16,
-        "adjustedValue": 24.16,
-        "confidence": 0.77,
+        "rosValue": 24.09,
+        "adjustedValue": 24.09,
+        "confidence": 0.771,
         "flagged": null
       },
       {
@@ -5060,7 +5060,7 @@
         "playerId": "13286",
         "canonicalName": "jadarian price",
         "position": "RB",
-        "rosValue": 27.83,
+        "rosValue": 27.89,
         "fantasyPositions": [
           "RB"
         ],
@@ -5082,7 +5082,7 @@
         "playerId": "13298",
         "canonicalName": "kc concepcion",
         "position": "WR",
-        "rosValue": 24.16,
+        "rosValue": 24.09,
         "fantasyPositions": [
           "WR"
         ],
