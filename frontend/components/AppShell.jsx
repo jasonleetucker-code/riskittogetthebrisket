@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useDynastyData } from "@/components/useDynastyData";
 import { buildTeamByPlayer } from "@/lib/waiver-logic";
@@ -14,16 +13,67 @@ import { buildTeamByPlayer } from "@/lib/waiver-logic";
 // is false there (PUBLIC_ONLY_ROUTE_PREFIXES below), so PlayerPopup was
 // provably unreachable on the route with the largest bundle.
 //
-// `ssr: false` because both are interaction-only surfaces with no
-// server-rendered content to hydrate. Pattern matches
-// app/league/sections/draft-capital.jsx.
-const PlayerPopup = dynamic(() => import("@/components/PlayerPopup"), {
-  ssr: false,
-});
-const CommandPalette = dynamic(
-  () => import("@/components/shell/CommandPalette"),
-  { ssr: false },
-);
+// ⚠ DO NOT "SIMPLIFY" THIS BACK TO `dynamic()`. It looks like the obvious
+// tool and it silently duplicates every page in the app.
+//
+// `dynamic()` is `React.lazy`, which needs a Suspense boundary. AppShell
+// has no local one, so the nearest ancestor is the App Router's — and
+// `{children}`, the entire page, renders inside it. Every route's content
+// then became deferred streaming content: emitted into React's
+// `<div id="S:1">` staging container, moved into place, and the staged
+// copy left behind. /waivers served three <main> elements: the shell's,
+// the page's, and a hidden second full copy of the page.
+//
+// The duplicate has no client rects and never reaches the accessibility
+// tree, so it is invisible in a screenshot, in the a11y snapshot, and to
+// a human clicking around. It is still duplicate DOM, duplicate element
+// ids, and every page's markup rendered twice — a regression in the exact
+// dimension this split exists to improve. The only thing that caught it
+// was a Playwright strict-mode violation ("resolved to 2 elements"), and
+// that suite does not run on PRs.
+//
+// Measured on Next 16.2.12:
+//   static imports                 /waivers clean, /arbitrage clean, +69 KB everywhere
+//   dynamic() bare                 /waivers 3 <main> + #S:1, /arbitrage duplicated
+//   dynamic() + local <Suspense>   /waivers clean, /arbitrage still duplicated (transient)
+//   imperative import (this)       both clean, split preserved
+// It reproduces with and without `ssr: false` — that flag was a red herring.
+// Wrapping each render site in its own <Suspense> fixed /waivers but only
+// narrowed the window on /arbitrage, because the boundary still exists.
+//
+// So the boundary must not exist. Loading the module imperatively is the
+// idiom this repo already uses for exactly this (components/ScreenshotFab.jsx
+// does `const { default: html2canvas } = await import("html2canvas")`):
+// there is no lazy component, nothing suspends, and webpack still emits a
+// separate chunk — the whole 69 KB win with none of the streaming
+// machinery.
+//
+// app/league/sections/*.jsx keep using dynamic() and are fine: those
+// boundaries wrap only their own section, never the page.
+
+/**
+ * Load a module's default export on demand, once, and return it (null
+ * until it lands). `enabled` gates the fetch so the chunk is requested
+ * the first time the surface is actually needed, not on mount.
+ *
+ * Deliberately NOT React.lazy — see the note above.
+ */
+function useLazyComponent(enabled, loader) {
+  const [Component, setComponent] = useState(null);
+  const loaderRef = useRef(loader);
+  useEffect(() => {
+    if (!enabled || Component) return undefined;
+    let alive = true;
+    loaderRef
+      .current()
+      // Stored via an updater fn: setState treats a bare function as a
+      // reducer, and a component IS a function.
+      .then((mod) => { if (alive) setComponent(() => mod.default); })
+      .catch(() => { /* chunk fetch failed; the surface stays closed */ });
+    return () => { alive = false; };
+  }, [enabled, Component]);
+  return Component;
+}
 
 // ── App-wide context for popup and search ────────────────────────────────
 const AppContext = createContext({
@@ -122,6 +172,16 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
 
   // Global search state
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // Both chunks are fetched on first need and kept thereafter.
+  const PlayerPopup = useLazyComponent(
+    privateDataEnabled && Boolean(popupRow),
+    () => import("@/components/PlayerPopup"),
+  );
+  const CommandPalette = useLazyComponent(
+    searchEnabled && searchOpen,
+    () => import("@/components/shell/CommandPalette"),
+  );
 
   // Add-to-trade callback (registered by trade page when mounted)
   const addToTradeRef = useRef(null);
@@ -232,7 +292,11 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
           The "/" shortcut lives here in AppShell (see the keydown
           handler above), not inside CommandPalette, so gating on
           `searchOpen` cannot break the way it is opened. */}
-      {privateDataEnabled && popupRow && (
+      {/* `PlayerPopup &&` is the load gate, not a style choice: the
+          component is null until its chunk lands. That gap is a frame or
+          two on a warm connection and is invisible — the drawer animating
+          in is the feedback either way. */}
+      {privateDataEnabled && popupRow && PlayerPopup && (
         <PlayerPopup
           row={popupRow}
           siteKeys={siteKeys}
@@ -241,7 +305,7 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
         />
       )}
 
-      {searchEnabled && searchOpen && (
+      {searchEnabled && searchOpen && CommandPalette && (
         <CommandPalette
           rows={rows}
           teamByPlayer={teamByPlayer}
