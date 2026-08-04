@@ -1,45 +1,47 @@
 {
  "schemaVersion": 1,
- "generatedAt": "2026-08-04T21:16:48.398188+00:00",
- "commit": "c807040e",
+ "generatedAt": "2026-08-04T21:29:09.449822+00:00",
+ "commit": "caf04fbc",
  "totals": {
-  "findings": 72,
-  "rawRecords": 72,
+  "findings": 98,
+  "rawRecords": 98,
   "duplicatesMerged": 0,
-  "workstreams": 6,
+  "workstreams": 8,
   "validationProblems": 0
  },
  "byStatus": {
-  "Implemented but defective": 45,
+  "Implemented but defective": 52,
   "Duplicate or conflicting implementation": 4,
-  "Partially implemented": 4,
-  "Deprecated but still active": 1,
-  "Implemented and verified": 10,
+  "Partially implemented": 9,
+  "Implemented and verified": 14,
+  "Implemented but disconnected": 8,
+  "Scaffolded only": 4,
+  "Missing": 2,
+  "Deprecated but still active": 2,
   "Blocked by data": 1,
-  "Scaffolded only": 2,
-  "Implemented but disconnected": 2,
-  "Mocked or hard-coded": 2,
-  "Missing": 1
+  "Mocked or hard-coded": 2
  },
  "byPriority": {
-  "P1": 18,
-  "P2": 27,
-  "P3": 24,
+  "P1": 22,
+  "P2": 40,
+  "P3": 33,
   "P0": 3
  },
  "byWorkstream": {
-  "W00": 8,
+  "W00": 10,
+  "W01": 12,
   "W02": 14,
   "W03": 15,
+  "W05": 12,
   "W09": 16,
   "W18": 11,
   "W29": 8
  },
  "byPriorRelation": {
-  "new": 25,
-  "partial": 10,
-  "confirmed": 30,
-  "not-reproducible": 1,
+  "new": 40,
+  "partial": 14,
+  "confirmed": 36,
+  "not-reproducible": 2,
   "superseded": 3,
   "refuted": 3
  },
@@ -576,6 +578,1047 @@
    "rootCause": "Pick tethering overwrites the value from the merged rookie pool while the original-rank stamp survives from the pre-tether row.",
    "requiredRepair": "Stamp the tethering source on tethered rows so both maps describe the same provenance.",
    "dependencies": "W02 owns the tethering stage."
+  },
+  {
+   "id": "W00-F009",
+   "workstream": "W00",
+   "promptSections": [
+    36
+   ],
+   "title": "Measured through the production topology the frontend is clean: 41/41 pages load, 38 render an h1, median DOM-ready 83 ms, and the only client errors are correct auth and flag responses",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Frontend shell",
+   "surface": {
+    "routes": [],
+    "pages": [
+     "all 41"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/app",
+     "lines": "41 page.jsx routes"
+    }
+   ],
+   "claimUnderTest": "The site's pages render and are usable.",
+   "observed": "Every one of the 41 Next pages returns 200 authenticated. 38 render an <h1>. Median DOM-ready (navMs) is 83 ms, max 695 ms. Of 55 console errors, the only non-artifact ones are: 401 on / (one unauthenticated call from the home page), 403 on /admin (correct \u2014 the audit's test user is deliberately not in the admin allowlist) and 503 on /consensus-edge (correct \u2014 the flag is off per ADR-023). All 149 failed requests resolve to two harmless causes: ERR_ABORTED from the probe navigating away mid-flight, and sleepercdn.com avatar images, which this container cannot reach. Three redirects are by design: /finder -> /rankings, /intel -> /league/insider-trading, /rankings/qb -> /rankings?pos=QB.",
+   "reproduction": {
+    "command": "PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers .venv/bin/python <scratchpad>/probe_pages.py  # loads all 41 pages anon+auth with nginx-equivalent /api/* interception",
+    "expected": "pages render without client errors",
+    "actual": "41/41 render; 0 genuine client-side failures",
+    "artifact": "docs/master-site-audit/evidence/page-probe.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "pages": 41,
+     "mode": "authenticated"
+    },
+    "formula": "count of pages returning 200 with a rendered h1",
+    "expected": 41,
+    "actual": 38,
+    "tolerance": 3
+   },
+   "userImpact": "None \u2014 this is a clean bill of health for the page layer, recorded because the audit's own first two measurements wrongly suggested otherwise.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 41
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Supersedes this audit's own invalid captures: page-probe-direct-next-INVALID.json (222 console errors) and page-probe-via-proxy-INVALID.json (dead shells). See evidence/INTEGRITY.md."
+   },
+   "whatWorks": "The page layer. Bundles are all under the build's own budget, and DOM-ready is under 100 ms at the median.",
+   "rootCause": "n/a",
+   "requiredRepair": "None.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W00-F010",
+   "workstream": "W00",
+   "promptSections": [
+    29,
+    30,
+    36
+   ],
+   "title": "Three public league sub-pages render no heading and under 180 characters of text \u2014 franchise, rivalry and article-preview are effectively blank",
+   "status": "Partially implemented",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Public league page",
+   "surface": {
+    "routes": [
+     "/api/public/league"
+    ],
+    "pages": [
+     "/league/franchise/[owner]",
+     "/league/rivalry/[pair]",
+     "/league/articles/[season]/[week]/[matchupId]/[mode]"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/app/league/franchise",
+     "lines": "page"
+    },
+    {
+     "path": "frontend/app/league/rivalry",
+     "lines": "page"
+    },
+    {
+     "path": "frontend/app/league/articles",
+     "lines": "page"
+    }
+   ],
+   "claimUnderTest": "Franchise pages, rivalry pages and article previews are working public surfaces.",
+   "observed": "With real values substituted into the dynamic segments (owner=jasonleetucker, pair=jasonleetucker-vs-blaine, season=2025 week=1 matchup=1 mode=preview), all three return HTTP 200 but render NO <h1> and 143, 156 and 176 characters of body text respectively \u2014 anonymously and authenticated alike. For comparison /league/player/4046 renders 1,610 characters with an h1 of 'Patrick Mahomes', and /league/week/2025/1 renders 3,982 characters. The three are reachable, linked, and empty.",
+   "reproduction": {
+    "command": "curl -s http://127.0.0.1:3000/league/franchise/jasonleetucker | wc -c  # then compare rendered innerText via the page probe",
+    "expected": "a franchise page renders franchise content",
+    "actual": "200 with no h1 and 143 characters of text",
+    "artifact": "docs/master-site-audit/evidence/page-probe.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "page": "/league/franchise/jasonleetucker"
+    },
+    "formula": "rendered document.body.innerText length",
+    "expected": 1000,
+    "actual": 143,
+    "tolerance": 100
+   },
+   "userImpact": "A visitor following a franchise or rivalry link from the league hub lands on a blank page with no explanation \u2014 the worst of the three states (content, honest empty state, blank).",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Whether the cause is a missing data join or a wrong URL-parameter format is W19's to determine \u2014 the owner slug and pair format used here were inferred."
+   },
+   "rootCause": "Unconfirmed: either the dynamic-segment format differs from what the page expects, or the backing data (week-level roster ownership / head-to-head history) is absent and the page renders nothing rather than saying so.",
+   "requiredRepair": "Render an explicit empty state naming what is missing; if the segment format is the issue, make the page say so rather than returning 200 with nothing.",
+   "dependencies": "W19 owns the public-league data-completeness question."
+  },
+  {
+   "id": "W01-F001",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "Next bridges cover 36 of 99 backend operations and next.config.mjs declares no rewrites, so `npm run dev` serves a product where 40 client-called API routes 404",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Frontend/backend wiring",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/terminal",
+     "/api/user/state",
+     "/api/leagues",
+     "/api/health",
+     "/api/movers",
+     "/api/data/rank-history",
+     "/api/ros/player-values",
+     "/api/custom-alerts",
+     "/api/playerctx/player"
+    ],
+    "pages": [
+     "/rankings",
+     "/trade",
+     "/rosters",
+     "/waivers",
+     "/tools/trade-coverage",
+     "/tools/ros-data-health",
+     "/settings",
+     "/admin"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/next.config.mjs",
+     "lines": "16-40"
+    },
+    {
+     "path": "deploy/nginx/chaseupside-proxy.conf",
+     "lines": "56-80"
+    },
+    {
+     "path": "frontend/app/api/dynasty-data/route.js",
+     "lines": "20-28"
+    },
+    {
+     "path": "frontend/package.json",
+     "lines": "3"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md describes `frontend/app/api/` as '28 backend bridge routes' and Next as 'the sole production frontend'; the dynasty-data bridge's own comment says the bridges 'handle the dev flow (no nginx in front)'. The implication is that dev and production serve the same product.",
+   "observed": "There are 36 bridge route.js files against 99 unique backend method+path operations (openapi.json reports 100 because /api/health also carries an auto-generated HEAD). All 36 bridges do have a backend counterpart, so no bridge is orphaned \u2014 but 63 backend operations have no bridge, and 40 of those are fetched directly by client code. next.config.mjs declares distDir, turbopack.root and exactly one redirects() entry; it declares no rewrites(). `npm run dev` is `next dev -p 3000` with nothing in front. Measured against the running stack with a valid session: /api/health, /api/leagues, /api/user/state, /api/terminal, /api/movers, /api/data/rank-history, /api/ros/player-values, /api/custom-alerts and /api/data all return 404 on :3000 while returning 200 through the edge proxy on :3001 and directly on :8000. Only the bridged alias /api/dynasty-data returns 200 on :3000. This is not hypothetical: the audit harness had to stand up a separate nginx-equivalent proxy on :3001 because the first browser capture against :3000 was full of /api/* 404s plus a 'buildRows received a payload with zero backend rank stamps' console error that production never produces.",
+   "reproduction": {
+    "command": "for r in /api/health /api/leagues /api/user/state /api/terminal /api/movers /api/data /api/dynasty-data; do printf '%-26s %s %s %s\\n' $r $(curl -s -m 25 -o /dev/null -w '%{http_code}' -H \"Cookie: jason_session=$SID\" http://127.0.0.1:3000$r) $(curl -s -m 60 -o /dev/null -w '%{http_code}' -H \"Cookie: jason_session=$SID\" http://127.0.0.1:3001$r) $(curl -s -m 60 -o /dev/null -w '%{http_code}' -b /tmp/audit-cookies.txt http://127.0.0.1:8000$r); done",
+    "expected": "Same status from :3000 (Next) and :3001 (production topology) for every route the client calls.",
+    "actual": "/api/health 404/200/200 \u00b7 /api/leagues 404/200/200 \u00b7 /api/user/state 404/200/200 \u00b7 /api/terminal 404/200/200 \u00b7 /api/movers 404/200/200 \u00b7 /api/data 404/200/200 \u00b7 /api/dynasty-data 200/200/200",
+    "artifact": "docs/master-site-audit/evidence/W01/bridge-coverage.md"
+   },
+   "numericProof": {
+    "inputs": {
+     "backendOperations": 99,
+     "nextBridgeRoutes": 36,
+     "unbridgedOperations": 63,
+     "unbridgedButClientCalled": 40,
+     "rewritesDeclaredInNextConfig": 0
+    },
+    "formula": "unbridgedButClientCalled = |{routes with a fetch() call site in frontend/ outside app/api/}| - |{routes with a matching frontend/app/api/**/route.js}|",
+    "expected": 0,
+    "actual": 40,
+    "tolerance": 0
+   },
+   "userImpact": "A developer running the documented dev command sees a materially different, broken application: no terminal, no team switcher, no user state, no ROS panel, no movers, no rank history. Bugs get chased in dev that do not exist in prod, and prod bugs cannot be reproduced in dev. It also means the resilience code in the 264-line dynasty-data bridge (disk-snapshot fallback, per-chunk idle abort) is exercised only where it does not matter.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 63,
+    "pagesAffected": 31
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A06-F09",
+    "relation": "partial",
+    "note": "The prior finding named three ops pages and counted 30 route.js files. At HEAD e96c06ef there are 36 bridges and the gap is 63 unbridged operations, 40 of them client-called \u2014 an order of magnitude larger than reported, and the root cause (no rewrites() in next.config.mjs) was not named."
+   },
+   "whatWorks": "Production is correct: nginx routes every /api/ to FastAPI, so the bridge gap is invisible to users. All 36 bridges do point at a real backend route \u2014 there are no orphan bridges. The e2e suite sidesteps the issue by keeping playwright baseURL on :8000.",
+   "rootCause": "Bridges were added one at a time as individual pages needed them, instead of one catch-all `rewrites()` entry mapping /api/:path* to BACKEND_API_URL. There is no test that asserts dev/prod route parity.",
+   "requiredRepair": "Add `async rewrites() { return [{ source: '/api/:path*', destination: `${process.env.BACKEND_API_URL || 'http://127.0.0.1:8000'}/api/:path*` }] }` to next.config.mjs (Next applies rewrites only after no route.js matches, so the 36 existing bridges keep winning), then delete the bridges that add nothing over a proxy. Pin with a test that every /api/ path referenced by frontend/ resolves under `next dev`.",
+   "dependencies": "Interacts with PRIOR-A06-F10 (bridges forward cookies inconsistently) \u2014 a single rewrite removes that class of divergence too."
+  },
+  {
+   "id": "W01-F002",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "GET /api/gameplan exposes the entire src/roster_intel roster-intelligence engine and no page, component or script calls it",
+   "status": "Implemented but disconnected",
+   "priority": "P2",
+   "size": "L",
+   "subsystem": "Roster intelligence",
+   "surface": {
+    "routes": [
+     "/api/gameplan"
+    ],
+    "pages": [],
+    "flags": [
+     "idp_scoring_fit",
+     "reception_scoring_fit"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "5835-5870"
+    },
+    {
+     "path": "src/api/gameplan.py",
+     "lines": "1-40"
+    }
+   ],
+   "claimUnderTest": "server.py's docstring calls /api/gameplan 'The API surface over src/roster_intel/ \u2014 analyze_roster, the per-position profiles, the five-state competitive window, both target engines, the partner model, and (on request) the Trade Package Generator's Pareto frontier.' A route described as the API surface for a subsystem implies a consumer.",
+   "observed": "grep across every .js/.jsx under frontend/ (excluding node_modules and .next) returns exactly one hit for 'gameplan': a comment on line 32 of frontend/app/api/valuation/league-adjusted/route.js explaining that the overlay reuses gameplan's cached league bundle internally. There is no frontend/app/api/gameplan bridge directory. No script, workflow, systemd unit or nginx config references the path. The only callers are tests/api/test_gameplan_endpoint.py, tests/api/test_private_auth.py and tests/api/test_league_adjusted_endpoint.py. A bare authenticated GET returns 400 because `team` cannot be resolved for the e2e user, so even the smoke path is untested by any live client. The engine's code is not dead \u2014 /api/valuation/league-adjusted reaches parts of it \u2014 but the ROUTE, and the needs/window/targets/partners/Pareto-frontier outputs it alone exposes, reach no user.",
+   "reproduction": {
+    "command": "grep -rn 'gameplan' /home/user/riskittogetthebrisket/frontend --include='*.js' --include='*.jsx' | grep -v node_modules | grep -v '\\.next' ; ls /home/user/riskittogetthebrisket/frontend/app/api/gameplan 2>&1 ; curl -s -b /tmp/audit-cookies.txt -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8000/api/gameplan",
+    "expected": "At least one page or component fetching /api/gameplan.",
+    "actual": "1 hit, and it is a comment. `ls: cannot access .../frontend/app/api/gameplan: No such file or directory`. Route returns 400.",
+    "artifact": "docs/master-site-audit/evidence/W01/dead-routes.txt"
+   },
+   "numericProof": {
+    "inputs": {
+     "frontendFetchCallSites": 0,
+     "bridgeRoutes": 0,
+     "opsCallers": 0,
+     "testCallers": 3
+    },
+    "formula": "reachability = frontendFetchCallSites + bridgeRoutes + opsCallers",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "Every answer this engine computes \u2014 positional needs, the five-state competitive window, buy/sell targets, ranked trade partners, the Pareto package frontier \u2014 is unavailable to any user. Users instead get the /phases contention label, which PRIOR-A18-F00 measured as giving the SAME team the opposite verdict, with no way to see the second opinion.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A18-F16",
+    "relation": "confirmed",
+    "note": "Reproduced exactly at HEAD e96c06ef: one grep hit, a comment, and no bridge directory. Adds the runtime observation that a bare authenticated GET 400s."
+   },
+   "whatWorks": "The route is registered, auth-gated, league-scoped and test-covered; src/api/gameplan.py's cached league bundle is genuinely reused by /api/valuation/league-adjusted, so the underlying package is not dead code.",
+   "rootCause": "The backend engine shipped ahead of its UI and the UI was never built. Nothing fails when a route has no consumer, so nothing surfaced it.",
+   "requiredRepair": "Either build the consumer (the natural home is /rosters or a per-team page \u2014 see W01-F007) or retire the route and keep the internal helpers that /api/valuation/league-adjusted uses.",
+   "dependencies": "W01-F007 (no private team page) \u2014 gameplan is per-team and has nowhere to live until one exists."
+  },
+  {
+   "id": "W01-F003",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "Sixteen backend routes have no caller outside the test suite, including six /api/scaffold/* introspection routes and POST /api/test-alert which nothing references at all",
+   "status": "Scaffolded only",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Backend route surface",
+   "surface": {
+    "routes": [
+     "/api/angle/find",
+     "/api/consensus-edge/health",
+     "/api/consensus-edge/player/{player_key}",
+     "/api/gameplan",
+     "/api/intel/member/{owner_id}",
+     "/api/intel/waiver-interest",
+     "/api/public/league/{section}.csv",
+     "/api/rankings/sources",
+     "/api/scaffold/identity",
+     "/api/scaffold/league",
+     "/api/scaffold/raw",
+     "/api/scaffold/report",
+     "/api/scaffold/status",
+     "/api/scaffold/validation",
+     "/api/test-alert",
+     "/api/waiver/suggestions"
+    ],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "4801-4900"
+    },
+    {
+     "path": "server.py",
+     "lines": "9779-9792"
+    },
+    {
+     "path": "server.py",
+     "lines": "6616-6650"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md's API table advertises /api/scaffold/status, /api/scaffold/raw and /api/scaffold/identity as first-class endpoints ('Pipeline status', 'Raw source snapshots', 'Identity mappings'), implying they are part of the working product.",
+   "observed": "16 of 99 backend operations (16.2%) have zero callers in frontend code, zero bridge consumers, zero references in .github/workflows, deploy/ or scripts/, and are referenced only by tests \u2014 or, for four of them, by nothing at all. The complete list is in the artifact. POST /api/test-alert has literally zero references anywhere in the repository including tests. GET /api/metrics is public and has no in-repo consumer (no dashboard, no workflow, no timer) \u2014 it is plausibly scraped by an external monitor, so it is classified ops rather than dead. Four of the sixteen have a Next bridge route built for them, so dev plumbing was written for endpoints nobody calls: /api/angle/find, /api/consensus-edge/health, /api/rankings/sources, /api/sharp/roster-percentage/audit.",
+   "reproduction": {
+    "command": "cat /home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W01/dead-routes.txt ; grep -rn 'test-alert' /home/user/riskittogetthebrisket --include='*.py' --include='*.js' --include='*.jsx' --include='*.yml' --include='*.sh' | grep -v node_modules | grep -v master-site-audit",
+    "expected": "Every advertised route has at least one production consumer.",
+    "actual": "16 routes with only test callers; `grep test-alert` returns only its own definition at server.py:9779.",
+    "artifact": "docs/master-site-audit/evidence/W01/dead-routes.txt"
+   },
+   "numericProof": {
+    "inputs": {
+     "totalOperations": 99,
+     "reachableFromUI": 72,
+     "opsOrCronOnly": 9,
+     "operatorOnlyNoUI": 2,
+     "deadOrTestOnly": 16
+    },
+    "formula": "72 + 9 + 2 + 16 = 99",
+    "expected": 99,
+    "actual": 99,
+    "tolerance": 0
+   },
+   "userImpact": "No direct user impact \u2014 these routes are invisible. The cost is to maintainers and to this audit: CLAUDE.md's API table lists scaffold endpoints as product surface, so a reader budgets attention for a pipeline-introspection feature that has no UI and, per PRIOR-A23-F15, no producer either.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 16,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A23-F15",
+    "relation": "partial",
+    "note": "The prior finding established that /api/scaffold/* has no producer. This adds the other half \u2014 it has no consumer either \u2014 and extends the census to 16 routes across five subsystems."
+   },
+   "whatWorks": "The census itself: openapi.json from the live app is an accurate authoritative route list, and every route that IS wired resolves to a real page or component (72 of 99).",
+   "rootCause": "Routes outlive their consumers. There is no CI check that a registered route is referenced by something other than a test.",
+   "requiredRepair": "Delete POST /api/test-alert. Decide per-route for the rest: retire, or wire. Add a test that walks the OpenAPI schema and asserts every path is referenced by frontend code, a workflow, a systemd unit, or an explicit OPS_ONLY allowlist \u2014 the same shape as tests/api/test_feature_flag_reachability.py, which already does this successfully for flags.",
+   "dependencies": "W01-F002 (gameplan), W01-F010 (scaffold/status is also a public info leak), W01-F011 (rankings/sources), W01-F012 (public-league CSV export)."
+  },
+  {
+   "id": "W01-F004",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "Two of four navigation surfaces ignore the adminOnly flag: /more and the command palette render Admin, Source Health, ROS Data Health and Trade Coverage to a session with isAdmin false",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "XS",
+   "subsystem": "Information architecture",
+   "surface": {
+    "routes": [],
+    "pages": [
+     "/more",
+     "/admin",
+     "/tools/source-health",
+     "/tools/ros-data-health",
+     "/tools/trade-coverage"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/app/more/page.jsx",
+     "lines": "18-36"
+    },
+    {
+     "path": "frontend/components/shell/CommandPalette.jsx",
+     "lines": "34-42"
+    },
+    {
+     "path": "frontend/lib/nav-model.js",
+     "lines": "229-284"
+    }
+   ],
+   "claimUnderTest": "nav-model.js states the rule outright: 'Ops surfaces are ADMIN-ONLY in the nav. ... the menu showed all four to every signed-in user \u2014 so a guest-pass holder saw a \"Admin\" entry, clicked it, and got a wall. Offering a door that is always locked is worse than not showing the door.' systemItemsFor({isAdmin}) exists to enforce it.",
+   "observed": "Only frontend/components/shell/TopBar.jsx:58 and frontend/components/shell/MobileChrome.jsx:106 call systemItemsFor({isAdmin}). frontend/app/more/page.jsx builds `[...NAV_MODEL, SYSTEM_MODEL]` and maps `group.items` directly, unfiltered \u2014 it imports SYSTEM_MODEL but not systemItemsFor. frontend/components/shell/CommandPalette.jsx:42 calls paletteTargets(), which spreads all of SYSTEM_MODEL.items with no isAdmin argument available to it. Fetched live with the e2e-test-user session (/api/auth/status returns isAdmin:false), the /more HTML contains 'Source Health', 'ROS Data Health', 'Trade Coverage' and '>Admin<' with their hrefs. This is not a hydration flash \u2014 no code path in either component ever filters.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/auth/status; curl -s -H \"Cookie: jason_session=$SID\" http://127.0.0.1:3001/more | grep -o 'Source Health\\|ROS Data Health\\|Trade Coverage\\|>Admin<' | sort -u; grep -rn 'systemItemsFor' /home/user/riskittogetthebrisket/frontend/app /home/user/riskittogetthebrisket/frontend/components",
+    "expected": "Zero admin entries in /more for a session with isAdmin:false; systemItemsFor called by all four navigation surfaces.",
+    "actual": "auth_status isAdmin:false, yet /more renders all four Ops entries. systemItemsFor is called from exactly 2 files (TopBar.jsx, MobileChrome.jsx) out of 4 navigation surfaces.",
+    "artifact": "docs/master-site-audit/evidence/W01/nav-vs-reality.md"
+   },
+   "numericProof": {
+    "inputs": {
+     "navigationSurfacesDerivedFromModel": 4,
+     "surfacesCallingSystemItemsFor": 2,
+     "adminOnlyEntriesLeaked": 4
+    },
+    "formula": "leakedSurfaces = navigationSurfaces - surfacesCallingSystemItemsFor",
+    "expected": 0,
+    "actual": 2,
+    "tolerance": 0
+   },
+   "userImpact": "A guest-pass holder or any non-admin signed-in user still sees four Ops destinations \u2014 on /more and in the command palette, which is the fastest navigation path in the app. Clicking Admin yields a 200 shell that then renders 'This page requires an admin session'. That is exactly the locked door the code comment says it removed, and it also discloses the operator tool inventory.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 5
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A06-F07",
+    "relation": "confirmed",
+    "note": "Reproduced at HEAD e96c06ef with a live non-admin session. Still open on both surfaces named by the prior finding."
+   },
+   "whatWorks": "The desktop top bar and the mobile drawer both filter correctly. The server side is sound: every /api/admin/* route 403s a non-admin, and /admin degrades to an explicit 'requires an admin session' card rather than a blank or a fake dashboard. /admin's feature-flag panel is read-only and even renders gateStatus with an honest tooltip.",
+   "rootCause": "systemItemsFor is an opt-in helper rather than a property of the model. Three consumers had to remember to call it; two did.",
+   "requiredRepair": "Make paletteTargets accept {isAdmin} and filter SYSTEM_MODEL through systemItemsFor; have /more call systemItemsFor({isAdmin}) from useAuthContext (it already reads that context for the sign-out button). Extend frontend/__tests__/nav-model to assert every SYSTEM_MODEL consumer filters \u2014 the coverage invariant that file already pins is the right place.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W01-F005",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "Three pages are reachable from no navigation at all \u2014 /finder, /intel and /design \u2014 and /design is a dev-only design-system gallery shipped in the production build",
+   "status": "Scaffolded only",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Information architecture",
+   "surface": {
+    "routes": [],
+    "pages": [
+     "/finder",
+     "/intel",
+     "/design",
+     "/rankings/[position]",
+     "/draft-capital"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/app/design/page.jsx",
+     "lines": "1-18"
+    },
+    {
+     "path": "frontend/app/finder/page.jsx",
+     "lines": "1-35"
+    },
+    {
+     "path": "frontend/app/intel/page.jsx",
+     "lines": "1-18"
+    },
+    {
+     "path": "frontend/app/more/page.jsx",
+     "lines": "18-20"
+    }
+   ],
+   "claimUnderTest": "nav-model.js says it is the 'Single source of truth for every navigation surface' and that /more 'can never drift from the real navigation'. Both are true \u2014 which is precisely why a page absent from the model is absent from every navigation surface simultaneously.",
+   "observed": "41 page.jsx files exist. 31 hrefs appear in NAV_MODEL + SYSTEM_MODEL + MOBILE_TABS_PUBLIC + PALETTE_EXTRA_TARGETS. Grepping every .js/.jsx under frontend/app and frontend/components for '/finder', '/design' and '/intel' outside those pages' own directories returns zero hits \u2014 no nav entry, no /more entry (it maps the same model), no palette target, no in-app Link. All three return 200 with a session and 307 to /login anonymously. /finder and /intel are self-documented legacy redirect shims and are fine as such. /design is different: it is a live DesignGallery route with no redirect, marked robots:{index:false}, present in the production Next build, and gated only by session presence \u2014 any signed-in user who guesses the URL gets it. Two further pages are deep-link-only by design and documented as such: /rankings/[position] (client redirect to /rankings?pos=X) and /draft-capital (308 to /league?tab=draft-capital, named in pageTitleFor but in no menu).",
+   "reproduction": {
+    "command": "grep -rn \"/finder\\|/design\\|'/intel'\\|\\\"/intel\\\"\" /home/user/riskittogetthebrisket/frontend/app /home/user/riskittogetthebrisket/frontend/components /home/user/riskittogetthebrisket/frontend/lib | grep -v 'app/finder/\\|app/design/\\|app/intel/' ; for p in /finder /design /intel; do printf '%s anon=%s auth=%s\\n' $p $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000$p) $(curl -s -o /dev/null -w '%{http_code}' -H \"Cookie: jason_session=$SID\" http://127.0.0.1:3000$p); done",
+    "expected": "Either a nav/link reference, or the page not shipped.",
+    "actual": "Zero references. /finder anon=307 auth=200 \u00b7 /design anon=307 auth=200 \u00b7 /intel anon=307 auth=200",
+    "artifact": "docs/master-site-audit/evidence/W01/nav-vs-reality.md"
+   },
+   "numericProof": {
+    "inputs": {
+     "pageFiles": 41,
+     "navHrefs": 31,
+     "pagesWithZeroNavAndZeroInAppLink": 3
+    },
+    "formula": "orphans = pages that appear in neither NAV_MODEL, SYSTEM_MODEL, MOBILE_TABS*, PALETTE_EXTRA_TARGETS, nor any <Link href>",
+    "expected": 0,
+    "actual": 3,
+    "tolerance": 0
+   },
+   "userImpact": "None for /finder and /intel \u2014 they are bookmark shims doing their job. For /design: a signed-in user who lands on it sees a full-fidelity board rendering fabricated player values (Justin Jefferson 9541 etc., per PRIOR-A06-F13) with no on-screen indication it is sample data.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A06-F13",
+    "relation": "partial",
+    "note": "The prior finding covers /design's fabricated content. This adds the reachability half \u2014 it is in no navigation, so nothing ever pointed at it, which is why the fabricated content was never noticed."
+   },
+   "whatWorks": "The nav model genuinely is the single source: /more, the palette, the top bar and the mobile drawer all derive from it, and all 31 nav hrefs resolve to a page that returns 200 with a session. Zero nav entries point at nothing. /finder and /intel both carry accurate comments explaining exactly what they redirect to and why.",
+   "rootCause": "No test asserts the inverse of the nav coverage invariant. frontend/__tests__/nav-model pins 'every routable surface stays reachable' in one direction only; nothing asserts 'every page under app/ is either in the model, a documented shim, or explicitly excluded'.",
+   "requiredRepair": "Exclude /design from the production build (move it behind an env guard or into a separate dev-only entry point), or add an unmistakable 'SAMPLE DATA' banner. Add the reverse coverage test: enumerate app/**/page.jsx and assert each path is in the nav model or on a named exclusion list.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W01-F006",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "Four names in the product vocabulary map to no route at all: IDP Lab does not exist, and Edge Finder, Roster Analyzer and Buy/Sell Tracker name nothing in the shipped IA",
+   "status": "Missing",
+   "priority": "P3",
+   "size": "S",
+   "subsystem": "Information architecture",
+   "surface": {
+    "routes": [],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/lib/nav-model.js",
+     "lines": "49-228"
+    }
+   ],
+   "claimUnderTest": "The audit brief and the user's working vocabulary name Rankings, Trade Calculator, Edge Finder, Angle, League, IDP Lab, Settings, More, Roster Analyzer, Trade Finder, Waivers, ROS, Buy/Sell Tracker, Consensus Edge, Sharp Tracker, Insider Trading, Draft, Player pages and Team pages as surfaces of this product.",
+   "observed": "Mapped exhaustively in the artifact. 'IDP Lab' has ZERO occurrences anywhere in the repository \u2014 code, config, docs, tests \u2014 so it is Missing, not renamed. 'Edge Finder' names nothing; the nearest surface is /edge, relabelled 'Source Disagreement' by the #626 IA pass. 'Roster Analyzer' names nothing; its substance is split between /rosters ('Team Strength') and the unreachable GET /api/gameplan (W01-F002). 'Buy/Sell Tracker' is ambiguous \u2014 both /market/sharp-tracker and /consensus-edge answer to it and neither uses the name. 'Trade Finder' is now /arbitrage ('Arbitrage'), 'Angle' is now 'Package Builder', 'Signal Blotter'/'Finder' merged into the /rankings Screens dropdown, and 'Intel' was split into the Market and League groups. 'ROS' has seven backend routes and no page or nav entry of its own. The naming rule nav-model.js declares does hold: all 20 static pages' PageHeader title strings are byte-identical to their nav labels.",
+   "reproduction": {
+    "command": "grep -rniE 'idp lab|idp-lab|idplab' /home/user/riskittogetthebrisket --include='*.py' --include='*.js' --include='*.jsx' --include='*.md' | grep -v node_modules | grep -v master-site-audit ; cat /home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W01/feature-name-map.md",
+    "expected": "A route or page for each named feature.",
+    "actual": "'idp lab' matches only three unrelated lines about IDP position labelling in Dynasty Scraper.py and src/roster_intel/roster_source.py. No IDP Lab exists.",
+    "artifact": "docs/master-site-audit/evidence/W01/feature-name-map.md"
+   },
+   "numericProof": {
+    "inputs": {
+     "namesInBrief": 19,
+     "namesWithAnExactSurface": 13,
+     "namesRenamed": 4,
+     "namesWithNoSurface": 1,
+     "namesAmbiguous": 1
+    },
+    "formula": "13 exact + 4 renamed + 1 missing (IDP Lab) + 1 ambiguous (Buy/Sell Tracker) = 19",
+    "expected": 19,
+    "actual": 19,
+    "tolerance": 0
+   },
+   "userImpact": "The operator asks for work on a feature that does not exist, or asks for 'Edge Finder' and gets work on /edge, /arbitrage or /finder depending on who reads it. The #626 rename was correct and well-reasoned but no migration note maps old vocabulary to new, so every conversation re-derives it.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding addresses vocabulary-to-route mapping."
+   },
+   "whatWorks": "The IA rename itself is disciplined and the reasoning is recorded in nav-model.js. The label/h1/pageTitleFor invariant holds on all 20 static pages \u2014 the naming rule the file declares is genuinely enforced.",
+   "rootCause": "The #626 rename changed labels without leaving an old-name \u2192 new-name index anywhere a human or an agent would look.",
+   "requiredRepair": "Add the mapping table from feature-name-map.md to CLAUDE.md, including the four names that resolve to nothing, so the vocabulary gap is stated rather than rediscovered.",
+   "dependencies": "W01-F002, W01-F008."
+  },
+  {
+   "id": "W01-F007",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "There is no private player page and no private team page \u2014 a player opens a modal with no URL, and the only real player/franchise pages live in the public-league subtree",
+   "status": "Partially implemented",
+   "priority": "P2",
+   "size": "L",
+   "subsystem": "Information architecture",
+   "surface": {
+    "routes": [
+     "/api/public/league/player/{player_id}",
+     "/api/public/league/{section}"
+    ],
+    "pages": [
+     "/league/player/[playerId]",
+     "/league/franchise/[owner]",
+     "/rankings",
+     "/trade",
+     "/waivers"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/components/PlayerPopup.jsx",
+     "lines": "900-955"
+    },
+    {
+     "path": "frontend/app/league/player/[playerId]/page.jsx",
+     "lines": "1-40"
+    },
+    {
+     "path": "frontend/app/league/franchise/[owner]/page.jsx",
+     "lines": "1-40"
+    }
+   ],
+   "claimUnderTest": "The brief names 'Player pages' and 'Team pages' as product surfaces.",
+   "observed": "The only routable player page is /league/player/[playerId] and the only routable team page is /league/franchise/[owner]; both are in the PUBLIC league subtree (public-routes.js PUBLIC_PREFIXES includes /league) and both are served by the isolated src/public_league/ pipeline, which by design never reads the private contract. On the private side \u2014 /rankings, /trade, /waivers, /draft, /rosters \u2014 a player opens frontend/components/PlayerPopup.jsx, a modal. It carries the richest per-player view in the app (rank history, per-source values, ROS values, realized points, playerctx, news) and it has no URL: it cannot be linked, shared, bookmarked, opened in a new tab, or reached by browser back. There is no /player/[id] or /team/[id] under frontend/app. The modal itself links OUT to the public /league/franchise/{ownerId} for ownership, so the private surface hands the user off to the public pipeline to see a team.",
+   "reproduction": {
+    "command": "ls /home/user/riskittogetthebrisket/frontend/app | grep -iE '^player|^team' ; find /home/user/riskittogetthebrisket/frontend/app -name 'page.jsx' -path '*player*' -o -name 'page.jsx' -path '*franchise*' ; grep -n 'href=' /home/user/riskittogetthebrisket/frontend/components/PlayerPopup.jsx | head",
+    "expected": "A private per-player and per-team route.",
+    "actual": "`ls` returns only `players` (which contains only `compare`). The only player/franchise pages found are under app/league/. PlayerPopup's only internal hrefs are /league/franchise/{ownerId} and /players/compare.",
+    "artifact": "docs/master-site-audit/evidence/W01/feature-name-map.md"
+   },
+   "numericProof": {
+    "inputs": {
+     "privatePlayerRoutes": 0,
+     "privateTeamRoutes": 0,
+     "publicPlayerRoutes": 1,
+     "publicTeamRoutes": 1
+    },
+    "formula": "privateRoutes = |{app/**/page.jsx matching a per-player or per-team dynamic segment outside the /league public subtree}|",
+    "expected": 2,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "A user cannot send a teammate a link to a player's analysis, cannot bookmark a player they are tracking, and loses the whole view on a page refresh. It also blocks the natural home for the unreachable /api/gameplan (W01-F002) and the seven orphaned /api/ros/* routes (W01-F008), both of which are per-team by construction.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 5
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding treats the absence of private player/team routes as a defect; PRIOR-A06-* audits PlayerPopup's contents, not its addressability."
+   },
+   "whatWorks": "The public-league player and franchise pages are real, server-rendered, have opengraph-image routes for link unfurls, and are correctly isolated from the private contract. PlayerPopup's content itself is rich and its outbound links work.",
+   "rootCause": "The private surface was built modal-first. Nothing forces a per-entity view to be addressable, so it never became one.",
+   "requiredRepair": "Add /player/[playerId] and /team/[ownerId] under the private tree rendering the same data PlayerPopup already assembles, and have the modal deep-link to them. That gives /api/gameplan and /api/ros/* a home in the same move.",
+   "dependencies": "W01-F002, W01-F008."
+  },
+  {
+   "id": "W01-F008",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "The ROS subsystem exposes seven backend routes and has no page and no nav entry \u2014 its only dedicated surface is an admin-only diagnostics tool",
+   "status": "Implemented but disconnected",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Rest-of-season",
+   "surface": {
+    "routes": [
+     "/api/ros/player-values",
+     "/api/ros/team-strength",
+     "/api/ros/status",
+     "/api/ros/sources",
+     "/api/ros/health",
+     "/api/ros/pick-projections",
+     "/api/ros/refresh"
+    ],
+    "pages": [
+     "/tools/ros-data-health"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/ros/api.py",
+     "lines": "1-40"
+    },
+    {
+     "path": "frontend/lib/ros-data.js",
+     "lines": "1-40"
+    },
+    {
+     "path": "frontend/lib/nav-model.js",
+     "lines": "229-250"
+    }
+   ],
+   "claimUnderTest": "The brief names 'ROS' as a product surface. src/ros/ registers seven routes, implying a feature.",
+   "observed": "There is no /ros page and no 'ROS' entry in NAV_MODEL. The seven routes surface only as fragments: /tools/ros-data-health (marked adminOnly in SYSTEM_MODEL, so it is hidden from the top bar and mobile drawer for every non-admin \u2014 though /more and the palette still show it, see W01-F004), the PlayerPopup modal (which has no URL, see W01-F007), RosTradeFitPanel on /trade, and one section of the /league hub (frontend/app/league/sections/ros-team-strength.jsx). A non-admin user has no navigable destination that is about rest-of-season projections. Six of the seven routes additionally have no Next bridge, so none of these fragments works under `next dev` (W01-F001).",
+   "reproduction": {
+    "command": "grep -n 'ros' /home/user/riskittogetthebrisket/frontend/lib/nav-model.js ; grep -rln 'api/ros/' /home/user/riskittogetthebrisket/frontend/app /home/user/riskittogetthebrisket/frontend/components /home/user/riskittogetthebrisket/frontend/lib | grep -v '/app/api/'",
+    "expected": "A nav entry or page for a seven-route subsystem.",
+    "actual": "nav-model.js mentions ROS only in the adminOnly '/tools/ros-data-health' entry. Consumers are: app/tools/ros-data-health/page.jsx, app/league/sections/ros-team-strength.jsx, components/PlayerPopup.jsx, components/RosTradeFitPanel.jsx, lib/ros-data.js, lib/ros-index.js.",
+    "artifact": "docs/master-site-audit/evidence/W01/surface-inventory.csv"
+   },
+   "numericProof": {
+    "inputs": {
+     "rosBackendRoutes": 7,
+     "rosNavEntries": 1,
+     "rosNavEntriesVisibleToNonAdmin": 0,
+     "rosDedicatedPages": 1
+    },
+    "formula": "navigableRosDestinationsForANonAdmin = rosNavEntries - adminOnlyRosNavEntries",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "A user who wants rest-of-season projections has no way to find them. The data reaches them only incidentally \u2014 if they happen to open a player modal or scroll the /league hub. Seven routes' worth of engineering is discoverable only by accident.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 7,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "PRIOR-A03-F04 and PRIOR-A02-F06 audit ROS numbers; none treats the subsystem's absence from the IA as a finding."
+   },
+   "whatWorks": "All seven routes return 200 authenticated and the four consuming fragments render. /tools/ros-data-health is a genuine, working diagnostics page.",
+   "rootCause": "ROS shipped as an enrichment layer over other surfaces rather than as a destination, and the IA was never revisited once it grew to seven routes.",
+   "requiredRepair": "Either add a ROS destination to NAV_MODEL (the My Team group is the natural home, beside Waivers) or accept it as pure enrichment and say so in CLAUDE.md \u2014 but not both silently.",
+   "dependencies": "W01-F001 (six of seven routes are unbridged), W01-F004, W01-F007."
+  },
+  {
+   "id": "W01-F009",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "feature_flags._GATE_STATUS's claim that 7 of 15 flags cannot change a response is true \u2014 verified by booting a second backend with all seven forced ON and diffing 1,092 contract rows",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "S",
+   "subsystem": "Feature flags",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/status",
+     "/api/consensus-edge/top",
+     "/api/bdvm/values",
+     "/api/trade/simulate-mc",
+     "/api/player/{sleeper_id}/realized",
+     "/api/valuation/league-adjusted"
+    ],
+    "pages": [],
+    "flags": [
+     "unified_id_mapper",
+     "nfl_data_ingest",
+     "realized_points_api",
+     "value_confidence_intervals",
+     "positional_tiers",
+     "usage_signals",
+     "espn_injury_feed",
+     "depth_chart_validation",
+     "monte_carlo_trade",
+     "dynamic_source_weights",
+     "te_basis_conversion",
+     "idp_scoring_fit",
+     "reception_scoring_fit",
+     "bdvm_engine",
+     "consensus_edge"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/feature_flags.py",
+     "lines": "330-430"
+    },
+    {
+     "path": "tests/api/test_feature_flag_reachability.py",
+     "lines": "1-60"
+    }
+   ],
+   "claimUnderTest": "_GATE_STATUS classifies 7 of 15 registered flags as SCRIPT_ONLY, UNREACHABLE or NO_GATE \u2014 i.e. flipping them cannot change any response byte \u2014 and the remaining 8 as LIVE.",
+   "observed": "Confirmed by runtime differential, not by re-reading the import graph. A second FastAPI process was booted on port 8001 (port 8000 untouched, run_scraper neutralised before uvicorn start, nothing written outside docs/master-site-audit/ and the scratchpad). Boot A: defaults. Boot B: espn_injury_feed, usage_signals, depth_chart_validation, value_confidence_intervals, positional_tiers, unified_id_mapper and dynamic_source_weights all forced to 1. Across 1,092 contract rows, 0 rows changed rankDerivedValue, 0 changed canonicalConsensusRank, 0 fields appeared and 0 disappeared. The only non-timestamp difference in the entire 12 MB view=full payload was players.*.rankChange (621 non-zero \u2192 0), and boot C (defaults, third cold boot) reproduced the same 0 \u2014 proving rankChange is a function of accumulated rank-history depth since boot, not of any flag. All 8 LIVE flags were then proven to change a response: consensus_edge 503\u2192200 with a real 325-player board; bdvm_engine, realized_points_api and monte_carlo_trade each 200\u2192503 feature_disabled; te_basis_conversion moves 135 of 1,092 rankDerivedValue (82 TE + 50 PICK + 3 collateral) and 627 canonicalConsensusRank; idp_scoring_fit + reception_scoring_fit move 293 of 709 league-adjusted factors; nfl_data_ingest is lazily imported at server.py:4424 and :11241 and is genuinely reachable, though unobservable here because nfl_data_py is deliberately absent (pre-declared non-finding).",
+   "reproduction": {
+    "command": "bash docs/master-site-audit/evidence/W01/w01_boot.sh /tmp/def.log & sleep 55; bash docs/master-site-audit/evidence/W01/w01_flagprobe.sh 8001 /tmp/flagA; bash docs/master-site-audit/evidence/W01/w01_kill.sh; bash docs/master-site-audit/evidence/W01/w01_boot.sh /tmp/flip.log RISKIT_FEATURE_ESPN_INJURY_FEED=1 RISKIT_FEATURE_USAGE_SIGNALS=1 RISKIT_FEATURE_DEPTH_CHART_VALIDATION=1 RISKIT_FEATURE_VALUE_CONFIDENCE_INTERVALS=1 RISKIT_FEATURE_POSITIONAL_TIERS=1 RISKIT_FEATURE_UNIFIED_ID_MAPPER=1 RISKIT_FEATURE_DYNAMIC_SOURCE_WEIGHTS=1 & sleep 55; bash docs/master-site-audit/evidence/W01/w01_flagprobe.sh 8001 /tmp/flagB; # then diff playersArray (displayName, rankDerivedValue, canonicalConsensusRank)",
+    "expected": "If the claim is true: zero value or rank changes between boot A and boot B.",
+    "actual": "0 of 1092 rows changed. Control boot C confirms the one apparent difference (rankChange) is boot-state, not flags. tests/api/test_feature_flag_reachability.py: 36 passed in 44.72s on .venv Python 3.11.15.",
+    "artifact": "docs/master-site-audit/evidence/W01/flag-differential.md"
+   },
+   "numericProof": {
+    "inputs": {
+     "registeredFlags": 15,
+     "claimedNonLive": 7,
+     "rowsCompared": 1092,
+     "rowsChangedByTheSevenFlags": 0,
+     "rowsChangedByTeBasisConversion": 135,
+     "factorsChangedByIdpAndReceptionFit": 293,
+     "totalFactors": 709
+    },
+    "formula": "rowsChanged = |{r : rankDerivedValue_A(r) != rankDerivedValue_B(r) or canonicalConsensusRank_A(r) != canonicalConsensusRank_B(r)}|",
+    "expected": 0,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "None \u2014 this is the positive case. The registry tells the truth about itself, /api/status reports gateStatus beside enabled so 'on' and 'on and it matters' cannot be confused, and /admin's flag panel surfaces the same distinction to the operator with an explicit tooltip.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A10-F06",
+    "relation": "not-reproducible",
+    "note": "The prior finding is about a stale BDVM doc claiming the engine defaults OFF, not about _GATE_STATUS. No prior finding tests the gate-status claim. The one stale detail I did find is cosmetic: both feature_flags.py and the reachability test still say 'of 13 registered flags' while _DEFAULTS now holds 15. The 7/15 ratio and every per-flag classification are current."
+   },
+   "whatWorks": "Everything in this finding. This is the pattern the rest of the codebase should copy: a claim that would otherwise be an uncheckable comment was moved into data and pinned by a test that recomputes the import graph, and it survives an independent runtime differential.",
+   "rootCause": "n/a",
+   "requiredRepair": "Update the two docstrings that still say '13 registered flags' to 15.",
+   "dependencies": "None."
+  },
+  {
+   "id": "W01-F010",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "GET /api/scaffold/status is in the unauthenticated public allowlist, returns absolute server filesystem paths, and has no caller of any kind",
+   "status": "Implemented but defective",
+   "priority": "P2",
+   "size": "XS",
+   "subsystem": "Backend route surface",
+   "surface": {
+    "routes": [
+     "/api/scaffold/status"
+    ],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "2743-2756"
+    },
+    {
+     "path": "server.py",
+     "lines": "4801-4840"
+    }
+   ],
+   "claimUnderTest": "server.py's comment above _PUBLIC_API_EXACT says the gate 'Closes the scrape risk: without this gate, curl /api/data from a stranger returns the full private rankings contract' \u2014 i.e. the allowlist is a deliberate, minimal set of endpoints with nothing private in them.",
+   "observed": "/api/scaffold/status sits in _PUBLIC_API_EXACT (server.py:2754). Fetched with no cookie against the running backend it returns 200 and 756 bytes whose payload includes `\"path\": \"/home/user/riskittogetthebrisket/data/raw_sources/raw_source_snapshot_20260420T194828Z.json\"` \u2014 the _meta() helper at server.py:4823 stamps `str(path)` for four separate snapshot families. In production this discloses the deploy root, the data-directory layout, snapshot filenames and their timestamps to any anonymous caller. The endpoint has no UI caller, no bridge, no ops caller and no test caller \u2014 it is in the public allowlist and CLAUDE.md's API table while being reached by nothing.",
+   "reproduction": {
+    "command": "curl -s http://127.0.0.1:8000/api/scaffold/status | head -c 300",
+    "expected": "401, or a payload with no absolute filesystem paths.",
+    "actual": "200 with `{\"raw_sources\":{\"file\":{\"name\":\"raw_source_snapshot_20260420T194828Z.json\",\"path\":\"/home/user/riskittogetthebrisket/data/raw_sources/raw_source_snapshot_20260420T194828Z.json\",...`",
+    "artifact": "docs/master-site-audit/evidence/W01/dead-routes.txt"
+   },
+   "numericProof": {
+    "inputs": {
+     "anonStatusCode": 200,
+     "absolutePathsInPayload": 4,
+     "callersInRepo": 0
+    },
+    "formula": "absolutePathsInPayload = count of _meta() blocks emitting str(path) \u2014 raw_sources, ingest_validation, league, identity",
+    "expected": 0,
+    "actual": 4,
+    "tolerance": 0
+   },
+   "userImpact": "No user acts on a wrong number, so this is not P0. It is a reconnaissance aid: an anonymous caller learns the server's absolute deploy path and the exact naming and timing of the pipeline's on-disk artifacts, on an endpoint that exists for nobody.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A23-F16",
+    "relation": "confirmed",
+    "note": "Reproduced verbatim at HEAD e96c06ef against the live server. Adds that the endpoint additionally has zero callers, so removing it from the public allowlist breaks nothing."
+   },
+   "whatWorks": "The rest of the public allowlist is defensible and deliberately reasoned in-file: /api/draft-capital is public but redacts the proprietary rookie fields for anonymous callers (_redact_draft_capital_for_public), and /api/news carries no league-private data.",
+   "rootCause": "_meta() was written for an operator view and the route was later added to the public allowlist without re-reading what it emits.",
+   "requiredRepair": "Drop /api/scaffold/status from _PUBLIC_API_EXACT (nothing calls it, so there is no compatibility cost), or emit path.name only and delete the `path` key.",
+   "dependencies": "W01-F003."
+  },
+  {
+   "id": "W01-F011",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "CLAUDE.md names GET /api/rankings/sources as the runtime check for source-registry lockstep, but nothing calls it at runtime \u2014 the only reference in the entire tree is its own Next bridge",
+   "status": "Implemented but disconnected",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Source registry",
+   "surface": {
+    "routes": [
+     "/api/rankings/sources"
+    ],
+    "pages": [
+     "/settings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/app/api/rankings/sources/route.js",
+     "lines": "1-42"
+    },
+    {
+     "path": "CLAUDE.md",
+     "lines": "0"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md, 'Registry lockstep': 'Runtime check: GET /api/rankings/sources returns the authoritative Python registry (proxied through frontend/app/api/rankings/sources/route.js). Parity test: tests/api/test_source_registry_parity.py parses the frontend JS and diffs against the Python registry.' Two mechanisms are described, one runtime and one static.",
+   "observed": "grep for 'rankings/sources' across all of frontend/ excluding node_modules and .next returns exactly two hits: line 18 of the bridge route itself (building the backend URL) and a comment in frontend/app/api/news/route.js saying it mirrors that proxy convention. No page, component or hook fetches it. /settings, which is where the source registry is edited, reads the registry from the contract instead. The static parity test is real and does the work; the 'runtime check' is a route and a bridge with no runtime consumer. So of the two lockstep mechanisms documented, one exists and one is a route nobody calls.",
+   "reproduction": {
+    "command": "grep -rn 'rankings/sources' /home/user/riskittogetthebrisket/frontend --include='*.js' --include='*.jsx' | grep -v node_modules | grep -v '\\.next'",
+    "expected": "At least one fetch call site outside app/api/.",
+    "actual": "2 hits: app/api/rankings/sources/route.js:18 (its own URL builder) and app/api/news/route.js:15 (a comment).",
+    "artifact": "docs/master-site-audit/evidence/W01/bridge-coverage.md"
+   },
+   "numericProof": {
+    "inputs": {
+     "runtimeCallSites": 0,
+     "bridgeRoutes": 1,
+     "staticParityTests": 1
+    },
+    "formula": "runtimeCallSites = |{fetch call sites for /api/rankings/sources outside frontend/app/api/}|",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "None directly. The cost is that a documented safety net does not exist: a reader of CLAUDE.md believes registry drift would be caught at runtime as well as at test time, and budgets trust accordingly. Only the static test actually guards it.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding covers /api/rankings/sources."
+   },
+   "whatWorks": "tests/api/test_source_registry_parity.py is real and does exactly what it claims \u2014 it parses frontend/lib/dynasty-data.js::RANKING_SOURCES and diffs it against src/api/data_contract.py::_RANKING_SOURCES. The lockstep invariant IS protected, just by one mechanism rather than two.",
+   "rootCause": "The route was built for an operator-facing check that was never wired into a page.",
+   "requiredRepair": "Either surface it (a 'source registry' panel on /settings or /tools/source-health is the obvious home) or correct CLAUDE.md to say the parity test is the only lockstep guard and delete the route and its bridge.",
+   "dependencies": "W01-F003."
+  },
+  {
+   "id": "W01-F012",
+   "workstream": "W01",
+   "promptSections": [
+    3,
+    45
+   ],
+   "title": "The public-league CSV export at GET /api/public/league/{section}.csv has no link anywhere in the UI while four other pages ship their own client-side CSV builders",
+   "status": "Implemented but disconnected",
+   "priority": "P3",
+   "size": "S",
+   "subsystem": "Public league",
+   "surface": {
+    "routes": [
+     "/api/public/league/{section}.csv"
+    ],
+    "pages": [
+     "/league",
+     "/rankings",
+     "/trade",
+     "/idptc-rookies",
+     "/draft"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/app/rankings/page.jsx",
+     "lines": "825"
+    },
+    {
+     "path": "frontend/app/idptc-rookies/page.jsx",
+     "lines": "59"
+    },
+    {
+     "path": "frontend/app/draft/page.jsx",
+     "lines": "2840"
+    }
+   ],
+   "claimUnderTest": "A dedicated backend CSV route with its own test file (tests/public_league/test_csv_export.py) implies a download the user can reach.",
+   "observed": "grep for '.csv' across frontend/app, frontend/components and frontend/lib returns four download sites, all client-side Blob builders assembling CSV in JavaScript from already-loaded rows: /rankings (chaseupside-rankings-<iso>.csv), /trade (trade-<iso>.csv), /idptc-rookies (dynasty-rookie-board-<n>.csv) and /draft (draft-review-<date>.csv). None of them calls /api/public/league/{section}.csv, and /league \u2014 the page the route serves \u2014 has no export control at all. The backend route is exercised only by tests/public_league/test_csv_export.py and test_server_routes.py, plus one e2e spec.",
+   "reproduction": {
+    "command": "grep -rn '\\.csv' /home/user/riskittogetthebrisket/frontend/app /home/user/riskittogetthebrisket/frontend/components /home/user/riskittogetthebrisket/frontend/lib | grep -v node_modules",
+    "expected": "A link or fetch to /api/public/league/<section>.csv from /league.",
+    "actual": "Four client-side Blob CSV builders, zero references to the backend CSV route.",
+    "artifact": "docs/master-site-audit/evidence/W01/dead-routes.txt"
+   },
+   "numericProof": {
+    "inputs": {
+     "backendCsvRouteCallSites": 0,
+     "clientSideCsvBuilders": 4
+    },
+    "formula": "backendCsvRouteCallSites = |{fetch or href targeting /api/public/league/*.csv in frontend/}|",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "A user browsing the public league hub cannot export any of its tables, while a backend endpoint that would do exactly that exists, is tested and is public. Two implementations of 'export to CSV' exist and the reachable one is the client-side reimplementation.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding covers the CSV export split."
+   },
+   "whatWorks": "The four client-side exports work and produce sensibly-named files. The backend route responds correctly when called directly.",
+   "rootCause": "The backend export shipped for the public-league pipeline; the UI export need arose separately on private pages and was solved client-side. Neither knew about the other.",
+   "requiredRepair": "Add an export control to the /league hub tables wired to the existing backend route, or retire the route.",
+   "dependencies": "W01-F003."
   },
   {
    "id": "W02-F001",
@@ -2618,6 +3661,893 @@
    "rootCause": "A shared-constants module that was not updated when the backend migrated the rule, plus a belt-and-braces AND in edge-helpers that turned a stale constant into live behaviour.",
    "requiredRepair": "Delete the sourceRankSpread <= 30 term from edge-helpers.js (the backend bucket already encodes agreement), and either remove CONFIDENCE_SPREAD_HIGH/MEDIUM from thresholds.js or relabel them as the non-live fallback pair. Add a parity test in the spirit of tests/api/test_source_registry_parity.py for threshold constants.",
    "dependencies": ""
+  },
+  {
+   "id": "W05-F001",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "/tools/source-health lists 4 of the 21 registered ranking sources and renders IDPTradeCalc as 0 rows because the count lookup is case-mismatched",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "Source health surface",
+   "surface": {
+    "routes": [
+     "/api/status"
+    ],
+    "pages": [
+     "/tools/source-health"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "frontend/components/SourceHealthStrip.jsx",
+     "lines": "105-127"
+    },
+    {
+     "path": "frontend/app/tools/source-health/page.jsx",
+     "lines": "22-28"
+    },
+    {
+     "path": "server.py",
+     "lines": "1426-1491"
+    }
+   ],
+   "claimUnderTest": "The page subtitle reads 'Scraper status for every ranking source in the pipeline.' and the component docstring promises a per-source dot + record count + age.",
+   "observed": "The strip is built from `source_health.source_runtime.enabled_sources`, which the scraper populates with exactly four scraper-side names ['IDPTradeCalc','KTC','KTC_TradeDB','KTC_WaiverDB']. The 17 CSV-loaded registry sources never appear. Worse, the per-row count lookup is `counts[src] || counts[src.toLowerCase()]`: source_counts is keyed 'ktc'/'idpTradeCalc', so 'KTC'->'ktc' resolves to 500 but 'IDPTradeCalc'->'idptradecalc' misses and renders 0 (shown as an em-dash). The per-source freshness map `health.sources` (22 real entries, correct camelCase keys) is fetched in the same payload and read with the same wrong keys, so `meta` is always {} and no per-source age is ever rendered.",
+   "reproduction": {
+    "command": "# with the audit cookie and the :3001 edge proxy up\nnode -e \"...\" # see artifact; equivalently: curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/status | python -c \"import json,sys;d=json.load(sys.stdin)['source_health'];print(d['source_runtime']['enabled_sources']);print(d['source_counts']);print(len(d['sources']))\"",
+    "expected": "21 source rows with counts and ages",
+    "actual": "Rendered DOM: 'Sources \u00b7 4' then 'IDPTradeCalc \u2014', 'KTC 500 rows', 'KTC_TradeDB \u2014', 'KTC_WaiverDB \u2014'. No ages. enabled_sources=['IDPTradeCalc','KTC','KTC_TradeDB','KTC_WaiverDB']; source_counts={'ktc':500,'idpTradeCalc':900}; health.sources has 22 entries none of which are rendered.",
+    "artifact": "docs/master-site-audit/evidence/W05/source-health-page.txt"
+   },
+   "numericProof": {
+    "inputs": {
+     "registeredSources": 21,
+     "enabledSourcesRendered": 4,
+     "idpTradeCalcCountInPayload": 900,
+     "idpTradeCalcCountRendered": 0,
+     "perSourceFreshnessEntriesAvailable": 22,
+     "perSourceAgesRendered": 0
+    },
+    "formula": "rendered_rows = len(source_runtime.enabled_sources); rendered_count(src) = source_counts[src] or source_counts[lower(src)] or 0",
+    "expected": 21,
+    "actual": 4,
+    "tolerance": 0
+   },
+   "userImpact": "The one page an operator opens to answer 'is any source dead?' cannot answer it. A source that has been broken for weeks (the exact idpShow-cookie failure mode config/source_staleness.json was written for) shows nothing at all, and the retail IDP backbone that is in fact carrying 900 rows is displayed as having none \u2014 which reads as a total outage of the source the whole IDP board rests on.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "PRIOR-A25-F14 covers critical-source flagging in the contract validator, not this page. No prior finding names /tools/source-health."
+   },
+   "whatWorks": "The underlying data IS in the payload: /api/status.source_health.sources carries correct per-source lastFetched+ageHours for all 22 CSV sources, and served_source_coverage carries real per-source board counts for all 21 registry sources. Only the renderer's key set is wrong.",
+   "rootCause": "The strip iterates the scraper's run-summary source names (a 4-item scraper-internal vocabulary) instead of the registry keys, and joins two maps that use different casing conventions without normalizing.",
+   "requiredRepair": "Drive the strip from `served_source_coverage` + `health.sources` (both registry-keyed, both already in the payload); keep `enabled_sources`/`source_failures` only as an overlay for scraper-stage failures. Normalize keys through one helper.",
+   "dependencies": "W05-F002 (the /api/status fields the page currently trusts are themselves 2-of-21)."
+  },
+  {
+   "id": "W05-F002",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "/api/status source_health describes 2 of 21 sources: total_sources=2, source_counts covers ktc+idpTradeCalc only, and missing_sources is structurally always empty",
+   "status": "Partially implemented",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Source health API",
+   "surface": {
+    "routes": [
+     "/api/status"
+    ],
+    "pages": [
+     "/tools/source-health",
+     "/settings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "1356-1375"
+    },
+    {
+     "path": "server.py",
+     "lines": "1507-1518"
+    }
+   ],
+   "claimUnderTest": "`source_health.{total_sources, sources_with_data, source_counts, missing_sources}` reports scraper/source health.",
+   "observed": "`_build_source_health_snapshot` derives all four fields from `payload['sites']`, which the scraper writes only for the two sources it scrapes itself. The live raw payload's `sites` is literally `[{key:'ktc',playerCount:500},{key:'idpTradeCalc',playerCount:900}]`. The 19 sources loaded from CSV at contract-build time are never in `sites`, so total_sources=2, sources_with_data=2, and `missing_sources` \u2014 the field whose name promises to name a dead source \u2014 can only ever list ktc or idpTradeCalc and is [] in every healthy and almost every unhealthy state. Compounding it, the same file carries three mutually inconsistent counts for KTC: sites.playerCount=500, siteStats.ktc.count=704, and rows actually carrying a ktc value=590.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/status | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['source_health']['total_sources'], d['source_health']['source_counts'], d['source_health']['missing_sources']); print(len(d['served_source_coverage']))\"; python3 -c \"import json;d=json.load(open('data/dynasty_data_2026-08-04.json'));print(d['sites']);print(d['siteStats'])\"",
+    "expected": "total_sources=21, missing_sources able to name any dead registered source",
+    "actual": "total_sources=2, source_counts={'ktc':500,'idpTradeCalc':900}, missing_sources=[]; served_source_coverage in the same response has all 21",
+    "artifact": "docs/master-site-audit/evidence/W05/api-status.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "registrySources": 21,
+     "sitesEntriesInRawPayload": 2,
+     "ktcSitesPlayerCount": 500,
+     "ktcSiteStatsCount": 704,
+     "ktcRowsCarryingValue": 590
+    },
+    "formula": "total_sources = len({row['key'] for row in payload['sites']})",
+    "expected": 21,
+    "actual": 2,
+    "tolerance": 0
+   },
+   "userImpact": "Every consumer of source_health \u2014 the source-health page, the settings diagnostics, and any operator reading /api/status \u2014 is told the pipeline has two sources and that none are missing, in a system whose board is built from 21. A dead source is undetectable through this field.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A25-F14",
+    "relation": "partial",
+    "note": "F14 makes the narrower claim that only KTC/IDPTradeCalc can be flagged as a failed CRITICAL source. That is the same root cause (the scraper-side `sites`/run-summary vocabulary is 2-4 names wide) but F14 does not cover total_sources/source_counts/missing_sources or the three-way KTC count disagreement."
+   },
+   "whatWorks": "`served_source_coverage` in the SAME response is correct and complete (21 sources, real per-source board counts), and is what the deploy gate reads.",
+   "rootCause": "source_health is derived from the scraper's own output shape, which predates the CSV-enrichment era; the 19 CSV sources join the board after the scraper is done and never write a `sites` row.",
+   "requiredRepair": "Build source_health from the registry (`_RANKING_SOURCES` + `_per_source_freshness()` + `served_source_coverage`) and keep the scraper's `sites`/run-summary as an additional stage-level block. Delete or recompute `siteStats` (read by nothing outside the stripped view).",
+   "dependencies": "none"
+  },
+  {
+   "id": "W05-F003",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "A source that fails by returning zero rows or by a vendor header rename is dropped from the board with an EMPTY sourceParseErrors \u2014 the schema probe covers 4 of 22 sources",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "M",
+   "subsystem": "Source CSV ingestion",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/status"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "3584-3620"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "3866-3886"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "10164-10173"
+    }
+   ],
+   "claimUnderTest": "`_enrich_from_source_csvs` collects `parse_errors`, which `validate_api_data_contract` turns into `source_parse_error:*` warnings and marks the contract degraded \u2014 i.e. an ingestion failure is surfaced.",
+   "observed": "Only the file-missing branch appends a parse error. The two failure modes a real fetcher actually produces both return silently: (a) a header-only CSV (fetcher ran, scraped nothing) hits `if not csv_lookup: continue` with no error; (b) a vendor column rename produces a schema_mismatch ONLY for the four sources hard-coded in the probe at line 3584 (dlfSf, dlfIdp, fantasyProsIdp, fantasyProsSf) \u2014 the other 18, including the retail anchor ktcSfTep and the IDP backbone idpTradeCalc, fall through the alias lookup and vanish with parse_errors == [].",
+   "reproduction": {
+    "command": ".venv/bin/python - <<'EOF'\nimport sys,json,shutil,tempfile\nfrom pathlib import Path\nsys.path.insert(0,'.')\nfrom src.api.data_contract import _enrich_from_source_csvs\nfull=json.load(open('/tmp/w05_full.json'))\nrows=[{'canonicalName':r.get('canonicalName'),'displayName':r.get('displayName'),'position':r.get('position')} for r in full['playersArray']]\ndef run(mut):\n    tmp=Path(tempfile.mkdtemp()); (tmp/'CSVs').mkdir()\n    shutil.copytree('CSVs/site_raw', tmp/'CSVs'/'site_raw'); mut(tmp)\n    errs=[]; idx=_enrich_from_source_csvs([dict(r) for r in rows], parse_errors=errs, csv_root=tmp)\n    return {k:len(v) for k,v in idx.items()}, errs\ndef rename(key):\n    def m(tmp):\n        p=tmp/'CSVs'/'site_raw'/f'{key}.csv'; L=p.read_text().splitlines(); L[0]='colA,colB'; p.write_text('\\n'.join(L))\n    return m\nfor k in ['dlfSf','otcffbSf','ktcSfTep','fantasyCalc']:\n    c,e=run(rename(k)); print(k, c.get(k), e)\nEOF",
+    "expected": "every source that vanishes appends a parse error",
+    "actual": "dlfSf None [{'error':'schema_mismatch',...}]; otcffbSf None []; ktcSfTep None []; fantasyCalc None []. Header-only CSV for otcffbSf: entries None, parse_errors []. Deleted file: parse_errors [{'error':'file_not_found'}].",
+    "artifact": "docs/master-site-audit/evidence/W05/schema-probe-coverage.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "sourcesInSOURCE_CSV_PATHS": 22,
+     "sourcesWithSchemaProbe": 4,
+     "parseErrorsOnHeaderRenameOfKtcSfTep": 0,
+     "otcffbSfBaselineEntries": 345,
+     "otcffbSfHeaderOnlyEntries": 0
+    },
+    "formula": "schema_probe_fires iff source_key in ('dlfSf','dlfIdp','fantasyProsIdp','fantasyProsSf')",
+    "expected": 22,
+    "actual": 4,
+    "tolerance": 0
+   },
+   "userImpact": "When a vendor renames a column \u2014 the single most common real-world source break \u2014 that source's votes silently leave the blend and every affected player's consensus value shifts, with no warning on any surface. The CI watchdog (watchdog_contract_coverage.py) does catch it on the next 2h cycle, but the served board is wrong for up to that window and the running server never says so.",
+   "blastRadius": {
+    "playersAffected": 501,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding covers the schema-probe coverage gap or the header-only silent path. Distinct from PRIOR-A25-F00, which is about freshness stamps."
+   },
+   "whatWorks": "The file-missing path is honest: it appends {'error':'file_not_found'}, logs a warning, and flips the contract to degraded. The four probed sources behave correctly.",
+   "rootCause": "The schema probe was added reactively for the two vendors that had actually broken, and was never generalized. The generic reader treats 'no recognised columns' as 'no rows' rather than 'wrong schema'.",
+   "requiredRepair": "Make the probe universal: for every source, assert at least one name-alias column AND one value-or-rank-alias column in the header; emit schema_mismatch otherwise. Separately, emit `source_empty:{key}` when a CSV parses cleanly to zero usable rows.",
+   "dependencies": "W05-F004 (the row-count floor is the only other net; it also has holes)."
+  },
+  {
+   "id": "W05-F004",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "9 of 21 registered sources have no row-count floor \u2014 deleting ktcSfTep (the retail anchor, 501 rows) from the whole board leaves contractHealth 'healthy' with zero errors",
+   "status": "Partially implemented",
+   "priority": "P1",
+   "size": "S",
+   "subsystem": "Contract validation",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/status"
+    ],
+    "pages": [
+     "/rankings",
+     "/tools/source-health"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "646-709"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "10049-10078"
+    },
+    {
+     "path": "config/weights/source_row_floors.json",
+     "lines": "1-11"
+    }
+   ],
+   "claimUnderTest": "'A source at zero is a hard error (source_missing); below floor is a warning' \u2014 the per-source row-count floor is the safety net for a silently dropped source.",
+   "observed": "`_DEFAULT_SOURCE_ROW_FLOORS` (merged with config/weights/source_row_floors.json) has 13 keys, one of which (`ktc`) is not even a blend source. Nine registry sources have no floor at all: ktcSfTep, fantasyProsSf, fantasyCalc, otcffbSf, fantasyNavigatorSf, pfkDynasty, dlfRookieSf, dlfRookieIdp, flockFantasySfRookies. Stripping each in turn from the live contract and re-running the validator: floored sources (dlfSf, yahooBoone) correctly go status=invalid with source_missing; all six unfloored ones tested stay status=healthy, ok=true, errors=[].",
+   "reproduction": {
+    "command": ".venv/bin/python - <<'EOF'\nimport sys,json,copy\nsys.path.insert(0,'.')\nfrom src.api.data_contract import validate_api_data_contract\nbase=json.load(open('/tmp/w05_full.json'))\nfor key in ['ktcSfTep','otcffbSf','fantasyCalc','pfkDynasty','fantasyNavigatorSf','fantasyProsSf','dlfSf','yahooBoone']:\n    p=copy.deepcopy(base)\n    for r in p['playersArray']:\n        for f in ('canonicalSiteValues','sourceRanks','sourceRankMeta','sourceNativeValues','sourceOriginalRanks','effectiveSourceRanks','rawSourceValues'):\n            m=r.get(f)\n            if isinstance(m,dict): m.pop(key,None)\n    p['sourceParseErrors']=[]\n    h=validate_api_data_contract(p); print(key, h['status'], h['errors'])\nEOF",
+    "expected": "source_missing:{key} for every registered source removed",
+    "actual": "ktcSfTep -> healthy []; otcffbSf -> healthy []; fantasyCalc -> healthy []; pfkDynasty -> healthy []; fantasyNavigatorSf -> healthy []; fantasyProsSf -> healthy []; dlfSf -> invalid ['source_missing:dlfSf']; yahooBoone -> invalid ['source_missing:yahooBoone']",
+    "artifact": "docs/master-site-audit/evidence/W05/source-drop-contract-health.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "registrySources": 21,
+     "sourcesWithFloor": 12,
+     "unflooredSources": 9,
+     "ktcSfTepBoardRows": 501,
+     "contractStatusAfterRemovingKtcSfTep": "healthy"
+    },
+    "formula": "floors = _DEFAULT_SOURCE_ROW_FLOORS | config.floors; source_missing fires iff key in floors and count == 0",
+    "expected": 21,
+    "actual": 12,
+    "tolerance": 0
+   },
+   "userImpact": "The blend can lose its single retail anchor \u2014 the source that sets the top of the 0-9999 scale for every offensive player and one of only two value-direct voters \u2014 and every health surface, including the contract's own self-report, says the board is healthy. Users read repriced values with no warning.",
+   "blastRadius": {
+    "playersAffected": 501,
+    "routesAffected": 2,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding enumerates the floor coverage gap. PRIOR-A25-F14 is about which sources can be flagged from settings.sourceRunSummary, a different mechanism."
+   },
+   "whatWorks": "The floor mechanism itself is correct and load-bearing where it exists \u2014 dlfSf and yahooBoone both produce a hard error and flip the contract to invalid. The config file allows tuning without code change.",
+   "rootCause": "Floors were added per-incident and the newer sources (FN, PFK, FantasyCalc, OTCFFB, the rookie boards) were deliberately deferred pending a live baseline (comment at data_contract.py:701-708) \u2014 a deferral that has outlived the baseline being unavailable.",
+   "requiredRepair": "Add floors for the nine unfloored keys at ~80% of the counts now measured on the live board (ktcSfTep 400, fantasyProsSf 380, fantasyCalc 315, otcffbSf 275, fantasyNavigatorSf 360, pfkDynasty 380, dlfRookieSf 44, dlfRookieIdp 23, flockFantasySfRookies 60), and add a registry-completeness test that fails when a registered source has no floor.",
+   "dependencies": "none"
+  },
+  {
+   "id": "W05-F005",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "The KTC trade/waiver crowd DB is skipped on EVERY successful KTC scrape \u2014 `content` is only bound inside the Strategy-3 fallback, so KTC_ID_TO_NAME is never built and the FAAB crowd factor is unreachable",
+   "status": "Implemented but disconnected",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "KTC crowd ingestion / FAAB",
+   "surface": {
+    "routes": [
+     "/api/status",
+     "/api/waiver/faab-recommend"
+    ],
+    "pages": [
+     "/waivers"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "Dynasty Scraper.py",
+     "lines": "2268-2269"
+    },
+    {
+     "path": "Dynasty Scraper.py",
+     "lines": "2476-2494"
+    },
+    {
+     "path": "Dynasty Scraper.py",
+     "lines": "4006"
+    },
+    {
+     "path": "Dynasty Scraper.py",
+     "lines": "4104-4125"
+    },
+    {
+     "path": "server.py",
+     "lines": "5280-5297"
+    },
+    {
+     "path": "src/trade/faab_recommender.py",
+     "lines": "502-520"
+    }
+   ],
+   "claimUnderTest": "The `partial_run_tolerable:KTC_TradeDB` / `:KTC_WaiverDB` warnings are a tolerable transient on a secondary endpoint, and the KTC crowd-sourced FAAB calibration factor is live.",
+   "observed": "`scrape_ktc` has three extraction strategies. `content = await page.content()` is assigned ONLY inside Strategy 3, which is guarded by `if not name_map:` (line 2268). The ID-map builder at line 2477 is guarded by `if \"content\" in dir() and content:` \u2014 a check on whether that local was ever bound. So on every run where KTC actually works (Strategy 1 API intercept or Strategy 2 DOM, which is what produced today's 500 rows), `content` is unbound, KTC_ID_TO_NAME stays empty, line 4006's `if SITES.get(\"KTC\") and KTC_ID_TO_NAME` is False, and both crowd endpoints are skipped with the 'no playerID->name mapping available' warning. The condition is inverted: the crowd DB can only run on the degraded path. Downstream, `ktcCrowd` is absent from the live payload, so `crowd_bid_map_from_contract` returns {} and the 'KTC crowd-sourced calibration' factor never appears \u2014 and the FAAB response does not list it as missing either (only 4 factors, warnings=[]).",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/status | python3 -c \"import json,sys;print(json.load(sys.stdin)['source_health']['source_failures'])\"; python3 -c \"import json;d=json.load(open('data/dynasty_data_2026-08-04.json'));print('ktcCrowd' in d)\"; curl -s -b /tmp/audit-cookies.txt -X POST http://127.0.0.1:8000/api/waiver/faab-recommend -H 'Content-Type: application/json' -d '{\"addPlayerName\":\"Bhayshul Tuten\",\"budgetRemaining\":100}' | python3 -c \"import json,sys;d=json.load(sys.stdin);print([f['label'] for f in d['factors']], d['warnings'])\"",
+    "expected": "either a KTC crowd factor in the FAAB breakdown, or an explicit missing:true entry for it",
+    "actual": "source_failures reports both KTC_TradeDB and KTC_WaiverDB 'partial' with valueCount 0 and skipReason missing_ktc_id_map; ktcCrowd not in payload -> False; FAAB factors = ['Player value baseline','Trending bump','League historical calibration','Rival contention'], warnings = []",
+    "artifact": "docs/master-site-audit/evidence/W05/faab-recommend.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "ktcRowsScraped": 500,
+     "ktcIdToNameEntries": 0,
+     "ktcCrowdTrades": 0,
+     "ktcCrowdWaivers": 0,
+     "faabFactorsListed": 4,
+     "faabFactorWeightSum": 0.85
+    },
+    "formula": "KTC_ID_TO_NAME populated iff Strategy 3 ran iff name_map was empty after Strategies 1+2",
+    "expected": 1,
+    "actual": 0,
+    "tolerance": 0
+   },
+   "userImpact": "A user on /waivers gets a FAAB bid whose crowd-calibration input is permanently absent, presented as a complete factor breakdown with no 'missing' marker \u2014 the 15%-weight rival-contention factor IS marked missing, so the omission of the crowd factor reads as 'not applicable' rather than 'never collected'. The operator meanwhile sees two permanent amber warnings that are documented as 'tolerable transients'.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding in the ingestion area covers KTC_TradeDB/KTC_WaiverDB or the crowd-FAAB path."
+   },
+   "whatWorks": "The whole downstream chain is correctly built and would work the moment the map exists: build_crowd_bid_map, crowd_bid_map_from_contract, the 70/30 blend, the _ktc_crowd_applies guard and the factor emission are all present and unit-tested. The failure is confined to one variable-scope bug in the scraper.",
+   "rootCause": "`content` is a Strategy-3 local; the ID-map builder guards on its existence with `\"content\" in dir()` rather than fetching the page source unconditionally. The guard was presumably written when Strategy 3 was the only path.",
+   "requiredRepair": "Hoist `content = await page.content()` out of the `if not name_map:` block (or build KTC_ID_TO_NAME from the intercepted API payload, which carries playerID+playerName directly), and stop classifying an always-skipped source as a tolerable partial. Separately, have faab_recommender emit the crowd factor with missing:true when the map is empty, matching how rival contention is handled.",
+   "dependencies": "none"
+  },
+  {
+   "id": "W05-F006",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "Only 2 of 21 sources cast any vote on any draft pick, and all 72 slot picks are single-source: a fresh KTC pick value sits unread in canonicalSiteValues while the anchor is IDPTradeCalc alone",
+   "status": "Implemented but defective",
+   "priority": "P1",
+   "size": "M",
+   "subsystem": "Pick ingestion / blend",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/trade/simulate",
+     "/api/draft-capital"
+    ],
+    "pages": [
+     "/rankings",
+     "/trade",
+     "/draft"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "1005-1035"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "1122-1145"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "3900-3918"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md: 'Pick rows widen the anchor set to include ktcSfTep so the two real pick markets (KTC + IDPTC) average as peers.' And the dlfRookieSf registry entry: 'The pick nudge is wired via synthetic \"2026 Pick R.SS\" rows that the conversion step appends to the CSV so the source's Hill value flows into pick rankDerivedValue directly.'",
+   "observed": "Counting non-null sourceRanks over the 144 pick rows on the live board: ktcSfTep votes on 36 (the generic Early/Mid/Late 1st-4th tiers, the only picks in ktcSfTep.csv), idpTradeCalc on 96. No other source votes on any pick. All 72 slot picks (2026 Pick 1.01 .. 6.12) have sourceCount == 1 and anchorValue == the IDPTradeCalc value, even though canonicalSiteValues carries a KTC value for every one of them (pickAnchors['ktc'] has 126 entries, interpolated by the scraper) \u2014 `ktc` was demoted to a non-voting display key in 2026-04-28 and nothing re-routed the pick anchors to ktcSfTep. Separately, all 55 dlfRookieSf synthetic pick stamps land in canonicalSiteValues (as raw synthetic rank encodings like 999880) but appear in sourceRanks on zero pick rows.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt 'http://127.0.0.1:8000/api/data' -o /tmp/full.json; python3 - <<'EOF'\nimport json,collections\npa=json.load(open('/tmp/full.json'))['playersArray']\npicks=[r for r in pa if r.get('assetClass')=='pick']\nv=collections.Counter()\nfor r in picks:\n  for k,x in (r.get('sourceRanks') or {}).items():\n    if x is not None: v[k]+=1\nprint(len(picks), dict(v))\nslot=[r for r in picks if ' Pick ' in r['displayName']]\nprint(len(slot), collections.Counter(r['sourceCount'] for r in slot))\nr=[x for x in slot if x['displayName']=='2026 Pick 1.01'][0]\nprint(r['canonicalSiteValues'], r['sourceRanks'], r['anchorValue'], r['rankDerivedValue'])\nEOF",
+    "expected": "pick rows anchored on the mean of the two real pick markets",
+    "actual": "144 picks; sourceRanks votes = {'ktcSfTep':36,'idpTradeCalc':96}; 72 slot picks all sourceCount=1; 2026 Pick 1.01 canonicalSiteValues={'ktc':6726,'idpTradeCalc':8013,'dlfRookieSf':999880}, sourceRanks={'idpTradeCalc':12}, anchorValue=8013",
+    "artifact": "docs/master-site-audit/evidence/W05/pick-vote-coverage.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "ktcValueFor2026Pick101": 6726,
+     "idpTradeCalcValueFor2026Pick101": 8013,
+     "observedAnchorValue": 8013
+    },
+    "formula": "anchor_value = mean(contributions of is_cross_market sources); with both pick markets voting this would be (6726+8013)/2",
+    "expected": 7369.5,
+    "actual": 8013,
+    "tolerance": 1
+   },
+   "userImpact": "Every draft pick on /rankings, in the trade calculator and in the draft-capital board is priced by one market, and is flagged sourceCount=1 / isSingleSource=true \u2014 which the UI presents as 'speculative'. A user trading a 1.01 sees 7799 where a two-market peer average of the numbers the system already holds would be materially lower (KTC prices it 16% below IDPTC). The docs assert the opposite of what runs.",
+   "blastRadius": {
+    "playersAffected": 144,
+    "routesAffected": 3,
+    "pagesAffected": 3
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A25-F02",
+    "relation": "new",
+    "note": "F02 concerns the pick-YEAR discount double-counting, a different stage. Nothing prior covers pick source coverage or the ktc/ktcSfTep pick-anchor split."
+   },
+   "whatWorks": "The 36 generic tier picks (2026/2027/2028 Early|Mid|Late 1st-4th) genuinely do get both markets: ktcSfTep and idpTradeCalc both vote, e.g. 2026 Early 1st = 5605 / 5554. The mechanism is correct where the ktcSfTep CSV happens to carry the row.",
+   "rootCause": "KTC's slot-pick values reach the contract only through `pickAnchors['ktc']`, which is stamped under the demoted non-voting `ktc` key. ktcSfTep.csv contains only the 36 generic tiers KTC publishes, so the promoted key has nothing to vote with on slot picks. The 2026-04-28 demotion of `ktc` moved the blend vote but not the pick anchors.",
+   "requiredRepair": "Stamp pickAnchors under `ktcSfTep` as well as `ktc` (KTC's pick board carries no TE dimension, so the two are identical for picks \u2014 they already are on all 36 shared rows), or make the pick anchor set read `ktc` explicitly. Then either wire the dlfRookieSf synthetic pick stamps into sourceRanks or stop writing them into canonicalSiteValues and correct the registry comment.",
+   "dependencies": "Coordinate with the value-pipeline workstream: pick tethering (Phase 5.2b) overwrites current-year slot picks, so measure the effect on 2027/2028 slots separately."
+  },
+  {
+   "id": "W05-F007",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "The raw-ingest scaffold (/api/scaffold/raw, /status, /identity) serves a 2026-04-20 artifact stamped with a 2026-08-03 mtime, and no code in the tree can produce a new one",
+   "status": "Deprecated but still active",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Raw ingest scaffold",
+   "surface": {
+    "routes": [
+     "/api/scaffold/raw",
+     "/api/scaffold/status",
+     "/api/scaffold/identity"
+    ],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "server.py",
+     "lines": "4802-4900"
+    },
+    {
+     "path": "src/maintenance/retention.py",
+     "lines": "385-392"
+    },
+    {
+     "path": "scripts/validate_ingest.py",
+     "lines": "38"
+    }
+   ],
+   "claimUnderTest": "CLAUDE.md lists /api/scaffold/raw as 'Raw source snapshots' and /api/scaffold/status as 'Pipeline status' \u2014 live operator surfaces.",
+   "observed": "All three serve run_id 20260420T194828Z, created_at 2026-04-20 \u2014 106 days before the audit date. `/api/scaffold/status` reports `mtime: 2026-08-03T22:00:56` (the git-checkout time of the tracked file), so the one field an operator would read as an age reads as 'yesterday'. No staleness field, no warning: `warnings` is []. The snapshot covers 9 sources, two of which (FANTASYPROS_SF, FLOCK_FANTASY_SF) recorded record_count 0 at capture time with warnings still []. It also carries FOOTBALLGUYS_SF (563) + FOOTBALLGUYS_IDP (525) \u2014 1,088 records from a vendor that is not in _RANKING_SOURCES at all and whose freshness stamp is frozen at 2026-05-24. Grepping the tree for a writer of data/raw_sources/raw_source_snapshot_*.json finds only consumers (server.py, scripts/validate_ingest.py, scripts/identity_resolve.py) and a retention pruner; no producer exists, and no workflow references the scaffold.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/scaffold/status; curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/scaffold/raw | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['run_id'],d['created_at'],d['warnings']);print([(s['source'],s['record_count']) for s in d['snapshots']])\"; grep -rn 'raw_source_snapshot' --include='*.py' . | grep -v tests",
+    "expected": "a snapshot from the last refresh cycle, or an explicit staleness marker",
+    "actual": "run_id 20260420T194828Z, created_at 2026-04-20T19:48:28Z, warnings []; scaffold/status mtime 2026-08-03T22:00:56 with no age field; 9 snapshots incl. FANTASYPROS_SF 0 and FLOCK_FANTASY_SF 0; no producer in the tree",
+    "artifact": "docs/master-site-audit/evidence/W05/api-scaffold-raw-summary.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "snapshotCreatedAt": "2026-04-20",
+     "auditDate": "2026-08-04",
+     "reportedMtime": "2026-08-03",
+     "sourcesInSnapshot": 9,
+     "registrySources": 21,
+     "sourcesWithZeroRecordsAndNoWarning": 2
+    },
+    "formula": "age_days = auditDate - created_at",
+    "expected": 0,
+    "actual": 106,
+    "tolerance": 1
+   },
+   "userImpact": "Operator-facing only, but actively misleading: the endpoint's own mtime field says the ingest pipeline ran yesterday when it last ran in April, and it names FootballGuys as a contributing source that has not fetched since May and is not in the blend registry at all. `scripts/validate_ingest.py` validates this April artifact and will pass.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 3,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A25-F10",
+    "relation": "confirmed",
+    "note": "Independently reproduced the 106-day staleness and the absent staleness marker. Extending it: there is no producer for data/raw_sources/ anywhere in the tree, so the surface is not merely stale but unrefreshable; and two of the nine snapshotted sources recorded 0 records with warnings still empty. Also confirms PRIOR-A25-F11 (FootballGuys dead, stamp 1779666437 = 2026-05-24T23:47:17Z) from the scaffold side."
+   },
+   "whatWorks": "Nothing in the frontend consumes /api/scaffold/*, so no user-facing page is showing April data.",
+   "rootCause": "The scaffold's producer was removed (or never migrated out of the one-off CI run that wrote these files with /home/runner/work/... paths baked in); the read side was left registered.",
+   "requiredRepair": "Decide: either restore a producer wired into scheduled-refresh.yml, or remove the three routes and validate_ingest.py/identity_resolve.py's dependence on them. In either case have the endpoints report `ageHours` from the snapshot's own `created_at`, not the file mtime, and surface a warning past a threshold.",
+   "dependencies": "none"
+  },
+  {
+   "id": "W05-F008",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "The per-source deploy gate documents itself as running every 6h in health-check.yml; it does not \u2014 the 6h workflow uses a floor of 8 covered sources out of 21",
+   "status": "Partially implemented",
+   "priority": "P2",
+   "size": "S",
+   "subsystem": "Source coverage monitoring",
+   "surface": {
+    "routes": [
+     "/api/status"
+    ],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "scripts/verify_live_source_coverage.py",
+     "lines": "21-28"
+    },
+    {
+     "path": ".github/workflows/health-check.yml",
+     "lines": "95-143"
+    },
+    {
+     "path": "deploy/verify-deploy.sh",
+     "lines": "325-352"
+    }
+   ],
+   "claimUnderTest": "verify_live_source_coverage.py: 'Used at two layers so a degraded board cannot persist silently: deploy/verify-deploy.sh ... and .github/workflows/health-check.yml \u2014 every 6h against the public URL, catching drift that happens outside a deploy.'",
+   "observed": "`grep -rn verify_live_source_coverage .github/workflows/ deploy/` returns exactly one hit: deploy/verify-deploy.sh:340. health-check.yml instead inlines a dependency-free check with MIN_SOURCES = 8 and MIN_PER_SOURCE = 5 ('Dependency-free so this lean workflow needs no checkout'), which is designed only to separate the healthy ~16-21-source board from the catastrophic 3-source legacy export. Losing any 1 to 13 individual sources between deploys passes that gate. The strict script itself works: run against the live server it prints 'ok: live board carries 21 registered source(s); 0 fresh-but-absent'.",
+   "reproduction": {
+    "command": "grep -rn 'verify_live_source_coverage' .github/workflows/ deploy/; sed -n '118,124p' .github/workflows/health-check.yml; .venv/bin/python scripts/verify_live_source_coverage.py http://127.0.0.1:8000",
+    "expected": "the strict fresh-but-absent gate running every 6h against prod",
+    "actual": "one reference only (deploy/verify-deploy.sh:340); health-check.yml uses MIN_SOURCES=8; strict script run manually returns 'ok: live board carries 21 registered source(s); 0 fresh-but-absent (0 skipped: stale/empty)'",
+    "artifact": "docs/master-site-audit/evidence/W05/source-chain.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "registeredSources": 21,
+     "healthCheckMinSources": 8,
+     "sourcesThatCanSilentlyDisappear": 13
+    },
+    "formula": "alert iff count(sources with >=5 covered players) < 8",
+    "expected": 21,
+    "actual": 8,
+    "tolerance": 0
+   },
+   "userImpact": "Between deploys (which can be days apart) the board can lose up to 13 of 21 sources without any production alert. The 2h CI watchdog (watchdog_contract_coverage.py) does cover this against the CI checkout, so the exposure is specifically 'the running prod process serves a different board than CI builds'.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "No prior finding covers the docstring-vs-wiring mismatch for verify_live_source_coverage.py."
+   },
+   "whatWorks": "Both CI watchdogs pass against the live tree right now: `watchdog_freshness.py` -> 'ok: 22 sources fresh, 0 hard-stale'; `watchdog_contract_coverage.py` -> 'ok: 21 registered source(s) covered, 0 fresh-but-absent'. The deploy-time gate is genuinely wired and would fail a deploy that served a degraded board.",
+   "rootCause": "The health-check workflow was deliberately kept checkout-free, so the strict script could not be invoked there; the script's docstring was written for the intended design and never corrected.",
+   "requiredRepair": "Either add a checkout step (or ship the per-source expectations as data in the /api/status payload so a dependency-free checker can be strict), or correct the docstring and lower MIN_SOURCES tolerance to name the expected registry count.",
+   "dependencies": "none"
+  },
+  {
+   "id": "W05-F009",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "Per-source staleness is computed in every /api/data payload and shown to nobody: two disagreeing threshold tables (6h in code, 24h in config) and no user-visible surface for either",
+   "status": "Implemented but disconnected",
+   "priority": "P2",
+   "size": "M",
+   "subsystem": "Freshness reporting",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/health"
+    ],
+    "pages": [
+     "/rankings",
+     "/tools/source-health"
+    ],
+    "flags": [
+     "consensus_edge"
+    ]
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "589-640"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "879-935"
+    },
+    {
+     "path": "config/source_staleness.json",
+     "lines": "3-24"
+    },
+    {
+     "path": "frontend/components/StaleDataBanner.jsx",
+     "lines": "56-92"
+    },
+    {
+     "path": "src/consensus_edge/service.py",
+     "lines": "87-115"
+    }
+   ],
+   "claimUnderTest": "config/source_staleness.json's own comment: a stale source is 'reported everywhere (on-site stale banner, email alerts ..., the freshness-watchdog summary)'.",
+   "observed": "There is no on-site per-source stale banner. `dataFreshness.sourceTimestamps` \u2014 22 entries each carrying ageHours, maxAgeHours and staleness fresh|stale|missing \u2014 is shipped in every /api/data response and is read by exactly one module in the tree, `src/consensus_edge/service.py`, whose feature flag is OFF by default (ADR-023). The frontend touches `dataFreshness` in one place, rankings/page.jsx:835, and reads only `generatedAt` for a whole-board 'updated Xm ago'. StaleDataBanner polls /api/health and shows a single whole-board `data_age_hours`. Two independent threshold tables disagree by 4x: `_SOURCE_MAX_AGE_HOURS` in data_contract.py sets 6h for ktc/ktcSfTep/idpTradeCalc/dynastyNerdsSfTep/fantasyProsIdp/dynastyDaddySf/fantasyCalc/otcffbSf/draftSharks/draftSharksIdp/fantasyNavigatorSf/pfkDynasty; config/source_staleness.json sets 24h for every source. The 6h table is the one that stamps the payload; the 24h table is the one that fires email. Neither reaches a user. Finally, staleness is purely descriptive: nothing downweights or drops a stale source's vote.",
+   "reproduction": {
+    "command": "curl -s -b /tmp/audit-cookies.txt 'http://127.0.0.1:8000/api/data?view=app' | python3 -c \"import json,sys;t=json.load(sys.stdin)['dataFreshness']['sourceTimestamps'];print(len(t));print({k:(v['maxAgeHours'],v['staleness']) for k,v in list(t.items())[:6]})\"; grep -rn 'sourceTimestamps' --include='*.js' --include='*.jsx' frontend/ | grep -v node_modules; grep -rn 'sourceTimestamps' --include='*.py' src/ | grep -v test",
+    "expected": "a surface where a user or operator sees which individual source is stale",
+    "actual": "22 sourceTimestamps entries shipped; zero frontend references; one Python consumer (src/consensus_edge/service.py, flag off). maxAgeHours for ktc = 6 while config/source_staleness.json thresholds.ktc = 24.",
+    "artifact": "docs/master-site-audit/evidence/W05/source-chain.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "sourceTimestampsEntries": 22,
+     "frontendConsumers": 0,
+     "pythonConsumers": 1,
+     "consumerFlagDefault": "off",
+     "ktcMaxAgeHoursInPayload": 6,
+     "ktcThresholdInConfig": 24
+    },
+    "formula": "n/a \u2014 threshold table comparison",
+    "expected": 6,
+    "actual": 24,
+    "tolerance": 0
+   },
+   "userImpact": "A single dead source (the documented idpShow-cookie-lapse mode) is invisible on-site: the whole-board age stays fresh because 20 other sources refresh, /tools/source-health does not list the source at all (W05-F001), and only an email alert fires \u2014 and only if ALERT_TO is configured. Meanwhile that source's last-known values keep voting at full weight.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 2
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": "PRIOR-A25-F13",
+    "relation": "confirmed",
+    "note": "F13 ('staleness is reporting-only; a stale source votes at full weight') reproduced: nothing in _compute_unified_rankings reads sourceTimestamps.staleness. Also PRIOR-A25-F04 ('the contract calls 12 sources stale while the watchdog calls all 22 fresh') is NOT reproducible at HEAD \u2014 every source reads fresh under both tables today (all ageHours 1.66-1.86 vs thresholds of 6 and 24), because _build_source_timestamps now prefers the data/scrape_state stamp over CSV mtime. The underlying two-table conflict F04 identified is real and still latent; the divergence it measured is not currently observable."
+   },
+   "whatWorks": "The email alert path is real and correctly per-source: _build_source_health_snapshot's `sources` block (22 correct entries) feeds src/api/source_health_alerts.check_and_alert from the daily /api/signal-alerts/run sweep, with a documented soft/soft-escalate policy for idpShow. The CI freshness watchdog also runs on the 2h refresh and passes.",
+   "rootCause": "Per-source freshness grew two independent implementations for two independent consumers (contract payload for consensus_edge; config file for email) and never got a UI.",
+   "requiredRepair": "Collapse to one threshold source of truth (config/source_staleness.json, via resolve_threshold) and have _build_source_timestamps call it. Then render sourceTimestamps on /tools/source-health as part of the W05-F001 fix.",
+   "dependencies": "W05-F001"
+  },
+  {
+   "id": "W05-F010",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "Verified clean: all 21 registered ranking sources have a live fetcher, a fresh CSV, and real votes on the served board \u2014 end to end",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Source ingestion chain",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/status"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "1005-1726"
+    },
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "3771-3886"
+    }
+   ],
+   "claimUnderTest": "Every source in _RANKING_SOURCES is fetched, stored, read by the blend, and votes on the live board.",
+   "observed": "Traced all 21 keys through the full chain. Fetcher: 19 have a dedicated scripts/fetch_*.py; ktcSfTep and idpTradeCalc are produced by Dynasty Scraper.py. File: every _SOURCE_CSV_PATHS entry resolves to an existing CSV in CSVs/site_raw/ (22 files, all present). Freshness: all 22 report staleness='fresh' with ageHours 1.66-1.86. Blend: every key appears in sourceRanks on the live board with non-null ranks (min 29 rows for dlfRookieIdp, max 903 for idpTradeCalc), and served_source_coverage confirms 21 keys with sourceRankMeta membership. No registered source is dead, and no fetched CSV in CSVs/site_raw/ is unread (the two draftSharksRos* files are consumed by src/ros/sources/draftsharks_ros.py, and ktc.csv is the deliberately non-voting display/arbitrage source).",
+   "reproduction": {
+    "command": ".venv/bin/python scripts/verify_live_source_coverage.py http://127.0.0.1:8000 && .venv/bin/python scripts/watchdog_freshness.py && .venv/bin/python scripts/watchdog_contract_coverage.py",
+    "expected": "all three exit 0",
+    "actual": "'ok: live board carries 21 registered source(s); 0 fresh-but-absent (0 skipped: stale/empty)'; 'ok: 22 sources fresh, 0 hard-stale'; 'ok: 21 registered source(s) covered, 0 fresh-but-absent (0 skipped: stale/empty)'",
+    "artifact": "docs/master-site-audit/evidence/W05/source-chain.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "registrySources": 21,
+     "withFetcher": 21,
+     "withExistingCsv": 21,
+     "reportedFresh": 21,
+     "withNonNullSourceRanksOnBoard": 21
+    },
+    "formula": "chain_complete = fetcher AND csv_exists AND fresh AND sourceRanks_count > 0",
+    "expected": 21,
+    "actual": 21,
+    "tolerance": 0
+   },
+   "userImpact": "None \u2014 this is the healthy case. Recorded so the negative findings above are read as gaps in REPORTING and in PICK coverage, not as a broken ingestion pipeline.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Positive control; no prior equivalent."
+   },
+   "whatWorks": "See observed. Notable per-source detail: KTC's 464 non-pick CSV rows match the player universe at 100%; IDPTradeCalc's 900 rows match 814 (90.4%); the largest apparent losses (fantasyNavigatorSf 758 CSV rows -> 455 board values) are almost entirely retired/off-board players (only 16 of the 303 unmatched sit inside the source's own top 300), i.e. honest coverage, not a matching failure.",
+   "rootCause": "n/a",
+   "requiredRepair": "n/a",
+   "dependencies": "none"
+  },
+  {
+   "id": "W05-F011",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "The reported KTC 590/1074 and IDPTradeCalc 898/1074 coverage is fully explained and correct \u2014 the gaps are board depth and the pick-anchor interpolation, not lost data",
+   "status": "Implemented and verified",
+   "priority": "P3",
+   "size": "XS",
+   "subsystem": "Source coverage accounting",
+   "surface": {
+    "routes": [
+     "/api/data",
+     "/api/status"
+    ],
+    "pages": [
+     "/rankings"
+    ],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": "src/api/data_contract.py",
+     "lines": "3771-3886"
+    }
+   ],
+   "claimUnderTest": "The health check's 'ktc 590 of 1074, idpTradeCalc 898 of 1074' figures indicate missing coverage that needs explaining.",
+   "observed": "Exact arithmetic identity on the raw 1,074-row universe: ktc 590 = 464 player rows (KTC's 500-row board minus its 36 generic pick tiers; all 464 matched by name) + 126 rows from pickAnchors['ktc'] (the scraper's interpolation of KTC's 36 tiers into slot picks). idpTradeCalc 898 = 814 matched player rows (of 900 scraped) + 84 rows from pickAnchors['idpTradeCalc']. The 483 contract rows with no ktc value break down as 398 IDP (KTC publishes no defenders), 19 K, 50 deep offense past KTC's top-500 cut, 16 unclassified. The 181 with no idpTradeCalc are 48 picks (the 5th/6th-round tiers IDPTC does not price), 76 deep offense, 28 deep IDP, 19 K, 10 unclassified. No source rows are silently lost.",
+   "reproduction": {
+    "command": "python3 - <<'EOF'\nimport json,collections\nd=json.load(open('data/dynasty_data_2026-08-04.json'))\npl=d['players']; pa=d['pickAnchors']\nfull=json.load(open('/tmp/w05_full.json'))\ncls={(r.get('canonicalName') or r.get('displayName')):('pick' if r.get('assetClass')=='pick' else 'player') for r in full['playersArray']}\nfor k in ('ktc','idpTradeCalc'):\n  names=[n for n,p in pl.items() if p.get(k) is not None]\n  print(k, len(names), collections.Counter(cls.get(n) for n in names), 'pickAnchors', len(pa[k]))\nEOF",
+    "expected": "590 = 464 + 126 and 898 = 814 + 84",
+    "actual": "ktc 590 Counter({'player': 464, 'pick': 126}) pickAnchors 126; idpTradeCalc 898 Counter({'player': 814, 'pick': 84}) pickAnchors 84",
+    "artifact": "docs/master-site-audit/evidence/W05/source-chain.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "ktcCsvRows": 500,
+     "ktcCsvPickTierRows": 36,
+     "ktcPlayerRowsMatched": 464,
+     "ktcPickAnchorRows": 126,
+     "idptcCsvRows": 900,
+     "idptcPlayerRowsMatched": 814,
+     "idptcPickAnchorRows": 84
+    },
+    "formula": "coverage = matched_player_rows + pick_anchor_rows",
+    "expected": 590,
+    "actual": 590,
+    "tolerance": 0
+   },
+   "userImpact": "None \u2014 recorded to close the question. The real pick problem is W05-F006 (those 126 KTC pick values do not vote), not a coverage shortfall.",
+   "blastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "high",
+   "priorFinding": {
+    "match": null,
+    "relation": "new",
+    "note": "Explanatory result requested by the workstream brief."
+   },
+   "whatWorks": "KTC name matching is 464/464 on non-pick rows. IDPTradeCalc is 814/900; the 86 unmatched are below the board's own inclusion bar.",
+   "rootCause": "n/a",
+   "requiredRepair": "n/a",
+   "dependencies": "W05-F006"
+  },
+  {
+   "id": "W05-F012",
+   "workstream": "W05",
+   "promptSections": [
+    9,
+    38
+   ],
+   "title": "The GitHub-Actions 2h refresh cron misses roughly a quarter of its cycles while the prod systemd fetch timers hit every one",
+   "status": "Implemented but defective",
+   "priority": "P3",
+   "size": "S",
+   "subsystem": "Refresh scheduling",
+   "surface": {
+    "routes": [],
+    "pages": [],
+    "flags": []
+   },
+   "codeRefs": [
+    {
+     "path": ".github/workflows/scheduled-refresh.yml",
+     "lines": "12-16"
+    },
+    {
+     "path": "deploy/dlf_fetch_and_push.sh",
+     "lines": "110-140"
+    }
+   ],
+   "claimUnderTest": "'Runs the scraper + canonical rebuild every 2 hours' (cron '42 */2 * * *').",
+   "observed": "Reading the commit stream the workflow itself produces ('chore: freshness stamps <UTC>'), over the 26.7h window 2026-08-03T15:37Z to 2026-08-04T18:21Z there are 10 runs where 13-14 are scheduled. Inter-run gaps: 2.87, 1.85, 1.53, 2.08, 4.00, 3.50, 3.75, 4.00, 3.13 hours \u2014 three gaps at or above 3.5h and one full missed cycle. Over the same window the prod-side systemd fetch timers land exactly on cadence (dlf at :27 and idpShow at :32 of every even UTC hour, 14/14 runs, zero misses).",
+   "reproduction": {
+    "command": "git log --since='2026-08-02' --format='%s' -- data/scrape_state | grep 'freshness stamps' | head -20",
+    "expected": "~13 runs in 26.7h at a 2h cadence",
+    "actual": "10 runs; gaps of 4.00h, 4.00h, 3.75h, 3.50h",
+    "artifact": "docs/master-site-audit/evidence/W05/source-chain.json"
+   },
+   "numericProof": {
+    "inputs": {
+     "windowHours": 26.73,
+     "cronIntervalHours": 2,
+     "expectedRuns": 13,
+     "observedRuns": 10,
+     "maxGapHours": 4.0
+    },
+    "formula": "missed_fraction = 1 - observed/expected",
+    "expected": 13,
+    "actual": 10,
+    "tolerance": 1
+   },
+   "userImpact": "Board data is up to 4h old rather than 2h at the worst points. Not a correctness defect, but it interacts with W05-F009: the 6h maxAgeHours budgets in _SOURCE_MAX_AGE_HOURS assume a 2h cadence ('6 hours \u2248 three missed cycles'); at the observed cadence a 6h budget is closer to 1.5 missed cycles of headroom.",
+   "blastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   },
+   "confidence": "medium",
+   "priorFinding": {
+    "match": "PRIOR-A25-F19",
+    "relation": "confirmed",
+    "note": "Independently reproduced with a different window and method (workflow-authored commit timestamps rather than run history). My measurement is 10/13 (~23% missed) over 26.7h. Confidence is medium rather than high because the commit stream is a proxy for the run stream \u2014 a run that produced no stamp change would not appear \u2014 though the workflow force-adds data/scrape_state/ every run, so that should be rare."
+   },
+   "whatWorks": "The prod-side systemd fetch timers (dlf, idpShow) are perfectly regular over the same window, so this is specific to GitHub Actions' documented best-effort cron.",
+   "rootCause": "GitHub Actions schedule events are best-effort and are dropped under load; nothing compensates.",
+   "requiredRepair": "Either accept and document the real cadence (and widen the freshness budgets that assume 2h), or move the scrape trigger to the prod host's systemd timers, which are demonstrably reliable here, with Actions as a backstop.",
+   "dependencies": "W05-F009"
   },
   {
    "id": "W09-F001",

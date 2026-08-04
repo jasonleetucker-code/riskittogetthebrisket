@@ -1,0 +1,305 @@
+{
+  "registryFile": "config/model_registry/hill_scope_masters.json",
+  "championVersion": 2,
+  "championPromotedAt": "2026-07-29T23:35:35.519297+00:00",
+  "liveConstants": {
+    "HILL_GLOBAL_PERCENTILE_C": 0.112,
+    "HILL_GLOBAL_PERCENTILE_S": 0.725,
+    "HILL_PERCENTILE_C": 0.11,
+    "HILL_PERCENTILE_S": 1.11,
+    "IDP_HILL_PERCENTILE_C": 0.083,
+    "IDP_HILL_PERCENTILE_S": 1.11,
+    "HILL_ROOKIE_PERCENTILE_C": 0.153,
+    "HILL_ROOKIE_PERCENTILE_S": 0.885
+  },
+  "configChampionParams": {
+    "HILL_GLOBAL_PERCENTILE_C": 0.112,
+    "HILL_GLOBAL_PERCENTILE_S": 0.725,
+    "HILL_PERCENTILE_C": 0.11,
+    "HILL_PERCENTILE_S": 1.11,
+    "IDP_HILL_PERCENTILE_C": 0.083,
+    "IDP_HILL_PERCENTILE_S": 1.11,
+    "HILL_ROOKIE_PERCENTILE_C": 0.153,
+    "HILL_ROOKIE_PERCENTILE_S": 0.885
+  },
+  "constantsIdentical": true,
+  "perConstantDelta": {
+    "HILL_GLOBAL_PERCENTILE_C": 0.0,
+    "HILL_GLOBAL_PERCENTILE_S": 0.0,
+    "HILL_PERCENTILE_C": 0.0,
+    "HILL_PERCENTILE_S": 0.0,
+    "IDP_HILL_PERCENTILE_C": 0.0,
+    "IDP_HILL_PERCENTILE_S": 0.0,
+    "HILL_ROOKIE_PERCENTILE_C": 0.0,
+    "HILL_ROOKIE_PERCENTILE_S": 0.0
+  },
+  "curveEvaluations": {
+    "offense": [
+      {
+        "p": 0.0,
+        "productionFn": 9999,
+        "fromConfigChampionParams": 9999,
+        "diff": 0
+      },
+      {
+        "p": 0.002,
+        "productionFn": 9883,
+        "fromConfigChampionParams": 9883,
+        "diff": 0
+      },
+      {
+        "p": 0.01,
+        "productionFn": 9346,
+        "fromConfigChampionParams": 9346,
+        "diff": 0
+      },
+      {
+        "p": 0.05,
+        "productionFn": 7058,
+        "fromConfigChampionParams": 7058,
+        "diff": 0
+      },
+      {
+        "p": 0.11,
+        "productionFn": 5000,
+        "fromConfigChampionParams": 5000,
+        "diff": 0
+      },
+      {
+        "p": 0.2,
+        "productionFn": 3399,
+        "fromConfigChampionParams": 3399,
+        "diff": 0
+      },
+      {
+        "p": 0.5,
+        "productionFn": 1570,
+        "fromConfigChampionParams": 1570,
+        "diff": 0
+      },
+      {
+        "p": 0.998,
+        "productionFn": 796,
+        "fromConfigChampionParams": 796,
+        "diff": 0
+      },
+      {
+        "p": 1.0,
+        "productionFn": 794,
+        "fromConfigChampionParams": 794,
+        "diff": 0
+      }
+    ],
+    "idp": [
+      {
+        "p": 0.0,
+        "productionFn": 9999,
+        "fromConfigChampionParams": 9999,
+        "diff": 0
+      },
+      {
+        "p": 0.002,
+        "productionFn": 9842,
+        "fromConfigChampionParams": 9842,
+        "diff": 0
+      },
+      {
+        "p": 0.01,
+        "productionFn": 9128,
+        "fromConfigChampionParams": 9128,
+        "diff": 0
+      },
+      {
+        "p": 0.05,
+        "productionFn": 6370,
+        "fromConfigChampionParams": 6370,
+        "diff": 0
+      },
+      {
+        "p": 0.11,
+        "productionFn": 4224,
+        "fromConfigChampionParams": 4224,
+        "diff": 0
+      },
+      {
+        "p": 0.2,
+        "productionFn": 2736,
+        "fromConfigChampionParams": 2736,
+        "diff": 0
+      },
+      {
+        "p": 0.5,
+        "productionFn": 1199,
+        "fromConfigChampionParams": 1199,
+        "diff": 0
+      },
+      {
+        "p": 0.998,
+        "productionFn": 595,
+        "fromConfigChampionParams": 595,
+        "diff": 0
+      },
+      {
+        "p": 1.0,
+        "productionFn": 594,
+        "fromConfigChampionParams": 594,
+        "diff": 0
+      }
+    ],
+    "global": [
+      {
+        "p": 0.0,
+        "productionFn": 9999,
+        "fromConfigChampionParams": 9999,
+        "diff": 0
+      },
+      {
+        "p": 0.002,
+        "productionFn": 9487,
+        "fromConfigChampionParams": 9487,
+        "diff": 0
+      },
+      {
+        "p": 0.01,
+        "productionFn": 8521,
+        "fromConfigChampionParams": 8521,
+        "diff": 0
+      },
+      {
+        "p": 0.05,
+        "productionFn": 6421,
+        "fromConfigChampionParams": 6421,
+        "diff": 0
+      },
+      {
+        "p": 0.11,
+        "productionFn": 5032,
+        "fromConfigChampionParams": 5032,
+        "diff": 0
+      },
+      {
+        "p": 0.2,
+        "productionFn": 3964,
+        "fromConfigChampionParams": 3964,
+        "diff": 0
+      },
+      {
+        "p": 0.5,
+        "productionFn": 2526,
+        "fromConfigChampionParams": 2526,
+        "diff": 0
+      },
+      {
+        "p": 0.998,
+        "productionFn": 1700,
+        "fromConfigChampionParams": 1700,
+        "diff": 0
+      },
+      {
+        "p": 1.0,
+        "productionFn": 1698,
+        "fromConfigChampionParams": 1698,
+        "diff": 0
+      }
+    ],
+    "rookie": [
+      {
+        "p": 0.0,
+        "productionFn": 9999,
+        "fromConfigChampionParams": 9999,
+        "diff": 0
+      },
+      {
+        "p": 0.002,
+        "productionFn": 9788,
+        "fromConfigChampionParams": 9788,
+        "diff": 0
+      },
+      {
+        "p": 0.01,
+        "productionFn": 9178,
+        "fromConfigChampionParams": 9178,
+        "diff": 0
+      },
+      {
+        "p": 0.05,
+        "productionFn": 7290,
+        "fromConfigChampionParams": 7290,
+        "diff": 0
+      },
+      {
+        "p": 0.11,
+        "productionFn": 5724,
+        "fromConfigChampionParams": 5724,
+        "diff": 0
+      },
+      {
+        "p": 0.2,
+        "productionFn": 4410,
+        "fromConfigChampionParams": 4410,
+        "diff": 0
+      },
+      {
+        "p": 0.5,
+        "productionFn": 2596,
+        "fromConfigChampionParams": 2596,
+        "diff": 0
+      },
+      {
+        "p": 0.998,
+        "productionFn": 1598,
+        "fromConfigChampionParams": 1598,
+        "diff": 0
+      },
+      {
+        "p": 1.0,
+        "productionFn": 1596,
+        "fromConfigChampionParams": 1596,
+        "diff": 0
+      }
+    ]
+  },
+  "maxAbsDiffPoints": 0.0,
+  "versionStatuses": [
+    {
+      "version": 1,
+      "status": "retired",
+      "qualified": true,
+      "confidence": "measured",
+      "promotedAt": "2026-07-26T20:14:13.267338+00:00",
+      "retiredAt": "2026-07-29T23:35:35.519297+00:00",
+      "criterion": 819.7335,
+      "producer": "seeded from committed constants in player_valuation.py",
+      "notes": [
+        "seeded: these constants were live before the registry existed, so they were never FIT against a holdout \u2014 but they have since been SCORED against one",
+        "holdout re-scored 2026-07-29 against that day's boards (849.8 -> 819.7). The prior figure was measured 2026-07-26 and was NOT comparable to challenger v2's 2026-07-28 score: promotion.py requires a PAIRED comparison because the criterion's absolute level drifts ~68 points week to week, so comparing across snapshot dates reads market drift as model quality."
+      ]
+    },
+    {
+      "version": 2,
+      "status": "champion",
+      "qualified": true,
+      "confidence": "measured",
+      "promotedAt": "2026-07-29T23:35:35.519297+00:00",
+      "retiredAt": null,
+      "criterion": 787.8416,
+      "producer": "scripts/fit_hill_curve_percentile.py @ 3df9cc4",
+      "notes": [
+        "promoted: held-out win: +38.5 paired on 2026-07-29 boards (819.7 -> 781.2), improving all four holdout sources with no sign flips; downstream contract diff over 1093 rows shows top-100 median 2.4% / max 4.4% and max top-150 rank displacement 46 slots"
+      ]
+    },
+    {
+      "version": 3,
+      "status": "rejected",
+      "qualified": true,
+      "confidence": "measured",
+      "promotedAt": null,
+      "retiredAt": null,
+      "criterion": 775.0471,
+      "producer": "scripts/fit_hill_curve_percentile.py @ 9abe3c0",
+      "notes": [
+        "rejected: improvement +22.4 does not clear the 25-point margin; within criterion noise, so the incumbent keeps the tie"
+      ]
+    }
+  ]
+}

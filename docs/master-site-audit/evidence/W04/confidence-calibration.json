@@ -1,0 +1,32 @@
+{
+  "snapshotDays": [
+    "20260714",
+    "20260715",
+    "20260716",
+    "20260717",
+    "20260718",
+    "20260719",
+    "20260720",
+    "20260721",
+    "20260722",
+    "20260723",
+    "20260724",
+    "20260725",
+    "20260726",
+    "20260727",
+    "20260728",
+    "20260729",
+    "20260730",
+    "20260731",
+    "20260801",
+    "20260802",
+    "20260803",
+    "20260804"
+  ],
+  "usableSnapshots": 0,
+  "dayPairsUsed": 0,
+  "horizonDays": 7,
+  "metric": "|value(T+7)-value(T)|/value(T), rows with value>=200",
+  "byConfidenceBucketAtT": {},
+  "orderingExpectedIfCalibrated": "high < medium < low"
+}

@@ -181,6 +181,24 @@ never inherit.
 | `evidence/frontend-build.txt` | Production Next build + bundle-budget gate |
 | `evidence/source-corpus-mtimes-BEFORE.txt` | mtimes of `exports/`, `CSVs/`, `data/raw*` — re-checked at the end to prove the audit wrote nothing |
 
+## If you write a `.py` evidence script, it must pass the repo's lint gates
+
+`pyproject.toml`'s `[tool.ruff] extend-exclude` covers `data`, `exports`, `.next`,
+`node_modules`, `frontend` and the frozen BDVM reference — **not `docs/`**. So a
+throwaway script under `docs/master-site-audit/evidence/` is held to the same standard
+as production code, and `pr-validation.yml` runs `ruff format --check .` and
+`ruff check .` as **whole-repo blocking** gates. The audit's own first push failed both.
+
+Before you finish, run:
+
+```bash
+.venv/bin/python -m ruff format docs/master-site-audit/
+.venv/bin/python -m ruff check --fix docs/master-site-audit/
+```
+
+Do **not** propose widening the exclude list — that is a production config change this
+audit is not permitted to make.
+
 ## Repo-local skills
 
 `.agents/skills/` contains audit methodologies written for this codebase. Read the one

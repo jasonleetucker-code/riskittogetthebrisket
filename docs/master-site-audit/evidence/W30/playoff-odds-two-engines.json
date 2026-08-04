@@ -1,0 +1,101 @@
+{
+ "v1": {
+  "playoffSpots": 7,
+  "numSims": 10000,
+  "ownerCount": 12
+ },
+ "v2": {
+  "playoffSeeds": 6,
+  "byeSeeds": 2,
+  "nSims": 2000,
+  "ownerCount": 8,
+  "rosBlend": 0.2,
+  "pointsModelSource": "fallback-constants"
+ },
+ "perOwner": [
+  {
+   "ownerId": "1002085133723299840",
+   "name": "Brent",
+   "v1_playoffProbability": 1.0,
+   "v2_playoffOdds": null,
+   "delta": null
+  },
+  {
+   "ownerId": "1012114412049731584",
+   "name": "Joey",
+   "v1_playoffProbability": 1.0,
+   "v2_playoffOdds": 1.0,
+   "delta": 0.0
+  },
+  {
+   "ownerId": "1208452010173538304",
+   "name": "Kich",
+   "v1_playoffProbability": 1.0,
+   "v2_playoffOdds": null,
+   "delta": null
+  },
+  {
+   "ownerId": "1303549304882892800",
+   "name": "Blaine",
+   "v1_playoffProbability": 1.0,
+   "v2_playoffOdds": null,
+   "delta": null
+  },
+  {
+   "ownerId": "468418790212759552",
+   "name": "Jason",
+   "v1_playoffProbability": 1.0,
+   "v2_playoffOdds": 1.0,
+   "delta": 0.0
+  },
+  {
+   "ownerId": "472206636534984704",
+   "name": "Roy",
+   "v1_playoffProbability": 1.0,
+   "v2_playoffOdds": 1.0,
+   "delta": 0.0
+  },
+  {
+   "ownerId": "473973924808355840",
+   "name": "Ty",
+   "v1_playoffProbability": 1.0,
+   "v2_playoffOdds": 1.0,
+   "delta": 0.0
+  },
+  {
+   "ownerId": "609821340567941120",
+   "name": "Eric",
+   "v1_playoffProbability": 0.0,
+   "v2_playoffOdds": 1.0,
+   "delta": 1.0
+  },
+  {
+   "ownerId": "711452264774041600",
+   "name": "Ed",
+   "v1_playoffProbability": 0.0,
+   "v2_playoffOdds": 0.0,
+   "delta": 0.0
+  },
+  {
+   "ownerId": "712035316776669184",
+   "name": "jstuedle",
+   "v1_playoffProbability": 0.0,
+   "v2_playoffOdds": null,
+   "delta": null
+  },
+  {
+   "ownerId": "714912789268865024",
+   "name": "MaKayla",
+   "v1_playoffProbability": 0.0,
+   "v2_playoffOdds": 1.0,
+   "delta": 1.0
+  },
+  {
+   "ownerId": "831633191830933504",
+   "name": "Collin",
+   "v1_playoffProbability": 0.0,
+   "v2_playoffOdds": 0.0,
+   "delta": 0.0
+  }
+ ]
+}

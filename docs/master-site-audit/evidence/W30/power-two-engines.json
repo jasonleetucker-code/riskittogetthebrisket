@@ -1,0 +1,150 @@
+{
+ "v1": {
+  "module": "src/public_league/power.py",
+  "n": 10,
+  "ranking": [
+   [
+    1,
+    "Brent",
+    97.22
+   ],
+   [
+    2,
+    "Joey",
+    80.56
+   ],
+   [
+    3,
+    "Kich",
+    66.67
+   ],
+   [
+    4,
+    "Ty",
+    66.67
+   ],
+   [
+    5,
+    "Ed",
+    55.56
+   ],
+   [
+    6,
+    "MaKayla",
+    52.78
+   ],
+   [
+    7,
+    "Collin",
+    36.11
+   ],
+   [
+    8,
+    "Roy",
+    27.78
+   ],
+   [
+    9,
+    "Eric",
+    16.67
+   ],
+   [
+    10,
+    "Jason",
+    0.0
+   ]
+  ],
+  "weights": {
+   "pointsPerGame": 0.5,
+   "recentForm": 0.25,
+   "allPlayWinPct": 0.25,
+   "recentWindow": 3
+  },
+  "methodology": "Power = 100 \u00d7 (50% \u00d7 PPG percentile + 25% \u00d7 last-3-game avg percentile + 25% \u00d7 all-play win share). Computed weekly; percentiles normalized within each week's active owners."
+ },
+ "v2": {
+  "module": "src/ros/power_v2.py",
+  "n": 12,
+  "ranking": [
+   [
+    1,
+    "Brent",
+    96.14
+   ],
+   [
+    2,
+    "Joey",
+    88.41
+   ],
+   [
+    3,
+    "Jason",
+    80.69
+   ],
+   [
+    4,
+    "Collin",
+    72.97
+   ],
+   [
+    5,
+    "Eric",
+    65.24
+   ],
+   [
+    6,
+    "MaKayla",
+    57.52
+   ],
+   [
+    7,
+    "Ty",
+    49.8
+   ],
+   [
+    8,
+    "Kich",
+    41.72
+   ],
+   [
+    9,
+    "Ed",
+    34.35
+   ],
+   [
+    10,
+    "Roy",
+    26.63
+   ],
+   [
+    11,
+    "Blaine",
+    18.9
+   ],
+   [
+    12,
+    "jstuedle",
+    11.18
+   ]
+  ],
+  "weights": {
+   "team_ros_strength": 0.38,
+   "ppg": 0.18,
+   "recent": 0.12,
+   "wl_record": 0.1,
+   "all_play": 0.08,
+   "streak": 0.05,
+   "schedule_adjusted": 0.04,
+   "roster_health": 0.03,
+   "luck_regression": 0.02
+  },
+  "effectiveWeights": {
+   "team_ros_strength": 0.38,
+   "roster_health": 0.03
+  },
+  "preseason": true
+ },
+ "overlap": 10,
+ "meanAbsRankShift": 2.8,
+ "maxAbsRankShift": 7
+}
