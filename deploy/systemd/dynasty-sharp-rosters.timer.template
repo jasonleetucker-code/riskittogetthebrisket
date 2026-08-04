@@ -1,0 +1,37 @@
+[Unit]
+Description=Daily Sharp roster collection for __SERVICE_NAME__
+# No Requires= on the service: [Timer] Unit= already binds it, and a
+# [Unit] Requires= would start the service on every boot regardless of
+# OnCalendar and let a service failure stop the timer itself.
+# Persistent=true is the intended catch-up for missed runs.
+
+[Timer]
+# Daily at 05:50 UTC — AFTER discovery (04:20) and records (04:50),
+# because the cohort this pass collects for is produced by those two.
+# Running it first would collect rosters for yesterday's cohort.
+#
+# It also runs 30 minutes BEFORE the FFPC crawl at 06:20 rather than
+# after, and that ordering is deliberate: the FFPC half of this pass
+# reads roster contents the FFPC crawl has already stored, so it wants
+# the PREVIOUS day's FFPC data either way, and running before keeps
+# the Sleeper half — the half that actually spends API budget — off the
+# same minute as another crawl.
+#
+# DAILY IS THE MINIMUM USEFUL CADENCE, not a conservative choice.  The
+# board publishes 7-day and 30-day roster-percentage trends computed
+# from stored observations, and a trend can only resolve to the
+# granularity at which rosters were observed.  A weekly timer would
+# make the 7-day column a single-interval comparison.
+#
+# Also run once 30 minutes after the timer is first activated, so
+# enabling it just after 05:50 UTC does not leave the board empty until
+# the following day.
+OnActiveSec=30min
+OnCalendar=*-*-* 05:50:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-sharp-rosters.service
+
+[Install]
+WantedBy=timers.target
