@@ -42,11 +42,15 @@ from typing import Any
 from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.gzip import GZipMiddleware
+
+# RedirectResponse went with the page routes (#555). Its last four users
+# were _auth_redirect_response, serve_index_alias, serve_draft_capital's
+# 308, and GET /logout — all deleted. Nothing this backend serves redirects
+# any more: /api/* either answers or 401s, and every redirect a user sees
+# now comes from Next (frontend/middleware.js, next.config.mjs).
 from fastapi.responses import (
     FileResponse,
-    HTMLResponse,
     JSONResponse,
-    RedirectResponse,
     Response,
 )
 from fastapi.staticfiles import StaticFiles
@@ -120,8 +124,17 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
-FRONTEND_RUNTIME = "next"
+# FRONTEND_URL and FRONTEND_RUNTIME lived here until the page proxy was
+# deleted (#555).  Both described a relationship this process no longer
+# has: FRONTEND_URL was the proxy target, and FRONTEND_RUNTIME recorded
+# which frontend the backend served pages from.  This backend serves no
+# pages, so neither has a reader — FRONTEND_RUNTIME already had none, and
+# docs/OWNER_ACTION_AUDIT_2026-07-29.md:1133 called it "obsolete as a
+# variable" before this change.
+#
+# nginx routes pages straight to Next in production and always did
+# (deploy/nginx/chaseupside-proxy.conf: only `location /api/` reaches this
+# process), so Next's location is nginx's business, not ours.
 
 ALERT_ENABLED = _env_bool("ALERT_ENABLED", False)
 ALERT_TO = os.getenv("ALERT_TO", "")
@@ -677,13 +690,22 @@ uptime_status = {
     "last_http_status": None,
     "consecutive_failures": 0,
 }
-frontend_runtime_status = {
-    "configured": "next",
-    "active": "next",
-    "reason": "next_only",
-    "fallbackFrom": None,
-    "lastChecked": None,
-}
+# ``frontend_runtime_status`` used to sit here and was stamped onto
+# /api/status and /api/health as {"configured": "next", "active": "next",
+# "reason": "next_only", "fallbackFrom": None}.
+#
+# It is gone with the page proxy (#555). This process has no "active
+# frontend runtime" and no fallback to report — it serves no pages. The
+# field survived the FRONTEND_RUNTIME deletion because it is a separate
+# hardcoded dict, not a reader of that constant, which is exactly how a
+# stale claim outlives the thing it described.
+#
+# Removed rather than left as harmless: it had zero consumers anywhere
+# (frontend, deploy, scripts, tests and workflows all checked), and it
+# sat on /api/health — the endpoint the production uptime watchdog
+# probes — telling anyone debugging that the backend's active frontend
+# runtime is "next". That is the precise misconception this change
+# exists to remove.
 # In-memory auth sessions for private-use gate.
 auth_sessions: dict[str, dict] = {}
 
@@ -832,15 +854,6 @@ def _clear_auth_session(request: Request) -> None:
             _ss.evict(session_id)
         except Exception as exc:  # noqa: BLE001
             log.warning("session_store evict failed: %s", exc)
-
-
-def _auth_redirect_response(request: Request, default_next: str = "/app") -> RedirectResponse:
-    next_path = request.url.path
-    if request.url.query:
-        next_path = f"{next_path}?{request.url.query}"
-    safe_next = _sanitize_next_path(next_path, default_next)
-    encoded_next = urllib.parse.quote(safe_next, safe="/?=&")
-    return RedirectResponse(url=f"/login?next={encoded_next}", status_code=302)
 
 
 def _parse_iso(ts: str | None) -> datetime | None:
@@ -2638,7 +2651,6 @@ async def lifespan(app: FastAPI):
         log.warning("source_history: startup backfill failed: %s", exc)
 
     log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
-    log.info("Frontend: Next.js at %s", FRONTEND_URL)
     log.info(f"Dashboard: http://localhost:{PORT}")
 
     yield  # app is running
@@ -2671,6 +2683,17 @@ _install_exc_handler(app)
 from src.ros.api import router as _ros_router  # noqa: E402
 
 app.include_router(_ros_router)
+
+# Consensus Edge router.  Strict isolation: reads ``latest_contract_data``
+# and never mutates it, never writes ``rankDerivedValue``, and adds no
+# behaviour to an existing route.  That isolation is what lets the
+# ``consensus_edge`` feature flag — which gates every handler here and
+# nothing else in the codebase — default **ON** since 2026-08-04 without
+# being able to move a number that was already on screen.  Rollback:
+# RISKIT_FEATURE_CONSENSUS_EDGE=0 + restart.
+from src.consensus_edge.api import router as _consensus_edge_router  # noqa: E402
+
+app.include_router(_consensus_edge_router)
 
 
 @app.middleware("http")
@@ -2799,9 +2822,20 @@ def _is_public_api_path(path: str) -> bool:
 @app.middleware("http")
 async def _private_api_gate(request: Request, call_next):
     """401 any /api/* call without a session, except the public
-    allowlist.  Page routes still redirect via
-    ``_require_auth_or_redirect``; static/_next assets aren't
-    touched.
+    allowlist.
+
+    This is now the ONLY auth gate in this process.  It used to be
+    half of a pair — page routes redirected via
+    ``_require_auth_or_redirect`` — and #555 deleted that half along
+    with the page routes themselves.  Pages are gated by
+    ``frontend/middleware.js``, which is where they are actually
+    served.
+
+    Note the gate runs as MIDDLEWARE, ahead of routing, so it answers
+    for unknown ``/api/*`` paths too: an unrecognised endpoint gets a
+    401 rather than a 404, deliberately, so the surface is not
+    enumerable.  Pinned by
+    ``tests/api/test_private_auth.py::test_unknown_api_path_is_json_not_a_page``.
 
     Also applies rate limiting to public endpoints only — signed-
     in users on private endpoints aren't subject to the limit
@@ -2880,50 +2914,6 @@ def _client_ip_from_request(request: Request) -> str:
             return first
     client = request.client
     return client.host if client else ""
-
-
-def _proxy_next(path: str) -> tuple[Response | None, str | None]:
-    """
-    Proxy frontend routes to local Next.js dev/prod server when available.
-    Returns (response, error_message). response is None when proxy is unavailable.
-    """
-    try:
-        target = f"{FRONTEND_URL}{path if path.startswith('/') else '/' + path}"
-        req = urllib.request.Request(
-            target,
-            headers={"User-Agent": "dynasty-server-next-proxy/1.0"},
-            method="GET",
-        )
-        # 5s timeout matches the other backend→Next proxies in this
-        # file (e.g. lines 2664, 2719).  Production routes pages
-        # through nginx directly to Next.js so this proxy is only
-        # exercised in dev / synthetic test paths, but heavy routes
-        # like /league regularly take 1.4-2.7s SSR — a 1.5s timeout
-        # was causing false 503s in Playwright runs.
-        with urllib.request.urlopen(req, timeout=5.0) as resp:
-            body = resp.read()
-            headers = {}
-            ctype = resp.headers.get("Content-Type")
-            if ctype:
-                headers["content-type"] = ctype
-            cache_control = resp.headers.get("Cache-Control")
-            if cache_control:
-                headers["cache-control"] = cache_control
-            return Response(
-                content=body, status_code=getattr(resp, "status", 200), headers=headers
-            ), None
-    except urllib.error.HTTPError as e:
-        try:
-            body = e.read()
-        except Exception:
-            body = b""
-        headers = {}
-        ctype = e.headers.get("Content-Type") if e.headers else None
-        if ctype:
-            headers["content-type"] = ctype
-        return Response(content=body, status_code=e.code, headers=headers), f"HTTPError {e.code}"
-    except Exception as e:
-        return None, f"{type(e).__name__}: {e}"
 
 
 def _overlay_encode_lock(cache_key) -> asyncio.Lock:
@@ -3542,7 +3532,11 @@ async def get_rank_history(request: Request):
     shape the frontend ``RankChangeGlyph`` consumes.
 
     Query params:
-      * ``days`` — window in days (default 30, max 180).
+      * ``days`` — window in days (default
+        ``_rank_history.DEFAULT_HISTORY_WINDOW_DAYS``, clamped to
+        ``[1, _rank_history.MAX_SNAPSHOTS]`` — 1095, i.e. three years).
+        This line used to say "max 180", which is the
+        player-source-history window below, not this one.
 
     The log is already mirrored onto each row's ``rankHistory`` at
     contract build time, so most consumers don't need this endpoint
@@ -4190,7 +4184,6 @@ async def get_status():
     return JSONResponse(
         content={
             **status_payload,
-            "frontend_runtime": frontend_runtime_status,
             "contract": {
                 "version": API_DATA_CONTRACT_VERSION,
                 "health": contract_health,
@@ -4513,7 +4506,6 @@ async def get_health():
             "current_source": status_payload.get("current_source"),
             "contract_version": API_DATA_CONTRACT_VERSION,
             "contract_ok": contract_health.get("ok"),
-            "frontend_runtime": frontend_runtime_status.get("active"),
             "uptime_watchdog": {
                 "enabled": uptime_status.get("enabled"),
                 "target_url": uptime_status.get("target_url"),
@@ -5169,7 +5161,14 @@ async def post_waiver_faab_recommend(request: Request):
     # regardless of contention so ``inputsAsOf.intel`` is honest.
     # Snapshots are LEAGUE-PARTITIONED (intel is roster-scoped →
     # league-scoped), so the resolved league's partition is read.
-    intel_snapshot = _faab_contention.load_intel_snapshot(league_key=league_cfg.key)
+    # Threadpooled like every other I/O in this handler: it reads (and
+    # JSON-parses) a snapshot file that grows with pool activity, and a
+    # synchronous read here blocks the event loop for every other
+    # request in flight.  D11 in docs/intel/AUDIT.md — the surrounding
+    # calls were already wrapped and this one was simply missed.
+    intel_snapshot = await run_in_threadpool(
+        _faab_contention.load_intel_snapshot, league_key=league_cfg.key
+    )
     intel_as_of = intel_snapshot.get("generatedAt") if isinstance(intel_snapshot, dict) else None
 
     # Rival contention (FAAB v2).  Requires a ``teamOwnerId`` that
@@ -5867,7 +5866,16 @@ async def post_trade_suggestions(request: Request):
     from src.trade.suggestions import (
         build_asset_pool_from_contract,
         generate_suggestions_from_pool,
+        starter_needs_for_league,
     )
+
+    # Effective starter demand is a per-LEAGUE fact, not a constant: both
+    # live leagues share a scoring profile but ``dynasty_main`` starts
+    # 2 TE + 9 IDP while ``dynasty_new`` starts 1 TE and no IDP.  The
+    # engine has always accepted ``starter_needs``; nothing ever passed
+    # it, so every league got dynasty_main's lineup.  The derivation is
+    # a no-op for dynasty_main by construction.
+    starter_needs = starter_needs_for_league(getattr(league_cfg, "key", None))
 
     league_rosters = body.get("league_rosters")
     if league_rosters is not None and not isinstance(league_rosters, list):
@@ -5918,6 +5926,7 @@ async def post_trade_suggestions(request: Request):
             roster_names=roster,
             pool=pool,
             league_rosters=league_rosters,
+            starter_needs=starter_needs,
             ktc_top_n=ktc_top_n,
         )
 
@@ -8681,23 +8690,48 @@ class PublicSnapshotUnavailable(RuntimeError):
 # naively, a burst of concurrent ``playoffOdds`` requests would each
 # launch an independent simulation and saturate the shared threadpool.
 #
-# So we single-flight + memoize ``playoffOdds`` only:
+# ``archives`` has the same SHAPE for a different reason (added
+# 2026-07-30).  It is the single most expensive builder in the contract:
+# ``src/public_league/archives.py`` rebuilds four other sections
+# (history, activity, draft, awards) before its own five walks, and
+# ``assert_public_payload_safe`` then recurses the whole ~800 KB result.
+# That is ~1.4s of GIL-bound Python per request, and it ran fresh on
+# EVERY request — measured 34.3s / 19.3s / 2.9s TTFB on production
+# against a ~0.53s baseline for every other section, because concurrent
+# requests each launched their own build and held an AnyIO worker token
+# for the duration.  The 2 MB aggregate contract is *faster* than this
+# 737 KB subset of it precisely because the aggregate is memoized
+# (``_store_public_contract_bytes``) and the section route threw the
+# identical work away.
+#
+# So we single-flight + memoize these two:
 #   * Coordination happens on the EVENT LOOP via a per-section
 #     ``asyncio.Lock`` (see ``_get_heavy_section_payload``), so waiters
 #     ``await`` on the loop instead of occupying AnyIO worker tokens.
 #     Exactly one request offloads the simulation to ``run_in_threadpool``;
 #     the rest wake to the cached result.
 #   * The result is keyed by the snapshot's identity + freshness
-#     (``root_league_id`` + ``generated_at``).  ``playoffOdds`` is derived
-#     purely from the snapshot (no external files), so that key is
-#     complete — a snapshot refresh mints a new ``generated_at`` and
-#     transparently invalidates the entry (bounded to one payload).
+#     (``root_league_id`` + ``generated_at``).  Both are derived purely
+#     from the snapshot (no external files), so that key is complete — a
+#     snapshot refresh mints a new ``generated_at`` and transparently
+#     invalidates the entry (bounded to one payload per section).
+#     Freshness is therefore unchanged by memoizing: the 300s SWR window
+#     on the snapshot still governs how old the data can be.
+#
+# One asymmetry worth knowing before adding a third key: the JSON route
+# passes ``activity_valuation`` and the CSV route does not, while the
+# cache key includes neither.  That is safe for both current members —
+# ``playoffOdds`` resolves through ``_LAZY_SECTION_BUILDERS`` and
+# ``archives`` through ``_SECTION_BUILDERS``, and neither branch of
+# ``build_section_payload`` forwards the kwarg (only ``activity`` and
+# the aggregate walk do).  A section that DOES consume it must not be
+# added here without putting it in the cache key.
 #
 # The file-backed ROS sections are deliberately NOT cached here: they are
 # cheap file reads in the common case, and caching them by snapshot
 # identity would hide fresh results the ROS publisher writes between
 # snapshot refreshes.  They read their artifact fresh on every request.
-_HEAVY_SECTION_KEYS = frozenset({"playoffOdds"})
+_HEAVY_SECTION_KEYS = frozenset({"playoffOdds", "archives"})
 _heavy_section_cache: dict = {}
 _heavy_section_async_locks: dict = {}
 
@@ -8966,6 +9000,63 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
             raise
         finally:
             _public_league_cache["refreshing"] = False
+
+        # A zero-season snapshot is a FAILURE, not a result.
+        #
+        # ``walk_league_chain`` returns ``[]`` on any Sleeper miss
+        # (``src/public_league/sleeper_client.py`` — ``if not league:
+        # break``, 8s timeout), and ``build_public_snapshot`` then
+        # returns a snapshot with no seasons rather than raising. Every
+        # line below treats that as success: it clears the failure
+        # cooldown, caches the empty snapshot with a fresh
+        # ``fetched_at`` so it is served for the full 300s TTL plus
+        # stale-while-revalidate, and skips the persist block on
+        # ``and snapshot.seasons`` — which leaves
+        # ``last_contract_bytes`` frozen at its last healthy value.
+        #
+        # The result is a total content outage that every signal calls
+        # healthy. Observed live on 2026-07-30 at 16:18 UTC, on the
+        # deploy restart that shipped this file's own PR:
+        # ``/api/public/league`` served 7,403 bytes with
+        # ``leagueName: ""``, ``managers: 0``, ``seasonsCovered: []`` —
+        # HTTP 200, ``rebuild_failures: 0``, and
+        # ``last_contract_bytes: 2005444``. A monitor keyed on payload
+        # size (``deploy/grafana/public-league-dashboard.json``) reads
+        # 2 MB and green while the public page has nothing on it. Only
+        # ``last_season_count``/``last_manager_count`` told the truth,
+        # and nothing gated on them.
+        #
+        # So take the same path a raised exception takes: count the
+        # failure, arm the cooldown, and serve the last good snapshot
+        # if we have one. If we do not, refuse — a 503 is a true
+        # statement about a page we cannot render, and a 200 carrying
+        # empty sections is not.
+        #
+        # This deliberately makes a genuinely season-less league
+        # unserveable rather than served-empty. That is the right
+        # trade: there is no such league here (every chain in
+        # ``config/leagues/registry.json`` has seasons), and a real one
+        # would surface loudly on the first request instead of looking
+        # like a healthy empty page forever.
+        if not snapshot.seasons:
+            _public_league_metrics["rebuild_failures"] += 1
+            _public_league_metrics["last_season_count"] = 0
+            _public_league_metrics["last_manager_count"] = 0
+            _public_league_cache["last_failure_at"] = time.time()
+            _public_league_cache["last_failure_error"] = (
+                "empty snapshot: zero seasons (upstream league chain unreachable)"
+            )
+            _log_public_league_event(
+                "rebuild_failed",
+                trigger=trigger,
+                league_id=league_id,
+                error="empty snapshot: zero seasons",
+            )
+            if cached is not None and cached_id == league_id:
+                _public_league_metrics["rebuild_cooldown_served_stale"] += 1
+                return cached
+            raise PublicSnapshotUnavailable("public league snapshot came back with zero seasons")
+
         # A success clears the cooldown, so recovery needs no operator
         # action and no waiting out the remaining window.
         _public_league_cache["last_failure_at"] = 0.0
@@ -9439,10 +9530,24 @@ async def get_public_league_section_csv(
 
     try:
         snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
-        if section in _HEAVY_SECTION_KEYS:
-            # playoffOdds.csv: reuse the single-flighted / cached payload
-            # (heavy sections take no owner/kind qualifier), then serialize
-            # to CSV in the worker.
+        if section in _HEAVY_SECTION_KEYS and not kind and not owner:
+            # Reuse the single-flighted / cached payload, then serialize to
+            # CSV in the worker.
+            #
+            # The qualifier check is load-bearing, not defensive padding:
+            # this branch never FORWARDS a qualifier, which was invisible
+            # while ``playoffOdds`` (which takes none) was the only heavy
+            # section.  ``archives`` DOES take ``?kind=`` — and
+            # ``public_csv_export.export_section`` falls back to trades for
+            # a missing kind, so without this a request for
+            # ``archives.csv?kind=waivers`` would return a trades CSV with
+            # a 200 and nothing saying a qualifier had been ignored.  A
+            # qualified request drops to the uncached branch below, which
+            # honours it; that is the rarer path, and correctness beats the
+            # memo there.  ``owner`` is included for the same reason even
+            # though no heavy section reads it today — the predicate should
+            # match the stated rule, or the next section added here
+            # reintroduces the bug.
             payload = await _get_heavy_section_payload(snapshot, section)
 
             def _export():
@@ -9787,12 +9892,25 @@ async def auth_logout(request: Request):
     return response
 
 
-@app.get("/logout")
-async def auth_logout_redirect(request: Request):
-    _clear_auth_session(request)
-    response = RedirectResponse(url="/", status_code=302)
-    response.delete_cookie(key=JASON_AUTH_COOKIE_NAME, path="/")
-    return response
+# ``GET /logout`` used to live here, next to its POST sibling above. It
+# went with the page proxy (#555), and the recon that scoped that deletion
+# deliberately left this as a judgement call rather than guessing. Three
+# reasons to take it:
+#
+#   * it is a PAGE-namespace path on a backend that now serves no pages,
+#     and it redirected to "/" — a route that no longer exists here, so
+#     keeping it means clearing your session and landing on a 404
+#   * zero callers, in or out of the tree. The UI logs out via
+#     ``POST /api/auth/logout`` (useAuth.js:185, through the Next bridge
+#     at frontend/app/api/auth/logout/route.js), and there is no
+#     frontend/app/logout page, so nginx already 404s this path in
+#     production
+#   * it is a GET that destroys session state, i.e. CSRF-able by a bare
+#     ``<img src="…:8000/logout">``. That was an acceptable trade for a
+#     convenience redirect with real users; it is not one for a handler
+#     with no callers and a dead destination
+#
+# The POST sibling is the real logout and is untouched.
 
 
 # ── USER PREFERENCE PERSISTENCE (AUTH-GATED) ────────────────────────────
@@ -11942,207 +12060,6 @@ async def post_generate_league_article(request: Request):
     )
 
 
-@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def serve_landing(request: Request):
-    redirect = _require_auth_or_redirect(request, "/")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/")
-
-
-@app.get("/league", response_class=HTMLResponse)
-async def serve_league_entry(request: Request):
-    # Public page — no auth required.  The /league frontend hydrates
-    # exclusively from /api/public/league, never /api/data.  See
-    # src/public_league/ for the isolated pipeline powering this page.
-    return await _serve_app_shell("/league")
-
-
-def _require_auth_or_redirect(
-    request: Request, default_next: str = "/app"
-) -> RedirectResponse | None:
-    if _is_authenticated(request):
-        return None
-    return _auth_redirect_response(request, default_next)
-
-
-async def _serve_app_shell(frontend_path: str) -> Response:
-    """Proxy the request to the Next.js frontend."""
-    proxied, err = _proxy_next(frontend_path)
-    if proxied is not None:
-        return proxied
-    return HTMLResponse(
-        f"<h1>Next frontend unavailable</h1><p>{err or 'unknown error'}</p>",
-        status_code=503,
-    )
-
-
-# ── DASHBOARD ROUTES (AUTH REQUIRED) ────────────────────────────────────
-@app.get("/app", response_class=HTMLResponse)
-async def serve_dashboard(request: Request):
-    redirect = _require_auth_or_redirect(request, "/app")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/")
-
-
-@app.get("/rankings", response_class=HTMLResponse)
-async def serve_rankings(request: Request):
-    redirect = _require_auth_or_redirect(request, "/rankings")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/rankings")
-
-
-@app.get("/trade", response_class=HTMLResponse)
-async def serve_trade(request: Request):
-    redirect = _require_auth_or_redirect(request, "/trade")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/trade")
-
-
-@app.get("/settings", response_class=HTMLResponse)
-async def serve_settings(request: Request):
-    redirect = _require_auth_or_redirect(request, "/settings")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/settings")
-
-
-@app.get("/tools/trade-coverage", response_class=HTMLResponse)
-async def serve_trade_coverage(request: Request):
-    """Internal diagnostic dashboard: per-team /api/terminal delta
-    coverage.  Auth-gated — the page itself hits /api/terminal for
-    every team in the league, which requires a session."""
-    redirect = _require_auth_or_redirect(request, "/tools/trade-coverage")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/tools/trade-coverage")
-
-
-@app.get("/tools/source-health", response_class=HTMLResponse)
-async def serve_source_health(request: Request):
-    """Scraper source-health dashboard.  Auth-gated so the scraper
-    diagnostics aren't exposed to anonymous visitors."""
-    redirect = _require_auth_or_redirect(request, "/tools/source-health")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/tools/source-health")
-
-
-@app.get("/edge", response_class=HTMLResponse)
-async def serve_edge(request: Request):
-    redirect = _require_auth_or_redirect(request, "/edge")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/edge")
-
-
-@app.get("/finder", response_class=HTMLResponse)
-async def serve_finder(request: Request):
-    redirect = _require_auth_or_redirect(request, "/finder")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/finder")
-
-
-@app.get("/trades", response_class=HTMLResponse)
-async def serve_trades(request: Request):
-    """Analyzed trade history — PRIVATE.
-
-    This was marked "public page, no auth required" in three places
-    (here, the app shell's PUBLIC_ROUTES, and robots.txt) while the page
-    itself renders per-side trade grades, cumulative net value and
-    manager tendencies computed from the private ``/api/data``
-    contract.  So it was simultaneously a broken empty page for
-    anonymous visitors (the data 401s) and a competitive-intelligence
-    surface advertised as public.
-
-    The public league hub has its own community-facing Trades tab
-    (/league?tab=activity), fed by the public pipeline, so gating this
-    route removes nothing from the public surface.
-    """
-    redirect = _require_auth_or_redirect(request, "/trades")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/trades")
-
-
-@app.get("/rosters", response_class=HTMLResponse)
-async def serve_rosters(request: Request):
-    redirect = _require_auth_or_redirect(request, "/rosters")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/rosters")
-
-
-@app.get("/draft-capital")
-async def serve_draft_capital(request: Request):
-    """Legacy public route — permanently moved under /league.
-
-    Emit a real redirect rather than proxying.  ``_proxy_next`` uses
-    ``urllib`` with default redirect-following, so once the Next side
-    became a routing-layer 308 (frontend/next.config.mjs) this handler
-    would have chased it server-side and returned /league's HTML under
-    the /draft-capital URL — the address bar would lie and Next would
-    hydrate a /league flight payload at a mismatched pathname.  It also
-    blocked the event loop for the whole multi-second /league SSR.
-
-    Production never reaches this handler (nginx routes ``location /``
-    straight to the Next upstream); it is the dev / direct-to-backend
-    path, and it should behave the same way there.
-    """
-    return RedirectResponse(url="/league?tab=draft-capital", status_code=308)
-
-
-@app.get("/more", response_class=HTMLResponse)
-async def serve_more(request: Request):
-    redirect = _require_auth_or_redirect(request, "/more")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/more")
-
-
-@app.get("/admin", response_class=HTMLResponse)
-async def serve_admin(request: Request):
-    """Admin dashboard — auth-gated + admin-allowlist-gated.
-    The page itself makes its own /api/admin/* calls which enforce
-    admin-allowlist; this route just guards access to the shell."""
-    redirect = _require_auth_or_redirect(request, "/admin")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/admin")
-
-
-@app.get("/login", response_class=HTMLResponse)
-async def serve_login(request: Request):
-    """Login page — no auth required (avoids redirect loop)."""
-    return await _serve_app_shell("/login")
-
-
-@app.get("/index.html", response_class=HTMLResponse)
-async def serve_index_alias(request: Request):
-    """Legacy alias — redirect to root."""
-    return RedirectResponse(url="/", status_code=301)
-
-
-@app.get("/_next/{full_path:path}")
-async def serve_next_assets(full_path: str):
-    proxied, _ = _proxy_next(f"/_next/{full_path}")
-    if proxied is not None:
-        return proxied
-    return Response(status_code=404)
-
-
-@app.get("/favicon.ico")
-async def serve_favicon():
-    proxied, _ = _proxy_next("/favicon.ico")
-    if proxied is not None:
-        return proxied
-    return Response(status_code=404)
-
-
 # Static file mount for backend-generated assets (CSS, images if any).
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -12188,6 +12105,61 @@ _SELF_AUTHED_API_EXACT = _SELF_AUTHED_API_EXACT | {
 INTEL_REFRESH_TOKEN = os.getenv("INTEL_REFRESH_TOKEN", "").strip() or SIGNAL_ALERT_CRON_TOKEN
 
 _INTEL_PRIVATE_CACHE_HEADERS = {"Cache-Control": "private, max-age=60, stale-while-revalidate=300"}
+
+# Allow-listed so a query string cannot reach an arbitrary window name
+# (signals.window_bounds raises on unknown ones) or an unsupported sort.
+_INTEL_DEFAULT_WINDOW = "30d"
+_INTEL_ALLOWED_WINDOWS = ("7d", "30d", "90d", "all")
+_INTEL_ALLOWED_SORTS = ("net", "volume", "buys", "sells", "strength", "velocity")
+
+# ── Manual-refresh cooldown (D13) ────────────────────────────────────
+#
+# A refresh spends hundreds of budgeted Sleeper calls over several
+# minutes.  The process lock stops CONCURRENT crawls (409), but nothing
+# stopped a signed-in user from re-triggering the moment each run
+# finished — an unbounded serial drain on someone else's API, from any
+# account with a session.
+#
+# So manual triggers get a per-user cooldown.  The CRON IS EXEMPT: it
+# authenticates by bearer token and is the intended scheduled driver,
+# and throttling it would defeat the schedule it exists to keep.
+_INTEL_MANUAL_REFRESH_COOLDOWN_SEC = float(os.getenv("INTEL_MANUAL_REFRESH_COOLDOWN_SEC", "600"))
+_intel_manual_refresh_at: dict[str, float] = {}
+_intel_manual_refresh_lock = threading.Lock()
+
+
+def _intel_refresh_cooldown_remaining(user_key: str) -> int:
+    """Seconds left on this user's cooldown, 0 when clear."""
+    if _INTEL_MANUAL_REFRESH_COOLDOWN_SEC <= 0:
+        return 0
+    now = time.monotonic()
+    with _intel_manual_refresh_lock:
+        last = _intel_manual_refresh_at.get(user_key)
+    if last is None:
+        return 0
+    elapsed = now - last
+    if elapsed >= _INTEL_MANUAL_REFRESH_COOLDOWN_SEC:
+        return 0
+    return int(_INTEL_MANUAL_REFRESH_COOLDOWN_SEC - elapsed) + 1
+
+
+def _intel_refresh_mark_triggered(user_key: str) -> None:
+    """Stamp the cooldown.  Called only AFTER a crawl actually starts,
+    so a 409 (someone else already crawling) does not burn the caller's
+    window for work they never got."""
+    with _intel_manual_refresh_lock:
+        _intel_manual_refresh_at[user_key] = time.monotonic()
+        # Bound the dict — this is a long-lived process and the key set
+        # grows with distinct users.
+        if len(_intel_manual_refresh_at) > 512:
+            cutoff = time.monotonic() - _INTEL_MANUAL_REFRESH_COOLDOWN_SEC
+            for key in [k for k, v in _intel_manual_refresh_at.items() if v < cutoff]:
+                _intel_manual_refresh_at.pop(key, None)
+
+
+def _intel_refresh_reset_for_tests() -> None:
+    with _intel_manual_refresh_lock:
+        _intel_manual_refresh_at.clear()
 
 
 # Rate limit for the bearer-rejection warnings below: they fire on
@@ -12294,10 +12266,18 @@ def _intel_not_ready_response(league_key: str) -> JSONResponse:
 
 @app.get("/api/intel/summary")
 async def get_intel_summary(request: Request):
-    """Sharp Tracker board: per-asset buy/sell/net over 48h/7d/14d/30d
-    windows, sorted by trendScore.  League-scoped (intel is
-    roster-scoped → league-scoped): resolves the requested league and
-    reads that league's snapshot partition.  Stamps staleness."""
+    """Insider Trading board: per-asset trade buy/sell/net/volume over an
+    explicit window, served from the normalized ledger.
+
+    League-scoped (intel is roster-scoped → league-scoped): resolves the
+    requested league, and every ledger query is filtered to that
+    league's member pool — the ledger itself is global.
+
+    ``window`` selects ONE lens (7d/30d/90d/all, default 30d) and
+    ``sort`` the ordering.  Counts are TRADES ONLY; waiver and
+    free-agent activity is served separately by
+    ``/api/intel/waiver-interest`` so a claim can never render as a buy.
+    """
     try:
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
@@ -12309,11 +12289,179 @@ async def get_intel_summary(request: Request):
     except (TypeError, ValueError):
         limit = 100
     limit = max(1, min(500, limit))
+    window = (request.query_params.get("window") or "").strip() or _INTEL_DEFAULT_WINDOW
+    if window not in _INTEL_ALLOWED_WINDOWS:
+        window = _INTEL_DEFAULT_WINDOW
+    sort = (request.query_params.get("sort") or "").strip() or "net"
+    if sort not in _INTEL_ALLOWED_SORTS:
+        sort = "net"
     payload = await run_in_threadpool(
         _intel_service.build_summary_payload,
         league_cfg.key,
         limit=limit,
         id_to_player=_intel_id_to_player(),
+        window=window,
+        sort=sort,
+    )
+    return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
+
+
+def _intel_contract_context() -> dict:
+    """Position, value and team maps from the loaded contract.
+
+    Every piece is optional: a missing contract yields empty maps, which
+    makes the partner-fit and value-match terms abstain rather than
+    taking the whole lead list down with them.
+    """
+    try:
+        contract = latest_contract_data or {}
+        sleeper_block = contract.get("sleeper") or {}
+        teams = sleeper_block.get("teams") or []
+        positions = {}
+        values = {}
+        for row in contract.get("playersArray") or []:
+            if not isinstance(row, dict):
+                continue
+            pid = str(row.get("sleeperId") or row.get("playerId") or "").strip()
+            if not pid:
+                continue
+            pos = str(row.get("position") or "").strip().upper()
+            if pos:
+                positions[pid] = pos
+            val = row.get("rankDerivedValue")
+            if isinstance(val, (int, float)) and val > 0:
+                values[pid] = float(val)
+        return {"teams": teams, "positions": positions, "values": values}
+    except Exception:  # noqa: BLE001 — leads must survive a missing contract
+        log.exception("intel: contract context unavailable")
+        return {"teams": [], "positions": {}, "values": {}}
+
+
+def _build_intel_leads(league_cfg, asset_id: str, mode: str) -> dict:
+    """Assemble one lead list.  Runs in a threadpool — pure sync."""
+    from src.intel import lead_service, roster_shape
+
+    ctx = _intel_contract_context()
+    teams = ctx["teams"]
+    positions = ctx["positions"]
+    values = ctx["values"]
+
+    signals_by_owner = roster_shape.team_signals(
+        teams, positions, league_cfg.roster_settings, value_by_player=values
+    )
+    owner = roster_shape.owner_of_player(teams, asset_id)
+    matchable = roster_shape.matchable_values(teams, values)
+
+    # SELL mode asks who WANTS what I hold, so it scores their BUYING.
+    # BUY mode asks who would PART with it, so it scores their SELLING.
+    direction = "buy" if mode == "sell" else "sell"
+
+    # In sell mode the caller owns the asset, so they are not a lead for
+    # their own player; in buy mode the current owner IS the lead.
+    exclude = []
+    our_signal = None
+    if mode == "sell" and owner:
+        exclude = [owner]
+        our_signal = signals_by_owner.get(owner)
+
+    return lead_service.build_leads(
+        league_key=league_cfg.key,
+        asset_id=asset_id,
+        position=positions.get(str(asset_id)),
+        direction=direction,
+        roster_signals=signals_by_owner,
+        our_roster=our_signal,
+        target_value=values.get(str(asset_id)),
+        matchable_values_by_owner=matchable,
+        owner_of_asset=owner,
+        home_league_ids=[str(league_cfg.sleeper_league_id or "")],
+        exclude_owner_ids=exclude,
+    )
+
+
+@app.post("/api/intel/leads")
+async def post_intel_leads(request: Request):
+    """Insider Trading leads for ONE asset.
+
+    Body: ``{"assetId": "...", "mode": "sell"|"buy", "leagueKey": "..."}``
+
+    SELL mode ("I want to move X") ranks league-mates by how much they
+    look like they want X.  BUY mode ("I want X") surfaces the current
+    owner and what they look likely to want back.
+
+    Both read the SAME cross-league observations from opposite sides.
+    The score is a RANKING of who to approach, never a probability that
+    anyone accepts — ``limitations`` in the payload says so, and
+    declined offers are not recorded by Sleeper at all.
+    """
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    # Body parsed BEFORE the resolver so a body leagueKey reaches it —
+    # the POST convention used by the other league-scoped endpoints.
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    asset_id = str(body.get("assetId") or body.get("playerId") or "").strip()
+    if not asset_id:
+        name = str(body.get("name") or "").strip()
+        if name:
+            asset_id = _intel_name_to_player_id(name) or ""
+    if not asset_id:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "missing_asset",
+                "message": "Provide assetId (Sleeper id or pick:<season>:<round>) or name.",
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    mode = str(body.get("mode") or "sell").strip().lower()
+    if mode not in ("sell", "buy"):
+        mode = "sell"
+
+    if not await run_in_threadpool(_intel_service.snapshot_ready, league_cfg.key):
+        return _intel_not_ready_response(league_cfg.key)
+
+    payload = await run_in_threadpool(_build_intel_leads, league_cfg, asset_id, mode)
+    return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
+
+
+@app.get("/api/intel/waiver-interest")
+async def get_intel_waiver_interest(request: Request):
+    """Waiver and free-agent activity, under its OWN label.
+
+    A SEPARATE endpoint rather than a flag on the board, because the
+    defect this whole change undoes was waiver churn rendering as trade
+    "buys".  Fields here are ``adds``/``drops``, never ``buys``/``sells``.
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    if not await run_in_threadpool(_intel_service.snapshot_ready, league_cfg.key):
+        return _intel_not_ready_response(league_cfg.key)
+    try:
+        limit = int(request.query_params.get("limit") or 100)
+    except (TypeError, ValueError):
+        limit = 100
+    limit = max(1, min(500, limit))
+    window = (request.query_params.get("window") or "").strip() or _INTEL_DEFAULT_WINDOW
+    if window not in _INTEL_ALLOWED_WINDOWS:
+        window = _INTEL_DEFAULT_WINDOW
+    payload = await run_in_threadpool(
+        _intel_service.build_waiver_interest_payload,
+        league_cfg.key,
+        limit=limit,
+        id_to_player=_intel_id_to_player(),
+        window=window,
     )
     return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
 
@@ -12404,12 +12552,47 @@ async def post_intel_refresh(request: Request):
     ``?leagueKey=all`` refreshes every ACTIVE registry league
     sequentially (the cron's mode); any other key resolves through
     the standard league resolver."""
-    if not _intel_bearer_auth_ok(request) and not _get_auth_session(request):
+    is_cron = _intel_bearer_auth_ok(request)
+    session = None if is_cron else _get_auth_session(request)
+    if not is_cron and not session:
         return JSONResponse(
             status_code=401,
             content={"error": "auth_required", "message": "Sign-in or bearer token required."},
             headers={"Cache-Control": "no-store"},
         )
+
+    # D13: per-user cooldown on MANUAL triggers.  The cron (bearer) is
+    # exempt — it is the intended scheduled driver.  A crawl is minutes
+    # of budgeted Sleeper calls, and the process lock only prevented
+    # concurrent runs, not a user re-triggering after each one finished.
+    cooldown_key = ""
+    if not is_cron:
+        cooldown_key = (
+            str((session or {}).get("username") if isinstance(session, dict) else session)
+            or "anonymous"
+        )
+        # ORDER MATTERS: "a crawl is already running" is both the more
+        # informative answer and the more actionable one, so 409 wins
+        # when both apply.  Checking the cooldown first turned every
+        # mid-crawl retry into an opaque 429.  The gap between this
+        # check and the start below is racy, but the process lock still
+        # guarantees correctness — the worst case is a 429 where a 409
+        # would have read better.
+        already_running = bool(_intel_service.refresh_status().get("isRunning"))
+        remaining = 0 if already_running else _intel_refresh_cooldown_remaining(cooldown_key)
+        if remaining > 0:
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "refresh_cooldown",
+                    "message": (
+                        f"A manual refresh was triggered recently. Try again in "
+                        f"{remaining}s, or wait for the daily crawl."
+                    ),
+                    "retryAfterSeconds": remaining,
+                },
+                headers={"Cache-Control": "no-store", "Retry-After": str(remaining)},
+            )
 
     # ``leagueKey=all`` — refresh EVERY active league sequentially
     # under the single crawl lock.  This is what the daily cron
@@ -12445,6 +12628,8 @@ async def post_intel_refresh(request: Request):
                 },
                 headers={"Cache-Control": "no-store"},
             )
+        if cooldown_key:
+            _intel_refresh_mark_triggered(cooldown_key)
         return JSONResponse(
             status_code=202,
             content={
@@ -12475,6 +12660,8 @@ async def post_intel_refresh(request: Request):
             },
             headers={"Cache-Control": "no-store"},
         )
+    if cooldown_key:
+        _intel_refresh_mark_triggered(cooldown_key)
     return JSONResponse(
         status_code=202,
         content={
@@ -12511,30 +12698,6 @@ async def get_intel_refresh_status(request: Request):
     )
 
 
-@app.get("/intel", response_class=HTMLResponse)
-async def serve_intel(request: Request):
-    """Retired route — Next redirects it to /league/insider-trading.
-
-    /intel shipped ONE feature under TWO product names: Sharp Tracker's
-    name and board on Insider Trading's cohort (your league-mates).  The
-    league-mate board lives at /league/insider-trading now; the real,
-    cohort-qualified Sharp Tracker is at /market/sharp-tracker.
-    """
-    redirect = _require_auth_or_redirect(request, "/intel")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/intel")
-
-
-@app.get("/league/insider-trading", response_class=HTMLResponse)
-async def serve_insider_trading(request: Request):
-    """Insider Trading page shell — LEAGUE-SCOPED trade leads."""
-    redirect = _require_auth_or_redirect(request, "/league/insider-trading")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/league/insider-trading")
-
-
 # ── SHARP TRACKER ──────────────────────────────────────────────────────
 # A SEPARATE product from Insider Trading above.  Its cohort is
 # skill-qualified and drawn from every league we observe, so it is
@@ -12561,15 +12724,6 @@ async def get_sharp_cohort(request: Request):
         content=payload,
         headers={"Cache-Control": "private, max-age=300, stale-while-revalidate=900"},
     )
-
-
-@app.get("/market/sharp-tracker", response_class=HTMLResponse)
-async def serve_sharp_tracker(request: Request):
-    """Sharp Tracker page shell — global market intelligence."""
-    redirect = _require_auth_or_redirect(request, "/market/sharp-tracker")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/market/sharp-tracker")
 
 
 # ── PLAYER CONTEXT (contracts / snap share / depth chart) ───────────────
@@ -12646,54 +12800,6 @@ async def get_playerctx_player(request: Request):
         content=payload,
         headers={"Cache-Control": "private, max-age=3600"},
     )
-
-
-# ── PAGE CATCH-ALL (MUST BE THE LAST ROUTE IN THIS FILE) ────────────────
-# Every page above this point is registered by hand.  That list has
-# drifted from the Next.js app three separate times — at the time this
-# was written /waivers, /news, /draft, /angle, /trending, /intel's
-# siblings, /players/compare, /league-comparison, /idptc-rookies,
-# /tools/ros-data-health, /rankings/[position] and every /league/*
-# subroute were all 404 through this backend while serving fine from
-# Next.  A hand-maintained mirror of another router's route table is a
-# permanent drift trap, so this forwards anything unclaimed instead.
-#
-# Next owns page routing; an unknown path gets Next's own 404, which is
-# the correct answer rather than a FastAPI one.
-#
-# Ordering is load-bearing: FastAPI matches in registration order, so
-# this only ever sees paths no explicit route above claimed.  The
-# ``/api/`` and ``/_next/`` guards are belt-and-braces for the day
-# someone appends a route below this one.
-#
-# NOT fixed here, deliberately: ``_proxy_next`` forwards neither the
-# request's cookies nor its query string, so a page served through this
-# backend renders logged-out and ignores ``?tab=``.  That is the same
-# behaviour every hand-registered page above already has — this change
-# makes the route list complete, not the proxy faithful.  Whether the
-# proxy should be repaired or declared non-production-representative
-# (nginx bypasses it in prod) is tracked separately; see issue #555.
-_PUBLIC_PAGE_PREFIXES = ("/league",)
-
-
-@app.get("/{full_path:path}", response_class=HTMLResponse)
-async def serve_next_page(request: Request, full_path: str):
-    path = "/" + full_path.lstrip("/")
-
-    # Never intercept API or asset traffic.  Unreachable while this
-    # stays the last route; cheap insurance if that ever changes.
-    if path.startswith("/api/") or path.startswith("/_next/"):
-        return JSONResponse(status_code=404, content={"error": "not_found"})
-
-    is_public = any(
-        path == prefix or path.startswith(prefix + "/") for prefix in _PUBLIC_PAGE_PREFIXES
-    )
-    if not is_public:
-        redirect = _require_auth_or_redirect(request, path)
-        if redirect is not None:
-            return redirect
-
-    return await _serve_app_shell(path)
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────

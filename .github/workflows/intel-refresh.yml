@@ -264,3 +264,36 @@ jobs:
               --body "$BODY" \
               --label intel-stale
           fi
+
+      - name: Close the tracking issue when the run is green
+        # The missing half of the pattern copied from
+        # scheduled-refresh.yml, which opens AND closes.  Without this an
+        # open `intel-stale` issue means "this failed at least once, ever"
+        # rather than "this is broken now" — #663 sat open for hours after
+        # its gate went green because of exactly this gap.
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # Close EVERY open one: the alert step reads `.[0].number`, so
+          # duplicates would otherwise be orphaned forever.
+          OPEN=$(gh issue list --state open --label intel-stale \
+                   --json number --jq '.[].number' 2>/dev/null || echo "")
+          if [[ -z "$OPEN" ]]; then
+            echo "no open intel-stale issue; nothing to close"
+            exit 0
+          fi
+          for N in $OPEN; do
+            echo "closing #${N}"
+            gh issue close "$N" --reason completed --comment \
+              "Daily intel refresh is green again — the intel artifacts rebuilt cleanly.
+
+          - Workflow run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+          - Closed: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Reopened automatically by the alert step if it fails again." || true
+          done

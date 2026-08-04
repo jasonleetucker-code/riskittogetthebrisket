@@ -783,7 +783,27 @@ def _build_signal_context(
             elif impact == "positive":
                 pos_count += 1
     rank_change = _row_rank_change(row)
-    confidence = row.get("confidence")
+    # Market confidence.  The contract stamps ``marketConfidence``
+    # (``data_contract.py``, sourced from the scraper's
+    # ``_marketConfidence``); ``confidence`` is the name the FRONTEND row
+    # contract uses after ``buildRows`` maps it across.
+    #
+    # DIAGNOSTIC ONLY since 2026-07-30.  No signal rule reads it — the
+    # ``low_conf_unstable`` MONITOR rule that did was RETIRED (see
+    # ``_evaluate_signal``).  It is still surfaced on the context so the
+    # number stays inspectable in ``/api/terminal`` payloads, and so a
+    # future rule built on a *repaired* confidence metric has the plumbing
+    # already in place.
+    #
+    # ``marketConfidence`` is preferred and ``confidence`` kept as a
+    # fallback so a caller handing us an already-materialized frontend
+    # row (or a test fixture using the short name) still works.
+    # Deliberately NOT coerced to 0 when absent: 256 of 1094 live rows
+    # carry no confidence at all, and "unmeasured" must never read as
+    # "zero confidence".
+    confidence = row.get("marketConfidence")
+    if confidence is None:
+        confidence = row.get("confidence")
     try:
         confidence = float(confidence) if confidence is not None else None
     except (TypeError, ValueError):
@@ -833,7 +853,6 @@ def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
     mad = (ctx.get("volatility") or {}).get("mad")
     value = ctx.get("value") or 0
     rank_change = ctx.get("rankChange")
-    conf = ctx.get("confidence")
     alert = ctx.get("alertCount") or 0
     neg = ctx.get("negativeImpactCount") or 0
     pos = ctx.get("positiveImpactCount") or 0
@@ -885,17 +904,35 @@ def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
         )
     if vol_label == "high":
         add(62, "MONITOR", "high_vol", f"High volatility (MAD {float(mad or 0):.1f}).")
-    if (
-        conf is not None
-        and conf < 0.35
-        and (vol_label == "med" or (trend7 is not None and abs(trend7) >= 2))
-    ):
-        add(
-            60,
-            "MONITOR",
-            "low_conf_unstable",
-            f"Low market confidence ({conf * 100:.0f}%) plus recent movement.",
-        )
+    # RETIRED 2026-07-30: ``low_conf_unstable`` (MONITOR, priority 60).
+    #
+    # The rule tested ``confidence < 0.35``, but the metric it read cannot
+    # produce a value near that threshold.  ``_marketConfidence`` comes from
+    # ``Dynasty Scraper.py::_market_confidence``:
+    #
+    #     site_score = clamp(site_count / 8.0, 0.20, 1.00)   # 65% weight
+    #     cv_score   = clamp(1 - min(cv,0.35)/0.35, 0.20, 1.00)  # 35% weight
+    #
+    # The 8.0 divisor dates from an era when ~10 scraper SITES were enabled.
+    # Today ``SITES`` has exactly two on (KTC + IDPTradeCalc), yielding at
+    # most three numeric dash keys per player (``ktc``, ``ktcSfTep``,
+    # ``idpTradeCalc``), so ``site_count`` is confined to {1,2,3},
+    # ``site_score`` to {0.20, 0.25, 0.375}, and confidence is structurally
+    # capped at 0.375*0.65 + 1.00*0.35 = 0.59375 — the observed live maximum.
+    # Measured live distribution: p10 0.480 / median 0.491 / p90 0.564, with
+    # exactly ONE of 1094 rows under 0.35.
+    #
+    # So the rule was, in practice, a near-dead branch gated on a broken
+    # gauge, and MONITOR is in ``signal_alerts.ACTIONABLE_SIGNALS`` — it
+    # gates email.  Every candidate divisor pushes confidence UP (measured
+    # by ``scripts/simulate_market_confidence_divisor.py``: 0 players below
+    # 0.35 at divisors 3, 4 and 5), so no recalibration rescues it either.
+    #
+    # Retired rather than re-thresholded: picking a new cut-off against a
+    # gauge whose range is an artifact of how many scrapers happen to be
+    # enabled would be fitting to noise.  The confidence number itself
+    # survives on the context as a diagnostic.  Reinstate only on top of a
+    # confidence metric that spans its own range.
     if value >= 7000 and (trend30 is not None and trend30 >= 0) and vol_label in ("low", "med"):
         add(
             50,
@@ -1131,7 +1168,30 @@ def _compute_portfolio_insights(
             by_position[bucket]["value"] += p["value"]
     # Picks aren't part of ``rosterValues`` (picks handled separately
     # in the contract), so ``PICK`` stays zero unless the caller pre-
-    # injects them — matching the client-side shape.
+    # injects them.
+    #
+    # This deliberately does NOT match the client-side shape, and the
+    # comment here claimed it did until 2026-07-30.  Both client
+    # implementations intend to include picks in the portfolio:
+    # ``frontend/lib/league-analysis.js``'s ``byGroup.PICKS`` sums
+    # them via ``resolvePickRow``, and
+    # ``frontend/lib/portfolio-insights.js`` sums them into
+    # ``totalValue`` and the PICK bucket.  On the live 12-team snapshot
+    # that is 442,936 of pick value against 1,524,591 of player value —
+    # 22.5% of a portfolio, so the two answers are not close enough to
+    # call equivalent.
+    #
+    # The false comment mattered: portfolio-insights' pick join was
+    # broken (Sleeper says "2026 1.02 (own)", the contract row is
+    # "2026 Pick 1.02") and resolved 0 of 288, so the client's OUTPUT
+    # happened to agree with this one while its INTENT did not.  That
+    # made the divergence invisible — fixing the client join is what
+    # exposed it.
+    #
+    # Left excluded rather than changed: adding picks here moves every
+    # terminal aggregate, which is a product decision about what
+    # ``/api/terminal`` means, not a bug fix.  Recorded so the next
+    # reader sees a known difference instead of a claimed equivalence.
     if totalValue:
         for g in position_groups:
             by_position[g]["pct"] = round(by_position[g]["value"] / totalValue * 100, 1)

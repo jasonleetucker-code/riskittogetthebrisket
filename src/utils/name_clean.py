@@ -410,6 +410,50 @@ def normalize_player_name(name: str | None) -> str:
     return s
 
 
+def strip_display_suffix(name: object) -> str:
+    """Strip a generational suffix / trailing parenthetical, PRESERVING
+    case and spacing.
+
+    This is NOT a join key — it is a DISPLAY-name cleanup.  Every other
+    helper in this module lowercases, which is wrong for anything that
+    will be rendered or stored as a label.
+
+    Why it exists (audit N3, 2026-07-29): the contract's player
+    vocabulary comes from ``Dynasty Scraper.py::clean_name``, which
+    strips generational suffixes — measured on the live payload, **0 of
+    1076** contract keys carry ``Jr.`` / ``III`` / a parenthetical.
+    Sleeper's raw ``full_name`` keeps them.  So any code that falls back
+    to a raw Sleeper name emits a label in a foreign vocabulary, and
+    every name-keyed consumer downstream (waiver ownership, angle,
+    replacement, FAAB contention) then fails to join it.
+
+    Deliberately narrow: it does not fold accents, drop apostrophes,
+    collapse initials or lowercase, because the result is shown to a
+    user.  It handles the two divergences actually observed between the
+    Sleeper dump and the contract.
+
+        >>> strip_display_suffix("Marvin Harrison Jr.")
+        'Marvin Harrison'
+        >>> strip_display_suffix("Kenneth Walker III")
+        'Kenneth Walker'
+        >>> strip_display_suffix("Michael Pittman (WR)")
+        'Michael Pittman'
+        >>> strip_display_suffix("Amon-Ra St. Brown")
+        'Amon-Ra St. Brown'
+    """
+    if not name:
+        return ""
+    s = str(name).strip()
+    if not s:
+        return ""
+    # Trailing parenthetical, e.g. "Name (WR)" / "Name (IR)".
+    s = re.sub(r"\s*\([^)]*\)\s*$", "", s).strip()
+    # Generational suffix, only at the END and only as a whole token, so
+    # "Vita Vea" keeps its "Vea" and a mid-name "V" is untouched.
+    s = re.sub(r"[,\s]+(Jr\.?|Sr\.?|I{2,3}|IV|VI?)\s*$", "", s, flags=re.IGNORECASE).strip()
+    return s
+
+
 def compact_name_key(name: object) -> str:
     """Lowercase, alphanumerics-only join key (family 2 in the module
     registry above).

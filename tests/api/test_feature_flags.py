@@ -72,6 +72,41 @@ def test_every_flag_defaults_off_except_safe_additive():
         # model as a live code path.
         # Rollback: RISKIT_FEATURE_PERFECT_DRAFT=0 + restart.
         "perfect_draft",
+        # Consensus Edge.  ON since 2026-08-04, and ADDITIVE in this
+        # set's strict sense — verified rather than argued:
+        #
+        #   * the flag gates exactly ONE thing, the
+        #     ``/api/consensus-edge/*`` router mounted in server.py.
+        #     Nothing else in the codebase reads it.
+        #   * it never writes ``rankDerivedValue`` — the package
+        #     contains no assignment to it at all.
+        #   * it reads ``latest_contract_data`` and never mutates it.
+        #   * unlike bdvm_engine it adds NO leg to the daily signal
+        #     sweep and NO column to /rankings.  Its frontend surface is
+        #     the /consensus-edge page, its own bridge routes, its own
+        #     hook and lib, plus one nav entry.
+        #
+        # So turning it on cannot move a number that was already on
+        # screen; it adds a page and some endpoints.
+        #
+        # Held OFF earlier the same day while the composite rested on
+        # one measured component and two declared priors.  What changed
+        # is evidence, not patience: Opportunity was backtested and
+        # returned a null so its weight is zero (ADR-013), and the
+        # artifact users actually read — a list of twenty names — was
+        # scored for the first time.  The top-20 buy list returns a
+        # median +3.59% cohort-excess over 7 non-overlapping folds
+        # (+1.51% over 15 at a 7-day horizon), beating a random-20 draw
+        # from the same priced universe in 6 of 7 and 11 of 15;
+        # ``Strong Buy`` returns +8.83% at 6 of 6 folds.
+        #
+        # What is still NOT claimed rides on every payload rather than
+        # on this comment: ``experimental: true``, an entirely offseason
+        # panel, market movement rather than fantasy points, and a sell
+        # side with NO measured edge (0 of 7 folds), which
+        # ``sellSideValidation`` states and the sells view renders.
+        # Rollback: RISKIT_FEATURE_CONSENSUS_EDGE=0 + restart.
+        "consensus_edge",
     }
     # Flags that default ON and KNOWINGLY change output.  Deliberately a
     # separate set from ``safe_on``: every member of that one is there

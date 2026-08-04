@@ -112,7 +112,7 @@ webkit `mobile-390` / `mobile-430` projects, which need
 | Spec | Layer | What it protects |
 |---|---|---|
 | `journey-rankings.spec.js` | signed-in UI | Board renders real rows; column sort; position filter; board search; player popup with source breakdown; global search (`/`) |
-| `journey-trade.spec.js` | signed-in UI + API | `/trade` builder renders + controls; `/trades` history; `/finder` arbitrage board rows; `POST /api/trade/finder` returns trades for a real roster |
+| `journey-trade.spec.js` | signed-in UI + API | `/trade` builder renders + controls; `/trades` history; `/rankings?screen=` deep-link actually narrows the board; `/arbitrage` scans to trades or an explicit empty state; `POST /api/trade/finder` returns trades for a real roster |
 | `journey-settings-overrides.spec.js` | signed-in UI | Settings lists every registered source; toggling one fires `POST /api/rankings/overrides` and the board re-renders with the custom-mix badge |
 | `journey-news.spec.js` | signed-in UI | `/news` tab — skips with a clear message while the route 404s (pre-PR #533) and self-activates once it ships |
 | `mobile-smoke.spec.js` | signed-in UI @390x844 | Board usable, popup opens/closes, bottom nav navigates |

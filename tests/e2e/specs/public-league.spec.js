@@ -223,15 +223,61 @@ test.describe("public /league page", () => {
     // nothing at all.  It also slept 500ms instead of waiting on data.
     // Assert the actual contract: applying a narrower filter must
     // reduce the row count, and clearing it must restore.
-    const rows = page.locator("table tbody tr");
+    // Scoped to the archives table. `table tbody tr` counted EVERY
+    // table on /league — weekly, luck, power, draft, draft-capital and
+    // rivalries all use `.table-wrap` too — so the number being
+    // asserted on was not this section's row count.
+    const rows = page.locator(".archives-table table tbody tr");
 
-    await page.getByRole("button", { name: /Matchups/i }).first().click();
+    // The kind buttons render their own count ("Matchups (158)"), so
+    // the expected row count is readable from the control itself.
+    // Waiting for THAT is falsifiable. The old wait was
+    // `.toBeGreaterThan(0)` immediately after the click, which the
+    // PRE-click trades table already satisfied — so it captured a
+    // stale count and the later comparison was against the wrong
+    // number. That is how this test reported 190 (the unfiltered
+    // trades total) while claiming to measure matchups.
+    const matchupsBtn = page.getByRole("button", { name: /^Matchups \(\d+\)$/ });
+    const declared = Number((await matchupsBtn.innerText()).match(/\((\d+)\)/)[1]);
+
+    // Click INSIDE the poll, because the first one can land before
+    // React has attached its handlers and is then simply lost.
+    //
+    // `visitLeague` waits for the text "Public archives". That wait has
+    // CHANGED MEANING as of 2026-07-30 and is now strictly stronger:
+    // the section is no longer server-rendered (it was ~737 KB of a
+    // ~960 KB document), so "Public archives" appears only once the
+    // client fetch has landed and the component has rendered with data
+    // — it waits on data, not on markup. Previously the string was in
+    // the SSR HTML, so it proved the markup arrived and nothing about
+    // interactivity, and against production that gap was real: a
+    // ~960 KB RSC payload takes long enough to hydrate to race a test
+    // that clicks the moment the text appears.
+    //
+    // That gap is what made the suite ~46% flaky rather than broken.
+    // Across 30 consecutive scheduled runs the results were
+    // FFFF.SFFSFSSSSSSFSFSFFSS.FSFFF — 13 passes, 15 failures,
+    // interleaved. A genuinely inert control fails every time; an
+    // interleaved record is a race, and the same spec passed
+    // consistently in the nightly, where the committed snapshot is
+    // small and hydration is quick.
+    //
+    // Re-clicking is safe: the handler is `setKind(k.key)`, so extra
+    // clicks set the same value. Nothing here is loosened — the
+    // assertion is still the exact declared row count.
     await expect
-      .poll(() => rows.count(), {
-        message: "archives should list matchup rows",
-        timeout: 15_000,
-      })
-      .toBeGreaterThan(0);
+      .poll(
+        async () => {
+          await matchupsBtn.click();
+          return rows.count();
+        },
+        {
+          message: `clicking Matchups should render its declared ${declared} rows`,
+          timeout: 30_000,
+          intervals: [250, 500, 1000, 2000, 3000],
+        },
+      )
+      .toBe(Math.min(declared, 500)); // the section caps its render at 500
     const matchupRows = await rows.count();
 
     // Season filter is the narrowing control.  Pick the first specific
@@ -245,13 +291,37 @@ test.describe("public /league page", () => {
         specific,
         `archives season filter offered no concrete season: ${options.join(", ")}`,
       ).toBeTruthy();
-      await seasonSelect.selectOption({ label: specific });
+      // Same shape as the click above: re-select inside the poll so a
+      // pre-hydration change event cannot be swallowed. Selecting the
+      // same option repeatedly is idempotent.
       await expect
-        .poll(() => rows.count(), {
-          message: `selecting season ${specific} should narrow the archive rows below ${matchupRows}`,
-          timeout: 15_000,
-        })
+        .poll(
+          async () => {
+            await seasonSelect.selectOption({ label: specific });
+            return rows.count();
+          },
+          {
+            message: `selecting season ${specific} should narrow the archive rows below ${matchupRows}`,
+            timeout: 30_000,
+            intervals: [250, 500, 1000, 2000],
+          },
+        )
         .toBeLessThan(matchupRows);
+
+      // Stronger than "fewer rows": every surviving row must BE the
+      // selected season. A filter that drops rows for the wrong reason
+      // passes the count check and fails this one. Skipped when the
+      // filter legitimately empties the table (the live board has
+      // seasons with no matchups at all), because `every` on an empty
+      // list is vacuously true and would assert nothing.
+      const remaining = await rows.count();
+      if (remaining > 0) {
+        const seasons = await rows.locator("td:first-child").allInnerTexts();
+        expect(
+          seasons.every((s) => s.trim() === specific),
+          `rows left after selecting ${specific}: ${[...new Set(seasons.map((s) => s.trim()))].join(", ")}`,
+        ).toBe(true);
+      }
     } else {
       // No season control in this build — then the section-type
       // buttons are the only filter, so prove THOSE narrow: a

@@ -6,6 +6,7 @@
 // only, gated by ``settings.showRosTradePanel``.
 
 import { useEffect, useState } from "react";
+import { buildRosIndex, rosEntryForRow } from "@/lib/ros-index";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const _cache = { data: null, fetchedAt: 0, inflight: null };
@@ -83,7 +84,7 @@ function tagsForPlayer({ position, age, rosValue, rosRank, dynastyValue, volatil
 
 export default function RosTradeFitPanel({ sides, settings }) {
   const [directions, setDirections] = useState({ teams: [] });
-  const [valuesByName, setValuesByName] = useState({});
+  const [valuesByName, setValuesByName] = useState(() => new Map());
 
   useEffect(() => {
     if (settings?.showRosTradePanel === false) return;
@@ -96,17 +97,11 @@ export default function RosTradeFitPanel({ sides, settings }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((payload) => {
         if (!active || !payload) return;
-        const map = {};
-        for (const p of payload.players || []) {
-          if (p.canonicalName) {
-            map[p.canonicalName] = {
-              rosValue: p.rosValue,
-              rosRank: p.rosRankOverall,
-              volatilityFlag: !!p.volatilityFlag,
-            };
-          }
-        }
-        setValuesByName(map);
+        // Canonical name KEY, not the raw string — see lib/ros-index.js.
+        // The raw join here matched almost nothing, so `tagsForPlayer`
+        // saw rosValue undefined for every asset and the panel below
+        // dropped itself on essentially every trade.
+        setValuesByName(buildRosIndex(payload.players));
       })
       .catch(() => {});
     return () => {
@@ -123,7 +118,7 @@ export default function RosTradeFitPanel({ sides, settings }) {
     const tagged = assets.map((row) => {
       const name =
         row?.canonicalName || row?.name || row?.displayName || "";
-      const ros = valuesByName[name] || {};
+      const ros = rosEntryForRow(valuesByName, row) || {};
       const tags = tagsForPlayer({
         position: row?.pos,
         age: row?.age,

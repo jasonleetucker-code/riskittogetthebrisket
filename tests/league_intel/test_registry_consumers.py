@@ -228,6 +228,60 @@ class TestSuggestionsNeeds:
         assert DEFAULT_STARTER_NEEDS["LB"] == 3
         assert "K" not in DEFAULT_STARTER_NEEDS  # kickers not tradeable assets
 
+    # NOTE: every derived-needs test below takes ``real_registry``.  The
+    # global conftest points LEAGUE_REGISTRY_PATH at /nonexistent, and
+    # ``starter_needs_for_league`` falls back to DEFAULT_STARTER_NEEDS
+    # when the registry has nothing — so without the fixture the
+    # dynasty_main assertion passes by comparing the fallback to itself,
+    # and the dynasty_new one fails for the wrong reason.
+    def test_derived_needs_reproduce_the_constant_for_dynasty_main(self, real_registry):
+        """The derivation must be a NO-OP for the live league.
+
+        ``DEFAULT_STARTER_NEEDS`` was hand-derived: base slots plus an
+        allocation of the 3 flex slots as +1 QB / +1 RB / +1 WR.  If the
+        registry-driven version disagrees, it is the derivation that is
+        wrong, not the constant — this league's trade suggestions have
+        been computed against those numbers and are correct.
+        """
+        from src.trade.suggestions import DEFAULT_STARTER_NEEDS, starter_needs_for_league
+
+        derived = starter_needs_for_league("dynasty_main")
+        # Guard against the vacuous pass: prove the registry is actually
+        # loaded, so this is a real comparison and not fallback == fallback.
+        assert real_registry.get_league_roster_settings("dynasty_main").get("starters")
+        assert derived == DEFAULT_STARTER_NEEDS
+
+    def test_derived_needs_follow_the_league_not_the_scoring_profile(self, real_registry):
+        """dynasty_new shares the scoring profile and not the lineup.
+
+        Both leagues are ``superflex_tep15_ppr1``, but dynasty_new is
+        10-team, starts 1 TE and rosters no IDP.  Serving it
+        dynasty_main's demand model told it to chase a second TE and
+        nine defenders it cannot start.
+        """
+        from src.trade.suggestions import starter_needs_for_league
+
+        needs = starter_needs_for_league("dynasty_new")
+
+        assert needs["TE"] == 1, "dynasty_new starts one TE"
+        assert "DL" not in needs and "LB" not in needs and "DB" not in needs
+        # Superflex + 2 FLEX are allocated the same way in both leagues.
+        assert needs["QB"] == 2
+        assert needs["RB"] == 3
+        assert needs["WR"] == 4
+        assert "K" not in needs
+
+    def test_derived_needs_fall_back_rather_than_returning_nothing(self, real_registry):
+        """An unknown league must not read as 'this roster needs nobody'.
+
+        An empty demand map silences every surplus/need suggestion, which
+        looks identical to a roster with no holes.
+        """
+        from src.trade.suggestions import DEFAULT_STARTER_NEEDS, starter_needs_for_league
+
+        assert starter_needs_for_league("no_such_league") == DEFAULT_STARTER_NEEDS
+        assert starter_needs_for_league(None)
+
 
 # ── 6. server draft-capital teamCount read ────────────────────────────
 

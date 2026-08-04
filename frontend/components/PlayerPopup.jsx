@@ -10,6 +10,7 @@ import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
 import { useNews } from "@/components/useNews";
 import { lookupPlayerDigest, lookupPlayerNews } from "@/lib/player-name-match";
+import { buildRosIndex, rosEntryForRow } from "@/lib/ros-index";
 import { buildPlayerMetaIndex } from "@/lib/news-filters";
 import { timeAgo } from "@/lib/news-service";
 import { useTeam } from "@/components/useTeam";
@@ -60,20 +61,11 @@ async function _loadRosValuesByName() {
   const promise = fetch("/api/ros/player-values?limit=2000")
     .then((r) => (r.ok ? r.json() : null))
     .then((payload) => {
-      const map = {};
-      for (const p of payload?.players || []) {
-        if (p.canonicalName) {
-          map[p.canonicalName] = {
-            rosValue: p.rosValue,
-            rosRank: p.rosRankOverall,
-            rosRankPosition: p.rosRankPosition,
-            confidence: p.confidence,
-            volatilityFlag: !!p.volatilityFlag,
-            staleFlag: !!p.staleFlag,
-            tier: p.tier,
-          };
-        }
-      }
+      // Indexed by canonical NAME KEY, not the raw string: the ROS
+      // aggregate lowercases and strips apostrophes while board rows
+      // carry display names, so the raw join matched 12 of 1075 rows.
+      // See lib/ros-index.js.
+      const map = buildRosIndex(payload?.players);
       _rosCache.byName = map;
       _rosCache.fetchedAt = Date.now();
       _rosCache.inflight = null;
@@ -81,7 +73,7 @@ async function _loadRosValuesByName() {
     })
     .catch(() => {
       _rosCache.inflight = null;
-      return _rosCache.byName || {};
+      return _rosCache.byName || new Map();
     });
   _rosCache.inflight = promise;
   return promise;
@@ -132,8 +124,7 @@ function RosContextSection({ row }) {
     let active = true;
     _loadRosValuesByName().then((map) => {
       if (!active) return;
-      const name = row.canonicalName || row.displayName || row.name;
-      setRos(map?.[name] ?? null);
+      setRos(rosEntryForRow(map, row));
     });
     return () => {
       active = false;

@@ -42,9 +42,15 @@ sell number.
 
 | Sleeper `type` | Counted as a buy/sell? | Where it surfaces |
 |---|---|---|
-| `trade` | **Yes** | Sharp Tracker board, Insider Trading leads |
-| `waiver` | No | "Waiver interest" — a separately labelled section |
-| `free_agent` | No | "Waiver interest" |
+| `trade` | **Yes** | `GET /api/intel/summary` (the board) |
+| `waiver` | No | `GET /api/intel/waiver-interest`, as `adds`/`drops` |
+| `free_agent` | No | `GET /api/intel/waiver-interest`, as `adds`/`drops` |
+
+Waiver activity is a **separate endpoint**, not a flag on the board. A
+flag would have rendered the numbers correctly but not prevented the
+defect — the failure was waiver churn *reading as* trade buys. The
+waiver payload's fields are named `adds`/`drops` and carry no `net`,
+because a claim and a later drop are two decisions, not a round trip.
 
 A drop is not a sell. A waiver add is not a buy. Pinned by
 `tests/intel/test_ledger.py::TestTradeVsWaiver`.
@@ -135,6 +141,12 @@ A single observation can never be labelled `high`.
 ---
 
 ## Retired metrics
+
+**`aggregate.py` — deleted.** The read-time aggregator that served
+`/api/intel/*` bucketed purely on add/drop direction and never read the
+`txType` its own crawler stamped, so every waiver claim reached users as
+a "buy". Deleted rather than deprecated, so no competing formula can
+stay reachable. The read path is now `ledger.py` + `signals.py`.
 
 **`trendScore` — removed.** It was `3·net48h + 2·net7d + 1·net30d`, the board's headline
 column *and* sort key, with the formula printed to users. Because the windows are nested,

@@ -161,6 +161,59 @@ def _count_csv_rows(csv_path: Path) -> int:
         return 0
 
 
+# Canonical names where the pool genuinely contains ONE player twice,
+# so an alias merging them is correct rather than a defect.
+#
+# ``alias_collision_delta``'s own docstring carves this case out — "a
+# same-family collision is also a defect ... unless the pool genuinely
+# contains one player twice" — but the code never implemented it, so
+# the exception had nowhere to live and the first real instance turned
+# the hard gate red on ``main``.
+#
+# Entries are NOT a way to quiet the check. Each one needs a verified
+# same-player claim, and every collision outside this set still fails.
+# The collisions are still reported and still printed in the run
+# summary; they are marked, not hidden.
+# Verified same-player duplicates, mapped to the EXACT set of alias
+# sources whose merge onto that name was checked by a human.
+#
+# The value is not decoration.  An exemption keyed on the name alone
+# widens silently: add a second alias pointing at "rob henry" next year
+# and it inherits the carve-out without anyone looking.  Pinning the
+# source set means a new alias into an exempted name fails
+# ``test_the_allowlist_still_describes_the_aliases_it_exempts`` and has
+# to be verified on its own merits.
+#
+# NOTE the presence of the collision in any given snapshot is NOT the
+# criterion — the pool is refreshed from external sources every two
+# hours and the second spelling comes and goes with it (it was present
+# on 2026-07-30T18:06Z and gone by 2026-07-31T04:09Z).  What makes the
+# exemption live is the alias, which is committed code.
+_KNOWN_POOL_DUPLICATES: dict[str, frozenset[str]] = {
+    # "Rob Henry" + "Robert Henry" — one player, two pool rows.
+    #
+    # ``src/utils/name_clean.py`` aliases "robert henry" → "rob henry"
+    # with the identity verified on both sides: RB, UTSA UDFA → WAS,
+    # age 24. The alias existed to bridge DraftSharks/FantasyPros'
+    # "Robert Henry Jr." to the pool's "Rob Henry".
+    #
+    # The 2026-07-30T18:06Z scheduled refresh then added "Robert Henry"
+    # to CSVs/dynasty_full.csv alongside the existing "Rob Henry", so
+    # the pool now carries both spellings and the alias merges two rows
+    # that are the same person. That is the alias working, not failing.
+    #
+    # It reports ``crossFamily`` only because the new row carries no
+    # position and lands in the OTHER group — absence of position data,
+    # not evidence of a second player. The vote-replication hazard this
+    # check exists for (a WR absorbing a CB's ballot) needs two KNOWN
+    # and different families.
+    #
+    # Removing the alias was the alternative and is worse: it would
+    # leave one player sitting on the board as two separate rows.
+    "rob henry": frozenset({"robert henry"}),
+}
+
+
 def alias_collision_delta(pool_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return alias-introduced collisions among distinct pool players.
 
@@ -221,6 +274,9 @@ def alias_collision_delta(pool_rows: list[dict[str, Any]]) -> list[dict[str, Any
                 "preAliasNames": sorted(pre_map),
                 "positionGroups": groups,
                 "crossFamily": len(groups) > 1,
+                # Reported either way; the gate ignores only the
+                # verified same-player duplicates above.
+                "knownPoolDuplicate": post_name in _KNOWN_POOL_DUPLICATES,
             }
         )
     return collisions
@@ -457,13 +513,35 @@ def main() -> int:
     if args.github_summary:
         _write_github_summary(report, collisions)
     if collisions and args.fail_on_collision:
+        # ``_KNOWN_POOL_DUPLICATES`` entries are REPORTED but do not fail
+        # the gate — that is the whole point of the set, and until now it
+        # was only half-implemented: ``build_report`` stamped
+        # ``knownPoolDuplicate`` on the row and this gate ignored the
+        # stamp, so the carve-out annotated the collision and still went
+        # red.  The set's own docstring says "every collision outside
+        # this set still fails", which only means anything if the ones
+        # inside it do not.  A guard whose stated purpose and actual
+        # predicate differ is the exact failure mode this repo keeps
+        # tripping over (docs/ORCHESTRATION.md §6.15).
+        #
+        # They stay visible as ::notice, never silently dropped.
+        blocking = [c for c in collisions if not c.get("knownPoolDuplicate")]
         for c in collisions:
             kind = "cross-family " if c.get("crossFamily") else ""
-            print(
-                f"::error title=Alias collision::{kind}'{c['canonicalName']}' "
-                f"merges {c['mergedNames']}"
-            )
-        return 1
+            if c.get("knownPoolDuplicate"):
+                print(
+                    f"::notice title=Known pool duplicate::{kind}"
+                    f"'{c['canonicalName']}' merges {c['mergedNames']} — "
+                    "verified same player, allow-listed in "
+                    "_KNOWN_POOL_DUPLICATES; not failing the gate"
+                )
+            else:
+                print(
+                    f"::error title=Alias collision::{kind}'{c['canonicalName']}' "
+                    f"merges {c['mergedNames']}"
+                )
+        if blocking:
+            return 1
     return 0
 
 

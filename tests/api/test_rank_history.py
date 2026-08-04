@@ -16,6 +16,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from src.api import rank_history
+from src.canonical.player_valuation import rank_to_value_for_scope
 
 
 def _contract_with(
@@ -251,11 +252,23 @@ class LoadHistory(unittest.TestCase):
             idp_val = series[_key("Idp Rookie", "idp")][-1]["val"]
             self.assertGreater(off_val, 0)
             self.assertGreater(idp_val, 0)
-            # IDP curve decays slower at rank 50 than offense — so an
-            # IDP player at rank 50 should outvalue an offense player
-            # at the same rank.  (Sanity check that the asset class
-            # actually gates which curve fills in the gap.)
-            self.assertGreater(idp_val, off_val)
+            # The claim under test is that the asset class GATES which
+            # curve fills the gap — so each value must equal what the
+            # scope-aware curve produces, and the two must differ.
+            #
+            # This used to assert ``idp_val > off_val``, on the rationale
+            # that "the IDP curve decays slower at rank 50".  That was
+            # true of the pre-2026-07-30 constants (IDP 69.50/0.945 vs
+            # offense 48.44/1.149) and is no longer: re-fitting both
+            # against our own board gave 64.6/0.900 and 65.4/0.910, which
+            # cross over.  The direction was never the property worth
+            # pinning — ``canonicalConsensusRank`` is a single global
+            # ordinal, so the two scopes lie on one relation and any
+            # ordering between them at a given rank is a coincidence of
+            # the fit.  See docs/legacy-rank-curve-backtest.md.
+            self.assertEqual(off_val, rank_to_value_for_scope(50, "offense"))
+            self.assertEqual(idp_val, rank_to_value_for_scope(50, "idp"))
+            self.assertNotEqual(off_val, idp_val)
 
     def test_corrupt_line_is_skipped(self) -> None:
         # A half-written final line must not break the reader.  We

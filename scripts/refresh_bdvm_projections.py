@@ -182,6 +182,16 @@ def main() -> int:
 
     wrote_any = False
     hard_error = False
+    # Tracked separately from ``wrote_any`` because the two mean very
+    # different things operationally.  The baseline stage is a
+    # RECONSTRUCTED PROXY (realized production re-scored under this
+    # league's rules) and it essentially always writes; clay and idpshow
+    # are the only real forward-looking projection sources.  Without this
+    # distinction the final log line read "done: snapshot(s) written" on
+    # a box where both real sources had failed — which is what happened
+    # on production 2026-07-30, where poppler was missing and the IDP
+    # Show header format had changed.
+    real_source_wrote = False
 
     if args.skip_baseline:
         log("baseline stage skipped by flag")
@@ -207,6 +217,7 @@ def main() -> int:
         )
         if rc == 0:
             wrote_any = True
+            real_source_wrote = True
         elif rc == 1:
             log(
                 "WARN: clay guide unavailable (CDN 404 / poppler missing?); "
@@ -233,9 +244,13 @@ def main() -> int:
             )
             if rc == 0:
                 wrote_any = True
+                real_source_wrote = True
             elif rc == 1:
                 log(
-                    "WARN: idpshow returned no usable data (expired cookies / paywall?). "
+                    "WARN: idpshow returned no usable data (expired cookies, paywall, "
+                    "OR a changed column layout — check the report's unmappedColumns "
+                    "before re-minting cookies; a header-format change presents "
+                    "identically here). "
                     "Previously merged real records stay on the board via the baseline "
                     f"carry-forward; {REMINT_HINT}."
                 )
@@ -244,7 +259,26 @@ def main() -> int:
                 hard_error = True
 
     if wrote_any:
-        log("done: snapshot(s) written")
+        if real_source_wrote:
+            log("done: snapshot(s) written, including at least one REAL source")
+        else:
+            # Deliberately still exit 0: the snapshot IS valid and the
+            # board prices from it, every record carries is_proxy=True,
+            # and the UI badges those rows. Turning this into a non-zero
+            # exit would mark the systemd unit failed every week until an
+            # operator installs poppler and mints cookies, which trains
+            # people to ignore a red unit — worse than a precise log line.
+            #
+            # If a louder signal is wanted, the right place is
+            # /api/status (a projectionSourceMix field), not the exit
+            # code. Left as an explicit decision rather than an
+            # accident; raised with the owner 2026-07-30.
+            log(
+                "done: PROXY-ONLY snapshot written — no real projection source "
+                "landed (clay and idpshow both failed above). Every record is "
+                "is_proxy=True: this is backward-looking realized production, "
+                "not a forward projection."
+            )
         return 0
     if hard_error:
         log("done: hard error and nothing written")

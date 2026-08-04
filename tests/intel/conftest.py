@@ -174,6 +174,15 @@ def _isolate_intel_data_dir(tmp_path, monkeypatch):
     """
     from src.intel import ledger, store
 
+    # The manual-refresh cooldown (D13) is process-global state; without
+    # a reset, the first test to trigger a refresh 429s every later one.
+    try:
+        import server as _server
+
+        _server._intel_refresh_reset_for_tests()
+    except Exception:  # noqa: BLE001 — server may not be importable here
+        pass
+
     monkeypatch.setattr(store, "DATA_DIR", tmp_path / "intel_autouse")
     ledger.reset_setup_cache()
     service.invalidate_cache()

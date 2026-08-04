@@ -1,0 +1,224 @@
+name: Audit Rank-Form Curve Drift
+
+# Surveillance of the legacy rank-form Hill constants
+# (``HILL_MIDPOINT`` / ``HILL_SLOPE``, ``IDP_HILL_MIDPOINT`` /
+# ``IDP_HILL_SLOPE`` in src/canonical/player_valuation.py).
+#
+# WHY THIS CRON EXISTS
+# --------------------
+# Those constants reconstruct a value from a rank for terminal.py's value
+# fallback, rank_history.py's historical backfill, and the frontend
+# team-value / derived-rank charts.  When they stop matching the board,
+# NOTHING FAILS — a reconstruction path returning a wrong-but-plausible
+# number renders a perfectly normal-looking chart.  That is how the
+# pre-2026-07-30 offense pair sat at RMSE 821.7 against an achievable
+# 89.8 (a ~9x error on every reconstructed offense value) without anyone
+# noticing.
+#
+# WHY TUESDAY 07:41
+# -----------------
+# Deliberately AFTER refit-hill-curves.yml (Tue 06:17).  A
+# percentile-master promotion is the thing that actually moves these
+# constants — the masters are step 3 of the live pipeline, so a new pair
+# reshapes the board's rank→value relation and the rank-form
+# approximation of it goes stale.  Measured: the 2026-07-29
+# pre-promotion board refit to 68.8/0.929, the post-promotion board to
+# 65.2/0.905.  Market churn, by contrast, does not move them at all: 16
+# archived snapshots spanning 2026-07-16 → 07-30 all refit to the same
+# values.  So this check follows promotions, not data.
+#
+# WHY IT OPENS AN ISSUE INSTEAD OF A PULL REQUEST
+# -----------------------------------------------
+# ADR-008 (docs/roster-trade-intelligence/DECISIONS.md) prohibits a model
+# autonomously rewriting production constants, and its sharpest finding
+# is the one that applies here: the old auto-refit path was green BY
+# CONSTRUCTION because it rewrote the very test that guarded it.  An
+# automated fix that patched player_valuation.py and also re-baselined
+# test_rank_form_constants_tripwire.py would rebuild that exact
+# circularity — a PR that cannot fail its own guard.
+#
+# So the automation computes the fix and hands it over.  The script
+# prints the constants to write and the three files to write them in; a
+# human applies them, which makes the tripwire fail, and updating the
+# pins is the deliberate recorded act.  The refit-hill-curves.yml comment
+# "ONLY the registry. Never player_valuation.py, never the reconciliation
+# pins" is the standing rule and this workflow keeps it.
+#
+# Exit codes from scripts/check_rank_form_drift.py:
+#   0  within tolerance                        -> green, job summary only
+#   1  error (missing/unreadable snapshot)     -> RED
+#   2  drift detected                          -> RED + issue
+
+on:
+  schedule:
+    # Tuesday 07:41 UTC — after refit-hill-curves.yml (06:17) so a
+    # promotion landing that morning is measured the same day, and off
+    # the top of the hour.
+    - cron: "41 7 * * 2"
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: "Excess-RMSE budget per scope before drift is reported"
+        required: false
+        type: string
+        default: "25"
+
+concurrency:
+  group: audit-rank-form-drift
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    name: Rank-form drift check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip check
+          python scripts/check_env.py --runtime
+
+      - name: Check for a snapshot
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SNAPSHOT=$(ls -t exports/latest/dynasty_data_*.json 2>/dev/null | head -1 || true)
+          if [ -z "${SNAPSHOT}" ]; then
+            # Same reasoning as audit-dropped-sources.yml: a missing
+            # snapshot means the export pipeline is broken, and a silent
+            # 0 would make "the audit did not run" look identical to
+            # "the curve is healthy" in GitHub's UI.
+            echo "::error title=Missing snapshot::no dynasty_data_*.json in exports/latest/ — data-refresh pipeline may be broken"
+            exit 1
+          fi
+          echo "Using snapshot: ${SNAPSHOT}"
+
+      - name: Run drift check
+        id: drift
+        shell: bash
+        continue-on-error: true
+        env:
+          THRESHOLD: ${{ github.event.inputs.threshold || '25' }}
+        run: |
+          set -Eeuo pipefail
+          set +e
+          python scripts/check_rank_form_drift.py \
+            --threshold "${THRESHOLD}" \
+            --json-out /tmp/rank_form_drift.json \
+            --verbose | tee /tmp/rank_form_drift.txt
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "exit_code=${code}" >> "$GITHUB_OUTPUT"
+          echo "Driver exited ${code}"
+
+      - name: Job summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          {
+            echo "## Rank-form curve drift"
+            echo
+            if [[ "${{ steps.drift.outputs.exit_code }}" == "0" ]]; then
+              echo "Committed constants still reproduce the board within budget."
+            elif [[ "${{ steps.drift.outputs.exit_code }}" == "2" ]]; then
+              echo "**Drift detected** — see the opened issue."
+            else
+              echo "**Check errored** (exit ${{ steps.drift.outputs.exit_code }})."
+            fi
+            echo
+            echo '```'
+            cat /tmp/rank_form_drift.txt 2>/dev/null || echo "(no output captured)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update an issue on drift
+        if: ${{ steps.drift.outputs.exit_code == '2' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          TITLE="Rank-form curve drift: reconstruction constants are stale"
+          BODY=$(printf '%s\n\n```\n%s\n```\n\nWhy this matters: these constants feed RECONSTRUCTION paths (terminal.py value fallback, rank_history.py historical backfill, and the frontend team-value / derived-rank charts). Nothing fails when they drift — the charts just render wrong numbers.\n\nThis issue is deliberately not a pull request. See ADR-008 and the header of `.github/workflows/audit-rank-form-drift.yml`: an automated patch that also re-baselined the guard tests would be green by construction, which is the exact defect ADR-008 documents.\n\nRun: %s\n' \
+            "The weekly drift check found the committed rank-form Hill constants no longer reproduce the served board. The constants to write, and the three files to write them in, are in the output below." \
+            "$(cat /tmp/rank_form_drift.txt)" \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+          EXISTING=$(gh issue list --state open --label calibration \
+            --search "in:title Rank-form curve drift" --json number --jq '.[0].number' || true)
+          if [[ -n "${EXISTING}" && "${EXISTING}" != "null" ]]; then
+            gh issue comment "${EXISTING}" --body "${BODY}"
+          else
+            gh issue create --title "${TITLE}" --body "${BODY}" --label calibration \
+              || gh issue create --title "${TITLE}" --body "${BODY}"
+          fi
+
+      - name: Fail loudly on drift or error
+        if: ${{ steps.drift.outputs.exit_code != '0' }}
+        shell: bash
+        run: |
+          echo "::error title=Rank-form drift check::driver exited ${{ steps.drift.outputs.exit_code }}"
+          exit 1
+
+      - name: Close the tracking issue when the drift audit is green
+        # The missing half of the scheduled-refresh.yml pattern.
+        #
+        # MATCHED ON TITLE, NOT LABEL — and that is not a stylistic
+        # choice.  `refit-hill-curves.yml` writes to the SAME
+        # `calibration` label, so a label-only close here would reach over
+        # and close ITS issues.  That would be actively harmful: its
+        # exit-code-1 issue is "a challenger cleared the held-out gate and
+        # is waiting for a human to promote it" — a work item, not an
+        # alert.  Silently closing a promotion request is worse than
+        # leaving a stale alert open, which is why refit-hill-curves.yml
+        # deliberately has no auto-close at all.
+        #
+        # Both workflows also fall back to creating an UNLABELLED issue
+        # when the label is missing (`|| gh issue create` without
+        # --label), so the title search is the more reliable key anyway.
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          TITLE="Rank-form curve drift: reconstruction constants are stale"
+          # --search on the exact title, then filter client-side: GitHub's
+          # search is fuzzy and would otherwise match the refit issues,
+          # which is the whole hazard this step is avoiding.
+          OPEN=$(gh issue list --state open --limit 50 \
+                   --json number,title \
+                   --jq ".[] | select(.title == \"${TITLE}\") | .number" \
+                 2>/dev/null || echo "")
+          if [[ -z "$OPEN" ]]; then
+            echo "no open drift issue; nothing to close"
+            exit 0
+          fi
+          for N in $OPEN; do
+            echo "closing #${N}"
+            gh issue close "$N" --reason completed --comment \
+              "Rank-form drift audit is green again — the reconstruction constants match the live curves.
+
+          - Workflow run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+          - Closed: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Reopened automatically by the alert step if drift returns." || true
+          done

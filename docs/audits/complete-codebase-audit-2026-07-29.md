@@ -213,6 +213,25 @@ source votes exactly once — pinned by a determinism test.
 
 ### Open modeling decisions (NOT resolved here)
 
+> **Followed up 2026-07-29 — see `docs/open-modeling-decisions.md`.**
+> Both questions below were under-specified: stated as choices without
+> the measurements needed to make them. They are now closed to evidence.
+> **(1) `coverageWeight`: do not apply** — measured at 297 rows moved /
+> 221 ranks changed for a 3-source input change, with no accuracy
+> evidence. **(2) the rank-form family: the "bring it under the model
+> registry" proposal was WRONG** — the refit script is read-only and
+> nothing runs it, so there is no automated promotion to gate; replaced
+> with a tripwire test. A third question raised later (the
+> `low_conf_unstable` threshold) turned out to be a broken metric, not a
+> threshold — same document.
+>
+> **Closed 2026-07-30.** `low_conf_unstable` is **retired** from both
+> engines. `_sites` maxes at 3 because the scraper runs a deliberate
+> two-source model (`SITES` has KTC + IDPTradeCalc on, ten others off),
+> and every candidate divisor moves confidence *away* from the 0.35
+> threshold — 0 players below it at divisors 3, 4 and 5 — so no
+> recalibration could rescue the rule.
+
 1. **Should `coverageWeight` be applied?** The depth-scaled factor is
    computed and published but never used. Applying it would down-weight
    the three depth-50 rookie sources and *change the default board*.
@@ -348,6 +367,50 @@ corrected instead.
 | D12 | mypy configured, never run; ruff check changed-files-only | Low | Type debt accumulates unseen | Medium | No |
 | D13 | ~205 pytest cases are `livedata`-advisory (`continue-on-error`) | Medium | Includes the primary blend test | Small | Re-litigate per module |
 | D14 | ADR numbers collide across two DECISIONS files (two ADR-008s) | Low | Ambiguous citations | Small | No |
+| D15 | `_sites` / `_marketConfidence` divisor is 8.0, a fossil of the pre-scope-reduction ~10-site scraper era; confidence is structurally capped at 0.594 | Low | No board impact (`market_conf` only multiplies the scraper composite, never `rankDerivedValue`); reaches live code only via `finder.py`'s degraded fallback | Small | Fix when the scraper is next touched — measured multipliers in `docs/open-modeling-decisions.md` §3 |
+| D16 | `tests/canonical/test_ktc_reconciliation.py`: 10 cases failing on `main`, invisible because the module is auto-marked `livedata` | Medium | A guard that was supposed to catch curve drift is stale and silent — `PINNED_DELTAS` were baselined against since-promoted percentile constants | Small | **FIXED 2026-07-30** — see below |
+
+### D16 — fixed 2026-07-30
+
+Two problems, and only one of them was the stale numbers.
+
+**The pins were re-baselined.** All 10 cases were failing (not 9 — the
+first count came from a partial run; rank 1 fails only on the band, which
+happened to be in tolerance). Nine failed the exact `ours == pinned_ours`
+pin because `HILL_PERCENTILE_C/S` were promoted after the 2026-04-20
+baseline; ranks 24 and 50 also failed the divergence band.
+
+**The structural problem was that nothing could ever have caught it.**
+`scripts/model_registry.py apply` rewrites the constants and stops —
+deliberately, because ADR-008 prohibits the refit path from rewriting its
+own guards. But that leaves every downstream expectation to go stale
+silently, and this one is `livedata`-marked, so CI runs it
+`continue-on-error`. A guard that quietly rots after every promotion is
+not much better than one rewritten by the thing it guards.
+
+The marking is *correct* and pinned in place by
+`test_refit_path_characterisation.py::TestTheLivedataMarkingIsPreserved`
+(a KTC row-count dip once stalled every open PR), and that test also
+requires the module keep both its assertions. So the fix could not be a
+restructure of that file. Instead:
+
+`tests/canonical/test_hill_percentile_constants_tripwire.py` — a
+deterministic, **non-`livedata`, blocking** tripwire on the eight
+percentile constants, mirroring the rank-form tripwire. Four tests:
+
+- pins the eight constants; a promotion fails here, loudly, in the hard
+  tier, with a four-step follow-up checklist in the message
+- pins what the OFFENSE master *produces* at ten ranks — catches a
+  formula or `_PERCENTILE_REFERENCE_N` change the constants would miss
+- asserts the registry's **regex** reader (`hill_masters.read_committed_constants`,
+  the same path `apply` writes through) agrees with the values Python
+  imports. Nothing else checked that; a divergence would have the registry
+  promoting numbers the engine does not use
+- **cross-checks `PINNED_DELTAS` against these values**, so the advisory
+  guard's staleness is detectable from the blocking tier. Mutation-tested:
+  reverting one pin fails this test
+
+Net effect: the next promotion cannot silently stale either guard.
 
 ### D2 was wrong — recorded so it is not re-raised
 
@@ -537,6 +600,14 @@ pipeline.
 > (three merges, three live defects fixed). The follow-up also surfaced
 > **three NEW items**, listed under "Must complete" — they are bigger
 > than the ones they replaced.
+>
+> **Status update 2026-07-30.** **N1 done** (`signal-engine.js` now uses
+> `buildHistoryLookup`, so the frontend engine actually sees history).
+> **N2 resolved by retirement, not repair** — the metric, not the wiring,
+> was the problem; see `docs/open-modeling-decisions.md` §3. **N3 done**
+> (`sleeper_overlay` raw `full_name` fallback). Item 1 (rotate the admin
+> password) is still an owner action. Item 6 — the legacy-curve decision
+> — is in progress: re-tune plus drift automation.
 
 **Must complete before major new features**
 1. **Rotate the admin password** if not already done since April (C6).
@@ -555,6 +626,19 @@ pipeline.
    `ACTIONABLE_SIGNALS` — so fixing it naively would email every user at
    once on the first sweep. It needs the silent baseline-seeding pass
    that `bdvm_signal_alerts.py` already models.
+
+   **RESOLVED 2026-07-30 — retired, not repaired.** The wiring was fixed
+   on 2026-07-29; with the plumbing correct the *metric* proved to be
+   the defect. `marketConfidence` is structurally capped at 0.59375
+   because the scraper's `site_count / 8.0` term is a fossil of a
+   ~10-site era and only three dash keys exist under today's two-source
+   `SITES` map. Every candidate divisor pushes the population above
+   0.35 rather than toward it, so no threshold makes the rule sound. The
+   rule is gone from both engines and from the parity fixture's rule
+   registry; the confidence number survives as a diagnostic.
+   `tests/api/test_market_confidence_wiring.py::TestTheRuleIsRetired`
+   asserts no surviving rule's verdict changes with confidence, so a
+   reinstatement under another tag fails a test.
 4. **Decide the `coverageWeight` question** (§3.1). It is now honestly
    labelled, but leaving a published formula unapplied indefinitely
    invites the next reader to "fix" it and move every value.
@@ -565,6 +649,29 @@ pipeline.
    One function; hardens five consumers at once.
 6. **Legacy-curve decision** (§3.2) using the committed backtest.
    Depends on 4 only in the sense that both are curve-governance calls.
+
+   **DONE 2026-07-30 — re-tuned, kept, and alarmed.** Migration to the
+   percentile masters turned out not to be a live option (they are 5-8x
+   worse everywhere on the current board; they model the blend's *input*,
+   not its output). The old rank-form constants were fit to retail source
+   boards rather than to our board and scored RMSE 821.8 on offense rows;
+   re-tuned to 65.4/0.910 (offense) and 64.6/0.900 (IDP) they score
+   89.8/76.2, which is the achievable floor. Drift is now watched by
+   `scripts/check_rank_form_drift.py` +
+   `.github/workflows/audit-rank-form-drift.yml`, which opens an issue
+   rather than a PR per ADR-008, and the alarm itself is tested. A third
+   copy of these constants in `frontend/lib/value-history.js` (wrong on
+   all three values) was found and pinned by a parity test. Full
+   write-up: `docs/legacy-rank-curve-backtest.md` 2026-07-30 addendum.
+
+   Uncovered while doing it: `tests/canonical/test_ktc_reconciliation.py`
+   had **10 cases failing on `main`** — its `PINNED_DELTAS` were baselined
+   against percentile constants that have since been promoted, and it is
+   auto-marked `livedata` so CI never blocks on it. Confirmed at a clean
+   HEAD, so it predated this work. Registered as D16 and **fixed
+   2026-07-30** (see the D16 note in §8): pins re-baselined, plus a new
+   deterministic blocking tripwire on the percentile constants so the next
+   promotion cannot silently stale either guard.
 7. **BDVM end-to-end validation** once a projection snapshot exists.
 
 **Medium priority**

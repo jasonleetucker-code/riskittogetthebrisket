@@ -37,6 +37,31 @@ const PUBLIC_EXACT = new Set([
 const PUBLIC_PREFIXES = ["/league"];
 
 /**
+ * Carve-outs from the public subtrees above — private pages that
+ * happen to sit under a public prefix.
+ *
+ * Prefix matching fixed the `/league/activity` drift described above,
+ * and in doing so it made every future `/league/*` page public by
+ * default. `/league/insider-trading` is the first one where that
+ * default is wrong, and it shipped that way: measured on production
+ * 2026-07-30, the page returns **200** to an anonymous visitor while
+ * both of its data sources return **401**
+ * (`/api/intel/summary`, `/api/intel/player`), and the page has no auth
+ * gate of its own — so a stranger gets a permanent "Loading Insider
+ * Trading…" spinner. `robots.txt` serves `Allow: /league/`, so that
+ * spinner is on an indexable URL.
+ *
+ * This is the same defect the note at the top of this file describes
+ * for `/trades` — declared public while rendering private data — and
+ * the reason it recurred is that `/trades` was fixed by removing it
+ * from a list, which does nothing for a route nobody had to add.
+ * A deny-list against the prefix is what actually holds.
+ *
+ * Checked BEFORE the prefixes, so the exception wins.
+ */
+const PRIVATE_EXCEPTIONS = ["/league/insider-trading"];
+
+/**
  * Paths the auth gate must never touch: framework internals, the API
  * (which enforces its own default-deny gate server-side), and the
  * crawler/PWA metadata files.
@@ -84,7 +109,14 @@ export function isPublicPath(pathname) {
   if (!pathname) return false;
   if (isInfrastructurePath(pathname)) return true;
   if (PUBLIC_EXACT.has(pathname)) return true;
+  // Exceptions beat the prefix, so a private page under a public
+  // subtree cannot be made public by the subtree alone.
+  if (
+    PRIVATE_EXCEPTIONS.some((p) => pathname === p || pathname.startsWith(p + "/"))
+  ) {
+    return false;
+  }
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
-export { PUBLIC_EXACT, PUBLIC_PREFIXES };
+export { PUBLIC_EXACT, PUBLIC_PREFIXES, PRIVATE_EXCEPTIONS };

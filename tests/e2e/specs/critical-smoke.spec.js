@@ -11,6 +11,14 @@
  * knowing you broke something before the user tells you.
  */
 const { test, expect } = require("@playwright/test");
+// Page navigations below go through pageUrl(). Until #555 they did NOT —
+// they were the last two bare `page.goto(path)` calls in the suite, and
+// they were correct that way, because their subject WAS the backend's
+// page proxy. That proxy is deleted, so a bare goto here now resolves
+// against baseURL (:8000) and gets a 404 from a backend that serves only
+// /api/. The API blocks further down deliberately keep resolving against
+// baseURL — that is why baseURL stays on :8000.
+const { pageUrl } = require("../helpers/journey");
 
 const PUBLIC_ROUTES = [
   // The shell brands the chrome "Chase Upside" (renamed from "Brisket"
@@ -21,15 +29,20 @@ const PUBLIC_ROUTES = [
   // state — this check exists to prove the route renders at all, not to
   // pin the marketing copy.
   { path: "/", mustHave: /Chase Upside/i },
-  // ``/league`` removed from this list: the backend's ``_proxy_next``
-  // helper is hit by these tests (baseURL = backend port) but the
-  // /league SSR pass is consistently slower than even a 5s proxy
-  // timeout can absorb on a cold backend.  Production routes pages
-  // through nginx directly to Next.js, so the proxy slowness only
-  // affects synthetic tests.  The /league flow is covered by
-  // public-league.spec.js (which targets the public-league API
-  // directly) and by the prod-e2e-smoke cron against the real
-  // domain via nginx.
+  // ``/league`` is still absent from this list, but NOT for the reason
+  // that used to be written here.  The old note blamed the backend
+  // proxy's 5s timeout, which #555 deleted along with the proxy.
+  //
+  // The reason that survives is the one underneath it: /league SSR was
+  // measured at 7-19s (15.78s p100, docs/e2e-assertion-audit.md), which
+  // blows the 15s content budget on line 87 regardless of who serves it.
+  // "The stated cause is gone" is not the same claim as "it is fast
+  // enough now", so this stays out until someone measures it again.
+  // Tracked as #667 rather than as part of #555 — deleting the proxy did
+  // not make /league faster.
+  //
+  // /league is covered meanwhile by public-league.spec.js (against the
+  // public-league API) and by the prod-e2e-smoke cron through nginx.
   { path: "/login", mustHave: /Sign in/i },
 ];
 
@@ -82,7 +95,10 @@ test.describe("critical smoke — public routes", () => {
       // ``domcontentloaded`` is enough for these checks: we're
       // confirming the route renders + the marker text appears, not
       // measuring TTI.
-      const res = await page.goto(path, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      const res = await page.goto(pageUrl(path), {
+        waitUntil: "domcontentloaded",
+        timeout: 30_000,
+      });
       expect(res?.status(), `${path} should return 200`).toBeLessThan(400);
       await expect(page.locator("body")).toContainText(mustHave, { timeout: 15_000 });
       expect(errors, `${path} should not log JS errors`).toEqual([]);
@@ -93,7 +109,30 @@ test.describe("critical smoke — public routes", () => {
 test.describe("critical smoke — auth-gated routes redirect to /login", () => {
   for (const { path } of AUTH_GATED_ROUTES) {
     test(`GET ${path} (unauthenticated) redirects without crashing`, async ({ page }) => {
-      const res = await page.goto(path, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      // The SUBJECT of this block changed with #555, not just its origin.
+      //
+      // It used to assert the BACKEND's page gate: `_require_auth_or_redirect`
+      // emitted a 302 to /login?next=… . That gate is deleted, and
+      // frontend/middleware.js — which already was the only gate running in
+      // production, since nginx never routed a page here — is now the only
+      // one anywhere. So this asserts the gate that actually protects users
+      // instead of a second definition of it that had to be kept in sync.
+      // (Two definitions drifting is what caused the incident middleware.js
+      // was written for: every private page served 200 to anonymous
+      // visitors.)
+      //
+      // Visible difference: the redirect is Next's 307, not the old 302.
+      // Both satisfy the assertions below, which check the landing URL
+      // rather than the status.
+      //
+      // Note how this block would have failed if the goto had been left
+      // bare: line below passes on a 404 (404 < 500), and the URL check
+      // fails instead — because a 404 emits no Location, so page.url()
+      // never leaves the requested path. Quiet, and misleading.
+      const res = await page.goto(pageUrl(path), {
+        waitUntil: "domcontentloaded",
+        timeout: 30_000,
+      });
       expect(res?.status(), `${path} should not 500`).toBeLessThan(500);
       // This assertion used to read:
       //
@@ -158,49 +197,31 @@ test.describe("critical smoke — auth-gated API returns 401 when unauthenticate
   });
 });
 
-test.describe("critical smoke — terminal endpoint contracts", () => {
-  // /api/terminal moved into the auth-gated set (server.py
-  // _PUBLIC_API_EXACT no longer lists it).  The "anonymous returns
-  // publicMode payload" contract these tests asserted is no longer
-  // the live behavior — anonymous returns 401.  Tests skip when
-  // unauthenticated; the signed-in spec covers the populated path.
-  test("GET /api/terminal returns publicMode payload when anonymous", async ({ request }) => {
-    const res = await request.get("/api/terminal");
-    if (res.status() === 401) {
-      test.info().annotations.push({
-        type: "skip",
-        description: "/api/terminal is now auth-gated; signed-in spec covers populated path",
-      });
-      return;
-    }
-    if (res.status() === 503) {
-      test.info().annotations.push({
-        type: "skip",
-        description: "live contract not loaded yet",
-      });
-      return;
-    }
-    expect(res.status()).toBe(200);
-    const body = await res.json();
-    expect(body.authenticated).toBe(false);
-    expect(body.meta?.publicMode).toBe(true);
-    // Private fields should be nulled / empty.
-    expect(body.team).toBeNull();
-    expect(body.signals).toEqual([]);
-    expect(body.portfolio).toBeNull();
-    // Public fields should still be populated when data exists.
-    expect(body.movers).toBeDefined();
-    expect(Array.isArray(body.movers.league)).toBe(true);
-    expect(Array.isArray(body.movers.top150)).toBe(true);
-    expect(body.trendWindows).toEqual([7, 30, 90, 180]);
-  });
-
-  test("rank-history endpoint clamps days to MAX_SNAPSHOTS", async ({ request }) => {
-    const res = await request.get("/api/data/rank-history?days=9999");
-    if (res.status() === 401 || res.status() === 503) return;
-    expect(res.status()).toBe(200);
-    const body = await res.json();
-    expect(body.days).toBeLessThanOrEqual(365 * 3);
-    expect(body.history).toBeDefined();
-  });
-});
+// ── What was here: two tests that reported PASSED while executing
+// nothing at all ─────────────────────────────────────────────────────
+//
+// "GET /api/terminal returns publicMode payload when anonymous" and
+// "rank-history endpoint clamps days to MAX_SNAPSHOTS" both opened by
+// checking for 401 and, on a hit, returning early — one after pushing
+// an annotation of `{type: "skip"}`, which is NOT `test.skip()` and does
+// not skip anything. Playwright reported both as PASSED.
+//
+// Both endpoints are auth-gated and return 401 to an anonymous request
+// (measured, not assumed). This is an ANONYMOUS spec. So every
+// assertion in both bodies was unreachable, permanently, and the suite
+// counted two more green tests for it. That is worse than no test: it
+// occupies the slot where real coverage would go — the same finding as
+// the `body.length > 0` disjunction above.
+//
+// They are not simply deleted; each half went where it can execute:
+//
+//   * the auth gate — already covered, and non-vacuously, by
+//     AUTH_GATED_API_ROUTES above, which lists both `/api/terminal` and
+//     `/api/data/rank-history?days=30` and asserts the 401.
+//   * the terminal payload — covered by signed-in-smoke.spec.js
+//     ("/api/terminal returns 200 (or 503 data_not_ready)"). The
+//     anonymous `publicMode` payload it asserted stopped being live
+//     behaviour when the endpoint moved out of `_PUBLIC_API_EXACT`;
+//     there is no such contract left to test.
+//   * the MAX_SNAPSHOTS clamp — had NO other home, so it moved to
+//     signed-in-smoke.spec.js rather than being dropped with the rest.

@@ -143,8 +143,30 @@ class IdpShowParseError(ValueError):
     pass
 
 
+# A leading "Projected " / "Proj " on a stat header carries no meaning
+# here — this whole module parses a projection sheet, so every column is
+# projected by definition.  Stripped before alias lookup.
+#
+# Why: measured 2026-07-30 on the live sheet, every stat header arrived
+# prefixed ("Projected Solo Tackles", "Projected Sacks", "Projected
+# TFL", ...).  None matched, so ``statColumns`` came back EMPTY, the
+# table was rejected as ``not_a_projection_table``, and the caller
+# reported it as "expired cookies / paywall?" — a misdiagnosis, since
+# the cookies were valid and the right table had been fetched.
+#
+# Safe by construction: stripping only ever widens what matches, and it
+# cannot collide with the two aliases that already spell the prefix out
+# ("projected points" -> "points", "proj pts" -> "pts"), both of which
+# still resolve to ``fpts``.  ``_squeeze`` is used for headers only
+# (one call site), so player names and position values are untouched.
+_PROJECTED_PREFIX = re.compile(r"^(?:projected|proj)\s+")
+
+
 def _squeeze(header: str) -> str:
-    return re.sub(r"[^a-z0-9/ ]+", "", str(header or "").strip().lower()).replace("  ", " ").strip()
+    cleaned = (
+        re.sub(r"[^a-z0-9/ ]+", "", str(header or "").strip().lower()).replace("  ", " ").strip()
+    )
+    return _PROJECTED_PREFIX.sub("", cleaned).strip()
 
 
 def _num(v: Any) -> float | None:

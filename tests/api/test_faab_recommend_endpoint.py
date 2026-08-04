@@ -16,6 +16,7 @@ All Sleeper/analytics/intel inputs are stubbed — no live network.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -195,7 +196,7 @@ _FAKE_SUMMARY = {
 }
 
 
-def _install_snapshot(monkeypatch, league_id, summary=None):
+def _install_snapshot(monkeypatch, league_id, summary=None, generated_at=None):
     """Fake public snapshot for ``league_id``; ``summary=None`` arms
     a tripwire that fails the test if the endpoint tries to build
     analytics from a wrong-league snapshot."""
@@ -205,7 +206,7 @@ def _install_snapshot(monkeypatch, league_id, summary=None):
 
     snap = types.SimpleNamespace(
         root_league_id=league_id,
-        generated_at="2026-07-25T11:00:00+00:00",
+        generated_at=generated_at or "2026-07-25T11:00:00+00:00",
     )
     monkeypatch.setattr(server.public_snapshot_store, "load_snapshot", lambda: snap)
     if summary is not None:
@@ -572,7 +573,13 @@ def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):
     """Counterpart to the wrong-league test: a snapshot for the
     RESOLVED league flows through — o1's real aggression history is
     used and the departed owner's entry never reaches the model."""
-    _install_snapshot(monkeypatch, "L-MAIN", summary=_FAKE_SUMMARY)
+    generated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    _install_snapshot(
+        monkeypatch,
+        "L-MAIN",
+        summary=_FAKE_SUMMARY,
+        generated_at=generated_at,
+    )
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = _post(
             c,
@@ -580,7 +587,7 @@ def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):
             {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"},
         )
     payload = res.json()
-    assert payload["inputsAsOf"]["leagueAnalytics"] == "2026-07-25T11:00:00+00:00"
+    assert payload["inputsAsOf"]["leagueAnalytics"] == generated_at
     assert "leagueAnalytics" not in payload["staleInputs"]
     contention = payload["contention"]
     per = {r["ownerId"]: r for r in contention["perOpponent"]}

@@ -1,0 +1,105 @@
+{
+  "foldsAttempted": 15,
+  "foldsUsable": 14,
+  "unusableReasons": [
+    "correlation undefined (zero variance in signal or outcome)"
+  ],
+  "meanSpearman": 0.08902504820452549,
+  "medianSpearman": 0.08878340783035649,
+  "spearmanByFold": [
+    {
+      "origin": "2026-04-23",
+      "n": 328,
+      "rho": -0.049302401100893296
+    },
+    {
+      "origin": "2026-04-30",
+      "n": 689,
+      "rho": 0.16582822521874024
+    },
+    {
+      "origin": "2026-05-07",
+      "n": 693,
+      "rho": 0.09964275406850676
+    },
+    {
+      "origin": "2026-05-14",
+      "n": 691,
+      "rho": 0.08355329739650912
+    },
+    {
+      "origin": "2026-05-21",
+      "n": 682,
+      "rho": 0.1417455132082002
+    },
+    {
+      "origin": "2026-05-28",
+      "n": 687,
+      "rho": 0.04080008276817754
+    },
+    {
+      "origin": "2026-06-04",
+      "n": 330,
+      "rho": -0.0006532254248476837
+    },
+    {
+      "origin": "2026-06-11",
+      "n": 682,
+      "rho": 0.0882358632435087
+    },
+    {
+      "origin": "2026-06-18",
+      "n": 671,
+      "rho": 0.1319594469192901
+    },
+    {
+      "origin": "2026-06-25",
+      "n": 673,
+      "rho": 0.08933095241720428
+    },
+    {
+      "origin": "2026-07-02",
+      "n": 667,
+      "rho": 0.19481172621758225
+    },
+    {
+      "origin": "2026-07-09",
+      "n": 690,
+      "rho": 0.07927242102408329
+    },
+    {
+      "origin": "2026-07-16",
+      "n": 690,
+      "rho": 0.09346451920410914
+    },
+    {
+      "origin": "2026-07-23",
+      "n": 687,
+      "rho": 0.08766149970318617
+    }
+  ],
+  "benchmarks": {
+    "marketValue": {
+      "meanSpearman": -0.02550520062219475,
+      "beatenInFolds": 13
+    },
+    "random": {
+      "meanSpearman": -0.017133742735163583,
+      "beatenInFolds": 12
+    }
+  },
+  "verdict": "inconsistent across folds (mean rho +0.089 over 14 non-overlapping folds; 12/14 folds positive; beat market-value benchmark in 13/14)",
+  "foldsPositive": 12,
+  "horizonDays": 7,
+  "panelStart": "2026-04-16",
+  "panelEnd": "2026-08-03",
+  "foldsTruncated": false,
+  "modelVersion": "ce.2026-08-04.v0-shadow",
+  "measuredAt": "2026-08-04T01:29:20.048909+00:00",
+  "target": "cohort-excess market return of the anchor board",
+  "caveats": [
+    "Replays today's pipeline over past inputs: inputs cannot leak, but the model is current.",
+    "Measures market movement, not fantasy production \u2014 the panel covers an offseason.",
+    "Folds are non-overlapping; the fold count is the honest sample size."
+  ]
+}

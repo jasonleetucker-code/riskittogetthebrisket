@@ -121,21 +121,27 @@ class TestBaseValueCurve:
         assert rank_to_value(1) == 9999
 
     def test_correct_spot_values(self):
-        # Hill curve fit to the simple mean of KTC / IDPTradeCalc /
-        # DynastyDaddy / DynastyNerds. Re-run
-        # ``scripts/fit_hill_curve_from_market.py`` to refresh the
-        # constants and update these expected values together.
+        # Re-baselined 2026-07-30 for the re-tuned rank-form constants
+        # (HILL_MIDPOINT 48.44 -> 65.4, HILL_SLOPE 1.149 -> 0.910).
+        #
+        # The previous baseline came from fitting retail SOURCE boards via
+        # ``scripts/fit_hill_curve_from_market.py``.  These constants exist
+        # to reconstruct OUR board from a rank, so they are now fit to
+        # ``rankDerivedValue`` by ``scripts/backtest_legacy_rank_curve.py``.
+        # If they change again, regenerate this dict from the constants
+        # rather than hand-editing it, and re-run the drift check
+        # (``scripts/check_rank_form_drift.py``).
         expected = {
             1: 9999,
-            2: 9885,
-            3: 9749,
-            5: 9460,
-            10: 8736,
-            25: 6914,
-            50: 4967,
-            100: 3055,
-            200: 1648,
-            500: 643,
+            2: 9781,
+            3: 9597,
+            5: 9270,
+            10: 8587,
+            25: 7134,
+            50: 5653,
+            100: 4068,
+            200: 2665,
+            500: 1360,
         }
         for rank, val in expected.items():
             assert (
