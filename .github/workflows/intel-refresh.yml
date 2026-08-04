@@ -222,7 +222,10 @@ jobs:
         # gh CLI tries to infer the repo from git and dies with
         # "fatal: not a git repository" — which is exactly how the
         # first live failure lost its tracking issue.
-        if: failure()
+        #
+        # Mainline only — see the long note on the same guard in e2e.yml
+        # (#716); workflow_dispatch is this workflow's only non-main path.
+        if: failure() && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -271,7 +274,10 @@ jobs:
         # open `intel-stale` issue means "this failed at least once, ever"
         # rather than "this is broken now" — #663 sat open for hours after
         # its gate went green because of exactly this gap.
-        if: success()
+        #
+        # Mainline only, for the reason in e2e.yml: a green dispatch from a
+        # branch would close a real open mainline issue.
+        if: success() && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
