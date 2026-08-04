@@ -368,9 +368,15 @@ class TestTheLeakGuardDoesRealWork(unittest.TestCase):
 
         Before it, coverage was 1/3 against a denominator that counted a
         zero-weight component, capping confidence at 69.34 under a
-        threshold of 70. The rows this suppressed turned out to be the
-        best-performing group measured: +8.83% cohort-excess at 6 of 6
-        folds once they could be labelled.
+        threshold of 70. The rows this suppressed measured +8.83%
+        cohort-excess at 6 of 6 folds once they could be labelled — the
+        best group on the board, which is what motivated the change.
+
+        On the scale-repaired board the same bucket returns **-1.10%**,
+        the WORST group. The coverage arithmetic here is still right and
+        still tested — a component we removed is not evidence we are
+        missing — but the measurement that motivated it did not survive
+        ADR-021, and this docstring is not going to pretend otherwise.
         """
         board = self._replay_board()
         self.assertTrue(board["strongLabelsReachable"])

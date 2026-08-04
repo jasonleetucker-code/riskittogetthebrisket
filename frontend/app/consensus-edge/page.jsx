@@ -60,9 +60,10 @@ function FailureState({ failure }) {
       <div className={styles.notice}>
         <h2>Consensus Edge is switched off</h2>
         <p>
-          Only one of its three components has been validated against an
-          outcome, so it ships behind a feature flag. Enable{" "}
-          <code>consensus_edge</code> to view the board.
+          Its top-20 buy list did not beat a random draw from the same priced
+          universe in any measured fold, so it ships behind a feature flag that
+          defaults off. Enable <code>consensus_edge</code> to view the board
+          anyway — everything works; what is missing is evidence that it helps.
         </p>
       </div>
     );

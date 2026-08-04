@@ -267,6 +267,17 @@ def fair_value_index(
             # count — a fixed stand-in would make a one-source row look
             # as well-evidenced as a twelve-source one.
             "sourceCount": len(row.get("sourceRanks") or {}),
+            # Identity quarantine, carried through rather than dropped.
+            # ``data_contract._validate_and_quarantine_rows`` already
+            # decides this and ``score.classify`` already has the branch
+            # for it — the two were simply not connected, so a row the
+            # pipeline had flagged as a bad identity join could reach the
+            # top-20 with a full-confidence Buy on it. A wrong join means
+            # the market price and the fair value may belong to two
+            # different players, which is the one input error a value
+            # model cannot absorb.
+            "quarantined": bool(row.get("quarantined")),
+            "identityConfidence": row.get("identityConfidence"),
             "assetClass": asset_class or None,
             "anchorKey": anchor_key,
             "basis": "leaveOneOut",

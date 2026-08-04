@@ -1,0 +1,174 @@
+name: Consensus Edge — re-validate
+
+# Re-run the shipping gate and fail when the committed measurement stops
+# describing the code.
+#
+# This exists because of a specific, verified failure. On 2026-08-04 the
+# `consensus_edge` flag was turned ON citing a committed top-20 study
+# (+3.59% median cohort-excess, beating a random draw in 6 of 7 folds).
+# `fair_value.py` — the direct input to that study — then changed, and
+# the study was never re-run. An audit found the change mattered a great
+# deal: every IDP fair value in the cited run had come off a
+# leave-one-out board with no IDP backbone, so those rows were priced on
+# no scale at all. Re-run, the same gate returned -1.01% and beat random
+# in 0 of 6, and the flag went back OFF (ADR-021 / ADR-023).
+#
+# Nothing in CI could see that, because the gate lived in a script
+# nobody ran. So:
+#
+#   * `pr-validation.yml` already enforces the CHEAP half on every PR —
+#     `test_the_default_is_whatever_the_committed_gate_says` fails if the
+#     flag default and the committed verdict disagree, and
+#     `test_served_order_is_the_measured_order` fails if the API stops
+#     serving the ordering the study measures.
+#   * this workflow enforces the EXPENSIVE half on a schedule: actually
+#     re-run the study and compare its verdict to the committed one.
+#
+# It deliberately does NOT commit the re-run. A measurement that
+# overwrites itself on a schedule cannot be cited: the file would always
+# agree with the code and the disagreement is the whole signal. The fresh
+# artifacts are uploaded, the diff is reported, and a human commits them
+# along with whatever decision they imply.
+
+on:
+  schedule:
+    # Weekly Wednesday 05:40 UTC. A day after refit-hill-curves (Tue
+    # 06:17) so a promoted curve — which moves every value on the board,
+    # and therefore every fair value this measures — is already in.
+    - cron: "40 5 * * 3"
+  workflow_dispatch:
+    inputs:
+      horizon_days:
+        description: "Horizon to re-validate (default: both 7 and 14)"
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: consensus-edge-revalidate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  revalidate:
+    name: Re-run the gate and compare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # The as-of panel reconstructs past boards with `git show`. On
+          # a shallow clone the scripts exit 2 rather than measuring a
+          # few days and calling it history — so this is load-bearing,
+          # not a convenience.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip check
+
+      - name: Self-test the gate before trusting it
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Same discipline as refit-hill-curves: a gate is only worth
+          # running if its own code is sound. Fast, and directly about
+          # the thing being run.
+          python -m pytest tests/consensus_edge/test_board_validation.py \
+                           tests/consensus_edge/test_outcomes.py -q
+
+      - name: Re-run the board validation
+        id: rerun
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          HORIZONS="${{ inputs.horizon_days }}"
+          if [[ -z "${HORIZONS}" ]]; then HORIZONS="7 14"; fi
+          mkdir -p /tmp/ce-rerun
+          for h in ${HORIZONS}; do
+            python scripts/validate_consensus_edge_board.py \
+              --horizon-days "${h}" \
+              --out "/tmp/ce-rerun/board-validation-h${h}.json"
+          done
+          echo "horizons=${HORIZONS}" >> "$GITHUB_OUTPUT"
+
+      - name: Compare the fresh verdict against the committed one
+        id: compare
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY' | tee /tmp/ce-rerun/compare.txt
+          import json, os, sys
+          from pathlib import Path
+
+          committed = sorted(Path("docs/measurements").glob(
+              "consensus-edge-board-validation-*.json"))
+          by_horizon = {}
+          for path in committed:
+              blob = json.loads(path.read_text())
+              by_horizon.setdefault(int(blob.get("horizonDays") or 0), []).append((path, blob))
+
+          drift = []
+          for fresh_path in sorted(Path("/tmp/ce-rerun").glob("board-validation-h*.json")):
+              fresh = json.loads(fresh_path.read_text())
+              horizon = int(fresh.get("horizonDays") or 0)
+              fresh_call = (fresh.get("decision") or {}).get("recommendation")
+              fresh_median = (fresh.get("pooled", {}).get("topBuys") or {}).get("medianExcess")
+              print(f"h{horizon}: fresh   {fresh_call!r} (median {fresh_median})")
+              for path, blob in by_horizon.get(horizon, []):
+                  old_call = (blob.get("decision") or {}).get("recommendation")
+                  old_median = (blob.get("pooled", {}).get("topBuys") or {}).get("medianExcess")
+                  print(f"h{horizon}: {path.name} {old_call!r} (median {old_median})")
+                  if old_call != fresh_call:
+                      drift.append(f"h{horizon} {path.name}: {old_call!r} -> {fresh_call!r}")
+              if not by_horizon.get(horizon):
+                  drift.append(f"h{horizon}: no committed measurement to compare against")
+
+          if drift:
+              print("\nVERDICT DRIFT:")
+              for line in drift:
+                  print(f"  - {line}")
+              sys.exit(1)
+          print("\nCommitted verdicts still describe the code.")
+          PY
+
+      - name: Upload the fresh measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: consensus-edge-revalidation
+          path: /tmp/ce-rerun/
+          retention-days: 30
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Consensus Edge — re-validation"
+            echo ""
+            if [[ "${{ steps.compare.outcome }}" == "success" ]]; then
+              echo "Committed verdicts still describe the code."
+            else
+              echo "**The committed measurement no longer describes the code.**"
+              echo "Download the artifact, commit the fresh measurements, and"
+              echo "move the flag default to match — see ADR-023 for the shape"
+              echo "of that decision."
+            fi
+            echo ""
+            echo '```'
+            cat /tmp/ce-rerun/compare.txt 2>/dev/null || echo "(the re-run did not get far enough to compare)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

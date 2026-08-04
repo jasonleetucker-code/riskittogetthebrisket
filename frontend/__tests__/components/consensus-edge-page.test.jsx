@@ -30,7 +30,12 @@ function jsonResponse(status, body) {
 }
 
 const VALIDATION = {
-  mispricing: { validated: true, measured: true, outcome: "positive", note: "rho +0.126" },
+  // A hypothetical validated component. No real one carries this today
+  // — mispricing lost it when its rho was re-measured on the
+  // scale-repaired board — but the badge logic still has to work, and a
+  // fixture pinned to whatever the registry currently says would stop
+  // testing the rendering it exists for.
+  mispricing: { validated: true, measured: true, outcome: "positive", note: "positive rho" },
   sharpFlow: { validated: false, measured: false, outcome: null, note: "no ledger" },
   opportunity: {
     validated: false,

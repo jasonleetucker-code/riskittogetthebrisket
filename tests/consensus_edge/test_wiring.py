@@ -550,9 +550,13 @@ class TestPlayerContextUnlocksASecondComponent(unittest.TestCase):
         impossible. That was true while the denominator counted all
         three components — including one carrying zero weight, which is
         not evidence we are missing but evidence we measured and
-        declined. Coverage is now 1 of 2, the ceiling is 79.37, and the
-        rows this had been suppressing turned out to be the best group
-        on the board (+8.83% cohort-excess, 6 of 6 folds).
+        declined. Coverage is now 1 of 2 and the ceiling clears the
+        threshold.
+
+        The rows this had been suppressing measured +8.83% cohort-excess
+        at 6 of 6 folds, which is why the denominator was examined at
+        all; on the scale-repaired board they measure -1.10%. What is
+        under test here is the arithmetic, not the finding.
         """
         from src.consensus_edge import service as svc
 
@@ -658,3 +662,42 @@ class TestServiceSignature(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@_needs_contract
+class TestIdentityQuarantineReachesTheLabel(_Enabled):
+    """A suspect identity join must not be scored as a confident call.
+
+    `data_contract._validate_and_quarantine_rows` has always decided
+    this, and `score.classify` has always had a `quarantined` branch
+    returning `Withheld`. Nothing connected them: `fair_value` dropped
+    the flag when it built its entry, so `classify` was never passed
+    True and the branch was dead. A row whose identity join is wrong is
+    one whose market price and fair value may belong to two different
+    players — the one input error a value model cannot absorb — and it
+    could reach the top-20 with a full-confidence Buy on it.
+    """
+
+    def test_the_flag_survives_the_journey_to_the_row(self):
+        body = self.client.get("/api/consensus-edge/players").json()
+        self.assertTrue(
+            any("quarantined" in row for row in body["players"]),
+            "rows do not carry the quarantine flag at all",
+        )
+
+    def test_a_quarantined_row_is_withheld_not_scored(self):
+        body = self.client.get("/api/consensus-edge/players").json()
+        quarantined = [r for r in body["players"] if r.get("quarantined")]
+        if not quarantined:
+            self.skipTest("no quarantined rows on this payload")
+        for row in quarantined:
+            self.assertEqual(row["label"], "Withheld", row["playerKey"])
+            self.assertFalse(row["qualified"], row["playerKey"])
+
+    def test_a_quarantined_row_cannot_reach_the_top_list(self):
+        # The consequence, asserted separately from the label: `qualified`
+        # is what `top_movers` filters on, so this is the property that
+        # actually keeps a bad join off the list a user reads.
+        top = self.client.get("/api/consensus-edge/top?limit=20").json()
+        for row in top["buys"] + top["sells"]:
+            self.assertFalse(row.get("quarantined"), row["playerKey"])

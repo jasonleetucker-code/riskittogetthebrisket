@@ -523,3 +523,43 @@ to `score` — that leaves the backend's own array order (already
 conviction order) intact instead of quietly reinstating the ranking the
 measurements do not describe.
 **Status:** accepted 2026-08-04.
+
+## ADR-023: the flag goes back OFF, on the gate that turned it on
+Supersedes ADR-020. Nothing about the reasoning in ADR-020 was wrong;
+the board it reasoned about was. Every measurement it cited — the
+top-20's +3.59%, `Strong Buy`'s +8.83%, mispricing's ρ +0.126 — was
+produced on a board whose IDP fair values came from a leave-one-out
+build with no IDP backbone, and were therefore not on any scale
+(ADR-021).
+**Re-run against the repaired board, the same pre-registered gate
+fails.** `validate_consensus_edge_board.py` is unchanged; only its input
+is:
+
+| measurement | before repair | after repair |
+|---|---|---|
+| top-20 buys, 14d | +3.59%, beat random 6/7 | **−1.01%**, beat random **0/6** |
+| top-20 buys, 7d | +1.51%, beat random 11/15 | **−0.55%**, beat random **0/12** |
+| mispricing ρ, 14d | +0.126, 7/7 folds positive | **+0.031**, 4/6 |
+| mispricing ρ, 7d | +0.089, 12/14 | **+0.040**, 8/12 |
+| vs market-value benchmark, 14d | we beat it 7/7 | **it beats us 5/6** |
+
+The benchmark line is the one to read twice. `marketValue` — a plain
+"buy cheap players" rule — went from ρ −0.020 to **+0.116**, and our
+buy list skews cheap by construction. On the offense rows that survive,
+the board is on the wrong side of the only benchmark that matters.
+**Decision:** `consensus_edge` defaults **False**. It is not removed and
+nothing is deleted: the endpoints, the page, the refusal states and the
+snapshot timer all work, and `RISKIT_FEATURE_CONSENSUS_EDGE=1` plus a
+restart brings them back for evaluation. What is withdrawn is the claim
+that this board tells a user something a coin flip would not.
+**`test_feature_flags.py` moves it from `safe_on` to `off_only`**, so
+flipping the default back is a code change that has to name the
+measurement that changed. The bar is the gate passing on a re-run — not
+a judgement that the panel was unlucky.
+**What this does not say.** It does not say the model is wrong in
+principle, and it does not say the panel is decisive: 6 usable 14-day
+folds over an offseason is a small sample, the sell side actually
+improved on repair (−0.31% at 14d, right sign, where it had been
++0.02%), and the tradeable-only slice is roughly flat (+0.23%) rather
+than negative. Those are reasons to keep measuring, not reasons to ship.
+**Status:** accepted 2026-08-04.

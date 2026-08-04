@@ -2,10 +2,16 @@
 """If you had followed this board, would you have done better?
 
 `run_consensus_edge_backtest.py` answers "does the mispricing score rank
-players usefully" — rho +0.126 over 7 non-overlapping folds. That is a
-statement about a number inside the engine. It is not a statement about
-the thing a user sees, which is a **list of twenty names** and a **label
-next to each player**, and nothing has ever scored those.
+players usefully" — currently no: rho +0.031 over 6 non-overlapping
+14-day folds. That is a statement about a number inside the engine. It is
+not a statement about the thing a user sees, which is a **list of twenty
+names** and a **label next to each player**, and this is what scores
+those.
+
+Its verdict is what turned the feature flag ON on 2026-08-04 and what
+turned it back OFF the same day, once the board it had been measuring
+was repaired (ADR-021/023). Treat its `decision` block as the gate, not
+as commentary.
 
 This does. It replays the FULL labelled board — `service.build_board`,
 the same function the API calls, not a reimplementation of the composite
@@ -157,12 +163,19 @@ class _DayCache:
         return entry
 
 
-def _outcomes(cache: _DayCache, origin: date, horizon: date) -> dict[str, float]:
-    returns = oc.forward_returns(cache.day(origin)["prices"], cache.day(horizon)["prices"])
+def _returns(cache: _DayCache, origin: date, horizon: date) -> dict[str, dict[str, Any]]:
+    return oc.forward_returns(cache.day(origin)["prices"], cache.day(horizon)["prices"])
+
+
+def _outcomes(returns: dict[str, dict[str, Any]]) -> dict[str, float]:
     return {k: v["excessReturn"] for k, v in returns.items() if v.get("excessReturn") is not None}
 
 
-def _bucket_stats(rows: list[dict[str, Any]], outcomes: dict[str, float]) -> dict[str, Any]:
+def _bucket_stats(
+    rows: list[dict[str, Any]],
+    outcomes: dict[str, float],
+    returns: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Robust summary of one group of board rows.
 
     **The median is the headline and the mean is a diagnostic**, which is
@@ -178,10 +191,25 @@ def _bucket_stats(rows: list[dict[str, Any]], outcomes: dict[str, float]) -> dic
     `topContributorShare` makes that dependence visible instead of
     implicit: it is the fraction of the summed excess coming from the
     single largest row. Anything near 1.0 means the mean is one player.
+
+    `attrition` is the second thing this used to hide. `n` counts the
+    rows that COULD be scored; the rest were silently absent from every
+    statistic. Those rows are not a random sample — a player who leaves
+    the anchor board between origin and horizon has usually been dropped
+    by the market — so the rate belongs next to the headline. Pass
+    `returns` (the full `forward_returns` map) to get it; without it the
+    field is `None` rather than a reassuring zero.
     """
     values = [outcomes[r["playerKey"]] for r in rows if r["playerKey"] in outcomes]
+    lost = oc.attrition([r["playerKey"] for r in rows], returns) if returns is not None else None
     if not values:
-        return {"n": 0, "meanExcess": None, "medianExcess": None, "hitRate": None}
+        return {
+            "n": 0,
+            "meanExcess": None,
+            "medianExcess": None,
+            "hitRate": None,
+            "attrition": lost,
+        }
     ordered = sorted(values)
     trim = len(ordered) // 10
     trimmed = ordered[trim : len(ordered) - trim] if len(ordered) >= 10 else ordered
@@ -193,6 +221,7 @@ def _bucket_stats(rows: list[dict[str, Any]], outcomes: dict[str, float]) -> dic
         "trimmedMeanExcess": statistics.fmean(trimmed) if trimmed else None,
         "hitRate": sum(1 for v in values if v > 0) / len(values),
         "topContributorShare": (max(abs(v) for v in values) / total) if total > 0 else None,
+        "attrition": lost,
     }
 
 
@@ -293,7 +322,8 @@ def _evaluate_fold(
     cache: _DayCache, origin: date, horizon: date, rng: random.Random
 ) -> dict[str, Any]:
     board = cache.day(origin)["board"]
-    outcomes = _outcomes(cache, origin, horizon)
+    returns = _returns(cache, origin, horizon)
+    outcomes = _outcomes(returns)
     players = board.get("players") or []
     scored = [r for r in players if r.get("score") is not None and r["playerKey"] in outcomes]
     if len(scored) < bt.MIN_PAIRS_PER_FOLD:
@@ -311,8 +341,8 @@ def _evaluate_fold(
         statistics.fmean(rng.sample(universe, _TOP_N)) for _ in range(_BOOTSTRAP_DRAWS)
     )
 
-    top_buys = _bucket_stats(movers["buys"], outcomes)
-    top_sells = _bucket_stats(movers["sells"], outcomes)
+    top_buys = _bucket_stats(movers["buys"], outcomes, returns)
+    top_sells = _bucket_stats(movers["sells"], outcomes, returns)
 
     # The same list restricted to assets worth trading for. `top_movers`
     # ranks on score alone, and score is easiest to maximise on a
@@ -341,7 +371,7 @@ def _evaluate_fold(
         "topSells": top_sells,
         # Actionability, not accuracy. A correct call on a 152-value
         # rookie is not a trade anyone can make.
-        "topBuysTradeable": _bucket_stats(tradeable_pool, outcomes),
+        "topBuysTradeable": _bucket_stats(tradeable_pool, outcomes, returns),
         "topBuysValueProfile": {
             "medianMarketValue": statistics.median(top_values) if top_values else None,
             "belowTradeableFloor": sum(1 for v in top_values if v < _TRADEABLE_VALUE_FLOOR),
@@ -362,7 +392,8 @@ def _evaluate_fold(
             else None
         ),
         "byLabel": {
-            name: _bucket_stats(rows, outcomes) for name, rows in _label_groups(players).items()
+            name: _bucket_stats(rows, outcomes, returns)
+            for name, rows in _label_groups(players).items()
         },
         "byConfidence": {
             name: _bucket_stats(rows, outcomes)
@@ -417,6 +448,9 @@ def _pool(folds: list[dict[str, Any]], path: list[str]) -> dict[str, Any]:
     medians: list[float] = []
     means: list[float] = []
     ns: list[int] = []
+    offered: list[int] = []
+    dropped: list[int] = []
+    by_reason: dict[str, int] = {}
     for fold in folds:
         node: Any = fold
         for key in path:
@@ -426,6 +460,12 @@ def _pool(folds: list[dict[str, Any]], path: list[str]) -> dict[str, Any]:
             if isinstance(node.get("meanExcess"), (int, float)):
                 means.append(float(node["meanExcess"]))
             ns.append(int(node.get("n") or 0))
+            lost = node.get("attrition")
+            if isinstance(lost, dict):
+                offered.append(int(lost.get("of") or 0))
+                dropped.append(int(lost.get("dropped") or 0))
+                for reason, count in (lost.get("byReason") or {}).items():
+                    by_reason[str(reason)] = by_reason.get(str(reason), 0) + int(count)
     if not medians:
         return {"folds": 0, "medianExcess": None, "foldsPositive": 0, "totalRows": 0}
     return {
@@ -436,6 +476,16 @@ def _pool(folds: list[dict[str, Any]], path: list[str]) -> dict[str, Any]:
         "meanExcess": statistics.fmean(means) if means else None,
         "foldsPositive": sum(1 for v in medians if v > 0),
         "totalRows": sum(ns),
+        # Rows this bucket CONTAINED, against rows it could score. The
+        # gap is survivorship: those rows were dropped by every statistic
+        # above and are disproportionately the worst outcomes, since a
+        # player usually leaves the anchor board because the market let
+        # him go. Quoting `medianExcess` without this quotes a number
+        # computed on the survivors.
+        "rowsOffered": sum(offered),
+        "rowsDropped": sum(dropped),
+        "attritionRate": (sum(dropped) / sum(offered)) if sum(offered) else None,
+        "attritionByReason": dict(sorted(by_reason.items())),
         "perFoldMedian": medians,
         "perFoldMean": means,
     }

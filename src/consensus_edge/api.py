@@ -51,9 +51,10 @@ def _disabled_response() -> JSONResponse:
             "error": "feature_disabled",
             "flag": "consensus_edge",
             "message": (
-                "Consensus Edge is switched off. Only one of its three "
-                "components has an out-of-sample result, so it ships "
-                "behind a flag until the others do."
+                "Consensus Edge is switched off. Its top-20 buy list did "
+                "not beat a random draw from the same priced universe in "
+                "any measured fold, so it ships behind a flag defaulting "
+                "off until a re-run of the gate says otherwise."
             ),
         },
     )
@@ -83,7 +84,21 @@ def _board(contract: dict[str, Any]) -> dict[str, Any]:
     None when its data does not exist.
     """
     params = params_mod.load()
-    key = f"{contract.get('scrapeTimestamp')}|{params.get('paramSetId')}"
+    # Every input that can move the board is in the key. It used to be
+    # ``scrapeTimestamp|paramSetId`` with a docstring claiming nothing
+    # else invalidated it — which was the bug stated as the design: the
+    # ledger moves per trade and the playerctx snapshot weekly, both
+    # between scrapes, and MODEL_VERSION was absent entirely, so a
+    # deployed code change served the pre-change board until the next
+    # scrape. ``inputs.fingerprint()`` is two stat() calls, not a read.
+    key = "|".join(
+        (
+            str(contract.get("scrapeTimestamp")),
+            str(params.get("paramSetId")),
+            MODEL_VERSION,
+            inputs_mod.fingerprint(),
+        )
+    )
     with _CACHE_LOCK:
         if _CACHE.get("key") == key:
             return _CACHE["board"]
@@ -97,6 +112,21 @@ def _board(contract: dict[str, Any]) -> dict[str, Any]:
         _CACHE["key"] = key
         _CACHE["board"] = board
     return board
+
+
+def _snapshot_coverage() -> dict[str, Any]:
+    """What the daily snapshot timer has actually managed to store.
+
+    Total: a missing file, a permissions error (the unit ran as root for
+    a while, so the API could not open its own history), or a locked
+    database all report themselves rather than 500ing a health endpoint.
+    """
+    try:
+        from src.consensus_edge import snapshot  # noqa: PLC0415
+
+        return snapshot.coverage()
+    except Exception as exc:  # noqa: BLE001 — health must not fail on its own diagnostics
+        return {"exists": False, "reason": f"{type(exc).__name__}: {exc}"}
 
 
 def _envelope(extra: dict[str, Any]) -> dict[str, Any]:
@@ -248,8 +278,20 @@ async def get_health(request: Request):
                 # are still described by the committed rho from one whose
                 # numbers are not.
                 "validationScope": board.get("validationScope"),
+                # Which asset classes carry a score and why the rest do
+                # not. An offense-only board is a legitimate state today
+                # (the anchor-free build has no IDP scale) and looks
+                # identical to a broken identity join without this.
+                "assetClassCoverage": board.get("assetClassCoverage"),
                 "inputs": board.get("inputs"),
                 "contractScrapedAt": contract.get("scrapeTimestamp"),
+                # The snapshot timer, observed rather than assumed. A
+                # oneshot that silently stops is invisible until a study
+                # needs the history and finds it absent a year later —
+                # and this one ran as root for a while, which meant the
+                # API could not open the file it was filling. A stalled
+                # `lastDate` here is the symptom of both.
+                "snapshotStore": _snapshot_coverage(),
             }
         )
     )

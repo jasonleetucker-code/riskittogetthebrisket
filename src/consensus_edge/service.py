@@ -39,19 +39,24 @@ DIRECTIONAL_LABELS = frozenset(
 # The sell side was measured and found to carry nothing. Stamped on every
 # payload so no consumer has to know this from a doc, and so the UI can
 # say it where a user is about to act on it. Kept as data rather than
-# prose because the numbers should move if the next re-measure moves.
+# prose because the numbers should move if the next re-measure moves —
+# and on 2026-08-04 they did, in both directions at once.
 SELL_SIDE_VALIDATION: dict[str, Any] = {
     "validated": False,
     "measured": True,
     "outcome": "null",
     "evidence": "docs/measurements/consensus-edge-board-validation-2026-08-04-h14.json",
     "note": (
-        "Measured over 22 non-overlapping folds and found to carry nothing. Sell "
-        "rows moved -0.04% (0 of 7 folds correct) at a 14-day horizon and -0.01% "
-        "(0 of 15) at 7 days. Strong Sell is no exception: +0.12% and +0.02%, the "
-        "WRONG sign for a sell. Ranking by conviction did not help. The buy side "
-        "carries the entire measured edge — Strong Buy returned +8.83% at 6 of 6 "
-        "folds — so buys and sells must not be presented as equally grounded."
+        "Measured over 18 non-overlapping folds. On the scale-repaired board sell "
+        "rows do at least move the right way — median -0.31% cohort-excess at a "
+        "14-day horizon (4 of 6 folds negative) and -0.09% at 7 days (10 of 12) — "
+        "where before the repair they moved +0.02%, the wrong sign entirely. That "
+        "is NOT a validation: no random benchmark was pre-registered for the sell "
+        "side, and a third of a percent is inside the noise the buy side's failure "
+        "sits in. The buy side no longer distinguishes itself either (top-20 buys "
+        "-1.01%, beating a random draw in 0 of 6), so this is not the weak half of "
+        "a working board — neither half has a measured edge, which is why the "
+        "feature is behind a flag defaulting OFF."
     ),
 }
 
@@ -395,6 +400,13 @@ def build_board(
             conflict,
             p,
             has_market_price=entry.get("marketValue") is not None,
+            # ``classify`` has had this branch since day one and nothing
+            # ever passed it True, because ``fair_value`` dropped the
+            # flag the contract had already computed. A quarantined row
+            # is one whose identity join is suspect, which means its
+            # market price and its fair value may describe two different
+            # players — so it is Withheld, not scored with a caveat.
+            quarantined=bool(entry.get("quarantined")),
         )
 
         row = {
@@ -425,6 +437,14 @@ def build_board(
             "anchorKey": entry.get("anchorKey"),
             "excludedSources": entry.get("excludedSources"),
             "unpricedReason": entry.get("unpricedReason"),
+            # How many sources priced this row. Already feeds confidence;
+            # stamped so a reader (and the snapshot store) can see the
+            # evidence depth behind a call rather than only its effect.
+            "sourceCount": entry.get("sourceCount"),
+            # Why a Withheld row is withheld, and how sure the pipeline
+            # is about who this player even is.
+            "quarantined": bool(entry.get("quarantined")),
+            "identityConfidence": entry.get("identityConfidence"),
             # Whether this row is eligible for a ranked list. Stamped by
             # the backend so no client re-derives it: the frontend used
             # to keep its own copy of this label set, matched by English
@@ -592,10 +612,32 @@ def _caveats(
     because a caveat that is always present is one nobody reads, and
     these two need to be read.
     """
+    # Derived from COMPONENT_VALIDATION rather than written out, so a
+    # component that gains or loses a result changes this sentence
+    # without anyone remembering to. The first form of this caveat was
+    # prose naming mispricing as the validated one; it stayed accurate
+    # for about a day.
+    _validated = sorted(n for n, m in score_mod.COMPONENT_VALIDATION.items() if m.get("validated"))
+    _nulls = sorted(
+        n
+        for n, m in score_mod.COMPONENT_VALIDATION.items()
+        if m.get("measured") and m.get("outcome") == "null"
+    )
+    if _validated:
+        _headline = f"Validated components: {', '.join(_validated)}."
+    else:
+        _headline = (
+            "NO component on this board has a positive out-of-sample result. "
+            "The board still ranks and labels players; nothing measured says "
+            "it does so usefully."
+        )
+    if _nulls:
+        _headline += f" Measured and returned a null: {', '.join(_nulls)}."
     out = [
-        "Sharp Flow's weight is a declared prior, not fitted. Opportunity was "
-        "measured and carries zero weight: it is shown as evidence and does "
-        "not move any score.",
+        _headline,
+        "Sharp Flow's weight is a declared prior, not fitted. Opportunity "
+        "carries zero weight: it is shown as evidence and does not move any "
+        "score.",
         "Validated against market movement, not fantasy production.",
         # The panel every measurement rests on runs 2026-04-16 → 2026-08-03,
         # entirely between the draft and the season. Offseason repricing is
@@ -605,11 +647,12 @@ def _caveats(
         "Measured over an offseason panel only — no in-season board history "
         "exists in this repository. Re-measure once in-season dates accrue.",
         # Measured, not asserted: docs/measurements/consensus-edge-board-
-        # validation-2026-08-04-h14.json. Sell rows returned -0.04% median
-        # cohort-excess with 0 of 7 folds positive (0 of 15 at a 7-day
-        # horizon). The buy side carries the whole edge.
-        "The sell side has no measured edge: sell-labelled rows were positive "
-        "in 0 of 7 folds. Treat sells as unvalidated.",
+        # validation-2026-08-04-h14.json. The top-20 buy list returned
+        # -1.01% median cohort-excess and beat a random-20 draw from the
+        # same priced universe in 0 of 6 folds (0 of 12 at 7 days).
+        "The top-20 buy list did not beat a random draw from the same priced "
+        "universe in any measured fold. This is why the feature flag defaults "
+        "OFF; you are looking at it because someone turned it on to evaluate it.",
     ]
     # Derived from the board, never asserted: a caveat that outlives the
     # condition it describes is worse than no caveat, and the IDP line
@@ -647,21 +690,27 @@ def conviction(row: dict[str, Any]) -> float:
     players, because fewer sources means a wider spread against the
     anchor and therefore a bigger z.
 
-    Shrinking by confidence more than doubled the measured edge, and it
-    replicates across both horizons:
+    Shrinking by confidence more than doubled the measured edge on the
+    board as it then stood — 14d +1.57% to +3.59%, 7d +0.92% to +1.51%,
+    replicating at both horizons.
 
-    ===============  ==================  ===================
-    horizon          score (old)         score x confidence
-    ===============  ==================  ===================
-    7d (15 folds)    +0.92%              +1.51%
-    14d (7 folds)    +1.57%              +3.59%
-    ===============  ==================  ===================
+    **That comparison no longer stands and is not why this is still
+    here.** It was measured on a board whose IDP fair values came from a
+    leave-one-out build with no IDP backbone, i.e. on no scale at all
+    (ADR-021). With those rows refused the top-20 is negative under
+    *either* ordering, so "which ranking is better" has no useful answer
+    on this panel and re-running it would produce a comparison of two
+    failures.
 
-    Chosen over a confidence *threshold* (``conf >= 65`` scored
-    similarly) because a threshold is a tuned constant and this is not:
-    ranking a point estimate by its precision is the standard move, it
-    introduces no new number, and it degrades smoothly instead of
-    falling off a cliff at an arbitrary line.
+    What keeps conviction as the ranking key is the argument that
+    motivated it rather than the number that followed: a score is a point
+    estimate, confidence is its precision, and ranking on the estimate
+    alone throws the precision away. It introduces no new constant — as
+    against a confidence *threshold* (``conf >= 65``, which scored
+    similarly), which is a tuned one — and it degrades smoothly instead
+    of falling off a cliff at an arbitrary line. It is also what every
+    committed measurement ranks on, so changing it would re-open the
+    served-vs-measured gap ADR-022 closed.
     """
     score = float(row.get("score") or 0.0)
     conf = row.get("confidence")
