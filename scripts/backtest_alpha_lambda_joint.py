@@ -81,12 +81,12 @@ def sweep_2d(snapshots) -> list[dict]:
     results: list[dict] = []
     try:
         for a in ALPHA_GRID:
-            for l in LAMBDA_GRID:
+            for lam in LAMBDA_GRID:
                 data_contract._ALPHA_SHRINKAGE = a
-                data_contract._MAD_PENALTY_LAMBDA = l
+                data_contract._MAD_PENALTY_LAMBDA = lam
                 boards = [build_board(raw) for _, raw in snapshots]
                 vw = stability_vw(boards)
-                results.append({"alpha": a, "lambda": l, "vw": vw})
+                results.append({"alpha": a, "lambda": lam, "vw": vw})
     finally:
         data_contract._ALPHA_SHRINKAGE = orig_a
         data_contract._MAD_PENALTY_LAMBDA = orig_l
@@ -121,15 +121,15 @@ def render(snapshots, results) -> str:
     lines.append("")
     lines.append("## Heatmap (rows = α, cols = λ)")
     lines.append("")
-    header = "| α \\ λ | " + " | ".join(f"{l:.2f}" for l in LAMBDA_GRID) + " |"
+    header = "| α \\ λ | " + " | ".join(f"{lam:.2f}" for lam in LAMBDA_GRID) + " |"
     sep = "|---:|" + "|".join(["---:" for _ in LAMBDA_GRID]) + "|"
     lines.append(header)
     lines.append(sep)
     for a in ALPHA_GRID:
         row_vals = []
-        for l in LAMBDA_GRID:
-            v = next(r["vw"] for r in results if r["alpha"] == a and r["lambda"] == l)
-            marker = " ★" if (a, l) == (best["alpha"], best["lambda"]) else ""
+        for lam in LAMBDA_GRID:
+            v = next(r["vw"] for r in results if r["alpha"] == a and r["lambda"] == lam)
+            marker = " ★" if (a, lam) == (best["alpha"], best["lambda"]) else ""
             row_vals.append(f"{v:.3f}{marker}")
         lines.append(f"| **{a:.2f}** | " + " | ".join(row_vals) + " |")
     lines.append("")
