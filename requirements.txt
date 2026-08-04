@@ -24,7 +24,7 @@ fastapi~=0.135.0
 uvicorn~=0.44.0
 
 # HTTP client used by scrapers, Sleeper client, news providers, etc.
-requests~=2.31.0
+requests~=2.34.2
 
 # Browser automation (FootballGuys + DraftSharks scrapers).
 playwright~=1.58.0
