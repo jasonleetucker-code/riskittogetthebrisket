@@ -182,11 +182,18 @@ def _server_app():
 
 
 def _register_http_routes() -> None:
-    """Register routes when this module is imported by ``server.py``.
+    """Register the sharp market routes onto the running FastAPI app.
 
-    The existing server imports this service directly near its Sharp
-    section. Keeping registration here avoids a second API application or
-    a parallel FFPC router while preserving ``/api/sharp/cohort`` exactly.
+    Keeping registration here avoids a second API application or a
+    parallel FFPC router while preserving ``/api/sharp/cohort`` exactly.
+
+    IDEMPOTENT, and called from three places on purpose: the module-level
+    call below (the original path), ``server.py`` right after it imports
+    this module (the RELIABLE path — the module-level call is a no-op
+    whenever something imported this module before the app existed), and
+    ``cohort_status`` as a production self-heal.
+
+    Prefer the public :func:`register_http_routes` from outside.
 
     ``Request`` is imported at module scope because postponed annotations
     resolve handler types through module globals. A function-local import made
@@ -263,6 +270,15 @@ def _register_http_routes() -> None:
         methods=["GET"],
         name="get_sharp_market_audit",
     )
+
+
+def register_http_routes() -> None:
+    """Public entry point for :func:`_register_http_routes`.
+
+    ``server.py`` calls this immediately after importing the module, so
+    registration never depends on which importer happened to be first.
+    """
+    _register_http_routes()
 
 
 _register_http_routes()

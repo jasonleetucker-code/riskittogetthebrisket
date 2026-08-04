@@ -298,6 +298,49 @@ class TestSleeper:
         assert result.eligible_rosters == 1
         assert rc.REASON_SUPERSEDED_SEASON not in result.exclusion_reasons
 
+    def test_a_budgeted_run_rotates_instead_of_re_collecting_one_prefix(self, ledger):
+        """A capped run must ADVANCE, not restart at the same leagues.
+
+        Ordering by league id meant a budget-limited pass re-collected
+        the same alphabetical prefix every run, so leagues after the
+        cutoff were never collected at all — a permanently invisible
+        tail that the board would not have shown as missing.
+        """
+        for i in range(1, 7):
+            seed_sleeper_membership(ledger, "sleeper:u1", f"sleeper:L{i}")
+
+        collected_per_run = []
+        for run in range(3):
+            rc.collect_sleeper_rosters(
+                manager_keys=["sleeper:u1"],
+                http_get=fake_http(),
+                budget=4,  # two leagues per run
+                ledger_path=ledger,
+                sleep_fn=lambda _s: None,
+                now_ms=NOW + run * 86_400_000,
+            )
+            collected_per_run.append({r["leagueKey"] for r in rs.load_rosters(path=ledger)})
+
+        # Each run reaches leagues the previous ones had not.
+        assert len(collected_per_run[0]) == 2
+        assert len(collected_per_run[1]) == 4
+        assert len(collected_per_run[2]) == 6
+
+    def test_budget_exhaustion_reports_how_much_is_left(self, ledger):
+        for i in range(1, 7):
+            seed_sleeper_membership(ledger, "sleeper:u1", f"sleeper:L{i}")
+        result = rc.collect_sleeper_rosters(
+            manager_keys=["sleeper:u1"],
+            http_get=fake_http(),
+            budget=4,
+            ledger_path=ledger,
+            sleep_fn=lambda _s: None,
+            now_ms=NOW,
+        )
+        assert result.budget_exhausted is True
+        assert result.leagues_remaining == 4
+        assert result.to_dict()["leaguesRemaining"] == 4
+
     def test_recollection_is_idempotent(self, ledger):
         seed_sleeper_membership(ledger)
         http = fake_http()

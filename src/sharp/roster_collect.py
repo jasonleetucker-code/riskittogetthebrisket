@@ -101,6 +101,11 @@ class CollectResult:
     unmapped_assets: int = 0
     calls_used: int = 0
     budget_exhausted: bool = False
+    # Leagues the budget did not reach this run. Published so an operator
+    # can size ``--budget`` from the journal instead of guessing: a run
+    # that ends with this at 0 is keeping up, and a run that ends with a
+    # stable non-zero number needs a bigger budget rather than patience.
+    leagues_remaining: int = 0
     exclusion_reasons: dict[str, int] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
 
@@ -118,6 +123,7 @@ class CollectResult:
             "unmappedAssets": self.unmapped_assets,
             "callsUsed": self.calls_used,
             "budgetExhausted": self.budget_exhausted,
+            "leaguesRemaining": self.leagues_remaining,
             "exclusionReasons": dict(sorted(self.exclusion_reasons.items())),
             "errors": self.errors[:20],
         }
@@ -292,6 +298,43 @@ def _cohort_sleeper_leagues(
     return out
 
 
+def _last_observed_by_league(conn) -> dict[str, int]:
+    """``{source_league_id: newest observed_ms}`` from the roster store."""
+    out: dict[str, int] = {}
+    for row in conn.execute(
+        """
+        SELECT league_key, MAX(observed_ms) AS last_ms
+          FROM sharp_rosters
+         WHERE platform='sleeper'
+         GROUP BY league_key
+        """
+    ).fetchall():
+        league_key = str(row["league_key"] or "")
+        if league_key.startswith("sleeper:") and row["last_ms"] is not None:
+            out[league_key.split(":", 1)[1]] = int(row["last_ms"])
+    return out
+
+
+def _collection_order(league_ids: Sequence[str], *, conn) -> list[str]:
+    """Fair, persistent crawl order for a BUDGETED pass.
+
+    Reuses ``record_queue.prioritize_league_ids`` — the same ordering the
+    records crawl uses — rather than adding a second notion of fairness:
+    never-collected leagues first, then previously collected ones oldest
+    first, ties stable by id.
+
+    Without this the pass sorted by league id, so a run that hit its call
+    budget re-collected the same alphabetical prefix on every subsequent
+    run and the leagues after the cutoff were NEVER collected. That is
+    not a slow rollout — it is a permanently invisible tail, and it would
+    have been silent: the board would look healthy while systematically
+    omitting part of the cohort.
+    """
+    from src.sharp import record_queue
+
+    return record_queue.prioritize_league_ids(league_ids, _last_observed_by_league(conn))
+
+
 def _collapse_season_chains(
     observations: list[roster_store.RosterObservation],
     leagues: dict[str, dict[str, Any]],
@@ -360,9 +403,11 @@ def collect_sleeper_rosters(
         observations: list[roster_store.RosterObservation] = []
         fetched: dict[str, dict[str, Any]] = {}
 
-        for league_id, member_keys in sorted(by_league.items()):
+        for league_id in _collection_order(list(by_league), conn=conn):
+            member_keys = by_league[league_id]
             if not b.can_call(CALLS_PER_LEAGUE):
                 result.budget_exhausted = True
+                result.leagues_remaining = len(by_league) - result.leagues_examined
                 break
             league = b.get(f"{SLEEPER_BASE}/league/{league_id}")
             if not isinstance(league, dict):

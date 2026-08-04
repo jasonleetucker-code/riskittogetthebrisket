@@ -179,6 +179,44 @@ These are real and are not worked around.
    discovery ever captures `roster_positions`, this pass halves its
    cost.
 
+## Coverage is bounded by what discovery has recorded
+
+The collector asks `platform_memberships` which leagues each cohort
+member plays in. Discovery used to write a membership row **only when it
+expanded a league** (`/league/{id}/users`); the user→leagues branch
+queued the league but recorded no membership. Leagues left on the
+frontier by the call budget, `maxGenerations` or `maxLeaguesPerRun`
+therefore had none, and were invisible here — a sharp with four dynasty
+teams could contribute one roster to the denominator and still read as
+fully represented, because `cohortCoveragePct` counts *managers* seen,
+not their leagues.
+
+Discovery now records the membership at user-expansion time too. Sleeper's
+own `/user/{id}/leagues` proves it, so the row is a fact rather than an
+inference, and the PK makes it idempotent.
+
+**The remaining bound is real and worth watching:** a manager whose
+leagues discovery has not yet reached at all still contributes fewer
+rosters than they own. `transparency.rostersPerManager` is the honest
+readout — if it sits near 1.0 while sharps typically run several dynasty
+teams, discovery has not caught up, not that sharps own one team each.
+
+## Budget behaviour
+
+The collection order is `record_queue.prioritize_league_ids` — the same
+fair, persistent ordering the records crawl uses: never-collected
+leagues first, then previously collected ones oldest-first. Before this,
+the pass sorted by league id, so a run that hit its call budget
+re-collected the same alphabetical prefix on every subsequent run and
+the leagues after the cutoff were **never** collected. That is not a
+slow rollout, it is a permanently invisible tail, and it was silent —
+the board looked healthy while systematically omitting part of the
+cohort.
+
+Every run reports `leaguesRemaining`, so `--budget` can be sized from
+the journal rather than guessed. A run ending at 0 is keeping up; a
+stable non-zero number wants a bigger budget rather than patience.
+
 ## Auditing
 
 `scripts/validate_sharp_roster_percentage.py` re-derives every published

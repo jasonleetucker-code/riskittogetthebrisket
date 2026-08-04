@@ -12578,6 +12578,21 @@ async def get_intel_refresh_status(request: Request):
 
 from src.sharp import service as _sharp_service  # noqa: E402
 
+# Register the sharp market routes EXPLICITLY rather than relying on the
+# import-time side effect inside ``_sharp_service``.
+#
+# That side effect only finds this app when ``server`` is the first thing
+# to import the module. Anything that imports ``src.sharp.service``
+# earlier — a test module, a script, another package — runs the
+# registrar against a not-yet-existing app, and Python's module cache
+# then means importing it here re-runs nothing. The routes silently
+# never attach and every ``/api/sharp/market`` request 404s.
+#
+# ``_register_http_routes`` is idempotent (it returns early when the
+# path is already present), so calling it here is safe alongside the
+# module-level call and the self-heal in ``cohort_status``.
+_sharp_service.register_http_routes()
+
 
 @app.get("/api/sharp/cohort")
 async def get_sharp_cohort(request: Request):

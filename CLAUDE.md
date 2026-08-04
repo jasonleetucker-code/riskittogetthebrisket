@@ -823,6 +823,27 @@ which is why the timers are staggered:
 3. `scripts/crawl_sharp_rosters.py` (05:50) — finds what they currently
    OWN, which is what the roster-percentage board is made of
 
+Two things the roster pass depends on, both fixed rather than worked
+around:
+
+- `discovery.py` records a `league_memberships` row at USER-expansion
+  time as well as league-expansion time. It used to record one only when
+  a league was expanded, so leagues left on the frontier by the budget
+  had none — invisible to anything asking "which leagues does this
+  manager play in", which silently bounded the roster crawl to the
+  expanded subgraph.
+- The roster pass orders leagues through
+  `record_queue.prioritize_league_ids` (never-collected first, then
+  oldest), the same fair ordering the records crawl uses. Sorting by
+  league id meant a budget-capped run re-collected the same prefix
+  forever and never reached the tail.
+
+`server.py` calls `_sharp_service.register_http_routes()` explicitly
+after importing the module. The import-time side effect alone is not
+enough: anything that imports `src.sharp.service` before the app exists
+makes it a no-op, and the module cache means the later import re-runs
+nothing — `/api/sharp/market` then 404s with no other symptom.
+
 Roster observations live in `sharp_rosters` / `sharp_roster_assets` /
 `sharp_roster_asset_spans` / `sharp_roster_observations`
 (`src/sharp/roster_store.py`), created by a plain
