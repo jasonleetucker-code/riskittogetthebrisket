@@ -406,13 +406,33 @@ class TestCommittedMeasurementsAreHonest(unittest.TestCase):
             self.assertEqual(payload["hoursStalePinned"], 8.0)
 
     def test_each_names_the_labels_it_could_not_measure(self):
+        """Two labels are structurally unreachable and must be named.
+
+        This asserted four. `Strong Buy` and `Strong Sell` were on the
+        list only because the confidence ceiling counted a zero-weight
+        component against every row; fixing that made them reachable —
+        and Strong Buy turned out to be the best-performing group
+        measured. What remains impossible is impossible for reasons
+        coverage cannot touch: `Conflicted` needs two opposing weighted
+        components, and `Withheld` needs a kwarg `build_board` never
+        passes.
+        """
         import json
 
         for path in self._measurements():
             payload = json.loads(path.read_text())
             unreachable = payload["unreachableLabels"]
-            for label in ("Strong Buy", "Strong Sell", "Conflicted", "Withheld"):
+            for label in ("Conflicted", "Withheld"):
                 self.assertIn(label, unreachable)
+            # And the Strong labels must NOT be claimed unreachable, or
+            # the artifact contradicts the buckets it reports beside it.
+            for label in ("Strong Buy", "Strong Sell"):
+                self.assertNotIn(label, unreachable)
+                self.assertIn(
+                    label,
+                    payload["pooled"]["byLabel"],
+                    f"{label} is reachable but the study reports no bucket for it",
+                )
 
     def test_each_states_the_panel_is_offseason(self):
         import json
