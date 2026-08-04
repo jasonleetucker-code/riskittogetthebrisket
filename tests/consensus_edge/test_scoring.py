@@ -312,3 +312,39 @@ class TestComponentValidationHonesty(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVersionParity(unittest.TestCase):
+    """Two copies of the version must not drift.
+
+    ``MODEL_VERSION`` is a module literal and ``params_v1.json`` carries
+    its own ``modelVersion``. Nothing asserted they agreed, so a bump in
+    one would silently leave stored snapshot rows tagged with a version
+    that no longer described them — and the snapshot store keys on both.
+    """
+
+    def test_model_version_matches_the_parameter_file(self):
+        from src.consensus_edge import MODEL_VERSION
+
+        self.assertEqual(
+            MODEL_VERSION,
+            params_mod.load().get("modelVersion"),
+            "src/consensus_edge/__init__.py::MODEL_VERSION and "
+            "config/consensus_edge/params_v1.json::modelVersion disagree",
+        )
+
+    def test_param_set_id_is_a_content_hash_of_the_values(self):
+        # Editing a value must produce a new id, or a stored result
+        # cannot be attributed to the params that made it.
+        import json
+        import tempfile
+        from pathlib import Path
+
+        base = params_mod.load()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "params.json"
+            edited = json.loads(json.dumps(base))
+            edited.pop("paramSetId", None)
+            edited["composite"]["weights"]["mispricing"] = 0.99
+            path.write_text(json.dumps(edited))
+            self.assertNotEqual(params_mod.load(path)["paramSetId"], base["paramSetId"])
