@@ -137,12 +137,26 @@ def test_the_rookie_board_reaches_the_second_league_when_the_profile_matches(_no
     """
     _no_network.update(_sleeper(1))
     rookies = [
-        {"name": "Jeremiyah Love", "pos": "RB", "dollar": 135, "boardValue": 7835,
-         "ktcDollar": 130, "idpTradeCalcDollar": None, "dispersionCV": 0.03,
-         "singleSource": False},
-        {"name": "Carnell Tate", "pos": "WR", "dollar": 100, "boardValue": 6160,
-         "ktcDollar": 98, "idpTradeCalcDollar": None, "dispersionCV": None,
-         "singleSource": True},
+        {
+            "name": "Jeremiyah Love",
+            "pos": "RB",
+            "dollar": 135,
+            "boardValue": 7835,
+            "ktcDollar": 130,
+            "idpTradeCalcDollar": None,
+            "dispersionCV": 0.03,
+            "singleSource": False,
+        },
+        {
+            "name": "Carnell Tate",
+            "pos": "WR",
+            "dollar": 100,
+            "boardValue": 6160,
+            "ktcDollar": 98,
+            "idpTradeCalcDollar": None,
+            "dispersionCV": None,
+            "singleSource": True,
+        },
     ]
     out = fb.build_sleeper_derived("123", {}, current_season=2026, rookies=rookies)
     current = [p for p in out["picks"] if p["season"] == 2026]
@@ -175,7 +189,7 @@ def test_omitting_the_rookie_board_leaves_the_payload_exactly_as_before(_no_netw
     assert all("overallPick" in p for p in out["picks"])
 
 
-def test_idp_rookies_are_kept_off_a_non_idp_league_board(monkeypatch):  # noqa: PLR0915
+def test_idp_rookies_are_kept_off_a_non_idp_league_board(monkeypatch):
     """Sharing a scoring profile is necessary but NOT sufficient.
 
     Both live leagues are ``superflex_tep15_ppr1``, yet ``dynasty_main``

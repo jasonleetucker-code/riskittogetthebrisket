@@ -249,9 +249,7 @@ def build_roster_context(
     # rosters", which overstates it — a rookie with no position never reached
     # the free-agent pool to begin with.
     free_agents_total = count_free_agents(contract, rostered_keys, auction_keys)
-    auction_rookies_excluded = (
-        count_free_agents(contract, rostered_keys) - free_agents_total
-    )
+    auction_rookies_excluded = count_free_agents(contract, rostered_keys) - free_agents_total
     waiver_values = waiver_values_by_position(contract, rostered_keys, auction_keys)
     if not waiver_values:
         notes.append("no waiver-level values available — cut costs fall back to raw board value")

@@ -201,9 +201,7 @@ def build_sleeper_derived(
     """
     rounds_source = "explicit"
     if draft_rounds is None:
-        draft_rounds, rounds_source = resolve_draft_rounds(
-            sleeper_league_id, declared_draft_rounds
-        )
+        draft_rounds, rounds_source = resolve_draft_rounds(sleeper_league_id, declared_draft_rounds)
     draft_rounds = max(MIN_DRAFT_ROUNDS, min(MAX_DRAFT_ROUNDS, int(draft_rounds)))
 
     rosters = _fetch_json(f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters")
@@ -359,8 +357,7 @@ def build_sleeper_derived(
         ],
         "rookieSource": "contract" if rookies else "none",
         "picks": [
-            _serialize_pick(p, i, current_season, rookies or [])
-            for i, p in enumerate(picks)
+            _serialize_pick(p, i, current_season, rookies or []) for i, p in enumerate(picks)
         ],
     }
 
