@@ -59,10 +59,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload full report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: identity-audit-report
           path: ${{ runner.temp }}/identity_audit.json
@@ -182,3 +182,36 @@ jobs:
               --body "$BODY" \
               --label identity-collision
           fi
+
+      - name: Close the tracking issue when the run is green
+        # The missing half of the pattern copied from
+        # scheduled-refresh.yml, which opens AND closes.  Without this an
+        # open `identity-collision` issue means "this failed at least once, ever"
+        # rather than "this is broken now" — #663 sat open for hours after
+        # its gate went green because of exactly this gap.
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # Close EVERY open one: the alert step reads `.[0].number`, so
+          # duplicates would otherwise be orphaned forever.
+          OPEN=$(gh issue list --state open --label identity-collision \
+                   --json number --jq '.[].number' 2>/dev/null || echo "")
+          if [[ -z "$OPEN" ]]; then
+            echo "no open identity-collision issue; nothing to close"
+            exit 0
+          fi
+          for N in $OPEN; do
+            echo "closing #${N}"
+            gh issue close "$N" --reason completed --comment \
+              "Identity-match audit is green again — no alias-introduced collision on the live board.
+
+          - Workflow run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+          - Closed: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Reopened automatically by the alert step if it fails again." || true
+          done

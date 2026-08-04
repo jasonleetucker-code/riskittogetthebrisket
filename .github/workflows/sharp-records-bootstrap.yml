@@ -1,0 +1,118 @@
+name: Bootstrap Sharp Records
+
+on:
+  workflow_run:
+    workflows:
+      - Deploy Production
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      force_kick:
+        description: Run at least one records pass even if the cohort is already populated
+        required: false
+        default: false
+        type: boolean
+      max_passes:
+        description: Maximum immediate records passes while the cohort is still unqualified
+        required: false
+        default: "3"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-sharp-records-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Install And Populate Sharp Records
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_PRIVATE_KEY DEPLOY_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error title=Missing production SSH configuration::${name} is empty or unset."
+              exit 1
+            fi
+          done
+
+          DEPLOY_PORT_RESOLVED="${DEPLOY_PORT:-22}"
+          if ! [[ "${DEPLOY_PORT_RESOLVED}" =~ ^[0-9]+$ ]]; then
+            echo "::error title=Invalid SSH port::DEPLOY_PORT must be numeric."
+            exit 1
+          fi
+
+          install -d -m 700 "${HOME}/.ssh"
+          DEPLOY_KEY_FILE="${HOME}/.ssh/id_ed25519"
+          DEPLOY_KNOWN_HOSTS_FILE="${HOME}/.ssh/known_hosts"
+          printf '%s\n' "${DEPLOY_SSH_PRIVATE_KEY}" | sed 's/\r$//' > "${DEPLOY_KEY_FILE}"
+          printf '%s\n' "${DEPLOY_KNOWN_HOSTS}" | sed 's/\r$//' > "${DEPLOY_KNOWN_HOSTS_FILE}"
+          chmod 600 "${DEPLOY_KEY_FILE}"
+          chmod 644 "${DEPLOY_KNOWN_HOSTS_FILE}"
+
+          ssh-keygen -y -f "${DEPLOY_KEY_FILE}" >/dev/null
+          [[ -s "${DEPLOY_KNOWN_HOSTS_FILE}" ]] || {
+            echo "::error title=Empty known_hosts::DEPLOY_KNOWN_HOSTS produced an empty file."
+            exit 1
+          }
+
+          {
+            echo "DEPLOY_PORT_RESOLVED=${DEPLOY_PORT_RESOLVED}"
+            echo "DEPLOY_KEY_FILE=${DEPLOY_KEY_FILE}"
+            echo "DEPLOY_KNOWN_HOSTS_FILE=${DEPLOY_KNOWN_HOSTS_FILE}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Install units and populate the Sharp cohort
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          PROD_APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PROD_VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
+          PROD_SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+          FORCE_SHARP_RECORDS_KICK: ${{ github.event_name == 'workflow_dispatch' && inputs.force_kick || false }}
+          SHARP_BOOTSTRAP_MAX_PASSES: ${{ inputs.max_passes || '3' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          printf -v REMOTE_COMMAND \
+            'APP_DIR=%q APP_USER=%q VENV_DIR=%q SERVICE_NAME=%q FORCE_SHARP_RECORDS_KICK=%q SHARP_BOOTSTRAP_MAX_PASSES=%q bash %q' \
+            "${PROD_APP_DIR}" \
+            "${DEPLOY_USER}" \
+            "${PROD_VENV_DIR}" \
+            "${PROD_SERVICE_NAME}" \
+            "${FORCE_SHARP_RECORDS_KICK}" \
+            "${SHARP_BOOTSTRAP_MAX_PASSES}" \
+            "${PROD_APP_DIR}/deploy/bootstrap-sharp-records.sh"
+
+          ssh \
+            -i "${DEPLOY_KEY_FILE}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="${DEPLOY_KNOWN_HOSTS_FILE}" \
+            -o ConnectTimeout=20 \
+            -o ServerAliveInterval=20 \
+            -o ServerAliveCountMax=6 \
+            -p "${DEPLOY_PORT_RESOLVED}" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "${REMOTE_COMMAND}"

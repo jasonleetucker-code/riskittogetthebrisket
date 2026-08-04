@@ -157,6 +157,90 @@ class PublicLeagueRouteTests(unittest.TestCase):
         # Both responses are identical (same cached payload).
         self.assertEqual(r1.json()["data"], r2.json()["data"])
 
+    def test_archives_section_is_single_flight_cached(self) -> None:
+        """archives must be memoized per snapshot, same as playoffOdds.
+
+        It is the most expensive builder in the contract — it rebuilds
+        history, activity, draft and awards before its own five walks,
+        and the safety walk then recurses the whole ~800 KB result. Run
+        fresh per request (which it was until 2026-07-30) that measured
+        1.8-34.3s TTFB on production against a ~0.53s baseline for every
+        other section, because concurrent requests each launched their
+        own build and held an AnyIO worker token for the duration.
+        """
+        import server
+
+        self.client.get("/api/public/league?refresh=1")
+        server._heavy_section_cache.clear()
+
+        calls = {"n": 0}
+        real = server.build_section_payload
+
+        def _counting(snapshot, section, **kw):
+            if section == "archives":
+                calls["n"] += 1
+            return real(snapshot, section, **kw)
+
+        server.build_section_payload = _counting
+        try:
+            r1 = self.client.get("/api/public/league/archives")
+            r2 = self.client.get("/api/public/league/archives")
+        finally:
+            server.build_section_payload = real
+
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(r1.json()["section"], "archives")
+        self.assertEqual(calls["n"], 1)
+        self.assertEqual(r1.json()["data"], r2.json()["data"])
+
+    def test_archives_stays_in_the_aggregate_contract(self) -> None:
+        """Memoizing is a ROUTING change, not a builder-registry change.
+
+        The tempting-looking alternative — moving archives into
+        ``_LAZY_SECTION_BUILDERS`` — drops it from the aggregate
+        contract, which is a public shape change, and would not touch
+        the per-request rebuild that was the actual cost.
+        """
+        import server
+        from src.public_league.public_contract import (
+            _LAZY_SECTION_BUILDERS,
+            _SECTION_BUILDERS,
+        )
+
+        self.assertIn("archives", server._HEAVY_SECTION_KEYS)
+        self.assertIn("archives", _SECTION_BUILDERS)
+        self.assertNotIn("archives", _LAZY_SECTION_BUILDERS)
+
+        r = self.client.get("/api/public/league?refresh=1")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("archives", r.json()["sections"])
+
+    def test_archives_csv_honours_the_kind_qualifier(self) -> None:
+        """The regression the ``and not kind`` guard exists for.
+
+        The heavy-section CSV branch never forwards a qualifier, and
+        ``export_section`` falls back to trades when ``kind`` is absent.
+        Without the guard, adding archives to ``_HEAVY_SECTION_KEYS``
+        would make ``archives.csv?kind=waivers`` return a trades CSV
+        with a 200 and nothing saying the qualifier was dropped.
+        """
+        self.client.get("/api/public/league?refresh=1")
+
+        trades = self.client.get("/api/public/league/archives.csv")
+        waivers = self.client.get("/api/public/league/archives.csv?kind=waivers")
+
+        self.assertEqual(trades.status_code, 200)
+        self.assertEqual(waivers.status_code, 200)
+        trades_header = trades.text.splitlines()[0]
+        waivers_header = waivers.text.splitlines()[0]
+        self.assertNotEqual(
+            waivers_header,
+            trades_header,
+            "?kind=waivers silently returned the default trades export",
+        )
+        self.assertIn("waiver", waivers.headers.get("content-disposition", "").lower())
+
     def test_only_playoff_odds_is_cached(self) -> None:
         """Only ``playoffOdds`` (always-simulate, purely snapshot-derived)
         is cached.  The file-backed ROS sections are intentionally NOT

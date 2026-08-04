@@ -211,9 +211,9 @@ export const LENSES = [
  * Look up a lens by key.
  */
 /**
- * SCREENS — the five saved questions that used to be their own page.
+ * SCREENS — the saved questions that used to be their own page.
  *
- * /finder was a board filter with five presets, rendered on a second
+ * /finder was a board filter with these presets, rendered on a second
  * copy of the rankings table.  It computed nothing the board could not
  * express: every workflow is a lens plus a position/class pre-filter.
  * But the thresholds are NOT the same as the lenses above (WR Gaps

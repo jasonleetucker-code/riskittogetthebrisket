@@ -6,10 +6,21 @@ takes minutes — the API layer runs it on a daemon thread and returns
 202 immediately; a second trigger while one is running raises
 ``RefreshAlreadyRunning`` → 409).
 
-Read helpers build the endpoint payloads from the persisted snapshot,
-computing window aggregates at read time (see ``aggregate.py``).  The
-snapshot is cached in-process and invalidated on file mtime change so
-GET traffic doesn't re-parse the JSON per request.
+Read helpers build the endpoint payloads from the normalized LEDGER
+(``ledger.py`` + ``signals.py``), not from the snapshot's raw event
+list.  The snapshot still owns crawl bookkeeping — cursor, fetchState,
+current holdings, pool membership — and is cached in-process and
+invalidated on file mtime change.
+
+The read path moved off the retired ``aggregate.py``, which counted
+waiver claims as trade "buys" and ranked the board by a ``trendScore``
+that summed nested windows.  Both defects are gone with it; see
+``docs/intel/METRICS.md``.
+
+LEAGUE SCOPING: the ledger is GLOBAL — one file spanning every crawled
+league, including the thousands of managers Sharp Tracker's discovery
+graph reaches.  Insider Trading is league-scoped, so every ledger query
+here is filtered to ``_pool_member_ids(state)``.
 """
 
 from __future__ import annotations
@@ -18,9 +29,9 @@ import logging
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Sequence
 
-from src.intel import aggregate, crawler, ingest, ledger, store
+from src.intel import crawler, ingest, ledger, signals, store
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +81,10 @@ def refresh_status(league_key: str | None = None) -> dict[str, Any]:
 def invalidate_cache() -> None:
     with _SNAPSHOT_CACHE_LOCK:
         _SNAPSHOT_CACHE.clear()
+    # Also forget which snapshots have been synced into the ledger: a
+    # new snapshot carries new events that must be backfilled.
+    with _LEDGER_SYNC_LOCK:
+        _LEDGER_SYNCED.clear()
 
 
 def load_state_cached(league_key: str = store.DEFAULT_LEAGUE_KEY) -> dict[str, Any]:
@@ -376,32 +391,186 @@ def asset_display_name(asset_id: str, id_to_player: dict[str, str] | None) -> st
     return str(name) if name else f"Player {asset_id}"
 
 
-def _serialize_asset(entry: dict[str, Any], id_to_player: dict[str, str] | None) -> dict[str, Any]:
-    out = dict(entry)
-    out["displayName"] = asset_display_name(entry["assetId"], id_to_player)
-    ts = out.pop("lastEventTs", None)
-    out["lastEventAt"] = (
-        datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat() if ts else None
-    )
+def holdings_from_state(state: dict[str, Any]) -> dict[str, dict[str, list[str]]]:
+    """``{leagueId: {ownerId: [assetId, ...]}}`` from the crawl state.
+
+    Current ownership stays in the SNAPSHOT rather than the ledger: it is
+    a point-in-time fact the crawl overwrites each run, not an append-only
+    event, so it has no place in a movement ledger.  (Moved here from the
+    retired ``aggregate.py``.)
+    """
+    out: dict[str, dict[str, list[str]]] = {}
+    for lid, league in (state.get("leagues") or {}).items():
+        if not isinstance(league, dict):
+            continue
+        holdings = league.get("holdings")
+        if isinstance(holdings, dict) and holdings:
+            out[str(lid)] = {
+                str(oid): [str(a) for a in assets or []]
+                for oid, assets in holdings.items()
+                if isinstance(assets, list)
+            }
     return out
+
+
+# Snapshots already synced into the ledger, keyed league → snapshot
+# mtime.  Guards the self-heal below so it runs once per snapshot
+# version, not once per request.
+_LEDGER_SYNCED: dict[str, float | None] = {}
+_LEDGER_SYNC_LOCK = threading.Lock()
+
+
+def ensure_ledger_synced(league_key: str, state: dict[str, Any]) -> None:
+    """Backfill this snapshot's events into the ledger if needed.
+
+    WHY THIS EXISTS.  The read path moved from the snapshot's event list
+    to the ledger.  Those are populated at different times: the snapshot
+    by every crawl, the ledger by the crawl's ingest step (added later)
+    or by ``scripts/migrate_intel_ledger.py``.  So on the deploy that
+    ships this cutover there is a window where a league has a perfectly
+    good snapshot and an empty ledger — and the board would render as
+    "no activity", which is indistinguishable from a quiet week and
+    would look like the feature broke rather than like a missing
+    migration.
+
+    Rather than depend on an operator remembering to run a script, the
+    read path heals itself.  Safe to do so because ingestion is
+    idempotent by construction: ``movement_id`` is the crawler's
+    deterministic event id and every insert is ``INSERT OR IGNORE``, so
+    a redundant sync writes nothing and cannot change a count.
+
+    Runs at most once per (league, snapshot mtime).  Failures are
+    logged, never raised — a ledger problem must not take down a read.
+    """
+    events = state.get("events") or []
+    if not events:
+        return
+    try:
+        mtime = store.snapshot_path(league_key).stat().st_mtime
+    except OSError:
+        mtime = None
+    with _LEDGER_SYNC_LOCK:
+        if _LEDGER_SYNCED.get(league_key) == mtime:
+            return
+    try:
+        result = ingest.ingest_state(state, league_key=league_key)
+        if result.movements_inserted:
+            log.info(
+                "intel.service: backfilled %d movement(s) into the ledger for league=%s",
+                result.movements_inserted,
+                league_key,
+            )
+    except Exception:  # noqa: BLE001 — a read must never 500 on this
+        log.exception("intel.service: ledger backfill failed for league=%s", league_key)
+        return
+    with _LEDGER_SYNC_LOCK:
+        _LEDGER_SYNCED[league_key] = mtime
+
+
+def _pool_member_ids(state: dict[str, Any]) -> list[str]:
+    """The league's tracked managers.
+
+    THE LEDGER IS GLOBAL — one SQLite file holding movements from every
+    league this platform has ever crawled, including the thousands of
+    managers Sharp Tracker's discovery graph reaches.  Insider Trading
+    is league-scoped, so EVERY ledger query it makes must be filtered to
+    this pool.  An unfiltered query would silently serve one league's
+    board another league's activity, which is precisely the collapse the
+    scoring-profile/leagueKey split in CLAUDE.md exists to prevent.
+
+    The snapshot remains the authority on pool membership: it is
+    partitioned per league key and holds the crawl bookkeeping.
+    """
+    members = state.get("members") or {}
+    return [str(oid) for oid in members if str(oid).strip()]
+
+
+def _held_league_counts(holdings: dict[str, dict[str, list[str]]]) -> dict[str, int]:
+    """``{assetId: distinct leagues where a pool member holds it}``.
+
+    Kept STRICTLY separate from traded-league counts.  The predecessor
+    unioned the two, so a widely-rostered player was indistinguishable
+    from a widely-traded one — the asset most likely to look like a
+    signal while carrying none.
+    """
+    per_asset: dict[str, set[str]] = {}
+    for lid, by_owner in (holdings or {}).items():
+        for _owner, assets in (by_owner or {}).items():
+            for asset_id in assets or []:
+                per_asset.setdefault(str(asset_id), set()).add(str(lid))
+    return {asset: len(leagues) for asset, leagues in per_asset.items()}
 
 
 def build_summary_payload(
     league_key: str,
     limit: int = 100,
     id_to_player: dict[str, str] | None = None,
+    *,
+    window: str = signals.INSIDER_DEFAULT_WINDOW,
+    windows: Sequence[str] | None = None,
+    sort: str = "net",
+    asset_type: str | None = None,
+    tx_types: Sequence[str] = ledger.TRADE_TX_TYPES,
 ) -> dict[str, Any]:
+    """Insider Trading board, served from the normalized ledger.
+
+    Each window is its own indexed query over the raw movement rows, so
+    a movement 15 days old is returned by the 30d query AND the 90d
+    query because it is one movement seen twice — never summed.  There
+    is no ``trendScore``: see ``src/intel/signals.py`` for why it was
+    retired.
+
+    ``tx_types`` defaults to TRADES ONLY.  Waiver and free-agent
+    movements stay in the ledger and are reachable via the separate
+    waiver-interest payload, never inside a buy/sell count.
+    """
     state = load_state_cached(league_key)
-    now = datetime.now(timezone.utc)
-    holdings = aggregate.holdings_from_state(state)
-    summaries = aggregate.build_asset_summary(state.get("events"), now, holdings=holdings)
-    # Only assets with actual trade activity belong on the tracker
-    # board — pure holdings (no events in 30d) carry no trend signal.
-    active = [
-        s for s in summaries.values() if any(w["buys"] or w["sells"] for w in s["windows"].values())
-    ]
-    active.sort(key=lambda s: (-s["trendScore"], -(s["lastEventTs"] or 0)))
+    ensure_ledger_synced(league_key, state)
+    pool = _pool_member_ids(state)
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    window_names = list(windows or signals.INSIDER_WINDOWS)
+    if window not in window_names:
+        window_names.append(window)
+
+    per_window: dict[str, list[dict[str, Any]]] = {}
+    if pool:
+        conn = ledger.connect()
+        try:
+            for name in window_names:
+                since, until = signals.window_bounds(name, now_ms)
+                per_window[name] = ledger.asset_signals(
+                    since_ms=since,
+                    until_ms=until,
+                    tx_types=tx_types,
+                    user_ids=pool,
+                    asset_type=asset_type,
+                    conn=conn,
+                )
+        finally:
+            conn.close()
+
+    built = signals.build_asset_signals(
+        per_window, now_ms=now_ms, primary_window=window, windows=window_names
+    )
+    # Only assets with activity IN THE ACTIVE WINDOW belong on the
+    # board; a row of zeroes is noise, not a signal.
+    active = [s for s in built if (s.windows.get(window) or {}).get("volume")]
+    ordered = signals.sort_signals(active, sort=sort, primary_window=window)
+
+    held = _held_league_counts(holdings_from_state(state))
     members = state.get("members") or {}
+    rows = []
+    for sig in ordered[: max(1, int(limit))]:
+        row = sig.to_dict()
+        row["displayName"] = asset_display_name(sig.asset_id, id_to_player)
+        row["heldLeagueCount"] = held.get(sig.asset_id, 0)
+        row["lastEventAt"] = (
+            datetime.fromtimestamp(sig.last_ts / 1000, tz=timezone.utc).isoformat()
+            if sig.last_ts
+            else None
+        )
+        rows.append(row)
+
     return {
         "leagueKey": league_key,
         "generatedAt": state.get("generatedAt"),
@@ -413,8 +582,53 @@ def build_summary_payload(
         ),
         "leagueCount": len(state.get("leagues") or {}),
         "eventCount": len(state.get("events") or []),
-        "assets": [_serialize_asset(s, id_to_player) for s in active[: max(1, int(limit))]],
+        # Which lens produced these numbers.  "This is the 30-day view"
+        # and "this field is missing" must never read the same.
+        "window": window,
+        "windows": window_names,
+        "sort": sort,
+        "countedTxTypes": list(tx_types),
+        "assets": rows,
     }
+
+
+def build_waiver_interest_payload(
+    league_key: str,
+    limit: int = 100,
+    id_to_player: dict[str, str] | None = None,
+    *,
+    window: str = signals.INSIDER_DEFAULT_WINDOW,
+) -> dict[str, Any]:
+    """Waiver and free-agent activity, under its OWN label.
+
+    Separate endpoint payload rather than a flag on the board, so a
+    waiver claim can never be rendered as a trade "buy" — the defect
+    that made the old board mostly waiver noise.  The field names are
+    deliberately ``adds``/``drops``, not ``buys``/``sells``.
+    """
+    payload = build_summary_payload(
+        league_key,
+        limit=limit,
+        id_to_player=id_to_player,
+        window=window,
+        windows=[window],
+        sort="volume",
+        tx_types=ledger.WAIVER_TX_TYPES,
+    )
+    for row in payload.get("assets") or []:
+        for win in (row.get("windows") or {}).values():
+            win["adds"] = win.pop("buys", 0)
+            win["drops"] = win.pop("sells", 0)
+            # "net adds" is not a meaningful waiver concept — a claim and
+            # a later drop are two decisions, not a round trip.
+            win.pop("net", None)
+            win.pop("buyRate", None)
+    payload["activityType"] = "waiver_and_free_agent"
+    payload["note"] = (
+        "Waiver claims and free-agent pickups. These are NOT trades and are "
+        "never counted in the buy/sell signal."
+    )
+    return payload
 
 
 def build_player_payload(
@@ -425,44 +639,123 @@ def build_player_payload(
     """Per-asset intel: window aggregates + member exposure.  Returns
     None when the snapshot has no trace of the asset at all."""
     state = load_state_cached(league_key)
-    now = datetime.now(timezone.utc)
+    ensure_ledger_synced(league_key, state)
     asset_id = str(asset_id)
-    holdings = aggregate.holdings_from_state(state)
-    summaries = aggregate.build_asset_summary(state.get("events"), now, holdings=holdings)
-    entry = summaries.get(asset_id)
-    exposure = aggregate.build_member_exposure(state.get("events"), holdings, asset_id, now)
-    if entry is None and not exposure:
+    pool = _pool_member_ids(state)
+    holdings = holdings_from_state(state)
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    window_names = list(signals.INSIDER_WINDOWS)
+
+    per_window: dict[str, list[dict[str, Any]]] = {}
+    per_member: list[dict[str, Any]] = []
+    movements: list[dict[str, Any]] = []
+    if pool:
+        conn = ledger.connect()
+        try:
+            for name in window_names:
+                since, until = signals.window_bounds(name, now_ms)
+                rows = ledger.asset_signals(
+                    since_ms=since,
+                    until_ms=until,
+                    user_ids=pool,
+                    conn=conn,
+                )
+                per_window[name] = [r for r in rows if r["assetId"] == asset_id]
+
+            since, until = signals.window_bounds(signals.INSIDER_DEFAULT_WINDOW, now_ms)
+            per_member = ledger.manager_asset_activity(
+                user_ids=pool,
+                asset_id=asset_id,
+                since_ms=since,
+                until_ms=until,
+                conn=conn,
+            )
+            # The receipts: every movement behind the numbers above, so
+            # any count on screen can be audited back to its trades.
+            movements = ledger.asset_movements_for(
+                asset_id, since_ms=since, until_ms=until, user_ids=pool, limit=100, conn=conn
+            )
+        finally:
+            conn.close()
+
+    built = signals.build_asset_signals(
+        per_window,
+        now_ms=now_ms,
+        primary_window=signals.INSIDER_DEFAULT_WINDOW,
+        windows=window_names,
+    )
+    sig = next((s for s in built if s.asset_id == asset_id), None)
+
+    held_by_owner: dict[str, set[str]] = {}
+    for lid, by_owner in holdings.items():
+        for oid, assets in (by_owner or {}).items():
+            if asset_id in (assets or []):
+                held_by_owner.setdefault(str(oid), set()).add(str(lid))
+
+    if sig is None and not per_member and not held_by_owner:
         return None
+
     member_names = state.get("memberNames") or {}
+    activity_by_owner = {str(m["userId"]): m for m in per_member}
     exposure_out = []
-    for member in exposure:
-        row = dict(member)
-        row["displayName"] = str(member_names.get(member["ownerId"]) or "") or None
-        ts = row.pop("lastEventTs", None)
-        row["lastEventAt"] = (
-            datetime.fromtimestamp(ts / 1000, tz=timezone.utc).isoformat() if ts else None
+    for oid in sorted(set(activity_by_owner) | set(held_by_owner)):
+        act = activity_by_owner.get(oid) or {}
+        last_ts = act.get("lastTs")
+        exposure_out.append(
+            {
+                "ownerId": oid,
+                "displayName": str(member_names.get(oid) or "") or None,
+                "heldLeagueCount": len(held_by_owner.get(oid, ())),
+                "buys": int(act.get("buys") or 0),
+                "sells": int(act.get("sells") or 0),
+                "net": int(act.get("net") or 0),
+                "volume": int(act.get("volume") or 0),
+                "tradedLeagueCount": int(act.get("uniqueLeagues") or 0),
+                "lastEventAt": (
+                    datetime.fromtimestamp(last_ts / 1000, tz=timezone.utc).isoformat()
+                    if last_ts
+                    else None
+                ),
+            }
         )
-        exposure_out.append(row)
-    if entry is None:
-        held_league_ids = {
-            lid
-            for lid, by_owner in holdings.items()
-            if any(asset_id in (assets or []) for assets in (by_owner or {}).values())
-        }
-        entry = {
-            "assetId": asset_id,
-            "assetType": "pick" if asset_id.startswith("pick:") else "player",
-            "windows": aggregate._empty_windows(),
-            "leagueCount": len(held_league_ids),
-            "heldLeagueCount": len(held_league_ids),
-            "trendScore": 0,
-            "lastEventTs": None,
-        }
-    payload = _serialize_asset(entry, id_to_player)
+    exposure_out.sort(key=lambda m: (-m["volume"], -m["heldLeagueCount"], m["ownerId"]))
+
+    if sig is None:
+        sig = signals.AssetSignal(
+            asset_id=asset_id,
+            asset_type="pick" if asset_id.startswith("pick:") else "player",
+        )
+        for name in window_names:
+            sig.windows[name] = {
+                "buys": 0,
+                "sells": 0,
+                "net": 0,
+                "volume": 0,
+                "buyRate": None,
+                "uniqueBuyers": 0,
+                "uniqueSellers": 0,
+                "uniqueManagers": 0,
+                "uniqueLeagues": 0,
+                "tradeCount": 0,
+                "movementCount": 0,
+            }
+
+    payload = sig.to_dict()
+    payload["displayName"] = asset_display_name(asset_id, id_to_player)
+    payload["lastEventAt"] = (
+        datetime.fromtimestamp(sig.last_ts / 1000, tz=timezone.utc).isoformat()
+        if sig.last_ts
+        else None
+    )
     payload["leagueKey"] = league_key
+    payload["window"] = signals.INSIDER_DEFAULT_WINDOW
     payload["memberExposure"] = exposure_out
     payload["holderCount"] = sum(1 for m in exposure_out if m["heldLeagueCount"] > 0)
     payload["heldLeagueTotal"] = sum(m["heldLeagueCount"] for m in exposure_out)
+    # Held and traded stay SEPARATE — the predecessor unioned them, so a
+    # widely-rostered player was indistinguishable from a traded one.
+    payload["heldLeagueCount"] = len({lid for lids in held_by_owner.values() for lid in lids})
+    payload["movements"] = movements
     payload["generatedAt"] = state.get("generatedAt")
     payload["staleHours"] = snapshot_stale_hours(state)
     return payload
@@ -476,13 +769,18 @@ def build_member_payload(
 ) -> dict[str, Any] | None:
     """One pool member's cross-league profile + recent activity."""
     state = load_state_cached(league_key)
+    ensure_ledger_synced(league_key, state)
     owner_id = str(owner_id)
     members = state.get("members") or {}
     entry = members.get(owner_id)
     if not isinstance(entry, dict):
         return None
-    now = datetime.now(timezone.utc)
-    activity = aggregate.build_member_activity(state.get("events"), owner_id, now)
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    since, until = signals.window_bounds(signals.INSIDER_DEFAULT_WINDOW, now_ms)
+    # Scoped to THIS member only — a per-manager revealed-preference log.
+    rows = ledger.manager_asset_activity(user_ids=[owner_id], since_ms=since, until_ms=until)
+    rows.sort(key=lambda r: (-r["volume"], -(r["lastTs"] or 0), r["assetId"]))
+    trade_count = sum(r["tradeCount"] for r in rows)
     league_names = []
     for lid in entry.get("leagues") or []:
         league = (state.get("leagues") or {}).get(str(lid))
@@ -498,9 +796,22 @@ def build_member_payload(
         "truncated": bool(entry.get("truncated")),
         "lastCrawledAt": entry.get("lastCrawledAt"),
         "lastError": entry.get("lastError"),
-        "eventCount30d": activity["eventCount30d"],
+        "window": signals.INSIDER_DEFAULT_WINDOW,
+        # Movements, not "events" — the unit is named so it cannot be
+        # confused with transactions (see docs/intel/METRICS.md).
+        "movementCount": sum(r["volume"] for r in rows),
+        "tradeCount": trade_count,
         "assets": [
-            _serialize_asset(a, id_to_player) for a in activity["assets"][: max(1, int(limit))]
+            {
+                **{k: v for k, v in row.items() if k not in ("userId", "lastTs")},
+                "displayName": asset_display_name(row["assetId"], id_to_player),
+                "lastEventAt": (
+                    datetime.fromtimestamp(row["lastTs"] / 1000, tz=timezone.utc).isoformat()
+                    if row.get("lastTs")
+                    else None
+                ),
+            }
+            for row in rows[: max(1, int(limit))]
         ],
         "generatedAt": state.get("generatedAt"),
         "staleHours": snapshot_stale_hours(state),

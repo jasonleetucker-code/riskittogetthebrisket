@@ -80,6 +80,38 @@ describe("private pages", () => {
     expect(isPublicPath("/phases")).toBe(false);
   });
 
+  it("/league/insider-trading is private despite sitting under /league", () => {
+    // Measured on production 2026-07-30 BEFORE this carve-out: the page
+    // answered 200 to an anonymous visitor while both of its data
+    // sources answered 401 (/api/intel/summary, /api/intel/player), and
+    // the page has no auth gate of its own — so a stranger got a
+    // permanent "Loading Insider Trading…" spinner, on a URL robots.txt
+    // makes indexable via `Allow: /league/`.
+    //
+    // Same defect class as /trades (see the module docstring). It
+    // recurred because /trades was fixed by REMOVING it from a list,
+    // which cannot help a route nobody had to add — prefix matching
+    // makes every future /league/* page public by default.
+    expect(isPublicPath("/league/insider-trading")).toBe(false);
+  });
+
+  it("a private exception covers its subtree, not just the exact path", () => {
+    expect(isPublicPath("/league/insider-trading/anything")).toBe(false);
+  });
+
+  it("the carve-out does not leak onto sibling /league routes", () => {
+    // The exception must be surgical: the public league hub and its
+    // genuinely public children keep working for logged-out visitors.
+    for (const p of [
+      "/league",
+      "/league/activity",
+      "/league/franchise/jason",
+      "/league/insider-tradingx",
+    ]) {
+      expect(isPublicPath(p), p).toBe(true);
+    }
+  });
+
   it("a /league lookalike prefix does not inherit public status", () => {
     expect(isPublicPath("/league-comparison")).toBe(false);
     expect(isPublicPath("/leaguesecrets")).toBe(false);

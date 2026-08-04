@@ -184,6 +184,32 @@ CREATE TABLE IF NOT EXISTS league_memberships (
   PRIMARY KEY (league_id, user_id)
 );
 
+-- One manager's result in one league-season.  Populated by the Sharp
+-- records crawl (src/sharp/records.py) and consumed by the Sharp Score,
+-- which needs completed-season history that transactions cannot supply.
+-- PK is (league_id, season, user_id): a manager holds at most one roster
+-- per league-season, so a re-crawl overwrites rather than duplicating.
+CREATE TABLE IF NOT EXISTS manager_seasons (
+  league_id      TEXT NOT NULL,
+  season         TEXT NOT NULL,
+  user_id        TEXT NOT NULL,
+  roster_id      TEXT,
+  wins           INTEGER,
+  losses         INTEGER,
+  ties           INTEGER,
+  points_for     REAL,
+  points_against REAL,
+  made_playoffs  INTEGER,
+  is_champion    INTEGER,
+  is_runner_up   INTEGER,
+  finish_rank    INTEGER,
+  team_count     INTEGER,
+  is_complete    INTEGER,
+  sharp_eligible INTEGER,
+  crawled_ms     INTEGER,
+  PRIMARY KEY (league_id, season, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT
@@ -200,6 +226,8 @@ CREATE INDEX IF NOT EXISTS idx_mv_ts         ON asset_movements(ts);
 CREATE INDEX IF NOT EXISTS idx_mv_tx         ON asset_movements(tx_id);
 CREATE INDEX IF NOT EXISTS idx_tx_ts         ON transactions(created_ms);
 CREATE INDEX IF NOT EXISTS idx_lm_user       ON league_memberships(user_id);
+CREATE INDEX IF NOT EXISTS idx_ms_user       ON manager_seasons(user_id);
+CREATE INDEX IF NOT EXISTS idx_ms_league     ON manager_seasons(league_id, season);
 """
 
 
@@ -214,26 +242,77 @@ def _apply_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _open_or_reset(path: Path) -> None:
-    """Open the ledger, rebuilding it if the file is not valid SQLite.
+def _is_corrupt_database_error(exc: sqlite3.DatabaseError) -> bool:
+    """Return True only for errors that prove the file itself is corrupt.
 
-    Same posture as ``user_kv``: a corrupt analytics store must not
-    brick the endpoints that read it.  The ledger is a derived cache
-    of Sleeper's own data, so a rebuild costs a crawl, not user data.
+    ``OperationalError`` is a ``DatabaseError`` subclass. Treating every
+    database error as corruption meant a routine ``database is locked``
+    during a collector write renamed the live ledger and rebuilt an empty
+    one underneath the writer. Busy/locked errors must propagate so the
+    caller can retry; only SQLite CORRUPT/NOTADB conditions may quarantine
+    and rebuild this derived store.
     """
-    conn = sqlite3.connect(str(path), timeout=10.0)
+    code = getattr(exc, "sqlite_errorcode", None)
+    corrupt_codes = {
+        getattr(sqlite3, "SQLITE_CORRUPT", 11),
+        getattr(sqlite3, "SQLITE_NOTADB", 26),
+    }
+    if code in corrupt_codes:
+        return True
+    message = str(exc).lower()
+    return any(
+        marker in message
+        for marker in (
+            "database disk image is malformed",
+            "file is not a database",
+            "file is encrypted or is not a database",
+            "malformed database schema",
+        )
+    )
+
+
+def _schema_is_current(conn: sqlite3.Connection) -> bool:
+    """Check an existing schema without taking a write lock."""
     try:
+        row = conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc).lower():
+            return False
+        raise
+    return row is not None and str(row[0]) == str(SCHEMA_VERSION)
+
+
+def _open_or_reset(path: Path) -> None:
+    """Open the ledger and rebuild only when SQLite proves corruption.
+
+    Existing, current ledgers are checked read-only. This lets API readers
+    start while a collector owns the write lock. A busy or locked database
+    is never renamed, deleted, or rebuilt.
+    """
+    conn = sqlite3.connect(str(path), timeout=30.0)
+    conn.execute("PRAGMA busy_timeout=30000")
+    try:
+        if _schema_is_current(conn):
+            return
         _apply_schema(conn)
         return
-    except sqlite3.DatabaseError:
+    except sqlite3.DatabaseError as exc:
+        if not _is_corrupt_database_error(exc):
+            raise
         conn.close()
-        log.warning("intel.ledger: %s is not a valid SQLite database — rebuilding", path)
+        quarantine = path.with_suffix(path.suffix + f".corrupt-{int(time.time() * 1000)}")
+        log.warning(
+            "intel.ledger: %s failed SQLite corruption checks — quarantining as %s",
+            path,
+            quarantine,
+        )
         if path.exists():
             try:
-                path.rename(path.with_suffix(path.suffix + ".corrupt"))
+                path.rename(quarantine)
             except OSError:
                 path.unlink(missing_ok=True)
-        conn = sqlite3.connect(str(path), timeout=10.0)
+        conn = sqlite3.connect(str(path), timeout=30.0)
+        conn.execute("PRAGMA busy_timeout=30000")
         try:
             _apply_schema(conn)
         finally:
@@ -242,7 +321,7 @@ def _open_or_reset(path: Path) -> None:
     finally:
         try:
             conn.close()
-        except Exception:  # noqa: BLE001  — best effort
+        except Exception:  # noqa: BLE001 — best effort
             pass
 
 
@@ -261,7 +340,8 @@ def _ensure_schema(path: Path) -> None:
 def connect(path: Path | None = None) -> sqlite3.Connection:
     target = Path(path) if path else default_path()
     _ensure_schema(target)
-    conn = sqlite3.connect(str(target), timeout=10.0)
+    conn = sqlite3.connect(str(target), timeout=30.0)
+    conn.execute("PRAGMA busy_timeout=30000")
     conn.row_factory = sqlite3.Row
     return conn
 

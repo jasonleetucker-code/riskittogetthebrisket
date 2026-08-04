@@ -1168,7 +1168,30 @@ def _compute_portfolio_insights(
             by_position[bucket]["value"] += p["value"]
     # Picks aren't part of ``rosterValues`` (picks handled separately
     # in the contract), so ``PICK`` stays zero unless the caller pre-
-    # injects them — matching the client-side shape.
+    # injects them.
+    #
+    # This deliberately does NOT match the client-side shape, and the
+    # comment here claimed it did until 2026-07-30.  Both client
+    # implementations intend to include picks in the portfolio:
+    # ``frontend/lib/league-analysis.js``'s ``byGroup.PICKS`` sums
+    # them via ``resolvePickRow``, and
+    # ``frontend/lib/portfolio-insights.js`` sums them into
+    # ``totalValue`` and the PICK bucket.  On the live 12-team snapshot
+    # that is 442,936 of pick value against 1,524,591 of player value —
+    # 22.5% of a portfolio, so the two answers are not close enough to
+    # call equivalent.
+    #
+    # The false comment mattered: portfolio-insights' pick join was
+    # broken (Sleeper says "2026 1.02 (own)", the contract row is
+    # "2026 Pick 1.02") and resolved 0 of 288, so the client's OUTPUT
+    # happened to agree with this one while its INTENT did not.  That
+    # made the divergence invisible — fixing the client join is what
+    # exposed it.
+    #
+    # Left excluded rather than changed: adding picks here moves every
+    # terminal aggregate, which is a product decision about what
+    # ``/api/terminal`` means, not a bug fix.  Recorded so the next
+    # reader sees a known difference instead of a claimed equivalence.
     if totalValue:
         for g in position_groups:
             by_position[g]["pct"] = round(by_position[g]["value"] / totalValue * 100, 1)

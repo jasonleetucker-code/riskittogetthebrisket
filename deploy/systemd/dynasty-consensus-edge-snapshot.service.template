@@ -1,0 +1,22 @@
+[Unit]
+Description=Consensus Edge board snapshot for __SERVICE_NAME__
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__APP_DIR__
+# Runs on the serving box because it reads the live contract from disk
+# and writes into gitignored data/. A CI runner has neither, so a
+# snapshot built there would record a board nobody served.
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/snapshot_consensus_edge.py
+# Exit 2 means the board came back structurally wrong (zero rows), which
+# is a real failure worth surfacing. Exit 1 (no contract yet) is also a
+# failure — a box that never has a contract has a bigger problem than
+# this timer.
+TimeoutStartSec=900
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

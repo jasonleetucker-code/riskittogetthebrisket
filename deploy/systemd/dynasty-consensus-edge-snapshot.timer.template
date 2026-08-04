@@ -1,0 +1,25 @@
+[Unit]
+Description=Daily Consensus Edge board snapshot for __SERVICE_NAME__
+# No Requires= on the service: [Timer] Unit= already binds it, and a
+# Requires= here would start the service on every boot and let a service
+# failure stop the timer. Persistent=true is the catch-up mechanism.
+
+[Timer]
+# Daily, 07:30 UTC. Slot rationale: the scheduled data refresh runs at
+# :42 every two hours, so 07:30 lands after the 06:42 refresh has
+# settled and well before the 08:42 one starts — the snapshot therefore
+# records a board built on a stable contract rather than one mid-rewrite.
+# It also sits clear of the sharp collectors (04:20-06:30) and the
+# intel refresh (09:10).
+#
+# Daily rather than hourly because the panel this feeds is evaluated at
+# 7/14/30-day horizons; more frequent snapshots would multiply storage
+# without adding a single independent observation.
+OnCalendar=*-*-* 07:30:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-consensus-edge-snapshot.service
+
+[Install]
+WantedBy=timers.target

@@ -471,7 +471,14 @@ export function DataTable({
                 {columns.map((col) => {
                   const acc = col.accessor || ((r) => r?.[col.key]);
                   return (
-                    <td key={col.key} className={cellClass(col)}>
+                    // ``data-col`` makes a cell addressable by its COLUMN
+                    // KEY rather than by ordinal.  Several column sets here
+                    // are built conditionally (the rankings board adds a
+                    // Fund-gap column only while BDVM serves an ok payload,
+                    // for one), so an ``nth-child`` selector in a test is
+                    // correct until the day a column appears in front of
+                    // it and then silently asserts the wrong column.
+                    <td key={col.key} data-col={col.key} className={cellClass(col)}>
                       {col.render ? col.render(row, i) : acc(row)}
                     </td>
                   );

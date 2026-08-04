@@ -13,7 +13,7 @@ from tests.intel.conftest import (
     leagues_url,
     make_league,
     make_roster,
-    make_waiver_tx,
+    make_trade_tx,
     rosters_url,
     state_url,
     tx_url,
@@ -29,7 +29,10 @@ def _responses_for(member: str, lid: str, asset: str) -> dict:
             state_url(): {"week": 1, "season_type": "off", "league_season": SEASON},
             leagues_url(member, SEASON): [make_league(lid)],
             rosters_url(lid): [make_roster(1, member, players=[asset])],
-            tx_url(lid, 1): [make_waiver_tx(f"t-{lid}", now_ms - DAY_MS, 1, add_player=asset)],
+            # A TRADE, not a waiver: only trades reach the buy/sell
+            # board, so a waiver fixture here would assert an empty
+            # board and stop testing partition scoping at all.
+            tx_url(lid, 1): [make_trade_tx(f"t-{lid}", now_ms - DAY_MS, adds={asset: 1})],
         }
     )
 
@@ -86,7 +89,10 @@ def _seed_league_responses(member: str, seed_league_id: str, lid: str, asset: st
             ],
             leagues_url(member, SEASON): [make_league(lid)],
             rosters_url(lid): [make_roster(1, member, players=[asset])],
-            tx_url(lid, 1): [make_waiver_tx(f"t-{lid}", now_ms - DAY_MS, 1, add_player=asset)],
+            # A TRADE, not a waiver: only trades reach the buy/sell
+            # board, so a waiver fixture here would assert an empty
+            # board and stop testing partition scoping at all.
+            tx_url(lid, 1): [make_trade_tx(f"t-{lid}", now_ms - DAY_MS, adds={asset: 1})],
         }
     )
 

@@ -11,10 +11,33 @@ function ArchivesSection({ data }) {
   const [kind, setKind] = useState("trades");
   const [query, setQuery] = useState("");
   const [season, setSeason] = useState("all");
-  if (!data) return <EmptyCard label="Archives" />;
 
-  const seasonsCovered = data.seasonsCovered || [];
-  const rows = useMemo(() => data[kind] || [], [data, kind]);
+  // EVERY hook runs before the `!data` bail-out below.  This used to be
+  // `if (!data) return <EmptyCard/>` HERE, above the two useMemos —
+  // a conditional hook call.  On the `data: null → data: present`
+  // transition (which is this section's normal path: it is lazily
+  // loaded, so the first render has no data) the hook count went 3 → 5
+  // and React threw "Rendered more hooks than during the previous
+  // render."  The throw lands during an update, so the previously
+  // committed markup stays on screen with its handlers detached: the
+  // section renders, and then the archive-kind buttons and the season
+  // <select> do nothing.
+  //
+  // That is the shape of the Production E2E Smoke failure this fixes.
+  // `public-league.spec.js` clicked "Matchups", then selected a season,
+  // and the row count stayed at exactly 190 through both — and 190 is
+  // the UNFILTERED `trades` total (the default `kind` below), matching
+  // no season-filtered subset of any dataset.  Measured from production
+  // 2026-07-30: trades 190 (2026:37, 2025:124, 2024:29), weeklyMatchups
+  // 158, waivers 1092, rookieDrafts 494, seasonResults 30.  The season
+  // filter below was never the bug — it had simply never run.
+  //
+  // "Lazily loaded" above is now true on EVERY entry, not just a tab
+  // switch: `page.jsx` stopped server-rendering this section (it was
+  // ~737 KB of a ~960 KB document), so the first render has `data: null`
+  // even on a `?tab=archives` deep link.  The hook ordering here is what
+  // makes that safe.
+  const rows = useMemo(() => (data ? data[kind] || [] : []), [data, kind]);
   const filtered = useMemo(() => {
     let out = rows;
     if (season !== "all") {
@@ -26,6 +49,10 @@ function ArchivesSection({ data }) {
     }
     return out.slice(0, 500);
   }, [rows, query, season]);
+
+  if (!data) return <EmptyCard label="Archives" />;
+
+  const seasonsCovered = data.seasonsCovered || [];
 
   return (
     <Card
@@ -82,7 +109,12 @@ function ArchivesSection({ data }) {
         {rows.length > filtered.length ? ` of ${rows.length}` : ""}
       </div>
 
-      <div className="table-wrap">
+      {/* `archives-table` is a stable E2E hook, in the style of the
+          SEL registry in tests/e2e/helpers/journey.js. `table-wrap`
+          alone is not addressable: ten other /league sections use it
+          (weekly, luck, power, draft, draft-capital, rivalries…), so a
+          page-wide `table tbody tr` count is not this table's count. */}
+      <div className="table-wrap archives-table">
         <ArchiveTable kind={kind} rows={filtered} />
       </div>
     </Card>

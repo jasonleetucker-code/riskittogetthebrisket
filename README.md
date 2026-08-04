@@ -112,14 +112,15 @@ This repo is now wired so both sides can work together:
    - Tries backend `http://127.0.0.1:8000/api/data` first
    - Falls back to local `dynasty_data_YYYY-MM-DD.json` / `dynasty_data.js`
 
-2. **Python server runtime proxies to Next.js**
+2. **Python server serves the API only**
    - `server.py`
-   - `FRONTEND_RUNTIME` is hardcoded to `next` — all page routes proxy to the Next.js frontend
-   - No legacy Static fallback exists
+   - Since #555 it registers **no page routes**: a page path on `:8000` returns a JSON 404
+   - Next.js serves every page, and `frontend/middleware.js` is the only page auth gate
+   - nginx has always routed `location /` to Next and only `location /api/` to the backend, so this matches production rather than changing it
 
 ### Optional env vars
-- `FRONTEND_URL=http://127.0.0.1:3000`
 - `BACKEND_API_URL=http://127.0.0.1:8000/api/data` (for Next route)
+  - `FRONTEND_URL` was removed with the page proxy (#555) — the backend no longer calls Next
 - `SLEEPER_LEAGUE_ID=1312006700437352448` (canonical main league ID for backend scraper)
 
 ### `/api/data` contract

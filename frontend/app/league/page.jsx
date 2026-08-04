@@ -125,8 +125,27 @@ export default async function LeagueRoute({ searchParams }) {
   // still fully server-rendered — which is what keeps crawlers and
   // shared links seeing real content instead of a spinner.  Everything
   // else loads when the visitor actually opens it.
+  //
+  // ``archives`` is the one exception (2026-07-30), and it is a size
+  // decision rather than a policy change.  At ~737 KB it is 8x the next
+  // largest section; inlining it into the RSC flight payload took this
+  // document from ~91 KB to ~960 KB, and that payload is what made
+  // hydration slow enough to race (#662).  The client already fetches
+  // sections it lacks — ``LeagueClient``'s lazy-section effect handles
+  // archives on a tab switch today, with an in-flight guard — and
+  // ``ArchivesSection`` is written for a null first render.  So SSR here
+  // bought nothing but bytes.
+  //
+  // What is genuinely given up: a crawler following ``?tab=archives``
+  // sees the shell rather than the table.  Archives is a waiver / draft /
+  // trade log, not the shareable surface; ``overview``, which carries the
+  // OG title and description, still server-renders on every tab.
   const landing = sectionForTab(normalizeTabKey(rawTab));
-  const wanted = landing && landing !== "overview" ? ["overview", landing] : ["overview"];
+  const ssrSkip = new Set(["archives"]);
+  const wanted =
+    landing && landing !== "overview" && !ssrSkip.has(landing)
+      ? ["overview", landing]
+      : ["overview"];
   const payloads = await Promise.all(wanted.map((s) => fetchSection(s)));
 
   let league = null;

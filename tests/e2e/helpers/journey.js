@@ -26,6 +26,66 @@ const NAME = {
   waiverStrengthFilter: /Upgrade strength/i,
 };
 
+// ── Page-title canon ───────────────────────────────────────────────────
+// Route → the page's <h1>, mirroring
+// frontend/__tests__/helpers/naming-canon.js. Kept in lockstep by
+// tests/e2e/test_e2e_harness_guards.py, the same
+// parse-the-JS-and-diff idiom tests/api/test_source_registry_parity.py
+// already uses for the ranking-source registry.
+//
+// Why this exists: SEL centralizes redesign-volatile *markup* and did
+// its job — not one of the nineteen 2026-07-30 nightly failures was a
+// broken CSS hook. What was NOT centralized was the user-facing COPY,
+// so PR #625's naming canon ("Trade Builder" → "Trade Calculator",
+// "Roster Dashboard" → "Team Strength") broke four assertions across
+// three files, each hardcoding the old string. One rename, three files.
+// Put a title here, reference it, and the parity test makes the next
+// rename a fast-gate failure instead of an overnight one.
+const TITLE = {
+  "/rankings": "Rankings",
+  "/trending": "Trending",
+  "/idptc-rookies": "Rookie Board",
+  "/players/compare": "Compare Players",
+  "/bdvm": "Fundamental Values",
+  "/news": "News",
+  "/trade": "Trade Calculator",
+  "/angle": "Package Builder",
+  "/arbitrage": "Arbitrage",
+  "/trades": "Trade History",
+  "/rosters": "Team Strength",
+  "/waivers": "Waivers",
+  "/draft": "Draft Board",
+  "/phases": "Win-now vs Rebuild",
+  "/edge": "Source Disagreement",
+  "/market/sharp-tracker": "Sharp Tracker",
+  "/league/insider-trading": "Insider Trading",
+  "/league": "Hub",
+  "/league/activity": "Activity",
+  "/league-comparison": "Scoring Comparison",
+};
+
+/**
+ * The page title for `route`, as an anchored exact-match RegExp.
+ *
+ * Anchored deliberately. A loose /Trade/i matches the nav group label
+ * present on every authenticated page, which is the vacuity class
+ * docs/e2e-assertion-audit.md measured: those assertions passed with
+ * <main> deleted entirely. Pair this with pageHeading() and the
+ * assertion can only pass if the PAGE BODY rendered.
+ */
+function titleFor(route) {
+  const title = TITLE[route];
+  if (!title) {
+    throw new Error(
+      `No canon title for ${route}. Add it to TITLE in ` +
+        `tests/e2e/helpers/journey.js and to CANON in ` +
+        `frontend/__tests__/helpers/naming-canon.js — the parity test ` +
+        `requires both.`,
+    );
+  }
+  return new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+}
+
 
 // ── Selector registry ──────────────────────────────────────────────────
 // The one place the redesign has to keep in sync.  Every selector is
@@ -89,11 +149,23 @@ const SEL = {
   edgeSignalTab: '[role="tablist"][aria-label="Signal family"] [role="tab"]',
   edgeSignalTable: '[role="tabpanel"] .ds-table-wrap table',
   edgeSignalRow: '[role="tabpanel"] .ds-table-wrap table tbody tr',
-  // /finder (R3) — workflow presets as a tablist over one result table.
-  finderWorkflowTab:
-    '[role="tablist"][aria-label="Discovery workflow"] [role="tab"]',
-  finderFilters: ".finder-filters",
-  finderRow: '[role="tabpanel"] .ds-table-wrap table tbody tr',
+  // /arbitrage — the UI caller for src/trade/finder.py (board-vs-market).
+  // One card per candidate trade; ``arbitrage-trade-card`` is the stable
+  // hook beside the hashed CSS-module class.
+  //
+  // NOT to be confused with the retired /finder, which was a board
+  // FILTER (presets over sourceRankSpread / confidenceBucket /
+  // isSingleSource / rookie) and computed no board-versus-market
+  // comparison at all.  Its selectors (`finderWorkflowTab`,
+  // `finderFilters`, `finderRow`) are deleted here along with the route:
+  // /finder is now a redirect shim into /rankings, and its presets
+  // live on as the Screens dropdown (`SCREENS`, lib/edge-helpers.js).
+  //
+  // The confusion was load-bearing, not cosmetic: a stale header comment
+  // on /finder once called it "the arbitrage blotter", which made an
+  // earlier audit record a phantom second implementation competing with
+  // this engine (see the header of frontend/app/arbitrage/page.jsx).
+  arbitrageTradeCard: ".arbitrage-trade-card",
   // / dashboard (R3) — the war-room terminal. The legacy terminal
   // Panel container is retired; every section is a ds Panel now, so
   // panels are addressed by their accessible heading rather than a
@@ -109,23 +181,34 @@ function isMobileProject(testInfo) {
 }
 
 /**
- * Origin for PAGE navigations that must bypass the backend's page
- * proxy.  server.py proxies page routes to Next.js with a 5s timeout;
- * the /league SSR pass regularly exceeds that and 503s — production
- * doesn't have this problem because nginx routes page traffic
- * straight to Next.  Setting E2E_PAGE_ORIGIN (e.g.
- * http://127.0.0.1:3000) reproduces the production topology for page
- * loads while API requests keep the shared baseURL.  When unset
- * (e.g. prod smoke runs against the real domain) paths pass through
- * unchanged.
+ * Origin for PAGE navigations.
  *
- * Post-R1 this is a CORRECTNESS requirement, not just a timeout
- * workaround: served through the proxy, "/" renders the ANONYMOUS
- * landing shell even with a valid session cookie — /api/auth/status
- * returns authenticated:true while the proxied page still shows
- * "Sign In" — whereas Next serves the authed dashboard for the same
- * cookie.  Any spec asserting on signed-in chrome must navigate
- * through here or it silently tests the logged-out page.
+ * Pages live on Next.js; the API lives on FastAPI.  `baseURL` is the
+ * API origin, so every page navigation goes through here and every
+ * API request keeps `baseURL`.  Setting E2E_PAGE_ORIGIN (e.g.
+ * http://127.0.0.1:3000) points pages at Next; when unset (e.g. prod
+ * smoke against the real domain, where nginx fronts both) paths pass
+ * through unchanged.
+ *
+ * That is now a plain statement of the topology.  It used to be a
+ * WORKAROUND, and the difference is worth recording because it is why
+ * this helper exists at all: server.py used to proxy page routes to
+ * Next, and specs had to route around it for two reasons.  The proxy's
+ * 5s timeout could not absorb the /league SSR pass, so it 503'd.  And
+ * more seriously, `_proxy_next` took a path string rather than a
+ * Request and so structurally could not forward cookies — a proxied
+ * page rendered the ANONYMOUS shell while /api/auth/status on the same
+ * origin returned authenticated:true.  A spec that navigated without
+ * this wrapper silently asserted against the logged-out page.
+ *
+ * #555 deleted the proxy.  The backend serves no pages, so a bare
+ * navigation now 404s loudly instead of quietly testing /login, and
+ * this helper is the ordinary way to reach a page rather than a
+ * defence against one.  Its behaviour is unchanged — do not "simplify"
+ * it away by moving `baseURL` to :3000, which would break every API
+ * request in the suite, session minting first
+ * (auth-fixture.js posts to `${baseURL}/api/test/create-session`, and
+ * there is no Next bridge route for /api/test).
  */
 function pageUrl(path) {
   let origin = process.env.E2E_PAGE_ORIGIN;
@@ -167,7 +250,20 @@ function mobileOnly(test, testInfo) {
  * timers.  Returns the row locator.
  */
 async function gotoRankingsBoard(page, { minRows = 50 } = {}) {
-  await page.goto("/rankings", { waitUntil: "domcontentloaded" });
+  // MUST go through pageUrl() — see its note above. This line was a
+  // bare `page.goto("/rankings")` until 2026-07-30, which resolved
+  // against baseURL (then the FastAPI page proxy on :8000).
+  // `_proxy_next` forwarded no cookies — it took a path string, not a
+  // Request, so it could not — and so once frontend/middleware.js
+  // landed on 2026-07-29 every such navigation 307'd to /login and the
+  // board never existed. (#555 has since deleted the proxy, so the same
+  // mistake would now 404 rather than mislead.) That single missing
+  // wrapper was ELEVEN of the nightly suite's nineteen failures —
+  // six rankings journeys, the settings-override round-trip, two
+  // mobile smokes and two chart smokes — every one of them reported
+  // as "rankings board should render rows / element(s) not found",
+  // which reads like a dead pipeline and was a dead cookie.
+  await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
   const rows = page.locator(SEL.boardRow);
   await expect(rows.first(), "rankings board should render rows").toBeVisible({
     timeout: 60_000,
@@ -296,6 +392,8 @@ function attachConsoleGuards(page, { allow = [] } = {}) {
 module.exports = {
   SEL,
   NAME,
+  TITLE,
+  titleFor,
   isMobileProject,
   pageUrl,
   desktopOnly,

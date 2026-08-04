@@ -66,14 +66,35 @@ test.describe("signed-in: /waivers page", () => {
     // selected team (the e2e test user) shows the calculator's
     // pick-a-team empty state instead; both are valid "section
     // renders" outcomes.
+    //
+    // This must NOT branch on a single innerText read.  The page passes
+    // through three distinct bodies while it settles — signed-out
+    // shell, signed-in-without-team, then the team picker — and a read
+    // that lands on the middle one contains NEITHER "Select a team" nor
+    // "DROP", picks the else branch, and then waits 15s for a "DROP"
+    // that this session will never render.  Same hydration race as the
+    // archives one, in its read-once-then-branch form: the branch is
+    // decided on a frame that is not the final frame.
+    //
+    // Poll for whichever settled state actually arrives.
     const body = authedPage.locator("body");
-    const text = await body.innerText();
-    if (/Select a team/i.test(text)) {
-      await expect(body).toContainText(/Select a team .* calculator/i);
-    } else {
-      await expect(body).toContainText(/DROP/);
-      await expect(body).toContainText(/ADD/);
-    }
+    await expect
+      .poll(
+        async () => {
+          const text = await body.innerText();
+          if (/Select a team .* calculator/i.test(text)) return "pick-a-team";
+          if (/DROP/.test(text) && /ADD/.test(text)) return "pickers";
+          return "unsettled";
+        },
+        {
+          message:
+            "the calculator should settle on either its pick-a-team empty " +
+            "state or its DROP/ADD pickers",
+          timeout: 30_000,
+          intervals: [250, 500, 1000, 2000],
+        },
+      )
+      .not.toBe("unsettled");
   });
 
   test("FAAB recommender endpoint returns the documented shape", async ({

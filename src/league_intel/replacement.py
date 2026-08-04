@@ -269,6 +269,44 @@ def measure_endogenous_starters(
         solution = optimize_lineup(_to_roster_players(players), starter_slots=starter_slots)
         per_pos: dict[str, list[float]] = {}
         for row in solution.starting_lineup:
+            # BY THE PLAYER'S NOMINAL POSITION, NOT BY THE SLOT — and that
+            # is deliberate, so read this before "fixing" it.
+            #
+            # It looks wrong on a hybrid: a DL/LB whom the optimizer slots
+            # at LB still counts as DL here, so on the live 12 rosters
+            # ``starters_per_team`` reads DL 2.667 / LB 3.250 / DB 3.083
+            # while the league plainly starts 3 at each.  The slot truth
+            # is real and is recorded — ``slot_fill`` below shows exactly
+            # 36 DL / 36 LB / 36 DB, 3 per team.
+            #
+            # But these numbers exist to describe A POOL, and the pool is
+            # keyed by nominal position: ``compute_scarcity`` builds
+            # ``by_pos`` from ``normalize_base_position(player["position"])``.
+            # Two separate consumers depend on that correspondence, and it
+            # is worth naming them precisely rather than hand-waving at
+            # "scarcity" — a vague justification is what invites the next
+            # reader to re-open this:
+            #
+            #   * ``starters_per_team`` → ``starters_n`` → ``pool[:n]`` →
+            #     ``median_starter``, which feeds ``eliteSeparation`` and
+            #     ``starterSeparation``.  Slicing a pool of nominal-DLs
+            #     with a count derived from DL *slots* mismatches
+            #     numerator and denominator.
+            #   * ``marginal_starter_values`` → the ``starter``
+            #     replacement tier → ``lineupScarcity``, which IS the live
+            #     axis of the league-adjusted overlay.  Note it reaches
+            #     that axis through the MARGINALS, not through
+            #     ``starters_n`` — an earlier version of this comment said
+            #     otherwise and was wrong.
+            #
+            # Both are keyed nominally, so switching attribution to the
+            # slot breaks both.
+            #
+            # The question this answers is "how many DL-pool bodies do
+            # lineups consume", which is what a replacement level needs.
+            # "How many DL slots does the league start" is a different
+            # question with a different answer, and ``slot_fill`` is where
+            # it lives.
             base = normalize_base_position(str(row.get("position") or ""))
             counts[base] = counts.get(base, 0) + 1
             per_pos.setdefault(base, []).append(float(row.get("rosValue") or 0.0))

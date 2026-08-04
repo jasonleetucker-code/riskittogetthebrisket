@@ -1,0 +1,25 @@
+[Unit]
+Description=Dynasty Trade Calculator qualified-manager Sleeper activity crawl (__SERVICE_NAME__)
+After=network-online.target __SERVICE_NAME__-sharp-records.service
+Wants=network-online.target
+
+# The THIRD Sharp Tracker pass. Discovery finds managers; records collect
+# completed-season evidence and qualify the cohort; this service crawls the
+# qualified managers' current public Sleeper leagues and transactions so the
+# unified Sharp market receives actual Sleeper buy/sell movements.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/crawl_sharp_activity.py --budget 2500 --max-managers 250
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

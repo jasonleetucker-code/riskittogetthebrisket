@@ -53,10 +53,10 @@ jobs:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -68,7 +68,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Use Node 20
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
 
@@ -221,7 +221,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-playwright-report
           path: |
@@ -231,7 +231,7 @@ jobs:
 
       - name: Upload server logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-server-logs
           path: |
@@ -287,3 +287,48 @@ jobs:
               --body "$BODY" \
               --label e2e-failures
           fi
+
+      - name: Close the tracking issue when the suite is green
+        # The missing half of the pattern this workflow's header claims to
+        # mirror.  `scheduled-refresh.yml` opens AND closes; every copy of
+        # it — here, audit-identity-matches, audit-rank-form-drift,
+        # intel-refresh — took only the failure half.
+        #
+        # The cost was not theoretical.  #588 was opened 2026-07-27, the
+        # 07-28 nightly SUCCEEDED, and the issue stayed open and simply
+        # accumulated comments.  So an open `e2e-failures` issue meant
+        # "this failed at least once, ever" rather than "this is broken
+        # now", which is worthless for triage and is a large part of why
+        # the repo reads as permanently red.
+        #
+        # A green run of THIS workflow is the all-clear by construction:
+        # the suite is the gate, so there is no per-step outcome to
+        # re-derive.
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # Close EVERY open one, not just the first.  The alert step above
+          # reads `.[0].number`, so if duplicates ever exist it comments on
+          # one and leaves the rest orphaned forever; closing `.[]` drains
+          # them.  Same reasoning as scheduled-refresh.yml.
+          OPEN=$(gh issue list --state open --label e2e-failures \
+                   --json number --jq '.[].number' 2>/dev/null || echo "")
+          if [[ -z "$OPEN" ]]; then
+            echo "no open e2e-failures issue; nothing to close"
+            exit 0
+          fi
+          for N in $OPEN; do
+            echo "closing #${N}"
+            gh issue close "$N" --reason completed --comment \
+              "Nightly E2E safety net is green again — every critical journey passed.
+
+          - Workflow run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+          - Closed: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Reopened automatically by the alert step if the suite fails again." || true
+          done

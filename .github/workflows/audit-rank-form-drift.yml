@@ -78,10 +78,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -175,3 +175,50 @@ jobs:
         run: |
           echo "::error title=Rank-form drift check::driver exited ${{ steps.drift.outputs.exit_code }}"
           exit 1
+
+      - name: Close the tracking issue when the drift audit is green
+        # The missing half of the scheduled-refresh.yml pattern.
+        #
+        # MATCHED ON TITLE, NOT LABEL — and that is not a stylistic
+        # choice.  `refit-hill-curves.yml` writes to the SAME
+        # `calibration` label, so a label-only close here would reach over
+        # and close ITS issues.  That would be actively harmful: its
+        # exit-code-1 issue is "a challenger cleared the held-out gate and
+        # is waiting for a human to promote it" — a work item, not an
+        # alert.  Silently closing a promotion request is worse than
+        # leaving a stale alert open, which is why refit-hill-curves.yml
+        # deliberately has no auto-close at all.
+        #
+        # Both workflows also fall back to creating an UNLABELLED issue
+        # when the label is missing (`|| gh issue create` without
+        # --label), so the title search is the more reliable key anyway.
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          TITLE="Rank-form curve drift: reconstruction constants are stale"
+          # --search on the exact title, then filter client-side: GitHub's
+          # search is fuzzy and would otherwise match the refit issues,
+          # which is the whole hazard this step is avoiding.
+          OPEN=$(gh issue list --state open --limit 50 \
+                   --json number,title \
+                   --jq ".[] | select(.title == \"${TITLE}\") | .number" \
+                 2>/dev/null || echo "")
+          if [[ -z "$OPEN" ]]; then
+            echo "no open drift issue; nothing to close"
+            exit 0
+          fi
+          for N in $OPEN; do
+            echo "closing #${N}"
+            gh issue close "$N" --reason completed --comment \
+              "Rank-form drift audit is green again — the reconstruction constants match the live curves.
+
+          - Workflow run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+          - Closed: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Reopened automatically by the alert step if drift returns." || true
+          done

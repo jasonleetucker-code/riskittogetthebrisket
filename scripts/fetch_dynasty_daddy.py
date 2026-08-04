@@ -215,11 +215,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    # Position breakdown diagnostics.
-    pos_counts: dict[str, int] = {}
-    for r in rows:
-        # Value-only CSV doesn't carry position — count from parse step.
-        pass
+    # No position breakdown: the value-only CSV carries no position, so
+    # the diagnostic that used to loop here could never populate.
     print(f"[fetch_dynasty_daddy] total={len(rows)} rows with positive sf_trade_value")
 
     if args.dry_run:
