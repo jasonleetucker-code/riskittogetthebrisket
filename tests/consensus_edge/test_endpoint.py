@@ -15,6 +15,32 @@ from src.api import feature_flags
 REPO = Path(__file__).resolve().parents[2]
 
 
+def _registered_paths(app) -> set[str]:
+    """Route paths as FastAPI itself publishes them.
+
+    Deliberately reads the OpenAPI schema rather than walking
+    ``app.routes``.  ``app.routes`` is an internal representation and its
+    shape changes: through FastAPI 0.135 an ``include_router`` call left
+    plain routes in the list, so ``{r.path for r in app.routes}`` worked.
+    On 0.141 it leaves an ``_IncludedRouter`` wrapper instead, which has
+    no ``.path`` — so that expression raises ``AttributeError``, and the
+    wrapped routes are not reachable via ``.routes`` or ``.router``
+    either (the attribute is ``original_router``).
+
+    Chasing that attribute would just re-break on the next refactor.
+    ``app.openapi()["paths"]`` is the public, supported answer to "what
+    routes does this app expose", and it reported all five
+    consensus-edge paths correctly on both versions.
+
+    One limit worth naming: this cannot see routes registered with
+    ``include_in_schema=False``.  None of the routes asserted here are,
+    and the HTTP-level tests below are the stronger check regardless —
+    they kept passing throughout the 0.141 upgrade, which is how we knew
+    the routes were fine and only the introspection was broken.
+    """
+    return set((app.openapi().get("paths") or {}).keys())
+
+
 class _Base(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -72,7 +98,7 @@ class TestFlagDefault(_Base):
         self.assertTrue(service.SELL_SIDE_VALIDATION["note"])
 
     def test_routes_are_registered(self):
-        paths = {r.path for r in server.app.routes}
+        paths = _registered_paths(server.app)
         self.assertIn("/api/consensus-edge/players", paths)
         self.assertIn("/api/consensus-edge/top", paths)
         self.assertIn("/api/consensus-edge/methodology", paths)
