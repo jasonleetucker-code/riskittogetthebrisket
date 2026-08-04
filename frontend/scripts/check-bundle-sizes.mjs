@@ -2,12 +2,14 @@
 /**
  * Bundle-size budget enforcement for Next.js builds.
  *
- * Run after ``next build`` from the frontend dir.  Parses
- * ``.next/app-build-manifest.json``, isolates each page's
- * page-specific JS chunks (the chunks under
- * ``static/chunks/app/<route>/page-*.js``), sums their on-disk
- * size, and fails non-zero if any page is over its configured
- * budget.
+ * Run after ``next build`` from the frontend dir.  Resolves each
+ * page's own JS chunks from disk (``static/chunks/app/<route>/
+ * page-*.js``), sums their size, and fails non-zero if any page is
+ * over its configured budget — or if it could not measure at all.
+ *
+ * Chunks come from DISK, not from ``app-build-manifest.json``: Next
+ * 16 stopped emitting that file, and no Next 16 manifest maps an
+ * app-router page key to its chunks.  See the APP_CHUNK_DIR note.
  *
  * Per-page budgets live in ``BUDGETS_KB`` below.  Adjust
  * deliberately — bumping a budget because "the page got
@@ -79,10 +81,31 @@ const BUDGETS_KB = {
   // 2026-04-26 against the live build.  When you intentionally add a
   // feature that pushes a page over budget, bump the value here in
   // the same PR and call it out — that's the audit trail.
+  // R6 re-pin: splitting PlayerPopup/CommandPalette out of the root
+  // layout and the 21 /league sections out of that page MOVED code from
+  // the shared graph into the page chunks that actually use it. Real
+  // first-load JS fell on every route — /league by 215 KB, /draft by 67,
+  // /trade by 51, /rankings by 42 — while three page-specific slices
+  // grew, because code that used to be everyone's is now attributed to
+  // its owner. These bumps record that reattribution; they are not
+  // headroom for new bloat.
+  //
+  // Note what this gate still cannot see, because R6 tried to add it and
+  // the attempt is instructive: the shared graph. Per-route first load is
+  // `layout chunks ∪ page chunks`, and knowing WHICH shared chunks a
+  // route pulls needs the build manifest — which Next 16 does not emit
+  // (see the APP_CHUNK_DIR note above). The disk-derived substitute,
+  // "every .js sitting directly in static/chunks/", was measured on this
+  // branch and is WRONG: a dynamic import emits its chunk there too, so
+  // the metric counts on-demand code as always-loaded. It scored R6's own
+  // refactor as +213 KB shared while /league's slice fell 163→38 KB —
+  // reporting an improvement as a regression, which is the exact failure
+  // this comment block was written to describe. Left unmeasured on
+  // purpose until it can be measured truthfully.
   "/page": 90, // landing
-  "/rankings/page": 65, // dense table + filter bar + popups
-  "/trade/page": 82, // calculator + simulator + breakdown; bumped 75→82 for the BDVM fundamentals-check panel (CES trade eval)
-  "/draft/page": 128, // depth chart + analysis charts; bumped 125→128 for ScreenshotFab + Toast in shared layout (PR #432)
+  "/rankings/page": 75, // dense table + filter bar + popups; 65→75 (R6 reattribution)
+  "/trade/page": 92, // calculator + simulator + breakdown; bumped 75→82 for the BDVM fundamentals-check panel (CES trade eval); 82→92 (R6 reattribution)
+  "/draft/page": 150, // depth chart + analysis charts; bumped 125→128 for ScreenshotFab + Toast in shared layout (PR #432); 128→150 (R6 reattribution)
   "/edge/page": 30,
   "/finder/page": 20,
   "/angle/page": 30,
@@ -92,7 +115,12 @@ const BUDGETS_KB = {
   // dependency landing in a bundle that had zero ds usage), and 2.2 of
   // that was recovered by splitting the chevron into its own module
   // rather than by bumping this number. See glyph-chevron-down.jsx.
-  "/league/page": 170,
+  // R6: TIGHTENED 170→50, the one budget that moves the other way. The
+  // 21 sections are now dynamic imports, so the page slice fell 174→39
+  // KB. Held close so a future `import XSection from "./sections/…"`
+  // — the easy mistake, since it looks like every other import — trips
+  // CI instead of quietly putting all 21 back on the page.
+  "/league/page": 50,
   "/rosters/page": 30,
   "/trades/page": 20,
   // Added R4: /waivers was shipping unmeasured. Pinned at the R4
