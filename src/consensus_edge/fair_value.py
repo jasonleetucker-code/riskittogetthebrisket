@@ -146,6 +146,7 @@ def fair_value_index(
     *,
     anchors: dict[str, str] | None = None,
     csv_root: "Path | None" = None,
+    scoring_fit_board: Any = None,
 ) -> dict[str, dict[str, Any]]:
     """Fair value + market value per player, each free of its own anchor.
 
@@ -227,6 +228,24 @@ def fair_value_index(
             raw_fair = loo_row.get("rankDerivedValue")
             if isinstance(raw_fair, (int, float)) and raw_fair > 0:
                 fair = float(raw_fair)
+
+        # League scoring fit enters HERE — inside the value — and nowhere
+        # else. It changes what a player is worth to this league; it is
+        # not independent evidence that the market is mispricing him, so
+        # adding it again as a component would count one effect twice.
+        # Inert (exactly 1.0) whenever unmeasured, and the resolved level
+        # is stamped so a reader can tell player-level from position-level
+        # from none.
+        if fair is not None and scoring_fit_board is not None:
+            fit = scoring_fit_board.for_player(key, row.get("position"))
+            if fit.multiplier != 1.0:
+                fair = fair * float(fit.multiplier)
+            entry["scoringFit"] = {
+                "multiplier": fit.multiplier,
+                "level": fit.level,
+                "reason": fit.reason,
+            }
+
         entry["fairValue"] = fair
 
         entry["marketValue"] = _market_value(row, anchor_key)

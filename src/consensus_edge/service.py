@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.consensus_edge import MODEL_VERSION, opportunity, params as params_mod, score as score_mod
-from src.consensus_edge import sharp_flow as sf
+from src.consensus_edge import scoring_fit, sharp_flow as sf
 from src.consensus_edge.fair_value import (
     MARKET_ANCHOR_BY_ASSET_CLASS,
     coverage as fv_coverage,
@@ -197,7 +197,8 @@ def build_board(
     # dict either way — verified byte-identical over 973 rows. This used
     # to read a ``_rawPayload`` key that nothing in the repo ever wrote,
     # which documented an indirection that did not exist.
-    index = fair_value_index(contract)
+    fit_board = scoring_fit.measure(season=contract.get("currentDraftYear"))
+    index = fair_value_index(contract, scoring_fit_board=fit_board)
     mispricing = score_index(index)
     flow = sf.sharp_flow_index(movements_by_asset, p)
 
@@ -277,6 +278,11 @@ def build_board(
         "coverage": fv_coverage(index),
         "sharpFlowStatus": flow.get("status"),
         "componentValidation": score_mod.COMPONENT_VALIDATION,
+        # League scoring fit is applied INSIDE fair value, never as a
+        # separate component. Reported here so a reader can see which
+        # axes were measured and at what level, without being able to
+        # mistake it for a fourth additive term.
+        "scoringFit": fit_board.to_meta(),
         "componentAvailability": availability,
         # Published because it silently governs which labels can appear
         # at all: with one live component the ceiling sits below the

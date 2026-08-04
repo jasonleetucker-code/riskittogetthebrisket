@@ -348,3 +348,64 @@ class TestVersionParity(unittest.TestCase):
             edited["composite"]["weights"]["mispricing"] = 0.99
             path.write_text(json.dumps(edited))
             self.assertNotEqual(params_mod.load(path)["paramSetId"], base["paramSetId"])
+
+
+class TestScoringFitIsInertWhenUnmeasured(unittest.TestCase):
+    """League scoring must contribute exactly nothing when unmeasured.
+
+    Consensus Edge claimed custom-league scoring adjustments while
+    importing nothing from the scoring packages. Now that it does, the
+    load-bearing property is the opposite one: an axis that cannot be
+    measured must apply exactly 1.0 and say so, never a partial or
+    guessed effect.
+    """
+
+    def test_an_unmeasured_board_is_a_no_op(self):
+        from src.consensus_edge import scoring_fit as ce_scoring_fit
+
+        board = ce_scoring_fit.ScoringFitBoard()
+        fit = board.for_player("Anyone", "WR")
+        self.assertEqual(fit.multiplier, 1.0)
+        self.assertEqual(fit.level, ce_scoring_fit.LEVEL_ABSENT)
+        self.assertFalse(board.active)
+
+    def test_an_unknown_position_never_inherits_another_positions_tilt(self):
+        # Applying an IDP tilt to a wide receiver is the failure this
+        # guards; an unknown position must be a no-op.
+        from src.consensus_edge import scoring_fit as ce_scoring_fit
+
+        board = ce_scoring_fit.ScoringFitBoard(by_position={"LB": 1.4})
+        self.assertEqual(board.for_player("Someone", "WR").multiplier, 1.0)
+        self.assertEqual(board.for_player("Someone", None).multiplier, 1.0)
+
+    def test_player_level_wins_over_position_level(self):
+        from src.consensus_edge import scoring_fit as ce_scoring_fit
+
+        board = ce_scoring_fit.ScoringFitBoard(
+            by_player={"A": ce_scoring_fit.PlayerScoringFit(1.2, ce_scoring_fit.LEVEL_PLAYER)},
+            by_position={"WR": 1.5},
+        )
+        fit = board.for_player("A", "WR")
+        self.assertEqual(fit.multiplier, 1.2)
+        self.assertEqual(fit.level, ce_scoring_fit.LEVEL_PLAYER)
+
+    def test_the_live_measurement_reports_its_refusals(self):
+        from src.consensus_edge import scoring_fit as ce_scoring_fit
+
+        board = ce_scoring_fit.measure(season=2026, refresh=True)
+        # Whatever the environment, every axis is either measured or
+        # named as absent with a reason — never silently missing.
+        named = set(board.measured_axes) | set(board.absent_axes)
+        self.assertIn("idpPositionFit", named)
+        self.assertIn("receptionDepthFit", named)
+        for axis in board.absent_axes:
+            self.assertTrue(board.reasons.get(axis), f"{axis} absent with no reason")
+
+    def test_scoring_fit_is_not_a_composite_component(self):
+        # It enters inside fair value. If it ever became a fourth
+        # component the same effect would be counted twice.
+        from src.consensus_edge import service as ce_service
+
+        params = params_mod.load()
+        self.assertNotIn("scoringFit", (params.get("composite") or {}).get("weights") or {})
+        self.assertNotIn("scoringFit", ce_service.DIRECTIONAL_LABELS)
