@@ -72,11 +72,22 @@ def seed_sleeper_membership(ledger, manager_key="sleeper:u1", league_key="sleepe
         conn.close()
 
 
-def fake_http(league=None, rosters=None):
+def fake_http(league=None, rosters=None, calls=None):
+    """Fake Sleeper. Pass ``calls`` to capture the URLs requested.
+
+    ``/players/nfl`` is answered explicitly: the collector fetches the
+    directory once per run to give rostered players a display name, and
+    letting that fall through to the league payload would quietly feed a
+    league dict into the asset catalog.
+    """
     league = league if league is not None else league_payload()
     rosters = rosters if rosters is not None else [roster_payload()]
 
     def _get(url):
+        if calls is not None:
+            calls.append(url)
+        if url.endswith("/players/nfl"):
+            return {"4046": {"full_name": "Justin Jefferson", "position": "WR", "team": "MIN"}}
         if url.endswith("/rosters"):
             return rosters
         return league
@@ -123,20 +134,78 @@ class TestSleeper:
     def test_two_sharps_in_one_league_yield_two_rosters_from_one_fetch(self, ledger):
         seed_sleeper_membership(ledger, "sleeper:u1")
         seed_sleeper_membership(ledger, "sleeper:u2")
+        calls = []
         result = rc.collect_sleeper_rosters(
             manager_keys=["sleeper:u1", "sleeper:u2"],
             http_get=fake_http(
                 rosters=[
                     roster_payload(roster_id="1", owner="u1"),
                     roster_payload(roster_id="2", owner="u2"),
-                ]
+                ],
+                calls=calls,
             ),
             ledger_path=ledger,
             sleep_fn=lambda _s: None,
             now_ms=NOW,
         )
-        assert result.calls_used == 2  # one league, not one per member
+        # The cost is per LEAGUE, not per member: two calls for the one
+        # league both sharps play in, however many of them are in it.
+        assert len([u for u in calls if "/league/" in u]) == 2
         assert result.rosters_recorded == 2
+
+    def test_the_player_directory_is_fetched_once_per_run_not_per_league(self, ledger):
+        for i in range(1, 4):
+            seed_sleeper_membership(ledger, "sleeper:u1", f"sleeper:L{i}")
+        calls = []
+        rc.collect_sleeper_rosters(
+            manager_keys=["sleeper:u1"],
+            http_get=fake_http(calls=calls),
+            ledger_path=ledger,
+            sleep_fn=lambda _s: None,
+            now_ms=NOW,
+        )
+        assert len([u for u in calls if u.endswith("/players/nfl")]) == 1
+
+    def test_a_rostered_player_outside_our_board_still_gets_a_name(self, ledger):
+        """A correct percentage next to a bare Sleeper id reads as broken.
+
+        Our board only names players inside its ranked pool, so a real
+        rostered player outside it (a deep veteran, say) rendered as
+        e.g. "827". The crawl hydrates ``canonical_assets`` from
+        Sleeper's directory so the board can name him.
+        """
+        from src.sharp import roster_percentage as rp
+
+        seed_sleeper_membership(ledger)
+        rc.collect_sleeper_rosters(
+            manager_keys=["sleeper:u1"],
+            http_get=fake_http(rosters=[roster_payload(players=("4046",))]),
+            ledger_path=ledger,
+            sleep_fn=lambda _s: None,
+            now_ms=NOW,
+        )
+        catalog = rp._catalog_metadata(ledger)
+        assert catalog.get("4046", {}).get("displayName") == "Justin Jefferson"
+        # And with no contract at all, the board uses it rather than the id.
+        assert rp._fallback_metadata("4046", catalog)["displayName"] == "Justin Jefferson"
+
+    def test_a_directory_failure_never_costs_a_roster(self, ledger):
+        seed_sleeper_membership(ledger)
+
+        def flaky(url):
+            if url.endswith("/players/nfl"):
+                raise RuntimeError("sleeper directory down")
+            return fake_http()(url)
+
+        result = rc.collect_sleeper_rosters(
+            manager_keys=["sleeper:u1"],
+            http_get=flaky,
+            ledger_path=ledger,
+            sleep_fn=lambda _s: None,
+            now_ms=NOW,
+        )
+        assert result.eligible_rosters == 1
+        assert "player_directory_unavailable" in result.errors
 
     def test_a_cohort_co_owner_is_credited_when_the_primary_is_not_sharp(self, ledger):
         seed_sleeper_membership(ledger, "sleeper:u1")
