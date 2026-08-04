@@ -286,13 +286,22 @@ export function marketGapLabel(row) {
 // For IDP-specific Buy/Sell signals we treat IDPTC as the analogous
 // "retail" anchor (the most-followed source on the IDP side, just as
 // KTC is the most-followed source on the offense side) and the other
-// IDP sources (DLF IDP, IDP Show, FantasyPros IDP, FootballGuys IDP,
-// DraftSharks IDP) as the expert consensus.
+// overall_idp sources as the expert consensus.
+//
+// This set is a hand-maintained mirror of the source registry, and it
+// had drifted both ways: it OMITTED `dlfRookieIdp` (a real
+// overall_idp source — 29 rows carry a rank from it, and 28 of those
+// shift their consensus mean by >=1 rank once it is counted) while
+// this comment NAMED "FootballGuys IDP", which is not a key in either
+// registry. Kept in sync with `RANKING_SOURCES` in dynasty-data.js and
+// `_RANKING_SOURCES` in src/api/data_contract.py; `idp-consensus-keys`
+// test fails if they diverge again.
 
 const IDP_RETAIL_KEY = "idpTradeCalc";
 
 const IDP_CONSENSUS_KEYS = new Set([
   "dlfIdp",
+  "dlfRookieIdp",
   "idpShow",
   "fantasyProsIdp",
   "draftSharksIdp",
@@ -451,3 +460,11 @@ export function isIdpInTopByIdptc(row, limit = 200) {
   if (!Number.isFinite(idptcRank) || idptcRank < 1) return false;
   return idptcRank <= limit;
 }
+
+// Exposed for parity testing only — `IDP_CONSENSUS_KEYS` is a
+// hand-maintained mirror of the source registry and drifted once
+// (omitting `dlfRookieIdp`, naming a nonexistent "FootballGuys IDP").
+// `__tests__/idp-consensus-keys-parity.test.js` derives the expected
+// set from RANKING_SOURCES so a future divergence fails loudly instead
+// of quietly biasing the IDP consensus mean.
+export const __testables = { IDP_CONSENSUS_KEYS, IDP_RETAIL_KEY };

@@ -22,10 +22,24 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    trades, and draft picks are separate. See `CLAUDE.md` for the
    full field-split table.
 
-2. **Every new behavior ships behind a feature flag** (default OFF).
-   Registry at `src/api/feature_flags.py`. Env override via
-   `RISKIT_FEATURE_<NAME>=1`. Nothing in production changes until
-   a flag flips.
+2. **Every new behavior ships behind a feature flag.** Registry at
+   `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
+   (or `=0` to disable).
+
+   **Defaults are per-flag.** As of 2026-08-04, 7 of the 15 entries in
+   `_DEFAULTS` ship enabled — `bdvm_engine`, `te_basis_conversion`
+   (which reprices every tight end on the live board),
+   `monte_carlo_trade`, `idp_scoring_fit`, `reception_scoring_fit`,
+   `nfl_data_ingest`, `realized_points_api` — several with comments
+   recording that the enabled default is deliberate. For those, the env
+   var is a rollback lever rather than an opt-in.
+
+   This item previously asserted a blanket disabled-by-default rule and
+   that production behaviour was frozen until a flag was flipped. Both
+   were false, and a reader trusting them would have taken a live
+   repricing path for a dormant one. `tests/api/`
+   `test_feature_flag_docs_match_registry.py` now fails if that claim
+   returns while any flag ships enabled.
 
 ## Modules + what they own
 
