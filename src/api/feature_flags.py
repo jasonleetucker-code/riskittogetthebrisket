@@ -239,6 +239,26 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # to the same honest empty payload it served before.
     # See docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md.
     "bdvm_engine": True,
+    # Perfect Draft — budget-constrained rookie-auction optimizer
+    # (src/draft/, endpoint /api/draft/roster-context, client solver in
+    # frontend/lib/perfect-draft.js).  ON at introduction because it is
+    # purely additive: it writes no value, mutates no contract, and
+    # touches no existing route.  The /draft panel silently vanishes on
+    # any non-ok response, so a box that cannot serve it renders the
+    # board exactly as it did before.
+    #
+    # It answers a question nothing else in the app answers — which
+    # COMBINATION of rookies a budget should buy — using the canonical
+    # rankDerivedValue board and the same lineup solver the ROS engine
+    # uses.  It never re-prices a player.
+    #
+    # Note the flag does NOT gate the slot-logic removal from
+    # frontend/lib/draft-logic.js; that is an unconditional correction
+    # to a wrong model, not a feature.
+    #
+    # Rollback: RISKIT_FEATURE_PERFECT_DRAFT=0 and restart (flag reads
+    # are cached per process).
+    "perfect_draft": True,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -387,6 +407,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # (/api/bdvm/values, /api/bdvm/roster, /api/bdvm/trades): off →
     # 503 feature_disabled, on → the BDVM payloads.
     "bdvm_engine": LIVE,
+    # perfect_draft gates /api/draft/roster-context inline in server.py:
+    # off → 503 feature_disabled (and the /draft panel vanishes), on →
+    # the roster context the client optimizer runs against.
+    "perfect_draft": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,

@@ -43,7 +43,6 @@ def test_returns_error_when_sleeper_unreachable(monkeypatch):
         "L1",
         _contract_with_picks(),
         current_season=2026,
-        num_teams=12,
     )
     assert result.get("error") == "sleeper_unreachable"
 
@@ -59,7 +58,6 @@ def test_basic_build_returns_expected_shape(monkeypatch):
         "L1",
         _contract_with_picks(),
         current_season=2026,
-        num_teams=10,
         draft_rounds=4,
     )
     assert result["source"] == "sleeper_derived"
@@ -112,7 +110,6 @@ def test_traded_pick_updates_ownership(monkeypatch):
         "L1",
         _contract_with_picks(),
         current_season=2026,
-        num_teams=2,
         draft_rounds=1,
     )
     # Find the traded pick.
@@ -243,7 +240,6 @@ def test_a_fully_unpriced_board_prices_nothing(monkeypatch):
         "L1",
         {},
         current_season=2026,
-        num_teams=1,
         draft_rounds=4,
     )
     assert result["coveredPickYears"] == []

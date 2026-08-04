@@ -115,6 +115,14 @@ const SEL = {
   // /draft — the war-room board panel and its rows.
   draftBoard: ".draft-board-panel",
   draftBoardRow: ".draft-board-panel tbody tr",
+  // /draft — the Perfect Draft budget optimizer. Code-split behind
+  // React.lazy with a null Suspense fallback, so there is no loading
+  // marker: visibility of the panel itself is the only readiness gate,
+  // and it needs a generous timeout (lazy chunk + roster-context round
+  // trip + the solve). It renders nothing at all when the roster context
+  // is unavailable, so a spec must assert on rows, not on a heading.
+  perfectDraftPanel: ".perfect-draft-panel",
+  perfectDraftRow: ".perfect-draft-panel .ds-table-wrap table tbody tr",
   // /rankings — the board table and its rows (one row per player).
   // R2: the board renders through the ds DataTable primitive; the
   // rankings-row-clickable class is kept as the stable E2E hook.

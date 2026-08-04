@@ -4,11 +4,20 @@
 // globals.css.  Route-scoped, so only /draft pays for it.
 import "./draft.css";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
+
 import {
   buildTeamIndexLookup,
   useSleeperDraftSync,
@@ -87,6 +96,25 @@ import {
   ValueBasisNote,
 } from "@/components/ds";
 import styles from "./draft.module.css";
+
+// Code-split so the Perfect Draft panel and its optimizer stay OUT of the
+// initial /draft chunk — this page is already one of the heaviest routes in the
+// app and `check-bundle-sizes.mjs` guards it (main sits 2.2 KB under budget
+// before this feature even lands).
+//
+// React.lazy rather than next/dynamic, and the difference is measured, not
+// stylistic: next/dynamic pulled Next's loadable runtime into the shared graph
+// and moved ~8 KB out of the common chunk into EVERY page's own chunk, pushing
+// /waivers over its budget as collateral. React.lazy uses webpack's plain
+// dynamic import and leaves the other routes alone.
+//
+// No fallback content: the panel renders nothing until its own fetch settles,
+// so a placeholder would only add a flash of layout.
+const PerfectDraftPanel = lazy(() =>
+  import("@/components/draft/PerfectDraftPanel").then((m) => ({
+    default: m.PerfectDraftPanel,
+  })),
+);
 
 const TIER_LABELS = Object.fromEntries(TIER_DEFS.map((t) => [t.key, t.label]));
 
@@ -230,12 +258,6 @@ function StatsStrip({ stats, historySeries }) {
     />
   );
 
-  // Phase: 0 at draft start, →1 as my last pick approaches.  Shown as
-  // "N of M slots left · P% pressure" so both the absolute slot count
-  // and the pressure % are visible at a glance.
-  const slotsPart = `${stats.mySlotsRemaining} of ${stats.myInitialSlots} slots`;
-  const pressurePart = `${Math.round((stats.slotPressure || 0) * 100)}% pressure`;
-
   // Top rival ceiling — the real competitor cap driving myWinningBid.
   // Surfacing it in the strip teaches the user "this is the number to
   // beat, not some hypothetical".
@@ -250,7 +272,9 @@ function StatsStrip({ stats, historySeries }) {
       {stat(
         "My remaining",
         fmt$(stats.myRemaining),
-        `Starting ${fmt$(stats.myStarting)} − spent ${fmt$(stats.mySpent)} · ${slotsPart} left`,
+        `Starting ${fmt$(stats.myStarting)} − spent ${fmt$(stats.mySpent)} · ${stats.myRookiesBought} rookie${
+          stats.myRookiesBought === 1 ? "" : "s"
+        } bought`,
       )}
       {stat(
         "Budget advantage",
@@ -260,12 +284,14 @@ function StatsStrip({ stats, historySeries }) {
       {stat(
         "Top rival ceiling",
         fmt$(stats.topCompetitorMax),
-        `The richest OTHER team can bid up to this much (slot-adjusted). Bid $1 above this to lock a player — anything more is overpay.`,
+        `The richest OTHER team's remaining dollars. Bid $1 above this to lock a player — anything more is overpay.`,
       )}
       {stat(
-        "Phase",
-        `${slotsPart}`,
-        `${pressurePart}. MaxBid scales by phaseMultiplier ${fmtMultiplier(stats.phaseMultiplier)} to prevent unused $ at end of draft.`,
+        "Board drafted",
+        `${stats.totalPicksMade} of ${stats.rookiePoolSize}`,
+        `${Math.round(
+          (stats.draftProgress || 0) * 100,
+        )}% of the rookie pool is gone. There is no cap on how many rookies you may draft — your constraint is dollars, not slots.`,
       )}
       {stat(
         "League $ left",
@@ -408,22 +434,15 @@ function TeamPanel({
           <span>Initial</span>
           <span>Spent</span>
           <span>Remaining</span>
-          <span title="Slots drafted / initial slots owned">Slots</span>
+          <span title="Rookies bought so far — informational, not a limit">
+            Rookies
+          </span>
           <span>
             Eff $
             <InfoTip label="Eff $">
-              Slot-adjusted effective dollars — the most this team can bid on a
-              single player while still reserving $1 for each remaining slot.
-            </InfoTip>
-          </span>
-          <span>
-            MDV
-            <InfoTip label="MDV">
-              <p>
-                Marginal Dollar Value — remaining dollars divided by remaining
-                slots. Higher means more money per pick, so more buying power.
-              </p>
-              <p>Shaded by pressure tier.</p>
+              The most this team can bid on a single player: its remaining
+              dollars. Nothing is held back for future picks, because nothing
+              obliges a team to buy another rookie.
             </InfoTip>
           </span>
           <span>
@@ -442,18 +461,6 @@ function TeamPanel({
         </div>
         {stats.teamStats.map((t) => {
           const effLow = t.effectiveBudget < 5;
-          const slotsEmpty = t.slotsRemaining <= 0;
-          // MDV heatmap: compare each team's MDV to the median across
-          // non-bankrupt teams.  Red = meaningfully below median
-          // (pressed for $); green = meaningfully above (flush).
-          // Gray = near median.
-          const mdvClass = slotsEmpty
-            ? "draft-mdv-empty"
-            : t.mdv >= 40
-              ? "draft-mdv-high"
-              : t.mdv >= 15
-                ? "draft-mdv-mid"
-                : "draft-mdv-low";
           const overpayClass =
             t.overpayIndex == null
               ? "muted"
@@ -505,22 +512,18 @@ function TeamPanel({
                 {fmt$(t.remaining)}
               </span>
               <span
-                className={`draft-money${slotsEmpty ? " draft-money-low" : ""}`}
-                title={`${t.slotsDrafted} drafted of ${t.initialSlots} owned`}
+                className="draft-money"
+                title={`${t.rookiesBought} rookie${
+                  t.rookiesBought === 1 ? "" : "s"
+                } bought so far — informational, not a limit`}
               >
-                {t.slotsDrafted}/{t.initialSlots}
+                {t.rookiesBought}
               </span>
               <span
                 className={`draft-money${effLow ? " draft-money-low" : ""}`}
-                title="Slot-adjusted effective $: what this team can actually bid on a single player while reserving $1 each for their remaining slots."
+                title="Effective $: what this team can actually bid on a single player — its remaining dollars, with nothing held back."
               >
                 {fmt$(t.effectiveBudget)}
-              </span>
-              <span
-                className={`draft-money draft-mdv ${mdvClass}`}
-                title={`Marginal $/slot: ${fmt$(t.mdv)} over ${t.slotsRemaining} slot${t.slotsRemaining === 1 ? "" : "s"}`}
-              >
-                {slotsEmpty ? "—" : fmt$(t.mdv)}
               </span>
               <span
                 className={overpayClass}
@@ -632,7 +635,7 @@ function BidKnobs({ settings, onSettings }) {
 /**
  * One-line before → after preview for the bid simulator.  Color-
  * codes the delta: green when the change improves my position
- * (more $, higher BA, more slots), red when it hurts.  For
+ * (more $, higher BA), red when it hurts.  For
  * inflation the sign is inverted (lower inflation means my
  * money buys more later, so a negative delta renders green).
  */
@@ -861,9 +864,9 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
                   formatter={fmt$}
                 />
                 <SimRow
-                  label="My slots left"
-                  before={stats.mySlotsRemaining}
-                  after={simulated.mySlotsRemaining}
+                  label="Rookies bought"
+                  before={stats.myRookiesBought}
+                  after={simulated.myRookiesBought}
                   formatter={(n) => `${n}`}
                   rawDelta
                 />
@@ -1778,7 +1781,7 @@ function InflationSparkline({ series, width = 140, height = 36 }) {
 /* ── Target Board — my explicit short-list ───────────────────────── */
 
 /**
- * The user's committed "these are my 6" board.  Shows each slot with
+ * The user's committed short-list board.  Shows each entry with
  * live predraft / fair / winning bid / paid numbers, plus an
  * aggregate footer with the portfolio cost vs my remaining $.
  *
@@ -1786,7 +1789,7 @@ function InflationSparkline({ series, width = 140, height = 36 }) {
  *   - Portfolio cost now  = Σ winning bids of remaining targets
  *                             + Σ paid on targets already won
  *   - Buffer              = my remaining $ − cost of remaining
- *                             − $1 reserve per additional roster slot
+ *                             (no per-opening reserve — see draft-logic.js)
  *
  * Negative buffer renders red with "SHORT $N — trim a target".
  */
@@ -2230,7 +2233,7 @@ function TargetBoard({
               onClick={() => {
                 if (
                   typeof window !== "undefined" &&
-                  window.confirm("Clear all Target Board slots?")
+                  window.confirm("Clear all Target Board entries?")
                 ) {
                   onClear();
                 }
@@ -2390,10 +2393,6 @@ function TargetBoard({
           <span className="muted">− buys at win</span>
           <span className="draft-money">
             {fmt$(tbStats.totals.remainingWinBid)}
-          </span>
-          <span className="muted">− other slots</span>
-          <span className="draft-money">
-            {fmt$(tbStats.nonTargetSlotsLeft)}
           </span>
           <strong>=</strong>
           <span className="draft-money draft-tb-buffer">
@@ -3118,8 +3117,8 @@ function DraftGlossary() {
               </li>
               <li>
                 <strong>Win at</strong> — lowest $ you'd actually need to lock
-                the player. Capped at top rival's slot-adjusted budget + $1. The
-                headline number for bidding decisions.
+                the player. Capped at the top rival's remaining budget + $1.
+                The headline number for bidding decisions.
               </li>
               <li>
                 <strong>Max Bid</strong> — theoretical max if rivals forced your
@@ -3152,10 +3151,11 @@ function DraftGlossary() {
                 inflation is flat.
               </li>
               <li>
-                <strong>Phase multiplier</strong> = 1 + (slot pressure × 0.5).
-                Scales your Max Bid from 1.0× at draft start to 1.5× at your
-                last pick. Prevents "unused $ = wasted $" at the end of the
-                draft.
+                <strong>No phase multiplier.</strong> Max Bid used to be scaled
+                by up to 1.5× as your six &quot;slots&quot; filled up. This
+                league has no per-team rookie cap, so that term is gone. Budget
+                advantage already carries the &quot;I&apos;m rich, bid up&quot;
+                signal.
               </li>
             </ul>
           </Section>
@@ -3167,9 +3167,9 @@ function DraftGlossary() {
             </p>
             <ul>
               <li>
-                <strong>Effective budget</strong> per team = remaining $ − $1 ×
-                (slots they still need to fill − 1). A team with $200 and 10
-                slots can only bid $191 on one player and still afford the rest.
+                <strong>Effective budget</strong> per team = its remaining $.
+                Nothing is held back: a team may spend everything on one rookie,
+                because nothing obliges it to buy another.
               </li>
               <li>
                 <strong>Top rival ceiling</strong> (shown in the stats strip) =
@@ -3217,8 +3217,9 @@ function DraftGlossary() {
                 <strong className="draft-rec-chip draft-rec-spend">
                   SPEND
                 </strong>{" "}
-                — target + late draft (slot pressure ≥ 60%) + surplus $/slot.
-                Time to splash before $ becomes unusable.
+                — target, 60%+ of the board already drafted, and you still hold
+                1.25× the average rival&apos;s money. Time to splash before $
+                becomes unusable.
               </li>
               <li>
                 <strong className="draft-rec-chip draft-rec-avoid">
@@ -3243,13 +3244,13 @@ function DraftGlossary() {
             </p>
             <ul>
               <li>
-                Each slot shows PreDraft $, live Fair, Win-at, and Paid (if you
+                Each entry shows PreDraft $, live Fair, Win-at, and Paid (if you
                 won them).
               </li>
               <li>
                 <strong>Buffer</strong> = my remaining $ − sum of Win-at for
-                undrafted targets − $1 × other roster slots you still need to
-                fill.
+                undrafted targets. Nothing is reserved for further rookies,
+                because nothing obliges you to draft any.
               </li>
               <li>
                 <strong>On track (green)</strong>: buffer ≥ $10.{" "}
@@ -3267,17 +3268,13 @@ function DraftGlossary() {
                 accounting. Initial is editable (Draft Capital pre-fills it).
               </li>
               <li>
-                <strong>Slots</strong> — rookie picks drafted / owned by that
-                team. Pulled from /api/draft-capital's trade graph.
+                <strong>Rookies</strong> — how many rookies that team has
+                bought so far. Informational: there is no cap on how many
+                rookies a team may draft.
               </li>
               <li>
-                <strong>Eff $</strong> — slot-adjusted effective budget (see
+                <strong>Eff $</strong> — effective budget, i.e. remaining $ (see
                 Competitor ceiling). Red when &lt; $5.
-              </li>
-              <li>
-                <strong>MDV</strong> — marginal dollar value = remaining $ per
-                slot left. Heatmap: green ≥ $40/slot (flush), muted $15–40
-                (normal), red &lt; $15 (pressed).
               </li>
               <li>
                 <strong>Over%</strong> — (Σ paid − Σ PreDraft $ at pick time) ÷
@@ -3342,11 +3339,11 @@ function DraftGlossary() {
               </li>
               <li>
                 <strong>Progress bar</strong> (top of page) — picks recorded /
-                total initial slots in the draft (normally 72). Drives
+                the size of the rookie pool. Drives
                 peripheral awareness of draft phase.
               </li>
               <li>
-                <strong>Late-draft triage</strong> — when slot pressure crosses
+                <strong>Late-draft triage</strong> — when board progress crosses
                 70%, the board auto-filters to your Targets and pops a banner.
                 One-shot fire per session; dismiss restores the full view.
               </li>
@@ -3383,7 +3380,7 @@ function DraftGlossary() {
             <p>
               Typing a team + amount in the draft modal previews the exact state
               after the pick lands — League $, My Remaining, BA, Inflation, Top
-              Rival $, Slots left — with arrow deltas so you can see "this pick
+              Rival $, Rookies bought — with arrow deltas so you can see "this pick
               drops my BA from 5.85× to 3.24×" BEFORE committing.
             </p>
           </Section>
@@ -3469,7 +3466,7 @@ export default function DraftDashboardPage() {
         : [],
     [bdvmData, bdvmFailure],
   );
-  // Late-draft triage mode: when my slotPressure crosses 0.7, auto-
+  // Late-draft triage mode: when board progress crosses 0.7, auto-
   // flip the board filter to "Targets" so I see only the players I
   // still want.  Tracked so a user who manually changes the filter
   // AFTER auto-switch isn't fought by the effect every re-render.
@@ -3543,7 +3540,7 @@ export default function DraftDashboardPage() {
   // changes (or on mount).  Reads the league-scoped key first and
   // falls back to the legacy unsuffixed key — migration path so
   // pre-multi-league state carries over into the default league's
-  // slot on the first load.
+  // placeholder on the first load.
   useEffect(() => {
     setHydrated(false);
     try {
@@ -3620,12 +3617,29 @@ export default function DraftDashboardPage() {
           const idp = Number(pk.rookieIdpDollar);
           if (Number.isFinite(ktc) && ktc > 0) ktcMap.set(nameLc, ktc);
           if (Number.isFinite(idp) && idp > 0) idpMap.set(nameLc, idp);
+          // ``rookieBoardValue`` is the raw 0-9999 board value the $
+          // ladder was derived from.  Perfect Draft needs it because net
+          // roster value is measured against a displaced player in value
+          // units, and the $ ladder is not convertible back.
+          const boardValue = Number(pk.rookieBoardValue);
+          // Per-rookie board trust.  A null CV means the board could not
+          // OBSERVE dispersion for this rookie (one source), which is a
+          // different statement from "the sources agreed" — the solver
+          // widens those rather than treating them as certain.
+          const dispersionCV = Number(pk.rookieDispersionCV);
           incoming.push({
             name: String(pk.rookieName),
             preDraft,
             pos: String(pk.rookiePos || "").toUpperCase() || undefined,
             ktcDollar: Number.isFinite(ktc) && ktc > 0 ? ktc : null,
             idpTradeCalcDollar: Number.isFinite(idp) && idp > 0 ? idp : null,
+            boardValue:
+              Number.isFinite(boardValue) && boardValue > 0 ? boardValue : null,
+            marketDispersionCV:
+              Number.isFinite(dispersionCV) && dispersionCV > 0
+                ? dispersionCV
+                : null,
+            singleSource: !!pk.rookieSingleSource,
           });
         }
         // Publish the vendor-dollar map immediately so the Market
@@ -3809,7 +3823,7 @@ export default function DraftDashboardPage() {
   );
   const clearAllAlerts = useCallback(() => setAlerts([]), []);
 
-  // Late-draft triage: when my slot pressure crosses 0.7, auto-flip
+  // Late-draft triage: when board progress crosses 0.7, auto-flip
   // the tag filter to "target" so only players I still want appear
   // on the board.  Only fires ONCE (via triageApplied) so a user
   // who manually changes the filter after the flip isn't fought by
@@ -3817,11 +3831,11 @@ export default function DraftDashboardPage() {
   const LATE_DRAFT_THRESHOLD = 0.7;
   useEffect(() => {
     if (triageApplied || triageDismissed) return;
-    if ((stats.slotPressure || 0) >= LATE_DRAFT_THRESHOLD) {
+    if ((stats.draftProgress || 0) >= LATE_DRAFT_THRESHOLD) {
       setTagFilter("target");
       setTriageApplied(true);
     }
-  }, [stats.slotPressure, triageApplied, triageDismissed]);
+  }, [stats.draftProgress, triageApplied, triageDismissed]);
 
   // Pull per-team auction $ budgets from /api/draft-capital.  The
   // dashboard needs this to mirror real carry-over balances without
@@ -3849,7 +3863,8 @@ export default function DraftDashboardPage() {
         if (teamTotals.length === 0) {
           throw new Error("Draft capital feed had no team totals.");
         }
-        // Raw picks array — used to derive per-team initial slot
+        // Raw picks array — retained for callers; no longer used to
+        // derive a per-team rookie cap (there isn't one).  Per-team slot
         // counts (how many rookie picks each team currently owns).
         // Feeds into the slot-adjusted effectiveBudget calculation
         // so MaxBid / WinningBid reflect real opponent bidding power.
@@ -4289,6 +4304,17 @@ export default function DraftDashboardPage() {
             idpTradeCalcDollar: Number.isFinite(Number(pk.rookieIdpDollar))
               ? Number(pk.rookieIdpDollar)
               : null,
+            boardValue: Number.isFinite(Number(pk.rookieBoardValue))
+              ? Number(pk.rookieBoardValue)
+              : null,
+            // Null CV = dispersion unobservable, not agreement.  See the
+            // mount auto-sync above.
+            marketDispersionCV:
+              Number.isFinite(Number(pk.rookieDispersionCV)) &&
+              Number(pk.rookieDispersionCV) > 0
+                ? Number(pk.rookieDispersionCV)
+                : null,
+            singleSource: !!pk.rookieSingleSource,
           });
         }
         return out.length > 0 ? out : null;
@@ -4307,6 +4333,14 @@ export default function DraftDashboardPage() {
             preDraftFromServer: r.preDraft,
             ktcDollarFromServer: r.ktcDollar,
             idpTradeCalcDollarFromServer: r.idpTradeCalcDollar,
+            // Board-value + trust fields have no client-side fallback (the
+            // $ ladder is not invertible), so they ride straight through
+            // from the server pool.  The contract-derived branch below
+            // leaves them undefined, which is honest: that path has no
+            // draft-capital payload to read them from.
+            boardValue: r.boardValue,
+            marketDispersionCV: r.marketDispersionCV,
+            singleSource: r.singleSource,
           }))
         : pa
             .filter((p) => p?.rookie === true)
@@ -4440,6 +4474,19 @@ export default function DraftDashboardPage() {
         )
           ? Number(r.idpTradeCalcDollarFromServer)
           : (idpTradeCalcDollarsByName.get(r.name) ?? null),
+        // Carried verbatim from the server pool.  Previously dropped
+        // here, so a MANUAL sync silently replaced the pool with rows
+        // carrying no board value at all and left Perfect Draft with
+        // nothing to price until the next mount auto-sync repopulated
+        // it.  There is no client-side fallback to compute: the $
+        // ladder cannot be inverted back to a 0-9999 value.
+        boardValue: Number.isFinite(Number(r.boardValue))
+          ? Number(r.boardValue)
+          : null,
+        marketDispersionCV: Number.isFinite(Number(r.marketDispersionCV))
+          ? Number(r.marketDispersionCV)
+          : null,
+        singleSource: !!r.singleSource,
       }));
 
       // Dry-run against current workspace to show a preview diff.
@@ -4811,15 +4858,16 @@ export default function DraftDashboardPage() {
         </div>
       )}
 
-      {/* Draft progress bar — picks drafted vs total slots in the
-          draft (sum of initialSlots across all teams, normally 72).
+      {/* Draft progress bar — rookies sold vs the size of the rookie
+          pool.  (It used to divide by a 12-teams x 6-slots constant,
+          which described a per-team pick cap this league does not have.)
           Sits above the stats strip so the user has constant
           peripheral awareness of "how far in are we?" — which drives
           every late-draft decision. */}
       <div
         className={styles.progress}
         role="group"
-        aria-label={`${stats.totalPicksMade} of ${stats.totalInitialSlots} picks recorded`}
+        aria-label={`${stats.totalPicksMade} of ${stats.rookiePoolSize} rookies drafted`}
       >
         <div className={styles.progressTrack}>
           <div
@@ -4830,7 +4878,7 @@ export default function DraftDashboardPage() {
         <div className={styles.progressLabels}>
           <span>
             Pick <strong>{stats.totalPicksMade}</strong> of{" "}
-            <strong>{stats.totalInitialSlots}</strong>
+            <strong>{stats.rookiePoolSize}</strong>
           </span>
           <span>{Math.round(stats.draftProgress * 100)}% through draft</span>
         </div>
@@ -4860,8 +4908,9 @@ export default function DraftDashboardPage() {
           title="Late-draft triage"
           onDismiss={() => setTriageDismissed(true)}
         >
-          Slot pressure {Math.round((stats.slotPressure || 0) * 100)}% —
-          auto-filtered to your Targets so you only see players you still want.{" "}
+          {Math.round((stats.draftProgress || 0) * 100)}% of the board is gone
+          — auto-filtered to your Targets so you only see players you still
+          want.{" "}
           <Button
             size="sm"
             variant="ghost"
@@ -4914,6 +4963,10 @@ export default function DraftDashboardPage() {
           onCycleTag={onCycleTag}
         />
       </div>
+
+      <Suspense fallback={null}>
+        <PerfectDraftPanel stats={stats} workspace={workspace} />
+      </Suspense>
 
       <RookieBoard
         stats={stats}

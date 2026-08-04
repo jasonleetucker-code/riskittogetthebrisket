@@ -56,6 +56,22 @@ def test_every_flag_defaults_off_except_safe_additive():
         # silent baseline per (user, league) so flag-on day cannot
         # flood.  Rollback: RISKIT_FEATURE_BDVM_ENGINE=0 + restart.
         "bdvm_engine",
+        # Perfect Draft.  ON at introduction, and additive in the strict
+        # sense this set requires: the engine writes no value, mutates no
+        # contract, and adds only one new route plus one new panel on
+        # /draft.  Turning it on cannot move a number that was already on
+        # screen — the panel silently vanishes on any non-ok response, so
+        # a box that cannot serve it renders the board exactly as before.
+        #
+        # Note what the flag does NOT gate: the removal of the fixed-slot
+        # model from frontend/lib/draft-logic.js.  That was an
+        # unconditional correction to a wrong assumption (this league caps
+        # nobody's rookie count) and it DOES move MaxBid numbers — see
+        # ADR-009 in docs/roster-trade-intelligence/DECISIONS.md.  It is
+        # not flag-controlled because a flag would preserve a known-wrong
+        # model as a live code path.
+        # Rollback: RISKIT_FEATURE_PERFECT_DRAFT=0 + restart.
+        "perfect_draft",
     }
     # Flags that default ON and KNOWINGLY change output.  Deliberately a
     # separate set from ``safe_on``: every member of that one is there

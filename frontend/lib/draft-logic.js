@@ -8,26 +8,48 @@
  *
  *   1. ``preDraftAtPick`` snapshot on every pick so retroactive
  *      PreDraft edits don't corrupt historical inflation tracking.
- *   2. Per-team ``initialSlots`` accounting (from the live
- *      ``/api/draft-capital`` picks array) so "slots remaining"
- *      drives every budget calculation.
- *   3. Slot-adjusted ``effectiveBudget`` per team + per-player
- *      ``topCompetitorMax`` so MaxBid is capped by the richest
- *      rival that can still actually bid, not the mean.
- *   4. Phase multiplier (``slotPressure``) that ramps aggression
- *      as my roster nears full, plus tier-specific inflation
- *      (S / A / B / C / D buckets by PreDraft $) blended with
- *      global inflation under a confidence weight.
+ *   2. Per-player ``topCompetitorMax`` so MaxBid is capped by the
+ *      richest rival that can still actually bid, not the mean.
+ *   3. Tier-specific inflation (S / A / B / C / D buckets by
+ *      PreDraft $) blended with global inflation under a
+ *      confidence weight.
  *
- * Core formulas (post-upgrade):
+ * ── The rookie draft has no slots (2026-07-30) ──────────────────────
+ *
+ * This module used to model a fixed six rookie picks per team, and
+ * that assumption was not cosmetic — it multiplied into every MaxBid
+ * on the board.  It was simply wrong about this league: **there is no
+ * minimum or maximum number of rookies a team may draft.**  Picks are
+ * valued into auction dollars (``teamTotals[].auctionDollars``) and
+ * the auction itself is uncapped, so a team may buy as many or as few
+ * rookies as its dollars allow.
+ *
+ * Three formulas changed as a result, and the removals are worth
+ * knowing if you are comparing against the original spreadsheet:
+ *
+ *   * ``effectiveBudgetFor`` no longer reserves $1 per remaining slot,
+ *     and no longer returns 0 for a team that has "used" its picks —
+ *     a team's ceiling is simply the dollars it holds.
+ *   * ``phaseMultiplier`` (1 + slotPressure × 0.5) is **deleted, not
+ *     replaced.**  Its legitimate job was "I am rich, bid up", and
+ *     ``budgetAdvantage`` already does that — more meaningfully now
+ *     that effective budgets are no longer slot-shrunk.  Removing a
+ *     term beats inventing one.
+ *   * ``mdv`` (remaining ÷ remaining slots) is gone entirely; dividing
+ *     a budget by a number of openings that does not exist produced a
+ *     number that meant nothing.
+ *
+ * Rookies drafted per team is still reported — it is informative — but
+ * it constrains nothing.  Roster capacity is a real constraint and is
+ * modelled where it belongs, in ``lib/perfect-draft.js``.
+ *
+ * Core formulas:
  *
  *   Inflation            = RemainingLeague$ / (TotalAuction$ − Σ soldPreDraft)
  *   Tier heat(T)         = Σ paid in T / Σ preDraftAtPick in T
  *   Tier inflation(T)    = inflation × (conf × tier_heat + (1−conf) × 1)
  *   Budget Advantage(p)  = My Effective$ / (avg other effective$; min 1)
- *   Slot pressure        = 1 − myPicksRemaining / myInitialSlots
- *   Phase multiplier     = 1 + slotPressure × PHASE_LATE_BOOST
- *   Theoretical Max(p)   = PreDraft × (1 + Aggression × (BA−1)) × tierInflation(p) × phaseMultiplier
+ *   Theoretical Max(p)   = PreDraft × (1 + Aggression × (BA−1)) × tierInflation(p)
  *   Winning bid(p)       = min(Theoretical Max, topCompetitorMax + 1)
  *   Enforce Up To(p)     = Inflated Fair × Enforce %
  *
@@ -44,20 +66,6 @@ export const DEFAULT_TOTAL_BUDGET = 1200;
 export const DEFAULT_TEAM_COUNT = 12;
 export const DEFAULT_AGGRESSION = 0.09;
 export const DEFAULT_ENFORCE_PCT = 0.8;
-/**
- * Default number of rookie picks per team before any trades.  The
- * actual per-team count is pulled from ``/api/draft-capital``'s
- * ``picks`` array on first load; this default only applies to a
- * pristine workspace before the fetch completes.
- */
-export const DEFAULT_INITIAL_SLOTS = 6;
-/**
- * How much slot pressure converts into MaxBid ramp-up.  At
- * ``slotPressure=1`` (my last pick) MaxBid scales by
- * ``1 + PHASE_LATE_BOOST`` (1.5× at the default).  Prevents the
- * "I have $300 and 2 slots left, unused $ is wasted" failure mode.
- */
-export const PHASE_LATE_BOOST = 0.5;
 /**
  * Minimum number of tier samples needed before tier inflation is
  * trusted at full weight.  With fewer samples, tier inflation is
@@ -118,18 +126,19 @@ export function cycleTag(current) {
 export const TIER_SCARCITY_URGENT = 0.3;
 
 /**
- * Slot-pressure gate for the "Spend up" recommendation — only trigger
- * past this fraction of the draft (i.e. late-draft mode).  At 0.6
- * that's after ~60% of my picks are drafted.
+ * Draft-progress gate for the "Spend up" recommendation — only trigger
+ * once this fraction of the rookie POOL has been drafted.  Replaces the
+ * old slot-pressure gate, which measured how many of a team's six
+ * imaginary picks were used.
  */
-export const SPEND_UP_PRESSURE_MIN = 0.6;
+export const SPEND_UP_PROGRESS_MIN = 0.6;
 /**
- * $-per-slot floor for the "Spend up" recommendation — only trigger
- * when my remaining $ exceeds my remaining slots × this floor.
- * Prevents the surplus-alert from firing when my per-slot budget is
- * already normal-sized.
+ * Budget-advantage floor for "Spend up": only urge spending when I am
+ * still meaningfully richer than the average rival.  Replaces the old
+ * $-per-slot floor, which divided a budget by openings that do not
+ * exist.
  */
-export const SPEND_UP_MDV_FLOOR = 10;
+export const SPEND_UP_ADVANTAGE_MIN = 1.25;
 
 /** Max slots on the user's explicit Target Board. */
 export const TARGET_BOARD_MAX = 6;
@@ -159,18 +168,18 @@ export const TIER_INTEREST_MIN = 0.2;
 // carry-over balances, but defaulting to the sheet's anchor keeps the
 // opening inflation math matching the sheet cell-for-cell.
 export const DEFAULT_TEAMS = [
-  { name: "Russini Panini", initialBudget: 417, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "Ed", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "Brent", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "Joey", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "MaKayla", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "Ty", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "Kich", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "Eric", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "Collin", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "Roy", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "Blaine", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
-  { name: "Joel", initialBudget: 73, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Russini Panini", initialBudget: 417 },
+  { name: "Ed", initialBudget: 71 },
+  { name: "Brent", initialBudget: 71 },
+  { name: "Joey", initialBudget: 71 },
+  { name: "MaKayla", initialBudget: 71 },
+  { name: "Ty", initialBudget: 71 },
+  { name: "Kich", initialBudget: 71 },
+  { name: "Eric", initialBudget: 71 },
+  { name: "Collin", initialBudget: 71 },
+  { name: "Roy", initialBudget: 71 },
+  { name: "Blaine", initialBudget: 71 },
+  { name: "Joel", initialBudget: 73 },
 ];
 
 // ── Seed rookie pool ────────────────────────────────────────────────────
@@ -253,49 +262,21 @@ export const DEFAULT_ROOKIES = [
 ];
 
 /**
- * Count per-team rookie pick ownership from the raw ``picks`` array
- * returned by ``/api/draft-capital``.  Each pick's ``currentOwner``
- * (a team display name) contributes +1 to that team's slot count.
+ * The maximum $ a team can actually bid on a single player right now.
  *
- * Returns a ``Map<teamNameLowerCase, count>``.  Callers should resolve
- * the map against their own team list by lowercased name.
+ * That is simply the dollars it holds.  This function used to reserve
+ * $1 per remaining roster "slot" and return 0 once a team's six picks
+ * were used — both of which were artifacts of a slot model this league
+ * does not have.  A team with $50 can bid $50 on one rookie, however
+ * many rookies it has already bought, because nothing obliges it to
+ * buy another.
+ *
+ * Kept as a named function rather than inlined because it is the
+ * documented meaning of "effective budget" that ``budgetAdvantage``
+ * and ``topCompetitorMax`` are both defined against.
  */
-export function slotsByTeamFromPicks(picksArray) {
-  const out = new Map();
-  if (!Array.isArray(picksArray)) return out;
-  for (const pk of picksArray) {
-    const owner = String(pk?.currentOwner || "").trim().toLowerCase();
-    if (!owner) continue;
-    out.set(owner, (out.get(owner) || 0) + 1);
-  }
-  return out;
-}
-
-/**
- * Slot-adjusted effective budget — the maximum $ a team can actually
- * bid on a single player right now, reserving $1 per OTHER remaining
- * slot so they can still fill their roster.  This is the number that
- * belongs in ``topCompetitorMax`` — the mean or even max of raw
- * remaining $ overstates real bidding power for teams with many
- * slots to fill.
- *
- *   effectiveBudget = 0 if slotsRemaining <= 0
- *                   = max(0, remaining − max(0, slotsRemaining − 1))
- *
- * Examples:
- *   (remaining 100, slots 3) → bid up to $98, reserve $1 × 2
- *   (remaining 5, slots 5)  → bid up to $1, reserve $1 × 4
- *   (remaining 50, slots 0) → 0 (team has no roster space left)
- *   (remaining 0, slots 1)  → 0 (team can only bid $1 min, but
- *                             the conventional "0 means can't
- *                             bid more than $1" is noise; explicit
- *                             0 in the UI is clearer)
- */
-export function effectiveBudgetFor(remaining, slotsRemaining) {
-  const rem = Math.max(0, Number(remaining) || 0);
-  const slots = Math.max(0, Number(slotsRemaining) || 0);
-  if (slots <= 0) return 0;
-  return Math.max(0, rem - Math.max(0, slots - 1));
+export function effectiveBudgetFor(remaining) {
+  return Math.max(0, Number(remaining) || 0);
 }
 
 // ── Player ID slug ──────────────────────────────────────────────────────
@@ -370,13 +351,10 @@ export function createDefaultWorkspace() {
  *
  * Tier 1 return shape adds (beyond the sheet-port baseline):
  *
- *   slotPressure          0..1 — how far through my own draft I am
- *   phaseMultiplier       1 + slotPressure × PHASE_LATE_BOOST
- *   topCompetitorMax      slot-adjusted max effective $ of any OTHER team
+ *   topCompetitorMax      max remaining $ of any OTHER team
  *   tierHeat              { S/A/B/C/D: paidSum/preDraftSum or null }
  *   tierConfidence        { S/A/B/C/D: 0..1 } — sample-size weight
- *   teamStats[i]          + initialSlots, slotsDrafted, slotsRemaining,
- *                           effectiveBudget
+ *   teamStats[i]          + rookiesBought, effectiveBudget
  *   enrichedPlayers[p]    + tier, tierInflation, theoreticalMaxBid,
  *                           myWinningBid, exceedsMyCeiling
  *
@@ -417,7 +395,6 @@ export function computeDraftStats(workspace) {
   const myTeam = teams[myTeamIdx] || {
     name: "",
     initialBudget: 0,
-    initialSlots: DEFAULT_INITIAL_SLOTS,
   };
   const myStarting = Number(myTeam.initialBudget) || 0;
   const mySpent = picks
@@ -425,10 +402,10 @@ export function computeDraftStats(workspace) {
     .reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const myRemaining = Math.max(0, myStarting - mySpent);
 
-  // ── Slot accounting ────────────────────────────────────────────────
-  // Per-team slots drafted + remaining.  ``initialSlots`` is set on
-  // the team when ``/api/draft-capital`` merges; absent that, we
-  // fall back to the 6-round default so pre-merge state still works.
+  // ── Per-team accounting ────────────────────────────────────────────
+  // Rookies bought per team is reported because it is informative, and
+  // constrains nothing: this league sets no cap on how many rookies a
+  // team may draft.
   const picksByTeam = teams.map(() => []);
   for (const pk of picks) {
     if (
@@ -439,15 +416,7 @@ export function computeDraftStats(workspace) {
       picksByTeam[pk.teamIdx].push(pk);
     }
   }
-  const initialSlotsByIdx = teams.map((t) =>
-    Number.isFinite(Number(t?.initialSlots))
-      ? Math.max(0, Number(t.initialSlots))
-      : DEFAULT_INITIAL_SLOTS,
-  );
-  const slotsDraftedByIdx = picksByTeam.map((pks) => pks.length);
-  const slotsRemainingByIdx = teams.map((_, i) =>
-    Math.max(0, initialSlotsByIdx[i] - slotsDraftedByIdx[i]),
-  );
+  const rookiesBoughtByIdx = picksByTeam.map((pks) => pks.length);
   const remainingByIdx = teams.map((t, i) => {
     const spent = picksByTeam[i].reduce(
       (s, p) => s + (Number(p.amount) || 0),
@@ -455,27 +424,19 @@ export function computeDraftStats(workspace) {
     );
     return Math.max(0, (Number(t.initialBudget) || 0) - spent);
   });
-  const effectiveBudgetByIdx = teams.map((_, i) =>
-    effectiveBudgetFor(remainingByIdx[i], slotsRemainingByIdx[i]),
-  );
+  const effectiveBudgetByIdx = teams.map((_, i) => effectiveBudgetFor(remainingByIdx[i]));
 
-  // My slot pressure drives the phase multiplier: at the start
-  // pressure=0 and MaxBid is unchanged; at my final pick pressure=1
-  // and MaxBid scales up by (1 + PHASE_LATE_BOOST).  This prevents
-  // the "unused $ is wasted $" failure mode when I'm wealthy but
-  // only have one roster slot left.
-  const myInitialSlots = initialSlotsByIdx[myTeamIdx] || 0;
-  const mySlotsRemaining = slotsRemainingByIdx[myTeamIdx] || 0;
-  const slotPressure =
-    myInitialSlots > 0
-      ? Math.max(0, Math.min(1, 1 - mySlotsRemaining / myInitialSlots))
-      : 0;
-  const phaseMultiplier = 1 + slotPressure * PHASE_LATE_BOOST;
+  const myRookiesBought = rookiesBoughtByIdx[myTeamIdx] || 0;
 
-  // Top competitor ceiling: the single richest OTHER team, after
-  // slot adjustment.  This is the real "ceiling I need to clear" on
-  // any given player — bidding 1 above it wins.  Without this cap,
-  // MaxBid hallucinates opponents that can't actually outbid me.
+  // Top competitor ceiling: the single richest OTHER team.  This is the
+  // real "ceiling I need to clear" on any given player — bidding 1
+  // above it wins.  Without this cap, MaxBid hallucinates opponents
+  // that can't actually outbid me.
+  //
+  // Note this got MORE accurate when the slot model went away: a team
+  // that had "used all six picks" previously scored an effective budget
+  // of 0 and vanished from this maximum entirely, even while holding
+  // real money it could still bid.
   let topCompetitorMax = 0;
   for (let i = 0; i < effectiveBudgetByIdx.length; i++) {
     if (i === myTeamIdx) continue;
@@ -581,6 +542,31 @@ export function computeDraftStats(workspace) {
   // Blended with 1.0 via a confidence weight based on sample count,
   // then multiplied on top of global inflation to produce
   // ``tierInflation`` (the actual modifier applied to fair/max bids).
+  //
+  // ── Realized paid/expected ratios ─────────────────────────────────
+  // The individual observations BEHIND tier heat.  Heat is their mean
+  // (Σpaid / Σpre); a spread needs the observations themselves, and
+  // Perfect Draft's price band was shipping a hardcoded sigma purely
+  // because nothing published them.
+  //
+  // Deliberately raw ratios rather than a finished sigma: the estimator
+  // lives in ``lib/perfect-draft.js`` (``logPriceDispersion``), and
+  // importing it here would drag the whole knapsack solver out of its
+  // lazy chunk and back into the main /draft bundle — the exact
+  // regression the React.lazy split exists to prevent.  Stats module
+  // measures; solver module estimates.
+  const tierPriceRatios = {};
+  const allPriceRatios = [];
+  const ratioForPick = (pk) => {
+    const snap = Number.isFinite(Number(pk.preDraftAtPick))
+      ? Math.max(0, Number(pk.preDraftAtPick))
+      : playerPreDraftById.get(pk.playerId) || 0;
+    const paid = Number(pk.amount) || 0;
+    // A $0 expectation has no ratio, and a $0 sale is a giveaway rather than
+    // an observation of price pressure; both are dropped, not clamped.
+    return snap > 0 && paid > 0 ? paid / snap : null;
+  };
+
   const tierHeat = {};
   const tierConfidence = {};
   const tierSampleCount = {};
@@ -592,6 +578,9 @@ export function computeDraftStats(workspace) {
       return tierForPreDraft(snap) === def.key;
     });
     tierSampleCount[def.key] = tierPicks.length;
+    const ratios = tierPicks.map(ratioForPick).filter((r) => r != null);
+    tierPriceRatios[def.key] = ratios;
+    allPriceRatios.push(...ratios);
     if (tierPicks.length === 0) {
       tierHeat[def.key] = null;
       tierConfidence[def.key] = 0;
@@ -662,11 +651,13 @@ export function computeDraftStats(workspace) {
   // Lookup for user tags.
   const tagMap = (ws.tags && typeof ws.tags === "object") ? ws.tags : {};
 
-  // Per-team stats (name, initial, spent, remaining, slots, eff$).
+  // Per-team stats (name, initial, spent, remaining, eff$).
+  //
+  // ``rookiesBought`` is reported, not enforced: this league caps
+  // nobody's rookie count, so it is a fact about the draft so far
+  // rather than a budget the team is spending down.
   //
   // Tier 3 additions per team:
-  //   mdv           — marginal dollar value (remaining / slots left).
-  //                   Used in the budget-pressure heatmap.
   //   overpayIndex  — (Σ paid − Σ preDraftAtPick) / Σ preDraftAtPick
   //                   across all picks.  Null when no picks yet.
   //                   > 0: overpayer.  < 0: value hunter.  ~0: rational.
@@ -690,8 +681,7 @@ export function computeDraftStats(workspace) {
     }, 0);
     const overpayIndex =
       preDraftSum > 0 ? (spent - preDraftSum) / preDraftSum : null;
-    const slotsLeft = slotsRemainingByIdx[idx];
-    const mdv = slotsLeft > 0 ? remaining / slotsLeft : 0;
+    const rookiesBought = rookiesBoughtByIdx[idx];
     // Count this team's logged nominations for the UI badge.
     const nominationsLogged = nominations.filter(
       (n) => n.nominatingTeamIdx === idx,
@@ -704,11 +694,8 @@ export function computeDraftStats(workspace) {
       remaining,
       picksCount,
       isMine: idx === myTeamIdx,
-      initialSlots: initialSlotsByIdx[idx],
-      slotsDrafted: slotsDraftedByIdx[idx],
-      slotsRemaining: slotsLeft,
+      rookiesBought,
       effectiveBudget: effectiveBudgetByIdx[idx],
-      mdv,
       preDraftSum,
       overpayIndex,
       tierInterest: tierInterestByTeam[idx],
@@ -732,14 +719,11 @@ export function computeDraftStats(workspace) {
     // sheet when both are in view.
     const inflatedFair = Math.floor(preDraft * combinedInflation);
     const theoreticalMaxBid = Math.floor(
-      preDraft *
-        (1 + aggression * (budgetAdvantage - 1)) *
-        combinedInflation *
-        phaseMultiplier,
+      preDraft * (1 + aggression * (budgetAdvantage - 1)) * combinedInflation,
     );
     // My winning bid = cap theoretical max at "what I need to beat"
-    // (top competitor's slot-adjusted budget + 1).  If no one else
-    // can bid (everyone bankrupt), winning bid collapses to 1.
+    // (richest rival's remaining $ + 1).  If no one else can bid
+    // (everyone bankrupt), winning bid collapses to 1.
     const competitorCeiling = Math.max(0, topCompetitorMax);
     const winByCompetitor = Math.max(1, competitorCeiling + 1);
     const myWinningBid = Math.max(
@@ -798,10 +782,10 @@ export function computeDraftStats(workspace) {
   // Total picks in the draft = sum of initial slots across all teams.
   // Used for the UI progress bar; typically 72 (12 × 6) for our
   // league but differs when teams trade picks between leagues.
-  const totalInitialSlots = initialSlotsByIdx.reduce((s, n) => s + n, 0);
+  const rookiePoolSize = players.length;
   const totalPicksMade = picks.length;
   const draftProgress =
-    totalInitialSlots > 0 ? totalPicksMade / totalInitialSlots : 0;
+    rookiePoolSize > 0 ? totalPicksMade / rookiePoolSize : 0;
 
   // ── Target Board rollup ─────────────────────────────────────────────
   // Aggregated view of the user's explicit short-list.  Each slot
@@ -855,15 +839,12 @@ export function computeDraftStats(workspace) {
     }
   }
   // Buffer: what's left of my budget after buying every remaining
-  // target at winning-bid prices, reserving $1 per additional slot
-  // beyond the targets.  If I have 6 slots but only 4 targets, I
-  // need $1 each for the other 2 so I can still fill my roster.
-  const nonTargetSlotsLeft = Math.max(
-    0,
-    mySlotsRemaining - tbTotals.remainingCount,
-  );
-  const portfolioBuffer =
-    myRemaining - tbTotals.remainingWinBid - nonTargetSlotsLeft;
+  // target at winning-bid prices.
+  //
+  // No reserve is withheld for "other slots": a team is never obliged
+  // to buy another rookie, so every dollar not committed to a target is
+  // genuinely free.
+  const portfolioBuffer = myRemaining - tbTotals.remainingWinBid;
   let portfolioStatus = "idle";
   let portfolioStatusLabel = "Add targets to your board";
   if (targetBoardSlots.length > 0) {
@@ -884,7 +865,6 @@ export function computeDraftStats(workspace) {
     portfolioBuffer,
     portfolioStatus,
     portfolioStatusLabel,
-    nonTargetSlotsLeft,
   };
 
   // ── Par Sheet rollup ────────────────────────────────────────────────
@@ -1030,10 +1010,7 @@ export function computeDraftStats(workspace) {
     myStarting,
     mySpent,
     myRemaining,
-    myInitialSlots,
-    mySlotsRemaining,
-    slotPressure,
-    phaseMultiplier,
+    myRookiesBought,
     topCompetitorMax,
     otherTeamsRemaining,
     avgPerOtherTeam,
@@ -1045,8 +1022,12 @@ export function computeDraftStats(workspace) {
     tierHeat,
     tierConfidence,
     tierSampleCount,
+    // Realized paid/expected ratios — the observations behind tierHeat, for
+    // any consumer that needs the spread rather than the mean.
+    tierPriceRatios,
+    allPriceRatios,
     tierStats,
-    totalInitialSlots,
+    rookiePoolSize,
     totalPicksMade,
     draftProgress,
     teamStats,
@@ -1365,16 +1346,12 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   const ws = workspace || createDefaultWorkspace();
   const existing = Array.isArray(ws.teams) ? ws.teams : [];
   const feed = Array.isArray(teamTotals) ? teamTotals : [];
-  // Optional: raw ``picks`` array from the /api/draft-capital
-  // response.  When provided, per-team rookie pick counts are set
-  // as ``initialSlots`` on every matched/appended team so the
-  // effective-budget math downstream is accurate.  Absent this
-  // (e.g. teamTotals passed alone), teams keep their existing
-  // ``initialSlots`` or fall back to the DEFAULT_INITIAL_SLOTS.
-  const picksArray = Array.isArray(opts.picks) ? opts.picks : null;
-  const slotsByKey = picksArray
-    ? slotsByTeamFromPicks(picksArray)
-    : new Map();
+  // The ``picks`` array from /api/draft-capital used to be read here to
+  // derive a per-team rookie-pick COUNT, which then became a cap on how
+  // many rookies the team could draft.  It is not one: picks are valued
+  // into ``auctionDollars`` (already carried on ``teamTotals``), and the
+  // auction places no cap on player count.  The option is still accepted
+  // so existing callers keep working, and is deliberately unused.
 
   // Build a case-insensitive lookup from the feed.
   const feedByKey = new Map();
@@ -1414,21 +1391,8 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
     ]),
   );
 
-  // Build a team row with feed-aware ``initialSlots``.  When the
-  // picks array is present, the slot count is authoritative.  When
-  // it's not (no picks opts passed), we keep whatever ``initialSlots``
-  // the existing team carried, falling back to the default.
+  // Build a team row.
   const buildTeam = (nameOut, feedBudget, prior) => {
-    const slotKey = String(nameOut || "").toLowerCase();
-    const feedSlots = slotsByKey.get(slotKey);
-    const priorSlots = Number.isFinite(Number(prior?.initialSlots))
-      ? Math.max(0, Number(prior.initialSlots))
-      : DEFAULT_INITIAL_SLOTS;
-    const initialSlots = picksArray
-      ? Number.isFinite(feedSlots)
-        ? Math.min(feedSlots, DEFAULT_INITIAL_SLOTS)
-        : 0
-      : Math.min(priorSlots, DEFAULT_INITIAL_SLOTS);
     // In sync mode, preserve the user's typed initialBudget when it
     // diverges from the last-seen feed value.  In force mode (or when
     // no prior feedBudget exists), snap initialBudget to the new feed
@@ -1451,7 +1415,6 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
     return {
       name: nameOut,
       initialBudget,
-      initialSlots,
       feedBudget,
     };
   };
@@ -1611,6 +1574,21 @@ export function replacePlayerPool(workspace, newPlayers) {
         ? { ktcDollar: Number(p.ktcDollar) } : {}),
       ...(Number.isFinite(Number(p.idpTradeCalcDollar))
         ? { idpTradeCalcDollar: Number(p.idpTradeCalcDollar) } : {}),
+      // Raw 0-9999 board value behind the $ ladder.  ``preDraft`` is
+      // dollars and cannot be converted back, so Perfect Draft needs
+      // this carried verbatim to measure net roster value against a
+      // displaced player.
+      ...(Number.isFinite(Number(p.boardValue)) && Number(p.boardValue) > 0
+        ? { boardValue: Number(p.boardValue) } : {}),
+      // Board trust, for Perfect Draft's confidence bootstrap.  Only a
+      // POSITIVE CV is carried: the pipeline emits no dispersion for a
+      // rookie covered by a single source, and a stored 0 would read as
+      // "the sources agreed" — the opposite of what it means.  Absent
+      // is the honest encoding for unobserved.
+      ...(Number.isFinite(Number(p.marketDispersionCV)) &&
+      Number(p.marketDispersionCV) > 0
+        ? { marketDispersionCV: Number(p.marketDispersionCV) } : {}),
+      ...(p.singleSource ? { singleSource: true } : {}),
     }))
     .filter((p) => p.id);
 
@@ -1716,9 +1694,6 @@ export function hydrateWorkspace(parsed) {
           return {
             name: String(t?.name || `Team ${i + 1}`),
             initialBudget,
-            initialSlots: Number.isFinite(Number(t?.initialSlots))
-              ? Math.max(0, Number(t.initialSlots))
-              : DEFAULT_INITIAL_SLOTS,
             feedBudget,
           };
         })
@@ -1734,6 +1709,24 @@ export function hydrateWorkspace(parsed) {
         rank: Number(p?.rank) || i + 1,
         name: String(p?.name || ""),
         preDraft: Math.max(0, Number(p?.preDraft) || 0),
+        // Carry the sync-derived fields through a reload.  The mount
+        // auto-sync repopulates them anyway, but dropping them here made
+        // the first paint after a refresh miss position, vendor dollars
+        // and board value — enough for the Perfect Draft panel to have
+        // nothing to price.
+        ...(p?.pos ? { pos: String(p.pos) } : {}),
+        ...(p?.assetClass === "offense" || p?.assetClass === "idp"
+          ? { assetClass: p.assetClass } : {}),
+        ...(Number.isFinite(Number(p?.ktcDollar))
+          ? { ktcDollar: Number(p.ktcDollar) } : {}),
+        ...(Number.isFinite(Number(p?.idpTradeCalcDollar))
+          ? { idpTradeCalcDollar: Number(p.idpTradeCalcDollar) } : {}),
+        ...(Number.isFinite(Number(p?.boardValue)) && Number(p.boardValue) > 0
+          ? { boardValue: Number(p.boardValue) } : {}),
+        ...(Number.isFinite(Number(p?.marketDispersionCV)) &&
+        Number(p.marketDispersionCV) > 0
+          ? { marketDispersionCV: Number(p.marketDispersionCV) } : {}),
+        ...(p?.singleSource ? { singleSource: true } : {}),
       }));
     })(),
     picks: Array.isArray(parsed.picks)
@@ -1892,21 +1885,25 @@ export function playerRecommendation(enrichedPlayer, stats) {
   }
 
   // Late-draft surplus $ on a target → spend up.
-  const mdv =
-    stats.mySlotsRemaining > 0
-      ? stats.myRemaining / stats.mySlotsRemaining
-      : 0;
+  //
+  // Formerly gated on slot pressure and $-per-remaining-slot, neither of
+  // which exists.  The instinct behind it is real though — auction
+  // dollars expire worthless — so it now keys on two quantities that are
+  // actually observable: how much of the rookie POOL is gone, and
+  // whether I am still richer than my rivals.
   if (
     tag === TAG_TARGET &&
-    stats.slotPressure >= SPEND_UP_PRESSURE_MIN &&
-    mdv > SPEND_UP_MDV_FLOOR
+    (stats.draftProgress || 0) >= SPEND_UP_PROGRESS_MIN &&
+    (stats.budgetAdvantage || 0) >= SPEND_UP_ADVANTAGE_MIN
   ) {
     return {
       level: "spend",
       label: "Spend up",
-      rationale: `Late draft (${Math.round(
-        stats.slotPressure * 100,
-      )}% pressure), ~$${Math.round(mdv)}/slot surplus — don't let $ go unused.`,
+      rationale: `${Math.round(
+        (stats.draftProgress || 0) * 100,
+      )}% of the board is gone and you still hold ${(
+        stats.budgetAdvantage || 0
+      ).toFixed(2)}x the average rival — don't let $ go unused.`,
     };
   }
 
