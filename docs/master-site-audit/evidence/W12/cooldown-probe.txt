@@ -1,4 +1,3 @@
-=== W12 cooldown probe: src/api/signal_alerts.detect_signal_transitions ===
 _MIN_NOTIFY_INTERVAL_HOURS = 12.0
 ACTIONABLE_SIGNALS = ['BUY', 'MONITOR', 'RISK', 'SELL']
 
@@ -15,24 +14,24 @@ stored cooldown state: {
  "dynasty_main": {
   "sid:4984::alert_with_drop": {
    "signal": "RISK",
-   "notifiedAt": 1785878397935
+   "notifiedAt": 1785879353473
   },
   "sid:4984::high_vol_drop": {
    "signal": "RISK",
-   "notifiedAt": 1785878397938
+   "notifiedAt": 1785879353488
   },
   "sid:4984::uptrend_controlled": {
    "signal": "BUY",
-   "notifiedAt": 1785878397941
+   "notifiedAt": 1785879353492
   },
   "sid:4984::sustained_downtrend": {
    "signal": "SELL",
-   "notifiedAt": 1785878397943
+   "notifiedAt": 1785879353494
   }
  }
 }
 
---- Email that would be delivered for B1+B2 (same player, opposite verbs) ---
+--- Email delivered for B1+B2 (one player, opposite verbs) ---
 Hi w12user,
 
 2 of your players had a signal change since your last check:

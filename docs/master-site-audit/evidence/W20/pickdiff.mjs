@@ -1,0 +1,16 @@
+import fs from "fs";
+import { buildRows } from "./lib/dynasty-data.js";
+import { computePortfolio } from "./lib/portfolio-insights.js";
+import { buildTeamValueBreakdown, buildPlayerMetaMap } from "./lib/league-analysis.js";
+const c = JSON.parse(fs.readFileSync("contract.json","utf8"));
+const rows = buildRows(c);
+const meta = buildPlayerMetaMap(rows);
+const team = c.sleeper.teams.find(t=>t.name==="Jason");
+const local = computePortfolio({rows, selectedTeam:team, rawData:c, history:{}, rosterSettings:{rosterPositions:c.sleeper.rosterPositions}});
+const br = buildTeamValueBreakdown(team, meta, rows, "full", c.pickAliases, c.sleeper.rosterPositions);
+const A = {}; for (const p of local.rosterValues.filter(p=>p.isPick)) A[p.name]=(A[p.name]||[]).concat(p.value);
+const B = {}; for (const p of br.pickDetails) B[p.name]=(B[p.name]||[]).concat(p.meta);
+const keys=[...new Set([...Object.keys(A),...Object.keys(B)])].sort();
+console.log("label".padEnd(14),"portfolio-insights".padEnd(22),"league-analysis");
+for (const k of keys) console.log(k.padEnd(14), JSON.stringify(A[k]||null).padEnd(22), JSON.stringify(B[k]||null));
+console.log("TOTAL A", Math.round(local.pickValue), "TOTAL B", Math.round(br.byGroup.PICKS));

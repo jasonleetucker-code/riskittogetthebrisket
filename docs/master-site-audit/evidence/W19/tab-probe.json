@@ -1,0 +1,448 @@
+[
+ {
+  "tab": "overview",
+  "status": 200,
+  "htmlBytes": 80075,
+  "textChars": 2712,
+  "tables": 0,
+  "rows": 0,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J",
+   "https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578",
+   "https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5",
+   "https://sleepercdn.com/avatars/thumbs/7df22f5c69196c4ef96741c5f0ed2b43",
+   "https://sleepercdn.com/avatars/thumbs/197fbf70fcab426ead60204e810ff485"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital At a glance Public snapshot across the last 2 dynasty seasons SEASONS 3 2024\u20132026 MANAGERS 12 TRADES 191 WAIVERS 1092 SCORED WEEKS 34 DEFENDING CHAMPION Ed Still Jerry\u2019s Team \u00b7 2025 title View championship history \u2192 FEATURED RIVALRY \u00b7 HOTTEST INDEX vs Joey vs Ed 5 meetings \u00b7 2 playoff \u00b7 Rivalry Index 21 Series: 3\u20132 Explore rivalries \u2192 THIS WEEK \u00b7 2026 WK 1 @ Joey vs Ed Joey leads the series 3-2; most recent: Ed by 41.8 in 2025 wk 15. Full H2H preview \u2192 POWER RANK #1 Brent Karma Cowboy Power 97.211-2 Power rankings \u2192 LONGEST ACTIVE STREAK Ed 2 straight wins All strea"
+ },
+ {
+  "tab": "previews",
+  "status": 200,
+  "htmlBytes": 54607,
+  "textChars": 756,
+  "tables": 0,
+  "rows": 0,
+  "hasNoData": false,
+  "consoleErrors": [],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league/articles/2025/17/1/preview?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J",
+   "http://127.0.0.1:3000/league/articles/2025/17?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league/articles/2025/17?_rsc=AMvjIHzCsk_wC87J",
+   "http://127.0.0.1:3000/league/articles/2025/17/1/preview?_rsc=AMvjIHzCsk_wC87J"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Week 17 previews \u00b7 2025 Wednesday-morning previews. Tap a card for the full article. \ud83c\udfc6 CHAMPIONSHIP \u00b7 COMEBACK-ARC Still Jerry's Team vs Karma Cowboy Down 18.43, with one week to find it: Aguilar's championship bid Aguilar erases the 18.43 by Sunday-night kickoff. Brenthany's lone Monday-night dart \u2014 Puka Nacua at Atlanta \u2014 needs to clear 28 to save it. He doesn't get there. 678 words \u00b7 12/24/2025 View full slate page \u2192 SAVE"
+ },
+ {
+  "tab": "recaps",
+  "status": 200,
+  "htmlBytes": 54730,
+  "textChars": 811,
+  "tables": 0,
+  "rows": 0,
+  "hasNoData": false,
+  "consoleErrors": [],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league/articles/2025/17?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league/articles/2025/17/1/recap?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league/articles/2025/17?_rsc=AMvjIHzCsk_wC87J",
+   "http://127.0.0.1:3000/league/articles/2025/17/1/recap?_rsc=AMvjIHzCsk_wC87J",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Week 17 recaps \u00b7 2025 Tuesday-morning recaps. Tap a card for the full article. \ud83c\udfc6 CHAMPIONSHIP \u00b7 COMEBACK-ARC Still Jerry's Team vs Karma Cowboy The Christmas comeback: Still Jerry's Team are 2025 Brisket champs Brenthany posted 432.87 and lost. They will spend a year asking what they should have built differently. The honest answer: nothing. They got beat by a roster having its best week of the season at the worst possible time. 765 words \u00b7 12/30/2025 View full slate page \u2192 SAVE"
+ },
+ {
+  "tab": "power",
+  "status": 200,
+  "htmlBytes": 158595,
+  "textChars": 689,
+  "tables": 1,
+  "rows": 13,
+  "hasNoData": false,
+  "consoleErrors": [],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital ROS Power Rankings Going into the new season \u2014 only forward-looking inputs are used. ROS roster strength (38%) + Roster health (3%). # OWNER POWER ROS PCT 1 Brent 96.1 96% 2 Joey 88.4 88% 3 Jason 80.7 79% 4 Collin 73.0 71% 5 Eric 65.2 63% 6 MaKayla 57.5 54% 7 Ty 49.8 46% 8 Kich 41.7 38% 9 Ed 34.4 29% 10 Roy 26.6 21% 11 Blaine 18.9 13% 12 jstuedle 11.2 4% SAVE"
+ },
+ {
+  "tab": "rosTeamStrength",
+  "status": 200,
+  "htmlBytes": 60703,
+  "textChars": 855,
+  "tables": 1,
+  "rows": 13,
+  "hasNoData": false,
+  "consoleErrors": [],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital ROS Roster Strength Composite team strength for the rest of the season. 72% starting lineup + 18% best-ball depth + 5% positional coverage + 5% health. Read-only contender layer \u2014 does not affect dynasty values or trade math. # TEAM STRENGTH STARTERS DEPTH UNMAPPED 1 Brent 645 829 211 2 2 Joey 535 701 114 0 3 Jason 519 671 147 0 4 Collin 506 670 77 2 5 Eric 505 655 133 1 6 MaKayla 469 608 116 3 7 Ty 447 590 67 2 8 Kich 441 581 71 6 9 Ed 426 549 116 2 10 Roy 377 485 99 2 11 Blaine 366 475 76 6 12 jstuedle 347 446 87 4 SAVE"
+ },
+ {
+  "tab": "rosChampionship",
+  "status": 200,
+  "htmlBytes": 57475,
+  "textChars": 909,
+  "tables": 1,
+  "rows": 9,
+  "hasNoData": false,
+  "consoleErrors": [],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital ROS Championship Odds 10,000 Monte Carlo runs \u00b7 6 playoff seeds \u00b7 2 byes \u00b7 ROS roster strength blended into weekly score distributions OWNER CHAMP FINALS SEMIS PLAYOFF EXP FINISH TIER Joey 42.6% 56.0% 56.6% 100.0% 3.3 Favorite Jason 31.5% 43.1% 43.4% 100.0% 4.0 Favorite Eric 25.4% 90.2% 100.0% 100.0% 1.8 Favorite MaKayla 0.4% 9.8% 100.0% 100.0% 2.9 Dangerous Playoff Team Ty 0.1% 0.9% 100.0% 100.0% 3.0 Dangerous Playoff Team Roy 0.0% 0.0% 0.0% 100.0% 5.0 Dangerous Playoff Team Ed 0.0% 0.0% 0.0% 0.0% 7.0 Rebuilder / Seller Collin 0.0% 0.0% 0.0% 0.0% 8.0 Rebuilder / Se"
+ },
+ {
+  "tab": "rosTradeDeadline",
+  "status": 200,
+  "htmlBytes": 60338,
+  "textChars": 2020,
+  "tables": 1,
+  "rows": 13,
+  "hasNoData": false,
+  "consoleErrors": [],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Trade Deadline Dashboard Read-only Buyer/Seller direction per team based on ROS playoff + championship odds + team strength + roster age. Informational only \u2014 does not affect dynasty values or trade math. TEAM CHAMP PLAYOFF STRENGTH DIRECTION Joey 42.6% 100.0% 91.7% Strong Buyer Prioritize lineup-anchor upgrades. Pay up for elite starters; avoid hoarding picks. Jason 31.5% 100.0% 83.3% Strong Buyer Prioritize lineup-anchor upgrades. Pay up for elite starters; avoid hoarding picks. Eric 25.4% 100.0% 66.7% Strong Buyer Prioritize lineup-anchor upgrades. Pay up for eli"
+ },
+ {
+  "tab": "luck",
+  "status": 200,
+  "htmlBytes": 148127,
+  "textChars": 1814,
+  "tables": 1,
+  "rows": 11,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5",
+   "https://sleepercdn.com/avatars/thumbs/197fbf70fcab426ead60204e810ff485",
+   "https://sleepercdn.com/avatars/thumbs/6bae2753ef9e291d6a42bffddd394717",
+   "https://sleepercdn.com/avatars/thumbs/02ee3ed59a2fa3b8dddf3ef090c3aa54",
+   "https://sleepercdn.com/avatars/thumbs/7df22f5c69196c4ef96741c5f0ed2b43"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Luck Score Actual wins vs expected wins from weekly all-play record. Regular season only. CAREER \u00b7 MOST BLESSED Joey (+3.46) 26 games, all-play 52% CAREER \u00b7 MOST CURSED Collin (-3.62) 26 games, all-play 44% Cumulative luck delta over time Above zero = lucky; below = unlucky -2 -1 0 +1 +2 Regular-season games played Joey Jason Roy Ty Eric Ed MaKayla Collin Brent Kich Manager ranking Career 2026 (current) 2025 2024 # MANAGER GP ACTUAL W EXPECTED W LUCK \u0394 ALL-PLAY % VERDICT 1 Joey I\u2019m Not Afraid Anymore! 26 17.0 13.5 +3.46 52% Blessed 2 Jason Russini Panini 26 11.0 8.8"
+ },
+ {
+  "tab": "streaks",
+  "status": 200,
+  "htmlBytes": 107539,
+  "textChars": 1942,
+  "tables": 0,
+  "rows": 0,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J",
+   "https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5",
+   "https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578",
+   "https://sleepercdn.com/avatars/thumbs/3ccea9e01e4b4d914a43c66a975621c8",
+   "https://sleepercdn.com/avatars/thumbs/7df22f5c69196c4ef96741c5f0ed2b43"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Records are falling Gold border = chaser is within striking distance HIGHEST SINGLE-WEEK SCORE Joey 821.0 pts \u00b7 2025 wk 16 LONGEST WIN STREAK Joey 10 straight \u00b7 2025 wk 6 CLOSEST CHASER Ed2 active(8 from record) LONGEST LOSING STREAK Roy 6 straight \u00b7 2025 wk 16 CLOSEST CHASER Roy6 active(tied or ahead) Within striking distance Notable from 2025 week 16 #1 Brent \u2014 1st-highest score in a loss all-time 776.4 pts in L #1 Joey \u2014 1st-highest single-week score all-time 821.0 pts #2 Ed \u2014 2nd-highest single-week score all-time 807.8 pts #3 MaKayla \u2014 3rd-highest score in a lo"
+ },
+ {
+  "tab": "history",
+  "status": 200,
+  "htmlBytes": 133168,
+  "textChars": 2674,
+  "tables": 4,
+  "rows": 46,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J",
+   "https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578",
+   "https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5",
+   "https://sleepercdn.com/avatars/thumbs/7df22f5c69196c4ef96741c5f0ed2b43",
+   "https://sleepercdn.com/avatars/thumbs/3ccea9e01e4b4d914a43c66a975621c8",
+   "https://sleepercdn.com/avatars/thumbs/9390b03f2ee7c35a9eb529a188db0679"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Champion timeline Winners of the final playoff matchup 2025 Ed Still Jerry\u2019s Team 2024 Joey And, Here\u2026 We\u2026 Go! Hall of Fame Cumulative stats across the last 2 seasons MANAGER SEASONS RECORD TITLES FINALS PLAYOFFS REG 1ST POINTS Joey 3 29-23 1 1 3 0 9,189.4 Ed 3 27-25 1 1 3 0 8,933.5 Brent 2 21-5 0 1 2 1 6,088.6 Roy 3 27-25 0 1 1 0 8,970.1 Ty 3 36-16 0 0 3 1 9,511.2 MaKayla 3 30-22 0 0 3 0 9,017.1 Eric 3 17-35 0 0 1 0 8,733.1 Kich 2 11-15 0 0 1 0 5,382.6 Collin 3 23-29 0 0 0 0 8,925.4 Jason 3 18-34 0 0 0 1 8,321.7 jstuedle 1 0-0 0 0 0 0 0.0 Blaine 1 0-0 0 0 0 0 0.0 P"
+ },
+ {
+  "tab": "rivalries",
+  "status": 200,
+  "htmlBytes": 136479,
+  "textChars": 3172,
+  "tables": 2,
+  "rows": 49,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J",
+   "https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5",
+   "https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578",
+   "https://sleepercdn.com/avatars/thumbs/197fbf70fcab426ead60204e810ff485",
+   "https://sleepercdn.com/avatars/thumbs/5ff406ba4a31a7f4a9ca19d72bb7dade"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Top rivalries Ranked by rivalry index (playoffs + close games + splits + meetings) Rivalry Index 21 Joey vs Ed 5 meet \u00b7 2 playoff \u00b7 Split seasons 2 Series: 3\u20132 Rivalry Index 21 Jason vs Eric 4 meet \u00b7 2 playoff \u00b7 Split seasons 1 Series: 3\u20131 Rivalry Index 20 Ty vs MaKayla 6 meet \u00b7 2 playoff \u00b7 Split seasons 2 Series: 3\u20133 Joey vs Ed Head-to-head detail Joey page \u2192 Ed page \u2192 MEETINGS 5 3 reg \u00b7 2 playoff SERIES 3\u20132 Joey leads POINTS 1583.8 / 1662.8 Ed +79.0 CLOSE (\u22645 PTS) 0 No nail-biters CLOSE (\u226410 PTS) 1 Memorable meetings CLOSEST 2024 \u00b7 Wk 14 (P) Joey def. Ed by 7.9 Jo"
+ },
+ {
+  "tab": "awards",
+  "status": null,
+  "htmlBytes": 178908,
+  "textChars": 4443,
+  "tables": 0,
+  "rows": 0,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578",
+   "https://sleepercdn.com/avatars/thumbs/7df22f5c69196c4ef96741c5f0ed2b43",
+   "https://sleepercdn.com/avatars/thumbs/197fbf70fcab426ead60204e810ff485",
+   "https://sleepercdn.com/avatars/thumbs/3ccea9e01e4b4d914a43c66a975621c8",
+   "https://sleepercdn.com/avatars/thumbs/9390b03f2ee7c35a9eb529a188db0679",
+   "https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital 2025 awards Season complete \u00b7 tap an award for its full history \u00b7 2026 hasn't started yet MANAGER & TEAM AWARDS CHAMPION 2 yrs \u2192 Ed Still Jerry\u2019s Team Won the league. Award history \u2192 MANAGER OF THE YEAR 3 yrs \u2192 Brent Karma Cowboy Score 0.952 \u00b7 #2 finish \u00b7 21-5 \u00b7 6,088.6 PF The league's best manager this season. Award history \u2192 REGULAR-SEASON CROWN 3 yrs \u2192 Brent Karma Cowboy 21-5 Best regular-season record. Award history \u2192 POINTS KING 3 yrs \u2192 Brent Karma Cowboy 6,088.6 PF Scored the most points. Award history \u2192 HIGHEST SINGLE-WEEK SCORE 2 yrs \u2192 Brent Karma Cowboy Wk "
+ },
+ {
+  "tab": "records",
+  "status": null,
+  "htmlBytes": 154827,
+  "textChars": 4604,
+  "tables": 0,
+  "rows": 0,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "https://sleepercdn.com/content/nfl/players/thumb/3163.jpg",
+   "https://sleepercdn.com/images/team_logos/nfl/det.png",
+   "https://sleepercdn.com/content/nfl/players/thumb/1166.jpg",
+   "https://sleepercdn.com/images/team_logos/nfl/lv.png",
+   "https://sleepercdn.com/content/nfl/players/thumb/4984.jpg",
+   "https://sleepercdn.com/images/team_logos/nfl/buf.png"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Record book Single-game extremes (each row is one NFL week) Highest single-week scores 1.Karma Cowboy(2025 wk 15) 489.2 2.Why So Serious?(2025 wk 13) 475.9 3.Karma Cowboy(2025 wk 5) 475.0 4.Karma Cowboy(2025 wk 7) 474.7 5.Still Jerry\u2019s Team(2025 wk 7) 467.1 Lowest single-week scores 1.HockTua\ud83d\udca6(2024 wk 11) 177.3 2.There\u2019s A Chance(2024 wk 1) 192.5 3.Draft Daddies(2025 wk 8) 193.8 4.Aguilar315(2024 wk 5) 195.5 5.There\u2019s A Chance(2024 wk 7) 195.9 Biggest margin of victory 1.Karma Cowboy(2025 wk 7) 164.8 (474.7) 2.Karma Cowboy(2025 wk 3) 162.6 (453.4) 3.Why So Serious?("
+ },
+ {
+  "tab": "franchise",
+  "status": 200,
+  "htmlBytes": 154206,
+  "textChars": 1891,
+  "tables": 1,
+  "rows": 4,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5",
+   "https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578",
+   "https://sleepercdn.com/avatars/thumbs/197fbf70fcab426ead60204e810ff485",
+   "https://sleepercdn.com/avatars/thumbs/3ccea9e01e4b4d914a43c66a975621c8",
+   "https://sleepercdn.com/avatars/thumbs/7df22f5c69196c4ef96741c5f0ed2b43"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Franchise index Sorted by titles, then best finish, then wins Joey I\u2019m Not Afraid Anymore! 1\u00d7 \u2605 \u00b7 29-23 \u00b7 3 seasons Ed Jasons archenemy 1\u00d7 \u2605 \u00b7 27-25 \u00b7 3 seasons Jason Russini Panini 0\u00d7 \u2605 \u00b7 18-34 \u00b7 3 seasons Roy Chargers Team Doctor 0\u00d7 \u2605 \u00b7 27-25 \u00b7 3 seasons Brent Type 2 DiaBaddies 0\u00d7 \u2605 \u00b7 21-5 \u00b7 2 seasons Ty TyBWell 0\u00d7 \u2605 \u00b7 36-16 \u00b7 3 seasons MaKayla Rage Against The Achane 0\u00d7 \u2605 \u00b7 30-22 \u00b7 3 seasons Collin CollinFoz 0\u00d7 \u2605 \u00b7 23-29 \u00b7 3 seasons Eric Pop Trunk 0\u00d7 \u2605 \u00b7 17-35 \u00b7 3 seasons Kich killaKich00 0\u00d7 \u2605 \u00b7 11-15 \u00b7 2 seasons jstuedle jstuedle 0\u00d7 \u2605 \u00b7 0-0 \u00b7 1 seasons Blaine ug"
+ },
+ {
+  "tab": "activity",
+  "status": 200,
+  "htmlBytes": 954183,
+  "textChars": 29366,
+  "tables": 0,
+  "rows": 0,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "https://sleepercdn.com/avatars/thumbs/197fbf70fcab426ead60204e810ff485",
+   "https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578",
+   "https://sleepercdn.com/avatars/thumbs/7df22f5c69196c4ef96741c5f0ed2b43",
+   "https://sleepercdn.com/avatars/thumbs/5ff406ba4a31a7f4a9ca19d72bb7dade",
+   "https://sleepercdn.com/avatars/thumbs/e83d90af2b89daf5746057a01f063401",
+   "https://sleepercdn.com/avatars/thumbs/6bae2753ef9e291d6a42bffddd394717"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Trade activity 191 completed trades across the last 2 seasons PICKS MOVED 235 PLAYERS MOVED 619 MOST ACTIVE TRADER Jason 156 trades TOP PARTNER PAIR Jason + MaKayla 34 deals Position mix moved Players moved by position in completed trades WR: 203 QB: 132 RB: 130 TE: 71 DL: 37 DB: 29 LB: 15 K: 2 Trade flow Who traded with whom (asset counts along each edge) Blaine (15) Brent (97) Collin (25) Ed (79) Eric (60) Jason (312) Joey (14) Kich (32) MaKayla (83) Roy (75) Ty (42) Blaine (12) Brent (67) Collin (21) Ed (84) Eric (62) Jason (350) Joey (10) Kich (32) MaKayla (86) "
+ },
+ {
+  "tab": "draft",
+  "status": 200,
+  "htmlBytes": 352270,
+  "textChars": 23461,
+  "tables": 7,
+  "rows": 512,
+  "hasNoData": false,
+  "consoleErrors": [],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Weighted pick stockpile 1st round = 4 pts, 2nd = 3, 3rd = 2, 4th+ = 1 MANAGER TOTAL PICKS WEIGHTED 1.Jason 59 134 2.Roy 12 30 3.Collin 12 24 4.jstuedle 12 24 5.MaKayla 9 18 6.Ty 9 15 7.Kich 8 13 8.Joey 8 13 9.Blaine 7 8 10.Eric 6 7 11.Ed 2 2 Pick inventory Picks owned by Jason 2027 R1 2027 R1* 2027 R1* 2027 R1* 2027 R1* 2027 R1* 2027 R1* 2027 R1* 2027 R1* 2027 R2 2027 R2* 2027 R2* 2027 R2* 2027 R2* 2027 R2* 2027 R2* 2027 R2* 2027 R3 2027 R3* 2027 R3* 2027 R3* 2027 R3* 2027 R3* 2027 R3* 2027 R3* 2027 R4 2027 R4* 2027 R4* 2027 R4* 2027 R4* 2027 R5 2027 R5* 2027 R5* 20"
+ },
+ {
+  "tab": "weekly",
+  "status": 200,
+  "htmlBytes": 161104,
+  "textChars": 1367,
+  "tables": 1,
+  "rows": 5,
+  "hasNoData": false,
+  "consoleErrors": [],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league/weekly/2025/17/4?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league/weekly/2025/17/2?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league/weekly/2025/17/5?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league/weekly/2025/17/1?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league/weekly/2025/17/4?_rsc=AMvjIHzCsk_wC87J"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital 2025 \u00b7 Week 17 (playoffs) 2025 Wk 17 (P) 2025 Wk 16 (P) 2025 Wk 15 (P) 2025 Wk 14 (P) 2025 Wk 13 2025 Wk 12 2025 Wk 11 2025 Wk 10 2025 Wk 9 2025 Wk 8 2025 Wk 7 2025 Wk 6 2025 Wk 5 2025 Wk 4 2025 Wk 3 2025 Wk 2 2025 Wk 1 2024 Wk 17 (P) 2024 Wk 16 (P) 2024 Wk 15 (P) 2024 Wk 14 (P) 2024 Wk 13 2024 Wk 12 2024 Wk 11 2024 Wk 10 2024 Wk 9 2024 Wk 8 2024 Wk 7 2024 Wk 6 2024 Wk 5 2024 Wk 4 2024 Wk 3 2024 Wk 2 2024 Wk 1 GAME OF THE WEEK MaKayla vs Joey margin 7.0 BLOWOUT OF THE WEEK Collin vs Roy margin 58.4 UPSET OF THE WEEK \u2014 No upsets HIGHEST SCORER Ed (393.4) LOWEST SCORE"
+ },
+ {
+  "tab": "superlatives",
+  "status": 200,
+  "htmlBytes": 94802,
+  "textChars": 1562,
+  "tables": 0,
+  "rows": 0,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J",
+   "https://sleepercdn.com/avatars/thumbs/02ee3ed59a2fa3b8dddf3ef090c3aa54",
+   "https://sleepercdn.com/avatars/thumbs/a8ab35cf264be5bbd6603b22232a2ee2",
+   "https://sleepercdn.com/avatars/thumbs/197fbf70fcab426ead60204e810ff485",
+   "https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Superlatives Fun, public-safe roster-composition awards across the 2-season window MOST QB-HEAVY Kich Most quarterbacks rostered QB: 7 RB: 7 WR: 20 TE: 3 IDP: 19 Rook: 8 Trades: 14 Picks: 13 MOST RB-HEAVY Collin Most running backs rostered QB: 2 RB: 12 WR: 12 TE: 9 IDP: 20 Rook: 10 Trades: 12 Picks: 24 MOST WR-HEAVY Kich Most wide receivers rostered QB: 7 RB: 7 WR: 20 TE: 3 IDP: 19 Rook: 8 Trades: 14 Picks: 13 MOST TE-HEAVY Collin Most tight ends rostered QB: 2 RB: 12 WR: 12 TE: 9 IDP: 20 Rook: 10 Trades: 12 Picks: 24 MOST IDP-HEAVY Jason Most defenders rostered QB:"
+ },
+ {
+  "tab": "archives",
+  "status": 200,
+  "htmlBytes": 52832,
+  "textChars": 351,
+  "tables": 0,
+  "rows": 0,
+  "hasNoData": false,
+  "consoleErrors": [],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Loading section... SAVE"
+ },
+ {
+  "tab": "teamAssignment",
+  "status": null,
+  "htmlBytes": 96155,
+  "textChars": 2200,
+  "tables": 0,
+  "rows": 0,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=QllBpTvGntkUJwvw",
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J",
+   "https://sleepercdn.com/avatars/thumbs/e83d90af2b89daf5746057a01f063401",
+   "https://sleepercdn.com/images/team_logos/nfl/cin.png",
+   "https://sleepercdn.com/images/team_logos/nfl/phi.png",
+   "https://sleepercdn.com/avatars/thumbs/7df22f5c69196c4ef96741c5f0ed2b43"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Each manager is mapped to 1\u20133 NFL teams. The first team is the manager's declared favorite from config/team_assignment.json. Additional teams are derived from roster composition: starting QBs, primary skill-position players, rookies with high draft capital, and (if IDP is enabled) starting defenders. Teams scoring at least 15 pts qualify; max 3 NFL teams per manager. Click \"Show breakdown\" on any manager to see per-player point contributions. Blaine ughb Show breakdown CIN Cincinnati Bengals FAVORITE\u00b7 8 pts from roster PHI Philadelphia Eagles ROSTER-BASED\u00b7 17 pts Br"
+ },
+ {
+  "tab": "draft-capital",
+  "status": 200,
+  "htmlBytes": 136433,
+  "textChars": 5504,
+  "tables": 7,
+  "rows": 85,
+  "hasNoData": false,
+  "consoleErrors": [
+   "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "failedRequests": [
+   "http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J"
+  ],
+  "textHead": "Skip to content \u25aa CHASE UPSIDE League Sign in Risk It To Get The Brisket Seasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons Home Previews Recaps Power ROS Strength Championship Trade Deadline Luck Streaks History Rivalries Awards Records Franchises Trades Draft Weekly Superlatives Archives Team Assignment Draft Capital Draft Capital 2027 draft \u00b7 12 teams \u00b7 6 rounds \u00b7 $1200 total budget green = raw auction $ \u00b7 \u25b2 cyan = effective auction power (stacking-adjusted, zero-sum) 1 Russini Panini $685 \u25b2$691 31pk 1.02*\u00b71.03\u00b71.06*\u00b71.07*\u00b71.08*\u00b71.10*\u00b71.11*\u00b71.12*\u00b72.03\u00b72.04*\u00b72.06*\u00b72.07*\u00b72.08*\u00b72.10*\u00b72.11*\u00b72.12*\u00b73.02*\u00b73.03\u00b73.06*\u00b73.07*\u00b73.11*\u00b73.12*\u00b74.03\u00b74.04*\u00b74.07*\u00b74.11*\u00b74.12*\u00b75.03\u00b75.06*\u00b75.12*\u00b76.06*(26 traded) 2 jstuedle $180 \u25b2$181 6pk 1.01\u00b72.01\u00b73.01\u00b74.01\u00b75.01\u00b76.01 3 Chargers Team Doctor $119 \u25b2$120 5pk 1.04\u00b72.02*\u00b73.04\u00b75.04\u00b76.04(1 traded) 4 CollinFoz $111 \u25b2$112 7pk 1.05\u00b72.05\u00b73.05\u00b74.05\u00b75.05\u00b76.05\u00b76.09*"
+ }
+]

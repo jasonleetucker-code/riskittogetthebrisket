@@ -1,0 +1,379 @@
+"use client";
+
+/**
+ * value-history — client-side reader for /api/data/rank-history plus
+ * derived metrics (window trend, volatility) and SVG sparkline paths.
+ *
+ * One fetch serves the whole landing page.  The module keeps a
+ * single-entry cache keyed by ``days`` so the ticker, movers table,
+ * and team chart all share the same response.  Callers pass an
+ * AbortSignal so unmount mid-flight doesn't leak a promise.
+ *
+ * The backend returns ``{ days, history: { <canonicalName>: [{date, rank}, ...] } }``.
+ * We keep the shape intact but add fast lookup helpers.
+ */
+
+// Single-flight cache: { [daysKey]: { promise, result, expires } }
+const CACHE = new Map();
+const CACHE_TTL_MS = 60_000;
+
+function now() { return Date.now(); }
+
+export function invalidateHistoryCache() {
+  CACHE.clear();
+}
+
+/**
+ * Fetch rank history for all players over the last N days.
+ * Returns { days, history: { name: [{date, rank}, ...] }, fetchedAt }.
+ * Shared across callers within a 60s window.
+ */
+export async function fetchRankHistory({ days = 30, signal } = {}) {
+  const key = String(Math.max(1, Math.min(180, Math.floor(days))));
+  const cached = CACHE.get(key);
+  if (cached && cached.result && cached.expires > now()) {
+    return cached.result;
+  }
+  if (cached && cached.promise) {
+    return cached.promise;
+  }
+
+  const url = `/api/data/rank-history?days=${key}`;
+  const entry = { promise: null, result: null, expires: 0 };
+  entry.promise = fetch(url, { credentials: "same-origin", signal })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`rank-history ${res.status}`);
+      const data = await res.json();
+      const result = {
+        days: Number(data?.days) || Number(key),
+        history: (data && typeof data.history === "object" && data.history) || {},
+        fetchedAt: now(),
+      };
+      entry.result = result;
+      entry.expires = now() + CACHE_TTL_MS;
+      entry.promise = null;
+      return result;
+    })
+    .catch((err) => {
+      CACHE.delete(key);
+      throw err;
+    });
+  CACHE.set(key, entry);
+  return entry.promise;
+}
+
+/**
+ * Normalize a history list to numeric {date, rank} points, sorted
+ * ascending by date.  Missing ranks are dropped (not interpolated).
+ */
+export function normalizePoints(rawPoints) {
+  if (!Array.isArray(rawPoints)) return [];
+  const points = [];
+  for (const p of rawPoints) {
+    const rank = Number(p?.rank);
+    if (!Number.isFinite(rank) || rank <= 0) continue;
+    const t = Date.parse(p?.date);
+    if (!Number.isFinite(t)) continue;
+    points.push({ date: p.date, t, rank });
+  }
+  points.sort((a, b) => a.t - b.t);
+  return points;
+}
+
+/**
+ * Rank delta over a window (in days), measured as
+ * ``rank_N_days_ago - rank_now`` so a POSITIVE number means the
+ * player rose on the consensus board (rank got smaller / better).
+ * Returns null if the window has no coverage.
+ */
+export function computeWindowTrend(points, windowDays) {
+  if (!points || points.length === 0) return null;
+  const latest = points[points.length - 1];
+  const cutoff = latest.t - windowDays * 86400_000;
+  // Find the earliest point within the window (or the oldest overall).
+  let baseline = null;
+  for (const p of points) {
+    if (p.t >= cutoff) { baseline = p; break; }
+  }
+  if (!baseline) return null;
+  if (baseline === latest) return 0;
+  return baseline.rank - latest.rank;
+}
+
+/**
+ * Volatility over a window, using MAD (median absolute deviation)
+ * of consecutive rank deltas — robust to a single outlier day.
+ * Returns { mad, label } where label ∈ {"low","med","high"}.
+ * Null coverage returns null.
+ */
+export function computeVolatility(points, windowDays = 30) {
+  if (!points || points.length < 3) return null;
+  const latest = points[points.length - 1];
+  const cutoff = latest.t - windowDays * 86400_000;
+  const window = points.filter((p) => p.t >= cutoff);
+  if (window.length < 3) return null;
+
+  const deltas = [];
+  for (let i = 1; i < window.length; i++) {
+    deltas.push(Math.abs(window[i].rank - window[i - 1].rank));
+  }
+  const med = median(deltas);
+  const devs = deltas.map((d) => Math.abs(d - med));
+  const mad = median(devs);
+
+  let label;
+  if (mad <= 1) label = "low";
+  else if (mad <= 4) label = "med";
+  else label = "high";
+
+  return { mad, label };
+}
+
+function median(arr) {
+  const xs = [...arr].sort((a, b) => a - b);
+  if (xs.length === 0) return 0;
+  const mid = Math.floor(xs.length / 2);
+  return xs.length % 2 === 0 ? (xs[mid - 1] + xs[mid]) / 2 : xs[mid];
+}
+
+/**
+ * Build an SVG path ``d`` string for a rank-series sparkline.
+ * Lower rank = better, so we invert Y so "up" visually means rising.
+ * Returns null when there aren't enough points to plot.
+ */
+export function buildSparklinePath(points, { width = 64, height = 20, padding = 1 } = {}) {
+  if (!Array.isArray(points) || points.length < 2) return null;
+  const usableW = width - padding * 2;
+  const usableH = height - padding * 2;
+
+  // X axis: time. Y axis: rank (inverted).
+  const tMin = points[0].t;
+  const tMax = points[points.length - 1].t;
+  const tSpan = tMax - tMin || 1;
+
+  let rMin = Infinity;
+  let rMax = -Infinity;
+  for (const p of points) {
+    if (p.rank < rMin) rMin = p.rank;
+    if (p.rank > rMax) rMax = p.rank;
+  }
+  const rSpan = rMax - rMin || 1;
+
+  const parts = [];
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    const x = padding + ((p.t - tMin) / tSpan) * usableW;
+    // Invert: best rank (lowest number) → highest pixel (smallest y)
+    const y = padding + ((p.rank - rMin) / rSpan) * usableH;
+    parts.push(`${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`);
+  }
+  return parts.join(" ");
+}
+
+/**
+ * Compute per-roster aggregate value series for a team-level chart.
+ * Inputs: list of roster player names, history map, and a value-from-
+ * rank function (the caller supplies this to keep the Hill curve
+ * abstraction in the contract rather than duplicated here).
+ *
+ * Returns an array of {date, t, value} with one entry per date for
+ * which EVERY roster player had coverage (so the aggregate is an
+ * apples-to-apples sum, not a drifting denominator).
+ */
+export function computeTeamValueSeries({ rosterNames, history, valueFromRank }) {
+  if (!Array.isArray(rosterNames) || rosterNames.length === 0) return [];
+  if (!history || typeof history !== "object") return [];
+  if (typeof valueFromRank !== "function") return [];
+
+  // Build per-player sorted point lists, keyed by lowercased name.
+  // History keys are scoped ("Name::offense"), so use the shared
+  // helper instead of bare ``history[name]`` (which misses every key).
+  // ``.trim()`` matches ``buildHistoryLookup``'s index side so a padded
+  // roster name dedupes against its unpadded twin.
+  const lookup = buildHistoryLookup(history);
+  const byName = new Map();
+  for (const name of rosterNames) {
+    const key = String(name).trim().toLowerCase();
+    if (byName.has(key)) continue;
+    byName.set(key, normalizePoints(lookup(name)));
+  }
+
+  // Find the intersection of dates across all players with coverage.
+  const dateSets = [];
+  for (const pts of byName.values()) {
+    if (!pts.length) continue;
+    dateSets.push(new Set(pts.map((p) => p.date)));
+  }
+  if (dateSets.length === 0) return [];
+
+  const commonDates = [...dateSets.reduce((acc, s) => {
+    const next = new Set();
+    for (const d of acc) if (s.has(d)) next.add(d);
+    return next;
+  }, dateSets[0])];
+
+  if (commonDates.length === 0) return [];
+
+  // Sum values per common date.
+  const series = commonDates
+    .map((date) => {
+      const t = Date.parse(date);
+      let total = 0;
+      let coverage = 0;
+      for (const pts of byName.values()) {
+        const hit = pts.find((p) => p.date === date);
+        if (!hit) continue;
+        total += valueFromRank(hit.rank);
+        coverage += 1;
+      }
+      return { date, t, value: Math.round(total), coverage };
+    })
+    .sort((a, b) => a.t - b.t);
+
+  return series;
+}
+
+/**
+ * Build a fast scope-aware lookup over a /api/data/rank-history map.
+ *
+ * Backend keys are stamped as ``"{Display Name}::{asset_class}"`` (see
+ * ``src/api/rank_history.py::_player_key``).  Frontend rows only carry
+ * the bare ``name`` (and an optional ``assetClass``), so every consumer
+ * needs to strip / split the keys to get a hit — the previous bare
+ * ``history[name]`` lookup missed every row, which is why "Top
+ * Gainers" rendered as all-dashes and the portfolio age/volatility
+ * mix collapsed into the "unknown" bucket.
+ *
+ * The returned function accepts ``(name, assetClass?)`` and returns
+ * the raw history series (or ``[]``).  When the same display name
+ * appears under multiple asset classes (rare offense/IDP collisions
+ * — e.g. "Devin Singletary" if a defender ever shared the name), the
+ * caller can disambiguate by passing ``assetClass``.
+ *
+ * KEY FAMILY: this is family 4 in the registry at the head of
+ * ``lib/player-name-match.js`` — trim + lowercase on both halves of
+ * ``"Name::scope"``.  Its BACKEND COUNTERPART is
+ * ``src/api/source_history.py::_norm_name_key``, which performs the
+ * same split against the payload this function consumes.  Neither file
+ * used to name the other; change the key format on one side and this
+ * chart silently goes blank.
+ *
+ * Index and lookup must trim identically.  Until 2026-07-29 the index
+ * side trimmed and the lookup side did not, so a row name carrying
+ * leading/trailing whitespace was stored under the trimmed key and
+ * queried under the untrimmed one — a guaranteed miss.
+ */
+export function buildHistoryLookup(history) {
+  if (!history || typeof history !== "object") return () => [];
+  const byName = new Map();        // lowercased clean name → series
+  const byScoped = new Map();      // "name::scope" → series
+  const nameVariantCount = new Map(); // lowercased name → number of distinct scopes
+  for (const rawKey of Object.keys(history)) {
+    const series = history[rawKey];
+    const idx = rawKey.indexOf("::");
+    const cleanName = (idx >= 0 ? rawKey.slice(0, idx) : rawKey).trim().toLowerCase();
+    const scope = (idx >= 0 ? rawKey.slice(idx + 2) : "").trim().toLowerCase();
+    if (scope) {
+      byScoped.set(`${cleanName}::${scope}`, series);
+    }
+    // First-write wins so that a scope-collision doesn't silently
+    // overwrite a legitimate primary entry; callers passing
+    // assetClass still get the precise scoped series via byScoped.
+    if (!byName.has(cleanName)) {
+      byName.set(cleanName, series);
+    }
+    nameVariantCount.set(cleanName, (nameVariantCount.get(cleanName) || 0) + 1);
+  }
+  return (name, assetClass) => {
+    if (!name) return [];
+    // ``.trim()`` here mirrors the index side above — see the note in
+    // the docstring; without it a padded row name never hits.
+    const lowered = String(name).trim().toLowerCase();
+    const ac = String(assetClass || "").trim().toLowerCase();
+    if (ac) {
+      const scoped = byScoped.get(`${lowered}::${ac}`);
+      if (scoped) return scoped;
+    }
+    // Bare-name path: refuse to pick arbitrarily when the same
+    // display name maps to multiple scopes (e.g. cross-universe
+    // offense/IDP collision).  Returning [] is the conservative
+    // choice — better "no chart" than "wrong chart".
+    if ((nameVariantCount.get(lowered) || 0) > 1) return [];
+    return byName.get(lowered) || [];
+  };
+}
+
+/**
+ * The rank-form Hill curve, mirrored from the backend.
+ *
+ * SINGLE SOURCE OF TRUTH for this file's two curve functions, and the
+ * only place the constants appear. It mirrors
+ * `src/canonical/player_valuation.py`:
+ *
+ *     HILL_MIDPOINT -> midpoint
+ *     HILL_SLOPE    -> slope
+ *     span 9998     -> span   (so rank 1 == 9999 exactly, as it does
+ *                              in Python's `rank_to_value`)
+ *
+ * Kept as a mirror rather than read from the contract because the two
+ * consumers are chart components that receive a rank series, not the
+ * contract, and threading it through four call sites to fetch two
+ * numbers is not worth the coupling.
+ *
+ * The drift risk that WAS real here is now covered by a test instead of
+ * a comment: `tests/api/test_rank_form_frontend_parity.py` parses this
+ * object and fails if it disagrees with the Python constants.
+ *
+ * Before 2026-07-30 these were `K = 45`, `EXP = 1.1`, `CEIL = 9999`,
+ * with a comment noting the drift risk and deferring the fix. All three
+ * were wrong: the backend pair was 48.44 / 1.149 at the time, and
+ * `1 + 9999/(...)` puts rank 1 at 10000 rather than 9999. The chart had
+ * been quietly off-calibration on both axes.
+ */
+export const RANK_FORM_CURVE = {
+  midpoint: 65.4,
+  slope: 0.91,
+  span: 9998,
+};
+
+/**
+ * Cheap Hill-curve reconstruction matching the backend's
+ * `rank_to_value`. Used for the team-value series so the frontend can
+ * sum values from a rank series without a second API call per history
+ * point.
+ *
+ * RECONSTRUCTION ONLY — like its Python counterpart, this is not a
+ * valuation path. It answers "what would the board have said at this
+ * rank" for history points that persisted a rank but no value.
+ */
+export function valueFromRank(rank) {
+  const r = Number(rank);
+  if (!Number.isFinite(r) || r <= 0) return 0;
+  const { midpoint, slope, span } = RANK_FORM_CURVE;
+  return Math.round(1 + span / (1 + Math.pow((r - 1) / midpoint, slope)));
+}
+
+/**
+ * Closed-form inverse of {@link valueFromRank}. Given a blended value on
+ * the 1..(1+span) Hill scale, return the rank that produces it. Solving
+ * ``v = 1 + span / (1 + ((r-1)/midpoint)^slope)`` for r:
+ *   r = 1 + midpoint * (span/(v-1) - 1)^(1/slope)
+ *
+ * Used to DERIVE a rank-history line for historical snapshots that
+ * persisted a value but not a rank (per-source ranks only began
+ * persisting 2026-04-29 while value history goes back further). Reads
+ * the same `RANK_FORM_CURVE` so derived ranks are exactly consistent
+ * with the curve the rest of the app uses. Returns null when the value
+ * is outside the curve's invertible domain.
+ */
+export function rankFromValue(value) {
+  const v = Number(value);
+  const { midpoint, slope, span } = RANK_FORM_CURVE;
+  if (!Number.isFinite(v) || v <= 1) return null;
+  if (v >= 1 + span) return 1; // saturated → top rank
+  const base = span / (v - 1) - 1; // > 0 for 1 < v < 1+span
+  if (!(base > 0)) return 1;
+  const r = 1 + midpoint * Math.pow(base, 1 / slope);
+  if (!Number.isFinite(r)) return null;
+  return Math.max(1, Math.round(r));
+}

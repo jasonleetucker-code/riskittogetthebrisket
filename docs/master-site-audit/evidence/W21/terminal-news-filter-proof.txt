@@ -1,0 +1,2 @@
+GET /api/terminal -> news.count=89  signals= 0  newsCount>0= 0  nonHOLD= 0
+GET /api/terminal?ownerId=468418790212759552 -> news.count=0  signals= 57  newsCount>0= 0  nonHOLD= 0

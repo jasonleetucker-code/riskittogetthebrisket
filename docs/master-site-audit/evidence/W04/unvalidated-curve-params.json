@@ -1,0 +1,363 @@
+{
+  "claim": "CLAUDE.md: constants move only after a challenger 'scores it against dynasty boards the fit never reads'",
+  "VALIDATED_PARAMS_declaredInCode": [
+    "HILL_PERCENTILE_C",
+    "HILL_PERCENTILE_S"
+  ],
+  "constantsShippedByPromotion": [
+    "HILL_GLOBAL_PERCENTILE_C",
+    "HILL_GLOBAL_PERCENTILE_S",
+    "HILL_PERCENTILE_C",
+    "HILL_PERCENTILE_S",
+    "IDP_HILL_PERCENTILE_C",
+    "IDP_HILL_PERCENTILE_S",
+    "HILL_ROOKIE_PERCENTILE_C",
+    "HILL_ROOKIE_PERCENTILE_S"
+  ],
+  "holdoutCriterionScoresOnly": {
+    "c": 0.11,
+    "s": 1.11
+  },
+  "scopes": {
+    "GLOBAL": {
+      "v1Params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.113,
+        "HILL_GLOBAL_PERCENTILE_S": 0.87
+      },
+      "v2Params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.112,
+        "HILL_GLOBAL_PERCENTILE_S": 0.725
+      },
+      "outOfSampleScored": false,
+      "curveDelta": [
+        {
+          "rank": 1,
+          "p": 0.0,
+          "v1": 9999.0,
+          "v2_live": 9999.0,
+          "delta": 0.0,
+          "pctChange": 0.0
+        },
+        {
+          "rank": 5,
+          "p": 0.00802,
+          "v1": 9089.5,
+          "v2_live": 8711.4,
+          "delta": -378.1,
+          "pctChange": -4.16
+        },
+        {
+          "rank": 10,
+          "p": 0.01804,
+          "v1": 8314.4,
+          "v2_live": 7897.6,
+          "delta": -416.8,
+          "pctChange": -5.01
+        },
+        {
+          "rank": 25,
+          "p": 0.0481,
+          "v1": 6776.1,
+          "v2_live": 6485.2,
+          "delta": -290.9,
+          "pctChange": -4.29
+        },
+        {
+          "rank": 50,
+          "p": 0.0982,
+          "v1": 5304.5,
+          "v2_live": 5237.7,
+          "delta": -66.8,
+          "pctChange": -1.26
+        },
+        {
+          "rank": 100,
+          "p": 0.1984,
+          "v1": 3799.2,
+          "v2_live": 3977.9,
+          "delta": 178.6,
+          "pctChange": 4.7
+        },
+        {
+          "rank": 200,
+          "p": 0.3988,
+          "v1": 2502.5,
+          "v2_live": 2847.8,
+          "delta": 345.3,
+          "pctChange": 13.8
+        },
+        {
+          "rank": 350,
+          "p": 0.6994,
+          "v1": 1699.5,
+          "v2_live": 2094.7,
+          "delta": 395.2,
+          "pctChange": 23.25
+        },
+        {
+          "rank": 500,
+          "p": 1.0,
+          "v1": 1304.4,
+          "v2_live": 1697.6,
+          "delta": 393.2,
+          "pctChange": 30.14
+        }
+      ]
+    },
+    "OFFENSE": {
+      "v1Params": {
+        "HILL_PERCENTILE_C": 0.118,
+        "HILL_PERCENTILE_S": 1.17
+      },
+      "v2Params": {
+        "HILL_PERCENTILE_C": 0.11,
+        "HILL_PERCENTILE_S": 1.11
+      },
+      "outOfSampleScored": true,
+      "curveDelta": [
+        {
+          "rank": 1,
+          "p": 0.0,
+          "v1": 9999.0,
+          "v2_live": 9999.0,
+          "delta": 0.0,
+          "pctChange": 0.0
+        },
+        {
+          "rank": 5,
+          "p": 0.00802,
+          "v1": 9586.7,
+          "v2_live": 9481.0,
+          "delta": -105.7,
+          "pctChange": -1.1
+        },
+        {
+          "rank": 10,
+          "p": 0.01804,
+          "v1": 8999.5,
+          "v2_live": 8814.4,
+          "delta": -185.0,
+          "pctChange": -2.06
+        },
+        {
+          "rank": 25,
+          "p": 0.0481,
+          "v1": 7407.1,
+          "v2_live": 7146.2,
+          "delta": -260.9,
+          "pctChange": -3.52
+        },
+        {
+          "rank": 50,
+          "p": 0.0982,
+          "v1": 5534.8,
+          "v2_live": 5314.0,
+          "delta": -220.7,
+          "pctChange": -3.99
+        },
+        {
+          "rank": 100,
+          "p": 0.1984,
+          "v1": 3525.0,
+          "v2_live": 3419.0,
+          "delta": -106.0,
+          "pctChange": -3.01
+        },
+        {
+          "rank": 200,
+          "p": 0.3988,
+          "v1": 1938.9,
+          "v2_live": 1931.3,
+          "delta": -7.6,
+          "pctChange": -0.39
+        },
+        {
+          "rank": 350,
+          "p": 0.6994,
+          "v1": 1108.4,
+          "v2_live": 1137.2,
+          "delta": 28.7,
+          "pctChange": 2.59
+        },
+        {
+          "rank": 500,
+          "p": 1.0,
+          "v1": 758.2,
+          "v2_live": 794.3,
+          "delta": 36.0,
+          "pctChange": 4.75
+        }
+      ]
+    },
+    "IDP": {
+      "v1Params": {
+        "IDP_HILL_PERCENTILE_C": 0.093,
+        "IDP_HILL_PERCENTILE_S": 0.97
+      },
+      "v2Params": {
+        "IDP_HILL_PERCENTILE_C": 0.083,
+        "IDP_HILL_PERCENTILE_S": 1.11
+      },
+      "outOfSampleScored": false,
+      "curveDelta": [
+        {
+          "rank": 1,
+          "p": 0.0,
+          "v1": 9999.0,
+          "v2_live": 9999.0,
+          "delta": 0.0,
+          "pctChange": 0.0
+        },
+        {
+          "rank": 5,
+          "p": 0.00802,
+          "v1": 9150.1,
+          "v2_live": 9304.1,
+          "delta": 154.0,
+          "pctChange": 1.68
+        },
+        {
+          "rank": 10,
+          "p": 0.01804,
+          "v1": 8306.8,
+          "v2_live": 8447.1,
+          "delta": 140.4,
+          "pctChange": 1.69
+        },
+        {
+          "rank": 25,
+          "p": 0.0481,
+          "v1": 6546.0,
+          "v2_live": 6468.8,
+          "delta": -77.2,
+          "pctChange": -1.18
+        },
+        {
+          "rank": 50,
+          "p": 0.0982,
+          "v1": 4867.7,
+          "v2_live": 4534.3,
+          "delta": -333.4,
+          "pctChange": -6.85
+        },
+        {
+          "rank": 100,
+          "p": 0.1984,
+          "v1": 3240.8,
+          "v2_live": 2753.9,
+          "delta": -486.8,
+          "pctChange": -15.02
+        },
+        {
+          "rank": 200,
+          "p": 0.3988,
+          "v1": 1958.7,
+          "v2_live": 1490.1,
+          "delta": -468.6,
+          "pctChange": -23.92
+        },
+        {
+          "rank": 350,
+          "p": 0.6994,
+          "v1": 1237.7,
+          "v2_live": 858.1,
+          "delta": -379.6,
+          "pctChange": -30.67
+        },
+        {
+          "rank": 500,
+          "p": 1.0,
+          "v1": 907.9,
+          "v2_live": 593.7,
+          "delta": -314.2,
+          "pctChange": -34.61
+        }
+      ]
+    },
+    "ROOKIE": {
+      "v1Params": {
+        "HILL_ROOKIE_PERCENTILE_C": 0.128,
+        "HILL_ROOKIE_PERCENTILE_S": 0.865
+      },
+      "v2Params": {
+        "HILL_ROOKIE_PERCENTILE_C": 0.153,
+        "HILL_ROOKIE_PERCENTILE_S": 0.885
+      },
+      "outOfSampleScored": false,
+      "curveDelta": [
+        {
+          "rank": 1,
+          "p": 0.0,
+          "v1": 9999.0,
+          "v2_live": 9999.0,
+          "delta": 0.0,
+          "pctChange": 0.0
+        },
+        {
+          "rank": 5,
+          "p": 0.00802,
+          "v1": 9164.7,
+          "v2_live": 9314.0,
+          "delta": 149.3,
+          "pctChange": 1.63
+        },
+        {
+          "rank": 10,
+          "p": 0.01804,
+          "v1": 8448.1,
+          "v2_live": 8689.2,
+          "delta": 241.1,
+          "pctChange": 2.85
+        },
+        {
+          "rank": 25,
+          "p": 0.0481,
+          "v1": 6998.0,
+          "v2_live": 7357.1,
+          "delta": 359.1,
+          "pctChange": 5.13
+        },
+        {
+          "rank": 50,
+          "p": 0.0982,
+          "v1": 5570.1,
+          "v2_live": 5968.2,
+          "delta": 398.0,
+          "pctChange": 7.15
+        },
+        {
+          "rank": 100,
+          "p": 0.1984,
+          "v1": 4063.1,
+          "v2_live": 4427.2,
+          "delta": 364.1,
+          "pctChange": 8.96
+        },
+        {
+          "rank": 200,
+          "p": 0.3988,
+          "v1": 2722.7,
+          "v2_live": 2998.6,
+          "delta": 275.9,
+          "pctChange": 10.13
+        },
+        {
+          "rank": 350,
+          "p": 0.6994,
+          "v1": 1870.9,
+          "v2_live": 2066.7,
+          "delta": 195.8,
+          "pctChange": 10.47
+        },
+        {
+          "rank": 500,
+          "p": 1.0,
+          "v1": 1445.1,
+          "v2_live": 1595.5,
+          "delta": 150.4,
+          "pctChange": 10.41
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+ "status": "ok",
+ "meta": {
+  "modelVersion": "1.0.0",
+  "paramSetId": "params_v1:01af672b2aff",
+  "label": "bdvm-v1-priors",
+  "leagueKey": "dynasty_main",
+  "scoringProfile": "superflex_tep15_ppr1",
+  "configHash": "e91bb1028ab1",
+  "configSource": "sleeper_block",
+  "asOf": "2026-08-04T22:17:37.957336+00:00",
+  "season": 2026,
+  "rookieDraftYear": null,
+  "surplusMode": "option",
+  "contractGeneratedAt": null,
+  "marketReadAfterFundamental": true,
+  "projectionSnapshot": {
+   "path": null,
+   "asOf": "2026-08-04",
+   "recordCount": 2011
+  },
+  "eventCount": 0,
+  "inSeason": {
+   "active": false
+  },
+  "counts": {
+   "contractPlayers": 0,
+   "priced": 0,
+   "unpriced": 0,
+   "unpricedByReason": {},
+   "picks": 0,
+   "projectionPlayers": 2011,
+   "contextEnriched": 0,
+   "eventsApplied": 0
+  }
+ },
+ "replacement": {
+  "DB": {
+   "startableSlots": 36,
+   "replacementRank": 42,
+   "replacementFpg": 9.94,
+   "worstStarterFpg": 10.155,
+   "method": "dynamic_vorp",
+   "poolExhausted": false
+  },
+  "DL": {
+   "startableSlots": 36,
+   "replacementRank": 42,
+   "replacementFpg": 8.107,
+   "worstStarterFpg": 8.539,
+   "method": "dynamic_vorp",
+   "poolExhausted": false
+  },
+  "K": {
+   "startableSlots": 12,
+   "replacementRank": 15,
+   "replacementFpg": 0.0,
+   "worstStarterFpg": 0.0,
+   "method": "dynamic_vorp",
+   "poolExhausted": false
+  },
+  "LB": {
+   "startableSlots": 36,
+   "replacementRank": 42,
+   "replacementFpg": 10.972,
+   "worstStarterFpg": 11.251,
+   "method": "dynamic_vorp",
+   "poolExhausted": false
+  },
+  "QB": {
+   "startableSlots": 24,
+   "replacementRank": 34,
+   "replacementFpg": 20.579,
+   "worstStarterFpg": 21.245,
+   "method": "dynamic_vorp",
+   "poolExhausted": false
+  },
+  "RB": {
+   "startableSlots": 48,
+   "replacementRank": 57,
+   "replacementFpg": 9.39,
+   "worstStarterFpg": 9.675,
+   "method": "dynamic_vorp",
+   "poolExhausted": false
+  },
+  "TE": {
+   "startableSlots": 24,
+   "replacementRank": 29,
+   "replacementFpg": 5.727,
+   "worstStarterFpg": 6.663,
+   "method": "dynamic_vorp",
+   "poolExhausted": false
+  },
+  "WR": {
+   "startableSlots": 36,
+   "replacementRank": 48,
+   "replacementFpg": 7.69,
+   "worstStarterFpg": 8.662,
+   "method": "dynamic_vorp",
+   "poolExhausted": false
+  }
+ },
+ "players": [],
+ "picks": [],
+ "unpriced": []
+}

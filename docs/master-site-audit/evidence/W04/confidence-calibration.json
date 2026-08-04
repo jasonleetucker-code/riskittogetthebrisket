@@ -28,5 +28,7 @@
   "horizonDays": 7,
   "metric": "|value(T+7)-value(T)|/value(T), rows with value>=200",
   "byConfidenceBucketAtT": {},
-  "orderingExpectedIfCalibrated": "high < medium < low"
+  "orderingExpectedIfCalibrated": "high < medium < low",
+  "_result": "ATTEMPT FAILED BY DESIGN \u2014 this is the evidence for W04-F009 and W04-F012.",
+  "_why": "The plan was to test whether confidenceBucket at day T predicts |value change| at T+7 across the 22 daily archived exports. It cannot be run: every archived export under exports/archive/ carries the RAW SCRAPER composite only (_composite/_finalAdjusted/_rawComposite) and contains neither rankDerivedValue nor confidenceBucket, so 0 of 22 snapshots were usable. No forward calibration test of confidence is possible against this repository's history."
 }

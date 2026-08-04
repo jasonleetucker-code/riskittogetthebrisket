@@ -1,0 +1,65 @@
+{
+  "question": "docs/audits/complete-codebase-audit-2026-07-29.md says 'Overall health: good, and better than the surrounding documentation suggested.' docs/audits/decision-intelligence-audit-2026-08-04.md says 'No \u2014 not at the decision layer ... Safe as a primary decision tool: 1'. Both sit in docs/audits/ with nothing marking their relationship. Which is right?",
+  "hypothesisUnderTest": "They scope DIFFERENT OBJECTS \u2014 the value SPINE (one canonical value, one blend path, one materializer) versus the DECISION LAYER built on top of it (buy/sell labels, trade engines, bid recommendations, alerts) \u2014 and are therefore both true rather than one being wrong.",
+  "falsificationCondition": "The hypothesis is FALSE if either of these holds: (F1) the two audits assert opposite verdicts about the SAME named artefact, with no scope difference to appeal to; or (F2) the 08-04 audit's negative verdict rests materially on defects located inside the spine the 07-29 audit graded \u2014 i.e. its case is against _compute_unified_rankings, the blend, or the materializer rather than against the layer above them. Either would mean one audit is simply wrong about the other's object and a winner must be picked.",
+  "evaluation": {
+    "F1_sameArtefactOppositeVerdict": {
+      "result": "NOT MET \u2014 but only just, and one near-miss is instructive",
+      "detail": [
+        "The 08-04 audit's \u00a71 explicitly CONCEDES the 07-29 object in its own words: 'There is a genuinely well-built spine: one canonical value (rankDerivedValue), one blend path, a correctly-reasoned scoring-profile/league-key split, a real and largely-held rule against a frontend ranking engine.' Its verdict sentence is scoped in the sentence itself \u2014 'No \u2014 NOT AT THE DECISION LAYER.'",
+        "The one artefact both audits grade is the trade finder, and there they DO conflict head-on. 07-29 \u00a72 C2 says it fixed the finder's scale errors and treats it as repaired; 08-04 problem #4 says 'The trade finder is still offense-only (the regression CLAUDE.md says was fixed).' That is a genuine same-artefact contradiction \u2014 see resolvedBy below. It resolves on chronology, not on scope, so it does not falsify the hypothesis; it bounds it.",
+        "Independent confirmation that the objects differ: PRIOR-A11-F12 (from the 08-04 audit's own registry) checked CLAUDE.md's Live Value Pipeline stage by stage and returned 'CONFIRMED CORRECT' on twelve consecutive spine claims \u2014 the 500 reference, value-direct sources, TE double-count guard, alpha=0.10, count-aware boundaries, lambda=0 retired, the 30% haircut, the IDP-only clamp, two-way ordering, Phase 3a/5.2b, weights all 1.0, default_weights unread. Its severity is Informational. The 08-04 audit's own evidence agrees with the 07-29 audit about the spine."
+      ]
+    },
+    "F2_negativeCaseLocatedInTheSpine": {
+      "result": "NOT MET",
+      "detail": [
+        "The seven systemic problems were classified by location. Decision layer: #1 (no output validated for accuracy \u2014 about tuning targets and Sharp/BDVM, not blend mechanics), #3 (buy/sell direction \u2014 _compute_market_gap, a labeller downstream of the board), #4 (flagship engines degraded \u2014 finder, suggestions, BDVM), #5 (missing data resolves optimistically \u2014 FAAB defaults, starter slots, roster totals), #6 (monitoring), #7 (documentation).",
+        "Only #2 (the holdout boards are live blend sources) sits ON the spine \u2014 and it is an argument about the BENCHMARK that grades the curves, not about the curve arithmetic. It says the fit cannot be trusted to be good, not that it is computed wrong. That is precisely the 07-29 audit's own stated qualification: 'the blend is mathematically sound ... the one genuinely open modeling question is documented with measurements instead of being resolved by guess.'",
+        "Six of seven are located above the spine. F2 not met."
+      ]
+    }
+  },
+  "conclusion": "HYPOTHESIS SURVIVES. The two audits are not competitors and no winner should be picked. 07-29 answers 'is the number computed correctly and only once?' \u2014 yes. 08-04 answers 'does the verb printed next to that number deserve a user's money?' \u2014 mostly no. A repo can be simultaneously well-engineered at the spine and unsafe at the decision layer, and this one is.",
+  "residualDisagreement": {
+    "artefact": "src/trade/finder.py \u2014 IDP coverage",
+    "07-29 position": "finder repaired (C2, 'two scale errors' fixed)",
+    "08-04 position": "'still offense-only ... and its own IDP-blindness warning cannot fire'",
+    "resolvedBy": "CHRONOLOGY, not scope. The 08-04 audit read commit 9c5d972f (2026-08-04 06:32 UTC). Commit a62af217 'Fix the arbitrage finder dropping every IDP asset' landed 2026-08-04 13:16 UTC \u2014 6h44m LATER, and is not an ancestor of 9c5d972f. Both audits were correct about their own commit. At HEAD the 08-04 claim is REFUTED.",
+    "runtimeProof": {
+      "command": "curl -s -b /tmp/audit-cookies.txt -X POST http://127.0.0.1:8000/api/trade/finder -H 'Content-Type: application/json' -d '{\"leagueKey\":\"dynasty_main\",\"myTeam\":\"Jason\",\"opponentTeams\":[\"all\"]}'",
+      "metadata.marketCoverage": {
+        "ktcSfTep": 132,
+        "ktc": 18,
+        "idpTradeCalc": 150
+      },
+      "metadata.valueSource": "rankDerivedValue",
+      "positionsInReturnedTrades": {
+        "DL": 23,
+        "DB": 26,
+        "LB": 11,
+        "TE": 21,
+        "QB": 19,
+        "RB": 14,
+        "WR": 6
+      },
+      "verdict": "IDP assets are priced and traded. Not offense-only."
+    }
+  },
+  "theActualDefect": "Neither audit is wrong. What is wrong is that both sit in docs/audits/ with no scope line, no commit stamp on the older one, and no pointer between them \u2014 so a reader arriving cold must reconstruct all of the above before they can use either. That is a two-line fix to each header.",
+  "commitDriftWarning": {
+    "auditedSha": "9c5d972f51a55d435030a56e76f023bf5eb9d1c7 (2026-08-04 06:32 UTC)",
+    "headAtAuditTime": "e96c06ef (last non-audit commit)",
+    "commitsBetween": 372,
+    "srcAndServerDiff": "59 files changed, 10,541 insertions, 759 deletions",
+    "implication": "The 531-finding registry is a claim set against a commit that is 372 commits behind HEAD, and at least one Critical claim was remediated in that window IN RESPONSE TO the audit. AUDIT_PROTOCOL.md rule 5 ('reproduce or refute; never inherit') is not stylistic advice here \u2014 it is load-bearing.",
+    "reproduce": "git merge-base --is-ancestor a62af217 9c5d972f; echo $?  # 1 = fix is NOT an ancestor of the audited commit"
+  },
+  "collateralFindingsAboutTheAuditsThemselves": [
+    "The 08-04 audit contradicts itself on its own headline statistic: 'documentation mismatch (56)' at line 30, '25 findings' at line 86, '(32 findings)' at line 712.",
+    "Its repository-state table is stale in every row measured here: '82 routes' (openapi: 99), '39 pages' (41), '30 bridge routes' (36), 'Next.js 15' (16.2.12).",
+    "It states 'pytest not installed here \u2014 suite not executable'. The suite runs clean in this container: 6,278 passed / 40 skipped / 0 failed. Whatever it concluded about 807 systems, it concluded without running a test.",
+    "It states 'Database: None. No SQL, no ORM, no migrations' and used that to declare the brief's SQL scope not applicable. Eight modules use sqlite3 with CREATE TABLE DDL, including src/api/user_kv.py \u2014 literally the 'user KV store' the sentence excuses.",
+    "Its severity field is inconsistently cased across the 531 records ('critical' x16 + 'Critical' x27), which is why any count over the registry must be case-folded."
+  ]
+}

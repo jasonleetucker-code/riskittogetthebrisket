@@ -1,0 +1,35 @@
+W20 — pick-join divergence between the two client roster-value paths
+(live contract GET /api/data?view=app, 2026-08-04 snapshot, 12 teams)
+
+A = frontend/lib/portfolio-insights.js::computePortfolio  -> pickValue
+    (join: resolveByCandidates(byName, buildPickLookupCandidates(name)))
+B = frontend/lib/league-analysis.js::buildTeamValueBreakdown(scope="full")
+    (join: resolvePickRow(name, rowLookup, rawData.pickAliases))
+
+team       picks   A(portfolio-insights)   B(league-analysis)   B-A
+Jason         62                 143067               158693  15626
+Ed             8                      0                15626  15626
+Ty            15                  13168                28794  15626
+Collin        18                  24524                40150  15626
+MaKayla       16                  22472                38098  15626
+Eric          12                   2097                17723  15626
+Roy           20                  37346                52972  15626
+Joey          14                  12516                28142  15626
+Brent          6                      0                15626  15626
+Kich          14                   9134                24760  15626
+jstuedle      18                  24524                40150  15626
+Blaine        13                   5440                21066  15626
+TOTAL        216                 294288               481800 187512
+
+The 15,626 is IDENTICAL for every team and is exactly the six current-year
+(2026) picks each team owns:
+  2026 1st 4987 + 2nd 3059 + 3rd 2293 + 4th 1908 + 5th 1768 + 6th 1611 = 15626
+
+Mechanism: the contract's generic current-year rows carry rankDerivedValue=null
+  "2026 Mid 1st"  -> rankDerivedValue None   (ktc 4581)
+  "2027 Mid 1st"  -> rankDerivedValue 5606
+  "2028 Mid 1st"  -> rankDerivedValue 4564
+and the contract ships contract.pickAliases = {"2026 Mid 1st": "2026 Pick 1.06", ...}
+precisely to redirect them onto the priced SLOT rows. league-analysis.js consumes
+pickAliases; portfolio-insights.js does not, so it stops at the null row and
+scores every current-year pick at 0.
