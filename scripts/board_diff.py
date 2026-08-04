@@ -16,6 +16,15 @@ USAGE
     python scripts/board_diff.py BEFORE.json AFTER.json
     python scripts/board_diff.py BEFORE.json AFTER.json --expect-no-value-change
 
+    # decision surfaces (scripts/golden_surfaces.py captures)
+    python scripts/board_diff.py BEFORE.json AFTER.json --surfaces
+
+``--surfaces`` diffs a ``golden_surfaces.py`` capture instead of a
+board capture: same ``{"rows": {...}}`` shape, different field names.
+Deliberately a flag on this script rather than a second differ — two
+implementations would be two definitions of "changed", and a phase
+gate is only worth something when there is exactly one.
+
 Exit codes: 0 diff produced (or matched the assertion), 1 assertion
 violated, 2 error.
 """
@@ -35,6 +44,25 @@ _LABEL_FIELDS = (
     "isSingleSource",
     "hasSourceDisagreement",
     "quarantined",
+)
+
+# ``scripts/golden_surfaces.py`` emits the same {"rows": {...}} shape for
+# the decision surfaces the contract capture cannot see (trade verdict,
+# FAAB bid, ROS ladder, news polarity).  Those rows carry different
+# field names, so the value field and the label set are overridable
+# rather than forked into a second differ — one diff implementation
+# means one definition of "changed", which is the property that makes a
+# phase gate mean anything.
+_SURFACE_VALUE_FIELD = "value"
+_SURFACE_LABEL_FIELDS = (
+    "label",
+    "meterLabel",
+    "meterLevel",
+    "meterFavours",
+    "verdictFromGap",
+    "impact",
+    "severity",
+    "recommendation",
 )
 
 
@@ -69,7 +97,15 @@ def main() -> int:
         help="exit 1 if any rankDerivedValue moved (use on label-only phases)",
     )
     ap.add_argument("--top", type=int, default=15, help="largest movers to list")
+    ap.add_argument(
+        "--surfaces",
+        action="store_true",
+        help="diff a golden_surfaces.py capture (value field + label set differ)",
+    )
     args = ap.parse_args()
+
+    value_field = _SURFACE_VALUE_FIELD if args.surfaces else "rankDerivedValue"
+    label_fields = _SURFACE_LABEL_FIELDS if args.surfaces else _LABEL_FIELDS
 
     for p in (args.before, args.after):
         if not p.exists():
@@ -79,7 +115,7 @@ def main() -> int:
     b = json.loads(args.before.read_text(encoding="utf-8"))
     a = json.loads(args.after.read_text(encoding="utf-8"))
 
-    if b.get("scrapeTimestamp") != a.get("scrapeTimestamp"):
+    if not args.surfaces and b.get("scrapeTimestamp") != a.get("scrapeTimestamp"):
         print(
             "WARNING: captures are from different input scrapes "
             f"({b.get('scrapeTimestamp')} vs {a.get('scrapeTimestamp')}) — "
@@ -95,7 +131,7 @@ def main() -> int:
     print("=" * 68)
     print(f"BOARD DIFF  {args.before.name} -> {args.after.name}")
     print("=" * 68)
-    for k in ("rows", "ranked", "priced", "picks", "idp"):
+    for k in ("rows",) if args.surfaces else ("rows", "ranked", "priced", "picks", "idp"):
         ob, oa = (b.get("totals") or {}).get(k), (a.get("totals") or {}).get(k)
         flag = "" if ob == oa else "   <-- CHANGED"
         print(f"  {k:>8}: {ob} -> {oa}{flag}")
@@ -107,7 +143,7 @@ def main() -> int:
     # ── value movement ────────────────────────────────────────────────
     moves, newly_priced, newly_unpriced = [], [], []
     for k in common:
-        ov, nv = rb[k].get("rankDerivedValue"), ra[k].get("rankDerivedValue")
+        ov, nv = rb[k].get(value_field), ra[k].get(value_field)
         if ov is None and nv is not None:
             newly_priced.append(k)
         elif ov is not None and nv is None:
@@ -141,7 +177,7 @@ def main() -> int:
 
     # ── label flips ───────────────────────────────────────────────────
     print("\n  LABELS:")
-    for f in _LABEL_FIELDS:
+    for f in label_fields:
         flips = [k for k in common if rb[k].get(f) != ra[k].get(f)]
         if flips:
             print(
