@@ -13,6 +13,7 @@ to drop someone, and this surfaces who first.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -77,10 +78,26 @@ class WaiverCandidate:
         }
 
 
+def _round_half_up(value: float) -> int:
+    """Round to whole dollars with ``.5`` always going UP.
+
+    Deliberately NOT the built-in ``round``.  Python rounds half to
+    even (banker's) and JavaScript's ``Math.round`` rounds half up, so
+    this formula's two implementations — here and
+    ``frontend/lib/waiver-logic.js::computeFaabHint`` — disagreed by $1
+    at every ``.5`` boundary: a top-of-pool lowball on a $100 budget is
+    exactly $10.50, which the server called $10 and the page called
+    $11.  Half-up is the convention both sides now spell out
+    explicitly; neither leans on its language's default.  Pinned by
+    ``tests/fixtures/faab_bid_parity_cases.json``.
+    """
+    return int(math.floor(value + 0.5))
+
+
 def _compute_faab_bid(
     candidate_value: float,
     *,
-    league_budget: int = 100,
+    budget: int = 100,
     top_value_in_pool: float | None = None,
     anchors: Any = None,
     league: Any = None,
@@ -89,24 +106,42 @@ def _compute_faab_bid(
 
     Thin back-compat shim over ``src.trade.faab_engine``.  The formula
     this used to hold — ``0.05 + 0.25 x (value / best value on the
-    wire)`` of the budget — had no absolute value scale at all: the
-    top player on the wire always scored ``share == 1.0`` and so always
+    wire)`` of the budget — had no absolute value scale at all: the top
+    player on the wire always scored ``share == 1.0`` and so always
     priced at 30% / 21% / 10% of the budget whether he graded 9999 or
     900.  On the real 2026-08-04 board that made a deep-league TE3
-    (value 1908) a $21-of-$100 claim, and it made a BARREN wire bid
-    MORE because a weaker field lowered the denominator.
+    (value 1908) a $21-of-$100 claim, and it made a BARREN wire bid MORE
+    because a weaker field lowered the denominator.
 
-    Values now come from the engine's objective ceiling, which is
-    pinned to league-format anchors instead of to whoever happens to
-    be available.  ``top_value_in_pool`` is accepted and ignored; it
-    is retained only so existing callers keep working.
+    Values now come from the engine's objective ceiling, which is pinned
+    to league-format anchors instead of to whoever happens to be
+    available.  ``top_value_in_pool`` is accepted and ignored; it is
+    retained only so existing callers keep working.
+
+    Two things carried over from main's H4 math audit, which hardened
+    this formula in parallel with its replacement:
+
+    * ``budget`` (not ``league_budget``) — the audit renamed it because
+      the old name lied about which pool callers passed.  Under the
+      engine the name is finally honest: this IS the league's original
+      budget, and the caller caps at the manager's remaining balance
+      afterwards.
+    * All three tiers derive from the UNROUNDED figure and round once
+      each.  Deriving ``reasonable`` from an already-rounded
+      ``aggressive`` compounded the error a tier at a time.
+
+    Deliberately NOT carried over: the audit's ``max(1, ...)`` floor on
+    every tier.  A $1 minimum contradicts the model's core finding — a
+    player at or below the free-agent replacement line is worth nothing,
+    and roughly half of this league's real adds cost exactly $0.  The
+    floor would put a dollar on every piece of roster clog on the wire.
     """
-    if candidate_value <= 0 or league_budget <= 0:
+    if candidate_value <= 0 or budget <= 0:
         return (0, 0, 0)
 
     from src.trade import faab_engine as _engine  # noqa: PLC0415 — avoid import cycle
 
-    league_ctx = league or _engine.LeagueContext(original_budget=int(league_budget))
+    league_ctx = league or _engine.LeagueContext(original_budget=int(budget))
     if anchors is None:
         # No board context: fall back to the configured format priors
         # rather than inventing a pool-relative scale.
@@ -124,10 +159,10 @@ def _compute_faab_bid(
         )
 
     displayed, _raw = _engine.objective_ceiling(float(candidate_value), anchors)
-    budget = max(1, int(league_budget))
-    aggressive = int(round(displayed * budget))
-    reasonable = int(round(aggressive * 0.70))
-    lowball = int(round(aggressive * 0.35))
+    aggressive_raw = displayed * max(1, int(budget))
+    aggressive = _round_half_up(aggressive_raw)
+    reasonable = _round_half_up(aggressive_raw * 0.70)
+    lowball = _round_half_up(aggressive_raw * 0.35)
     return (aggressive, reasonable, lowball)
 
 
@@ -260,6 +295,7 @@ def find_waiver_targets(
         and isinstance(row.get("rankDerivedValue"), (int, float))
         and str(row.get("position") or "").upper()
         not in set(_engine.FaabConfig().get("anchors", "excludedPositions", []) or [])
+        and str(row.get("assetClass") or "").lower() != "pick"
     ]
     available_values = [c.consensus_value for cs in candidates_by_position.values() for c in cs]
     anchors = _engine.resolve_anchors(
@@ -268,6 +304,13 @@ def find_waiver_targets(
         available_values=available_values or None,
     )
 
+    # ``None`` means the caller does not KNOW the balance (no Sleeper
+    # block loaded, older client) — fall back to the league budget so
+    # the columns still render.  A known balance of $0, or a negative
+    # one for an over-spent roster, is the OPPOSITE situation and must
+    # stay $0: coercing it to a full budget handed a broke manager a
+    # full-budget bid.  Main's H4 audit found the same inversion; the
+    # split below is the same fix expressed as a cap.
     cap = user_faab_remaining if user_faab_remaining is not None else budget
     cap = max(0, int(cap))
 
@@ -275,7 +318,7 @@ def find_waiver_targets(
         for c in cs:
             agg, reas, low = _compute_faab_bid(
                 c.consensus_value,
-                league_budget=budget,
+                budget=budget,
                 anchors=anchors,
                 league=league_ctx,
             )

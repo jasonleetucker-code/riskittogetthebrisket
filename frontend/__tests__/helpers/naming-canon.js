@@ -59,6 +59,10 @@ export const CANON = {
   // NAME on Insider Trading's COHORT; the split gives each its own
   // route, and Sharp Tracker is deliberately not league-scoped.
   "/market/sharp-tracker": "Sharp Tracker",
+  // Same cohort as Sharp Tracker; the name says what it measures
+  // (ownership) rather than repeating "Sharp Tracker" with a suffix,
+  // which would make the two read as one feature split in half.
+  "/market/sharp-roster-percentage": "Sharp Roster Percentage",
   "/league/insider-trading": "Insider Trading",
   "/league": "Hub",
   "/league/activity": "Activity",

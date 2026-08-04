@@ -588,6 +588,56 @@ main() {
   fi
 
 
+  # ── Sharp roster collection timer ───────────────────────────────────
+  #
+  # The THIRD pass: what the cohort currently OWNS, which is what
+  # /market/sharp-roster-percentage is made of. Installed alongside
+  # discovery and records because without it that page stays honestly
+  # empty forever — there is no other producer of the roster store.
+  #
+  # Like the records unit, exit 2 ("budget exhausted, leagues
+  # remaining") is the normal steady state and is treated as success.
+  local sharpros_service_template="${APP_DIR}/deploy/systemd/dynasty-sharp-rosters.service.template"
+  local sharpros_timer_template="${APP_DIR}/deploy/systemd/dynasty-sharp-rosters.timer.template"
+  local sharpros_service_name="${SERVICE_NAME}-sharp-rosters"
+  local sharpros_service_path="/etc/systemd/system/${sharpros_service_name}.service"
+  local sharpros_timer_path="/etc/systemd/system/${sharpros_service_name}.timer"
+  local sharpros_needs_install=false
+
+  if [[ -f "${sharpros_service_template}" && -f "${sharpros_timer_template}" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${sharpros_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${sharpros_service_path} + timer."
+        sharpros_needs_install=true
+      else
+        log "Sharp-rosters timer already installed; skipping."
+      fi
+    else
+      log "Installing Sharp roster collection service + timer."
+      sharpros_needs_install=true
+    fi
+
+    if [[ "${sharpros_needs_install}" == "true" ]]; then
+      local tmp_sharpros_service tmp_sharpros_timer
+      tmp_sharpros_service="$(mktemp)"
+      tmp_sharpros_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+        "${sharpros_service_template}" > "${tmp_sharpros_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${sharpros_timer_template}" > "${tmp_sharpros_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharpros_service}" "${sharpros_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharpros_timer}" "${sharpros_timer_path}"
+      rm -f "${tmp_sharpros_service}" "${tmp_sharpros_timer}"
+      log "Installed ${sharpros_service_name}.service + .timer"
+    fi
+  fi
+
+
   # ── FFPC public Sharp ingestion timer ───────────────────────────────
   local ffpc_service_template="${APP_DIR}/deploy/systemd/dynasty-ffpc-sharp.service.template"
   local ffpc_timer_template="${APP_DIR}/deploy/systemd/dynasty-ffpc-sharp.timer.template"
@@ -806,7 +856,13 @@ main() {
   fi
 
   # ── daemon-reload and enable ────────────────────────────────────────────
-  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${playerctx_needs_install}" == "true" || "${bdvm_needs_install}" == "true" || "${sharp_needs_install}" == "true" || "${sharprec_needs_install}" == "true" || "${ffpc_needs_install}" == "true" || "${rd_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
+  # ce_needs_install was missing from this list. Every other timer's
+  # flag is here, so a FORCE_SERVICE_INSTALL rewrite of the Consensus
+  # Edge unit wrote a new file to disk and then started the STALE cached
+  # one, because nothing had told systemd to re-read it — the failure
+  # mode where the fix is deployed, reported as deployed, and not
+  # running.
+  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${playerctx_needs_install}" == "true" || "${bdvm_needs_install}" == "true" || "${ce_needs_install}" == "true" || "${sharp_needs_install}" == "true" || "${sharprec_needs_install}" == "true" || "${ffpc_needs_install}" == "true" || "${rd_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Reloaded systemd unit files."
   fi
@@ -875,6 +931,15 @@ main() {
     log "Enabled ${sharprec_service_name}.timer"
     sudo -n "${SYSTEMCTL_BIN}" start --no-block "${sharprec_service_name}.service" || \
       log "Note: initial sharp-records crawl could not be started; the timer will cover it."
+  fi
+  if [[ -f "${sharpros_service_template}" && -f "${sharpros_timer_template}" ]]; then
+    # --now arms the daily timer. No initial kick: this pass collects
+    # for the cohort that discovery and records produce, and on a fresh
+    # deploy those two have not finished yet — an immediate run would
+    # collect for an empty cohort and log a misleading zero. The 30-min
+    # OnActiveSec in the timer covers deploy day.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharpros_service_name}.timer"
+    log "Enabled ${sharpros_service_name}.timer"
   fi
   if [[ "${ffpc_enabled}" == "true" && -f "${ffpc_service_template}" && -f "${ffpc_timer_template}" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${ffpc_service_name}.timer"

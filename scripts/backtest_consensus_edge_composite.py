@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-"""Does the composite beat the one component we have already validated?
+"""Does the composite beat mispricing alone?
 
-Market Mispricing has an out-of-sample result (rho +0.126 over 7
-non-overlapping 14-day folds).  The composite adds Opportunity at a
-DECLARED weight of 0.2 — a prior, never measured.  Until now that was
+This was written as "does it beat the one component we have already
+validated", when Market Mispricing carried rho +0.126 over 7
+non-overlapping 14-day folds.  That number was measured on a board whose
+IDP fair values sat on no scale (ADR-021); on the repaired board
+mispricing is itself a null.  The comparison is unchanged and still
+worth running — an axis that cannot improve on a flat signal certainly
+cannot earn a weight — but read the answer as "does not beat mispricing",
+not "does not beat a validated component".
+
+The composite adds Opportunity at a DECLARED weight of 0.2 — a prior,
+never measured.  Until now that was
 unavoidable: Opportunity was believed unbacktestable because
 ``data/rank_history.jsonl`` is untracked and always has been, so the
 board history it reads cannot be recovered from git.

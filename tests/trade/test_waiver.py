@@ -194,44 +194,44 @@ class TestFaabBidArithmetic:
         option available or the tenth best.  ``top_value_in_pool`` is
         accepted for back-compat and ignored.
         """
-        alone = w._compute_faab_bid(2000, league_budget=100, top_value_in_pool=2000)
-        crowded = w._compute_faab_bid(2000, league_budget=100, top_value_in_pool=9999)
+        alone = w._compute_faab_bid(2000, budget=100, top_value_in_pool=2000)
+        crowded = w._compute_faab_bid(2000, budget=100, top_value_in_pool=9999)
         assert alone == crowded
 
     def test_replacement_level_players_bid_nothing(self):
         """A player no better than what is freely available is a $0
         claim, not a fifth of the budget."""
-        agg, reas, low = w._compute_faab_bid(1000, league_budget=100)
+        agg, reas, low = w._compute_faab_bid(1000, budget=100)
         assert (agg, reas, low) == (0, 0, 0)
 
     def test_value_to_bid_is_nonlinear(self):
         """5000 value must not mean $50, and the curve must be convex
         through the meaningful region rather than proportional."""
-        at_2500 = w._compute_faab_bid(2500, league_budget=100)[0]
-        at_5000 = w._compute_faab_bid(5000, league_budget=100)[0]
+        at_2500 = w._compute_faab_bid(2500, budget=100)[0]
+        at_5000 = w._compute_faab_bid(5000, budget=100)[0]
         assert at_5000 != 50
         # Doubling the value does not double the bid — it saturates.
         assert at_5000 < 2 * max(at_2500, 1) or at_2500 == 0
 
     def test_elite_players_saturate_at_the_full_budget(self):
-        assert w._compute_faab_bid(9999, league_budget=100)[0] == 100
+        assert w._compute_faab_bid(9999, budget=100)[0] == 100
 
     def test_a_player_need_not_grade_9999_to_reach_the_full_ceiling(self):
         """The human calibration anchors sit far below the top of the
         scale; the ceiling must reach 100% well before 9999."""
-        assert w._compute_faab_bid(3000, league_budget=100)[0] == 100
+        assert w._compute_faab_bid(3000, budget=100)[0] == 100
 
     def test_bids_scale_with_the_budget(self):
         """Percentages are of the ORIGINAL budget, so a 200-budget
         league doubles the same player's dollars."""
-        at_100 = w._compute_faab_bid(9999, league_budget=100)[0]
-        at_200 = w._compute_faab_bid(9999, league_budget=200)[0]
+        at_100 = w._compute_faab_bid(9999, budget=100)[0]
+        at_200 = w._compute_faab_bid(9999, budget=200)[0]
         assert at_200 == 2 * at_100
 
     def test_zero_and_negative_inputs_bid_nothing(self):
-        assert w._compute_faab_bid(0, league_budget=100) == (0, 0, 0)
-        assert w._compute_faab_bid(-100, league_budget=100) == (0, 0, 0)
-        assert w._compute_faab_bid(5000, league_budget=0) == (0, 0, 0)
+        assert w._compute_faab_bid(0, budget=100) == (0, 0, 0)
+        assert w._compute_faab_bid(-100, budget=100) == (0, 0, 0)
+        assert w._compute_faab_bid(5000, budget=0) == (0, 0, 0)
 
     def test_objective_value_does_not_shrink_as_the_manager_spends(self, rookies_allowed):
         """The other defect that motivated the redesign.

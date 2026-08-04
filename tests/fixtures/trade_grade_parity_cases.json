@@ -1,0 +1,400 @@
+{
+  "_comment": [
+    "Shared fixture for the TWO trade-grading implementations (math audit",
+    "2026-08-04, finding C3):",
+    "  * frontend/lib/league-analysis.js  -> private /trades page",
+    "  * src/public_league/trade_grading.py -> public /league timeline",
+    "Asserted by tests/public_league/test_trade_grade_parity.py and",
+    "frontend/__tests__/trade-grade-parity.test.js.  NEITHER half may",
+    "hardcode an expectation of its own: if the two drift, exactly one",
+    "suite goes red against a shared, human-authored statement of intent.",
+    "",
+    "Every number in 'bands', 'bandCases' and 'tradeCases' is hand-derived",
+    "from the formula, not captured from either implementation:",
+    "    netAdjusted  = sum(got) - sum(gave) + vaNet",
+    "    gotEffective = sum(got)  + max(0,  vaNet)",
+    "    gaveEffective= sum(gave) + max(0, -vaNet)",
+    "    pctGap       = netAdjusted / max(gotEffective, gaveEffective, 1) * 100",
+    "and pctGap is bucketed by |pctGap| through the 'bands' table below.",
+    "",
+    "'vaEngineCases' is the one section whose expectations come from",
+    "outside this repo: they are real keeptradecut.com trade-calculator",
+    "captures (scripts/ktc_va_observations.json, captured 2026-04-25), so",
+    "both implementations are pinned to KTC itself rather than to each",
+    "other.  The tolerance absorbs KTC's iterative solver converging",
+    "slightly differently in a browser than in Node or CPython."
+  ],
+  "bands": {
+    "why": "Cut points shared by both implementations. Each entry is the LOWEST |pctGap| that lands in that band; the band below owns everything under it.",
+    "winner": [
+      { "atLeast": 0, "grade": "A", "label": "Fair trade" },
+      { "atLeast": 3, "grade": "A", "label": "Slight win" },
+      { "atLeast": 8, "grade": "A-", "label": "Good win" },
+      { "atLeast": 15, "grade": "B+", "label": "Clear win" },
+      { "atLeast": 25, "grade": "A+", "label": "Big win" }
+    ],
+    "loser": [
+      { "atLeast": 0, "grade": "A", "label": "Fair trade" },
+      { "atLeast": 3, "grade": "B+", "label": "Slight overpay" },
+      { "atLeast": 8, "grade": "B", "label": "Overpay" },
+      { "atLeast": 15, "grade": "C", "label": "Bad deal" },
+      { "atLeast": 25, "grade": "D", "label": "Robbery" },
+      { "atLeast": 40, "grade": "F", "label": "Fleeced" }
+    ]
+  },
+  "bandCases": [
+    {
+      "id": "even-swap",
+      "why": "Identical sides: zero net, zero pct, fair on both ends.",
+      "got": [5000],
+      "gave": [5000],
+      "vaNet": 0,
+      "pctGap": 0.0,
+      "grade": "A",
+      "label": "Fair trade"
+    },
+    {
+      "id": "just-under-fair-edge",
+      "why": "299/10000 = 2.99% — still inside the fairness band.",
+      "got": [10000],
+      "gave": [9701],
+      "vaNet": 0,
+      "pctGap": 2.99,
+      "grade": "A",
+      "label": "Fair trade"
+    },
+    {
+      "id": "exactly-fair-edge",
+      "why": "300/10000 = 3.00% — the edge belongs to the band above, so this is a Slight win, not a Fair trade. Same letter, different label.",
+      "got": [10000],
+      "gave": [9700],
+      "vaNet": 0,
+      "pctGap": 3.0,
+      "grade": "A",
+      "label": "Slight win"
+    },
+    {
+      "id": "good-win-edge",
+      "why": "800/10000 = 8.00% — bottom of the A- band.",
+      "got": [10000],
+      "gave": [9200],
+      "vaNet": 0,
+      "pctGap": 8.0,
+      "grade": "A-",
+      "label": "Good win"
+    },
+    {
+      "id": "ten-pct-linear-edge",
+      "why": "Finding C3's headline case. 1000/10000 = 10.0% linear -> Good win (A-). The retired public formula raised each asset to 1.65 first, scoring the same trade at 1 - 0.9^1.65 = 15.95% -> Clear win (B+): a full band higher off the same two numbers.",
+      "got": [10000],
+      "gave": [9000],
+      "vaNet": 0,
+      "pctGap": 10.0,
+      "grade": "A-",
+      "label": "Good win"
+    },
+    {
+      "id": "clear-win-edge",
+      "why": "1500/10000 = 15.00% — bottom of the B+ band.",
+      "got": [10000],
+      "gave": [8500],
+      "vaNet": 0,
+      "pctGap": 15.0,
+      "grade": "B+",
+      "label": "Clear win"
+    },
+    {
+      "id": "big-win-edge",
+      "why": "2500/10000 = 25.00% — the winner ladder tops out here.",
+      "got": [10000],
+      "gave": [7500],
+      "vaNet": 0,
+      "pctGap": 25.0,
+      "grade": "A+",
+      "label": "Big win"
+    },
+    {
+      "id": "slight-overpay-edge",
+      "why": "-300/10000 = -3.00%. Denominator is the LARGER effective side, which is now the one they gave up.",
+      "got": [9700],
+      "gave": [10000],
+      "vaNet": 0,
+      "pctGap": -3.0,
+      "grade": "B+",
+      "label": "Slight overpay"
+    },
+    {
+      "id": "overpay-edge",
+      "why": "-800/10000 = -8.00%.",
+      "got": [9200],
+      "gave": [10000],
+      "vaNet": 0,
+      "pctGap": -8.0,
+      "grade": "B",
+      "label": "Overpay"
+    },
+    {
+      "id": "ten-pct-overpay",
+      "why": "Losing mirror of ten-pct-linear-edge: -10.0% -> Overpay (B), where the alpha formula said Bad deal (C).",
+      "got": [9000],
+      "gave": [10000],
+      "vaNet": 0,
+      "pctGap": -10.0,
+      "grade": "B",
+      "label": "Overpay"
+    },
+    {
+      "id": "bad-deal-edge",
+      "why": "-1500/10000 = -15.00%.",
+      "got": [8500],
+      "gave": [10000],
+      "vaNet": 0,
+      "pctGap": -15.0,
+      "grade": "C",
+      "label": "Bad deal"
+    },
+    {
+      "id": "robbery-edge",
+      "why": "-2500/10000 = -25.00%.",
+      "got": [7500],
+      "gave": [10000],
+      "vaNet": 0,
+      "pctGap": -25.0,
+      "grade": "D",
+      "label": "Robbery"
+    },
+    {
+      "id": "fleeced-edge",
+      "why": "-4000/10000 = -40.00% — the loser ladder tops out here.",
+      "got": [6000],
+      "gave": [10000],
+      "vaNet": 0,
+      "pctGap": -40.0,
+      "grade": "F",
+      "label": "Fleeced"
+    },
+    {
+      "id": "va-lifts-an-even-trade",
+      "why": "Linear net is zero; a +2000 VA makes it a 2000/10000 = 20% win. The VA also widens the denominator, which is why this is 20% and not 25%.",
+      "got": [8000],
+      "gave": [8000],
+      "vaNet": 2000,
+      "pctGap": 20.0,
+      "grade": "B+",
+      "label": "Clear win"
+    },
+    {
+      "id": "va-penalizes-an-even-trade",
+      "why": "Mirror: -2000 VA on a linear-even trade, denominator 8000 + 2000 on the gave side.",
+      "got": [8000],
+      "gave": [8000],
+      "vaNet": -2000,
+      "pctGap": -20.0,
+      "grade": "C",
+      "label": "Bad deal"
+    },
+    {
+      "id": "va-flips-a-linear-winner",
+      "why": "+1000 linear but -1500 VA: they took the pile and gave the stud. netAdjusted -500 over max(9000, 9500) = -5.26%, an overpay despite winning on raw sums.",
+      "got": [9000],
+      "gave": [8000],
+      "vaNet": -1500,
+      "pctGap": -5.263157894736842,
+      "grade": "B+",
+      "label": "Slight overpay"
+    },
+    {
+      "id": "va-widens-the-denominator",
+      "why": "3000/7000 = 42.857%, NOT 3000/6000 = 50%: the +1000 VA is added to the got side before the max.",
+      "got": [6000],
+      "gave": [4000],
+      "vaNet": 1000,
+      "pctGap": 42.857142857142854,
+      "grade": "A+",
+      "label": "Big win"
+    },
+    {
+      "id": "both-sides-unpriced",
+      "why": "Nothing on either side resolved to a value. The scale floor of 1 keeps this at 0% instead of dividing by zero.",
+      "got": [],
+      "gave": [],
+      "vaNet": 0,
+      "pctGap": 0.0,
+      "grade": "A",
+      "label": "Fair trade"
+    },
+    {
+      "id": "received-nothing",
+      "why": "Gave 5000, got nothing back: -100%.",
+      "got": [],
+      "gave": [5000],
+      "vaNet": 0,
+      "pctGap": -100.0,
+      "grade": "F",
+      "label": "Fleeced"
+    },
+    {
+      "id": "gave-nothing",
+      "why": "Pure gift the other way: +100%.",
+      "got": [5000],
+      "gave": [],
+      "vaNet": 0,
+      "pctGap": 100.0,
+      "grade": "A+",
+      "label": "Big win"
+    },
+    {
+      "id": "sub-unit-scale-floor",
+      "why": "A 0.5-value asset for nothing. The floor of 1 in the denominator caps this at 50%, not 100% — pins that both halves floor the SCALE and not the values.",
+      "got": [0.5],
+      "gave": [],
+      "vaNet": 0,
+      "pctGap": 50.0,
+      "grade": "A+",
+      "label": "Big win"
+    },
+    {
+      "id": "multi-asset-linear-sum",
+      "why": "6000 of pieces for 6000 of pieces is fair. Under the retired alpha formula the concentrated side would have scored far ahead.",
+      "got": [3000, 2000, 1000],
+      "gave": [5000, 1000],
+      "vaNet": 0,
+      "pctGap": 0.0,
+      "grade": "A",
+      "label": "Fair trade"
+    }
+  ],
+  "tradeCases": [
+    {
+      "id": "t-1v1-ten-pct-edge",
+      "why": "Finding C3 end to end. KTC suppresses the VA on any 1-for-1 package, so both sides are plain ratios: +10.0% / -10.0%.",
+      "sides": [
+        { "got": [10000], "gave": [9000] },
+        { "got": [9000], "gave": [10000] }
+      ],
+      "expected": [
+        { "vaNet": 0, "pctGap": 10.0, "grade": "A-", "label": "Good win" },
+        { "vaNet": 0, "pctGap": -10.0, "grade": "B", "label": "Overpay" }
+      ]
+    },
+    {
+      "id": "t-1v1-even",
+      "why": "Dead even both ways.",
+      "sides": [
+        { "got": [5000], "gave": [5000] },
+        { "got": [5000], "gave": [5000] }
+      ],
+      "expected": [
+        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Fair trade" },
+        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Fair trade" }
+      ]
+    },
+    {
+      "id": "t-3team-graded-on-own-net",
+      "why": "Three-way where sent and received pools do not pair up. Every side is 1-for-1 so the VA stays suppressed. Team C receives the SECOND-smallest pile (3000) yet is a clear winner because it only sent 1000 — ranking sides by received total would have called it the unremarkable middle and stamped it Fair.",
+      "sides": [
+        { "got": [1000], "gave": [8000] },
+        { "got": [8000], "gave": [3000] },
+        { "got": [3000], "gave": [1000] }
+      ],
+      "expected": [
+        { "vaNet": 0, "pctGap": -87.5, "grade": "F", "label": "Fleeced" },
+        { "vaNet": 0, "pctGap": 62.5, "grade": "A+", "label": "Big win" },
+        { "vaNet": 0, "pctGap": 66.66666666666667, "grade": "A+", "label": "Big win" }
+      ]
+    },
+    {
+      "id": "t-side-received-nothing",
+      "why": "A side with an empty got list. The VA engine returns 0 whenever either package is empty, so this is a clean +/-100%.",
+      "sides": [
+        { "got": [], "gave": [5000, 5000] },
+        { "got": [5000, 5000], "gave": [] }
+      ],
+      "expected": [
+        { "vaNet": 0, "pctGap": -100.0, "grade": "F", "label": "Fleeced" },
+        { "vaNet": 0, "pctGap": 100.0, "grade": "A+", "label": "Big win" }
+      ]
+    },
+    {
+      "id": "t-unpriceable-values-dropped",
+      "why": "Both halves must discard the same garbage before summing: null, negatives, zero, and non-numeric strings all vanish, leaving a 1000-for-1000 swap. If either half let one through as a NaN, every band comparison against it would be false and the side would fall out the bottom as Fleeced.",
+      "sides": [
+        { "got": [1000, null, -50, 0, "abc"], "gave": [1000] },
+        { "got": [1000], "gave": [1000, null, -50, 0, "abc"] }
+      ],
+      "expected": [
+        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Fair trade" },
+        { "vaNet": 0, "pctGap": 0.0, "grade": "A", "label": "Fair trade" }
+      ]
+    }
+  ],
+  "vaEngineCases": {
+    "why": "The signed VA one team's got-vs-gave equation earns. Expectations are real keeptradecut.com trade-calculator captures, NOT output of either implementation: scripts/ktc_va_observations.json, capturedAt 2026-04-25, one entry per topology. vaNet is KTC's valueAdjustmentTeam1 minus valueAdjustmentTeam2 with got as team1.",
+    "tolerance": 15,
+    "cases": [
+      {
+        "id": "BORD_1v1_a",
+        "why": "1v1 control — KTC never displays a VA on a one-for-one.",
+        "got": [9961],
+        "gave": [9979],
+        "vaNet": 0
+      },
+      {
+        "id": "BORD_1v2_a",
+        "why": "Solo strong vs two mids: the consolidating side earns the premium.",
+        "got": [6888],
+        "gave": [3881, 3492],
+        "vaNet": 3280
+      },
+      {
+        "id": "UNEQ_1v3_a",
+        "why": "Elite single asset against three mid pieces — the largest premium shape.",
+        "got": [9968],
+        "gave": [2812, 4913, 4276],
+        "vaNet": 7188
+      },
+      {
+        "id": "BORD_2v2_a",
+        "why": "Intensity-balanced 2v2: KTC suppresses the badge entirely.",
+        "got": [6888, 3881],
+        "gave": [6806, 4868],
+        "vaNet": 0
+      },
+      {
+        "id": "BORD_2v2_d",
+        "why": "2v2 with the studs stacked on one side — fires despite equal counts.",
+        "got": [9979, 2448],
+        "gave": [4921, 6642],
+        "vaNet": 4434
+      },
+      {
+        "id": "BORD_2v3_a",
+        "why": "Two-for-three consolidation.",
+        "got": [6888, 4868],
+        "gave": [4809, 3387, 3486],
+        "vaNet": 3370
+      },
+      {
+        "id": "BORD_3v3_c",
+        "why": "3v3 where the best and worst pieces sit on different sides.",
+        "got": [6642, 5309, 3486],
+        "gave": [4921, 4868, 3387],
+        "vaNet": 2428
+      },
+      {
+        "id": "BORD_3v3_d",
+        "why": "3v3 firing on the OTHER side — pins the sign convention, not just the magnitude.",
+        "got": [6838, 5309, 3387],
+        "gave": [7512, 4809, 3486],
+        "vaNet": -1420
+      },
+      {
+        "id": "BORD_4v4_b",
+        "why": "Deep even-count package that still earns a premium.",
+        "got": [7878, 4868, 4809, 2448],
+        "gave": [6888, 5407, 5303, 3387],
+        "vaNet": 1618
+      }
+    ]
+  }
+}

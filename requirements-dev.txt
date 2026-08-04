@@ -29,7 +29,7 @@ httpx~=0.28.0
 # introduced report-only/ratcheted in later phases.  Production never
 # installs requirements-dev.txt, so these stay out of the runtime image.
 ruff~=0.6.0
-mypy~=1.13.0
+mypy~=2.3.0
 
 # tests/intel/test_workflow_scripts.py parses
 # .github/workflows/intel-refresh.yml to exercise the workflow's

@@ -108,13 +108,45 @@ class TestTheBoardIsActuallyBuilt(_Enabled):
         scored = [r for r in body["players"] if r.get("score") is not None]
         self.assertGreater(len(scored), 100, "no player received a score")
 
-    def test_both_offense_and_idp_are_covered(self):
-        # An IDP league whose defenders all fell out is the failure mode
-        # that made trade/finder.py silently offense-only for months.
+    def test_offense_is_covered(self):
         body = self.client.get("/api/consensus-edge/players").json()
         classes = {r.get("assetClass") for r in body["players"] if r.get("score") is not None}
         self.assertIn("offense", classes)
-        self.assertIn("idp", classes)
+
+    def test_an_unscored_asset_class_is_declared_not_merely_absent(self):
+        # This test used to assert ``"idp" in classes``, because an IDP
+        # league whose defenders all fell out is the failure mode that
+        # made trade/finder.py silently offense-only for months. IDP now
+        # legitimately carries no score — the anchor-free board has no
+        # IDP scale once the only backbone source is excluded — so the
+        # old assertion would be satisfied only by publishing wrong
+        # numbers.
+        #
+        # The failure mode was never "IDP is unscored". It was "the
+        # response looks the same either way". So: an unscored class must
+        # be counted, named, and given a reason in the payload itself.
+        body = self.client.get("/api/consensus-edge/players").json()
+        coverage = body.get("assetClassCoverage") or {}
+        self.assertTrue(coverage, "board does not report per-asset-class coverage at all")
+
+        scored_classes = {c for c, m in coverage.items() if m.get("scored")}
+        self.assertIn("offense", scored_classes)
+
+        for cls, meta in coverage.items():
+            self.assertEqual(
+                meta["rows"],
+                meta["scored"] + sum(meta["unpricedReasons"].values()),
+                f"{cls} rows are unaccounted for",
+            )
+            if meta["scored"] or not meta["rows"]:
+                continue
+            # Wholly unscored: the payload must say why, and the caveats
+            # must say it in a sentence a reader will actually see.
+            self.assertTrue(meta["unpricedReasons"], f"{cls} is unscored with no stated reason")
+            self.assertTrue(
+                any(cls.upper() in c for c in body.get("caveats") or []),
+                f"{cls} carries no score and no caveat mentions it",
+            )
 
     def test_every_row_carries_provenance(self):
         body = self.client.get("/api/consensus-edge/players").json()
@@ -130,6 +162,42 @@ class TestTheBoardIsActuallyBuilt(_Enabled):
             self.assertGreater(row["score"], 0)
         for row in body["sells"]:
             self.assertLess(row["score"], 0)
+
+    def test_served_order_is_the_measured_order(self):
+        # The study that justified turning the flag on measures
+        # ``service.top_movers``, which ranks by conviction. ``/players``
+        # — the ONLY endpoint the page fetches — sorted by raw score, so
+        # the measurement described an ordering no user ever saw. The two
+        # must be one list read two ways.
+        body = self.client.get("/api/consensus-edge/players").json()
+        rows = body["players"]
+
+        convictions = [r["conviction"] for r in rows if r.get("score") is not None]
+        self.assertGreater(len(convictions), 50)
+        self.assertEqual(
+            convictions,
+            sorted(convictions, reverse=True),
+            "/players is not in conviction order",
+        )
+
+        served_buys = [
+            r["playerKey"] for r in rows if r.get("qualified") and (r.get("score") or 0) > 0
+        ][:10]
+        measured = self.client.get("/api/consensus-edge/top?limit=10").json()
+        self.assertEqual(
+            served_buys,
+            [r["playerKey"] for r in measured["buys"]],
+            "the top of the served board is not the list the study measures",
+        )
+
+    def test_conviction_is_stamped_not_left_to_the_client(self):
+        body = self.client.get("/api/consensus-edge/players").json()
+        for row in body["players"]:
+            if row.get("score") is None:
+                continue
+            self.assertIsInstance(row.get("conviction"), float, row["playerKey"])
+            expected = float(row["score"]) * float(row["confidence"]) / 100.0
+            self.assertAlmostEqual(row["conviction"], expected, places=9)
 
     def test_health_reports_real_counts(self):
         body = self.client.get("/api/consensus-edge/health").json()
@@ -482,9 +550,13 @@ class TestPlayerContextUnlocksASecondComponent(unittest.TestCase):
         impossible. That was true while the denominator counted all
         three components — including one carrying zero weight, which is
         not evidence we are missing but evidence we measured and
-        declined. Coverage is now 1 of 2, the ceiling is 79.37, and the
-        rows this had been suppressing turned out to be the best group
-        on the board (+8.83% cohort-excess, 6 of 6 folds).
+        declined. Coverage is now 1 of 2 and the ceiling clears the
+        threshold.
+
+        The rows this had been suppressing measured +8.83% cohort-excess
+        at 6 of 6 folds, which is why the denominator was examined at
+        all; on the scale-repaired board they measure -1.10%. What is
+        under test here is the arithmetic, not the finding.
         """
         from src.consensus_edge import service as svc
 
@@ -590,3 +662,42 @@ class TestServiceSignature(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@_needs_contract
+class TestIdentityQuarantineReachesTheLabel(_Enabled):
+    """A suspect identity join must not be scored as a confident call.
+
+    `data_contract._validate_and_quarantine_rows` has always decided
+    this, and `score.classify` has always had a `quarantined` branch
+    returning `Withheld`. Nothing connected them: `fair_value` dropped
+    the flag when it built its entry, so `classify` was never passed
+    True and the branch was dead. A row whose identity join is wrong is
+    one whose market price and fair value may belong to two different
+    players — the one input error a value model cannot absorb — and it
+    could reach the top-20 with a full-confidence Buy on it.
+    """
+
+    def test_the_flag_survives_the_journey_to_the_row(self):
+        body = self.client.get("/api/consensus-edge/players").json()
+        self.assertTrue(
+            any("quarantined" in row for row in body["players"]),
+            "rows do not carry the quarantine flag at all",
+        )
+
+    def test_a_quarantined_row_is_withheld_not_scored(self):
+        body = self.client.get("/api/consensus-edge/players").json()
+        quarantined = [r for r in body["players"] if r.get("quarantined")]
+        if not quarantined:
+            self.skipTest("no quarantined rows on this payload")
+        for row in quarantined:
+            self.assertEqual(row["label"], "Withheld", row["playerKey"])
+            self.assertFalse(row["qualified"], row["playerKey"])
+
+    def test_a_quarantined_row_cannot_reach_the_top_list(self):
+        # The consequence, asserted separately from the label: `qualified`
+        # is what `top_movers` filters on, so this is the property that
+        # actually keeps a bad join off the list a user reads.
+        top = self.client.get("/api/consensus-edge/top?limit=20").json()
+        for row in top["buys"] + top["sells"]:
+            self.assertFalse(row.get("quarantined"), row["playerKey"])

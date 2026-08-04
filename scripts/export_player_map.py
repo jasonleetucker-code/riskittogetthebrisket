@@ -28,10 +28,10 @@ _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from scripts._shared import _repo_root, _latest as _latest_file, _normalize_name
+from scripts._shared import _repo_root, _latest as _latest_file, _normalize_name  # noqa: E402 — must follow the sys.path bootstrap above
 
 
-from src.utils.name_clean import NICKNAME_MAP, POSITION_ALIASES as POS_MAP  # noqa: F401
+from src.utils.name_clean import NICKNAME_MAP, POSITION_ALIASES as POS_MAP  # noqa: F401,E402
 
 
 def build_player_map(legacy_path: Path) -> dict:

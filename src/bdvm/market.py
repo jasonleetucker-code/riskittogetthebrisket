@@ -87,11 +87,18 @@ def market_view_for_row(
 
     dispersion = _dispersion_for_row(contract_row)
     liq_cfg = params["market"]["liquidity"]
+    # Dispersion SUBTRACTS from liquidity.  It is cross-source
+    # disagreement about the price, and a price nobody agrees on is
+    # harder to transact at, not easier — which is also how the same
+    # input is read below in ``market_comparison``, where dispersion
+    # lowers ``tau_market`` (the market's precision).  The formula used
+    # to ADD it (0.35 + 1.6·d, saturating at the ceiling by d≈0.41), so
+    # one number meant "liquid" here and "unreliable" there.
     liquidity = min(
         float(liq_cfg["clip_hi"]),
         max(
             float(liq_cfg["clip_lo"]),
-            float(liq_cfg["base"]) + float(liq_cfg["dispersion_coeff"]) * dispersion,
+            float(liq_cfg["base"]) - float(liq_cfg["dispersion_coeff"]) * dispersion,
         ),
     )
     return MarketView(
@@ -191,35 +198,49 @@ def buy_hold_sell(
     gap_persisted_days: int | None = None,
     p_collapse_1y: float | None = None,
 ) -> dict[str, Any]:
-    """Signal policy (§8.4).  Persistence-guarded; explains itself."""
+    """Signal policy (§8.4).  Magnitude-ordered; explains itself.
+
+    Two rules the ladder is built on, both of which it violated before
+    the 2026-08-04 audit:
+
+    * **Every state has a magnitude floor, and the ladder is walked by
+      magnitude.**  The collapse probability ESCALATES a sell that
+      already clears the sell bar; it does not create one.  It used to
+      be tested first, on ``alpha < 0`` alone, so a one-point negative
+      gap fired the loudest signal in the model.
+    * **``gap_persisted_days`` is an optional strengthener, not a
+      precondition.**  Nothing in the platform stores gap history, so no
+      caller can supply it — and requiring it made STRONG_BUY (a state
+      ``ACTIONABLE_BDVM_SIGNALS`` alerts on) unreachable, with
+      ``strong_buy_alpha`` and ``strong_buy_min_liquidity`` inert.  With
+      no history the strong-buy bar is magnitude + liquidity, symmetric
+      with STRONG_SELL's magnitude bar; a caller that DOES have history
+      still gets the momentum guard.
+    """
     alpha = market_out.get("alpha")
     if alpha is None:
         return {"signal": "NO_MARKET", "reason": "no market anchor for this asset"}
     th = params["market"]["signal_thresholds"]
     liquidity = float(market_out.get("liquidity") or 0.0)
-    persisted = gap_persisted_days is not None and gap_persisted_days >= int(
-        th["gap_persistence_days"]
-    )
-    if (
-        alpha > float(th["strong_buy_alpha"])
-        and persisted
-        and liquidity > float(th["strong_buy_min_liquidity"])
-    ):
-        return {"signal": "STRONG_BUY", "reason": f"alpha {alpha:+.0f}, gap persisted, liquid"}
+    persisted = gap_persisted_days is None or gap_persisted_days >= int(th["gap_persistence_days"])
     if alpha > float(th["buy_alpha"]):
-        if gap_persisted_days is not None and not persisted:
+        if not persisted:
             return {
                 "signal": "HOLD",
                 "reason": "positive gap but not yet persistent (momentum guard)",
             }
+        if alpha > float(th["strong_buy_alpha"]) and liquidity > float(
+            th["strong_buy_min_liquidity"]
+        ):
+            return {"signal": "STRONG_BUY", "reason": f"alpha {alpha:+.0f}, liquid market"}
         return {"signal": "BUY", "reason": f"alpha {alpha:+.0f}"}
-    if p_collapse_1y is not None and p_collapse_1y > 0.5 and alpha < 0:
-        return {
-            "signal": "STRONG_SELL",
-            "reason": f"collapse probability {p_collapse_1y:.0%} and market > model",
-        }
-    if alpha < float(th["strong_sell_alpha"]):
-        return {"signal": "STRONG_SELL", "reason": f"alpha {alpha:+.0f}"}
     if alpha < float(th["sell_alpha"]):
+        if alpha < float(th["strong_sell_alpha"]):
+            return {"signal": "STRONG_SELL", "reason": f"alpha {alpha:+.0f}"}
+        if p_collapse_1y is not None and p_collapse_1y > 0.5:
+            return {
+                "signal": "STRONG_SELL",
+                "reason": f"alpha {alpha:+.0f} and collapse probability {p_collapse_1y:.0%}",
+            }
         return {"signal": "SELL", "reason": f"alpha {alpha:+.0f}"}
     return {"signal": "HOLD", "reason": f"alpha {alpha:+.0f} inside hold band"}

@@ -11,6 +11,6 @@
     "e2e:report": "playwright show-report tests/e2e/playwright-report"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0"
+    "@playwright/test": "^1.62.0"
   }
 }

@@ -261,7 +261,6 @@ async def _add_player(page, team_idx: int, player_name: str, *, timeout: int = 1
     # Verify the player row landed in the team list.  This is the
     # check we should have had from day one — clicking the wrong
     # element succeeds silently otherwise (see bug history pre-#288).
-    list_loc = page.locator(f"#{list_id}")
     try:
         # Wait up to 3s for at least one direct child to appear.
         await page.wait_for_function(

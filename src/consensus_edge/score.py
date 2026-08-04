@@ -46,11 +46,24 @@ WITHHELD = "Withheld"
 # data, not a claim in a docstring that can drift from reality.
 COMPONENT_VALIDATION: dict[str, dict[str, Any]] = {
     "mispricing": {
-        "validated": True,
+        # Was `validated: True, outcome: "positive"` on the strength of
+        # rho +0.126. That rho was measured on a board where every IDP
+        # fair value came off a leave-one-out build with no IDP backbone
+        # — numbers on no scale at all (ADR-021). With those rows refused
+        # and the same backtest re-run, the result is a null. The
+        # component still ranks the board; nothing measured says it ranks
+        # it usefully.
+        "validated": False,
         "measured": True,
-        "outcome": "positive",
+        "outcome": "null",
         "evidence": "docs/measurements/consensus-edge-backtest-2026-08-04-h14.json",
-        "note": "rho +0.126 over 7 non-overlapping folds; beat market-value benchmark 7/7",
+        "note": (
+            "no effect detected: rho +0.031 over 6 non-overlapping folds at 14d "
+            "(+0.040 over 12 at 7d), and the market-value benchmark — a plain "
+            "'buy cheap players' rule — beat it in 5 of 6 and 9 of 12. The "
+            "earlier +0.126 was measured on a board that priced IDP rows on a "
+            "scale that does not exist."
+        ),
     },
     "sharpFlow": {
         "validated": False,

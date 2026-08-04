@@ -177,7 +177,6 @@ class TestAggregate(unittest.TestCase):
 
     def test_confidence_grows_with_source_count(self):
         rows1 = [("A", "QB", 1)]
-        rows3 = [("A", "QB", 1)] * 1  # same player from one source
         # 1-source confidence
         s1 = aggregate([_snapshot("only", 1.0, rows1, 1)], league=_LEAGUE)[0]["confidence"]
         # 4-source confidence (saturates at 4)

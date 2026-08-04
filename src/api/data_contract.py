@@ -2261,6 +2261,184 @@ def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
     return out
 
 
+# ── Scale dependencies ───────────────────────────────────────────────
+# Some sources do not merely CONTRIBUTE a vote — they define the scale
+# other votes are expressed in.  Removing one of those does not shrink
+# the evidence behind a value, it changes what the number means, and the
+# result still looks like an ordinary board.
+#
+# Two such dependencies exist today, and both are declarative rather
+# than inferred, so this list is the single place they are written down:
+#
+#   * The IDP shared-market crosswalk.  Sources flagged
+#     ``needs_shared_market_translation`` — today ``dlfIdp``, ``idpShow``
+#     and ``fantasyProsIdp`` — rank players within the IDP class only.
+#     The backbone's shared-market ladder crosswalks that within-class
+#     ordinal into the combined offense+IDP rank space.  With no backbone
+#     the ladder is empty and ``translate_position_rank`` returns the raw
+#     rank as ``TRANSLATION_FALLBACK``, so IDP #1 votes as if he were
+#     asset #1.
+#   * The rookie ladders.  ``needs_rookie_translation`` sources rank
+#     within the rookie class; the ladder crosswalks rookie #1 into the
+#     combined rank the reference source gives ITS #1 rookie.  With no
+#     reference the pipeline falls back to the untranslated rank, so
+#     rookie #1 is scored as asset #1.
+#
+# CORRECTION (2026-08-04).  This block used to name ``position_idp``
+# sources ranking within DL / LB / DB as the first mechanism.  That is a
+# dead branch: NO registered source carries the ``position_idp`` scope,
+# and a census of every ``sourceRankMeta`` stamp across the 973-row live
+# board returns ``overall_offense: 5772, overall_idp: 965`` and zero
+# ``position_idp``.  The per-position ladders are still built at
+# ``_compute_unified_rankings`` and never read.  The measured symptom was
+# always real; the explanation named the wrong crosswalk, and it had been
+# copied into five other files.
+#
+# Both fallbacks are correct for the default board, where an absent
+# source is one we never scraped.  They are wrong for a board built by
+# deliberately excluding a source (``consensus_edge.fair_value``), which
+# is why that caller has to be able to ask this question structurally
+# instead of discovering it as a wrong number.
+ROOKIE_LADDER_PAIRS: tuple[tuple[str, str, set[str]], ...] = (
+    ("dlfRookieSf", "ktcSfTep", _OFFENSE_POSITIONS),
+    ("dlfRookieIdp", "idpTradeCalc", _IDP_POSITIONS),
+    ("flockFantasySfRookies", "ktcSfTep", _OFFENSE_POSITIONS),
+)
+
+SCALE_LOST_IDP_BACKBONE = "idp_backbone_excluded"
+SCALE_LOST_ROOKIE_LADDER = "rookie_ladder_reference_excluded"
+
+
+def scale_integrity_lost(excluded_keys: Iterable[str]) -> dict[str, dict[str, str]]:
+    """Which rows lose their VALUE SCALE if ``excluded_keys`` leave the blend.
+
+    This is a different question from correlation leakage.  Correlation
+    asks "does the excluded source's opinion still reach the result?";
+    this asks "is the result still denominated in the same units?".  A
+    board can be perfectly free of a source's influence and still be
+    unusable because that source was what made the numbers comparable.
+
+    ``excluded_keys`` is expanded through the correlation groups first,
+    matching what :func:`expand_correlation_groups` does for the board
+    build itself, so a caller cannot pass one and check the other.
+
+    Returns::
+
+        {
+          "assetClasses": {"idp": SCALE_LOST_IDP_BACKBONE},
+          "sources":      {"dlfRookieSf": SCALE_LOST_ROOKIE_LADDER, ...},
+        }
+
+    ``assetClasses`` keys are ``assetClass`` values as stamped on
+    contract rows.  ``sources`` names ranking sources whose vote is on a
+    broken scale — a caller decides a row is affected by intersecting
+    these keys with the row's own ``sourceRanks``, which is narrower and
+    more honest than guessing at a rookie flag.
+
+    Empty dicts mean the exclusion costs evidence but not meaning.
+
+    **This is a DECLARATION, not a measurement, and it must not be the
+    only gate.**  It reports what the registry claims; use
+    :func:`shared_market_crosswalk_failed` on the board itself to find
+    out what happened.  The difference is not academic — see that
+    function's docstring for the one-line registry edit that satisfies
+    this check while leaving the board exactly as broken.
+    """
+    excluded = expand_correlation_groups(excluded_keys)
+    surviving = {
+        str(s.get("key") or "") for s in _RANKING_SOURCES if str(s.get("key") or "") not in excluded
+    }
+
+    asset_classes: dict[str, str] = {}
+    # Mirrors the backbone selection in ``_compute_unified_rankings``:
+    # primary scope overall_idp AND is_backbone.
+    #
+    # This used to carry a comment promising that "registering a second
+    # IDP backbone lifts this guard automatically instead of leaving a
+    # hardcoded refusal behind", which read as a feature and is in fact
+    # the hazard.  ``is_backbone`` is a LABEL: setting it True on any of
+    # the five other IDP sources empties ``assetClasses`` while the board
+    # stays at median 1.224 / max 3.478.  Measured, not argued —
+    # ``tests/consensus_edge/test_fair_value.py`` pins it.
+    if not any(
+        str(s.get("key") or "") in surviving
+        and s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
+        and s.get("is_backbone")
+        for s in _RANKING_SOURCES
+    ):
+        asset_classes["idp"] = SCALE_LOST_IDP_BACKBONE
+
+    sources: dict[str, str] = {}
+    for rookie_key, ref_key, _universe in ROOKIE_LADDER_PAIRS:
+        if rookie_key in surviving and ref_key not in surviving:
+            sources[rookie_key] = SCALE_LOST_ROOKIE_LADDER
+
+    return {"assetClasses": asset_classes, "sources": sources}
+
+
+def shared_market_crosswalk_failed(rows: Iterable[dict[str, Any]]) -> dict[str, int]:
+    """Which sources voted on an UNTRANSLATED within-class rank, per source.
+
+    The measured counterpart to :func:`scale_integrity_lost`, and the one
+    that should decide.  A source flagged ``needs_shared_market_translation``
+    ranks players within the IDP class only; the backbone's shared-market
+    ladder lifts that ordinal into the combined offense+IDP rank space and
+    stamps ``method: "exact"``.  With no usable ladder,
+    ``translate_position_rank`` returns the raw rank and stamps
+    ``TRANSLATION_FALLBACK`` — the vote then says IDP #1 is asset #1.
+
+    So this reads what the board DID rather than what the registry
+    promised.  Measured on the 2026-08-03 payload:
+
+    ==========================  ==================  ==================
+    source                      default board       idpTradeCalc gone
+    ==========================  ==================  ==================
+    ``dlfIdp``                  exact    135        fallback   159
+    ``idpShow``                 exact    215        fallback   235
+    ``fantasyProsIdp``          exact    151        fallback   177
+    ``draftSharksIdp``          combined 215        combined   243
+    ==========================  ==================  ==================
+
+    **Why the registry check alone is not enough.**  The backbone is
+    selected by the ``is_backbone`` flag, and that flag is a label rather
+    than a capability.  ``build_backbone_from_rows`` can only seed a
+    shared-market ladder from a source whose OWN value column spans both
+    pools, and ``idpTradeCalc`` is the only key that does (529 positive
+    offense + 258 positive IDP).  ``draftSharksIdp`` looks like a
+    candidate — it is registered ``is_cross_market`` — but carries 0
+    positive offense values under its own key; its offense half lives
+    under the separate ``draftSharks`` key.  Setting ``is_backbone=True``
+    on it yields the identity ladder ``[1, 2, 3, …]``, which is precisely
+    the fallback: the refusal lifts and the board is bit-for-bit the
+    broken one.  ``draftSharksIdp`` itself is unaffected either way —
+    it needs no crosswalk and stays on ``ds_combined_cross_market``.
+
+    Note the *depth* of a ladder is NOT a usable capability test either:
+    ``dlfIdp`` (163 > 162) and ``idpShow`` (247 > 245) both clear a
+    depth comparison while producing identity ladders.  Only "the ladder
+    does not start at 1" separates them (``idpTradeCalc`` starts at 30).
+
+    Returns ``{sourceKey: rowsVotedOnUntranslatedRank}``, empty when
+    every crosswalk-dependent source was translated (or none voted).
+    """
+    needs_translation = {
+        str(s.get("key") or "")
+        for s in _RANKING_SOURCES
+        if s.get("needs_shared_market_translation")
+    }
+    failed: dict[str, int] = {}
+    for row in rows or []:
+        meta_by_source = row.get("sourceRankMeta")
+        if not isinstance(meta_by_source, dict):
+            continue
+        for key, meta in meta_by_source.items():
+            if key not in needs_translation or not isinstance(meta, dict):
+                continue
+            if meta.get("method") == TRANSLATION_FALLBACK:
+                failed[str(key)] = failed.get(str(key), 0) + 1
+    return failed
+
+
 # Top-level keys in the override POST body that are NOT per-source
 # override entries.  These are routed to their own typed helpers
 # (e.g. ``normalize_tep_multiplier``) and must be skipped by the
@@ -5774,6 +5952,88 @@ _TE_BLANKET_KTC_EXEMPT_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep"})
 _BOARD_TE_BASIS: str = "tepp"
 _TE_SOURCE_DEFAULT_BASIS: str = "base"
 
+# Where the TE lift stops being linear and starts being squashed toward
+# the scale ceiling.  See ``_te_lift_under_ceiling``.
+_TE_LIFT_SOFT_KNEE: float = 9900.0
+
+
+def _te_lift_under_ceiling(lifted: float, *, knee: float = _TE_LIFT_SOFT_KNEE) -> float:
+    """Bring a lifted TE contribution under the 9,999 ceiling WITHOUT
+    collapsing distinct votes onto it.
+
+    Math audit 2026-07-30, finding C4.
+
+    The TE premium is a value ratio measured on KTC's own two boards, and
+    it is sound: across all 72 tight ends paired on both boards, applying
+    it reproduces KTC's true TE++ ratio to a mean absolute error of 0.090.
+    The problem is the ceiling.  A source's contribution is ``Hill(rank)``,
+    and the Hill master is far steeper at the top than KTC's real value
+    distribution — KTC ranks Brock Bowers 8th and values him 8153, while
+    Hill maps rank 8 to 9076.  Lifting 9076 by 1.209 gives 10975, and
+    ``min(..., 9999)`` then threw the overflow away.
+
+    Measured on the live source CSVs, that clamp made six sources'
+    top-TE votes IDENTICAL — fantasyCalc, pfkDynasty and dynastyDaddySf
+    (rank 8), idpTradeCalc and dynastyNerdsSfTep (rank 7), otcffbSf
+    (rank 14) all contributed exactly 9999.  Each was then casting the
+    same vote for a tight end as for the #1 overall player, and the
+    disagreement they actually published was erased rather than applied.
+    Offense rows are exempt from the market-corridor clamp, so nothing
+    downstream contained it either.
+
+    A hard clamp is the wrong tool because it is not injective.  This is
+    the same bound expressed as a strictly increasing map, so distinct
+    inputs stay distinct:
+
+        v <= knee      ->  v                       (exactly unchanged)
+        v >  knee      ->  9999 - (9999 - knee) * exp(-(v - knee) / (9999 - knee))
+
+    Continuous and C1 at the knee (both value and slope are 1:1 there),
+    asymptotic to 9999 from below, and never reaching it — so a lifted
+    tight end can approach the top asset on its source's board but never
+    displace it.  That matches what KTC's own TE++ board does: Bowers
+    lands 5th at 9859, not 1st.
+
+    A REJECTED ALTERNATIVE, recorded because it was tried and measured:
+    applying the premium as a RANK shift before the Hill call, fitted
+    from the same paired boards (``scripts/audit/fit_ktc_te_rank_shift.py``,
+    Bowers 8 -> 5, McBride 17 -> 8).  It is bounded by construction and
+    cannot saturate, which is attractive.  But pushing a rank shift
+    through the Hill curve does not recover the measured VALUE ratio,
+    because the curve's shape is not KTC's value distribution: mean
+    absolute error against KTC's own ratio was 0.175 versus 0.090 for the
+    value-space conversion, and it was worse across the whole deep half
+    of the board (at KTC base rank 496 the true ratio is 2.045; value
+    space gives 1.633, rank space 1.122).  The value space is where the
+    premium was measured and where it belongs; only the ceiling needed
+    fixing.  The fitter is kept as the record of that measurement.
+
+    Only the top ~1% of the scale is touched: below ``knee`` this is the
+    identity, so every number the previous implementation produced below
+    9900 is bit-for-bit unchanged.
+
+    REACHABLE DOMAIN.  The largest lift this pipeline can produce is the
+    scale ceiling times the uplift curve's floor, 9999 x 1.2092 = 12093:
+    the curve is DECREASING in value, so the biggest contributions take
+    the smallest multiplier, and the deep tight ends that take the 2.053
+    ceiling multiplier start from small Hill values.  With a 99-wide span
+    the squash stays strictly increasing in float64 out to ~12440, which
+    covers that domain with margin.  Past ~12440 the exponential
+    underflows and the map goes flat — so the result is additionally held
+    one representable step below the ceiling, which keeps the "cannot
+    displace the top asset" guarantee true even for an input this
+    pipeline cannot currently generate.
+    """
+    v = float(lifted)
+    ceiling = float(_DISPLAY_SCALE_MAX)
+    if v <= knee:
+        return v
+    span = ceiling - knee
+    if span <= 0:
+        return min(v, ceiling)
+    return min(ceiling - span * math.exp(-(v - knee) / span), ceiling - 1e-9)
+
+
 # Cached Sleeper league context.  Populated on first call via the
 # Sleeper /v1/league/{id} endpoint using ``SLEEPER_LEAGUE_ID`` from
 # the env.  Stores the full resolved payload (roster count, TE-bonus,
@@ -6106,6 +6366,35 @@ def _apply_pick_year_discount_to_blend(
 
     Applied BEFORE the unified Phase 4 sort so future-year picks
     naturally drift to lower positions in the global ladder.
+
+    ONLY SYNTHESISED YEARS ARE DISCOUNTED (audit finding T-3/C-2,
+    2026-08-04).  The discount used to apply to every future-year pick,
+    including the years the vendors publish a real per-slot price for.
+    That double-counts, and in the WRONG DIRECTION: both ingested pick
+    markets price the next class ABOVE the imminent one, because the
+    unknown class carries option value while the imminent one is priced
+    to known prospects.  Measured on the 2026-08-04 boards::
+
+        ktcSfTep      2026 Early 1st 5595 | 2027 7061 | 2028 5122
+        idpTradeCalc  2026 Early 1st 5554 | 2027 7052 | 2028 5034
+
+    The market term structure is +26% from 2026 to 2027 and then down;
+    ``offsetDiscounts`` assumes a smooth 1.00/0.82/0.66/0.53 decay.
+    Multiplying one onto the other published 2027 firsts 18% and 2028
+    firsts 34% BELOW what both markets agreed on, which biased every
+    trade involving future capital the same way: sell futures cheap,
+    buy futures expensive.
+
+    A vendor-priced year needs no correction — the price already
+    encodes the term structure.  What DOES need the step-down is a year
+    this pipeline invented by cloning a nearer year's values
+    (``_inject_far_future_pick_sources``), because that clone carries
+    the nearer year's price verbatim.  ``_SYNTHETIC_FAR_FUTURE_PICK_NAMES``
+    is exactly that set, so it is the gate.
+
+    NOTE this does not close audit finding V-12/C-11: for a synthesised
+    year the multiplier is still an uncalibrated prior applied to a
+    cloned price.  It closes only the double-count on real years.
     """
     cfg = _load_pick_year_discount()
     cdy = current_rookie_draft_year()
@@ -6114,7 +6403,12 @@ def _apply_pick_year_discount_to_blend(
     for value, row_idx in row_normalized:
         row = players_array[row_idx]
         if row.get("assetClass") == "pick":
-            year = _pick_year_from_name(row.get("canonicalName") or "")
+            cname = row.get("canonicalName") or ""
+            if _canonical_match_key(cname) not in _SYNTHETIC_FAR_FUTURE_PICK_NAMES:
+                # Vendor-priced year: the market already priced the year.
+                out.append((value, row_idx))
+                continue
+            year = _pick_year_from_name(cname)
             mult = _pick_year_discount_for(year, cfg, current_draft_year=cdy)
             if mult != 1.0:
                 value = value * mult
@@ -6580,9 +6874,21 @@ def _compute_unified_rankings(
 
     # ── Phase 0: Build IDP backbone from the designated backbone source ──
     # The first enabled source with scope=overall_idp and is_backbone=True
-    # wins.  If no backbone source is present, position_idp sources fall
-    # back to treating their raw rank as a synthetic overall rank and get
-    # a caution flag on the per-source meta.
+    # wins.  With no backbone source the ladder is empty and every
+    # crosswalk-dependent source falls back to treating its raw rank as a
+    # synthetic overall rank, with a caution flag on the per-source meta.
+    #
+    # WHICH sources that actually affects, measured rather than assumed:
+    # the ``needs_shared_market_translation`` ones — today ``dlfIdp``,
+    # ``idpShow`` and ``fantasyProsIdp``, which flip method ``exact`` →
+    # ``fallback`` on 159 / 235 / 177 rows of the live board.  The
+    # ``position_idp`` branch below is ALSO backbone-dependent and is
+    # currently dead: no registered source carries that scope, and a
+    # census of every ``sourceRankMeta`` stamp across the 973-row live
+    # board returns zero of them.  The facility works and is kept; it
+    # simply has no users, so do not reach for it when explaining an
+    # observed IDP scale problem.  See ``scale_integrity_lost`` and
+    # ``shared_market_crosswalk_failed``.
     #
     # The backbone also carries a *shared-market IDP ladder* — the
     # combined offense+IDP ranks at which IDP entries appear in the
@@ -6646,36 +6952,17 @@ def _compute_unified_rankings(
     # preserved via its own Phase 1 ordinal sort; only the SCALE
     # comes from the reference ladder.  Offense rookies anchor to
     # KTC; IDP rookies anchor to IDPTC (the IDP backbone).
-    rookie_ladder_cache: dict[str, list[int]] = {}
-
-    def _build_rookie_ladder(reference_src_key: str, idp: bool) -> list[int]:
-        cache_key = f"{reference_src_key}:{'idp' if idp else 'off'}"
-        cached = rookie_ladder_cache.get(cache_key)
-        if cached is not None:
-            return cached
-        ref_ranks: list[tuple[int, int]] = []  # (ref_rank, row_idx)
-        for _ridx, _rec in row_source_ranks.items():
-            _rank = _rec.get(reference_src_key)
-            if _rank is None:
-                continue
-            _row = players_array[_ridx]
-            if not bool(_row.get("rookie")):
-                continue
-            if _row.get("assetClass") == "pick":
-                continue
-            _pos = str(_row.get("position") or "").strip().upper()
-            if idp:
-                if _pos not in _IDP_POSITIONS:
-                    continue
-            else:
-                if _pos not in _OFFENSE_POSITIONS:
-                    continue
-            ref_ranks.append((int(_rank), _ridx))
-        ref_ranks.sort(key=lambda t: t[0])
-        ladder = [r for r, _ in ref_ranks]
-        rookie_ladder_cache[cache_key] = ladder
-        return ladder
-
+    # NOTE: a SECOND, shadowed ``_build_rookie_ladder`` used to sit here,
+    # together with the ``rookie_ladder_cache`` dict that was its only
+    # consumer.  Both were dead — the sole call site is below, after the
+    # surviving definition — and dead in a way that was a live hazard
+    # rather than merely untidy: the two signatures were
+    # ``(reference_src_key: str, idp: bool)`` and
+    # ``(reference_source: str, universe_positions: set[str])``, so a
+    # careless de-duplication would pass a set where a bool was expected.
+    # Every non-empty set is truthy, so that mistake would silently route
+    # offense rookies through the IDP ladder instead of raising.
+    # Removal verified inert: the default board is byte-identical.
     for src in active_sources:
         source_key: str = src["key"]
         position_group: str | None = src.get("position_group")
@@ -7038,12 +7325,13 @@ def _compute_unified_rankings(
     # fallback is to leave the rookie source's rank untranslated
     # (it'll go through the Hill path with its within-class rank,
     # which is the pre-fix behaviour — safer than silently breaking).
-    _rookie_ladder_pairs = (
-        ("dlfRookieSf", "ktcSfTep", _OFFENSE_POSITIONS),
-        ("dlfRookieIdp", "idpTradeCalc", _IDP_POSITIONS),
-        ("flockFantasySfRookies", "ktcSfTep", _OFFENSE_POSITIONS),
-    )
-    for rookie_key, ref_key, universe in _rookie_ladder_pairs:
+    #
+    # That fallback is safe on the DEFAULT board, where a missing
+    # reference means a source we never had.  It is NOT safe on a board
+    # built by deliberately excluding the reference — see
+    # ``scale_integrity_lost``, which is the module-level declaration of
+    # exactly this dependency.
+    for rookie_key, ref_key, universe in ROOKIE_LADDER_PAIRS:
         if rookie_key not in active_keys or ref_key not in active_keys:
             continue
         ladder = _build_rookie_ladder(ref_key, universe)
@@ -7200,6 +7488,7 @@ def _compute_unified_rankings(
             # value that actually enters aggregation.
             hill_c, hill_s = _curve_for_source(src_def)
             denom = _percentile_denom_for_source(src_def, source_key)
+
             if denom >= 2:
                 p = (float(eff_rank) - 1.0) / float(denom - 1)
             else:
@@ -7287,26 +7576,25 @@ def _compute_unified_rankings(
                 if source_key in tep_boosted_source_keys:
                     pre_te_value = value
                     if te_basis_conversion:
-                        value = min(
+                        value = _te_lift_under_ceiling(
                             float(
                                 _convert_te_value(
                                     value,
                                     from_basis=_TE_SOURCE_DEFAULT_BASIS,
                                     to_basis=_BOARD_TE_BASIS,
                                 )
-                            ),
-                            9999.0,
+                            )
                         )
                         if pre_te_value > 0:
                             tep_basis_uplift = value / pre_te_value
                     else:
-                        value = min(value * effective_non_tep_multiplier, 9999.0)
+                        value = _te_lift_under_ceiling(value * effective_non_tep_multiplier)
                     tep_applied = True
                 elif source_key in tep_native_source_keys:
                     # Unchanged: only base <-> tepp is measured, so a
                     # TEP-native board has no conversion to make without
                     # inventing an intermediate uplift.
-                    value = min(value * effective_native_multiplier, 9999.0)
+                    value = _te_lift_under_ceiling(value * effective_native_multiplier)
                     tep_native_corrected = True
             all_values.append(value)
             src_blend_weight = blend_weight_by_source.get(source_key, 1.0)
@@ -8286,19 +8574,45 @@ def _raw_source_values(p_data: dict[str, Any]) -> dict[str, int]:
 
 
 def _player_value_bundle(p_data: dict[str, Any]) -> dict[str, int | None]:
+    """Seed the per-row ``values`` bundle.
+
+    SCALE CONTRACT (math audit 2026-07-30, finding H1).  Two scales meet
+    in this bundle and they are NOT interchangeable:
+
+    * ``rawComposite`` is the **legacy scraper composite** — a separate
+      pipeline in ``Dynasty Scraper.py`` that runs ~1.131x the canonical
+      board (measured; ``BOARD_TO_COMPOSITE_K = 0.875`` in
+      ``src/trade/finder.py``).  It is the UI's explicit "Raw" value mode
+      and its name says what it is.
+    * ``overall`` / ``finalAdjusted`` / ``displayValue`` are **board**
+      values.  ``build_api_data_contract`` stamps ``rankDerivedValue``
+      into all three once the blend has run.
+
+    They used to be seeded from the composite and then *overwritten* by
+    the board only when ``rankDerivedValue > 0``.  On a real payload that
+    left 270 rows — every suppressed generic pick tier among them —
+    carrying a composite-scale number under a board-scale name, with
+    nothing marking the difference.  Consumers that fall back down the
+    chain (public trade grading, the frontend's ``values.full``, the
+    league-adjusted overlay) then summed the two scales together.
+
+    So they are seeded ``None`` instead.  A row the board declined to
+    price now reads as *unpriced* rather than as priced-on-another-scale,
+    which is the honest answer and the one every consumer can branch on.
+    """
     raw = _to_int_or_none(
         p_data.get("_rawComposite", p_data.get("_rawMarketValue", p_data.get("_composite")))
     )
-    final = _to_int_or_none(p_data.get("_finalAdjusted", p_data.get("_composite")))
-    if final is None:
-        final = raw
-    overall = final
-    display = _to_int_or_none(p_data.get("_canonicalDisplayValue"))
     return {
-        "overall": overall,
+        # Board scale — filled in by ``build_api_data_contract`` from
+        # ``rankDerivedValue``.  Never seeded from the composite.
+        "overall": None,
+        "finalAdjusted": None,
+        "displayValue": None,
+        # Composite scale — honestly named, and the only key that carries
+        # it.  Do NOT add it to a fallback chain that otherwise reads
+        # board values.
         "rawComposite": raw,
-        "finalAdjusted": final,
-        "displayValue": display,
     }
 
 
@@ -8800,17 +9114,27 @@ def build_api_data_contract(
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
-    # same number.  The legacy composite (values.overall / values.finalAdjusted)
-    # comes from the old multi-source scraper and may differ.  The unified
-    # ranking model's rankDerivedValue is the authoritative display value.
+    # same number.  ``_player_value_bundle`` seeds these three keys ``None``
+    # (see its SCALE CONTRACT docstring), so a row the blend declined to
+    # price keeps ``None`` here and reads as *unpriced* — it does NOT fall
+    # back to the legacy scraper composite, which runs on a different
+    # scale and would be indistinguishable from a board value.
+    #
+    # ``values.rawComposite`` still carries the composite, under a name
+    # that says so.  It is the UI's explicit "Raw" value mode and must
+    # never be spliced into a chain that otherwise reads board values.
+    unpriced_rows = 0
     for row in players_array:
         rdv = row.get("rankDerivedValue")
+        vals = row.get("values")
+        if not isinstance(vals, dict):
+            continue
         if rdv is not None and rdv > 0:
-            vals = row.get("values")
-            if isinstance(vals, dict):
-                vals["overall"] = rdv
-                vals["finalAdjusted"] = rdv
-                vals["displayValue"] = rdv
+            vals["overall"] = rdv
+            vals["finalAdjusted"] = rdv
+            vals["displayValue"] = rdv
+        else:
+            unpriced_rows += 1
 
     # ── Identity validation and quarantine pass ──
     # Runs AFTER rankings are computed so anomalyFlags and confidence can be
@@ -9024,6 +9348,14 @@ def build_api_data_contract(
         "currentDraftYear": current_rookie_draft_year(),
         "playersArray": players_array,
         "playerCount": len(players_array),
+        # How many rows the blend declined to price.  Those rows carry
+        # ``values.overall/finalAdjusted/displayValue = None`` rather than
+        # a legacy-composite number on a different scale (math audit H1),
+        # so a consumer that silently drops them is visibly dropping a
+        # known quantity instead of an invisible one.  Mirrors the
+        # ``metadata.assetsUnpricedByBoard`` convention in
+        # ``src/trade/finder.py``.
+        "rowsUnpricedByBoard": unpriced_rows,
         "valueAuthority": (None if _for_delta else _build_value_authority_summary(players_array)),
         "dataSource": {
             "type": str(data_source.get("type") or ""),
@@ -9642,11 +9974,15 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         coverage_floors = _load_top50_coverage_floors()
 
         def _overall_val(r: dict[str, Any]) -> float:
-            vals = r.get("values")
-            if not isinstance(vals, dict):
-                return 0.0
+            # Rank on the board value directly.  This used to read
+            # ``values.overall``, which was the board value for priced rows
+            # but the legacy scraper composite for unpriced ones — so the
+            # "top 50" could be ordered across two scales (math audit H1).
+            # ``values.overall`` now mirrors ``rankDerivedValue`` exactly,
+            # but reading the source of truth makes that independent of the
+            # mirroring step rather than dependent on it.
             try:
-                return float(vals.get("overall") or 0)
+                return float(r.get("rankDerivedValue") or 0)
             except (TypeError, ValueError):
                 return 0.0
 
