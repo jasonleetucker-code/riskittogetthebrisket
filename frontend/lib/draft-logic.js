@@ -547,8 +547,25 @@ export function computeDraftStats(workspace) {
       : playerPreDraftById.get(pk.playerId) || 0;
     return s + snap;
   }, 0);
-  const expectedPoolRemaining = Math.max(1, totalBudget - soldPreDraft);
-  const inflation = remainingLeague / expectedPoolRemaining;
+  // The denominator is "PreDraft $ still expected to be spent".  It can
+  // only go non-positive when the workbook is internally inconsistent —
+  // the PreDraft column of already-drafted players sums to at least the
+  // whole league budget (an over-typed sheet, or PreDraft edits applied
+  // after those picks landed).
+  //
+  // This used to be ``Math.max(1, …)``, which turned that error into
+  // inflation = the ENTIRE remaining league budget as a multiplier
+  // (~800× on a $1200 board) — a number that then multiplied straight
+  // into inflatedFair, theoreticalMaxBid and every tier-heat blend.  An
+  // absurd value substituted for an error is worse than no value, so
+  // degrade to "no global inflation" and say so; ``inflationDegraded``
+  // lets the UI tell the user their PreDraft column is over-allocated
+  // instead of quietly showing four-figure fair prices.
+  const expectedPoolRemaining = totalBudget - soldPreDraft;
+  const inflationDegraded = !(expectedPoolRemaining > 0);
+  const inflation = inflationDegraded
+    ? 1
+    : remainingLeague / expectedPoolRemaining;
 
   // Kept for the "Board $ left" display card.
   const undraftedPreDraft = players
@@ -1023,6 +1040,7 @@ export function computeDraftStats(workspace) {
     budgetAdvantage,
     undraftedPreDraft,
     inflation,
+    inflationDegraded,
     leagueSpentPct,
     tierHeat,
     tierConfidence,

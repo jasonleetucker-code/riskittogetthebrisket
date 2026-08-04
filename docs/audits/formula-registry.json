@@ -1,0 +1,475 @@
+{
+  "_comment": "Machine-readable formula registry produced by the sitewide math audit (docs/audits/math-formula-audit-2026-07-30.md). One record per NUMERICAL CONCEPT, not per arithmetic expression \u2014 the point is to answer 'who owns this number and who else computes it', so a future duplicate implementation is visible as a diff against this file rather than as a bug report months later. Pinned by tests/audit/test_formula_registry.py.",
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-04",
+  "auditBranch": "claude/sitewide-math-formula-audit-xswjai",
+  "_fields": {
+    "concept": "what is being calculated, in product language",
+    "canonical": "the ONE authoritative implementation, file::symbol",
+    "units": "the scale/unit the number is on",
+    "range": "expected [min, max] of the output",
+    "consumers": "who reads it",
+    "duplicates": "other implementations of the same concept, with disposition",
+    "risk": "critical | high | medium | low",
+    "status": "verified | corrected | open-decision | documented-divergence"
+  },
+  "concepts": [
+    {
+      "id": "player-value",
+      "concept": "Canonical dynasty player value (the board)",
+      "canonical": "src/api/data_contract.py::_compute_unified_rankings -> rankDerivedValue",
+      "units": "board points, 0-9999",
+      "range": [
+        1,
+        9999
+      ],
+      "consumers": [
+        "frontend/lib/dynasty-data.js::buildRows",
+        "src/trade/suggestions.py",
+        "src/trade/finder.py (via board_values_from_contract)",
+        "src/api/terminal.py",
+        "src/api/public_activity_valuation.py",
+        "src/league_intel/overlay.py"
+      ],
+      "duplicates": [
+        {
+          "impl": "Dynasty Scraper.py::_composite / _finalAdjusted / _rawComposite",
+          "disposition": "DIFFERENT CONCEPT, retained",
+          "note": "The legacy scraper composite, ~1.131x the board. Now reachable ONLY as values.rawComposite (the UI's explicit 'Raw' mode). Finding H1 removed it from every board-scale fallback chain."
+        },
+        {
+          "impl": "src/bdvm/engine.py::to_trade_value",
+          "disposition": "DIFFERENT CONCEPT, intentional",
+          "note": "Fundamental value, not market value. Never writes rankDerivedValue."
+        }
+      ],
+      "risk": "critical",
+      "status": "corrected",
+      "findings": [
+        "H1",
+        "C4"
+      ]
+    },
+    {
+      "id": "value-bundle-scale",
+      "concept": "Per-row values bundle (overall / finalAdjusted / displayValue / rawComposite)",
+      "canonical": "src/api/data_contract.py::_player_value_bundle + the stamping loop in build_api_data_contract",
+      "units": "board points for overall/finalAdjusted/displayValue; composite points for rawComposite",
+      "range": [
+        1,
+        9999
+      ],
+      "consumers": [
+        "src/api/public_activity_valuation.py::_value_from_bundle",
+        "frontend/lib/dynasty-data.js::inferValueBundle",
+        "src/league_intel/values.py::_consensus_from_row"
+      ],
+      "duplicates": [],
+      "risk": "high",
+      "status": "corrected",
+      "findings": [
+        "H1"
+      ],
+      "invariant": "The three board-named keys are the board value or None. They are NEVER seeded from the composite. Pinned by tests/api/test_value_bundle_scale_contract.py."
+    },
+    {
+      "id": "rank",
+      "concept": "Board rank",
+      "canonical": "src/api/data_contract.py::compact_ranks_and_tiers",
+      "units": "ordinal, 1..OVERALL_RANK_LIMIT",
+      "range": [
+        1,
+        800
+      ],
+      "consumers": [
+        "every page; the frontend consumes stamps verbatim"
+      ],
+      "duplicates": [
+        {
+          "impl": "frontend/lib/dynasty-data.js computedConsensusRank",
+          "disposition": "DISPLAY ORDINAL, intentional",
+          "note": "Assigned only to rows the backend deliberately left unranked (past rank 800). Suppressed for picks and under a valuation overlay. Not a ranking engine \u2014 no value is recomputed."
+        }
+      ],
+      "risk": "critical",
+      "status": "verified"
+    },
+    {
+      "id": "rank-to-value",
+      "concept": "Rank -> value reconstruction (Hill curve)",
+      "canonical": "src/canonical/player_valuation.py::percentile_to_value / rank_to_value_for_scope",
+      "units": "board points, 0-9999",
+      "range": [
+        1,
+        9999
+      ],
+      "consumers": [
+        "src/api/rank_history.py",
+        "src/api/terminal.py",
+        "src/api/data_contract.py"
+      ],
+      "duplicates": [
+        {
+          "impl": "Dynasty Scraper.py::_calibrated_rank_to_value / _fallback_sparse_rank_value",
+          "disposition": "SEPARATE SYSTEM, documented",
+          "note": "Percentile-of-source-ranks mapped onto a target value distribution, plus a power-law sparse fallback. Feeds canonicalSiteValues, which the canonical pipeline then re-ranks. Finding M8."
+        },
+        {
+          "impl": "frontend/lib/value-history.js::valueFromRank",
+          "disposition": "DUPLICATE, offense-only",
+          "note": "Mirrors only the OFFENSE rank-form constants; the backend is scope-aware (separate IDP pair). Finding M3."
+        }
+      ],
+      "risk": "high",
+      "status": "open-decision",
+      "findings": [
+        "M1",
+        "M2",
+        "M3",
+        "M8"
+      ]
+    },
+    {
+      "id": "percentile-reference",
+      "concept": "Rank -> percentile denominator",
+      "canonical": "src/api/data_contract.py::_PERCENTILE_REFERENCE_N",
+      "units": "ranks",
+      "range": [
+        500,
+        500
+      ],
+      "consumers": [
+        "_compute_unified_rankings (every per-source vote)"
+      ],
+      "duplicates": [
+        {
+          "impl": "src/model_registry/holdout.py p = i/(n-1) over a 400-cap native pool",
+          "disposition": "TRAIN/SERVE SKEW, open",
+          "note": "The promotion gate scores candidate curves under a different percentile convention than production serves. Finding M2."
+        }
+      ],
+      "risk": "medium",
+      "status": "open-decision",
+      "findings": [
+        "M1"
+      ],
+      "measured": "716 of 6251 per-source votes (11.5%) land on the flattened tail at N=500; OVERALL_RANK_LIMIT is 800, so 300 published ranks sit past the point the inputs resolve."
+    },
+    {
+      "id": "te-premium",
+      "concept": "TE premium (base -> TE++ basis conversion)",
+      "canonical": "src/league_intel/te_premium.py::convert_te_value (+ data_contract::_te_lift_under_ceiling for the scale bound)",
+      "units": "dimensionless ratio, >= 1.0",
+      "range": [
+        1.2092,
+        2.0531
+      ],
+      "consumers": [
+        "src/api/data_contract.py::_compute_unified_rankings"
+      ],
+      "duplicates": [],
+      "risk": "critical",
+      "status": "corrected",
+      "findings": [
+        "C4"
+      ],
+      "invariant": "Structural double-count guard: from_basis == to_basis is a no-op, so a second call cannot compound. The ceiling bound is now a strictly increasing squash, so distinct source votes stay distinct.",
+      "rejectedAlternative": "Rank-space shift (scripts/audit/fit_ktc_te_rank_shift.py). Bounded by construction but reproduces KTC's measured TE ratio worse: mean abs error 0.175 vs 0.090. Recorded, not adopted."
+    },
+    {
+      "id": "pick-value",
+      "concept": "Draft pick value",
+      "canonical": "src/api/data_contract.py (blend + year discount + rookie tethering) -> rankDerivedValue",
+      "units": "board points, 0-9999",
+      "range": [
+        1,
+        9999
+      ],
+      "consumers": [
+        "src/api/draft_capital_fallback.py",
+        "frontend/lib/draft-logic.js",
+        "src/trade/*"
+      ],
+      "duplicates": [
+        {
+          "impl": "src/api/draft_capital_fallback.py flat per-round table",
+          "disposition": "REMOVED",
+          "note": "Was reached for every current_season+1 pick \u2014 half the board \u2014 with a valid contract loaded. Finding C1.",
+          "removedMarker": "flat = {1: 7000.0"
+        },
+        {
+          "impl": "src/canonical/calibration.py::_pick_curve_value",
+          "disposition": "LEGACY, not live",
+          "note": "Only to_display_value is a live export from that module."
+        },
+        {
+          "impl": "src/bdvm/picks.py pick outcome EV",
+          "disposition": "DIFFERENT CONCEPT, intentional (fundamental, not market)"
+        }
+      ],
+      "risk": "critical",
+      "status": "corrected",
+      "findings": [
+        "C1"
+      ]
+    },
+    {
+      "id": "trade-grade",
+      "concept": "Trade letter grade / fairness percentage",
+      "canonical": "src/public_league/trade_grading.py (Python) + frontend/lib/league-analysis.js::gradeTradeSides (JS), pinned by tests/fixtures/trade_grade_parity_cases.json",
+      "units": "percentage gap, 0-100",
+      "range": [
+        0,
+        100
+      ],
+      "consumers": [
+        "public /league activity timeline",
+        "private /trades page"
+      ],
+      "duplicates": [
+        {
+          "impl": "src/public_league/activity.py alpha^1.65 weighted sums",
+          "disposition": "REPLACED",
+          "note": "Different formula against identical band thresholds. Finding C3."
+        }
+      ],
+      "risk": "critical",
+      "status": "corrected",
+      "findings": [
+        "C3"
+      ],
+      "invariant": "Two languages, one formula, one shared fixture. Neither test may hardcode its own expectation."
+    },
+    {
+      "id": "transaction-windows",
+      "concept": "Insider-trading activity ranking",
+      "canonical": "src/intel/service.py (per-window indexed queries; board sorts on single-window volume)",
+      "units": "counts per window",
+      "range": [
+        0,
+        null
+      ],
+      "consumers": [
+        "src/intel/service.py board sort",
+        "/api/intel/* routes"
+      ],
+      "duplicates": [
+        {
+          "impl": "src/intel/aggregate.py::trend_score = 3*net48h + 2*net7d + 1*net30d (module DELETED)",
+          "disposition": "REMOVED",
+          "note": "Nested windows: one event an hour old contributed 3+2+1=6. src/intel/signals.py had documented it as retired while it was still the primary board sort key (finding C2). This audit removed it from the ranking; PR #697 on main then deleted the module outright as part of a broader restructure to per-window indexed queries, and that resolution superseded ours on merge. Each window is now its own query \u2014 a movement 15 days old is returned by both the 30d and 90d query as one movement seen twice, never summed.",
+          "removedMarker": "def trend_score"
+        }
+      ],
+      "risk": "critical",
+      "status": "corrected",
+      "findings": [
+        "C2"
+      ],
+      "invariant": "Nested time windows are NEVER summed. Where recency needs a single number, it is a RATIO between windows (src/intel/signals.py::velocity), which cannot double-count because division by a superset cancels shared events."
+    },
+    {
+      "id": "team-value",
+      "concept": "Team / roster total value",
+      "canonical": "NONE \u2014 three legitimately different concepts, see note",
+      "units": "board points (sum) | 0-100 ROS index (lineup score)",
+      "range": [
+        0,
+        null
+      ],
+      "consumers": [
+        "frontend/lib/league-analysis.js::buildTeamValueBreakdown",
+        "src/api/terminal.py",
+        "src/roster_intel/marginal.py"
+      ],
+      "duplicates": [
+        {
+          "impl": "src/roster_intel/marginal.py",
+          "disposition": "THE lineup-constrained one",
+          "note": "Group leave-out against a real lineup solve. The only aggregation that legitimately claims lineup awareness."
+        },
+        {
+          "impl": "frontend/lib/league-analysis.js::buildTeamValueBreakdown",
+          "disposition": "SIMPLE SUM, documented",
+          "note": "No flex, no replacement level, no optimizer."
+        },
+        {
+          "impl": "src/api/terminal.py::_compute_portfolio_insights totalValue",
+          "disposition": "SIMPLE SUM, excludes picks (the FE fallback includes them)"
+        }
+      ],
+      "risk": "high",
+      "status": "documented-divergence",
+      "findings": [
+        "H2",
+        "M3"
+      ]
+    },
+    {
+      "id": "starter-slots",
+      "concept": "How many starters a team fields at a position",
+      "canonical": "config/leagues/registry.json rosterSettings (via src/api/league_registry.py)",
+      "units": "count",
+      "range": [
+        0,
+        null
+      ],
+      "consumers": [
+        "src/trade/suggestions.py",
+        "frontend/lib/league-analysis.js",
+        "frontend/lib/portfolio-insights.js",
+        "src/roster_intel/marginal.py"
+      ],
+      "duplicates": [
+        {
+          "impl": "src/trade/suggestions.py::DEFAULT_STARTER_NEEDS",
+          "disposition": "DIVERGENT (DL/LB/DB=3)"
+        },
+        {
+          "impl": "frontend/lib/league-analysis.js::STARTER_SLOTS",
+          "disposition": "DIVERGENT (DL/LB/DB=2)"
+        },
+        {
+          "impl": "frontend/lib/portfolio-insights.js::defaultSlots",
+          "disposition": "DIVERGENT"
+        }
+      ],
+      "risk": "medium",
+      "status": "documented-divergence",
+      "findings": [
+        "M3"
+      ]
+    },
+    {
+      "id": "percentile-helper",
+      "concept": "Percentile of a value within a population",
+      "canonical": "NONE \u2014 five incompatible definitions",
+      "units": "fraction, 0-1",
+      "range": [
+        0,
+        1
+      ],
+      "consumers": [
+        "src/public_league/power.py",
+        "src/sharp/score.py",
+        "src/roster_intel/window.py",
+        "src/ros/power_v2.py",
+        "src/roster_intel/profiles.py"
+      ],
+      "duplicates": [
+        {
+          "impl": "src/public_league/power.py",
+          "disposition": "(below + (equal-1)*0.5)/(n-1) \u2014 max 1.0"
+        },
+        {
+          "impl": "src/sharp/score.py",
+          "disposition": "(below + 0.5*equal)/n \u2014 max (n-0.5)/n; makes the 0.85 cohort bar unreachable at n=2"
+        },
+        {
+          "impl": "src/roster_intel/window.py",
+          "disposition": "same as sharp; can never return 1.0"
+        },
+        {
+          "impl": "src/ros/power_v2.py",
+          "disposition": "same, empty -> 0.0"
+        },
+        {
+          "impl": "src/roster_intel/profiles.py",
+          "disposition": "index via banker's rounding \u2014 non-monotonic index steps"
+        }
+      ],
+      "risk": "medium",
+      "status": "documented-divergence",
+      "findings": [
+        "M3"
+      ]
+    },
+    {
+      "id": "faab-bid",
+      "concept": "FAAB bid recommendation",
+      "canonical": "src/trade/waiver.py::_compute_faab_bid, mirrored by frontend/lib/waiver-logic.js::computeFaabHint",
+      "units": "dollars",
+      "range": [
+        0,
+        null
+      ],
+      "consumers": [
+        "/waivers page",
+        "POST /api/waiver/faab-recommend"
+      ],
+      "duplicates": [
+        {
+          "impl": "frontend/lib/waiver-logic.js::computeFaabHint",
+          "disposition": "PARITY PORT",
+          "note": "Python round() is banker's, JS Math.round is half-up. Finding H4."
+        }
+      ],
+      "risk": "high",
+      "status": "corrected",
+      "findings": [
+        "H4"
+      ]
+    },
+    {
+      "id": "buy-sell-hold",
+      "concept": "Buy / Sell / Hold signal",
+      "canonical": "tests/fixtures/signal_parity_cases.json \u2014 a shared rule table read by BOTH implementations",
+      "units": "categorical",
+      "range": null,
+      "consumers": [
+        "src/api/terminal.py::_evaluate_signal",
+        "frontend/lib/signal-engine.js::evaluate"
+      ],
+      "duplicates": [],
+      "risk": "low",
+      "status": "verified",
+      "note": "Debt register D3 lists this as 'implemented twice, no parity test'. That is STALE \u2014 the shared fixture and both parity tests already exist. No work was done here; the register was corrected."
+    },
+    {
+      "id": "bdvm-trade-value",
+      "concept": "Fundamental (BDVM) trade value",
+      "canonical": "src/bdvm/engine.py::to_trade_value",
+      "units": "BDVM points, 0-10000",
+      "range": [
+        0,
+        10000
+      ],
+      "consumers": [
+        "/api/bdvm/*",
+        "/bdvm page",
+        "rankings + draft gap columns"
+      ],
+      "duplicates": [],
+      "risk": "high",
+      "status": "corrected",
+      "findings": [
+        "H6",
+        "H7",
+        "M6",
+        "M7"
+      ],
+      "note": "Never writes rankDerivedValue. Compared against the market board, never merged into it."
+    },
+    {
+      "id": "market-confidence",
+      "concept": "Scraper market confidence",
+      "canonical": "Dynasty Scraper.py::_market_confidence",
+      "units": "fraction, 0.2-1.0",
+      "range": [
+        0.2,
+        0.594
+      ],
+      "consumers": [
+        "scraper composite adjustments",
+        "src/trade/finder.py degraded fallback"
+      ],
+      "duplicates": [],
+      "risk": "low",
+      "status": "documented-divergence",
+      "findings": [
+        "M8"
+      ],
+      "note": "Divisor 8.0 is a fossil of the ~10-site era; with the deliberate 2-source model confidence is structurally capped at 0.594. Known debt D15, measured in docs/open-modeling-decisions.md section 3, deliberately deferred."
+    }
+  ]
+}

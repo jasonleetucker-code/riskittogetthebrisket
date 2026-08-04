@@ -5525,10 +5525,29 @@ async def run(progress_callback=None):
         if not vals:
             return [(1, float(fallback_top))]
         ranks = [1, 3, 6, 12, 24, 48, 72, 96]
-        pts = []
-        for rank in ranks:
-            idx = min(len(vals) - 1, max(0, rank - 1))
-            pts.append((rank, vals[idx]))
+        # Sample ONLY ladder rungs a real observation backs.  The old code
+        # clamped idx to len(vals) - 1, so a bucket shallower than 96 emitted
+        # duplicate anchors at every rung past its depth — the live DL bucket
+        # (27 IDPTradeCalc defenders on 2026-08-04) ended
+        # (48, 768), (72, 768), (96, 768).  _interp_anchor_points extrapolates
+        # past the last anchor with the log-log slope of the final two, which
+        # was then exactly 0: every rank from 27 out to infinity priced at
+        # 768.  Dropping the unbacked rungs leaves that slope the ladder's own
+        # measured decay — for the DL bucket, 12 → 24.
+        #
+        # Deliberately NOT terminated on vals[-1].  The ladder is log-spaced,
+        # so its final segment always spans a rank factor of 1.33–3 and the
+        # extrapolated slope has a real lever arm.  The deepest observation
+        # can sit an arbitrarily short distance past the last rung — 24 → 27
+        # here, a 12% rank span carrying a 37% value drop, because the SAMPLE
+        # runs out at 27, not the market.  Extrapolating that slope prices
+        # IDP rank 150 at 1.0.
+        pts = [(rank, vals[rank - 1]) for rank in ranks if rank <= len(vals)]
+        if len(pts) < 2 and len(vals) >= 2:
+            # Too shallow for two rungs.  The deepest observation is then the
+            # only second anchor on offer, and a single anchor would price
+            # every rank at the top-of-bucket value.
+            pts.append((len(vals), vals[-1]))
         mono = []
         for rank, value in pts:
             if mono:
@@ -5605,8 +5624,27 @@ async def run(progress_callback=None):
     # so they should not define value-site cap anchors.
     _idp_synthetic_value_sites = {"dlfIdp", "dlfRidp"}
 
-    # Default site weights (market-based sources weighted higher)
-    SITE_WEIGHTS = {
+    # ── Legacy composite site weights — NOT the canonical blend weights ──
+    #
+    # These are non-uniform on purpose (market-based sources weighted
+    # higher), and they are consumed by exactly two things, both of which
+    # live inside this scraper:
+    #   1. the weighted mean behind `_composite` (see `wNorms` below), and
+    #   2. `_site_weight_for_pick` / `_weighted_site_blend` for pick rows.
+    # Nothing else reads them.  They never reach `rankDerivedValue`: the live
+    # board is produced by `src/api/data_contract.py::_compute_unified_rankings`
+    # off `canonicalSiteValues`, and ITS blend registry
+    # (`data_contract.py::_RANKING_SOURCES`) is all 1.0 by policy.  So this
+    # table and the blend weights are two different concepts that happen to
+    # share the word "weight"; changing a number here moves `_composite` (and
+    # the composite-scale fallback that still reaches users through it) and
+    # nothing else.
+    #
+    # Third "source weight" concept for completeness:
+    # `config/weights/default_weights.json` is historical documentation —
+    # nothing loads it.  Do not reconcile these three by editing values; they
+    # are not supposed to agree.
+    LEGACY_COMPOSITE_SITE_WEIGHTS = {
         "ktc": 1.3,
         "fantasyCalc": 1.0,
         "dynastyDaddy": 1.0,
@@ -5796,13 +5834,27 @@ async def run(progress_callback=None):
     RANK_CURVE_MIN_SOURCE_COUNT = 10
     RANK_CURVE_MIN_TARGET_COUNT = 24
 
+    # No-information percentile.  This scale runs 0.0 = best rank in the
+    # observed distribution → 1.0 = worst, and feeds
+    # _value_at_percentile_desc, where 0.0 buys the top of the target curve
+    # and 1.0 the tail.  A calibration set with zero or one observation
+    # cannot place a rank anywhere on it: with n <= 1 the general
+    # pos / (n - 1) normalization degenerates and every rank — 1st or 400th
+    # — would map to the same point.  The two degenerate branches used to
+    # disagree about WHICH point (empty → 1.0, single → 0.0), i.e. opposite
+    # ends of the same scale as "no information" defaults in one function.
+    # Both now return the midpoint: neither end is honest here, and the
+    # midpoint is the only answer that does not assert a rank we do not have.
+    # Note the live gate in _calibrated_rank_to_value
+    # (len(source_ranks) >= RANK_CURVE_MIN_SOURCE_COUNT, currently 10) means
+    # neither branch is reachable in production — these are guards.
     def _rank_percentile(rank_value, sorted_ranks):
         ranks = sorted_ranks or []
         if not ranks:
-            return 1.0
+            return 0.5  # no information — see comment above
         n = len(ranks)
         if n <= 1:
-            return 0.0
+            return 0.5  # one observation is no information either
         r = float(rank_value)
         left = bisect.bisect_left(ranks, r)
         right = bisect.bisect_right(ranks, r)
@@ -5952,7 +6004,7 @@ async def run(progress_callback=None):
     )
 
     # Build site stats from the same transformed values used by composite math.
-    _site_keys_for_stats = set(site_key_map.values()) | set(SITE_WEIGHTS.keys())
+    _site_keys_for_stats = set(site_key_map.values()) | set(LEGACY_COMPOSITE_SITE_WEIGHTS.keys())
     for dash_key in sorted(_site_keys_for_stats):
         if dash_key in _ROOKIE_ONLY_DLF_SITE_KEYS:
             continue
@@ -6033,6 +6085,40 @@ async def run(progress_callback=None):
         conf = _clampf((site_score * 0.65) + (cv_score * 0.35), 0.20, 1.00)
         return conf, cv
 
+    def _elite_expansion_multiplier(norms, conf, cv):
+        """Elite-separation expansion factor for the composite.
+
+        `norms` MUST be the population that produced the value this
+        multiplies — i.e. the POST-TRIM list.  The adaptive trim below can
+        drop an edge observation out of the weighted mean; computing the
+        boost decision from the full observation set let that same
+        already-discarded observation decide whether the boost applied.
+        Concretely, with sorted norms [0.60, 0.86, 0.87, 0.92, 0.94] the
+        0.26 bottom gap trims 0.60 out of the value, but the untrimmed
+        median (0.87) still vetoed the boost that the surviving four
+        (median 0.895) had earned.
+        (The mirror case — a trimmed HIGH outlier granting a boost — is
+        unreachable: norms are clamped to [0, 1], so a top gap of
+        OUTLIER_TRIM_GAP forces the untrimmed median below 0.82, under
+        ELITE_NORM_THRESHOLD.  The veto direction is the live one.)
+
+        The count gate follows the same rule: it counts observations that
+        survived into the mean, not observations that were seen.
+        """
+        if len(norms) < 4:
+            return 1.0
+        sorted_vals = sorted(norms)
+        mid = len(sorted_vals) // 2
+        if len(sorted_vals) % 2:
+            median_norm = sorted_vals[mid]
+        else:
+            median_norm = (sorted_vals[mid - 1] + sorted_vals[mid]) / 2.0
+        if median_norm < ELITE_NORM_THRESHOLD:
+            return 1.0
+        agreement = max(0.0, 1.0 - min(cv, 0.30) / 0.30)
+        span = min(1.0, (median_norm - ELITE_NORM_THRESHOLD) / (1.0 - ELITE_NORM_THRESHOLD))
+        return 1.0 + (ELITE_BOOST_MAX * span * agreement * conf)
+
     for name, pdata in players_json.items():
         wNorms = []
         canonical_site_values = {}
@@ -6099,7 +6185,7 @@ async def run(progress_callback=None):
             else:
                 norm = max(0, min(1, site_raw / site_max))
 
-            wNorms.append((norm, SITE_WEIGHTS.get(dash_key, 1.0)))
+            wNorms.append((norm, LEGACY_COMPOSITE_SITE_WEIGHTS.get(dash_key, 1.0)))
 
         if not wNorms:
             continue
@@ -6128,19 +6214,17 @@ async def run(progress_callback=None):
         norm_vals = [n for n, _ in wNorms]
         market_conf, cv = _market_confidence(norm_vals, len(wNorms))
 
-        # Elite-separation expansion: consensus top-tier players should stay near ceiling.
-        if len(norm_vals) >= 4:
-            sorted_vals = sorted(norm_vals)
-            mid = len(sorted_vals) // 2
-            if len(sorted_vals) % 2:
-                median_norm = sorted_vals[mid]
-            else:
-                median_norm = (sorted_vals[mid - 1] + sorted_vals[mid]) / 2.0
-            if median_norm >= ELITE_NORM_THRESHOLD:
-                agreement = max(0.0, 1.0 - min(cv, 0.30) / 0.30)
-                span = min(1.0, (median_norm - ELITE_NORM_THRESHOLD) / (1.0 - ELITE_NORM_THRESHOLD))
-                elite_boost = 1.0 + (ELITE_BOOST_MAX * span * agreement * market_conf)
-                composite *= elite_boost
+        # Elite-separation expansion: consensus top-tier players should stay
+        # near ceiling.  Decided on the trimmed population, because that is
+        # the population `composite` was computed from — see
+        # _elite_expansion_multiplier.  `market_conf` / `cv` above stay
+        # UNTRIMMED on purpose: they are exported as `_marketConfidence` /
+        # `_marketDispersionCV`, i.e. "how many sources saw this player and
+        # how much did they disagree", which is a property of the observed
+        # market and not of our estimator.
+        trimmed_norms = [n for n, _ in trimmed]
+        boost_conf, boost_cv = _market_confidence(trimmed_norms, len(trimmed_norms))
+        composite *= _elite_expansion_multiplier(trimmed_norms, boost_conf, boost_cv)
 
         # Single-source discount
         if len(wNorms) == 1:
@@ -6344,7 +6428,7 @@ async def run(progress_callback=None):
         return None
 
     def _site_weight_for_pick(site_key):
-        return float(SITE_WEIGHTS.get(site_key, 1.0))
+        return float(LEGACY_COMPOSITE_SITE_WEIGHTS.get(site_key, 1.0))
 
     def _weighted_site_blend(site_vals):
         if not isinstance(site_vals, dict) or not site_vals:

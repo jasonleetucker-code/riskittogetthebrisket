@@ -13,12 +13,14 @@ contract data:
 * Pick values: read from the canonical contract's ``playersArray``
   where ``assetClass == "pick"`` and ``rankDerivedValue`` is
   stamped — so the values are already calibrated by the Hill curve.
+  A pick the contract cannot price is emitted UNPRICED; there is no
+  substitute value.  See ``_pick_value_from_contract``.
 * Total budget: scaled to match the default league's workbook total
-  (1200) so the bar chart reads the same.
+  (1200) so the bar chart reads the same.  Only priced picks take
+  part in that normalization.
 
-UI labels this view as "Sleeper-derived, flat per-round valuation"
-so users know it's the backup path, not the richer workbook
-numbers.
+UI labels this view as "Sleeper-derived, contract-priced" so users
+know it's the backup path, not the richer workbook numbers.
 """
 
 from __future__ import annotations
@@ -46,8 +48,10 @@ class SleeperDerivedPick:
     current_owner: str  # display name
     original_owner: str
     is_traded: bool
-    raw_value: float  # canonical 0-9999 rankDerivedValue
-    dollar_value: int  # normalized to budget
+    # ``None`` = the contract does not carry this pick.  Ownership is
+    # still real (it comes from Sleeper), the VALUE is unknown.
+    raw_value: float | None  # canonical 0-9999 rankDerivedValue
+    dollar_value: int | None  # normalized to budget; None when unpriced
 
 
 def _fetch_json(url: str) -> Any:
@@ -72,11 +76,26 @@ def _pick_value_from_contract(
     season: int,
     round_num: int,
     slot: int,
-) -> float:
+) -> float | None:
     """Look up the rankDerivedValue for a specific pick in the
-    canonical contract.  Falls back to interpolation / 0."""
+    canonical contract.  Returns ``None`` when the contract does not
+    carry that pick.
+
+    ``None`` means UNPRICED and callers must treat it as such.  This
+    used to fall through to a hardcoded per-round table
+    (``{1: 7000, 2: 4000, 3: 2000, 4: 1200, 5: 700, 6: 300}``,
+    default 100) and that was not a rare last resort — it was HALF THE
+    BOARD, every day, with a fully valid contract loaded.  The live
+    contract carries current-year slot picks only (72 rows: 12 slots ×
+    6 rounds), so every ``current_season + 1`` pick the caller asks for
+    missed and took a constant.  Those constants sat on the same
+    0-9999 scale as the Hill-calibrated real ones and were normalized
+    into the same $1200 pool, so they diluted every genuine pick's
+    dollar value and shifted every team's ``auctionDollars`` — while
+    the response stamped ``source: "sleeper_derived"`` and claimed both
+    years were covered.  Nothing distinguished invented from real."""
     if not isinstance(contract, dict):
-        return 0.0
+        return None
     arr = contract.get("playersArray")
     target_name = _normalize_pick_name(season, round_num, slot)
     # Try exact match first.
@@ -93,10 +112,7 @@ def _pick_value_from_contract(
         v = row.get("rankDerivedValue") if isinstance(row, dict) else None
         if isinstance(v, (int, float)):
             return float(v)
-    # Fallback: flat per-round value.  Round 1 ≈ 7000, Round 2 ≈ 4000,
-    # Round 3 ≈ 2000, Round 4 ≈ 1200.  Generous but monotonic.
-    flat = {1: 7000.0, 2: 4000.0, 3: 2000.0, 4: 1200.0, 5: 700.0, 6: 300.0}
-    return flat.get(round_num, 100.0)
+    return None
 
 
 def build_sleeper_derived(
@@ -189,40 +205,72 @@ def build_sleeper_derived(
                         original_owner=roster_name_by_id.get(original_rid, f"Team {original_rid}"),
                         is_traded=is_traded,
                         raw_value=value,
-                        dollar_value=0,  # filled after normalization
+                        dollar_value=None,  # filled after normalization
                     )
                 )
 
-    # Normalize to target total.
-    total_raw = sum(p.raw_value for p in picks)
-    scale = (_TARGET_TOTAL_BUDGET / total_raw) if total_raw > 0 else 0.0
-    dollar_values = [p.raw_value * scale for p in picks]
-    # Largest-remainder rounding to hit exactly _TARGET_TOTAL_BUDGET.
-    rounded = _round_to_budget(dollar_values, _TARGET_TOTAL_BUDGET)
+    # Normalize to target total — over the PRICED picks only.  An
+    # unpriced pick contributes nothing to the pool, so it cannot dilute
+    # the dollars of the picks we actually know.  (Before this, the
+    # next season's picks entered the pool at flat-table constants and
+    # took roughly half the budget off the real ones.)
+    priced_indices = [i for i, p in enumerate(picks) if p.raw_value is not None]
+    # ``_round_to_budget`` re-normalizes internally (v × target ÷ Σv), so
+    # it takes the raw 0-9999 values directly; the pre-scale that used to
+    # sit here divided by the same sum a second time and was a no-op.
+    rounded = _round_to_budget(
+        [float(picks[i].raw_value) for i in priced_indices], _TARGET_TOTAL_BUDGET
+    )
+    dollars_by_index = dict(zip(priced_indices, rounded))
     picks = [
-        SleeperDerivedPick(**{**p.__dict__, "dollar_value": int(dv)})
-        for p, dv in zip(picks, rounded)
+        SleeperDerivedPick(**{**p.__dict__, "dollar_value": dollars_by_index.get(i)})
+        for i, p in enumerate(picks)
     ]
 
     team_totals: dict[str, int] = {}
     for p in picks:
-        team_totals[p.current_owner] = team_totals.get(p.current_owner, 0) + p.dollar_value
+        team_totals[p.current_owner] = team_totals.get(p.current_owner, 0) + (p.dollar_value or 0)
     # Pad missing teams (owners with no picks).
     for name in roster_name_by_id.values():
         team_totals.setdefault(name, 0)
+
+    unpriced = [p for p in picks if p.raw_value is None]
 
     return {
         "season": current_season,
         "numTeams": actual_num_teams,
         "draftRounds": draft_rounds,
         "totalBudget": _TARGET_TOTAL_BUDGET,
-        # This path builds picks for BOTH the current and next season
-        # (see the ``for season in (current_season, current_season + 1)``
-        # loop above), so both years are already in ``teamTotals``.
-        # Consumers must not also add roster picks for these years.
-        "coveredPickYears": [int(current_season), int(current_season) + 1],
+        # Seasons that actually contribute dollars to ``teamTotals``.
+        # Consumers must not also add roster picks for these years or
+        # they will double-count them.
+        #
+        # This used to be the LOOP BOUNDS —
+        # ``[current_season, current_season + 1]`` unconditionally — which
+        # asserted coverage of a season the contract had never priced.
+        # It is now derived from what was priced, so a season the
+        # contract cannot answer for drops out and the consumer is free
+        # to source those picks from the board itself.
+        #
+        # The predicate is "at least one pick priced", not "every pick
+        # priced", because that is what the double-count guard needs:
+        # the year is in ``teamTotals``.  A partially-priced season would
+        # otherwise be re-added wholesale on top of the dollars it
+        # already contributed.  ``unpricedPickCount`` /
+        # ``unpricedPickYears`` below carry the completeness signal that
+        # this field deliberately does not.
+        "coveredPickYears": sorted({p.season for p in picks if p.raw_value is not None}),
+        # How much of the generated board the contract could not price.
+        # Same posture as ``metadata.assetsUnpricedByBoard`` in
+        # src/trade/finder.py: assets the board declines to price leave
+        # the pool, and the count says so rather than them vanishing
+        # silently.  Stamped unconditionally — zero and "we never
+        # checked" must not read the same.
+        "pricedPickCount": len(picks) - len(unpriced),
+        "unpricedPickCount": len(unpriced),
+        "unpricedPickYears": sorted({p.season for p in unpriced}),
         "source": "sleeper_derived",
-        "viewLabel": "Sleeper-derived, flat per-round valuation",
+        "viewLabel": "Sleeper-derived, contract-priced",
         "teamTotals": [
             {"team": t, "auctionDollars": d}
             for t, d in sorted(team_totals.items(), key=lambda kv: -kv[1])
@@ -237,8 +285,13 @@ def build_sleeper_derived(
                 "originalOwner": p.original_owner,
                 "isTraded": p.is_traded,
                 "isExpansion": False,
+                # ``None`` (not 0) when the contract could not price the
+                # pick, plus an explicit flag so a consumer never has to
+                # infer "unpriced" from a falsy dollar amount — a $0
+                # rounding outcome on a real value is a different state.
                 "adjustedDollarValue": p.dollar_value,
                 "dollarValue": p.dollar_value,
+                "isUnpriced": p.raw_value is None,
             }
             for p in picks
         ],
@@ -249,7 +302,15 @@ def _round_to_budget(values: list[float], target_total: int) -> list[int]:
     """Largest-remainder rounding to hit exactly ``target_total``.
 
     Duplicates the behavior of server.py::_round_to_budget for
-    the workbook path — same math, same invariant (∑ = target)."""
+    the workbook path — same math, same invariant (∑ = target).
+
+    The caller passes only the picks the contract could price, so this
+    routinely sees a SUBSET of the generated board.  That is fine and
+    the invariant is unchanged: ``scaled`` is re-normalized against its
+    own sum, ``Σ frac == remainder`` bounds the remainder below
+    ``len(values)`` so the largest-remainder slice never truncates, and
+    an empty list (nothing priced at all) returns ``[]`` rather than
+    manufacturing a distribution."""
     if not values:
         return []
     total = sum(values)

@@ -860,6 +860,26 @@ export function buildTopWaiverPool(
 // ~7.5%, etc.  ``topValueInPool`` defaults to the candidate's own
 // value (so a single-player query reads as the full 30%); pass the
 // actual top of the pool for relative scaling.
+//
+// ``leagueBudget`` is the pool the bid is sized against.  The callers
+// on /waivers deliberately pass a nominal $100 (the hint is a "share
+// of a full budget" baseline); the server's counterpart sizes the same
+// formula against the manager's REMAINING balance.  Same arithmetic,
+// caller's choice of pool — see ``_compute_faab_bid``'s docstring.
+//
+// PARITY: the two implementations must agree to the dollar, so the
+// rounding rule is spelled out here rather than left to Math.round.
+// Both sides round half UP from the unrounded aggressive figure; see
+// ``roundHalfUp`` below and tests/fixtures/faab_bid_parity_cases.json.
+
+// Half-up to whole dollars.  ``Math.round`` already rounds half up for
+// positive numbers, but Python's ``round`` does not (banker's
+// rounding), so neither side may rely on its language default — that
+// mismatch is exactly what made the hint and the server bid differ by
+// $1 at every .5 boundary.
+function roundHalfUp(value) {
+  return Math.floor(value + 0.5);
+}
 
 export function computeFaabHint(
   candidateValue,
@@ -872,8 +892,12 @@ export function computeFaabHint(
   const top = Math.max(v, Number(topValueInPool) || 0);
   const share = top > 0 ? v / top : 1.0;
   const aggressivePct = 0.05 + 0.25 * share;
-  const aggressive = Math.max(1, Math.round(leagueBudget * aggressivePct));
-  const reasonable = Math.max(1, Math.round(aggressive * 0.70));
-  const lowball = Math.max(1, Math.round(aggressive * 0.35));
+  // Round ONCE, at the end, from the unrounded aggressive figure —
+  // scaling the rounded number made `reasonable` 70% of $18 rather
+  // than 70% of $17.50.
+  const aggressiveRaw = leagueBudget * aggressivePct;
+  const aggressive = Math.max(1, roundHalfUp(aggressiveRaw));
+  const reasonable = Math.max(1, roundHalfUp(aggressiveRaw * 0.70));
+  const lowball = Math.max(1, roundHalfUp(aggressiveRaw * 0.35));
   return { aggressive, reasonable, lowball };
 }

@@ -188,14 +188,36 @@ Error behavior on endpoints:
   - This resolves Defect D-2 (`docs/python-coverage-audit.md`), which
     was open between "503 per this table" and "keep the fallback and
     fix the doc".  Fixing the doc is the answer, and this is it.
-  - What was NOT acceptable, and is fixed: with no contract at all,
-    `_pick_value_from_contract` fell through to a hardcoded
-    7000/4000/2000/1200-by-round table, so the endpoint returned 200
-    and a full board of invented numbers indistinguishable from the
-    Hill-curve-calibrated real ones.  That is the case the 503 covers.
-  - Pinned by `tests/api/test_draft_capital_data_not_ready.py`, which
+  - The 503 covers the no-contract case only.  This section used to
+    claim that was also the only way to reach the hardcoded
+    7000/4000/2000/1200-by-round table in `_pick_value_from_contract`
+    — i.e. that the invented values sat behind the guard.  **That was
+    false**, and it hid a live defect (audit finding C1): the fallback
+    generates picks for `current_season` AND `current_season + 1`,
+    while the live contract carries current-year slot picks only (72
+    rows: 12 slots × 6 rounds).  Every next-year pick therefore missed
+    the lookup and took a constant **with a fully valid contract
+    loaded** — half the emitted board — and those constants were
+    normalized into the same $1200 pool as the real values, diluting
+    every genuine pick's dollars and shifting every team's
+    `auctionDollars`.  A 503 gated none of it.
+  - Fixed by removing the table outright.  `_pick_value_from_contract`
+    returns `None` on a miss; `build_sleeper_derived` excludes unpriced
+    picks from the dollar normalization (so they cannot dilute) and
+    emits them with `dollarValue: null` +
+    `isUnpriced: true` — ownership from Sleeper is still real, only the
+    value is unknown.  `coveredPickYears` is now derived from what was
+    actually priced instead of the loop bounds, and
+    `pricedPickCount` / `unpricedPickCount` / `unpricedPickYears` make
+    the omission visible (same posture as
+    `metadata.assetsUnpricedByBoard` in `src/trade/finder.py`).
+    Consequence worth knowing: the $1200 pool now lands entirely on the
+    current class, so a real pick's dollar value is roughly double what
+    this path used to report.
+  - Pinned by `tests/api/test_draft_capital_data_not_ready.py` (which
     fails if a future change re-resolves D-2 by accident in either
-    direction.
+    direction) and `tests/api/test_draft_capital_fallback.py` (which
+    pins the unpriced-exclusion arithmetic).
 
 Rule for new code:
 - Need rankings / values / player data?  →  resolve the scoring

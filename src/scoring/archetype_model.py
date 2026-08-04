@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, Iterable, Tuple
 
-from .feature_engineering import infer_scoring_tags
+from .feature_engineering import RECEPTION_DEPENDENCY_TAG, infer_scoring_tags
 
 
 def infer_archetype(bucket: str, features: Dict[str, float]) -> Tuple[str, str]:
@@ -14,7 +14,11 @@ def infer_archetype(bucket: str, features: Dict[str, float]) -> Tuple[str, str]:
             return "dual_threat_qb", "mobile"
         return "pocket_qb", "passing"
     if p == "RB":
-        if f.get("reception_dependency", 0.0) >= 0.18:
+        # Shares the ``reception_sensitive`` cut rather than carrying a
+        # second, looser 0.18 of its own — the two read the same
+        # feature, and a back who is a ``receiving_rb`` here but not
+        # reception-sensitive there is an incoherent pair of labels.
+        if f.get("reception_dependency", 0.0) >= RECEPTION_DEPENDENCY_TAG:
             return "receiving_rb", "receiving"
         if f.get("goal_line_proxy", 0.0) >= 0.45:
             return "goal_line_rb", "power"

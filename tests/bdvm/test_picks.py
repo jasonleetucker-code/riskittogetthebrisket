@@ -41,6 +41,34 @@ class TestPickValues(unittest.TestCase):
         values = [pick_value(s, PARAMS)["ev"] for s in (1, 3, 6, 12, 16, 24, 36)]
         self.assertEqual(values, sorted(values, reverse=True))
 
+    def test_deep_picks_are_not_all_the_same_pick(self):
+        """Past the last tabulated slot the table is EXTRAPOLATED.
+
+        Nearest-neighbour snapping made every slot from 36 on return the
+        3.12 pick's EV of 308 — in a 12-team league that is every pick in
+        rounds 4+, all priced identically (audit M7).  The tail now
+        continues the last measured segment's per-slot geometric decay.
+        """
+        deep = [pick_value(s, PARAMS)["ev"] for s in (36, 40, 48, 60, 72, 120)]
+        self.assertEqual(deep, sorted(deep, reverse=True))
+        self.assertEqual(len(set(round(v, 3) for v in deep)), len(deep))
+        # Hand-derived at slot 48 = 36 + one full 24→36 span, so every
+        # component decays by exactly its 24→36 ratio:
+        #   p_hit 0.07·(0.07/0.13)      = 0.0376923…
+        #   v_hit 2400·(2400/3000)      = 1920
+        #   p_mid 0.20·(0.20/0.26)      = 0.1538461…
+        #   v_mid  700·(700/1000)       = 490
+        #   EV = 0.0376923·1920 + 0.1538461·490 = 147.7538…  (balanced
+        #   carries pick_premium 1.0, class strength 1.0, no discount)
+        p48 = pick_value(48, PARAMS)
+        self.assertAlmostEqual(p48["p_hit"], 0.07 * (0.07 / 0.13), places=9)
+        self.assertAlmostEqual(p48["ceiling"], 1920.0, places=6)
+        self.assertAlmostEqual(p48["median"], 490.0, places=6)
+        self.assertAlmostEqual(p48["ev"], 147.7538461538, places=6)
+        # A pick 50 rounds deep is worth ~nothing, not 308.
+        self.assertLess(pick_value(600, PARAMS)["ev"], 1.0)
+        self.assertGreaterEqual(pick_value(600, PARAMS)["ev"], 0.0)
+
     def test_rebuilder_premium_ordering(self):
         for slot in (1, 12, 36):
             c = pick_value(slot, PARAMS, strategy="contender")["ev"]

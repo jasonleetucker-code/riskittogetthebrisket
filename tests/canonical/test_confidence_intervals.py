@@ -104,6 +104,65 @@ def test_band_monotonic_across_p10_p50_p90():
     assert band.p10 <= band.p50 <= band.p90
 
 
+def test_source_weights_actually_move_the_quantiles():
+    """``source_weights`` used to be a documented no-op: the re-weight
+    block forced every weight back to 1.0 and its second loop had no
+    body at all.  A caller could hand the module a weight map and get
+    the unweighted band back with no error and no warning.
+
+    Hand-derived, with ``_rank_to_value`` (rank r → 10000 − (r−1)×20):
+
+        s1 rank   1 → 10000
+        s2 rank  51 →  9000
+        s3 rank 101 →  8000
+
+    Unweighted, the three sit at weight-span midpoints 16.67 / 50 /
+    83.33, so p50 lands exactly on the middle source → 9000.
+
+    Weighting s3 at 8.0 (total weight 10) moves the midpoints to
+    40 / 85 / 95, so p50 interpolates inside the first span:
+        8000 + (50 − 40)/(85 − 40) × (9000 − 8000) = 8222.22
+    """
+    source_ranks = {"s1": 1, "s2": 51, "s3": 101}
+    r2v = _rank_to_value()
+
+    flat = ci.compute_value_band(
+        canonical_value=8300.0,
+        source_ranks=source_ranks,
+        rank_to_value=r2v,
+    )
+    assert flat.method == "bracket"
+    assert flat.p50 == 9000.0
+
+    weighted = ci.compute_value_band(
+        canonical_value=8300.0,
+        source_ranks=source_ranks,
+        rank_to_value=r2v,
+        source_weights={"s3": 8.0},
+    )
+    assert weighted.method == "bracket"
+    assert abs(weighted.p50 - 8222.222222) < 1e-4
+    assert weighted.p10 == 8000.0
+    assert weighted.p90 == 9500.0
+
+
+def test_source_weights_ignore_unusable_entries():
+    """Non-numeric / non-positive weights fall back to the 1.0 default
+    rather than poisoning the quantile positions."""
+    source_ranks = {"s1": 1, "s2": 51, "s3": 101}
+    r2v = _rank_to_value()
+    flat = ci.compute_value_band(
+        canonical_value=8300.0, source_ranks=source_ranks, rank_to_value=r2v
+    )
+    junk = ci.compute_value_band(
+        canonical_value=8300.0,
+        source_ranks=source_ranks,
+        rank_to_value=r2v,
+        source_weights={"s3": "heavy", "s2": 0.0, "s1": -4.0, "absent": 9.0},
+    )
+    assert junk.to_dict() == flat.to_dict()
+
+
 def test_stamp_bands_on_players_adds_field_without_mutation():
     players = [
         {

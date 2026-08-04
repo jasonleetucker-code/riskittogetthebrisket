@@ -529,7 +529,14 @@
   "lambda_market_display": 0.25,
   "lambda_market_clearing": 0.5,
   "liquidity": {
-   "base": 0.35,
+   "_comment": [
+    "liquidity = clip(base - dispersion_coeff * dispersion, clip_lo, clip_hi).",
+    "Dispersion SUBTRACTS: cross-source disagreement about the price makes an",
+    "asset harder to transact, and must move the same direction as its effect",
+    "on tau_market. base 1.0 keeps a typical row (dispersion 0.20) at 0.68,",
+    "where the previous additive form put it."
+   ],
+   "base": 1.0,
    "dispersion_coeff": 1.6,
    "clip_lo": 0.2,
    "clip_hi": 1.0

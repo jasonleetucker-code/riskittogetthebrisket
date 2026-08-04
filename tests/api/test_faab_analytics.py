@@ -203,6 +203,52 @@ def test_position_bids_resolve_via_nfl_players():
     assert out["positionBids"]["RB"]["avg"] == 8.0
 
 
+def test_multi_add_split_is_aggregated_at_full_precision():
+    """A $10 bid across three adds is $3.33 a head, not $3.
+
+    Each split used to be ``int(round(per_player_bid))`` BEFORE being
+    stored, so the three shares of a $10 bid added back up to $9 — a
+    10% understatement of what the league actually paid at that
+    position, feeding straight into the recommender's per-position
+    calibration blend.
+    """
+    nfl = {
+        "WR1": {"position": "WR"},
+        "WR2": {"position": "WR"},
+        "WR3": {"position": "WR"},
+    }
+    snap = _snap(
+        [
+            _season(
+                txs_by_week={
+                    1: [_waiver_tx(bid=10, adds={"WR1": 1, "WR2": 1, "WR3": 1})],
+                }
+            )
+        ],
+        nfl_players=nfl,
+    )
+    out = faab_analytics.summarize_league_faab(snap)
+    wr = out["positionBids"]["WR"]
+    assert wr["count"] == 3
+    # 10 / 3 = 3.3333… → 3.33 after the display round.
+    assert wr["avg"] == 3.33
+    # min/max are whole dollars for display, rounded not truncated.
+    assert wr["min"] == 3
+    assert wr["max"] == 3
+
+
+def test_two_way_split_of_an_odd_bid_keeps_the_half():
+    """$25 across two adds is $12.50 each — the display average must
+    be 12.5, not the 12 that two rounded-down halves produced."""
+    nfl = {"RB1": {"position": "RB"}, "RB2": {"position": "RB"}}
+    snap = _snap(
+        [_season(txs_by_week={1: [_waiver_tx(bid=25, adds={"RB1": 1, "RB2": 1})]})],
+        nfl_players=nfl,
+    )
+    out = faab_analytics.summarize_league_faab(snap)
+    assert out["positionBids"]["RB"]["avg"] == 12.5
+
+
 def test_idp_positions_normalize_to_base_buckets():
     nfl = {
         "DT1": {"position": "DT"},

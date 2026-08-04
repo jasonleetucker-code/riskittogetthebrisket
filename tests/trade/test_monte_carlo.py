@@ -76,6 +76,40 @@ def test_higher_correlation_widens_spread_of_delta():
     assert high.std_delta >= low.std_delta * 0.95
 
 
+def test_exact_ties_are_split_evenly_not_credited_to_b():
+    """``winProbA`` counted ``d > 0`` while ``winProbB`` was reported as
+    ``1 − winProbA``, so every exact tie was handed to side B in full.
+
+    A degenerate band (p10 = p50 = p90) makes ``_triangular_draw``
+    return the same number for every uniform draw, so both sides total
+    exactly 1000 in all 500 sims and the delta is 0.0 every time.  The
+    old code returned winProbA 0.0 / winProbB 1.0 — a clean sweep for B
+    on a trade that is dead even by construction.
+    """
+    flat_a = mc.TradePlayer(
+        name="A", team="BUF", position_group="offense", p10=1000.0, p50=1000.0, p90=1000.0
+    )
+    flat_b = mc.TradePlayer(
+        name="B", team="BUF", position_group="offense", p10=1000.0, p50=1000.0, p90=1000.0
+    )
+    result = mc.simulate_trade([flat_a], [flat_b], n_sims=500, seed=3)
+    assert result.mean_delta == 0.0
+    assert result.win_prob_a == 0.5
+    d = result.to_dict()
+    assert d["winProbA"] == 0.5
+    assert d["winProbB"] == 0.5
+
+
+def test_module_does_not_claim_a_numpy_fast_path():
+    """The docstring advertised "NumPy acceleration ... for the hot
+    loop"; the module has never imported numpy.  Pinned so the claim
+    can't drift back in ahead of the implementation."""
+    doc = (mc.__doc__ or "").lower()
+    assert "numpy acceleration" not in doc
+    assert not hasattr(mc, "np")
+    assert not hasattr(mc, "numpy")
+
+
 def test_empty_sides_do_not_crash():
     result = mc.simulate_trade([], [], n_sims=100)
     assert result.win_prob_a == 0.5
