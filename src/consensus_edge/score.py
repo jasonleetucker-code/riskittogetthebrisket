@@ -154,6 +154,21 @@ def composite(
     opportunity signal on its own describes a player without saying
     anything about whether he is mispriced, and calling that a Buy would
     be a category error.
+
+    Three sets, deliberately distinct, all reported:
+
+    ``componentsAbsent``
+        no value at all — the data did not exist.
+    ``componentsZeroWeight``
+        a real value the model does not act on.  Excluded from
+        ``componentsPresent``, and therefore from coverage, confidence
+        and conflict — see :func:`detect_conflict`.
+    ``componentsPresent``
+        what actually produced the score.
+
+    Collapsing the middle set into either of the others is the bug this
+    shape exists to prevent: into ``absent`` it hides a real measurement,
+    into ``present`` it lets a rejected signal raise confidence.
     """
     cfg = params.get("composite") or {}
     weights = cfg.get("weights") or {}
