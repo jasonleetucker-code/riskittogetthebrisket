@@ -840,6 +840,95 @@ just under (29.2).  Once the user explicitly asks for more rows —
 because those states exist precisely to defeat the cap.  Getting 500+
 rows to 30 FPS is the windowing work above.
 
+### Correction: the numbers above were measured on Next 15.5.22
+
+Round 6 was measured, written up, and PR'd against Next **15.5.22**.  While
+it was open, `main` gained #712 (Next **16.2.12**, built with `--webpack`)
+and #703 (a bundle gate rewritten to resolve chunks from disk, because
+Next 16 emits no manifest mapping an app-router page key to its chunks).
+Merging `main` in changed the ground under every figure in this section.
+
+Two consequences, both load-bearing:
+
+* **The first-load table is a Next 15 measurement.**  The *direction* of
+  every change holds — the same code is split the same way — but the
+  absolute KB figures are not reproducible on the merged branch.  Re-measure
+  before citing them.
+* **`firstLoadChunks()` is gone**, and deliberately.  It read
+  `manifest.pages["/layout"]`, which no longer exists.  The disk-derived
+  substitute ("every `.js` sitting directly in `static/chunks/`") was
+  implemented and measured, and it is *wrong*: a dynamic import emits its
+  chunk there too, so the metric counts on-demand code as always-loaded.
+  It scored round 6's own refactor as +213 KB shared while `/league`'s page
+  slice fell 163.4 → 37.8 KB — an improvement reported as a regression,
+  which is precisely the failure this section describes.  A number nothing
+  can contradict is worse than no number, so the shared graph is left
+  unmeasured until it can be measured truthfully.
+
+So the blind spot round 6 identified is **real and still open**.  What
+changed is that the first attempt at an instrument was retracted rather
+than shipped wrong.
+
+### The SSR duplication `dynamic()` caused, and what actually caught it
+
+Phase 2 shipped a defect that no measurement in this document would have
+found, and it is the most useful thing in this section.
+
+`dynamic()` is `React.lazy`, which needs a Suspense boundary.  `AppShell`
+had no local one, so the nearest ancestor was the App Router's — and
+`{children}`, the entire page, renders inside it.  Every route's content
+became deferred streaming content: emitted into React's `<div id="S:1">`
+staging container, moved into place, and the staged copy left behind.
+`/waivers` served **three `<main>` elements**: the shell's, the page's, and
+a hidden second full copy of the page.
+
+The duplicate had no client rects and never reached the accessibility tree.
+It is invisible in a screenshot, in an a11y snapshot, and to a human
+clicking around.  It is still duplicate DOM, duplicate element ids, and
+every page's markup rendered twice — a regression in the exact dimension
+the split existed to improve.
+
+Measured on Next 16.2.12, `/waivers`:
+
+| | checkboxes | `<main>` | `#S:1` |
+|---|---|---|---|
+| static imports | 1 | 2 | absent |
+| `dynamic()` bare | 2 | 3 | **present** |
+| `dynamic()` + local `<Suspense>` | 1 | 2 | absent |
+| imperative `await import()` | 1 | 2 | absent |
+
+`ssr: false` was a red herring — it reproduces with and without.  The fix
+is the imperative-import idiom the repo already used
+(`components/ScreenshotFab.jsx`): no lazy component, so no boundary exists
+to enclose the page, and webpack still emits the separate chunk.  The
+69 KB split is intact.
+
+**What caught it was the E2E safety net, which does not run on PRs** — a
+Playwright strict-mode violation ("resolved to 2 elements") in
+`tests/e2e/specs/waivers-smoke.spec.js`.  `pr-validation.yml` runs pytest,
+vitest and lint; it never opens a browser.  Every metric in this document
+— CLS, LCP, INP, FPS, bundle size — was *unchanged* by a bug that rendered
+every page twice.  Dispatch `e2e.yml` manually on any branch that touches
+the shell.
+
+### A pre-existing flake this surfaced, on `/arbitrage`
+
+`journey-trade.spec.js`'s `/arbitrage` assertion sees two "Pick a team and
+scan" empty states.  It is the same transient staging-container copy, and
+**it is not round 6's doing** — measured over 15 loads each against builds
+of `main` and of the branch:
+
+| build | loads showing the duplicate |
+|---|---|
+| `main` (db3135e2) | 1/15 |
+| round-6 branch | 1/15 |
+
+Identical rate.  `main`'s own e2e runs pass because the spec navigates
+once and the race is ~7% per load; it presented as "flaky, passed on
+retry" on the branch's first run for the same reason.  Left open and
+unfixed rather than silenced — the assertion is correct and the duplicate
+is real.
+
 ### Regression check
 
 25-route sweep plus 5-run medians on the volatile routes.  No CLS
