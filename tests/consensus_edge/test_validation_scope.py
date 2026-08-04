@@ -1,7 +1,9 @@
 """The measured result and the served board must describe the same thing.
 
-`COMPONENT_VALIDATION["mispricing"]` claims rho +0.126 and cites the file
-that produced it. That file was produced by a code path that calls
+`COMPONENT_VALIDATION["mispricing"]` cites the file that produced its
+rho — a null today, +0.126 before the scale repair; either way a number
+about a specific configuration. That file was produced by a code path
+that calls
 `fair_value_index` WITHOUT a `scoring_fit_board`; the service calls it
 WITH one. The two agree today only because the checked-in Sleeper
 directory carries no GSIS ids, so the fit is inert — an accident of the

@@ -20,7 +20,7 @@
 # original PR pins to match what production + dev are actually
 # running on 2026-04-24 — the narrower pins were authored three
 # days earlier and fell behind the live env.
-fastapi~=0.135.0
+fastapi~=0.141.1
 uvicorn~=0.52.0
 
 # HTTP client used by scrapers, Sleeper client, news providers, etc.

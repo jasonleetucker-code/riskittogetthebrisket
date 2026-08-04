@@ -15,6 +15,32 @@ from src.api import feature_flags
 REPO = Path(__file__).resolve().parents[2]
 
 
+def _registered_paths(app) -> set[str]:
+    """Route paths as FastAPI itself publishes them.
+
+    Deliberately reads the OpenAPI schema rather than walking
+    ``app.routes``.  ``app.routes`` is an internal representation and its
+    shape changes: through FastAPI 0.135 an ``include_router`` call left
+    plain routes in the list, so ``{r.path for r in app.routes}`` worked.
+    On 0.141 it leaves an ``_IncludedRouter`` wrapper instead, which has
+    no ``.path`` — so that expression raises ``AttributeError``, and the
+    wrapped routes are not reachable via ``.routes`` or ``.router``
+    either (the attribute is ``original_router``).
+
+    Chasing that attribute would just re-break on the next refactor.
+    ``app.openapi()["paths"]`` is the public, supported answer to "what
+    routes does this app expose", and it reported all five
+    consensus-edge paths correctly on both versions.
+
+    One limit worth naming: this cannot see routes registered with
+    ``include_in_schema=False``.  None of the routes asserted here are,
+    and the HTTP-level tests below are the stronger check regardless —
+    they kept passing throughout the 0.141 upgrade, which is how we knew
+    the routes were fine and only the introspection was broken.
+    """
+    return set((app.openapi().get("paths") or {}).keys())
+
+
 class _Base(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -41,38 +67,70 @@ class _Base(unittest.TestCase):
 
 
 class TestFlagDefault(_Base):
-    def test_the_flag_defaults_on_and_the_evidence_exists(self):
-        """ON since 2026-08-04, and only because the evidence arrived.
+    def test_the_default_is_whatever_the_committed_gate_says(self):
+        """The default is not a judgement call — it reads the gate.
 
-        This test asserted OFF for as long as the composite rested on one
-        measured component and two declared priors. What changed is not
-        a judgement call: Opportunity was measured and zeroed, and the
-        board a user actually sees was scored — the top-20 buy list
-        returns a median +3.59% cohort-excess over 7 non-overlapping
-        folds, beating a random-20 draw in 6 of 7.
+        This asserted OFF, then ON (on a top-20 study returning +3.59%),
+        then OFF again once that study was re-run against a board whose
+        IDP rows were no longer priced on a nonexistent scale (ADR-021 /
+        ADR-023). Three flips in two days is exactly why the assertion
+        should not be a hardcoded boolean anyone can edit to match the
+        code.
 
-        The flag flips only alongside a committed measurement, so this
-        asserts both. Turning it on without one should fail here.
+        So it is derived: the flag may default ON only if EVERY committed
+        board-validation study recommends shipping. Flipping the default
+        without a passing re-run fails here, and committing a failing
+        re-run while the flag is on fails here too — which is the
+        direction that actually went wrong.
         """
-        self.assertTrue(feature_flags._DEFAULTS["consensus_edge"])
+        import json
+
         measurements = sorted(
             (REPO / "docs" / "measurements").glob("consensus-edge-board-validation-*.json")
         )
         self.assertTrue(
             measurements,
-            "the flag is on with no committed board-validation measurement behind it",
+            "no committed board-validation measurement to read a verdict from",
+        )
+        verdicts = {
+            path.name: (json.loads(path.read_text()).get("decision") or {}).get("recommendation")
+            for path in measurements
+        }
+        # `_decide` emits "ship it (flag ON)", "do not ship yet", or an
+        # explicit "inconclusive — ..."; only the first permits ON.
+        ships = all(str(v or "").startswith("ship it") for v in verdicts.values())
+        self.assertEqual(
+            bool(feature_flags._DEFAULTS["consensus_edge"]),
+            ships,
+            f"the flag default and the committed gate disagree. Verdicts: {verdicts}",
         )
 
-    def test_what_is_still_unvalidated_is_stated_rather_than_implied(self):
-        # Shipping ON does not mean shipping unqualified. The sell side
-        # carries no measured edge and every payload has to say so.
+    def test_what_is_unvalidated_is_stated_rather_than_implied(self):
+        # The sell side carries no measured edge and every payload has to
+        # say so — true whether the flag is on or off, since anyone
+        # evaluating it with the env override sees the same payloads.
         from src.consensus_edge import service
 
         self.assertFalse(service.SELL_SIDE_VALIDATION["validated"])
         self.assertTrue(service.SELL_SIDE_VALIDATION["note"])
 
+    def test_no_component_claims_a_positive_result_it_does_not_have(self):
+        # `validated: True` drives the UI's badge. A component may only
+        # carry it with an `outcome` of "positive" and an evidence file
+        # that exists — the exact combination `mispricing` lost when its
+        # rho was re-measured on the repaired board.
+        from src.consensus_edge import score
+
+        for name, meta in score.COMPONENT_VALIDATION.items():
+            if not meta.get("validated"):
+                continue
+            self.assertEqual(meta.get("outcome"), "positive", name)
+            evidence = meta.get("evidence")
+            self.assertTrue(evidence, f"{name} claims validated with no evidence file")
+            self.assertTrue((REPO / str(evidence)).is_file(), f"{name}: {evidence} is missing")
+
     def test_routes_are_registered(self):
-        paths = {r.path for r in server.app.routes}
+        paths = _registered_paths(server.app)
         self.assertIn("/api/consensus-edge/players", paths)
         self.assertIn("/api/consensus-edge/top", paths)
         self.assertIn("/api/consensus-edge/methodology", paths)
@@ -111,10 +169,19 @@ class TestHonestyOfThePayload(_Base):
         body = self.client.get("/api/consensus-edge/methodology").json()
         self.assertIn("market movement", body["validationTarget"])
 
-    def test_only_mispricing_is_marked_validated(self):
+    def test_the_served_validation_flags_match_the_registry(self):
+        # This asserted the validated set was exactly {"mispricing"},
+        # which stopped being true when that component's rho was
+        # re-measured on the scale-repaired board (ADR-023). What the
+        # endpoint owes a caller is that it reports the registry
+        # faithfully — not that any particular component is in it.
+        from src.consensus_edge import score
+
         components = self.client.get("/api/consensus-edge/methodology").json()["components"]
-        validated = {k for k, v in components.items() if v["validated"]}
-        self.assertEqual(validated, {"mispricing"})
+        self.assertEqual(set(components), set(score.COMPONENT_VALIDATION))
+        for name, meta in score.COMPONENT_VALIDATION.items():
+            self.assertEqual(components[name]["validated"], bool(meta["validated"]), name)
+            self.assertEqual(components[name]["outcome"], meta["outcome"], name)
 
     def test_every_response_carries_a_model_version_and_param_set(self):
         body = self.client.get("/api/consensus-edge/methodology").json()
