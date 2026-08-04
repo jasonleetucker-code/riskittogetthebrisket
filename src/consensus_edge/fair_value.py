@@ -55,6 +55,7 @@ board once.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Iterable
 
 from src.api.data_contract import build_api_data_contract, expand_correlation_groups
@@ -82,6 +83,7 @@ def leave_one_out_board(
     *,
     exclude: Iterable[str],
     extra_overrides: dict[str, dict[str, Any]] | None = None,
+    csv_root: "Path | None" = None,
 ) -> dict[str, Any]:
     """Build a contract with ``exclude`` (and everything correlated) removed.
 
@@ -105,6 +107,7 @@ def leave_one_out_board(
         raw_payload,
         source_overrides=overrides,
         suppress_market_corridor_clamp=True,
+        csv_root=csv_root,
     )
 
 
@@ -142,6 +145,7 @@ def fair_value_index(
     raw_payload: dict[str, Any],
     *,
     anchors: dict[str, str] | None = None,
+    csv_root: "Path | None" = None,
 ) -> dict[str, dict[str, Any]]:
     """Fair value + market value per player, each free of its own anchor.
 
@@ -157,6 +161,13 @@ def fair_value_index(
 
     One pipeline pass per distinct anchor (two today), not one per row.
 
+    ``csv_root`` MUST be supplied when replaying a historical date.  The
+    pipeline enriches ``canonicalSiteValues`` from ``CSVs/site_raw`` on
+    disk, so omitting it silently mixes today's source values into a past
+    board — look-ahead leakage of the worst kind, because the result
+    still looks like a valid board and would quietly inflate every
+    backtest metric computed from it.
+
     Rows whose asset class has no anchor — picks — are returned with
     ``fairValue`` populated but ``marketValue`` None and an explicit
     reason.  They are still useful to a caller that wants the board; they
@@ -167,7 +178,7 @@ def fair_value_index(
     # The default board supplies asset class, market values, and the row
     # universe.  It is never used as a fair value — that is the whole
     # point — but it is the only board guaranteed to contain every row.
-    default_contract = build_api_data_contract(raw_payload)
+    default_contract = build_api_data_contract(raw_payload, csv_root=csv_root)
     default_rows = {
         _row_key(r): r for r in (default_contract.get("playersArray") or []) if _row_key(r)
     }
@@ -176,7 +187,7 @@ def fair_value_index(
     boards: dict[str, dict[str, dict[str, Any]]] = {}
     excluded_by_anchor: dict[str, list[str]] = {}
     for anchor_key in sorted(set(anchor_map.values())):
-        contract = leave_one_out_board(raw_payload, exclude=[anchor_key])
+        contract = leave_one_out_board(raw_payload, exclude=[anchor_key], csv_root=csv_root)
         boards[anchor_key] = {
             _row_key(r): r for r in (contract.get("playersArray") or []) if _row_key(r)
         }

@@ -3593,6 +3593,7 @@ def _enrich_from_source_csvs(
     players_array: list[dict[str, Any]],
     *,
     parse_errors: list[dict[str, str]] | None = None,
+    csv_root: "Path | None" = None,
 ) -> dict[str, dict[str, dict[str, Any]]]:
     """Fill missing canonicalSiteValues from source CSV exports.
 
@@ -3662,6 +3663,15 @@ def _enrich_from_source_csvs(
 
         grp = canonical_position_group(row.get("position"))
         row_groups_by_key.setdefault(cname, set()).add(grp)
+
+    # ``csv_root`` lets a caller point the same loader at a different
+    # tree of source CSVs.  The one caller is the historical panel
+    # builder (``src/consensus_edge/panel.py``), which materialises the
+    # CSVs as they stood on a past date out of git and needs TODAY's
+    # pipeline to read THAT date's inputs.  Defaults to the repo, so the
+    # live path is untouched.
+    if csv_root is not None:
+        repo = Path(csv_root)
 
     for source_key, cfg in _SOURCE_CSV_PATHS.items():
         if isinstance(cfg, str):
@@ -8531,6 +8541,7 @@ def build_api_data_contract(
     tep_multiplier: float | None = None,
     tep_native_multiplier: float | None = None,
     suppress_market_corridor_clamp: bool = False,
+    csv_root: "Path | None" = None,
     _for_delta: bool = False,
 ) -> dict[str, Any]:
     """Build a full API data contract payload from a raw scraper bundle.
@@ -8715,7 +8726,9 @@ def build_api_data_contract(
     # Enrich players with source CSV values that may be missing from the
     # legacy scraper payload (e.g. KTC scrape failed but CSV exists).
     source_parse_errors: list[dict[str, str]] = []
-    csv_index = _enrich_from_source_csvs(players_array, parse_errors=source_parse_errors)
+    csv_index = _enrich_from_source_csvs(
+        players_array, parse_errors=source_parse_errors, csv_root=csv_root
+    )
 
     # Post-enrichment position guardrail: CSV enrichment happens AFTER
     # _derive_player_row, so the in-row guardrail there runs against an
