@@ -37,6 +37,8 @@ const CONTEXT = {
         name: "Deep Bench Guy",
         position: "WR",
         effectiveCutCost: 300,
+        baseValue: 1500,
+        scarcityMultiplier: 1,
         valueBasis: "board",
       },
       {
@@ -44,6 +46,8 @@ const CONTEXT = {
         name: "Unpriced Body",
         position: "WR",
         effectiveCutCost: 0,
+        baseValue: 1900,
+        scarcityMultiplier: 1,
         valueBasis: "assumedWaiver",
       },
     ],
@@ -146,10 +150,28 @@ describe("the recommendation", () => {
   it("names the roster player each rookie would displace", async () => {
     render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
     // One open roster spot, so the first rookie displaces nobody and the
-    // second takes the cheapest rung.
+    // second takes the cheapest rung — cheapest by RELEASE cost, which is the
+    // quantity the plan was actually charged. Under the ladder model that is
+    // "Deep Bench Guy" at 1500, not the 0-ECC "Unpriced Body" at 1900: ECC
+    // discounts a release by its position's waiver level, and the plan does
+    // not, so the two orderings genuinely differ.
     const table = await screen.findByRole("table");
     expect(within(table).getByText("open spot")).toBeInTheDocument();
     expect(within(table).getByText("Deep Bench Guy")).toBeInTheDocument();
+  });
+
+  it("names the cut it was actually charged for, not the ECC-cheapest one", async () => {
+    // The inconsistency this pins: the backend orders its ladder by ECC
+    // (value OVER waiver level), while the ladder model charges the whole
+    // release value. Showing the ECC order beside a cost taken from the
+    // release order would name a player the plan never released.
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    const table = await screen.findByRole("table");
+    const cells = await within(table).findAllByText(/Deep Bench Guy|Unpriced Body/);
+    // Deep Bench Guy releases for 1500 and Unpriced Body for 1900, so the
+    // first cut charged is Deep Bench Guy — the reverse of the ECC order
+    // (0 then 300) the backend shipped.
+    expect(cells[0].textContent).toContain("Deep Bench Guy");
   });
 
   it("flags a cut whose value the board could not price", async () => {

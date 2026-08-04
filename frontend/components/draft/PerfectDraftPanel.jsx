@@ -33,6 +33,7 @@ import {
   contestedPrice,
   draftPhase,
   evaluateBid,
+  releaseCost,
   optimizeDraft,
   planPositionBalance,
   priceBand,
@@ -189,6 +190,22 @@ export function PerfectDraftPanel({ stats, workspace }) {
     [deferredInput],
   );
 
+  // "The bidding is at $X — do I go?" Both branches come free from the same
+  // solve computeMaxBid already performs; nothing new is modelled here.
+  //
+  // Memoized, and it has to be: evaluateBid runs two knapsacks plus a scan
+  // over every dollar of the budget — the same ~300 ms shape as the main
+  // solve. Recomputing it on every render would re-solve on every keystroke
+  // in the bid box. Declared here, above the early returns, because a hook
+  // after a conditional return is a hook-order violation.
+  const liveBid = useMemo(
+    () =>
+      deferredInput && bidTarget && bidAmount !== ""
+        ? evaluateBid(deferredInput, bidTarget, bidAmount)
+        : null,
+    [deferredInput, bidTarget, bidAmount],
+  );
+
   const phase = draftPhase(stats);
   const realized = useMemo(
     () =>
@@ -213,13 +230,27 @@ export function PerfectDraftPanel({ stats, workspace }) {
   const cutRungs = progress.cutLadder;
   const openSpots = progress.openRosterSpots;
 
+  const bidTargetName = rookies.find((r) => r.id === bidTarget)?.name || "";
+
+  // The cuts the plan was CHARGED for, in the order it was charged for them.
+  //
+  // Under the ladder model the charge is the cheapest releases by
+  // `releaseCost`, which is not the backend's ECC ordering — so showing the
+  // ladder's own order beside a cost taken from a different ordering would
+  // name a player the plan never released. Legal because the backend's rungs
+  // are jointly droppable, so any subset of them is a legal cut-set.
+  const usingLadder = Array.isArray(context?.waiverLadder) && context.waiverLadder.length > 0;
+  const chargedCuts = usingLadder
+    ? [...cutRungs].sort((a, b) => releaseCost(a) - releaseCost(b))
+    : cutRungs;
+
   // Pair each recommended rookie with the specific roster player it
   // displaces. The i-th rookie past the open spots takes the i-th rung, so
   // no cut is ever counted twice.
   const rows = plan.players.map((p, i) => {
     const cutIdx = i - openSpots;
-    const cut = cutIdx >= 0 ? cutRungs[cutIdx] : null;
-    const cutCost = cut ? Number(cut.effectiveCutCost) || 0 : 0;
+    const cut = cutIdx >= 0 ? chargedCuts[cutIdx] : null;
+    const cutCost = cut ? (usingLadder ? releaseCost(cut) : Number(cut.effectiveCutCost) || 0) : 0;
     // `replacementForgone` is this rookie's rung of the waiver ladder — the
     // free agent his roster spot gives up. Present only under the ladder
     // model; without it the subtraction is already inside `surplus`.
@@ -237,15 +268,6 @@ export function PerfectDraftPanel({ stats, workspace }) {
       standing: bidStanding(p.price, p.planMaxBid),
     };
   });
-
-  // "The bidding is at $X — do I go?" Both branches come free from the same
-  // solve computeMaxBid already performs; nothing new is modelled here.
-  const liveBid =
-    deferredInput && bidTarget && bidAmount !== ""
-      ? evaluateBid(deferredInput, bidTarget, bidAmount)
-      : null;
-  const bidTargetName =
-    rookies.find((r) => r.id === bidTarget)?.name || "";
 
   // Positional consequence of the plan, reported rather than optimized —
   // see planPositionBalance for why that boundary is deliberate.
