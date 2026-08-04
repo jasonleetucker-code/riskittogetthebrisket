@@ -18,8 +18,32 @@ const srcLabel = (key) =>
   RANKING_SOURCES.find((s) => s.key === key)?.columnLabel || key;
 
 // ── Methodology ──────────────────────────────────────────────────────
-export function MethodologySection() {
+//
+// Everything version-specific here is READ FROM THE CONTRACT, never
+// duplicated. This panel used to hardcode
+//
+//     value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
+//
+// which was wrong twice over: the constants (45 / 1.10) were the
+// retired rank-form pair, and the live pipeline does not use rank form
+// at all — it uses the percentile-form Hill with per-scope masters.
+// Measured against the real board on the pinned 2026-07-30 payload,
+// the displayed formula was off by a MEDIAN of 805 points across 740
+// ranked rows (p90 1060, max 1185).
+//
+// The same panel published "spread <= 30 / <= 80" for confidence, the
+// legacy absolute-ordinal rule, while the board decides on percentile
+// spread — 31.9% of bucketed rows contradicted it.
+//
+// The contract already publishes both correctly under `methodology`,
+// so the mirror is deleted rather than corrected: a duplicated constant
+// with a comment is how the rank-form pair drifted in the first place.
+// When the payload has no methodology block we omit the line entirely —
+// showing nothing beats showing a number that disagrees with the board.
+export function MethodologySection({ methodology } = {}) {
   const sourceNames = RANKING_SOURCES.map((s) => s.displayName).join(", ");
+  const formula = methodology?.formula;
+  const buckets = methodology?.confidenceBuckets;
   return (
     <ol className={styles.methodologyList}>
       <li><strong>Source ingestion</strong> — Raw values from {sourceNames}.</li>
@@ -28,11 +52,22 @@ export function MethodologySection() {
       <li><strong>Blended ranking</strong> — Multi-source players get averaged normalized values. Single-source players keep their one value.</li>
       <li><strong>Unified sort</strong> — All players sorted by blended value into one board. Top 800 get a consensus rank.</li>
       <li><strong>Tier detection</strong> — Natural value clusters detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.</li>
-      <li><strong>Confidence scoring</strong> — High = 2+ sources, spread &le; 30. Medium = 2+ sources, spread &le; 80. Low = single source or spread &gt; 80.</li>
-      <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).</li>
-      <li className={styles.methodologyFormula}>
-        value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
+      <li>
+        <strong>Confidence scoring</strong>
+        {buckets ? (
+          <> — High = {buckets.high}. Medium = {buckets.medium}. Low = {buckets.low}.</>
+        ) : (
+          <> — multi-source agreement, measured on the backend&rsquo;s spread signal.</>
+        )}
       </li>
+      <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).</li>
+      {formula?.expression ? (
+        <li className={styles.methodologyFormula}>
+          {formula.name ? `${formula.name}: ` : null}
+          {formula.expression}
+          {formula.referenceN ? ` (referenceN = ${formula.referenceN})` : null}
+        </li>
+      ) : null}
     </ol>
   );
 }

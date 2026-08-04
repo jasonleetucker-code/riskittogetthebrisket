@@ -1,0 +1,36 @@
+{
+  "payload": "/tmp/claude-0/pinned_payload.json",
+  "rowsTotal": 1093,
+  "scaleMismatch": {
+    "rowsCarryingBoth": 684,
+    "spreadOverCvRatio": {
+      "median": 4.0274,
+      "p10": 1.464,
+      "p90": 8.6101
+    }
+  },
+  "cvDistribution": {
+    "n": 838,
+    "min": 0.0,
+    "median": 0.021518,
+    "max": 0.263118,
+    "hardcodedDefaultPercentileRank": 0.9964
+  },
+  "strongBuyGate": {
+    "threshold": 0.5,
+    "byBranch": {
+      "A_measured_cv": {
+        "rows": 833,
+        "eligible": 57
+      },
+      "B_percentile_spread_fallback": {
+        "rows": 28,
+        "eligible": 20
+      },
+      "C_hardcoded_0.20": {
+        "rows": 53,
+        "eligible": 53
+      }
+    }
+  }
+}
