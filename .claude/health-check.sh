@@ -81,7 +81,9 @@ python - <<'PY' 2>&1 || echo "  UNKNOWN: freshness probe errored (see above)."
 
 `scrapeTimestamp` is an internal content stamp, so unlike file mtime it
 survives cloning. It is CHECKOUT-RELATIVE though: it dates the commit you
-have, not the pipeline. `commits_behind()` exists to tell those apart.
+have, not the pipeline. `main_contract_age_h()` exists to tell those
+apart — it reads origin/main's contract, because that measures the
+PIPELINE, which a commit count does not.
 
 Every degraded input must land on UNKNOWN rather than a confident "0h" —
 a probe that reports fresh when it cannot tell is the bug this replaced.
