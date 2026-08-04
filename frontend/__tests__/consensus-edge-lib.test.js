@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   classifyEdgeFailure,
@@ -73,11 +75,14 @@ describe("componentRows", () => {
 });
 
 describe("positionLeaders", () => {
+  // `qualified` is stamped by the backend. These rows carry it because
+  // the real payload does.
   const rows = [
-    { playerKey: "a", position: "QB", label: "Buy", score: 40 },
-    { playerKey: "b", position: "QB", label: "Strong Buy", score: 70 },
-    { playerKey: "c", position: "RB", label: "Neutral", score: 10 },
-    { playerKey: "d", position: "WR", label: "Buy", score: 35 },
+    { playerKey: "a", position: "QB", label: "Buy", score: 40, qualified: true },
+    { playerKey: "b", position: "QB", label: "Strong Buy", score: 70, qualified: true },
+    { playerKey: "c", position: "RB", label: "Neutral", score: 10, qualified: false },
+    { playerKey: "d", position: "WR", label: "Buy", score: 35, qualified: true },
+    { playerKey: "e", position: "TE", label: "Sell", score: -50, qualified: true },
   ];
 
   it("picks the best qualifying player per position", () => {
@@ -90,6 +95,21 @@ describe("positionLeaders", () => {
     // buy for a display reason.
     const leaders = positionLeaders(rows, { direction: "buy" });
     expect(leaders.map((l) => l.position)).not.toContain("RB");
+  });
+
+  it("reads the backend's qualified flag, not the label text", () => {
+    // A row the backend disqualified must be excluded even if its label
+    // string looks directional — this is what stops the frontend from
+    // re-deriving qualification.
+    const disqualified = [
+      { playerKey: "x", position: "QB", label: "Buy", score: 90, qualified: false },
+    ];
+    expect(positionLeaders(disqualified, { direction: "buy" })).toEqual([]);
+  });
+
+  it("separates buy and sell directions by score sign", () => {
+    const sells = positionLeaders(rows, { direction: "sell" });
+    expect(sells.map((l) => l.position)).toEqual(["TE"]);
   });
 
   it("returns nothing when no player qualifies", () => {
@@ -106,5 +126,35 @@ describe("formatting", () => {
   it("renders missing values as a dash rather than zero", () => {
     expect(formatScore(null)).toBe("—");
     expect(formatPct(undefined)).toBe("—");
+  });
+});
+
+describe("no duplicated qualification logic", () => {
+  // The frontend previously kept its own copy of the qualifying label
+  // set, matched by English string against Python constants. Renaming a
+  // label server-side silently emptied the position-leaders panel. This
+  // is the same class of drift the client-side rank fallback caused, and
+  // this guard is what stops it coming back.
+  const source = fs.readFileSync(
+    path.join(process.cwd(), "lib", "consensus-edge.js"),
+    "utf8",
+  );
+
+  // Scoped to positionLeaders. Styling BY label is legitimate — that is
+  // what labelTone does, and the frontend has to know label names to
+  // colour them. What must never come back is label strings driving
+  // QUALIFICATION, which is a backend decision.
+  const positionLeadersBody = source.slice(
+    source.indexOf("export function positionLeaders"),
+  );
+
+  it("does not decide qualification from label strings", () => {
+    for (const label of ["Strong Buy", "Strong Sell", "Buy", "Sell"]) {
+      expect(positionLeadersBody).not.toContain(`"${label}"`);
+    }
+  });
+
+  it("reads the backend qualified flag instead", () => {
+    expect(positionLeadersBody).toContain("row.qualified");
   });
 });

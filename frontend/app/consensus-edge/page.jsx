@@ -3,17 +3,21 @@
 /**
  * Consensus Edge — the unified buy/sell board.
  *
- * Two things this page is careful about, because they are the ways a
- * buy/sell screen misleads:
+ * This page reads the FULL board (`/api/consensus-edge/players`), not
+ * the top-20 slice, and that is a correctness requirement rather than a
+ * preference. Two things broke when it read the slice:
  *
- * 1. It never renders a number without its standing. Every score sits
- *    next to a confidence, and the component breakdown marks which
- *    components have been validated against an outcome and which have
- *    not. Today that is one of three.
- * 2. Conflicted and Insufficient Evidence are rendered as their own
- *    states, not as a mild Neutral. A player whose evidence strongly
- *    disagrees is the single most misleading thing a composite can
- *    average to zero, so it gets its own tone and its own explanation.
+ * 1. Position leaders were computed over the global top 20, so a
+ *    position whose best qualifying buy ranked 25th rendered as "no
+ *    qualifying player" — directly contradicting the panel's own copy.
+ * 2. `top_movers` filters to Buy/Sell before returning, so Conflicted,
+ *    Insufficient Evidence and No Market Price — the refusal states that
+ *    are this feature's entire honesty claim — could never reach a user.
+ *
+ * Everything displayed is computed by the backend. The only derivation
+ * here is filtering and grouping rows the backend already labelled, and
+ * qualification is read off `row.qualified` rather than re-derived from
+ * label strings.
  */
 
 import { useMemo, useState } from "react";
@@ -32,12 +36,21 @@ import styles from "./consensus-edge.module.css";
 
 // Buy/sell is a FILTER over one list, not a set of tabpanels, so it uses
 // the design system's radiogroup-based SegmentedControl. A tab role
-// without aria-controls promises a tabpanel that does not exist — the
-// repo has an a11y guard for exactly that, and it caught this.
-const DIRECTIONS = [
+// without aria-controls promises a tabpanel that does not exist.
+const VIEWS = [
   { value: "buys", label: "Buys" },
   { value: "sells", label: "Sells" },
+  { value: "withheld", label: "Withheld" },
 ];
+
+const WITHHELD_LABELS = new Set([
+  "Conflicted",
+  "Insufficient Evidence",
+  "No Market Price",
+  "Withheld",
+]);
+
+const POSITIONS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
 
 function FailureState({ failure }) {
   if (failure.kind === "disabled") {
@@ -72,6 +85,46 @@ function FailureState({ failure }) {
     <div className={styles.notice}>
       <h2>Consensus Edge unavailable</h2>
       <p>{failure.message}</p>
+    </div>
+  );
+}
+
+/**
+ * States what the board could actually see. A component that is dark
+ * because its data source is empty is indistinguishable, from the
+ * outside, from one nobody wired up — and the difference silently
+ * governs whether Strong labels can appear at all.
+ */
+function AvailabilityBanner({ board }) {
+  const availability = board.componentAvailability || {};
+  const live = Object.entries(availability).filter(([, v]) => v.available);
+  const dark = Object.entries(availability).filter(([, v]) => !v.available);
+  const hours = board.inputs?.hoursStale;
+
+  return (
+    <div className={styles.experimental}>
+      <p>
+        <strong>Experimental.</strong> {live.length} of{" "}
+        {Object.keys(availability).length} components are live
+        {dark.length > 0 && <> — {dark.map(([k]) => k).join(", ")} has no data</>}.
+        Composite weights are declared priors, not fitted. Validated against
+        market movement, not fantasy production.
+      </p>
+      {board.strongLabelsReachable === false && (
+        <p className={styles.ceilingNote}>
+          Strong Buy and Strong Sell cannot appear: with {live.length} live
+          component{live.length === 1 ? "" : "s"} the confidence ceiling is{" "}
+          {Math.round(board.confidenceCeiling)}, below the threshold of 70. This
+          is the model declining to make a strong call on partial evidence, not
+          an absence of candidates.
+        </p>
+      )}
+      {typeof hours === "number" && (
+        <p className={styles.ceilingNote}>
+          Market data is {hours < 1 ? "under an hour" : `${Math.round(hours)}h`}{" "}
+          old (oldest market anchor); confidence is discounted accordingly.
+        </p>
+      )}
     </div>
   );
 }
@@ -165,6 +218,12 @@ function PlayerCard({ row, validation, expanded, onToggle }) {
             ))}
           </div>
 
+          {row.unpricedReason && (
+            <p className={styles.footnote}>
+              Not priced: {row.unpricedReason.replace(/_/g, " ")}.
+            </p>
+          )}
+
           {row.excludedSources?.length > 0 && (
             <p className={styles.footnote}>
               Fair value excludes {row.excludedSources.join(", ")} so it is
@@ -178,23 +237,40 @@ function PlayerCard({ row, validation, expanded, onToggle }) {
 }
 
 export default function ConsensusEdgePage() {
-  const [direction, setDirection] = useState("buys");
+  const [view, setView] = useState("buys");
+  const [position, setPosition] = useState("");
+  const [minConfidence, setMinConfidence] = useState(0);
   const [openKey, setOpenKey] = useState(null);
 
-  const params = useMemo(() => ({ limit: 20 }), []);
-  const { loading, data, failure } = useConsensusEdge("/api/consensus-edge/top", {
-    params,
-  });
+  const { loading, data, failure } = useConsensusEdge("/api/consensus-edge/players");
   const methodology = useConsensusEdge("/api/consensus-edge/methodology");
-
   const validation = methodology.data?.components || {};
-  const rows = data?.[direction] || [];
+
+  const allRows = useMemo(() => data?.players || [], [data]);
+
+  const rows = useMemo(() => {
+    let out = allRows;
+    if (view === "withheld") {
+      out = out.filter((r) => WITHHELD_LABELS.has(r.label));
+    } else {
+      const wantPositive = view === "buys";
+      out = out.filter(
+        (r) => r.qualified && (wantPositive ? r.score > 0 : r.score < 0),
+      );
+    }
+    if (position) out = out.filter((r) => r.position === position);
+    if (minConfidence > 0) {
+      out = out.filter((r) => (r.confidence ?? 0) >= minConfidence);
+    }
+    return view === "sells"
+      ? [...out].sort((a, b) => (a.score ?? 0) - (b.score ?? 0))
+      : out;
+  }, [allRows, view, position, minConfidence]);
+
+  // Position leaders read the FULL board, never the displayed slice.
   const leaders = useMemo(
-    () =>
-      positionLeaders(rows, {
-        direction: direction === "buys" ? "buy" : "sell",
-      }),
-    [rows, direction],
+    () => positionLeaders(allRows, { direction: view === "sells" ? "sell" : "buy" }),
+    [allRows, view],
   );
 
   return (
@@ -204,11 +280,7 @@ export default function ConsensusEdgePage() {
         <p className={styles.sub}>
           Where our anchor-free fair value disagrees with the market.
         </p>
-        <p className={styles.experimental}>
-          Experimental. One of three components has been validated against an
-          outcome; the composite weights are declared priors, not fitted. Tested
-          against market movement, not fantasy production.
-        </p>
+        {data && <AvailabilityBanner board={data} />}
       </header>
 
       {loading && <div className={styles.loading}>Building the board…</div>}
@@ -216,23 +288,57 @@ export default function ConsensusEdgePage() {
 
       {data && !loading && (
         <>
-          <SegmentedControl
-            options={DIRECTIONS}
-            value={direction}
-            onChange={setDirection}
-            label="Show buys or sells"
-            className={styles.tabs}
-          />
+          <div className={styles.controls}>
+            <SegmentedControl
+              options={VIEWS}
+              value={view}
+              onChange={setView}
+              label="Show buys, sells, or withheld players"
+            />
+            <label className={styles.filter}>
+              <span>Position</span>
+              <select
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+              >
+                <option value="">All</option>
+                {POSITIONS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.filter}>
+              <span>Min confidence</span>
+              <select
+                value={minConfidence}
+                onChange={(e) => setMinConfidence(Number(e.target.value))}
+              >
+                <option value={0}>Any</option>
+                <option value={40}>40+</option>
+                <option value={50}>50+</option>
+                <option value={60}>60+</option>
+              </select>
+            </label>
+          </div>
+
+          {view === "withheld" && (
+            <p className={styles.leadersNote}>
+              Players the model declined to call, and why. Conflicted means
+              strong evidence pointing both ways — deliberately not shown as
+              Neutral, because that would read as "nothing is happening".
+            </p>
+          )}
 
           {rows.length === 0 ? (
             <p className={styles.empty}>
-              No players currently qualify on score and confidence. That is a
-              result, not an error — the board declines rather than promoting
-              the least-bad candidate.
+              No players match. When the board declines rather than promoting
+              the least-bad candidate, that is a result, not an error.
             </p>
           ) : (
             <ul className={styles.list}>
-              {rows.map((row) => (
+              {rows.slice(0, 50).map((row) => (
                 <PlayerCard
                   key={row.playerKey}
                   row={row}
@@ -246,33 +352,42 @@ export default function ConsensusEdgePage() {
             </ul>
           )}
 
-          <section className={styles.leaders}>
-            <h2>Position leaders</h2>
-            <p className={styles.leadersNote}>
-              Best qualifying player per position. Positions with nothing above
-              the threshold are listed as having no qualifying player rather
-              than being filled from further down the board.
-            </p>
-            <ul className={styles.leaderList}>
-              {leaders.map(({ position, row }) => (
-                <li key={position}>
-                  <span className={styles.leaderPos}>{position}</span>
-                  <span>{row.displayName}</span>
-                  <span className={styles.score}>{formatScore(row.score)}</span>
-                </li>
-              ))}
-              {leaders.length === 0 && (
-                <li className={styles.empty}>No qualifying player at any position.</li>
-              )}
-            </ul>
-          </section>
-
-          {data.sharpFlowStatus === "no_ledger" && (
-            <p className={styles.footnote}>
-              Sharp flow is unavailable in this environment, so it is omitted
-              from the composite rather than counted as neutral.
-            </p>
+          {view !== "withheld" && (
+            <section className={styles.leaders}>
+              <h2>Position leaders</h2>
+              <p className={styles.leadersNote}>
+                Best qualifying player per position, computed over the whole
+                board. Positions with nothing above the threshold are listed as
+                having no qualifying player rather than being filled from
+                further down.
+              </p>
+              <ul className={styles.leaderList}>
+                {POSITIONS.map((pos) => {
+                  const found = leaders.find((l) => l.position === pos);
+                  return (
+                    <li key={pos}>
+                      <span className={styles.leaderPos}>{pos}</span>
+                      <span>
+                        {found ? found.row.displayName : (
+                          <em className={styles.componentAbsent}>
+                            No qualifying {view === "sells" ? "sell" : "buy"}
+                          </em>
+                        )}
+                      </span>
+                      <span className={styles.score}>
+                        {found ? formatScore(found.row.score) : ""}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           )}
+
+          <p className={styles.footnote}>
+            Model {data.modelVersion} · params {data.paramSetId} · generated{" "}
+            {data.generatedAt}
+          </p>
         </>
       )}
     </section>

@@ -245,3 +245,35 @@
   font-size: 1rem;
   color: var(--text, #e6e9f0);
 }
+
+/* Controls row: view switch plus filters. */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #8b93a7);
+}
+
+.filter select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border, #2a3040);
+  background: transparent;
+  color: inherit;
+}
+
+/* Why a label cannot appear, stated where the user would otherwise
+   conclude the model simply found nothing. */
+.ceilingNote {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  opacity: 0.9;
+}

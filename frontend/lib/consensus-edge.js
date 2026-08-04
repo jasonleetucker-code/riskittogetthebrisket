@@ -118,11 +118,16 @@ export function componentRows(row, validation) {
  * for a display reason.
  */
 export function positionLeaders(rows, { direction = "buy" } = {}) {
-  const wanted =
-    direction === "buy" ? ["Strong Buy", "Buy"] : ["Strong Sell", "Sell"];
   const best = new Map();
   for (const row of rows || []) {
-    if (!wanted.includes(row.label)) continue;
+    // Qualification is the BACKEND's answer, read off the row. This used
+    // to be a hardcoded JS copy of the label set, matched by English
+    // string against Python constants — rename a label server-side and
+    // this panel silently emptied. Same drift the client-side rank
+    // fallback caused, same fix: the backend states it, the client
+    // reads it.
+    if (!row.qualified) continue;
+    if (direction === "buy" ? !(row.score > 0) : !(row.score < 0)) continue;
     const position = row.position;
     if (!position) continue;
     const current = best.get(position);

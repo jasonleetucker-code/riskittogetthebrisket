@@ -24,7 +24,13 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from src.consensus_edge import MODEL_VERSION, params as params_mod, score as score_mod, service
+from src.consensus_edge import (
+    MODEL_VERSION,
+    params as params_mod,
+    score as score_mod,
+    service,
+    sharp_flow,
+)
 
 router = APIRouter(prefix="/api/consensus-edge", tags=["consensus-edge"])
 
@@ -60,18 +66,98 @@ def _contract() -> dict[str, Any] | None:
     return getattr(server, "latest_contract_data", None) if server else None
 
 
+def _sharp_movements() -> dict[str, Any] | None:
+    """Qualified-manager movements, or None when there is no ledger.
+
+    None and {} mean different things downstream: None is "we could not
+    look", {} is "we looked and nobody traded". Only the second is a
+    finding, so an unreadable or empty ledger returns None and Sharp
+    Flow reports itself unavailable rather than neutral.
+
+    Deliberately tolerant of every failure mode — a missing file, a
+    schema change, a locked database. Consensus Edge must degrade to
+    "this component is dark" and never take the board down with it.
+
+    Reads only; imports the ledger lazily so this module stays free of
+    ``src/intel`` at import time (PR #670 is rewriting that package).
+    """
+    try:
+        from src.intel import ledger  # noqa: PLC0415
+
+        path = ledger.default_path()
+        if not path.exists():
+            return None
+        with ledger.connect(path) as conn:
+            rows = conn.execute(
+                """
+                SELECT asset_id, action, user_id, league_id, ts
+                  FROM asset_movements
+                 WHERE tx_type = 'trade'
+                """
+            ).fetchall()
+    except Exception:  # noqa: BLE001 — a dark component must never 500 the board
+        return None
+
+    if not rows:
+        # The ledger exists but holds no trades. Still None: with zero
+        # observations every posterior is the prior, and reporting that
+        # as a measured neutral would be a finding we have not earned.
+        return None
+
+    return sharp_flow.movements_from_ledger_rows(
+        {
+            "asset_id": r[0],
+            "action": r[1],
+            "user_id": r[2],
+            "league_id": r[3],
+            "ts": r[4],
+        }
+        for r in rows
+    )
+
+
+def _rank_history() -> dict[str, list[dict[str, Any]]] | None:
+    """Per-player board history, or None when the log is absent.
+
+    The log IS written in production on every fresh scrape
+    (``src/api/rank_history.py``); it simply never reached the board.
+    Absent outside production because ``data/`` is gitignored.
+    """
+    try:
+        from src.api import rank_history  # noqa: PLC0415
+
+        history = rank_history.load_history(days=30)
+    except Exception:  # noqa: BLE001 — same posture as the ledger
+        return None
+    return history or None
+
+
 def _board(contract: dict[str, Any]) -> dict[str, Any]:
     """Build or reuse the board for this contract.
 
     Keyed on the scrape timestamp plus the parameter-set id, so a new
     scrape or a parameter edit invalidates it and nothing else does.
+
+    This function is where the feature's largest defect lived: it called
+    ``build_board(contract, params=params)`` and passed none of the three
+    optional inputs, so Sharp Flow and Opportunity were permanently
+    absent and freshness permanently unknown — pinning confidence at a
+    55.03 ceiling and making Strong labels unreachable. Each input is now
+    resolved and passed; each still degrades honestly to None when its
+    data does not exist.
     """
     params = params_mod.load()
     key = f"{contract.get('scrapeTimestamp')}|{params.get('paramSetId')}"
     with _CACHE_LOCK:
         if _CACHE.get("key") == key:
             return _CACHE["board"]
-    board = service.build_board(contract, params=params)
+    board = service.build_board(
+        contract,
+        params=params,
+        hours_stale=service.resolve_hours_stale(contract),
+        movements_by_asset=_sharp_movements(),
+        rank_history_by_player=_rank_history(),
+    )
     with _CACHE_LOCK:
         _CACHE["key"] = key
         _CACHE["board"] = board
@@ -213,6 +299,15 @@ async def get_health(request: Request):
                 "coverage": board.get("coverage"),
                 "sharpFlowStatus": board.get("sharpFlowStatus"),
                 "generatedAt": board.get("generatedAt"),
+                # Which components are live, what confidence ceiling that
+                # implies, and whether Strong labels can appear at all.
+                # Without these, a board with two dark components is
+                # indistinguishable from one that simply found nothing.
+                "componentAvailability": board.get("componentAvailability"),
+                "confidenceCeiling": board.get("confidenceCeiling"),
+                "strongLabelsReachable": board.get("strongLabelsReachable"),
+                "inputs": board.get("inputs"),
+                "contractScrapedAt": contract.get("scrapeTimestamp"),
             }
         )
     )
