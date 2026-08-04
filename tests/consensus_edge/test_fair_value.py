@@ -1,10 +1,18 @@
-"""The fair-value board must not contain the price it is judged against.
+"""The fair-value board must not contain the price it is judged against,
+and what survives must be denominated in one set of units.
 
-Every test here pins one of the three ways the market anchor leaked back
+Most tests here pin one of the three ways the market anchor leaked back
 into a "leave-one-out" board.  All three were measured on the live
 payload on 2026-08-04; the numbers in the docstrings are those
 measurements, kept so a future reader can tell a regression from a
 market shift.
+
+The rest pin the failure mode that leak-hunting missed entirely: a board
+can be perfectly free of the anchor's influence and still be unusable,
+because the excluded source was what made the numbers comparable in the
+first place.  Two row classes were affected and both were being
+published as buys — see ``test_idp_is_refused_out_loud_rather_than_priced_wrong``
+and ``test_the_surviving_board_is_on_one_scale``.
 
 A note on how these tests load the pipeline, because getting it wrong
 costs hours: import ``src.api.data_contract`` normally.  Loading it a
@@ -268,11 +276,61 @@ class TestFairValueIndex(unittest.TestCase):
         self.assertEqual(cov["totalRows"], len(index))
         self.assertEqual(cov["pricedRows"] + sum(cov["unpricedByReason"].values()), len(index))
         self.assertGreater(cov["pricedRows"], 0)
-        # Both markets must be represented — an IDP league whose IDP
-        # rows all fell out is the failure mode that made finder.py
-        # silently offense-only for months.
         self.assertGreater(cov["pricedByAssetClass"].get("offense", 0), 0)
-        self.assertGreater(cov["pricedByAssetClass"].get("idp", 0), 0)
+
+    def test_idp_is_refused_out_loud_rather_than_priced_wrong(self):
+        # This assertion used to read ``pricedByAssetClass["idp"] > 0``,
+        # on the reasoning that an IDP league whose defenders all fell
+        # out is the failure mode that made finder.py silently
+        # offense-only for months. That reasoning is right and the
+        # assertion was wrong: IDP rows WERE being priced, on a scale
+        # that does not exist.
+        #
+        # ``idpTradeCalc`` is the only source registered ``is_backbone``,
+        # and the backbone is what crosswalks a within-DL/LB/DB rank into
+        # a combined-pool rank. The leave-one-out board excludes it by
+        # construction, so the pipeline takes its documented fallback and
+        # scores the #1 DL as the #1 asset in the league. Measured on the
+        # 2026-08-03 payload: 220 IDP rows, median LOO/base ratio 1.224,
+        # range 0.45x to 3.48x.
+        #
+        # So the invariant that matters is not "IDP is priced" — it is
+        # "IDP is never SILENTLY absent". Every IDP row must still be in
+        # the index, and each must name the dependency that failed.
+        index = fv.fair_value_index(_RAW)
+        idp = [e for e in index.values() if e.get("assetClass") == "idp"]
+        self.assertGreater(len(idp), 50, "IDP rows vanished from the index entirely")
+        for entry in idp:
+            self.assertIsNone(entry["fairValue"], entry["playerKey"])
+            self.assertEqual(entry["unpricedReason"], fv.UNPRICED_SCALE_IDP_BACKBONE)
+            self.assertTrue((entry.get("scaleIntegrity") or {}).get("lost"))
+
+    def test_the_surviving_board_is_on_one_scale(self):
+        # The guard's whole purpose, stated as a measurement rather than
+        # as a list of excluded keys: whatever survives must be a board
+        # whose values mean the same thing. A leave-one-out value differs
+        # from the default board's by the weight of one vote — a few
+        # percent — and anything near 2x is a broken denominator, not a
+        # strong opinion.
+        default = dc.build_api_data_contract(_RAW)
+        base = {fv._row_key(r): r for r in default["playersArray"] if fv._row_key(r)}
+        ratios = []
+        for key, entry in fv.fair_value_index(_RAW).items():
+            fair = entry.get("fairValue")
+            row = base.get(key) or {}
+            baseline = row.get("rankDerivedValue")
+            if not fair or not isinstance(baseline, (int, float)) or baseline <= 0:
+                continue
+            ratios.append((fair / float(baseline), key))
+        self.assertGreater(len(ratios), 200, "too few priced rows to judge scale")
+        worst_ratio, worst_key = max(ratios)
+        self.assertLess(
+            worst_ratio,
+            1.35,
+            f"{worst_key} is {worst_ratio:.2f}x the default board — the anchor-free "
+            f"board is not denominated in the same units as the board it is "
+            f"compared against",
+        )
 
     @_needs_payload
     def test_the_fair_value_actually_differs_from_the_market(self):

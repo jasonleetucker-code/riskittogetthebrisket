@@ -2261,6 +2261,96 @@ def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
     return out
 
 
+# ── Scale dependencies ───────────────────────────────────────────────
+# Some sources do not merely CONTRIBUTE a vote — they define the scale
+# other votes are expressed in.  Removing one of those does not shrink
+# the evidence behind a value, it changes what the number means, and the
+# result still looks like an ordinary board.
+#
+# Two such dependencies exist today, and both are declarative rather
+# than inferred, so this list is the single place they are written down:
+#
+#   * The IDP backbone.  ``position_idp`` sources rank within DL / LB /
+#     DB; the backbone crosswalks those into combined-pool ranks.  With
+#     no backbone the pipeline deliberately falls back to treating a
+#     position rank as a combined rank — the #1 DL is scored as if he
+#     were the #1 asset in the league.
+#   * The rookie ladders.  ``needs_rookie_translation`` sources rank
+#     within the rookie class; the ladder crosswalks rookie #1 into the
+#     combined rank the reference source gives ITS #1 rookie.  With no
+#     reference the pipeline falls back to the untranslated rank, so
+#     rookie #1 is scored as asset #1.
+#
+# Both fallbacks are correct for the default board, where an absent
+# source is one we never scraped.  They are wrong for a board built by
+# deliberately excluding a source (``consensus_edge.fair_value``), which
+# is why that caller has to be able to ask this question structurally
+# instead of discovering it as a wrong number.
+ROOKIE_LADDER_PAIRS: tuple[tuple[str, str, set[str]], ...] = (
+    ("dlfRookieSf", "ktcSfTep", _OFFENSE_POSITIONS),
+    ("dlfRookieIdp", "idpTradeCalc", _IDP_POSITIONS),
+    ("flockFantasySfRookies", "ktcSfTep", _OFFENSE_POSITIONS),
+)
+
+SCALE_LOST_IDP_BACKBONE = "idp_backbone_excluded"
+SCALE_LOST_ROOKIE_LADDER = "rookie_ladder_reference_excluded"
+
+
+def scale_integrity_lost(excluded_keys: Iterable[str]) -> dict[str, dict[str, str]]:
+    """Which rows lose their VALUE SCALE if ``excluded_keys`` leave the blend.
+
+    This is a different question from correlation leakage.  Correlation
+    asks "does the excluded source's opinion still reach the result?";
+    this asks "is the result still denominated in the same units?".  A
+    board can be perfectly free of a source's influence and still be
+    unusable because that source was what made the numbers comparable.
+
+    ``excluded_keys`` is expanded through the correlation groups first,
+    matching what :func:`expand_correlation_groups` does for the board
+    build itself, so a caller cannot pass one and check the other.
+
+    Returns::
+
+        {
+          "assetClasses": {"idp": SCALE_LOST_IDP_BACKBONE},
+          "sources":      {"dlfRookieSf": SCALE_LOST_ROOKIE_LADDER, ...},
+        }
+
+    ``assetClasses`` keys are ``assetClass`` values as stamped on
+    contract rows.  ``sources`` names ranking sources whose vote is on a
+    broken scale — a caller decides a row is affected by intersecting
+    these keys with the row's own ``sourceRanks``, which is narrower and
+    more honest than guessing at a rookie flag.
+
+    Empty dicts mean the exclusion costs evidence but not meaning.
+    """
+    excluded = expand_correlation_groups(excluded_keys)
+    surviving = {
+        str(s.get("key") or "") for s in _RANKING_SOURCES if str(s.get("key") or "") not in excluded
+    }
+
+    asset_classes: dict[str, str] = {}
+    # Mirrors the backbone selection in ``_compute_unified_rankings``:
+    # primary scope overall_idp AND is_backbone.  Written as "does any
+    # survive" rather than "was ktcSfTep/idpTradeCalc named" so that
+    # registering a second IDP backbone lifts this guard automatically
+    # instead of leaving a hardcoded refusal behind.
+    if not any(
+        str(s.get("key") or "") in surviving
+        and s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
+        and s.get("is_backbone")
+        for s in _RANKING_SOURCES
+    ):
+        asset_classes["idp"] = SCALE_LOST_IDP_BACKBONE
+
+    sources: dict[str, str] = {}
+    for rookie_key, ref_key, _universe in ROOKIE_LADDER_PAIRS:
+        if rookie_key in surviving and ref_key not in surviving:
+            sources[rookie_key] = SCALE_LOST_ROOKIE_LADDER
+
+    return {"assetClasses": asset_classes, "sources": sources}
+
+
 # Top-level keys in the override POST body that are NOT per-source
 # override entries.  These are routed to their own typed helpers
 # (e.g. ``normalize_tep_multiplier``) and must be skipped by the
@@ -7038,12 +7128,13 @@ def _compute_unified_rankings(
     # fallback is to leave the rookie source's rank untranslated
     # (it'll go through the Hill path with its within-class rank,
     # which is the pre-fix behaviour — safer than silently breaking).
-    _rookie_ladder_pairs = (
-        ("dlfRookieSf", "ktcSfTep", _OFFENSE_POSITIONS),
-        ("dlfRookieIdp", "idpTradeCalc", _IDP_POSITIONS),
-        ("flockFantasySfRookies", "ktcSfTep", _OFFENSE_POSITIONS),
-    )
-    for rookie_key, ref_key, universe in _rookie_ladder_pairs:
+    #
+    # That fallback is safe on the DEFAULT board, where a missing
+    # reference means a source we never had.  It is NOT safe on a board
+    # built by deliberately excluding the reference — see
+    # ``scale_integrity_lost``, which is the module-level declaration of
+    # exactly this dependency.
+    for rookie_key, ref_key, universe in ROOKIE_LADDER_PAIRS:
         if rookie_key not in active_keys or ref_key not in active_keys:
             continue
         ladder = _build_rookie_ladder(ref_key, universe)

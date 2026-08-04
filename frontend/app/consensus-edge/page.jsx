@@ -32,6 +32,7 @@ import {
   formatValue,
   labelTone,
   positionLeaders,
+  rankKey,
 } from "@/lib/consensus-edge";
 import styles from "./consensus-edge.module.css";
 
@@ -336,9 +337,11 @@ export default function ConsensusEdgePage() {
     if (minConfidence > 0) {
       out = out.filter((r) => (r.confidence ?? 0) >= minConfidence);
     }
-    return view === "sells"
-      ? [...out].sort((a, b) => (a.score ?? 0) - (b.score ?? 0))
-      : out;
+    // Buys arrive in conviction order from the backend, so they are left
+    // alone. Sells are the same list read from the other end, and the
+    // reverse has to use the SAME key — sorting them by raw score gave
+    // the sells view an ordering no measurement describes.
+    return view === "sells" ? [...out].sort((a, b) => rankKey(a) - rankKey(b)) : out;
   }, [allRows, view, position, minConfidence]);
 
   // Position leaders read the FULL board, never the displayed slice.

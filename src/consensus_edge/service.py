@@ -18,6 +18,7 @@ from typing import Any
 
 from src.consensus_edge import MODEL_VERSION, opportunity, params as params_mod, score as score_mod
 from src.consensus_edge import identity_join, scoring_fit, sharp_flow as sf, validation_scope
+from src.consensus_edge import fair_value
 from src.consensus_edge.fair_value import (
     MARKET_ANCHOR_BY_ASSET_CLASS,
     coverage as fv_coverage,
@@ -432,9 +433,19 @@ def build_board(
             "qualified": label["label"] in DIRECTIONAL_LABELS,
         }
         row["explanation"] = _explain(row)
+        # The ranking key, stamped so nothing downstream re-derives it.
+        # ``top_movers`` ranked on this while ``players`` — the list the
+        # page actually fetches — was ordered by raw score, so the study
+        # that justified shipping measured an ordering no user ever saw.
+        # See ADR-022.
+        row["conviction"] = conviction(row)
         players.append(row)
 
-    players.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0.0)))
+    # Conviction descending: biggest buys first, biggest sells last,
+    # unscored rows after both. Same key ``top_movers`` uses and the same
+    # key ``validate_consensus_edge_board.py`` measures — pinned by
+    # ``test_served_order_is_the_measured_order``.
+    players.sort(key=lambda r: (r["score"] is None, -(r["conviction"] or 0.0)))
 
     availability = component_availability(players, (p.get("composite") or {}).get("weights"))
     live_components = sum(1 for meta in availability.values() if meta["available"])
@@ -451,7 +462,8 @@ def build_board(
     )
     ceiling = confidence_ceiling(live_components, weighted_components, board_freshness)
     scope = validation_scope.scope_for_board(fit_board.to_meta())
-    caveats = _caveats(scope)
+    class_coverage = asset_class_coverage(players)
+    caveats = _caveats(scope, class_coverage)
     strong_threshold = float((p.get("classification") or {}).get("minConfidenceForStrong") or 70.0)
 
     return {
@@ -472,6 +484,14 @@ def build_board(
         # mistake it for a fourth additive term.
         "scoringFit": fit_board.to_meta(),
         "componentAvailability": availability,
+        # Which asset classes this board can actually score, and why the
+        # rest cannot. Not a diagnostic: IDP carries no score at all
+        # today (the anchor-free board has no IDP scale — see
+        # ``fair_value``), and an offense-only list of buys looks
+        # identical whether that is deliberate or a join that silently
+        # dropped every defender. That exact ambiguity ran in
+        # ``trade/finder.py`` for months.
+        "assetClassCoverage": class_coverage,
         # Published because it silently governs which labels can appear
         # at all: with one live component the ceiling sits below the
         # Strong threshold, so Strong Buy and Strong Sell are
@@ -512,13 +532,65 @@ def build_board(
     }
 
 
-def _caveats(scope: dict[str, Any]) -> list[str]:
-    """What this board does not claim. Configuration-aware.
+def asset_class_coverage(players: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Per asset class: rows present, rows scored, and why the rest are not.
 
-    The first two are permanent properties of the model. The third
-    appears only when the board has drifted off the measured
-    configuration, because a caveat that is always present is one nobody
-    reads — and this particular one needs to be read.
+    ``{assetClass: {"rows": n, "scored": n, "unpricedReasons": {reason: n}}}``
+
+    An asset class that is present but wholly unscored is a real state
+    and has to be a legible one. Today ``idp`` is exactly that: the
+    leave-one-out board loses the IDP backbone when its only cross-market
+    IDP source is excluded, so every defender comes back unpriced rather
+    than priced in units the rest of the board does not share. A consumer
+    reading only ``players`` sees an offense-only list and cannot tell
+    that from a broken identity join.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for row in players:
+        cls = str(row.get("assetClass") or "unknown")
+        bucket = out.setdefault(cls, {"rows": 0, "scored": 0, "unpricedReasons": {}})
+        bucket["rows"] += 1
+        if row.get("score") is not None:
+            bucket["scored"] += 1
+            continue
+        reason = str(row.get("unpricedReason") or "unscored")
+        bucket["unpricedReasons"][reason] = bucket["unpricedReasons"].get(reason, 0) + 1
+    return dict(sorted(out.items()))
+
+
+# Machine reason codes rendered for a human. Kept beside the caveat
+# builder rather than in the UI because the caveats are prose the backend
+# authors — a client that had to translate these would be re-deriving a
+# claim about the model, which is the drift this package keeps closing.
+_UNPRICED_IN_ENGLISH: dict[str, str] = {
+    fair_value.UNPRICED_NO_ANCHOR: (
+        "no retail source publishes a market price for this asset class, so there is "
+        "nothing to call the market wrong about"
+    ),
+    fair_value.UNPRICED_SCALE_IDP_BACKBONE: (
+        "the only cross-market IDP source is the one being judged, so removing it "
+        "leaves no scale to price defenders on"
+    ),
+    fair_value.UNPRICED_SCALE_ROOKIE_LADDER: (
+        "the rookie ranks on this board are calibrated by the source being judged, so "
+        "removing it leaves them uncalibrated"
+    ),
+    fair_value.UNPRICED_NOT_ON_BOARD: "the anchor-free board did not price these rows",
+    fair_value.UNPRICED_NO_MARKET_VALUE: "the market anchor publishes no value for these rows",
+}
+
+
+def _caveats(
+    scope: dict[str, Any],
+    class_coverage: dict[str, dict[str, Any]] | None = None,
+) -> list[str]:
+    """What this board does not claim. Configuration- and coverage-aware.
+
+    The first four are permanent properties of the model. The last two
+    appear only when their condition holds — a wholly unscored asset
+    class, or a board that has drifted off the measured configuration —
+    because a caveat that is always present is one nobody reads, and
+    these two need to be read.
     """
     out = [
         "Sharp Flow's weight is a declared prior, not fitted. Opportunity was "
@@ -539,6 +611,24 @@ def _caveats(scope: dict[str, Any]) -> list[str]:
         "The sell side has no measured edge: sell-labelled rows were positive "
         "in 0 of 7 folds. Treat sells as unvalidated.",
     ]
+    # Derived from the board, never asserted: a caveat that outlives the
+    # condition it describes is worse than no caveat, and the IDP line
+    # lifts by itself the day a second IDP cross-market source is
+    # registered. ``pick`` is included even though its condition is
+    # permanent — a dynasty user scanning a buy list with no picks in it
+    # is owed the reason, and "no retail pick market exists" is a claim
+    # about the world rather than a note about our plumbing.
+    for cls, meta in sorted((class_coverage or {}).items()):
+        if cls == "unknown" or meta.get("scored") or not meta.get("rows"):
+            continue
+        dominant = max(
+            (meta.get("unpricedReasons") or {}).items(), key=lambda kv: kv[1], default=("", 0)
+        )[0]
+        out.append(
+            f"No {cls.upper()} row on this board carries a score "
+            f"({meta['rows']} present): {_UNPRICED_IN_ENGLISH.get(dominant, dominant)}. "
+            f"This is a stated refusal, not a missing join."
+        )
     for difference in scope.get("differences") or []:
         out.append(f"This board is NOT running the configuration that was measured — {difference}.")
     return out

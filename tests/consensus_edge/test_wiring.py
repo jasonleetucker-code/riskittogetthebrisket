@@ -108,13 +108,45 @@ class TestTheBoardIsActuallyBuilt(_Enabled):
         scored = [r for r in body["players"] if r.get("score") is not None]
         self.assertGreater(len(scored), 100, "no player received a score")
 
-    def test_both_offense_and_idp_are_covered(self):
-        # An IDP league whose defenders all fell out is the failure mode
-        # that made trade/finder.py silently offense-only for months.
+    def test_offense_is_covered(self):
         body = self.client.get("/api/consensus-edge/players").json()
         classes = {r.get("assetClass") for r in body["players"] if r.get("score") is not None}
         self.assertIn("offense", classes)
-        self.assertIn("idp", classes)
+
+    def test_an_unscored_asset_class_is_declared_not_merely_absent(self):
+        # This test used to assert ``"idp" in classes``, because an IDP
+        # league whose defenders all fell out is the failure mode that
+        # made trade/finder.py silently offense-only for months. IDP now
+        # legitimately carries no score — the anchor-free board has no
+        # IDP scale once the only backbone source is excluded — so the
+        # old assertion would be satisfied only by publishing wrong
+        # numbers.
+        #
+        # The failure mode was never "IDP is unscored". It was "the
+        # response looks the same either way". So: an unscored class must
+        # be counted, named, and given a reason in the payload itself.
+        body = self.client.get("/api/consensus-edge/players").json()
+        coverage = body.get("assetClassCoverage") or {}
+        self.assertTrue(coverage, "board does not report per-asset-class coverage at all")
+
+        scored_classes = {c for c, m in coverage.items() if m.get("scored")}
+        self.assertIn("offense", scored_classes)
+
+        for cls, meta in coverage.items():
+            self.assertEqual(
+                meta["rows"],
+                meta["scored"] + sum(meta["unpricedReasons"].values()),
+                f"{cls} rows are unaccounted for",
+            )
+            if meta["scored"] or not meta["rows"]:
+                continue
+            # Wholly unscored: the payload must say why, and the caveats
+            # must say it in a sentence a reader will actually see.
+            self.assertTrue(meta["unpricedReasons"], f"{cls} is unscored with no stated reason")
+            self.assertTrue(
+                any(cls.upper() in c for c in body.get("caveats") or []),
+                f"{cls} carries no score and no caveat mentions it",
+            )
 
     def test_every_row_carries_provenance(self):
         body = self.client.get("/api/consensus-edge/players").json()
@@ -130,6 +162,42 @@ class TestTheBoardIsActuallyBuilt(_Enabled):
             self.assertGreater(row["score"], 0)
         for row in body["sells"]:
             self.assertLess(row["score"], 0)
+
+    def test_served_order_is_the_measured_order(self):
+        # The study that justified turning the flag on measures
+        # ``service.top_movers``, which ranks by conviction. ``/players``
+        # — the ONLY endpoint the page fetches — sorted by raw score, so
+        # the measurement described an ordering no user ever saw. The two
+        # must be one list read two ways.
+        body = self.client.get("/api/consensus-edge/players").json()
+        rows = body["players"]
+
+        convictions = [r["conviction"] for r in rows if r.get("score") is not None]
+        self.assertGreater(len(convictions), 50)
+        self.assertEqual(
+            convictions,
+            sorted(convictions, reverse=True),
+            "/players is not in conviction order",
+        )
+
+        served_buys = [
+            r["playerKey"] for r in rows if r.get("qualified") and (r.get("score") or 0) > 0
+        ][:10]
+        measured = self.client.get("/api/consensus-edge/top?limit=10").json()
+        self.assertEqual(
+            served_buys,
+            [r["playerKey"] for r in measured["buys"]],
+            "the top of the served board is not the list the study measures",
+        )
+
+    def test_conviction_is_stamped_not_left_to_the_client(self):
+        body = self.client.get("/api/consensus-edge/players").json()
+        for row in body["players"]:
+            if row.get("score") is None:
+                continue
+            self.assertIsInstance(row.get("conviction"), float, row["playerKey"])
+            expected = float(row["score"]) * float(row["confidence"]) / 100.0
+            self.assertAlmostEqual(row["conviction"], expected, places=9)
 
     def test_health_reports_real_counts(self):
         body = self.client.get("/api/consensus-edge/health").json()

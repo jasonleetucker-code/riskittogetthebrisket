@@ -459,3 +459,67 @@ under a market value of 2000, and above that floor the measured edge is
 say about the players a big trade is built around. The row now shows
 market value so a user can see which they are looking at.
 **Status:** accepted 2026-08-04.
+
+## ADR-021: a leave-one-out board must keep its units, not just lose the anchor
+The three leaks this package documents (correlated sources, the rookie
+ladder, the corridor clamp) all ask *does the anchor's opinion still
+reach the result?* An independent audit found a second question nobody
+had asked: *is the result still denominated in the same units?* For two
+row classes the answer was no, and both were being published as buys.
+**IDP had no scale at all.** `idpTradeCalc` is the only source
+registered `is_backbone`, and the backbone crosswalks a within-DL/LB/DB
+rank into a combined-pool rank. Excluding it makes the pipeline take its
+documented fallback — treat a position rank as a combined rank — so the
+#1 DL is priced as the #1 asset in the league. Measured on the
+2026-08-03 payload: **220 IDP rows, median leave-one-out/base ratio
+1.224, range 0.45x to 3.48x**. Caleb Banks went 1183 → 4115 and was the
+published #19 buy on that strength alone.
+**Rookies lost their ladder.** Closing leak #2 means skipping the
+translation, and skipping it is what breaks the scale: the untranslated
+vote says rookie #1 is asset #1. Non-rookie offense is sound (400 rows,
+median 0.992, max 1.17x — one vote leaving, which is the point) while
+**87 rookie rows reached 2.44x**.
+**Decision:** affected rows are returned **unpriced** with
+`anchor_free_board_lost_idp_backbone` /
+`anchor_free_board_lost_rookie_ladder`, never with a substituted number.
+The board stamps `assetClassCoverage` and a derived caveat so a wholly
+unscored class is a legible refusal rather than an offense-only list.
+Surviving rows measure median 0.992, p95 1.015, max 1.173 — one board,
+one set of units.
+**Rejected: keep `idpTradeCalc` as the backbone while dropping its
+vote.** Not on cost — on the module's own premise. The backbone *defines
+the scale*, so a fair value calibrated on it is still the anchor
+measured against itself, which is the circularity the whole module
+exists to avoid. There is no anchor-free IDP scale today because there
+is exactly one IDP cross-market source.
+**The guard is structural, not a key list.**
+`data_contract.scale_integrity_lost` asks the registry which scale
+dependencies the exclusion severed, so registering a second IDP
+cross-market source lifts the refusal automatically instead of leaving a
+hardcoded refusal behind. The rookie half is checked per row against the
+row's own votes, so a rookie the broken source never ranked keeps his
+score.
+**Status:** accepted 2026-08-04.
+
+## ADR-022: the list that is served is the list that was measured
+ADR-018 moved the top list from raw score to conviction (score shrunk by
+its own confidence) because ranking on the point estimate alone threw
+away the precision the board already computes, and doing so more than
+doubled the measured edge. That change reached `top_movers`. It did not
+reach `build_board`, which kept sorting `players` by raw score — and
+`/api/consensus-edge/players` is the **only** endpoint the page fetches.
+So the study that justified turning the flag on measured an ordering no
+user ever saw, and `TestConvictionRanking` passed on two-row synthetic
+boards while the shipped page ignored conviction entirely.
+**Decision:** `build_board` stamps `conviction` on every row and sorts
+`players` by it. The top of the served board is now literally the head
+of the measured list. `test_served_order_is_the_measured_order` asserts
+that equality against the running API rather than against a fixture, so
+the two orderings cannot drift apart again silently.
+**The client reads the stamp; it does not recompute it.** The sells view
+reverses the same key and `positionLeaders` ranks on it, both via
+`lib/consensus-edge.js::rankKey`. A missing stamp falls back to `0`, not
+to `score` — that leaves the backend's own array order (already
+conviction order) intact instead of quietly reinstating the ranking the
+measurements do not describe.
+**Status:** accepted 2026-08-04.

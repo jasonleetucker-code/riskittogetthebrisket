@@ -445,10 +445,6 @@ class TestCommittedMeasurementsAreHonest(unittest.TestCase):
             )
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestConvictionRanking(unittest.TestCase):
     """The top list must not throw away the precision the board computes.
 
@@ -559,3 +555,12 @@ class TestSellSideIsMarkedUnvalidated(unittest.TestCase):
         page = (REPO / "frontend" / "app" / "consensus-edge" / "page.jsx").read_text()
         self.assertIn("sellSideValidation", page)
         self.assertIn('view === "sells"', page)
+
+
+# Kept at the very bottom on purpose. This line used to sit two thirds of
+# the way up the file, so `python tests/consensus_edge/test_board_validation.py`
+# ran only the classes defined above it — the classes below had not been
+# defined yet when `unittest.main()` discovered the module. pytest never
+# saw the difference, which is what let it survive.
+if __name__ == "__main__":
+    unittest.main()

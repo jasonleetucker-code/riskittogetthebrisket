@@ -48,6 +48,45 @@ routing and stamps which basis priced each row; a row whose anchor board
 declines to price it gets ``None``, never a substituted number from the
 other board.
 
+**Leakage is not the only failure mode, and it was not the worst one.**
+The three items above all ask "does the anchor's opinion still reach the
+result?".  There is a second question — "is the result still denominated
+in the same units?" — and for two row classes the answer was no, which
+made the board *look* fine while inflating exactly the rows a buy list
+surfaces:
+
+* **IDP rows had no scale at all.**  ``idpTradeCalc`` is the sole source
+  registered ``is_backbone``, and the backbone is what crosswalks a
+  ``position_idp`` source's within-DL/LB/DB rank into a combined-pool
+  rank.  Excluding it makes the pipeline take its documented fallback —
+  treat the position rank as the combined rank — so the #1 DL is priced
+  as if he were the #1 asset in the league.  Measured on the 2026-08-03
+  payload: **220 IDP rows, median LOO/base ratio 1.224, range 0.45x to
+  3.48x**.  Caleb Banks went 1183 → 4115 and was published as the #19
+  buy on that strength alone.
+* **Rookie rows lost the ladder.**  Item 2's guard closes the leak by
+  skipping the translation, and skipping it is what breaks the scale:
+  the untranslated vote says rookie #1 is asset #1.  Measured on the same
+  payload: non-rookie offense is sound (400 rows, median 0.992, max
+  1.17x — a vote leaving, which is the point), while **87 rookie rows
+  reach 2.44x**.
+
+Neither is fixable by excluding more sources, and neither is a bug in the
+pipeline: the fallbacks are right for the default board, where an absent
+source is one we never scraped.  They are wrong for a board built by
+deliberately removing a source.  So the rows are returned **unpriced**,
+with :data:`UNPRICED_SCALE_IDP_BACKBONE` / :data:`UNPRICED_SCALE_ROOKIE_LADDER`
+naming which dependency broke.
+
+The alternative — keep ``idpTradeCalc`` as the backbone while dropping
+its vote — was rejected on the module's own premise rather than on cost:
+the backbone *defines the scale*, so a fair value calibrated on it is
+still the anchor measured against itself.  There is no anchor-free IDP
+scale today because there is exactly one IDP cross-market source.  The
+guard is structural (`scale_integrity_lost` asks the registry, not a
+hardcoded key list), so registering a second one lifts it automatically.
+See ADR-021 in ``docs/consensus-edge/DECISIONS.md``.
+
 Cost: two extra pipeline passes, ~2s each on a live payload.  Callers
 that need both should use :func:`fair_value_index`, which builds each
 board once.
@@ -58,7 +97,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Iterable
 
-from src.api.data_contract import build_api_data_contract, expand_correlation_groups
+from src.api.data_contract import (
+    build_api_data_contract,
+    expand_correlation_groups,
+    scale_integrity_lost,
+)
 
 # Which source is the acquisition market for each asset class.  Mirrors
 # ``data_contract._MARKET_ANCHOR_BY_ASSET_CLASS`` and
@@ -76,6 +119,13 @@ MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
 UNPRICED_NO_ANCHOR = "no_market_anchor_for_asset_class"
 UNPRICED_NOT_ON_BOARD = "not_priced_by_anchor_free_board"
 UNPRICED_NO_MARKET_VALUE = "no_market_value"
+# The anchor-free board produced a number for this row, and the number
+# does not mean what the other rows' numbers mean.  Deliberately NOT
+# folded into ``UNPRICED_NOT_ON_BOARD``: "the board could not price him"
+# and "the board priced him in the wrong units" are different facts, and
+# only the second one says a source needs registering.
+UNPRICED_SCALE_IDP_BACKBONE = "anchor_free_board_lost_idp_backbone"
+UNPRICED_SCALE_ROOKIE_LADDER = "anchor_free_board_lost_rookie_ladder"
 
 
 def leave_one_out_board(
@@ -159,6 +209,9 @@ def fair_value_index(
         basis             "leaveOneOut"
         excludedSources   sorted keys dropped to produce fairValue
         unpricedReason    set when fairValue or marketValue is None
+        scaleIntegrity    present ONLY on rows discarded because the
+                          anchor-free board could not express them on the
+                          shared scale (see the module docstring)
 
     One pipeline pass per distinct anchor (two today), not one per row.
 
@@ -187,12 +240,18 @@ def fair_value_index(
     # One anchor-free board per distinct anchor source.
     boards: dict[str, dict[str, dict[str, Any]]] = {}
     excluded_by_anchor: dict[str, list[str]] = {}
+    # Per anchor: which asset classes and which surviving source votes
+    # come out of that board on a broken scale.  Asked of the registry
+    # once per board rather than inferred per row, so the answer cannot
+    # drift from the exclusion that produced the board.
+    scale_loss_by_anchor: dict[str, dict[str, dict[str, str]]] = {}
     for anchor_key in sorted(set(anchor_map.values())):
         contract = leave_one_out_board(raw_payload, exclude=[anchor_key], csv_root=csv_root)
         boards[anchor_key] = {
             _row_key(r): r for r in (contract.get("playersArray") or []) if _row_key(r)
         }
         excluded_by_anchor[anchor_key] = sorted(expand_correlation_groups([anchor_key]))
+        scale_loss_by_anchor[anchor_key] = scale_integrity_lost([anchor_key])
 
     out: dict[str, dict[str, Any]] = {}
     for key, row in default_rows.items():
@@ -229,6 +288,32 @@ def fair_value_index(
             if isinstance(raw_fair, (int, float)) and raw_fair > 0:
                 fair = float(raw_fair)
 
+        # Scale integrity, checked BEFORE the number is accepted.  A row
+        # whose class lost the IDP backbone, or whose vote came from a
+        # rookie source whose ladder reference was excluded, carries a
+        # value in units the rest of the board does not share.  Discard
+        # it and say which dependency broke — never blend it, never
+        # substitute the default board's number, which would be the
+        # anchor priced against itself.
+        scale_loss = scale_loss_by_anchor.get(anchor_key) or {}
+        scale_reason: str | None = None
+        if asset_class and asset_class in (scale_loss.get("assetClasses") or {}):
+            scale_reason = UNPRICED_SCALE_IDP_BACKBONE
+        else:
+            broken_sources = scale_loss.get("sources") or {}
+            # Per-row rather than per-class: only rows this source
+            # actually voted on are affected, and the vote is the ground
+            # truth for that — narrower and more honest than reading a
+            # rookie flag, which would also catch rookies the broken
+            # source never ranked.
+            if broken_sources and loo_row is not None:
+                voted = set((loo_row.get("sourceRanks") or {}).keys())
+                if voted & set(broken_sources):
+                    scale_reason = UNPRICED_SCALE_ROOKIE_LADDER
+        if scale_reason:
+            fair = None
+            entry["scaleIntegrity"] = {"lost": True, "reason": scale_reason}
+
         # League scoring fit enters HERE — inside the value — and nowhere
         # else. It changes what a player is worth to this league; it is
         # not independent evidence that the market is mispricing him, so
@@ -250,7 +335,9 @@ def fair_value_index(
 
         entry["marketValue"] = _market_value(row, anchor_key)
 
-        if fair is None:
+        if scale_reason:
+            entry["unpricedReason"] = scale_reason
+        elif fair is None:
             entry["unpricedReason"] = UNPRICED_NOT_ON_BOARD
         elif entry["marketValue"] is None:
             entry["unpricedReason"] = UNPRICED_NO_MARKET_VALUE

@@ -41,6 +41,31 @@ correlated sources (`fantasyNavigatorSf` is KTC-derived — 440 rows), the
 KTC-built rookie ladder (already guarded upstream, now pinned), and the
 market-corridor clamp (101 IDP rows, mean shift 552). See ADR-002/3/4.
 
+**What the board refuses to price, and why.** Removing a source costs
+evidence; removing the source that *defines the scale* changes what the
+numbers mean, and the result still looks like an ordinary board. Two row
+classes were affected (ADR-021):
+
+- **IDP: no score at all.** `idpTradeCalc` is the only registered
+  cross-market IDP source, and it is the one being judged. Without it a
+  within-DL/LB/DB rank has nothing to crosswalk against, so the #1 DL
+  prices as the #1 asset in the league — measured at 220 rows, median
+  1.224x, up to 3.48x. All 281 IDP rows come back unpriced with
+  `anchor_free_board_lost_idp_backbone`. This lifts by itself if a
+  second cross-market IDP source is ever registered.
+- **Rookies whose ladder reference was the anchor: no score.** 75 rows,
+  `anchor_free_board_lost_rookie_ladder`. Rookies the affected sources
+  never ranked keep their score — the check is per row, against the
+  row's own votes.
+- **Picks: no score, permanently.** No retail source publishes a pick
+  market, so there is no price to call wrong (144 rows).
+
+Every wholly unscored class is counted in `assetClassCoverage` and named
+in `caveats`, because an offense-only buy list looks identical whether
+that is a decision or a broken join. What survives measures median
+0.992, p95 1.015, max 1.173 against the default board — one set of
+units.
+
 **Scoring** is `log(fair / market)`, then a robust z against a cohort of
 position family × value tier. A raw point gap cannot be ranked across a
 board — 500 points is noise on an elite QB and a doubling on a deep LB —
