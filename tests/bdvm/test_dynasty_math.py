@@ -293,5 +293,99 @@ class TestStrategyAndDeterminism(unittest.TestCase):
         self.assertLessEqual(rng["median"], rng["ceiling_p85"] + 1e-6)
 
 
+class TestValueScaleBounds(unittest.TestCase):
+    """The 0-10000 scale is a BOUND, and the band is a band.
+
+    Both gates here were open: ``scale.trade_value_max`` was declared in
+    params and read by nothing, and the floor/median/ceiling triple could
+    come back with the ceiling BELOW the median (audit H6, 2026-08-04).
+    """
+
+    def _star(self):
+        # The reference's young elite QB — the asset calibration anchors on.
+        return PlayerInput(
+            player_id="s",
+            name="star",
+            position="QB",
+            age=24.0,
+            nfl_season=3,
+            fpg=22.5,
+            games=16.5,
+            archetype="dual",
+            career_load=1150,
+            kappa=0.06,
+            risk=RiskProfile(0.92, 0.95, 0.85, 0.70, 1.8, 0.8, 0.08, 0.28, 0.0),
+        )
+
+    def _deep_bench_flier(self):
+        # 2.5 FPG against a 6.15 WR replacement level: the option value is
+        # ALL variance, so the p20/p85 paths and the expectation disagree.
+        return PlayerInput(
+            player_id="d",
+            name="deep",
+            position="WR",
+            age=24.0,
+            nfl_season=2,
+            fpg=2.5,
+            games=16.0,
+            risk=RiskProfile(role_uncertainty=0.6, event_volatility=0.6, small_sample=1.0),
+        )
+
+    def test_ceiling_is_bounded_by_the_declared_scale_max(self):
+        star, deep = self._star(), self._deep_bench_flier()
+        eng = make_engine()
+        eng.calibrate([star, deep])
+        rng = eng.value(star).range_
+        cap = float(PARAMS["scale"]["trade_value_max"])
+        # Calibration pins the top asset's MEDIAN at target_top_value, and
+        # that number sits below the cap deliberately — so the bound acts
+        # on the p85 path (uncapped: ~19.7k) without moving the board.
+        self.assertAlmostEqual(rng["median"], float(PARAMS["scale"]["target_top_value"]), places=6)
+        # STRICTLY under, not equal to, the cap.  An earlier version of
+        # this assertion demanded exact equality, which pinned a hard
+        # `min(cap, x)` in place — and that clamp is not injective: on an
+        # elite-heavy ladder it collapsed seven distinct ceilings
+        # spanning an ~1.8x uncapped range onto one identical 10000.0.
+        self.assertLess(rng["ceiling_p85"], cap)
+        self.assertGreater(rng["ceiling_p85"], rng["median"])
+        for v in eng.value(star).trade_value.values():
+            self.assertLessEqual(v, cap)
+
+    def test_the_bound_does_not_collapse_distinct_ceilings(self):
+        """The bound must be order-preserving where it binds.
+
+        Math audit C4, applied to BDVM: a hard clamp turns a resolution
+        problem into a tie, and this band is rendered directly by
+        ``frontend/lib/bdvm.js``.  Two players whose uncapped p85 paths
+        differ must still differ after bounding.
+        """
+        from src.bdvm.engine import _under_ceiling
+
+        cap = float(PARAMS["scale"]["trade_value_max"])
+        # Uncapped ceilings measured on an elite-heavy ladder.
+        uncapped = [20324.0, 18213.9, 14470.9, 14379.7, 11236.0, 10001.0]
+        bounded = [_under_ceiling(v, ceiling=cap) for v in uncapped]
+        self.assertEqual(len(set(bounded)), len(uncapped))
+        # Order preserved, and every one strictly under the cap.
+        self.assertEqual(bounded, sorted(bounded, reverse=True))
+        for b in bounded:
+            self.assertLess(b, cap)
+        # Identity well below the knee — the board itself must not move.
+        for v in (0.0, 1.0, 5000.0, 9800.0):
+            self.assertEqual(_under_ceiling(v, ceiling=cap), v)
+
+    def test_band_never_inverts_on_a_below_replacement_flier(self):
+        star, deep = self._star(), self._deep_bench_flier()
+        eng = make_engine()
+        eng.calibrate([star, deep])
+        rng = eng.value(deep).range_
+        self.assertGreater(rng["median"], 0.0, "the option value of variance is real value")
+        self.assertLessEqual(rng["floor_p20"], rng["median"])
+        # Strict: a p85 outcome must be worth MORE than the expectation.
+        # Before the fix this was 0.0 against a 41.4 median — the quantile
+        # paths priced truncated surplus while the median priced the option.
+        self.assertGreater(rng["ceiling_p85"], rng["median"])
+
+
 if __name__ == "__main__":
     unittest.main()

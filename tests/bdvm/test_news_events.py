@@ -315,6 +315,10 @@ class TestCacheFingerprint(unittest.TestCase):
                 mock.patch.object(events_mod, "EVENTS_DIR", base),
                 mock.patch.object(bdvm_api, "latest_snapshot_path", return_value=None),
                 mock.patch.object(bdvm_api, "_actuals_for", return_value=(None, {})),
+                # The events file the cache key fingerprints is named for
+                # the NFL season, which is now derived from the date —
+                # pin it so this test does not expire on New Year's Day.
+                mock.patch.object(bdvm_api, "nfl_projection_season", return_value=2026),
                 mock.patch.object(
                     bdvm_api,
                     "run_valuation",

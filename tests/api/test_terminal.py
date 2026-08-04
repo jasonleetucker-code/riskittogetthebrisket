@@ -555,3 +555,235 @@ def test_dismissal_resolves_via_alias_key_after_rename(history_path):
     assert hit["aliasSignalKey"] == alias_key  # alias stays identical across rename
     assert hit["dismissed"] is True
     assert hit["dismissedUntil"] == future_ts
+
+
+# ── Population-consistent deltas + honest history windows ───────────
+# (2026-08-04 sitewide math audit, findings H2 / H3a)
+
+
+def _seed_value_history(path, *, rows_by_date):
+    """Write ``{date: [(name, value), ...]}`` into a value-history log.
+
+    Uses the production writer so the on-disk shape is the real one,
+    but every number here is chosen by hand — nothing in this helper
+    consults the code under test.
+    """
+    from src.api import source_history
+
+    for date, rows in sorted(rows_by_date.items()):
+        source_history.append_snapshot(
+            {
+                "playersArray": [
+                    {
+                        "displayName": name,
+                        "canonicalName": name,
+                        "assetClass": "offense",
+                        "position": "QB",
+                        "rankDerivedValue": value,
+                        # ``_extract_player_entry`` only keeps a row that
+                        # carries at least one source value.
+                        "sourceRankMeta": {"ktcSfTep": {"valueContribution": value}},
+                    }
+                    for name, value in rows
+                ]
+            },
+            date=date,
+            path=path,
+        )
+
+
+def _mk_ghost_contract():
+    """Owner-1 holds Alice + Bob (both with history) and Ghost (none).
+
+    Board values are literals so the arithmetic in the assertions can
+    be done by hand.
+    """
+    return {
+        "date": "2026-04-23",
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "playerCount": 3,
+        "contractVersion": "2026-03-10.v2",
+        "playersArray": [
+            {
+                "displayName": "Alice",
+                "canonicalName": "Alice",
+                "assetClass": "offense",
+                "position": "QB",
+                "pos": "QB",
+                "canonicalConsensusRank": 10,
+                "rankDerivedValue": 9000,
+                "age": 27,
+            },
+            {
+                "displayName": "Bob",
+                "canonicalName": "Bob",
+                "assetClass": "offense",
+                "position": "WR",
+                "pos": "WR",
+                "canonicalConsensusRank": 25,
+                "rankDerivedValue": 8000,
+                "age": 29,
+            },
+            {
+                "displayName": "Ghost",
+                "canonicalName": "Ghost",
+                "assetClass": "offense",
+                "position": "TE",
+                "pos": "TE",
+                "canonicalConsensusRank": 300,
+                "rankDerivedValue": 500,
+                "age": 24,
+            },
+        ],
+        "sleeper": {
+            "teams": [
+                {
+                    "ownerId": "owner-1",
+                    "name": "Alpha Team",
+                    "roster_id": 1,
+                    "players": ["Alice", "Bob", "Ghost"],
+                    "picks": [],
+                }
+            ],
+            "trades": [],
+        },
+    }
+
+
+def test_delta_does_not_subtract_two_different_populations(tmp_path, monkeypatch):
+    """H2 — a player the PAST sum can't price must not inflate the delta.
+
+    Ghost is on the roster today at 500 but has no history at all.  The
+    past sum can only price Alice + Bob, so counting Ghost's 500 on the
+    present side is 500 points of growth that never happened.
+
+    Hand-computed, with ``i`` = days ago:
+        Alice(i) = 9000 - 2i  →  Alice(30) = 8940
+        Bob(i)   = 8000 - i   →  Bob(30)   = 7970
+        pastValue    = 8940 + 7970 = 16910
+        presentValue = 9000 + 8000 = 17000   (Ghost excluded)
+        delta30d     = 17000 - 16910 = 90
+
+    The pre-fix answer was ``17500 - 16910 = 590`` — Ghost's whole
+    board value banked as a gain.
+    """
+    from src.api import source_history
+
+    rank_path = tmp_path / "rank_history.jsonl"
+    rank_path.write_text("")  # force the value-history path
+    monkeypatch.setattr(rank_history, "HISTORY_PATH", rank_path)
+    value_path = tmp_path / "source_value_history.jsonl"
+    monkeypatch.setattr(source_history, "HISTORY_PATH", value_path)
+
+    today = datetime.now(timezone.utc).date()
+    _seed_value_history(
+        value_path,
+        rows_by_date={
+            _iso(today - timedelta(days=i)): [("Alice", 9000 - 2 * i), ("Bob", 8000 - i)]
+            for i in range(40)
+        },
+    )
+
+    contract = _mk_ghost_contract()
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
+    agg = payload["teamAggregates"]
+    d30 = agg["delta30dDetail"]
+
+    # totalValue is untouched — it is the whole roster, deltas are not.
+    assert agg["totalValue"] == 17500
+    # The headline int is the number that has to be right.
+    assert agg["delta30d"] == 90
+    assert d30["value"] == 90
+    assert d30["pastValue"] == 16910
+    assert d30["presentValue"] == 17000
+    # …and the payload says which population that number is over.
+    assert d30["excludedFromPresent"] == ["Ghost"]
+    assert d30["comparedCount"] == 2
+    assert d30["resolved"] == 2
+    assert d30["expected"] == 3
+    assert d30["coverageFraction"] == pytest.approx(2 / 3, abs=0.01)
+
+
+def test_delta_still_counts_a_player_acquired_inside_the_window(tmp_path, monkeypatch):
+    """The population filter is priceability, NOT roster membership.
+
+    Ghost is acquired 10 days ago, so he was legitimately worth 0 to
+    this roster at the 30d mark — his 500 is a real gain and must
+    survive the H2 filter even though the past sum never priced him.
+    Same series as above:
+        presentValue = 9000 + 8000 + 500 = 17500
+        pastValue    = 8940 + 7970       = 16910
+        delta30d     = 590
+    """
+    from src.api import source_history
+
+    rank_path = tmp_path / "rank_history.jsonl"
+    rank_path.write_text("")
+    monkeypatch.setattr(rank_history, "HISTORY_PATH", rank_path)
+    value_path = tmp_path / "source_value_history.jsonl"
+    monkeypatch.setattr(source_history, "HISTORY_PATH", value_path)
+
+    today = datetime.now(timezone.utc).date()
+    _seed_value_history(
+        value_path,
+        rows_by_date={
+            _iso(today - timedelta(days=i)): [("Alice", 9000 - 2 * i), ("Bob", 8000 - i)]
+            for i in range(40)
+        },
+    )
+
+    contract = _mk_ghost_contract()
+    # Owner-1 GOT Ghost 10 days ago — reversing the trade removes him
+    # from the reconstructed 30-days-ago roster.
+    ten_days_ago_ms = int((datetime.now(timezone.utc) - timedelta(days=10)).timestamp() * 1000)
+    contract["sleeper"]["trades"] = [
+        {
+            "timestamp": ten_days_ago_ms,
+            "sides": [{"ownerId": "owner-1", "got": ["Ghost"], "gave": []}],
+        }
+    ]
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
+    d30 = payload["teamAggregates"]["delta30dDetail"]
+
+    assert d30["rosterAware"] is True
+    assert payload["teamAggregates"]["delta30d"] == 590
+    assert d30["excludedFromPresent"] == []
+    assert d30["presentValue"] == 17500
+    assert d30["pastValue"] == 16910
+
+
+def test_value_history_lookup_windows_by_date_not_snapshot_count(tmp_path, monkeypatch):
+    """H3a — ``days`` must mean days, not "the last N snapshots".
+
+    The log is deduped per UTC date but NOT gap-free: a missed refresh
+    drops a date and the historical backfill is sparser still.  Four
+    snapshots spread over 180 days are still only four elements, so
+    ``entries[-7:]`` handed a 7-day caller the whole 180-day span.
+    """
+    from src.api import source_history
+
+    value_path = tmp_path / "source_value_history.jsonl"
+    monkeypatch.setattr(source_history, "HISTORY_PATH", value_path)
+
+    today = datetime.now(timezone.utc).date()
+    _seed_value_history(
+        value_path,
+        rows_by_date={
+            _iso(today - timedelta(days=180)): [("Alice", 1000)],
+            _iso(today - timedelta(days=120)): [("Alice", 2000)],
+            _iso(today - timedelta(days=60)): [("Alice", 3000)],
+            _iso(today): [("Alice", 4000)],
+        },
+    )
+
+    narrow = terminal._build_value_history_lookup(days=7)
+    assert [p["date"] for p in narrow("Alice")] == [_iso(today)]
+    assert [p["value"] for p in narrow("Alice")] == [4000]
+
+    # A wide window still reaches the whole log, and the boundary
+    # snapshot at exactly ``days`` back is inside it (inclusive cutoff,
+    # matching ``_window_trend``) — the 180d delta depends on that.
+    wide = terminal._build_value_history_lookup(days=180)
+    assert [p["value"] for p in wide("Alice")] == [1000, 2000, 3000, 4000]

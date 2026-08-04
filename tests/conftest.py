@@ -100,7 +100,22 @@ _LIVEDATA_MODULES = frozenset(
         "test_single_curve_live.py",
         "test_single_authority.py",
         "test_per_source_freshness.py",
-        "test_data_contract.py",
+        # ``test_data_contract.py`` was listed here and is 100% SYNTHETIC:
+        # every test builds its input from ``_minimal_raw_payload()`` and
+        # the module contains no reference to exports/, CSVs/, data/ or
+        # the live contract.  The exemption moved 33 tests covering
+        # ``build_api_data_contract`` — rank assignment, value-direct
+        # voting, the single-source haircut, OVERALL_RANK_LIMIT,
+        # legacy-dict mirroring, IDP integrity guardrails, hillCurves
+        # stamping — out of the hard gate, so a real regression in the
+        # core blend could not fail a PR.  This is the same defect the
+        # module docstring of ``test_livedata_policy.py`` records for
+        # ``test_pick_rookie_anchor.py``, in a second file.
+        #
+        # Removed 2026-08-04 (audit finding Q-1).  Unlike the pick-anchor
+        # case no split was needed — the module is synthetic in whole, so
+        # it simply rejoins the blocking tier.  Verified: 33 passed in
+        # 1.37s with no data files present.
         "test_dlf_source.py",
         "test_dlf_scraper.py",
         "test_fantasypros_idp_integration.py",

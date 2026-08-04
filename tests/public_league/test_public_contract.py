@@ -361,28 +361,26 @@ class ActivityGradingTests(unittest.TestCase):
             self.assertEqual(side["grade"]["label"], "Fair trade")
 
     def test_activity_grades_sanitize_non_finite_valuation(self) -> None:
-        # A valuation that returns NaN for some assets must not
-        # poison the per-side total — without sanitization NaN
-        # propagates through max/min/pct and grades land on the
-        # extreme winner/loser badges instead of the intended
-        # floor-1 fair behavior.
+        # A valuation that returns NaN for some assets must not poison
+        # the per-side total.  Without sanitization the NaN propagates
+        # into the net, every band comparison against it is False, and
+        # the side falls through to the "F Fleeced" tail — on a trade
+        # that is a dead-even 1000-for-1000 swap.
         from src.public_league.activity import _apply_trade_grades
 
+        got_a = [
+            {"kind": "player", "playerId": "a"},
+            {"kind": "player", "playerId": "nan-1"},
+        ]
+        got_b = [
+            {"kind": "player", "playerId": "b"},
+            {"kind": "player", "playerId": "nan-2"},
+        ]
         trade = {
             "transactionId": "synthetic-nan",
             "sides": [
-                {
-                    "receivedAssets": [
-                        {"kind": "player", "playerId": "a"},
-                        {"kind": "player", "playerId": "nan-1"},
-                    ]
-                },
-                {
-                    "receivedAssets": [
-                        {"kind": "player", "playerId": "b"},
-                        {"kind": "player", "playerId": "nan-2"},
-                    ]
-                },
+                {"receivedAssets": got_a, "sentAssets": got_b},
+                {"receivedAssets": got_b, "sentAssets": got_a},
             ],
         }
 
@@ -398,27 +396,39 @@ class ActivityGradingTests(unittest.TestCase):
         self.assertEqual(grades, ["A", "A"])
         self.assertEqual(labels, ["Fair trade", "Fair trade"])
 
-    def test_activity_grades_mark_only_top_and_bottom_in_multi_team(self) -> None:
-        # Simulate a 3-team lopsided trade by valuing the winner's
-        # received assets high, the loser's low, and the middle
-        # side exactly at the winner's total minus a hair so it is
-        # neither max nor min.  The private /trades grading only
-        # decorates the extremes — middle sides get "Fair trade".
+    def test_activity_grades_each_multi_team_side_on_its_own_net(self) -> None:
+        # 3-team trade, graded the way the private /trades page grades
+        # it: every side on its OWN got-minus-gave net, not ranked
+        # against the other sides' received totals.  The two differ
+        # exactly where it matters — team C receives the SECOND-smallest
+        # pile (3000) but sent only 1000, so it is a clear winner, while
+        # ranking received totals would call it the unremarkable middle
+        # side and stamp it "Fair trade".
         #
-        # We synthesize this directly against the internal grading
-        # helper so the test doesn't depend on the stub trade feed
-        # having a 3-side transaction.
+        #   A: got 1000, gave 8000  → −7000 / 8000 = −87.5%  → F
+        #   B: got 8000, gave 3000  → +5000 / 8000 = +62.5%  → A+
+        #   C: got 3000, gave 1000  → +2000 / 3000 = +66.67% → A+
+        #
+        # Every side is 1-for-1, and KTC suppresses the value adjustment
+        # on 1v1 packages, so all three pcts are plain ratios.
+        #
+        # Synthesized directly against the internal grading helper so
+        # the test doesn't depend on the stub feed having a 3-side
+        # transaction.
         from src.public_league.activity import _apply_trade_grades
+
+        def _asset(pid):
+            return {"kind": "player", "playerId": pid}
 
         trade = {
             "transactionId": "synthetic-3way",
             "sides": [
-                {"receivedAssets": [{"kind": "player", "playerId": "top"}]},
-                {"receivedAssets": [{"kind": "player", "playerId": "mid"}]},
-                {"receivedAssets": [{"kind": "player", "playerId": "bot"}]},
+                {"receivedAssets": [_asset("small")], "sentAssets": [_asset("big")]},
+                {"receivedAssets": [_asset("big")], "sentAssets": [_asset("mid")]},
+                {"receivedAssets": [_asset("mid")], "sentAssets": [_asset("small")]},
             ],
         }
-        values = {"top": 10000.0, "mid": 5000.0, "bot": 100.0}
+        values = {"big": 8000.0, "mid": 3000.0, "small": 1000.0}
 
         def _valuation(asset):
             return values.get(str(asset.get("playerId") or ""), 0.0)
@@ -426,11 +436,8 @@ class ActivityGradingTests(unittest.TestCase):
         _apply_trade_grades([trade], _valuation)
         grades = [s["grade"]["grade"] for s in trade["sides"]]
         labels = [s["grade"]["label"] for s in trade["sides"]]
-        # Top-weighted side earns a winner grade (A/A-/A+), bottom
-        # earns a loser grade (B/C/D/F), middle is neutral Fair.
-        self.assertIn(grades[0], {"A", "A-", "A+", "B+"})
-        self.assertEqual(labels[1], "Fair trade")
-        self.assertIn(grades[2], {"B+", "B", "C", "D", "F"})
+        self.assertEqual(grades, ["F", "A+", "A+"])
+        self.assertEqual(labels, ["Fleeced", "Big win", "Big win"])
 
     def test_activity_section_payload_threads_valuation(self) -> None:
         # The per-section endpoint (/api/public/league/activity) also

@@ -14,9 +14,12 @@ This module hosts the parser that walks a canonical contract dict
 and returns that callable.  Keeping it outside ``server.py`` lets
 the tests import it without pulling in FastAPI, and pins the
 contract-shape dependency (``values.displayValue`` /
-``values.overall`` / ``values.finalAdjusted`` /
-``values.rawComposite``) so a future rename to the private bundle
-keys can not silently disable public grading.
+``values.overall`` / ``values.finalAdjusted``) so a future rename to
+the private bundle keys can not silently disable public grading.
+
+``values.rawComposite`` is deliberately NOT part of that dependency —
+it is the legacy scraper composite on a different scale.  See
+:func:`_value_from_bundle`.
 """
 
 from __future__ import annotations
@@ -51,23 +54,29 @@ _TIER_CENTER_SLOTS: tuple[tuple[str, int], ...] = (
 
 
 def _value_from_bundle(bundle: dict[str, Any]) -> float:
-    """Mirror the frontend ``inferValueBundle`` (1-9999 preferred,
-    calibrated fallback) against the backend contract keys.
+    """Read the canonical board value out of a contract row's ``values``.
 
-    Frontend fallback chain (``frontend/lib/dynasty-data.js``):
-        _canonicalDisplayValue || _finalAdjusted || _composite || raw
+    SCALE (math audit 2026-07-30, finding H1).  This chain used to end in
+    ``rawComposite`` — the legacy scraper composite, which runs ~1.131x the
+    canonical board.  Every row the blend declined to price therefore
+    entered public trade grading on a *different scale* from its
+    board-priced counterparties, and the two were summed into one side
+    total.  On a real payload that was 270 rows, including every
+    suppressed generic pick tier.
 
-    Contract equivalents (``src/api/data_contract.py``):
-        values.displayValue  ← _canonicalDisplayValue
-        values.finalAdjusted ← _finalAdjusted / _composite
-        values.overall       ← values.finalAdjusted (mirror)
-        values.rawComposite  ← _rawComposite / _rawMarketValue / _composite
+    ``values.overall`` / ``finalAdjusted`` / ``displayValue`` all mirror
+    ``rankDerivedValue`` and are ``None`` when the board declined to price
+    the row (``data_contract._player_value_bundle``).  The three keys are
+    kept in the chain because they are the contract's published names and
+    a renamed key must not silently disable grading — but ``rawComposite``
+    is deliberately NOT here.
 
-    Returns 0.0 when no numeric value is available.
+    Returns 0.0 when no board value is available, which
+    ``activity.build_section`` treats as "cannot grade this asset".
     """
     if not isinstance(bundle, dict):
         return 0.0
-    for key in ("displayValue", "overall", "finalAdjusted", "rawComposite"):
+    for key in ("displayValue", "overall", "finalAdjusted"):
         raw = bundle.get(key)
         try:
             val = float(raw)

@@ -16,6 +16,7 @@ from unittest import mock
 from src.bdvm import service as bdvm_service
 from src.bdvm.params import load_param_set
 from src.bdvm.projections import ProjectionRecord
+from tests.bdvm.pool_depth import depth_records
 
 PARAMS = load_param_set("params_v1")
 
@@ -157,11 +158,14 @@ PROJECTIONS = [
 
 
 def run(contract=None, **kwargs):
+    # PROJECTIONS alone is nine players in a 12-team league, so no group's
+    # replacement RANK lands inside a measured pool; depth_records supplies
+    # the bench the replacement solve needs (tests/bdvm/pool_depth.py).
     return bdvm_service.run_valuation(
         contract or build_contract(),
         league_key="dynasty_main",
         params=PARAMS,
-        projection_records=list(PROJECTIONS),
+        projection_records=list(PROJECTIONS) + depth_records(),
         snapshot_as_of="2026-07-27",
         season=2026,
         **kwargs,
@@ -195,6 +199,32 @@ class TestEndToEnd(unittest.TestCase):
         # quarantined row is silently excluded, not "unpriced"
         names = {p["name"] for p in self.payload["players"]}
         self.assertNotIn("Lambda Wr", names)
+
+    def test_unmeasurable_replacement_level_is_unpriced_not_priced_over_zero(self):
+        """H7: the same contract WITHOUT bench depth prices nothing.
+
+        Nine projections cannot answer a 12-team league's replacement
+        ranks (36+ deep for WR).  R is the origin of the value scale, so
+        an R that silently defaults to 0.0 hands every player his ENTIRE
+        FPG as surplus in a payload that is indistinguishable from a real
+        one.  Refusing is the §6.3 contract; the replacement block says
+        which levels are missing rather than reporting a measured 0.0.
+        """
+        payload = bdvm_service.run_valuation(
+            build_contract(),
+            league_key="dynasty_main",
+            params=PARAMS,
+            projection_records=list(PROJECTIONS),  # deliberately no depth
+            snapshot_as_of="2026-07-27",
+            season=2026,
+        )
+        counts = payload["meta"]["counts"]
+        self.assertEqual(counts["priced"], 0)
+        self.assertEqual(counts["unpricedByReason"].get("no_replacement_level"), 7)
+        self.assertEqual(payload["players"], [])
+        for group, block in payload["replacement"].items():
+            self.assertTrue(block["poolExhausted"], msg=group)
+            self.assertIsNone(block["replacementFpg"], msg=group)
 
     def test_no_silent_zero_values(self):
         """Unpriced players never appear in the priced list with value 0."""

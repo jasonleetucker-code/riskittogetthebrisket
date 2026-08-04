@@ -339,7 +339,7 @@ function resolveTradeSideList(rawList, ctx) {
 // positive ``vaNet`` means this team RECEIVED the stud premium (got
 // side wins on KTC's intensity-adjusted raw_adj); negative means they
 // GAVE the studs away.  Pure: value arrays only, no React/row refs.
-function computeTradeVANet(gotValues, gaveValues) {
+export function computeTradeVANet(gotValues, gaveValues) {
   if (!gotValues.length || !gaveValues.length) return 0;
   const result = ktcAdjustPackage(gotValues, gaveValues);
   if (!result.displayed || result.value <= 0) return 0;
@@ -347,6 +347,82 @@ function computeTradeVANet(gotValues, gaveValues) {
   // We pass got=team1, gave=team2.  side=1 means got receives the VA
   // (positive); side=2 means gave receives it (penalty for got).
   return result.side === 1 ? result.value : -result.value;
+}
+
+// ── The canonical grade (twin: src/public_league/trade_grading.py) ──────
+//
+// A trade gets a letter grade in exactly two places: here, for the
+// private /trades page, and in Python for the public /league activity
+// timeline, which is server-rendered and cannot import this file.
+// Until the 2026-08-04 math audit (finding C3) the public half used a
+// DIFFERENT formula against the SAME band table — it summed
+// ``max(value, 1) ** 1.65`` per received asset and compared side totals,
+// which inflates a 10% linear edge into a ~16% one and pushed trades a
+// full band up.  The two are now pinned together by a shared fixture,
+// ``tests/fixtures/trade_grade_parity_cases.json``, asserted from both
+// languages.  Keep the functions below and their Python twins in
+// lockstep; the fixture is what notices when they drift.
+
+/** Clamp one side's resolved asset values: finite, strictly positive. */
+export function sanitizeSideValues(raw) {
+  const out = [];
+  for (const v of raw || []) {
+    const num = Number(v);
+    if (Number.isFinite(num) && num > 0) out.push(num);
+  }
+  return out;
+}
+
+/**
+ * Grade ONE side from its OWN net, with the VA supplied by the caller.
+ *
+ * Split from ``gradeTradeSides`` so the shared parity fixture can pin
+ * the ratio-and-band arithmetic against hand-computed numbers for an
+ * arbitrary ``vaNet``, independently of the KTC VA engine.
+ *
+ * The denominator is the larger EFFECTIVE side total (linear + the VA
+ * on whichever side earned it).  It deliberately does NOT include the
+ * alpha-powered weighted sums — those dominate by an order of magnitude
+ * and would crush all pcts toward the extremes of the band table.
+ */
+export function gradeTradeSide(gotValues, gaveValues, vaNet) {
+  const gotLinear = gotValues.reduce((s, v) => s + v, 0);
+  const gaveLinear = gaveValues.reduce((s, v) => s + v, 0);
+  const netLinear = gotLinear - gaveLinear;
+  const netAdjusted = netLinear + vaNet;
+  const gotEffective = gotLinear + Math.max(0, vaNet);
+  const gaveEffective = gaveLinear + Math.max(0, -vaNet);
+  const scale = Math.max(gotEffective, gaveEffective, 1);
+  const pctGap = (netAdjusted / scale) * 100;
+  return {
+    gotValue: gotLinear,
+    gaveValue: gaveLinear,
+    netValue: netLinear,
+    vaNet,
+    netAdjusted,
+    pctGap,
+    grade: gradeTradeHistorySide(Math.abs(pctGap), pctGap > 0),
+  };
+}
+
+/**
+ * Grade every side of one trade from ``[{got: number[], gave: number[]}]``.
+ *
+ * Each side is graded on its OWN net rather than against the other
+ * sides' received totals — which is what makes 3+ team trades come out
+ * right, since the sent and received pools don't pair up there.  For a
+ * two-team trade the two are algebraically identical (A.got == B.gave).
+ */
+export function gradeTradeSides(sides) {
+  return (sides || []).map(({ got, gave }) => {
+    const gotValues = sanitizeSideValues(got);
+    const gaveValues = sanitizeSideValues(gave);
+    return gradeTradeSide(
+      gotValues,
+      gaveValues,
+      computeTradeVANet(gotValues, gaveValues),
+    );
+  });
 }
 
 /**
@@ -377,23 +453,20 @@ export function analyzeRawTrade(trade, ctx) {
   const date = ts ? new Date(ts).toLocaleDateString() : "?";
   const sides = [];
 
-  for (const side of trade.sides || []) {
-    const got = resolveTradeSideList(side?.got, ctx);
-    const gave = resolveTradeSideList(side?.gave, ctx);
-    const netLinear = got.linear - gave.linear;
-    const netWeighted = got.weighted - gave.weighted;
-    // V13 KTC-style VA for this team's got-vs-gave equation.
-    const vaNet = computeTradeVANet(got.values, gave.values);
-    const netAdjusted = netLinear + vaNet;
-    // Denominator is the larger EFFECTIVE side total (linear + VA).
-    // Don't include the alpha-powered weighted sums — those dominate
-    // by an order of magnitude and would crush all pcts toward zero.
-    const gotEffective = got.linear + Math.max(0, vaNet);
-    const gaveEffective = gave.linear + Math.max(0, -vaNet);
-    const scale = Math.max(gotEffective, gaveEffective, 1);
-    const pctGap = (netAdjusted / scale) * 100;
-    const grade = gradeTradeHistorySide(Math.abs(pctGap), pctGap > 0);
+  const resolved = (trade.sides || []).map((side) => ({
+    side,
+    got: resolveTradeSideList(side?.got, ctx),
+    gave: resolveTradeSideList(side?.gave, ctx),
+  }));
+  // ONE grading call for the whole trade, through the function the
+  // public /league timeline's Python twin also implements.
+  const graded = gradeTradeSides(
+    resolved.map((r) => ({ got: r.got.values, gave: r.gave.values })),
+  );
 
+  for (let i = 0; i < resolved.length; i++) {
+    const { side, got, gave } = resolved[i];
+    const g = graded[i];
     const displayTeam = sideDisplayName(side, identityMaps);
     sides.push({
       team: displayTeam,
@@ -406,18 +479,29 @@ export function analyzeRawTrade(trade, ctx) {
       gotWeighted: got.weighted,
       gaveValue: gave.linear,
       gaveWeighted: gave.weighted,
-      netValue: netLinear,
-      netWeighted,
-      vaNet,
-      netAdjusted,
-      pctGap,
-      grade,
+      netValue: g.netValue,
+      // Alpha-weighted net.  NOT a grading input — it survives only as
+      // the magnitude ``teamScores.totalGain`` accumulates, where the
+      // concentration premium is the point.
+      netWeighted: got.weighted - gave.weighted,
+      vaNet: g.vaNet,
+      netAdjusted: g.netAdjusted,
+      pctGap: g.pctGap,
+      grade: g.grade,
     });
   }
 
-  // Headline reflects the largest grievance — the side with the
-  // biggest magnitude ``pctGap``, winner or loser.
-  const sortedByNet = [...sides].sort((a, b) => b.netWeighted - a.netWeighted);
+  // ``winner``/``loser`` and ``headlineSide`` are the same question
+  // asked two ways, so they have to read the same quantity: the
+  // extremes of ``netAdjusted`` and the biggest |pctGap| are both the
+  // canonical linear+VA net, ranked by sign and by magnitude.  Until
+  // the 2026-08-04 audit ``winner`` sorted on ``netWeighted`` instead,
+  // and those two orderings genuinely disagree on a stud-for-pile
+  // trade: taking 5000+5000 for a 9000 is +1000 linear but ~−0.8M
+  // alpha, so one card could name a winner its own grades called the
+  // loser.  Headline still reflects the largest grievance — biggest
+  // magnitude, winner or loser.
+  const sortedByNet = [...sides].sort((a, b) => b.netAdjusted - a.netAdjusted);
   const winner = sortedByNet[0] || null;
   const loser = sortedByNet[sortedByNet.length - 1] || null;
   const headlineSide = sides.reduce(
@@ -969,16 +1053,33 @@ export function analyzeTradeTendencies(rawData, rows) {
 // ── Contender / Rebuilder Tiers ─────────────────────────────────────────
 /**
  * Score and tier all teams: contender / mid-tier / rebuilder.
- * Starter value = the players who fill the league's lineup, weighted 70%.
- * Depth = total minus starters, weighted 20%.
- * Pick surplus penalized at -10% (rebuild signal).
  *
- * "Starter value" was the top 10 OFFENSIVE players, flat, until
+ *   score = 0.7 × starterValue + 0.2 × depthValue − 0.1 × pickValue
+ *
+ * Starter value = the players who fill the league's real lineup.
+ * Depth        = every other player the team owns — picks excluded.
+ * Picks        = pick capital, penalized at −10% (rebuild signal).
+ *
+ * Two separate defects were fixed here, and both corrections are live.
+ *
+ * Starter value was the top 10 OFFENSIVE players, flat, until
  * 2026-07-30.  In a league that starts 9 IDP alongside 12 offensive
  * slots that read a defense-heavy contender as a rebuilder, and it was
  * a second single-league constant on a page that serves two leagues
  * with different lineups.  It now fills the real lineup via the shared
- * `fillLineup`, across every group.  Weights are unchanged.
+ * `fillLineup`, across every group.
+ *
+ * Picks sit OUTSIDE depthValue deliberately (math audit 2026-08-04,
+ * H5).  Depth was `totalValue − starterValue`, and totalValue includes
+ * pick capital, so every pick dollar earned +0.2 as depth and paid
+ * −0.1 as pick surplus for a NET +0.1: the "penalty" REWARDED hoarding
+ * picks, the opposite of the documented intent, and a pick-rich
+ * rebuilder could out-score a contender.  Each dollar of a roster now
+ * feeds exactly one term.
+ *
+ * The three coefficients do not sum to 1 and don't need to — the score
+ * is an ordinal ranking key (the sorted list is cut into thirds), so
+ * only the RATIOS between the terms move a team's tier.
  *
  * @param {string[]} [rosterPositions] - the league's Sleeper lineup-slot
  *   array.  Without it there is no lineup to fill and every team scores
@@ -1024,7 +1125,9 @@ export function scoreTeamTiers(
       valueFor: (p) => p.meta,
     });
     const starterValue = starters.reduce((s, p) => s + p.meta, 0);
-    const depthValue = totalValue - starterValue;
+    // Players only: totalValue carries pick capital too, and picks are
+    // scored by their own term below.
+    const depthValue = totalValue - starterValue - pickValue;
     const score = starterValue * 0.7 + depthValue * 0.2 + (pickValue > 0 ? -pickValue * 0.1 : 0);
 
     return {

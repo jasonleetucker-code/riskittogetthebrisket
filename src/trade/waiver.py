@@ -13,6 +13,7 @@ to drop someone, and this surfaces who first.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -77,21 +78,54 @@ class WaiverCandidate:
         }
 
 
+def _round_half_up(value: float) -> int:
+    """Round to whole dollars with ``.5`` always going UP.
+
+    Deliberately NOT the built-in ``round``.  Python rounds half to
+    even (banker's) and JavaScript's ``Math.round`` rounds half up, so
+    this formula's two implementations — here and
+    ``frontend/lib/waiver-logic.js::computeFaabHint`` — disagreed by $1
+    at every ``.5`` boundary: a top-of-pool lowball on a $100 budget is
+    exactly $10.50, which the server called $10 and the page called
+    $11.  Half-up is the convention both sides now spell out
+    explicitly; neither leans on its language's default.  Pinned by
+    ``tests/fixtures/faab_bid_parity_cases.json``.
+    """
+    return int(math.floor(value + 0.5))
+
+
 def _compute_faab_bid(
     candidate_value: float,
     *,
-    league_budget: int = 100,
+    budget: int = 100,
     top_value_in_pool: float | None = None,
 ) -> tuple[int, int, int]:
-    """Return (aggressive, reasonable, lowball) FAAB bids."""
-    if candidate_value <= 0 or league_budget <= 0:
+    """Return (aggressive, reasonable, lowball) FAAB bids.
+
+    ``budget`` is the dollar pool the bid is sized against, and the
+    caller decides which pool that is: ``find_waiver_targets`` passes
+    the manager's REMAINING balance (you cannot bid money already
+    spent), while ``src.trade.faab_recommender.recommend_faab`` passes
+    the league's full season budget and caps at the team's remaining
+    balance at the end of its own pipeline.  A non-positive budget
+    means there is no money to bid and every tier is $0 — it must
+    never be reinterpreted as a full budget.
+
+    All three tiers derive from the UNROUNDED aggressive figure.
+    Rounding once at the end keeps ``reasonable``/``lowball`` true
+    percentages of the bid instead of percentages of an already-rounded
+    number: a $17.50 aggressive bid's 70% tier is $12.25 → $12, but
+    rounding first (18) and then scaling produced $13.
+    """
+    if candidate_value <= 0 or budget <= 0:
         return (0, 0, 0)
     top_v = max(candidate_value, top_value_in_pool or 0)
     share = candidate_value / top_v if top_v > 0 else 1.0
     aggressive_pct = 0.05 + 0.25 * share
-    aggressive = max(1, round(league_budget * aggressive_pct))
-    reasonable = max(1, round(aggressive * 0.70))
-    lowball = max(1, round(aggressive * 0.35))
+    aggressive_raw = budget * aggressive_pct
+    aggressive = max(1, _round_half_up(aggressive_raw))
+    reasonable = max(1, _round_half_up(aggressive_raw * 0.70))
+    lowball = max(1, _round_half_up(aggressive_raw * 0.35))
     return (aggressive, reasonable, lowball)
 
 
@@ -192,14 +226,21 @@ def find_waiver_targets(
         (c.consensus_value for cs in candidates_by_position.values() for c in cs),
         default=0,
     )
-    if user_faab_remaining is None or user_faab_remaining <= 0:
+    # ``None`` means the caller doesn't KNOW the manager's balance (no
+    # Sleeper block loaded, older client) — fall back to the nominal
+    # $100 league budget so the bid columns still render a baseline.
+    # A known balance of $0 (or negative, which Sleeper can report for
+    # an over-spent roster) is the opposite situation and must stay
+    # $0: coercing it to 100 handed a manager with no money a
+    # full-budget bid, the exact inverse of the intended cap.
+    if user_faab_remaining is None:
         user_faab_remaining = 100
 
     for cs in candidates_by_position.values():
         for c in cs:
             agg, reas, low = _compute_faab_bid(
                 c.consensus_value,
-                league_budget=user_faab_remaining,
+                budget=user_faab_remaining,
                 top_value_in_pool=top_value,
             )
             c.bid_aggressive = agg

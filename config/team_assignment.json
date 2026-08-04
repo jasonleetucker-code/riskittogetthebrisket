@@ -36,27 +36,18 @@
   },
 
   "weights": {
+    "_doc": "Every weight here is read by src/api/team_assignment.py::_score_player.  eliteProductionTop10/Top24 and idpElite were removed on 2026-08-04: the Top24 weight paid a second time for a player already scored by qbAnchor/skillStarter (same depth_chart_order == 1 condition), and the other two were never read at all.",
     "qbAnchor": 10,
     "skillStarter": 5,
     "skillCommittee": 2,
-    "eliteProductionTop10": 5,
-    "eliteProductionTop24": 3,
     "rookieRound1": 4,
     "rookieRound2": 2,
-    "idpElite": 4,
     "idpStarter": 2
   },
 
   "thresholds": {
-    "_doc": "Total points (per fantasy team x NFL team) needed to qualify as a roster-based assignment.  Favorites bypass this threshold.",
-    "assignmentMinPoints": 15,
-    "eliteProductionTop10Rank": 10,
-    "eliteProductionTop24Rank": 24,
-    "qbStarterPositionRank": 32,
-    "skillStarterPositionRank": 24,
-    "skillCommitteePositionRank": 60,
-    "idpEliteSourcesPositionRank": 12,
-    "idpStarterPositionRank": 36
+    "_doc": "Total points (per fantasy team x NFL team) needed to qualify as a roster-based assignment.  Favorites bypass this threshold.  NOTE: dropping the double-counted elite-production tier lowered every roster score — a primary QB now scores 10 (was 13) and a primary skill player 5 (was 8) — so this number is the knob to retune if too few NFL teams qualify.  The *Rank thresholds that used to sit here were removed with it; nothing read them.",
+    "assignmentMinPoints": 15
   },
 
   "limits": {

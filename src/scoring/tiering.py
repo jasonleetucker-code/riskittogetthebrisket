@@ -1,19 +1,32 @@
-"""Cohen's-d positional tiering.
+"""Effect-size positional tiering.
 
 Walks a list of players sorted by descending value and starts a
-new tier whenever Cohen's d between (current tier) and (next
-player) exceeds a per-position threshold.
+new tier whenever the gap between (current tier) and (next player)
+exceeds a per-position threshold.
 
-Cohen's d
----------
-    d = (mean_A − mean_B) / pooled_sd
+The gap statistic
+-----------------
+    gap = |mean(current tier so far) − candidate value| / pool_sd
 
-For our purposes:
-  * mean_A = mean value of the current tier-so-far
-  * mean_B = value of the candidate next player
-  * pooled_sd = stdev of values remaining in the position pool
-                (NOT stdev of the current tier — which tends to
-                zero and makes every player a new tier)
+where ``pool_sd`` is the POPULATION standard deviation of the whole
+position pool (NOT the stdev of the current tier — which tends to
+zero and makes every player a new tier).
+
+This is deliberately NOT Cohen's d, which the module used to call
+it: Cohen's d divides by the *pooled* SD of the two groups being
+compared.  Here the denominator is a single fixed scale for the
+whole position, which is what makes one threshold comparable across
+every boundary inside a position.  The thresholds below (and in
+``config/tiers/thresholds.json``) are calibrated against THIS
+statistic — swapping the denominator for a real pooled SD would
+silently rescale every one of them.
+
+The absolute value is defensive only.  ``detect_tiers`` walks each
+position in descending value order, so the running tier mean is
+always ≥ the next candidate and the gap is non-negative by
+construction; the ``abs`` exists so a future caller that hands the
+walk an out-of-order series still opens a tier on a big jump rather
+than silently swallowing it as a negative gap.
 
 Thresholds are per-position and live in
 ``config/tiers/thresholds.json`` (see ``scripts/fit_tier_thresholds.py``
@@ -78,10 +91,13 @@ def _safe_stdev(values: Iterable[float]) -> float:
     return math.sqrt(sq)
 
 
-def _cohens_d(tier_mean: float, candidate: float, pooled_sd: float) -> float:
-    if pooled_sd <= 0:
+def _pool_normalized_gap(tier_mean: float, candidate: float, pool_sd: float) -> float:
+    """Distance from the running tier mean to the candidate, in
+    position-pool standard deviations.  See the module docstring for
+    why this is not Cohen's d and why the ``abs`` is defensive."""
+    if pool_sd <= 0:
         return 0.0
-    return abs(tier_mean - candidate) / pooled_sd
+    return abs(tier_mean - candidate) / pool_sd
 
 
 def load_thresholds(path: Path | None = None) -> dict[str, float]:
@@ -112,22 +128,19 @@ def load_thresholds(path: Path | None = None) -> dict[str, float]:
     return default
 
 
-def detect_tiers(
+def _tier_entries_by_row_id(
     rows: list[dict[str, Any]],
-    *,
     thresholds: dict[str, float] | None = None,
-) -> list[TierEntry]:
-    """Walk players sorted by descending value, emitting tier IDs.
+) -> dict[int, TierEntry]:
+    """Core walk.  Returns ``{id(row): TierEntry}`` for every row we
+    could actually tier.
 
-    Input rows must carry ``name``, ``pos`` (or ``position``), and
-    a numeric value (``rankDerivedValue`` preferred, then
-    ``values.full``, then ``value``).
-
-    Returns a list of TierEntry in the input's position order —
-    but tiers are computed per-position, starting at tier 1 for
-    the best player at each position.
-
-    Thresholds default to the module priors when not supplied.
+    Rows that are not dicts, or that carry no position, are absent
+    from the map — they are NOT tiered, and callers must key off
+    identity rather than assuming a positional correspondence with
+    the input list.  ``stamp_tiers_on_players`` used to zip by index
+    against ``detect_tiers``' already-filtered output, so one dropped
+    row shifted every subsequent stamp onto the wrong player.
     """
     thresholds = thresholds or load_thresholds()
 
@@ -141,7 +154,7 @@ def detect_tiers(
             continue
         by_pos.setdefault(pos, []).append(r)
 
-    result_map: dict[id, TierEntry] = {}
+    result_map: dict[int, TierEntry] = {}
     for pos, group in by_pos.items():
         group_sorted = sorted(
             group,
@@ -169,7 +182,7 @@ def detect_tiers(
                 tier_values.append(val)
             else:
                 tier_mean = sum(tier_values) / len(tier_values)
-                d = _cohens_d(tier_mean, val, pool_sd)
+                d = _pool_normalized_gap(tier_mean, val, pool_sd)
                 if d > thresh:
                     tier_id += 1
                     tier_values = [val]
@@ -182,6 +195,30 @@ def detect_tiers(
                 position=pos,
             )
 
+    return result_map
+
+
+def detect_tiers(
+    rows: list[dict[str, Any]],
+    *,
+    thresholds: dict[str, float] | None = None,
+) -> list[TierEntry]:
+    """Walk players sorted by descending value, emitting tier IDs.
+
+    Input rows must carry ``name``, ``pos`` (or ``position``), and
+    a numeric value (``rankDerivedValue`` preferred, then
+    ``values.full``, then ``value``).
+
+    Returns a list of TierEntry in the input's position order —
+    but tiers are computed per-position, starting at tier 1 for
+    the best player at each position.  Rows that could not be tiered
+    are OMITTED, so the returned list is not index-aligned with the
+    input; use ``stamp_tiers_on_players`` when you need the tier
+    attached to a specific row.
+
+    Thresholds default to the module priors when not supplied.
+    """
+    result_map = _tier_entries_by_row_id(rows, thresholds)
     # Return in input order.
     return [result_map[id(r)] for r in rows if isinstance(r, dict) and id(r) in result_map]
 
@@ -196,16 +233,19 @@ def stamp_tiers_on_players(
     Safe to call from the contract builder when the
     ``positional_tiers`` feature flag is on — the stamp is additive.
     """
-    tiers = detect_tiers(rows, thresholds=thresholds)
-    by_id = {id(rows[i]): tiers[i].tier_id for i in range(len(tiers))}
+    # Key off row identity, never the position in ``rows``: the walk
+    # drops non-dicts and rows with no position, so an index zip
+    # against its output shifts every stamp after the first drop.
+    by_id = _tier_entries_by_row_id(rows, thresholds)
     out: list[dict[str, Any]] = []
     for r in rows:
         if not isinstance(r, dict):
             out.append(r)
             continue
         new_r = dict(r)
-        if id(r) in by_id:
-            new_r["tierId"] = by_id[id(r)]
+        entry = by_id.get(id(r))
+        if entry is not None:
+            new_r["tierId"] = entry.tier_id
         out.append(new_r)
     return out
 

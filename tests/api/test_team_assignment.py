@@ -1,15 +1,22 @@
 """Tests for ``src/api/team_assignment.py``.
 
 Covers favorite resolution (direct + alias + missing), per-tier
-scoring rules (T1 QB anchor, T2 skill, T3 elite proxy, T4 rookie,
-T5 IDP), the assignment threshold, the max-3 cap, the favorite-
-always-wins invariant, and the config fallback when the JSON file
-is malformed.
+scoring rules (T1 QB anchor, T2 skill, T4 rookie, T5 IDP), the
+assignment threshold, the max-3 cap, the favorite-always-wins
+invariant, and the config fallback when the JSON file is
+malformed.
+
+The per-player point totals below are the single-count ones.  There
+is no T3: an "elite production" tier fired on the same
+``depth_chart_order == 1`` condition as T1/T2 and paid a second time
+for it (math audit 2026-08-04, H5b), so a primary QB scored 13 and a
+primary skill player 8 against a config that reads 10 and 5.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 
@@ -132,6 +139,36 @@ def test_load_config_strips_doc_keys(tmp_path: Path):
     assert cfg["favorites"]["joel"]["abbr"] == "KC"
 
 
+def test_every_declared_weight_is_actually_read(tmp_path: Path):
+    """A declared-but-unread knob is a lie in the config file.
+
+    Static check over the module source: the default ``weights`` block
+    and the ``weights[...]`` reads in ``_score_player`` must be the same
+    set.  ``idpElite`` was declared and never read; the two
+    ``eliteProduction*`` weights were read by a tier that
+    double-counted.  Either direction of drift is a defect, so this
+    fails on both.
+    """
+    src = Path(team_assignment.__file__).read_text(encoding="utf-8")
+    read = set(re.findall(r'weights\["([A-Za-z0-9]+)"\]', src))
+    declared = set(team_assignment._DEFAULT_CONFIG["weights"])
+    assert declared == read
+
+
+def test_shipped_config_declares_exactly_the_live_knobs():
+    """The on-disk config must not re-introduce dead keys.
+
+    ``_merge_config_with_defaults`` unions the user file over the
+    defaults, so a stale key in the JSON survives into the payload's
+    ``config`` block and reads as a live setting.
+    """
+    shipped = json.loads(team_assignment._CONFIG_PATH.read_text(encoding="utf-8"))
+    weights = {k for k in shipped["weights"] if k != "_doc"}
+    thresholds = {k for k in shipped["thresholds"] if k != "_doc"}
+    assert weights == set(team_assignment._DEFAULT_CONFIG["weights"])
+    assert thresholds == set(team_assignment._DEFAULT_CONFIG["thresholds"])
+
+
 def test_load_config_merges_partial_user_config_over_defaults(tmp_path: Path):
     p = _config_path(
         tmp_path,
@@ -186,8 +223,8 @@ def test_score_qb_anchor():
         config=_config(),
         league_idp_enabled=False,
     )
-    # T1 (10) + T3 elite proxy at QB depth 1 (3) = 13.
-    assert pts == 13
+    # T1 only — being primary at QB is ONE signal, paid once.
+    assert pts == 10
     reasons = {c["reason"] for c in contribs}
     assert "QB anchor" in reasons
 
@@ -199,22 +236,29 @@ def test_score_qb_backup_no_anchor():
         config=_config(),
         league_idp_enabled=False,
     )
-    # No T1 (depth != 1).  No T3 (also gated on depth 1).  No
-    # rookie / IDP / skill rules apply.  → 0.
+    # No T1 (depth != 1).  No rookie / IDP / skill rules apply.  → 0.
     assert pts == 0
 
 
-def test_score_skill_starter_and_elite_proxy():
+def test_score_skill_starter_is_paid_once():
+    """The config's ``skillStarter`` is 5, so a starter scores 5.
+
+    Regression guard for the double-count: the retired elite-production
+    tier added another 3 on the same ``depth_order == 1`` test, so this
+    player used to be worth 8 — a number that appeared nowhere in the
+    config and made the weights unreadable.
+    """
     rb = _player("BUF", "RB", depth=1, years_exp=3)
     pts, contribs = team_assignment._score_player(
         rb,
         config=_config(),
         league_idp_enabled=False,
     )
-    # T2 starter (5) + T3 elite proxy (3) = 8.
-    assert pts == 8
+    assert pts == 5
     reasons = {c["reason"] for c in contribs}
     assert any("starter" in r for r in reasons)
+    # Exactly one rule fired, so exactly one contributor row.
+    assert len(contribs) == 1
 
 
 def test_score_skill_committee():
@@ -224,7 +268,7 @@ def test_score_skill_committee():
         config=_config(),
         league_idp_enabled=False,
     )
-    # T2 committee (2).  No T3 (depth != 1).  → 2.
+    # T2 committee (2).  → 2.
     assert pts == 2
 
 
@@ -245,8 +289,9 @@ def test_score_rookie_round_one():
         config=_config(),
         league_idp_enabled=False,
     )
-    # T2 starter (5) + T3 elite proxy (3) + T4 round 1 (4) = 12.
-    assert pts == 12
+    # T2 starter (5) + T4 round 1 (4) = 9.  Rookie capital is a
+    # genuinely independent signal, so it still layers on top.
+    assert pts == 9
     assert any("1st-round rookie" in c["reason"] for c in contribs)
 
 
@@ -345,11 +390,11 @@ def test_build_section_includes_roster_based_when_above_threshold(monkeypatch, t
         {"roster_id": 1, "owner_id": "oA", "players": ["p1", "p2", "p3"]},
     ]
     nfl = {
-        "p1": _player("BUF", "QB", depth=1, years_exp=5),  # +13
-        "p2": _player("BUF", "RB", depth=1, years_exp=3),  # +8
+        "p1": _player("BUF", "QB", depth=1, years_exp=5),  # +10
+        "p2": _player("BUF", "RB", depth=1, years_exp=3),  # +5
         "p3": _player("BUF", "WR", depth=2, years_exp=3),  # +2
     }
-    # Total Bills score: 23.  Threshold is 10.  Should appear.
+    # Total Bills score: 17.  Threshold is 10.  Should appear.
     snap = _snapshot(rosters, nfl, mgrs)
     section = team_assignment.build_section(snap)
     teams = section["assignments"][0]["nflTeams"]
@@ -358,7 +403,7 @@ def test_build_section_includes_roster_based_when_above_threshold(monkeypatch, t
     assert "BUF" in abbrs  # roster-based qualifier
     bills = next(t for t in teams if t["abbr"] == "BUF")
     assert bills["isFavorite"] is False
-    assert bills["score"] == 23
+    assert bills["score"] == 17
 
 
 def test_build_section_filters_below_threshold(monkeypatch, tmp_path: Path):
@@ -387,7 +432,7 @@ def test_build_section_caps_at_max_teams(monkeypatch, tmp_path: Path):
     rosters = [
         {"roster_id": 1, "owner_id": "oA", "players": [f"p{i}" for i in range(1, 11)]},
     ]
-    # Stock five different NFL teams with +13 each (QB anchor + elite).
+    # Stock five different NFL teams with +10 each (QB anchor).
     nfl = {
         "p1": _player("BUF", "QB", depth=1, years_exp=5),
         "p2": _player("KC", "QB", depth=1, years_exp=5),
@@ -395,23 +440,23 @@ def test_build_section_caps_at_max_teams(monkeypatch, tmp_path: Path):
         "p4": _player("PHI", "QB", depth=1, years_exp=5),
         "p5": _player("BAL", "QB", depth=1, years_exp=5),
         # Ensure tiebreaker is alphabetical when scores are equal.
-        "p6": _player("BUF", "RB", depth=1, years_exp=5),  # bumps BUF to 21
-        "p7": _player("BUF", "WR", depth=1, years_exp=5),  # bumps BUF to 29
-        "p8": _player("KC", "RB", depth=1, years_exp=5),  # bumps KC to 21
-        "p9": _player("DET", "RB", depth=1, years_exp=5),  # bumps DET to 21
-        "p10": _player("PHI", "RB", depth=1, years_exp=5),  # bumps PHI to 21
+        "p6": _player("BUF", "RB", depth=1, years_exp=5),  # bumps BUF to 15
+        "p7": _player("BUF", "WR", depth=1, years_exp=5),  # bumps BUF to 20
+        "p8": _player("KC", "RB", depth=1, years_exp=5),  # bumps KC to 15
+        "p9": _player("DET", "RB", depth=1, years_exp=5),  # bumps DET to 15
+        "p10": _player("PHI", "RB", depth=1, years_exp=5),  # bumps PHI to 15
     }
     snap = _snapshot(rosters, nfl, mgrs)
     section = team_assignment.build_section(snap)
     teams = section["assignments"][0]["nflTeams"]
     abbrs = [t["abbr"] for t in teams]
-    # Cap of 3: Vikings (favorite) + top 2 by score.  BUF has 29
-    # which beats KC/DET/PHI's 21.  Tiebreak among the 21-scorers
+    # Cap of 3: Vikings (favorite) + top 2 by score.  BUF has 20
+    # which beats KC/DET/PHI's 15.  Tiebreak among the 15-scorers
     # is alphabetical.
     assert len(abbrs) == 3
     assert abbrs[0] == "MIN"  # favorite always first
     assert abbrs[1] == "BUF"  # 29 pts
-    # 2nd place is one of KC/DET/PHI (all 21); alphabetical → DET.
+    # 2nd place is one of KC/DET/PHI (all 15); alphabetical → DET.
     assert abbrs[2] == "DET"
 
 
@@ -449,13 +494,16 @@ def test_build_section_emits_contributors_breakdown(monkeypatch, tmp_path: Path)
     section = team_assignment.build_section(snap)
     bills = next(t for t in section["assignments"][0]["nflTeams"] if t["abbr"] == "BUF")
     contribs = bills["contributors"]
-    # Expect one contributor row per scoring rule that fired.
-    assert len(contribs) >= 3
+    # Expect one contributor row per scoring rule that fired — here one
+    # each (QB anchor, WR starter), not two apiece.
+    assert len(contribs) == 2
     # Every contributor has player + points + reason.
     for c in contribs:
         assert "player" in c and "points" in c and "reason" in c
-    # Allen contributes 13, Diggs 8 → Bills total 21.
-    assert bills["score"] == 21
+    # Allen contributes 10, Diggs 5 → Bills total 15.
+    assert bills["score"] == 15
+    # The breakdown must add up to the score the UI renders.
+    assert sum(c["points"] for c in contribs) == bills["score"]
 
 
 def test_build_section_idp_off_excludes_idp_starter_points(monkeypatch, tmp_path: Path):
@@ -495,8 +543,8 @@ def test_build_section_no_favorite_match_still_emits_roster_assignment(monkeypat
     mgrs = ManagerRegistry(by_owner_id={"oA": _manager("oA", "Stranger")})
     rosters = [{"roster_id": 1, "owner_id": "oA", "players": ["p1", "p2"]}]
     nfl = {
-        "p1": _player("KC", "QB", depth=1, years_exp=5),  # +13
-        "p2": _player("KC", "RB", depth=1, years_exp=3),  # +8
+        "p1": _player("KC", "QB", depth=1, years_exp=5),  # +10
+        "p2": _player("KC", "RB", depth=1, years_exp=3),  # +5
     }
     snap = _snapshot(rosters, nfl, mgrs)
     section = team_assignment.build_section(snap)

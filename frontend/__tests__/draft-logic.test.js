@@ -211,6 +211,39 @@ describe("computeDraftStats — inflation response to picks", () => {
     expect(stats.inflation).toBeCloseTo(1150 / 1098, 4);
   });
 
+  it("over-allocated PreDraft column degrades to no inflation, flagged", () => {
+    // The denominator is "PreDraft $ still expected to be spent".  It
+    // can only go non-positive when the workbook is internally
+    // inconsistent — here three players are marked at $450 of PreDraft
+    // each BEFORE being drafted, so ``soldPreDraft`` reaches $1350
+    // against a $1200 total budget.
+    //
+    // ``Math.max(1, …)`` used to clamp that denominator to 1, making
+    // inflation equal the ENTIRE remaining league budget as a
+    // multiplier (~$1170×), which then multiplied straight into
+    // inflatedFair and theoreticalMaxBid.  An absurd number
+    // substituted for an error.
+    let ws = createDefaultWorkspace();
+    const names = ["Jeremiyah Love", "Fernando Mendoza", "Carnell Tate"];
+    for (const name of names) {
+      const p = ws.players.find((x) => x.name === name);
+      // PreDraft is snapshotted at pick time, so it must be set first.
+      ws = updatePlayerPreDraft(ws, p.id, 450);
+      ws = recordPick(ws, { playerId: p.id, teamIdx: 5, amount: 10 });
+    }
+    const stats = computeDraftStats(ws);
+    expect(stats.inflationDegraded).toBe(true);
+    expect(stats.inflation).toBe(1);
+    // Specifically: NOT the remaining league budget.  With the
+    // denominator clamped to 1 this came out at 1200 − 30 = 1170.
+    expect(stats.inflation).not.toBe(stats.remainingLeague);
+  });
+
+  it("a healthy board is not flagged as degraded", () => {
+    const ws = createDefaultWorkspace();
+    expect(computeDraftStats(ws).inflationDegraded).toBe(false);
+  });
+
   it("pay exactly fair keeps inflation at 1.0", () => {
     const ws = createDefaultWorkspace();
     const tate = ws.players.find((p) => p.name === "Carnell Tate");
