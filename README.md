@@ -1,7 +1,11 @@
 # Risk It To Get The Brisket — Dynasty Trade Calculator
 
-Private repo for the dynasty trade calculator stack powering
-[chaseupside.com](https://chaseupside.com).
+Public repo for the dynasty trade calculator stack powering
+[chaseupside.com](https://chaseupside.com). Visibility is a deliberate
+owner decision — see `SECURITY.md`, which records what that exposes
+(valuation engine, league configuration, tracked `data/` + `exports/`
+snapshots). This line said "Private repo" while `SECURITY.md` and
+`HANDOFF.md` both said public.
 
 **Architecture at a glance:**
 - **Backend:** Python 3.12 FastAPI + Uvicorn (port 8000).
@@ -12,7 +16,12 @@ Private repo for the dynasty trade calculator stack powering
 - **Auth model:** session-gated `/api/*` endpoints with a
   Sleeper-login allowlist; public routes hit `/api/public/league/*`.
 - **Feature flags** (`src/api/feature_flags.py`): every new
-  capability from the 2026-04 upgrade ships flag-gated (default OFF).
+  capability from the 2026-04 upgrade ships flag-gated. Defaults are
+  **per-flag**: 7 of the 15 in `_DEFAULTS` ship enabled (`bdvm_engine`,
+  `te_basis_conversion`, `monte_carlo_trade`, `idp_scoring_fit`,
+  `reception_scoring_fit`, `nfl_data_ingest`, `realized_points_api`),
+  several deliberately. For those the env var is a rollback lever, not an
+  opt-in. Read `_DEFAULTS` before assuming a capability is dormant.
 
 **Orientation docs:**
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system map
@@ -124,7 +133,7 @@ This repo is now wired so both sides can work together:
 - `SLEEPER_LEAGUE_ID=1312006700437352448` (canonical main league ID for backend scraper)
 
 ### `/api/data` contract
-- `/api/data` is now versioned (`contractVersion=2026-03-09.v1`)
+- `/api/data` is now versioned (`contractVersion=2026-03-10.v2` — see `CONTRACT_VERSION` in `src/api/data_contract.py`)
 - Preserves legacy compatibility fields (`players` map, `maxValues`, etc.)
 - Adds normalized stable fields (`playersArray`, `dataSource`, `contractHealth`)
 - Runtime + CI validation:
