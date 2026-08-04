@@ -8952,11 +8952,42 @@ def build_api_data_contract(
                 "weight 0 removes the source entirely."
             ),
         },
+        # What the LIVE path actually decides on.
+        #
+        # This block published the legacy absolute-ordinal rule
+        # ("sourceRankSpread <= 30 / <= 80") long after
+        # ``_compute_unified_rankings`` switched to the percentile
+        # signal, so 251 of the 788 bucketed rows on the pinned
+        # 2026-07-30 contract — 31.9% — carried a bucket that
+        # contradicted the rule published beside them.  Anyone applying
+        # the published rule to the published spread got a different
+        # answer than the board, on a third of the field.
+        #
+        # The absolute rule is not dead — it is the fallback for callers
+        # that hold only ``source_rank_spread`` — so it is published
+        # too, labelled as the fallback rather than as the rule.
         "confidenceBuckets": {
-            "high": "2+ sources, sourceRankSpread <= 30",
-            "medium": "2+ sources, sourceRankSpread <= 80",
-            "low": "single source or sourceRankSpread > 80",
+            "high": (
+                f"2+ sources, sourceRankPercentileSpread <= " f"{_CONFIDENCE_PERCENTILE_HIGH}"
+            ),
+            "medium": (
+                f"2+ sources, sourceRankPercentileSpread <= " f"{_CONFIDENCE_PERCENTILE_MEDIUM}"
+            ),
+            "low": (
+                f"single source, or sourceRankPercentileSpread > "
+                f"{_CONFIDENCE_PERCENTILE_MEDIUM}"
+            ),
             "none": "player did not receive a unified rank",
+            "signal": "sourceRankPercentileSpread",
+            "fallbackRule": {
+                "appliesWhen": (
+                    "caller supplied only sourceRankSpread (absolute ordinal); "
+                    "NOT the live /api/data path"
+                ),
+                "high": f"2+ sources, sourceRankSpread <= {_CONFIDENCE_SPREAD_HIGH}",
+                "medium": f"2+ sources, sourceRankSpread <= {_CONFIDENCE_SPREAD_MEDIUM}",
+                "low": f"single source or sourceRankSpread > {_CONFIDENCE_SPREAD_MEDIUM}",
+            },
         },
         "anomalyFlags": [
             "offense_as_idp",

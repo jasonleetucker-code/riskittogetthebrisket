@@ -1308,7 +1308,9 @@ export default function RankingsPage() {
                 owns only the two charts, which are genuinely
                 page-sized and worth a deliberate reveal. */}
             <HelpModal title="How rankings work" label="How rankings work">
-              <MethodologySection />
+              {/* Formula + confidence rule come from the contract, not
+                  from a duplicated constant — see MethodologySection. */}
+              <MethodologySection methodology={rawData?.methodology} />
             </HelpModal>
             <Button
               size="sm"
