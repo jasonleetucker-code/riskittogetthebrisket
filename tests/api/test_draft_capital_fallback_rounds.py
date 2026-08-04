@@ -103,6 +103,14 @@ _PRICED_CONTRACT = {
 }
 
 
+def _priced(board):
+    return [p for p in board["picks"] if not p["isUnpriced"]]
+
+
+def _top_pick(picks):
+    return next(p for p in picks if p["pick"] == "1.01")
+
+
 def test_the_round_count_rescales_every_team_total(_no_network):
     """Why the bug mattered, stated as arithmetic rather than as a worry."""
     _no_network.update(_sleeper(6))
@@ -115,15 +123,15 @@ def test_the_round_count_rescales_every_team_total(_no_network):
     # The same $1200 is spread over a different number of picks, so per-pick
     # dollars — and therefore every team's auction budget composition — differ.
     assert len(six["picks"]) != len(four["picks"])
-    priced = lambda board: [p for p in board["picks"] if not p["isUnpriced"]]
-    assert len(priced(six)) == 12  # 6 rounds x 2 teams, current season only
-    assert len(priced(four)) == 8
-    assert sum(p["dollarValue"] for p in priced(six)) == fb._TARGET_TOTAL_BUDGET
-    assert sum(p["dollarValue"] for p in priced(four)) == fb._TARGET_TOTAL_BUDGET
+    six_priced = _priced(six)
+    four_priced = _priced(four)
+    assert len(six_priced) == 12  # 6 rounds x 2 teams, current season only
+    assert len(four_priced) == 8
+    assert sum(p["dollarValue"] for p in six_priced) == fb._TARGET_TOTAL_BUDGET
+    assert sum(p["dollarValue"] for p in four_priced) == fb._TARGET_TOTAL_BUDGET
     # The rescaling itself: the same top pick is worth less when the budget has
     # to cover more picks.
-    top = lambda board: next(p for p in priced(board) if p["pick"] == "1.01")
-    assert top(six)["dollarValue"] < top(four)["dollarValue"]
+    assert _top_pick(six_priced)["dollarValue"] < _top_pick(four_priced)["dollarValue"]
 
 
 def test_an_explicit_count_wins_and_is_labelled_as_such(_no_network):
@@ -159,12 +167,26 @@ def test_the_rookie_board_reaches_the_second_league_when_the_profile_matches(_no
     """
     _no_network.update(_sleeper(1))
     rookies = [
-        {"name": "Jeremiyah Love", "pos": "RB", "dollar": 135, "boardValue": 7835,
-         "ktcDollar": 130, "idpTradeCalcDollar": None, "dispersionCV": 0.03,
-         "singleSource": False},
-        {"name": "Carnell Tate", "pos": "WR", "dollar": 100, "boardValue": 6160,
-         "ktcDollar": 98, "idpTradeCalcDollar": None, "dispersionCV": None,
-         "singleSource": True},
+        {
+            "name": "Jeremiyah Love",
+            "pos": "RB",
+            "dollar": 135,
+            "boardValue": 7835,
+            "ktcDollar": 130,
+            "idpTradeCalcDollar": None,
+            "dispersionCV": 0.03,
+            "singleSource": False,
+        },
+        {
+            "name": "Carnell Tate",
+            "pos": "WR",
+            "dollar": 100,
+            "boardValue": 6160,
+            "ktcDollar": 98,
+            "idpTradeCalcDollar": None,
+            "dispersionCV": None,
+            "singleSource": True,
+        },
     ]
     out = fb.build_sleeper_derived("123", {}, current_season=2026, rookies=rookies)
     current = [p for p in out["picks"] if p["season"] == 2026]

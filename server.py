@@ -8615,9 +8615,7 @@ async def get_draft_capital(request: Request, refresh: str = ""):
                     dollars = _rookie_dollars_from_values(
                         [r["value"] for r in pool], DRAFT_TOTAL_BUDGET
                     )
-                    ktc_by_name, idp_by_name = _vendor_dollars_for_rookies(
-                        pool, DRAFT_TOTAL_BUDGET
-                    )
+                    ktc_by_name, idp_by_name = _vendor_dollars_for_rookies(pool, DRAFT_TOTAL_BUDGET)
                     rookie_rows = [
                         {
                             "name": r["name"],

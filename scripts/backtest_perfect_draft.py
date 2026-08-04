@@ -109,9 +109,7 @@ def record_snapshot(out_dir: Path, league_key: str | None) -> int:
     contexts = {}
     for team in list_draft_teams(contract):
         try:
-            contexts[team["name"]] = build_roster_context(
-                contract, key, team_name=team["name"]
-            )
+            contexts[team["name"]] = build_roster_context(contract, key, team_name=team["name"])
         except ValueError:
             continue
 
@@ -177,9 +175,7 @@ def score(snapshot_path: Path, results_path: Path) -> int:
         )
         return EXIT_SKIPPED
 
-    rookies = {
-        str(r.get("name") or "").strip().lower(): r for r in (snapshot.get("rookies") or [])
-    }
+    rookies = {str(r.get("name") or "").strip().lower(): r for r in (snapshot.get("rookies") or [])}
     matched = [(k, rookies[k], priced[k]) for k in priced if k in rookies]
     if not matched:
         print(
@@ -206,10 +202,14 @@ def score(snapshot_path: Path, results_path: Path) -> int:
         logs = [math.log(r) for r in ratios]
         sigma = statistics.stdev(logs) if len(logs) > 1 else 0.0
         print(f"  paid/expected  median {statistics.median(ratios):.3f}")
-        print(f"                 p10 {ratios[len(ratios) // 10]:.3f}  "
-              f"p90 {ratios[(9 * len(ratios)) // 10]:.3f}")
-        print(f"  log-space sigma {sigma:.3f}   "
-              f"(PRICE_DISPERSION_PRIOR ships 0.35 — replace it with this)")
+        print(
+            f"                 p10 {ratios[len(ratios) // 10]:.3f}  "
+            f"p90 {ratios[(9 * len(ratios)) // 10]:.3f}"
+        )
+        print(
+            f"  log-space sigma {sigma:.3f}   "
+            f"(PRICE_DISPERSION_PRIOR ships 0.35 — replace it with this)"
+        )
     else:
         print("  no usable paid/expected pairs.")
     return EXIT_OK

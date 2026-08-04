@@ -19,6 +19,7 @@ from typing import Any, Sequence
 
 from src.intel import platform_ledger, signals
 from src.sharp import consensus
+
 # Re-exported for the same reason as the cohort names below: the curated
 # population moved to ``cohort.py``, but tests patch
 # ``market.curated_model.curated_cohort_members`` to isolate themselves from
@@ -113,6 +114,8 @@ def _fallback_asset_metadata(asset_id: str) -> dict[str, Any]:
             display += f" ({':'.join(parts[3:])})"
         return {"displayName": display, "position": "PICK", "nflTeam": None}
     return _local_asset_catalog().get(asset_id, {})
+
+
 def _aggregate_window(
     rows: Sequence[dict[str, Any]],
     quality: dict[str, float],
