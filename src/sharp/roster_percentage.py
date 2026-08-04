@@ -95,6 +95,27 @@ FAMILY_KICKER = "kicker"
 FAMILY_TEAM_DEFENSE = "teamDefense"
 FAMILY_UNKNOWN = "unknown"
 
+# EVERY family a denominator can be computed for, in one place.
+#
+# ``FAMILY_UNKNOWN`` is a real member of this tuple, not an oversight:
+# a player whose position we cannot determine has a denominator that
+# cannot be narrowed, so every roster applies — exactly like offense.
+# Leaving it out does not raise, it silently yields an empty denominator
+# set for those players.
+#
+# The audit script re-derives denominators independently and MUST iterate
+# the same tuple. It used to hardcode its own four-element list, which
+# omitted UNKNOWN and made the audit report a false failure for every
+# player whenever it ran without a contract (no contract → no positions →
+# every family unknown). Exported so the two can never drift again.
+POSITION_FAMILIES = (
+    FAMILY_OFFENSE,
+    FAMILY_IDP,
+    FAMILY_KICKER,
+    FAMILY_TEAM_DEFENSE,
+    FAMILY_UNKNOWN,
+)
+
 POSITION_FILTERS = (
     "all",
     "QB",
@@ -300,15 +321,58 @@ def build_player_index(contract: dict[str, Any] | None) -> dict[str, dict[str, A
     return index
 
 
-def _fallback_metadata(asset_id: str) -> dict[str, Any]:
+def _catalog_metadata(ledger_path: Path | None) -> dict[str, dict[str, Any]]:
+    """``{canonicalAssetId: {displayName, position, nflTeam}}`` from the ledger.
+
+    ``canonical_assets`` is the platform's own asset catalog, hydrated
+    from Sleeper's directory by the roster crawl and the FFPC crawl. It
+    is consulted because our BOARD only names players inside its ranked
+    pool: a genuinely rostered player outside it (a deep veteran QB, for
+    instance) otherwise renders as a bare Sleeper id next to a perfectly
+    correct percentage, which reads as a broken row.
+
+    Degrades to an empty map — a name is cosmetic and must never cost a
+    board its numbers.
+    """
+    try:
+        conn = roster_store.ensure_roster_schema(ledger_path)
+    except Exception:  # noqa: BLE001
+        log.exception("sharp roster %%: asset catalog unavailable")
+        return {}
+    try:
+        return {
+            str(row["canonical_asset_id"]): {
+                "displayName": row["display_name"],
+                "position": (str(row["position"] or "").strip().upper() or None),
+                "nflTeam": (str(row["nfl_team"] or "").strip().upper() or None),
+            }
+            for row in conn.execute(
+                """
+                SELECT canonical_asset_id, display_name, position, nfl_team
+                  FROM canonical_assets
+                 WHERE display_name IS NOT NULL
+                """
+            ).fetchall()
+        }
+    except Exception:  # noqa: BLE001
+        log.exception("sharp roster %%: asset catalog read failed")
+        return {}
+    finally:
+        conn.close()
+
+
+def _fallback_metadata(asset_id: str, catalog: dict[str, dict[str, Any]] | None = None) -> dict:
     """Name/position for an asset the live contract does not price.
 
-    Reuses the Buy/Sell Tracker's own local catalog so both boards
+    Two sources, in order: the ledger's ``canonical_assets`` catalog,
+    then the Buy/Sell Tracker's own file-based fallback — so both boards
     display the same name for the same id.
     """
     from src.sharp import market as sharp_market
 
-    meta = sharp_market._fallback_asset_metadata(asset_id) or {}
+    meta = dict((catalog or {}).get(asset_id) or {})
+    if not meta.get("displayName"):
+        meta = {**(sharp_market._fallback_asset_metadata(asset_id) or {}), **meta}
     return {
         "displayName": meta.get("displayName"),
         "position": meta.get("position"),
@@ -398,7 +462,7 @@ def _denominators(
     """``({family: {rosterKey}}, {family: unknownFormatRosters})``."""
     by_family: dict[str, set[str]] = {}
     unknown: dict[str, int] = {}
-    families = (FAMILY_OFFENSE, FAMILY_IDP, FAMILY_KICKER, FAMILY_TEAM_DEFENSE, FAMILY_UNKNOWN)
+    families = POSITION_FAMILIES
     for family in families:
         by_family[family] = set()
         unknown[family] = 0
@@ -530,6 +594,7 @@ def build_board(
     denominators, unknown_format = _denominators(filtered)
 
     player_index = build_player_index(contract)
+    asset_catalog = _catalog_metadata(ledger_path)
     buy_sell = _buy_sell_index(
         members=members,
         ledger_path=ledger_path,
@@ -554,7 +619,7 @@ def build_board(
         is_pick = asset_id.startswith("pick:")
         if is_pick and not include_picks:
             continue
-        meta = player_index.get(asset_id) or _fallback_metadata(asset_id)
+        meta = player_index.get(asset_id) or _fallback_metadata(asset_id, asset_catalog)
         pos = meta.get("position")
         if not _matches_position_filter(pos, position):
             continue

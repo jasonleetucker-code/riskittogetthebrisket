@@ -378,6 +378,57 @@ def _collapse_season_chains(
     return observations
 
 
+def _hydrate_asset_names(
+    observations: Sequence[roster_store.RosterObservation],
+    *,
+    conn,
+    budget: _Budget,
+    result: CollectResult,
+) -> None:
+    """Make sure every collected player has a NAME in the asset catalog.
+
+    A roster payload carries player ids and nothing else, and our board
+    only stamps names for players inside its ranked pool. A genuinely
+    rostered player outside that pool — a deep veteran QB, say — would
+    otherwise render on the page as a bare Sleeper id like ``827``,
+    which reads as a bug even though the count beside it is correct.
+
+    ``canonical_assets`` is the platform's own answer to this and the
+    FFPC crawl already hydrates it from Sleeper's directory; nothing
+    hydrated it on the Sleeper side. One directory call per RUN (not per
+    league) closes that.
+
+    Best-effort by construction: a directory fetch failure leaves the
+    names as they were and never fails the crawl, because a missing
+    display name must not cost us a roster observation.
+    """
+    if not observations:
+        return
+    known = {
+        str(row["canonical_asset_id"])
+        for row in conn.execute(
+            "SELECT canonical_asset_id FROM canonical_assets WHERE display_name IS NOT NULL"
+        ).fetchall()
+    }
+    needed = {
+        asset.canonical_asset_id
+        for observation in observations
+        for asset in observation.assets
+        if asset.asset_type == "player" and asset.canonical_asset_id not in known
+    }
+    if not needed:
+        return
+    try:
+        directory = budget.get(f"{SLEEPER_BASE}/players/nfl")
+        if not isinstance(directory, dict) or not directory:
+            result.errors.append("player_directory_unavailable")
+            return
+        platform_ledger.hydrate_sleeper_asset_catalog(directory, conn=conn)
+    except Exception as exc:  # noqa: BLE001 — names are cosmetic, rosters are not
+        log.warning("sharp.roster_collect: asset-name hydration skipped (%s)", exc)
+        result.errors.append("player_directory_unavailable")
+
+
 def collect_sleeper_rosters(
     *,
     manager_keys: Sequence[str],
@@ -490,6 +541,7 @@ def collect_sleeper_rosters(
             del member_keys
 
         observations = _collapse_season_chains(observations, fetched, result)
+        _hydrate_asset_names(observations, conn=conn, budget=b, result=result)
         totals = roster_store.record_rosters(observations, conn=conn)
         result.rosters_recorded = totals["rosters"]
         result.eligible_rosters = totals["eligibleRosters"]
