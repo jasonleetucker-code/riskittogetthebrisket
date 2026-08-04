@@ -116,6 +116,8 @@ npm run regression                   # Full pipeline: preflight + tests
 | `/api/trade/suggestions` | POST | Roster-aware trade suggestions (reads live contract) |
 | `/api/trade/finder` | POST | KTC arbitrage finder |
 | `/api/leagues` | GET | Active league registry (stable `key` → `displayName` + roster settings; **no Sleeper IDs leaked**) |
+| `/api/sharp/roster-percentage` | GET | Sharp Roster Percentage board (global cohort — takes no `leagueKey`) |
+| `/api/sharp/roster-percentage/audit` | GET | Every roster behind one player's count, for manual verification |
 
 ### Rankings vs. league context — the core split
 
@@ -186,14 +188,36 @@ Error behavior on endpoints:
   - This resolves Defect D-2 (`docs/python-coverage-audit.md`), which
     was open between "503 per this table" and "keep the fallback and
     fix the doc".  Fixing the doc is the answer, and this is it.
-  - What was NOT acceptable, and is fixed: with no contract at all,
-    `_pick_value_from_contract` fell through to a hardcoded
-    7000/4000/2000/1200-by-round table, so the endpoint returned 200
-    and a full board of invented numbers indistinguishable from the
-    Hill-curve-calibrated real ones.  That is the case the 503 covers.
-  - Pinned by `tests/api/test_draft_capital_data_not_ready.py`, which
+  - The 503 covers the no-contract case only.  This section used to
+    claim that was also the only way to reach the hardcoded
+    7000/4000/2000/1200-by-round table in `_pick_value_from_contract`
+    — i.e. that the invented values sat behind the guard.  **That was
+    false**, and it hid a live defect (audit finding C1): the fallback
+    generates picks for `current_season` AND `current_season + 1`,
+    while the live contract carries current-year slot picks only (72
+    rows: 12 slots × 6 rounds).  Every next-year pick therefore missed
+    the lookup and took a constant **with a fully valid contract
+    loaded** — half the emitted board — and those constants were
+    normalized into the same $1200 pool as the real values, diluting
+    every genuine pick's dollars and shifting every team's
+    `auctionDollars`.  A 503 gated none of it.
+  - Fixed by removing the table outright.  `_pick_value_from_contract`
+    returns `None` on a miss; `build_sleeper_derived` excludes unpriced
+    picks from the dollar normalization (so they cannot dilute) and
+    emits them with `dollarValue: null` +
+    `isUnpriced: true` — ownership from Sleeper is still real, only the
+    value is unknown.  `coveredPickYears` is now derived from what was
+    actually priced instead of the loop bounds, and
+    `pricedPickCount` / `unpricedPickCount` / `unpricedPickYears` make
+    the omission visible (same posture as
+    `metadata.assetsUnpricedByBoard` in `src/trade/finder.py`).
+    Consequence worth knowing: the $1200 pool now lands entirely on the
+    current class, so a real pick's dollar value is roughly double what
+    this path used to report.
+  - Pinned by `tests/api/test_draft_capital_data_not_ready.py` (which
     fails if a future change re-resolves D-2 by accident in either
-    direction.
+    direction) and `tests/api/test_draft_capital_fallback.py` (which
+    pins the unpriced-exclusion arithmetic).
 
 Rule for new code:
 - Need rankings / values / player data?  →  resolve the scoring
@@ -440,6 +464,138 @@ offense, IDP and picks on one native 0-9999 scale; of KTC's 500 rows,
 475 also appear on the IDPTC board at a median value ratio of 1.000
 (p10 0.888, p90 1.054, measured 2026-07-26). Both top out at 9999, so
 there is no rescaling to apply between them.
+
+### FAAB recommendations — one engine, two separate answers
+``src/trade/faab_engine.py`` is the ONLY place a FAAB dollar figure is
+derived.  Full reference: ``docs/faab-model.md``.
+
+The design turns on a separation the previous implementation did not
+make at all:
+
+* **objective ceiling** — what the player is WORTH, as a share of the
+  league's **original** budget.  A function of the player and the
+  league FORMAT.  It does not move when a manager spends, and it is
+  identical for every team in the league.
+* **recommended bid** — what THIS team should bid, given its balance,
+  roster, drop side, the week, and the expected clearing price.
+  Almost always far below the ceiling.
+
+The old formula had neither.  It was ``0.05 + 0.25 x (value / best
+value on the wire)`` of the team's REMAINING balance, so (a) the best
+free agent always priced at 21% of budget whether he graded 9999 or
+900, (b) a barren wire bid MORE because it lowered the denominator,
+and (c) a player's "objective" worth shrank as the manager spent.  On
+the real 2026-08-04 board every one of the 40 surfaced candidates
+priced between $14 and $21 of $100.
+
+Model, in five stages (all parameters in ``config/trade/faab.json`` —
+the engine contains no numeric literal that affects a recommendation):
+
+1. **Anchors** — ``V_allin`` is the board value at
+   ``teamCount x starterSlotsPerTeam``, the league-wide STARTING pool;
+   ``V_repl`` is the format line at 2x that, blended with the live
+   pool's Nth-best unrostered player.  Both recompute per league per
+   board refresh and hard-code no player.
+2. **Surplus** — ``max(0, V - V_repl)``.  The drop side subtracts the
+   same way, so dropping a below-replacement player is free.
+3. **Ceiling curve** — smootherstep on ``s^2.2``: a long flat toe for
+   replacement-level players, saturating at 100% of the original
+   budget at ``V_allin``.  Zero slope at both ends, so nothing jumps
+   at a threshold.  An uncapped ``rawCeiling`` keeps growing above the
+   line so the market layer can still tell a 2400 player from a 9999.
+4. **Team layer** — drop cost, startable-depth need, season option
+   value (unspent FAAB expires, so the ceiling relaxes toward 100%
+   late), competitive status, then a hard cap at the balance.
+5. **Market** — rivals are a zero-inflated lognormal fitted to this
+   league's real Sleeper history.  ``recommended = argmax_b P(win|b) x
+   (rawCeiling - b)``: bidding the ceiling captures zero surplus by
+   construction, which is what produces "worth the whole budget, bid a
+   fraction of it".  Verified 2026-08-04: a ``dynasty_main`` player
+   sitting exactly on the all-in line (2341) is worth $100 of $100 and
+   the engine recommends $33 in week 8.
+
+**The all-in region is derived, not hard-coded**, and it independently
+reproduces two managers' stated judgments: ``dynasty_new``'s starter
+line (10 x 10 = rank 100) lands exactly on Josh Jacobs (3901), the
+value the site owner named; ``dynasty_main``'s (12 x 20 = rank 240 →
+2341) sits just under the peer's cluster (Dobbins 2661 / Stribling
+2680 / Warren 2938).  Pinned by ``tests/trade/test_faab_calibration.py``.
+
+Rules for new code:
+
+* Need a bid?  → call the engine.  There is no second formula, and
+  ``frontend/lib/waiver-logic.js`` deliberately exports none (the old
+  ``computeFaabHint`` JS port is deleted — same no-frontend-engine rule
+  as ranking).
+* Positional scarcity, age, dynasty outlook and the TE/superflex
+  premiums are ALREADY inside the canonical 1-9999 value.  Do not
+  re-apply them here.  Trending adds and the KTC crowd bid % are
+  demand EVIDENCE reported as factor rows; they feed rival engagement
+  in the market layer and never scale the objective value.
+* Need "does this roster need the position?"  → the engine's
+  ``classify_need`` (startable depth vs lineup slots), NOT
+  ``suggestions.analyze_roster``.  That helper answers a trade-surplus
+  question and, measured on real 58-man best-ball rosters, returns
+  ``surplus`` for 68 of 84 team/position pairs and ``need`` once — it
+  cannot discriminate here.
+
+**Two independent market signals**, deliberately separate:
+
+* ``data/faab/bid_history_<leagueKey>.json`` — what OUR league pays.
+  Full Sleeper transaction history, but one league's culture.
+* ``data/faab/crowd_history_<leagueKey>.json`` — what COMPARABLE
+  leagues pay for the same player right now, from KTC's public waiver
+  database (``scripts/fetch_crowd_faab.py``).  The feed is a ~5-day
+  200-row rolling window across ~83 MyFantasyLeague leagues, so it is
+  ACCUMULATED (deduped by KTC row id) rather than snapshotted, and
+  filtered to leagues matching this league's format.  Measured
+  2026-08-04: the wider superflex+TEP market's median claim is 0.30%
+  of budget with a p90 of 8.5%, which brackets this league's own 0% /
+  6% — the two markets agree.
+
+  It is an anonymous crowd, NOT experts; no ranking source in the
+  pipeline is attached to a league at all.  **It prices the MARKET,
+  never the PLAYER**: crowd evidence raises rival engagement and the
+  expected clearing price, and is structurally unable to move the
+  objective ceiling (which is computed before any crowd data is read).
+  A player our board grades below replacement stays a $0
+  recommendation however hot he is elsewhere — the explanation names
+  the disagreement instead of hiding it.  Pinned by
+  ``tests/trade/test_faab_crowd.py``.  Note the crowd figure is a
+  WINNING bid, already a max over its league's field, so
+  ``crowdWinningBidToRivalMedian`` converts it back to the per-rival
+  level before it is compared with the modelled share; without that
+  the order statistic is counted twice.
+
+Bid history lives in ``data/faab/bid_history_<leagueKey>.json``
+(gitignored like the rest of ``data/``), written by
+``scripts/fetch_faab_history.py``; run it on prod.  Without it the
+engine falls back to configured priors plus the live analytics block
+and says so in ``contention.notes``.  Note
+``src/api/faab_analytics.py`` gates its median on ``bid > 0`` and so
+reports 2.00% of budget where the true median is 0.00% — measured
+2026-08-04, 41-77% of adds cost nothing per season (combined 56.6% in
+``dynasty_main``, 50.3% in ``dynasty_new``).  ``src/trade/faab_history.py``
+keeps zero bids for exactly that reason; prefer it for anything
+market-facing.  ``faab_analytics.py`` is unchanged and still powers the
+history panel, so anything reading ``leagueMedianWinningBid`` is reading
+a nonzero-only median.
+
+Did it work?  ``scripts/faab_backtest.py`` replays this league's real
+claims through both models (384 of 695 join to a canonical value today).
+Low-value overbids — below replacement, bid > 5% of budget — go from
+**166 of 166 (OLD) to 0 of 166 (NEW)**, and that band is 43% of the
+sample.  Total committed falls from 45.51 budget-units (OLD) to 23.18
+(NEW) against 9.25 actually spent.  NEW's win rate is *lower* (59.4% vs
+95.3%) **by design** — OLD buys its win rate by bidding roughly 5x the
+market on everything.  Report this honestly rather than cherry-picking:
+NEW's median overpayment is $0 vs OLD's $20 but its **mean is worse**
+($44.77 vs $34.73, dragged by look-ahead artifacts above the all-in
+line); the claims NEW declined cost 8.00 budget-units of forgone roster;
+and "impactful players missed" is 0 for BOTH models, so it is evidence
+NEW gave nothing up at the top, not evidence it improved there.  The
+script states five structural caveats at the top of every run; read them
+before quoting it.
 
 ### Canonical Data Mode
 The offline canonical-build path (``scripts/canonical_build.py`` +
@@ -785,6 +941,79 @@ The `POST /api/rankings/overrides` endpoint supports two response views:
 Regression test: `tests/api/test_source_overrides.py::TestBuildRankingsDeltaPayload` pins the delta shape, byte-size bounds, and the invariant that every field in `_DELTA_PLAYER_FIELDS` round-trips through a manual merge identically to the full-contract path.
 
 See `tests/api/test_source_overrides.py` for the full contract spec.
+
+### The sharp cohort: one pool, many surfaces
+
+`src/sharp/cohort.py::cohort_members` is THE definition of "who is a
+sharp". Every sharp-powered surface resolves its manager pool through
+it, and none of them may keep a second list or add a qualification rule:
+
+| surface | module |
+|---|---|
+| Sharp Buy/Sell Tracker (`/market/sharp-tracker`) | `src/sharp/market.py` |
+| Sharp Roster Percentage (`/market/sharp-roster-percentage`) | `src/sharp/roster_percentage.py` |
+| roster collection pass | `src/sharp/roster_collect.py` |
+| activity crawl | `scripts/crawl_sharp_activity.py` |
+
+`market.py` re-exports `CohortMember`, `cohort_members`,
+`curated_members`, `provisional_members` and `load_ffpc_config`, so
+`sharp_market.cohort_members` still resolves and the monkeypatch seam
+existing tests use is preserved. Note the re-export is a
+`from ... import` binding taken at import time — a test that patches
+the cohort module before importing `market` captures the stub.
+
+Qualification is decided in `src/sharp/score.py` +
+`config/sharp/scoring_v2.json` over evidence from
+`src/sharp/platform_records.py`; league eligibility in
+`src/intel/league_filter.py` (dynasty only, ≥ 2 seasons). `cohort.py`
+only SELECTS and DEDUPLICATES.
+
+**Three sharp crawl passes, in order** — each depends on the one before,
+which is why the timers are staggered:
+
+1. `scripts/discover_sharp_graph.py` (04:20 UTC) — finds MANAGERS
+2. `scripts/crawl_sharp_records.py` (04:50) — finds their RESULTS, which
+   is what makes them scoreable
+3. `scripts/crawl_sharp_rosters.py` (05:50) — finds what they currently
+   OWN, which is what the roster-percentage board is made of
+
+Two things the roster pass depends on, both fixed rather than worked
+around:
+
+- `discovery.py` records a `league_memberships` row at USER-expansion
+  time as well as league-expansion time. It used to record one only when
+  a league was expanded, so leagues left on the frontier by the budget
+  had none — invisible to anything asking "which leagues does this
+  manager play in", which silently bounded the roster crawl to the
+  expanded subgraph.
+- The roster pass orders leagues through
+  `record_queue.prioritize_league_ids` (never-collected first, then
+  oldest), the same fair ordering the records crawl uses. Sorting by
+  league id meant a budget-capped run re-collected the same prefix
+  forever and never reached the tail.
+
+`server.py` calls `_sharp_service.register_http_routes()` explicitly
+after importing the module. The import-time side effect alone is not
+enough: anything that imports `src.sharp.service` before the app exists
+makes it a no-op, and the module cache means the later import re-runs
+nothing — `/api/sharp/market` then 404s with no other symptom.
+
+Roster observations live in `sharp_rosters` / `sharp_roster_assets` /
+`sharp_roster_asset_spans` / `sharp_roster_observations`
+(`src/sharp/roster_store.py`), created by a plain
+`CREATE TABLE IF NOT EXISTS` that is deliberately NOT wired to
+`platform_ledger.PLATFORM_SCHEMA_VERSION` — bumping that re-runs the
+whole platform migration on every deployed ledger to add four additive
+tables.
+
+Counting rules are enforced by primary keys rather than by caller
+discipline: one row per roster, one row per (roster, player). The
+denominator is ROSTERS, not people — a sharp with five dynasty teams
+contributes five observations — and it is computed PER PLAYER, because a
+linebacker cannot be rostered in a league with no IDP slots. Full
+methodology and the known limitations (no general-dynasty ownership feed
+exists; FFPC contributes zero rosters until a roster-bearing URL is
+configured) are in `docs/sharp-roster-percentage/METHODOLOGY.md`.
 
 ### Adapter Pattern
 Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). All adapters emit `RawAssetRecord` dataclasses with normalized fields.

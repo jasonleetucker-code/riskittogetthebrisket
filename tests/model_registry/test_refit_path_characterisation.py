@@ -149,7 +149,13 @@ class TestTheLivedataMarkingIsPreserved:
     """
 
     def test_the_guard_is_still_marked_livedata(self):
-        block = CONFTEST.read_text().split("_LIVEDATA_MODULES")[1].split(")")[0]
+        # Parse to the closing brace of the frozenset LITERAL, not to the
+        # first ")".  The old ")" split truncated the block at the first
+        # parenthesis appearing anywhere inside it — including one in a
+        # comment — which made this guard silently read an empty-ish block
+        # and fail for a reason that had nothing to do with the marking.
+        # ``tests/test_livedata_policy.py`` already parses it this way.
+        block = CONFTEST.read_text().partition("_LIVEDATA_MODULES")[2].partition("}")[0]
         assert '"test_ktc_reconciliation.py"' in block, (
             "the guard was un-marked — that re-introduces the PR-stalling "
             "failure the marking was added to prevent"

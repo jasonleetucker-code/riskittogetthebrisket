@@ -32,6 +32,42 @@ def _load_outcomes(path_str: str) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+_OUTCOME_FIELDS = ("p_hit", "v_hit", "p_mid", "v_mid")
+
+
+def _outcome_row(slots: dict[int, Any], overall_slot: int) -> dict[str, float]:
+    """Outcome parameters for one slot: tabulated, or extrapolated past the end.
+
+    Inside the table the nearest tabulated slot wins (the table is a set
+    of anchors, not a continuous fit).  PAST the last one the tail is
+    EXTRAPOLATED rather than snapped: nearest-neighbour gave every slot
+    from the final anchor onward the identical distribution, so in a
+    12-team league every pick from 3.12 to the end of the draft priced
+    the same (audit M7).
+
+    The extrapolation continues the last measured segment's per-slot
+    geometric decay, component by component, so the shape of the tail is
+    the table's own — not a second prior invented here.  The ratio is
+    clamped to (0, 1]: a non-monotone table must not make deep picks
+    grow.  These are placeholder priors either way; see the config's
+    header comment.
+    """
+    tabulated = sorted(slots)
+    last = tabulated[-1]
+    if overall_slot <= last or len(tabulated) < 2:
+        nearest = min(tabulated, key=lambda k: abs(k - overall_slot))
+        return {f: float(slots[nearest][f]) for f in _OUTCOME_FIELDS}
+    prev = tabulated[-2]
+    span = float(last - prev)
+    steps = float(overall_slot - last)
+    out: dict[str, float] = {}
+    for field in _OUTCOME_FIELDS:
+        end, start = float(slots[last][field]), float(slots[prev][field])
+        ratio = min(1.0, (end / start) ** (1.0 / span)) if start > 0.0 and end > 0.0 else 0.0
+        out[field] = end * (ratio**steps)
+    return out
+
+
 def pick_value(
     overall_slot: int,
     params: ParamSet,
@@ -57,10 +93,9 @@ def pick_value(
     lo, hi = cfg.get("class_strength_bounds", [0.85, 1.15])
     cs = min(float(hi), max(float(lo), float(class_strength)))
 
-    nearest = min(slots, key=lambda k: abs(k - overall_slot))
-    row = slots[nearest]
-    p_hit, v_hit = float(row["p_hit"]), float(row["v_hit"])
-    p_mid, v_mid = float(row["p_mid"]), float(row["v_mid"])
+    row = _outcome_row(slots, overall_slot)
+    p_hit, v_hit = row["p_hit"], row["v_hit"]
+    p_mid, v_mid = row["p_mid"], row["v_mid"]
 
     st = params.strategy(strategy)
     discount = float(st["discount"]) ** max(0, years_out)

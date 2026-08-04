@@ -24,11 +24,10 @@ Blockbuster tiebreaks (prompt spec):
 
 from __future__ import annotations
 
-import math
 from collections import Counter, defaultdict
 from typing import Any, Callable
 
-from . import metrics
+from . import metrics, trade_grading
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
@@ -37,43 +36,47 @@ OFFENSIVE_CORE = {"QB", "RB", "WR", "TE"}
 NOTABLE_POSITIONS = OFFENSIVE_CORE | {"DL", "LB", "DB", "EDGE"}
 
 # ── Trade grading ────────────────────────────────────────────────────────
-# Mirrors ``gradeTradeHistorySide`` in
-# ``frontend/lib/league-analysis.js`` and ``TRADE_ALPHA`` in
-# ``frontend/lib/trade-logic.js`` so a trade graded on the private
-# ``/trades`` page lands in the same bucket on the public
-# ``/league`` activity timeline.  The grade is computed server-side
-# from a caller-supplied valuation callable; only the resulting
-# ``{grade, color, label}`` object is emitted on the public
-# payload — the raw values and per-side totals NEVER leave the
-# backend.
-_GRADE_ALPHA = 1.65
-_GRADE_PCT_FAIR = 3.0
-_GRADE_PCT_SLIGHT = 8.0
-_GRADE_PCT_GOOD = 15.0
-_GRADE_PCT_CLEAR = 25.0
-_GRADE_PCT_ROBBERY = 40.0
+# The math lives in ``trade_grading.py``, which is the Python half of a
+# two-language pair with ``frontend/lib/league-analysis.js``: the private
+# ``/trades`` page and this public timeline grade a trade with ONE
+# formula — per-side linear net plus the KTC value adjustment, over the
+# larger effective side total — pinned by
+# ``tests/fixtures/trade_grade_parity_cases.json``.
+#
+# What this file used to do, and why it was wrong (audit 2026-08-04,
+# finding C3): it summed ``max(value, 1) ** 1.65`` over each side's
+# RECEIVED assets and compared side totals, then fed the result to the
+# same 3/8/15/25/40 band table the frontend uses on a LINEAR ratio.
+# Raising to 1.65 inflates a gap — a 10% linear edge is a ~16% alpha
+# edge — so the same trade rendered "Good win (A-)" on /trades and
+# "Clear win (B+)" here, under a comment claiming the two "land in the
+# same bucket".  They did not, and the band table can only be shared by
+# implementations that feed it the same quantity.
+#
+# The grade is computed server-side from a caller-supplied valuation
+# callable; only the resulting ``{grade, color, label}`` object is
+# emitted on the public payload — the raw values and per-side totals
+# NEVER leave the backend.
 
 
-def _grade_from_pct(pct: float, is_winner: bool) -> dict[str, str]:
-    if pct < _GRADE_PCT_FAIR:
-        return {"grade": "A", "color": "var(--green)", "label": "Fair trade"}
-    if is_winner:
-        if pct < _GRADE_PCT_SLIGHT:
-            return {"grade": "A", "color": "var(--green)", "label": "Slight win"}
-        if pct < _GRADE_PCT_GOOD:
-            return {"grade": "A-", "color": "var(--green)", "label": "Good win"}
-        if pct < _GRADE_PCT_CLEAR:
-            return {"grade": "B+", "color": "#2ecc71", "label": "Clear win"}
-        return {"grade": "A+", "color": "#00ff88", "label": "Big win"}
-    if pct < _GRADE_PCT_SLIGHT:
-        return {"grade": "B+", "color": "#2ecc71", "label": "Slight overpay"}
-    if pct < _GRADE_PCT_GOOD:
-        return {"grade": "B", "color": "var(--amber)", "label": "Overpay"}
-    if pct < _GRADE_PCT_CLEAR:
-        return {"grade": "C", "color": "#e67e22", "label": "Bad deal"}
-    if pct < _GRADE_PCT_ROBBERY:
-        return {"grade": "D", "color": "var(--red)", "label": "Robbery"}
-    return {"grade": "F", "color": "#ff4444", "label": "Fleeced"}
+def _side_values(
+    assets: Any,
+    valuation: Callable[[dict[str, Any]], float],
+) -> list[float]:
+    """Value one side's asset list, tolerating a hostile valuation.
+
+    A callable that raises, or returns ``float('nan')`` for a missing
+    value (common with dataframe-derived numbers), must not poison the
+    side — ``sanitize_side_values`` drops anything non-finite or
+    non-positive, exactly as the frontend's resolver does.
+    """
+    out: list[float] = []
+    for asset in assets or []:
+        try:
+            out.append(float(valuation(asset) or 0.0))
+        except (TypeError, ValueError):
+            out.append(0.0)
+    return trade_grading.sanitize_side_values(out)
 
 
 def _apply_trade_grades(
@@ -82,77 +85,27 @@ def _apply_trade_grades(
 ) -> None:
     """Attach a ``grade`` block to each side of every trade in ``feed``.
 
-    Mutates the trade dicts in place.  The raw per-side weighted
-    totals are intentionally discarded after grading — the public
-    payload surfaces only the grade letter, label, and color.
+    Mutates the trade dicts in place.  Each side is graded on its OWN
+    got-minus-gave net, which is what makes 3+ team trades come out
+    right — their sent and received pools do not pair up, so ranking
+    sides against each other's received totals mislabels whoever
+    happened to receive fewest pieces.  The per-side totals are
+    discarded after grading; the public payload surfaces only the
+    grade letter, label, and color.
     """
     for trade in feed:
         sides = trade.get("sides") or []
         if len(sides) < 2:
             continue
-        weighted: list[float] = []
-        for side in sides:
-            total = 0.0
-            for asset in side.get("receivedAssets") or []:
-                try:
-                    val = float(valuation(asset) or 0.0)
-                except (TypeError, ValueError):
-                    val = 0.0
-                # Sanitize NaN / inf before exponentiation so a
-                # caller that returns ``float('nan')`` for missing
-                # values (common with dataframe-derived numbers)
-                # cannot poison the per-side total — a NaN here
-                # would propagate through ``max_w``/``min_w``/``pct``
-                # and force every comparison branch to grade
-                # incorrect extremes.
-                if not math.isfinite(val):
-                    val = 0.0
-                # Floor each asset at 1 before raising to alpha so
-                # unranked / unknown assets still contribute the same
-                # ``1**alpha`` floor as the private ``/trades`` grading
-                # path (``analyzeSleeperTradeHistory`` in
-                # ``frontend/lib/league-analysis.js``).  Without this
-                # floor, public grading diverges from private on any
-                # trade containing assets the canonical pipeline can
-                # not value (older seasons, dropped players, etc).
-                total += pow(max(val, 1.0), _GRADE_ALPHA)
-            weighted.append(total)
-        max_w = max(weighted)
-        min_w = min(weighted)
-        # All-zero case (no asset on any side resolved to a value):
-        # treat as a fair trade — private grading does the same, and
-        # silently omitting badges here would inconsistently hide the
-        # grade block on trades full of unranked assets.
-        if max_w <= 0:
-            fair = _grade_from_pct(0.0, True)
-            for side in sides:
-                side["grade"] = fair
-            continue
-        pct = ((max_w - min_w) / max_w) * 100.0
-        # Mirror the private /trades grading: only the top-weighted
-        # side can earn a "winner" grade and only the bottom-weighted
-        # side can earn a "loser" grade.  Middle sides in 3+ team
-        # trades get the neutral "Fair trade" badge so they are not
-        # mislabeled as overpayers.
-        if pct < _GRADE_PCT_FAIR:
-            fair = _grade_from_pct(pct, True)
-            for side in sides:
-                side["grade"] = fair
-            continue
-        winner_grade = _grade_from_pct(pct, True)
-        loser_grade = _grade_from_pct(pct, False)
-        fair_grade = _grade_from_pct(0.0, True)
-        winner_assigned = False
-        loser_assigned = False
-        for i, side in enumerate(sides):
-            if not winner_assigned and weighted[i] == max_w:
-                side["grade"] = winner_grade
-                winner_assigned = True
-            elif not loser_assigned and weighted[i] == min_w:
-                side["grade"] = loser_grade
-                loser_assigned = True
-            else:
-                side["grade"] = fair_grade
+        graded = trade_grading.grade_trade_sides(
+            (
+                _side_values(side.get("receivedAssets"), valuation),
+                _side_values(side.get("sentAssets"), valuation),
+            )
+            for side in sides
+        )
+        for side, result in zip(sides, graded):
+            side["grade"] = result["grade"]
 
 
 def _pick_asset(pick: dict[str, Any], snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
@@ -200,13 +153,25 @@ def _normalize_trade(
 
     adds_map = tx.get("adds") or {}
     drops_map = tx.get("drops") or {}
+    # Sleeper's pick shape names both ends of the move: ``owner_id``
+    # receives it, ``previous_owner_id`` gave it up (``roster_id`` is
+    # the ORIGINAL slot owner and is not who sent it in this trade).
+    # Grading needs both halves — a side's net is what it got minus
+    # what it sent, and a pick-for-pick swap is invisible otherwise.
     picks_by_owner: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    picks_by_sender: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for pk in tx.get("draft_picks") or []:
         try:
             owner_rid = int(pk.get("owner_id"))
         except (TypeError, ValueError):
+            owner_rid = None
+        if owner_rid is not None:
+            picks_by_owner[owner_rid].append(pk)
+        try:
+            sender_rid = int(pk.get("previous_owner_id"))
+        except (TypeError, ValueError):
             continue
-        picks_by_owner[owner_rid].append(pk)
+        picks_by_sender[sender_rid].append(pk)
 
     sides = []
     total_assets = 0
@@ -216,10 +181,14 @@ def _normalize_trade(
         received_player_ids = [pid for pid, r in adds_map.items() if int(r) == rid]
         sent_player_ids = [pid for pid, r in drops_map.items() if int(r) == rid]
         received_picks = picks_by_owner.get(rid, [])
+        sent_picks = picks_by_sender.get(rid, [])
         received_assets = [_player_asset(pid, snapshot) for pid in received_player_ids] + [
             _pick_asset(p, snapshot) for p in received_picks
         ]
-        if not received_assets and not sent_player_ids:
+        sent_assets = [_player_asset(pid, snapshot) for pid in sent_player_ids] + [
+            _pick_asset(p, snapshot) for p in sent_picks
+        ]
+        if not received_assets and not sent_assets:
             continue
         side_note_count = sum(1 for a in received_assets if a.get("position") in NOTABLE_POSITIONS)
         total_assets += len(received_assets)
@@ -233,6 +202,10 @@ def _normalize_trade(
                 if owner_id
                 else f"Team {rid}",
                 "receivedAssets": received_assets,
+                # Outgoing counterpart of ``receivedAssets`` — same
+                # asset shape, both players and picks.  ``sentPlayerIds``
+                # stays for existing consumers.
+                "sentAssets": sent_assets,
                 "sentPlayerIds": list(sent_player_ids),
                 "receivedPlayerCount": len(received_player_ids),
                 "receivedPickCount": len(received_picks),

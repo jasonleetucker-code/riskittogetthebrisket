@@ -10,6 +10,7 @@ from src.bdvm.events import PlayerEvent
 from src.bdvm.params import load_param_set
 from src.bdvm.projections import ProjectionRecord
 from src.bdvm.ros import RosWeek
+from tests.bdvm.pool_depth import depth_records
 
 PARAMS = load_param_set("params_v1")
 
@@ -75,12 +76,17 @@ def proj(key, pos, fpg):
 
 
 def run(rows, **kwargs):
+    # Every fixture below projects one player; without bench depth no
+    # group has a measurable replacement level and the engine (rightly)
+    # returns everything unpriced.  See tests/bdvm/pool_depth.py.
+    records = list(kwargs.pop("projection_records", None) or []) + depth_records()
     return bdvm_service.run_valuation(
         contract(rows),
         league_key="dynasty_main",
         params=PARAMS,
         snapshot_as_of="2026-07-27",
         season=2026,
+        projection_records=records,
         **kwargs,
     )
 
@@ -154,9 +160,12 @@ class TestEventEnrichment(unittest.TestCase):
         with_ev = run(rows, projection_records=[proj("event guy", "WR", 12.0)], events=[evt])
         without_ev = run(rows, projection_records=[proj("event guy", "WR", 12.0)], events=[])
         self.assertEqual(with_ev["meta"]["counts"]["eventsApplied"], 1)
+        # Compare the PRE-SCALE value, like the context tests above: this
+        # fixture has one contract player, so he is the calibration anchor
+        # and his trade value is pinned at target_top_value either way.
         self.assertLess(
-            with_ev["players"][0]["tradeValue"]["balanced"],
-            without_ev["players"][0]["tradeValue"]["balanced"],
+            with_ev["players"][0]["fundamental"]["balanced"],
+            without_ev["players"][0]["fundamental"]["balanced"],
         )
         audit = with_ev["players"][0]["events"]
         self.assertEqual(audit[0]["type"], "DEPTH_CHART_DEMOTION")

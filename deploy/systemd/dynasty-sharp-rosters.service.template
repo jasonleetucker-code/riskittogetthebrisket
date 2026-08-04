@@ -1,0 +1,55 @@
+[Unit]
+Description=Dynasty Trade Calculator Sharp roster collection (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# The THIRD Sharp Tracker pass.  Discovery finds MANAGERS, the records
+# crawl finds their RESULTS — this finds what they currently OWN, which
+# is what /market/sharp-roster-percentage is made of.  Without it that
+# page reports "cohort_building" and an empty board, exactly as the
+# Buy/Sell Tracker does before a records crawl.
+#
+# THE COHORT IS NOT RE-DERIVED HERE.  The manager pool comes from
+# src/sharp/cohort.py::cohort_members — the same call the Buy/Sell
+# Tracker makes — so this crawl can never collect for a different set
+# of managers than the boards display.
+#
+# Cost: 2 Sleeper calls per LEAGUE (/league/{id} for format + status,
+# /league/{id}/rosters for the holdings), regardless of how many cohort
+# members play in it.  A league shared by five sharps costs two calls,
+# not ten.  FFPC costs ZERO calls: its roster contents already arrive
+# with the public-page crawl and are only lifted into the queryable
+# store here.
+#
+# IDEMPOTENT.  Rosters upsert on roster_key and holdings upsert on
+# (roster_key, canonical_asset_id), so a re-run overwrites rather than
+# inflating any count.  Re-running after a partial pass is safe and is
+# the intended way to work through a large graph.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: writes the SQLite ledger under
+# data/intel/, which is gitignored, so a crawl on a CI runner never
+# reaches the VPS.  Same reasoning as discovery, records, BDVM and
+# playerctx.
+#
+# Exit codes (scripts/crawl_sharp_rosters.py):
+#   0 - completed within budget
+#   1 - hard failure; the store is unchanged
+#   2 - budget exhausted with leagues remaining (NORMAL on a large graph)
+# SuccessExitStatus keeps 2 out of the failure counters.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/crawl_sharp_rosters.py --budget 3000
+SuccessExitStatus=0 2
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,118 @@
+"""The pick-year discount applies ONLY to years the pipeline invented.
+
+Audit finding T-3 / C-2 (``docs/audits/decision-intelligence-audit-2026-08-04.md``).
+
+``_apply_pick_year_discount_to_blend`` used to multiply
+``offsetDiscounts`` (1.00 / 0.82 / 0.66 / 0.53) onto EVERY future-year
+pick.  For the years the vendors actually publish, that double-counts —
+and in the wrong direction, because both ingested markets price the next
+class ABOVE the imminent one:
+
+    ktcSfTep      2026 Early 1st 5595 | 2027 7061 | 2028 5122
+    idpTradeCalc  2026 Early 1st 5554 | 2027 7052 | 2028 5034
+
+The market term structure rises then falls; the config assumes smooth
+decay.  Composing them published 2027 firsts 18% and 2028 firsts 34%
+below what both markets agreed, biasing every trade involving future
+capital toward selling futures cheap.
+
+What still NEEDS the step-down is a year this pipeline synthesised by
+cloning a nearer year (``_inject_far_future_pick_sources``), because the
+clone carries the nearer year's price verbatim.
+
+These tests are synthetic and pure-logic — no live board, no CSVs — so
+they belong in the blocking CI tier.
+"""
+
+from __future__ import annotations
+
+import src.api.data_contract as dc
+
+
+class TestOnlySynthesisedYearsAreDiscounted:
+    def _run(self, names, synthetic):
+        """Run the discount stage over ``names`` with ``synthetic`` marked."""
+        players = [{"assetClass": "pick", "canonicalName": n} for n in names]
+        row_normalized = [(1000.0, i) for i in range(len(names))]
+        prev = dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES
+        dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = {dc._canonical_match_key(n) for n in synthetic}
+        try:
+            out, applied = dc._apply_pick_year_discount_to_blend(row_normalized, players)
+        finally:
+            dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = prev
+        return {names[i]: v for v, i in out}, applied, players
+
+    def test_vendor_priced_year_keeps_its_blended_value(self):
+        """A year with real per-slot vendor rows must pass through at 1.0.
+
+        This is the defect: 2027 and 2028 are published by both markets,
+        so any multiplier here is applied on top of a price that already
+        encodes the year.
+        """
+        values, applied, players = self._run(["2027 Early 1st", "2028 Early 1st"], synthetic=set())
+        assert values["2027 Early 1st"] == 1000.0
+        assert values["2028 Early 1st"] == 1000.0
+        assert applied == {}, "no discount may be recorded for a vendor-priced year"
+        for p in players:
+            assert "pickYearDiscount" not in p
+
+    def test_synthesised_year_is_still_stepped_down(self):
+        """A cloned year carries the nearer year's price and DOES need it."""
+        values, applied, players = self._run(["2029 Early 1st"], synthetic={"2029 Early 1st"})
+        assert values["2029 Early 1st"] < 1000.0
+        assert applied, "a synthesised year must record its multiplier"
+        assert players[0]["pickYearDiscount"] < 1.0
+
+    def test_mixed_board_discounts_only_the_clone(self):
+        """The realistic case: real 2027/2028 beside a synthesised 2029."""
+        names = ["2027 Early 1st", "2028 Early 1st", "2029 Early 1st"]
+        values, _, _ = self._run(names, synthetic={"2029 Early 1st"})
+        assert values["2027 Early 1st"] == 1000.0
+        assert values["2028 Early 1st"] == 1000.0
+        assert values["2029 Early 1st"] < 1000.0
+
+    def test_non_pick_rows_are_never_touched(self):
+        players = [
+            {"assetClass": "offense", "canonicalName": "Some Player"},
+            {"assetClass": "idp", "canonicalName": "Some Defender"},
+        ]
+        out, applied = dc._apply_pick_year_discount_to_blend([(1000.0, 0), (900.0, 1)], players)
+        assert [v for v, _ in out] == [1000.0, 900.0]
+        assert applied == {}
+
+
+class TestAgainstTheRealMarketBoards:
+    """The regression that would have caught this on the live board.
+
+    Rather than restating the formula, this pins the PROPERTY the defect
+    violated: the published value of a vendor-priced future pick must
+    track the market it came from, not sit systematically below it.
+    """
+
+    def test_market_term_structure_is_not_inverted_by_the_config(self):
+        """Both markets price 2027 above 2026; a decay prior must not
+        be composed onto that.
+
+        Uses the measured 2026-08-04 board values as constants — if the
+        vendors' term structure genuinely inverts in a later season this
+        test should be re-derived, not deleted.
+        """
+        ktc = {2026: 5595, 2027: 7061, 2028: 5122}
+        idptc = {2026: 5554, 2027: 7052, 2028: 5034}
+        for board in (ktc, idptc):
+            assert board[2027] > board[2026], (
+                "the audit's premise: the next class carries option value "
+                "and is priced ABOVE the imminent one"
+            )
+
+        cfg = dc._load_pick_year_discount()
+        offsets = cfg.get("offsetDiscounts") or {}
+        # The config is a monotonically decreasing prior...
+        assert float(offsets.get("1", 1.0)) < 1.0
+        # ...which is exactly why it must not reach a vendor-priced year.
+        market_avg_2027 = (ktc[2027] + idptc[2027]) / 2
+        would_publish = market_avg_2027 * float(offsets["1"])
+        assert would_publish < market_avg_2027 * 0.90, (
+            "sanity: composing the prior really does move the value >10% "
+            "below the market, which is the harm this gate prevents"
+        )

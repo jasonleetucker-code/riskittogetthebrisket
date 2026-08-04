@@ -23,6 +23,7 @@ from collections import OrderedDict
 from typing import Any, Mapping
 
 from src.api import league_registry as _league_registry
+from src.bdvm.actuals import nfl_projection_season
 from src.bdvm.params import ParamSet, load_param_set
 from src.bdvm.projections import latest_snapshot_path
 from src.bdvm.roster import analyze_rosters, scan_double_positive_trades
@@ -167,8 +168,13 @@ def get_bdvm_values(
 ) -> dict[str, Any]:
     """Compute (or serve cached) BDVM values for one league."""
     params = params or load_param_set()
-    season = int(contract.get("currentDraftYear") or 0)
-    snapshot = latest_snapshot_path(season) if season else None
+    # The NFL season, resolved the SAME way ``run_valuation`` resolves it
+    # (never the contract's rookie-draft year) — this season keys the
+    # snapshot lookup, the player context, the schedule and the events
+    # fingerprint, so a different answer here than in the service would
+    # cache and enrich one season while valuing another.
+    season = nfl_projection_season()
+    snapshot = latest_snapshot_path(season)
     actuals = _actuals_for(contract)
     key = (
         id(contract),
@@ -191,8 +197,8 @@ def get_bdvm_values(
             return cached
 
     roster_settings, idp_enabled, scoring_profile = _registry_settings_for(league_key)
-    context = _context_for(season) if season else {}
-    schedule_weeks = _schedule_for(season) if season else None
+    context = _context_for(season)
+    schedule_weeks = _schedule_for(season)
     payload = run_valuation(
         contract,
         league_key=league_key,

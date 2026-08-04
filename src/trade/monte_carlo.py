@@ -32,9 +32,10 @@ Both are uniform factors applied via a shared latent N(0,1)
 draw per (team, pos_group).  Not a full covariance matrix —
 good enough for first cut; cheaper than solving for one.
 
-No numpy required — uses Python's stdlib ``random`` module.
-NumPy acceleration kicks in when available for the hot loop
-but falls back to stdlib without user-visible difference.
+No numpy required — the hot loop uses Python's stdlib ``random``
+module and nothing else.  There is no NumPy fast path: this
+docstring used to claim one ("acceleration kicks in when
+available"), but the module has never imported numpy.
 """
 
 from __future__ import annotations
@@ -289,7 +290,12 @@ def simulate_trade(
     b_mean = sum(b_sums) / n_sims
     mean_d = sum(deltas) / n_sims
     sd_d = _stdev(deltas)
-    wins_a = sum(1 for d in deltas if d > 0) / n_sims
+    # Exact ties split evenly.  ``to_dict`` reports winProbB as
+    # ``1 − winProbA``, so counting only ``d > 0`` handed every tie to
+    # side B in full — and ties are reachable whenever the bands on both
+    # sides are degenerate or integer-valued (a pick swapped for the
+    # same pick, two players carrying the identical band).
+    wins_a = (sum(1 for d in deltas if d > 0) + 0.5 * sum(1 for d in deltas if d == 0)) / n_sims
 
     return SimResult(
         win_prob_a=wins_a,

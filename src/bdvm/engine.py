@@ -91,6 +91,53 @@ class Valuation:
         }
 
 
+def _under_ceiling(
+    value: float, ceiling: float, *, knee_fraction: float = 0.99, decay_scale: float = 3000.0
+) -> float:
+    """Bring ``value`` under ``ceiling`` without collapsing distinct inputs.
+
+    Identity below ``knee = ceiling * knee_fraction``; above it, a
+    strictly increasing map asymptotic to ``ceiling`` from below:
+
+        v <= knee  ->  v
+        v >  knee  ->  ceiling - span * exp(-(v - knee) / decay_scale)
+
+    with ``span = ceiling - knee``.  Continuous at the knee and nothing
+    below it moves at all, so the board — pinned by ``calibrate`` at
+    ``target_top_value`` (9800), under the 9900 knee — is untouched.
+
+    ``decay_scale`` is deliberately NOT ``span``.  Tying them makes the
+    map C1 at the knee, which is tidier, but the exponential then decays
+    so fast that it underflows float64 a few hundred points above the
+    cap — and this band's inputs run to ~22k against a 10k ceiling, so
+    the whole top would flatten onto one value again, reintroducing the
+    tie this function exists to prevent.  A wider decay keeps every
+    reachable input distinct at the cost of a slope kink at the knee,
+    which is invisible: the kink sits above every board value.
+
+    The result is held one representable step under ``ceiling`` so the
+    bound is strict even for absurd inputs.
+
+    See ``src/api/data_contract.py::_te_lift_under_ceiling`` — same
+    construction, same reason (math audit finding C4): a hard clamp is
+    not injective, so it turns a resolution problem into a tie.  That
+    one can afford ``decay_scale == span`` because its inputs are
+    bounded at ~1.21x its ceiling rather than ~2.2x.
+    """
+    v = float(value)
+    cap = float(ceiling)
+    if cap <= 0:
+        return v
+    knee = cap * knee_fraction
+    if v <= knee:
+        return v
+    span = cap - knee
+    if span <= 0:
+        return min(v, cap)
+    scale = decay_scale if decay_scale > 0 else span
+    return min(cap - span * math.exp(-(v - knee) / scale), cap - 1e-9)
+
+
 class DynastyEngine:
     def __init__(
         self,
@@ -110,6 +157,7 @@ class DynastyEngine:
         names = params.strategy_names()
         self.anchors: dict[str, float] = dict(anchors) if anchors else {k: 1.0 for k in names}
         self._gamma = float(params["scale"]["stud_gamma"])
+        self._value_max = float(params["scale"]["trade_value_max"])
         self._lambda_disp = float(params["risk_lambda_dispersion_coeff"])
 
     # ------------------------------------------------------------------
@@ -170,13 +218,22 @@ class DynastyEngine:
                     + float(games_cfg["future_games_durability_coeff"]) * p.risk.durability
                 )
             )
+            # Quantile paths shift the season's MEAN by z·σ and then price
+            # the same surplus functional the expected path uses.  They used
+            # to switch to truncated surplus (max(0, µ_z − R)·G) on the
+            # reading that a quantile outcome is "pinned", but that made the
+            # band a different quantity from the median it brackets:
+            # E[max(0, X−R)] ≥ max(0, E[X]−R) by Jensen, so a high-σ player
+            # near replacement got a p85 CEILING below his median — measured
+            # floor 0 / median 41 / ceiling 0 (audit H6).  Sharing the
+            # functional makes the band monotone by construction: σ, games
+            # and survival do not depend on z, so ssv is non-decreasing in
+            # µ_eval, the discounted sum has non-negative weights, Ψ is
+            # identical across the three paths, and to_trade_value is
+            # monotone — floor ≤ median ≤ ceiling falls out, it is not
+            # clamped in afterwards.
             mu_eval = mu + mu_shift_z * sigma
-            if mu_shift_z == 0.0:
-                ssv = season_starter_value(mu, sigma, R, games, mode=self.surplus_mode)
-            else:
-                # Quantile path: the outcome is pinned at the quantile, so
-                # the surplus is the truncated difference at that outcome.
-                ssv = max(0.0, mu_eval - R) * games
+            ssv = season_starter_value(mu_eval, sigma, R, games, mode=self.surplus_mode)
             if t > 0:
                 h = hazard(self.params, pos, age_t, p.risk, dc_decay)
                 if p.event_hazard_mult != 1.0:
@@ -242,8 +299,41 @@ class DynastyEngine:
         }
 
     def to_trade_value(self, v: float, strategy: str) -> float:
+        """DV → the bounded 0-``trade_value_max`` display scale.
+
+        The cap is enforced HERE, on the transform, rather than on any
+        one output: every number the engine puts on the 0-10000 scale —
+        the per-strategy trade values AND the floor/median/ceiling band —
+        leaves through this function, so this is the only place that
+        makes ``scale.trade_value_max`` mean anything (before this it had
+        exactly one reference in the repo: its own declaration).
+
+        Capping the transform is deliberately NOT the same as capping the
+        display: ``calibrate`` solves the anchors on raw DV and never
+        calls this function, so the cap bounds outputs without touching
+        the calibration target.  ``target_top_value`` (9800) sits below
+        the cap by design, so the per-strategy board values are
+        uncapped-in-practice; what the bound actually acts on is the
+        floor/median/ceiling band, whose p85 path measured near 20k.
+
+        The bound is a strictly increasing squash, NOT ``min(cap, x)``.
+        A hard clamp is not injective, and that matters here precisely
+        because the band is where it binds: on an elite-heavy ladder a
+        plain clamp collapsed seven distinct ceilings — spanning an
+        ~1.8x range on the uncapped scale — onto exactly 10000.0, which
+        ``frontend/lib/bdvm.js`` then renders as a tie. Losing the
+        ordering of the top of the board to enforce its bound trades one
+        defect for another.
+
+        Same shape and same reasoning as
+        ``src/api/data_contract.py::_te_lift_under_ceiling`` (math audit
+        finding C4), which exists for exactly this: identity below the
+        knee, asymptotic to the cap above it, never reaching it, so
+        distinct inputs stay distinct.
+        """
         anchor = self.anchors.get(strategy, 1.0)
-        return 10000.0 * ((max(0.0, v) / anchor) ** self._gamma)
+        raw = 10000.0 * ((max(0.0, v) / anchor) ** self._gamma)
+        return _under_ceiling(raw, ceiling=self._value_max)
 
     # ------------------------------------------------------------------
     def value(self, p: PlayerInput) -> Valuation:
@@ -352,9 +442,16 @@ class DynastyEngine:
         """Floor/median/ceiling on the trade-value scale.
 
         Approximation (documented): quantile paths shift every season's
-        outcome by the same z — i.e. perfectly correlated seasons — which
+        mean by the same z — i.e. perfectly correlated seasons — which
         widens the band vs. independent draws.  Honest until the Phase-10
-        simulation replaces it.
+        simulation replaces it.  (Ψ, the dispersion the risk penalty in
+        ``_discounted_value`` reads, assumes the opposite — independent
+        seasons.  The two risk representations do not agree; see the
+        "known divergences" section of the BDVM implementation report.)
+
+        The ordering floor ≤ median ≤ ceiling holds by construction —
+        see the monotonicity argument in ``season_path`` — and is pinned
+        by ``tests/bdvm/test_dynasty_math.py``.
         """
         st = self.params.strategy("balanced")
         horizon = int(st["horizon"])

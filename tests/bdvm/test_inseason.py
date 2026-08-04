@@ -17,10 +17,13 @@ from __future__ import annotations
 
 import unittest
 from datetime import date
+from unittest import mock
 
+from src.bdvm import service as service_mod
 from src.bdvm.actuals import (
     current_nfl_season,
     fetch_current_season_actuals,
+    nfl_projection_season,
     weekly_points_from_rows,
 )
 from src.bdvm.params import load_param_set
@@ -68,6 +71,12 @@ def _contract():
 def _records():
     from src.bdvm.projections import ProjectionRecord
 
+    from tests.bdvm.pool_depth import depth_records
+
+    # Two projected WRs in a 12-team league leaves the WR replacement rank
+    # (36 startable + 12 buffer) off the end of the pool, which the engine
+    # now reports as unpriced rather than pricing over R = 0 — hence the
+    # bench depth (tests/bdvm/pool_depth.py).
     return [
         ProjectionRecord(
             source="a",
@@ -80,7 +89,7 @@ def _records():
             scoring_native=True,
         )
         for key in ("steady wr", "quiet wr")
-    ]
+    ] + depth_records()
 
 
 def _run(actuals=None, schedule_weeks=None):
@@ -278,6 +287,49 @@ class TestSeasonDerivation(unittest.TestCase):
     """The actuals season is the CALENDAR NFL season — never
     currentDraftYear, which points one season ahead for the entire
     Sept–Jan window (review finding, 2026-07-28)."""
+
+    def test_projection_season_agrees_with_the_actuals_season(self):
+        """The half the 2026-07-28 review stopped short of (audit M6).
+
+        Fixing only the actuals side left the PROJECTION season keyed on
+        ``currentDraftYear``.  The §8.4 posterior blends realized weekly
+        points into a projection, so the two seasons must be the same
+        season or the blend crosses a season boundary — exactly what
+        actuals.py exists to prevent.  Hand-derived: the season being
+        played is the calendar year Sept–Dec, the previous year in
+        January, and the season about to be played Feb–Aug.
+        """
+        for day, expected in (
+            (date(2026, 9, 10), 2026),  # in progress
+            (date(2026, 12, 31), 2026),
+            (date(2027, 1, 5), 2026),  # week 18 spills into January
+            (date(2026, 2, 1), 2026),  # offseason: the season ahead
+            (date(2026, 7, 28), 2026),  # preseason
+            (date(2027, 3, 1), 2027),
+        ):
+            self.assertEqual(nfl_projection_season(day), expected, msg=str(day))
+        # …and inside the in-season window the two MUST agree.
+        for day in (date(2026, 9, 10), date(2026, 12, 31), date(2027, 1, 5)):
+            self.assertEqual(nfl_projection_season(day), current_nfl_season(day), msg=str(day))
+
+    def test_payload_season_is_the_nfl_season_not_the_rookie_draft_year(self):
+        """After the May roll the two diverge; meta must carry both."""
+        contract = _contract()
+        contract["currentDraftYear"] = 2027  # post-roll: the NEXT rookie draft
+        with mock.patch.object(service_mod, "nfl_projection_season", return_value=2026):
+            payload = run_valuation(
+                contract,
+                league_key="dynasty_main",
+                params=PARAMS,
+                projection_records=_records(),
+                snapshot_as_of="2026-07-27",
+                actuals=(5, {"steady wr": [(1, 20.0), (2, 20.0), (3, 20.0), (4, 20.0)]}),
+            )
+        self.assertEqual(payload["meta"]["season"], 2026)
+        self.assertEqual(payload["meta"]["rookieDraftYear"], 2027)
+        # The posterior ran, so the actuals season and the projection
+        # season describe the same season by construction.
+        self.assertEqual(payload["meta"]["inSeason"]["playersUpdated"], 1)
 
     def test_calendar_window(self):
         self.assertEqual(current_nfl_season(date(2026, 9, 10)), 2026)

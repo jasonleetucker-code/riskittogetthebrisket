@@ -22,11 +22,37 @@ from src.bdvm.params import load_param_set
 PARAMS = load_param_set("params_v1")
 
 
-def offense_row(ktc=5000.0, extra=None):
+def offense_row(ktc=5000.0, extra=None, dispersion_cv=None):
+    """A contract row for the market layer.
+
+    ``dispersion_cv`` is opt-in because the DEFAULT must stay
+    unmeasured: that is the case the old hardcoded ``0.20`` silently
+    papered over, and a fixture that always supplies dispersion would
+    never exercise it.
+    """
     row = {"canonicalSiteValues": {"ktcSfTep": ktc}}
     if extra:
         row["canonicalSiteValues"].update(extra)
+    if dispersion_cv is not None:
+        row["marketDispersionCV"] = dispersion_cv
     return row
+
+
+def _expected_liquidity(dispersion: float) -> float:
+    """Liquidity from the PARAMS, computed independently of MarketView.
+
+    Deliberately not read off the object under test. The assertion this
+    replaced was ``alpha == 2000.0 * view.liquidity`` — the expectation
+    re-derived from the very value it was checking, so its residual was
+    zero for any dispersion whatsoever, including the wrong-scale
+    fallback and the hardcoded default that this module now forbids.
+    """
+    cfg = PARAMS["market"]["liquidity"]
+    # SUBTRACT, per audit M7: disagreement makes an asset harder to
+    # transact, and must move the same direction as its effect on
+    # tau_market. Mirrors config/bdvm/params_v1.json's own _comment.
+    raw = float(cfg["base"]) - float(cfg["dispersion_coeff"]) * dispersion
+    return min(float(cfg["clip_hi"]), max(float(cfg["clip_lo"]), raw))
 
 
 class TestMarketSourceHygiene(unittest.TestCase):
@@ -81,15 +107,47 @@ class TestIsolation(unittest.TestCase):
 
 
 class TestGapAlphaMath(unittest.TestCase):
+    def _view_at_dispersion(self, cv):
+        row = offense_row(4000.0)
+        row["marketDispersionCV"] = cv
+        return market_view_for_row(row, "WR", PARAMS)
+
     def test_gap_and_alpha(self):
-        view = market_view_for_row(offense_row(4000.0), "WR", PARAMS)
+        view = market_view_for_row(offense_row(4000.0, dispersion_cv=0.05), "WR", PARAMS)
         out = market_comparison({"balanced": 6000.0}, view, PARAMS, is_idp=False, is_rookie=False)
         self.assertAlmostEqual(out["gap"], 2000.0)
-        self.assertAlmostEqual(out["alpha"], 2000.0 * view.liquidity, places=1)
+        # Expectation computed from the PARAMS, not read off the view.
+        self.assertAlmostEqual(out["alpha"], 2000.0 * _expected_liquidity(0.05), places=1)
         # λ=0.25 display blend
         self.assertAlmostEqual(out["marketAdjusted"], 6000.0 + 0.25 * (4000.0 - 6000.0), places=1)
         # λ=0.50 trade-clearing estimate
         self.assertAlmostEqual(out["tradeClearing"], 5000.0, places=1)
+
+    def test_dispersion_lowers_liquidity_and_market_precision_together(self):
+        """One input, one meaning (audit M7).
+
+        ``liquidity`` used to RISE with cross-source disagreement while
+        ``tau_market`` fell for the same input — the same number reading
+        as "easy to trade" and "nobody agrees on the price" at once.
+        Disagreement now lowers both.  Hand-derived from the config:
+        liquidity = clip(1.0 − 1.6·d, 0.2, 1.0) → 0.92 at d=0.05,
+        0.36 at d=0.40, and the 0.2 floor from d=0.5 on.
+        """
+        tight = self._view_at_dispersion(0.05)
+        wide = self._view_at_dispersion(0.40)
+        floored = self._view_at_dispersion(0.90)
+        self.assertAlmostEqual(tight.liquidity, 0.92, places=6)
+        self.assertAlmostEqual(wide.liquidity, 0.36, places=6)
+        self.assertAlmostEqual(floored.liquidity, 0.2, places=6)
+        # …and the model's weight vs. the market rises with the same input
+        out_tight = market_comparison(
+            {"balanced": 6000.0}, tight, PARAMS, is_idp=False, is_rookie=False
+        )
+        out_wide = market_comparison(
+            {"balanced": 6000.0}, wide, PARAMS, is_idp=False, is_rookie=False
+        )
+        self.assertGreater(out_wide["blendWeightModel"], out_tight["blendWeightModel"])
+        self.assertLess(out_wide["liquidity"], out_tight["liquidity"])
 
     def test_idp_and_rookie_lower_market_precision(self):
         view = market_view_for_row(offense_row(4000.0), "WR", PARAMS)
@@ -112,15 +170,37 @@ class TestSignals(unittest.TestCase):
         s3 = buy_hold_sell(self._out(1500.0, liquidity=0.3), PARAMS, gap_persisted_days=30)
         self.assertEqual(s3["signal"], "BUY")  # liquid enough to buy, not to pound the table
 
+    def test_strong_buy_is_reachable_without_gap_history(self):
+        """No production caller has gap history, and none can: nothing
+        stores it.  Requiring it made STRONG_BUY unreachable — a state
+        ``ACTIONABLE_BDVM_SIGNALS`` advertises and alerts on (audit M7).
+        Magnitude + liquidity, symmetric with STRONG_SELL, is the bar.
+        """
+        s = buy_hold_sell(self._out(1500.0), PARAMS)
+        self.assertEqual(s["signal"], "STRONG_BUY")
+        # …still gated on both halves of the bar
+        self.assertEqual(buy_hold_sell(self._out(600.0), PARAMS)["signal"], "BUY")
+        self.assertEqual(buy_hold_sell(self._out(1500.0, liquidity=0.3), PARAMS)["signal"], "BUY")
+
     def test_hold_band_and_sell(self):
         self.assertEqual(buy_hold_sell(self._out(100.0), PARAMS)["signal"], "HOLD")
         self.assertEqual(buy_hold_sell(self._out(-600.0), PARAMS)["signal"], "SELL")
         self.assertEqual(buy_hold_sell(self._out(-1200.0), PARAMS)["signal"], "STRONG_SELL")
 
-    def test_collapse_probability_forces_strong_sell(self):
-        s = buy_hold_sell(self._out(-100.0), PARAMS, p_collapse_1y=0.65)
-        self.assertEqual(s["signal"], "STRONG_SELL")
-        self.assertIn("collapse", s["reason"])
+    def test_collapse_strong_sell_needs_a_magnitude_floor(self):
+        """A collapse probability escalates a sell; it does not invent one.
+
+        The rule used to be ``p_collapse > 0.5 and alpha < 0``, checked
+        BEFORE the alpha ladder — so a 1-point negative gap fired the
+        loudest signal in the model (audit M7).
+        """
+        quiet = buy_hold_sell(self._out(-100.0), PARAMS, p_collapse_1y=0.65)
+        self.assertEqual(quiet["signal"], "HOLD")  # inside the hold band
+        loud = buy_hold_sell(self._out(-600.0), PARAMS, p_collapse_1y=0.65)
+        self.assertEqual(loud["signal"], "STRONG_SELL")
+        self.assertIn("collapse", loud["reason"])
+        # without the collapse probability the same alpha is a plain SELL
+        self.assertEqual(buy_hold_sell(self._out(-600.0), PARAMS)["signal"], "SELL")
 
     def test_no_market_signal(self):
         s = buy_hold_sell({"alpha": None}, PARAMS)

@@ -121,6 +121,7 @@ def _weighted_percentile(
 def _source_values_for_player(
     source_ranks: dict[str, Any],
     rank_to_value: dict[int, float] | None,
+    source_weights: dict[str, float] | None = None,
 ) -> list[tuple[float, float]]:
     """Convert {source: rank} → [(value, weight), ...] pairs.
 
@@ -129,8 +130,17 @@ def _source_values_for_player(
     zero).  When absent we use a simple monotonic proxy:
     ``value = max(0, 10000 - rank * 20)``.  The proxy is only for
     tests / degenerate payloads; prod always has the real mapping.
+
+    ``source_weights`` is looked up HERE, where we still know which
+    source produced which value — the caller no longer has that
+    pairing once the ranks have been converted.  A source missing
+    from the map, or carrying a non-numeric / non-positive weight,
+    takes the documented 1.0 default rather than being dropped: a
+    nonsense weight is bad input, not an instruction to discard a
+    source's opinion.
     """
     out: list[tuple[float, float]] = []
+    weights = source_weights or {}
     for source, rank in (source_ranks or {}).items():
         try:
             r = int(rank)
@@ -142,7 +152,11 @@ def _source_values_for_player(
             v = float(rank_to_value[r])
         else:
             v = max(0.0, 10000.0 - r * 20.0)
-        out.append((v, 1.0))
+        w = 1.0
+        raw_w = weights.get(source)
+        if isinstance(raw_w, (int, float)) and not isinstance(raw_w, bool) and raw_w > 0:
+            w = float(raw_w)
+        out.append((v, w))
     return out
 
 
@@ -160,6 +174,12 @@ def compute_value_band(
     used as the bracket centre when sources all disagree or we
     have too few to compute a meaningful band.
 
+    ``source_weights`` maps source key → relative weight for the
+    quantile computation; anything absent or unusable defaults to
+    1.0.  Weights change the quantiles ONLY — ``source_count`` and
+    the ``min_sources`` gate still count sources, so a heavily
+    weighted source cannot manufacture a band out of one opinion.
+
     Fallback behaviour (``method`` field):
       * ``insufficient_sources`` — fewer than ``min_sources`` —
         returns [canonical × 0.85, canonical, canonical × 1.15].
@@ -173,18 +193,7 @@ def compute_value_band(
       * ``bracket`` — normal case, band contains canonical_value.
     """
     cv = float(canonical_value or 0)
-    pairs = _source_values_for_player(source_ranks or {}, rank_to_value)
-    if source_weights:
-        # Re-weight.
-        pairs_w: list[tuple[float, float]] = []
-        for v, _old in pairs:
-            # Look up the source weight by finding it in source_ranks by v-key.
-            # When we don't have a stable pairing we fall through to uniform.
-            pairs_w.append((v, 1.0))
-        for src, wt in source_weights.items():
-            if not isinstance(wt, (int, float)):
-                continue
-        pairs = pairs_w
+    pairs = _source_values_for_player(source_ranks or {}, rank_to_value, source_weights)
 
     if len(pairs) < min_sources:
         return ValueBand(

@@ -6,8 +6,10 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useRef,
   useTransition,
 } from "react";
+import dynamic from "next/dynamic";
 import { useDynastyData } from "@/components/useDynastyData";
 import {
   resolvedRank,
@@ -60,8 +62,6 @@ import {
   formatBdvmGap,
   formatBdvmValue,
 } from "@/lib/bdvm";
-import HillCurveExplorer from "@/components/graphs/HillCurveExplorer";
-import TierGapWaterfall from "@/components/graphs/TierGapWaterfall";
 import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
 import { PlayerImage } from "@/components/ui";
 import {
@@ -97,6 +97,20 @@ import {
   SourceAuditPanel,
 } from "./board-sections";
 import styles from "./board.module.css";
+
+// Methodology charts: rendered only when `showMethodology` is true, and
+// that state starts false — so on every page load this was ~18 KB of
+// chart code parsed for a panel nobody had opened. Gated at the render
+// site already, so `dynamic()` is enough here; no mount-latch needed
+// the way /trade's collapsed panel required one.
+const HillCurveExplorer = dynamic(
+  () => import("@/components/graphs/HillCurveExplorer"),
+  { ssr: false },
+);
+const TierGapWaterfall = dynamic(
+  () => import("@/components/graphs/TierGapWaterfall"),
+  { ssr: false },
+);
 
 // ── UNIFIED RANKINGS PAGE (Redesign R2) ──────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
@@ -675,11 +689,24 @@ export default function RankingsPage() {
     };
   }, [ranked]);
 
-  // Apply row limit — search/filter bypasses the limit.  Memoized:
-  // this slice runs on every render of a 1,800-line page, and when a
-  // filter is active `displayRows` is the FULL board (~1.1k rows), so
+  // Apply the row limit — to FILTERED results too, which is the change.
+  // Memoized: this slice runs on every render of a 1,800-line page, and
   // a fresh array identity per render forced the whole table to
   // reconcile even when nothing changed.
+  //
+  // A filter used to bypass the cap entirely, so picking "Position:
+  // offense" rendered every one of ~500 matches in one commit and a
+  // broad search rendered ~1.1k rows. That is the DOM size behind the
+  // board's interaction latency: measured at 4x CPU throttle, sorting a
+  // column was 384ms and opening a player 488ms, against Google's 200ms
+  // "good" bar for INP.
+  //
+  // #652 rejected capping on the grounds that "516 shown" has to keep
+  // meaning all 516. That objection is answered by `hasMore` below
+  // rather than by rendering everything: the count line reads "200 of
+  // 516 shown", and the remaining rows are one click away — exactly how
+  // the UNFILTERED board has always behaved. Nothing claims to show
+  // more than it does, and nothing is unreachable.
   const hasActiveFilter = Boolean(
     query ||
       posFilter !== "all" ||
@@ -688,10 +715,33 @@ export default function RankingsPage() {
       advActiveCount > 0,
   );
   const displayRows = useMemo(
-    () => (hasActiveFilter ? ranked : ranked.slice(0, rowLimit)),
-    [hasActiveFilter, ranked, rowLimit],
+    () => ranked.slice(0, rowLimit),
+    [ranked, rowLimit],
   );
-  const hasMore = !hasActiveFilter && ranked.length > rowLimit;
+  // Must NOT exclude the filtered case any more, or a filtered board
+  // would cap silently with no way to reach the rest.
+  const hasMore = ranked.length > rowLimit;
+
+  // Changing the filter resets the cap. Without this, one "Show all"
+  // click would raise `rowLimit` to Infinity for the rest of the
+  // session and every subsequent filter would render uncapped again —
+  // the cap above would look right and do nothing.
+  //
+  // Keyed on the plain filters only. `activeLens` is deliberately
+  // absent: the lens handler sets `rowLimit` itself (Infinity for the
+  // curated non-consensus lenses, DEFAULT for consensus), and including
+  // it here would immediately overwrite that.
+  //
+  // The ref guard keeps this from firing on mount, where it would clash
+  // with the `?pos=` / `?screen=` URL seeding that runs in its own
+  // effect and legitimately arrives with a filter already set.
+  const filterSignature = `${query}|${posFilter}|${confFilter}|${advActiveCount}`;
+  const lastFilterSignature = useRef(filterSignature);
+  useEffect(() => {
+    if (lastFilterSignature.current === filterSignature) return;
+    lastFilterSignature.current = filterSignature;
+    setRowLimit(DEFAULT_ROW_LIMIT);
+  }, [filterSignature]);
 
   // A filter deliberately bypasses ``rowLimit`` (above), so a broad one
   // renders the FULL ~1.1k-row board — the same synchronous commit that
@@ -1187,6 +1237,10 @@ export default function RankingsPage() {
         headerInfo:
           "BDVM fundamental value (balanced) minus market anchor — " +
           "positive means the market underprices the player. " +
+          "A trailing * marks a proxy-backed fundamental: no real " +
+          "projection source covers that player, so the value is last " +
+          "season's realized scoring and the gap is not a clean " +
+          "fundamental-vs-market read. " +
           "Visible only while the BDVM engine is enabled.",
         render: (row) => {
           const entry = bdvmEntryForRow(bdvmIndex, row);
@@ -1202,16 +1256,28 @@ export default function RankingsPage() {
             );
           }
           const css = bdvmSignalEdgeCss(entry.signal);
+          // Disclose a proxy-backed fundamental (audit finding B-8).  The
+          // /bdvm page badges this; this column used to render the gap
+          // with no indication that the fundamental side may be last
+          // season's realized PPG rather than a projection.
+          const proxyNote = entry.anyProxy
+            ? " — PROXY: fundamental is the reconstructed baseline (last " +
+              "season's realized scoring), not a real projection, so this " +
+              "gap partly reflects information the market has and it does not"
+            : "";
           const title =
             `${entry.signal}: ${entry.signalReason} — fundamental ` +
             `${formatBdvmValue(entry.fundamental)} vs market ` +
-            `${formatBdvmValue(entry.marketValue)}`;
+            `${formatBdvmValue(entry.marketValue)}${proxyNote}`;
+          const shown = entry.anyProxy
+            ? `${formatBdvmGap(entry.gap)}*`
+            : formatBdvmGap(entry.gap);
           return css ? (
             <span className={`edge-label ${css}`} title={title}>
-              {formatBdvmGap(entry.gap)}
+              {shown}
             </span>
           ) : (
-            <span title={title}>{formatBdvmGap(entry.gap)}</span>
+            <span title={title}>{shown}</span>
           );
         },
       });
@@ -1308,7 +1374,9 @@ export default function RankingsPage() {
                 owns only the two charts, which are genuinely
                 page-sized and worth a deliberate reveal. */}
             <HelpModal title="How rankings work" label="How rankings work">
-              <MethodologySection />
+              {/* Formula + confidence rule come from the contract, not
+                  from a duplicated constant — see MethodologySection. */}
+              <MethodologySection methodology={rawData?.methodology} />
             </HelpModal>
             <Button
               size="sm"
