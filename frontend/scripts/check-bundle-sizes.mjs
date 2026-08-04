@@ -54,10 +54,19 @@ const BUDGETS_KB = {
   // 2026-04-26 against the live build.  When you intentionally add a
   // feature that pushes a page over budget, bump the value here in
   // the same PR and call it out — that's the audit trail.
+  // R6 re-pin: splitting PlayerPopup/CommandPalette out of the root
+  // layout and the 21 /league sections out of that page MOVED code from
+  // the shared graph into the page chunks that actually use it. Real
+  // first-load JS fell on every route — /league by 215 KB, /draft by 67,
+  // /trade by 51, /rankings by 42 — while three page-specific slices
+  // grew, because code that used to be everyone's is now attributed to
+  // its owner. These bumps record that reattribution; they are not
+  // headroom for new bloat. The `[first-load …]` column now printed
+  // beside each line is the number to watch.
   "/page": 90, // landing
-  "/rankings/page": 65, // dense table + filter bar + popups
-  "/trade/page": 82, // calculator + simulator + breakdown; bumped 75→82 for the BDVM fundamentals-check panel (CES trade eval)
-  "/draft/page": 128, // depth chart + analysis charts; bumped 125→128 for ScreenshotFab + Toast in shared layout (PR #432)
+  "/rankings/page": 75, // dense table + filter bar + popups; 65→75 (R6 reattribution)
+  "/trade/page": 92, // calculator + simulator + breakdown; bumped 75→82 for the BDVM fundamentals-check panel (CES trade eval); 82→92 (R6 reattribution)
+  "/draft/page": 150, // depth chart + analysis charts; bumped 125→128 for ScreenshotFab + Toast in shared layout (PR #432); 128→150 (R6 reattribution)
   "/edge/page": 30,
   "/finder/page": 20,
   "/angle/page": 30,
@@ -67,7 +76,12 @@ const BUDGETS_KB = {
   // dependency landing in a bundle that had zero ds usage), and 2.2 of
   // that was recovered by splitting the chevron into its own module
   // rather than by bumping this number. See glyph-chevron-down.jsx.
-  "/league/page": 170,
+  // R6: TIGHTENED 170→50, the one budget that moves the other way. The
+  // 21 sections are now dynamic imports, so the page slice fell 174→39
+  // KB. Held close so a future `import XSection from "./sections/…"`
+  // — the easy mistake, since it looks like every other import — trips
+  // CI instead of quietly putting all 21 back on the page.
+  "/league/page": 50,
   "/rosters/page": 30,
   "/trades/page": 20,
   // Added R4: /waivers was shipping unmeasured. Pinned at the R4
@@ -91,6 +105,45 @@ function pageChunks(manifest, pageKey) {
   return chunks.filter((c) => c.startsWith("static/chunks/app/"));
 }
 
+/**
+ * Every JS chunk the browser loads for a route: the root layout's chunk
+ * set unioned with the page's own.  This is what a visitor actually
+ * downloads and — the part that dominates on a slow CPU — parses.
+ *
+ * Reported, not budgeted, and the distinction is deliberate.  The
+ * per-page budgets above police the incremental cost of a page, which is
+ * the right gate for "did this feature bloat its own route".  But they
+ * see only that slice, and the slice is the SMALL one: measured on this
+ * repo the root layout is ~464 KB while page chunks run 42-147 KB, so
+ * the budgets covered 9-24% of the real cost.  A 500 KB shared graph
+ * could grow forever without tripping anything.
+ *
+ * That blind spot is not hypothetical.  Moving PlayerPopup and the
+ * /league sections out of the shared graph cut real first-load JS on
+ * every route (/league by 215 KB) while PUSHING TWO PAGES OVER their
+ * page-specific budgets, because code stopped being shared and started
+ * being attributed to the routes that actually use it.  Judged on the
+ * old number alone, an unambiguous improvement looked like a regression.
+ */
+function firstLoadChunks(manifest, pageKey) {
+  const layout = manifest.pages["/layout"] || [];
+  const page = manifest.pages[pageKey] || [];
+  return [...new Set([...layout, ...page])].filter((c) => c.endsWith(".js"));
+}
+
+function sumBytes(nextDir, chunks) {
+  let total = 0;
+  for (const chunk of chunks) {
+    try {
+      total += fs.statSync(path.join(nextDir, chunk)).size;
+    } catch {
+      // Listed in the manifest but absent on disk — should not happen on
+      // a clean build; skip rather than fail spuriously.
+    }
+  }
+  return total;
+}
+
 function main() {
   if (!fs.existsSync(MANIFEST)) {
     console.error(
@@ -111,17 +164,11 @@ function main() {
       lines.push(`  ${pageKey.padEnd(22)} (no chunks — skipped)`);
       continue;
     }
-    let totalBytes = 0;
-    for (const chunk of chunks) {
-      const fullPath = path.join(NEXT_DIR, chunk);
-      try {
-        totalBytes += fs.statSync(fullPath).size;
-      } catch {
-        // Chunk listed in manifest but not on disk — should not
-        // happen on a clean build, but skip to avoid spurious
-        // failures.
-      }
-    }
+    const totalBytes = sumBytes(NEXT_DIR, chunks);
+    const firstLoadBytes = sumBytes(
+      NEXT_DIR,
+      firstLoadChunks(manifest, pageKey),
+    );
     const totalKb = totalBytes / 1024;
     const overshoot = totalKb - budgetKb;
     const verdict =
@@ -129,14 +176,22 @@ function main() {
         ? `OVER  by ${overshoot.toFixed(1)} KB`
         : `ok    (${(-overshoot).toFixed(1)} KB headroom)`;
     lines.push(
-      `  ${pageKey.padEnd(22)} ${fmtKb(totalBytes).padStart(10)} / ${budgetKb} KB budget   ${verdict}`,
+      `  ${pageKey.padEnd(22)} ${fmtKb(totalBytes).padStart(10)} / ${budgetKb} KB budget   ${verdict}` +
+        `   [first-load ${fmtKb(firstLoadBytes)}]`,
     );
     if (overshoot > 0) {
       failures.push({ pageKey, totalKb, budgetKb });
     }
   }
 
+  const layoutBytes = sumBytes(
+    NEXT_DIR,
+    (manifest.pages["/layout"] || []).filter((c) => c.endsWith(".js")),
+  );
   console.log("[check-bundle-sizes] per-page chunk sizes:");
+  console.log(
+    `  (root layout, loaded by EVERY route: ${fmtKb(layoutBytes)} — budgeted below is the page-specific slice only)`,
+  );
   for (const line of lines) console.log(line);
 
   if (failures.length > 0) {
