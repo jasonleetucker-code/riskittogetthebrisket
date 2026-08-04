@@ -44,15 +44,34 @@ class MarketIsolationError(RuntimeError):
     """Raised when market code is asked to run before fundamentals exist."""
 
 
+# Liquidity to use for the alpha SCALE when dispersion was never
+# measured.  This is the params' own ``clip_lo`` — the least-liquid end
+# of the band — resolved at call time rather than hardcoded here.
+#
+# Why the floor and not a "typical" value: alpha = gap x liquidity, and
+# alpha drives the reachable BUY / SELL / STRONG_SELL signals.  Scaling
+# an unmeasured row by the floor SHRINKS its alpha toward zero, so a row
+# we know nothing about is harder to trigger a signal on, never easier.
+# The previous default did the opposite — see ``_dispersion_for_row``.
+_UNMEASURED_LIQUIDITY_USES_CLIP_LO = True
+
+
 @dataclass(frozen=True)
 class MarketView:
-    """One asset's market picture, on the shared 0-10000 scale."""
+    """One asset's market picture, on the shared 0-10000 scale.
+
+    ``dispersion`` and ``liquidity`` are ``None`` when the row carries no
+    dispersion measurement.  They are deliberately NOT defaulted to a
+    number: absent, zero and unmeasured are three different things, and
+    collapsing them is how the defect in ``_dispersion_for_row`` stayed
+    invisible.
+    """
 
     market_value: float | None
     market_source: str | None
     market_type: str | None
-    dispersion: float  # 0-1 cross-source disagreement proxy
-    liquidity: float
+    dispersion: float | None  # 0-1 cross-source disagreement; None = unmeasured
+    liquidity: float | None  # None = unmeasured, NOT "zero liquidity"
     normalization_version: str = NORMALIZATION_VERSION
 
 
@@ -87,13 +106,15 @@ def market_view_for_row(
 
     dispersion = _dispersion_for_row(contract_row)
     liq_cfg = params["market"]["liquidity"]
-    liquidity = min(
-        float(liq_cfg["clip_hi"]),
-        max(
-            float(liq_cfg["clip_lo"]),
-            float(liq_cfg["base"]) + float(liq_cfg["dispersion_coeff"]) * dispersion,
-        ),
-    )
+    liquidity: float | None = None
+    if dispersion is not None:
+        liquidity = min(
+            float(liq_cfg["clip_hi"]),
+            max(
+                float(liq_cfg["clip_lo"]),
+                float(liq_cfg["base"]) + float(liq_cfg["dispersion_coeff"]) * dispersion,
+            ),
+        )
     return MarketView(
         market_value=value,
         market_source=source,
@@ -103,16 +124,56 @@ def market_view_for_row(
     )
 
 
-def _dispersion_for_row(row: Mapping[str, Any]) -> float:
-    for key in ("marketDispersionCV", "sourceRankPercentileSpread"):
-        v = row.get(key)
-        if v is None:
-            continue
-        try:
-            return max(0.0, min(1.0, float(v)))
-        except (TypeError, ValueError):
-            continue
-    return 0.20
+def _dispersion_for_row(row: Mapping[str, Any]) -> float | None:
+    """Cross-source disagreement for one row, or ``None`` if unmeasured.
+
+    ONE field, deliberately.  Until 2026-08-04 this read
+    ``marketDispersionCV``, fell back to ``sourceRankPercentileSpread``,
+    and otherwise returned a hardcoded ``0.20`` — three incommensurable
+    numbers poured into the one slot the liquidity and precision params
+    were calibrated against.
+
+    Measured on the pinned 2026-07-30 contract:
+
+    * The two fields are different STATISTICS.  On the 684 rows carrying
+      both, ``sourceRankPercentileSpread`` is a median **4.03x** larger
+      than ``marketDispersionCV`` (p10 1.46x, p90 8.61x).  A coefficient
+      of variation and a percentile spread are not interchangeable.
+    * ``0.20`` sits near the **maximum** of the real CV scale (observed
+      max 0.263, median 0.0215).  So "we could not measure this" was
+      being read as "this asset is maximally dispersed".
+
+    Since ``liquidity = clip(0.35 + 1.6 x d)``, that ranked rows by how
+    little was known about them.  Scoped to BDVM-priceable positions,
+    against the ``strong_buy_min_liquidity`` of 0.5:
+
+        branch                     rows   liquidity > 0.5
+        A measured marketDispersionCV  833   57 ( 6.8%)
+        B percentile-spread fallback    28   20 (71.4%)
+        C hardcoded 0.20 (unmeasured)   53   53 (100.0%)
+
+    A player with no dispersion data was ~15x more likely to clear the
+    gate than one whose dispersion was actually measured.
+
+    (That particular gate is separately unreachable — ``buy_hold_sell``
+    requires ``persisted``, and the only production caller in
+    ``service.py`` never passes ``gap_persisted_days``.  The live
+    channel is ``alpha = gap x liquidity``, which drives the reachable
+    BUY / SELL / STRONG_SELL: an unmeasured row's alpha was inflated
+    1.74x against thresholds of +-400 / +-900.)
+
+    Returning ``None`` keeps unmeasured distinguishable downstream.  It
+    is NOT 0.0: zero dispersion means "every source agrees", which is
+    the strongest possible statement about a row and the exact opposite
+    of knowing nothing.
+    """
+    v = row.get("marketDispersionCV")
+    if v is None:
+        return None
+    try:
+        return max(0.0, min(1.0, float(v)))
+    except (TypeError, ValueError):
+        return None
 
 
 def market_comparison(
@@ -136,12 +197,24 @@ def market_comparison(
     fund_balanced = float(fundamental_trade_values.get("balanced", 0.0))
     mcfg = params["market"]
 
+    # Unmeasured dispersion stays visible as None in the payload rather
+    # than being rendered as a number a reader would trust.
+    liq_cfg = mcfg["liquidity"]
+    liquidity_measured = view.liquidity is not None
+    # For the alpha SCALE only, an unmeasured row is treated as the
+    # least-liquid end of the band.  This shrinks its alpha toward zero
+    # (harder to trigger any signal), where the old hardcoded 0.20
+    # inflated it.  BUY/SELL keep working for these rows — "degrade,
+    # never fail" — while the liquidity GATE below fails closed.
+    effective_liquidity = float(view.liquidity) if liquidity_measured else float(liq_cfg["clip_lo"])
+
     out: dict[str, Any] = {
         "marketValue": None,
         "marketSource": view.market_source,
         "marketType": view.market_type,
-        "marketDispersion": round(view.dispersion, 4),
-        "liquidity": round(view.liquidity, 4),
+        "marketDispersion": round(view.dispersion, 4) if view.dispersion is not None else None,
+        "liquidity": round(view.liquidity, 4) if liquidity_measured else None,
+        "liquidityMeasured": liquidity_measured,
         "normalizationVersion": view.normalization_version,
         "gap": None,
         "alpha": None,
@@ -154,7 +227,7 @@ def market_comparison(
 
     market_tv = float(view.market_value)
     gap = fund_balanced - market_tv
-    alpha = gap * view.liquidity
+    alpha = gap * effective_liquidity
 
     # Bayesian-style precision blend weight (reference §5.10).
     tau_market = 1.0
@@ -162,7 +235,11 @@ def market_comparison(
         tau_market *= float(mcfg["tau_market_idp_mult"])
     if is_rookie:
         tau_market *= float(mcfg["tau_market_rookie_mult"])
-    tau_market *= 1.0 - float(mcfg["tau_market_dispersion_mult"]) * view.dispersion
+    # Unmeasured dispersion contributes no adjustment here.  Inventing a
+    # disagreement that was never observed would move the model/market
+    # blend weight on the strength of missing data.
+    if view.dispersion is not None:
+        tau_market *= 1.0 - float(mcfg["tau_market_dispersion_mult"]) * view.dispersion
     tau_model = float(mcfg["tau_model"]) * (
         1.0 - float(mcfg["tau_model_small_sample_mult"]) * small_sample
     )
@@ -196,13 +273,23 @@ def buy_hold_sell(
     if alpha is None:
         return {"signal": "NO_MARKET", "reason": "no market anchor for this asset"}
     th = params["market"]["signal_thresholds"]
-    liquidity = float(market_out.get("liquidity") or 0.0)
+    # A liquidity-gated signal requires a MEASURED liquidity.  Explicit
+    # rather than relying on ``None -> 0.0`` happening to fall below the
+    # threshold: that coincidence would silently reverse if the
+    # threshold ever moved below the clip floor, and "unmeasured" must
+    # fail this gate on purpose, not by arithmetic accident.
+    liquidity_measured = bool(
+        market_out.get("liquidityMeasured", market_out.get("liquidity") is not None)
+    )
+    raw_liquidity = market_out.get("liquidity")
+    liquidity = float(raw_liquidity) if raw_liquidity is not None else 0.0
     persisted = gap_persisted_days is not None and gap_persisted_days >= int(
         th["gap_persistence_days"]
     )
     if (
         alpha > float(th["strong_buy_alpha"])
         and persisted
+        and liquidity_measured
         and liquidity > float(th["strong_buy_min_liquidity"])
     ):
         return {"signal": "STRONG_BUY", "reason": f"alpha {alpha:+.0f}, gap persisted, liquid"}

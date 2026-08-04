@@ -22,11 +22,34 @@ from src.bdvm.params import load_param_set
 PARAMS = load_param_set("params_v1")
 
 
-def offense_row(ktc=5000.0, extra=None):
+def offense_row(ktc=5000.0, extra=None, dispersion_cv=None):
+    """A contract row for the market layer.
+
+    ``dispersion_cv`` is opt-in because the DEFAULT must stay
+    unmeasured: that is the case the old hardcoded ``0.20`` silently
+    papered over, and a fixture that always supplies dispersion would
+    never exercise it.
+    """
     row = {"canonicalSiteValues": {"ktcSfTep": ktc}}
     if extra:
         row["canonicalSiteValues"].update(extra)
+    if dispersion_cv is not None:
+        row["marketDispersionCV"] = dispersion_cv
     return row
+
+
+def _expected_liquidity(dispersion: float) -> float:
+    """Liquidity from the PARAMS, computed independently of MarketView.
+
+    Deliberately not read off the object under test. The assertion this
+    replaced was ``alpha == 2000.0 * view.liquidity`` — the expectation
+    re-derived from the very value it was checking, so its residual was
+    zero for any dispersion whatsoever, including the wrong-scale
+    fallback and the hardcoded default that this module now forbids.
+    """
+    cfg = PARAMS["market"]["liquidity"]
+    raw = float(cfg["base"]) + float(cfg["dispersion_coeff"]) * dispersion
+    return min(float(cfg["clip_hi"]), max(float(cfg["clip_lo"]), raw))
 
 
 class TestMarketSourceHygiene(unittest.TestCase):
@@ -82,10 +105,11 @@ class TestIsolation(unittest.TestCase):
 
 class TestGapAlphaMath(unittest.TestCase):
     def test_gap_and_alpha(self):
-        view = market_view_for_row(offense_row(4000.0), "WR", PARAMS)
+        view = market_view_for_row(offense_row(4000.0, dispersion_cv=0.05), "WR", PARAMS)
         out = market_comparison({"balanced": 6000.0}, view, PARAMS, is_idp=False, is_rookie=False)
         self.assertAlmostEqual(out["gap"], 2000.0)
-        self.assertAlmostEqual(out["alpha"], 2000.0 * view.liquidity, places=1)
+        # Expectation computed from the PARAMS, not read off the view.
+        self.assertAlmostEqual(out["alpha"], 2000.0 * _expected_liquidity(0.05), places=1)
         # λ=0.25 display blend
         self.assertAlmostEqual(out["marketAdjusted"], 6000.0 + 0.25 * (4000.0 - 6000.0), places=1)
         # λ=0.50 trade-clearing estimate
