@@ -1,0 +1,56 @@
+[Unit]
+Description=Canonical board as-of snapshot for __SERVICE_NAME__
+After=network-online.target
+Wants=network-online.target
+
+# WHY A PROD-SIDE TIMER AND NOT CI: it reads the live export from disk
+# and writes into gitignored data/. A CI runner has neither, so a
+# snapshot built there would record a board nobody served.
+#
+# WHY IT EXISTS AT ALL: no output on this platform has ever been
+# validated for accuracy, and the obstacle is mechanical — measuring
+# accuracy needs to know what the board said in the past, and every
+# board was computed, served and discarded. This records it. It is the
+# prerequisite for replacing the core blend's stability objective with
+# an accuracy one, and every day it is not running is a day of evidence
+# that cannot be recovered afterwards.
+#
+# It is UNCONDITIONAL — no feature flag. The consensus-edge snapshot
+# beside it is safe to install while its feature is off; this one has
+# no feature to be off. The canonical board's historical record must
+# outlive any single feature that reads from it.
+#
+# NOTHING READS THIS ON A DECISION PATH, and nothing may: a value fed
+# back into the board it records would make every measurement taken
+# from it circular — which is the defect the audit records for the
+# Hill-curve promotion gate, whose four "held-out" boards are all live
+# blend sources.
+#
+# Exit codes (scripts/snapshot_board.py):
+#   0 - snapshot written
+#   1 - soft failure (no export found, no rows, write error)
+#   2 - the contract came back structurally wrong
+# systemd reports 1 and 2 as unit failures so the journal shows them.
+
+[Service]
+Type=oneshot
+# User=/Group= are load-bearing, not boilerplate. Without them the unit
+# runs as root and creates a root-owned data/board_history.sqlite (plus
+# its -wal and -shm), after which nothing running as __APP_USER__ can
+# open the database — every snapshot written, none readable. This
+# exact failure was found on the consensus-edge unit; it is not
+# hypothetical.
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/snapshot_board.py
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=900
+# Background bookkeeping — never user-facing.
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

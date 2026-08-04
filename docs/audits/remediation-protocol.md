@@ -147,6 +147,39 @@ pre-existing debt by definition. The full-tree count is still printed every run.
 
 Do not add to the baseline to make a build pass.
 
+## The as-of history store (C1)
+
+`src/snapshots/board_store.py` records what the canonical board said, keyed by date. Written daily
+on prod by `scripts/snapshot_board.py` via `dynasty-board-snapshot.timer` (07:10 UTC — after the
+06:42 refresh settles, ahead of the 07:30 consensus-edge snapshot).
+
+It exists because the audit's central finding is not any one defect but the condition underneath
+them: **no output has ever been validated for accuracy**, and the obstacle is mechanical — measuring
+accuracy needs to know what the board said in the past, and every board was computed, served and
+discarded. This is the prerequisite for Phase 8.3.
+
+Three properties, each pinned by a test, each one the consensus-edge store got wrong once:
+
+- **Idempotent per `(as_of, player_key, contract_version)`.** A re-run replaces that date's rows for
+  that version and touches nothing else.
+- **The version is in the key and can actually change.** `contractVersion` alone is the API *shape*
+  version — a Hill-curve re-fit moves every IDP value and leaves it untouched — so it is paired with
+  a content hash of `hillCurves`, mirroring BDVM's `paramSetId`. This is what lets C6's before and
+  after coexist for one date instead of the second overwriting the first.
+- **The write path never touches the `fwd_*` outcome columns.** `INSERT OR REPLACE` is
+  DELETE-then-INSERT in SQLite and nulls every unlisted column, so a re-run would silently unlabel
+  an already-labelled day. Explicit `ON CONFLICT … DO UPDATE SET` naming only owned columns.
+
+**Nothing on a decision path may read it**, and a test enforces that by scanning `src/` and
+`server.py` for imports. A value fed back into the board it records would make every measurement
+from it circular — which is exactly finding V-2, where all four "held-out" boards are live blend
+sources.
+
+It is unconditional — no feature flag. The consensus-edge store is not extended because it records a
+different subject (its own scores, not `rankDerivedValue`) and because its feature flag defaults to
+**off**, so hanging the canonical record off it would reproduce B-1: shipped, never run, deploy
+green throughout.
+
 ## Tests that assert current defects on purpose
 
 `tests/audit/test_remediation_tooling.py` pins the *defective* behaviour of each captured surface —
