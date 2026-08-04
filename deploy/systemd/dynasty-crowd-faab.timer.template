@@ -1,0 +1,31 @@
+[Unit]
+Description=3-hourly cross-league FAAB crowd accumulation for __SERVICE_NAME__
+# Deliberately NO Requires= on the service here: [Timer] Unit= already
+# binds it, and a [Unit] Requires= would (a) start the service on every
+# boot regardless of OnCalendar and (b) let a service failure stop the
+# timer itself.  Persistent=true below is the intended catch-up.
+
+[Timer]
+# Every 3 hours.  Cadence is set by the SIZE OF THE ROLLING WINDOW, not
+# by how fast prices move: the feed serves only the most recent ~200
+# claims, so any row that appears and is pushed out between two runs is
+# lost forever.  Measured 2026-08-04 (preseason) the window spanned
+# five days, i.e. ~40 claims/day — but in-season Tuesday/Wednesday
+# waiver runs across 80+ leagues are far burstier, and 8 samples a day
+# means we would only start dropping rows above ~1,600 claims/day.
+#
+# HOW TO TELL IF THAT BOUND IS BREACHED: the script prints
+# ``+N new`` per run.  N approaching 200 means the window turned over
+# completely between runs and rows were missed — tighten the cadence.
+# N in the single digits is the healthy steady state.
+#
+# Offset :25 keeps this off the top of the hour, where the 2-hourly
+# scrape and most other timers already sit.
+OnCalendar=*-*-* 00/3:25:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-crowd-faab.service
+
+[Install]
+WantedBy=timers.target

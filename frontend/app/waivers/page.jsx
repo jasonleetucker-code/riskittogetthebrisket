@@ -9,6 +9,7 @@ import {
   Field,
   PageHeader,
   Panel,
+  SegmentedControl,
   Select,
   SkeletonTable,
   StatTile,
@@ -16,13 +17,18 @@ import {
 } from "@/components/ds";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import ManualAddDrop from "@/components/waivers/ManualAddDrop";
+import {
+  DEFAULT_RISK_POSTURE,
+  RISK_POSTURES,
+  RISK_POSTURE_OPTIONS,
+} from "@/components/waivers/FaabRecommendation";
 import { useApp } from "@/components/AppShell";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useLeague } from "@/components/useLeague";
 import { useTeam } from "@/components/useTeam";
 import { useSettings } from "@/components/useSettings";
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
-import { computeFaabHint } from "@/lib/waiver-logic";
+import { waiverBidForRow } from "@/lib/waiver-faab";
 import styles from "./waivers.module.css";
 
 // ── /waivers — the claim desk ─────────────────────────────────────────
@@ -159,20 +165,53 @@ function SummaryTiles({ summary, includeRookies }) {
   );
 }
 
-function BestMovesPanel({ moves }) {
-  // FAAB hint baseline, calibrated against the strongest add in this
-  // batch so a row reads as "what share of budget does this command?".
-  // The full recommender (league analytics + contention + team cap) runs
-  // only for the user's selected pair on the bid desk above.
-  const topAddValue = useMemo(
-    () =>
-      moves.reduce((acc, m) => {
-        const v = Number(m.addValue || m.add?.rankDerivedValue || m.add?.values?.full || 0);
-        return v > acc ? v : acc;
-      }, 0),
-    [moves],
-  );
+/**
+ * The backend-stamped FAAB bid for a move's add side, or null.
+ *
+ * Bids are produced by ``src/trade/faab_engine.py`` and reach the
+ * client on ``/api/waiver/suggestions`` candidate rows as
+ * ``bid: {aggressive, reasonable, lowball}`` (see
+ * ``WaiverCandidate.to_dict``).  There is deliberately NO fallback
+ * computation: this page renders what the backend stamped or renders
+ * nothing, per the no-client-side-valuation rule.
+ *
+ * Two sources, in order:
+ *   1. a bid already carried on the move/row — kept because it costs
+ *      nothing and a future contract stamp would land here;
+ *   2. ``faabIndex``, the render-time join onto the live suggestions
+ *      response (``lib/waiver-faab.js``).  This is the one that
+ *      actually fires today — ``computeWaiverAnalysis`` builds its
+ *      rows from contract rows, which carry no bid at all.
+ */
+function backendBid(move, faabIndex) {
+  const stamped = move?.bid || move?.add?.bid || move?.add?.raw?.bid;
+  if (stamped && typeof stamped === "object") return stamped;
+  return waiverBidForRow(faabIndex, move?.add);
+}
 
+function fmtBackendBid(dollars) {
+  const n = Number(dollars);
+  return Number.isFinite(n) ? `$${Math.round(n).toLocaleString()}` : "—";
+}
+
+/**
+ * Headline the reasonable bid; hold the aggressive/lowball ends in the
+ * cell tooltip.  Same density trick the /rankings Fund-gap column
+ * uses — a compact numeric column stays one number wide, and the
+ * supporting figures are a hover away.
+ */
+function FaabBidCell({ bid }) {
+  if (!bid || !Number.isFinite(Number(bid.reasonable))) {
+    return <span className="muted">—</span>;
+  }
+  const title =
+    `Reasonable ${fmtBackendBid(bid.reasonable)} · ` +
+    `aggressive ${fmtBackendBid(bid.aggressive)} · ` +
+    `lowball ${fmtBackendBid(bid.lowball)}`;
+  return <span title={title}>{fmtBackendBid(bid.reasonable)}</span>;
+}
+
+function BestMovesPanel({ moves, faabIndex }) {
   const columns = useMemo(
     () => [
       {
@@ -204,22 +243,16 @@ function BestMovesPanel({ moves }) {
       },
       {
         key: "faab",
-        header: "FAAB hint",
+        header: "FAAB bid",
         numeric: true,
         hideBelow: "md",
-        accessor: (m) =>
-          computeFaabHint(
-            Number(m.addValue || m.add?.rankDerivedValue || m.add?.values?.full || 0),
-            { leagueBudget: 100, topValueInPool: topAddValue },
-          ).reasonable,
-        render: (m) => {
-          const hint = computeFaabHint(
-            Number(m.addValue || m.add?.rankDerivedValue || m.add?.values?.full || 0),
-            { leagueBudget: 100, topValueInPool: topAddValue },
-          );
-          return `$${hint.reasonable}`;
+        accessor: (m) => {
+          const v = Number(backendBid(m, faabIndex)?.reasonable);
+          return Number.isFinite(v) ? v : null;
         },
-        headerInfo: "Quick baseline share of a $100 budget — use the bid desk for a league-aware recommendation.",
+        render: (m) => <FaabBidCell bid={backendBid(m, faabIndex)} />,
+        headerInfo:
+          "The recommender's reasonable bid, stamped by the backend FAAB engine — hover a figure for the aggressive and lowball ends. Blank when the backend priced no bid for that player (its board is capped per position); pick the pair in the bid desk above for a full recommendation.",
       },
       {
         key: "tier",
@@ -232,7 +265,7 @@ function BestMovesPanel({ moves }) {
         ),
       },
     ],
-    [topAddValue],
+    [faabIndex],
   );
 
   return (
@@ -489,7 +522,14 @@ export default function WaiversPage() {
   const { authenticated } = useAuthContext();
   const { selectedLeague } = useLeague();
   const { selectedTeam, loading: teamLoading } = useTeam();
-  const { settings } = useSettings();
+  const { settings, hydrated, update } = useSettings();
+  // Persisted with every other user preference (useSettings →
+  // localStorage), not local state: a bid posture that reset on reload
+  // would quietly serve balanced recommendations to a user who had
+  // chosen otherwise.
+  const riskPosture = RISK_POSTURES.includes(settings?.faabRiskPosture)
+    ? settings.faabRiskPosture
+    : DEFAULT_RISK_POSTURE;
   const [includeRookies, setIncludeRookies] = useState(false);
   const [position, setPosition] = useState("ALL");
   const [minGain, setMinGain] = useState(0);
@@ -502,6 +542,9 @@ export default function WaiversPage() {
 
   const {
     analysis,
+    // Optional render-time enrichment — null until (and unless) the
+    // backend suggestions endpoint answers.  See useWaiverAnalysis.
+    faabIndex,
     loading,
     error,
     leagueMismatch,
@@ -588,7 +631,7 @@ export default function WaiversPage() {
     return (
       <>
         <SummaryTiles summary={analysis.summary} includeRookies={includeRookies} />
-        <BestMovesPanel moves={analysis.bestMoves} />
+        <BestMovesPanel moves={analysis.bestMoves} faabIndex={faabIndex} />
         <UniqueUpgradePanel set={analysis.bestUniqueUpgradeSet} />
         <div className={styles.split}>
           <DroppablePanel rows={analysis.droppable} />
@@ -623,6 +666,7 @@ export default function WaiversPage() {
           settings={settings}
           leagueKey={selectedLeague?.key}
           teamLoading={teamLoading}
+          riskPosture={riskPosture}
         />
       ) : null}
 
@@ -682,6 +726,27 @@ export default function WaiversPage() {
             />
             <span>Include rookies</span>
           </label>
+
+          {/* Drives the bid desk above, not the tables below: the engine
+              shifts only the TARGET on its bid curve, so this changes
+              what you are advised to pay and never what a player is
+              worth. */}
+          <div className={styles.postureField}>
+            <span className={styles.controlsGainLabel}>
+              <span>FAAB bid posture</span>
+            </span>
+            <SegmentedControl
+              label="FAAB bid risk posture"
+              // null until settings hydrate — same reasoning as
+              // /rankings' value-basis control: before hydration
+              // ``settings`` is SETTINGS_DEFAULTS, so highlighting
+              // "Balanced" would assert a choice this device may not
+              // have made.
+              value={hydrated ? riskPosture : null}
+              onChange={(v) => update("faabRiskPosture", v)}
+              options={RISK_POSTURE_OPTIONS}
+            />
+          </div>
         </div>
       </Panel>
 

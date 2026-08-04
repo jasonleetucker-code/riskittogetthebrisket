@@ -4954,6 +4954,18 @@ async def post_waiver_suggestions(request: Request):
 
     from src.trade import waiver as _waiver  # noqa: PLC0415
 
+    # The league's ORIGINAL budget sets the bid scale; the requesting
+    # team's remaining balance is only a cap.  Passing the balance as
+    # the budget (which this did until the FAAB engine landed) made a
+    # player's worth shrink as the manager spent.
+    _roster_settings = _league_registry.get_league_roster_settings(league_cfg.key) or {}
+    _starters = _roster_settings.get("starters") or {}
+    _league_budget = 100
+    for _t in sleeper_teams:
+        if isinstance(_t, dict) and isinstance(_t.get("faabBudget"), int) and _t["faabBudget"] > 0:
+            _league_budget = _t["faabBudget"]
+            break
+
     try:
         result = await run_in_threadpool(
             _waiver.find_waiver_targets,
@@ -4962,6 +4974,12 @@ async def post_waiver_suggestions(request: Request):
             min_value=min_value,
             include_kicker_def=include_kicker,
             user_faab_remaining=faab_remaining,
+            league_budget=_league_budget,
+            team_count=int(_roster_settings.get("teamCount") or len(sleeper_teams) or 12),
+            starters_per_team=sum(
+                int(v or 0) for k, v in _starters.items() if str(k).upper() != "K"
+            )
+            or 20,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Waiver suggestions failed: {exc}")
@@ -5102,46 +5120,26 @@ async def post_waiver_faab_recommend(request: Request):
         sleeper_teams = overlay["teams"]
         rosters_as_of = overlay.get("overlayFetchedAt")
 
-    # One pass over the pool: top FA value (baseline share) AND the
-    # next-best same-position FA (replaceability gate for FAAB v2).
+    # Who is rostered anywhere in the league.  Used below to split the
+    # board into "on a roster" and "freely available", which is what
+    # the engine's replacement anchor is measured from.
     #
-    # THE POOL IS PLAYERS ONLY (audit finding W-1, 2026-08-04).  This
-    # loop used to filter on "is this name on a roster" alone.  Draft
-    # picks are never on a Sleeper roster's ``players`` list — picks are
-    # not players — so every pick row passed the filter and counted as
-    # an available free agent.  The highest-value pick then set
-    # ``top_pool_value``, and since the whole bid formula is
-    # ``0.05 + 0.25 * (candidate / top_pool_value)``
-    # (src/trade/waiver.py:91), every recommended bid was divided by a
-    # first-round pick instead of by the best actual free agent.
-    # Measured on the live board: the desk recommended $12 standard
-    # where a free-agent-only denominator gives $29 — every bid roughly
-    # 2.4x too low, on the number users act on to win a claim.
+    # The old ``top_value_in_pool`` / ``next_best_fa_value`` scan that
+    # lived here is gone with the formula that needed it.  Audit finding
+    # W-1 on main found the same defect independently and fixed it in
+    # place: the scan filtered on "is this name on a roster" alone, and
+    # draft picks are never on a Sleeper roster's ``players`` list, so
+    # every pick counted as an available free agent and the best one set
+    # the denominator every bid was divided by.  Measured there at ~2.4x
+    # too low.  The new engine has no pool denominator at all — its
+    # anchors come from league FORMAT — so the whole scan is redundant
+    # rather than merely buggy.  The pick exclusion W-1 added survives
+    # below, on the board/available split that DOES still feed the
+    # replacement anchor.
     rostered_norms: set[str] = set()
     for t in sleeper_teams:
         for n in t.get("players") or []:
             rostered_norms.add(_norm(n))
-    add_position_norm = str(add_position or "").upper()
-    top_pool_value = 0.0
-    next_best_fa_value = 0.0
-    for row in arr:
-        if not isinstance(row, dict):
-            continue
-        if str(row.get("assetClass") or "").lower() == "pick":
-            continue  # not addable from waivers — cannot anchor the pool
-        rname = _norm(row.get("displayName") or row.get("name"))
-        if not rname or rname in rostered_norms:
-            continue
-        v = float(row.get("rankDerivedValue") or 0)
-        if v > top_pool_value:
-            top_pool_value = v
-        if (
-            add_position_norm
-            and rname != add_target
-            and str(row.get("position") or "").upper() == add_position_norm
-            and v > next_best_fa_value
-        ):
-            next_best_fa_value = v
 
     # League FAAB analytics — reuse the cached public-snapshot
     # path so this endpoint doesn't pay the multi-season fetch cost
@@ -5284,25 +5282,172 @@ async def post_waiver_faab_recommend(request: Request):
     ktc_crowd_bids = crowd_bid_map_from_contract(latest_contract_data)
 
     from src.trade import faab_contention as _faab_contention  # noqa: PLC0415
-    from src.trade.faab_recommender import compute_confidence, recommend_faab  # noqa: PLC0415
+    from src.trade.faab_recommender import (  # noqa: PLC0415
+        _need_level,
+        build_rivals as _build_rivals,
+        compute_confidence,
+        recommend_faab,
+    )
+
+    # ── Engine context ─────────────────────────────────────────────
+    # The FAAB engine needs the league FORMAT (which sets the value
+    # anchors), the point in the season, and the selected team's
+    # roster shape.  All of it is resolved dynamically — nothing about
+    # which team is asking is hard-coded.
+    from src.trade import faab_engine as _faab_engine  # noqa: PLC0415
+    from src.utils.name_clean import compact_name_key  # noqa: PLC0415
+    from src.trade.faab_history import (  # noqa: PLC0415
+        crowd_bid_index,
+        load_bid_history,
+        load_crowd_history,
+        summarize_bid_history,
+    )
+
+    roster_settings = _league_registry.get_league_roster_settings(league_cfg.key) or {}
+    starters_map = roster_settings.get("starters") or {}
+    # K is excluded: kickers are not on the valued board, so counting
+    # their slots would push the all-in anchor down the board by one
+    # slot per team for no corresponding player supply.
+    starters_per_team = (
+        sum(int(v or 0) for k, v in starters_map.items() if str(k).upper() != "K") or 20
+    )
+    team_count = int(roster_settings.get("teamCount") or len(sleeper_teams) or 12)
+    roster_size = int(roster_settings.get("rosterSize") or 0)
+
+    excluded_positions = set(
+        _faab_engine.FaabConfig().get("anchors", "excludedPositions", []) or []
+    )
+    board_values: list[float] = []
+    available_values: list[float] = []
+    for row in arr:
+        if not isinstance(row, dict):
+            continue
+        value = row.get("rankDerivedValue")
+        if not isinstance(value, (int, float)) or value <= 0:
+            continue
+        # Two independent pick guards, deliberately both.  ``position``
+        # is what the config names; ``assetClass`` is the signal audit
+        # finding W-1 used when it found picks polluting the free-agent
+        # pool.  A pick that somehow carries a player-ish position would
+        # slip past the first check and land in the REPLACEMENT anchor,
+        # which is the number every objective ceiling is measured from.
+        if str(row.get("position") or "").upper() in excluded_positions:
+            continue
+        if str(row.get("assetClass") or "").lower() == "pick":
+            continue
+        board_values.append(float(value))
+        if _norm(row.get("displayName") or row.get("name")) not in rostered_norms:
+            available_values.append(float(value))
+
+    current_week, in_season = _faab_engine.current_nfl_week()
+    playoff_week_start = 15
+    for team_row in sleeper_teams:
+        if isinstance(team_row, dict) and isinstance(team_row.get("playoffWeekStart"), int):
+            playoff_week_start = team_row["playoffWeekStart"]
+            break
+
+    # Market priors fitted from THIS league's real bid history, when a
+    # snapshot exists (scripts/fetch_faab_history.py writes it).
+    market_priors = summarize_bid_history(load_bid_history(league_cfg.key))
+
+    # Cross-league crowd prices for THIS player, when we have them
+    # (scripts/fetch_crowd_faab.py accumulates them).  A second,
+    # independent read on how contested the claim will be — it moves
+    # the expected clearing price and never the objective ceiling.
+    crowd_for_player: dict | None = None
+    try:
+        crowd_index = crowd_bid_index(load_crowd_history(league_cfg.key))
+        if crowd_index:
+            crowd_for_player = crowd_index.get(compact_name_key(add_name))
+    except Exception as exc:  # noqa: BLE001 — an optional signal must never 500
+        log.warning("crowd bid lookup failed for %s: %s", league_cfg.key, exc)
+
+    # The selected team's own roster shape.
+    selected_team_row: dict | None = None
+    if requested_team:
+        for t in sleeper_teams:
+            if isinstance(t, dict) and str(t.get("ownerId") or "") == str(requested_team):
+                selected_team_row = t
+                break
+    own_players = (selected_team_row or {}).get("players") or []
+    open_roster_spots = max(0, roster_size - len(own_players)) if roster_size else 0
+
+    asset_pool = None
+    try:
+        asset_pool = await run_in_threadpool(
+            _faab_contention.build_opponent_asset_pool, latest_contract_data
+        )
+    except Exception as exc:  # noqa: BLE001 — need analysis is optional
+        log.warning("faab-recommend asset pool build failed: %s", exc)
+
+    # Startable-depth need, resolved from the same board the values
+    # come from.  Built once and shared with every rival so the user's
+    # team and its opponents are judged by identical rules.
+    faab_anchors = _faab_engine.resolve_anchors(
+        board_values,
+        _faab_engine.LeagueContext(
+            original_budget=int(league_budget),
+            team_count=team_count,
+            starters_per_team=starters_per_team,
+        ),
+        available_values=available_values or None,
+    )
+    roster_index: dict[str, tuple[float, str]] = {}
+    for row in arr:
+        if not isinstance(row, dict):
+            continue
+        value = row.get("rankDerivedValue")
+        if not isinstance(value, (int, float)):
+            continue
+        key = _norm(row.get("displayName") or row.get("name"))
+        if key:
+            roster_index[key] = (float(value), str(row.get("position") or ""))
+
+    own_need = "neutral"
+    if own_players:
+        own_need = _need_level(
+            add_position,
+            own_players,
+            asset_pool,
+            anchors=faab_anchors,
+            starters=starters_map,
+            roster_index=roster_index,
+        )
+
+    risk_posture = str(body.get("riskPosture") or "balanced").strip().lower()
+    if risk_posture not in ("conservative", "balanced", "aggressive"):
+        risk_posture = "balanced"
 
     base_kwargs = dict(
         add_player_value=add_value,
         drop_player_value=drop_value,
         add_player_position=add_position,
         add_player_name=add_name,
+        drop_player_name=drop_name or None,
         team_faab_remaining=team_faab_remaining,
         league_faab_summary=league_summary,
         sleeper_trending=trending_for_player,
         ktc_crowd_bids=ktc_crowd_bids if ktc_crowd_bids else None,
         league_budget=int(league_budget),
-        top_value_in_pool=top_pool_value if top_pool_value > 0 else None,
+        anchors=faab_anchors,
+        board_values=board_values,
+        available_values=available_values or None,
+        team_count=team_count,
+        starters_per_team=starters_per_team,
+        current_week=current_week,
+        playoff_week_start=playoff_week_start,
+        in_season=in_season,
+        open_roster_spots=open_roster_spots,
+        need_level=own_need,
+        risk_posture=risk_posture,
+        league_key=league_cfg.key,
+        crowd=crowd_for_player,
     )
 
-    # First pass — the user's pure value recommendation (their drop
-    # side + their FAAB cap applied).  NOT the rival base: rivals get
-    # a separate team-independent neutral pass below so their modeled
-    # demand never depends on the user's budget or roster choice.
+    # First pass — value only, no rivals.  Kept so the response is
+    # still meaningful when we cannot identify the user's team (and so
+    # the objective ceiling, which is rival-independent by
+    # construction, is always available).
     rec = recommend_faab(**base_kwargs)
 
     # Phase-5 intel snapshot — defensive plain-JSON read, no
@@ -5354,63 +5499,107 @@ async def post_waiver_faab_recommend(request: Request):
                 "rival FAAB balances unavailable for most opponents — rival contention skipped."
             )
     if requested_team and requested_team_matched and contention_skip_reason is None:
-        # teamAggression keyed by historical ownerIds — filter to
-        # CURRENT owners so departed managers' histories don't
-        # drift into the estimates.
-        current_owner_ids = {str(t.get("ownerId") or "") for t in opponents}
-        raw_aggression = (league_summary or {}).get("teamAggression") or {}
-        team_aggression = {
-            oid: entry for oid, entry in raw_aggression.items() if oid in current_owner_ids
-        }
+        # Aggression is resolved per rival inside ``build_rivals``,
+        # which looks each CURRENT opponent up by owner id — so a
+        # departed manager's history is inert without a pre-filter,
+        # and the filtered copy this block used to build was dead.
         intel_index = None
         if intel_snapshot is not None:
             intel_index = _faab_contention.build_intel_index(
                 intel_snapshot,
                 id_to_position=_faab_contention.player_position_map(latest_contract_data),
             )
-        # The rival base must be TEAM-INDEPENDENT: the user's own
-        # ``standard`` bakes in THEIR remaining-FAAB cap and THEIR
-        # drop-side value modifier, so using it would make rival
-        # demand a function of the user's budget and roster choice
-        # (a broke user would model an empty rival field even with
-        # flush opponents).  Neutral pass: same public value signals,
-        # no drop adjustment, no team cap — each rival is then capped
-        # by their OWN faabRemaining inside the estimator.
-        neutral_rec = recommend_faab(
-            **{**base_kwargs, "drop_player_value": 0.0, "team_faab_remaining": None}
-        )
+        # Rival demand is TEAM-INDEPENDENT by construction in the
+        # engine: it keys on the player's objective ceiling, which
+        # knows nothing about the user's budget or drop side.  There
+        # is no longer a second "neutral pass" to keep the two honest
+        # — the separation is structural rather than procedural.
         try:
-            contention = await run_in_threadpool(
-                lambda: _faab_contention.estimate_rival_bids(
-                    base_bid=int(neutral_rec.get("standard") or 0),
-                    add_position=add_position,
-                    add_player_id=add_player_id or None,
-                    opponents=opponents,
-                    contract=latest_contract_data,
-                    team_aggression=team_aggression,
-                    league_median_winning_bid=(league_summary or {}).get("leagueMedianWinningBid"),
-                    intel_index=intel_index,
-                    intel_available=intel_snapshot is not None,
+            rivals = await run_in_threadpool(
+                lambda: _build_rivals(
+                    opponents,
+                    position=add_position,
+                    asset_pool=asset_pool,
+                    market_priors=market_priors,
+                    league_summary=league_summary,
+                    roster_size=roster_size,
+                    anchors=faab_anchors,
+                    starters=starters_map,
+                    roster_index=roster_index,
                 )
             )
         except Exception as exc:  # noqa: BLE001
-            log.warning("faab-recommend contention estimate failed: %s", exc)
-            contention = None
+            log.warning("faab-recommend rival build failed: %s", exc)
+            rivals = []
+
+        if rivals:
+            # Intel: an owner who added THIS player (or this position)
+            # in another league recently is more likely to contest.
+            # It raises the probability they BID, never what the
+            # player is worth.
+            if intel_index:
+                for rival in rivals:
+                    factor, _level = _faab_contention.intel_factor(
+                        intel_index, rival.owner_id, add_player_id or None, add_position
+                    )
+                    if factor > 1.0:
+                        rival.aggression = float(rival.aggression) * factor
+
+            contention = {"rivals": rivals}
+            rec = recommend_faab(**base_kwargs, rivals=rivals)
 
     if contention is not None:
-        # Second pass — same inputs plus the rival estimates and the
-        # replaceability gate's next-best-FA value.
-        rec = recommend_faab(
-            **base_kwargs,
-            contention=contention,
-            next_best_fa_value=next_best_fa_value,
+        rivals = contention["rivals"]
+        demand = min(
+            1.0,
+            float(rec.get("objective", {}).get("pctOfOriginalBudget") or 0.0)
+            / 100.0
+            / max(1e-9, _faab_engine.FaabConfig().num("market", "demandSaturationBudgets", 2.5)),
         )
+        per_opponent = _faab_engine.rival_expected_bids(
+            rivals,
+            demand_signal=demand,
+            league=_faab_engine.LeagueContext(
+                original_budget=int(league_budget),
+                team_count=team_count,
+                starters_per_team=starters_per_team,
+            ),
+        )
+        unknown = sum(1 for r in per_opponent if r["balanceUnknown"])
+        notes = [
+            "Rival bids are estimates fitted from winning-bid history only — "
+            "Sleeper never exposes losing bids, so selection bias is irreducible.",
+        ]
+        if unknown:
+            notes.append(
+                f"{unknown} opponent(s) have no visible FAAB balance — shown as estimates "
+                "but excluded from the clearing price (an unverifiable rival must never "
+                "raise your bid)."
+            )
+        low_sample_count = sum(1 for r in per_opponent if r["lowSample"])
+        if low_sample_count:
+            notes.append(
+                f"{low_sample_count} opponent(s) below the winning-bid sample floor — "
+                "their aggression defaulted to neutral (1.0)."
+            )
+        if market_priors.sample_size:
+            notes.append(
+                f"Fitted against {market_priors.sample_size} historical adds "
+                f"({market_priors.zero_bid_share:.0%} of which cost $0)."
+            )
+        else:
+            notes.append(
+                "No bid history on file for this league — rival behaviour uses configured "
+                "priors.  Run scripts/fetch_faab_history.py to improve this."
+            )
         rec["contention"] = {
-            "clearing": contention["clearing"],
-            "topRival": contention["topRival"],
-            "perOpponent": contention["perOpponent"],
+            "clearing": rec["bids"]["clearing"],
+            "topRival": max(
+                (r["expBid"] for r in per_opponent if not r["balanceUnknown"]), default=0
+            ),
+            "perOpponent": per_opponent,
             "estimateOnly": True,
-            "notes": contention["notes"],
+            "notes": notes,
             "skipped": False,
         }
     else:

@@ -1,0 +1,48 @@
+[Unit]
+Description=Dynasty Trade Calculator cross-league FAAB crowd accumulation (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Accumulates data/faab/crowd_history_<leagueKey>.json from KTC's
+# public waiver database — real waiver claims in OTHER people's
+# dynasty leagues, each carrying the winning bid, that league's
+# ORIGINAL budget, and its format.  The FAAB engine reads it to price
+# the MARKET (how contested a claim will be); it can never move the
+# objective ceiling, which is computed before any crowd data is read.
+#
+# WHY A TIMER AND NOT A ONE-OFF: the feed is a ROLLING WINDOW.
+# Measured 2026-08-04 it served 200 rows spanning five days across 83
+# leagues.  A single fetch is a snapshot, not a history — a usable
+# sample only exists if runs accumulate.  Rows are deduped by the KTC
+# row id (stable across fetches), so re-fetching the same window is a
+# no-op rather than 8x duplication.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: the endpoint reads a LOCAL file
+# and data/ is gitignored repo-wide, so a history built on a CI runner
+# never reaches the VPS.  Same reasoning as the BDVM and
+# player-context refreshes.
+#
+# Exit codes (scripts/fetch_crowd_faab.py):
+#   0 - fetched and merged
+#   1 - hard error (registry unreadable, fetch failed)
+#   2 - nothing fetched; last-good history untouched
+# On 1/2 the previously accumulated history stays live — a stale crowd
+# read beats none, and the engine degrades to its configured priors if
+# the file is missing entirely.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/fetch_crowd_faab.py
+StandardOutput=journal
+StandardError=journal
+# One HTTP GET plus a small JSON merge — cheap, and never user-facing.
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

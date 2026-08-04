@@ -1,87 +1,45 @@
-"""Server/client parity for the FAAB baseline bid (audit finding H4).
+"""The FAAB rounding convention (surviving half of audit finding H4).
 
-Twin of ``frontend/__tests__/faab-bid-parity.test.js``.  Both halves
-assert against ONE fixture, ``tests/fixtures/faab_bid_parity_cases.json``:
+This file used to be one half of a server/client parity contract. Its
+twin was ``frontend/__tests__/faab-bid-parity.test.js``, and both
+asserted against ``tests/fixtures/faab_bid_parity_cases.json``, because
+``src/trade/waiver.py::_compute_faab_bid`` and
+``frontend/lib/waiver-logic.js::computeFaabHint`` were the same
+pool-relative formula written twice and nothing checked that they
+agreed. They did not: Python's ``round`` is half-to-even, JS's
+``Math.round`` is half-up, and every ``.5`` boundary produced a $1
+disagreement between the page and the API.
 
-  * ``src/trade/waiver.py::_compute_faab_bid`` is what the API returns
-    (``POST /api/waiver/suggestions``, and the baseline leg of
-    ``POST /api/waiver/faab-recommend``).
-  * ``frontend/lib/waiver-logic.js::computeFaabHint`` is what the
-    /waivers table SHOWS in its "FAAB hint" column.
+**Both halves of that contract are gone, for different reasons.**
 
-They are the same formula written twice, and nothing checked that they
-agreed.  They did not: Python's ``round`` is half-to-even and JS's
-``Math.round`` is half-up, so every ``.5`` boundary produced a $1
-disagreement between the number on the page and the number the API
-recommends — a top-of-pool lowball on a $100 budget is exactly $10.50.
-Both sides now spell out half-up explicitly and derive all three tiers
-from the unrounded aggressive figure.
+The client half was deleted with ``computeFaabHint`` itself — a second
+valuation formula on the client is what the "no frontend ranking or
+valuation engine, period" rule exists to prevent, and every dollar the
+UI renders is now stamped by the backend. The fixture's ``expected``
+blocks were hand-derived from the pool-relative formula
+(``0.05 + 0.25 x share`` of the budget), which the FAAB engine replaced
+wholesale, so they no longer describe anything the code does.
 
-NEITHER half may hardcode expectations of its own.  The fixture's
-``expected`` blocks are hand-derived from the formula it documents; if
-the two implementations disagree, exactly one suite goes red against a
-shared, human-authored statement of intent.
+What SURVIVES, and is pinned below, is the part of H4 that was never
+about parity: ``_round_half_up`` and the rule that all three tiers
+derive from the UNROUNDED figure. Both still apply to the engine's
+shim, and both are real defects if they regress — so the audit's
+findings outlive the formula they were found in.
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Any
-
-import pytest
-
+from src.trade import faab_engine as engine
 from src.trade.waiver import _compute_faab_bid, _round_half_up
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "faab_bid_parity_cases.json"
 
-FIXTURE: dict[str, Any] = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-CASES: list[dict[str, Any]] = FIXTURE["cases"]
+BOARD = [9999 - i * 12 for i in range(700)]
 
 
-# ── Fixture integrity ────────────────────────────────────────────────
-
-
-class TestFixtureIntegrity:
-    """The fixture has to be worth trusting before it can bind anything."""
-
-    def test_case_ids_are_unique(self) -> None:
-        ids = [c["id"] for c in CASES]
-        dupes = {i for i in ids if ids.count(i) > 1}
-        assert not dupes, f"duplicate case ids: {sorted(dupes)}"
-
-    def test_every_case_declares_a_full_expectation(self) -> None:
-        for case in CASES:
-            assert set(case["expected"]) == {"aggressive", "reasonable", "lowball"}
-
-    def test_the_rounding_boundary_is_actually_covered(self) -> None:
-        """A parity fixture that never lands on ``.5`` proves nothing.
-
-        The whole point is the boundary, so pin that at least one case
-        expects a tier the OLD code got wrong (half-to-even $10.50 → $10
-        on the server, half-up → $11 on the client).
-        """
-        top = next(c for c in CASES if c["id"] == "top_of_pool_full_budget")
-        assert top["expected"]["lowball"] == 11
-        assert FIXTURE["rounding"]["convention"] == "half-up"
-
-
-# ── The shared cases ─────────────────────────────────────────────────
-
-
-@pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
-def test_python_bid_matches_the_shared_fixture(case: dict[str, Any]) -> None:
-    aggressive, reasonable, lowball = _compute_faab_bid(
-        case["candidateValue"],
-        budget=case["budget"],
-        top_value_in_pool=case["topValueInPool"],
+def _anchors() -> engine.Anchors:
+    return engine.resolve_anchors(
+        BOARD, engine.LeagueContext(original_budget=100, team_count=12, starters_per_team=20)
     )
-    assert {
-        "aggressive": aggressive,
-        "reasonable": reasonable,
-        "lowball": lowball,
-    } == case["expected"], case["why"]
 
 
 # ── The rounding rule itself ─────────────────────────────────────────
@@ -90,7 +48,7 @@ def test_python_bid_matches_the_shared_fixture(case: dict[str, Any]) -> None:
 def test_rounding_is_half_up_not_bankers() -> None:
     """``_round_half_up`` must not be a rename of the built-in.
 
-    Hand-stated table.  The built-in ``round`` answers 10, 12 and 24 on
+    Hand-stated table. The built-in ``round`` answers 10, 12 and 24 on
     the first three (ties go to the even integer) — those three lines
     are the entire bug this helper exists to prevent.
     """
@@ -103,12 +61,59 @@ def test_rounding_is_half_up_not_bankers() -> None:
     assert _round_half_up(0.0) == 0
 
 
-def test_tiers_scale_the_unrounded_aggressive_bid() -> None:
-    """$17.50 aggressive → 70% is $12.25 → $12, not 70% of $18 → $13.
+def test_the_shim_uses_the_explicit_convention() -> None:
+    """Not just defined — actually used. A helper nothing calls is a
+    promise the code does not keep."""
+    anchors = _anchors()
+    # Find a value whose aggressive tier lands exactly on a .5 boundary.
+    for value in range(int(anchors.v_repl), int(anchors.v_allin) + 1):
+        raw = engine.objective_ceiling(value, anchors)[0] * 100
+        if abs(raw - int(raw) - 0.5) < 1e-6:
+            agg = _compute_faab_bid(value, budget=100, anchors=anchors)[0]
+            assert agg == int(raw) + 1, f"value {value}: {raw} should round UP"
+            return
+    # No exact boundary on this board — the convention is still pinned
+    # by the hand-stated table above.
 
-    Hand-derived: share 0.5 → 0.05 + 0.125 = 0.175 → $100 × 0.175 =
-    $17.50.  Rounding first and scaling second is what produced $13.
+
+# ── Tiers derive from the unrounded figure ───────────────────────────
+
+
+def test_tiers_scale_the_unrounded_aggressive_bid() -> None:
+    """Deriving ``reasonable`` from an already-rounded ``aggressive``
+    compounds the error a tier at a time. Each tier must scale the raw
+    figure and round once.
     """
-    aggressive, reasonable, _ = _compute_faab_bid(2500, budget=100, top_value_in_pool=5000)
-    assert aggressive == 18
-    assert reasonable == 12
+    anchors = _anchors()
+    for value in range(int(anchors.v_repl), int(anchors.v_allin) + 200, 7):
+        agg, reas, low = _compute_faab_bid(value, budget=100, anchors=anchors)
+        raw = engine.objective_ceiling(value, anchors)[0] * 100
+        assert reas == _round_half_up(raw * 0.70), value
+        assert low == _round_half_up(raw * 0.35), value
+
+
+def test_tiers_are_ordered_and_never_negative() -> None:
+    anchors = _anchors()
+    for value in (0, 500, 1500, 2000, 2400, 5000, 9999):
+        agg, reas, low = _compute_faab_bid(value, budget=100, anchors=anchors)
+        assert 0 <= low <= reas <= agg, value
+
+
+def test_replacement_level_is_zero_not_a_dollar_floor() -> None:
+    """The pre-engine formula floored every tier at ``max(1, ...)``.
+
+    That floor is deliberately NOT carried over: a player at or below
+    the free-agent replacement line is worth nothing, and roughly half
+    of this league's real adds cost exactly $0. A $1 minimum would put
+    a dollar on every piece of roster clog on the wire.
+    """
+    anchors = _anchors()
+    assert _compute_faab_bid(500, budget=100, anchors=anchors) == (0, 0, 0)
+    assert _compute_faab_bid(int(anchors.v_repl) - 100, budget=100, anchors=anchors) == (0, 0, 0)
+
+
+def test_a_non_positive_budget_bids_nothing() -> None:
+    """H4's inversion: a manager with no money must never be billed
+    against a full budget."""
+    assert _compute_faab_bid(9999, budget=0) == (0, 0, 0)
+    assert _compute_faab_bid(9999, budget=-5) == (0, 0, 0)

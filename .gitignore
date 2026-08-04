@@ -18,6 +18,9 @@ frontend/node_modules/
 frontend/.next/
 frontend/.next.new/
 frontend/.next.old/
+# Verification builds (NEXT_DIST_DIR=...) — hundreds of MB, never committed.
+.next.*/
+frontend/.next.*/
 tests/e2e/playwright-report/
 tests/e2e/test-results/
 tests/e2e/tests/

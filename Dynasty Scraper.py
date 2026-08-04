@@ -2703,21 +2703,29 @@ def _parse_ktc_settings(raw_settings):
 
 
 def _resolve_ktc_player(val):
-    """Resolve a KTC trade item player reference to a readable name."""
+    """Resolve a KTC trade item player reference to a readable name.
+
+    KTC uses ``-1`` (and occasionally ``0``) as the "no player" sentinel
+    — a waiver claim with no corresponding drop carries
+    ``droppedPlayer: "-1"``.  Those must resolve to ``None``, not to the
+    literal string ``"-1"``: the waiver database is ~50% no-drop adds,
+    so leaking the sentinel puts a phantom player named "-1" into every
+    downstream consumer.
+    """
     val = _parse_ktc_literal(val)
 
     if isinstance(val, str):
         raw = val.strip()
         if not raw:
             return None
-        if re.fullmatch(r"\d+", raw):
+        if re.fullmatch(r"-?\d+", raw):
             pid = int(raw)
-            return KTC_ID_TO_NAME.get(pid, f"Player#{pid}")
+            return None if pid <= 0 else KTC_ID_TO_NAME.get(pid, f"Player#{pid}")
         return clean_name(raw)
 
     if isinstance(val, (int, float)):
         pid = int(val)
-        return KTC_ID_TO_NAME.get(pid, f"Player#{pid}")
+        return None if pid <= 0 else KTC_ID_TO_NAME.get(pid, f"Player#{pid}")
 
     if isinstance(val, dict):
         name = val.get("playerName") or val.get("name") or val.get("player_name")
@@ -2846,10 +2854,37 @@ async def scrape_ktc_waiver_database(page):
             print("  [KTC Waivers] Failed to load page")
             return waivers
 
+        # ── Strategy 1: inline ``var waivers`` (current KTC format) ──
+        #
+        # MEASURED 2026-08-04: this page ships its rows INLINE in the
+        # HTML and fires no waiver XHR at all, so the response-intercept
+        # below always timed out and ``KTC_CROWD_DATA["waivers"]`` was
+        # empty in every export — which is why the recommender's crowd
+        # factor never fired in production.  Same shape as the
+        # ``playersArray`` extraction in ``scrape_ktc``: read the page
+        # source, not the network.
+        #
+        # Also measured: the ``sf`` / ``tep`` query params do NOT filter
+        # this payload (sf=0&tep=0 and sf=1&tep=2 return byte-identical
+        # rows).  They drive the rendered DOM only, so format filtering
+        # has to happen our side — ``_ktc_crowd_league_ok`` does it.
         try:
-            await asyncio.wait_for(api_received.wait(), timeout=10)
-        except asyncio.TimeoutError:
-            print("  [KTC Waivers] API intercept timed out")
+            content = await page.content()
+            inline = re.search(r"var\s+waivers\s*=\s*(\[.*?\]);", content, re.DOTALL)
+            if inline:
+                parsed = json.loads(inline.group(1))
+                if isinstance(parsed, list) and parsed:
+                    api_data.extend(parsed)
+                    print(f"  [KTC Waivers] Inline array: {len(parsed)} items")
+        except Exception as e:
+            print(f"  [KTC Waivers] Inline parse failed ({e}) — falling back to intercept")
+
+        # ── Strategy 2: response intercept (retained as a fallback) ──
+        if not api_data:
+            try:
+                await asyncio.wait_for(api_received.wait(), timeout=10)
+            except asyncio.TimeoutError:
+                print("  [KTC Waivers] API intercept timed out")
 
         if api_data:
             # Debug first item
