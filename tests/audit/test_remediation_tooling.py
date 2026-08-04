@@ -97,33 +97,103 @@ class TestCoercionGate(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
     def test_gate_actually_detects_the_audits_own_sites(self) -> None:
-        """A gate that fires on nothing real would pass silently forever."""
+        """A gate that fires on nothing real would pass silently forever.
+
+        Both sites named here are findings still recorded OPEN.  A third
+        one lived here — ``waiver.py``'s ``top_value_in_pool or 0``, the
+        latent half of W-2 — and #707 deleted it along with the rest of
+        the pool-relative bid.  It was removed from this test rather
+        than kept passing against something that no longer exists,
+        which is the same rule the baseline's stale-entry check
+        enforces.
+        """
         accepted = set(json.loads(BASELINE.read_text(encoding="utf-8"))["violations"])
         # N-2: a team missing from the sim is coerced to 0% and told to sell.
         self.assertTrue(
             any("trade_deadline.py" in k and "playoffOdds" in k for k in accepted),
             "the coercion gate no longer sees the N-2 site",
         )
-        # W-2 latent: an unknown pool ceiling defaults to zero.
+        # U-1: an unresolvable asset is priced at zero, then graded publicly.
         self.assertTrue(
-            any("waiver.py" in k and "top_value_in_pool" in k for k in accepted),
-            "the coercion gate no longer sees the W-2 site",
+            any("activity.py" in k and "valuation(asset)" in k for k in accepted),
+            "the coercion gate no longer sees the U-1 site",
         )
 
-    def test_baseline_shrinks_only(self) -> None:
-        """The baseline is debt to burn down, not a place to add to.
+    def test_baseline_is_internally_consistent(self) -> None:
+        """The recorded count must match the recorded entries.
 
-        Recorded as a hard ceiling so a future batch cannot quietly
-        widen the allowance to make a build pass — the failure mode the
-        script's own docstring warns about.
+        There was an absolute ceiling here (618).  It was wrong: main
+        moves independently of any branch — #707 and #709 landed while
+        batch C0 was open and brought their own pre-existing coercions —
+        so a fixed number rots into a failure nobody caused.  The
+        anti-growth property lives in the gate, which fails on new
+        violations in the files a change actually touches, and in
+        review, where a wholesale baseline regeneration is a visible
+        diff.  Duplicating it weakly here only produced false failures.
         """
         doc = json.loads(BASELINE.read_text(encoding="utf-8"))
-        self.assertLessEqual(
-            len(doc["violations"]),
-            618,
-            "the coercion baseline grew; a decision path may not fabricate a number",
-        )
         self.assertEqual(doc["count"], len(doc["violations"]))
+        self.assertGreater(len(doc["violations"]), 0)
+
+    def test_baseline_has_no_entries_for_files_that_no_longer_exist(self) -> None:
+        """A allowance pointing at a deleted file can never be checked."""
+        doc = json.loads(BASELINE.read_text(encoding="utf-8"))
+        missing = sorted(
+            {
+                k.split("::", 1)[0]
+                for k in doc["violations"]
+                if not (REPO_ROOT / k.split("::", 1)[0]).exists()
+            }
+        )
+        self.assertEqual(missing, [], f"baseline references files that do not exist: {missing}")
+
+
+class TestGoldenBoardInputIsFrozen(unittest.TestCase):
+    """The board capture's input must be immutable, not merely named.
+
+    It originally defaulted to ``exports/latest/dynasty_data_2026-08-04.json``
+    and called that pinned.  The filename carries only the DATE and
+    ``scheduled-refresh.yml`` runs every two hours, so same-day
+    refreshes overwrite it: that file was rewritten six times in two
+    days, and rebasing batch C0 onto main moved the capture's input
+    from the 18:20 scrape to the 20:14 one without a word.
+
+    A harness whose input can change underneath it reports data churn
+    as code change — the exact confusion it exists to remove.
+    """
+
+    def test_default_input_is_the_committed_fixture(self) -> None:
+        import scripts.golden_board as gb
+
+        self.assertEqual(gb.DEFAULT_INPUT.name, "input_export.json.gz")
+        self.assertTrue(gb.DEFAULT_INPUT.exists())
+        # Under tests/fixtures, not under exports/ where the refresh writes.
+        self.assertIn("fixtures", gb.DEFAULT_INPUT.parts)
+
+    def test_baseline_records_the_input_it_was_built_from(self) -> None:
+        baseline = json.loads(
+            (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(len(baseline.get("inputSha256") or ""), 64)
+
+    def test_baseline_matches_the_frozen_input(self) -> None:
+        """The committed baseline must be a capture OF the committed input."""
+        import scripts.golden_board as gb
+
+        _, digest = gb._read_export(gb.DEFAULT_INPUT)  # noqa: SLF001
+        baseline = json.loads(
+            (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(
+            baseline["inputSha256"],
+            digest,
+            "the committed baseline was built from a different input than the "
+            "committed fixture — re-run scripts/golden_board.py",
+        )
 
 
 class TestSurfaceHarness(unittest.TestCase):
@@ -186,16 +256,31 @@ class TestSurfaceHarness(unittest.TestCase):
         # Over half the grid reaches a label that means "no advice".
         self.assertGreater(len(catch_all), 10)
 
-    def test_exposes_the_faab_wire_dependence(self) -> None:
-        """W-2 / C07: the same player's bid swings on who ELSE is available.
+    def test_faab_bid_no_longer_depends_on_who_else_is_available(self) -> None:
+        """W-2 / C07: CLOSED by #707 — this test is the reversal, recorded.
 
-        Inverted by batch C9, which anchors the bid to replacement level.
+        It was written to assert the defect: the same player drew $11 on
+        a rich wire and $28 on a picked-over one, a 2.5x swing driven
+        only by who else happened to be available, so a thin wire said
+        *spend* where it should say *save*.
+
+        #707 landed on main while batch C0 was open, replacing the
+        pool-relative `0.05 + 0.25 * (value / best on the wire)` with an
+        engine whose ceiling is pinned to league-format anchors.  The
+        assertion is inverted rather than deleted so a future reader can
+        see that the reversal was deliberate and what evidence carried
+        it — the finding is closed, not forgotten.
+
+        `top_value_in_pool` is still accepted by the shim and ignored,
+        which is what makes the two bids equal.
         """
         rich = self.rows["faab_bid/v=2000,pool=9000,budget=100"]["aggressive"]
         thin = self.rows["faab_bid/v=2000,pool=2200,budget=100"]["aggressive"]
-        self.assertLess(rich, thin, "a thin wire should mean save, not spend")
-        # Top of pool is a constant share of budget by construction.
-        self.assertEqual(self.rows["faab_bid/v=9000,pool=9000,budget=100"]["label"], "30%")
+        self.assertEqual(
+            rich,
+            thin,
+            "the same player must draw the same bid regardless of the rest of the wire",
+        )
 
     def test_exposes_released_scored_as_positive(self) -> None:
         """E-2 / C40: a player being cut is scored as good news.

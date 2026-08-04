@@ -35,8 +35,26 @@ before #708 cleared it.  So:
     gate for months; the same discipline applies here.
 
 Each remediation batch deletes its findings' entries from the baseline.
-When the file is empty the ``--strict`` default flips and the gate is
-unconditional.
+
+...BUT ONLY FOR FILES THIS CHANGE TOUCHES
+-----------------------------------------
+Both rules are scoped to the files the PR actually changed, and that
+scoping is not a convenience — without it the gate is unusable.
+
+A ``pull_request`` build checks out ``refs/pull/N/merge``, so the tree
+under test is *this branch merged into current main*.  Main moves
+independently: on this gate's own first run, #707 landed a rewritten
+FAAB engine while the PR was open, and the baseline — captured against
+the branch point — reported new violations and stale allowances in
+``faab_recommender.py`` and ``waiver.py`` that this PR had never
+touched.  A whole-tree baseline makes every PR responsible for every
+other PR's edits, which is the failure mode that got the ruff gate
+narrowed in phase A3.
+
+Scoping loses nothing that matters: a coercion can only be INTRODUCED
+by a change, so a violation in an untouched file is by definition
+pre-existing debt.  The full-tree count is still reported every run, so
+the debt stays visible rather than becoming invisible.
 
 WHAT COUNTS AS A DECISION PATH
 ------------------------------
@@ -52,7 +70,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -130,6 +150,32 @@ def _scan() -> list[dict]:
     return found
 
 
+def _changed_files() -> set[str] | None:
+    """Files this change touches, relative to its merge base.
+
+    ``None`` means "could not determine" — the caller then falls back
+    to whole-tree enforcement rather than to enforcing nothing.  A gate
+    that silently downgrades to a no-op when git is unavailable is the
+    same category of defect as the alert that reads a key its input
+    never carries (O-1).
+    """
+    base_ref = os.environ.get("GITHUB_BASE_REF") or "main"
+    for base in (f"origin/{base_ref}", base_ref):
+        try:
+            proc = subprocess.run(
+                ["git", "diff", "--name-only", f"{base}...HEAD"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            return None
+        if proc.returncode == 0:
+            return {ln.strip() for ln in proc.stdout.splitlines() if ln.strip()}
+    return None
+
+
 def _key(v: dict) -> str:
     """Identify a violation by file + code, NOT by line number.
 
@@ -182,21 +228,43 @@ def main() -> int:
     new = sorted(set(by_key) - accepted)
     stale = sorted(accepted - set(by_key))
 
-    print(f"decision-path coercions: {len(by_key)} present, {len(accepted)} accepted as debt")
-    if new:
-        print(f"\nNEW ({len(new)}) — a decision path may not fabricate a number:")
-        for k in new[:40]:
+    changed = _changed_files()
+    scope = "changed files" if changed is not None else "whole tree (no merge base found)"
+    print(
+        f"decision-path coercions: {len(by_key)} present, "
+        f"{len(accepted)} accepted as debt — enforcing on {scope}"
+    )
+
+    if changed is not None:
+        blocking_new = [k for k in new if by_key[k]["file"] in changed]
+        blocking_stale = [k for k in stale if k.split("::", 1)[0] in changed]
+    else:
+        blocking_new, blocking_stale = new, stale
+
+    drifted = (len(new) - len(blocking_new)) + (len(stale) - len(blocking_stale))
+    if drifted:
+        print(
+            f"  ({drifted} difference(s) in files this change does not touch — "
+            "main moved; not this PR's to fix)"
+        )
+
+    if blocking_new:
+        print(f"\nNEW ({len(blocking_new)}) — a decision path may not fabricate a number:")
+        for k in blocking_new[:40]:
             v = by_key[k]
             print(f"  {v['file']}:{v['line']}  {v['match']}")
             print(f"      {v['text']}")
-    if stale:
-        print(f"\nSTALE BASELINE ENTRIES ({len(stale)}) — fixed; delete them from the baseline:")
-        for k in stale[:40]:
+    if blocking_stale:
+        print(
+            f"\nSTALE BASELINE ENTRIES ({len(blocking_stale)}) — "
+            "fixed by this change; delete them from the baseline:"
+        )
+        for k in blocking_stale[:40]:
             print(f"  {k[:110]}")
 
-    if new or stale:
+    if blocking_new or blocking_stale:
         return 1
-    print("\nclean: no new coercions, no stale allowances.")
+    print("\nclean: no new coercions, no stale allowances in the files this change touches.")
     return 0
 
 

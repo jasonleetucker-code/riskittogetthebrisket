@@ -136,11 +136,17 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C07": (
         "W-2",
         "src/trade/waiver.py",
-        "aggressive_pct",
-        OPEN,
-        "The bid is still a share of the best wire asset, not an absolute "
-        "anchor. Coupled to the merged W-1: with the denominator fixed, "
-        "the top-of-wire player now always draws ~30% of budget.",
+        None,
+        CLOSED,
+        "Closed by #707 while this batch was open — caught by this "
+        "registry's own drift probe, not by noticing. The pool-relative "
+        "`0.05 + 0.25 * (value / best on the wire)` is gone; "
+        "_compute_faab_bid is now a shim over src/trade/faab_engine, "
+        "whose ceiling is pinned to league-format anchors, and "
+        "top_value_in_pool is accepted and ignored. Measured on the "
+        "surface capture: a player at value 2000 now bids $20 on a rich "
+        "wire AND $20 on a picked-over one, where before it was $11 vs "
+        "$28 — the wire-dependence the finding was about is gone.",
     ),
     "C08": (
         "S-2",

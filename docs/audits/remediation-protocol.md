@@ -10,17 +10,26 @@ Critical minus the five findings listed as already fixed. Re-validating every Cr
 
 | Status | Count | Meaning |
 |---|---|---|
-| open | 35 | mechanism confirmed present by reading the file |
-| closed | 6 | already fixed before this pass started |
+| open | 34 | mechanism confirmed present by reading the file |
+| closed | 7 | already fixed before this pass reached them |
 | deferred | 1 | not verifiable from the repository |
 | needs_review | 1 | partially fixed; needs a measurement to classify |
 
-The six closed break down as: **W-1 recorded twice** (the registry logs the FAAB pick-denominator
+The seven closed break down as: **W-1 recorded twice** (the registry logs the FAAB pick-denominator
 defect separately against `server.py` and `src/trade/waiver.py`; #715 fixed both at once), **D-3 and
 X-5 recorded twice** (same hardcoded `{1: 7000, …}` draft-capital table, removed before this pass —
-`_pick_value_from_contract` now returns `None` on a miss and callers stamp `isUnpriced`), and **T-4
-and T-5**, where positions are now plumbed via `positions_from_contract` so the finder is no longer
-offense-only and its IDP-blindness warning can fire.
+`_pick_value_from_contract` now returns `None` on a miss and callers stamp `isUnpriced`), **T-4 and
+T-5**, where positions are now plumbed via `positions_from_contract` so the finder is no longer
+offense-only and its IDP-blindness warning can fire, and **W-2**.
+
+**W-2 closed mid-batch, and the tooling is what noticed.** #707 landed on main while C0 was open,
+replacing the pool-relative `0.05 + 0.25 × (value / best on the wire)` with an engine whose ceiling
+is pinned to league-format anchors. Nobody told this pass; the drift probe reported
+`signature_present → signature_absent` on the next run. Measured on the surface capture: a player
+at value 2000 now bids **$20 on a rich wire and $20 on a picked-over one**, where it was $11 vs $28.
+
+That is the argument for the registry in one event. Main moves under an open batch, and a finding
+list maintained by memory would have had someone re-fixing W-2 in batch C9.
 
 `C02` (D-2, auction inflation) is the one needing review rather than a verdict: the `Math.max(1, …)`
 the audit cited is gone, replaced by an explicit `inflationDegraded` guard, but
@@ -69,8 +78,25 @@ python scripts/board_diff.py tests/fixtures/golden/surfaces.json /tmp/surfaces_a
 Label-only batches add `--expect-no-value-change`; any value movement there is a bug.
 
 Both captures are pure and byte-deterministic across runs — verified, and load-bearing. The board
-builds the real contract through `build_api_data_contract` from a pinned export in ~1.5s; the
-surfaces are pure calls over fixed input grids.
+builds the real contract through `build_api_data_contract` in ~1.5s; the surfaces are pure calls
+over fixed input grids.
+
+### The input is frozen, not merely named
+
+`golden_board.py` originally defaulted to `exports/latest/dynasty_data_2026-08-04.json` and called
+that pinned. It is not: the filename carries only the **date**, and `scheduled-refresh.yml` runs
+every two hours, so same-day refreshes overwrite it in place. That file was rewritten **six times in
+two days**, and rebasing batch C0 onto main silently moved the capture's input from the 18:20 scrape
+to the 20:14 one — two players in, one out — with no signal.
+
+The input is now a committed gzipped fixture (`tests/fixtures/golden/input_export.json.gz`, 92 KB),
+immutable by construction. Every capture stamps the SHA-256 of the input's **content**, and
+`board_diff.py` **refuses** (exit 2) to compare captures built from different inputs unless
+`--allow-input-change` is passed. It was a stderr warning; a warning next to a plausible-looking
+diff is not a control.
+
+Hash the content, not the file — the fixture is gzipped and a live export is not, and a check that
+cries wolf on two byte-identical inputs teaches people to pass the override without reading it.
 
 ### Why the surface capture exists
 
@@ -102,13 +128,22 @@ Use the repo's pinned toolchain: `requirements-dev.txt` pins `ruff~=0.6.0`. A ne
 ## The coercion gate
 
 `scripts/check_decision_coercions.py` enforces the audit's largest cross-cutting pattern — missing
-data resolving to a fabricated number — as a gate rather than a review convention. It found **618**
+data resolving to a fabricated number — as a gate rather than a review convention. It found **631**
 existing violations across the decision paths, recorded in `config/coercion_baseline.json`.
 
 Blocking from introduction: only **new** coercions and **stale** allowances fail, so the existing
 debt does not block unrelated PRs. Each batch deletes its findings' entries as it fixes them. A
 stale entry is also a failure — an allowance nobody can check is how `_LIVEDATA_MODULES` kept 33
 core-blend tests outside the hard gate unnoticed (finding Q-1).
+
+**Both rules are scoped to the files the change touches**, and that is not a convenience. A
+`pull_request` build checks out `refs/pull/N/merge` — this branch merged into *current* main — and
+main moves on its own. On this gate's first run, #707's FAAB rewrite landed mid-PR and the
+whole-tree baseline reported new violations and stale allowances in `faab_recommender.py` and
+`waiver.py` that the PR had never touched. A whole-tree baseline makes every PR responsible for
+every other PR's edits, which is exactly why the ruff gate was narrowed in phase A3. Scoping loses
+nothing: a coercion can only be *introduced* by a change, so one in an untouched file is
+pre-existing debt by definition. The full-tree count is still printed every run.
 
 Do not add to the baseline to make a build pass.
 

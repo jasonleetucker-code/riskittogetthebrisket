@@ -26,8 +26,23 @@ USAGE
     python scripts/golden_board.py --out /tmp/after.json
     python scripts/board_diff.py tests/fixtures/golden/baseline.json /tmp/after.json
 
-The input export is pinned (``--input``) rather than "whatever is latest",
-because a scrape landing mid-comparison would show up as a code change.
+THE INPUT IS FROZEN, NOT MERELY NAMED
+-------------------------------------
+This originally defaulted to ``exports/latest/dynasty_data_2026-08-04.json``
+and called that pinned.  It is not: the filename carries only the DATE,
+and ``scheduled-refresh.yml`` runs every two hours, so same-day refreshes
+overwrite it in place.  Measured — that file was rewritten SIX times in
+two days, and rebasing this batch onto main silently moved the capture's
+input from the 18:20 scrape to the 20:14 one (two players in, one out).
+
+Every diff across a refresh boundary therefore mixed data churn with
+code change, which is the one thing this harness exists to prevent.
+
+So the input is a committed, gzipped fixture under ``tests/fixtures/``
+— immutable by construction, 92 KB — and its SHA-256 is stamped into
+every capture so ``board_diff.py`` can refuse to compare two captures
+built from different inputs.  ``--input`` still accepts a live export
+for deliberate use.
 
 Exit codes: 0 success, 1 nothing built, 2 error.
 """
@@ -35,6 +50,8 @@ Exit codes: 0 success, 1 nothing built, 2 error.
 from __future__ import annotations
 
 import argparse
+import gzip
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -42,7 +59,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-DEFAULT_INPUT = REPO_ROOT / "exports" / "latest" / "dynasty_data_2026-08-04.json"
+DEFAULT_INPUT = REPO_ROOT / "tests" / "fixtures" / "golden" / "input_export.json.gz"
 
 # The fields that constitute a user-facing decision.  Deliberately NOT
 # every field on the row: diagnostics that carry a timestamp or a
@@ -77,10 +94,25 @@ def _num(v):
     return v
 
 
+def _read_export(path: Path) -> tuple[dict, str]:
+    """Load an export (plain or gzipped) and hash its CONTENT.
+
+    Hashing the decompressed bytes, not the file: the frozen fixture is
+    gzipped and the live export is not, so a file-level hash reports
+    two byte-identical inputs as different.  A check that cries wolf
+    teaches people to pass ``--allow-input-change`` without reading it,
+    which is how the check stops existing.
+    """
+    blob = path.read_bytes()
+    if path.suffix == ".gz":
+        blob = gzip.decompress(blob)
+    return json.loads(blob.decode("utf-8")), hashlib.sha256(blob).hexdigest()
+
+
 def capture(input_path: Path) -> dict:
     from src.api.data_contract import build_api_data_contract
 
-    raw = json.loads(input_path.read_text(encoding="utf-8"))
+    raw, input_sha = _read_export(input_path)
     contract = build_api_data_contract(raw)
     arr = contract.get("playersArray") or []
 
@@ -101,6 +133,7 @@ def capture(input_path: Path) -> dict:
     ranked = [r for r in arr if r.get("canonicalConsensusRank")]
     return {
         "inputExport": input_path.name,
+        "inputSha256": input_sha,
         "scrapeTimestamp": (raw.get("scrapeTimestamp") or raw.get("date")),
         "totals": {
             "rows": len(arr),

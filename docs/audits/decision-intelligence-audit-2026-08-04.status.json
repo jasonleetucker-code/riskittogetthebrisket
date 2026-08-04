@@ -3,9 +3,9 @@
  "severity": "Critical",
  "total": 43,
  "tally": {
-  "open": 35,
+  "open": 34,
   "needs_review": 1,
-  "closed": 6,
+  "closed": 7,
   "deferred": 1
  },
  "findings": [
@@ -133,16 +133,14 @@
    "auditEvidence": "src/trade/waiver.py:86-95 - `share = candidate_value / top_v ...; aggressive_pct = 0.05 + 0.25 * share; aggressive = max(1, round(league_budget * aggressive_pct))`. Because share is normalized to the pool maximum, the top free agent always prices at exactly 30%/21%/10%: measured _compute_faab_bid(1905, 100, 1905) = (30, 21, 10), where 1905 is Marlin Klein, a TE outside every starting lineup on the",
    "auditId": "W-2",
    "path": "src/trade/waiver.py",
-   "signature": "aggressive_pct",
-   "status": "open",
-   "verifiedBy": "The bid is still a share of the best wire asset, not an absolute anchor. Coupled to the merged W-1: with the denominator fixed, the top-of-wire player now always draws ~30% of budget.",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed by #707 while this batch was open \u2014 caught by this registry's own drift probe, not by noticing. The pool-relative `0.05 + 0.25 * (value / best on the wire)` is gone; _compute_faab_bid is now a shim over src/trade/faab_engine, whose ceiling is pinned to league-format anchors, and top_value_in_pool is accepted and ignored. Measured on the surface capture: a player at value 2000 now bids $20 on a rich wire AND $20 on a picked-over one, where before it was $11 vs $28 \u2014 the wire-dependence the finding was about is gone.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": "src/trade/waiver.py",
-    "needle": "aggressive_pct"
+    "result": "no_mechanical_probe"
    }
   },
   {

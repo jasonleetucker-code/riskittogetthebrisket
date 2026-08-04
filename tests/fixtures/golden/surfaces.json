@@ -2,11 +2,11 @@
  "kind": "surfaces",
  "rows": {
   "faab_bid/v=2000,pool=2200,budget=100": {
-   "aggressive": 28,
-   "label": "28%",
-   "lowball": 10,
-   "reasonable": 19,
-   "value": 28
+   "aggressive": 20,
+   "label": "20%",
+   "lowball": 7,
+   "reasonable": 14,
+   "value": 20
   },
   "faab_bid/v=2000,pool=9000,budget=0": {
    "aggressive": 0,
@@ -16,39 +16,39 @@
    "value": 0
   },
   "faab_bid/v=2000,pool=9000,budget=100": {
-   "aggressive": 11,
-   "label": "11%",
-   "lowball": 4,
-   "reasonable": 7,
-   "value": 11
+   "aggressive": 20,
+   "label": "20%",
+   "lowball": 7,
+   "reasonable": 14,
+   "value": 20
   },
   "faab_bid/v=2000,pool=9000,budget=12": {
-   "aggressive": 1,
-   "label": "8%",
+   "aggressive": 2,
+   "label": "17%",
    "lowball": 1,
-   "reasonable": 1,
-   "value": 1
+   "reasonable": 2,
+   "value": 2
   },
   "faab_bid/v=500,pool=9000,budget=100": {
-   "aggressive": 6,
-   "label": "6%",
-   "lowball": 2,
-   "reasonable": 4,
-   "value": 6
+   "aggressive": 0,
+   "label": "0%",
+   "lowball": 0,
+   "reasonable": 0,
+   "value": 0
   },
   "faab_bid/v=5000,pool=5000,budget=50": {
-   "aggressive": 15,
-   "label": "30%",
-   "lowball": 5,
-   "reasonable": 11,
-   "value": 15
+   "aggressive": 50,
+   "label": "100%",
+   "lowball": 18,
+   "reasonable": 35,
+   "value": 50
   },
   "faab_bid/v=9000,pool=9000,budget=100": {
-   "aggressive": 30,
-   "label": "30%",
-   "lowball": 11,
-   "reasonable": 21,
-   "value": 30
+   "aggressive": 100,
+   "label": "100%",
+   "lowball": 35,
+   "reasonable": 70,
+   "value": 100
   },
   "news_polarity/LB suspended six games": {
    "impact": "negative",

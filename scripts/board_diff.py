@@ -102,6 +102,11 @@ def main() -> int:
         action="store_true",
         help="diff a golden_surfaces.py capture (value field + label set differ)",
     )
+    ap.add_argument(
+        "--allow-input-change",
+        action="store_true",
+        help="compare captures built from different input exports (data churn WILL appear as movement)",
+    )
     args = ap.parse_args()
 
     value_field = _SURFACE_VALUE_FIELD if args.surfaces else "rankDerivedValue"
@@ -115,13 +120,25 @@ def main() -> int:
     b = json.loads(args.before.read_text(encoding="utf-8"))
     a = json.loads(args.after.read_text(encoding="utf-8"))
 
-    if not args.surfaces and b.get("scrapeTimestamp") != a.get("scrapeTimestamp"):
-        print(
-            "WARNING: captures are from different input scrapes "
-            f"({b.get('scrapeTimestamp')} vs {a.get('scrapeTimestamp')}) — "
-            "differences below mix data churn with code change.",
-            file=sys.stderr,
-        )
+    # Two captures built from different inputs are not comparable: the
+    # differences are data churn, code change, or both, and nothing in
+    # the output distinguishes them.  This used to be a WARNING, which
+    # is how the batch-C0 rebase nearly shipped a baseline whose input
+    # had been swapped under it by a routine 2-hourly refresh — the
+    # warning goes to stderr and reads like noise next to a diff that
+    # looks plausible.  Refuse instead.
+    if not args.surfaces:
+        sb, sa = b.get("inputSha256"), a.get("inputSha256")
+        if sb and sa and sb != sa:
+            print(
+                f"ERROR: captures were built from different inputs ({sb[:12]} vs "
+                f"{sa[:12]}; scrapes {b.get('scrapeTimestamp')} vs "
+                f"{a.get('scrapeTimestamp')}). Re-capture both against the same "
+                "input, or pass --allow-input-change if the change is the point.",
+                file=sys.stderr,
+            )
+            if not args.allow_input_change:
+                return 2
 
     rb, ra = b.get("rows") or {}, a.get("rows") or {}
     added = sorted(set(ra) - set(rb))
