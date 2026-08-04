@@ -202,6 +202,11 @@ def fair_value_index(
             "playerKey": key,
             "displayName": row.get("displayName"),
             "position": row.get("position"),
+            # How many sources actually priced this row on the default
+            # board. Feeds the confidence score, so it must be the real
+            # count — a fixed stand-in would make a one-source row look
+            # as well-evidenced as a twelve-source one.
+            "sourceCount": len(row.get("sourceRanks") or {}),
             "assetClass": asset_class or None,
             "anchorKey": anchor_key,
             "basis": "leaveOneOut",

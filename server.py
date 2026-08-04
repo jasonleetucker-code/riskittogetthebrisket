@@ -2684,6 +2684,14 @@ from src.ros.api import router as _ros_router  # noqa: E402
 
 app.include_router(_ros_router)
 
+# Consensus Edge router.  Strict isolation: reads ``latest_contract_data``
+# and never mutates it, never writes ``rankDerivedValue``, and adds no
+# behaviour to an existing route.  Every handler is gated on the
+# ``consensus_edge`` feature flag, which defaults OFF.
+from src.consensus_edge.api import router as _consensus_edge_router  # noqa: E402
+
+app.include_router(_consensus_edge_router)
+
 
 @app.middleware("http")
 async def _count_requests(request: Request, call_next):

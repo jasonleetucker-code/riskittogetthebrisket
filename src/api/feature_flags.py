@@ -223,6 +223,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # to the same honest empty payload it served before.
     # See docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md.
     "bdvm_engine": True,
+    # Consensus Edge — the unified buy/sell board.  DEFAULT OFF, and it
+    # should stay off until more than one of its components has an
+    # out-of-sample result.  Market Mispricing has one (rho +0.126 over
+    # 7 non-overlapping folds, docs/measurements/); Sharp Flow and
+    # Opportunity do not, because neither has data to validate against
+    # outside production.  Turning this on shows users a composite whose
+    # weights are declared priors — defensible as a labelled experiment,
+    # not as advice.  Payloads stamp ``experimental: true`` regardless.
+    "consensus_edge": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -336,6 +345,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # (/api/bdvm/values, /api/bdvm/roster, /api/bdvm/trades): off →
     # 503 feature_disabled, on → the BDVM payloads.
     "bdvm_engine": LIVE,
+    # consensus_edge gates the /api/consensus-edge/* router mounted in
+    # server.py: off → 503 feature_disabled, on → the board.
+    "consensus_edge": LIVE,
     # ── Gate exists, module is stranded ──
     #
     # ``src/nfl_data/injury_feed.py`` and ``src/news/usage_signals.py``

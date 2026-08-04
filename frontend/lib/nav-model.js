@@ -182,6 +182,17 @@ export const NAV_MODEL = [
         hint: "Where the ranking sources agree, disagree and flag issues",
         keywords: ["edge", "signals", "spread", "gaps"],
       },
+      // Consensus Edge is a separate entry from Source Disagreement,
+      // not a replacement for it, and that is deliberate for as long as
+      // it is experimental: /edge is the incumbent both users and any
+      // future evaluation compare against, so retiring it before the
+      // replacement has earned it would destroy the baseline.
+      {
+        href: "/consensus-edge",
+        label: "Consensus Edge",
+        hint: "Where our anchor-free fair value disagrees with the market",
+        keywords: ["buy", "sell", "mispricing", "consensus edge", "fair value"],
+      },
       // Sharp Tracker sits in Market, not League, and that placement is
       // load-bearing rather than cosmetic: it is a GLOBAL cohort signal
       // and `/api/sharp/cohort` deliberately takes no `leagueKey`. Its

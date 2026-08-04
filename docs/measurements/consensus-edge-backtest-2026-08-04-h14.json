@@ -2,43 +2,43 @@
   "foldsAttempted": 7,
   "foldsUsable": 7,
   "unusableReasons": [],
-  "meanSpearman": 0.1256759379879879,
-  "medianSpearman": 0.125750150966933,
+  "meanSpearman": 0.12574080239510035,
+  "medianSpearman": 0.12572775308046652,
   "spearmanByFold": [
     {
       "origin": "2026-04-16",
       "n": 182,
-      "rho": 0.04011607328958811
+      "rho": 0.04012196722549876
     },
     {
       "origin": "2026-04-30",
       "n": 688,
-      "rho": 0.17097960446660837
+      "rho": 0.1710559282952631
     },
     {
       "origin": "2026-05-14",
       "n": 690,
-      "rho": 0.12176154720453218
+      "rho": 0.12195048644763225
     },
     {
       "origin": "2026-05-28",
       "n": 686,
-      "rho": 0.07352428759030488
+      "rho": 0.0737111369944139
     },
     {
       "origin": "2026-06-11",
       "n": 680,
-      "rho": 0.12643272526856178
+      "rho": 0.1264779370708862
     },
     {
       "origin": "2026-06-25",
       "n": 672,
-      "rho": 0.22116717712938702
+      "rho": 0.22114040765154178
     },
     {
       "origin": "2026-07-09",
       "n": 690,
-      "rho": 0.125750150966933
+      "rho": 0.12572775308046652
     }
   ],
   "benchmarks": {
@@ -58,7 +58,7 @@
   "panelEnd": "2026-08-03",
   "foldsTruncated": false,
   "modelVersion": "ce.2026-08-04.v0-shadow",
-  "measuredAt": "2026-08-04T01:27:47.803779+00:00",
+  "measuredAt": "2026-08-04T06:17:32.043009+00:00",
   "target": "cohort-excess market return of the anchor board",
   "caveats": [
     "Replays today's pipeline over past inputs: inputs cannot leak, but the model is current.",

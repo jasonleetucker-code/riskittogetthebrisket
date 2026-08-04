@@ -53,11 +53,24 @@ MIN_COHORT_SIZE = 12
 # Scales MAD to an SD-equivalent under normality.
 MAD_TO_SIGMA = 1.4826
 
-# Where the z-score saturates.  Beyond 3 sigma we stop distinguishing
-# degrees of extremity: the tail is populated by identity errors and
-# stale rows as much as by genuine mispricing, and letting one row reach
-# ±8 would let it dominate any ranking it appears in.
-Z_CLIP = 3.0
+# Scale at which the z-score saturates.  A z of Z_SCALE maps to
+# tanh(1) ≈ 0.76, and larger z keeps rising toward 1.0 without ever
+# reaching it.
+#
+# This used to be a HARD clamp at ±3, and that was a defect worth
+# recording.  The tail is populated by identity errors and stale rows as
+# well as genuine mispricing, so compressing it is right — but clamping
+# discards ORDER, not just magnitude.  Measured on the live board:
+# 23 of 699 scored rows sat exactly on the clip, and among the clipped
+# buys the underlying gaps ran from +20% to +229%, every one scored
+# identically.  The published "Top 20 Buys" was therefore an arbitrary
+# tie-break over eleven players, ranked by whatever order they happened
+# to be in.
+#
+# tanh keeps the compression (an 8-sigma row cannot dominate a ranking)
+# while remaining strictly monotone, so the ordering the product
+# actually sells is preserved everywhere.
+Z_SCALE = 3.0
 
 # Value tiers, in canonical 0-9999 board units.  Boundaries are round
 # numbers chosen to separate populations that genuinely disagree by
@@ -281,9 +294,10 @@ def score_entry(
     result["cohortLevel"] = level
 
     z = (result["logGap"] - stats["median"]) / stats["sigma"]
-    z = max(-Z_CLIP, min(Z_CLIP, z))
+    # Report the raw z, saturate only the score. A reader comparing two
+    # extreme rows can still see which was further out.
     result["z"] = z
-    result["score"] = z / Z_CLIP
+    result["score"] = math.tanh(z / Z_SCALE)
     return result
 
 
