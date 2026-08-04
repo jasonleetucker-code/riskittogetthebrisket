@@ -22,8 +22,8 @@
   },
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build && node scripts/check-bundle-sizes.mjs",
-    "build:nocheck": "next build",
+    "build": "next build --webpack && node scripts/check-bundle-sizes.mjs",
+    "build:nocheck": "next build --webpack",
     "start": "next start -p 3000",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
-    "next": "15.5.22",
+    "next": "16.2.12",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
