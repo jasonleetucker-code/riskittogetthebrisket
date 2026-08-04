@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import bisect
 from copy import deepcopy
 import json
 import logging
@@ -4792,23 +4793,69 @@ def _apply_two_way_player_boost(
     the loader writes a synthetic rank-encoded value into
     ``canonicalSiteValues[source_key]`` even when the scope gate
     would later reject that contribution.  We pull those entries
-    back out here, convert the synthetic rank back to an ordinal,
-    percentile-normalise, Hill it, and take the mean across sources
-    as the player's alt-family value.  Simple, no pipeline rewrite.
+    back out here and translate them onto the board's own scale.
 
     Stamps ``twoWayPlayerBoost`` on every boosted row with offense
     value, alt-family value, and max-of-two so the UI can surface
     the dual-value reality.
+
+    WHY THE RANK PATH USES A LADDER AND NOT A DIRECT HILL
+    ====================================================
+    Until 2026-08-04 the rank branch did
+    ``percentile_to_value((rank - 1) / (_PERCENTILE_REFERENCE_N - 1))``
+    on the *raw within-source* ordinal.  That is a category error, and
+    an expensive one.  ``_PERCENTILE_REFERENCE_N`` is a COMBINED-pool
+    denominator: rank 5 in that coordinate system means "5th most
+    valuable asset on the whole board".  But ``idpShow`` rank 5 means
+    "5th best IDP", and the pipeline knows this — it deliberately
+    leaves these sources ``None`` in ``effectiveSourceRanks`` for an
+    offense-classed row, because the scope gate excludes them.  The
+    boost reached around that gate and fed the untranslated ordinal
+    straight into the combined-pool curve.
+
+    Measured on the 2026-07-30 board, for the one player this affects:
+
+        idpShow  rank 5   ->  9304   (the whole board's #1 is 9999)
+        dlfIdp   rank 45  ->  4832
+        idpTradeCalc      ->  5637   (a real value, already correct)
+        mean              ->  6591   <- shipped, rank 31
+
+    9304 is refuted directly by the board it claims to live on: the
+    *actual* ``idpShow`` #1 (Aidan Hutchinson) is worth 6362, and #2-#4
+    are 5876 / 5875 / 4803.  A top-5 IDP is worth ~4.8k-6.4k.  Nothing
+    could disagree with the 9304 because no test asserted any part of
+    this — the whole stage had one stamped audit field and no guard.
+
+    So rank-signal sources now translate through a LADDER, the same
+    shape ``_translate_via_ladder`` uses for rookie sources: collect
+    (source rank, board value) over the real players of the alt family,
+    sort by source rank, and interpolate.  That answers the only
+    question worth asking — "what is a player this source ranks k-th
+    actually worth on OUR board" — empirically, with no curve
+    assumption at all.  Value-based sources (``idpTradeCalc``) are
+    already on a directly comparable scale (CLAUDE.md's cross-market
+    note: median value ratio 1.000 against KTC) and are untouched.
+
+    Aggregation is ``count_aware_mean_median_blend`` — the pipeline's
+    own step-9 combiner — rather than the plain mean this used before,
+    so a two-way player's alt value is blended by the same rule as
+    every other multi-source number on the board.
+
+    WHAT THIS IS NOT
+    ================
+    It is still ``max(primary, alt)``.  In an IDP league that starts
+    both WR and DB, a dual-eligible player's *production* is arguably
+    additive — Sleeper scores a rostered player off their full stat
+    line whatever slot they occupy, and this league pays for both
+    (3 DB slots, live ``idp_*`` scoring).  That is a FUNDAMENTAL
+    argument, and it belongs in BDVM, which already folds a two-way
+    player's two stat lines into one projection record.  Encoding it
+    here would mean inventing a premium on the market board with no
+    market evidence behind it.  Market board reports the market; the
+    /rankings Fund-gap column is where the disagreement shows up.
     """
     if not _TWO_WAY_PLAYERS:
         return
-    from src.canonical.player_valuation import (  # noqa: PLC0415
-        HILL_PERCENTILE_C,
-        HILL_PERCENTILE_S,
-        IDP_HILL_PERCENTILE_C,
-        IDP_HILL_PERCENTILE_S,
-        percentile_to_value,
-    )
 
     # Collect IDP signal sources (the ones that could contribute to
     # an alt-family value for an offense-classed player).
@@ -4823,6 +4870,59 @@ def _apply_two_way_player_boost(
         for s in _RANKING_SOURCES
         if s.get("scope") == SOURCE_SCOPE_OVERALL_OFFENSE
     }
+
+    alt_asset_class_for_family = {True: "idp", False: "offense"}
+
+    def _build_alt_ladder(source_key: str, want_idp: bool) -> list[tuple[float, float]]:
+        """(source rank, board value) pairs over the REAL players of the
+        alt family, sorted by source rank.
+
+        This is the empirical answer to "what is a player this source
+        ranks k-th actually worth on our board", so it needs no curve
+        and no percentile denominator — the board supplies both.
+        """
+        want_class = alt_asset_class_for_family[want_idp]
+        pairs: list[tuple[float, float]] = []
+        for r in players_array:
+            if r.get("assetClass") != want_class:
+                continue
+            src_rank = (r.get("sourceOriginalRanks") or {}).get(source_key)
+            board_value = r.get("rankDerivedValue")
+            if src_rank is None or not board_value:
+                continue
+            try:
+                pairs.append((float(src_rank), float(board_value)))
+            except (TypeError, ValueError):
+                continue
+        pairs.sort()
+        return pairs
+
+    def _translate_rank_via_alt_ladder(
+        rank: float, ladder: list[tuple[float, float]]
+    ) -> float | None:
+        """Linear interpolation of ``rank`` through the ladder.
+
+        Clamps at both ends rather than extrapolating: past the ladder's
+        depth we have no evidence, and inventing one is how the stage
+        produced a 9304 in the first place.
+        """
+        if len(ladder) < 3:
+            # Too little coverage to translate honestly.  Dropping the
+            # source is correct — the alternative is the untranslated
+            # ordinal, which is the defect.
+            return None
+        xs = [x for x, _ in ladder]
+        ys = [y for _, y in ladder]
+        if rank <= xs[0]:
+            return ys[0]
+        if rank >= xs[-1]:
+            return ys[-1]
+        i = bisect.bisect_left(xs, rank)
+        x0, x1 = xs[i - 1], xs[i]
+        y0, y1 = ys[i - 1], ys[i]
+        if x1 <= x0:
+            return y0
+        return y0 + (y1 - y0) * ((rank - x0) / (x1 - x0))
 
     for row in players_array:
         name = str(row.get("canonicalName") or "")
@@ -4876,22 +4976,21 @@ def _apply_two_way_player_boost(
             rank = int(round((_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100 - syn) / 100))
             if rank <= 0:
                 continue
-            # Percentile → Hill value.  Use the IDP master curve
-            # if alt is IDP, else the OFFENSE master.
-            p = (float(rank) - 1.0) / max(1.0, float(_PERCENTILE_REFERENCE_N - 1))
-            p = max(0.0, min(1.0, p))
-            if alt_is_idp:
-                c, s = IDP_HILL_PERCENTILE_C, IDP_HILL_PERCENTILE_S
-            else:
-                c, s = HILL_PERCENTILE_C, HILL_PERCENTILE_S
-            alt_val = float(percentile_to_value(p, midpoint=c, slope=s))
-            if alt_val > 0:
+            # Ladder translation, NOT a direct Hill.  See the docstring:
+            # this rank lives in the source's own within-family
+            # coordinate system, and the combined-pool curve would read
+            # it as a board-wide rank.  The ladder maps it onto the
+            # board empirically instead.
+            alt_val = _translate_rank_via_alt_ladder(
+                float(rank), _build_alt_ladder(key, alt_is_idp)
+            )
+            if alt_val is not None and alt_val > 0:
                 alt_source_values.append(alt_val)
                 used_sources.append(key)
 
         if not alt_source_values:
             continue
-        alt_value = sum(alt_source_values) / len(alt_source_values)
+        alt_value, _alt_mad = count_aware_mean_median_blend(alt_source_values)
         current_value = float(row.get("rankDerivedValue") or 0.0)
         if alt_value <= current_value:
             # Offense-pool blend already beats the alt-family value;
