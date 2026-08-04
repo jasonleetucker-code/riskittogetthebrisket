@@ -205,6 +205,16 @@ export const NAV_MODEL = [
         hint: "What qualified dynasty managers are buying and selling",
         keywords: ["sharp", "market intelligence", "smart money", "cohort"],
       },
+      // Same cohort as Sharp Tracker, different question: what the
+      // sharps HOLD rather than what they are trading. It sits in
+      // Market for the same reason its sibling does — the cohort is
+      // global and `/api/sharp/roster-percentage` takes no `leagueKey`.
+      {
+        href: "/market/sharp-roster-percentage",
+        label: "Sharp Roster Percentage",
+        hint: "Which players the sharp cohort actually rosters",
+        keywords: ["sharp", "roster percentage", "ownership", "rostered", "exposure"],
+      },
     ],
   },
   {

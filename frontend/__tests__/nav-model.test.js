@@ -41,6 +41,7 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/edge",
   "/bdvm",
   "/market/sharp-tracker",
+  "/market/sharp-roster-percentage",
   "/idptc-rookies",
   "/league",
   "/league/activity",

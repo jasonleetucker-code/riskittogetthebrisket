@@ -148,6 +148,23 @@ def market_audit_payload(asset_id: str, **kwargs: Any) -> dict[str, Any]:
     return sharp_market.audit_payload(asset_id, **kwargs)
 
 
+def roster_percentage_payload(**kwargs: Any) -> dict[str, Any]:
+    """Sharp Roster Percentage board.
+
+    Same cohort as :func:`market_payload` — both resolve their manager
+    pool through ``src/sharp/cohort.py``.
+    """
+    from src.sharp import roster_percentage
+
+    return roster_percentage.build_board(**kwargs)
+
+
+def roster_percentage_audit_payload(asset_id: str, **kwargs: Any) -> dict[str, Any]:
+    from src.sharp import roster_percentage
+
+    return roster_percentage.audit_player(asset_id, **kwargs)
+
+
 def _server_app():
     """Return the FastAPI app whether ``server.py`` was imported or executed.
 

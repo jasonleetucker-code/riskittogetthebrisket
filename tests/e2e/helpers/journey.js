@@ -58,6 +58,7 @@ const TITLE = {
   "/phases": "Win-now vs Rebuild",
   "/edge": "Source Disagreement",
   "/market/sharp-tracker": "Sharp Tracker",
+  "/market/sharp-roster-percentage": "Sharp Roster Percentage",
   "/league/insider-trading": "Insider Trading",
   "/league": "Hub",
   "/league/activity": "Activity",

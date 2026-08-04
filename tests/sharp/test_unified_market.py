@@ -6,7 +6,7 @@ from src.platforms.base import (
     NormalizedMovement,
     NormalizedTransaction,
 )
-from src.sharp import market
+from src.sharp import cohort, market
 
 NOW = 1_800_000_000_000
 
@@ -213,12 +213,12 @@ def test_complete_automated_ffpc_score_can_enter_same_cohort(monkeypatch):
         losses=10,
     )
     monkeypatch.setattr(
-        market.platform_records,
+        cohort.platform_records,
         "build_manager_records",
         lambda **kwargs: ([record], {}),
     )
     monkeypatch.setattr(
-        market.sharp_score,
+        cohort.sharp_score,
         "score_managers",
         lambda records: [
             sharp_score.ManagerScore(
@@ -243,12 +243,12 @@ def test_disabling_ffpc_excludes_automated_and_curated_ffpc_members(monkeypatch)
 
     record = sharp_score.ManagerRecord(user_id="ffpc:site-user-42")
     monkeypatch.setattr(
-        market.platform_records,
+        cohort.platform_records,
         "build_manager_records",
         lambda **kwargs: ([record], {}),
     )
     monkeypatch.setattr(
-        market.sharp_score,
+        cohort.sharp_score,
         "score_managers",
         lambda records: [
             sharp_score.ManagerScore(
