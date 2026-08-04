@@ -566,6 +566,294 @@ Also worth knowing: an **active filter bypasses `rowLimit` entirely**
 (`hasActiveFilter ? ranked : ranked.slice(0, rowLimit)`), so a broad
 filter renders every match with no cap and no transition.
 
+*(Both open items here are closed: round 5 fixed the filter freeze with
+`useDeferredValue` and landed `freezeColumnWidths`; round 6 capped the
+filtered board.  Windowing is still not done — round 6's constraint
+audit is the reason, and the checklist.)*
+
+## 2026-07-30 round 5 — the board's two freeze paths, and stable columns
+
+Two things round 4 left open, both on `/rankings`.
+
+### The filter freeze
+
+Round 4 fixed "Show all" with `useTransition` but left the other path
+open: an active filter bypassed `rowLimit`, so choosing a broad
+position rendered every match synchronously.  Same freeze, different
+button.
+
+The fix is `useDeferredValue` on the rendered rows, not on the filter
+state — defer the *rows*, keep the input urgent, so typing and the
+`<select>` stay responsive while the board catches up:
+
+```js
+const renderedRows = useDeferredValue(displayRows);
+const rowsPending = renderedRows !== displayRows;
+```
+
+Measured at 6× throttle, 390×844, applying the broadest position
+filter:
+
+| | before | after |
+|---|---|---|
+| p95 frame gap | 5052ms | **23ms** |
+| frames painted during the commit | 10 | **146** |
+
+The tab paints throughout instead of going dead.  This handles the
+*transition*; it does nothing about the steady state, which is what
+round 6's cap addresses.
+
+### `freezeColumnWidths`: the windowing prerequisite
+
+Round 4 named pinned column widths as the prerequisite for row
+windowing.  `components/ds/DataTable.jsx` grew a `freezeColumnWidths`
+prop: measure the header cells once, emit a `<colgroup>`, switch to
+`table-layout: fixed`.  Column drift while the board grows went from
+116px / 47px to **0px / 0px** on the two widest columns.
+
+Two bugs found on the way, both worth knowing because both looked
+correct:
+
+* **The obvious dependency array silently disables it.**  A layout
+  effect with deps on `[freezeColumnWidths, frozen, columns]` never
+  fires usefully when the first render has no rows: a passive effect
+  keyed on `columnKeys` cleared `frozen` *after* the layout effect set
+  it (layout effects run before passive ones in the same commit), and
+  the deps never changed again.  The measuring effect deliberately has
+  **no dependency array** and self-guards instead.
+* **`<col>` maps to columns by POSITION, and `display:none` removes a
+  column from the fixed-layout algorithm.**  Emitting a placeholder
+  `<col>` for a responsively hidden column shifted every width after it
+  onto the wrong column — at 390px the player-name column collapsed to
+  0 and the position column inherited its 296px.  Only *visible*
+  columns get a `<col>`.
+
+Verified by full-page pixel diff of `/rankings` and `/finder` (same
+board) at 1366×900 and 390×844, reviewed by the user, plus the vitest
+suite.
+
+## 2026-08-04 round 6 — cut the JS every route executes
+
+### The finding that reordered the round
+
+Round 4's throttled-CPU profile said script cost dominates (1301–1829ms
+vs layout 310–417ms vs style recalc 255–321ms at 6×).  So the question
+was how much JS each route executes — and the answer was hidden from
+CI.  `frontend/scripts/check-bundle-sizes.mjs` filtered to
+`static/chunks/app/`, which is the *page-specific slice only*:
+
+| Route | real first-load JS | what the gate measured | coverage |
+|---|---|---|---|
+| `/league` | 718.4 KB | 174.0 KB | 24% |
+| `/draft` | 682.7 KB | 130.2 KB | 19% |
+| `/trade` | 638.2 KB | 82.6 KB | 13% |
+| `/rankings` | 629.2 KB | 62.8 KB | 10% |
+| `/settings` | 592.2 KB | 47.8 KB | 8% |
+
+The root layout alone was **548.8 KB on every route, of which the gate
+counted 4.3 KB**.  "Three routes within 2 KB of ceiling" — round 4's
+stated priority — was a fact about the smaller 8–24% slice.  Caching
+does not help: nginx already serves `_next/static` content-hashed and
+`immutable`, so the cost is parse-and-execute, not download.  Only
+shipping less JS moves it.
+
+### INP — measured for the first time
+
+The original brief asked for INP.  Rounds 1–5 never measured it; TBT
+was covered (the sweep's `longTaskMs`) and INP was silently skipped.
+Measured via `PerformanceObserver({type: "event"})` + `interactionId`,
+with `long-animation-frame` for cause attribution.  Mobile 390×844,
+medians of 3, Google's bands: good ≤200ms, poor >500ms.
+
+| interaction | 1× | 4× before | 4× after | 6× before |
+|---|---|---|---|---|
+| `/rankings` sort a column | 88 | 384 | **328** | 504 |
+| `/rankings` expand a row | 128 | 480 | 496 | 664 |
+| `/rankings` open player popup | 144 | 488 | **304** | 800 |
+| `/rankings` "Show all" | 64 | 264 | **232** | 472 |
+| `/league` switch tab (1366px) | 24 | 48 | 48 | 72 |
+| `/` open nav menu (1366px) | 32 | 56 | 56 | 80 |
+
+On a **filtered** board — the case the row cap targets — the change is
+larger, because the interaction no longer runs against 632 rows:
+
+| interaction (4×, filtered) | before | after |
+|---|---|---|
+| sort a column | 840 | **384** |
+| expand a row | 992 | **480** |
+| open player popup | 584 | **280** |
+
+All three were "poor" (>500ms); none is now.  LoAF attributed the
+blocking time to the framework chunk — React reconciliation over the
+board's DOM, not app logic — which is why DOM size, not app code, was
+the lever.
+
+### What changed
+
+Seven commits, each independently measurable:
+
+1. **`"sideEffects": ["*.css"]` in `frontend/package.json`.**  There was
+   no `sideEffects` field, so every barrel (`components/ds/index.js`,
+   47 importers; `components/ui/index.js`, 29) was only weakly
+   tree-shakeable.  **Not a bare `false`** — CSS imports are side
+   effects by definition (`app/layout.jsx` imports `./globals.css`
+   purely for the import), and `false` invites the bundler to drop them
+   and ship an unstyled app.  The `//sideEffects` key in
+   `package.json` records that.
+2. **`PlayerPopup` + `CommandPalette` out of the root layout** via
+   `dynamic(..., {ssr: false})`.  Both were statically imported by
+   `AppShell.jsx` and gated by booleans at their render sites;
+   `PlayerPopup` is the largest component in the repo (48.3 KB) and
+   statically pulls `PlayerRankHistoryChart`.  **The render gates had to
+   move too** — `dynamic()` fetches its chunk when the component
+   *renders*, so `privateDataEnabled && popupRow && …` is what actually
+   defers it.  On `/league`, `privateDataEnabled` is false, so all
+   69.2 KB was provably unreachable there already.
+3. **The 21 `/league` sections behind `dynamic()`.**  `LeagueClient.jsx`
+   imported all of them statically and rendered exactly one.  The
+   default tab stays statically imported so the landing view has no
+   loading flash.  Composes with round 4's per-section SSR: the code for
+   a tab and the data for a tab now both arrive on open.
+4. **The bundle gate reports first-load JS.**  Added a
+   `[first-load N KB]` column and a root-layout header line.  Reported,
+   not budgeted — the per-page budgets remain the right gate for "did
+   this feature bloat its own route", but they cannot see the shared
+   graph, which is how it reached 548 KB unnoticed.
+5. **Filtered board results are capped**, the way unfiltered ones
+   already were — see below.
+6. **Dead code deleted**: five `components/ui/` modules with zero
+   consumers (`MobileSheet`, `FilterBar`, `VirtualList`,
+   `ValueBandBadge`, `TierDivider`), two orphaned `/league` sections,
+   and `react-markdown`, an entirely unused dependency whose
+   unified/remark/rehype tree was one careless import from a bundle.
+7. **`/trade`'s collapsed "Second opinions" panel and `/rankings`'
+   methodology charts** behind `dynamic()`.  This needed a change to
+   `CollapsiblePanel`: the `hidden` attribute still **mounts** children,
+   so a `dynamic()` import inside a collapsed panel fetches its chunk
+   immediately and the split buys nothing.  Hence
+   `mountCollapsedChildren={false}` — opt-in, because skipping the mount
+   is a real behaviour change (children never run effects or fetch until
+   first open), right for inert charts and wrong for anything that must
+   be warm.
+
+### Result: real first-load JS
+
+```
+ROOT LAYOUT (every route): 548.8 -> 463.9 KB   (-84.9 on every one of 90 routes)
+
+route                before    after     delta     pct
+/league               718.4    503.1    -215.3  -30.0%
+/draft                682.7    615.5     -67.2   -9.8%
+/trade                638.2    558.8     -79.4  -12.4%
+/rankings             629.2    580.8     -48.4   -7.7%
+/                     622.3    564.6     -57.7   -9.3%
+/settings             592.2    515.1     -77.1  -13.0%
+/waivers              590.8    535.1     -55.7   -9.4%
+```
+
+Average −85.8 KB across the seven measured routes.
+
+**Three page-specific budgets were bumped, and that is the interesting
+part.**  `/rankings` 65→75, `/trade` 82→92, `/draft` 128→150 — they
+went *over* their budgets **because of the improvement**: code that used
+to sit in everyone's shared graph is now attributed to the routes that
+actually use it.  Judged on the old number alone, an unambiguous win
+looked like a regression.  That is the blind spot change 4 closes.
+`/league` moved the other way and was **tightened 170→50**, since its
+page slice fell 174→39 KB and a future
+`import XSection from "./sections/…"` — the easy mistake, since it looks
+like every other import — should trip CI rather than quietly put all 21
+sections back.
+
+### The row cap, and why windowing was not done
+
+Round 4 named windowing as the fix and round 5 removed its stated
+blocker (`freezeColumnWidths`).  A full constraint audit of
+`DataTable.jsx` then found windowing is a much larger change than the
+ledger implied.  Recorded as the checklist if it is ever revisited:
+
+1. **There is no vertical scroll container.**  `maxHeight` has zero
+   consumers and `.ds-table-wrap` sets `overflow-x: auto` with no
+   height, so the board scrolls with the *document* and the sticky
+   header is inert today.  Container-scroll windowing would make it live
+   for the first time and nest a scroll region — a visible UX change.
+2. **`nth-child(even)` zebra striping is positional CSS** (and its own
+   comment says it is "doing tracking work, not decoration").  Windowing
+   changes row parity every scroll frame, so stripes visibly invert
+   while scrolling.  Fixing that means a data-driven class, which
+   collides with `rowClassName` being caller-owned.
+3. **Every interactive row is a tab stop**, as is every in-cell button.
+   Windowing breaks tab continuity and destroys focus when the focused
+   row unmounts; no roving-tabindex infrastructure exists.
+4. **`renderBeforeRow` receives the slice index.**  Rankings' tier
+   divider reads `renderedRows[i - 1]` and short-circuits on `i === 0`,
+   so a window-local index emits dividers in the wrong places.
+5. **jsdom has no layout** — `getBoundingClientRect()` is all zeros, so
+   a height-driven window renders 0 rows and breaks ~25 unit tests.  It
+   must degrade to full rendering when unmeasurable.
+6. **E2E tripwire**: `tests/e2e/helpers/journey.js` polls until
+   `rows.count() >= 50` (gating 7 tests) and `mobile-smoke.spec.js`
+   asserts ≥50 rows at 390×844.  A viewport-sized window renders ~30–45
+   — both fail.
+7. `freezeColumnWidths` measures whatever window is mounted, so a long
+   name at row 800 would clip; measurement must see worst-case content.
+8. `aria-rowcount` / `aria-rowindex` do not exist and windowing requires
+   them, including on caller-authored `<tr>`s the caller cannot index.
+9. The variable-height expansion pattern is not rankings-only — bdvm
+   roster capitals pairs `onRowClick` with `renderAfterRow` too.
+
+The cap reaches the same target in ~10 lines.  `displayRows` is now
+`ranked.slice(0, rowLimit)` unconditionally.  Three things moved with
+it, without which this would be the dishonest version of the fix:
+
+* **`hasMore` no longer excludes the filtered case**, so a filtered
+  board never caps silently.
+* **The count line stays truthful** — it reads "200 of 516 shown", the
+  total is still stated, and the rest is one click away.
+* **`rowLimit` resets when the filter changes**, or a user who clicked
+  "Show all" once would keep an uncapped board forever and the fix would
+  do nothing.
+
+Round 5's `useDeferredValue` is untouched: it handles the transition,
+this handles the steady state.
+
+### Scroll FPS: measured, including where it still misses
+
+390×844, mouse-wheel driven, rAF-sampled.  The `showall` row **is** the
+pre-cap filtered behaviour exactly (a filter used to render every
+match), so it doubles as the before column:
+
+| CPU | default (200) | filtered (200) | filtered + one "Show more" (510) | "Show all" (632) |
+|---|---|---|---|---|
+| 1× | 58.9 | **60.1** | 48.0 | 39.5 |
+| 4× | 36.0 | **29.2** | 14.5 | 8.8 |
+| 6× | 22.9 | **19.9** | 9.1 | 5.6 |
+
+Filtered scroll at 4× went **8.8 → 29.2 FPS** (p95 frame gap 182ms →
+51ms) and at 1× **39.5 → 60.1**.
+
+**Stated plainly: the Phase-4 target was ≥30 FPS at 4× and ≥50 at 1× on
+the worst reachable board, and only part of that is met.**  Default and
+filtered hit it at 1×; default hits it at 4× (36.0) and filtered lands
+just under (29.2).  Once the user explicitly asks for more rows —
+"Show more" or "Show all" — it is not met, and cannot be by a cap,
+because those states exist precisely to defeat the cap.  Getting 500+
+rows to 30 FPS is the windowing work above.
+
+### Regression check
+
+25-route sweep plus 5-run medians on the volatile routes.  No CLS
+regression: `/` 0.0910 → 0.0936, `/draft` 0.0682 → 0.0682, `/settings`
+0.0710 → 0.0723 — all inside Google's "good" band, all within run
+noise.  A single-run sweep showed `/draft` at 0.167 and
+`/league/activity` LCP at 1460ms; both were outliers that vanished on
+medians (0.0682 and 268ms), which is why single runs are not trusted
+here.  1,647 frontend tests pass; the bundle gate exits 0.
+
+One known tail: `/draft` hits ~0.18 in roughly 1 run in 5, attributed
+to a `DIV.muted` block collapsing 361×166 → 0 at ~900ms.  Pre-existing,
+not round 6's doing, and not yet fixed.
+
 ## Rejected (attempted, reverted)
 
 ### Browser revalidation via `If-None-Match`/`304` — **not safe as-is**
@@ -597,36 +885,61 @@ tweak, so it is tracked separately rather than bundled here.
 
 ## Planned (prioritized)
 
-Reordered after round 4, because the throttled-CPU numbers say plainly
-where the remaining time goes.  On a 6× throttled mobile CPU the budget
-is **script 1301–1829ms, layout 310–417ms, style recalc 255–321ms** —
-script is 4–6× everything else, so JS is the whole ballgame now that
-payloads and layout shift are handled.
+Reordered after round 6.  Script cost still dominates on a throttled
+mobile CPU (round 4's profile: **script 1301–1829ms, layout 310–417ms,
+style recalc 255–321ms** at 6×), and round 6 took 85 KB off every route
+without touching the largest single item on the list.
 
-1. **Cut first-paint JS on the heaviest routes** (`/league` 169 KB,
-   `/draft` 126 KB, `/trade` 78 KB — all within ~2 KB of their budgets).
-   This is the single biggest remaining lever on slow devices.
-2. **Pin the rankings board's column widths, then window its rows.**
-   Prerequisite, not optional: the table is `table-layout: auto` with no
-   `colgroup`, so spacer-row windowing makes columns jump.
-   `content-visibility` is ruled out (spec excludes table internals) and
-   `VirtualList.jsx` is div-only. Payoff: `/rankings` scrolls at 2–3 FPS
-   with 1,095 rows on a 4–6× throttled CPU, and 10–14 FPS even at the
-   default 200.
-3. **Cap filtered results the way unfiltered ones are capped.** An
-   active filter bypasses `rowLimit` entirely, so a broad filter renders
-   every match with no cap and no transition — the same freeze "Show
-   all" had before round 4.
-4. **The remaining CSS families** (~32 KB, single-owner, mixed-free):
-   scouting / portfolio / pmm / ticker / edge / watchlist / tc. The
-   splitter and pixel-diff harness from round 4 make it mechanical.
-   Small win — see round 4's scope note on why CSS is not the
-   bottleneck.
-5. **`app/sitemap.js` still fetches the 2 MB aggregate contract**, so it
+1. **The 337 KB React/Next framework baseline every route pays.**  Now
+   the largest remaining item by a wide margin — 463.9 KB of the
+   post-round-6 shared graph is framework, and it is a floor only
+   because the client boundary sits at the root layout.  Moving it means
+   server components, which is an architectural change and **out of
+   scope by the user's decision**.  Round 6's first-load reporting makes
+   it visible rather than invisible; listed here so the number is not
+   mistaken for irreducible.
+2. **Window the rankings board's rows** — the only way past 30 FPS with
+   500+ rows on a 4× CPU.  Round 5 removed the stated blocker
+   (`freezeColumnWidths`), but round 6's audit found nine further
+   constraints; the checklist is in the round-6 section above and should
+   be worked through before any attempt.  Round 6's cap makes the
+   *default* and *filtered* boards fast, so this now only affects users
+   who explicitly click "Show more" / "Show all".
+3. **Stop non-data routes hydrating the player pipeline.**
+   `AppShell.jsx` gates `useDynastyData()` behind
+   `PUBLIC_ONLY_ROUTE_PREFIXES`, currently `["/league"]` only.  `/login`
+   and `/more` still fetch the contract and materialize ~1,100 rows.
+   Audit `/settings`, `/admin`, `/design` individually — a wrong entry
+   breaks a page rather than slowing it.
+4. **`/draft`'s CLS tail.**  ~1 run in 5 hits 0.18 (median 0.068), from
+   a `DIV.muted` block collapsing 361×166 → 0 at ~900ms.  Same
+   height-reservation shape as the round-4 fixes.
+5. **Extract and split `/draft`'s modals.**  `DraftModal`,
+   `DraftReviewPanel` and `DraftGlossary` (~930 lines) live *inside* the
+   5,185-line page module, so webpack cannot split them; they need
+   extraction to `_`-prefixed siblings first.  Deferred from round 6 as
+   the most invasive edit available.  Same for `/settings`'
+   `PushNotificationToggle` / `CustomAlertsConfigurator` (~15 KB), which
+   render unconditionally and need viewport-triggered mounting rather
+   than a boolean gate.
+6. **The remaining CSS families** (~32 KB, single-owner, mixed-free):
+   scouting / portfolio / pmm / ticker / edge / watchlist / tc.  The
+   splitter and pixel-diff harness from round 4 make it mechanical, but
+   they gzip to ~32 KB total and nginx already gzips `text/css` — small
+   win.
+7. **`app/sitemap.js` still fetches the 2 MB aggregate contract**, so it
    keeps tripping Next's Data Cache size limit. Crawler-only path.
-6. **Navigation** — ensure route transitions reuse cached data instead
+8. **Navigation** — ensure route transitions reuse cached data instead
    of refetching/recomputing.
-7. **Client revalidation** — blocked on the auth-scoping work above.
+9. **Client revalidation** — blocked on the auth-scoping work above.
+
+Not on this list, and deliberately: **`Icon` tree-shaking**
+(`components/ds/Icon.jsx` holds every glyph in one object literal looked
+up at runtime by `name`, with `ICON_NAMES = Object.keys(PATHS)` hard-
+referencing the map — structurally un-shakeable, as
+`glyph-chevron-down.jsx` documents) and **consolidating `components/ui/`
+onto `components/ds/`** (a migration, not a perf fix, though finishing
+it would drop the whole `ui` barrel off `/league`).
 
 ## Validation notes
 
