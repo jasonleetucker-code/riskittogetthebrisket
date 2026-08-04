@@ -375,6 +375,64 @@ describe("analyzeSleeperTradeHistory — side shape (gave + got + net)", () => {
     expect(a.pctGap).toBeGreaterThanOrEqual(3);
   });
 
+  it("names ONE winner — winner/loser and the grades read the same board", () => {
+    // Four 4000-value pieces for one 9000 stud.  The pile side is +7000
+    // on raw sums, but KTC's value adjustment hands 8622 back to the
+    // consolidating side, so the canonical net is −1622 and the pile
+    // side's OWN grade is "Overpay" at −9.2%.
+    //
+    // The alpha-weighted net disagrees, and not marginally: 4 ×
+    // 4000^1.65 beats 9000^1.65 by ~165,000.  Ranking sides on
+    // ``netWeighted`` — which is what ``winner``/``loser`` did until
+    // the 2026-08-04 math audit (finding C3) — therefore crowned the
+    // pile team while every other field on the same card, including
+    // ``winnerGrade``, called them the loser.  One trade, two notions
+    // of who won.
+    const bigRows = [
+      { name: "Test Elite", pos: "WR", values: { full: 9000, raw: 9000 } },
+      { name: "Test Piece", pos: "RB", values: { full: 4000, raw: 4000 } },
+    ];
+    const pile = ["Test Piece", "Test Piece", "Test Piece", "Test Piece"];
+    const rawData = {
+      sleeper: {
+        teams: [
+          { name: "Pile Getter", roster_id: 1, ownerId: "user-a" },
+          { name: "Stud Getter", roster_id: 2, ownerId: "user-b" },
+        ],
+        trades: [
+          mkTrade({
+            offsetDaysAgo: 1,
+            sides: [
+              { team: "Pile Getter", rosterId: 1, ownerId: "user-a", got: pile, gave: ["Test Elite"] },
+              { team: "Stud Getter", rosterId: 2, ownerId: "user-b", got: ["Test Elite"], gave: pile },
+            ],
+          }),
+        ],
+      },
+    };
+
+    const { analyzed } = analyzeSleeperTradeHistory(rawData, bigRows);
+    const a = analyzed[0];
+    const [pileSide, studSide] = a.sides;
+
+    // Per-side grades: the VA outweighs the +7000 linear edge.
+    expect(pileSide.pctGap).toBeLessThan(0);
+    expect(pileSide.grade.label).toBe("Overpay");
+    expect(studSide.pctGap).toBeGreaterThan(0);
+    expect(studSide.grade.label).toBe("Good win");
+    // ...and the alpha net really does point the other way, so this
+    // case can only pass if winner/loser stopped reading it.
+    expect(pileSide.netWeighted).toBeGreaterThan(studSide.netWeighted);
+
+    // The card's winner must be a side its own grade calls a winner.
+    expect(a.winner.team).toBe("Stud Getter");
+    expect(a.loser.team).toBe("Pile Getter");
+    expect(a.winner.pctGap).toBeGreaterThan(0);
+    expect(a.loser.pctGap).toBeLessThan(0);
+    expect(a.winnerGrade.label).toBe("Good win");
+    expect(a.loserGrade.label).toBe("Overpay");
+  });
+
   it("labels a balanced trade as Fair on both sides and skips W/L credit", () => {
     const rawData = {
       sleeper: {

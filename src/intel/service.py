@@ -400,7 +400,19 @@ def build_summary_payload(
     active = [
         s for s in summaries.values() if any(w["buys"] or w["sells"] for w in s["windows"].values())
     ]
-    active.sort(key=lambda s: (-s["trendScore"], -(s["lastEventTs"] or 0)))
+    # Rank on the confidence-adjusted directional signal, NEVER on a
+    # sum of the nested windows.  ``signalStrength`` is computed over
+    # the primary window alone (aggregate.PRIMARY_WINDOW), so a
+    # movement an hour old enters the ranking once instead of three
+    # times via 48h + 7d + 30d — the retired ``trendScore`` defect.
+    # Ties break on primary-window volume then recency, so the order is
+    # a deterministic total order rather than dict insertion order.
+    def _board_rank_key(summary: dict[str, Any]) -> tuple[float, int, int]:
+        primary = summary["windows"].get(aggregate.PRIMARY_WINDOW) or {}
+        volume = int(primary.get("buys") or 0) + int(primary.get("sells") or 0)
+        return (-float(summary["signalStrength"]), -volume, -(summary["lastEventTs"] or 0))
+
+    active.sort(key=_board_rank_key)
     members = state.get("members") or {}
     return {
         "leagueKey": league_key,
@@ -455,7 +467,9 @@ def build_player_payload(
             "windows": aggregate._empty_windows(),
             "leagueCount": len(held_league_ids),
             "heldLeagueCount": len(held_league_ids),
-            "trendScore": 0,
+            "signalStrength": 0.0,
+            "confidence": "insufficient",
+            "velocity": None,
             "lastEventTs": None,
         }
     payload = _serialize_asset(entry, id_to_player)

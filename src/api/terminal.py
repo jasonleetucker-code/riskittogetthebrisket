@@ -425,7 +425,22 @@ def _build_value_history_lookup(*, days: int) -> Callable[[str], list[dict[str, 
     if not entries:
         return lambda _name: []
     entries.sort(key=lambda e: e.get("date") or "")
-    windowed = entries[-max(1, int(days)) :]
+    # Window by DATE, not by element count.  ``entries[-days:]`` kept the
+    # last N *snapshots*; the caller passes ``days`` and the delta code
+    # downstream compares against ``latest − days``, so the two only
+    # agree when the log is gap-free daily.  It isn't: the log is
+    # deduped per UTC date but a missed refresh drops a date entirely,
+    # and the historical backfill from ``dynasty_data_*.json`` exports
+    # is sparser still.  With gaps the count slice reaches BACK further
+    # than asked (30 snapshots can span 90 days) while still being
+    # labelled 30 days — and a value read from 90 days ago is not a
+    # "30 days ago" value.  Anchor on the newest stamped date and keep
+    # everything in ``[latest − days, latest]``, matching the inclusive
+    # cutoff ``_window_trend`` already uses for rank points.
+    stamped = [e.get("date") for e in entries if isinstance(e.get("date"), str)]
+    latest_stamp = max(stamped) if stamped else ""
+    cutoff_stamp = _back_iso_date(latest_stamp, max(1, int(days))) if latest_stamp else ""
+    windowed = [e for e in entries if isinstance(e.get("date"), str) and e["date"] >= cutoff_stamp]
 
     lookup: dict[str, list[dict[str, Any]]] = {}
     for snap in windowed:
@@ -606,7 +621,13 @@ def _sum_roster_value_at_date(
           "coverageFraction": float,
           "reliable":         bool,
           "source":           "value" | "rank" | "mixed" | "none",
+          "resolvedNames":    [str],   # trim+lowercase keys
         }
+
+    ``resolvedNames`` is the exact population ``value`` was summed
+    over.  Callers MUST use it to build the other side of any
+    subtraction: a sum over 70% of a roster minus/plus a sum over
+    100% of one is a population mismatch, not a delta.
 
     The low-coverage guard (<60% of roster resolved) returns
     ``value=None`` but still surfaces the coverage fraction so the
@@ -621,6 +642,7 @@ def _sum_roster_value_at_date(
         "coverageFraction": 0.0,
         "reliable": False,
         "source": "none",
+        "resolvedNames": [],
     }
     if expected == 0:
         return result
@@ -629,7 +651,9 @@ def _sum_roster_value_at_date(
     resolved = 0
     total = 0
     sources_hit: set[str] = set()
+    resolved_names: list[str] = []
     for name in roster_names:
+        name_key = str(name).strip().lower()
         chosen_value: int | None = None
         # 1) Try value-history first.
         if value_history_by_name is not None:
@@ -647,6 +671,7 @@ def _sum_roster_value_at_date(
                 sources_hit.add("value")
                 total += chosen_value
                 resolved += 1
+                resolved_names.append(name_key)
                 continue
         # 2) Fall back to rank-history → Hill curve.
         points = history_by_name(name) or []
@@ -673,12 +698,14 @@ def _sum_roster_value_at_date(
         # by ~800 points per defender on the 9999 scale.  A player who
         # has since left the board falls back to the offense curve —
         # unchanged from the previous behaviour for that case.
-        _hist_row = row_index.get(name.strip().lower()) or {}
+        _hist_row = row_index.get(name_key) or {}
         total += int(_rank_to_value_for_scope(float(chosen), _row_scope(_hist_row)))
         resolved += 1
+        resolved_names.append(name_key)
 
     coverage = resolved / max(1, expected)
     result["resolved"] = resolved
+    result["resolvedNames"] = resolved_names
     result["coverageFraction"] = round(coverage, 3)
     result["reliable"] = coverage >= _MIN_COVERAGE_FOR_RELIABLE_SUM
     if len(sources_hit) == 1:
@@ -1461,6 +1488,32 @@ def build_terminal_payload(
         # ``delta*d`` is ``int | None`` for backwards compat with
         # the pre-coverage consumers; the full block is exposed on
         # ``delta*dDetail``.
+        #
+        # POPULATION CONSISTENCY (2026-08-04 audit, finding H2).  The
+        # delta used to be ``total - past_total``, where ``total`` is
+        # the sum above over EVERY resolvable current row (~100%
+        # coverage) and ``past_total`` is a sum over only the subset
+        # of the past roster whose history resolved (as low as 60%,
+        # the reliability floor).  Subtracting a 60%-covered past sum
+        # from a 100%-covered present one is not a delta — it is
+        # biased POSITIVE by roughly the whole value of the players
+        # the past side could not price.  On a 45-man IDP roster at
+        # the 60% floor that is ~18 players of phantom "growth", and
+        # the coverage fraction sitting in ``delta*dDetail`` did not
+        # stop the headline int from being wrong.
+        #
+        # The present-day side is now built with the SAME eligibility
+        # test as the past side: a player HELD at ``past_date`` whose
+        # past value could not be resolved is dropped from both sides,
+        # so nothing enters one sum without a counterpart in the other.
+        # Roster-awareness survives intact, because the test is on
+        # priceability, not on membership: a player acquired inside
+        # the window was legitimately worth 0 to this roster then and
+        # still contributes his full present value, and a player
+        # traded away still contributes his past value and no present
+        # one.  ``presentValue`` / ``pastValue`` /
+        # ``excludedFromPresent`` say exactly which population the
+        # emitted number is over.
         latest_date = _latest_snapshot_date(history)
         # Value history is a richer source (28+ days backfilled
         # from exports vs 2 days of live rank log).  If rank
@@ -1488,8 +1541,33 @@ def build_terminal_payload(
                     row_index=row_index,
                 )
                 value = past_total["value"]
+                # Present-day sum restricted to the same population the
+                # past sum could price.  ``held_then`` is the
+                # reconstructed roster, so a name in it that is NOT in
+                # ``priced_then`` is a player we owned at ``past_date``
+                # and cannot value then — he is dropped from the
+                # present side too rather than counted as pure gain.
+                held_then = {str(p).strip().lower() for p in past_roster}
+                priced_then = set(past_total["resolvedNames"])
+                present_total = 0
+                compared = 0
+                excluded: list[str] = []
+                for r in roster_rows:
+                    v = int(_row_value(r))
+                    if v <= 0:
+                        continue
+                    key = _row_name(r).strip().lower()
+                    if key in held_then and key not in priced_then:
+                        excluded.append(_row_name(r))
+                        continue
+                    present_total += v
+                    compared += 1
                 return {
-                    "value": (total - value) if value is not None else None,
+                    "value": (present_total - value) if value is not None else None,
+                    "presentValue": present_total if value is not None else None,
+                    "pastValue": value,
+                    "comparedCount": compared,
+                    "excludedFromPresent": sorted(excluded),
                     "coverageFraction": past_total["coverageFraction"],
                     "resolved": past_total["resolved"],
                     "expected": past_total["expected"],

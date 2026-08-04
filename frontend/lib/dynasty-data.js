@@ -138,16 +138,33 @@ export function classifyPos(pos) {
 // backend stamps every rankable row and the frontend materializes
 // those stamps verbatim.
 
+// SCALE CONTRACT (math audit 2026-07-30, finding H1).  ``raw`` and
+// ``full`` are NOT the same scale and must never substitute for each
+// other:
+//
+//   raw  — the legacy scraper composite, ~1.131x the canonical board
+//          (measured; ``BOARD_TO_COMPOSITE_K`` in src/trade/finder.py).
+//          This is the UI's explicit "Raw" value mode.
+//   full — the canonical board value (``rankDerivedValue``), the number
+//          every page, sum and threshold is calibrated against.
+//
+// ``full`` used to fall back through ``_finalAdjusted -> _composite ->
+// raw``, so a row the backend declined to price silently contributed a
+// composite-scale number to board-scale sums (team value, trade sides,
+// waiver gaps, portfolio totals).  It no longer does: an unpriced row
+// reports 0 and drops out of those sums rather than distorting them.
+// ``_canonicalDisplayValue`` is not read because nothing has ever
+// written it — the backend field of that name does not exist.
 export function inferValueBundle(player = {}) {
   const raw =
     Number(
       player._rawComposite ?? player._rawMarketValue ?? player._composite ?? 0,
     ) || 0;
-  // Prefer 1–9999 display value; fall back to internal calibrated value
-  const display = Number(player._canonicalDisplayValue ?? 0) || 0;
-  const internal =
-    Number(player._finalAdjusted ?? player._composite ?? raw) || raw;
-  const full = display || internal;
+  // Board value only.  The legacy ``players`` dict carries
+  // ``rankDerivedValue`` mirrored from the contract row; when it is
+  // absent the board declined to price this row and there is no
+  // board-scale number to report.
+  const full = Number(player.rankDerivedValue ?? 0) || 0;
   return {
     raw: Math.round(raw),
     full: Math.round(full),
@@ -945,7 +962,12 @@ function _materializePlayerArrayRow(player) {
   const cls = classifyPos(pos);
   if (cls === "excluded") return null;
 
-  // Prefer 1–9999 display value; fall back to internal calibrated value
+  // Board-scale keys only — see the SCALE CONTRACT note on
+  // ``inferValueBundle``.  ``values.displayValue`` / ``finalAdjusted`` /
+  // ``overall`` all mirror the backend's ``rankDerivedValue`` and are
+  // null when the board declined to price the row;
+  // ``values.rawComposite`` is the legacy composite and stays out of
+  // this chain.
   const displayVal = Number(player?.values?.displayValue ?? 0) || 0;
   const internalVal =
     Number(player?.values?.finalAdjusted ?? player?.values?.overall ?? 0) || 0;

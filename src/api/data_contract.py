@@ -5681,6 +5681,87 @@ _TE_BLANKET_KTC_EXEMPT_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep"})
 _BOARD_TE_BASIS: str = "tepp"
 _TE_SOURCE_DEFAULT_BASIS: str = "base"
 
+# Where the TE lift stops being linear and starts being squashed toward
+# the scale ceiling.  See ``_te_lift_under_ceiling``.
+_TE_LIFT_SOFT_KNEE: float = 9900.0
+
+
+def _te_lift_under_ceiling(lifted: float, *, knee: float = _TE_LIFT_SOFT_KNEE) -> float:
+    """Bring a lifted TE contribution under the 9,999 ceiling WITHOUT
+    collapsing distinct votes onto it.
+
+    Math audit 2026-07-30, finding C4.
+
+    The TE premium is a value ratio measured on KTC's own two boards, and
+    it is sound: across all 72 tight ends paired on both boards, applying
+    it reproduces KTC's true TE++ ratio to a mean absolute error of 0.090.
+    The problem is the ceiling.  A source's contribution is ``Hill(rank)``,
+    and the Hill master is far steeper at the top than KTC's real value
+    distribution — KTC ranks Brock Bowers 8th and values him 8153, while
+    Hill maps rank 8 to 9076.  Lifting 9076 by 1.209 gives 10975, and
+    ``min(..., 9999)`` then threw the overflow away.
+
+    Measured on the live source CSVs, that clamp made six sources'
+    top-TE votes IDENTICAL — fantasyCalc, pfkDynasty and dynastyDaddySf
+    (rank 8), idpTradeCalc and dynastyNerdsSfTep (rank 7), otcffbSf
+    (rank 14) all contributed exactly 9999.  Each was then casting the
+    same vote for a tight end as for the #1 overall player, and the
+    disagreement they actually published was erased rather than applied.
+    Offense rows are exempt from the market-corridor clamp, so nothing
+    downstream contained it either.
+
+    A hard clamp is the wrong tool because it is not injective.  This is
+    the same bound expressed as a strictly increasing map, so distinct
+    inputs stay distinct:
+
+        v <= knee      ->  v                       (exactly unchanged)
+        v >  knee      ->  9999 - (9999 - knee) * exp(-(v - knee) / (9999 - knee))
+
+    Continuous and C1 at the knee (both value and slope are 1:1 there),
+    asymptotic to 9999 from below, and never reaching it — so a lifted
+    tight end can approach the top asset on its source's board but never
+    displace it.  That matches what KTC's own TE++ board does: Bowers
+    lands 5th at 9859, not 1st.
+
+    A REJECTED ALTERNATIVE, recorded because it was tried and measured:
+    applying the premium as a RANK shift before the Hill call, fitted
+    from the same paired boards (``scripts/audit/fit_ktc_te_rank_shift.py``,
+    Bowers 8 -> 5, McBride 17 -> 8).  It is bounded by construction and
+    cannot saturate, which is attractive.  But pushing a rank shift
+    through the Hill curve does not recover the measured VALUE ratio,
+    because the curve's shape is not KTC's value distribution: mean
+    absolute error against KTC's own ratio was 0.175 versus 0.090 for the
+    value-space conversion, and it was worse across the whole deep half
+    of the board (at KTC base rank 496 the true ratio is 2.045; value
+    space gives 1.633, rank space 1.122).  The value space is where the
+    premium was measured and where it belongs; only the ceiling needed
+    fixing.  The fitter is kept as the record of that measurement.
+
+    Only the top ~1% of the scale is touched: below ``knee`` this is the
+    identity, so every number the previous implementation produced below
+    9900 is bit-for-bit unchanged.
+
+    REACHABLE DOMAIN.  The largest lift this pipeline can produce is the
+    scale ceiling times the uplift curve's floor, 9999 x 1.2092 = 12093:
+    the curve is DECREASING in value, so the biggest contributions take
+    the smallest multiplier, and the deep tight ends that take the 2.053
+    ceiling multiplier start from small Hill values.  With a 99-wide span
+    the squash stays strictly increasing in float64 out to ~12440, which
+    covers that domain with margin.  Past ~12440 the exponential
+    underflows and the map goes flat — so the result is additionally held
+    one representable step below the ceiling, which keeps the "cannot
+    displace the top asset" guarantee true even for an input this
+    pipeline cannot currently generate.
+    """
+    v = float(lifted)
+    ceiling = float(_DISPLAY_SCALE_MAX)
+    if v <= knee:
+        return v
+    span = ceiling - knee
+    if span <= 0:
+        return min(v, ceiling)
+    return min(ceiling - span * math.exp(-(v - knee) / span), ceiling - 1e-9)
+
 # Cached Sleeper league context.  Populated on first call via the
 # Sleeper /v1/league/{id} endpoint using ``SLEEPER_LEAGUE_ID`` from
 # the env.  Stores the full resolved payload (roster count, TE-bonus,
@@ -7106,6 +7187,7 @@ def _compute_unified_rankings(
             # value that actually enters aggregation.
             hill_c, hill_s = _curve_for_source(src_def)
             denom = _percentile_denom_for_source(src_def, source_key)
+
             if denom >= 2:
                 p = (float(eff_rank) - 1.0) / float(denom - 1)
             else:
@@ -7193,26 +7275,25 @@ def _compute_unified_rankings(
                 if source_key in tep_boosted_source_keys:
                     pre_te_value = value
                     if te_basis_conversion:
-                        value = min(
+                        value = _te_lift_under_ceiling(
                             float(
                                 _convert_te_value(
                                     value,
                                     from_basis=_TE_SOURCE_DEFAULT_BASIS,
                                     to_basis=_BOARD_TE_BASIS,
                                 )
-                            ),
-                            9999.0,
+                            )
                         )
                         if pre_te_value > 0:
                             tep_basis_uplift = value / pre_te_value
                     else:
-                        value = min(value * effective_non_tep_multiplier, 9999.0)
+                        value = _te_lift_under_ceiling(value * effective_non_tep_multiplier)
                     tep_applied = True
                 elif source_key in tep_native_source_keys:
                     # Unchanged: only base <-> tepp is measured, so a
                     # TEP-native board has no conversion to make without
                     # inventing an intermediate uplift.
-                    value = min(value * effective_native_multiplier, 9999.0)
+                    value = _te_lift_under_ceiling(value * effective_native_multiplier)
                     tep_native_corrected = True
             all_values.append(value)
             src_blend_weight = blend_weight_by_source.get(source_key, 1.0)
@@ -8178,19 +8259,45 @@ def _raw_source_values(p_data: dict[str, Any]) -> dict[str, int]:
 
 
 def _player_value_bundle(p_data: dict[str, Any]) -> dict[str, int | None]:
+    """Seed the per-row ``values`` bundle.
+
+    SCALE CONTRACT (math audit 2026-07-30, finding H1).  Two scales meet
+    in this bundle and they are NOT interchangeable:
+
+    * ``rawComposite`` is the **legacy scraper composite** — a separate
+      pipeline in ``Dynasty Scraper.py`` that runs ~1.131x the canonical
+      board (measured; ``BOARD_TO_COMPOSITE_K = 0.875`` in
+      ``src/trade/finder.py``).  It is the UI's explicit "Raw" value mode
+      and its name says what it is.
+    * ``overall`` / ``finalAdjusted`` / ``displayValue`` are **board**
+      values.  ``build_api_data_contract`` stamps ``rankDerivedValue``
+      into all three once the blend has run.
+
+    They used to be seeded from the composite and then *overwritten* by
+    the board only when ``rankDerivedValue > 0``.  On a real payload that
+    left 270 rows — every suppressed generic pick tier among them —
+    carrying a composite-scale number under a board-scale name, with
+    nothing marking the difference.  Consumers that fall back down the
+    chain (public trade grading, the frontend's ``values.full``, the
+    league-adjusted overlay) then summed the two scales together.
+
+    So they are seeded ``None`` instead.  A row the board declined to
+    price now reads as *unpriced* rather than as priced-on-another-scale,
+    which is the honest answer and the one every consumer can branch on.
+    """
     raw = _to_int_or_none(
         p_data.get("_rawComposite", p_data.get("_rawMarketValue", p_data.get("_composite")))
     )
-    final = _to_int_or_none(p_data.get("_finalAdjusted", p_data.get("_composite")))
-    if final is None:
-        final = raw
-    overall = final
-    display = _to_int_or_none(p_data.get("_canonicalDisplayValue"))
     return {
-        "overall": overall,
+        # Board scale — filled in by ``build_api_data_contract`` from
+        # ``rankDerivedValue``.  Never seeded from the composite.
+        "overall": None,
+        "finalAdjusted": None,
+        "displayValue": None,
+        # Composite scale — honestly named, and the only key that carries
+        # it.  Do NOT add it to a fallback chain that otherwise reads
+        # board values.
         "rawComposite": raw,
-        "finalAdjusted": final,
-        "displayValue": display,
     }
 
 
@@ -8687,17 +8794,27 @@ def build_api_data_contract(
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
-    # same number.  The legacy composite (values.overall / values.finalAdjusted)
-    # comes from the old multi-source scraper and may differ.  The unified
-    # ranking model's rankDerivedValue is the authoritative display value.
+    # same number.  ``_player_value_bundle`` seeds these three keys ``None``
+    # (see its SCALE CONTRACT docstring), so a row the blend declined to
+    # price keeps ``None`` here and reads as *unpriced* — it does NOT fall
+    # back to the legacy scraper composite, which runs on a different
+    # scale and would be indistinguishable from a board value.
+    #
+    # ``values.rawComposite`` still carries the composite, under a name
+    # that says so.  It is the UI's explicit "Raw" value mode and must
+    # never be spliced into a chain that otherwise reads board values.
+    unpriced_rows = 0
     for row in players_array:
         rdv = row.get("rankDerivedValue")
+        vals = row.get("values")
+        if not isinstance(vals, dict):
+            continue
         if rdv is not None and rdv > 0:
-            vals = row.get("values")
-            if isinstance(vals, dict):
-                vals["overall"] = rdv
-                vals["finalAdjusted"] = rdv
-                vals["displayValue"] = rdv
+            vals["overall"] = rdv
+            vals["finalAdjusted"] = rdv
+            vals["displayValue"] = rdv
+        else:
+            unpriced_rows += 1
 
     # ── Identity validation and quarantine pass ──
     # Runs AFTER rankings are computed so anomalyFlags and confidence can be
@@ -8911,6 +9028,14 @@ def build_api_data_contract(
         "currentDraftYear": current_rookie_draft_year(),
         "playersArray": players_array,
         "playerCount": len(players_array),
+        # How many rows the blend declined to price.  Those rows carry
+        # ``values.overall/finalAdjusted/displayValue = None`` rather than
+        # a legacy-composite number on a different scale (math audit H1),
+        # so a consumer that silently drops them is visibly dropping a
+        # known quantity instead of an invisible one.  Mirrors the
+        # ``metadata.assetsUnpricedByBoard`` convention in
+        # ``src/trade/finder.py``.
+        "rowsUnpricedByBoard": unpriced_rows,
         "valueAuthority": (None if _for_delta else _build_value_authority_summary(players_array)),
         "dataSource": {
             "type": str(data_source.get("type") or ""),
@@ -9529,11 +9654,15 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         coverage_floors = _load_top50_coverage_floors()
 
         def _overall_val(r: dict[str, Any]) -> float:
-            vals = r.get("values")
-            if not isinstance(vals, dict):
-                return 0.0
+            # Rank on the board value directly.  This used to read
+            # ``values.overall``, which was the board value for priced rows
+            # but the legacy scraper composite for unpriced ones — so the
+            # "top 50" could be ordered across two scales (math audit H1).
+            # ``values.overall`` now mirrors ``rankDerivedValue`` exactly,
+            # but reading the source of truth makes that independent of the
+            # mirroring step rather than dependent on it.
             try:
-                return float(vals.get("overall") or 0)
+                return float(r.get("rankDerivedValue") or 0)
             except (TypeError, ValueError):
                 return 0.0
 

@@ -40,6 +40,26 @@ function netColor(net) {
   return "var(--subtext)";
 }
 
+// The board's ranking metric, computed server-side over the 30d window
+// ALONE.  It replaced `trendScore = 3·net48h + 2·net7d + 1·net30d`,
+// which summed NESTED windows — a movement an hour old sat in all
+// three terms and counted six times.  Recency now rides on `velocity`,
+// a RATIO between windows, which cannot double-count.  See
+// docs/intel/METRICS.md.
+function fmtSignal(strength) {
+  const n = Number(strength);
+  if (!Number.isFinite(n)) return "—";
+  return `${n > 0 ? "+" : ""}${n.toFixed(1)}`;
+}
+
+function signalTitle(asset) {
+  const parts = [`${asset.confidence || "insufficient"} confidence`];
+  if (asset.velocity != null) {
+    parts.push(`moving ${asset.velocity}× its 30d rate over the last 48h`);
+  }
+  return parts.join(" · ");
+}
+
 function StalenessBanner({ staleHours, generatedAt }) {
   if (staleHours == null) {
     return (
@@ -288,15 +308,16 @@ export default function IntelPage() {
       ) : (
         <div className="card">
           <div className="muted" style={{ fontSize: "0.7rem", marginBottom: 6 }}>
-            {assets.length} asset{assets.length === 1 ? "" : "s"} · sorted by trend score
-            (3·net48h + 2·net7d + 1·net30d) · click a row for member exposure
+            {assets.length} asset{assets.length === 1 ? "" : "s"} · sorted by 30d signal
+            strength (direction × sample confidence × manager breadth — one window, never
+            a sum of the overlapping ones) · click a row for member exposure
           </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th style={{ textAlign: "left" }}>Asset</th>
-                  <th style={{ textAlign: "right" }}>Trend</th>
+                  <th style={{ textAlign: "right" }}>Signal</th>
                   {WINDOW_COLUMNS.map((w) => (
                     <th key={w.key} style={{ textAlign: "right" }}>
                       Net {w.label}
@@ -330,10 +351,17 @@ export default function IntelPage() {
                           textAlign: "right",
                           fontFamily: "var(--mono)",
                           fontWeight: 700,
-                          color: netColor(asset.trendScore),
+                          color: netColor(asset.signalStrength),
                         }}
+                        title={signalTitle(asset)}
                       >
-                        {fmtNet(asset.trendScore)}
+                        {fmtSignal(asset.signalStrength)}
+                        <span
+                          className="muted"
+                          style={{ fontSize: "0.62rem", marginLeft: 4, fontWeight: 400 }}
+                        >
+                          {asset.confidence}
+                        </span>
                       </td>
                       {WINDOW_COLUMNS.map((w) => {
                         const win = asset.windows?.[w.key] || { buys: 0, sells: 0, net: 0 };

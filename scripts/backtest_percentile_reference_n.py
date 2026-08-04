@@ -12,6 +12,23 @@ aligned with KTC's native pool size, the retail market's natural
 scale — but it was never empirically validated.  This script sweeps
 N across plausible values and reports stability.
 
+WHAT THIS SCRIPT CANNOT DO (sitewide math audit, 2026-07-30, M1)
+----------------------------------------------------------------
+It measures **stability**, and stability is not accuracy.  Worse, the
+metric is degenerate for this particular question: ``p`` is clamped to
+1.0, so a smaller N flattens more of the board onto one identical value
+and therefore has less left to churn.  A maximally uninformative board
+can win.
+
+Its snapshots are also hybrid rather than historical — the CSV-backed
+sources are read from the current ``CSVs/site_raw/`` tree regardless of
+which payload is being replayed, and the archives bundle site_raw for
+only three of the 21 sources.
+
+Both caveats are now printed in the generated report, next to the
+recommendation, so a reader cannot take "promote N=1000" as an accuracy
+finding.  Do not move the constant on this script's output alone.
+
 Usage:
     python3 scripts/backtest_percentile_reference_n.py
     python3 scripts/backtest_percentile_reference_n.py --snapshots 10
@@ -145,6 +162,47 @@ def render(snapshots, results) -> str:
         if current_result["value_weighted_rank_change"] > 0
         else 0.0
     )
+    # ── Two reasons this report's "recommendation" is not a decision ──
+    # Added by the sitewide math audit, 2026-07-30 (finding M1).  Both are
+    # properties of the harness, not of the constant, and both push the
+    # answer the same way — so the recommendation below must not be acted
+    # on as if it measured accuracy.
+    lines.append("## Read this before acting on the recommendation")
+    lines.append("")
+    lines.append(
+        "**1. Stability is not accuracy, and this metric rewards flattening.** "
+        "`p` is clamped to 1.0, so every rank at or beyond N collapses onto one "
+        "identical per-source value. A larger N un-flattens the tail; a smaller "
+        "one flattens more of it and therefore has *less* to churn. A criterion "
+        "that a maximally uninformative board can win is not evidence about "
+        "which N is right — it bounds jumpiness, nothing more. There is no "
+        "ground truth for dynasty asset value in this repo, so no run of this "
+        "script can settle the question on its own."
+    )
+    lines.append("")
+    lines.append(
+        "**2. The snapshots are hybrid, not historical.** "
+        "`build_api_data_contract` reads the CSV-backed sources from "
+        "`CSVs/site_raw/` at the paths hardcoded in `_RANKING_SOURCES` — it does "
+        "NOT read them from the snapshot. The archived payloads under "
+        "`exports/archive/` bundle site_raw for only three sources (`ktc`, "
+        "`ktcSfTep`, `idpTradeCalc`), so replaying an old payload pairs that "
+        "day's scraper values with **today's** expert boards. Measured "
+        "2026-07-30: replaying the 2026-07-14 payload had 21 sources voting, 18 "
+        "of them from the current tree. Part of what this metric reports as "
+        "stability is a component that is constant by construction."
+    )
+    lines.append("")
+    lines.append(
+        "What IS cleanly measurable, and does not depend on either issue, is how "
+        "much rank resolution each N discards — the share of per-source votes "
+        "landing on the flattened tail where they are mutually indistinguishable. "
+        "On the live board (6,251 votes): N=500 discards 716 (11.5%), N=800 "
+        "discards 88 (1.4%), N=900 discards 2. Note `OVERALL_RANK_LIMIT` is 800, "
+        "so the board publishes 300 ranks past the point where its own inputs "
+        "stop resolving. See `docs/audits/math-formula-audit-2026-07-30.md` M1."
+    )
+    lines.append("")
     lines.append("## Recommendation")
     lines.append("")
     if best["N"] == 500:

@@ -3374,21 +3374,39 @@ async def get_movers(request: Request):
     Returns::
 
         {
-          "window": 14,
+          "window": 2,
+          "windowRequested": 14,
+          "historyDepthDays": 2,
           "threshold": 15,
           "asOf": "2026-04-26",
           "risers": [
             {"name": "...", "team": "TEX", "position": "WR", "playerId": "...",
              "rankNow": 12, "rankThen": 32, "delta": 20,
-             "valueNow": 7421, "perSourceDelta": {...}}
+             "rankNowDate": "2026-04-26", "rankThenDate": "2026-04-24",
+             "spanDays": 2,
+             "valueNow": 7421, "currentSourceRanks": {...}}
           ],
           "fallers": [...]
         }
 
     Risers = rank improved (number got smaller).  Fallers = rank got
-    worse (number got bigger).  Each entry includes a per-source
-    rank delta breakdown so the user can see which sources drove the
-    move.
+    worse (number got bigger).
+
+    ``window`` is the span we ACTUALLY measured, not the span that was
+    asked for — ``windowRequested`` echoes the request.  The two differ
+    whenever ``data/rank_history.jsonl`` is shallower than the request
+    (it is only a few days deep today), and reporting the request in
+    that case labelled a 2-day delta "90 days".  ``spanDays`` on each
+    entry is the authoritative per-player span, since players enter the
+    log at different dates.
+
+    ``currentSourceRanks`` is each source's CURRENT rank for the player
+    (from ``sourceOriginalRanks``), NOT a per-source delta — the log
+    stores only the blended consensus rank, so per-source history to
+    difference against does not exist.  The field was renamed from
+    ``perSourceDelta`` for exactly this reason; this docstring lagged
+    the rename and promised a breakdown of "which sources drove the
+    move" that was never computed.
     """
     try:
         window = int(request.query_params.get("window", 14))
@@ -3412,7 +3430,9 @@ async def get_movers(request: Request):
     if not history:
         return JSONResponse(
             content={
-                "window": window,
+                "window": 0,
+                "windowRequested": window,
+                "historyDepthDays": 0,
                 "threshold": threshold,
                 "asOf": None,
                 "risers": [],
@@ -3420,6 +3440,67 @@ async def get_movers(request: Request):
             },
             headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
         )
+
+    def _span_days(then_date: Any, now_date: Any) -> int | None:
+        """Whole days between two ``YYYY-MM-DD`` stamps, or None."""
+        if not isinstance(then_date, str) or not isinstance(now_date, str):
+            return None
+        try:
+            a = datetime.strptime(then_date, "%Y-%m-%d")
+            b = datetime.strptime(now_date, "%Y-%m-%d")
+        except ValueError:
+            return None
+        return max(0, (b - a).days)
+
+    # Resolve the comparison anchor by DATE, not by list position.
+    # ``load_history(days=window + 1)`` only TRIMS the log — it cannot
+    # extend it — so ``series[0]`` is just the oldest point on disk,
+    # which today is ~2 days back regardless of what was requested.
+    # Anchoring there and echoing ``window`` in the response labelled a
+    # 2-day move "90 days".  Now: take the newest point at or before
+    # ``asOf − window`` days when the log reaches that far, fall back to
+    # the oldest point when it doesn't, and report the span we actually
+    # measured either way.
+    as_of = max((s[-1]["date"] for s in history.values() if s), default=None)
+    oldest_seen = min((s[0]["date"] for s in history.values() if s), default=None)
+    history_depth_days = _span_days(oldest_seen, as_of)
+    cutoff_date: str | None = None
+    if isinstance(as_of, str):
+        from datetime import timedelta
+
+        try:
+            cutoff_date = (datetime.strptime(as_of, "%Y-%m-%d") - timedelta(days=window)).strftime(
+                "%Y-%m-%d"
+            )
+        except ValueError:
+            cutoff_date = None
+    # The response-level span is the span of ONE well-defined anchor
+    # date — the newest snapshot at or before the cutoff, or the oldest
+    # snapshot we have when the log is shallower than the request.  It
+    # is not ``min(window, depth)``: the log is gap-tolerant, so with
+    # sparse snapshots the nearest usable anchor can sit further back
+    # than ``window`` and the honest number is that real span.  Players
+    # who entered the log after the anchor date measure a shorter span;
+    # ``spanDays`` on each entry is authoritative for that entry.
+    anchor_date = oldest_seen
+    if cutoff_date:
+        newest_within = ""
+        for s in history.values():
+            # Series are date-sorted ascending, so the first point past
+            # the cutoff ends this series' contribution — with a deep
+            # log that is the second point, which keeps this pass cheap
+            # instead of touching every point of every player.
+            for p in s:
+                d = p.get("date")
+                if not isinstance(d, str) or d > cutoff_date:
+                    break
+                if d > newest_within:
+                    newest_within = d
+        if newest_within:
+            anchor_date = newest_within
+    measured_window = _span_days(anchor_date, as_of)
+    if measured_window is None:
+        measured_window = 0
 
     # Index the live contract by displayName so we can stitch in
     # team / position / current value + per-source rank metadata for
@@ -3464,6 +3545,13 @@ async def get_movers(request: Request):
         # Series is already date-sorted ascending by load_history.
         latest = series[-1]
         anchor = series[0]
+        if cutoff_date:
+            for p in series:
+                d = p.get("date")
+                if isinstance(d, str) and d <= cutoff_date:
+                    anchor = p
+                else:
+                    break
         try:
             r_now = int(latest.get("rank"))
             r_then = int(anchor.get("rank"))
@@ -3484,15 +3572,19 @@ async def get_movers(request: Request):
             or by_name.get(raw_key)
             or {}
         )
-        per_source_delta: dict[str, int] = {}
-        # Per-source rank deltas — useful so the user can see
-        # "this move was driven by KTC dropping them 25 spots".
-        # ``sourceOriginalRanks`` stamps the un-Hampel-filtered ranks.
+        current_source_ranks: dict[str, int] = {}
+        # Each source's CURRENT rank for this player — NOT a delta.
+        # ``sourceOriginalRanks`` stamps the un-Hampel-filtered ranks
+        # as of the live contract; the history log carries only the
+        # blended consensus rank, so there is no per-source "then" to
+        # difference against.  The local was named ``per_source_delta``
+        # long after the response key was corrected — renamed here so
+        # the code stops arguing with the payload.
         sor = row.get("sourceOriginalRanks") or {}
         if isinstance(sor, dict):
             for src_key, src_rank in sor.items():
                 try:
-                    per_source_delta[str(src_key)] = int(src_rank)
+                    current_source_ranks[str(src_key)] = int(src_rank)
                 except (TypeError, ValueError):
                     continue
         # Prefer the contract's assetClass (most current) but fall
@@ -3509,20 +3601,35 @@ async def get_movers(request: Request):
             "rankNow": r_now,
             "rankThen": r_then,
             "delta": delta,
+            "rankNowDate": latest.get("date"),
+            "rankThenDate": anchor.get("date"),
+            "spanDays": _span_days(anchor.get("date"), latest.get("date")),
             "valueNow": int(row.get("rankDerivedValue") or 0) or None,
-            "currentSourceRanks": per_source_delta if per_source_delta else None,
+            "currentSourceRanks": current_source_ranks if current_source_ranks else None,
         }
         if delta > 0:
             risers.append(entry)
         else:
             fallers.append(entry)
 
-    risers.sort(key=lambda e: -e["delta"])
-    fallers.sort(key=lambda e: e["delta"])
-    as_of = max((s[-1]["date"] for s in history.values() if s), default=None)
+    # Deterministic ordering.  The primary key is the move size, but
+    # equal-delta ties used to fall through to ``history`` dict
+    # insertion order — i.e. whatever order the JSONL happened to
+    # stamp names in — so two runs over the same data could emit
+    # different top-N slices.  Bigger current value wins the tie
+    # (a 20-spot move by a top-30 asset is the more interesting one),
+    # then name + assetClass as a total order.
+    risers.sort(
+        key=lambda e: (-e["delta"], -(e["valueNow"] or 0), e["name"], e["assetClass"] or "")
+    )
+    fallers.sort(
+        key=lambda e: (e["delta"], -(e["valueNow"] or 0), e["name"], e["assetClass"] or "")
+    )
     return JSONResponse(
         content={
-            "window": window,
+            "window": measured_window,
+            "windowRequested": window,
+            "historyDepthDays": history_depth_days,
             "threshold": threshold,
             "asOf": as_of,
             "risers": risers[:limit],
@@ -12034,7 +12141,7 @@ if STATIC_DIR.exists():
 #
 # Endpoints (all PRIVATE — no public cache headers; raw Sleeper
 # league IDs are never exposed in responses):
-#   GET  /api/intel/summary          — asset board sorted by trendScore
+#   GET  /api/intel/summary          — asset board sorted by signalStrength
 #   GET  /api/intel/player           — per-asset drill-down (?playerId= / ?name=)
 #   GET  /api/intel/member/{ownerId} — one member's cross-league profile
 #   POST /api/intel/refresh          — 202 + daemon-thread crawl (409 when running)
@@ -12165,7 +12272,8 @@ def _intel_not_ready_response(league_key: str) -> JSONResponse:
 @app.get("/api/intel/summary")
 async def get_intel_summary(request: Request):
     """Sharp Tracker board: per-asset buy/sell/net over 48h/7d/14d/30d
-    windows, sorted by trendScore.  League-scoped (intel is
+    windows, sorted by the 30d ``signalStrength`` (never a sum of those
+    overlapping windows).  League-scoped (intel is
     roster-scoped → league-scoped): resolves the requested league and
     reads that league's snapshot partition.  Stamps staleness."""
     try:

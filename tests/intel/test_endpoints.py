@@ -268,9 +268,9 @@ class TestSummary:
         assert body["memberCount"] == 1
         assert body["leagueCount"] == 2
         assets = body["assets"]
-        assert [a["assetId"] for a in assets] == ["1234", "5678"]  # trendScore desc
+        assert [a["assetId"] for a in assets] == ["1234", "5678"]  # signalStrength desc
         assert assets[0]["displayName"] == "Test Guy"
-        assert assets[0]["trendScore"] > 0 > assets[1]["trendScore"]
+        assert assets[0]["signalStrength"] > 0 > assets[1]["signalStrength"]
         # Private endpoint — never a public cache header.
         assert "private" in res.headers["cache-control"]
         # No raw Sleeper league IDs anywhere in the payload.

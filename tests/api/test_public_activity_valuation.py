@@ -65,10 +65,10 @@ class BuildValuationFromContractTests(unittest.TestCase):
             9500.0,
         )
 
-    def test_falls_back_through_value_bundle_keys(self) -> None:
+    def test_falls_back_through_board_scale_keys_only(self) -> None:
         # If ``displayValue`` is missing / zero, the resolver walks
-        # ``overall`` → ``finalAdjusted`` → ``rawComposite`` in the
-        # same order the frontend ``inferValueBundle`` fallback uses.
+        # ``overall`` → ``finalAdjusted``.  All three mirror the board's
+        # ``rankDerivedValue``, so walking them cannot change scale.
         contract = {
             "playersArray": [
                 {
@@ -80,11 +80,6 @@ class BuildValuationFromContractTests(unittest.TestCase):
                     "playerId": "fallback-final",
                     "displayName": "B",
                     "values": {"finalAdjusted": 3100},
-                },
-                {
-                    "playerId": "fallback-raw",
-                    "displayName": "C",
-                    "values": {"rawComposite": 2500},
                 },
             ],
         }
@@ -98,9 +93,57 @@ class BuildValuationFromContractTests(unittest.TestCase):
             valuation({"kind": "player", "playerId": "fallback-final"}),
             3100.0,
         )
+
+    def test_raw_composite_is_not_a_fallback(self) -> None:
+        """A row the board declined to price grades as unpriced, never on
+        the composite scale.
+
+        Math audit 2026-07-30, finding H1.  ``values.rawComposite`` is the
+        legacy scraper composite and runs ~1.131x the canonical board, so
+        splicing it into this chain put two scales inside one trade-side
+        sum.  Measured on a real payload: 270 rows carried a composite
+        number with no board value, every suppressed generic pick tier
+        among them (``2026 Early 1st`` = 6136 composite, against real slot
+        picks at 1.01 = 7852 / 1.02 = 6101 on the board).
+
+        This test previously asserted the OPPOSITE — it pinned the
+        composite as the last fallback — so it is the regression guard
+        turned the right way round.
+        """
+        contract = {
+            "playersArray": [
+                # Board-priced row: still resolves normally.
+                {
+                    "playerId": "priced",
+                    "displayName": "Priced",
+                    "values": {"overall": 5000, "rawComposite": 5655},
+                },
+                # Board declined to price it, but the scrape composite is
+                # present — exactly the 270-row case.
+                {
+                    "playerId": "unpriced",
+                    "displayName": "Unpriced",
+                    "values": {
+                        "displayValue": None,
+                        "overall": None,
+                        "finalAdjusted": None,
+                        "rawComposite": 2500,
+                    },
+                },
+            ],
+        }
+        valuation = build_valuation_from_contract(contract)
+        self.assertIsNotNone(valuation)
         self.assertEqual(
-            valuation({"kind": "player", "playerId": "fallback-raw"}),
-            2500.0,
+            valuation({"kind": "player", "playerId": "priced"}),
+            5000.0,
+        )
+        # 0.0 means "cannot grade this asset", which is what
+        # ``activity.build_section`` needs to hear.  2500.0 would be the
+        # composite leaking in on the wrong scale.
+        self.assertEqual(
+            valuation({"kind": "player", "playerId": "unpriced"}),
+            0.0,
         )
 
     def test_falls_back_to_player_name_when_id_misses(self) -> None:
