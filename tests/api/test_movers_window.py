@@ -145,3 +145,39 @@ def test_empty_history_reports_zero_measured_window(movers_env):
     assert body["historyDepthDays"] == 0
     assert body["risers"] == []
     assert body["fallers"] == []
+
+
+def test_history_depth_reports_the_log_not_the_trimmed_slice(movers_env):
+    """``historyDepthDays`` must be able to say "the log is DEEPER than
+    you asked".
+
+    Adversarial review of the H3 fix (math audit).  The first version
+    derived depth from ``history`` — which is
+    ``load_history(days=window + 1)``, a COUNT slice — so it equalled
+    ``min(true_depth, window)`` by construction and could only ever
+    report the window back.  That reads correctly on the live log purely
+    because the live log is shallower than any window, which is the same
+    accident the whole finding was filed against.
+
+    Here the log spans 60 days and the caller asks for 7.  Depth must
+    report 60; the window must still report the 9-day span it actually
+    measured.
+    """
+    today = datetime.now(timezone.utc).date()
+    _write_history(
+        movers_env,
+        [
+            (_iso(today - timedelta(days=60)), {"Riser::offense": 200}),
+            (_iso(today - timedelta(days=9)), {"Riser::offense": 60}),
+            (_iso(today), {"Riser::offense": 40}),
+        ],
+    )
+    with TestClient(server.app) as client:
+        body = client.get("/api/movers?window=7&threshold=1").json()
+
+    # Hand-computed: oldest snapshot is 60 days before the newest.
+    assert body["historyDepthDays"] == 60
+    assert body["windowRequested"] == 7
+    # The anchor is still the newest snapshot at or before today−7, i.e.
+    # the 9-day-old one — depth and window answer different questions.
+    assert body["window"] == 9

@@ -182,20 +182,38 @@ def _position_calibration(
     Returns a FLOAT — this is one link in the recommendation chain,
     not the recommendation.  ``recommend_faab`` rounds once at the
     end; see the comment at step 2 there."""
-    if not league_faab_summary or not position:
+    if not _position_calibration_applies(league_faab_summary, position):
         return bid_estimate
     pos_bids = (league_faab_summary.get("positionBids") or {}).get(position) or {}
     avg_for_pos = pos_bids.get("avg")
-    count_for_pos = pos_bids.get("count") or 0
-    if not isinstance(avg_for_pos, (int, float)) or count_for_pos < _POSITION_CALIBRATION_MIN_COUNT:
-        # Need at least 3 historical bids for the calibration to
-        # be meaningful; otherwise we'd be calibrating against
-        # noise.
-        return bid_estimate
     blended = _LEAGUE_CALIBRATION_BLEND * float(avg_for_pos) + (
         1.0 - _LEAGUE_CALIBRATION_BLEND
     ) * float(bid_estimate)
     return max(0.0, blended)
+
+
+def _position_calibration_applies(
+    league_faab_summary: dict[str, Any] | None,
+    position: str | None,
+) -> bool:
+    """Whether the per-position calibration has data to run on.
+
+    Split out of :func:`_position_calibration` so the caller can record
+    "we had this evidence" without inferring it from "the number moved".
+    Sharing the gate rather than restating it is what keeps the factor
+    row and the arithmetic from drifting apart.
+
+    Needs at least ``_POSITION_CALIBRATION_MIN_COUNT`` historical bids;
+    below that we would be calibrating against noise.
+    """
+    if not league_faab_summary or not position:
+        return False
+    pos_bids = (league_faab_summary.get("positionBids") or {}).get(position) or {}
+    avg_for_pos = pos_bids.get("avg")
+    count_for_pos = pos_bids.get("count") or 0
+    return (
+        isinstance(avg_for_pos, (int, float)) and count_for_pos >= _POSITION_CALIBRATION_MIN_COUNT
+    )
 
 
 def _env_scale_factor(
@@ -259,17 +277,36 @@ def _ktc_crowd_blend(
     name, so the crowd calibration factor never fired in production.
     Producer and consumer now call the same helper — do not
     re-introduce a local key here."""
-    if not ktc_crowd_bids or not player_name:
+    if not _ktc_crowd_applies(ktc_crowd_bids, player_name):
         return bid_estimate
-    norm = compact_name_key(player_name)
-    crowd_pct = ktc_crowd_bids.get(norm)
-    if not isinstance(crowd_pct, (int, float)) or crowd_pct <= 0:
-        return bid_estimate
+    crowd_pct = ktc_crowd_bids[compact_name_key(player_name)]
     crowd_bid = max(1.0, float(crowd_pct) / 100.0 * league_budget)
     # 70/30 blend: trust our composite a bit more than the crowd
     # since the crowd's number doesn't account for the user's
     # specific drop side.
     return 0.7 * bid_estimate + 0.3 * crowd_bid
+
+
+def _ktc_crowd_applies(
+    ktc_crowd_bids: dict[str, Any] | None,
+    player_name: str | None,
+) -> bool:
+    """Whether a usable crowd bid exists for this player.
+
+    Split out of :func:`_ktc_crowd_blend` for the same reason as
+    :func:`_position_calibration_applies`: the caller records a factor
+    row on EVIDENCE PRESENT, not on the number having moved, and the two
+    must share one gate so they cannot drift.
+
+    This predicate is also the live signal that the producer/consumer
+    name-key join still works — both sides key on
+    ``name_clean.compact_name_key``, and a regression there silently
+    removed the crowd factor in production once before.
+    """
+    if not ktc_crowd_bids or not player_name:
+        return False
+    crowd_pct = ktc_crowd_bids.get(compact_name_key(player_name))
+    return isinstance(crowd_pct, (int, float)) and crowd_pct > 0
 
 
 def recommend_faab(
@@ -418,9 +455,22 @@ def recommend_faab(
     if league_faab_summary:
         before = standard
         standard = _position_calibration(league_faab_summary, add_player_position, standard)
-        if standard != before:
-            # Whole-dollar delta for the tooltip only; the chain keeps
-            # the unrounded value.
+        # ``missing`` must describe whether the INPUT WAS THERE, not
+        # whether it happened to move the number.  ``compute_confidence``
+        # is a weighted realized-share over factor rows, i.e. it answers
+        # "how much of the evidence did we actually have?" — so a
+        # calibration that ran against three real historical bids and
+        # agreed with the baseline is realized evidence, not missing
+        # evidence.
+        #
+        # Branching on ``standard != before`` conflated the two, and
+        # dropping the premature rounding from this chain made that
+        # visible: at a league average of 12.0 the blend landed exactly
+        # on the baseline and the row was labelled "insufficient
+        # samples" + missing (confidence: medium), while at 12.4 it moved
+        # by cents and the row fired (confidence: high) — same player,
+        # same $12 recommendation, same league data.
+        if _position_calibration_applies(league_faab_summary, add_player_position):
             delta = round(standard) - round(before)
             sign = "+" if delta > 0 else ""
             factors.append(
@@ -453,7 +503,12 @@ def recommend_faab(
     if ktc_crowd_bids:
         before = standard
         standard = _ktc_crowd_blend(ktc_crowd_bids, add_player_name, league_budget, standard)
-        if standard != before:
+        # Presence, not movement — same reasoning as the position
+        # calibration above.  A crowd bid we successfully looked up is
+        # realized evidence even when it agrees with the baseline, and
+        # this row doubles as the live signal that the name-key join
+        # still works (tests/trade/test_faab_recommender.py).
+        if _ktc_crowd_applies(ktc_crowd_bids, add_player_name):
             delta = round(standard) - round(before)
             sign = "+" if delta > 0 else ""
             factors.append(

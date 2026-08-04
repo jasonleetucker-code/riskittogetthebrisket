@@ -3452,8 +3452,35 @@ async def get_movers(request: Request):
     # the oldest point when it doesn't, and report the span we actually
     # measured either way.
     as_of = max((s[-1]["date"] for s in history.values() if s), default=None)
+    # ``historyDepthDays`` must describe THE LOG, not the slice we just
+    # took out of it.  ``history`` is ``load_history(days=window + 1)``,
+    # so deriving depth from its oldest entry yields
+    # ``min(true_depth, window)`` by construction — the field could never
+    # say "the log is deeper than you asked", which is half of what a
+    # depth field is for.  It read correctly only because the live log
+    # happens to be shallower than any window, i.e. by the same accident
+    # this whole finding was filed against.
+    #
+    # ``rank_history.coverage()`` reads the on-disk date range directly.
+    # It falls back to the trimmed span if the log cannot be read, which
+    # is the conservative direction: understating depth makes the window
+    # look shorter, never longer.
     oldest_seen = min((s[0]["date"] for s in history.values() if s), default=None)
-    history_depth_days = _span_days(oldest_seen, as_of)
+    # NOTE the unit: ``coverage()["spanDays"]`` is a COUNT of calendar
+    # days covered (inclusive, so two snapshots two days apart span 3),
+    # because it exists to compute ``missingDays``.  ``historyDepthDays``
+    # sits beside ``window``, which is a lookback in days.  Take the
+    # untrimmed FIRST DATE from coverage and measure it with the same
+    # ``_span_days`` the window uses, so there is exactly one definition
+    # of "days back" in this response rather than two that differ by one.
+    try:
+        _cov = _rank_history.coverage()
+        _first_on_disk = _cov.get("firstDate") if isinstance(_cov, dict) else None
+    except Exception:  # noqa: BLE001 — diagnostics must never break the route
+        _first_on_disk = None
+    history_depth_days = _span_days(
+        _first_on_disk if isinstance(_first_on_disk, str) else oldest_seen, as_of
+    )
     cutoff_date: str | None = None
     if isinstance(as_of, str):
         from datetime import timedelta

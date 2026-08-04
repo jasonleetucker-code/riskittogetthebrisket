@@ -646,3 +646,49 @@ def test_explanation_present_for_every_branch():
     for out in cases:
         assert isinstance(out["explanation"], str)
         assert len(out["explanation"]) > 10  # at least a sentence
+
+
+def test_confidence_does_not_flip_on_a_blend_that_lands_on_the_baseline():
+    """Evidence PRESENT and evidence THAT MOVED THE NUMBER are different
+    questions, and ``compute_confidence`` asks the first one.
+
+    Adversarial review of the premature-rounding fix (math audit).
+    Removing the per-stage ``round()`` made ``standard`` a float, and the
+    factor rows were gated on ``standard != before`` — so whether the
+    league-calibration row counted as realized evidence or as *missing*
+    evidence depended on whether the 50/50 blend happened to land exactly
+    on the running estimate.
+
+    Measured on the shipped code before this fix: the same player, the
+    same $12 recommendation and the same league data reported ``medium``
+    at a league average of 12.0 and ``high`` at 12.4.  The confidence a
+    user sees moved while nothing about the evidence did.
+
+    Both cases have three real historical bids, so both must report the
+    calibration as realized.
+    """
+    seen = []
+    for league_avg in (12.0, 12.4, 12.6, 13.0):
+        out = recommend_faab(
+            add_player_value=2500,
+            drop_player_value=1200,
+            add_player_position="WR",
+            league_budget=100,
+            league_faab_summary={
+                "positionBids": {"WR": {"avg": league_avg, "count": 5}},
+            },
+        )
+        calibration = next(
+            (f for f in out["factors"] if f["label"].startswith("League historical")),
+            None,
+        )
+        assert calibration is not None
+        seen.append(
+            (out["confidence"], out["standard"], calibration["label"], calibration["missing"])
+        )
+
+    confidences = {s[0] for s in seen}
+    assert len(confidences) == 1, f"confidence moved with the blend landing point: {seen}"
+    # The league HAD data in every case, so none may be reported missing.
+    assert not any(s[3] for s in seen), f"real league data reported as missing: {seen}"
+    assert all(s[2] == "League historical calibration" for s in seen), seen

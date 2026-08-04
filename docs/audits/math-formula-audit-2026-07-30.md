@@ -414,7 +414,54 @@ number), and `league_intel/replacement.py`'s 5th-percentile index returning the
 the league-adjusted overlay, which is a toggle rather than the default board (see
 `docs/adjusted-board-backtest.md`).
 
-### 4.4 Findings refuted on verification — recorded so they are not re-raised
+### 4.4 Defects introduced BY the fixes, caught by adversarial review
+
+Every fix was re-checked by an independent skeptic instructed to find what was
+wrong with it, not to agree. Three fixes introduced new defects. That is the
+finding, and it is recorded rather than quietly patched, because the pattern is
+instructive: **each new defect was the same class as the one being fixed.**
+
+**R1 — BDVM's new value cap was a hard clamp.** H6 enforced `trade_value_max`
+with `min(cap, x)`. Non-injective — measured on an elite-heavy ladder, seven
+distinct ceilings spanning an ~1.8× uncapped range collapsed onto exactly
+`10000.0`, which `frontend/lib/bdvm.js` renders as a tie. This repo already
+contained both the tool and the argument against the clamp — `_te_lift_under_ceiling`,
+added by C4 *on this same branch*, whose docstring says "a hard clamp is the wrong
+tool because it is not injective". Worse, the accompanying test asserted exact
+equality with the cap, **pinning the defect in place**. Corrected to a monotone
+squash; the test now asserts strictly-under and that distinct ceilings stay
+distinct. One real difference from the C4 case, documented in the code: BDVM's
+inputs reach ~2.2× its ceiling where the TE case reaches ~1.21×, so the decay
+scale must be decoupled from the span or the exponential underflows float64 and
+flattens the top again — my own test caught that on the first attempt.
+
+**R2 — the FAAB confidence flip.** Removing the premature rounding (H4) made
+`standard` a float, and the factor rows were gated on `standard != before`. So
+whether the league-calibration row counted as *realized* evidence or as **missing**
+evidence depended on where the 50/50 blend happened to land. Measured: the same
+player, the same $12 recommendation and the same league data reported `low`
+confidence at a league average of 12.0 and `high` at 12.4. The deeper error was
+the gate itself — `compute_confidence` is a weighted realized-share, i.e. it asks
+*"how much of the evidence did we have?"*, so a calibration that ran against three
+real bids and agreed with the baseline is realized evidence, not missing evidence.
+Both gates now test **input presence** via predicates split out of the helpers so
+they share one condition and cannot drift.
+
+**R3 — `historyDepthDays` measured the slice, not the log.** H3's fix derived depth
+from `load_history(days=window + 1)` — a *count* slice — so it equalled
+`min(true_depth, window)` by construction and could never report "the log is deeper
+than you asked", which is half of what a depth field is for. It read correctly only
+because the live log is shallower than any window: the same accident H3 was filed
+against. Now measured from `rank_history.coverage()`'s untrimmed first date —
+through the same `_span_days` helper the window uses, because `coverage()`'s own
+`spanDays` is an inclusive calendar-day *count* and mixing the two would have put
+two different definitions of "days back" in one response.
+
+**Still open from that review**, recorded in §9: H2's population fix is
+one-directional — it removed a positive bias and left the mirror case negative by
+the same mechanism.
+
+### 4.5 Findings refuted on verification — recorded so they are not re-raised
 
 **A refuted finding is a deliverable.** Three claims reaching this audit did not
 survive:
@@ -624,6 +671,23 @@ the NFL season; `currentDraftYear` is the rookie-draft year and rolls a year ahe
 after May 15 on the date-fallback path. *Decision needed:* none — the fix is
 unambiguous; flagged here because it changes no number today and so is easy to
 mistake for a no-op.
+
+**U6 — the terminal delta fix is one-directional (from §4.4, R-review).**
+*Ambiguity:* H2 made the past sum use only players priceable *then*, removing the
+positive bias. The mirror case is untouched: a player priceable then but **not
+now** still enters `pastValue` with no counterpart in `presentValue`, biasing the
+delta **negative** by the same mechanism. Reproduced by the reviewer at −5880
+where the honest two-player answer is +90; `comparedCount: 2` vs `resolved: 3` is
+the only tell, and the code comment claims "nothing enters one sum without a
+counterpart in the other", which is false in that direction. Reachable — H1's own
+`rowsUnpricedByBoard` is exactly the population that can lose a price.
+*Recommendation:* build the compared population once, symmetrically, over
+`held_then ∪ held_now`, skipping anyone priceable on only one side. That needs
+`_sum_roster_value_at_date` to return per-name amounts rather than just names, so
+it is a real change rather than a one-liner.
+*Decision needed:* none on the math — it is unambiguous. Flagged here rather than
+rushed because it is the last item found and deserves its own change with its own
+before/after, not a tail-end edit to a large branch.
 
 **U5 — BDVM priors vs the live league.** Every prior in `params_v1.json` was tuned
 for a SF/TEP/PPR card; the live league has `bonus_rec_te = 0.0` and `rec = 0.08`.

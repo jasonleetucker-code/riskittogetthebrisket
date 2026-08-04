@@ -331,19 +331,48 @@ class TestValueScaleBounds(unittest.TestCase):
             risk=RiskProfile(role_uncertainty=0.6, event_volatility=0.6, small_sample=1.0),
         )
 
-    def test_ceiling_is_capped_at_declared_scale_max(self):
+    def test_ceiling_is_bounded_by_the_declared_scale_max(self):
         star, deep = self._star(), self._deep_bench_flier()
         eng = make_engine()
         eng.calibrate([star, deep])
         rng = eng.value(star).range_
         cap = float(PARAMS["scale"]["trade_value_max"])
         # Calibration pins the top asset's MEDIAN at target_top_value, and
-        # that number sits below the cap deliberately — so the cap must
-        # clip the p85 path (uncapped: ~19.7k) without moving the board.
+        # that number sits below the cap deliberately — so the bound acts
+        # on the p85 path (uncapped: ~19.7k) without moving the board.
         self.assertAlmostEqual(rng["median"], float(PARAMS["scale"]["target_top_value"]), places=6)
-        self.assertEqual(rng["ceiling_p85"], cap)
+        # STRICTLY under, not equal to, the cap.  An earlier version of
+        # this assertion demanded exact equality, which pinned a hard
+        # `min(cap, x)` in place — and that clamp is not injective: on an
+        # elite-heavy ladder it collapsed seven distinct ceilings
+        # spanning an ~1.8x uncapped range onto one identical 10000.0.
+        self.assertLess(rng["ceiling_p85"], cap)
+        self.assertGreater(rng["ceiling_p85"], rng["median"])
         for v in eng.value(star).trade_value.values():
             self.assertLessEqual(v, cap)
+
+    def test_the_bound_does_not_collapse_distinct_ceilings(self):
+        """The bound must be order-preserving where it binds.
+
+        Math audit C4, applied to BDVM: a hard clamp turns a resolution
+        problem into a tie, and this band is rendered directly by
+        ``frontend/lib/bdvm.js``.  Two players whose uncapped p85 paths
+        differ must still differ after bounding.
+        """
+        from src.bdvm.engine import _under_ceiling
+
+        cap = float(PARAMS["scale"]["trade_value_max"])
+        # Uncapped ceilings measured on an elite-heavy ladder.
+        uncapped = [20324.0, 18213.9, 14470.9, 14379.7, 11236.0, 10001.0]
+        bounded = [_under_ceiling(v, ceiling=cap) for v in uncapped]
+        self.assertEqual(len(set(bounded)), len(uncapped))
+        # Order preserved, and every one strictly under the cap.
+        self.assertEqual(bounded, sorted(bounded, reverse=True))
+        for b in bounded:
+            self.assertLess(b, cap)
+        # Identity well below the knee — the board itself must not move.
+        for v in (0.0, 1.0, 5000.0, 9800.0):
+            self.assertEqual(_under_ceiling(v, ceiling=cap), v)
 
     def test_band_never_inverts_on_a_below_replacement_flier(self):
         star, deep = self._star(), self._deep_bench_flier()
