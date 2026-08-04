@@ -82,16 +82,52 @@ def _compute_faab_bid(
     *,
     league_budget: int = 100,
     top_value_in_pool: float | None = None,
+    anchors: Any = None,
+    league: Any = None,
 ) -> tuple[int, int, int]:
-    """Return (aggressive, reasonable, lowball) FAAB bids."""
+    """Return (aggressive, reasonable, lowball) FAAB bids.
+
+    Thin back-compat shim over ``src.trade.faab_engine``.  The formula
+    this used to hold — ``0.05 + 0.25 x (value / best value on the
+    wire)`` of the budget — had no absolute value scale at all: the
+    top player on the wire always scored ``share == 1.0`` and so always
+    priced at 30% / 21% / 10% of the budget whether he graded 9999 or
+    900.  On the real 2026-08-04 board that made a deep-league TE3
+    (value 1908) a $21-of-$100 claim, and it made a BARREN wire bid
+    MORE because a weaker field lowered the denominator.
+
+    Values now come from the engine's objective ceiling, which is
+    pinned to league-format anchors instead of to whoever happens to
+    be available.  ``top_value_in_pool`` is accepted and ignored; it
+    is retained only so existing callers keep working.
+    """
     if candidate_value <= 0 or league_budget <= 0:
         return (0, 0, 0)
-    top_v = max(candidate_value, top_value_in_pool or 0)
-    share = candidate_value / top_v if top_v > 0 else 1.0
-    aggressive_pct = 0.05 + 0.25 * share
-    aggressive = max(1, round(league_budget * aggressive_pct))
-    reasonable = max(1, round(aggressive * 0.70))
-    lowball = max(1, round(aggressive * 0.35))
+
+    from src.trade import faab_engine as _engine  # noqa: PLC0415 — avoid import cycle
+
+    league_ctx = league or _engine.LeagueContext(original_budget=int(league_budget))
+    if anchors is None:
+        # No board context: fall back to the configured format priors
+        # rather than inventing a pool-relative scale.
+        cfg = _engine.FaabConfig()
+        anchors = _engine.Anchors(
+            v_allin=cfg.num("anchors", "fallbackAllinValue", 2400),
+            v_repl=cfg.num("anchors", "fallbackReplacementValue", 1400),
+            band=max(
+                1.0,
+                cfg.num("anchors", "fallbackAllinValue", 2400)
+                - cfg.num("anchors", "fallbackReplacementValue", 1400),
+            ),
+            starter_slots=int(league_ctx.team_count) * int(league_ctx.starters_per_team),
+            source="fallback",
+        )
+
+    displayed, _raw = _engine.objective_ceiling(float(candidate_value), anchors)
+    budget = max(1, int(league_budget))
+    aggressive = int(round(displayed * budget))
+    reasonable = int(round(aggressive * 0.70))
+    lowball = int(round(aggressive * 0.35))
     return (aggressive, reasonable, lowball)
 
 
@@ -128,8 +164,18 @@ def find_waiver_targets(
     per_position_limit: int = DEFAULT_PER_POSITION_LIMIT,
     include_kicker_def: bool = False,
     user_faab_remaining: int | None = None,
+    league_budget: int | None = None,
+    team_count: int | None = None,
+    starters_per_team: int | None = None,
 ) -> dict[str, Any]:
-    """Return waiver-wire suggestions grouped by position."""
+    """Return waiver-wire suggestions grouped by position.
+
+    ``league_budget`` is the league's ORIGINAL full-season FAAB
+    allowance and sets the scale every bid is expressed against.
+    ``user_faab_remaining`` is the selected team's current balance and
+    acts only as a CAP.  They are different quantities and must not be
+    passed interchangeably.
+    """
     arr = contract.get("playersArray") or []
     if not isinstance(arr, list):
         return {"by_position": {}, "by_family": {}, "total": 0, "rookies_excluded": False}
@@ -188,23 +234,55 @@ def find_waiver_targets(
         )
         candidates_by_position.setdefault(pos, []).append(cand)
 
-    top_value = max(
-        (c.consensus_value for cs in candidates_by_position.values() for c in cs),
-        default=0,
+    # The bid scale is the league's ORIGINAL budget, never the user's
+    # remaining balance.  Passing ``user_faab_remaining`` as
+    # ``league_budget`` (which this did until the FAAB engine landed)
+    # made a player's "objective" worth shrink purely because the
+    # manager had already spent — the same player was worth $21 in
+    # week 1 and $4 in week 10 with no change in the player.  The
+    # remaining balance is a CAP applied afterwards, not the scale.
+    from src.trade import faab_engine as _engine  # noqa: PLC0415
+
+    budget = int(league_budget or 0)
+    if budget <= 0:
+        budget = _engine.FaabConfig().num("leagueRules", "defaultBudget", 100)
+        budget = int(budget)
+
+    league_ctx = _engine.LeagueContext(
+        original_budget=budget,
+        team_count=int(team_count or 12),
+        starters_per_team=int(starters_per_team or 20),
     )
-    if user_faab_remaining is None or user_faab_remaining <= 0:
-        user_faab_remaining = 100
+    board_values = [
+        row.get("rankDerivedValue")
+        for row in arr
+        if isinstance(row, dict)
+        and isinstance(row.get("rankDerivedValue"), (int, float))
+        and str(row.get("position") or "").upper()
+        not in set(_engine.FaabConfig().get("anchors", "excludedPositions", []) or [])
+    ]
+    available_values = [c.consensus_value for cs in candidates_by_position.values() for c in cs]
+    anchors = _engine.resolve_anchors(
+        board_values,
+        league_ctx,
+        available_values=available_values or None,
+    )
+
+    cap = user_faab_remaining if user_faab_remaining is not None else budget
+    cap = max(0, int(cap))
 
     for cs in candidates_by_position.values():
         for c in cs:
             agg, reas, low = _compute_faab_bid(
                 c.consensus_value,
-                league_budget=user_faab_remaining,
-                top_value_in_pool=top_value,
+                league_budget=budget,
+                anchors=anchors,
+                league=league_ctx,
             )
-            c.bid_aggressive = agg
-            c.bid_reasonable = reas
-            c.bid_lowball = low
+            # A recommendation must never exceed what the team has.
+            c.bid_aggressive = min(agg, cap)
+            c.bid_reasonable = min(reas, cap)
+            c.bid_lowball = min(low, cap)
 
     out_by_position: dict[str, list[dict[str, Any]]] = {}
     total = 0

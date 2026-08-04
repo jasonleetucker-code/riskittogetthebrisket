@@ -73,7 +73,15 @@ const BUDGETS_KB = {
   // Added R4: /waivers was shipping unmeasured. Pinned at the R4
   // rebuild's measured size + headroom so the claim desk can't drift
   // unnoticed like it had been.
-  "/waivers/page": 36,
+  //
+  // Bumped 36→42: the "Best add/drop moves" FAAB column now joins the
+  // backend's bids onto its client-computed rows at render time
+  // (lib/waiver-faab.js + the POST in useWaiverAnalysis) instead of
+  // rendering "—" on every row. Measured 37.6 KB, up from 35.0 —
+  // 42 restores the ~15% headroom this table asks for. The alternative
+  // was a client-side bid formula, which the no-frontend-valuation
+  // rule forbids (see the closing note in lib/waiver-logic.js).
+  "/waivers/page": 42,
   "/settings/page": 60,  // bumped 50→55 for guest-pass admin panel (token reveal, list table, revoke); 55→60 for the Sharp Tracker intel section in the shared PlayerPopup chunk (useLeague + intel fetch, PR #534)
   "/login/page": 15,
   "/more/page": 10,

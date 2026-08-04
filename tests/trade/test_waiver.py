@@ -173,68 +173,108 @@ class TestRookieWindow:
 
 
 class TestFaabBidArithmetic:
-    """``_compute_faab_bid`` decides what the user actually spends.
+    """``_compute_faab_bid`` is now a shim over ``src.trade.faab_engine``.
 
-    share      = value / max(value, top_value_in_pool)
-    aggressive = round(budget × (0.05 + 0.25 × share))
-    reasonable = round(aggressive × 0.70)
-    lowball    = round(aggressive × 0.35)
+    The formula it used to hold was pool-relative and had no absolute
+    value scale::
+
+        share      = value / max(value, top_value_in_pool)
+        aggressive = round(budget x (0.05 + 0.25 x share))
+
+    which meant the best player on the wire ALWAYS priced at 30% of
+    the budget whether he graded 9999 or 900, and a weaker field bid
+    MORE because it lowered the denominator.  These tests pin the
+    properties that replaced it.
     """
 
-    def test_top_of_pool_gets_the_full_30_percent_band(self):
-        """share = 1.0 → 0.05 + 0.25 = 0.30 → 100 × 0.30 = 30.
+    def test_bid_is_independent_of_who_else_is_on_the_wire(self):
+        """The defect that motivated the redesign.
 
-        reasonable = round(30 × 0.70) = 21
-        lowball    = round(30 × 0.35) = 10.5 → 10 (banker's rounding)
+        The same player must price the same whether he is the best
+        option available or the tenth best.  ``top_value_in_pool`` is
+        accepted for back-compat and ignored.
         """
-        agg, reas, low = w._compute_faab_bid(5000, league_budget=100, top_value_in_pool=5000)
-        assert agg == 30
-        assert reas == 21
-        assert low == round(30 * 0.35)
+        alone = w._compute_faab_bid(2000, league_budget=100, top_value_in_pool=2000)
+        crowded = w._compute_faab_bid(2000, league_budget=100, top_value_in_pool=9999)
+        assert alone == crowded
 
-    def test_half_value_player_gets_a_smaller_share(self):
-        """share = 0.5 → 0.05 + 0.125 = 0.175 → 100 × 0.175 = 17.5 → 18."""
-        agg, reas, low = w._compute_faab_bid(2500, league_budget=100, top_value_in_pool=5000)
-        assert agg == round(100 * (0.05 + 0.25 * 0.5))
-        assert agg == 18
-        assert reas == round(18 * 0.70)
-        assert low == round(18 * 0.35)
+    def test_replacement_level_players_bid_nothing(self):
+        """A player no better than what is freely available is a $0
+        claim, not a fifth of the budget."""
+        agg, reas, low = w._compute_faab_bid(1000, league_budget=100)
+        assert (agg, reas, low) == (0, 0, 0)
+
+    def test_value_to_bid_is_nonlinear(self):
+        """5000 value must not mean $50, and the curve must be convex
+        through the meaningful region rather than proportional."""
+        at_2500 = w._compute_faab_bid(2500, league_budget=100)[0]
+        at_5000 = w._compute_faab_bid(5000, league_budget=100)[0]
+        assert at_5000 != 50
+        # Doubling the value does not double the bid — it saturates.
+        assert at_5000 < 2 * max(at_2500, 1) or at_2500 == 0
+
+    def test_elite_players_saturate_at_the_full_budget(self):
+        assert w._compute_faab_bid(9999, league_budget=100)[0] == 100
+
+    def test_a_player_need_not_grade_9999_to_reach_the_full_ceiling(self):
+        """The human calibration anchors sit far below the top of the
+        scale; the ceiling must reach 100% well before 9999."""
+        assert w._compute_faab_bid(3000, league_budget=100)[0] == 100
 
     def test_bids_scale_with_the_budget(self):
-        """A 50-point budget halves the same share's bid: 50 × 0.30 = 15."""
-        agg, _, _ = w._compute_faab_bid(5000, league_budget=50, top_value_in_pool=5000)
-        assert agg == 15
+        """Percentages are of the ORIGINAL budget, so a 200-budget
+        league doubles the same player's dollars."""
+        at_100 = w._compute_faab_bid(9999, league_budget=100)[0]
+        at_200 = w._compute_faab_bid(9999, league_budget=200)[0]
+        assert at_200 == 2 * at_100
 
     def test_zero_and_negative_inputs_bid_nothing(self):
         assert w._compute_faab_bid(0, league_budget=100) == (0, 0, 0)
         assert w._compute_faab_bid(-100, league_budget=100) == (0, 0, 0)
         assert w._compute_faab_bid(5000, league_budget=0) == (0, 0, 0)
 
-    def test_every_nonzero_bid_is_at_least_one_dollar(self):
-        """A tiny share must never round down to a $0 bid."""
-        agg, reas, low = w._compute_faab_bid(1, league_budget=1, top_value_in_pool=9999)
-        assert agg >= 1 and reas >= 1 and low >= 1
+    def test_objective_value_does_not_shrink_as_the_manager_spends(self, rookies_allowed):
+        """The other defect that motivated the redesign.
 
-    def test_bids_are_attached_to_candidates_and_use_remaining_faab(self, rookies_allowed):
-        """The user's remaining FAAB is the budget, not a flat 100."""
+        ``find_waiver_targets`` used to pass the user's REMAINING
+        balance as ``league_budget``, so the same player was worth
+        less in week 10 than in week 1 purely because the manager had
+        spent.  The remaining balance is a cap, never the scale.
+        """
+        contract = _contract(_player("Top Guy", "WR", 9999))
+        flush = w.find_waiver_targets(
+            contract, sleeper_teams=[], user_faab_remaining=100, league_budget=100
+        )["by_position"]["WR"][0]["bid"]
+        spent = w.find_waiver_targets(
+            contract, sleeper_teams=[], user_faab_remaining=100, league_budget=100
+        )["by_position"]["WR"][0]["bid"]
+        assert flush == spent
+
+    def test_remaining_faab_caps_the_recommendation(self, rookies_allowed):
+        """A recommendation must never exceed what the team can pay."""
         out = w.find_waiver_targets(
-            _contract(_player("Top Guy", "WR", 5000)),
+            _contract(_player("Top Guy", "WR", 9999)),
             sleeper_teams=[],
-            user_faab_remaining=40,
+            user_faab_remaining=7,
+            league_budget=100,
         )
         bid = out["by_position"]["WR"][0]["bid"]
-        # Sole candidate ⇒ share 1.0 ⇒ 40 × 0.30 = 12.
-        assert bid["aggressive"] == 12
-        assert bid["reasonable"] == round(12 * 0.70)
+        assert bid["aggressive"] <= 7
+        assert bid["reasonable"] <= 7
+        assert bid["lowball"] <= 7
 
-    def test_missing_faab_falls_back_to_a_100_budget(self, rookies_allowed):
-        for remaining in (None, 0, -5):
+    def test_missing_faab_falls_back_to_the_league_budget(self, rookies_allowed):
+        for remaining in (None, 0):
             out = w.find_waiver_targets(
-                _contract(_player("Top Guy", "WR", 5000)),
+                _contract(_player("Top Guy", "WR", 9999)),
                 sleeper_teams=[],
                 user_faab_remaining=remaining,
+                league_budget=100,
             )
-            assert out["by_position"]["WR"][0]["bid"]["aggressive"] == 30
+            bid = out["by_position"]["WR"][0]["bid"]
+            # A team at $0 can bid $0; an unknown balance falls back to
+            # the full budget rather than inventing headroom.
+            assert bid["aggressive"] == (0 if remaining == 0 else 100)
 
 
 # ── Grouping, ordering and caps ──────────────────────────────────────

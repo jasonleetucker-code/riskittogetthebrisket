@@ -441,6 +441,87 @@ offense, IDP and picks on one native 0-9999 scale; of KTC's 500 rows,
 (p10 0.888, p90 1.054, measured 2026-07-26). Both top out at 9999, so
 there is no rescaling to apply between them.
 
+### FAAB recommendations — one engine, two separate answers
+``src/trade/faab_engine.py`` is the ONLY place a FAAB dollar figure is
+derived.  Full reference: ``docs/faab-model.md``.
+
+The design turns on a separation the previous implementation did not
+make at all:
+
+* **objective ceiling** — what the player is WORTH, as a share of the
+  league's **original** budget.  A function of the player and the
+  league FORMAT.  It does not move when a manager spends, and it is
+  identical for every team in the league.
+* **recommended bid** — what THIS team should bid, given its balance,
+  roster, drop side, the week, and the expected clearing price.
+  Almost always far below the ceiling.
+
+The old formula had neither.  It was ``0.05 + 0.25 x (value / best
+value on the wire)`` of the team's REMAINING balance, so (a) the best
+free agent always priced at 21% of budget whether he graded 9999 or
+900, (b) a barren wire bid MORE because it lowered the denominator,
+and (c) a player's "objective" worth shrank as the manager spent.  On
+the real 2026-08-04 board every one of the 40 surfaced candidates
+priced between $14 and $21 of $100.
+
+Model, in five stages (all parameters in ``config/trade/faab.json`` —
+the engine contains no numeric literal that affects a recommendation):
+
+1. **Anchors** — ``V_allin`` is the board value at
+   ``teamCount x starterSlotsPerTeam``, the league-wide STARTING pool;
+   ``V_repl`` is the format line at 2x that, blended with the live
+   pool's Nth-best unrostered player.  Both recompute per league per
+   board refresh and hard-code no player.
+2. **Surplus** — ``max(0, V - V_repl)``.  The drop side subtracts the
+   same way, so dropping a below-replacement player is free.
+3. **Ceiling curve** — smootherstep on ``s^2.2``: a long flat toe for
+   replacement-level players, saturating at 100% of the original
+   budget at ``V_allin``.  Zero slope at both ends, so nothing jumps
+   at a threshold.  An uncapped ``rawCeiling`` keeps growing above the
+   line so the market layer can still tell a 2400 player from a 9999.
+4. **Team layer** — drop cost, startable-depth need, season option
+   value (unspent FAAB expires, so the ceiling relaxes toward 100%
+   late), competitive status, then a hard cap at the balance.
+5. **Market** — rivals are a zero-inflated lognormal fitted to this
+   league's real Sleeper history.  ``recommended = argmax_b P(win|b) x
+   (rawCeiling - b)``: bidding the ceiling captures zero surplus by
+   construction, which is what produces "worth $100, bid $34".
+
+**The all-in region is derived, not hard-coded**, and it independently
+reproduces two managers' stated judgments: ``dynasty_new``'s starter
+line (10 x 10 = rank 100) lands exactly on Josh Jacobs (3901), the
+value the site owner named; ``dynasty_main``'s (12 x 20 = rank 240 →
+2341) sits just under the peer's cluster (Dobbins 2661 / Stribling
+2680 / Warren 2938).  Pinned by ``tests/trade/test_faab_calibration.py``.
+
+Rules for new code:
+
+* Need a bid?  → call the engine.  There is no second formula, and
+  ``frontend/lib/waiver-logic.js`` deliberately exports none (the old
+  ``computeFaabHint`` JS port is deleted — same no-frontend-engine rule
+  as ranking).
+* Positional scarcity, age, dynasty outlook and the TE/superflex
+  premiums are ALREADY inside the canonical 1-9999 value.  Do not
+  re-apply them here.  Trending adds and the KTC crowd bid % are
+  demand EVIDENCE reported as factor rows; they feed rival engagement
+  in the market layer and never scale the objective value.
+* Need "does this roster need the position?"  → the engine's
+  ``classify_need`` (startable depth vs lineup slots), NOT
+  ``suggestions.analyze_roster``.  That helper answers a trade-surplus
+  question and, measured on real 58-man best-ball rosters, returns
+  ``surplus`` for 68 of 84 team/position pairs and ``need`` once — it
+  cannot discriminate here.
+
+Bid history lives in ``data/faab/bid_history_<leagueKey>.json``
+(gitignored like the rest of ``data/``), written by
+``scripts/fetch_faab_history.py``; run it on prod.  Without it the
+engine falls back to configured priors plus the live analytics block
+and says so in ``contention.notes``.  Note
+``src/api/faab_analytics.py`` gates its median on ``bid > 0`` and so
+reports ~2% where the true median is 0% — 45-64% of this league's adds
+cost nothing.  ``src/trade/faab_history.py`` keeps zero bids for
+exactly that reason; prefer it for anything market-facing.
+
 ### Canonical Data Mode
 The offline canonical-build path (``scripts/canonical_build.py`` +
 ``src/canonical/transform.py`` + ``src/canonical/pipeline.py``) and its

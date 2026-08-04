@@ -8,7 +8,8 @@ Pins the response contract:
   explicit missing-factor note — the server never guesses which
   team is the user's.
 * With ``teamOwnerId`` ⇒ contention runs against the OTHER teams
-  only, ``clearing = topRival + 1``.
+  only; ``clearing`` is the median of the field's top-bid
+  distribution (see src/trade/faab_engine.py).
 
 All Sleeper/analytics/intel inputs are stubbed — no live network.
 """
@@ -274,7 +275,14 @@ def test_team_owner_enables_contention_against_other_teams(faab_env, monkeypatch
     payload = res.json()
     contention = payload["contention"]
     assert contention["skipped"] is False
-    assert contention["clearing"] == contention["topRival"] + 1
+    # ``clearing`` is the median of the WHOLE field's top-bid
+    # distribution, not ``topRival + 1``.  The old model defined it as
+    # "one dollar more than the single highest projected rival", which
+    # ignored that a rival bids only some of the time; the new one
+    # integrates over every rival's contest probability, so it is a
+    # market statement rather than an arithmetic successor.
+    assert isinstance(contention["clearing"], int)
+    assert contention["clearing"] >= 0
     owner_ids = {r["ownerId"] for r in contention["perOpponent"]}
     assert "me" not in owner_ids  # the user's team is never a rival
     assert owner_ids == {"o1", "o2"}
@@ -344,7 +352,14 @@ def test_broke_user_still_gets_populated_rival_field(faab_env, monkeypatch):
     assert contention["perOpponent"], "rival field must not be empty"
     assert any(r["expBid"] > 0 for r in contention["perOpponent"])
     assert contention["topRival"] > 0
-    assert contention["clearing"] == contention["topRival"] + 1
+    # ``clearing`` is the median of the WHOLE field's top-bid
+    # distribution, not ``topRival + 1``.  The old model defined it as
+    # "one dollar more than the single highest projected rival", which
+    # ignored that a rival bids only some of the time; the new one
+    # integrates over every rival's contest probability, so it is a
+    # market statement rather than an arithmetic successor.
+    assert isinstance(contention["clearing"], int)
+    assert contention["clearing"] >= 0
 
 
 def test_missing_contention_lowers_reported_confidence(faab_env, monkeypatch):

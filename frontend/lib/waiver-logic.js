@@ -846,34 +846,26 @@ export function buildTopWaiverPool(
 }
 
 
-// ── Lightweight FAAB hint (client-side baseline) ──────────────────────
+// ── No FAAB math lives in this file ───────────────────────────────────
 //
-// JS port of ``src/trade/waiver.py::_compute_faab_bid``.  Used by the
-// recommendation tables (bestMoves) where rendering 20 row-level
-// hints client-side is cheap; the heavy ``recommend_faab`` endpoint
-// only fires for the user's manually-selected pair.
+// ``computeFaabHint`` used to sit here: a JS port of the old Python
+// ``_compute_faab_bid`` that turned a player's share of the best
+// addable value into a share of the budget.  It was deleted when the
+// backend moved to the centralized engine in
+// ``src/trade/faab_engine.py``, for two reasons:
 //
-// Returns ``{aggressive, reasonable, lowball}`` integers.  The
-// formula treats the candidate's value as a share of the strongest
-// player in the addable pool: a 9999-value player gets 30% of the
-// budget, a 5000-value player gets ~17.5%, a 1000-value player gets
-// ~7.5%, etc.  ``topValueInPool`` defaults to the candidate's own
-// value (so a single-player query reads as the full 30%); pass the
-// actual top of the pool for relative scaling.
-
-export function computeFaabHint(
-  candidateValue,
-  { leagueBudget = 100, topValueInPool = null } = {},
-) {
-  const v = Number(candidateValue);
-  if (!Number.isFinite(v) || v <= 0 || leagueBudget <= 0) {
-    return { aggressive: 0, reasonable: 0, lowball: 0 };
-  }
-  const top = Math.max(v, Number(topValueInPool) || 0);
-  const share = top > 0 ? v / top : 1.0;
-  const aggressivePct = 0.05 + 0.25 * share;
-  const aggressive = Math.max(1, Math.round(leagueBudget * aggressivePct));
-  const reasonable = Math.max(1, Math.round(aggressive * 0.70));
-  const lowball = Math.max(1, Math.round(aggressive * 0.35));
-  return { aggressive, reasonable, lowball };
-}
+//   1. It was a second, divergent valuation formula on the client —
+//      the "no frontend ranking/valuation engine, period" rule.  Two
+//      definitions of a bid is exactly the drift the rule exists to
+//      prevent.
+//   2. It was numerically wrong against the new engine.  The old
+//      formula had no notion of an objective ceiling, replacement
+//      level, option value, or a market-clearing price, so it priced
+//      the best free agent on a barren wire at ~21% of the budget
+//      whether he graded 9999 or 900.
+//
+// Every dollar figure the UI renders is now stamped by the backend:
+// ``bid: {aggressive, reasonable, lowball}`` on each
+// ``/api/waiver/suggestions`` candidate row, and the full ladder from
+// ``POST /api/waiver/faab-recommend``.  A row with no backend bid
+// renders a placeholder — never a locally computed number.
