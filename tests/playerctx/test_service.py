@@ -190,6 +190,147 @@ class TestRefreshPlayerctx:
         assert summary["counts"]["players"] == 3
 
 
+class TestReconstructPlayerctx:
+    """Replaying the snapshot as it would have read at a past week.
+
+    The `snapTrend` axis was documented in four places as unmeasurable
+    because the playerctx snapshot is overwritten weekly with no history.
+    The history is upstream — nflverse publishes snap counts per game —
+    so what was missing was an as-of read, not a retention policy.
+    """
+
+    def _bundle_with_four_weeks(self, tmp_path, fixture_bundle):
+        fixture_bundle.snap_counts = write_csv(
+            tmp_path / "snaps_multi.csv",
+            SNAPS_HEADER,
+            [
+                f"2025_{w:02d}_SF_XX,x{w},2025,REG,{w},Christian McCaffrey,McCaCh01,"
+                f"RB,SF,XX,{40 + w * 10},0.{40 + w * 10},0,0,0,0"
+                for w in range(1, 5)
+            ],
+        )
+        return fixture_bundle
+
+    def test_the_replay_sees_only_games_up_to_the_cutoff(
+        self, tmp_path, fixture_bundle, players_dir
+    ):
+        bundle = self._bundle_with_four_weeks(tmp_path, fixture_bundle)
+        payload = service.reconstruct_playerctx(
+            as_of=service.AsOf(season=2025, through_week=2),
+            fetcher=_fetcher(bundle),
+            players_dir=players_dir,
+        )
+        assert payload["players"]["00-0033280"]["snaps"]["games"] == 2
+
+    def test_the_snap_trend_actually_differs_between_two_cutoffs(
+        self, tmp_path, fixture_bundle, players_dir
+    ):
+        """The property the whole exercise exists to obtain.
+
+        A replay whose derived signal is identical at every cutoff is
+        worthless for a backtest — every fold would resample one
+        observation, which is exactly what the all-offseason panel does
+        to this axis today.
+        """
+        bundle = self._bundle_with_four_weeks(tmp_path, fixture_bundle)
+        trends = {}
+        for cutoff in (3, 4):
+            payload = service.reconstruct_playerctx(
+                as_of=service.AsOf(season=2025, through_week=cutoff),
+                fetcher=_fetcher(bundle),
+                players_dir=players_dir,
+            )
+            trends[cutoff] = payload["players"]["00-0033280"]["snaps"]["trend"]
+        assert trends[3] != trends[4], f"snapTrend frozen across cutoffs: {trends}"
+
+    def test_it_reports_survivorship_rather_than_assuming_it_away(
+        self, tmp_path, fixture_bundle, players_dir
+    ):
+        # The join anchor is the LIVE Sleeper pool; a player out of the
+        # league by now cannot join, so a replay is biased toward
+        # survivors. That has to be quantifiable, not hidden.
+        fixture_bundle.snap_counts = write_csv(
+            tmp_path / "snaps_retired.csv",
+            SNAPS_HEADER,
+            [
+                "2025_01_SF_XX,x1,2025,REG,1,Christian McCaffrey,McCaCh01,RB,SF,XX,60,0.85,0,0,0,0",
+                "2025_02_SF_XX,x2,2025,REG,2,Christian McCaffrey,McCaCh01,RB,SF,XX,65,0.95,0,0,0,0",
+                # Real in 2025, gone from the 2026 Sleeper pool.
+                "2025_01_NYJ_XX,x3,2025,REG,1,Retired Veteran,RetiVe00,RB,NYJ,XX,50,0.70,0,0,0,0",
+            ],
+        )
+        payload = service.reconstruct_playerctx(
+            as_of=service.AsOf(season=2025),
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+        )
+        snaps = payload["survivorship"]["snapCounts"]
+        assert snaps["parsed"] == 2  # two player aggregates
+        assert snaps["matched"] == 1
+        assert snaps["unjoined"] == 1
+        assert snaps["joinRate"] == 0.5
+
+    def test_it_does_not_write_anything(self, tmp_path, fixture_bundle, players_dir, monkeypatch):
+        """A replay must be one default argument away from nothing.
+
+        Threading `as_of` onto `refresh_playerctx` would have left a
+        historical reconstruction able to overwrite the live snapshot
+        production reads, which is why this is a separate entry point.
+        """
+        live = tmp_path / "live" / "snapshot.json"
+        monkeypatch.setattr(store, "SNAPSHOT_PATH", live)
+        service.reconstruct_playerctx(
+            as_of=service.AsOf(season=2025, through_week=1),
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+        )
+        assert not live.exists()
+        assert not live.parent.exists()
+
+    def test_it_does_not_enforce_the_live_row_floors(self, tmp_path, fixture_bundle, players_dir):
+        # A replay at week 1 legitimately has very few rows. Enforcing
+        # the production floors would make early weeks unreachable.
+        payload = service.reconstruct_playerctx(
+            as_of=service.AsOf(season=2025, through_week=1),
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+        )
+        assert payload["parsedCounts"]["snapCounts"] < service._ROW_FLOORS["snapCounts"]
+        assert payload["players"]
+
+    def test_an_unbounded_replay_matches_the_live_refresh(
+        self, tmp_path, fixture_bundle, players_dir, small_floors
+    ):
+        # The as-of machinery must be inert when nothing is bounded, or
+        # adding it would have silently changed what production serves.
+        target = tmp_path / "snapshot.json"
+        service.refresh_playerctx(
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+            snapshot_path=target,
+        )
+        live = store.load_snapshot(target)
+        replay = service.reconstruct_playerctx(
+            as_of=service.AsOf(),
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+        )
+        assert replay["players"] == live["players"]
+        assert replay["sleeperIndex"] == live["sleeperIndex"]
+
+    def test_the_asof_window_is_stamped_on_the_payload(self, fixture_bundle, players_dir):
+        payload = service.reconstruct_playerctx(
+            as_of=service.AsOf(season=2025, through_week=3, depth_as_of="2026-07-25"),
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+        )
+        assert payload["asOf"] == {
+            "season": 2025,
+            "throughWeek": 3,
+            "depthAsOf": "2026-07-25",
+        }
+
+
 class TestLoadPlayerctx:
     def test_defensive_load(self, tmp_path):
         assert service.load_playerctx(tmp_path / "missing.json") is None
