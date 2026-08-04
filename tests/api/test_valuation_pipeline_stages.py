@@ -568,9 +568,9 @@ class TestRetiredPassesStayRetired:
             for stamp in self.RETIRED_STAMPS:
                 if row.get(stamp) is not None:
                     offenders.append(f"{row.get('displayName')}::{stamp}={row[stamp]}")
-        assert not offenders, (
-            f"a retired value-moving pass appears to have been revived: {offenders[:5]}"
-        )
+        assert (
+            not offenders
+        ), f"a retired value-moving pass appears to have been revived: {offenders[:5]}"
 
     def test_idp_calibration_config_and_helper_are_really_gone(self):
         """CLAUDE.md still documents stage 10 as
