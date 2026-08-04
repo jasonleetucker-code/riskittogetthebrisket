@@ -286,6 +286,15 @@
   color: var(--text-muted, #8b93a7);
 }
 
+/* Says how much of the result is off-screen. An unannounced slice reads
+   as "that is the whole answer", which on a 1,000-row board is wrong by
+   an order of magnitude. */
+.truncation {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted, #8b93a7);
+}
+
 .notice h2 {
   margin: 0 0 0.4rem;
   font-size: 1rem;

@@ -128,47 +128,49 @@ describe("classifyPos", () => {
 
 // ── inferValueBundle ─────────────────────────────────────────────────
 
+// Math audit 2026-07-30, finding H1.  These previously pinned a fallback
+// chain (`_canonicalDisplayValue -> _finalAdjusted -> _composite -> raw`)
+// that let `full` — the BOARD-scale value every sum and threshold is
+// calibrated against — silently report the legacy scraper composite,
+// which runs ~1.131x the board.  They now pin the opposite: `full` is the
+// board value or nothing.
 describe("inferValueBundle", () => {
-  it("extracts value tiers from a full player", () => {
+  it("reads full from the backend board value", () => {
     const player = {
       _rawComposite: 8500,
       _finalAdjusted: 9100,
+      rankDerivedValue: 8930,
     };
     const v = inferValueBundle(player);
     expect(v.raw).toBe(8500);
-    expect(v.full).toBe(9100);
+    // The board said 8930.  Not 9100 (composite) and not 8500 (raw).
+    expect(v.full).toBe(8930);
   });
 
-  it("falls back through the value chain when fields are missing", () => {
-    const player = { _composite: 5000 };
+  it("reports full = 0 when the board declined to price the row", () => {
+    // The 270-row case measured on the live payload: a scrape composite
+    // exists but no board value.  Reporting the composite here is what
+    // put two scales inside one sum.
+    const player = { _composite: 5000, _finalAdjusted: 5000 };
     const v = inferValueBundle(player);
     expect(v.raw).toBe(5000);
-    expect(v.full).toBe(5000);
+    expect(v.full).toBe(0);
+  });
+
+  it("never lets the composite stand in for the board value", () => {
+    // Same composite, two different board values -> two different `full`.
+    // If `full` were composite-derived these would be equal.
+    const a = inferValueBundle({ _composite: 6136, rankDerivedValue: 7852 });
+    const b = inferValueBundle({ _composite: 6136, rankDerivedValue: 6101 });
+    expect(a.full).toBe(7852);
+    expect(b.full).toBe(6101);
+    expect(a.raw).toBe(b.raw);
   });
 
   it("rounds values to integers", () => {
-    const player = { _rawComposite: 8500.7 };
+    const player = { _rawComposite: 8500.7, rankDerivedValue: 7738.4 };
     const v = inferValueBundle(player);
     expect(v.raw).toBe(8501);
-  });
-
-  it("prefers _canonicalDisplayValue for full when available", () => {
-    const player = {
-      _rawComposite: 7738,
-      _finalAdjusted: 7738,
-      _canonicalDisplayValue: 9920,
-    };
-    const v = inferValueBundle(player);
-    expect(v.full).toBe(9920);
-    expect(v.raw).toBe(7738);
-  });
-
-  it("falls back to _finalAdjusted when _canonicalDisplayValue is missing", () => {
-    const player = {
-      _rawComposite: 7738,
-      _finalAdjusted: 7738,
-    };
-    const v = inferValueBundle(player);
     expect(v.full).toBe(7738);
   });
 
@@ -258,16 +260,18 @@ describe("buildRows", () => {
   });
 
   it("builds rows from legacy players map", () => {
+    // The legacy `players` dict carries `rankDerivedValue` mirrored from
+    // the contract row — verified on the live payload: 812 of 1093 legacy
+    // rows carry it, exactly matching playersArray's priced count.
     const data = {
       players: {
         "Josh Allen": {
           _composite: 8500,
           _rawComposite: 8500,
           _finalAdjusted: 9100,
+          rankDerivedValue: 8930,
           _sites: 6,
           position: "QB",
-          // Without backend rankDerivedValue the materializer falls
-          // back to _finalAdjusted for values.full.
           _canonicalConsensusRank: 1,
         },
       },
@@ -275,8 +279,33 @@ describe("buildRows", () => {
     };
     const rows = buildRows(data);
     expect(rows.length).toBe(1);
-    expect(rows[0].values.full).toBe(9100);
+    // Board value, not the 9100 composite.
+    expect(rows[0].values.full).toBe(8930);
     expect(rows[0].values.raw).toBe(8500);
+  });
+
+  it("legacy rows the board did not price report full = 0, not the composite", () => {
+    // Math audit H1: the legacy materializer used to fall through to
+    // `_finalAdjusted`, so an unpriced row contributed a composite-scale
+    // number to board-scale sums (team value, trade sides, waiver gaps).
+    const data = {
+      players: {
+        "Unpriced Guy": {
+          _composite: 5000,
+          _rawComposite: 5000,
+          _finalAdjusted: 5000,
+          _sites: 1,
+          position: "WR",
+          _canonicalConsensusRank: 400,
+        },
+      },
+      sleeper: { positions: { "Unpriced Guy": "WR" } },
+    };
+    const rows = buildRows(data);
+    expect(rows.length).toBe(1);
+    expect(rows[0].values.full).toBe(0);
+    // The composite is still readable under its own name for "Raw" mode.
+    expect(rows[0].values.raw).toBe(5000);
   });
 
   it("prefers displayValue for full in contract format", () => {

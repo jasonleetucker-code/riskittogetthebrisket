@@ -161,8 +161,20 @@ def _pick_curve_value(info: dict[str, Any], current_year: int | None = None) -> 
     if current_year is None:
         current_year = datetime.date.today().year
     rnd = info.get("round")
-    if rnd is None or rnd not in LEGACY_PICK_ROUND_CURVE:
-        rnd = min(LEGACY_PICK_ROUND_CURVE.keys(), default=1)
+    # Out-of-range / unparseable rounds fall back to the WORST tabulated
+    # round, not the best.  ``min(keys())`` was round 1, so a 7th (or a
+    # name we couldn't parse a round out of at all) was priced at 6124 —
+    # the median value of a FIRST.  The curve tops out at round 6; a
+    # round past its tail is worth at most that.
+    best_round = min(LEGACY_PICK_ROUND_CURVE.keys(), default=1)
+    worst_round = max(LEGACY_PICK_ROUND_CURVE.keys(), default=1)
+    if rnd is None:
+        rnd = worst_round
+    elif rnd not in LEGACY_PICK_ROUND_CURVE:
+        # Clamp to the nearest tabulated round rather than jumping to
+        # either end: a 7th prices as a 6th, a (nonsensical) round 0 as
+        # a 1st.
+        rnd = max(best_round, min(worst_round, int(rnd)))
 
     base = LEGACY_PICK_ROUND_CURVE.get(rnd, 2000)
 
@@ -179,11 +191,21 @@ def _pick_curve_value(info: dict[str, Any], current_year: int | None = None) -> 
         # Interpolate between early/late within the round
         early_val = int(LEGACY_PICK_ROUND_CURVE[rnd] * 1.15)
         late_val = int(LEGACY_PICK_ROUND_CURVE[rnd] * 0.85)
-        # 12-team league: slot 1-4 = early, 5-8 = mid, 9-12 = late
+        # 12-team league: slot 1-4 = early, 5-8 = mid, 9-12 = late.
+        # All three bands must be covered.  Slots 5-8 used to match
+        # NEITHER branch, so they kept the untouched round median while
+        # slot 4 carried the full early-band premium — a 13% cliff
+        # between two adjacent picks (1.04 → 7042, 1.05 → 6124).
         if slot <= 4:
             frac = (4 - slot) / 4
             base = int(early_val * (1 - frac) + (early_val + 200) * frac)
-        elif slot >= 9:
+        elif slot <= 8:
+            # Mid band: ramp from where the early band ends (slot 4 =
+            # early_val) down to the round median, which is exactly
+            # where the late band below starts (its frac is 0 at slot 8).
+            frac = (slot - 4) / 4
+            base = int(early_val * (1 - frac) + LEGACY_PICK_ROUND_CURVE[rnd] * frac)
+        else:
             frac = (slot - 8) / 4
             base = int(LEGACY_PICK_ROUND_CURVE[rnd] * (1 - frac) + late_val * frac)
 

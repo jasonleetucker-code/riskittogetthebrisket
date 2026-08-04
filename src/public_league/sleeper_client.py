@@ -22,6 +22,7 @@ Network layer:
 from __future__ import annotations
 
 import logging
+import os as _os
 import threading
 from typing import Any
 
@@ -38,8 +39,6 @@ SLEEPER_BASE = "https://api.sleeper.app/v1"
 # so ops can raise or lower without a code change.  Every section
 # module iterates ``snapshot.seasons`` so this constant is the single
 # knob that controls horizon.
-import os as _os
-
 try:
     PUBLIC_MAX_SEASONS = max(1, int(_os.getenv("PUBLIC_MAX_SEASONS", "3")))
 except ValueError:

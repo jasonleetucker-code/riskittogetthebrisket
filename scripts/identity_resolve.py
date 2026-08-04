@@ -17,7 +17,7 @@ def _bootstrap_path(repo: Path) -> None:
         sys.path.insert(0, str(repo))
 
 
-from scripts._shared import _latest
+from scripts._shared import _latest  # noqa: E402 — must follow the sys.path bootstrap above
 
 
 def main() -> int:

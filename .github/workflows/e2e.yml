@@ -21,6 +21,13 @@ name: E2E Safety Net
 # Failure handling mirrors scheduled-refresh.yml: an idempotent
 # tracking issue labelled ``e2e-failures`` is opened (or commented
 # on) so a broken journey can't sit unnoticed between manual runs.
+#
+# That tracker is about MAIN, and only main writes to it — both the
+# open and the close step require ``github.ref == 'refs/heads/main'``.
+# Dispatching this on a branch is a first-class use (it is how a branch
+# gets arbitrated against the green baseline), and its result is
+# reported in the run itself.  It just does not get to speak for main.
+# See the note on the alert step for the incident, #716.
 
 on:
   schedule:
@@ -53,10 +60,10 @@ jobs:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -68,7 +75,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Use Node 20
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
 
@@ -221,7 +228,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-playwright-report
           path: |
@@ -231,7 +238,7 @@ jobs:
 
       - name: Upload server logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-server-logs
           path: |
@@ -244,7 +251,32 @@ jobs:
         # scheduled-refresh.yml: ensure the label exists, then comment
         # on the open ``e2e-failures`` issue if there is one, else
         # open a single labelled issue and keep reusing it.
-        if: failure()
+        #
+        # MAINLINE RUNS ONLY, and the `github.ref` half is the load-bearing
+        # part of that condition.  The tracker answers one question — "is a
+        # critical journey broken on main right now?" — and a
+        # `workflow_dispatch` on a feature branch cannot contribute an
+        # answer to it either way.
+        #
+        # It contributed wrong ones in both directions.  #716 was opened
+        # 2026-08-04T18:59Z reading "Nightly E2E safety-net run failed"; it
+        # was a manual dispatch on `claude/sitewide-performance-audit-nubuz8`
+        # (PR #709), deliberately fired by the session working that branch to
+        # let CI arbitrate its own in-progress change.  Working as intended
+        # for them, filed as a mainline regression for everyone else.
+        #
+        # The close step below is the worse direction and the reason this is
+        # a guard rather than a wording fix: it is gated only on `success()`,
+        # so a green dispatch from ANY branch closes a genuine open mainline
+        # failure with "safety net is green again". A branch that never ran
+        # main's code would have issued main's all-clear.
+        #
+        # schedule and a dispatch on main both give `refs/heads/main`, so the
+        # legitimate paths are untouched. `branches: [main]` is already
+        # hardcoded across these workflows; matching that is deliberate over
+        # deriving the default branch from an event payload that varies by
+        # trigger.
+        if: failure() && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -252,7 +284,7 @@ jobs:
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           BODY=$(cat <<EOF
-          Nightly E2E safety-net run failed.
+          E2E safety-net run failed on \`main\` (trigger: ${GITHUB_EVENT_NAME}).
 
           - Workflow run: ${RUN_URL}
           - Commit: ${GITHUB_SHA}
@@ -303,8 +335,11 @@ jobs:
         #
         # A green run of THIS workflow is the all-clear by construction:
         # the suite is the gate, so there is no per-step outcome to
-        # re-derive.
-        if: success()
+        # re-derive.  On MAIN.  The ref guard is not symmetry with the
+        # alert step above — it is the stronger of the two requirements,
+        # because a false all-clear closes a real open failure and a false
+        # alarm merely files a wrong one.  See that step for the full note.
+        if: success() && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -324,7 +359,7 @@ jobs:
           for N in $OPEN; do
             echo "closing #${N}"
             gh issue close "$N" --reason completed --comment \
-              "Nightly E2E safety net is green again — every critical journey passed.
+              "E2E safety net is green again on \`main\` — every critical journey passed.
 
           - Workflow run: ${RUN_URL}
           - Commit: ${GITHUB_SHA}

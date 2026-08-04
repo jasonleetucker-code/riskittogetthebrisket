@@ -501,9 +501,17 @@ class TestCompactNameKey:
         recommender used to look up with ``strip().lower()``, so the
         crowd calibration factor never fired for any name containing a
         space — i.e. every real player.
+
+        The consumer moved when the FAAB engine landed: the crowd bid
+        is no longer blended into the bid as a multiplier (that was one
+        of four separate readings of the same demand signal).  It is
+        now surfaced as demand EVIDENCE by
+        ``_demand_evidence_factors``.  The name-key parity this test
+        exists for is unchanged, so the assertion follows the consumer
+        rather than being deleted with the old blender.
         """
         from src.adapters.ktc_crowd_faab import build_crowd_bid_map
-        from src.trade.faab_recommender import _ktc_crowd_blend
+        from src.trade.faab_recommender import _demand_evidence_factors
 
         crowd = build_crowd_bid_map(
             {
@@ -514,5 +522,10 @@ class TestCompactNameKey:
             }
         )
         assert crowd == {"tjwatt": 20.0}
-        # 0.7*10 + 0.3*20 = 13 — unchanged (10) would mean the lookup missed.
-        assert _ktc_crowd_blend(crowd, "T.J. Watt", 100, 10) == 13
+
+        rows = _demand_evidence_factors(None, crowd, "T.J. Watt")
+        # A missing row here would mean the spaced, punctuated display
+        # name failed to join the compact-keyed map.
+        crowd_rows = [r for r in rows if r["label"] == "Crowd-sourced bid"]
+        assert len(crowd_rows) == 1
+        assert "20%" in crowd_rows[0]["contribution"]

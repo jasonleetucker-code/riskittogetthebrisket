@@ -65,10 +65,17 @@ def _parse_bid_pct(bid_pct_raw: Any, bid: Any, settings: dict | None = None) -> 
     the bridge skips the entry rather than dragging in junk.
     """
     # Direct bidPct field.
+    #
+    # ZERO IS A REAL BID, and it is the modal one: 28% of the KTC
+    # waiver database's claims and roughly half of this league's own
+    # adds cost nothing.  Excluding zeros — which this did, and which
+    # ``src/api/faab_analytics.py`` still does — biases the resulting
+    # median sharply upward and makes a quiet player look contested.
+    # The gate is therefore ``>= 0``, not ``> 0``.
     try:
         if bid_pct_raw is not None and str(bid_pct_raw).strip() != "":
             n = float(str(bid_pct_raw).strip().replace("%", ""))
-            if 0 < n <= 200:  # >100% is rare but legal in some leagues
+            if 0 <= n <= 200:  # >100% is rare but legal in some leagues
                 return n
     except (TypeError, ValueError):
         pass
@@ -76,7 +83,7 @@ def _parse_bid_pct(bid_pct_raw: Any, bid: Any, settings: dict | None = None) -> 
     # Derive from bid / waiver_budget.
     try:
         bid_n = float(bid) if bid is not None else 0.0
-        if bid_n <= 0:
+        if bid_n < 0:
             return None
         budget = None
         if isinstance(settings, dict):

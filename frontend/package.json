@@ -2,13 +2,28 @@
   "name": "dynasty-trade-calculator-frontend",
   "private": true,
   "version": "1.0.0",
+  "//sideEffects": [
+    "Every module here is side-effect free EXCEPT stylesheets, so the",
+    "bundler may drop unused re-exports from the barrels. Without this",
+    "field webpack must assume any barrel import might have side effects,",
+    "which is why components/ds/glyph-chevron-down.jsx exists: importing",
+    "Icon for one glyph pulled the whole PATHS map into /league.",
+    "",
+    "NOT `false`. CSS imports ARE side effects by definition —",
+    "app/layout.jsx imports ./globals.css and app/draft/page.jsx imports",
+    "./draft.css purely for the import. A bare `false` invites the",
+    "bundler to drop them and ship an unstyled app."
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
   "engines": {
     "node": ">=20 <21"
   },
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build && node scripts/check-bundle-sizes.mjs",
-    "build:nocheck": "next build",
+    "build": "next build --webpack && node scripts/check-bundle-sizes.mjs",
+    "build:nocheck": "next build --webpack",
     "start": "next start -p 3000",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -17,16 +32,15 @@
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
-    "next": "15.5.22",
+    "next": "16.2.12",
     "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "react-markdown": "^10.1.0"
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.5",
     "jsdom": "^25.0.1",
     "vitest": "^4.1.10"
   }

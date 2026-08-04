@@ -1,4 +1,4 @@
-﻿name: Deploy Production
+name: Deploy Production
 
 on:
   push:
@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Full history. Consensus Edge's as-of panel tests reconstruct
           # past boards with `git show`, and `panel.is_shallow()` makes
@@ -43,7 +43,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -87,15 +87,25 @@ jobs:
           # a hotfix pushed straight to main can't bypass it.
           python -m ruff format --check .
 
-      - name: Python lint (ruff check — report-only mirror)
-        # Enforcement lives on the PR gate (pr-validation.yml runs the
-        # changed-files-only blocking ruff check; nothing reaches main
-        # without passing it). This post-merge whole-repo run stays
-        # report-only — a visible signal of the pre-existing backlog
-        # without re-deriving "changed files" from a merge commit,
-        # which is fragile and would gain nothing.
-        if: ${{ always() }}
-        continue-on-error: true
+      - name: Python lint (ruff check — blocking mirror)
+        # Now blocking, matching the format gate directly above it and
+        # for the same stated reason: "a hotfix pushed straight to main
+        # can't bypass it". The PR gate cannot see a direct push, and
+        # this repo has several — the refresh workflows commit to main
+        # every 2h as github-actions[bot].
+        #
+        # It was report-only, described as "a visible signal of the
+        # pre-existing backlog". That backlog is gone (#708), so the
+        # signal has nothing left to show, and a report-only step whose
+        # output nobody has any reason to read is a guard that cannot
+        # fire — ORCHESTRATION §6.15's own subject.
+        #
+        # Scope note, because this is the riskier of the two changes: a
+        # violation here fails a DEPLOY, not a PR. That is deliberate —
+        # the format gate above already accepts the same trade — but it
+        # means main must be kept clean, which is now true and enforced
+        # upstream by the PR gate. If this ever fires on a direct push,
+        # the fix is to clean main, not to revert this to report-only.
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -187,7 +197,7 @@ jobs:
       # data-refresh commits, hotfixes) and a bloated chunk would
       # otherwise ship to prod without ever hitting the gate.
       - name: Set up Node (for bundle gate)
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: "npm"
@@ -221,7 +231,7 @@ jobs:
       # between the sha being deployed and the sha already in
       # production, so it needs real history here.
       - name: Checkout (full history for the deploy-skip guard)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

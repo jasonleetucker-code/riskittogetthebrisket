@@ -1,576 +1,340 @@
-"""Tests for ``src/trade/faab_recommender.py``.
+"""Tests for the FAAB recommender adapter.
 
-The recommender composes 6+ signals (baseline formula, value-gain
-modifier, trending kicker, league analytics, KTC crowd blend, team
-FAAB cap, marginal-upgrade floor).  Each input is optional; missing
-inputs drop confidence and surface a ``factors[].missing=true`` row.
+This file used to pin the OLD recommender, which WAS the model: a
+pool-relative baseline multiplied by a value-gain modifier, a Sleeper
+trending kicker, a league-historical position blend, a budget-
+environment scale and a rival-contention raise.  Those mechanisms are
+gone by design — they compounded without bound, they read one demand
+signal four separate times, and every one of them moved the BID when
+most of them described the player's VALUE or the market's PRICE.
 
-These tests pin every fallback path so a future "let's just blend
-in X" tweak doesn't silently break confidence reporting or the
-explanation copy.
+What is pinned now is the contract the adapter must honour:
+
+* the legacy response keys still exist and still mean something
+* ``max`` is the MAX RATIONAL bid, not merely the team's balance
+* demand signals are reported as evidence, never multiplied into the bid
+* aggression falls back from fitted history to the live analytics block
+* missing inputs lower confidence instead of silently changing the answer
+
+The model itself is tested in ``tests/trade/test_faab_engine.py`` and
+calibrated against human + historical anchors in
+``tests/trade/test_faab_calibration.py``.
 """
 
 from __future__ import annotations
 
-from src.adapters.ktc_crowd_faab import build_crowd_bid_map
-from src.trade.faab_recommender import compute_confidence, recommend_faab
+import pytest
+
+from src.trade import faab_engine as engine
+from src.trade.faab_recommender import (
+    _aggression_from_league_summary,
+    build_rivals,
+    compute_confidence,
+    recommend_faab,
+)
 
 
-# ── Baseline (fewest inputs) ────────────────────────────────────
+# A synthetic board with the same shape as the real one (dense at the
+# top, long tail) so anchor resolution has something to bite on.
+BOARD = [9999 - i * 12 for i in range(700)]
 
 
-def test_minimal_inputs_returns_full_shape():
-    out = recommend_faab(add_player_value=4000)
-    # All four bid pills present, plus confidence + breakdown.
-    assert set(out.keys()) >= {
-        "conservative",
-        "standard",
-        "aggressive",
-        "max",
-        "confidence",
-        "factors",
-        "warnings",
-        "explanation",
-    }
-    assert out["standard"] >= 0
-    assert out["confidence"] == "low"  # most factors missing
-    # Warnings list is iterable even when empty.
-    assert isinstance(out["warnings"], list)
-    # Explanation is human copy.
-    assert isinstance(out["explanation"], str)
-    assert out["explanation"]
+def _rivals(n: int = 11, remaining: int = 100):
+    return [engine.RivalTeam(owner_id=f"r{i}", faab_remaining=remaining) for i in range(n)]
 
 
-def test_zero_value_returns_zero_bid():
-    out = recommend_faab(add_player_value=0)
-    assert out["standard"] == 0
-    assert out["aggressive"] == 0
-
-
-# ── Value-gain modifier ────────────────────────────────────────
-
-
-def test_value_gain_boosts_standard_for_real_upgrades():
-    """A 4000-value add beating a 2000-value drop should
-    recommend MORE than the same add against a 4000-value drop."""
-    big_upgrade = recommend_faab(
-        add_player_value=4000,
-        drop_player_value=2000,
-    )
-    even_swap = recommend_faab(
-        add_player_value=4000,
-        drop_player_value=4000,
-    )
-    assert big_upgrade["standard"] >= even_swap["standard"]
-
-
-def test_negative_swap_recommends_zero_with_warning():
-    """Add worth less than drop ⇒ recommend $0 + warning."""
-    out = recommend_faab(add_player_value=2000, drop_player_value=5000)
-    assert out["standard"] == 0
-    assert any("worth more" in w for w in out["warnings"])
-
-
-def test_marginal_swap_caps_bid_with_warning():
-    """Add value == drop value ⇒ marginal upgrade ⇒ standard
-    capped to a token bid."""
-    out = recommend_faab(
-        add_player_value=3000,
-        drop_player_value=3000,
+def _rec(**overrides):
+    # A realistic rival field by default.  With NO rivals the
+    # expected-surplus optimum is correctly $0 for every player (an
+    # uncontested claim costs nothing), which is right but makes the
+    # team-layer assertions degenerate.
+    kwargs = dict(
+        add_player_value=6000.0,
+        add_player_name="Target",
+        add_player_position="WR",
+        league_budget=100,
+        board_values=BOARD,
         team_faab_remaining=100,
-        league_budget=100,
+        rivals=_rivals(),
     )
-    # Marginal — capped to roughly 50% of the baseline reasonable.
-    # Without a drop side the bid would be ~$13; with the marginal
-    # cap it should be much lower.
-    assert out["standard"] <= 10
-    assert any("marginal" in w.lower() for w in out["warnings"])
-
-
-# ── Trending kicker ─────────────────────────────────────────────
-
-
-def test_trending_count_high_bumps_standard():
-    base = recommend_faab(
-        add_player_value=4000,
-        drop_player_value=1000,
-        league_budget=100,
-    )
-    hot = recommend_faab(
-        add_player_value=4000,
-        drop_player_value=1000,
-        league_budget=100,
-        sleeper_trending={"count": 12000},  # top tier (10000+ → +20%)
-    )
-    assert hot["standard"] > base["standard"]
-    # Trending factor labelled in the breakdown.
-    assert any(f["label"].lower().startswith("trending") for f in hot["factors"])
-
-
-def test_trending_missing_marks_factor():
-    out = recommend_faab(
-        add_player_value=4000,
-        # sleeper_trending not passed
-    )
-    trending_factor = next(
-        (f for f in out["factors"] if f["label"].lower().startswith("trending")),
-        None,
-    )
-    assert trending_factor is not None
-    assert trending_factor["missing"] is True
-
-
-# ── League analytics calibration ────────────────────────────────
-
-
-def test_league_calibration_blends_to_historical_bid():
-    """When the league has historically paid $30 for WR1-tier
-    waivers, our recommendation moves towards that."""
-    summary = {
-        "positionBids": {
-            "WR": {"avg": 30.0, "count": 10, "min": 5, "max": 60},
-        },
-    }
-    out = recommend_faab(
-        add_player_value=2000,
-        drop_player_value=500,
-        add_player_position="WR",
-        league_faab_summary=summary,
-        league_budget=100,
-    )
-    # The 4-figure player would normally bid ~$15 — calibration
-    # towards $30 should pull it up.
-    assert out["standard"] > 15
-    factor = next(
-        (f for f in out["factors"] if f["label"].lower().startswith("league historical")),
-        None,
-    )
-    assert factor is not None
-    assert factor["missing"] is False
-
-
-def test_league_calibration_skipped_when_position_undersamples():
-    """≤2 historical bids for a position ⇒ skip calibration to
-    avoid noise."""
-    summary = {
-        "positionBids": {
-            "WR": {"avg": 50.0, "count": 1, "min": 50, "max": 50},
-        },
-    }
-    out = recommend_faab(
-        add_player_value=2000,
-        add_player_position="WR",
-        league_faab_summary=summary,
-        league_budget=100,
-    )
-    factor = next(
-        (f for f in out["factors"] if f["label"].lower().startswith("league historical")),
-        None,
-    )
-    assert factor is not None
-    assert factor["missing"] is True
-
-
-def test_league_summary_missing_marks_factor():
-    out = recommend_faab(add_player_value=2000)
-    factor = next(
-        (f for f in out["factors"] if "league" in f["label"].lower()),
-        None,
-    )
-    assert factor is not None
-    assert factor["missing"] is True
-
-
-# ── KTC crowd blend ─────────────────────────────────────────────
-#
-# These tests feed a map built by the REAL producer
-# (``ktc_crowd_faab.build_crowd_bid_map``) rather than a hand-written
-# literal.  A literal in the wrong key shape is exactly what masked
-# the 2026-07-29 defect: the producer keyed the map with the compact
-# alphanumeric key ("tjwatt") while the recommender looked it up with
-# ``strip().lower()`` ("t.j. watt"), so the factor never fired for any
-# name containing a space — i.e. every real player.
-
-
-def _crowd_map(name: str, pct_of_budget: float, *, budget: int = 100) -> dict[str, float]:
-    """Build a crowd map through the production bridge so the key shape
-    is pinned by the producer, not by this file."""
-    bid = pct_of_budget / 100.0 * budget
-    return build_crowd_bid_map(
-        {
-            "waivers": [
-                {"added": name, "bid": bid, "settings": {"waiver_budget": budget}},
-                {"added": name, "bid": bid, "settings": {"waiver_budget": budget}},
-            ]
-        }
-    )
-
-
-def test_ktc_crowd_blend_pulls_towards_crowd_bid():
-    """KTC crowd reports 35% of budget for player → blend pulls
-    standard towards $35 in a 100-budget league."""
-    crowd = _crowd_map("Test Player", 35.0)
-    out = recommend_faab(
-        add_player_value=2000,
-        drop_player_value=500,
-        add_player_position="WR",
-        add_player_name="Test Player",
-        league_budget=100,
-        ktc_crowd_bids=crowd,
-    )
-    # Without crowd: ~$15; with 70/30 blend toward $35 → up.
-    assert out["standard"] > 15
-    factor = next(
-        (f for f in out["factors"] if f["label"].lower().startswith("ktc crowd")),
-        None,
-    )
-    assert factor is not None
-
-
-def test_ktc_crowd_blend_fires_for_a_punctuated_spaced_name():
-    """Regression for the producer/consumer key mismatch.
-
-    ``T.J. Watt`` exercises both properties the old bare
-    ``strip().lower()`` lookup could not survive — a space and a
-    period.  The server passes the raw display name straight through
-    (``server.py`` FAAB endpoint → ``add_player_name``), so if this
-    ever regresses the crowd factor silently disappears in production
-    while every hand-keyed unit test keeps passing.
-    """
-    crowd = _crowd_map("T.J. Watt", 40.0)
-    assert list(crowd) == ["tjwatt"], "producer key shape changed"
-    out = recommend_faab(
-        add_player_value=2000,
-        drop_player_value=500,
-        add_player_position="DL",
-        add_player_name="T.J. Watt",
-        league_budget=100,
-        ktc_crowd_bids=crowd,
-    )
-    factor = next(
-        (f for f in out["factors"] if f["label"].lower().startswith("ktc crowd")),
-        None,
-    )
-    assert factor is not None, "crowd factor did not fire for a spaced, punctuated name"
-
-
-def test_ktc_crowd_missing_player_is_noop():
-    """Crowd map present but doesn't have the specific player ⇒
-    no crowd factor is added (silent passthrough)."""
-    out = recommend_faab(
-        add_player_value=2000,
-        add_player_name="Other Player",
-        ktc_crowd_bids=_crowd_map("Different Person", 25.0),
-    )
-    factor = next(
-        (f for f in out["factors"] if f["label"].lower().startswith("ktc crowd")),
-        None,
-    )
-    assert factor is None
-
-
-# ── Team FAAB cap ───────────────────────────────────────────────
-
-
-def test_team_faab_cap_clips_recommendation():
-    """When a team has $5 FAAB left, we never recommend more than $5."""
-    out = recommend_faab(
-        add_player_value=8000,
-        drop_player_value=1000,
-        team_faab_remaining=5,
-        league_budget=100,
-    )
-    assert out["standard"] <= 5
-    assert out["max"] == 5
-    assert any("cap" in w.lower() for w in out["warnings"])
-    factor = next(
-        (f for f in out["factors"] if f["label"].lower().startswith("team faab cap")),
-        None,
-    )
-    assert factor is not None
-
-
-def test_team_faab_zero_recommends_zero():
-    """Team is broke (0 FAAB) ⇒ recommendation floors at 0."""
-    out = recommend_faab(
-        add_player_value=8000,
-        team_faab_remaining=0,
-        league_budget=100,
-    )
-    assert out["standard"] == 0
-    assert out["aggressive"] == 0
-
-
-# ── Confidence ─────────────────────────────────────────────────
-
-
-def test_all_inputs_present_returns_high_confidence():
-    out = recommend_faab(
-        add_player_value=4000,
-        drop_player_value=1000,
-        add_player_position="WR",
-        add_player_name="Hot Pickup",
-        team_faab_remaining=80,
-        league_faab_summary={
-            "positionBids": {
-                "WR": {"avg": 25.0, "count": 12, "min": 5, "max": 50},
-            },
-        },
-        sleeper_trending={"count": 8000},
-        # Built by the same producer the runtime uses.  A hand-written
-        # literal here used to read ``{"hot pickup": 28.0}`` — the OLD
-        # key shape — so after the 2026-07-29 compact-key fix the crowd
-        # factor silently did NOT fire and this test still passed on the
-        # loose ``in ("medium", "high")`` assertion, while its name
-        # claimed every input was present.  That is the exact masking
-        # pattern the key-registry comment in the producer warns about.
-        ktc_crowd_bids=_crowd_map("Hot Pickup", 28.0),
-        league_budget=100,
-    )
-    # Every factor must actually be present — assert the crowd factor
-    # fired rather than inferring it from the confidence bucket, which
-    # is what let the old wrong-key literal pass unnoticed.
-    crowd_factor = next(
-        (f for f in out["factors"] if f["label"].lower().startswith("ktc crowd")),
-        None,
-    )
-    assert (
-        crowd_factor is not None
-    ), f"crowd factor did not fire; labels were {[f['label'] for f in out['factors']]}"
-    assert out["confidence"] == "high"
-
-
-def test_no_inputs_returns_low_confidence():
-    out = recommend_faab(add_player_value=4000)
-    assert out["confidence"] == "low"
-
-
-def test_compute_confidence_accepts_serialized_dict_rows():
-    """The endpoint appends dict-shaped factor rows AFTER the
-    recommendation and recomputes the bucket — the helper must read
-    both _Factor objects and the serialized dict shape."""
-    assert (
-        compute_confidence([{"weight": 0.9, "missing": False}, {"weight": 0.1, "missing": True}])
-        == "high"
-    )
-    assert (
-        compute_confidence([{"weight": 0.5, "missing": False}, {"weight": 0.5, "missing": True}])
-        == "low"
-    )
-    # Recomputing over a real response's factors matches the stamp.
-    out = recommend_faab(add_player_value=4000)
-    assert compute_confidence(out["factors"]) == out["confidence"]
-
-
-# ── Explanation copy ────────────────────────────────────────────
-
-
-# ── FAAB v2: contention clearing ────────────────────────────────
-
-
-def _baseline_v1(**overrides):
-    """The pre-contention value bid for a 4000-value FA in a $100
-    league (standard = $21 with these inputs)."""
-    kwargs = dict(add_player_value=4000, league_budget=100)
     kwargs.update(overrides)
     return recommend_faab(**kwargs)
 
 
-def test_contention_raises_to_clearing_price():
-    base = _baseline_v1()
-    out = _baseline_v1(
-        contention={"clearing": base["standard"] + 4, "topRival": base["standard"] + 3},
-        next_best_fa_value=0.0,  # irreplaceable — dropoff 100%
-    )
-    assert out["standard"] == base["standard"] + 4
-    factor = next(
-        (f for f in out["factors"] if f["label"] == "Rival contention"),
-        None,
-    )
-    assert factor is not None
-    assert "clear top rival" in factor["contribution"]
+# ── Response contract ────────────────────────────────────────────────
 
 
-def test_contention_already_cleared_keeps_value_bid():
-    base = _baseline_v1()
-    out = _baseline_v1(
-        contention={"clearing": base["standard"] - 5, "topRival": base["standard"] - 6},
-        next_best_fa_value=0.0,
-    )
-    assert out["standard"] == base["standard"]
-    factor = next(
-        (f for f in out["factors"] if f["label"] == "Rival contention"),
-        None,
-    )
-    assert factor is not None
-    assert "already clears" in factor["contribution"]
+class TestResponseContract:
+    def test_minimal_inputs_return_the_full_shape(self):
+        out = recommend_faab(add_player_value=4000)
+        assert set(out.keys()) >= {
+            "conservative",
+            "standard",
+            "aggressive",
+            "max",
+            "confidence",
+            "factors",
+            "warnings",
+            "explanation",
+            "objective",
+            "bids",
+        }
+
+    def test_legacy_keys_survive(self):
+        rec = _rec()
+        for key in ("conservative", "standard", "aggressive", "max", "confidence"):
+            assert key in rec, key
+        assert isinstance(rec["factors"], list)
+        assert isinstance(rec["warnings"], list)
+        assert isinstance(rec["explanation"], str)
+
+    def test_new_keys_separate_worth_from_bid(self):
+        rec = _rec()
+        assert set(rec["objective"]) >= {"dollars", "pctOfOriginalBudget", "originalBudget"}
+        assert set(rec["bids"]) == {
+            "recommended",
+            "conservative",
+            "aggressive",
+            "maxRational",
+            "clearing",
+        }
+
+    def test_standard_is_the_recommended_bid(self):
+        rec = _rec()
+        assert rec["standard"] == rec["bids"]["recommended"]
+
+    def test_max_is_a_value_ceiling_not_just_the_balance(self):
+        """The old ``max`` was literally ``faabRemaining``, which made
+        it useless as a ceiling: it said what you could afford, never
+        what the player was worth.  A marginal player must now cap
+        below a full balance."""
+        marginal = _rec(add_player_value=1500.0, team_faab_remaining=100)
+        assert marginal["max"] < 100
+
+    def test_recommendation_never_exceeds_the_balance(self):
+        for remaining in (0, 1, 7, 43):
+            rec = _rec(add_player_value=9999.0, team_faab_remaining=remaining)
+            assert rec["bids"]["recommended"] <= remaining
+            assert rec["bids"]["aggressive"] <= remaining
+            assert rec["bids"]["maxRational"] <= remaining
+
+    def test_bid_ladder_is_ordered(self):
+        for value in (1200, 1900, 2400, 4000, 9999):
+            rec = _rec(add_player_value=float(value))
+            b = rec["bids"]
+            assert b["conservative"] <= b["recommended"] <= b["aggressive"] <= b["maxRational"]
 
 
-def test_contention_stops_at_value_ceiling_with_warning():
-    """Projected clearing far above the value ceiling ⇒ stop at the
-    ceiling + 'likely outbid' warning — never chase past value."""
-    base = _baseline_v1()
-    # Ceiling for a fully-irreplaceable player: aggressive(=1.4×std)
-    # × 1.25 ⇒ std 21 → ceiling 36.  Clearing $80 blows past it.
-    out = _baseline_v1(
-        contention={"clearing": 80, "topRival": 79},
-        next_best_fa_value=0.0,
-    )
-    expected_ceiling = round(round(base["standard"] * 1.40) * 1.25)
-    assert out["standard"] == expected_ceiling
-    assert out["standard"] < 80
-    assert any("Likely outbid" in w for w in out["warnings"])
+# ── Objective value is budget-independent ────────────────────────────
 
 
-def test_dropoff_gate_blocks_clearing_chase_for_replaceable_player():
-    """Next-best same-position FA within 15% ⇒ value bid only —
-    the clearing price is NOT chased."""
-    base = _baseline_v1()
-    out = _baseline_v1(
-        contention={"clearing": base["standard"] + 10, "topRival": base["standard"] + 9},
-        next_best_fa_value=3800.0,  # dropoff 5% < 15% gate
-    )
-    assert out["standard"] == base["standard"]
-    factor = next(
-        (f for f in out["factors"] if f["label"] == "Replaceable at position"),
-        None,
-    )
-    assert factor is not None
-    assert "value bid only" in factor["contribution"]
+class TestObjectiveValueIsIndependent:
+    def test_objective_value_ignores_what_the_team_has_spent(self):
+        """The headline requirement: a player does not become worth
+        less because the manager already spent."""
+        flush = _rec(team_faab_remaining=100)["objective"]
+        broke = _rec(team_faab_remaining=3)["objective"]
+        assert flush["dollars"] == broke["dollars"]
+        assert flush["pctOfOriginalBudget"] == broke["pctOfOriginalBudget"]
+
+    def test_objective_value_ignores_the_drop_side(self):
+        no_drop = _rec()["objective"]["dollars"]
+        with_drop = _rec(drop_player_value=5000.0, drop_player_name="Costly")["objective"][
+            "dollars"
+        ]
+        assert no_drop == with_drop
+
+    def test_objective_value_scales_with_the_original_budget(self):
+        at_100 = _rec(league_budget=100)["objective"]["dollars"]
+        at_200 = _rec(league_budget=200)["objective"]["dollars"]
+        assert at_200 == pytest.approx(2 * at_100, abs=1)
 
 
-def test_no_contention_input_is_pure_backward_compat():
-    """Omitting the new kwargs reproduces v1 output exactly."""
-    v1 = _baseline_v1()
-    v2 = _baseline_v1(contention=None, next_best_fa_value=None)
-    assert v1 == v2
+# ── Demand signals are evidence, not multipliers ─────────────────────
 
 
-# ── FAAB v2: budget-environment scaling ─────────────────────────
+class TestDemandSignalsAreNotMultipliers:
+    def test_trending_does_not_change_the_objective_value(self):
+        """Trending is market demand.  It can raise the price you must
+        pay; it must never raise what the player is worth."""
+        cold = _rec(sleeper_trending={"count": 0})
+        hot = _rec(sleeper_trending={"count": 90000})
+        assert cold["objective"]["dollars"] == hot["objective"]["dollars"]
+
+    def test_trending_is_reported_as_a_factor(self):
+        rec = _rec(sleeper_trending={"count": 12000})
+        row = next(f for f in rec["factors"] if f["label"] == "Trending adds")
+        assert not row["missing"]
+        assert "12,000" in row["contribution"]
+
+    def test_missing_trending_is_marked_missing(self):
+        rec = _rec(sleeper_trending=None)
+        row = next(f for f in rec["factors"] if f["label"] == "Trending adds")
+        assert row["missing"] is True
+
+    def test_crowd_bid_does_not_change_the_objective_value(self):
+        from src.utils.name_clean import compact_name_key
+
+        crowd = {compact_name_key("Target"): 45.0}
+        assert (
+            _rec(ktc_crowd_bids=crowd)["objective"]["dollars"]
+            == _rec(ktc_crowd_bids=None)["objective"]["dollars"]
+        )
+
+    def test_crowd_bid_is_reported_when_it_covers_the_player(self):
+        from src.utils.name_clean import compact_name_key
+
+        rec = _rec(ktc_crowd_bids={compact_name_key("Target"): 45.0})
+        assert any(f["label"] == "Crowd-sourced bid" for f in rec["factors"])
+
+    def test_crowd_bid_lookup_uses_the_shared_compact_key(self):
+        """Producer and consumer must key the same way — a punctuated,
+        spaced display name has to join a compact-keyed crowd map."""
+        from src.adapters.ktc_crowd_faab import build_crowd_bid_map
+
+        crowd = build_crowd_bid_map(
+            {"waivers": [{"added": "De'Vondre Campbell", "bidPct": 30.0}] * 2}
+        )
+        rec = _rec(add_player_name="De'Vondre Campbell", ktc_crowd_bids=crowd)
+        assert any(f["label"] == "Crowd-sourced bid" for f in rec["factors"])
 
 
-def test_env_scale_applies_in_hot_league_without_position_data():
-    """Median winning bid 16% of budget (2× the 8% target) in a
-    league with enough analyzed bids and NO per-position history ⇒
-    scale up (clamped at 1.6)."""
-    cold = recommend_faab(add_player_value=4000, league_budget=100)
-    hot = recommend_faab(
-        add_player_value=4000,
-        add_player_position="WR",
-        league_budget=100,
-        league_faab_summary={
-            "leagueMedianWinningBid": 16.0,
-            "totalBidsAnalyzed": 20,
-            "positionBids": {},
-        },
-    )
-    assert hot["standard"] == round(cold["standard"] * 1.6)
-    factor = next(
-        (f for f in hot["factors"] if f["label"] == "Budget environment"),
-        None,
-    )
-    assert factor is not None
+# ── Drop cost ────────────────────────────────────────────────────────
 
 
-def test_env_scale_requires_ten_analyzed_bids():
-    out = recommend_faab(
-        add_player_value=4000,
-        add_player_position="WR",
-        league_budget=100,
-        league_faab_summary={
-            "leagueMedianWinningBid": 16.0,
-            "totalBidsAnalyzed": 9,  # below the floor
-            "positionBids": {},
-        },
-    )
-    assert not any(f["label"] == "Budget environment" for f in out["factors"])
+class TestDropCost:
+    def test_a_valuable_drop_lowers_the_bid(self):
+        cheap = _rec(drop_player_value=800.0, drop_player_name="Scrub")
+        costly = _rec(drop_player_value=5500.0, drop_player_name="Starter")
+        assert costly["bids"]["recommended"] < cheap["bids"]["recommended"]
+
+    def test_a_below_replacement_drop_is_free(self):
+        """Dropping someone you could re-add off the wire costs
+        nothing, so it must not move the bid at all."""
+        none_dropped = _rec()
+        scrub_dropped = _rec(drop_player_value=600.0, drop_player_name="Scrub")
+        assert scrub_dropped["bids"]["recommended"] == none_dropped["bids"]["recommended"]
+
+    def test_an_open_roster_spot_removes_the_drop_cost(self):
+        squeezed = _rec(drop_player_value=5500.0, drop_player_name="Starter", open_roster_spots=0)
+        roomy = _rec(drop_player_value=5500.0, drop_player_name="Starter", open_roster_spots=1)
+        assert roomy["bids"]["recommended"] >= squeezed["bids"]["recommended"]
 
 
-def test_env_scale_skipped_when_position_calibration_applied():
-    """REGRESSION (review-caught double-count bug): when
-    positionBids[pos].count ≥ 3 the position calibration already
-    anchors the bid to league prices — env scaling must NOT stack
-    on top."""
-    out = recommend_faab(
-        add_player_value=4000,
-        add_player_position="WR",
-        league_budget=100,
-        league_faab_summary={
-            "leagueMedianWinningBid": 16.0,
-            "totalBidsAnalyzed": 20,
-            "positionBids": {
-                "WR": {"avg": 30.0, "count": 10, "min": 5, "max": 60},
-            },
-        },
-    )
-    assert not any(f["label"] == "Budget environment" for f in out["factors"])
-    # The position calibration DID fire instead.
-    assert any(
-        f["label"].lower().startswith("league historical") and not f["missing"]
-        for f in out["factors"]
-    )
+# ── Season phase ─────────────────────────────────────────────────────
 
 
-def test_env_scale_clamps_cold_league_at_floor():
-    out = recommend_faab(
-        add_player_value=4000,
-        add_player_position="WR",
-        league_budget=100,
-        league_faab_summary={
-            "leagueMedianWinningBid": 1.0,  # 1% of budget → ratio 0.125 → clamp 0.6
-            "totalBidsAnalyzed": 20,
-            "positionBids": {},
-        },
-    )
-    cold = recommend_faab(add_player_value=4000, league_budget=100)
-    assert out["standard"] == round(cold["standard"] * 0.6)
+class TestSeasonPhase:
+    def test_ceiling_relaxes_as_waiver_periods_run_out(self):
+        early = _rec(current_week=1, in_season=True)["teamCeilingDollars"]
+        late = _rec(current_week=14, in_season=True)["teamCeilingDollars"]
+        assert late > early
+
+    def test_late_season_does_not_automatically_raise_the_bid(self):
+        """Relaxing the ceiling must not, by itself, make an ordinary
+        player more expensive — the bid still comes from the market."""
+        early = _rec(add_player_value=1800.0, current_week=1)["bids"]["recommended"]
+        late = _rec(add_player_value=1800.0, current_week=14)["bids"]["recommended"]
+        assert late <= early + 2
+
+    def test_offseason_is_handled_explicitly(self):
+        rec = _rec(in_season=False, current_week=None)
+        assert any("offseason" in f["contribution"].lower() for f in rec["factors"])
 
 
-# ── FAAB v2: pacing warning ─────────────────────────────────────
+# ── Aggression sourcing ──────────────────────────────────────────────
 
 
-def test_pacing_warning_when_bid_exceeds_forty_pct_of_budget():
-    out = recommend_faab(
-        add_player_value=8000,
-        drop_player_value=1000,
-        team_faab_remaining=50,
-        league_budget=100,
-    )
-    assert out["standard"] > 0.40 * 50  # precondition for the assert below
-    assert any(w.startswith("Pacing:") for w in out["warnings"])
+class TestAggressionSourcing:
+    def test_league_summary_supplies_aggression_when_no_history_file(self):
+        summary = {
+            "leagueMedianWinningBid": 10.0,
+            "teamAggression": {"o1": {"avgBid": 20.0, "winningCount": 5}},
+        }
+        assert _aggression_from_league_summary(summary, "o1") == (2.0, False)
+
+    def test_undersampled_owner_defaults_to_neutral(self):
+        summary = {
+            "leagueMedianWinningBid": 10.0,
+            "teamAggression": {"o1": {"avgBid": 90.0, "winningCount": 1}},
+        }
+        assert _aggression_from_league_summary(summary, "o1") == (1.0, True)
+
+    def test_aggression_is_clamped(self):
+        summary = {
+            "leagueMedianWinningBid": 1.0,
+            "teamAggression": {"o1": {"avgBid": 500.0, "winningCount": 9}},
+        }
+        factor, _ = _aggression_from_league_summary(summary, "o1")
+        assert factor == 2.0
+
+    def test_missing_summary_is_neutral_and_low_sample(self):
+        assert _aggression_from_league_summary(None, "o1") == (1.0, True)
 
 
-def test_no_pacing_warning_for_small_bids():
-    out = recommend_faab(
-        add_player_value=1000,
-        team_faab_remaining=100,
-        league_budget=100,
-    )
-    assert out["standard"] <= 0.40 * 100
-    assert not any(w.startswith("Pacing:") for w in out["warnings"])
+# ── Rival construction ───────────────────────────────────────────────
 
 
-def test_explanation_present_for_every_branch():
-    """Every code path emits non-empty explanation copy."""
-    cases = [
-        # Negative swap → "don't bid".
-        recommend_faab(add_player_value=1000, drop_player_value=5000),
-        # Zero/token bid → "token bid".
-        recommend_faab(
-            add_player_value=4000,
-            team_faab_remaining=2,
-            league_budget=100,
-        ),
-        # Drop-side present → "swap" copy.
-        recommend_faab(
-            add_player_value=4000,
-            drop_player_value=1000,
-            team_faab_remaining=80,
-            league_budget=100,
-        ),
-        # No drop → "free-agent target" copy.
-        recommend_faab(add_player_value=4000),
-    ]
-    for out in cases:
-        assert isinstance(out["explanation"], str)
-        assert len(out["explanation"]) > 10  # at least a sentence
+class TestBuildRivals:
+    def test_unknown_balance_is_preserved_as_none(self):
+        """An unverifiable rival must never raise the user's bid, so
+        the balance stays ``None`` and the engine excludes them."""
+        rivals = build_rivals([{"ownerId": "a", "faabRemaining": None}])
+        assert rivals[0].faab_remaining is None
+
+    def test_rows_without_an_owner_id_are_dropped(self):
+        assert build_rivals([{"name": "ghost"}]) == []
+
+    def test_open_roster_spots_are_derived_from_roster_size(self):
+        rivals = build_rivals(
+            [{"ownerId": "a", "faabRemaining": 50, "players": ["x", "y"]}],
+            roster_size=10,
+        )
+        assert rivals[0].open_roster_spots == 8
+
+
+# ── Confidence ───────────────────────────────────────────────────────
+
+
+class TestConfidence:
+    def test_all_inputs_present_is_high(self):
+        assert compute_confidence([{"weight": 1.0, "missing": False}]) == "high"
+
+    def test_all_inputs_missing_is_low(self):
+        assert compute_confidence([{"weight": 1.0, "missing": True}]) == "low"
+
+    def test_partial_inputs_is_medium(self):
+        assert (
+            compute_confidence(
+                [{"weight": 0.7, "missing": False}, {"weight": 0.3, "missing": True}]
+            )
+            == "medium"
+        )
+
+    def test_unparseable_rows_are_ignored(self):
+        assert compute_confidence([{"weight": "nonsense"}, {"weight": 1.0}]) == "high"
+
+    def test_missing_rival_data_does_not_raise_confidence(self):
+        with_rivals = _rec(
+            rivals=[engine.RivalTeam(owner_id=f"r{i}", faab_remaining=50) for i in range(11)]
+        )
+        without = _rec(rivals=[])
+        order = {"low": 0, "medium": 1, "high": 2}
+        assert order[without["confidence"]] <= order[with_rivals["confidence"]]
+
+
+# ── Warnings ─────────────────────────────────────────────────────────
+
+
+class TestWarnings:
+    def test_zero_balance_is_called_out(self):
+        rec = _rec(team_faab_remaining=0)
+        assert any("no FAAB left" in w for w in rec["warnings"])
+
+    def test_a_swap_that_does_not_improve_the_roster_is_called_out(self):
+        rec = _rec(add_player_value=3000.0, drop_player_value=3200.0, drop_player_name="Better")
+        assert any("does not improve" in w for w in rec["warnings"])
+
+    def test_value_above_balance_explains_which_constraint_binds(self):
+        rec = _rec(add_player_value=9999.0, team_faab_remaining=10)
+        assert any("capped by the balance" in w for w in rec["warnings"])

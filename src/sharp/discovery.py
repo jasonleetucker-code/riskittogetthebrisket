@@ -334,6 +334,25 @@ def discover(
                     continue
                 known_leagues.add(lid)
 
+                # Record the membership we just PROVED: Sleeper's own
+                # ``/user/{uid}/leagues`` answered that this user is in
+                # this league, so the row is a fact, not an inference.
+                #
+                # It used to be written only by the league->users branch
+                # above, which meant a membership existed only for
+                # leagues the traversal actually EXPANDED. Leagues left
+                # on the frontier by the call budget, ``maxGenerations``
+                # or ``maxLeaguesPerRun`` had none — invisible to any
+                # consumer that asks "which leagues does this manager
+                # play in".
+                #
+                # That silently bounded the sharp ROSTER crawl
+                # (``src/sharp/roster_collect.py``) to the expanded
+                # subgraph, so a sharp with four dynasty teams could
+                # contribute one roster to the roster-percentage
+                # denominator and still read as fully represented.
+                memberships.append((lid, uid, None))
+
                 # SIGNAL eligibility is decided here and recorded; it
                 # never gates DISCOVERY.  A redraft league still gets
                 # traversed for the managers it introduces.

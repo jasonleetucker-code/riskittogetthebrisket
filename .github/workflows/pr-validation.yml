@@ -1,4 +1,4 @@
-﻿name: PR Validation
+name: PR Validation
 
 # Runs on every pull request to provide pre-merge feedback.
 # This is the "preview/staging" gate â€” validates code quality before merge.
@@ -58,14 +58,14 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Full history so the changed-files ruff gate can diff the
           # PR against its base SHA.
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -108,30 +108,32 @@ jobs:
           # idempotent. Config: pyproject.toml [tool.ruff].
           python -m ruff format --check .
 
-      - name: Python lint (ruff check — changed files, blocking)
-        # Phase A3: ratcheted enforcement. We lint ONLY the .py files
-        # this PR adds/modifies/renames, diffed against the PR base
-        # SHA. The ~77-item pre-existing backlog stays unblocked
-        # (whole-repo enforcement was never the goal); any NEW lint
-        # violation introduced by the PR fails here. force-exclude in
-        # pyproject keeps excluded dirs excluded even when passed
-        # explicitly. (deploy.yml keeps a report-only mirror — merges
-        # can't land without passing this gate, so post-merge
-        # changed-files diffing there would add fragility for no gain.)
+      - name: Python lint (ruff check — whole repo, blocking)
+        # Was changed-files-only, and that was right at the time: phase
+        # A3 ratcheted enforcement onto new violations while a ~77-item
+        # pre-existing backlog stayed unblocked, because whole-repo
+        # enforcement against a dirty tree would have blocked every PR
+        # on somebody else's mess.
+        #
+        # THE BACKLOG IS GONE. #708 cleared the last 37 (verified: `ruff
+        # check .` reports 0 on main), so the condition the narrowing
+        # existed for no longer holds, and the narrow gate now has a real
+        # hole: it cannot see a violation in a file the PR did not touch.
+        # That is exactly how the backlog rebuilds — nobody edits those
+        # files, so nobody is ever told.
+        #
+        # It also could not catch the mistake it most needed to. While
+        # clearing the 37, an incomplete rename left an undefined name
+        # (F821) in a file the same PR HAD touched — the changed-files
+        # gate would have caught that one. But the identical mistake in a
+        # file left alone would have sailed through, and a repo that has
+        # just reached zero is precisely when that gap starts costing.
+        #
+        # force-exclude in pyproject keeps excluded dirs excluded.
         shell: bash
         run: |
           set -Eeuo pipefail
-          base_sha="${{ github.event.pull_request.base.sha }}"
-          changed="$(git diff --name-only --diff-filter=ACMR "${base_sha}" HEAD -- '*.py' || true)"
-          if [ -z "${changed}" ]; then
-            echo "No changed .py files — nothing to lint."
-            exit 0
-          fi
-          echo "Linting changed .py files:"
-          printf '%s\n' "${changed}"
-          # -d '\n' so a path with a space ("Dynasty Scraper.py") is
-          # passed as a single argument.
-          printf '%s\n' "${changed}" | xargs -r -d '\n' python -m ruff check
+          python -m ruff check .
 
       - name: Python import gate
         shell: bash
@@ -205,7 +207,7 @@ jobs:
       # output even on success, while the check step's exit code is
       # what determines the gate.
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
 

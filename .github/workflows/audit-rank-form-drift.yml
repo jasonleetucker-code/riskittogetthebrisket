@@ -78,10 +78,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -149,7 +149,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Open or update an issue on drift
-        if: ${{ steps.drift.outputs.exit_code == '2' }}
+        # Mainline only — see the long note on the same guard in e2e.yml
+        # (#716). This workflow's only non-main path is workflow_dispatch,
+        # and drift measured against a branch's constants is not a
+        # statement about the committed ones.
+        if: ${{ steps.drift.outputs.exit_code == '2' && github.ref == 'refs/heads/main' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -192,7 +196,10 @@ jobs:
         # Both workflows also fall back to creating an UNLABELLED issue
         # when the label is missing (`|| gh issue create` without
         # --label), so the title search is the more reliable key anyway.
-        if: success()
+        #
+        # Mainline only, for the reason in e2e.yml: a green dispatch from a
+        # branch would close a real open mainline issue.
+        if: success() && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

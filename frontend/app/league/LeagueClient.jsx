@@ -36,6 +36,7 @@
 // dedicated routes.
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SubNav, PageHeader, LoadingState, EmptyState } from "@/components/ui";
 import { PUBLIC_SECTION_KEYS, fetchPublicSection } from "@/lib/public-league-data";
@@ -48,28 +49,51 @@ import {
   normalizeTabKey,
 } from "./tabs.js";
 
-import DraftCapitalSection from "./sections/draft-capital.jsx";
 import OverviewSection from "./sections/overview.jsx";
-import HistorySection from "./sections/history.jsx";
-import RivalriesSection from "./sections/rivalries.jsx";
-import AwardsSection from "./sections/awards.jsx";
-import RecordsSection from "./sections/records.jsx";
-import FranchiseSection from "./sections/franchise.jsx";
-import ActivitySection from "./sections/activity.jsx";
-import DraftSection from "./sections/draft.jsx";
-import WeeklySection from "./sections/weekly.jsx";
-import SuperlativesSection from "./sections/superlatives.jsx";
-import ArchivesSection from "./sections/archives.jsx";
-import LuckSection from "./sections/luck.jsx";
-import StreaksSection from "./sections/streaks.jsx";
-import PowerSection from "./sections/power.jsx";
-import RosTeamStrengthSection from "./sections/ros-team-strength.jsx";
-import RosPowerSection from "./sections/ros-power.jsx";
-import RosChampionshipSection from "./sections/ros-championship.jsx";
-import RosTradeDeadlineSection from "./sections/ros-trade-deadline.jsx";
+
+// Section code is split per tab.  Exactly ONE section is mounted at a
+// time (see the `activeTab === …` chain below), but all 21 used to be
+// statically imported, so /league shipped every section's code — 254 KB
+// of source plus five hand-rolled SVG charts each reachable from a
+// single tab — to render whichever one tab the visitor opened.
+//
+// `ssr: false` because the shell already server-renders the header and
+// nav; a section is behind a tab the server cannot know the visitor will
+// pick.  This composes with the per-section data fetching added in #652:
+// the CODE for a tab and the DATA for a tab now both arrive on open.
+//
+// OverviewSection is deliberately NOT split — it is DEFAULT_TAB, so
+// splitting it would trade a bundle win for a loading flash on the
+// landing view that every visitor sees.
+//
+// Pattern (dynamic + `_`-prefixed siblings) matches
+// ./sections/draft-capital.jsx, which already splits its own two heavy
+// panels this way.
+const sectionLoading = () => <LoadingState message="Loading section..." />;
+const lazySection = (loader) =>
+  dynamic(loader, { ssr: false, loading: sectionLoading });
+
+const DraftCapitalSection = lazySection(() => import("./sections/draft-capital.jsx"));
+const HistorySection = lazySection(() => import("./sections/history.jsx"));
+const RivalriesSection = lazySection(() => import("./sections/rivalries.jsx"));
+const AwardsSection = lazySection(() => import("./sections/awards.jsx"));
+const RecordsSection = lazySection(() => import("./sections/records.jsx"));
+const FranchiseSection = lazySection(() => import("./sections/franchise.jsx"));
+const ActivitySection = lazySection(() => import("./sections/activity.jsx"));
+const DraftSection = lazySection(() => import("./sections/draft.jsx"));
+const WeeklySection = lazySection(() => import("./sections/weekly.jsx"));
+const SuperlativesSection = lazySection(() => import("./sections/superlatives.jsx"));
+const ArchivesSection = lazySection(() => import("./sections/archives.jsx"));
+const LuckSection = lazySection(() => import("./sections/luck.jsx"));
+const StreaksSection = lazySection(() => import("./sections/streaks.jsx"));
+const PowerSection = lazySection(() => import("./sections/power.jsx"));
+const RosTeamStrengthSection = lazySection(() => import("./sections/ros-team-strength.jsx"));
+const RosPowerSection = lazySection(() => import("./sections/ros-power.jsx"));
+const RosChampionshipSection = lazySection(() => import("./sections/ros-championship.jsx"));
+const RosTradeDeadlineSection = lazySection(() => import("./sections/ros-trade-deadline.jsx"));
+const ArticlesSection = lazySection(() => import("./sections/articles.jsx"));
+const TeamAssignmentSection = lazySection(() => import("./sections/team-assignment.jsx"));
 import { useSettings } from "@/components/useSettings";
-import ArticlesSection from "./sections/articles.jsx";
-import TeamAssignmentSection from "./sections/team-assignment.jsx";
 
 // SUB_TABS / VALID_TABS / DEFAULT_TAB / normalizeTabKey / SECTION_FOR_TAB
 // now live in ./tabs.js so ./page.jsx (a server component) can read the

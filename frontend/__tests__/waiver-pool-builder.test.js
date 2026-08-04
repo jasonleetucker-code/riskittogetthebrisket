@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 
-import { buildTopWaiverPool, computeFaabHint } from "@/lib/waiver-logic";
+import * as waiverLogic from "@/lib/waiver-logic";
+import { buildTopWaiverPool } from "@/lib/waiver-logic";
 
 // ── Fixture helpers ────────────────────────────────────────────────────
 
@@ -190,33 +191,26 @@ describe("buildTopWaiverPool — ownership filtering", () => {
   });
 });
 
-describe("computeFaabHint — JS port of _compute_faab_bid", () => {
-  it("returns zero shape for non-positive value", () => {
-    expect(computeFaabHint(0)).toEqual({ aggressive: 0, reasonable: 0, lowball: 0 });
-    expect(computeFaabHint(-50)).toEqual({ aggressive: 0, reasonable: 0, lowball: 0 });
-    expect(computeFaabHint(NaN)).toEqual({ aggressive: 0, reasonable: 0, lowball: 0 });
+// The client-side bid formula is GONE, and this is the guard against it
+// coming back.  ``computeFaabHint`` was a JS port of the old Python
+// ``_compute_faab_bid``; every dollar figure now comes from
+// ``src/trade/faab_engine.py`` via the backend.  A second formula on the
+// client is the exact drift the "no frontend ranking/valuation engine,
+// period" rule exists to prevent — and this one had already gone
+// numerically wrong against the engine before it was removed.
+describe("waiver-logic exports no client-side bid calculator", () => {
+  it("no longer exports computeFaabHint", () => {
+    expect(waiverLogic.computeFaabHint).toBeUndefined();
+    expect(Object.keys(waiverLogic)).not.toContain("computeFaabHint");
   });
 
-  it("scales bid up with candidate value share", () => {
-    // top = 9999 → share = 1.0 → aggressive = round(100 * 0.30) = 30
-    const top = computeFaabHint(9999, { leagueBudget: 100, topValueInPool: 9999 });
-    const mid = computeFaabHint(5000, { leagueBudget: 100, topValueInPool: 9999 });
-    const low = computeFaabHint(1000, { leagueBudget: 100, topValueInPool: 9999 });
-    expect(top.aggressive).toBeGreaterThan(mid.aggressive);
-    expect(mid.aggressive).toBeGreaterThan(low.aggressive);
-    expect(top.aggressive).toBe(30);
-  });
-
-  it("respects league budget", () => {
-    const std = computeFaabHint(5000, { leagueBudget: 100, topValueInPool: 5000 });
-    const big = computeFaabHint(5000, { leagueBudget: 200, topValueInPool: 5000 });
-    expect(big.aggressive).toBeGreaterThanOrEqual(std.aggressive * 2 - 1);
-  });
-
-  it("derives reasonable + lowball from aggressive", () => {
-    const out = computeFaabHint(9999, { leagueBudget: 100, topValueInPool: 9999 });
-    expect(out.reasonable).toBe(Math.round(out.aggressive * 0.70));
-    expect(out.lowball).toBe(Math.round(out.aggressive * 0.35));
+  it("exports nothing that computes a FAAB/bid dollar figure", () => {
+    // Name-shaped guard: a re-port under a new name (computeBid,
+    // faabEstimate, bidHint, …) trips this without the test needing to
+    // know the new name.  ``buildOwnedNameSet`` and friends are
+    // unaffected — the pattern only matches faab/bid vocabulary.
+    const offenders = Object.keys(waiverLogic).filter((k) => /faab|bid/i.test(k));
+    expect(offenders).toEqual([]);
   });
 });
 

@@ -220,6 +220,33 @@ describe("buildBdvmIndex + bdvmEntryForRow (rankings gap join)", () => {
     ],
   };
 
+  // Audit finding B-8.  The /bdvm page badges a proxy-backed fundamental;
+  // this index dropped the flag, so the /rankings and /draft "Fund gap"
+  // columns rendered a signed gap and a signal-coloured pill with a
+  // tooltip asserting "the market underprices the player" on rows whose
+  // fundamental is last season's realized scoring, not a projection.
+  it("carries anyProxy so the joined columns can disclose it", () => {
+    const index = buildBdvmIndex({
+      players: [
+        player("Proxy Guy", {
+          playerId: "p1",
+          projection: { anyProxy: true, fpg: 1, sourceCount: 1 },
+        }),
+        player("Real Guy", {
+          playerId: "p2",
+          projection: { anyProxy: false, fpg: 1, sourceCount: 2 },
+        }),
+      ],
+    });
+    expect(bdvmEntryForRow(index, { playerId: "p1", name: "x" }).anyProxy).toBe(true);
+    expect(bdvmEntryForRow(index, { playerId: "p2", name: "x" }).anyProxy).toBe(false);
+  });
+
+  it("defaults anyProxy to false when the payload omits projection", () => {
+    const index = buildBdvmIndex({ players: [player("Bare", { playerId: "b1" })] });
+    expect(bdvmEntryForRow(index, { playerId: "b1", name: "x" }).anyProxy).toBe(false);
+  });
+
   it("joins playerId-first, then canonical name key", () => {
     const index = buildBdvmIndex(payload);
     // rankings rows carry playerId at top level or under raw

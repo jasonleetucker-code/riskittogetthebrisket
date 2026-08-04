@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 1,
+  "_comment": [
+    "Central calibration for the FAAB recommendation engine",
+    "(src/trade/faab_engine.py).  EVERY tunable lives here — the engine",
+    "contains no numeric literals that affect a recommendation.",
+    "",
+    "Two quantities are computed and must never be conflated:",
+    "  objectiveCeiling  what the player is worth, as a share of the",
+    "                    league's ORIGINAL full-season budget.  Depends",
+    "                    on the player and the league FORMAT only.  It",
+    "                    does not move when a manager spends.",
+    "  recommendedBid    what THIS team should actually bid, given its",
+    "                    budget, roster, the drop side, the week, and",
+    "                    the expected competition.  Almost always well",
+    "                    below the ceiling.",
+    "",
+    "See docs/faab-model.md for the derivation of every number below."
+  ],
+
+  "anchors": {
+    "_comment": [
+      "The value→FAAB curve is pinned between two league-format-derived",
+      "anchors, recomputed per league and per board refresh.  Neither is",
+      "a hard-coded value or player.",
+      "",
+      "V_allin  — board value at rank (teamCount x startersPerTeam x",
+      "           allinSlotMultiple): the size of the league-wide",
+      "           STARTING pool.  A player at this line would start for",
+      "           every team in the league, which is the scarcity level",
+      "           at which committing the whole budget becomes rational.",
+      "           Measured 2026-08-04: dynasty_main (12 teams x 20",
+      "           starters = 240) -> 2341.  dynasty_new (10 x 10 = 100)",
+      "           -> 3901, which is exactly Josh Jacobs, the value the",
+      "           site owner independently named as an all-in player.",
+      "",
+      "V_repl   — what you can add for free instead.  Format line at",
+      "           replacementSlotMultiple x starter slots, blended with",
+      "           the live pool's Nth-best unrostered player.  Measured",
+      "           2026-08-04: format line (2.0x = rank 480) = 1383, live",
+      "           12th-best free agent = 1668 — the two independent",
+      "           estimates converge, which is why both are used."
+    ],
+    "allinSlotMultiple": 1.0,
+    "replacementSlotMultiple": 2.0,
+    "replacementLivePoolRank": 12,
+    "replacementLivePoolWeight": 0.5,
+    "minBandWidth": 700,
+    "excludedPositions": ["PICK", "K", "DEF"],
+    "fallbackAllinValue": 2400,
+    "fallbackReplacementValue": 1400
+  },
+
+  "ceilingCurve": {
+    "_comment": [
+      "s = (V - V_repl) / (V_allin - V_repl), clamped at 0.",
+      "displayed ceiling = smootherstep(min(1, s^toeExponent)).",
+      "",
+      "smootherstep (6x^5 - 15x^4 + 10x^3) has ZERO slope at both ends,",
+      "so the curve cannot jump at either threshold — requirement 6/7",
+      "of the brief.  toeExponent > 1 lengthens the flat replacement-",
+      "level toe so ordinary wire players stay near zero; 2.2 was chosen",
+      "because it puts the real 2026-08-04 wire top (Marlin Klein,",
+      "1908) at a 5% ceiling against the LIVE blended anchors",
+      "(V_repl 1525.5, V_allin 2341) and ~12% against the format-only",
+      "anchors (V_repl 1383) the backtest uses, with the live",
+      "12th-best free agent at ~0% either way — while every",
+      "human-anchored all-in player still saturates at 100%.",
+      "",
+      "Above V_allin the DISPLAYED ceiling stays capped at 100% of the",
+      "original budget, but an uncapped rawCeiling keeps growing",
+      "linearly (aboveAllinSlope per band-width).  The market layer",
+      "reads rawCeiling so it can still tell a 2400 player from a 9999",
+      "player; without it every saturated player would draw the same",
+      "recommended bid.  rawCeilingCap bounds it so the optimiser",
+      "cannot be driven to all-in by an unbounded number."
+    ],
+    "toeExponent": 2.2,
+    "aboveAllinSlope": 0.5,
+    "rawCeilingCap": 6.0
+  },
+
+  "dropCost": {
+    "_comment": [
+      "The cost of a drop is only the part of the dropped player that",
+      "is NOT re-acquirable from the wire: max(0, V_drop - V_repl).",
+      "Dropping a below-replacement player is free.  An open roster",
+      "spot means no drop at all.  Expressed as surplus so it subtracts",
+      "cleanly from the add's surplus with no double counting.",
+      "",
+      "dropSurplusWeight ships at 1.0: the drop is charged its FULL",
+      "surplus over replacement.  A value below 1.0 would say the",
+      "dropped player retains some trade/stash worth you keep by not",
+      "making the claim, which is true but unmeasured here — and the",
+      "conservative direction is to charge the whole thing, since",
+      "under-charging a drop is what produces bids on swaps that do",
+      "not improve the roster."
+    ],
+    "dropSurplusWeight": 1.0,
+    "openRosterSpotCost": 0.0
+  },
+
+  "seasonPhase": {
+    "_comment": [
+      "FAAB has option value: a dollar kept can win a later claim.  The",
+      "ceiling is scaled by an option-value factor that RISES toward 1.0",
+      "as waiver periods run out, because unspent budget expires",
+      "worthless.  This deliberately does NOT make players more",
+      "expensive late — it only relaxes the ceiling.  The recommended",
+      "bid still comes from the market model, so it rises late only if",
+      "rivals actually bid more.",
+      "",
+      "optionValueEarly is the share of the ceiling available in week 1",
+      "(the rest is reserved for future claims); it reaches 1.0 at the",
+      "last meaningful waiver period.  A team that is mathematically",
+      "eliminated, or past the final waiver period, has no future use",
+      "for FAAB, so its factor is forced to 1.0.",
+      "",
+      "carryover: when a league carries FAAB into the offseason or the",
+      "next season, unspent budget is NOT worthless and the late-season",
+      "relaxation is damped by carryoverRetention."
+    ],
+    "optionValueEarly": 0.55,
+    "optionValueLate": 1.0,
+    "optionValueExponent": 1.6,
+    "eliminatedOptionValue": 1.0,
+    "offseasonOptionValue": 0.45,
+    "carryoverRetention": 0.5
+  },
+
+  "competitiveStatus": {
+    "_comment": [
+      "Contender / rebuilder does NOT re-weight the player's dynasty",
+      "value — that is already the canonical 1-9999 number and",
+      "re-weighting it here would double-count age and outlook.  It",
+      "adjusts only the URGENCY of converting budget into roster now:",
+      "a contender values an immediate starter upgrade more than a",
+      "preserved budget, a rebuilder the reverse.  Applied to the",
+      "option-value factor, never to the player's value."
+    ],
+    "contender": 1.15,
+    "bubble": 1.0,
+    "rebuilder": 0.8,
+    "eliminated": 0.7
+  },
+
+  "positionalNeed": {
+    "_comment": [
+      "Roster need scales the TEAM ceiling only, never the objective",
+      "value.  Positional SCARCITY is already inside the canonical",
+      "value (and inside the league-adjusted overlay when that lens is",
+      "active), so this factor is deliberately about THIS roster's",
+      "shape — how many startable bodies it has at the position —",
+      "and not about the position's league-wide scarcity.",
+      "",
+      "starterHole   the team cannot currently field a starter there",
+      "need          thin, an injury away from a hole",
+      "neutral       adequately covered",
+      "surplus       already deep; the add mostly duplicates a role"
+    ],
+    "starterHole": 1.3,
+    "need": 1.15,
+    "neutral": 1.0,
+    "surplus": 0.7,
+    "_invariantNotAToggle_applyToObjectiveValue": false,
+    "_spareComment": [
+      "Need is classified by STARTABLE DEPTH: how many players at the",
+      "position grade above the free-agent replacement line, against",
+      "how many the lineup must start (direct slots plus a share of",
+      "every flex that accepts the position).  spare = startable -",
+      "required.  Below 0 is a hole; below needSpareThreshold is thin;",
+      "at or above surplusSpareThreshold is deep."
+    ],
+    "needSpareThreshold": 1.0,
+    "surplusSpareThreshold": 3.0
+  },
+
+  "market": {
+    "_comment": [
+      "Rival bids are modelled as a zero-inflated lognormal.  Measured",
+      "against this league's real Sleeper history (695 completed",
+      "waiver/free-agent adds across 2024-2026): the median winning bid",
+      "is $0 in EVERY canonical-value band, 45-64% of adds cost nothing,",
+      "and the p90 rises with value (3% of budget below 1200, 12.5% at",
+      "2100-2600).  Most claims are uncontested, so the correct bid is",
+      "usually very small — while a genuinely contested claim has a long",
+      "right tail (observed max 52% of budget).",
+      "",
+      "engagement  P(a given rival bids at all).  baseRate is the floor",
+      "            for a replacement-level player; it climbs with the",
+      "            player's surplus toward maxRate and is scaled by that",
+      "            rival's positional need and remaining budget.",
+      "sigma       lognormal dispersion of a rival's bid given they bid.",
+      "            Fitted from the spread of observed nonzero bids.",
+      "medianShare a rival's median bid as a share of their own ceiling",
+      "            — managers bid well below their true max, which is",
+      "            exactly the behaviour this engine reproduces."
+    ],
+    "engagementBaseRate": 0.05,
+    "engagementMaxRate": 0.7,
+    "engagementExponent": 0.9,
+    "rivalBaseSharePct": 1.5,
+    "rivalMaxSharePct": 45.0,
+    "rivalShareExponent": 1.3,
+    "rivalDisciplineFactor": 1.0,
+    "rivalSigma": 1.1,
+    "demandSaturationBudgets": 2.5,
+    "rivalNeedEngagementMultiplier": {
+      "starterHole": 1.8,
+      "need": 1.35,
+      "neutral": 1.0,
+      "surplus": 0.35
+    },
+    "aggressionClamp": [0.5, 2.0],
+    "minWinningBidsForAggression": 3,
+    "_invariantNotAToggle_unknownBalanceAssumption": "exclude",
+    "tieBreakWinProbability": 0.5,
+    "_crowdComment": [
+      "crowdBlendWeight: how far to move the modelled rival price",
+      "toward what comparable leagues ACTUALLY paid for this player",
+      "(KTC waiver database, accumulated by",
+      "scripts/fetch_crowd_faab.py).  Observed beats modelled, so the",
+      "weight is above 0.5 — but not 1.0, because the crowd sample per",
+      "player is small (often 1-6 claims), MyFantasyLeague-only, and",
+      "an anonymous crowd rather than a panel of experts.",
+      "",
+      "This moves the MARKET only.  The objective ceiling is computed",
+      "before any crowd data is read and bounds the bid regardless: a",
+      "hype cycle can tell us a claim will be expensive, never that",
+      "the player is worth more.  Measured 2026-08-04: the wider",
+      "market's superflex+TEP median is 0.30% of budget with a p90 of",
+      "8.5%, which brackets this league's own 0% / 6% — the two",
+      "markets agree, which is why the blend is safe."
+    ],
+    "crowdBlendWeight": 0.6,
+    "crowdEngagementLift": 5.0,
+    "crowdWinningBidToRivalMedian": 0.53
+  },
+
+  "bidPolicy": {
+    "_comment": [
+      "The recommended bid maximises EXPECTED SURPLUS,",
+      "  argmax_b  P(win | b) x (rawCeiling_team - b),",
+      "not win probability.  This is what produces 'worth $100, bid $36':",
+      "bidding the ceiling captures zero surplus by definition, so the",
+      "optimum is always strictly below it.",
+      "",
+      "conservative / aggressive are the same curve read at different",
+      "win probabilities so all four numbers stay mutually consistent.",
+      "riskPosture shifts only the target on that curve — it can never",
+      "push a bid above the ceiling.",
+      "",
+      "minEdge: when the optimiser is indifferent across a flat region",
+      "(the usual case for an uncontested wire player) prefer the",
+      "CHEAPEST bid within minEdge of the optimum, honouring 'the",
+      "lowest rational bid'."
+    ],
+    "conservativeWinTarget": 0.35,
+    "aggressiveWinTarget": 0.85,
+    "minEdge": 0.02,
+    "riskPosture": {
+      "conservative": 0.8,
+      "balanced": 1.0,
+      "aggressive": 1.25
+    },
+    "defaultRiskPosture": "balanced",
+    "searchGridPoints": 400
+  },
+
+  "leagueRules": {
+    "_comment": [
+      "Read from the live Sleeper league settings when available",
+      "(waiver_budget, waiver_type, waiver_clear_days); these are",
+      "fallbacks only.  waiverType 2 = FAAB.  zeroBidAllowed reflects",
+      "that Sleeper accepts $0 claims, which is how roughly half of",
+      "this league's adds are actually made."
+    ],
+    "defaultBudget": 100,
+    "minBid": 0,
+    "bidIncrement": 1,
+    "zeroBidAllowed": true
+  },
+
+  "confidence": {
+    "_comment": [
+      "Weighted share of realised (non-missing) inputs, matching the",
+      "existing compute_confidence buckets so the UI contract is",
+      "unchanged."
+    ],
+    "highThreshold": 0.85,
+    "mediumThreshold": 0.55
+  }
+}

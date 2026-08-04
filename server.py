@@ -3364,21 +3364,39 @@ async def get_movers(request: Request):
     Returns::
 
         {
-          "window": 14,
+          "window": 2,
+          "windowRequested": 14,
+          "historyDepthDays": 2,
           "threshold": 15,
           "asOf": "2026-04-26",
           "risers": [
             {"name": "...", "team": "TEX", "position": "WR", "playerId": "...",
              "rankNow": 12, "rankThen": 32, "delta": 20,
-             "valueNow": 7421, "perSourceDelta": {...}}
+             "rankNowDate": "2026-04-26", "rankThenDate": "2026-04-24",
+             "spanDays": 2,
+             "valueNow": 7421, "currentSourceRanks": {...}}
           ],
           "fallers": [...]
         }
 
     Risers = rank improved (number got smaller).  Fallers = rank got
-    worse (number got bigger).  Each entry includes a per-source
-    rank delta breakdown so the user can see which sources drove the
-    move.
+    worse (number got bigger).
+
+    ``window`` is the span we ACTUALLY measured, not the span that was
+    asked for — ``windowRequested`` echoes the request.  The two differ
+    whenever ``data/rank_history.jsonl`` is shallower than the request
+    (it is only a few days deep today), and reporting the request in
+    that case labelled a 2-day delta "90 days".  ``spanDays`` on each
+    entry is the authoritative per-player span, since players enter the
+    log at different dates.
+
+    ``currentSourceRanks`` is each source's CURRENT rank for the player
+    (from ``sourceOriginalRanks``), NOT a per-source delta — the log
+    stores only the blended consensus rank, so per-source history to
+    difference against does not exist.  The field was renamed from
+    ``perSourceDelta`` for exactly this reason; this docstring lagged
+    the rename and promised a breakdown of "which sources drove the
+    move" that was never computed.
     """
     try:
         window = int(request.query_params.get("window", 14))
@@ -3402,7 +3420,9 @@ async def get_movers(request: Request):
     if not history:
         return JSONResponse(
             content={
-                "window": window,
+                "window": 0,
+                "windowRequested": window,
+                "historyDepthDays": 0,
                 "threshold": threshold,
                 "asOf": None,
                 "risers": [],
@@ -3410,6 +3430,94 @@ async def get_movers(request: Request):
             },
             headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
         )
+
+    def _span_days(then_date: Any, now_date: Any) -> int | None:
+        """Whole days between two ``YYYY-MM-DD`` stamps, or None."""
+        if not isinstance(then_date, str) or not isinstance(now_date, str):
+            return None
+        try:
+            a = datetime.strptime(then_date, "%Y-%m-%d")
+            b = datetime.strptime(now_date, "%Y-%m-%d")
+        except ValueError:
+            return None
+        return max(0, (b - a).days)
+
+    # Resolve the comparison anchor by DATE, not by list position.
+    # ``load_history(days=window + 1)`` only TRIMS the log — it cannot
+    # extend it — so ``series[0]`` is just the oldest point on disk,
+    # which today is ~2 days back regardless of what was requested.
+    # Anchoring there and echoing ``window`` in the response labelled a
+    # 2-day move "90 days".  Now: take the newest point at or before
+    # ``asOf − window`` days when the log reaches that far, fall back to
+    # the oldest point when it doesn't, and report the span we actually
+    # measured either way.
+    as_of = max((s[-1]["date"] for s in history.values() if s), default=None)
+    # ``historyDepthDays`` must describe THE LOG, not the slice we just
+    # took out of it.  ``history`` is ``load_history(days=window + 1)``,
+    # so deriving depth from its oldest entry yields
+    # ``min(true_depth, window)`` by construction — the field could never
+    # say "the log is deeper than you asked", which is half of what a
+    # depth field is for.  It read correctly only because the live log
+    # happens to be shallower than any window, i.e. by the same accident
+    # this whole finding was filed against.
+    #
+    # ``rank_history.coverage()`` reads the on-disk date range directly.
+    # It falls back to the trimmed span if the log cannot be read, which
+    # is the conservative direction: understating depth makes the window
+    # look shorter, never longer.
+    oldest_seen = min((s[0]["date"] for s in history.values() if s), default=None)
+    # NOTE the unit: ``coverage()["spanDays"]`` is a COUNT of calendar
+    # days covered (inclusive, so two snapshots two days apart span 3),
+    # because it exists to compute ``missingDays``.  ``historyDepthDays``
+    # sits beside ``window``, which is a lookback in days.  Take the
+    # untrimmed FIRST DATE from coverage and measure it with the same
+    # ``_span_days`` the window uses, so there is exactly one definition
+    # of "days back" in this response rather than two that differ by one.
+    try:
+        _cov = _rank_history.coverage()
+        _first_on_disk = _cov.get("firstDate") if isinstance(_cov, dict) else None
+    except Exception:  # noqa: BLE001 — diagnostics must never break the route
+        _first_on_disk = None
+    history_depth_days = _span_days(
+        _first_on_disk if isinstance(_first_on_disk, str) else oldest_seen, as_of
+    )
+    cutoff_date: str | None = None
+    if isinstance(as_of, str):
+        from datetime import timedelta
+
+        try:
+            cutoff_date = (datetime.strptime(as_of, "%Y-%m-%d") - timedelta(days=window)).strftime(
+                "%Y-%m-%d"
+            )
+        except ValueError:
+            cutoff_date = None
+    # The response-level span is the span of ONE well-defined anchor
+    # date — the newest snapshot at or before the cutoff, or the oldest
+    # snapshot we have when the log is shallower than the request.  It
+    # is not ``min(window, depth)``: the log is gap-tolerant, so with
+    # sparse snapshots the nearest usable anchor can sit further back
+    # than ``window`` and the honest number is that real span.  Players
+    # who entered the log after the anchor date measure a shorter span;
+    # ``spanDays`` on each entry is authoritative for that entry.
+    anchor_date = oldest_seen
+    if cutoff_date:
+        newest_within = ""
+        for s in history.values():
+            # Series are date-sorted ascending, so the first point past
+            # the cutoff ends this series' contribution — with a deep
+            # log that is the second point, which keeps this pass cheap
+            # instead of touching every point of every player.
+            for p in s:
+                d = p.get("date")
+                if not isinstance(d, str) or d > cutoff_date:
+                    break
+                if d > newest_within:
+                    newest_within = d
+        if newest_within:
+            anchor_date = newest_within
+    measured_window = _span_days(anchor_date, as_of)
+    if measured_window is None:
+        measured_window = 0
 
     # Index the live contract by displayName so we can stitch in
     # team / position / current value + per-source rank metadata for
@@ -3454,6 +3562,13 @@ async def get_movers(request: Request):
         # Series is already date-sorted ascending by load_history.
         latest = series[-1]
         anchor = series[0]
+        if cutoff_date:
+            for p in series:
+                d = p.get("date")
+                if isinstance(d, str) and d <= cutoff_date:
+                    anchor = p
+                else:
+                    break
         try:
             r_now = int(latest.get("rank"))
             r_then = int(anchor.get("rank"))
@@ -3474,15 +3589,19 @@ async def get_movers(request: Request):
             or by_name.get(raw_key)
             or {}
         )
-        per_source_delta: dict[str, int] = {}
-        # Per-source rank deltas — useful so the user can see
-        # "this move was driven by KTC dropping them 25 spots".
-        # ``sourceOriginalRanks`` stamps the un-Hampel-filtered ranks.
+        current_source_ranks: dict[str, int] = {}
+        # Each source's CURRENT rank for this player — NOT a delta.
+        # ``sourceOriginalRanks`` stamps the un-Hampel-filtered ranks
+        # as of the live contract; the history log carries only the
+        # blended consensus rank, so there is no per-source "then" to
+        # difference against.  The local was named ``per_source_delta``
+        # long after the response key was corrected — renamed here so
+        # the code stops arguing with the payload.
         sor = row.get("sourceOriginalRanks") or {}
         if isinstance(sor, dict):
             for src_key, src_rank in sor.items():
                 try:
-                    per_source_delta[str(src_key)] = int(src_rank)
+                    current_source_ranks[str(src_key)] = int(src_rank)
                 except (TypeError, ValueError):
                     continue
         # Prefer the contract's assetClass (most current) but fall
@@ -3499,20 +3618,35 @@ async def get_movers(request: Request):
             "rankNow": r_now,
             "rankThen": r_then,
             "delta": delta,
+            "rankNowDate": latest.get("date"),
+            "rankThenDate": anchor.get("date"),
+            "spanDays": _span_days(anchor.get("date"), latest.get("date")),
             "valueNow": int(row.get("rankDerivedValue") or 0) or None,
-            "currentSourceRanks": per_source_delta if per_source_delta else None,
+            "currentSourceRanks": current_source_ranks if current_source_ranks else None,
         }
         if delta > 0:
             risers.append(entry)
         else:
             fallers.append(entry)
 
-    risers.sort(key=lambda e: -e["delta"])
-    fallers.sort(key=lambda e: e["delta"])
-    as_of = max((s[-1]["date"] for s in history.values() if s), default=None)
+    # Deterministic ordering.  The primary key is the move size, but
+    # equal-delta ties used to fall through to ``history`` dict
+    # insertion order — i.e. whatever order the JSONL happened to
+    # stamp names in — so two runs over the same data could emit
+    # different top-N slices.  Bigger current value wins the tie
+    # (a 20-spot move by a top-30 asset is the more interesting one),
+    # then name + assetClass as a total order.
+    risers.sort(
+        key=lambda e: (-e["delta"], -(e["valueNow"] or 0), e["name"], e["assetClass"] or "")
+    )
+    fallers.sort(
+        key=lambda e: (e["delta"], -(e["valueNow"] or 0), e["name"], e["assetClass"] or "")
+    )
     return JSONResponse(
         content={
-            "window": window,
+            "window": measured_window,
+            "windowRequested": window,
+            "historyDepthDays": history_depth_days,
             "threshold": threshold,
             "asOf": as_of,
             "risers": risers[:limit],
@@ -4820,6 +4954,18 @@ async def post_waiver_suggestions(request: Request):
 
     from src.trade import waiver as _waiver  # noqa: PLC0415
 
+    # The league's ORIGINAL budget sets the bid scale; the requesting
+    # team's remaining balance is only a cap.  Passing the balance as
+    # the budget (which this did until the FAAB engine landed) made a
+    # player's worth shrink as the manager spent.
+    _roster_settings = _league_registry.get_league_roster_settings(league_cfg.key) or {}
+    _starters = _roster_settings.get("starters") or {}
+    _league_budget = 100
+    for _t in sleeper_teams:
+        if isinstance(_t, dict) and isinstance(_t.get("faabBudget"), int) and _t["faabBudget"] > 0:
+            _league_budget = _t["faabBudget"]
+            break
+
     try:
         result = await run_in_threadpool(
             _waiver.find_waiver_targets,
@@ -4828,6 +4974,12 @@ async def post_waiver_suggestions(request: Request):
             min_value=min_value,
             include_kicker_def=include_kicker,
             user_faab_remaining=faab_remaining,
+            league_budget=_league_budget,
+            team_count=int(_roster_settings.get("teamCount") or len(sleeper_teams) or 12),
+            starters_per_team=sum(
+                int(v or 0) for k, v in _starters.items() if str(k).upper() != "K"
+            )
+            or 20,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Waiver suggestions failed: {exc}")
@@ -4968,31 +5120,26 @@ async def post_waiver_faab_recommend(request: Request):
         sleeper_teams = overlay["teams"]
         rosters_as_of = overlay.get("overlayFetchedAt")
 
-    # One pass over the pool: top FA value (baseline share) AND the
-    # next-best same-position FA (replaceability gate for FAAB v2).
+    # Who is rostered anywhere in the league.  Used below to split the
+    # board into "on a roster" and "freely available", which is what
+    # the engine's replacement anchor is measured from.
+    #
+    # The old ``top_value_in_pool`` / ``next_best_fa_value`` scan that
+    # lived here is gone with the formula that needed it.  Audit finding
+    # W-1 on main found the same defect independently and fixed it in
+    # place: the scan filtered on "is this name on a roster" alone, and
+    # draft picks are never on a Sleeper roster's ``players`` list, so
+    # every pick counted as an available free agent and the best one set
+    # the denominator every bid was divided by.  Measured there at ~2.4x
+    # too low.  The new engine has no pool denominator at all — its
+    # anchors come from league FORMAT — so the whole scan is redundant
+    # rather than merely buggy.  The pick exclusion W-1 added survives
+    # below, on the board/available split that DOES still feed the
+    # replacement anchor.
     rostered_norms: set[str] = set()
     for t in sleeper_teams:
         for n in t.get("players") or []:
             rostered_norms.add(_norm(n))
-    add_position_norm = str(add_position or "").upper()
-    top_pool_value = 0.0
-    next_best_fa_value = 0.0
-    for row in arr:
-        if not isinstance(row, dict):
-            continue
-        rname = _norm(row.get("displayName") or row.get("name"))
-        if not rname or rname in rostered_norms:
-            continue
-        v = float(row.get("rankDerivedValue") or 0)
-        if v > top_pool_value:
-            top_pool_value = v
-        if (
-            add_position_norm
-            and rname != add_target
-            and str(row.get("position") or "").upper() == add_position_norm
-            and v > next_best_fa_value
-        ):
-            next_best_fa_value = v
 
     # League FAAB analytics — reuse the cached public-snapshot
     # path so this endpoint doesn't pay the multi-season fetch cost
@@ -5135,25 +5282,172 @@ async def post_waiver_faab_recommend(request: Request):
     ktc_crowd_bids = crowd_bid_map_from_contract(latest_contract_data)
 
     from src.trade import faab_contention as _faab_contention  # noqa: PLC0415
-    from src.trade.faab_recommender import compute_confidence, recommend_faab  # noqa: PLC0415
+    from src.trade.faab_recommender import (  # noqa: PLC0415
+        _need_level,
+        build_rivals as _build_rivals,
+        compute_confidence,
+        recommend_faab,
+    )
+
+    # ── Engine context ─────────────────────────────────────────────
+    # The FAAB engine needs the league FORMAT (which sets the value
+    # anchors), the point in the season, and the selected team's
+    # roster shape.  All of it is resolved dynamically — nothing about
+    # which team is asking is hard-coded.
+    from src.trade import faab_engine as _faab_engine  # noqa: PLC0415
+    from src.utils.name_clean import compact_name_key  # noqa: PLC0415
+    from src.trade.faab_history import (  # noqa: PLC0415
+        crowd_bid_index,
+        load_bid_history,
+        load_crowd_history,
+        summarize_bid_history,
+    )
+
+    roster_settings = _league_registry.get_league_roster_settings(league_cfg.key) or {}
+    starters_map = roster_settings.get("starters") or {}
+    # K is excluded: kickers are not on the valued board, so counting
+    # their slots would push the all-in anchor down the board by one
+    # slot per team for no corresponding player supply.
+    starters_per_team = (
+        sum(int(v or 0) for k, v in starters_map.items() if str(k).upper() != "K") or 20
+    )
+    team_count = int(roster_settings.get("teamCount") or len(sleeper_teams) or 12)
+    roster_size = int(roster_settings.get("rosterSize") or 0)
+
+    excluded_positions = set(
+        _faab_engine.FaabConfig().get("anchors", "excludedPositions", []) or []
+    )
+    board_values: list[float] = []
+    available_values: list[float] = []
+    for row in arr:
+        if not isinstance(row, dict):
+            continue
+        value = row.get("rankDerivedValue")
+        if not isinstance(value, (int, float)) or value <= 0:
+            continue
+        # Two independent pick guards, deliberately both.  ``position``
+        # is what the config names; ``assetClass`` is the signal audit
+        # finding W-1 used when it found picks polluting the free-agent
+        # pool.  A pick that somehow carries a player-ish position would
+        # slip past the first check and land in the REPLACEMENT anchor,
+        # which is the number every objective ceiling is measured from.
+        if str(row.get("position") or "").upper() in excluded_positions:
+            continue
+        if str(row.get("assetClass") or "").lower() == "pick":
+            continue
+        board_values.append(float(value))
+        if _norm(row.get("displayName") or row.get("name")) not in rostered_norms:
+            available_values.append(float(value))
+
+    current_week, in_season = _faab_engine.current_nfl_week()
+    playoff_week_start = 15
+    for team_row in sleeper_teams:
+        if isinstance(team_row, dict) and isinstance(team_row.get("playoffWeekStart"), int):
+            playoff_week_start = team_row["playoffWeekStart"]
+            break
+
+    # Market priors fitted from THIS league's real bid history, when a
+    # snapshot exists (scripts/fetch_faab_history.py writes it).
+    market_priors = summarize_bid_history(load_bid_history(league_cfg.key))
+
+    # Cross-league crowd prices for THIS player, when we have them
+    # (scripts/fetch_crowd_faab.py accumulates them).  A second,
+    # independent read on how contested the claim will be — it moves
+    # the expected clearing price and never the objective ceiling.
+    crowd_for_player: dict | None = None
+    try:
+        crowd_index = crowd_bid_index(load_crowd_history(league_cfg.key))
+        if crowd_index:
+            crowd_for_player = crowd_index.get(compact_name_key(add_name))
+    except Exception as exc:  # noqa: BLE001 — an optional signal must never 500
+        log.warning("crowd bid lookup failed for %s: %s", league_cfg.key, exc)
+
+    # The selected team's own roster shape.
+    selected_team_row: dict | None = None
+    if requested_team:
+        for t in sleeper_teams:
+            if isinstance(t, dict) and str(t.get("ownerId") or "") == str(requested_team):
+                selected_team_row = t
+                break
+    own_players = (selected_team_row or {}).get("players") or []
+    open_roster_spots = max(0, roster_size - len(own_players)) if roster_size else 0
+
+    asset_pool = None
+    try:
+        asset_pool = await run_in_threadpool(
+            _faab_contention.build_opponent_asset_pool, latest_contract_data
+        )
+    except Exception as exc:  # noqa: BLE001 — need analysis is optional
+        log.warning("faab-recommend asset pool build failed: %s", exc)
+
+    # Startable-depth need, resolved from the same board the values
+    # come from.  Built once and shared with every rival so the user's
+    # team and its opponents are judged by identical rules.
+    faab_anchors = _faab_engine.resolve_anchors(
+        board_values,
+        _faab_engine.LeagueContext(
+            original_budget=int(league_budget),
+            team_count=team_count,
+            starters_per_team=starters_per_team,
+        ),
+        available_values=available_values or None,
+    )
+    roster_index: dict[str, tuple[float, str]] = {}
+    for row in arr:
+        if not isinstance(row, dict):
+            continue
+        value = row.get("rankDerivedValue")
+        if not isinstance(value, (int, float)):
+            continue
+        key = _norm(row.get("displayName") or row.get("name"))
+        if key:
+            roster_index[key] = (float(value), str(row.get("position") or ""))
+
+    own_need = "neutral"
+    if own_players:
+        own_need = _need_level(
+            add_position,
+            own_players,
+            asset_pool,
+            anchors=faab_anchors,
+            starters=starters_map,
+            roster_index=roster_index,
+        )
+
+    risk_posture = str(body.get("riskPosture") or "balanced").strip().lower()
+    if risk_posture not in ("conservative", "balanced", "aggressive"):
+        risk_posture = "balanced"
 
     base_kwargs = dict(
         add_player_value=add_value,
         drop_player_value=drop_value,
         add_player_position=add_position,
         add_player_name=add_name,
+        drop_player_name=drop_name or None,
         team_faab_remaining=team_faab_remaining,
         league_faab_summary=league_summary,
         sleeper_trending=trending_for_player,
         ktc_crowd_bids=ktc_crowd_bids if ktc_crowd_bids else None,
         league_budget=int(league_budget),
-        top_value_in_pool=top_pool_value if top_pool_value > 0 else None,
+        anchors=faab_anchors,
+        board_values=board_values,
+        available_values=available_values or None,
+        team_count=team_count,
+        starters_per_team=starters_per_team,
+        current_week=current_week,
+        playoff_week_start=playoff_week_start,
+        in_season=in_season,
+        open_roster_spots=open_roster_spots,
+        need_level=own_need,
+        risk_posture=risk_posture,
+        league_key=league_cfg.key,
+        crowd=crowd_for_player,
     )
 
-    # First pass — the user's pure value recommendation (their drop
-    # side + their FAAB cap applied).  NOT the rival base: rivals get
-    # a separate team-independent neutral pass below so their modeled
-    # demand never depends on the user's budget or roster choice.
+    # First pass — value only, no rivals.  Kept so the response is
+    # still meaningful when we cannot identify the user's team (and so
+    # the objective ceiling, which is rival-independent by
+    # construction, is always available).
     rec = recommend_faab(**base_kwargs)
 
     # Phase-5 intel snapshot — defensive plain-JSON read, no
@@ -5205,63 +5499,107 @@ async def post_waiver_faab_recommend(request: Request):
                 "rival FAAB balances unavailable for most opponents — rival contention skipped."
             )
     if requested_team and requested_team_matched and contention_skip_reason is None:
-        # teamAggression keyed by historical ownerIds — filter to
-        # CURRENT owners so departed managers' histories don't
-        # drift into the estimates.
-        current_owner_ids = {str(t.get("ownerId") or "") for t in opponents}
-        raw_aggression = (league_summary or {}).get("teamAggression") or {}
-        team_aggression = {
-            oid: entry for oid, entry in raw_aggression.items() if oid in current_owner_ids
-        }
+        # Aggression is resolved per rival inside ``build_rivals``,
+        # which looks each CURRENT opponent up by owner id — so a
+        # departed manager's history is inert without a pre-filter,
+        # and the filtered copy this block used to build was dead.
         intel_index = None
         if intel_snapshot is not None:
             intel_index = _faab_contention.build_intel_index(
                 intel_snapshot,
                 id_to_position=_faab_contention.player_position_map(latest_contract_data),
             )
-        # The rival base must be TEAM-INDEPENDENT: the user's own
-        # ``standard`` bakes in THEIR remaining-FAAB cap and THEIR
-        # drop-side value modifier, so using it would make rival
-        # demand a function of the user's budget and roster choice
-        # (a broke user would model an empty rival field even with
-        # flush opponents).  Neutral pass: same public value signals,
-        # no drop adjustment, no team cap — each rival is then capped
-        # by their OWN faabRemaining inside the estimator.
-        neutral_rec = recommend_faab(
-            **{**base_kwargs, "drop_player_value": 0.0, "team_faab_remaining": None}
-        )
+        # Rival demand is TEAM-INDEPENDENT by construction in the
+        # engine: it keys on the player's objective ceiling, which
+        # knows nothing about the user's budget or drop side.  There
+        # is no longer a second "neutral pass" to keep the two honest
+        # — the separation is structural rather than procedural.
         try:
-            contention = await run_in_threadpool(
-                lambda: _faab_contention.estimate_rival_bids(
-                    base_bid=int(neutral_rec.get("standard") or 0),
-                    add_position=add_position,
-                    add_player_id=add_player_id or None,
-                    opponents=opponents,
-                    contract=latest_contract_data,
-                    team_aggression=team_aggression,
-                    league_median_winning_bid=(league_summary or {}).get("leagueMedianWinningBid"),
-                    intel_index=intel_index,
-                    intel_available=intel_snapshot is not None,
+            rivals = await run_in_threadpool(
+                lambda: _build_rivals(
+                    opponents,
+                    position=add_position,
+                    asset_pool=asset_pool,
+                    market_priors=market_priors,
+                    league_summary=league_summary,
+                    roster_size=roster_size,
+                    anchors=faab_anchors,
+                    starters=starters_map,
+                    roster_index=roster_index,
                 )
             )
         except Exception as exc:  # noqa: BLE001
-            log.warning("faab-recommend contention estimate failed: %s", exc)
-            contention = None
+            log.warning("faab-recommend rival build failed: %s", exc)
+            rivals = []
+
+        if rivals:
+            # Intel: an owner who added THIS player (or this position)
+            # in another league recently is more likely to contest.
+            # It raises the probability they BID, never what the
+            # player is worth.
+            if intel_index:
+                for rival in rivals:
+                    factor, _level = _faab_contention.intel_factor(
+                        intel_index, rival.owner_id, add_player_id or None, add_position
+                    )
+                    if factor > 1.0:
+                        rival.aggression = float(rival.aggression) * factor
+
+            contention = {"rivals": rivals}
+            rec = recommend_faab(**base_kwargs, rivals=rivals)
 
     if contention is not None:
-        # Second pass — same inputs plus the rival estimates and the
-        # replaceability gate's next-best-FA value.
-        rec = recommend_faab(
-            **base_kwargs,
-            contention=contention,
-            next_best_fa_value=next_best_fa_value,
+        rivals = contention["rivals"]
+        demand = min(
+            1.0,
+            float(rec.get("objective", {}).get("pctOfOriginalBudget") or 0.0)
+            / 100.0
+            / max(1e-9, _faab_engine.FaabConfig().num("market", "demandSaturationBudgets", 2.5)),
         )
+        per_opponent = _faab_engine.rival_expected_bids(
+            rivals,
+            demand_signal=demand,
+            league=_faab_engine.LeagueContext(
+                original_budget=int(league_budget),
+                team_count=team_count,
+                starters_per_team=starters_per_team,
+            ),
+        )
+        unknown = sum(1 for r in per_opponent if r["balanceUnknown"])
+        notes = [
+            "Rival bids are estimates fitted from winning-bid history only — "
+            "Sleeper never exposes losing bids, so selection bias is irreducible.",
+        ]
+        if unknown:
+            notes.append(
+                f"{unknown} opponent(s) have no visible FAAB balance — shown as estimates "
+                "but excluded from the clearing price (an unverifiable rival must never "
+                "raise your bid)."
+            )
+        low_sample_count = sum(1 for r in per_opponent if r["lowSample"])
+        if low_sample_count:
+            notes.append(
+                f"{low_sample_count} opponent(s) below the winning-bid sample floor — "
+                "their aggression defaulted to neutral (1.0)."
+            )
+        if market_priors.sample_size:
+            notes.append(
+                f"Fitted against {market_priors.sample_size} historical adds "
+                f"({market_priors.zero_bid_share:.0%} of which cost $0)."
+            )
+        else:
+            notes.append(
+                "No bid history on file for this league — rival behaviour uses configured "
+                "priors.  Run scripts/fetch_faab_history.py to improve this."
+            )
         rec["contention"] = {
-            "clearing": contention["clearing"],
-            "topRival": contention["topRival"],
-            "perOpponent": contention["perOpponent"],
+            "clearing": rec["bids"]["clearing"],
+            "topRival": max(
+                (r["expBid"] for r in per_opponent if not r["balanceUnknown"]), default=0
+            ),
+            "perOpponent": per_opponent,
             "estimateOnly": True,
-            "notes": contention["notes"],
+            "notes": notes,
             "skipped": False,
         }
     else:
@@ -12169,7 +12507,7 @@ if STATIC_DIR.exists():
 #
 # Endpoints (all PRIVATE — no public cache headers; raw Sleeper
 # league IDs are never exposed in responses):
-#   GET  /api/intel/summary          — asset board sorted by trendScore
+#   GET  /api/intel/summary          — asset board sorted by signalStrength
 #   GET  /api/intel/player           — per-asset drill-down (?playerId= / ?name=)
 #   GET  /api/intel/member/{ownerId} — one member's cross-league profile
 #   POST /api/intel/refresh          — 202 + daemon-thread crawl (409 when running)
@@ -12796,6 +13134,21 @@ async def get_intel_refresh_status(request: Request):
 
 from src.sharp import service as _sharp_service  # noqa: E402
 
+# Register the sharp market routes EXPLICITLY rather than relying on the
+# import-time side effect inside ``_sharp_service``.
+#
+# That side effect only finds this app when ``server`` is the first thing
+# to import the module. Anything that imports ``src.sharp.service``
+# earlier — a test module, a script, another package — runs the
+# registrar against a not-yet-existing app, and Python's module cache
+# then means importing it here re-runs nothing. The routes silently
+# never attach and every ``/api/sharp/market`` request 404s.
+#
+# ``_register_http_routes`` is idempotent (it returns early when the
+# path is already present), so calling it here is safe alongside the
+# module-level call and the self-heal in ``cohort_status``.
+_sharp_service.register_http_routes()
+
 
 @app.get("/api/sharp/cohort")
 async def get_sharp_cohort(request: Request):
@@ -12812,6 +13165,102 @@ async def get_sharp_cohort(request: Request):
         content=payload,
         headers={"Cache-Control": "private, max-age=300, stale-while-revalidate=900"},
     )
+
+
+@app.get("/api/sharp/roster-percentage")
+async def get_sharp_roster_percentage(request: Request):
+    """Which players the sharp cohort rosters most, and how reliably.
+
+    Shares the Buy/Sell Tracker's cohort exactly — both boards resolve
+    their pool through ``src/sharp/cohort.py::cohort_members`` — so it is
+    global for the same reason the cohort endpoint is, and takes no
+    ``leagueKey``.
+
+    Declared HERE rather than registered from ``src/sharp/service.py``.
+    That module's self-registration only finds the app when it is
+    imported by ``server.py`` first; when a test imports it earlier the
+    routes never attach, which is the failure
+    ``tests/sharp/test_public_api_allowlist.py`` hits under a full-suite
+    run.  A plain decorator has no such ordering dependency.
+
+    Always 200 with an explicit ``status``: an empty roster store is a
+    real state on a cohort whose rosters have not been collected yet,
+    and the page explains it rather than showing an error.
+    """
+    query = request.query_params
+
+    def _bool(name: str) -> bool:
+        return str(query.get(name) or "").strip().lower() in ("1", "true", "yes")
+
+    try:
+        payload = await run_in_threadpool(
+            _sharp_service.roster_percentage_payload,
+            contract=latest_contract_data,
+            qualification=str(query.get("qualification") or "all"),
+            position=str(query.get("position") or "all"),
+            platform=str(query.get("platform") or "all"),
+            league_format=str(query.get("format") or "all"),
+            contention=str(query.get("contention") or "all"),
+            experience=str(query.get("experience") or "all"),
+            sort=str(query.get("sort") or "rostered"),
+            limit=int(query.get("limit") or 50),
+            include_picks=_bool("includePicks"),
+        )
+    except (ValueError, TypeError) as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": str(exc)},
+            headers={"Cache-Control": "no-store"},
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.exception("sharp roster percentage failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "sharp_roster_percentage_unavailable", "message": str(exc)},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        content=payload,
+        headers={"Cache-Control": "private, max-age=300, stale-while-revalidate=900"},
+    )
+
+
+@app.get("/api/sharp/roster-percentage/audit")
+async def get_sharp_roster_percentage_audit(request: Request):
+    """Every roster behind one player's percentage, listed individually.
+
+    The manual-verification surface required before this feature could
+    be called done: a count is checkable against the underlying rosters
+    without database access, and the excluded rosters are reported with
+    their reasons alongside.
+    """
+    asset_id = str(request.query_params.get("assetId") or "").strip()
+    if not asset_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "missing_param", "message": "assetId required"},
+            headers={"Cache-Control": "no-store"},
+        )
+    try:
+        payload = await run_in_threadpool(
+            _sharp_service.roster_percentage_audit_payload,
+            asset_id,
+            qualification=str(request.query_params.get("qualification") or "all"),
+        )
+    except (ValueError, TypeError) as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": str(exc)},
+            headers={"Cache-Control": "no-store"},
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.exception("sharp roster percentage audit failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "sharp_roster_percentage_unavailable", "message": str(exc)},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, max-age=60"})
 
 
 # ── PLAYER CONTEXT (contracts / snap share / depth chart) ───────────────

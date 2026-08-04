@@ -54,7 +54,13 @@ def _load_contract() -> dict | None:
     from src.api.data_contract import build_api_data_contract  # noqa: PLC0415
 
     for directory in (REPO / "exports" / "latest", REPO / "data"):
-        for candidate in sorted(directory.glob("dynasty_data_*.json")):
+        # NEWEST first. The filenames carry a date, so a plain ascending
+        # sort with `return` on the first success took the OLDEST payload
+        # in the directory — snapshotting a board from whenever the
+        # earliest file happened to be written, under today's date.
+        # `panel.py:161` already gets this right with `[-1]`; this is the
+        # same fix, stated rather than implied.
+        for candidate in sorted(directory.glob("dynasty_data_*.json"), reverse=True):
             try:
                 raw = json.loads(candidate.read_text())
             except (OSError, json.JSONDecodeError):
@@ -63,9 +69,68 @@ def _load_contract() -> dict | None:
     return None
 
 
+def _label(args: argparse.Namespace, board: dict) -> dict[int, dict]:
+    """Fill forward returns for snapshots whose horizon has now elapsed.
+
+    This module's docstring has always advertised "Two jobs… 2. Label",
+    and until now ``main`` did the first one only: ``label_outcomes`` had
+    **zero callers anywhere**. The timer had been accumulating snapshots
+    that nothing would ever score, which makes the store an archive
+    rather than a measurement.
+
+    Prices come from the store itself (see
+    ``snapshot.prices_by_date``) — no git panel, no network, and origin
+    and horizon prices written by the same code path.
+    """
+    horizons = [h.strip() for h in (args.label_horizons or "").split(",") if h.strip()]
+    if not horizons:
+        return {}
+    prices = snapshot.prices_by_date(args.db)
+    if len(prices) < 2:
+        log(f"labelling skipped: only {len(prices)} dated price map(s) in the store")
+        return {}
+    out: dict[int, dict] = {}
+    for raw in horizons:
+        try:
+            horizon = int(raw)
+        except ValueError:
+            log(f"ignoring unparseable horizon {raw!r}")
+            continue
+        try:
+            out[horizon] = snapshot.label_outcomes(
+                horizon_days=horizon, prices_by_date=prices, path=args.db
+            )
+        except ValueError as exc:
+            # An unsupported horizon is a caller error, not a run
+            # failure: the snapshot is already written and is the part
+            # that cannot be recovered later.
+            log(f"horizon {horizon}: {exc}")
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--as-of", type=str, default=None, help="YYYY-MM-DD (default: today UTC)")
+    ap.add_argument(
+        "--as-of",
+        type=str,
+        default=None,
+        help=(
+            "YYYY-MM-DD (default: today UTC). Stamping a PAST date writes "
+            "TODAY's board under that date, which is a fabricated history "
+            "entry, so it requires --backfill."
+        ),
+    )
+    ap.add_argument(
+        "--backfill",
+        action="store_true",
+        help="permit --as-of in the past; without it a past date is refused",
+    )
+    ap.add_argument(
+        "--label-horizons",
+        type=str,
+        default="7,14,30",
+        help="comma-separated horizons to label after writing; empty string to skip",
+    )
     ap.add_argument("--dry-run", action="store_true", help="build and report, do not write")
     ap.add_argument("--db", type=Path, default=None, help="override the snapshot database path")
     args = ap.parse_args(argv)
@@ -86,7 +151,10 @@ def main(argv: list[str] | None = None) -> int:
         hours_stale=service.resolve_hours_stale(contract),
         **inputs_mod.resolve(contract),
     )
-    board["contractScrapedAt"] = contract.get("scrapeTimestamp")
+    # ``build_board`` stamps this itself now; the assignment stays as a
+    # belt-and-braces for a board built by an older service, and is a
+    # no-op otherwise.
+    board.setdefault("contractScrapedAt", contract.get("scrapeTimestamp"))
 
     if board.get("status") != "ok":
         print(f"[ce-snapshot] board status {board.get('status')!r}", file=sys.stderr)
@@ -113,19 +181,55 @@ def main(argv: list[str] | None = None) -> int:
         log("dry run — not writing")
         return 0
 
-    as_of = args.as_of or date.today().isoformat()
+    # UTC, matching ``snapshot.write_board``'s own default and the
+    # ``as_of`` on every other date in the store. ``date.today()`` is
+    # LOCAL, so on a box west of Greenwich a run after 17:00 wrote
+    # yesterday's date onto today's board — a one-day-off history that
+    # nothing would ever flag.
+    today = datetime.now(timezone.utc).date()
+    if args.as_of:
+        try:
+            requested = date.fromisoformat(args.as_of)
+        except ValueError:
+            print(f"[ce-snapshot] --as-of {args.as_of!r} is not YYYY-MM-DD", file=sys.stderr)
+            return 1
+        if requested < today and not args.backfill:
+            # This writes TODAY's board under a PAST date. That is not a
+            # reconstruction — the board is built from today's contract —
+            # so it manufactures a history entry that never happened, and
+            # every later study reads it as a real one. Deliberate use
+            # (e.g. re-stamping a run that straddled midnight) has to say
+            # so.
+            print(
+                f"[ce-snapshot] refusing to write today's board under the past date "
+                f"{requested}; pass --backfill if that is genuinely what you want",
+                file=sys.stderr,
+            )
+            return 1
+        as_of = requested.isoformat()
+    else:
+        as_of = today.isoformat()
+
     try:
         result = snapshot.write_board(board, as_of=as_of, path=args.db)
     except Exception as exc:  # noqa: BLE001 — CLI boundary
         print(f"[ce-snapshot] write failed: {exc}", file=sys.stderr)
         return 1
 
+    labelled = _label(args, board)
+
     cov = snapshot.coverage(args.db)
     elapsed = (datetime.now(timezone.utc) - started).total_seconds()
     log(f"wrote {result['written']} rows for {result['asOf']} in {elapsed:.1f}s")
+    for horizon, outcome in sorted(labelled.items()):
+        log(
+            f"labelled h{horizon}: {outcome.get('updated')} of "
+            f"{outcome.get('considered')} unlabelled rows"
+        )
     log(
         f"store now: {cov.get('rows')} rows across {cov.get('distinctDates')} dates "
-        f"({cov.get('firstDate')} -> {cov.get('lastDate')})"
+        f"({cov.get('firstDate')} -> {cov.get('lastDate')}), "
+        f"{cov.get('rowsWithCohortExcess')} with a cohort-excess outcome"
     )
     return 0
 

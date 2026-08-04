@@ -96,8 +96,12 @@ def test_the_round_count_rescales_every_team_total(_no_network):
     # The same $1200 is spread over a different number of picks, so per-pick
     # dollars — and therefore every team's auction budget composition — differ.
     assert len(six["picks"]) != len(four["picks"])
-    assert sum(p["dollarValue"] for p in six["picks"]) == fb._TARGET_TOTAL_BUDGET
-    assert sum(p["dollarValue"] for p in four["picks"]) == fb._TARGET_TOTAL_BUDGET
+    # An empty contract prices nothing, so every pick is UNPRICED and carries
+    # `dollarValue: None` rather than 0 — a $0 rounding outcome on a real value
+    # is a different state, and the payload keeps them distinguishable.
+    assert all(p["isUnpriced"] for p in six["picks"])
+    assert all(p["dollarValue"] is None for p in six["picks"])
+    assert all(p["dollarValue"] is None for p in four["picks"])
 
 
 def test_an_explicit_count_wins_and_is_labelled_as_such(_no_network):

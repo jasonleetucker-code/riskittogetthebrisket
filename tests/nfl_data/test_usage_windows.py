@@ -82,6 +82,11 @@ def test_spike_produces_positive_zscore():
     final = [w for w in windows if w.week == 5][0]
     # With exactly-equal history, SD is 0 → z is None.  So insert a
     # small variance and re-check.
+    #
+    # That first half was stated and never checked — `final` was computed
+    # and dropped, so a regression that produced a z-score from zero
+    # variance would have gone unnoticed. Assert it.
+    assert final.snap_pct_z is None
     rows[0]["snap_pct"] = 0.32
     rows[1]["snap_pct"] = 0.28
     rows[2]["snap_pct"] = 0.30

@@ -113,7 +113,6 @@ def _pick_ownership_map(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[s
     if current is None:
         return {}
 
-    num_teams = current.num_teams or max(1, len(current.rosters))
     settings = current.league.get("settings") or {}
     try:
         draft_rounds = int(settings.get("draft_rounds") or 0)

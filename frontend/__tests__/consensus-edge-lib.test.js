@@ -8,6 +8,7 @@ import {
   formatScore,
   labelTone,
   positionLeaders,
+  rankKey,
 } from "@/lib/consensus-edge";
 
 describe("classifyEdgeFailure", () => {
@@ -75,14 +76,28 @@ describe("componentRows", () => {
 });
 
 describe("positionLeaders", () => {
-  // `qualified` is stamped by the backend. These rows carry it because
-  // the real payload does.
+  // `qualified` and `conviction` are both stamped by the backend. These
+  // rows carry them because the real payload does.
   const rows = [
-    { playerKey: "a", position: "QB", label: "Buy", score: 40, qualified: true },
-    { playerKey: "b", position: "QB", label: "Strong Buy", score: 70, qualified: true },
-    { playerKey: "c", position: "RB", label: "Neutral", score: 10, qualified: false },
-    { playerKey: "d", position: "WR", label: "Buy", score: 35, qualified: true },
-    { playerKey: "e", position: "TE", label: "Sell", score: -50, qualified: true },
+    { playerKey: "a", position: "QB", label: "Buy", score: 40, conviction: 28, qualified: true },
+    {
+      playerKey: "b",
+      position: "QB",
+      label: "Strong Buy",
+      score: 70,
+      conviction: 49,
+      qualified: true,
+    },
+    {
+      playerKey: "c",
+      position: "RB",
+      label: "Neutral",
+      score: 10,
+      conviction: 7,
+      qualified: false,
+    },
+    { playerKey: "d", position: "WR", label: "Buy", score: 35, conviction: 25, qualified: true },
+    { playerKey: "e", position: "TE", label: "Sell", score: -50, conviction: -35, qualified: true },
   ];
 
   it("picks the best qualifying player per position", () => {
@@ -115,6 +130,39 @@ describe("positionLeaders", () => {
   it("returns nothing when no player qualifies", () => {
     expect(positionLeaders([{ position: "QB", label: "Neutral", score: 5 }])).toEqual([]);
   });
+
+  it("ranks on conviction, so a thin high score loses to a thick lower one", () => {
+    // The whole reason the backend stamps conviction: ranking on raw
+    // score surfaced the least-evidenced rows. A leader panel that
+    // picked on score would disagree with the list the study measured.
+    const tie = [
+      { playerKey: "thin", position: "WR", score: 70, conviction: 28, qualified: true },
+      { playerKey: "thick", position: "WR", score: 50, conviction: 37.5, qualified: true },
+    ];
+    expect(positionLeaders(tie, { direction: "buy" })[0].row.playerKey).toBe("thick");
+  });
+
+  it("picks the most negative conviction on the sell side", () => {
+    const sells = [
+      { playerKey: "mild", position: "RB", score: -40, conviction: -24, qualified: true },
+      { playerKey: "strong", position: "RB", score: -70, conviction: -52.5, qualified: true },
+    ];
+    expect(positionLeaders(sells, { direction: "sell" })[0].row.playerKey).toBe("strong");
+  });
+});
+
+describe("rankKey", () => {
+  it("reads the backend's conviction stamp", () => {
+    expect(rankKey({ score: 70, confidence: 40, conviction: 28 })).toBe(28);
+  });
+
+  it("does not fall back to score when the stamp is missing", () => {
+    // Falling back to score would quietly reinstate the ordering the
+    // committed measurements do NOT describe. Returning 0 instead leaves
+    // the backend's own array order — already conviction order — intact.
+    expect(rankKey({ score: 70, confidence: 40 })).toBe(0);
+    expect(rankKey(null)).toBe(0);
+  });
 });
 
 describe("formatting", () => {
@@ -135,10 +183,34 @@ describe("no duplicated qualification logic", () => {
   // label server-side silently emptied the position-leaders panel. This
   // is the same class of drift the client-side rank fallback caused, and
   // this guard is what stops it coming back.
+  //
+  // It used to read `lib/consensus-edge.js` only, and check four of the
+  // eight labels. A later audit found `WITHHELD_LABELS` — a JS copy of
+  // `service.REFUSAL_LABELS` — sitting in `page.jsx`, which is the one
+  // file this guard did not read, covering four labels it did not
+  // check. Both gaps are closed below.
   const source = fs.readFileSync(
     path.join(process.cwd(), "lib", "consensus-edge.js"),
     "utf8",
   );
+  const page = fs.readFileSync(
+    path.join(process.cwd(), "app", "consensus-edge", "page.jsx"),
+    "utf8",
+  );
+
+  // All eight labels the backend can emit, not the four directional
+  // ones. The refusal set is exactly as load-bearing: it decides which
+  // rows the Withheld tab shows.
+  const ALL_LABELS = [
+    "Strong Buy",
+    "Buy",
+    "Neutral",
+    "Sell",
+    "Strong Sell",
+    "Conflicted",
+    "Insufficient Evidence",
+    "No Market Price",
+  ];
 
   // Scoped to positionLeaders. Styling BY label is legitimate — that is
   // what labelTone does, and the frontend has to know label names to
@@ -149,12 +221,30 @@ describe("no duplicated qualification logic", () => {
   );
 
   it("does not decide qualification from label strings", () => {
-    for (const label of ["Strong Buy", "Strong Sell", "Buy", "Sell"]) {
+    for (const label of ALL_LABELS) {
       expect(positionLeadersBody).not.toContain(`"${label}"`);
     }
   });
 
   it("reads the backend qualified flag instead", () => {
     expect(positionLeadersBody).toContain("row.qualified");
+  });
+
+  it("keeps no label set in the page either", () => {
+    // The page has no labelTone equivalent — it imports one — so it has
+    // no legitimate reason to name a label at all. "Withheld" is exempt
+    // as the VIEW name a user reads on the control, which is copy
+    // rather than logic.
+    const code = page
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("//"))
+      .join("\n");
+    for (const label of ALL_LABELS) {
+      expect(code).not.toContain(`"${label}"`);
+    }
+  });
+
+  it("filters the withheld view on the backend's stamp", () => {
+    expect(page).toContain("r.withheld");
   });
 });

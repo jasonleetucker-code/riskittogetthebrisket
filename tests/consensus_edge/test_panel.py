@@ -14,6 +14,7 @@ on that would report excellent accuracy and mean nothing.  Hence
 
 from __future__ import annotations
 
+import functools
 import unittest
 from datetime import date, timedelta
 
@@ -25,6 +26,37 @@ _deep_only = unittest.skipIf(
     panel.is_shallow(),
     "shallow clone: as-of reconstruction needs full history (git fetch --unshallow)",
 )
+
+# The offense market anchor.  Fair value is routed per asset class from
+# the board that excluded that class's anchor, and offense is the only
+# class the anchor-free build can price at all, so a replay without this
+# CSV prices nothing.
+_ANCHOR_STEM = "ktcSfTep"
+
+
+@functools.lru_cache(maxsize=1)
+def _oldest_replayable_date() -> date:
+    """Oldest panel date whose replay materialises the offense anchor CSV.
+
+    The leakage tests below want the OLDEST date — it maximises the gap
+    between the historical CSVs and today's, which is the difference they
+    exist to detect.  They used to take ``available_dates()[0]``
+    literally, which is 2026-04-16; ``CSVs/site_raw/ktcSfTep.csv`` was
+    first committed on 2026-04-27.  For those eleven days the replay has
+    no anchor at all, so both sides of the comparison come back unpriced
+    and the test fails on its own has-enough-data guard rather than on
+    leakage.
+
+    Scanning for the precondition rather than hardcoding the date keeps
+    this honest if history is ever rewritten or the anchor changes: the
+    test still runs on the oldest date it CAN run on, and skips loudly if
+    there is none.  Roughly a dozen git materialisations, ~2s, cached.
+    """
+    for target in panel.available_dates():
+        with panel.panel_day(target) as day:
+            if _ANCHOR_STEM in day.csv_sources:
+                return target
+    raise unittest.SkipTest(f"no panel date materialises {_ANCHOR_STEM}.csv")
 
 
 @_deep_only
@@ -89,7 +121,7 @@ class TestNoLookAheadLeakage(unittest.TestCase):
     """
 
     def test_omitting_csv_root_changes_the_answer(self):
-        target = panel.available_dates()[0]
+        target = _oldest_replayable_date()
         with panel.panel_day(target) as day:
             contaminated = fair_value_index(day.payload)
             clean = fair_value_index(day.payload, csv_root=day.csv_root)
@@ -111,7 +143,7 @@ class TestNoLookAheadLeakage(unittest.TestCase):
         )
 
     def test_a_replayed_board_uses_the_historical_source_files(self):
-        target = panel.available_dates()[0]
+        target = _oldest_replayable_date()
         with panel.panel_day(target) as day:
             historical = build_api_data_contract(day.payload, csv_root=day.csv_root)
             current_csvs = build_api_data_contract(day.payload)

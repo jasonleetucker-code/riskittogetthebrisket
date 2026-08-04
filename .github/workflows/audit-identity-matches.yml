@@ -59,10 +59,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload full report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: identity-audit-report
           path: ${{ runner.temp }}/identity_audit.json
@@ -111,7 +111,12 @@ jobs:
           retention-days: 30
 
       - name: Open / update rolling issue on collision
-        if: failure()
+        # Mainline only — see the long note on the same guard in e2e.yml,
+        # where this defect was actually observed (#716). `push` and
+        # `schedule` here are already main-only; `workflow_dispatch` is the
+        # path that can run this on a feature branch and file its result as
+        # a mainline verdict.
+        if: failure() && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -189,7 +194,10 @@ jobs:
         # open `identity-collision` issue means "this failed at least once, ever"
         # rather than "this is broken now" — #663 sat open for hours after
         # its gate went green because of exactly this gap.
-        if: success()
+        #
+        # Mainline only, for the reason in e2e.yml: a green dispatch from a
+        # branch would close a real open mainline issue.
+        if: success() && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

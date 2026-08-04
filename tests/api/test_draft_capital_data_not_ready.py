@@ -13,6 +13,20 @@ it returned a complete one, at HTTP 200, full of numbers a caller cannot
 distinguish from the Hill-curve-calibrated real ones. Plausible and
 wrong is the worst combination available.
 
+UPDATE (audit finding C1). The flat table is gone entirely.  Reading it
+as "a reasonable last resort for a *partially* populated contract" —
+which the test below used to say — badly understated its reach: the live
+contract carries current-year slot picks ONLY, so with a fully valid
+contract loaded every ``current_season + 1`` pick missed and took a
+constant.  That was half the generated board, every day, normalized into
+the same $1200 pool as the real values.  ``_pick_value_from_contract``
+now returns ``None`` on a miss and the builder excludes those picks from
+the pool (``tests/api/test_draft_capital_fallback.py``).
+
+The 503 guard below is UNAFFECTED and still wanted.  With no contract at
+all the builder now produces a board on which nothing is priced, and
+serving that at 200 would be a different flavour of the same lie.
+
 CLAUDE.md already specified the fix, and had for as long as the
 endpoint has existed:
 
@@ -36,23 +50,25 @@ from src.api.draft_capital_fallback import _pick_value_from_contract
 # ── The reason a 200 was dangerous ───────────────────────────────────
 
 
-def test_an_absent_contract_yields_fabricated_values_not_zero():
-    """This is why the missing guard mattered.
+def test_an_absent_contract_yields_no_value_at_all():
+    """This is why the missing guard mattered — and what replaced it.
 
-    Had the fallback returned 0 or None, an empty board would have made
-    the problem visible at the UI. It returns confident round-based
-    constants instead, so nothing downstream can tell.
+    The fallback used to answer confident round-based constants here
+    (7000/4000/2000), so nothing downstream could tell an invented pick
+    from a calibrated one and the board looked complete at the UI. It
+    now declines to answer, which is what makes the omission visible.
 
-    Pinning the behaviour rather than changing it: the flat table is a
-    reasonable last resort for a *partially* populated contract. What
-    was wrong was reaching it with no contract at all.
+    The 503 the rest of this file pins is still the right response to a
+    cold contract: an unpriced board is honest, but it is not useful,
+    and 200 would present "we know nothing" as "here is your draft
+    capital".
     """
-    assert _pick_value_from_contract({}, 2027, 1, 1) == 7000.0
-    assert _pick_value_from_contract({}, 2027, 2, 1) == 4000.0
-    assert _pick_value_from_contract({}, 2027, 3, 1) == 2000.0
+    assert _pick_value_from_contract({}, 2027, 1, 1) is None
+    assert _pick_value_from_contract({}, 2027, 2, 1) is None
+    assert _pick_value_from_contract({}, 2027, 3, 1) is None
 
 
-def test_a_populated_contract_wins_over_the_flat_table():
+def test_a_populated_contract_still_prices_what_it_carries():
     """Non-vacuity for the guard: the real path must genuinely differ,
     or 503-ing on an absent contract would be protecting nothing."""
     contract = {

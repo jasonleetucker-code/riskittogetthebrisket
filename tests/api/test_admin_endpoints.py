@@ -187,7 +187,7 @@ def test_guest_pass_login_creates_time_bounded_session(monkeypatch, tmp_path):
     """End-to-end: admin mints a pass → guest logs in with the
     plaintext token → /api/auth/status returns authenticated."""
     _authed_admin(monkeypatch)
-    db = _isolate_guest_pass_db(monkeypatch, tmp_path)
+    _isolate_guest_pass_db(monkeypatch, tmp_path)  # called for isolation; return unused
     # Force a known admin password so the login fall-through is the
     # only path that admits the guest token.
     monkeypatch.setattr(server, "JASON_LOGIN_USERNAME", "admin")

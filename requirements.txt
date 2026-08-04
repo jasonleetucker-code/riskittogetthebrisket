@@ -20,11 +20,11 @@
 # original PR pins to match what production + dev are actually
 # running on 2026-04-24 — the narrower pins were authored three
 # days earlier and fell behind the live env.
-fastapi~=0.135.0
-uvicorn~=0.44.0
+fastapi~=0.141.1
+uvicorn~=0.52.0
 
 # HTTP client used by scrapers, Sleeper client, news providers, etc.
-requests~=2.31.0
+requests~=2.34.2
 
 # Browser automation (FootballGuys + DraftSharks scrapers).
 playwright~=1.58.0
@@ -45,7 +45,7 @@ curl_cffi~=0.15.0
 
 # beautifulsoup4 parses DLF's WPDataTable HTML + FantasyPros Fitzmaurice
 # markup.
-beautifulsoup4~=4.14.0
+beautifulsoup4~=4.15.0
 
 # Web Push (PWA notifications).  ``pywebpush`` handles the VAPID
 # signing + RFC8291 payload encryption; ``cryptography`` is already

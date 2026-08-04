@@ -234,11 +234,15 @@ class TestEndToEndThroughService(unittest.TestCase):
                 }
             ],
         }
+        from tests.bdvm.pool_depth import depth_records
+
         payload = run_valuation(
             contract,
             league_key="dynasty_main",
             params=PARAMS,
-            projection_records=records,
+            # + bench depth so the LB replacement rank lands inside a
+            # measured pool (tests/bdvm/pool_depth.py).
+            projection_records=list(records) + depth_records(),
             snapshot_as_of="2026-07-27",
             season=2026,
         )
