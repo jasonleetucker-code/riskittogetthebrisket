@@ -45,7 +45,7 @@ curl_cffi~=0.15.0
 
 # beautifulsoup4 parses DLF's WPDataTable HTML + FantasyPros Fitzmaurice
 # markup.
-beautifulsoup4~=4.14.0
+beautifulsoup4~=4.15.0
 
 # Web Push (PWA notifications).  ``pywebpush`` handles the VAPID
 # signing + RFC8291 payload encryption; ``cryptography`` is already
