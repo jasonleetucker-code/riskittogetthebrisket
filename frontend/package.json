@@ -2,6 +2,21 @@
   "name": "dynasty-trade-calculator-frontend",
   "private": true,
   "version": "1.0.0",
+  "//sideEffects": [
+    "Every module here is side-effect free EXCEPT stylesheets, so the",
+    "bundler may drop unused re-exports from the barrels. Without this",
+    "field webpack must assume any barrel import might have side effects,",
+    "which is why components/ds/glyph-chevron-down.jsx exists: importing",
+    "Icon for one glyph pulled the whole PATHS map into /league.",
+    "",
+    "NOT `false`. CSS imports ARE side effects by definition —",
+    "app/layout.jsx imports ./globals.css and app/draft/page.jsx imports",
+    "./draft.css purely for the import. A bare `false` invites the",
+    "bundler to drop them and ship an unstyled app."
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
   "engines": {
     "node": ">=20 <21"
   },
