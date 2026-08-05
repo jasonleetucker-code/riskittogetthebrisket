@@ -20,10 +20,11 @@ The engine does NOT modify any internal canonical values or calibration.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from src.canonical.calibration import to_display_value
+from src.trade.finder import IDP_POSITIONS as _IDP_POSITIONS
 from src.trade.ktc_va import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
 from src.utils.pick_labels import resolve_pick_name
@@ -237,10 +238,54 @@ LOW_DISPERSION_CV = 0.04  # CV below this = strong consensus
 # coverage it does not need, and would reintroduce the offense-only
 # blind spot F-3 just removed.  So: renamed to say what it does, not
 # merged.
+#
+# The GATE stays ours.  Its GRANULARITY was wrong, and the paragraph
+# above is why it went unnoticed: "our own blended board covers every
+# asset class" is true of the board and was false of the cut taken over
+# it.  One cut over one ranked list spanning offense, IDP and picks
+# removed an entire position family — measured on the live board, the
+# top 150 was WR 41 / QB 28 / RB 26 / PICK 23 / TE 18 / DL 7 / LB 7 /
+# **DB 0**, because the best DB (Caleb Downs, 3,159) ranks 167th against
+# a rank-150 cutoff of 3,259 while offense peaks at 9,999.  Every
+# manager was simultaneously told to target DB, a need the engine could
+# never satisfy (audit W09-F004 / W27-F002 / W09-F001, root cause R7).
+#
+# The fix is the one ``finder.py`` already applies to its own gate:
+# rank each population from 1 and cut inside it.  "Roster clog" is a
+# claim about an asset's standing among its peers, and the board's
+# value scale does not put the classes' ceilings in one place, so a
+# single cutoff silently answers a different question for each class.
+# ``board_rank`` remains the GLOBAL board rank — it is published as
+# ``boardRank``/``ktcRank`` — and ``class_rank`` is what the gate reads.
 BOARD_TOP_N_FILTER = 150
 
 # Deprecated alias — this gate never consulted KTC.
 KTC_TOP_N_FILTER = BOARD_TOP_N_FILTER
+
+# ── Asset classes for the gate ───────────────────────────────────────
+# The three populations whose values are NOT drawn from a common
+# ceiling.  Mirrors ``finder.py``'s ``market_groups`` (offense reads
+# KTC, IDP reads IDPTradeCalc) with picks split out: the board prices a
+# pick tier, and there are only ~100 of them, so ranking them against
+# 400 offense rows is the same category error one level down.
+#
+# ``IDP_POSITIONS`` is imported rather than restated — there is one
+# definition of "is this a defender" in ``src/trade`` and it lives in
+# ``finder.py``.
+OFFENSE_CLASS = "offense"
+IDP_CLASS = "idp"
+PICK_CLASS = "pick"
+ASSET_CLASSES = (OFFENSE_CLASS, IDP_CLASS, PICK_CLASS)
+
+
+def asset_class_for_position(position: str) -> str:
+    """Which gated population an asset belongs to."""
+    pos = (position or "").strip().upper()
+    if pos == "PICK":
+        return PICK_CLASS
+    if pos in _IDP_POSITIONS:
+        return IDP_CLASS
+    return OFFENSE_CLASS
 
 
 # ── Data structures ─────────────────────────────────────────────────
@@ -261,6 +306,18 @@ class PlayerAsset:
     dispersion_cv: float | None = None
     board_rank: int | None = None  # 1-based rank on OUR blended board
     offense_only_value: int | None = None  # display_value excluding IDP sources
+    # 1-based rank within this asset's own class (offense / idp / pick).
+    # This is what the quality gate reads; ``board_rank`` is the global
+    # board position and is what the payload publishes.
+    class_rank: int | None = None
+    # How many assets shared this class on the ungated board, so a
+    # coverage count of 150 can be read as "150 of 200" rather than as
+    # an unqualified number.
+    class_population: int | None = None
+
+    @property
+    def asset_class(self) -> str:
+        return asset_class_for_position(self.position)
 
     @property
     def ktc_rank(self) -> int | None:
@@ -278,6 +335,10 @@ class RosterAnalysis:
     need_positions: list[str]
     starter_counts: dict[str, int]  # above-replacement count
     depth_counts: dict[str, int]  # below-replacement count
+    # Starter positions the gated pool holds NO asset for.  A need at
+    # such a position is unmeasurable, not measured-and-found-short, so
+    # it is withheld from ``need_positions`` and named here instead.
+    uncovered_positions: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -652,19 +713,31 @@ def build_asset_pool_from_contract(
 
 
 def _assign_board_ranks(pool: list[PlayerAsset]) -> list[PlayerAsset]:
-    """Assign each player its 1-based rank on OUR blended board.
+    """Assign each player its board rank AND its rank within its class.
 
     The caller sorts ``pool`` by ``display_value`` descending before
     calling this, so rank ``i + 1`` IS the blended-board rank.  Every
     player receives a rank; there is no null case.
+
+    ``class_rank`` is the same enumeration taken inside the asset's own
+    population (offense / IDP / picks).  It exists because the gate
+    needs a comparison among peers and ``board_rank`` compares across
+    classes whose value ceilings differ by 3× (R7).  Both are assigned
+    here so the gate's precondition stays one call.
 
     WS-J F-4: this used to be ``_assign_ktc_ranks`` and claimed to rank
     by KTC value, with players lacking KTC coverage getting ``None``.
     Neither was true — no KTC value was read and no player ever got
     ``None``.  Renamed to describe what it actually computes.
     """
+    per_class: dict[str, int] = {}
     for i, p in enumerate(pool):
         p.board_rank = i + 1
+        cls = asset_class_for_position(p.position)
+        per_class[cls] = per_class.get(cls, 0) + 1
+        p.class_rank = per_class[cls]
+    for p in pool:
+        p.class_population = per_class.get(asset_class_for_position(p.position), 0)
     return pool
 
 
@@ -676,11 +749,19 @@ def _apply_board_top_n_filter(
     pool: list[PlayerAsset],
     top_n: int,
 ) -> list[PlayerAsset]:
-    """Remove players ranked outside the top N of our blended board.
+    """Remove players ranked outside the top N *of their own class*.
 
     This is a hard quality filter — not a soft preference.  Players
     outside the threshold are excluded from suggestions as primary
     targets, secondary targets, value fillers, and throw-ins.
+
+    R7: the predicate was ``p.board_rank <= top_n`` — one cut over one
+    ranked list spanning offense, IDP and picks.  Because the board's
+    classes do not share a ceiling, that cut answered a different
+    question for each of them, and for defensive backs it answered
+    "none of you" (0 of 96 on the live board; the best DB ranks 167th).
+    Cutting each class at its own rank ``top_n`` is what ``finder.py``
+    does per retail market, for the same reason.
 
     Precondition: ``pool`` has been through :func:`_assign_board_ranks`,
     so every player carries an int rank.  Passing an unranked pool is a
@@ -694,11 +775,76 @@ def _apply_board_top_n_filter(
     does not exist, and it would have turned a caller bug into an
     empty result set.  Dropped in favour of the stated precondition.
     """
-    return [p for p in pool if p.board_rank <= top_n]  # type: ignore[operator]
+    return [p for p in pool if p.class_rank <= top_n]  # type: ignore[operator]
 
 
 # Deprecated alias.
 _apply_ktc_top_n_filter = _apply_board_top_n_filter
+
+
+def _pool_coverage(
+    pool: list[PlayerAsset],
+) -> tuple[dict[str, int], dict[str, int], dict[str, int]]:
+    """What the gate let through, per class and per position family.
+
+    Returns ``(class_coverage, class_population, position_coverage)``.
+    ``class_population`` reads the pre-gate class size carried on the
+    surviving assets, so it is ``0`` for a class the board held nothing
+    for — which is a different state from "the gate removed it" and is
+    reported as such.
+    """
+    class_coverage = dict.fromkeys(ASSET_CLASSES, 0)
+    class_population = dict.fromkeys(ASSET_CLASSES, 0)
+    position_coverage: dict[str, int] = {}
+    for a in pool:
+        cls = asset_class_for_position(a.position)
+        class_coverage[cls] = class_coverage.get(cls, 0) + 1
+        if a.class_population:
+            class_population[cls] = a.class_population
+        position_coverage[a.position] = position_coverage.get(a.position, 0) + 1
+    return class_coverage, class_population, position_coverage
+
+
+def _coverage_warnings(
+    *,
+    roster: RosterAnalysis,
+    roster_names: list[str],
+    total_suggestions: int,
+) -> list[str]:
+    """Say what this run could not see, in the payload itself.
+
+    W09-F001: an empty feed and "your roster has no trades available"
+    are different claims, and only the payload knows which one it is
+    making.  ``finder.py`` already returns a top-level ``warnings``
+    list; this is the same list, on the same terms.
+    """
+    warnings: list[str] = []
+    provided = len(roster_names)
+    matched = roster.roster_size
+    unmatched = provided - matched
+
+    if unmatched > 0 and provided > 0:
+        warnings.append(
+            f"{unmatched} of {provided} roster entries could not be matched to a "
+            f"priced, gate-eligible board asset, so {matched} were analysed. "
+            "Positional surplus and need are measured on the matched subset only."
+        )
+
+    if total_suggestions == 0:
+        warnings.append(
+            f"No suggestion was generated. The engine read {matched} of {provided} "
+            "roster entries; an empty feed means 'not measured' at that coverage, "
+            "not 'no trade exists'."
+        )
+
+    for pos in roster.uncovered_positions:
+        warnings.append(
+            f"No {pos} asset survived the candidate gate, so this run cannot "
+            f"assess {pos} need or offer a {pos} target. The {pos} line of "
+            "starterCounts is a coverage gap, not a shortage."
+        )
+
+    return warnings
 
 
 def analyze_roster(
@@ -741,6 +887,16 @@ def analyze_roster(
     need_positions: list[str] = []
     starter_counts: dict[str, int] = {}
     depth_counts: dict[str, int] = {}
+    uncovered_positions: list[str] = []
+
+    # Which positions the candidate pool can actually speak about.
+    # ``starter_counts`` is an above-replacement count taken over pool
+    # members, so a position the pool holds nothing for reports 0
+    # starters for EVERY roster in the league and raises a permanent,
+    # identical, unsatisfiable need — a signal that can never turn off
+    # carries no information, and acting on it costs real trade capital
+    # (W27-F002).  Report the gap as a gap instead of as advice.
+    pool_positions = {a.position for a in asset_pool}
 
     for pos, need in needs.items():
         players = by_position.get(pos, [])
@@ -749,7 +905,9 @@ def analyze_roster(
         depth = relevant[need:]
         starter_counts[pos] = len(starters)
         depth_counts[pos] = len(depth)
-        if len(starters) < need:
+        if pos not in pool_positions:
+            uncovered_positions.append(pos)
+        elif len(starters) < need:
             need_positions.append(pos)
         if len(depth) >= 2:
             surplus_positions.append(pos)
@@ -761,6 +919,7 @@ def analyze_roster(
         need_positions=need_positions,
         starter_counts=starter_counts,
         depth_counts=depth_counts,
+        uncovered_positions=uncovered_positions,
     )
 
 
@@ -1683,6 +1842,13 @@ def generate_suggestions_from_pool(
 
     all_suggestions = sell_high + buy_low + consolidation + upgrades
 
+    class_coverage, class_population, position_coverage = _pool_coverage(pool)
+    warnings = _coverage_warnings(
+        roster=roster,
+        roster_names=roster_names,
+        total_suggestions=len(all_suggestions),
+    )
+
     return {
         "rosterAnalysis": _serialize_roster(roster),
         "sellHigh": [_serialize_suggestion(s, roster) for s in sell_high],
@@ -1690,11 +1856,22 @@ def generate_suggestions_from_pool(
         "consolidation": [_serialize_suggestion(s, roster) for s in consolidation],
         "positionalUpgrades": [_serialize_suggestion(s, roster) for s in upgrades],
         "totalSuggestions": len(all_suggestions),
+        "warnings": warnings,
         "metadata": {
             "assetPoolSize": len(pool),
             "boardTopNFilter": board_top_n,
             # Deprecated alias — this gate never consulted KTC.
             "ktcTopNFilter": board_top_n,
+            # What the gate let through, per population.  Same posture
+            # as ``finder.py``'s ``marketCoverage``: reporting one
+            # blended pool size is what hid the missing class for as
+            # long as it did (R7).  ``assetClassPopulation`` is the
+            # pre-gate count, so 150 reads as "150 of 200" or "150 of
+            # 900" rather than as a bare number.
+            "assetClassCoverage": class_coverage,
+            "assetClassPopulation": class_population,
+            "positionCoverage": position_coverage,
+            "uncoveredStarterPositions": roster.uncovered_positions,
             "rosterMatched": roster.roster_size,
             "rosterProvided": len(roster_names),
             "starterNeeds": starter_needs or DEFAULT_STARTER_NEEDS,
@@ -1775,6 +1952,12 @@ def _serialize_player(p: PlayerAsset) -> dict[str, Any]:
         result["boardRank"] = p.board_rank
         # Deprecated alias — never a KTC rank (WS-J F-4).
         result["ktcRank"] = p.board_rank
+    if p.class_rank is not None:
+        # The rank the quality gate actually applied, and the class it
+        # applied within.  ``boardRank`` alone made a gated DB look like
+        # it had slipped past the filter (R7).
+        result["classRank"] = p.class_rank
+        result["assetClass"] = p.asset_class
     return result
 
 
@@ -1817,6 +2000,10 @@ def _serialize_roster(r: RosterAnalysis) -> dict[str, Any]:
         "rosterSize": r.roster_size,
         "surplusPositions": r.surplus_positions,
         "needPositions": r.need_positions,
+        # Positions the candidate pool cannot speak about at all.  Kept
+        # OUT of ``needPositions`` so the UI's "should target X" badge
+        # never advertises a target the engine can never produce.
+        "uncoveredPositions": r.uncovered_positions,
         "starterCounts": r.starter_counts,
         "depthCounts": r.depth_counts,
         "byPosition": {

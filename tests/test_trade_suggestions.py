@@ -2021,10 +2021,22 @@ class TestKtcTopNFilter:
         # Deprecated alias must stay in lockstep.
         assert KTC_TOP_N_FILTER == BOARD_TOP_N_FILTER
 
-    def test_pool_size_capped_at_top_n(self):
+    def test_pool_size_capped_at_top_n_per_class(self):
+        """The cap is per asset class, not over one cross-class list.
+
+        R7: this asserted ``len(pool) == 150`` — the single global cut
+        that removed every defensive back from the live pool.  The
+        fixture cycles 7 positions, so 300 rows are 172 offense and 128
+        IDP; a per-class cut at 150 keeps all 128 defenders and the best
+        150 offense rows.
+        """
         snap = self._make_large_snapshot(300)
         pool = build_asset_pool(snap, ktc_top_n=150)
-        assert len(pool) == 150
+        offense = [p for p in pool if p.position in {"QB", "RB", "WR", "TE"}]
+        idp = [p for p in pool if p.position in {"DL", "LB", "DB"}]
+        assert len(offense) == 150
+        assert len(idp) == 128
+        assert len(pool) == 278
 
     def test_pool_all_top_ranked(self):
         snap = self._make_large_snapshot(300)
@@ -2032,9 +2044,13 @@ class TestKtcTopNFilter:
         # ``p.board_rank is not None`` was the old assertion here; it
         # could never fail, because _assign_board_ranks assigns an int
         # to every player.  Assert the gate instead (WS-J F-5).
+        #
+        # R7: the gate reads ``class_rank``.  ``board_rank`` is the
+        # global board position and is deliberately allowed to exceed
+        # the cut — that is the whole point of ranking within a class.
         assert pool, "filter removed everything"
         for p in pool:
-            assert p.board_rank <= 100
+            assert p.class_rank <= 100
 
     def test_filter_disabled_when_zero(self):
         snap = self._make_large_snapshot(300)
@@ -2093,7 +2109,13 @@ class TestKtcTopNFilter:
         assert result["metadata"]["ktcTopNFilter"] == 100
 
     def test_suggestions_only_include_top_n_players(self):
-        """Every player in every suggestion must be inside the KTC top N."""
+        """Every player in every suggestion must be inside its class's top N.
+
+        R7: this asserted ``ktcRank <= 100``.  ``ktcRank`` is the GLOBAL
+        board rank and the gate now cuts within a class, so asserting it
+        pins the very cross-class comparison that removed defenders from
+        the pool.  Assert the rank the gate reads.
+        """
         snap = self._make_large_snapshot(200)
         # Roster of top-tier players
         roster = [f"Player_{i:03d}" for i in range(20)]
@@ -2110,8 +2132,9 @@ class TestKtcTopNFilter:
                     assert (
                         player.get("ktcRank") is not None
                     ), f"{player['name']} in {side} has no ktcRank"
-                    assert player["ktcRank"] <= 100, (
-                        f"{player['name']} ranked {player['ktcRank']} — " f"outside top 100 filter"
+                    assert player["classRank"] <= 100, (
+                        f"{player['name']} ranked {player['classRank']} in its class — "
+                        f"outside top 100 filter"
                     )
 
     def test_no_suggestions_with_very_tight_filter(self):

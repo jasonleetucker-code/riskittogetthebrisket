@@ -1118,6 +1118,19 @@ export function SuggestionsDesk({
                 <Badge tone="negative">{analysis.needPositions.join(", ")}</Badge>
               </span>
             ) : null}
+            {/* A position the candidate pool holds nothing for cannot be
+                recommended — the engine could never offer one. It is a
+                coverage gap, and it says so instead of joining the
+                "should target" badge (W27-F002). */}
+            {analysis.uncoveredPositions?.length > 0 ? (
+              <span>
+                Not assessed{" "}
+                <Badge tone="neutral">
+                  {analysis.uncoveredPositions.join(", ")}
+                </Badge>{" "}
+                — no candidate of that position survived the quality gate.
+              </span>
+            ) : null}
             {analysis.surplusPositions.length === 0 &&
             analysis.needPositions.length === 0 ? (
               <span className={styles.suggestMeta}>
@@ -1185,11 +1198,21 @@ export function SuggestionsDesk({
 
         {suggestions && suggestions.totalSuggestions === 0 ? (
           <Banner tone="info" title="No trade suggestions found">
-            {suggestions.metadata?.rosterMatched < 5
-              ? `Only ${suggestions.metadata?.rosterMatched || 0} of ${rosterCount} players matched our database. Check spelling or add more players.`
-              : suggestions.rosterAnalysis?.surplusPositions?.length === 0
-                ? "Your roster has no clear positional surplus. The engine needs at least one position with depth beyond starters to suggest trades."
-                : "Your roster appears well-balanced. No actionable trades met our quality threshold."}
+            {/* The engine knows why it came back empty; this panel used
+                to guess.  On a real 58-man roster it reported "no clear
+                positional surplus" when the actual cause was that the
+                candidate gate had removed most of the board before the
+                roster was read — a misattributed cause presented as an
+                explanation (W09-F001).  Render what the engine says
+                whenever it says anything; the local copy is the
+                fallback for payloads that carry no warnings. */}
+            {suggestions.warnings?.length > 0
+              ? suggestions.warnings.join(" ")
+              : suggestions.metadata?.rosterMatched < 5
+                ? `Only ${suggestions.metadata?.rosterMatched || 0} of ${rosterCount} players matched our database. Check spelling or add more players.`
+                : suggestions.rosterAnalysis?.surplusPositions?.length === 0
+                  ? "Your roster has no clear positional surplus. The engine needs at least one position with depth beyond starters to suggest trades."
+                  : "Your roster appears well-balanced. No actionable trades met our quality threshold."}
           </Banner>
         ) : null}
       </div>

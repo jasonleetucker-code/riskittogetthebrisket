@@ -418,7 +418,7 @@ them without reading why (WS-J F-3/F-4):
 
 | Engine | Gate | Ranked against |
 |---|---|---|
-| `suggestions.py` | `BOARD_TOP_N_FILTER` (150) | **our blended board** — `display_value` order, covers every asset class |
+| `suggestions.py` | `BOARD_TOP_N_FILTER` (150) | **our blended board, per asset class** — `display_value` order within offense / IDP / picks |
 | `finder.py` | `MARKET_TOP_N_FILTER` (150) | **the retail market, per market** — `ktcSfTep` for offense + picks, `idpTradeCalc` for IDP, each ranked within its own population |
 
 `finder.py` must anchor on a real retail value because its whole
@@ -427,6 +427,36 @@ number is load-bearing in its arithmetic. `suggestions.py` only needs
 an asset-quality gate ("don't propose trading roster clog"), which our
 own board answers for IDP and picks that no single retail board
 covers.
+
+**Both cuts are per-population, and that is not the thing that differs.**
+This table used to read "our blended board — covers every asset class"
+against finder's "each ranked within its own population", and the
+distinction it drew was wrong in a way that hid a live defect. The board
+does cover every class; the CUT taken over it did not. One global
+top-150 over a scale where offense peaks at 9,999, IDP near 6,400 and the
+best DB at 3,159 produced a pool of WR 41 / QB 28 / RB 26 / PICK 23 /
+TE 18 / DL 7 / LB 7 / **DB 0** — every defensive back excluded from every
+trade suggestion, in a league that starts three of them, while
+`rosterAnalysis.needPositions` told all 12 managers to target DB
+(W09-F004, W27-F002, W09-F001). `_apply_board_top_n_filter` now reads
+`class_rank` (offense / IDP / pick, `asset_class_for_position`), the
+same shape as finder's `market_groups`. Measured on the live board the
+pool goes 150 → 403 assets, DB 0 → 36, teams returning zero suggestions
+8 of 12 → 2 of 12, DB receive-side legs across the league 0 → 15.
+
+What still differs is only the BOARD each engine ranks against — ours
+versus retail — for the reason stated above.
+
+`board_rank` remains the global board position and is what the payload
+publishes as `boardRank`/`ktcRank`; `classRank` + `assetClass` ride
+alongside so a gated defender does not look like it slipped the filter.
+`metadata.assetClassCoverage` / `assetClassPopulation` /
+`positionCoverage` make the composition visible, the same posture as
+finder's `metadata.marketCoverage`. A starter position the pool holds
+nothing for is withheld from `needPositions`, reported in
+`rosterAnalysis.uncoveredPositions`, and named in the response's
+top-level `warnings` — a need the engine can never satisfy is a coverage
+gap, not advice.
 
 **Both engines now read the same internal value.** Until 2026-07-27
 `finder.py` valued assets off `_finalAdjusted` — a verbatim deep copy
