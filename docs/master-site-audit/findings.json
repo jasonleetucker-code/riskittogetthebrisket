@@ -1,7 +1,7 @@
 {
  "schemaVersion": 1,
- "generatedAt": "2026-08-05T00:27:11.149268+00:00",
- "commit": "ba9f348b",
+ "generatedAt": "2026-08-05T01:05:56.023778+00:00",
+ "commit": "fb4a15a0",
  "totals": {
   "findings": 431,
   "refutedAndWithdrawn": 1,
@@ -9,7 +9,7 @@
   "duplicatesMerged": 0,
   "workstreams": 31,
   "validationProblems": 0,
-  "verified": 24
+  "verified": 45
  },
  "byStatus": {
   "Implemented but defective": 223,
@@ -25,10 +25,10 @@
   "Unverifiable": 3
  },
  "byPriority": {
-  "P1": 95,
-  "P2": 169,
+  "P1": 86,
+  "P2": 180,
   "P3": 156,
-  "P0": 11
+  "P0": 9
  },
  "byWorkstream": {
   "W00": 10,
@@ -72,16 +72,16 @@
   "refuted": 13
  },
  "byVerificationVerdict": {
-  "unverified": 408,
-  "rescoped": 18,
+  "unverified": 387,
+  "rescoped": 31,
   "overturned": 1,
-  "upheld": 5
+  "upheld": 13
  },
  "severityDriftUnderVerification": {
-  "P0->P2": 1,
+  "P0->P2": 2,
   "P1->P3": 2,
-  "P1->P2": 4,
-  "P0->P1": 4
+  "P1->P2": 14,
+  "P0->P1": 5
  },
  "filesWithContradictoryVerdicts": [
   "server.py",
@@ -4193,7 +4193,7 @@
    ],
    "title": "`model_registry.py validate` decides promotion by comparing criteria recorded on different snapshot dates \u2014 the exact unpaired comparison promotion.py's docstring says invalidates the verdict",
    "status": "Implemented but defective",
-   "priority": "P1",
+   "priority": "P2",
    "size": "S",
    "subsystem": "Model registry CLI",
    "surface": {
@@ -4235,9 +4235,11 @@
    },
    "userImpact": "No user-visible number today \u2014 both paths reject v3. But the operator-facing decision tool disagrees with the automated driver by 6.3x the noise the margin was sized against, so it can reject a genuine improvement or promote a non-improvement, and the operator has no signal that the two disagree. `status` compounds it by printing three criteria from three dates in one comparable-looking column.",
    "blastRadius": {
-    "playersAffected": 1092,
+    "playersAffected": 0,
+    "playersAffectedIfActedOn": 1092,
     "routesAffected": 0,
-    "pagesAffected": 0
+    "pagesAffected": 0,
+    "note": "Zero values differ today \u2014 CLI and paired driver both REJECT v3. 1092 is the conditional exposure if an operator promoted or rejected on a wrong verdict; it is not a measurement of today's state."
    },
    "confidence": "high",
    "priorFinding": {
@@ -4249,7 +4251,20 @@
    "rootCause": "decide_promotion takes two scalars and cannot tell whether they came from one snapshot; the CLI is the caller that supplies mismatched ones.",
    "requiredRepair": "cmd_validate must re-score the champion's params via evaluate_offense_master before comparing, exactly as the driver does. Stored per-version criteria should be labelled with the snapshot fingerprint they were measured on and never compared across rows.",
    "dependencies": "W04-F006",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The technical claim is fully CONFIRMED \u2014 every number reproduces to the digit. The severity and blast radius are not.\n\nCONFIRMED. scripts/model_registry.py:190-196 reads `champ.holdout['criterion']` and `challenger.holdout['criterion']` straight out of the registry and hands both to decide_promotion; neither is re-scored. The registry stamps v2's 787.8416 at fittedAt 2026-07-28 and v3's 775.0471 at 2026-08-04 \u2014 different snapshot dates, exactly the unpaired comparison src/model_registry/promotion.py:6-29 says invalidates the verdict (\"A rule that compared this week's challenger to last week's champion SCORE would be reading five days of market drift as model quality\"). CLI prints +12.8; the paired re-score of the identical parameter pairs on today's boards gives 753.0495 - 730.8023 = +22.25; the registry's own v3 note, written by the PAIRED driver, records +22.4. Gap 9.46 points against a stated noise floor of 1.51 (promotion.py:20-24). `status` does print the three criteria in one column \u2014 though it does show a `fitted` column beside them, which the finding omits; note that column does not help, since v1's 819.7 was re-scored 2026-07-29 while its `fitted` reads \"unknown\".\n\nLIVE PATH: yes, and I checked the strongest counter-argument. docs/roster-trade-intelligence/DECISIONS.md:221-223 records an original 5-step plan in which `model_registry.py evaluate --champion --record` (which DOES re-score the champion today and write it back, scripts/model_registry.py:127-147) runs BEFORE `validate`. Had that survived, the comparison would be paired in practice. It did not: the same ADR records steps 1-4 collapsed into auto_refit_hill_curves.py, and that driver's human recipe (scripts/auto_refit_hill_curves.py:313-318) prints `validate {target}` as step 1 with NO preceding `evaluate --champion --record`. Worse, the driver writes chal_eval (scored today) into the registry at :281-291 but never writes its own champ_eval back to the champion \u2014 so it actively refreshes one side of the pair and leaves the other stale. The finding survives the mitigation.\n\nWHAT I RESCOPED.\n\n(a) blastRadius playersAffected:1092 is not honest. The finding's own userImpact concedes \"No user-visible number today\", and both paths return REJECT for v3, so zero player values differ today. 1092 is the count of rows that WOULD move if a wrong verdict were acted on \u2014 a conditional, not a measurement. Corrected to 0 actual / 1092 conditional.\n\n(b) P1 -> P2. There is no route, no page, no user, and no scheduled execution: this is a human-typed CLI print. The gate that actually decides PROMOTABLE (auto_refit_hill_curves.py:255-265) is correct and is the one that runs weekly; validate is advisory to an operator who has already been shown the paired verdict in the driver's output and in the registry note. Two independent human steps (`promote`, then `apply`) stand between a wrong validate verdict and any production constant. That is a latent decision-quality defect in an operator tool, not a P1.\n\nNOT overturned: the mechanism is real, it is explicitly forbidden by the module it calls, and 9.46 points is 38% of the 25-point margin \u2014 enough to flip a genuine verdict.",
+    "whatWouldSettleIt": "Make cmd_validate call evaluate_offense_master on the champion's params before comparing (3 lines, mirroring auto_refit_hill_curves.py:255-256), then re-run `validate 3` and check it prints +22.x rather than +12.8. Separately, stamp each stored holdout with the training-input fingerprint it was measured against and have `status` refuse to align criteria from different fingerprints in one column.",
+    "source": "verdicts-C7.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   }
   },
   {
    "id": "W04-F006",
@@ -6162,7 +6177,8 @@
    "blastRadius": {
     "playersAffected": 937,
     "routesAffected": 1,
-    "pagesAffected": 1
+    "pagesAffected": 10,
+    "note": "937 of 1092 contract rows carry _sleeperId (recounted). pagesAffected raised from 1 to 10+: PlayerPopup is imported by frontend/app/{rankings,trade,rosters,trending,edge,news,players/compare,settings,idptc-rookies}/page.jsx plus 9 terminal components."
    },
    "confidence": "high",
    "priorFinding": {
@@ -6178,7 +6194,20 @@
    "promptSections": [
     6
    ],
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "upheld",
+    "reran": true,
+    "reasoning": "Tried to kill this four ways and it survived all four.\n\n(1) REPRODUCTION: exact. All four sleeper ids return reason:unmapped_player today. /api/status idMappingCoverage confirms resolve_attempts=4, unresolved=4, coverage_pct=0.0 \u2014 one attempt per probe, all failed.\n\n(2) INFERENTIAL STEP: holds, and I checked the two escape hatches the author did not. server.py:11263 `players_dir = sleeper_block.get(\"players\") or sleeper_block.get(\"playerDict\")`; the live sleeper block carries neither key (16 keys listed above). src/identity/unified_mapper.py:200-211 `_index_directory` returns four empty dicts for a non-dict argument, so ladder rungs 1/3/4/5/6/7 are all dead. The one rung that does NOT need the directory is rung 2, the manual override (unified_mapper.py:280-293) \u2014 config/identity/id_overrides.json contains only `_comment` and `_example_entry_only`, so it resolves nobody. There is no producer for the key either: grep over server.py, `Dynasty Scraper.py` and src/ finds no writer of sleeper.players/sleeper.playerDict; the scraper's roster_data literal (`Dynasty Scraper.py`:1297-1306) emits playerIds/idToPlayer, which carry names, not gsis_id \u2014 so the author's note that a key rename alone would not fix it is correct.\n\n(3) LIVE PATH: yes. Flag `realized_points_api` defaults True (src/api/feature_flags.py:54, and :365 marks it LIVE). frontend/components/PlayerPopup.jsx:397 fetches `/api/player/${key}/realized` and :1003 mounts <RealizedPointsSection>. PlayerPopup is imported by 10+ pages (rankings, trade, rosters, trending, edge, news, players/compare, settings, idptc-rookies, plus 9 terminal components).\n\n(4) HARNESS ARTIFACT: no. This is the sharpest test and it passes cleanly \u2014 the route returns `no_stats_available` when the nflverse weekly fetch is empty (server.py:11248-11257) and `unmapped_player` only AFTER a non-empty fetch. Getting unmapped_player proves the stats leg WORKED in this container; the mapper is the sole blocker, and the blocker is a key name in committed code, not absent container data.\n\n(5) FIXED AT HEAD: no. Lines unchanged since 891d1600 (2026-08-03).\n\n(6) BLAST RADIUS: recounted from the live contract \u2014 937 of 1092 rows carry `_sleeperId`, matching the claim exactly.\n\nTwo corrections that do not change the verdict, one in each direction. Against the author: `userImpact` says the user \"sees nothing and concludes there is no data\" \u2014 RealizedPointsSection returns null when weeks is empty (PlayerPopup.jsx:425), so nothing renders at all and no \"no data\" message is shown; no wrong number is ever displayed. In the author's favour: pagesAffected:1 UNDERSTATES it \u2014 PlayerPopup is a shared component on 10+ pages, not one.\n\nI considered rescoping to P2 on the strength of the silent degradation, and rejected it. This is not the wave-1 failure mode: no inflated count, no dead branch, no harness dependence. A flag-on, reachable feature returns nothing for 100% of players because of a key name no writer has ever produced, and the route's own in-file comment (server.py:11276-11285) celebrates fixing a DOWNSTREAM row-filter bug that this bail makes unreachable \u2014 so the code believes it works. P1 stands.",
+    "whatWouldSettleIt": "Nothing further \u2014 this is settled. The one open question is the repair shape, not the defect: idToPlayer maps sleeperId->name and carries no gsis_id, so a fix must either fetch Sleeper /v1/players/nfl into the block or route the name through the nflverse name index. A regression test should assert a non-unmapped reason for a known id, since the current tests (frontend/__tests__/components/realized-points-section.test.jsx) mock the fetch and therefore cannot see this.",
+    "source": "verdicts-C7.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 937,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   }
   },
   {
    "id": "W06-F004",
@@ -9288,9 +9317,10 @@
    },
    "userImpact": "A user who switches the board to 'league adjusted' and re-runs a player-for-player trade sees an unchanged verdict labelled as adjusted. They conclude the lens has no effect on trades \u2014 or, worse, act on a market-priced equity number believing it is scarcity-corrected. The 291-point gap on this one trade is 7.3% of the equity.",
    "blastRadius": {
-    "playersAffected": 812,
+    "playersAffected": 606,
     "routesAffected": 2,
-    "pagesAffected": 2
+    "pagesAffected": 2,
+    "note": "606 rows carry offenseOnlyRankDerivedValue (594 differ from rankDerivedValue): WR 216, RB 139, PICK 96, TE 84, QB 71. A third route, /api/trade/suggestions (src/trade/suggestions.py:767), has the identical branch but returned 0 suggestions in both modes on this stack, so it is unproven and excluded from the count."
    },
    "confidence": "high",
    "priorFinding": {
@@ -9302,7 +9332,20 @@
    "rootCause": "overlay.adjusted_rows repriced the field CLAUDE.md says every engine reads, but two engines read a second field (offenseOnlyRankDerivedValue) for all-offense trades \u2014 a case the 'every engine reads exactly one value' invariant does not cover.",
    "requiredRepair": "Scale offenseOnlyRankDerivedValue by the same factor inside overlay.adjusted_rows (and audit values.* for the same omission), or have the engines stop preferring the offense-only field when a lens is active. Add a test that asserts an all-offense simulate differs between the two modes.",
    "dependencies": "",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "upheld",
+    "reran": true,
+    "reasoning": "Reproduces byte-identically, including the control. Mechanism confirmed in source: src/league_intel/overlay.py:86-93 multiplies ONLY copy['rankDerivedValue']; src/api/trade_simulator.py:63-65 returns row['offenseOnlyRankDerivedValue'] when offense_only, and :209 sets offense_only = trade_has_resolved and not trade_has_idp - gated on TRADE CONTENTS, not on a league setting, so it is the default path for any all-offense trade; src/trade/finder.py:686-691 does the same via Asset.offense_only_model_value. The field is written by the IDP-disabled pre-pass at data_contract.py:9188-9192, which the overlay never sees. I attacked reachability and found it stronger than the finding states, not weaker. frontend/app/trade/page.jsx:1656 exposes the Market / 'My league' SegmentedControl; :1549 and frontend/components/useTradeSimulator.js:39 both send the mode via withValuationMode(). And page.jsx:1678-1694 renders a Banner - 'Valued on your league's board ... Values and ranks are adjusted for positional scarcity measured from this league's rosters' - gated on the CONTRACT overlay, which DOES apply. So the page affirmatively tells the user the numbers are scarcity-adjusted while the simulator panel beside it shows market equity. The response stamps valuationMode='leagueAdjusted' with valuationNote=None, so the documented degrade-and-say-so contract (CLAUDE.md, 'Degrade, never fail') is not triggered either. That is an active misstatement, exactly as the finding argues. Not a harness artifact: /api/valuation/league-adjusted returns 200 with real factors from real rosters. Not fixed at HEAD. Not dead code. One correction: blastRadius playersAffected 812 is not what the contract shows. 606 rows carry offenseOnlyRankDerivedValue and 594 of those differ from rankDerivedValue, so 606 is the set of assets whose lens can be silently dropped. One expansion the finding missed, which I could not confirm live: src/trade/suggestions.py:767 (_eff_val) and :1739-1740 (_serialize_player) take the same offense-only branch under _trade_is_idp_free, so /api/trade/suggestions is a third affected route. On this stack it returned 0 suggestions in both modes for Jason's 57-man roster, so I am not counting it as proven; I leave routesAffected at the 2 the author demonstrated and flag the third as needing its own repro. P1 is honest and, if anything, conservative - the protocol's P0 bar (user acts on a wrong number, page they can reach, no warning shown) is arguably met, since the banner is worse than no warning. I do not inflate an author's own severity, so P1 stands.",
+    "whatWouldSettleIt": "Scale offenseOnlyRankDerivedValue by the same row_factor_key factor inside overlay.adjusted_rows, then re-run the Bowers-for-(Taylor+Mahomes) simulate in both modes: leagueAdjusted must return ~4295 rather than 4004. Separately, drive /api/trade/suggestions to a non-empty result set (the roster that produced 0 here needs diagnosing on its own) to settle whether it is a third route.",
+    "source": "verdicts-C6.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 812,
+    "routesAffected": 2,
+    "pagesAffected": 2
+   }
   },
   {
    "id": "W09-F007",
@@ -11310,9 +11353,10 @@
    },
    "userImpact": "Every RB waiver bid on /waivers is anchored to a number 5x larger than the league's own budget-normalized history. A user is told to bid $22-$32 of a $100 budget on replacement-level running backs. This is the single largest contributor to the reported 'FAAB recommendations are too aggressive'.",
    "blastRadius": {
-    "playersAffected": 283,
+    "playersAffected": 930,
     "routesAffected": 2,
-    "pagesAffected": 1
+    "pagesAffected": 1,
+    "note": "930 = contract rows in the 8 positions with >=3 historical bids (WR 217, DL 145, RB 140, DB 139, LB 114, TE 85, QB 71, K 19); PICK/None/T excluded. The finding's 283 appears to be the FA pool only. Also contaminated beyond positionBids: leagueAvgWinningBid, leagueMedianWinningBid, teamAggression, tierBids."
    },
    "confidence": "high",
    "priorFinding": {
@@ -11324,7 +11368,20 @@
    "rootCause": "_league_budget() is scalar and current-season-only; _walk_waivers() is multi-season. The two are combined without a per-season divisor.",
    "requiredRepair": "Carry the season's waiver_budget alongside each bid in _walk_waivers, express every bid as a share of its own season's budget, and re-multiply by the CURRENT budget before it reaches positionBids / leagueAvgWinningBid / leagueMedianWinningBid / teamAggression.",
    "dependencies": "Fixing this alone drops RB recommendations from ~$32 to ~$15 and unpriced-RB recommendations from $22 to $4; W11-F002 must be fixed too or the unpriced case survives at a lower number.",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "upheld",
+    "reran": true,
+    "reasoning": "Reproduced exactly, twice over. src/api/faab_analytics.py:143-172 (_walk_waivers) flattens all three seasons with no divisor; :102-121 (_league_budget) reads only snapshot.current_season. The live snapshot (data/public_league/snapshot.json, real league 1312006700437352448 'Risk It To Get The Brisket', seasons 2026/2025/2024 at budgets 100/200/1000) therefore yields positionBids RB avg 43.0 with max 340 on a $100 budget. My independent per-season normalization returns 8.58 \u2014 the finding's expected value to the cent (tolerance 0.05). The inferential step holds: src/trade/faab_recommender.py:69 _LEAGUE_CALIBRATION_BLEND = 0.5 and :172-192 blends positionBids[pos].avg 50/50 whenever count >= 3 (:93), which is true for all 8 positions. The path is live end to end: server.py:5179 builds the summary, :5295 passes it as league_faab_summary, frontend/components/waivers/ManualAddDrop.jsx:444 renders FaabRecommendation, which POSTs /api/waiver/faab-recommend (FaabRecommendation.jsx:418) from /waivers (page.jsx:617). Not a harness artifact: the snapshot is the operator's real Sleeper league history, not seeded test data, and the endpoint answers 200 today. Not fixed at HEAD (last touch of faab_analytics.py is dcf5ebef, which fixed the multi-add rounding and left the budget mixing). P0 criteria all met: reachable page (/waivers), wrong number a user acts on ($32 standard vs $15 under the intended calibration \u2014 a 2.1x overbid of a $100 budget), and no warning \u2014 'warnings' is empty and the calibration factor is reported as PRESENT ('+$12'), i.e. the defect is presented to the user as evidence. Two small corrections, both in the finding's favour rather than against it: (a) the defect is not RB-only \u2014 every position's anchor is inflated (WR 20.84 vs 4.40, QB 37.74 vs 10.11), so the title understates scope; (b) blastRadius playersAffected 283 is low \u2014 every contract row in a position with >=3 historical bids is calibratable, which is 930 of the 1,092 rows (only PICK/None/T are exempt). 283 is defensible only if read as the current FA pool. leagueAvgWinningBid ($19.55) and leagueMedianWinningBid ($5.00, vs $2.00 normalized) are contaminated by the same mixing and feed _env_scale_factor, so the RB-specific framing understates the surface too.",
+    "whatWouldSettleIt": "Nothing further \u2014 reproduced from three independent angles (snapshot budgets, endpoint payload, in-process recommend_faab ablation). If anyone wants to contest it, the only surviving question is whether a production snapshot ever carries a single budget across all seasons; the live one does not.",
+    "source": "verdicts-C1.jsonl"
+   },
+   "authoredPriority": "P0",
+   "authoredBlastRadius": {
+    "playersAffected": 283,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   }
   },
   {
    "id": "W11-F002",
@@ -11334,7 +11391,7 @@
    ],
    "title": "Players the board declines to price (rankDerivedValue = 0) are recommended $22-$25 bids and described as a 'strong free-agent target'; 125 of 283 free agents are affected",
    "status": "Implemented but defective",
-   "priority": "P0",
+   "priority": "P2",
    "size": "S",
    "subsystem": "FAAB recommender",
    "surface": {
@@ -11382,9 +11439,9 @@
    },
    "userImpact": "On /waivers a manager is told to spend 22% of the season budget on a player this product's own board refuses to value, with no warning and with copy calling it a strong target. The recommendation is a pure function of position, not of the player.",
    "blastRadius": {
-    "playersAffected": 125,
+    "playersAffected": 126,
     "routesAffected": 1,
-    "pagesAffected": 1
+    "pagesAffected": 0
    },
    "confidence": "high",
    "priorFinding": {
@@ -11396,7 +11453,20 @@
    "rootCause": "_position_calibration is an unconditional blend on the running bid; nothing re-checks that the baseline was a real number rather than the zero-guard's sentinel.",
    "requiredRepair": "Short-circuit recommend_faab when add_player_value <= 0 and return an explicit unpriced response (mirroring the BDVM 'unpriced with a reason' posture), or gate every post-baseline multiplier/blend on reasonable_base > 0.",
    "dependencies": "Independent of W11-F001, but F001 sets the magnitude.",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The API-level defect is real and reproduces verbatim: src/trade/waiver.py:120-121 returns (0,0,0) for a non-positive value, the honest baseline factor row says 'start at $0', and then src/trade/faab_recommender.py:457 blends that sentinel 50/50 with the position's historical average (_position_calibration, faab_recommender.py:172-192) with no re-check that the baseline was a real number; the explanation branch at faab_recommender.py:679-682 keys only on the final magnitude, so a null-valued player gets 'strong free-agent target'. All of that is confirmed. What does NOT follow is the userImpact and therefore the P0 grade. P0 requires a user acting on a wrong number 'on a page they can reach'. The ONLY caller of /api/waiver/faab-recommend is frontend/components/waivers/FaabRecommendation.jsx:418, and that panel renders only once an ADD player is selected from the pool built by frontend/lib/waiver-logic.js::buildTopWaiverPool, which drops every zero-value row at line 767 ('if (rowValue(row) <= 0) continue;') \u2014 and rowValue (waiver-logic.js:196-205) returns 0 for both rankDerivedValue null and values.full null. I confirmed this in a real browser under the protocol's request-interception topology: the ADD box populates normally (8 default candidates) but 'Dillon', 'Zach Wilson' and 'Moreau' all return 'No matches.', and zero faab-recommend calls fired. The /waivers 'FAAB hint' column uses the client port computeFaabHint (waiver-logic.js:884-897), which honestly returns $0 for these rows. So no user is told to bid $22 on AJ Dillon today; the wrong number exists only for a caller that reaches the endpoint directly with a name the UI will not offer. Blast-radius arithmetic checks out at the API layer (283 unrostered non-pick rows, 140 unpriced, 126 of them carrying a position and therefore eligible for the resurrection blend \u2014 the finding's 125/283 is within one row), but pagesAffected is 0, not 1. Latent defect, not a live one: any relaxation of the pool filter, or any non-UI consumer, exposes it immediately, which is why it should still be fixed.",
+    "whatWouldSettleIt": "A UI path that puts an unpriced player into the ADD selector. Show one \u2014 e.g. a deep link, a URL param, or a pool-filter change that admits rankDerivedValue==null rows \u2014 and this returns to P0/P1 immediately. Conversely, adding a test that pins buildTopWaiverPool's zero-value exclusion together with an explicit 'unpriced' short-circuit in recommend_faab would close both halves.",
+    "source": "verdicts-C2.jsonl"
+   },
+   "authoredPriority": "P0",
+   "authoredBlastRadius": {
+    "playersAffected": 125,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   }
   },
   {
    "id": "W11-F003",
@@ -15350,7 +15420,7 @@
    ],
    "title": "Sharp Flow can never score a single row: the ledger keys movements by Sleeper player id, the board looks them up by displayName",
    "status": "Implemented but defective",
-   "priority": "P1",
+   "priority": "P2",
    "size": "M",
    "subsystem": "Consensus Edge \u2014 Sharp Flow component",
    "surface": {
@@ -15407,9 +15477,13 @@
    },
    "userImpact": "With the flag on, every player on the board is scored on mispricing alone. The composite is then a monotone transform of one component, but the payload still advertises a 0.30-weighted 'Sharp Flow' axis and every row's explanation prints 'No qualified-manager activity supports or contradicts this' \u2014 which reads as a measured absence of sharp interest rather than a broken join. Confidence coverage is also pinned at 1/2 for every row forever (ceiling 77.75 on this contract), so no amount of accumulated ledger data can ever raise a player's confidence.",
    "blastRadius": {
-    "playersAffected": 1092,
+    "playersAffected": 0,
+    "playersAffectedIfFlagOnWithLedger": 1092,
     "routesAffected": 4,
-    "pagesAffected": 1
+    "routesReachableToday": 0,
+    "pagesAffected": 1,
+    "pagesReachableToday": 0,
+    "note": "All four /api/consensus-edge/* routes 503 today (flag default False, feature_flags.py:260) and the /consensus-edge page renders that state. The defect additionally requires a populated src/intel ledger, which does not exist in this container. Latent, not served."
    },
    "confidence": "high",
    "priorFinding": {
@@ -15421,7 +15495,20 @@
    "rootCause": "There is no identity join between the intel ledger's asset id space (Sleeper player ids / 'pick:' strings) and Consensus Edge's row key space (displayName). fair_value._row_key deliberately chose displayName to match league_intel.overlay's convention; inputs.sharp_movements passes the ledger's ids straight through; nothing reconciles them and no test covers the pair (tests/consensus_edge/ has no test_sharp_flow.py, and the wiring test only checks that the three component names appear).",
    "requiredRepair": "Resolve ledger asset ids to board player keys once, in src/consensus_edge/identity_join.py (the contract already carries _sleeperId per row), and key movements_from_ledger_rows' output by the resolved player key. Report unresolved asset ids as a coverage number rather than dropping them silently, and add a test that feeds sleeper-id-keyed movements and asserts a non-zero rowsWithValue. Separately, componentAvailability must distinguish 'no data supplied' from 'data supplied, nothing joined'.",
    "dependencies": "A populated src/intel ledger (crawl output) is needed to observe the defect in production; the defect itself is present regardless.",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The mechanism is fully confirmed and I could not kill it. Ledger side: src/intel/crawler.py:314-316 emits assetId = str(sleeper player_id) and :334 emits 'pick:<season>:<round>'; src/intel/ledger.py:406 writes it verbatim into asset_movements.asset_id; src/consensus_edge/inputs.py:56 SELECTs asset_id and sharp_flow.py:311-313 keys the returned dict by it. Board side: fair_value.py:190-198 _row_key returns displayName, and service.py:385 reads (flow['assets'] or {}).get(key) with that key. identity_join.py only builds gsis->displayName; there is no sleeper-id->row-key join anywhere. The finding's reproduction and its displayName control both re-ran exactly as stated (0 of 1092 vs 400 of 1092), which does isolate the key space as the sole cause. The 'no_data' misdiagnosis reproduces verbatim, the ~77.86 confidence ceiling and the 'No qualified-manager activity supports or contradicts this' explanation string are both real, and tests/consensus_edge/ genuinely has no test_sharp_flow.py. I also checked the one claim that looked soft \u2014 'every player is scored on mispricing alone' \u2014 and it holds: score 70.85 with effectiveWeights {mispricing: 1.0} and label 'Strong Buy'. So nothing in the finding is false. What is overstated is severity and reach. The code path is not live on two independent counts, and neither is fixable by the repair: (1) src/api/feature_flags.py:260 defaults consensus_edge to False and all four routes return 503 today, and the flag-off message says the board did not beat a random draw in any measured fold \u2014 this is not a switch anyone is about to flip; (2) even with the flag on, inputs.sharp_movements() returns None with no ledger, so the join defect needs a populated src/intel ledger to manifest at all. The payload also self-labels experimental: true / modelVersion 'ce.2026-08-04.v0-shadow'. Per the protocol's reachability rule a defect no user reaches is not P1: no one acts on a wrong number today, and the blastRadius of 1092 players is the count that WOULD be affected under two conditions that do not hold, not a count of anything served. P2 \u2014 a real, well-proven latent defect that should be fixed before the flag is ever turned on, filed at the severity of the surface it sits behind.",
+    "whatWouldSettleIt": "Turn consensus_edge on against a populated intel ledger in a staging environment and read componentAvailability.sharpFlow.rowsWithValue. Non-zero refutes; zero (with rowsScored > 0 in the flow index) confirms at the reachable severity. Cheaper and equally decisive: add the missing test the finding asks for \u2014 feed sleeper-id-keyed movements to service.build_board and assert rowsWithValue > 0. It fails at HEAD.",
+    "source": "verdicts-C3.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 4,
+    "pagesAffected": 1
+   }
   },
   {
    "id": "W14-F002",
@@ -18997,8 +19084,11 @@
    "userImpact": "Every number on /league -> Championship and /league -> Trade Deadline is a replay of a regular season that ended ~20 months ago. A manager reads '100.0% playoff odds' or '42.6% championship odds' as a forward-looking estimate for 2026 and buys or sells on it. The bug is not confined to the offseason: mid-2026 the sims would still be simulating 2024.",
    "blastRadius": {
     "playersAffected": 0,
-    "routesAffected": 4,
-    "pagesAffected": 2
+    "routesAffected": 3,
+    "routesLatent": 1,
+    "pagesAffected": 1,
+    "tabsAffected": 2,
+    "note": "rosChampionship, rosPlayoffOdds, rosTradeDeadline serve 2024 numbers today; rosPower has the same sort bug but its affected component (`recent`) has effective weight 0 in the current preseason mode, so it is latent until the season starts. Both affected tabs live on the single /league page."
    },
    "confidence": "high",
    "priorFinding": {
@@ -19011,7 +19101,20 @@
    "requiredRepair": "Change `key=luck._season_sort_key` to `key=lambda s: luck._season_sort_key(s.season)` at src/ros/playoff_sim.py:464,546,562 and src/ros/power_v2.py:325. Then add an explicit preseason guard so a season with zero scored games returns honestly-unknown odds instead of falling back to a completed season.",
    "dependencies": "W17-F002 (the Seller mislabel) is downstream of this and of the missing-owner coercion.",
    "workstream": "W17",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "upheld",
+    "reran": true,
+    "reasoning": "Re-ran the stated command verbatim: it produces exactly the claimed result. src/public_league/luck.py:151 is `_season_sort_key(season: str)`; src/ros/playoff_sim.py:464,546,562 and src/ros/power_v2.py:325 pass the SeasonSnapshot object, int() raises TypeError, the except swallows it, every key is 0, sorted() is a stable no-op on a newest-first list (PublicLeagueSnapshot.current_season is `self.seasons[0]`, snapshot.py:162, confirming the ordering) and [-1] takes the OLDEST. Independently confirmed the correct-usage contrast at luck.py:193, power.py:79, weekly_recap.py:613 \u2014 only src/ros/ is wrong. The inferential step holds all the way to the served number: the live /api/public/league/rosPlayoffOdds expectedWins are integer-equal to the 2024 final records for all 8 owners, and 2025 (10 teams, complete, fully loaded) is skipped. The path is live \u2014 all four routes return 200 authenticated, and the /league page renders through request interception with no season label and no caveat while the Trade Deadline tab converts the 2024 replay into an explicit instruction (\"Strong Buyer - Pay up for elite starters\", \"Seller - Sell aging win-now players\"). Not a harness artifact: this is real Sleeper data, not the suppressed scrape. Not fixed at HEAD (e96c06ef/fb4a15a0). P0 survives the protocol's own test: named page /league?tab=rosTradeDeadline, named number 42.6% champ / 100% playoff, named wrong action buy-or-sell, no warning shown. One blast-radius correction: of the 4 routes, 3 are wrong TODAY; rosPower carries the identical defect at power_v2.py:325 (seasons_sorted[-1] gates the `recent` component at :354/:368) but the live payload is preseason with effectiveWeights {team_ros_strength: 0.38, roster_health: 0.03} and missingInputs listing `recent` \u2014 so that route's defect is currently masked and becomes live in-season. And the two \"pages\" are two tabs of one page (/league).",
+    "whatWouldSettleIt": "Already settled. The only remaining question is the follow-on: after `key=lambda s: luck._season_sort_key(s.season)` the newest season (2026) has zero scored games, so the sim needs the explicit preseason guard the finding names in requiredRepair \u2014 otherwise the fix turns a confidently wrong board into an empty one with no explanation.",
+    "source": "verdicts-C3.jsonl"
+   },
+   "authoredPriority": "P0",
+   "authoredBlastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 4,
+    "pagesAffected": 2
+   }
   },
   {
    "id": "W17-F002",
@@ -19069,7 +19172,9 @@
    "blastRadius": {
     "playersAffected": 0,
     "routesAffected": 1,
-    "pagesAffected": 1
+    "pagesAffected": 1,
+    "managersMislabelled": 4,
+    "note": "Author's radius verified accurate. I tried to widen it and failed: frontend/components/RosTradeFitPanel.jsx:19 fetches the same endpoint on /trade, but grep shows `directions` is used only at line 138 as a boolean panel gate and LABEL_COLOR (line 48) is dead \u2014 the Seller label never renders on /trade. So pagesAffected stays 1. I did widen REACH rather than radius: the page is anonymously reachable and inside robots' Allow: /league/."
    },
    "confidence": "high",
    "priorFinding": {
@@ -19082,7 +19187,20 @@
    "requiredRepair": "Distinguish absent from zero: return None and render 'no read' for owners the sim did not cover. Separately, make strength percentile a real term in classify_team or stop accepting it.",
    "dependencies": "W17-F001",
    "workstream": "W17",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "upheld",
+    "reran": true,
+    "reasoning": "Every leg re-ran and held. (1) Reproduction: build_team_directions() emits Brent \u2014 rank 1 of 12, teamRosStrength 645.12, strength percentile 100% \u2014 with playoffOdds 0.0 and label 'Seller'. (2) Mechanism confirmed at src/ros/trade_deadline.py:78 `po = float((playoffs.get(owner) or {}).get('playoffOdds') or 0.0)`: 4 of 12 owners (Brent, Kich, Blaine, jstuedle) have NO row in data/ros/sims/latest_playoff.json (8 rows) and are coerced to a confident 0.0, which is indistinguishable from a simulated miss. The docstring under test (trade_deadline.py:61-63, 'the classifier degrades cleanly') is falsified. (3) Second sub-claim also holds: src/ros/direction.py:78 binds `strength_pct` and it appears ONLY in the summary f-string at line 120 \u2014 no band in the ladder at 80-115 consults it, so a 100th-percentile roster cannot escape the Seller band. (4) Live path: /league is a PUBLIC prefix (frontend/lib/public-routes.js PUBLIC_PREFIXES) \u2014 I reproduced the rendered row ANONYMOUSLY at HTTP 200 through request interception, so the finding actually understates reach ('two clicks' \u2192 zero auth). (5) Not a harness artifact: data/ros/sims/latest_playoff.json and data/ros/team_strength/latest.json are git-TRACKED and were written by commit ad56b082 'chore: automated data refresh 2026-08-04T18:21:39Z' \u2014 production data, not container state. (6) No warning: build_section() returns only {'teams': [...]} with no coverage metadata, and the rendered page's only disclaimer is a SCOPE disclaimer ('does not affect dynasty values or trade math'), not an accuracy one; I grep-checked the rendered DOM for 'not simulated'/'no read'/'unknown'/'absent'/'coverage' \u2014 all absent. P0 legs all satisfied: page reachable (publicly), number wrong (0.0% playoff odds for an owner never simulated), action named ('Sell aging win-now players'), no warning. Two precision notes that do NOT change the verdict: (a) Collin and Ed also render 'Seller' off a 0.0 but they ARE in the sim \u2014 their 0.0 is real-for-the-wrong-season, so the absence-coercion set is exactly 4, as the finding states; the observed text cites Collin under the separate 'classifier ignores strength' sub-claim, which is fair. (b) The declared dependency W17-F001 is corroborated (docs/master-site-audit/evidence/W17/season-sort-bug.txt: sims run on the COMPLETE 2024 season, 8 owners, which is why every playoff odd is a degenerate 0.0/1.0). Fixing F001 would mask F002 on this league, but the `or 0.0` coercion and the unused strength argument are independent defects that survive it \u2014 so this is not a duplicate of F001.",
+    "whatWouldSettleIt": "Make src/ros/trade_deadline.py return None (not 0.0) for an owner with no sim row and have the section render 'no read' for those rows; assert in a test that an owner absent from latest_playoff.json never receives a Buyer/Seller label. Independently, either give team_ros_strength_percentile a real branch in classify_team or delete the parameter.",
+    "source": "verdicts-C4.jsonl"
+   },
+   "authoredPriority": "P0",
+   "authoredBlastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   }
   },
   {
    "id": "W17-F003",
@@ -24115,8 +24233,9 @@
    "userImpact": "The scraper-abuse defence the module exists for does not exist. Anyone can pull the 2.08 MB `/api/public/league` contract, or the 47 KB `/api/news` feed, at whatever rate the box will serve \u2014 and, because `/api/auth/login` sits behind the same limiter, the login endpoint has no effective throttle either (W22-F003).",
    "blastRadius": {
     "playersAffected": 0,
-    "routesAffected": 12,
-    "pagesAffected": 0
+    "routesAffected": 19,
+    "pagesAffected": 0,
+    "note": "Every path _is_public_api_path returns True for: 12 in _PUBLIC_API_EXACT (server.py:2743-2778, incl. /api/auth/status and /api/auth/logout which the finding omitted), 2 prefix families in _PUBLIC_API_PREFIXES (server.py:2799-2808), and 5 in _SELF_AUTHED_API_EXACT (server.py:2783-2798). The finding's 12 is an undercount, not an overcount."
    },
    "confidence": "high",
    "priorFinding": {
@@ -24128,7 +24247,20 @@
    "rootCause": "`_client_ip_from_request` trusts a hop-by-hop header unconditionally. The comment \"First entry in the chain is the original client\" is true only when every hop appends and the leftmost hop is itself trusted \u2014 which is exactly what `$proxy_add_x_forwarded_for` does NOT guarantee for a directly-reachable client.",
    "requiredRepair": "Prefer `X-Real-IP` (nginx sets it from `$remote_addr` and OVERWRITES, so it is not client-controlled) and fall back to `request.client.host`; use `X-Forwarded-For` only after stripping a configured count of trusted proxy hops from the RIGHT. `_MAX_TRACKED_IPS`-based eviction also becomes a memory-exhaustion lever while the key is attacker-chosen.",
    "dependencies": "nginx already sets `X-Real-IP $remote_addr` in both `location /api/` and `location /`, so no deploy change is needed.",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "upheld",
+    "reran": true,
+    "reasoning": "The mechanism reproduces live on the audited stack. server.py:2906-2916 returns the first comma-separated X-Forwarded-For entry unconditionally, with no trusted-proxy check and no preference for request.client.host; src/api/rate_limit.py:78-109 buckets on that string verbatim (and checks _BYPASS_IPS against it too, so a spoofed value defeats the bypass list as well). server.py:2846-2851 applies it to every path passing _is_public_api_path. nginx's $proxy_add_x_forwarded_for APPENDS $remote_addr to whatever the client sent, so in production the leftmost entry is attacker-chosen - the finding's root-cause analysis is exactly right, and its 'no deploy change needed' claim checks out because X-Real-IP $remote_addr is already set on all four locations. I did not run the author's verbatim command (boot :8001 without RATE_LIMIT_BYPASS_IPS). I ran a probe that is strictly stronger: it executes on the stack under audit, and the 60-then-429 sequence on a constant spoofed header proves both halves at once - the bucket arithmetic is real AND its key is the header. Flagging the substitution rather than claiming a verbatim re-run. Attacks that failed: not fixed at HEAD (blame above); not dead code (the 429s are live); not a harness artifact (nothing here depends on absent data, the suppressed scrape, or anon 401s - /api/health answered 200 throughout); and the credential-stuffing half of userImpact survives, because there is no per-account lockout or per-route login throttle anywhere in the tree, so /api/auth/login (allowlisted at server.py:2752) really does have no effective throttle once the key is attacker-chosen. One correction, in the finding's disfavour only in the sense that it understated itself: routesAffected 12 counts _PUBLIC_API_EXACT minus /api/auth/status and /api/auth/logout. The real rate-limited surface is 12 exact + 2 prefix families (/api/public/league, /api/league/articles) + the 5-entry _SELF_AUTHED_API_EXACT set (server.py:2783-2798), which _is_public_api_path also returns True for - about 19 path families. P1 is honest. This is an abuse/security defect, not a wrong number on a page, so P0 is correctly not claimed; and the author did not overstate it as one.",
+    "whatWouldSettleIt": "Change _client_ip_from_request to prefer X-Real-IP, fall back to request.client.host, and consult X-Forwarded-For only after stripping a configured trusted-hop count from the RIGHT; then re-run the two loops above - the rotating-XFF loop must return 429 for every request once the throttled socket is the key. Add a test asserting that a request with a forged X-Forwarded-For and a fixed peer address shares a bucket with an unforged one from the same peer.",
+    "source": "verdicts-C6.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 0,
+    "routesAffected": 12,
+    "pagesAffected": 0
+   }
   },
   {
    "id": "W22-F003",
@@ -24702,7 +24834,7 @@
    ],
    "title": "The ops \"scrape success rate < 50%\" alert can never fire: the payload it is handed never carries the key, and /api/status carries it as a dict the float() cast rejects",
    "status": "Implemented but disconnected",
-   "priority": "P1",
+   "priority": "P2",
    "size": "XS",
    "subsystem": "Operator alerting",
    "surface": {
@@ -24758,9 +24890,11 @@
    },
    "userImpact": "No user-facing wrong number, but the operator is not told when more than half the scheduled scrapes fail. The board silently ages while every alert channel stays quiet, so the first signal is a user noticing stale values.",
    "blastRadius": {
-    "playersAffected": 1092,
-    "routesAffected": 2,
-    "pagesAffected": 0
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 0,
+    "alertChannelsDead": 1,
+    "alertChannelsCoveringTheSameCondition": 4
    },
    "confidence": "high",
    "priorFinding": {
@@ -24772,7 +24906,20 @@
    "rootCause": "Two functions named similarly: _scrape_status_payload() (the alert's input, built from the scrape_status global) and get_status() (the HTTP handler, which decorates that payload with derived fields). The alert was written against the HTTP response shape and wired to the internal one, and the derived field is a dict rather than the scalar the checker expects.",
    "requiredRepair": "In server.py:11748 pass {**_scrape_status_payload(), 'scrape_success_rate_24h': _scrape_success_rate_24h().get('rate')} (or have _check_scrape_rate accept the dict and read ['rate']). Add a test that feeds the actual production payload, not a hand-built float.",
    "dependencies": "None",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The reproduction runs and produces exactly the stated output. The mechanism is confirmed at HEAD: server.py:11748 passes `_scrape_status_payload()`, which (server.py:1290-1304) returns `dict(scrape_status)` plus stall_threshold_sec / run_timeout_sec / status_summary and nothing else; `scrape_success_rate_24h` is written in exactly one place, server.py:4352, inside `get_status()`, and its value is the dict returned by `_scrape_success_rate_24h()` (server.py:1104-1124). src/api/ops_alerts.py:46-52 short-circuits on both shapes. The alert is dead. That much is upheld.\n\nRescoped on three counts.\n(1) Novelty is misstated. priorFinding.note claims 'the prior finding named only the missing key' and presents the float(dict) TypeError as a 'second, independent kill' discovered here. PRIOR-A07-F03 already states verbatim: 'Even if the key were added, get_status stamps it as a dict and float(dict) raises TypeError, which the except clause swallows into another None' \u2014 and even carries the same `float({'total':10,...})` reproduction. This is a clean confirmation, not an extension.\n(2) userImpact ('the operator is not told when more than half the scheduled scrapes fail... every alert channel stays quiet') is false. Four other live channels cover the same condition: server.py:2516 sends an email on EVERY scrape exception ('Scrape failed: {type}'); server.py:2369 emails on a blocked partial scrape; the ops sweep's own `_check_data_freshness` IS correctly wired (server.py:11749-11762, threshold 3x SCRAPE_INTERVAL_HOURS) and fires when sustained failure ages the board \u2014 the finding's own whatWorks concedes this; and .github/workflows/health-check.yml:78-90 reads /api/status's dict correctly and emits ::warning when rate < 0.5. What is dead is one redundant aggregate-rate alert, not the failure signal.\n(3) blastRadius is inflated. playersAffected:1092 is unfounded \u2014 no player value is affected by a dead alert. routesAffected:2 counts /api/status, which is not defective: it publishes a well-formed dict that its actual consumer (health-check.yml) parses correctly. Only the ops leg of /api/signal-alerts/run is affected.\nP1 implies operator-visible loss of coverage; with four surviving channels this is a redundancy gap, so P2.",
+    "whatWouldSettleIt": "Apply the stated repair (pass {**_scrape_status_payload(), 'scrape_success_rate_24h': _scrape_success_rate_24h().get('rate')} at server.py:11748) and assert the ops sweep returns a scrape_failure alert when scrape_history holds >50% failures inside 24h. The severity question is settled by whether an operator with ALERT_ENABLED gets any email at all during a sustained scrape outage \u2014 server.py:2516 says they do.",
+    "source": "verdicts-C5.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 0
+   }
   },
   {
    "id": "W23-F002",
@@ -24782,7 +24929,7 @@
    ],
    "title": "A partial scrape that the promotion guard REFUSES to publish is recorded as a success \u2014 same event name, same history outcome, same last_success_at, and it increments scrape_count",
    "status": "Implemented but defective",
-   "priority": "P1",
+   "priority": "P2",
    "size": "S",
    "subsystem": "Scrape lifecycle / monitoring",
    "surface": {
@@ -24832,9 +24979,10 @@
    },
    "userImpact": "An operator looking at /admin or /api/health after a total scrape failure sees a fresh timestamp, no error, and a 100% success rate. They conclude the pipeline is healthy and do not investigate, while the site serves last-known-good data indefinitely.",
    "blastRadius": {
-    "playersAffected": 1092,
+    "playersAffected": 0,
     "routesAffected": 3,
-    "pagesAffected": 1
+    "pagesAffected": 0,
+    "note": "Data is preserved by design on this branch (`return latest_data`), so no player value is wrong. Corruption is confined to the /api/status (scrape_success_rate_24h, last_success_at, scrape_count, last_n_scrapes), /api/health (last_scrape) and /api/metrics (scrape_total) payloads. No frontend page renders any of these fields; /admin reads only featureFlags, idMappingCoverage and nflDataProvider."
    },
    "confidence": "high",
    "priorFinding": {
@@ -24846,7 +24994,20 @@
    "rootCause": "The blocked branch needs to clear the 'running' flag and stamp a finish time, and _mark_scrape_success is the only helper that does that \u2014 so it was reused for its side effects rather than its meaning.",
    "requiredRepair": "Split the bookkeeping: a _mark_scrape_finished(outcome) that both success and blocked-partial call, with outcome='partial_blocked' recorded to scrape_history and last_success_at left untouched on the blocked path.",
    "dependencies": "W23-F003 (same branch); W23-F001 (the success-rate metric this corrupts is itself unread)",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The mechanism is confirmed, and I went further than the finding's sed-only reproduction: I ast-extracted server.py's actual helpers and executed the blocked branch's bookkeeping. Every claimed side effect is real \u2014 outcome 'success' in scrape_history, last_success_at and last_scrape stamped now, error cleared to None, current_step 'complete', scrape_count +1, the event named scrape_succeeded, _scrape_success_rate_24h() returning rate 1.0, and _metrics.scrape_total +1 with scrape_failures untouched. PRIOR-A07-F04 is genuinely confirmed. Three things do not survive. (1) blastRadius playersAffected 1092 is not defensible in the finding's own terms: the branch's whole point is that it returns latest_data and does NOT overwrite the good snapshot, which the finding itself says under whatWorks. No player value is wrong; zero players are affected. (2) userImpact names /admin showing 'a fresh timestamp, no error, and a 100% success rate'. /admin does not render any of those fields \u2014 frontend/app/admin/page.jsx reads only status.featureFlags, status.idMappingCoverage and status.nflDataProvider, and no file under frontend/app, frontend/components or frontend/lib references scrape_success_rate, last_success_at, scrape_count, last_n_scrapes or run_events. The corruption lives in the /api/status, /api/health and /api/metrics payloads only; an operator has to read raw JSON to be misled, and when they do, run_events carries partial_scrape_blocked at warning level alongside the log.warning and the send_alert email. pagesAffected is 0, not 1. (3) The severity amplifier in observed \u2014 'compounded by W23-F003: the guard only trips on total data loss, so reaching this branch at all means the scrape returned literally zero sites' \u2014 is refuted at the source. Dynasty Scraper.py:4251 builds active_sites from the static SITES config, and :5412 appends a sites_meta entry for every one of them with playerCount 0 when that scraper produced nothing. total_sites is therefore the configured count, not the surviving count, and `site_count < total_sites / 2` trips on ordinary partial failure (e.g. 3 of 8), exactly as designed. site_count=0 is one case, not the only reachable one. So this is a real monitoring/bookkeeping defect on a live production branch (scheduled-refresh runs every 2h) with three surviving out-of-band signals, no page surface, and no wrong number served to any user \u2014 P2, not P1.",
+    "whatWouldSettleIt": "A test that drives run_scrape_now through the guard with a stubbed scraper returning 3-of-8 sites and asserts scrape_history[-1]['outcome'] != 'success' and last_success_at unchanged. No such test exists \u2014 grep for 'partial_scrape_blocked' across tests/, scripts/ and frontend/ returns nothing, which is why the branch has been able to file itself as a success unchallenged.",
+    "source": "verdicts-C3.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 3,
+    "pagesAffected": 1
+   }
   },
   {
    "id": "W23-F003",
@@ -24856,7 +25017,7 @@
    ],
    "title": "The \"fewer than half the sites returned\" partial-scrape guard degenerates to \"block only on total loss\": `sites` carries 2 entries on the live snapshot and only lists sources that already produced values",
    "status": "Implemented but defective",
-   "priority": "P1",
+   "priority": "P2",
    "size": "M",
    "subsystem": "Scrape lifecycle",
    "surface": {
@@ -24904,9 +25065,10 @@
    },
    "userImpact": "A scrape in which 20 of 21 sources collapse promotes cleanly to production. Every value on /rankings, /trade and /draft is then a near-single-source blend presented with the same confidence chrome as a full 21-source consensus, and the single-source haircut is the only thing standing between the user and a one-vendor board.",
    "blastRadius": {
-    "playersAffected": 1092,
+    "playersAffected": 0,
     "routesAffected": 2,
-    "pagesAffected": 8
+    "pagesAffected": 0,
+    "note": "Conditional. On a partial in-process scrape that loses one of the two enabled browser sources, up to 1,092 rows on 8 pages would promote on a halved anchor set \u2014 but no such event is present in the live snapshot, so today's realized impact is zero. The GitHub Actions refresh path is separately gated by scripts/validate_scrape_sanity.py."
    },
    "confidence": "high",
    "priorFinding": {
@@ -24918,7 +25080,20 @@
    "rootCause": "`sites` is legacy scraper metadata describing the browser-driven sources only; the modern pipeline gets 19 of its 21 sources from scripts/fetch_*.py CSVs that never enter sites_meta. The guard was written against the legacy structure and never re-pointed.",
    "requiredRepair": "Gate on served_source_coverage (or on settings.sourceRunSummary.enabledSources vs completeSources) rather than on `sites`. Compare against the previous snapshot's per-source coverage so a source dropping from 400 rows to 3 also trips the guard.",
    "dependencies": "W23-F002 (same branch), W23-F008 (same legacy structure)",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The headline reproduces verbatim and the core arithmetic is right: server.py:2358-2363 computes total_sites = len(result['sites']) and blocks on site_count < total_sites/2; `sites` is a 2-element LIST on the live snapshot, so the predicate is site_count < 1.0 \u2014 it fires only on total loss. That code path IS live (run_scraper is driven by the in-process initial_scrape at server.py:2619 and the 2h schedule_loop at server.py:2622), so this is not dead code. Two of the finding's supporting claims do not survive, and one of them is the load-bearing one. (a) MECHANISM WRONG: the finding says sites_meta is built from 'active_sites, the sources that actually ran, so a source that is skipped shrinks the denominator with the numerator'. It does not. Dynasty Scraper.py:4251 defines active_sites = [s for s, on in SITES.items() if on] \u2014 the CONFIG-enabled list, fixed before any run outcome. An enabled site that fails still emits an entry with playerCount 0, shrinking the numerator only, which is exactly what the guard wants. KTC_TradeDB and KTC_WaiverDB are missing from `sites` because they are not keys in SITES (Dynasty Scraper.py:1698-1711) at all \u2014 they are KTC sub-fetches \u2014 not because they were skipped this run. (b) USER IMPACT OVERSTATED: 'A scrape in which 20 of 21 sources collapse promotes cleanly to production' is false for the production refresh path. scheduled-refresh.yml runs `python \"Dynasty Scraper.py\"` directly at line 190 \u2014 server.py's guard is not in that pipeline at all \u2014 and gates the success()-conditioned 'Commit updated data' step on scripts/validate_scrape_sanity.py (line 481), a per-source CSV gate over CSVs/site_raw/*.csv that ERRORs (exit 1) on a >50% row collapse, an all-zero value column, or a sub-minimum row count. The 19 CSV-fed sources therefore DO have a promotion gate; it simply is not this one. On the path where server.py's guard does apply, only ~6 sources are refreshed at all (2 SITES + 4 inline fetchers at server.py:2215/2250/2285/2322), so the realistic escape it permits is 'one of KTC / IDPTradeCalc dies and the board promotes on the survivor' \u2014 1 < 1.0 is False, so even a 50% loss of the two anchor markets promotes silently. That is still a genuine defect worth fixing (KTC is the TE++ basis anchor and one of the two pick markets) and the finding's requiredRepair is the right one, but it is a weak safety net with a compensating control on the primary path, not the 20-of-21 catastrophe described. Downgrading from P1 to P2 accordingly, and the blast radius is conditional on a partial-scrape event that has not occurred: no user sees a wrong number today.",
+    "whatWouldSettleIt": "Simulate the in-process path with SITES = {KTC: True, IDPTradeCalc: True} and a KTC result of playerCount 0, and show server.py:2363 evaluating 1 < 1.0 as False and promoting. That is the honest one-source-of-two escape. Conversely, if the in-process scrape loop is disabled on the prod box (i.e. only scheduled-refresh.yml ever promotes), the guard is unreachable in production and this drops to Scaffolded only \u2014 checking dynasty.service / prod logs for 'Scheduled scrape triggered' would decide it.",
+    "source": "verdicts-C2.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 8
+   }
   },
   {
    "id": "W23-F004",
@@ -25073,7 +25248,7 @@
    ],
    "title": "/api/metrics.data_age_seconds and /api/health.data_age_hours measure time since the process loaded the file, not since the data was scraped \u2014 they are numerically identical to uptime and reset to zero on every restart",
    "status": "Implemented but defective",
-   "priority": "P1",
+   "priority": "P2",
    "size": "S",
    "subsystem": "Monitoring / staleness",
    "surface": {
@@ -25132,9 +25307,10 @@
    },
    "userImpact": "A user on /rankings trades off values that are hours older than the page admits: StaleDataBanner reads data_age_hours and stays silent, so a board that has not refreshed since a scraper outage looks current the moment the service is restarted \u2014 and restarting is exactly what an operator does when a scrape hangs. The staleness warning is suppressed by the very action taken in response to staleness.",
    "blastRadius": {
-    "playersAffected": 1092,
+    "playersAffected": 0,
     "routesAffected": 3,
-    "pagesAffected": 41
+    "pagesAffected": 41,
+    "note": "playersAffected 1092 is not meaningful \u2014 no player value is wrong, only the freshness warning is delayed. routes: /api/metrics, /api/health, and the ops_alerts leg of /api/signal-alerts/run. pages 41 is fair since StaleDataBanner renders in AppShellWrapper on every page, but the effect is an absent banner, not a wrong number."
    },
    "confidence": "high",
    "priorFinding": {
@@ -25146,7 +25322,20 @@
    "rootCause": "latest_data_source['loadedAt'] conflates 'when this process obtained the data' with 'when the data was made'. That is the right semantic for the disk_cache/scrape_run provenance field it was built for, and the wrong one for freshness, but it is the only timestamp the health path reaches for.",
    "requiredRepair": "Derive age from the payload's own settings.sourceRunSummary.finishedAt (falling back to scrapeTimestamp / date) in both /api/health and /api/metrics and in the ops_alerts call site, and keep loadedAt as provenance only. Assert in a test that data_age != uptime for a cache-loaded snapshot.",
    "dependencies": "W23-F001 (the ops alert that consumes the same wrong number is itself half-dead)",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The mechanism reproduces and is real: server.py:1307-1315 stamps loadedAt = _utc_now_iso() on load, and both /api/metrics (:4671-4700) and /api/health (:4509-4520) derive age from it, as does the ops-alert call site (:11749-11762). Today the equality still holds byte-for-byte (571 == 571) and the demonstration is now sharper than the author's: the loaded snapshot's own sourceRunSummary.finishedAt makes the data 6.25h old, PAST the 6h stale threshold, while /api/health reports 0.2h and data_stale False \u2014 and /api/status.source_health independently reports 6.17h from the same process, so the honest number is three feet away exactly as claimed. StaleDataBanner is app-wide (AppShellWrapper.jsx:94) and reads data_age_hours with WARNING_HOURS=6, so the silence is real. Rescoped on two points the finding overstates. (1) 'They are numerically identical to uptime' is not a property of the metric, it is a property of the disk-cache-only state. server.py:2414 re-stamps loadedAt on every SUCCESSFUL scrape, so in normal production operation (2h cadence) loadedAt IS the scrape-completion time and the reported age is honest. The identity is permanent HERE only because the audit harness monkeypatches run_scraper to a no-op \u2014 that half of the evidence is harness-shaped. (2) 'A server that restarts on any cadence under 6h can never report stale data, however old it is' is wrong as stated: after one restart the age restarts from zero and still crosses 6h six hours later, so a single restart DELAYS the warning by the data's age at boot rather than suppressing it. Permanent suppression needs sub-6h restarts, which is not a normal cadence. What survives is a genuine monitoring blind spot \u2014 the staleness alarm is silenced by the very action an operator takes during a scrape outage, and the ops email inherits it \u2014 but nothing on any board shows a wrong VALUE, and the failure needs a compound precondition (scrape failing AND a restart). That is P2 on this audit's scale, not P1: P1 here implies a present-tense wrong number on a surface a user acts on, and this is a delayed warning. Not fixed at HEAD.",
+    "whatWouldSettleIt": "Restore the scraper on a scratch instance, let one scrape land, and re-read /api/metrics: if data_age_seconds diverges from uptime_seconds and tracks the scrape, the permanent-identity claim is confirmed as harness-only and the residual defect is exactly the restart-resets-the-clock window. A test asserting data_age != uptime after a cache load (the finding's own requiredRepair) would pin it.",
+    "source": "verdicts-C1.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 3,
+    "pagesAffected": 41
+   }
   },
   {
    "id": "W23-F007",
@@ -25157,7 +25346,7 @@
    ],
    "title": "/tools/source-health claims \"Scraper status for every ranking source in the pipeline\" and renders 4 sources; the live board blends 21",
    "status": "Implemented but defective",
-   "priority": "P1",
+   "priority": "P2",
    "size": "S",
    "subsystem": "Monitoring UI",
    "surface": {
@@ -25200,9 +25389,11 @@
    },
    "userImpact": "An operator (or a user who navigates to /tools/source-health after noticing odd values) reads \"Sources \u00b7 4 \u00b7 2 issues\", concludes the two flagged KTC sub-feeds are the whole story, and does not discover that e.g. idpShow has been stale for a fortnight \u2014 because that source has no row on the page at all.",
    "blastRadius": {
-    "playersAffected": 1092,
+    "playersAffected": 0,
     "routesAffected": 1,
-    "pagesAffected": 2
+    "pagesAffected": 1,
+    "sourcesWithNoRow": 19,
+    "note": "playersAffected recounted to 0 \u2014 no board value is affected, this is a visibility gap. pagesAffected recounted to 1: `grep -rn SourceHealthStrip frontend/` returns one non-test call site (frontend/app/tools/source-health/page.jsx:26); the component docstring's claim of an inline terminal strip is stale. sourcesWithNoRow recounted to 19 (21 set-difference minus the idpTradeCalc/ktcSfTep alias collisions with the rendered IDPTradeCalc/KTC rows)."
    },
    "confidence": "high",
    "priorFinding": {
@@ -25214,7 +25405,20 @@
    "rootCause": "enabled_sources describes the Playwright scraper's run plan, which stopped being the whole ingestion story when 19 sources moved to scripts/fetch_*.py CSVs. The component was pointed at the run plan rather than at the board.",
    "requiredRepair": "Render the union of served_source_coverage keys and source_health.sources keys, using source_runtime only to annotate which of them the scraper drives. Retire enabled_sources as the row set.",
    "dependencies": "W23-F008, W23-F003 (all three descend from the legacy 2-to-4-source view of ingestion)",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The observation is exactly right and I could not kill it. frontend/app/tools/source-health/page.jsx:25 carries the subtitle verbatim ('Scraper status for every ranking source in the pipeline'); SourceHealthStrip.jsx:100 reads `runtime.enabled_sources` and line 108 builds `entries = enabled.map(...)`, so the row set IS the legacy scraper run plan. Browser-confirmed with the protocol topology: header 'Sources \u00b7 4 \u00b7 6h ago \u00b7 2 issues', expanded row count 4. Not a harness artifact \u2014 `enabledSources` is persisted production state inside the seeded snapshot (data/dynasty_data_2026-08-04.json \u2192 settings.sourceRunSummary.enabledSources = the same 4). server.py:4347-4349's own comment corroborates the root cause ('source_health above is derived from the 3-source legacy sites list and cannot detect a degraded board'), and server.py:1503-1507 says the freshness map was stamped so 'the source-health page can render per-source ages' \u2014 the component uses it only to annotate the 4 rows it already has. So the defect stands. What does NOT survive is the severity framing and the arithmetic around it. (a) Blast radius: playersAffected 1092 is not defensible \u2014 no player value, rank or number on any user surface is wrong; this is a monitoring-coverage gap. pagesAffected 2 is wrong: grep shows SourceHealthStrip has exactly ONE call site (frontend/app/tools/source-health/page.jsx:26). The component's own docstring claims a terminal strip variant, but that usage no longer exists \u2014 the author appears to have believed the docstring. (b) Internal inconsistency: observed says 'The 17 sources rendered nowhere' then lists 19 names, while reproduction.actual says 21 invisible. The honest number is 19: the raw set difference is 21, but `idpTradeCalc`/`ktcSfTep` collide by case/alias with the rendered `IDPTradeCalc`/`KTC` rows. (c) userImpact overstates: the exact incident class cited ('idpShow silently stale for two weeks') is covered by an independent path \u2014 src/api/source_health_alerts.py, a 24h-per-source mtime staleness detector wired into the daily sweep at server.py:11782 \u2014 which emails on staleness whether or not the page has a row. The page is blind; the operator is not left with no signal at all. Rescoped to P2: single operator-only diagnostic page, zero user-facing numbers wrong, working alert backstop. 'Implemented but defective' is fair; 'Partially implemented' would be more precise.",
+    "whatWouldSettleIt": "Change SourceHealthStrip.jsx:108 to build entries from union(served_source_coverage, source_health.sources) and use source_runtime only to annotate which rows the Playwright scraper drives; then a browser probe of /tools/source-health should read 'Sources \u00b7 22' and the expanded list should contain idpShow. A vitest asserting rendered row count == len(served_source_coverage \u222a sources) would pin it.",
+    "source": "verdicts-C4.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 1,
+    "pagesAffected": 2
+   }
   },
   {
    "id": "W23-F008",
@@ -26099,7 +26303,7 @@
    ],
    "title": "286 tests run only in a `continue-on-error` step, and at least 46 of them open zero files under exports/, CSVs/ or data/ \u2014 pure logic exempted from the blocking gate by a filename rule",
    "status": "Implemented but disconnected",
-   "priority": "P1",
+   "priority": "P2",
    "size": "M",
    "subsystem": "Test suite integrity / CI gating",
    "surface": {
@@ -26151,9 +26355,14 @@
    },
    "userImpact": "A PR that breaks the DLF CSV preprocessor, the DLF scraper's HTML parsing, or the Flock Fantasy rookie fetcher's row mapping merges green: those 46 tests report in a step marked `continue-on-error: true`. DLF is a voting source on the live board and Flock supplies the rookie ladder, so the regression lands in production values with the PR check showing a tick.",
    "blastRadius": {
-    "playersAffected": 1092,
+    "playersAffected": 516,
+    "testsProvenPureByProbe": 40,
+    "testsInWhollyPureModules": 33,
+    "testsAttributableToBasenameRule": 240,
+    "testsFromExplicitDecorators": 46,
     "routesAffected": 0,
-    "pagesAffected": 0
+    "pagesAffected": 0,
+    "note": "516 = union of live-contract rows carrying a dlfSf, dlfIdp or flockFantasySf vote (277/139/378). 40 not 46 pure tests \u2014 46 counted all 13 of test_dlf_source.py, which opens data/snapshots/ranks_last.json. Only 240 of the 286 livedata tests come from the basename rule."
    },
    "confidence": "high",
    "priorFinding": {
@@ -26165,7 +26374,20 @@
    "rootCause": "tests/conftest.py:143 keys the marker on `item.path.name`, a whole-file granularity the file itself defends as 'one central, reviewable policy instead of editing ~16 files'. Correctness is per-test, not per-file.",
    "requiredRepair": "Move the three pure-logic modules/classes out of _LIVEDATA_MODULES (the same split already done for test_pick_rookie_anchor_core.py), and generalise tests/test_livedata_policy.py to run the I/O audit-hook probe over every exempted module and fail on any that opens nothing under exports/ CSVs/ data/. The probe is 40 lines: docs/master-site-audit/evidence/W24/ioprobe.py.",
    "dependencies": "PRIOR-A08-F09 (basename collisions) is still latent and would become active the moment a colliding basename is added: 6 collisions exist today (test_calibration, test_endpoint, test_replacement, test_scoring, test_service x5, test_store), none currently matching a livedata entry.",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The reproduction runs and the mechanism is real. Three of the finding's numbers are not, and I recounted all of them myself.\n\nCONFIRMED. tests/conftest.py:140 reads `item.path.name` and :143-144 adds the livedata marker by BASENAME, so the exemption is whole-file. .github/workflows/pr-validation.yml:164 is the hard gate (`-x -q -m \"not livedata\"`) and :166-180 is the advisory step carrying `continue-on-error: true`. 286/6326 collected under `-m livedata` reproduces exactly. My own per-module audit-hook probe (rerun independently) confirms tests/adapters/test_dlf_scraper.py and tests/scripts/test_fetch_flock_fantasy_rookies.py open ZERO paths under exports/ CSVs/ data/, while the other eleven modules open 1-48 \u2014 so the author's targeting is right, not scattershot. Both scripts under test are live production fetchers: scripts/fetch_dlf.py runs via deploy/dlf_fetch_and_push.sh (deploy/install-systemd-service.sh:733) and scripts/fetch_flock_fantasy_rookies.py via .github/workflows/scheduled-refresh.yml:273.\n\nRESCOPE 1 \u2014 the headline count is wrong against the finding's OWN evidence. Title and numericProof claim 46 tests proven pure by the I/O probe. The probe run reports \"40 passed\", and 40 is what I measure: 24 (flock) + 9 (dlf_scraper) + 7 (the two dlf_source classes). 46 is only reachable by counting all 13 of test_dlf_source.py \u2014 but that module opens 1 path under data/, so its full 13 are not probe-proven. The `observed` text compounds it with \"9 of its 13 tests live in the two classes\"; collection says 7. Corrected: 33 tests in modules that are wholly pure, 40 including the two synthetic classes.\n\nRESCOPE 2 \u2014 the rootCause does not account for the 286. The basename rule accounts for 240. The remaining 46 come from explicit `@pytest.mark.livedata` / `pytestmark` decorators authors applied deliberately (test_real_rosters 22, test_refit_driver 14, test_holdout 6, test_refit_path_characterisation 2, test_lifecycle 1, test_realized_points_endpoint 1). Those are per-test author choices, not the whole-file granularity defect, so the finding's framing of \"286 tests ... exempted by a filename rule\" over-attributes by 16%.\n\nRESCOPE 3 \u2014 blastRadius playersAffected:1092 is the whole contract. DLF and Flock vote on 516 of 1092 rows (dlfSf 277 + flockFantasySf 378 + dlfIdp 139, union). A regression in those two fetchers perturbs the blend for those rows.\n\nRESCOPE 4 \u2014 novelty and mitigation. The test_dlf_source half is already a recorded known-open item: tests/test_livedata_policy.py's module docstring names TestDlfCsvEnrichment as \"STILL OPEN, deliberately not fixed here\". The genuinely new contribution is the 33 tests in test_dlf_scraper.py + test_fetch_flock_fantasy_rookies.py, plus the audit-hook proof method. And pr-validation.yml:170-174 names two surviving guards the finding omits \u2014 the static test_source_floor_invariant hard gate and the deploy-time #451 served-board gate \u2014 which WOULD catch a gross parser breakage (zero/collapsed rows). What escapes is a subtle mapping regression that keeps row counts plausible, e.g. fetch_dlf.py's `_rank_of` column preference picking the wrong rank column. That is a narrower hole than \"the regression lands in production values with the PR check showing a tick\".\n\nP1 -> P2: no user-facing number is wrong today, no route, no page. This is a real hole in the blocking test gate for two live sources \u2014 worth fixing, and the requiredRepair (split the modules, generalise test_livedata_policy.py with the probe) is exactly right \u2014 but it is a latent CI-integrity defect, not a live product defect.",
+    "whatWouldSettleIt": "Move tests/adapters/test_dlf_scraper.py and tests/scripts/test_fetch_flock_fantasy_rookies.py out of _LIVEDATA_MODULES and re-run `pytest tests/ -q -m 'not livedata'` \u2014 those 33 tests should now be collected and pass with exports/, CSVs/ and data/ absent. Then generalise tests/test_livedata_policy.py to run the audit-hook probe over every exempted module and fail on any that opens nothing under exports/ CSVs/ data/, which is what makes the fix permanent rather than a one-off.",
+    "source": "verdicts-C7.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 0,
+    "pagesAffected": 0
+   }
   },
   {
    "id": "W24-F004",
@@ -27580,7 +27802,8 @@
    "blastRadius": {
     "playersAffected": 1092,
     "routesAffected": 2,
-    "pagesAffected": 13
+    "pagesAffected": 11,
+    "note": "11 app pages call useDynastyData directly (grep -rln useDynastyData frontend/app | wc -l = 11); the finding's 13 counts pages reaching it through shared components. playersAffected is rows-double-encoded, not values-wrong."
    },
    "confidence": "high",
    "priorFinding": {
@@ -27592,7 +27815,20 @@
    "rootCause": "src/api/compact_view.py applies field pruning to BOTH `playersArray` and the legacy `players` dict, and the compact builder retains the dict, whereas the array builder deletes it. The compact view therefore ships two pruned encodings of the same 1,092 rows where array ships one unpruned encoding of one.",
    "requiredRepair": "Delete the legacy `players` dict from the compact payload (it is what array already does) \u2014 that alone takes compact to ~4.03 MB, 38% below array and 66% below full, which is closer to the '~90%' the comments claim than anything shipping today. Then correct the three '~90% byte reduction' / '~90% smaller' comments to the measured figure.",
    "dependencies": "Requires confirming no compact-view consumer reads the legacy dict; frontend/lib/dynasty-data.js::buildRows prefers playersArray when present, and view=array already proves the dict-free shape renders.",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "upheld",
+    "reran": true,
+    "reasoning": "I tried to kill this three ways and could not. (1) The byte ordering reproduces exactly on today's stack: compact 7,365,099 > array 6,515,205 > app 5,818,973, a +849,894 b / +13.04% penalty for the view routed to phones \u2014 within the finding's 1,024 b tolerance of its stated 849,224. (2) The stated mechanism is right and I re-derived it independently: view=array ships playersArray only (55 fields/row) with the legacy `players` dict emptied, while view=compact ships a pruned playersArray (41 fields/row) AND a pruned legacy `players` dict (1,092 keys, 50 fields/row, 3.61 MB) \u2014 the same rows encoded twice, which more than cancels a real and correct per-row pruning. (3) The path is live, not theoretical: frontend/lib/dynasty-data.js:1495 calls device-profile.preferredDataView(), which returns 'compact' for isMobileProfile() || isSlowNetwork() (device-profile.js:103-108), and a 390x844 browser under the sanctioned interception topology genuinely issued /api/dynasty-data?view=compact and pulled 7,365,099 decoded bytes for the identical 230-row board the 1500px browser rendered from 6,515,205. Over the wire the penalty is +97,268 gzipped bytes. The three '~90% byte reduction' / '~90% smaller' comments (server.py:3126-3128, device-profile.js:82-90, frontend/app/api/dynasty-data/route.js:45, plus src/api/compact_view.py:3-5 '~4MB to ~500KB') are all wrong by roughly an order of magnitude \u2014 measured reduction vs full is 38.4%. Not a harness artifact, not fixed at HEAD (ba9f348b), not dead code. Severity: I considered downgrading to P2 since no number is wrong and compact is still 38% below the full view, but the finding did not claim P0 and P1 is defensible for a live inversion of an explicit design decision on every mobile page load; I have no evidence-based grounds to move it. One category correction only: playersAffected 1,092 means 'rows duplicated in the payload', not 'players whose value is wrong' \u2014 no value is affected.",
+    "whatWouldSettleIt": "Already settled. The fix is one line of parity with the array builder \u2014 drop the legacy `players` dict from the compact payload \u2014 after confirming no compact consumer reads it; buildRows already prefers playersArray and view=array proves the dict-free shape renders (230 rows at both viewports above).",
+    "source": "verdicts-C2.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 13
+   }
   },
   {
    "id": "W26-F002",
@@ -27602,7 +27838,7 @@
    ],
    "title": "AppShell fetches the full multi-megabyte player contract on EVERY private page \u2014 including a 404 page and pages that never render a player row",
    "status": "Implemented but defective",
-   "priority": "P1",
+   "priority": "P2",
    "size": "M",
    "subsystem": "Frontend data layer / app shell",
    "surface": {
@@ -27667,9 +27903,10 @@
    },
    "userImpact": "Opening /news to read three headlines, or /bdvm to see a 'no snapshot yet' message, costs the user a full board download and JSON parse. On mobile this is the dominant cost of every navigation in the app and it is paid before anything on the page can render its own data. A mistyped URL that lands on the 404 page costs 1.0 MB over the wire.",
    "blastRadius": {
-    "playersAffected": 1092,
-    "routesAffected": 2,
-    "pagesAffected": 30
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 30,
+    "note": "routesAffected 1: only /api/dynasty-data is the shell fetch; /api/rankings/overrides?view=delta rides the same code path but is user-state-conditional. playersAffected is not a meaningful axis for a payload-size finding \u2014 the correct cost axis is 671,811 b wire / 6,515,205 b decoded per COLD load of a board-less page, and 0 additional bytes per in-session navigation."
    },
    "confidence": "high",
    "priorFinding": {
@@ -27681,7 +27918,20 @@
    "rootCause": "AppShell.jsx:61 calls useDynastyData() unconditionally in PrivateAppShell. The only gate (isPublicOnlyRoute) was added for data-leak reasons; no route-level gate exists for 'this page has no board'.",
    "requiredRepair": "Either (a) split useDynastyData into a lightweight search-index fetch (name/playerId/position/rankDerivedValue) that AppShell always makes and a full-board fetch that only board-rendering pages opt into, or (b) invert the gate so pages declare `needsBoard` and AppShell defers the full fetch until one does. Option (a) preserves global search on every page at ~1.5% of the current bytes.",
    "dependencies": "Needs a new lightweight backend view (or reuse of ?view=startup narrowed further). Interacts with W26-F001 \u2014 fix that first so whichever view remains is the smallest.",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The core mechanism is confirmed: AppShell.jsx:33-75 gates the private data fetch on exactly one prefix list (PUBLIC_ONLY_ROUTE_PREFIXES = ['/league'], added for data-leak reasons), so PrivateAppShell calls useDynastyData() on every other route including board-less pages and Next's not-found \u2014 I re-measured a cold /news hard load and it does fetch /api/dynasty-data?view=array. Three parts of the finding do not survive re-measurement. (1) Attribution: 'decode 11.7-13.1 MB' is the sum of decodedBodySize over ALL resource entries (w26_probe.py:245), not the contract. The player contract is 6,515,205 b decoded / 671,811 b on the wire. Of the rest, 3,897,831 b decoded / 369,861 b wire is a SECOND request, POST /api/rankings/overrides?view=delta, and that one is conditional on the user having customized source weights (dynasty-data.js:2017-2035 \u2014 a default user takes the !customized branch and never posts it). The remaining ~1.3 MB decoded is app JS/CSS that any page must load. So the title's 'fetches the full multi-megabyte player contract' is right, but 'costs 12.5 MB' is not the contract's cost, and the numericProof's formula (whole-page decodedBytes minus rendered board = waste) charges the Next bundle to this defect. (2) 'On mobile this is the dominant cost of every navigation in the app' is false. AppShell lives in the root layout and does not remount on client-side navigation, and dynasty-data.js:1413-1440 adds a module-level cache with a 30s TTL plus in-flight dedupe. Measured: navigating /rankings -> /news by clicking the nav link produced exactly ONE /api/dynasty-data request in total. The original probe's per-page cost is an artifact of probing each route with a fresh page.goto. (3) The flagship example is a Next 404 (/terminal has no directory under frontend/app), so 'a mistyped URL costs 1.0 MB' is true of a cold context only, and ~0.67 MB of that is the contract. What is left is a real but ordinary perf inefficiency: a cold entry on a board-less page pays ~672 KB over the wire and a 6.5 MB JSON parse it does not use, to keep global search and the player popup working. No number a user acts on is wrong, ETag/304 revalidation and the module cache bound the repeat cost, and the finding itself credits both. P2, not P1.",
+    "whatWouldSettleIt": "A cold-cache mobile trace of the first entry into the app (which is the one load that genuinely pays it) with the contract fetch isolated from the bundle, plus a measurement of the >30s-TTL revalidation path \u2014 if that returns 304 with a near-zero body, the per-navigation cost is confirmed as ~0 and the finding is strictly a first-paint cost.",
+    "source": "verdicts-C1.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 30
+   }
   },
   {
    "id": "W26-F003",
@@ -27744,9 +27994,14 @@
    },
    "userImpact": "Opening the live draft board \u2014 the one page a user loads under time pressure, mid-auction, often on a phone on venue wifi \u2014 costs twice the bytes of any other page. Clicking 'Sync rookies' re-downloads the full 11.95 MB contract again because that call site is cache:no-store.",
    "blastRadius": {
-    "playersAffected": 1092,
-    "routesAffected": 2,
-    "pagesAffected": 1
+    "playersAffected": 0,
+    "routesAffected": 1,
+    "pagesAffected": 1,
+    "callSitesFiringPerPageLoad": 1,
+    "callSitesConsumingOnlySleeperTeams": 2,
+    "wastedBytesPerMountTransferred": 1180466,
+    "wastedBytesPerMountDecoded": 11908082,
+    "note": "routesAffected recounted to 1: /api/data and /api/data?leagueKey=dynasty_main are the same route, and /api/dynasty-data?view=array is fetched by /rankings too \u2014 it is not part of the /draft-specific excess. playersAffected recounted to 0 (payload weight, not a value defect). The per-load excess is the single mount-time fetch: 1,180,466 b transferred / ~11,908,082 b decoded to obtain 46,792 b of team names."
    },
    "confidence": "high",
    "priorFinding": {
@@ -27757,7 +28012,20 @@
    "whatWorks": "The parallelisation in fetchSyncPreview (Promise.all over /api/data and /api/draft-capital) is correct \u2014 those two are genuinely independent and are not serialised. The cancellation guard on the mount effect is correct.",
    "rootCause": "Three call sites want `sleeper.teams` and there is no narrow endpoint that serves it, so each reaches for the whole contract. None passes a `view` param, so each gets the widest view the backend has.",
    "requiredRepair": "Add `?view=startup` (or a new teams-only view) to the three call sites \u2014 that alone halves the cost \u2014 and hoist the three fetches into one memoised call keyed on selectedLeagueKey. Drop `cache: \"no-store\"` so the backend's existing ETag/304 does its job. Best fix: serve `sleeper.teams` from the existing /api/leagues response, which already carries per-league roster settings and would make the contract fetch unnecessary here.",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The load-path core survives and I measured it independently. On a real /draft mount the page issues `/api/data?leagueKey=dynasty_main` and gets a 200 whose gzipped content-length is 1,180,466 (\u224811.95 MB decoded), and the only field the mount-time call site consumes is `data.sleeper.teams` \u2014 46,792 bytes, 0.39% (frontend/app/draft/page.jsx:3932-3937, `cache: \"no-store\"`, then `const teams = data?.sleeper?.teams || []`). The backend already serves etag + `cache-control: private, max-age=30` on that route, so `no-store` does defeat a working 304 path. /draft measured \u22482.1x /rankings in both decoded and transferred bytes, which corroborates the author's 'roughly double every other page'. My first measurement pass appeared to refute the whole finding (total decoded 11.9 MB, no /api/data in the response log) \u2014 that was my own instrumentation artifact: Chrome evicts response bodies over its buffer, `resp.body()` throws 'Request content was evicted', and my handler was swallowing it. Header-level accounting recovered it. So the finding is not killed. Three things are overstated and one is simply wrong. (1) WRONG: 'All three /api/data call sites consume only data.sleeper.teams ... 0.39%'. Call site 2 \u2014 fetchSyncPreview at page.jsx:4201-4224 \u2014 consumes `data.playersArray` (`setAllPlayersArray(pa)`, page.jsx:4233), which is 6,673,553 of the 11,954,874 bytes and is the entire point of that fetch. Its waste is the duplicated legacy `players` dict (5,914,408 b), not 99.6% of the payload. Two of three call sites consume only teams, not three. (2) OVERSTATED: 'from three separate call sites' on page load. Measured: exactly ONE completed /api/data response per load. Call site 2 is click-gated ('Sync rookies'); call site 3 (page.jsx:4484-4487) is gated on `allPlayersArray` being set, i.e. post-sync, and uses `cache: \"force-cache\"`, not no-store. The claimUnderTest analogy to the prior '/draft calling it three times per page load' fix therefore does not transfer \u2014 the per-load count is 1. (3) OVERSTATED: the bare `/api/data` is attributed to 'a third call site'. It comes from call site 1 itself, whose URL expression is bare until `selectedLeagueKey` resolves; the bare request is superseded and never lands. (4) BLAST RADIUS: playersAffected 1092 is meaningless here \u2014 no player value is wrong; this is a payload-weight finding. Priority held at P1, not lowered: the surviving defect (1.18 MB gzipped / ~11.95 MB parsed, on mount, on the app's most time-critical page, to read 12 team names, with the backend's own ETag deliberately bypassed) is a genuine violation of this repo's stated performance rules. Rescoped for claim scope, not severity.",
+    "whatWouldSettleIt": "Point page.jsx:3930 at a narrow view (`/api/data?view=startup`, or serve sleeper.teams from /api/leagues, which /draft already fetches at 840 b) and drop `cache: \"no-store\"`; then re-run the header-level Playwright accounting above and /draft's transferred total should fall from \u22482.25 MB to \u22481.07 MB, matching /rankings. Note the measurement must read `content-length` from the response headers \u2014 `resp.body()` throws 'Request content was evicted' on this payload and silently under-reports by 11.9 MB, which is what nearly overturned this finding.",
+    "source": "verdicts-C4.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 2,
+    "pagesAffected": 1
+   }
   },
   {
    "id": "W26-F004",
@@ -28254,7 +28522,7 @@
    ],
    "title": "The home page's Top Movers panel prints \"No qualifying movers in this window\" and a \"Rank deltas vs. 30d ago\" subtitle when the backend has told it there are ZERO days of history \u2014 an empty state that reads as a market fact",
    "status": "Implemented but defective",
-   "priority": "P1",
+   "priority": "P2",
    "size": "S",
    "subsystem": "Terminal / movers",
    "surface": {
@@ -28306,9 +28574,11 @@
    },
    "userImpact": "The user reads the most prominent movement widget on the landing page, sees both the sell-high and buy-low columns empty under a heading claiming a 30-day comparison, and concludes the dynasty market has been flat. The truth is that the platform holds one snapshot and cannot answer the question at all. The correct user action \u2014 go look at movement elsewhere, or find out why history is missing \u2014 is never prompted.",
    "blastRadius": {
-    "playersAffected": 1092,
+    "playersAffected": 0,
     "routesAffected": 1,
-    "pagesAffected": 1
+    "pagesAffected": 1,
+    "componentsAffected": 1,
+    "componentsIncorrectlyImplicated": 1
    },
    "confidence": "high",
    "priorFinding": {
@@ -28319,7 +28589,20 @@
    "whatWorks": "The BACKEND is exemplary here and is not at fault: it separates measured window from requested window, publishes historyDepthDays and a null asOf, and its docstring explains why. Everything the frontend needs to tell the truth is already in the payload. MoversPanel's loading skeleton is also correctly sized to the settled shape (a documented fix for a ~500px layout jump).",
    "rootCause": "MoversPanel treats an empty result array as the only state worth distinguishing, and hardcodes its subtitle from the user's window selection rather than from the response's `window`.",
    "requiredRepair": "Branch on `historyDepthDays === 0 || asOf === null` first and render 'No rank history yet \u2014 we hold a single snapshot, so no movement can be measured', suppressing the subtitle's delta claim. When `window < windowRequested`, say so ('measured over N days, not 30'). Apply the same guard to MarketTicker.jsx:126. This is a display fix only \u2014 no backend change is needed.",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The observation reproduces verbatim on the correct topology (request interception, not plain :3000). MoversPanel.jsx:154-164 reads only `data.risers` / `data.fallers` and builds its subtitle from local `windowDays` state; `window`, `windowRequested` and `historyDepthDays` are never referenced anywhere in the file. The backend docstring at server.py:3385-3391 explicitly created `window` to stop exactly this mislabel ('reporting the request in that case labelled a 2-day delta \"90 days\"'). MoversPanel is rendered on `/` via frontend/app/page.jsx:17 -> TerminalLayout.jsx:76, so the page claim is right. Genuine, unfixed frontend defect. But four corrections force a rescope:\n\n(1) The MarketTicker half is REFUTED. The finding says 'MarketTicker.jsx:126 compounds it'. It does not \u2014 MarketTicker never touches /api/movers or rank_history. frontend/lib/market-movers.js:1-22 states it reads the contract's per-row `rankChange` 'verbatim rather than recomputing from rank_history', and that field is populated on the live contract: 694 ints, 572 of them nonzero. The 'Market quiet in my roster' string I captured is produced because NO team was selected (the page simultaneously renders 'Pick your team' / 'Pick a team to see allocation'), i.e. an empty roster scope \u2014 a different defect with a different cause, not this one.\n\n(2) The alarming state is container-conditional. `historyDepthDays: 0 / asOf: null` holds because `data/rank_history.jsonl` does not exist in this container (ls: No such file or directory) \u2014 the audit harness suppresses the scrape that writes it. In production the file exists; the backend docstring says it 'is only a few days deep today'. So the specific reading the userImpact turns on ('the user concludes the dynasty market has been flat') is not the production state. What IS live in production is the narrower and durable defect: whenever `window < windowRequested` \u2014 which the backend says is the normal case \u2014 the subtitle labels an N-day delta with the requested span. That is a mislabel, not a fabricated market fact.\n\n(3) The title and userImpact both say the subtitle reads 'Rank deltas vs. 30d ago'. Default state is `useState(14)` (MoversPanel.jsx:127) and the rendered page says '14d ago'; the finding's own reproduction.actual also says 14d. The 30d wording only appears after a user clicks the 30d segment. Self-inconsistent.\n\n(4) blastRadius playersAffected:1092 is unfounded \u2014 no player is mispriced; the panel shows at most 16 rows (limit=8 per side) and every delta it would show is a real one.\n\nDisplay-layer mislabel with no wrong value acted upon => P2.",
+    "whatWouldSettleIt": "Seed data/rank_history.jsonl with 3 days of snapshots and request window=30. If the panel still prints 'Rank deltas vs. 30d ago' over a 3-day delta, the production-live half of this finding is proven independent of the harness. Conversely, confirming MarketTicker with a team selected and >=3 nonzero rankChange rows on that roster settles that its 'Market quiet' string is unrelated to rank history.",
+    "source": "verdicts-C5.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   }
   },
   {
    "id": "W26-F011",
@@ -29033,7 +29316,7 @@
    ],
    "title": "Trade suggestions cannot propose a defensive back to anyone \u2014 the top-150 board gate contains zero DBs \u2014 yet /trade tells all 12 teams to 'target DB' while every team already rosters 5-9 of them against a 3-DB requirement",
    "status": "Implemented but defective",
-   "priority": "P0",
+   "priority": "P1",
    "size": "M",
    "subsystem": "Trade suggestions",
    "surface": {
@@ -29093,9 +29376,11 @@
    },
    "userImpact": "On /trade, the Trade Suggestions panel renders a red 'Should target DB' badge (trade-sections.jsx:1099-1103) to every manager in the league. Acting on it means spending real trade capital acquiring a defensive back at a position where the manager already has 167%-300% of the starters needed \u2014 and the engine can never actually offer one, so the advice is unfollowable as well as wrong. No warning is shown that the candidate pool has no DBs in it.",
    "blastRadius": {
-    "playersAffected": 139,
+    "playersAffected": 96,
+    "playersAffectedNote": "96 DBs, 100% excluded from the suggestion pool; 279 IDP rows excluded in total (DL 108 + LB 75 + DB 96) out of an 812-row pool",
     "routesAffected": 1,
-    "pagesAffected": 1
+    "pagesAffected": 1,
+    "teamsShownTheUnsatisfiableDbNeed": 12
    },
    "confidence": "high",
    "priorFinding": {
@@ -29107,7 +29392,20 @@
    "rootCause": "BOARD_TOP_N_FILTER is a single global cut over a value scale that is not comparable across asset classes: offense peaks at 9999, IDP at ~6400 and DB at 3159. finder.py identified this and ranks each market's own population from 1; suggestions.py kept the global cut and documented it as safe on the untested premise that 'our own blended board covers every asset class'.",
    "requiredRepair": "Apply the top-N cut per position family (or per asset class) in _apply_board_top_n_filter, mirroring finder.py's market_groups. Separately, rosterAnalysis.starterCounts must count the manager's WHOLE roster, not only pool members, or needPositions must be suppressed for any family with zero pool coverage and say so.",
    "dependencies": "Requires no data change; purely an engine-side gate change. Interacts with W27-F007 (hybrid eligibility) for how DL/LB counts are attributed.",
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "rescoped",
+    "reran": true,
+    "reasoning": "The reproduction re-runs exactly (one correction: it needs GET /api/data, not ?view=app, which carries no playersArray and returns an empty pool). The defect is real and unfixed at HEAD: src/trade/suggestions.py:698 `_apply_board_top_n_filter` is a single global cut on `board_rank` with no per-family handling, so 0 of 96 DBs survive while src/trade/finder.py:579-583 documents this exact failure mode ('a single global top-150 removes every IDP player (WS-J F-3)') and fixes it per-market. The in-code comment at suggestions.py:229-238 asserting the blended board 'answers directly and for every asset class, including IDP' is contradicted by its own output. needPositions contains 'DB' for 12/12 teams; the badge markup at frontend/app/trade/trade-sections.jsx:1097-1103 renders it as a negative Badge. All confirmed.\n\nP0 fails three of the protocol's own tests, so this is rescoped to P1, not overturned:\n(1) 'no warning shown' is false. The SAME panel, 20 lines above the badge (trade-sections.jsx:1074-1081), renders `{totalSuggestions} suggestions \u00b7 {rosterMatched}/{rosterCount} matched` \u2014 '6 suggestions \u00b7 16/57 matched' for Jason, '3/44' for jstuedle. That is a rendered disclosure that the analysis covers a minority of the roster. It does not name the DB blind spot, which is why the finding survives at all, but it defeats the P0 'no warning' clause.\n(2) 'a user acts on a wrong number' is not met. Every number a trade is actually priced on is correct \u2014 the sellHigh/buyLow cards read `rankDerivedValue` and their arithmetic is untouched. The wrong output is an advisory label. Furthermore src/trade/suggestions.py:281 documents `starter_counts` as `# above-replacement count`, not a raw roster count. Under the engine's own definition 'you have zero above-replacement DBs' is literally TRUE for all 12 teams. The finding's inferential step \u2014 from 'no DB in pool' to 'the engine reports a shortage that does not exist' \u2014 silently substitutes raw-count semantics the code never claimed. What is genuinely defective is narrower and still worth fixing: because 'above replacement' is operationalised as 'top-150 OVERALL on a scale where DB peaks at 3159 against a board max of 9988', the DB need is structurally permanent, identical for every team, and unsatisfiable by the engine that raised it \u2014 a signal that can never turn off carries no information. Note the same is largely true of DL (need for 10/12) and LB (11/12), which the finding treats as working.\n(3) blastRadius playersAffected:139 is not derivable from anything I could recount. The pool holds 96 DBs and excludes all 96; total IDP excluded is 279 (DL 115-7=108, LB 82-7=75, DB 96-0=96). 139 matches neither.\nMinor: numericProof.startingSlots=21 is wrong \u2014 live metadata.starterNeeds sums to 20, so the IDP lineup share is 9/20 = 45.0%, not 42.86%. Direction and conclusion unchanged.",
+    "whatWouldSettleIt": "Change _apply_board_top_n_filter to cut per position family (mirroring finder.py's market_groups at finder.py:583-599) and re-run the 12-roster sweep: DB should enter the pool and needPositions should stop containing 'DB' for teams that roster startable DBs. Separately, decide the semantics question the finding papers over \u2014 if starter_counts is meant to stay an above-replacement count, the fix is to suppress or footnote needPositions for any family with zero pool coverage, not to switch it to a raw roster count.",
+    "source": "verdicts-C5.jsonl"
+   },
+   "authoredPriority": "P0",
+   "authoredBlastRadius": {
+    "playersAffected": 139,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   }
   },
   {
    "id": "W27-F003",
@@ -31555,9 +31853,10 @@
    },
    "userImpact": "Every value on /rankings past the top handful is produced by a curve evaluated outside the coordinate system it was scored in. The holdout RMSE that gates promotion (787.84 for the champion) is therefore not a measurement of the served board's error.",
    "blastRadius": {
-    "playersAffected": 1092,
+    "playersAffected": 709,
     "routesAffected": 1,
-    "pagesAffected": 1
+    "pagesAffected": 2,
+    "note": "709 of 1092 rows carry >=1 rank_hill source contribution; the other 383 are priced purely value_direct and are untouched by the Hill denominator. Pages: /rankings and /trade (equity sums rankDerivedValue)."
    },
    "confidence": "medium",
    "priorFinding": {
@@ -31574,7 +31873,20 @@
     42,
     44
    ],
-   "published": true
+   "published": true,
+   "verification": {
+    "verdict": "upheld",
+    "reran": true,
+    "reasoning": "Reproduction re-runs and yields the stated numbers exactly. The two constants are real and independent: src/model_registry/holdout.py:83 FIT_TOP_N=400 and src/api/data_contract.py:5303 _PERCENTILE_REFERENCE_N=500, with no assertion tying them; scripts/fit_hill_curve_percentile.py:335 truncates each source with values[:400] and :207 divides by n-1. Serving divides by _PERCENTILE_REFERENCE_N-1=499 at data_contract.py:7590-7594 for every non-value-direct source. src/canonical/player_valuation.py:383-385 already concedes the split in prose ('offline fit tooling may still pass native-pool percentiles') without justifying it. I attacked the inferential step by refitting the master myself under the serve denominator. My native-pool reimplementation reproduces the committed constants to within rounding (c=0.1100 s=1.120 vs shipped 0.1100/1.110), which validates the reimplementation; the serve-denominator refit lands at c=0.0750 s=1.100, and the shipped curve therefore serves 24.7%-41.9% ABOVE a coordinate-consistent curve across ranks 50-400. The defect is LARGER than the finding claims, not smaller. Registry confirms the shipped constants came from this exact fit script via the champion promotion, so the fit is causally upstream of live values. Two corrections, neither fatal. (a) blastRadius playersAffected 1092 is wrong: 383 rows are priced purely from value_direct sources (ktcSfTep/idpTradeCalc bypass the Hill entirely per data_contract.py:7597-7620), so 709 rows carry any Hill-path contribution. (b) The numericProof's single fit denominator of 399 holds for only 3 of the 6 OFFENSE fit sources; DLF/DD/DN/Fitz have 281/367/294/299 positive rows, so the master is an average over curves fitted at denominators 280-399. The '13.2%/18.5%/25.4%' figures are therefore an illustrative lower bound, not a measured serve error - my refit supplies the measured one. Also correcting one piece of rhetoric: 'evaluated outside the coordinate system it was scored in' overstates it. Both fit and serve evaluate p in [0,1]; what differs is the rank->p mapping. No extrapolation occurs (offense rank_hill sources top out at effective rank 293-463, so p<=0.93). Not fixed at HEAD. Not a harness artifact - the CSVs, the registry and the live contract are all present and the path is the live /api/data pipeline. P1 stands: the affected quantity is rankDerivedValue, which /rankings displays and /trade sums into equity, and no warning is shown. The finding's own userImpact undersells this by framing it as a holdout-RMSE governance problem; the sharper impact is that the distortion is rank-dependent (bigger deeper), so multi-player packages of mid-board assets are systematically inflated against elite anchors.",
+    "whatWouldSettleIt": "Promote a challenger fitted with p=(i)/(_PERCENTILE_REFERENCE_N-1) through scripts/model_registry.py and diff the resulting board against today's on the 709 affected rows, then re-score both against the four holdout sources under the SERVE coordinate rather than the native one. A cheap permanent guard: a test that imports FIT_TOP_N and _PERCENTILE_REFERENCE_N and asserts they agree, which is the finding's own requiredRepair and costs nothing.",
+    "source": "verdicts-C6.jsonl"
+   },
+   "authoredPriority": "P1",
+   "authoredBlastRadius": {
+    "playersAffected": 1092,
+    "routesAffected": 1,
+    "pagesAffected": 1
+   }
   },
   {
    "id": "W30-F009",

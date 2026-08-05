@@ -3,9 +3,8 @@
   "subsystem": "FAAB recommender",
   "findings": 10,
   "byPriority": {
-   "P0": 1,
+   "P2": 6,
    "P1": 2,
-   "P2": 5,
    "P3": 2
   },
   "byStatus": {
@@ -16,13 +15,8 @@
    "Implemented and verified": 1
   },
   "worstStatus": "Missing",
-  "p0Titles": [
-   {
-    "id": "W11-F002",
-    "title": "Players the board declines to price (rankDerivedValue = 0) are recommended $22-$25 bids and described as a 'strong free-agent target'; 125 of 283 free agents are affected"
-   }
-  ],
-  "verified": 0
+  "p0Titles": [],
+  "verified": 1
  },
  {
   "subsystem": "Trade finder",
@@ -46,22 +40,16 @@
   "subsystem": "Trade suggestions",
   "findings": 5,
   "byPriority": {
-   "P1": 2,
+   "P1": 3,
    "P3": 1,
-   "P0": 1,
    "P2": 1
   },
   "byStatus": {
    "Implemented but defective": 5
   },
   "worstStatus": "Implemented but defective",
-  "p0Titles": [
-   {
-    "id": "W27-F002",
-    "title": "Trade suggestions cannot propose a defensive back to anyone \u2014 the top-150 board gate contains zero DBs \u2014 yet /trade tells all 12 teams to 'target DB' while every team already rosters 5-9 of them against a 3-DB requirement"
-   }
-  ],
-  "verified": 1
+  "p0Titles": [],
+  "verified": 2
  },
  {
   "subsystem": "Team assignment",
@@ -348,7 +336,7 @@
     "title": "Position FAAB calibration blends RAW dollar bids from three seasons with different budgets ($1000 / $200 / $100), inflating the RB anchor 5.0x and driving every bid too high"
    }
   ],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Waivers page / FAAB recommender",
@@ -418,15 +406,14 @@
   "subsystem": "Consensus Edge \u2014 Sharp Flow component",
   "findings": 2,
   "byPriority": {
-   "P1": 1,
-   "P2": 1
+   "P2": 2
   },
   "byStatus": {
    "Implemented but defective": 2
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Sharp operations workflows",
@@ -490,7 +477,7 @@
     "title": "The #1 ROS-strength team is told 'Seller \u2014 sell aging win-now players' on /league -> Trade Deadline because he is absent from the 2024 sim and absence is coerced to 0.0 playoff odds"
    }
   ],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Team direction (ROS)",
@@ -557,7 +544,7 @@
   "subsystem": "Operator alerting",
   "findings": 2,
   "byPriority": {
-   "P1": 1,
+   "P2": 1,
    "P3": 1
   },
   "byStatus": {
@@ -566,7 +553,7 @@
   },
   "worstStatus": "Implemented but disconnected",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "CI / Sharp production verification",
@@ -637,7 +624,7 @@
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Documentation / governance",
@@ -1180,14 +1167,14 @@
   "subsystem": "Model registry CLI",
   "findings": 1,
   "byPriority": {
-   "P1": 1
+   "P2": 1
   },
   "byStatus": {
    "Implemented but defective": 1
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Model registry / historical snapshots",
@@ -1525,7 +1512,7 @@
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Manual identity overrides",
@@ -1912,7 +1899,7 @@
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Frontend bridge routes",
@@ -2975,7 +2962,7 @@
     "title": "ROS playoff/championship sims run on the OLDEST loaded season (2024), not the newest \u2014 sorted(snapshot.seasons, key=luck._season_sort_key) passes objects to a function typed for strings, so every season sorts equal"
    }
   ],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "ROS isolation invariant",
@@ -3729,7 +3716,7 @@
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Authentication",
@@ -3826,53 +3813,53 @@
   "subsystem": "Scrape lifecycle / monitoring",
   "findings": 1,
   "byPriority": {
-   "P1": 1
+   "P2": 1
   },
   "byStatus": {
    "Implemented but defective": 1
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Scrape lifecycle",
   "findings": 1,
   "byPriority": {
-   "P1": 1
+   "P2": 1
   },
   "byStatus": {
    "Implemented but defective": 1
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Monitoring / staleness",
   "findings": 1,
   "byPriority": {
-   "P1": 1
+   "P2": 1
   },
   "byStatus": {
    "Implemented but defective": 1
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Monitoring UI",
   "findings": 1,
   "byPriority": {
-   "P1": 1
+   "P2": 1
   },
   "byStatus": {
    "Implemented but defective": 1
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Monitoring / status contract",
@@ -4008,14 +3995,14 @@
   "subsystem": "Test suite integrity / CI gating",
   "findings": 1,
   "byPriority": {
-   "P1": 1
+   "P2": 1
   },
   "byStatus": {
    "Implemented but disconnected": 1
   },
   "worstStatus": "Implemented but disconnected",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Test suite integrity / E2E",
@@ -4184,20 +4171,20 @@
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Frontend data layer / app shell",
   "findings": 1,
   "byPriority": {
-   "P1": 1
+   "P2": 1
   },
   "byStatus": {
    "Implemented but defective": 1
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Draft board",
@@ -4210,7 +4197,7 @@
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "BDVM engine / API adapter",
@@ -4294,14 +4281,14 @@
   "subsystem": "Terminal / movers",
   "findings": 1,
   "byPriority": {
-   "P1": 1
+   "P2": 1
   },
   "byStatus": {
    "Implemented but defective": 1
   },
   "worstStatus": "Implemented but defective",
   "p0Titles": [],
-  "verified": 0
+  "verified": 1
  },
  {
   "subsystem": "Trade calculator (display)",

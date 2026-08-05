@@ -5,7 +5,7 @@ regenerate instead, so this table can never drift from the registry it summarise
 
 - Findings published: **431**
 - Refuted under verification and withdrawn: **1**
-- Commit: `ba9f348b` · generated 2026-08-05T00:27:11.149268+00:00
+- Commit: `fb4a15a0` · generated 2026-08-05T01:05:56.023778+00:00
 
 Priority shown is the **verified** priority where a verifier corrected the author;
 `authored` records what the workstream originally claimed. `V` is the verification
@@ -28,13 +28,13 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 | 13 | Roster intelligence | 10 | 1 | 5 | Implemented but disconnected |
 | 14 | Trade finder and opportunity engine | 16 | 0 | 7 | Missing |
 | 15 | Trade partner fit and acceptance | 16 | 0 | 7 | Missing |
-| 16 | Central Buy/Sell Tracker | 18 | 1 | 8 | Missing |
-| 17 | Consensus Edge | 10 | 0 | 1 | Scaffolded only |
+| 16 | Central Buy/Sell Tracker | 18 | 1 | 7 | Missing |
+| 17 | Consensus Edge | 10 | 0 | 0 | Scaffolded only |
 | 18 | Sharp Tracker | 19 | 0 | 0 | Scaffolded only |
 | 19 | Super Sharps | 6 | 0 | 1 | Implemented but disconnected |
 | 20 | Insider Trading | 16 | 0 | 0 | Missing |
 | 21 | Sharp roster percentage | 4 | 0 | 1 | Implemented but defective |
-| 22 | Waiver wire and FAAB | 22 | 2 | 5 | Missing |
+| 22 | Waiver wire and FAAB | 22 | 1 | 5 | Missing |
 | 23 | Rest-of-season engine | 11 | 2 | 0 | Implemented but disconnected |
 | 24 | Best-ball optimizer, power rankings and odds | 2 | 0 | 0 | Partially implemented |
 | 25 | Contender / rebuilder / team direction | 8 | 0 | 4 | Scaffolded only |
@@ -46,16 +46,16 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 | 31 | Awards, records, history, money, constitution, media | 11 | 0 | 3 | Implemented but defective |
 | 32 | Team-to-NFL-franchise assignment | 5 | 0 | 0 | Implemented but defective |
 | 33 | News, usage, role and text signals | 10 | 0 | 2 | Scaffolded only |
-| 34 | IDP-specific systems | 9 | 1 | 2 | Implemented but disconnected |
-| 35 | Performance, caching, API and database | 14 | 0 | 6 | Implemented but defective |
-| 36 | User experience and design | 11 | 0 | 1 | Implemented but defective |
+| 34 | IDP-specific systems | 9 | 0 | 3 | Implemented but disconnected |
+| 35 | Performance, caching, API and database | 14 | 0 | 5 | Implemented but defective |
+| 36 | User experience and design | 11 | 0 | 0 | Implemented but defective |
 | 37 | Public/private data and security | 10 | 0 | 4 | Duplicate or conflicting implementation |
-| 38 | Data refresh, jobs and monitoring | 28 | 0 | 9 | Scaffolded only |
-| 39 | Historical snapshots and backtesting | 12 | 0 | 1 | Missing |
+| 38 | Data refresh, jobs and monitoring | 28 | 0 | 4 | Scaffolded only |
+| 39 | Historical snapshots and backtesting | 12 | 0 | 0 | Missing |
 | 40 | Recommendation confidence and stability | 17 | 1 | 7 | Missing |
-| 41 | Admin review and failure handling | 3 | 0 | 2 | Missing |
-| 42 | Mathematical and formula audit | 31 | 0 | 5 | Scaffolded only |
-| 43 | Testing audit | 11 | 0 | 4 | Scaffolded only |
+| 41 | Admin review and failure handling | 3 | 0 | 0 | Missing |
+| 42 | Mathematical and formula audit | 31 | 0 | 4 | Scaffolded only |
+| 43 | Testing audit | 11 | 0 | 3 | Scaffolded only |
 | 44 | Dead code, duplication and documentation | 34 | 0 | 6 | Scaffolded only |
 | 45 | Unlisted features | 12 | 0 | 0 | Missing |
 
@@ -107,7 +107,7 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 | ID | V | Pri | Status | Size | Finding | Location | Repro |
 |---|---|---|---|---|---|---|---|
 | W06-F001 |  | P1 | Implemented but defective | M | Two real players occupy two board rows each because name-variant drift splits one human across a resolved row and an unresolved ghost, stranding vendor votes | `Dynasty Scraper.py:4640-4685` | yes |
-| W06-F003 |  | P1 | Implemented but defective | XS | /api/player/{sleeper_id}/realized returns unmapped_player for every player because the Sleeper block never contains the key the identity mapper is handed | `server.py:11261-11268` | yes |
+| W06-F003 | u | P1 | Implemented but defective | XS | /api/player/{sleeper_id}/realized returns unmapped_player for every player because the Sleeper block never contains the key the identity mapper is handed | `server.py:11261-11268` | yes |
 | W06-F002 |  | P2 | Implemented but defective | S | Both identity-duplicate detectors on the contract are structurally unable to fire, and scripts/audit_identity.py renders a permanently empty section for the one that would have cau | `src/api/data_contract.py:3167-3200` | yes |
 | W06-F004 |  | P2 | Implemented but disconnected | S | config/identity/id_overrides.json cannot influence the board at all, and where it IS read the override loses to the directory it exists to override | `src/identity/unified_mapper.py:272-295` | yes |
 | W06-F005 |  | P2 | Implemented but disconnected | S | identityConfidence is a three-valued restatement of 'does this row have a playerId', that playerId was itself assigned by a name match, and no surface reads the field | `src/api/data_contract.py:3076-3113` | yes |
@@ -298,7 +298,7 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 | W09-F003 |  | P1 | Implemented but disconnected | S | Draft picks can never appear in a trade-finder or trade-suggestion result: both engines resolve rosters from sleeper.teams[].players, which contains zero picks | `src/trade/finder.py:621-643` | yes |
 | W09-F004 |  | P1 | Implemented but defective | S | No defensive back is eligible for any trade suggestion: the best DB on the board ranks 167th, past the top-150 gate, in a league that starts three of them | `src/trade/suggestions.py:239,646-651` | yes |
 | W09-F005 | r | P1 | Mocked or hard-coded | M | Monte Carlo uncertainty is a hard-coded flat +/-15% band on zero live rows, and the 9999 clamp makes it understate an elite asset by 5.07% | `src/trade/monte_carlo.py:368-387` | yes |
-| W09-F006 |  | P1 | Implemented but defective | S | The leagueAdjusted valuation lens is a silent no-op on every all-offense trade in /api/trade/simulate and /api/trade/finder, while the response still stamps valuationMode: leagueAd | `src/league_intel/overlay.py:86-93` | yes |
+| W09-F006 | u | P1 | Implemented but defective | S | The leagueAdjusted valuation lens is a silent no-op on every all-offense trade in /api/trade/simulate and /api/trade/finder, while the response still stamps valuationMode: leagueAd | `src/league_intel/overlay.py:86-93` | yes |
 | W09-F007 |  | P1 | Implemented but defective | XS | The Next bridge route for /api/trade/suggestions is the only one of four trade/angle bridges that drops the session cookie, so the suggestions feed 401s from the browser | `frontend/app/api/trade/suggestions/route.js:20-27` | yes |
 | W09-F008 |  | P2 | Implemented but defective | S | The finder's 'high confidence' tier is structurally unreachable: it measures the scraper's 3-source site count against a 5-source baseline while the board blends up to 14 | `src/trade/finder.py:145,466,790-804` | yes |
 | W09-F009 |  | P2 | Implemented but defective | S | The finder's 'arbitrage' score is 80% own-side gain and 20% opponent appeal, so it ranks lopsidedness rather than the market/board gap it is named for | `src/trade/finder.py:776-816` | yes |
@@ -319,7 +319,7 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 | W09-F003 |  | P1 | Implemented but disconnected | S | Draft picks can never appear in a trade-finder or trade-suggestion result: both engines resolve rosters from sleeper.teams[].players, which contains zero picks | `src/trade/finder.py:621-643` | yes |
 | W09-F004 |  | P1 | Implemented but defective | S | No defensive back is eligible for any trade suggestion: the best DB on the board ranks 167th, past the top-150 gate, in a league that starts three of them | `src/trade/suggestions.py:239,646-651` | yes |
 | W09-F005 | r | P1 | Mocked or hard-coded | M | Monte Carlo uncertainty is a hard-coded flat +/-15% band on zero live rows, and the 9999 clamp makes it understate an elite asset by 5.07% | `src/trade/monte_carlo.py:368-387` | yes |
-| W09-F006 |  | P1 | Implemented but defective | S | The leagueAdjusted valuation lens is a silent no-op on every all-offense trade in /api/trade/simulate and /api/trade/finder, while the response still stamps valuationMode: leagueAd | `src/league_intel/overlay.py:86-93` | yes |
+| W09-F006 | u | P1 | Implemented but defective | S | The leagueAdjusted valuation lens is a silent no-op on every all-offense trade in /api/trade/simulate and /api/trade/finder, while the response still stamps valuationMode: leagueAd | `src/league_intel/overlay.py:86-93` | yes |
 | W09-F007 |  | P1 | Implemented but defective | XS | The Next bridge route for /api/trade/suggestions is the only one of four trade/angle bridges that drops the session cookie, so the suggestions feed 401s from the browser | `frontend/app/api/trade/suggestions/route.js:20-27` | yes |
 | W09-F008 |  | P2 | Implemented but defective | S | The finder's 'high confidence' tier is structurally unreachable: it measures the scraper's 3-source site count against a 5-source baseline while the board blends up to 14 | `src/trade/finder.py:145,466,790-804` | yes |
 | W09-F009 |  | P2 | Implemented but defective | S | The finder's 'arbitrage' score is 80% own-side gain and 20% opponent appeal, so it ranks lopsidedness rather than the market/board gap it is named for | `src/trade/finder.py:776-816` | yes |
@@ -343,12 +343,12 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 | W12-F006 |  | P1 | Duplicate or conflicting implementation | M | Three independent email-sending detectors can alert on the same player on the same day, to the same address, with three separate cooldown namespaces and no cross-check | `server.py:11695-11726` | yes |
 | W12-F007 |  | P1 | Implemented but defective | S | Direction is never gated on confidence: 253 of the 356 directional verbs on /rankings sit on rows the same page badges as low or no confidence, and 102 rest on a 'consensus' of two | `frontend/lib/display-helpers.js:205-237` | yes |
 | W12-F008 |  | P1 | Implemented but defective | M | KTC is on both sides of the 'KTC versus expert consensus' comparison, and a crowd trade calculator is the 'expert' on one page and the 'market' on three others | `src/api/data_contract.py:1028-1035` | yes |
-| W14-F001 |  | P1 | Implemented but defective | M | Sharp Flow can never score a single row: the ledger keys movements by Sleeper player id, the board looks them up by displayName | `src/consensus_edge/inputs.py:41-80` | yes |
 | W12-F009 | r | P2 _(was P1)_ | Duplicate or conflicting implementation | M | The terminal home page prescribes opposite actions from the same rank-history input: the Movers panel calls a riser a sell-high candidate while the Signals panel directly below cal | `frontend/components/terminal/MoversPanel.jsx:189-216` | yes |
 | W12-F010 |  | P2 | Partially implemented | S | The /rankings Edge column promises it is 'never an ambiguous dash' and renders a dash for all 398 IDP rows; the IDP buy/sell verb exists only on /edge | `frontend/app/rankings/page.jsx:1157-1172` | yes |
 | W12-F011 |  | P2 | Blocked by data | S | Both live rule engines return HOLD 'Stable — no movement, volatility, or news triggers' for 665 of 665 rostered players because the rank-history log does not exist, and no surface  | `src/api/terminal.py:985-992` | yes |
 | W12-F012 |  | P2 | Scaffolded only | M | src/news/unified_signal_engine.py declares itself 'the single entry point for every BUY/SELL/HOLD decision emitted to users' and has no production caller | `src/news/unified_signal_engine.py:1-31` | yes |
 | W12-F013 |  | P2 | Implemented but defective | M | Every movement threshold is an absolute ordinal-rank count applied uniformly across a 1,092-row board, so a 3-rank move is a SELL at rank 900 and not a signal at rank 1 | `src/api/terminal.py:338-371` | yes |
+| W14-F001 | r | P2 _(was P1)_ | Implemented but defective | M | Sharp Flow can never score a single row: the ledger keys movements by Sleeper player id, the board looks them up by displayName | `src/consensus_edge/inputs.py:41-80` | yes |
 | W14-F002 |  | P2 | Implemented but defective | S | Consensus Edge's 'Sharp Flow' consults no sharp cohort at all — it would count every manager in every crawled league as a qualified sharp | `src/consensus_edge/inputs.py:54-62` | yes |
 | W12-F014 |  | P3 | Deprecated but still active | XS | Two documented constants in the label layer are wrong or dead: edge-helpers states the Edge premium rank cap as 150 while the constant is 250, and MARKET_PREMIUM_SPREAD is imported | `frontend/lib/edge-helpers.js:29-52` | yes |
 | W12-F015 |  | P3 | Implemented and verified | XS | Verified working: the only two label families with a documented, calibrated-or-honestly-uncalibrated score both refuse to show a number rather than fake one — /consensus-edge and / | `src/consensus_edge/score.py:280-359` | yes |
@@ -358,7 +358,7 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 
 | ID | V | Pri | Status | Size | Finding | Location | Repro |
 |---|---|---|---|---|---|---|---|
-| W14-F001 |  | P1 | Implemented but defective | M | Sharp Flow can never score a single row: the ledger keys movements by Sleeper player id, the board looks them up by displayName | `src/consensus_edge/inputs.py:41-80` | yes |
+| W14-F001 | r | P2 _(was P1)_ | Implemented but defective | M | Sharp Flow can never score a single row: the ledger keys movements by Sleeper player id, the board looks them up by displayName | `src/consensus_edge/inputs.py:41-80` | yes |
 | W14-F002 |  | P2 | Implemented but defective | S | Consensus Edge's 'Sharp Flow' consults no sharp cohort at all — it would count every manager in every crawled league as a qualified sharp | `src/consensus_edge/inputs.py:54-62` | yes |
 | W14-F003 |  | P2 | Implemented but defective | M | 28 of the board's 73 buy-side rows are labelled Buy directly above their own text saying the fair value is BELOW the market | `src/consensus_edge/mispricing.py:145-158` | yes |
 | W14-F004 |  | P3 | Implemented and verified | XS | The leave-one-out fair value is genuinely anchor-free: zero anchor votes survive, and the served fairValue reproduces a freshly built LOO board on every priced row | `src/consensus_edge/fair_value.py:157-187` | yes |
@@ -438,13 +438,13 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 
 | ID | V | Pri | Status | Size | Finding | Location | Repro |
 |---|---|---|---|---|---|---|---|
-| W11-F001 |  | P0 | Implemented but defective | M | Position FAAB calibration blends RAW dollar bids from three seasons with different budgets ($1000 / $200 / $100), inflating the RB anchor 5.0x and driving every bid too high | `src/api/faab_analytics.py:102-121` | yes |
-| W11-F002 |  | P0 | Implemented but defective | S | Players the board declines to price (rankDerivedValue = 0) are recommended $22-$25 bids and described as a 'strong free-agent target'; 125 of 283 free agents are affected | `src/trade/waiver.py:120-121` | yes |
+| W11-F001 | u | P0 | Implemented but defective | M | Position FAAB calibration blends RAW dollar bids from three seasons with different budgets ($1000 / $200 / $100), inflating the RB anchor 5.0x and driving every bid too high | `src/api/faab_analytics.py:102-121` | yes |
 | W11-F003 |  | P1 | Implemented but defective | L | The bid saturates at the top of the FREE-AGENT pool, so 367 board rows (value >= 1908) price identically and no player anywhere justifies more than 40% of the budget -- there is no | `src/trade/waiver.py:120-129` | yes |
 | W11-F004 |  | P1 | Implemented but defective | M | The recommendation is not monotonic in player value: 8,362 of 39,903 free-agent pairs invert, worst case a $21 swing in favour of the lower-valued player | `src/trade/faab_recommender.py:454-500` | yes |
 | W11-F005 |  | P1 | Implemented but defective | S | The /waivers 'FAAB hint' column changes the recommended dollar bid for the same player when the user changes the position filter -- Charlie Kolar $19 under 'All positions', $21 und | `frontend/app/waivers/page.jsx:206-224` | yes |
 | W11-F006 |  | P1 | Implemented but defective | XS | The /waivers league FAAB context panel unwraps the wrong envelope key (data.body vs the API's data.data), so every league bid statistic renders as an em dash despite the API return | `frontend/components/waivers/ManualAddDrop.jsx:300-312` | yes |
 | W11-F007 |  | P1 | Duplicate or conflicting implementation | M | Two different FAAB dollar figures for the same player render on /waivers at once and disagree by up to 75% | `frontend/app/waivers/page.jsx:206-224` | yes |
+| W11-F002 | r | P2 _(was P0)_ | Implemented but defective | S | Players the board declines to price (rankDerivedValue = 0) are recommended $22-$25 bids and described as a 'strong free-agent target'; 125 of 283 free agents are affected | `src/trade/waiver.py:120-121` | yes |
 | W11-F008 |  | P2 | Implemented but defective | S | The value-gain modifier is inverted with respect to the drop side: adding a player for free is recommended at $32 while adding the same player and dropping a worthless one is recom | `src/trade/faab_recommender.py:149-158` | yes |
 | W11-F009 |  | P2 | Implemented but disconnected | XS | FAAB v2's budget-environment scaling stage cannot fire for any position that has bid history -- it is dead code on live data | `src/trade/faab_recommender.py:219-258` | yes |
 | W11-F010 |  | P2 | Implemented but defective | S | The league calibration anchors on the MEAN of a heavily right-skewed winning-bid distribution (league mean $19.55 vs median $5.00), systematically biasing every recommendation upwa | `src/api/faab_analytics.py:124-140` | yes |
@@ -465,8 +465,8 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 
 | ID | V | Pri | Status | Size | Finding | Location | Repro |
 |---|---|---|---|---|---|---|---|
-| W17-F001 |  | P0 | Implemented but defective | XS | ROS playoff/championship sims run on the OLDEST loaded season (2024), not the newest — sorted(snapshot.seasons, key=luck._season_sort_key) passes objects to a function typed for st | `src/public_league/luck.py:151-155` | yes |
-| W17-F002 |  | P0 | Implemented but defective | S | The #1 ROS-strength team is told 'Seller — sell aging win-now players' on /league -> Trade Deadline because he is absent from the 2024 sim and absence is coerced to 0.0 playoff odd | `src/ros/trade_deadline.py:78-79` | yes |
+| W17-F001 | u | P0 | Implemented but defective | XS | ROS playoff/championship sims run on the OLDEST loaded season (2024), not the newest — sorted(snapshot.seasons, key=luck._season_sort_key) passes objects to a function typed for st | `src/public_league/luck.py:151-155` | yes |
+| W17-F002 | u | P0 | Implemented but defective | S | The #1 ROS-strength team is told 'Seller — sell aging win-now players' on /league -> Trade Deadline because he is absent from the 2024 sim and absence is coerced to 0.0 playoff odd | `src/ros/trade_deadline.py:78-79` | yes |
 | W17-F005 |  | P2 | Implemented but defective | S | HANDOFF.md verified: the 6 duplicate aggregate rows and 16 non-lowercase canonicalNames are still present exactly; the '40 of 666 unmatched' figure is stale — it is now 30 of 666 | `src/ros/team_strength.py:98-102` | yes |
 | W17-F008 |  | P2 | Implemented but defective | S | playoff_sim stamps converged: true on a payload whose headline number is not the one it tested — the SE criterion covers playoff odds only, and championship odds still move 2.25 pe | `src/ros/playoff_sim.py:767-772` | yes |
 | W17-F009 |  | P2 | Implemented but defective | M | The 72/18/5/5 team-strength formula is still live, hardcoded, never validated — and its labelled weights are not its actual contributions: coverage and health are stamped 5% each a | `src/ros/team_strength.py:33-36,156-161` | yes |
@@ -625,8 +625,8 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 
 | ID | V | Pri | Status | Size | Finding | Location | Repro |
 |---|---|---|---|---|---|---|---|
-| W27-F002 |  | P0 | Implemented but defective | M | Trade suggestions cannot propose a defensive back to anyone — the top-150 board gate contains zero DBs — yet /trade tells all 12 teams to 'target DB' while every team already roste | `src/trade/suggestions.py:209-242` | yes |
 | W27-F001 |  | P1 | Duplicate or conflicting implementation | M | The /rankings Edge column and its buy/sell filter carry no signal for any of the 398 IDP rows, while /edge labels the same players BUY/SELL from a second, parallel detector | `src/api/data_contract.py:3036-3056` | yes |
+| W27-F002 | r | P1 _(was P0)_ | Implemented but defective | M | Trade suggestions cannot propose a defensive back to anyone — the top-150 board gate contains zero DBs — yet /trade tells all 12 teams to 'target DB' while every team already roste | `src/trade/suggestions.py:209-242` | yes |
 | W27-F003 |  | P1 | Implemented but disconnected | S | The /angle page can never return an IDP player in a counter-package: the engine defaults include_idp=False and the page never sends the flag | `src/trade/angle.py:703-712` | yes |
 | W27-F004 |  | P2 | Implemented but defective | S | /api/angle/find applies a +/-5% cross-market plausibility gate that is narrower than the two boards' own measured p10-p90 disagreement, and stamps no uncertainty band | `src/trade/angle.py:157-172` | yes |
 | W27-F007 |  | P2 | Partially implemented | M | DL/LB hybrid eligibility is implemented in exactly one subsystem (src/ros/); the /api/data contract carries no fantasyPositions, so 55 of 937 rostered players are single-eligible e | `src/ros/lineup.py:84-110` | yes |
@@ -641,11 +641,11 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 |---|---|---|---|---|---|---|---|
 | W00-F001 |  | P1 | Implemented but defective | S | /api/draft-capital returns 200 with real pick dollar values to an unauthenticated caller, and takes 13.2s doing it | `server.py:draft-capital route handler` | yes |
 | W00-F002 |  | P1 | Implemented but defective | M | GET /api/bdvm/roster takes 48 seconds to return 310 bytes | `src/api/bdvm_api.py:roster endpoint` | yes |
-| W26-F001 |  | P1 | Implemented but defective | S | The mobile "compact" /api/data view is 13.0% LARGER than the desktop "array" view, so phones and low-memory devices are deliberately routed to the heavier payload | `frontend/lib/device-profile.js:82-108` | yes |
-| W26-F002 |  | P1 | Implemented but defective | M | AppShell fetches the full multi-megabyte player contract on EVERY private page — including a 404 page and pages that never render a player row | `frontend/components/AppShell.jsx:33-75` | yes |
-| W26-F003 |  | P1 | Implemented but defective | S | /draft downloads the full 11.95 MB /api/data contract to read a 46.8 KB list of 12 team names, from three separate call sites, two of them with cache: "no-store" | `frontend/app/draft/page.jsx:3929-3940` | yes |
+| W26-F001 | u | P1 | Implemented but defective | S | The mobile "compact" /api/data view is 13.0% LARGER than the desktop "array" view, so phones and low-memory devices are deliberately routed to the heavier payload | `frontend/lib/device-profile.js:82-108` | yes |
+| W26-F003 | r | P1 | Implemented but defective | S | /draft downloads the full 11.95 MB /api/data contract to read a 46.8 KB list of 12 team names, from three separate call sites, two of them with cache: "no-store" | `frontend/app/draft/page.jsx:3929-3940` | yes |
 | W26-F004 |  | P1 | Implemented but defective | XS | GET /api/bdvm/roster spends 48 seconds on nflverse downloads that the very next function call discards, because the code already knows there is no projection snapshot before it sta | `src/api/bdvm_api.py:176-213` | yes |
 | W00-F003 |  | P2 | Implemented but defective | M | /api/data is 11.95 MB, not the ~4 MB CLAUDE.md documents, and view=compact is larger than view=app | `CLAUDE.md:Rankings Override Payload Size Optimization` | yes |
+| W26-F002 | r | P2 _(was P1)_ | Implemented but defective | M | AppShell fetches the full multi-megabyte player contract on EVERY private page — including a 404 page and pages that never render a player row | `frontend/components/AppShell.jsx:33-75` | yes |
 | W26-F005 |  | P2 | Implemented but defective | S | Three of the slowest cold paths have no stampede protection: concurrent misses each run the full multi-second build | `src/api/bdvm_api.py:63-92` | yes |
 | W26-F006 |  | P2 | Implemented but defective | S | GET /api/player/{id}/realized re-reads and re-parses a 61.7 MB JSON file and linearly scans 19,421 rows on every single request, with no in-process memoisation | `server.py:11241-11298` | yes |
 | W26-F007 |  | P2 | Implemented but defective | M | The nfl_data disk cache has no last-known-good fallback, no size bound (590 MB today), and stores three byte-identical copies of the same 61.7 MB file under three keys | `src/nfl_data/cache.py:55-141` | yes |
@@ -658,8 +658,8 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 
 | ID | V | Pri | Status | Size | Finding | Location | Repro |
 |---|---|---|---|---|---|---|---|
-| W26-F010 |  | P1 | Implemented but defective | S | The home page's Top Movers panel prints "No qualifying movers in this window" and a "Rank deltas vs. 30d ago" subtitle when the backend has told it there are ZERO days of history — | `frontend/components/terminal/MoversPanel.jsx:154-220` | yes |
 | W00-F010 |  | P2 | Partially implemented | M | Three public league sub-pages render no heading and under 180 characters of text — franchise, rivalry and article-preview are effectively blank | `frontend/app/league/franchise:page` | yes |
+| W26-F010 | r | P2 _(was P1)_ | Implemented but defective | S | The home page's Top Movers panel prints "No qualifying movers in this window" and a "Rank deltas vs. 30d ago" subtitle when the backend has told it there are ZERO days of history — | `frontend/components/terminal/MoversPanel.jsx:154-220` | yes |
 | W26-F012 |  | P2 | Implemented but defective | S | DESIGN/A11Y — /rosters position-breakdown bars fail WCAG contrast at 2.19:1 in 53 places, and colour is the ONLY encoding for every segment too narrow to hold its label | `frontend/app/rosters:n/a — measured from the rendered DOM` | yes |
 | W26-F013 |  | P2 | Implemented but defective | M | DESIGN — the 1-9,999 value scale is disclosed ONLY through hover tooltips (1,933 title attributes on /rankings) and appears in no visible text, so it is unreachable on every touch  | `frontend/app/rankings/page.jsx:1055-1060` | yes |
 | W26-F014 |  | P2 | Implemented but defective | M | A11Y FUNCTIONAL — /draft has 102 unlabelled form inputs and /settings has 4 (including two range sliders that change the board), and three of the app's four data tables have no th[ | `frontend/app/draft/page.jsx:n/a — .draft-inline-input / .draft-money-i` | yes |
@@ -676,7 +676,7 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 |---|---|---|---|---|---|---|---|
 | W00-F001 |  | P1 | Implemented but defective | S | /api/draft-capital returns 200 with real pick dollar values to an unauthenticated caller, and takes 13.2s doing it | `server.py:draft-capital route handler` | yes |
 | W22-F001 |  | P1 | Implemented but defective | XS | `_sanitize_next_path` does not reject a backslash, so `/login?next=/\evil.com` is a working post-authentication open redirect on the real domain | `server.py:738-748` | yes |
-| W22-F002 |  | P1 | Implemented but defective | S | The rate limiter keys on an unvalidated client-supplied `X-Forwarded-For`, so every public endpoint's limit is bypassed by rotating one header | `server.py:2906-2916` | yes |
+| W22-F002 | u | P1 | Implemented but defective | S | The rate limiter keys on an unvalidated client-supplied `X-Forwarded-For`, so every public endpoint's limit is bypassed by rotating one header | `server.py:2906-2916` | yes |
 | W22-F003 |  | P1 | Partially implemented | M | Login has no throttle of its own, no lockout and no failure backoff — 200 wrong-password attempts landed at 223 req/s with zero 429 | `server.py:9819-9903` | yes |
 | W22-F004 |  | P2 | Implemented but defective | S | `ALLOW_DEFAULT_LOGIN_DEV=1` silently makes `changeme` a full admin password, has no production guard, and is invisible on every health/status surface | `server.py:164-193` | yes |
 | W22-F005 |  | P2 | Implemented but defective | S | `/api/status`, `/api/health` and `/api/scaffold/status` hand absolute deploy paths, env-var presence, feature-flag state, the full source inventory and live session counts to anony | `server.py:2743-2779` | yes |
@@ -693,18 +693,18 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 | W05-F003 |  | P1 | Implemented but defective | M | A source that fails by returning zero rows or by a vendor header rename is dropped from the board with an EMPTY sourceParseErrors — the schema probe covers 4 of 22 sources | `src/api/data_contract.py:3584-3620` | yes |
 | W05-F004 |  | P1 | Partially implemented | S | 9 of 21 registered sources have no row-count floor — deleting ktcSfTep (the retail anchor, 501 rows) from the whole board leaves contractHealth 'healthy' with zero errors | `src/api/data_contract.py:646-709` | yes |
 | W05-F006 |  | P1 | Implemented but defective | M | Only 2 of 21 sources cast any vote on any draft pick, and all 72 slot picks are single-source: a fresh KTC pick value sits unread in canonicalSiteValues while the anchor is IDPTrad | `src/api/data_contract.py:1005-1035` | yes |
-| W23-F001 |  | P1 | Implemented but disconnected | XS | The ops "scrape success rate < 50%" alert can never fire: the payload it is handed never carries the key, and /api/status carries it as a dict the float() cast rejects | `src/api/ops_alerts.py:45-64` | yes |
-| W23-F002 |  | P1 | Implemented but defective | S | A partial scrape that the promotion guard REFUSES to publish is recorded as a success — same event name, same history outcome, same last_success_at, and it increments scrape_count | `server.py:2362-2388` | yes |
-| W23-F003 |  | P1 | Implemented but defective | M | The "fewer than half the sites returned" partial-scrape guard degenerates to "block only on total loss": `sites` carries 2 entries on the live snapshot and only lists sources that  | `server.py:2357-2364` | yes |
-| W23-F006 |  | P1 | Implemented but defective | S | /api/metrics.data_age_seconds and /api/health.data_age_hours measure time since the process loaded the file, not since the data was scraped — they are numerically identical to upti | `server.py:4671-4700` | yes |
-| W23-F007 |  | P1 | Implemented but defective | S | /tools/source-health claims "Scraper status for every ranking source in the pipeline" and renders 4 sources; the live board blends 21 | `frontend/components/SourceHealthStrip.jsx:99-136` | yes |
 | W05-F002 |  | P2 | Partially implemented | S | /api/status source_health describes 2 of 21 sources: total_sources=2, source_counts covers ktc+idpTradeCalc only, and missing_sources is structurally always empty | `server.py:1356-1375` | yes |
 | W05-F005 |  | P2 | Implemented but disconnected | M | The KTC trade/waiver crowd DB is skipped on EVERY successful KTC scrape — `content` is only bound inside the Strategy-3 fallback, so KTC_ID_TO_NAME is never built and the FAAB crow | `Dynasty Scraper.py:2268-2269` | yes |
 | W05-F007 |  | P2 | Deprecated but still active | M | The raw-ingest scaffold (/api/scaffold/raw, /status, /identity) serves a 2026-04-20 artifact stamped with a 2026-08-03 mtime, and no code in the tree can produce a new one | `server.py:4802-4900` | yes |
 | W05-F008 |  | P2 | Partially implemented | S | The per-source deploy gate documents itself as running every 6h in health-check.yml; it does not — the 6h workflow uses a floor of 8 covered sources out of 21 | `scripts/verify_live_source_coverage.py:21-28` | yes |
 | W05-F009 |  | P2 | Implemented but disconnected | M | Per-source staleness is computed in every /api/data payload and shown to nobody: two disagreeing threshold tables (6h in code, 24h in config) and no user-visible surface for either | `src/api/data_contract.py:589-640` | yes |
+| W23-F001 | r | P2 _(was P1)_ | Implemented but disconnected | XS | The ops "scrape success rate < 50%" alert can never fire: the payload it is handed never carries the key, and /api/status carries it as a dict the float() cast rejects | `src/api/ops_alerts.py:45-64` | yes |
+| W23-F002 | r | P2 _(was P1)_ | Implemented but defective | S | A partial scrape that the promotion guard REFUSES to publish is recorded as a success — same event name, same history outcome, same last_success_at, and it increments scrape_count | `server.py:2362-2388` | yes |
+| W23-F003 | r | P2 _(was P1)_ | Implemented but defective | M | The "fewer than half the sites returned" partial-scrape guard degenerates to "block only on total loss": `sites` carries 2 entries on the live snapshot and only lists sources that  | `server.py:2357-2364` | yes |
 | W23-F004 |  | P2 | Implemented but defective | XS | verify-sharp-production.yml runs on EVERY push to main and always fails at `git add data/ops/...` because .gitignore excludes data/ — so its "Enforce healthy population" verdict st | `.github/workflows/verify-sharp-production.yml:158-176` | yes |
 | W23-F005 |  | P2 | Implemented but defective | XS | The Sharp production smoke reports `unmappedAssets` from `dataQuality`, a key /api/sharp/market has never emitted — it is hard-zero on every run | `.github/workflows/verify-sharp-production.yml:117-118` | yes |
+| W23-F006 | r | P2 _(was P1)_ | Implemented but defective | S | /api/metrics.data_age_seconds and /api/health.data_age_hours measure time since the process loaded the file, not since the data was scraped — they are numerically identical to upti | `server.py:4671-4700` | yes |
+| W23-F007 | r | P2 _(was P1)_ | Implemented but defective | S | /tools/source-health claims "Scraper status for every ranking source in the pipeline" and renders 4 sources; the live board blends 21 | `frontend/components/SourceHealthStrip.jsx:99-136` | yes |
 | W23-F008 |  | P2 | Implemented but defective | S | /api/status.source_health reports total_sources 2, sources_with_data 2, missing_sources [] for a board built from 21 sources — a 19-source outage would still read as 2 of 2 with no | `server.py:4340-4351` | yes |
 | W23-F009 |  | P2 | Implemented but defective | S | refit-hill-curves.yml opens a GitHub issue with no dedupe and no auto-close, alone among the six issue-opening workflows — a persistent condition mints one duplicate issue per week | `.github/workflows/refit-hill-curves.yml:190-210` | yes |
 | W23-F010 |  | P2 | Partially implemented | L | scheduled-refresh.yml commits the data and dispatches the production deploy at steps 8-9, then runs the DLF-freshness assertion and both watchdogs at steps 10-13 — every guard exce | `.github/workflows/scheduled-refresh.yml:470-500` | yes |
@@ -722,10 +722,10 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 
 | ID | V | Pri | Status | Size | Finding | Location | Repro |
 |---|---|---|---|---|---|---|---|
-| W04-F005 |  | P1 | Implemented but defective | S | `model_registry.py validate` decides promotion by comparing criteria recorded on different snapshot dates — the exact unpaired comparison promotion.py's docstring says invalidates  | `scripts/model_registry.py:180-201` | yes |
 | W04-F002 | r | P2 _(was P1)_ | Implemented but defective | M | The promotion gate scores the Hill curve against the exact value columns the live pipeline throws away — all four holdout boards are rank-signal sources demoted for having the wron | `src/model_registry/holdout.py:74-79` | yes |
 | W04-F003 | r | P2 _(was P1)_ | Implemented but defective | M | Six of the eight Hill constants a promotion ships have no out-of-sample score at all — the 2026-07-29 promotion shipped a −34.6% IDP curve change on the strength of an offense-only | `src/model_registry/hill_masters.py:39-53` | yes |
 | W04-F004 |  | P2 | Implemented but defective | M | The IDP Hill master is fit from two sources that never evaluate it and applied to four that never trained it — the overlap between its training set and its application set is exact | `scripts/fit_hill_curve_percentile.py:73-83` | yes |
+| W04-F005 | r | P2 _(was P1)_ | Implemented but defective | S | `model_registry.py validate` decides promotion by comparing criteria recorded on different snapshot dates — the exact unpaired comparison promotion.py's docstring says invalidates  | `scripts/model_registry.py:180-201` | yes |
 | W04-F006 |  | P2 | Implemented but defective | L | No recorded holdout criterion is reproducible: the boards it scores are overwritten every scrape and archived for only 3 of 21 sources, so champion v2's 787.84 recomputes to 753.05 | `src/model_registry/holdout.py:115-128` | yes |
 | W04-F007 |  | P2 | Implemented but defective | S | A holdout board silently lost 24% of its rows in one day and the gate scored it anyway — that one board's shrinkage accounts for 99.3% of the criterion's drift | `src/model_registry/holdout.py:84-85` | yes |
 | W04-F009 | r | P2 _(was P1)_ | Implemented but defective | XL | No historical record of the served board exists — archived exports carry the raw scraper composite only, so every 'historical' backtest blends today's 18 source CSVs into a weeks-o | `scripts/backtest_alpha_shrinkage.py:59-73` | yes |
@@ -761,23 +761,23 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 
 | ID | V | Pri | Status | Size | Finding | Location | Repro |
 |---|---|---|---|---|---|---|---|
-| W23-F001 |  | P1 | Implemented but disconnected | XS | The ops "scrape success rate < 50%" alert can never fire: the payload it is handed never carries the key, and /api/status carries it as a dict the float() cast rejects | `src/api/ops_alerts.py:45-64` | yes |
-| W23-F007 |  | P1 | Implemented but defective | S | /tools/source-health claims "Scraper status for every ranking source in the pipeline" and renders 4 sources; the live board blends 21 | `frontend/components/SourceHealthStrip.jsx:99-136` | yes |
+| W23-F001 | r | P2 _(was P1)_ | Implemented but disconnected | XS | The ops "scrape success rate < 50%" alert can never fire: the payload it is handed never carries the key, and /api/status carries it as a dict the float() cast rejects | `src/api/ops_alerts.py:45-64` | yes |
+| W23-F007 | r | P2 _(was P1)_ | Implemented but defective | S | /tools/source-health claims "Scraper status for every ranking source in the pipeline" and renders 4 sources; the live board blends 21 | `frontend/components/SourceHealthStrip.jsx:99-136` | yes |
 | W23-F017 |  | P2 | Missing | XL | There is no human review layer: nothing in the UI can approve, suppress, annotate, re-run, diff or roll back a single suspicious output — the pipeline publishes and the pages rende | `frontend/app/admin/page.jsx:1-324` | yes |
 
 ## § 42 — Mathematical and formula audit
 
 | ID | V | Pri | Status | Size | Finding | Location | Repro |
 |---|---|---|---|---|---|---|---|
-| W04-F005 |  | P1 | Implemented but defective | S | `model_registry.py validate` decides promotion by comparing criteria recorded on different snapshot dates — the exact unpaired comparison promotion.py's docstring says invalidates  | `scripts/model_registry.py:180-201` | yes |
 | W30-F001 |  | P1 | Duplicate or conflicting implementation | L | Two playoff-odds engines serve the same /league tab and disagree on the league's structure: 7 playoff spots vs 6, 12 teams vs 8, and opposite verdicts for two managers | `src/public_league/playoff_odds.py:1-60` | yes |
 | W30-F002 |  | P1 | Implemented but defective | M | Both playoff-odds engines publish 100%/0% certainty with zero games played and 14 weeks remaining, and the convergence check passes on it | `src/public_league/playoff_odds.py:1-60` | yes |
 | W30-F003 |  | P1 | Duplicate or conflicting implementation | L | Two power-ranking engines rank the same league differently on the same tab — 10 teams vs 12, mean rank shift 2.8, and one manager moves from last to third | `src/public_league/power.py:45-47, 141` | yes |
-| W30-F008 |  | P1 | Implemented but defective | L | Hill curves are fitted on percentiles over a 400-row denominator and served on a 500-row one, so the same rank is worth up to 25% more at serve time than the fit ever saw | `src/model_registry/holdout.py:81-85, 145` | yes |
+| W30-F008 | u | P1 | Implemented but defective | L | Hill curves are fitted on percentiles over a 400-row denominator and served on a 500-row one, so the same rank is worth up to 25% more at serve time than the fit ever saw | `src/model_registry/holdout.py:81-85, 145` | yes |
 | W00-F006 |  | P2 | Partially implemented | M | Four value fields coexist on every contract row and diverge by up to 35.6%, with _finalAdjusted still read by a legacy branch of the arbitrage finder | `src/trade/finder.py:498-516` | yes |
 | W04-F002 | r | P2 _(was P1)_ | Implemented but defective | M | The promotion gate scores the Hill curve against the exact value columns the live pipeline throws away — all four holdout boards are rank-signal sources demoted for having the wron | `src/model_registry/holdout.py:74-79` | yes |
 | W04-F003 | r | P2 _(was P1)_ | Implemented but defective | M | Six of the eight Hill constants a promotion ships have no out-of-sample score at all — the 2026-07-29 promotion shipped a −34.6% IDP curve change on the strength of an offense-only | `src/model_registry/hill_masters.py:39-53` | yes |
 | W04-F004 |  | P2 | Implemented but defective | M | The IDP Hill master is fit from two sources that never evaluate it and applied to four that never trained it — the overlap between its training set and its application set is exact | `scripts/fit_hill_curve_percentile.py:73-83` | yes |
+| W04-F005 | r | P2 _(was P1)_ | Implemented but defective | S | `model_registry.py validate` decides promotion by comparing criteria recorded on different snapshot dates — the exact unpaired comparison promotion.py's docstring says invalidates  | `scripts/model_registry.py:180-201` | yes |
 | W04-F007 |  | P2 | Implemented but defective | S | A holdout board silently lost 24% of its rows in one day and the gate scored it anyway — that one board's shrinkage accounts for 99.3% of the criterion's drift | `src/model_registry/holdout.py:84-85` | yes |
 | W04-F010 |  | P2 | Partially implemented | S | The temporal-leakage caveat is present in 1 of 9 backtest scripts and 0 of 7 committed reports — every report a reader would actually open presents its recommendation unqualified | `scripts/backtest_percentile_reference_n.py:16-30` | yes |
 | W30-F004 |  | P2 | Implemented but defective | XS | Settings default useRosPowerRankings/useRosPlayoffOdds to true while the code three lines from the read says they are false until validated | `frontend/components/useSettings.js:143, 148` | yes |
@@ -807,8 +807,8 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 |---|---|---|---|---|---|---|---|
 | W24-F001 |  | P1 | Implemented but defective | S | The audit's own skip census undercounts skip sites 6x (27 declared, 166 actual) because it greps only `pytest.skip(` and misses 139 unittest-style skip sites | `docs/master-site-audit/evidence/test-results-summary.txt:13-40` | yes |
 | W24-F002 |  | P1 | Scaffolded only | M | tests/roster_intel/test_real_rosters.py — 22 tests written to catch 'a constant masquerading as a score' execute in NEITHER CI tier, because the file they need is gitignored | `tests/roster_intel/test_real_rosters.py:59` | yes |
-| W24-F003 |  | P1 | Implemented but disconnected | M | 286 tests run only in a `continue-on-error` step, and at least 46 of them open zero files under exports/, CSVs/ or data/ — pure logic exempted from the blocking gate by a filename  | `tests/conftest.py:87-125` | yes |
 | W24-F004 |  | P1 | Scaffolded only | S | e2e.yml's SKIP_VISUAL_REGRESSION=1 skips all 13 tests in both visual specs — including the structural assertions the workflow's own comment claims still run | `.github/workflows/e2e.yml:206-210` | yes |
+| W24-F003 | r | P2 _(was P1)_ | Implemented but disconnected | M | 286 tests run only in a `continue-on-error` step, and at least 46 of them open zero files under exports/, CSVs/ or data/ — pure logic exempted from the blocking gate by a filename  | `tests/conftest.py:87-125` | yes |
 | W24-F005 |  | P2 | Unverifiable | M | The Sleeper league-context fetch in `_resolve_league_context` — which derives the roster count that sets all 72 slot-pick values — executes in zero tests, proven with a urlopen spy | `src/api/data_contract.py:6212-6248` | yes |
 | W24-F006 |  | P2 | Unverifiable | M | No test exercises the shipped config/leagues/registry.json through any endpoint; under conftest `leagues_share_scoring` is always False, inverting the production answer for the rep | `tests/conftest.py:44-58` | yes |
 | W24-F007 |  | P2 | Partially implemented | M | `percentile_to_value` — the live conversion behind every displayed player value — has zero absolute numeric assertions in 6,326 tests; every expectation is either relational or com | `src/canonical/player_valuation.py:371` | yes |
@@ -826,7 +826,7 @@ verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually veri
 | W30-F001 |  | P1 | Duplicate or conflicting implementation | L | Two playoff-odds engines serve the same /league tab and disagree on the league's structure: 7 playoff spots vs 6, 12 teams vs 8, and opposite verdicts for two managers | `src/public_league/playoff_odds.py:1-60` | yes |
 | W30-F002 |  | P1 | Implemented but defective | M | Both playoff-odds engines publish 100%/0% certainty with zero games played and 14 weeks remaining, and the convergence check passes on it | `src/public_league/playoff_odds.py:1-60` | yes |
 | W30-F003 |  | P1 | Duplicate or conflicting implementation | L | Two power-ranking engines rank the same league differently on the same tab — 10 teams vs 12, mean rank shift 2.8, and one manager moves from last to third | `src/public_league/power.py:45-47, 141` | yes |
-| W30-F008 |  | P1 | Implemented but defective | L | Hill curves are fitted on percentiles over a 400-row denominator and served on a 500-row one, so the same rank is worth up to 25% more at serve time than the fit ever saw | `src/model_registry/holdout.py:81-85, 145` | yes |
+| W30-F008 | u | P1 | Implemented but defective | L | Hill curves are fitted on percentiles over a 400-row denominator and served on a 500-row one, so the same rank is worth up to 25% more at serve time than the fit ever saw | `src/model_registry/holdout.py:81-85, 145` | yes |
 | W00-F003 |  | P2 | Implemented but defective | M | /api/data is 11.95 MB, not the ~4 MB CLAUDE.md documents, and view=compact is larger than view=app | `CLAUDE.md:Rankings Override Payload Size Optimization` | yes |
 | W00-F004 |  | P2 | Duplicate or conflicting implementation | XS | server.py says the consensus_edge flag defaults ON; feature_flags.py sets it False, and the live routes 503 | `server.py:2688-2694` | yes |
 | W25-F001 |  | P2 | Implemented but defective | XS | server.py's comment says consensus_edge defaults ON since 2026-08-04; the flag registry sets it False and the live endpoints 503 | `server.py:2686-2693` | yes |

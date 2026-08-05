@@ -28,7 +28,7 @@
   "p2": 6,
   "p3": 7,
   "worstStatus": "Implemented but disconnected",
-  "verified": 0,
+  "verified": 1,
   "statusCounts": {
    "Implemented but defective": 9,
    "Implemented but disconnected": 2,
@@ -234,7 +234,7 @@
   "p2": 6,
   "p3": 3,
   "worstStatus": "Missing",
-  "verified": 2,
+  "verified": 3,
   "statusCounts": {
    "Implemented but defective": 10,
    "Implemented but disconnected": 2,
@@ -252,11 +252,11 @@
   ],
   "findings": 18,
   "p0": 1,
-  "p1": 8,
-  "p2": 6,
+  "p1": 7,
+  "p2": 7,
   "p3": 3,
   "worstStatus": "Missing",
-  "verified": 4,
+  "verified": 5,
   "statusCounts": {
    "Duplicate or conflicting implementation": 3,
    "Implemented but defective": 8,
@@ -282,11 +282,11 @@
   ],
   "findings": 10,
   "p0": 0,
-  "p1": 1,
-  "p2": 2,
+  "p1": 0,
+  "p2": 3,
   "p3": 7,
   "worstStatus": "Scaffolded only",
-  "verified": 0,
+  "verified": 1,
   "statusCounts": {
    "Implemented but defective": 3,
    "Implemented and verified": 4,
@@ -349,12 +349,12 @@
    22
   ],
   "findings": 22,
-  "p0": 2,
+  "p0": 1,
   "p1": 5,
-  "p2": 6,
+  "p2": 7,
   "p3": 9,
   "worstStatus": "Missing",
-  "verified": 0,
+  "verified": 2,
   "statusCounts": {
    "Implemented but defective": 13,
    "Duplicate or conflicting implementation": 1,
@@ -367,12 +367,7 @@
    {
     "id": "W11-F001",
     "title": "Position FAAB calibration blends RAW dollar bids from three seasons with different budgets ($1000 / $200 / $100), inflating the RB anchor 5.0x and driving every bid too high",
-    "verdict": null
-   },
-   {
-    "id": "W11-F002",
-    "title": "Players the board declines to price (rankDerivedValue = 0) are recommended $22-$25 bids and described as a 'strong free-agent target'; 125 of 283 free agents are affected",
-    "verdict": null
+    "verdict": "upheld"
    }
   ]
  },
@@ -387,7 +382,7 @@
   "p2": 7,
   "p3": 2,
   "worstStatus": "Implemented but disconnected",
-  "verified": 0,
+  "verified": 2,
   "statusCounts": {
    "Implemented but defective": 8,
    "Implemented and verified": 2,
@@ -397,12 +392,12 @@
    {
     "id": "W17-F001",
     "title": "ROS playoff/championship sims run on the OLDEST loaded season (2024), not the newest \u2014 sorted(snapshot.seasons, key=luck._season_sort_key) passes objects to a function typed for strings, so every season sorts equal",
-    "verdict": null
+    "verdict": "upheld"
    },
    {
     "id": "W17-F002",
     "title": "The #1 ROS-strength team is told 'Seller \u2014 sell aging win-now players' on /league -> Trade Deadline because he is absent from the 2024 sim and absence is coerced to 0.0 playoff odds",
-    "verdict": null
+    "verdict": "upheld"
    }
   ]
  },
@@ -530,11 +525,11 @@
   ],
   "findings": 23,
   "p0": 0,
-  "p1": 4,
-  "p2": 13,
+  "p1": 3,
+  "p2": 14,
   "p3": 6,
   "worstStatus": "Missing",
-  "verified": 4,
+  "verified": 5,
   "statusCounts": {
    "Implemented but defective": 15,
    "Partially implemented": 1,
@@ -552,11 +547,11 @@
   ],
   "findings": 14,
   "p0": 0,
-  "p1": 6,
-  "p2": 6,
+  "p1": 5,
+  "p2": 7,
   "p3": 2,
   "worstStatus": "Implemented but defective",
-  "verified": 0,
+  "verified": 3,
   "statusCounts": {
    "Implemented but defective": 13,
    "Partially implemented": 1
@@ -574,7 +569,7 @@
   "p2": 3,
   "p3": 3,
   "worstStatus": "Duplicate or conflicting implementation",
-  "verified": 0,
+  "verified": 1,
   "statusCounts": {
    "Implemented but defective": 7,
    "Partially implemented": 2,
