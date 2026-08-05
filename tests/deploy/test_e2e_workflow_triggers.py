@@ -191,7 +191,9 @@ def test_tracker_steps_identify_their_own_issue_not_just_the_label() -> None:
             "wearing it as this workflow's own tracker — which closed/"
             "hijacked #753, a hand-filed defect."
         )
-        assert f'select(.title==\\"${{TRACKER_TITLE}}\\")' in run, (
+        # Not an f-string: ${TRACKER_TITLE} is the shell variable the
+        # workflow expands, so the braces are literal text to match.
+        assert 'select(.title==\\"${TRACKER_TITLE}\\")' in run, (
             f"{name!r} no longer filters the tracker lookup by title. "
             "Author alone still matches any other issue this bot opens."
         )
