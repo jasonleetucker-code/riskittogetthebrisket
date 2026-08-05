@@ -6,7 +6,7 @@ import {
   computeVolatility,
   buildHistoryLookup,
 } from "@/lib/value-history";
-import { buildPickLookupCandidates } from "@/lib/trade-logic";
+import { resolvePickRow } from "@/lib/trade-logic";
 import { fillLineup, lineupPosition, slotsFromStarterCounts } from "@/lib/starter-slots";
 
 /** First contract row matching any candidate key, or null. */
@@ -245,17 +245,25 @@ export function computePortfolio({ rows, selectedTeam, rawData, history, rosterS
     // permanent "N unresolved" badge at 45-84% coverage while
     // `pickCount` stayed 0 and the "Picks $X · N" legend never drew.
     //
-    // `buildPickLookupCandidates` already solves this and
-    // `lib/league-analysis.js` already uses it; this module simply
-    // never imported it. With it, 216 of 288 resolve.
+    // `resolvePickRow` already solves this and `lib/league-analysis.js`
+    // already uses it; this module simply never imported it.
     //
-    // The other 72 are RIGHT to be unresolved: they are every 2029
-    // pick, and the board prices 2026 (90 rows), 2027 (18) and 2028
-    // (18) but publishes nothing for 2029. Do not "fix" that number to
-    // 288 — a pick with no board row has no value to show, and
-    // inventing one is the failure mode this codebase already had with
-    // the flat 7000/4000/2000/1200 table.
-    const row = resolveByCandidates(byName, buildPickLookupCandidates(name));
+    // Candidate expansion ALONE is not enough, and that was the second
+    // half of the bug. It resolves "2026 1.02" to the GENERIC row
+    // "2026 Mid 1st". For 2027 and 2028 those generic rows carry a real
+    // rankDerivedValue, but for the CURRENT year they are null — the
+    // current-year board is priced on the SLOT rows ("2026 Pick 1.02"),
+    // and the contract ships `pickAliases` for exactly this redirect.
+    // Without it every one of a team's six 2026 picks priced at 0: a
+    // shortfall of precisely 15,626 for all twelve teams, 187,512
+    // league-wide, 39% of all pick capital. This was the only pick join
+    // in the tree ignoring `pickAliases`. Audit finding W20-F005.
+    //
+    // Unresolved picks stay unresolved: the board prices 2026, 2027 and
+    // 2028 and publishes nothing for 2029. A pick with no board row has
+    // no value to show, and inventing one is the failure mode this
+    // codebase already had with the flat 7000/4000/2000/1200 table.
+    const row = resolvePickRow(name, byName, rawData?.pickAliases);
     if (!row) {
       unresolved.push(name);
       continue;
