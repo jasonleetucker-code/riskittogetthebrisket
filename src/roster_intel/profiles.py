@@ -160,6 +160,19 @@ class PositionProfile:
     # ── structure ──
     rostered: int
     required_slots: int
+    # How many of this position's DEDICATED slots the optimizer actually
+    # filled, read off the solver's per-slot assignment.
+    #
+    # NOT the same quantity as ``entered_lineup``, and conflating them
+    # is audit W20-F011.  ``entered_lineup`` counts players whose BASE
+    # position is this one who entered ANY slot; in an IDP league a
+    # hybrid classified LB legitimately fills a DL slot, so the two
+    # differ with no slot empty.  Measured on the live board: five teams
+    # were told "only 2 of 3 dedicated DL slots filled" while the SAME
+    # payload reported filledSlots 21 of 21, and four of those rows
+    # simultaneously reported a non-zero tradeableSurplus at the
+    # position they called an urgent need.
+    filled_slots: int = 0
     tier_counts: dict[str, int] = field(default_factory=dict)
 
     # ── exposure (descriptive, never blended into strength) ──
@@ -193,6 +206,10 @@ class PositionProfile:
             "worstAbsenceDrop": round(self.worst_absence_drop, 3),
             "rostered": self.rostered,
             "requiredSlots": self.required_slots,
+            # Both are emitted so the difference is visible rather than
+            # surprising: filledSlots answers "is a slot empty",
+            # enteredLineup answers "how many of mine play".
+            "filledSlots": self.filled_slots,
             "tierCounts": dict(self.tier_counts),
             "meanAge": round(self.mean_age, 2) if self.mean_age is not None else None,
             "ageOver28": self.age_over_28,
@@ -252,6 +269,25 @@ def _required_slots(slots: Sequence[str]) -> dict[str, int]:
     return out
 
 
+def _filled_dedicated_slots(slot_assignment: Mapping[str, str]) -> dict[str, int]:
+    """Dedicated slots the optimizer actually filled, per position.
+
+    ``slot_assignment`` is keyed ``"<SLOT>#<index>"`` and contains ONLY
+    filled slots, so counting its keys per position is the direct answer
+    to "did a slot go empty".  Flex slots are excluded on the same rule
+    as :func:`_required_slots` — who fills them is endogenous, so
+    attributing them to a position would put a number on the wrong side
+    of the comparison.
+    """
+    out: dict[str, int] = {}
+    for key in slot_assignment:
+        label = normalize_base_position(str(key).split("#")[0].upper())
+        if label in {"FLEX", "SUPER_FLEX", "IDP_FLEX", "BN"} or not label:
+            continue
+        out[label] = out.get(label, 0) + 1
+    return out
+
+
 def _bye_concentration(byes: Sequence[int]) -> float | None:
     """Share of the position's players sharing its most common bye week.
 
@@ -304,10 +340,15 @@ def build_position_profiles(
     required = _required_slots(slots_list)
     meta = player_meta or {}
 
-    # Which players actually entered the optimal lineup.
+    # Which players actually entered the optimal lineup, and WHICH SLOT
+    # each one filled.  The solver already returns both; the need test
+    # used to read only the first and infer the second from grouped
+    # base-position counts (W20-F011).
     from src.roster_intel.marginal import solve_summary  # local: avoids cycle at import
 
-    entered_ids = solve_summary(pool_list, slots_list).assigned_ids
+    solution = solve_summary(pool_list, slots_list)
+    entered_ids = solution.assigned_ids
+    filled_by_position = _filled_dedicated_slots(solution.slot_assignment)
 
     by_pos: dict[str, list[RosterPlayer]] = {}
     for p in pool_list:
@@ -350,11 +391,18 @@ def build_position_profiles(
 
         # Need: the optimizer could not fill this position's dedicated
         # slots, or one absence collapses the group.
+        #
+        # The test is against the SOLVER'S OWN per-slot assignment, not
+        # against how many players with this base position entered the
+        # lineup.  Those are different questions and the second one
+        # answers "is a slot empty" wrongly wherever slot eligibility is
+        # multi-position (W20-F011).
         need_reasons: list[str] = []
         req = required.get(pos, 0)
         entered = pm.entered_lineup if pm else 0
-        if req and entered < req:
-            need_reasons.append(f"only {entered} of {req} dedicated {pos} slots filled")
+        filled = filled_by_position.get(pos, 0)
+        if req and filled < req:
+            need_reasons.append(f"only {filled} of {req} dedicated {pos} slots filled")
         if ai and ai.fragility >= _URGENT_FRAGILITY:
             need_reasons.append(
                 f"one absence costs {ai.fragility:.0%} of an average starter's value"
@@ -372,6 +420,7 @@ def build_position_profiles(
             worst_absence_drop=ai.worst_drop if ai else 0.0,
             rostered=len(players),
             required_slots=req,
+            filled_slots=filled,
             tier_counts=tier_counts,
             mean_age=(sum(ages) / len(ages)) if ages else None,
             age_over_28=sum(1 for a in ages if a > 28),
@@ -399,6 +448,10 @@ def build_position_profiles(
             worst_absence_drop=0.0,
             rostered=0,
             required_slots=req,
+            # A position the roster carries none of can still have its
+            # slots filled by a multi-eligible player from elsewhere,
+            # and the solver knows which.
+            filled_slots=filled_by_position.get(pos, 0),
             tier_counts={t: 0 for t in TIER_ORDER},
             urgent_need=True,
             need_reasons=(f"no {pos} rostered",),
