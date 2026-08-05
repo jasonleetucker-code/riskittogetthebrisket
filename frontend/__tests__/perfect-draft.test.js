@@ -29,6 +29,7 @@ import {
   optimizeDraft,
   realizedResults,
   computeMaxBid,
+  consumptionOrder,
   displacementCost,
   evaluateBid,
   logPriceDispersion,
@@ -1357,5 +1358,94 @@ describe("live bidding", () => {
     expect(impossible.netIfWon).toBeNull();
     expect(impossible.gain).toBeNull();
     expect(impossible.verdict).toBe("stop");
+  });
+});
+
+describe("one consumption order, shared by every consumer", () => {
+  // The backend ships rungs ascending by ECC (value OVER waiver level); the
+  // ladder model charges the cheapest by releaseCost (the whole value). Those
+  // orders are unrelated — a rung with ECC 0 can be the most expensive release
+  // on the board. Anything that walks the ladder in the wrong one charges a
+  // player twice and another never.
+  const rungs = [
+    // Backend order: ECC ascending. Release order is the REVERSE.
+    { playerId: "A", name: "A", position: "WR", effectiveCutCost: 0, baseValue: 3000, scarcityMultiplier: 1 },
+    { playerId: "B", name: "B", position: "WR", effectiveCutCost: 500, baseValue: 1000, scarcityMultiplier: 1 },
+  ];
+  const waiverLadder = [500, 400, 300, 200];
+
+  it("orders cuts by release cost under the ladder, by ECC without it", () => {
+    expect(consumptionOrder(rungs, waiverLadder).map((r) => r.playerId)).toEqual(["B", "A"]);
+    expect(consumptionOrder(rungs, null).map((r) => r.playerId)).toEqual(["A", "B"]);
+  });
+
+  it("never re-offers a cut a purchase already consumed", () => {
+    // Buy one rookie with no open spots: the plan charges B (cheapest release).
+    const after = applyDraftProgress({
+      openRosterSpots: 0,
+      cutLadder: rungs,
+      waiverLadder,
+      rookiesBought: 1,
+    });
+    expect(after.rungsUsed).toBe(1);
+    // B is gone — not A. Slicing the ECC head would leave B available and
+    // charge him a second time on the next purchase.
+    expect(after.cutLadder.map((r) => r.playerId)).toEqual(["A"]);
+  });
+
+  it("charges realized purchases exactly what the plan would have charged", () => {
+    // The invariant that makes "bought so far" comparable to "the plan", which
+    // is the entire stated purpose of realizedResults.
+    const shared = {
+      openRosterSpots: 0,
+      cutLadder: rungs,
+      waiverLadder,
+      waiverValues: {},
+    };
+    const players = [
+      { id: "r1", name: "R1", pos: "WR", boardValue: 5000 },
+      { id: "r2", name: "R2", pos: "WR", boardValue: 4000 },
+    ];
+    const realized = realizedResults({
+      ...shared,
+      stats: {
+        enrichedPlayers: players.map((p) => ({
+          ...p,
+          drafted: true,
+          mine: true,
+          pick: { amount: 5 },
+        })),
+      },
+    });
+    const planned = solveFrontier({
+      ...shared,
+      budget: 10,
+      rookies: players.map((p) => ({ ...p, price: 5 })),
+    }).frontier.find((f) => f.k === 2);
+
+    expect(realized.grossSurplus).toBe(planned.grossSurplus);
+    expect(realized.replacement).toBe(planned.replacement);
+    // Taking ECC here (0 + 500) against the plan's releaseCost (1000 + 3000)
+    // made the two incomparable by 3500 on this fixture, and by ~everything on
+    // the live board where 23 of 30 rungs have an ECC of exactly 0.
+    expect(realized.displacement).toBe(planned.displacement);
+    expect(realized.netValue).toBe(planned.netValue);
+  });
+
+  it("leaves the flat model's ECC accounting untouched", () => {
+    const realized = realizedResults({
+      openRosterSpots: 0,
+      cutLadder: rungs,
+      waiverValues: { WR: 1000 },
+      stats: {
+        enrichedPlayers: [
+          { id: "r1", name: "R1", pos: "WR", boardValue: 5000, drafted: true, mine: true, pick: { amount: 5 } },
+        ],
+      },
+    });
+    // No ladder supplied: ECC order, ECC cost, replacement folded into gross.
+    expect(realized.replacement).toBe(0);
+    expect(realized.displacement).toBe(0);
+    expect(realized.grossSurplus).toBe(4000);
   });
 });

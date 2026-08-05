@@ -509,6 +509,25 @@ already used here for *droppability*, but using it for *value* breaks the
 cardinality decomposition this ADR rests on. Left open and stated
 plainly in `docs/perfect-draft.md` §9 rather than half-fixed.
 
+**The consumption order is one decision, not four.** Introducing
+`releaseCost` created a second ordering of the cut ladder, and three
+separate consumers kept walking the backend's ECC order against it:
+`applyDraftProgress` (so a purchase deleted the wrong rung and the next
+plan re-offered a player it had already released), `realizedResults` (so
+"what you bought" was charged ~0 against a plan charged thousands — 23 of
+30 live rungs have an ECC of exactly 0), and the panel's cut column.
+`consumptionOrder` is now the single answer, and anything that walks the
+ladder must go through it.
+
+**Profile match is necessary but not sufficient for sharing a rookie
+board.** Both live leagues are `superflex_tep15_ppr1`, and the first cut
+of the cross-league rookie board gated on exactly that — which would have
+put DL/LB/DB rookies onto `dynasty_new`, a league with no IDP starting
+slots at all, at real dollar values ahead of the offensive rookies it can
+use. `idpEnabled` and `rosterSettings` are leagueKey properties; the
+scoring profile governs what a player is WORTH, not whether this league
+can field him.
+
 One performance note, because it is a trap rather than a tuning detail:
 the charge table must be built once per solve. `computeMaxBid` evaluates
 its indifference price over every dollar from the budget down, times

@@ -16,6 +16,15 @@ USAGE
     python scripts/board_diff.py BEFORE.json AFTER.json
     python scripts/board_diff.py BEFORE.json AFTER.json --expect-no-value-change
 
+    # decision surfaces (scripts/golden_surfaces.py captures)
+    python scripts/board_diff.py BEFORE.json AFTER.json --surfaces
+
+``--surfaces`` diffs a ``golden_surfaces.py`` capture instead of a
+board capture: same ``{"rows": {...}}`` shape, different field names.
+Deliberately a flag on this script rather than a second differ — two
+implementations would be two definitions of "changed", and a phase
+gate is only worth something when there is exactly one.
+
 Exit codes: 0 diff produced (or matched the assertion), 1 assertion
 violated, 2 error.
 """
@@ -35,6 +44,25 @@ _LABEL_FIELDS = (
     "isSingleSource",
     "hasSourceDisagreement",
     "quarantined",
+)
+
+# ``scripts/golden_surfaces.py`` emits the same {"rows": {...}} shape for
+# the decision surfaces the contract capture cannot see (trade verdict,
+# FAAB bid, ROS ladder, news polarity).  Those rows carry different
+# field names, so the value field and the label set are overridable
+# rather than forked into a second differ — one diff implementation
+# means one definition of "changed", which is the property that makes a
+# phase gate mean anything.
+_SURFACE_VALUE_FIELD = "value"
+_SURFACE_LABEL_FIELDS = (
+    "label",
+    "meterLabel",
+    "meterLevel",
+    "meterFavours",
+    "verdictFromGap",
+    "impact",
+    "severity",
+    "recommendation",
 )
 
 
@@ -69,7 +97,20 @@ def main() -> int:
         help="exit 1 if any rankDerivedValue moved (use on label-only phases)",
     )
     ap.add_argument("--top", type=int, default=15, help="largest movers to list")
+    ap.add_argument(
+        "--surfaces",
+        action="store_true",
+        help="diff a golden_surfaces.py capture (value field + label set differ)",
+    )
+    ap.add_argument(
+        "--allow-input-change",
+        action="store_true",
+        help="compare captures built from different input exports (data churn WILL appear as movement)",
+    )
     args = ap.parse_args()
+
+    value_field = _SURFACE_VALUE_FIELD if args.surfaces else "rankDerivedValue"
+    label_fields = _SURFACE_LABEL_FIELDS if args.surfaces else _LABEL_FIELDS
 
     for p in (args.before, args.after):
         if not p.exists():
@@ -79,13 +120,57 @@ def main() -> int:
     b = json.loads(args.before.read_text(encoding="utf-8"))
     a = json.loads(args.after.read_text(encoding="utf-8"))
 
-    if b.get("scrapeTimestamp") != a.get("scrapeTimestamp"):
-        print(
-            "WARNING: captures are from different input scrapes "
-            f"({b.get('scrapeTimestamp')} vs {a.get('scrapeTimestamp')}) — "
-            "differences below mix data churn with code change.",
-            file=sys.stderr,
-        )
+    # Two captures built from different inputs are not comparable: the
+    # differences are data churn, code change, or both, and nothing in
+    # the output distinguishes them.  This used to be a WARNING, which
+    # is how the batch-C0 rebase nearly shipped a baseline whose input
+    # had been swapped under it by a routine 2-hourly refresh — the
+    # warning goes to stderr and reads like noise next to a diff that
+    # looks plausible.  Refuse instead.
+    if not args.surfaces:
+        mismatched = []
+        # A capture that never recorded its inputs cannot be shown
+        # comparable, and "cannot verify" must not read the same as
+        # "verified equal" — that is the audit's own central defect
+        # class, and it bit here first: the stale baseline predated the
+        # source-CSV hash, so the guard skipped it and the comparison
+        # went through reporting 290 moved values as though the code
+        # had moved them.
+        for label, cap in (("before", b), ("after", a)):
+            if not cap.get("inputSha256") or not cap.get("sourceCsvSha256"):
+                mismatched.append(
+                    f"the {label} capture does not record its inputs "
+                    "(built by an older harness) — re-capture it"
+                )
+        sb, sa = b.get("inputSha256"), a.get("inputSha256")
+        if sb and sa and sb != sa:
+            mismatched.append(
+                f"export {sb[:12]} vs {sa[:12]} "
+                f"(scrapes {b.get('scrapeTimestamp')} vs {a.get('scrapeTimestamp')})"
+            )
+        # The SECOND input. build_api_data_contract reads the per-source
+        # boards from CSVs/site_raw/ at build time, and the 2-hourly
+        # refresh rewrites those tracked files — nine times in one day,
+        # measured. Guarding only the export produced a diff reporting
+        # 290 moved values against a main that had not touched the
+        # pipeline at all.
+        cb, ca = b.get("sourceCsvSha256"), a.get("sourceCsvSha256")
+        if cb and ca and cb != ca:
+            mismatched.append(
+                f"source CSVs {cb[:12]} vs {ca[:12]} "
+                f"({b.get('sourceCsvCount')} vs {a.get('sourceCsvCount')} files)"
+            )
+        if mismatched:
+            print(
+                "ERROR: captures were built from different inputs — "
+                + "; ".join(mismatched)
+                + ". Differences below are data churn, code change, or both, and "
+                "nothing here separates them. Re-capture both on one tree state, "
+                "or pass --allow-input-change if the change is the point.",
+                file=sys.stderr,
+            )
+            if not args.allow_input_change:
+                return 2
 
     rb, ra = b.get("rows") or {}, a.get("rows") or {}
     added = sorted(set(ra) - set(rb))
@@ -95,7 +180,7 @@ def main() -> int:
     print("=" * 68)
     print(f"BOARD DIFF  {args.before.name} -> {args.after.name}")
     print("=" * 68)
-    for k in ("rows", "ranked", "priced", "picks", "idp"):
+    for k in ("rows",) if args.surfaces else ("rows", "ranked", "priced", "picks", "idp"):
         ob, oa = (b.get("totals") or {}).get(k), (a.get("totals") or {}).get(k)
         flag = "" if ob == oa else "   <-- CHANGED"
         print(f"  {k:>8}: {ob} -> {oa}{flag}")
@@ -107,7 +192,7 @@ def main() -> int:
     # ── value movement ────────────────────────────────────────────────
     moves, newly_priced, newly_unpriced = [], [], []
     for k in common:
-        ov, nv = rb[k].get("rankDerivedValue"), ra[k].get("rankDerivedValue")
+        ov, nv = rb[k].get(value_field), ra[k].get(value_field)
         if ov is None and nv is not None:
             newly_priced.append(k)
         elif ov is not None and nv is None:
@@ -141,7 +226,7 @@ def main() -> int:
 
     # ── label flips ───────────────────────────────────────────────────
     print("\n  LABELS:")
-    for f in _LABEL_FIELDS:
+    for f in label_fields:
         flips = [k for k in common if rb[k].get(f) != ra[k].get(f)]
         if flips:
             print(

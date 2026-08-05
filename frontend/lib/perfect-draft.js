@@ -260,6 +260,25 @@ export function releaseCost(rung) {
 }
 
 /**
+ * The order cuts are actually consumed in, under whichever model is live.
+ *
+ * The backend ships rungs ascending by ECC.  The ladder model charges the
+ * cheapest by `releaseCost`, which is a different quantity and therefore a
+ * different order.  Every consumer that walks the ladder — the charge table,
+ * mid-draft progress, realized results, the panel's cut column — must walk it
+ * the same way, or one player is charged twice and another never.
+ *
+ * Legal because the backend's greedy built its rungs as a nested sequence of
+ * legal cut-sets: all of them are jointly droppable, so any subset is too.
+ */
+export function consumptionOrder(cutLadder, waiverLadder) {
+  const rungs = Array.isArray(cutLadder) ? cutLadder : [];
+  const ladder = Array.isArray(waiverLadder) && waiverLadder.length ? waiverLadder : null;
+  if (!ladder) return rungs;
+  return [...rungs].sort((a, b) => releaseCost(a) - releaseCost(b));
+}
+
+/**
  * Cumulative release cost of the cuts a k-rookie plan forces.
  *
  * Takes the CHEAPEST cuts by release cost rather than in ladder order, which is
@@ -815,13 +834,13 @@ function buildItems(input) {
 }
 
 /** Best achievable net value over a set of items, plus the winning plan. */
-function bestNetOver(items, input, kCap) {
+function bestNetOver(items, input, kCap, precomputed = null) {
   const { budget = 0 } = input || {};
   const B = Math.max(0, Math.floor(Number(budget) || 0));
   const ladder = ladderOf(input);
   let best = { netValue: 0, players: [], k: 0, spend: 0 };
   if (!items.length || kCap <= 0) return best;
-  const { F, took, width } = solveKnapsack(items, B, kCap);
+  const { F, took, width } = precomputed || solveKnapsack(items, B, kCap);
   const table = buildChargeTable(input, ladder);
   for (let k = 1; k <= kCap; k++) {
     const charges = table.at(k);
@@ -879,13 +898,19 @@ export function computeMaxBid(input, rookieId, { bid = null } = {}) {
     ),
   );
 
-  const without = bestNetOver(others, input, kCapAll);
+  // ONE knapsack over `others`, shared by both users of it. `bestNetOver`
+  // used to build its own and this line rebuilt an argument-identical copy
+  // six lines later — `Math.max(0, kCapAll - 1) + 1 === kCapAll` because
+  // kCapAll is floored at 1 above. That doubled the cost of every max-bid,
+  // and there is one max-bid per recommended rookie.
+  const solved = solveKnapsack(others, B, kCapAll);
+  const without = bestNetOver(others, input, kCapAll, solved);
   if (!target) {
     return { planMaxBid: 0, netWith: null, netWithout: without.netValue, pivot: without };
   }
 
   // Phi(q): best net over plans containing the target priced at q.
-  const { F } = solveKnapsack(others, B, Math.max(0, kCapAll - 1) + 1);
+  const { F } = solved;
   const table = buildChargeTable(input, ladder);
   const phi = (q) => {
     const rem = B - q;
@@ -1265,6 +1290,16 @@ export function optimizeDraft(input) {
  * remaining rung — the same order the plan itself assumes, so the accounting
  * stays consistent with how the cost was quoted at the time.
  *
+ * "Cheapest" must mean the same thing here as it does in `buildChargeTable`,
+ * and under the ladder model it does NOT mean the backend's order.  The
+ * backend ships rungs ascending by ECC (value over waiver level); the ladder
+ * model charges the cheapest by `releaseCost` (the whole value).  Those
+ * orderings are unrelated — a rung with an ECC of 0 can have the largest
+ * release cost on the board.  Consuming the ECC head while charging the
+ * release-cheapest re-offers one player as a cut on purchase after purchase
+ * and never charges another at all, which is precisely the failure the
+ * paragraph above says this function exists to prevent.
+ *
  * `ladderExhausted` matters for display: a plan of zero because there is no
  * modelled room left reads identically to a plan of zero because nothing is
  * worth buying, and those call for opposite actions.
@@ -1273,9 +1308,10 @@ export function applyDraftProgress({
   openRosterSpots = 0,
   cutLadder = [],
   rookiesBought = 0,
+  waiverLadder = null,
 } = {}) {
   const open = Math.max(0, Number(openRosterSpots) || 0);
-  const ladder = Array.isArray(cutLadder) ? cutLadder : [];
+  const ladder = consumptionOrder(cutLadder, waiverLadder);
   const bought = Math.max(0, Number(rookiesBought) || 0);
 
   const spotsUsed = Math.min(bought, open);
@@ -1332,6 +1368,7 @@ export function realizedResults({
   const { rungsUsed } = applyDraftProgress({
     openRosterSpots,
     cutLadder,
+    waiverLadder,
     rookiesBought: bought.length,
   });
 
@@ -1348,9 +1385,14 @@ export function realizedResults({
     0,
   );
   const replacement = ladder ? replacementCost(bought.length, ladder, openRosterSpots) : 0;
-  const displacement = (Array.isArray(cutLadder) ? cutLadder : [])
+  // The SAME cost and the SAME order the plan was charged on. Taking ECC here
+  // while the plan takes releaseCost made "what you bought" and "what the plan
+  // would buy" incomparable — which is the one thing this function exists to
+  // be. On the live board 23 of 30 rungs have an ECC of 0, so realized
+  // displacement was ~0 against a plan charged thousands.
+  const displacement = consumptionOrder(cutLadder, waiverLadder)
     .slice(0, rungsUsed)
-    .reduce((s, r) => s + (Number(r?.effectiveCutCost) || 0), 0);
+    .reduce((s, r) => s + (ladder ? releaseCost(r) : Number(r?.effectiveCutCost) || 0), 0);
   const spend = bought.reduce((s, p) => s + (Number(p?.pick?.amount) || 0), 0);
 
   return {
