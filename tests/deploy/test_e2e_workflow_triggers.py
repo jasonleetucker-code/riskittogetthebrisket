@@ -135,9 +135,8 @@ def test_only_main_may_write_to_the_failures_tracker() -> None:
             "NOT a substitute: workflow_dispatch on a branch satisfies it, "
             "which is incident #716."
         )
-        assert "github.event_name != 'pull_request'" in condition, (
-            f"{name!r} lost its PR-run guard."
-        )
+        has_event_guard = "github.event_name != 'pull_request'" in condition
+        assert has_event_guard, f"{name!r} lost its PR-run guard."
 
 
 def test_the_two_tracker_steps_guard_opposite_outcomes() -> None:
