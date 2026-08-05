@@ -274,8 +274,26 @@ async function gotoRankingsBoard(page, { minRows = 50 } = {}) {
   // which reads like a dead pipeline and was a dead cookie.
   await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
   const rows = page.locator(SEL.boardRow);
+  // 90s, not 60s.  60s was measured EXHAUSTING on run 31027451127
+  // (journey-rankings.spec.js:109, desktop-1366), and the distinction
+  // matters: it failed with this helper's own message and "Timeout:
+  // 60000ms", i.e. the inner wait ran out on its own — the per-test cap
+  // was not what pre-empted it.  Raising `timeout` in playwright.config.js
+  // (150s since #741) therefore does not cover this case, and the two
+  // fixes are complementary rather than a re-litigation of that one.
+  //
+  // Same reading of the evidence as #741's: the board is SLOW under CI
+  // contention, not broken — the retry passed, and the same run measured
+  // POST /api/trade/finder at 66s against 7.7s on an unloaded runner, a
+  // ~9x stretch on a CPU-bound backend path.  /rankings pulls the ~4 MB
+  // contract through the same process.
+  //
+  // Budget arithmetic, kept in step with the config: this helper's worst
+  // case is 90s + the 30s row-count poll below = 120s, which leaves 60s
+  // of the 180s cap for the test body — the same headroom #741 sized the
+  // cap around.  Move one and move the other.
   await expect(rows.first(), "rankings board should render rows").toBeVisible({
-    timeout: 60_000,
+    timeout: 90_000,
   });
   await expect
     .poll(() => rows.count(), {
