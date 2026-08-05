@@ -55,7 +55,7 @@ import { buildTeamByPlayer } from "@/lib/waiver-logic";
 // and no app change removes it; a user never sees it (no client rects,
 // never in the accessibility tree). Reproduced locally at 2/25 loads on
 // /waivers under CPU throttling. The E2E suite handles it with
-// `waitForStreamSettled()` (tests/e2e/helpers/journey.js).
+// `awaitStreamSettled()` (tests/e2e/helpers/journey.js, added by #747).
 //
 // The distinction is the point: what `dynamic()` produced here was a
 // PERMANENT duplicate, which React never cleans up. That is a real defect
