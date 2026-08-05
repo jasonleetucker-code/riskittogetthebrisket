@@ -514,5 +514,54 @@ class TestSubsetRunsCarryTheirOwnCoverageFloor(unittest.TestCase):
         self.assertEqual(offenders, [], "\n".join(offenders))
 
 
+class TestSessionMintRetrySemantics(unittest.TestCase):
+    """The session mint retries a dropped connection, and nothing else.
+
+    ``mintSession`` runs in the ``authedPage`` fixture before every authed
+    spec, so a single ``ECONNRESET`` there failed the spec outright.  On
+    2026-08-05 that produced **0 failed, 2 flaky, 140 passed** on PR #741 —
+    ``journey-rankings.spec.js:109`` and ``:152``, neither touched by that PR
+    — and ``failOnFlakyTests`` correctly turned the retried green into a red
+    job.
+
+    Retrying setup is only safe if it cannot also hide a real failure.  The
+    JS guard asserts that boundary directly (a 5xx is returned untouched, a
+    non-transport throw propagates on the first attempt, an exhausted retry
+    still rethrows so ``stack-death-reporter.js`` keeps matching it).
+
+    It runs here, in the fast pytest gate, for the same reason as the guards
+    above: this defect makes authed specs fail *everywhere at once* and so
+    reads as a broken product rather than a broken harness.  Running it from
+    pytest also means it needs no Playwright runner — which is exactly why
+    ``mintSession`` lives in its own module.
+    """
+
+    def test_mint_session_guard_passes(self) -> None:
+        import shutil
+        import subprocess
+
+        node = shutil.which("node")
+        if node is None:  # pragma: no cover - CI always has node
+            self.skipTest("node not on PATH")
+
+        guard = E2E_DIR / "test_auth_fixture_retry.js"
+        self.assertTrue(guard.is_file(), f"missing guard script: {guard}")
+
+        proc = subprocess.run(
+            [node, str(guard)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=str(REPO_ROOT),
+        )
+        self.assertEqual(
+            proc.returncode,
+            0,
+            "tests/e2e/test_auth_fixture_retry.js failed — the session-mint "
+            "retry no longer has the semantics it claims:\n"
+            f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}",
+        )
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

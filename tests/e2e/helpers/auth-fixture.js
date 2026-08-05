@@ -21,6 +21,10 @@
 const base = require("@playwright/test");
 const { pageUrl } = require("./journey");
 
+// Session minting lives in its own module so it can be exercised without
+// Playwright's runner present.  See mint-session.js for why it retries.
+const { mintSession } = require("./mint-session");
+
 exports.test = base.test.extend({
   authedPage: async ({ page, baseURL }, use) => {
     const secret = process.env.E2E_TEST_SECRET;
@@ -28,9 +32,7 @@ exports.test = base.test.extend({
       base.test.skip(true, "E2E_TEST_SECRET not set — skipping signed-in tests");
       return;
     }
-    const resp = await page.request.post(`${baseURL}/api/test/create-session`, {
-      headers: { Authorization: `Bearer ${secret}` },
-    });
+    const resp = await mintSession(page, baseURL, secret);
     if (!resp.ok()) {
       base.test.skip(
         true,
