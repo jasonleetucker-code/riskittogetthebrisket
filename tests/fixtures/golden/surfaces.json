@@ -1,0 +1,1711 @@
+{
+ "kind": "surfaces",
+ "rows": {
+  "faab_bid/v=2000,pool=2200,budget=100": {
+   "aggressive": 20,
+   "label": "20%",
+   "lowball": 7,
+   "reasonable": 14,
+   "value": 20
+  },
+  "faab_bid/v=2000,pool=9000,budget=0": {
+   "aggressive": 0,
+   "label": "no-budget",
+   "lowball": 0,
+   "reasonable": 0,
+   "value": 0
+  },
+  "faab_bid/v=2000,pool=9000,budget=100": {
+   "aggressive": 20,
+   "label": "20%",
+   "lowball": 7,
+   "reasonable": 14,
+   "value": 20
+  },
+  "faab_bid/v=2000,pool=9000,budget=12": {
+   "aggressive": 2,
+   "label": "17%",
+   "lowball": 1,
+   "reasonable": 2,
+   "value": 2
+  },
+  "faab_bid/v=500,pool=9000,budget=100": {
+   "aggressive": 0,
+   "label": "0%",
+   "lowball": 0,
+   "reasonable": 0,
+   "value": 0
+  },
+  "faab_bid/v=5000,pool=5000,budget=50": {
+   "aggressive": 50,
+   "label": "100%",
+   "lowball": 18,
+   "reasonable": 35,
+   "value": 50
+  },
+  "faab_bid/v=9000,pool=9000,budget=100": {
+   "aggressive": 100,
+   "label": "100%",
+   "lowball": 35,
+   "reasonable": 70,
+   "value": 100
+  },
+  "news_polarity/LB suspended six games": {
+   "impact": "negative",
+   "kind": "injury",
+   "label": "alert/negative",
+   "severity": "alert",
+   "value": null
+  },
+  "news_polarity/QB named week 1 starter": {
+   "impact": "positive",
+   "kind": "performance",
+   "label": "watch/positive",
+   "severity": "watch",
+   "value": null
+  },
+  "news_polarity/QB placed on injured reserve": {
+   "impact": "negative",
+   "kind": "injury",
+   "label": "alert/negative",
+   "severity": "alert",
+   "value": null
+  },
+  "news_polarity/RB out for the season with a torn ACL": {
+   "impact": "negative",
+   "kind": "injury",
+   "label": "alert/negative",
+   "severity": "alert",
+   "value": null
+  },
+  "news_polarity/RB signs three-year extension": {
+   "impact": "positive",
+   "kind": "transaction",
+   "label": "watch/positive",
+   "severity": "watch",
+   "value": null
+  },
+  "news_polarity/Rookie TE questionable for Sunday": {
+   "impact": "negative",
+   "kind": "injury",
+   "label": "alert/negative",
+   "severity": "alert",
+   "value": null
+  },
+  "news_polarity/Star RB released by the Panthers": {
+   "impact": "positive",
+   "kind": "transaction",
+   "label": "watch/positive",
+   "severity": "watch",
+   "value": null
+  },
+  "news_polarity/Team signs veteran kicker": {
+   "impact": "positive",
+   "kind": "transaction",
+   "label": "watch/positive",
+   "severity": "watch",
+   "value": null
+  },
+  "news_polarity/Veteran WR waived after failed physical": {
+   "impact": "positive",
+   "kind": "transaction",
+   "label": "watch/positive",
+   "severity": "watch",
+   "value": null
+  },
+  "news_polarity/WR traded to the Chiefs": {
+   "impact": "positive",
+   "kind": "transaction",
+   "label": "watch/positive",
+   "severity": "watch",
+   "value": null
+  },
+  "ros_direction/p=0.00,c=0.00,age=0": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.00,age=1": {
+   "label": "Strong Seller / Rebuilder",
+   "recommendation": "Sell aging veterans aggressively for picks + youth.  Expecte",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.01,age=0": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.01,age=1": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.05,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.05,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.10,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.10,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.25,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.25,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.50,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.0
+  },
+  "ros_direction/p=0.00,c=0.50,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.0
+  },
+  "ros_direction/p=0.05,c=0.00,age=0": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.00,age=1": {
+   "label": "Strong Seller / Rebuilder",
+   "recommendation": "Sell aging veterans aggressively for picks + youth.  Expecte",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.01,age=0": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.01,age=1": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.05,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.05,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.10,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.10,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.25,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.25,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.50,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.05
+  },
+  "ros_direction/p=0.05,c=0.50,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.05
+  },
+  "ros_direction/p=0.10,c=0.00,age=0": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.00,age=1": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.01,age=0": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.01,age=1": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.05,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.05,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.10,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.10,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.25,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.25,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.50,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.1
+  },
+  "ros_direction/p=0.10,c=0.50,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.1
+  },
+  "ros_direction/p=0.15,c=0.00,age=0": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.00,age=1": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.01,age=0": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.01,age=1": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.05,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.05,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.10,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.10,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.25,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.25,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.50,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.15
+  },
+  "ros_direction/p=0.15,c=0.50,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.15
+  },
+  "ros_direction/p=0.20,c=0.00,age=0": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.00,age=1": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.01,age=0": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.01,age=1": {
+   "label": "Seller",
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.02,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.02,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.05,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.05,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.10,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.10,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.25,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.25,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.50,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.20,c=0.50,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.2
+  },
+  "ros_direction/p=0.25,c=0.00,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.00,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.01,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.01,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.02,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.02,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.05,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.05,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.10,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.10,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.25,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.25,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.50,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.25,c=0.50,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.25
+  },
+  "ros_direction/p=0.30,c=0.00,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.00,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.01,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.01,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.02,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.02,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.05,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.05,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.10,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.10,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.25,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.25,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.50,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.30,c=0.50,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.3
+  },
+  "ros_direction/p=0.35,c=0.00,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.00,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.01,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.01,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.02,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.02,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.05,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.05,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.10,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.10,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.25,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.25,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.50,age=0": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.35,c=0.50,age=1": {
+   "label": "Selective Seller",
+   "recommendation": "Sell older short-term assets if strong offers arrive.  Hold ",
+   "value": 0.35
+  },
+  "ros_direction/p=0.40,c=0.00,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.00,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.01,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.01,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.05,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.05,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.10,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.10,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.25,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.25,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.50,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.40,c=0.50,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.4
+  },
+  "ros_direction/p=0.45,c=0.00,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.00,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.01,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.01,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.02,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.02,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.05,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.05,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.10,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.10,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.25,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.25,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.50,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.45,c=0.50,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.45
+  },
+  "ros_direction/p=0.50,c=0.00,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.00,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.01,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.01,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.02,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.02,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.05,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.05,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.10,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.10,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.25,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.25,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.50,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.50,c=0.50,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.5
+  },
+  "ros_direction/p=0.55,c=0.00,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.00,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.01,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.01,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.02,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.02,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.05,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.05,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.10,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.10,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.25,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.25,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.50,age=0": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.55,c=0.50,age=1": {
+   "label": "Selective Buyer",
+   "recommendation": "Target undervalued starters; avoid all-in moves until champi",
+   "value": 0.55
+  },
+  "ros_direction/p=0.60,c=0.00,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.00,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.01,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.01,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.05,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.05,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.10,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.10,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.25,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.25,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.50,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.6
+  },
+  "ros_direction/p=0.60,c=0.50,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.6
+  },
+  "ros_direction/p=0.65,c=0.00,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.00,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.01,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.01,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.05,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.05,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.10,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.10,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.25,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.25,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.50,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.65
+  },
+  "ros_direction/p=0.65,c=0.50,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.65
+  },
+  "ros_direction/p=0.70,c=0.00,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.00,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.01,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.01,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.05,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.05,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.10,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.10,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.25,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.25,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.50,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.7
+  },
+  "ros_direction/p=0.70,c=0.50,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.7
+  },
+  "ros_direction/p=0.75,c=0.00,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.00,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.01,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.01,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.05,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.05,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.10,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.10,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.25,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.25,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.50,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.75
+  },
+  "ros_direction/p=0.75,c=0.50,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.75
+  },
+  "ros_direction/p=0.80,c=0.00,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.00,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.01,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.01,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.05,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.05,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.10,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.10,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.25,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.25,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.50,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.8
+  },
+  "ros_direction/p=0.80,c=0.50,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.8
+  },
+  "ros_direction/p=0.85,c=0.00,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.00,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.01,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.01,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.05,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.05,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.10,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.10,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.25,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.25,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.50,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.85
+  },
+  "ros_direction/p=0.85,c=0.50,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.85
+  },
+  "ros_direction/p=0.90,c=0.00,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.00,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.01,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.01,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.05,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.05,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.10,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.10,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.25,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.25,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.50,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.9
+  },
+  "ros_direction/p=0.90,c=0.50,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.9
+  },
+  "ros_direction/p=0.95,c=0.00,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.00,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.01,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.01,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.05,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.05,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.10,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.10,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.25,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.25,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.50,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.95
+  },
+  "ros_direction/p=0.95,c=0.50,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 0.95
+  },
+  "ros_direction/p=1.00,c=0.00,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.00,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.01,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.01,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.02,age=0": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.02,age=1": {
+   "label": "Hold / Evaluate",
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.05,age=0": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.05,age=1": {
+   "label": "Buyer",
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.10,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.10,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.25,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.25,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.50,age=0": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 1.0
+  },
+  "ros_direction/p=1.00,c=0.50,age=1": {
+   "label": "Strong Buyer",
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "value": 1.0
+  },
+  "trade_verdict/A=0,B=350": {
+   "colorFromGap": "red",
+   "gapPercent": 100,
+   "meterFavours": "B",
+   "meterLabel": "SLIGHT EDGE",
+   "meterLevel": "slight",
+   "value": -350,
+   "verdictFromGap": "Lean"
+  },
+  "trade_verdict/A=100,B=100": {
+   "colorFromGap": "",
+   "gapPercent": 0,
+   "meterFavours": "even",
+   "meterLabel": "FAIR",
+   "meterLevel": "fair",
+   "value": 0,
+   "verdictFromGap": "Near even"
+  },
+  "trade_verdict/A=1200,B=1000": {
+   "colorFromGap": "",
+   "gapPercent": 17,
+   "meterFavours": "A",
+   "meterLabel": "FAIR",
+   "meterLevel": "fair",
+   "value": 200,
+   "verdictFromGap": "Near even"
+  },
+  "trade_verdict/A=350,B=0": {
+   "colorFromGap": "green",
+   "gapPercent": 100,
+   "meterFavours": "A",
+   "meterLabel": "SLIGHT EDGE",
+   "meterLevel": "slight",
+   "value": 350,
+   "verdictFromGap": "Lean"
+  },
+  "trade_verdict/A=4000,B=2000": {
+   "colorFromGap": "green",
+   "gapPercent": 50,
+   "meterFavours": "A",
+   "meterLabel": "LOPSIDED",
+   "meterLevel": "lopsided",
+   "value": 2000,
+   "verdictFromGap": "Major gap"
+  },
+  "trade_verdict/A=420,B=80": {
+   "colorFromGap": "",
+   "gapPercent": 81,
+   "meterFavours": "A",
+   "meterLabel": "FAIR",
+   "meterLevel": "fair",
+   "value": 340,
+   "verdictFromGap": "Near even"
+  },
+  "trade_verdict/A=500,B=180": {
+   "colorFromGap": "",
+   "gapPercent": 64,
+   "meterFavours": "A",
+   "meterLabel": "FAIR",
+   "meterLevel": "fair",
+   "value": 320,
+   "verdictFromGap": "Near even"
+  },
+  "trade_verdict/A=6000,B=9000": {
+   "colorFromGap": "red",
+   "gapPercent": 33,
+   "meterFavours": "B",
+   "meterLabel": "LOPSIDED",
+   "meterLevel": "lopsided",
+   "value": -3000,
+   "verdictFromGap": "Major gap"
+  },
+  "trade_verdict/A=8000,B=8000": {
+   "colorFromGap": "",
+   "gapPercent": 0,
+   "meterFavours": "even",
+   "meterLabel": "FAIR",
+   "meterLevel": "fair",
+   "value": 0,
+   "verdictFromGap": "Near even"
+  },
+  "trade_verdict/A=9000,B=3240": {
+   "colorFromGap": "green",
+   "gapPercent": 64,
+   "meterFavours": "A",
+   "meterLabel": "LOPSIDED",
+   "meterLevel": "lopsided",
+   "value": 5760,
+   "verdictFromGap": "Major gap"
+  },
+  "trade_verdict/A=9000,B=8650": {
+   "colorFromGap": "green",
+   "gapPercent": 4,
+   "meterFavours": "A",
+   "meterLabel": "SLIGHT EDGE",
+   "meterLevel": "slight",
+   "value": 350,
+   "verdictFromGap": "Lean"
+  },
+  "trade_verdict/A=9999,B=1": {
+   "colorFromGap": "green",
+   "gapPercent": 100,
+   "meterFavours": "A",
+   "meterLabel": "LOPSIDED",
+   "meterLevel": "lopsided",
+   "value": 9998,
+   "verdictFromGap": "Major gap"
+  }
+ },
+ "surfaces": [
+  "ros_direction(294)",
+  "faab_bid(7)",
+  "news_polarity(10)",
+  "js(12)"
+ ],
+ "totals": {
+  "rows": 323
+ }
+}
