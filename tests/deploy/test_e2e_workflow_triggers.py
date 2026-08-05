@@ -145,3 +145,73 @@ def test_the_two_tracker_steps_guard_opposite_outcomes() -> None:
     assert _step_named(wf, "Close the tracking issue when the suite is green")["if"].startswith(
         "success()"
     )
+
+
+# The exact title the alert step gives the tracker it creates.  Both
+# tracker steps must select on it; see the test below for why.
+_TRACKER_TITLE = "E2E safety net failing"
+
+
+def test_tracker_steps_identify_their_own_issue_not_just_the_label() -> None:
+    """``e2e-failures`` is a label, not an identity.
+
+    Both steps used to find the tracker by label alone — the alert step
+    took ``.[0].number``, the close step iterated ``.[].number``.  That
+    silently assumes every issue wearing the label is this workflow's
+    own run tracker, and nothing enforces it: the label is plain, and a
+    human or another agent can apply it to a hand-written defect issue.
+
+    #753 is exactly that — a real, open, reproducible defect carrying
+    ``e2e-failures``.  Both halves misfired on it:
+
+    * ``gh issue list`` sorts newest-first, so ``.[0]`` resolved to #753
+      the moment it was filed, and run failures began commenting on
+      somebody's bug report instead of the tracker (#732).
+    * the close step's ``.[]`` drain would have CLOSED it, with a "green
+      again" comment, on the first green ``main`` run — burying a live
+      defect behind a true green.
+
+    That second one is the close step's own stated fear ("a false
+    all-clear CLOSES a real open failure") reached through a door its
+    note did not anticipate: not a false green, but a true green closing
+    an issue that was never a run tracker.
+
+    The fix is to match what the alert step actually creates: author AND
+    title.  Both clauses are load-bearing and this test requires both —
+    author alone still matches a different bot-filed issue, and title
+    alone still matches a human who reused the string.
+    """
+    wf = _workflow()
+    for name in _ISSUE_STEP_NAMES:
+        run = _step_named(wf, name)["run"]
+
+        assert 'select(.author.login==\\"github-actions\\")' in run, (
+            f"{name!r} no longer filters the tracker lookup by author. "
+            "Selecting on the e2e-failures label alone treats any issue "
+            "wearing it as this workflow's own tracker — which closed/"
+            "hijacked #753, a hand-filed defect."
+        )
+        assert f'select(.title==\\"${{TRACKER_TITLE}}\\")' in run, (
+            f"{name!r} no longer filters the tracker lookup by title. "
+            "Author alone still matches any other issue this bot opens."
+        )
+        assert f'TRACKER_TITLE="{_TRACKER_TITLE}"' in run, (
+            f"{name!r} does not define TRACKER_TITLE as {_TRACKER_TITLE!r}. "
+            "The two steps must agree on the title or the close step "
+            "stops recognising what the alert step opened."
+        )
+
+
+def test_alert_step_creates_the_issue_it_looks_up() -> None:
+    """The lookup title and the created title must be the same string.
+
+    If the alert step ever creates a title its own lookup does not match,
+    it opens a brand-new tracker on every failed run instead of reusing
+    one — the "permanently red, accumulating duplicates" state the close
+    step was added to end.
+    """
+    run = _step_named(_workflow(), "Alert on workflow failure")["run"]
+    assert '--title "$TRACKER_TITLE"' in run, (
+        "the alert step hardcodes a create-title instead of reusing "
+        "TRACKER_TITLE, so its lookup and its create can drift apart"
+    )
