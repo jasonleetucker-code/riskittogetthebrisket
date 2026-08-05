@@ -1,0 +1,107 @@
+[
+ {
+  "path": "/league/activity",
+  "status": 200,
+  "chars": 15358,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in \u2190 League home Activity Trades + news in one chronological feed. Scope to your roster to see only events involving your players. Scope League My roster Type All Trades News 280 events \u00b7 newest first NEWS just now Read source \u2192 What's next for 49ers receivers Brandon Aiyuk, Deebo Samuel and Ricky Pearsall? When will Aiyuk be released? And will he sign with Washington? What is Samuel's role after returning to S.F.? NEWS just now Read source \u2192 Falcons extend Bijan Robinson, offensive core, put spotlight on QB Bijan Robinson, Drake London, Kyle Pitts and Matthew Bergeron have extensions, but they don't have a QB1 -- yet. NEWS 2m ago Read source \u2192 Khal",
+  "errs": [
+   "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ]
+ },
+ {
+  "path": "/league/franchise/468418790212759552",
+  "status": 200,
+  "chars": 1283,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in \u2190 League home \u00b7 All franchises Jason Current team: Russini Panini \u2197 Share franchise Top rival: Eric \u00b7 Index 21 Owner ID: 468418790212759552 Compare to my roster Pick your team on the league page to compare against this franchise. Cumulative SEASONS 3 RECORD 18-34 POINTS FOR 8,321.7 TITLES 0 0 finals PLAYOFFS 0 1 reg 1st TRADES 156 188 waivers Draft capital Weighted score 134 \u00b7 59 owned picks 2027 R1 2027 R1* 2027 R1* 2027 R1* 2027 R1* 2027 R1* 2027 R1* 2027 R1* 2027 R1* 2027 R2 2027 R2* 2027 R2* 2027 R2* 2027 R2* 2027 R2* 2027 R2* 2027 R2* 2027 R3 2027 R3* 2027 R3* 2027 R3* 2027 R3* 2027 R3* 2027 R3* 2027 R3* 2027 R4 2027 R4* 2027 R4* 2027 R4* 20",
+  "errs": [
+   "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ]
+ },
+ {
+  "path": "/league/franchise/714976074907336704",
+  "status": 200,
+  "chars": 144,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in Franchise not found No public franchise record for owner 714976074907336704. \u2190 Back to league SAVE",
+  "errs": []
+ },
+ {
+  "path": "/league/franchise/jason",
+  "status": 200,
+  "chars": 131,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in Franchise not found No public franchise record for owner jason. \u2190 Back to league SAVE",
+  "errs": []
+ },
+ {
+  "path": "/league/player/6794",
+  "status": 200,
+  "chars": 1237,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in \u2190 League home Justin Jefferson WR \u00b7 MIN \u00b7 6 yrs exp \u2197 Share journey Drafted Jason 2024 rookie draft \u00b7 Round 1 \u00b7 Pick 10 Ownership arc Managers who rostered this player, in order Jason \u2192 MaKayla \u2192 Brent Impact by manager Points this player scored while on each roster MANAGER PTS STARTED PTS BENCHED TOTAL PTS WKS STARTED WKS ROSTERED Jason 312.3 0.0 312.3 33 35 MaKayla 136.3 0.0 136.3 5 5 Brent 74.6 36.7 111.3 5 12 BEST WEEK 39.4 pts 2024 Week 16 \u00b7 MaKayla WORST WEEK 5.7 pts 2024 Week 12 \u00b7 Jason Transaction timeline Every trade, waiver, and FA event involving this player 2024 \u00b7 Wk 10 \u00b7 free_agent \u00b7 drop Dropped by Jason 2024 \u00b7 Wk 10 \u00b7 commissioner ",
+  "errs": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "path": "/league/player/99999999",
+  "status": 200,
+  "chars": 128,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in Player not found No public journey data for player 99999999. \u2190 Back to league SAVE",
+  "errs": []
+ },
+ {
+  "path": "/league/rivalry/468418790212759552-vs-711452264774041600",
+  "status": 200,
+  "chars": 614,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in \u2190 League home \u00b7 All rivalries Jason vs Ed Rivalry Index 6 \u00b7 Head-to-head detail \u2197 Share rivalry Jason vs Ed Head-to-head MEETINGS 4 4 reg \u00b7 0 playoff SERIES 1\u20133 Ed leads POINTS 1167.0 / 1321.7 Ed +154.7 CLOSE (\u22645 PTS) 0 No nail-biters CLOSE (\u226410 PTS) 0 No close games Memorable meetings CLOSEST 2025 \u00b7 Wk 2 Jason def. Ed by 17.2 Jason 388.8 \u00b7 Ed 371.7 BIGGEST BLOWOUT 2025 \u00b7 Wk 11 Ed def. Jason by 84.3 Jason 331.7 \u00b7 Ed 416.0 LAST MEETING 2025 \u00b7 Wk 11 Ed def. Jason by 84.3 Jason 331.7 \u00b7 Ed 416.0 Season splits SEASON JASON WINS ED WINS TIES 2024 0 2 0 2025 1 1 0 SAVE",
+  "errs": []
+ },
+ {
+  "path": "/league/week/2025/17",
+  "status": 200,
+  "chars": 1369,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in Collin put Roy on a milk carton, 297.2-238.8 2025 \u00b7 Week 17 (playoffs) \u2190 All recaps \u2197 Share Week 17 (playoffs) closed with 4 games on the slate and 2680.8 total points. Ed paced the league at 393.4. Collin put together one of the cleaner top-to-bottom outings of the week, taking Roy by 58.4. Podium for the week \u2014 Ed 393.4, MaKayla 382.7, Joey 375.8. The slate averaged 335.1 points per side \u2014 well above league norm. Cellar of the week was Roy at 238.8 \u2014 a get-back-on-the-horse week. Playoffs heighten everything; that was visible across the slate. Superlatives WEEKLY MVP Ed Still Jerry\u2019s Team 393.4 pts BIGGEST BLOWOUT Collin CollinFoz +58.4 over Ro",
+  "errs": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET",
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "path": "/league/week/2026/1",
+  "status": 200,
+  "chars": 138,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in Recap not found No recap for 2026 week 1 \u2014 the week may not be scored yet. \u2190 All recaps SAVE",
+  "errs": []
+ },
+ {
+  "path": "/league/weekly/2025/17/1",
+  "status": 200,
+  "chars": 1337,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in \u2190 League home \u00b7 All weekly recaps 2025 \u00b7 Week 17 (playoffs) Ed beat Brent 393.36\u2013343.56 (margin 49.8) in the 2025 Week 17 playoff matchup. Led by Brock Purdy's 45.95 pts. \u2197 Share recap Ed Still Jerry\u2019s Team 393.4 Entered week 7-6 \u00b7 3rd seed Top scorer: Brock Purdy \u00b7 46.0 pts Starters PLAYER POS PTS Brock Purdy QB 46.0 Zach Charbonnet RB 32.2 D'Andre Swift RB 24.1 Christian Watson WR 26.6 George Pickens WR 15.1 Jerry Jeudy WR 14.0 AJ Barner TE 16.3 Audric Estime RB 20.1 Javonte Williams RB 14.4 Dak Prescott QB 28.0 Brandon Aubrey K 15.3 Chase Young DL 38.0 DeMarcus Lawrence DL 25.2 Myles Murphy DL 17.1 Yaya Diaby DL 21.1 Mike Jackson DB 28.9 Shavo",
+  "errs": [
+   "Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "path": "/league/articles/2025/17",
+  "status": 200,
+  "chars": 927,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in Week 17 \u00b7 2025 Matchup previews & recaps \u2190 Back to /league Wednesday-morning previews & Tuesday-morning recaps, written by Claude using live league data, season storylines, and real NFL context. \ud83c\udfc6 Championship: Still Jerry's Team vs Karma Cowboy PREVIEW \u00b7 COMEBACK-ARC Down 18.43, with one week to find it: Aguilar's championship bid Aguilar erases the 18.43 by Sunday-night kickoff. Brenthany's lone Monday-night dart \u2014 Puka Nacua at Atlanta \u2014 needs to clear 28 to save it. He doesn't get there. 678 words \u00b7 12/24/2025, 1:00:00 PM RECAP \u00b7 COMEBACK-ARC The Christmas comeback: Still Jerry's Team are 2025 Brisket champs Brenthany posted 432.87 and lost. ",
+  "errs": []
+ },
+ {
+  "path": "/league/articles/2026/1",
+  "status": 200,
+  "chars": 359,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in Week 1 \u00b7 2026 Matchup previews & recaps \u2190 Back to /league Wednesday-morning previews & Tuesday-morning recaps, written by Claude using live league data, season storylines, and real NFL context. No articles yet Nothing has been generated for 2026 Week 1. Check back Wednesday for previews, Tuesday for recaps. SAVE",
+  "errs": []
+ },
+ {
+  "path": "/league/articles/2025/17/1/recap",
+  "status": 200,
+  "chars": 5227,
+  "text": "Skip to content \u25aa CHASE UPSIDE League Sign in The Christmas comeback: Still Jerry's Team are 2025 Brisket champs 2025 \u00b7 Week 17 \u00b7 Championship \u00b7 Recap \u2190 Slate \u2197 Share comeback-arc \u00b7 storyteller \u00b7 765 words Still Jerry's Team Aguilar315 vs Karma Cowboy Brenthany There is, somewhere in Aguilar's house, a screenshot of 432.87 \u2014 the score that, for seven days, looked like the only number that mattered. He should keep it; on Sunday the league found out two-week championships are decided in the second week. Aguilar 393.36, Brenthany 343.56. The single-week swing was 49.80 points in Still Jerry's favor \u2014 more than enough to erase the 18.43 deficit Aguilar walked into Christmas with \u2014 and the cumula",
+  "errs": []
+ }
+]

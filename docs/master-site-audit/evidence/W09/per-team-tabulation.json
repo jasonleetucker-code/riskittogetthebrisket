@@ -1,0 +1,488 @@
+{
+ "generatedBy": "W09",
+ "backend": "http://127.0.0.1:8000",
+ "teams": {
+  "Jason": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 7045,
+    "totalQualified": 6073,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 34,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 0,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 20,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 4,
+    "confidenceTiers": {
+     "low": 20,
+     "moderate": 20
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 6,
+    "sellHigh": 6,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 16,
+    "rosterProvided": 57,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "Ed": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 5085,
+    "totalQualified": 4306,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 23,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 15,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 36,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 10,
+    "confidenceTiers": {
+     "moderate": 5,
+     "low": 35
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 0,
+    "sellHigh": 0,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 10,
+    "rosterProvided": 58,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "Ty": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 3389,
+    "totalQualified": 2833,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 15,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 5,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 39,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 7,
+    "confidenceTiers": {
+     "low": 35,
+     "moderate": 5
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 0,
+    "sellHigh": 0,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 7,
+    "rosterProvided": 56,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "Collin": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 5283,
+    "totalQualified": 4599,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 19,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 9,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 14,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 4,
+    "confidenceTiers": {
+     "moderate": 32,
+     "low": 8
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 0,
+    "sellHigh": 0,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 10,
+    "rosterProvided": 58,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "MaKayla": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 6715,
+    "totalQualified": 5723,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 30,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 11,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 33,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 11,
+    "confidenceTiers": {
+     "low": 26,
+     "moderate": 14
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 6,
+    "sellHigh": 6,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 14,
+    "rosterProvided": 58,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "Eric": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 7934,
+    "totalQualified": 6866,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 25,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 30,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 38,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 6,
+    "confidenceTiers": {
+     "low": 21,
+     "moderate": 19
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 4,
+    "sellHigh": 4,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 15,
+    "rosterProvided": 58,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "Roy": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 3769,
+    "totalQualified": 3299,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 18,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 9,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 25,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 7,
+    "confidenceTiers": {
+     "low": 17,
+     "moderate": 23
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 0,
+    "sellHigh": 0,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 7,
+    "rosterProvided": 51,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "Joey": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 5793,
+    "totalQualified": 5000,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 27,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 2,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 3,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 4,
+    "confidenceTiers": {
+     "moderate": 39,
+     "low": 1
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 0,
+    "sellHigh": 0,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 10,
+    "rosterProvided": 58,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "Brent": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 9397,
+    "totalQualified": 8157,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 32,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 35,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 36,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 5,
+    "confidenceTiers": {
+     "low": 10,
+     "moderate": 30
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 9,
+    "sellHigh": 5,
+    "buyLow": 3,
+    "consolidation": 1,
+    "positionalUpgrades": 0,
+    "rosterMatched": 21,
+    "rosterProvided": 57,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "Kich": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 3367,
+    "totalQualified": 2938,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 14,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 2,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 40,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 6,
+    "confidenceTiers": {
+     "low": 38,
+     "moderate": 2
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 0,
+    "sellHigh": 0,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 9,
+    "rosterProvided": 58,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "jstuedle": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 1941,
+    "totalQualified": 1606,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 12,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 25,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 40,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 7,
+    "confidenceTiers": {
+     "low": 20,
+     "moderate": 20
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 0,
+    "sellHigh": 0,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 3,
+    "rosterProvided": 44,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  },
+  "Blaine": {
+   "finder": {
+    "returned": 40,
+    "totalCandidatesEvaluated": 3147,
+    "totalQualified": 2680,
+    "assetPoolSize": 300,
+    "myRosterSizeReported": 16,
+    "valueSource": "rankDerivedValue",
+    "assetsUnpricedByBoard": 186,
+    "marketCoverage": {
+     "ktcSfTep": 132,
+     "ktc": 18,
+     "idpTradeCalc": 150
+    },
+    "mixedMarketTrades": 21,
+    "packageShapes": {
+     "1-for-2": 40
+    },
+    "tradesContainingIDP": 24,
+    "tradesContainingPick": 0,
+    "distinctGiveSideAssets": 4,
+    "confidenceTiers": {
+     "low": 5,
+     "moderate": 35
+    },
+    "valuationMode": "market"
+   },
+   "suggestions": {
+    "total": 0,
+    "sellHigh": 0,
+    "buyLow": 0,
+    "consolidation": 0,
+    "positionalUpgrades": 0,
+    "rosterMatched": 5,
+    "rosterProvided": 53,
+    "assetPoolSize": 150,
+    "valuationMode": "market"
+   }
+  }
+ },
+ "rosterSizesFromSleeper": {
+  "Jason": 57,
+  "Ed": 58,
+  "Ty": 56,
+  "Collin": 58,
+  "MaKayla": 58,
+  "Eric": 58,
+  "Roy": 51,
+  "Joey": 58,
+  "Brent": 57,
+  "Kich": 58,
+  "jstuedle": 44,
+  "Blaine": 53
+ }
+}

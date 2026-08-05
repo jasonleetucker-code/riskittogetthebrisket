@@ -1,0 +1,17 @@
+== A. id_overrides.json as shipped ==
+   live override keys: ['_example_entry_only']
+
+== B. override precedence (docstring: 'short-circuits the match ladder') ==
+   directory HAS 999 -> sleeper_id / DIRECTORY NAME / gsis 00-0000001
+   EXPECTED per docstring: manual_override / OVERRIDE NAME / 00-9999999
+   directory EMPTY      -> manual_override / OVERRIDE NAME
+
+== C. homonym without a position: caller-supplied team is ignored ==
+   name='Josh Allen' team=JAX -> Josh Allen QB/BUF conf=1.0 method=fuzzy_name
+   name='Josh Allen' team=BUF -> Josh Allen QB/BUF conf=1.0 method=fuzzy_name
+   same call, dict order reversed -> LB/JAX  (answer flips)
+
+== D. resolve_many index rebuild ==
+   resolve_many(200 rows, 11k directory): 14.592s
+   one _index_directory build           : 0.072s
+   ratio                                : 203x (docstring: 'index is built once, not per-row')

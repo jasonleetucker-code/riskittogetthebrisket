@@ -1,0 +1,354 @@
+{
+ "trials": 4000,
+ "divergences": 13,
+ "examples": [
+  {
+   "A": [
+    4581,
+    6362,
+    4354
+   ],
+   "B": [
+    7181,
+    3245
+   ],
+   "ktc_va": [
+    1281,
+    2,
+    true
+   ],
+   "market_value_adjustment": [
+    1280,
+    2,
+    true
+   ],
+   "trade_grading": [
+    1280,
+    2,
+    true
+   ]
+  },
+  {
+   "A": [
+    2825,
+    6381,
+    556
+   ],
+   "B": [
+    1440,
+    3364,
+    3635,
+    1174
+   ],
+   "ktc_va": [
+    3041,
+    1,
+    true
+   ],
+   "market_value_adjustment": [
+    3042,
+    1,
+    true
+   ],
+   "trade_grading": [
+    3042,
+    1,
+    true
+   ]
+  },
+  {
+   "A": [
+    3440,
+    7957,
+    965,
+    2269,
+    519
+   ],
+   "B": [
+    7718,
+    7451
+   ],
+   "ktc_va": [
+    3959,
+    2,
+    true
+   ],
+   "market_value_adjustment": [
+    3960,
+    2,
+    true
+   ],
+   "trade_grading": [
+    3960,
+    2,
+    true
+   ]
+  },
+  {
+   "A": [
+    8641,
+    856,
+    7337,
+    7187
+   ],
+   "B": [
+    2209,
+    8330,
+    9197,
+    5893,
+    714
+   ],
+   "ktc_va": [
+    2276,
+    2,
+    true
+   ],
+   "market_value_adjustment": [
+    2277,
+    2,
+    true
+   ],
+   "trade_grading": [
+    2277,
+    2,
+    true
+   ]
+  },
+  {
+   "A": [
+    4632,
+    327,
+    7131,
+    6620
+   ],
+   "B": [
+    5879,
+    5602,
+    8761
+   ],
+   "ktc_va": [
+    2848,
+    2,
+    true
+   ],
+   "market_value_adjustment": [
+    2849,
+    2,
+    true
+   ],
+   "trade_grading": [
+    2849,
+    2,
+    true
+   ]
+  },
+  {
+   "A": [
+    9741
+   ],
+   "B": [
+    6691,
+    2886
+   ],
+   "ktc_va": [
+    4706,
+    1,
+    true
+   ],
+   "market_value_adjustment": [
+    4707,
+    1,
+    true
+   ],
+   "trade_grading": [
+    4707,
+    1,
+    true
+   ]
+  },
+  {
+   "A": [
+    1069,
+    6813,
+    3987
+   ],
+   "B": [
+    5869,
+    4250
+   ],
+   "ktc_va": [
+    1656,
+    1,
+    true
+   ],
+   "market_value_adjustment": [
+    1657,
+    1,
+    true
+   ],
+   "trade_grading": [
+    1657,
+    1,
+    true
+   ]
+  },
+  {
+   "A": [
+    9140
+   ],
+   "B": [
+    1912,
+    5734,
+    2247,
+    3063,
+    2018
+   ],
+   "ktc_va": [
+    6976,
+    1,
+    true
+   ],
+   "market_value_adjustment": [
+    6977,
+    1,
+    true
+   ],
+   "trade_grading": [
+    6977,
+    1,
+    true
+   ]
+  },
+  {
+   "A": [
+    1752,
+    2331,
+    2176,
+    935
+   ],
+   "B": [
+    5305
+   ],
+   "ktc_va": [
+    4541,
+    2,
+    true
+   ],
+   "market_value_adjustment": [
+    4542,
+    2,
+    true
+   ],
+   "trade_grading": [
+    4542,
+    2,
+    true
+   ]
+  },
+  {
+   "A": [
+    6941,
+    2912
+   ],
+   "B": [
+    2642,
+    5556,
+    1514
+   ],
+   "ktc_va": [
+    3329,
+    1,
+    true
+   ],
+   "market_value_adjustment": [
+    3330,
+    1,
+    true
+   ],
+   "trade_grading": [
+    3330,
+    1,
+    true
+   ]
+  },
+  {
+   "A": [
+    3331,
+    8340,
+    5299,
+    6061
+   ],
+   "B": [
+    9933,
+    5780,
+    6212,
+    1791
+   ],
+   "ktc_va": [
+    4281,
+    2,
+    true
+   ],
+   "market_value_adjustment": [
+    4282,
+    2,
+    true
+   ],
+   "trade_grading": [
+    4282,
+    2,
+    true
+   ]
+  },
+  {
+   "A": [
+    4719,
+    2115,
+    2391
+   ],
+   "B": [
+    8045
+   ],
+   "ktc_va": [
+    5202,
+    2,
+    true
+   ],
+   "market_value_adjustment": [
+    5203,
+    2,
+    true
+   ],
+   "trade_grading": [
+    5203,
+    2,
+    true
+   ]
+  },
+  {
+   "A": [
+    7313,
+    680
+   ],
+   "B": [
+    1629,
+    5571
+   ],
+   "ktc_va": [
+    2863,
+    1,
+    true
+   ],
+   "market_value_adjustment": [
+    2864,
+    1,
+    true
+   ],
+   "trade_grading": [
+    2864,
+    1,
+    true
+   ]
+  }
+ ]
+}

@@ -1,0 +1,99 @@
+{
+ "id": "W07-F001",
+ "workstream": "W07",
+ "promptSections": [
+  10,
+  11
+ ],
+ "title": "Every /rankings page load silently POSTs tep_multiplier=1.15, which bypasses the ADR-015 TE-basis curve \u2014 the rendered board under-prices 82 TEs by up to 21.2% and disagrees with GET /api/data on 627 ranks, while every server-side engine keeps pricing from /api/data",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "S",
+ "subsystem": "Rankings surface / override pipeline",
+ "surface": {
+  "routes": [
+   "/api/rankings/overrides",
+   "/api/data",
+   "/api/waiver/faab-recommend",
+   "/api/trade/suggestions",
+   "/api/trade/finder",
+   "/api/terminal"
+  ],
+  "pages": [
+   "/rankings",
+   "/trade",
+   "/waivers",
+   "/players/compare",
+   "/draft"
+  ],
+  "flags": [
+   "te_basis_conversion"
+  ]
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/components/useSettings.js",
+   "lines": "35"
+  },
+  {
+   "path": "frontend/lib/dynasty-data.js",
+   "lines": "920-924"
+  },
+  {
+   "path": "frontend/lib/dynasty-data.js",
+   "lines": "2017-2036"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "6937-6960"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "9187-9211"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md: 'TE rows from non-TEP sources are lifted onto the basis the board is anchored on via convert_te_value(from_basis=\"base\", to_basis=\"tepp\") \u2014 KTC's own measured uplift, 1.209 at the top of the board rising toward 2.05 down it. Replaces a flat 1.15 that sat below the entire observed range.' And frontend/lib/dynasty-data.js:2025-2028: 'Default path (no overrides) ... the backend will derive tep_multiplier ... so the frontend doesn't need to POST anything.'",
+ "observed": "SETTINGS_DEFAULTS.tepMultiplier = 1.15 is a finite number, and tepMultiplierIsCustomized() returns true for ANY finite number. So `customized` is true on every session including a browser with no localStorage at all. Measured in Chromium after `localStorage.removeItem('next_settings_v2')`: the very first request /rankings makes is POST /api/rankings/overrides?view=delta with body {\"tep_multiplier\":1.15}. The backend then sets tep_multiplier_is_override=True (tepMultiplierSource:'override'), and data_contract.py:6939 `if not tep_multiplier_is_override:` skips the te_basis_conversion block entirely \u2014 the flag is ON and the curve is loadable, it is simply never entered. Result: the board a user reads is a different board from the one GET /api/data serves and every server-side engine prices from. 8/8 sampled DOM cells reproduce the tep=1.15 delta payload exactly and none reproduce /api/data.",
+ "reproduction": {
+  "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/base-full.json; curl -s -b /tmp/c.txt -X POST 'http://127.0.0.1:8000/api/rankings/overrides?view=delta' -H 'Content-Type: application/json' -d '{\"tep_multiplier\":1.15}' -o /tmp/delta-tep115.json; .venv/bin/python docs/master-site-audit/evidence/W07/te_divergence.py; curl -s -b /tmp/c.txt -X POST http://127.0.0.1:8000/api/waiver/faab-recommend -H 'Content-Type: application/json' -d '{\"addPlayerName\":\"Brevin Jordan\",\"budgetRemaining\":100}'",
+  "expected": "The board rendered on /rankings and the board every engine prices from are the same board; a TE's value is one number site-wide.",
+  "actual": "135 rows differ in value (82 TE, 50 PICK, 3 other), 627 rows differ in canonicalConsensusRank, 654 in canonicalTierId. Brevin Jordan renders as 1,243 on /rankings (DOM-verified) while /api/waiver/faab-recommend answers resolvedAddValue: 1519.0 for the same player in the same session. Three TEs priced by /api/data (Grant Calcaterra 1340, Josh Oliver 1405, Thomas Fidone 1392) fall out of the rendered board's ranked set entirely and display as value 0.",
+  "artifact": "docs/master-site-audit/evidence/W07/te-divergence.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "player": "Brevin Jordan",
+   "position": "TE",
+   "apiDataValue": 1519,
+   "renderedValue": 1243,
+   "faabResolvedAddValue": 1519.0,
+   "tepAppliedOnPage": 1.15,
+   "tepBasisCurveRangeSkipped": "1.209 (top) .. 2.05 (deep)",
+   "worstCase": {
+    "player": "Tyler Conklin",
+    "apiDataValue": 1450,
+    "renderedValue": 1142
+   }
+  },
+  "formula": "pctUnderstated = 100 * (1 - renderedValue / apiDataValue)",
+  "expected": 0,
+  "actual": 21.241,
+  "tolerance": 0.5
+ },
+ "userImpact": "A user opens /rankings, reads a tight-end's value, and trades or bids on it. The number is up to 21% lower than the value the site's own FAAB recommender, trade suggester, arbitrage finder and terminal are using for the same player at the same moment, and nothing on screen says the two disagree \u2014 /settings positively asserts the opposite by labelling this state 'Default 1.15x'. The direction is systematic: the flat 1.15 sits below the entire measured TE-basis range, so users sell tight ends cheap.",
+ "blastRadius": {
+  "playersAffected": 135,
+  "routesAffected": 6,
+  "pagesAffected": 5
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A06-F00",
+  "relation": "confirmed",
+  "note": "Prior stated the mechanism (default settings force the override path, making ADR-015 unreachable). Independently rediscovered here and extended with runtime proof: browser network capture on a cleared localStorage, DOM-vs-payload identity on 8/8 players, and the cross-surface divergence against a live /api/waiver/faab-recommend response. Also quantifies the collateral 627-row rank and 654-row tier drift the prior finding did not measure."
+ },
+ "whatWorks": "The backend half is correct and deliberate: an operator-typed tep_multiplier SHOULD bypass a measured curve, and data_contract.py documents exactly that. The delta payload is faithful (0 field mismatches vs view=full across 1,092 rows). The defect is entirely that the frontend sends an operator decision nobody made.",
+ "rootCause": "SETTINGS_DEFAULTS.tepMultiplier is the literal 1.15 rather than the null 'auto' sentinel the backend contract defines, and tepMultiplierIsCustomized() cannot distinguish 'the user typed 1.15' from 'this is the shipped default'.",
+ "requiredRepair": "Set SETTINGS_DEFAULTS.tepMultiplier back to null (the documented 'derive from league' sentinel) and drop the readSettings() migration that rewrites null to 1.15; the /settings slider should write a number only on an actual user edit. Then re-verify that a cleared-localStorage load fires no override POST and that /rankings matches GET /api/data row-for-row.",
+ "dependencies": "Interacts with W07-F002 (the /settings UI labelling) and W07-F008 (the client-side overlay path this also strands)."
+}

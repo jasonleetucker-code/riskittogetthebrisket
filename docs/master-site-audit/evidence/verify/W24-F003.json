@@ -1,0 +1,75 @@
+{
+ "id": "W24-F003",
+ "workstream": "W24",
+ "promptSections": [
+  43
+ ],
+ "title": "286 tests run only in a `continue-on-error` step, and at least 46 of them open zero files under exports/, CSVs/ or data/ \u2014 pure logic exempted from the blocking gate by a filename rule",
+ "status": "Implemented but disconnected",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "Test suite integrity / CI gating",
+ "surface": {
+  "routes": [],
+  "pages": [],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "tests/conftest.py",
+   "lines": "87-125"
+  },
+  {
+   "path": "tests/conftest.py",
+   "lines": "137-144"
+  },
+  {
+   "path": ".github/workflows/pr-validation.yml",
+   "lines": "164"
+  },
+  {
+   "path": ".github/workflows/pr-validation.yml",
+   "lines": "166-180"
+  },
+  {
+   "path": "tests/test_livedata_policy.py",
+   "lines": "20-29"
+  }
+ ],
+ "claimUnderTest": "tests/conftest.py:78-86: 'A handful of tests assert against the LIVE scraped board ... Mark these modules ``livedata`` so CI runs them as a NON-blocking advisory tier while the pure-logic suite stays the hard gate.' tests/test_livedata_policy.py exists to check 'the exemption list, checked instead of trusted'.",
+ "observed": "The marker is applied by FILE BASENAME (`item.path.name`), not by whether the test touches live data, so it exempts whole modules including their purely synthetic halves. Measured with a `sys.addaudithook('open')` probe over each livedata module: tests/scripts/test_fetch_flock_fantasy_rookies.py (24 tests) and tests/adapters/test_dlf_scraper.py (9 tests) open ZERO paths under exports/, CSVs/ or data/. tests/api/test_dlf_source.py opens exactly one (data/snapshots/ranks_last.json), and 9 of its 13 tests live in the two classes (TestDlfCsvPreprocessor, TestDlfCsvEnrichment) that build temp CSVs \u2014 the second of which tests/test_livedata_policy.py's own docstring records as 'STILL OPEN, deliberately not fixed here'. tests/canonical/test_ktc_reconciliation.py opens one file but carries 13 tests. Total collected under `-m livedata`: 286 of 6,326. The policy test pins only two historical cases (test_pick_rookie_anchor_core.py and test_footballguys_source.py) and has no general check, so a new over-broad entry is undetectable.",
+ "reproduction": {
+  "command": "cd /home/user/riskittogetthebrisket && PYTHONPATH=docs/master-site-audit/evidence/W24 W24_IOPROBE_OUT=/tmp/w24-io.txt .venv/bin/python -m pytest tests/scripts/test_fetch_flock_fantasy_rookies.py tests/adapters/test_dlf_scraper.py 'tests/api/test_dlf_source.py::TestDlfCsvEnrichment' 'tests/api/test_dlf_source.py::TestDlfCsvPreprocessor' -p ioprobe -q --tb=no 2>&1 | tail -3 && .venv/bin/python -m pytest tests/ --co -q -m livedata 2>&1 | tail -1",
+  "expected": "livedata-marked tests read live data; otherwise they belong in the blocking tier",
+  "actual": "'[ioprobe] 0 distinct paths under exports/ CSVs/ data/' with '40 passed in 0.23s'; and '286/6326 tests collected (6040 deselected)'",
+  "artifact": "docs/master-site-audit/evidence/W24/ioprobe-flock-dlfscraper.txt"
+ },
+ "numericProof": {
+  "inputs": {
+   "totalCollected": 6326,
+   "livedataCollected": 286,
+   "pureLogicProvenByIoProbe": 46,
+   "modulesWithZeroLiveOpens": 2
+  },
+  "formula": "advisoryShare = livedataCollected / totalCollected",
+  "expected": 0,
+  "actual": 0.0452,
+  "tolerance": 0.0005
+ },
+ "userImpact": "A PR that breaks the DLF CSV preprocessor, the DLF scraper's HTML parsing, or the Flock Fantasy rookie fetcher's row mapping merges green: those 46 tests report in a step marked `continue-on-error: true`. DLF is a voting source on the live board and Flock supplies the rookie ladder, so the regression lands in production values with the PR check showing a tick.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 0,
+  "pagesAffected": 0
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A08-F00",
+  "relation": "partial",
+  "note": "Prior named tests/api/test_data_contract.py (33 tests) and tests/adapters/test_dlf_scraper.py (9). The data_contract half WAS fixed \u2014 conftest.py:103-118 records the removal on 2026-08-04 as 'audit finding Q-1'. test_dlf_scraper.py was never removed, and I add two more modules plus an audit-hook I/O proof rather than a source read."
+ },
+ "whatWorks": "The blocking/advisory split itself is sound and well-motivated (a yahooBoone row-count dip should not block every PR), and tests/test_livedata_policy.py does correctly prevent the two specific regressions it names. tests/api/test_pick_rookie_anchor_core.py is a real, verified rescue: 9 tests with 10 numeric-literal assertions, in the blocking tier.",
+ "rootCause": "tests/conftest.py:143 keys the marker on `item.path.name`, a whole-file granularity the file itself defends as 'one central, reviewable policy instead of editing ~16 files'. Correctness is per-test, not per-file.",
+ "requiredRepair": "Move the three pure-logic modules/classes out of _LIVEDATA_MODULES (the same split already done for test_pick_rookie_anchor_core.py), and generalise tests/test_livedata_policy.py to run the I/O audit-hook probe over every exempted module and fail on any that opens nothing under exports/ CSVs/ data/. The probe is 40 lines: docs/master-site-audit/evidence/W24/ioprobe.py.",
+ "dependencies": "PRIOR-A08-F09 (basename collisions) is still latent and would become active the moment a colliding basename is added: 6 collisions exist today (test_calibration, test_endpoint, test_replacement, test_scoring, test_service x5, test_store), none currently matching a livedata entry."
+}

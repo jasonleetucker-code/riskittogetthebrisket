@@ -1,0 +1,15 @@
+league medians: {'value': 91596, 'age': 26}
+team       | tp(top25)      val medAge | roster_intel window        conf | ros/direction      rosPct pOdds
+-------------------------------------------------------------------------------------------------------------------
+Brent      | Contender   134053     27 | championship_contender   0.6561 | Seller                1.0   0.0
+Jason      | Win-now     115588     23 | playoff_contender        0.4558 | Strong Buyer       0.8333   1.0
+Eric       | Win-now     109714     25 | playoff_contender        0.4689 | Strong Buyer       0.6667   1.0
+Joey       | Win-now     108753     24 | championship_contender   0.5905 | Strong Buyer       0.9167   1.0
+MaKayla    | Win-now     103879     25 | retool                   0.4188 | Hold / Evaluate    0.5833   1.0
+Collin     | Win-now      95996     25 | productive_struggle      0.3755 | Seller               0.75   0.0
+Ed         | Mixed        87196     26 | productive_struggle      0.3319 | Seller             0.3333   0.0
+Ty         | Mixed        79935     26 | productive_struggle      0.3325 | Hold / Evaluate       0.5   1.0
+Kich       | Mixed        76442     29 | playoff_contender         0.407 | Seller             0.4167   0.0
+Roy        | Mixed        71809     26 | rebuild                  0.3348 | Hold / Evaluate      0.25   1.0
+Blaine     | Mixed        71156     26 | rebuild                  0.5507 | Seller             0.1667   0.0
+jstuedle   | Mixed        65675     27 | rebuild                  0.6667 | Seller             0.0833   0.0

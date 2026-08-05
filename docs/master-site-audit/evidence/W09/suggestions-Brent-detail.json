@@ -1,0 +1,738 @@
+{
+ "rosterAnalysis": {
+  "rosterSize": 21,
+  "surplusPositions": [
+   "RB",
+   "WR"
+  ],
+  "needPositions": [
+   "LB",
+   "DB"
+  ],
+  "starterCounts": {
+   "QB": 2,
+   "RB": 3,
+   "WR": 4,
+   "TE": 2,
+   "DL": 3,
+   "LB": 0,
+   "DB": 0
+  },
+  "depthCounts": {
+   "QB": 1,
+   "RB": 2,
+   "WR": 3,
+   "TE": 1,
+   "DL": 0,
+   "LB": 0,
+   "DB": 0
+  },
+  "byPosition": {
+   "RB": [
+    {
+     "name": "Jonathan Taylor",
+     "position": "RB",
+     "displayValue": 6431,
+     "team": "IND",
+     "rookie": false,
+     "dispersionCV": 0.0611,
+     "boardRank": 34,
+     "ktcRank": 34
+    },
+    {
+     "name": "Quinshon Judkins",
+     "position": "RB",
+     "displayValue": 5309,
+     "team": "CLE",
+     "rookie": false,
+     "dispersionCV": 0.0696,
+     "boardRank": 61,
+     "ktcRank": 61
+    },
+    {
+     "name": "Bucky Irving",
+     "position": "RB",
+     "displayValue": 4369,
+     "team": "TB",
+     "rookie": false,
+     "dispersionCV": 0.0592,
+     "boardRank": 97,
+     "ktcRank": 97
+    },
+    {
+     "name": "Travis Etienne",
+     "position": "RB",
+     "displayValue": 4081,
+     "team": "NO",
+     "rookie": false,
+     "dispersionCV": 0.063,
+     "boardRank": 107,
+     "ktcRank": 107
+    },
+    {
+     "name": "Josh Jacobs",
+     "position": "RB",
+     "displayValue": 3859,
+     "team": "GB",
+     "rookie": false,
+     "dispersionCV": 0.0487,
+     "boardRank": 119,
+     "ktcRank": 119
+    }
+   ],
+   "TE": [
+    {
+     "name": "Harold Fannin",
+     "position": "TE",
+     "displayValue": 5735,
+     "team": "CLE",
+     "rookie": false,
+     "dispersionCV": 0.0646,
+     "boardRank": 49,
+     "ktcRank": 49
+    },
+    {
+     "name": "Kyle Pitts",
+     "position": "TE",
+     "displayValue": 5074,
+     "team": "ATL",
+     "rookie": false,
+     "dispersionCV": 0.082,
+     "boardRank": 69,
+     "ktcRank": 69
+    },
+    {
+     "name": "Mark Andrews",
+     "position": "TE",
+     "displayValue": 3392,
+     "team": "BAL",
+     "rookie": false,
+     "dispersionCV": 0.0965,
+     "boardRank": 145,
+     "ktcRank": 145
+    }
+   ],
+   "DL": [
+    {
+     "name": "Aidan Hutchinson",
+     "position": "DL",
+     "displayValue": 6362,
+     "team": "DET",
+     "rookie": false,
+     "dispersionCV": 0.0607,
+     "boardRank": 37,
+     "ktcRank": 37
+    },
+    {
+     "name": "Micah Parsons",
+     "position": "DL",
+     "displayValue": 4606,
+     "team": "GB",
+     "rookie": false,
+     "dispersionCV": 0.4866,
+     "boardRank": 88,
+     "ktcRank": 88
+    },
+    {
+     "name": "Myles Garrett",
+     "position": "DL",
+     "displayValue": 4602,
+     "team": "LAR",
+     "rookie": false,
+     "dispersionCV": 0.395,
+     "boardRank": 89,
+     "ktcRank": 89
+    }
+   ],
+   "WR": [
+    {
+     "name": "Puka Nacua",
+     "position": "WR",
+     "displayValue": 9132,
+     "team": "LAR",
+     "rookie": false,
+     "dispersionCV": 0.0434,
+     "boardRank": 9,
+     "ktcRank": 9
+    },
+    {
+     "name": "Amon-Ra St. Brown",
+     "position": "WR",
+     "displayValue": 8326,
+     "team": "DET",
+     "rookie": false,
+     "dispersionCV": 0.0536,
+     "boardRank": 14,
+     "ktcRank": 14
+    },
+    {
+     "name": "Drake London",
+     "position": "WR",
+     "displayValue": 7348,
+     "team": "ATL",
+     "rookie": false,
+     "dispersionCV": 0.0327,
+     "boardRank": 24,
+     "ktcRank": 24
+    },
+    {
+     "name": "Tetairoa McMillan",
+     "position": "WR",
+     "displayValue": 6766,
+     "team": "CAR",
+     "rookie": false,
+     "dispersionCV": 0.0489,
+     "boardRank": 32,
+     "ktcRank": 32
+    },
+    {
+     "name": "George Pickens",
+     "position": "WR",
+     "displayValue": 6271,
+     "team": "DAL",
+     "rookie": false,
+     "dispersionCV": 0.0506,
+     "boardRank": 39,
+     "ktcRank": 39
+    },
+    {
+     "name": "Rashee Rice",
+     "position": "WR",
+     "displayValue": 4887,
+     "team": "KC",
+     "rookie": false,
+     "dispersionCV": 0.0754,
+     "boardRank": 78,
+     "ktcRank": 78
+    },
+    {
+     "name": "Travis Hunter",
+     "position": "WR",
+     "displayValue": 4401,
+     "team": "JAX",
+     "rookie": false,
+     "dispersionCV": 0.1105,
+     "boardRank": 96,
+     "ktcRank": 96
+    }
+   ],
+   "QB": [
+    {
+     "name": "Joe Burrow",
+     "position": "QB",
+     "displayValue": 8383,
+     "team": "CIN",
+     "rookie": false,
+     "dispersionCV": 0.0811,
+     "boardRank": 13,
+     "ktcRank": 13
+    },
+    {
+     "name": "Patrick Mahomes",
+     "position": "QB",
+     "displayValue": 7461,
+     "team": "KC",
+     "rookie": false,
+     "dispersionCV": 0.0642,
+     "boardRank": 23,
+     "ktcRank": 23
+    },
+    {
+     "name": "Dak Prescott",
+     "position": "QB",
+     "displayValue": 5519,
+     "team": "DAL",
+     "rookie": false,
+     "dispersionCV": 0.1012,
+     "boardRank": 55,
+     "ktcRank": 55
+    }
+   ]
+  }
+ },
+ "sellHigh": [
+  {
+   "type": "sell_high",
+   "give": [
+    {
+     "name": "Josh Jacobs",
+     "position": "RB",
+     "displayValue": 3859,
+     "team": "GB",
+     "rookie": false,
+     "dispersionCV": 0.0487,
+     "boardRank": 119,
+     "ktcRank": 119
+    }
+   ],
+   "receive": [
+    {
+     "name": "Arvell Reese",
+     "position": "LB",
+     "displayValue": 3841,
+     "team": "NYG",
+     "rookie": true,
+     "dispersionCV": 0.4401,
+     "boardRank": 121,
+     "ktcRank": 121
+    }
+   ],
+   "giveTotal": 3859,
+   "receiveTotal": 3841,
+   "gap": 18,
+   "fairness": "even",
+   "rationale": "You have RB surplus (5 rostered, need 3). Move Josh Jacobs for a LB upgrade.",
+   "whyThisHelps": "Converts RB depth into a LB you actually need.",
+   "confidence": "high",
+   "strategy": "neutral",
+   "rankScore": {
+    "base_value": 3.84,
+    "fairness": 3.0,
+    "confidence": 2.0,
+    "need_severity": 2.0,
+    "edge": 0.5,
+    "opponent_fit": 1.5,
+    "overflow_penalty": -0.0,
+    "total": 12.84
+   },
+   "edge": "high_dispersion",
+   "edgeExplanation": "Sources disagree on Arvell Reese (CV 44%) \u2014 value is less certain than usual.",
+   "opponentFit": "Potential trade partners (8): Jason, Ed, Ty"
+  },
+  {
+   "type": "sell_high",
+   "give": [
+    {
+     "name": "Rashee Rice",
+     "position": "WR",
+     "displayValue": 4887,
+     "team": "KC",
+     "rookie": false,
+     "dispersionCV": 0.0754,
+     "boardRank": 78,
+     "ktcRank": 78
+    }
+   ],
+   "receive": [
+    {
+     "name": "Jack Campbell",
+     "position": "LB",
+     "displayValue": 4803,
+     "team": "DET",
+     "rookie": false,
+     "dispersionCV": 0.0281,
+     "boardRank": 80,
+     "ktcRank": 80
+    }
+   ],
+   "giveTotal": 4887,
+   "receiveTotal": 4803,
+   "gap": 84,
+   "fairness": "even",
+   "rationale": "You have WR surplus (7 rostered, need 4). Move Rashee Rice for a LB upgrade.",
+   "whyThisHelps": "Converts WR depth into a LB you actually need.",
+   "confidence": "medium",
+   "strategy": "neutral",
+   "rankScore": {
+    "base_value": 4.8,
+    "fairness": 3.0,
+    "confidence": 1.0,
+    "need_severity": 2.0,
+    "edge": 0.0,
+    "opponent_fit": 1.5,
+    "overflow_penalty": -0.0,
+    "total": 12.3
+   },
+   "opponentFit": "Potential trade partners (8): Ed, Ty, Collin"
+  },
+  {
+   "type": "sell_high",
+   "give": [
+    {
+     "name": "Travis Etienne",
+     "position": "RB",
+     "displayValue": 4081,
+     "team": "NO",
+     "rookie": false,
+     "dispersionCV": 0.063,
+     "boardRank": 107,
+     "ktcRank": 107
+    }
+   ],
+   "receive": [
+    {
+     "name": "Edgerrin Cooper",
+     "position": "LB",
+     "displayValue": 3919,
+     "team": "GB",
+     "rookie": false,
+     "dispersionCV": 0.2907,
+     "boardRank": 115,
+     "ktcRank": 115
+    }
+   ],
+   "giveTotal": 4081,
+   "receiveTotal": 3919,
+   "gap": 162,
+   "fairness": "even",
+   "rationale": "You have RB surplus (5 rostered, need 3). Move Travis Etienne for a LB upgrade.",
+   "whyThisHelps": "Converts RB depth into a LB you actually need.",
+   "confidence": "medium",
+   "strategy": "neutral",
+   "rankScore": {
+    "base_value": 3.92,
+    "fairness": 3.0,
+    "confidence": 1.0,
+    "need_severity": 2.0,
+    "edge": 0.5,
+    "opponent_fit": 1.5,
+    "overflow_penalty": -0.0,
+    "total": 11.92
+   },
+   "edge": "high_dispersion",
+   "edgeExplanation": "Sources disagree on Edgerrin Cooper (CV 29%) \u2014 value is less certain than usual.",
+   "opponentFit": "Potential trade partners (8): Jason, Ed, Ty"
+  },
+  {
+   "type": "sell_high",
+   "give": [
+    {
+     "name": "George Pickens",
+     "position": "WR",
+     "displayValue": 6271,
+     "team": "DAL",
+     "rookie": false,
+     "dispersionCV": 0.0506,
+     "boardRank": 39,
+     "ktcRank": 39
+    }
+   ],
+   "receive": [
+    {
+     "name": "Carson Schwesinger",
+     "position": "LB",
+     "displayValue": 5908,
+     "team": "CLE",
+     "rookie": false,
+     "dispersionCV": 0.3123,
+     "boardRank": 44,
+     "ktcRank": 44
+    }
+   ],
+   "giveTotal": 6271,
+   "receiveTotal": 5908,
+   "gap": 363,
+   "fairness": "lean",
+   "rationale": "You have WR surplus (7 rostered, need 4). Move George Pickens for a LB upgrade.",
+   "whyThisHelps": "Converts WR depth into a LB you actually need.",
+   "confidence": "medium",
+   "strategy": "neutral",
+   "rankScore": {
+    "base_value": 5.91,
+    "fairness": 1.0,
+    "confidence": 1.0,
+    "need_severity": 2.0,
+    "edge": 0.5,
+    "opponent_fit": 1.5,
+    "overflow_penalty": -0.0,
+    "total": 11.91
+   },
+   "edge": "high_dispersion",
+   "edgeExplanation": "Sources disagree on Carson Schwesinger (CV 31%) \u2014 value is less certain than usual.",
+   "opponentFit": "Potential trade partners (8): Ed, Ty, Collin"
+  },
+  {
+   "type": "sell_high",
+   "give": [
+    {
+     "name": "Travis Hunter",
+     "position": "WR",
+     "displayValue": 4401,
+     "team": "JAX",
+     "rookie": false,
+     "dispersionCV": 0.1105,
+     "boardRank": 96,
+     "ktcRank": 96
+    }
+   ],
+   "receive": [
+    {
+     "name": "Jack Campbell",
+     "position": "LB",
+     "displayValue": 4803,
+     "team": "DET",
+     "rookie": false,
+     "dispersionCV": 0.0281,
+     "boardRank": 80,
+     "ktcRank": 80
+    }
+   ],
+   "giveTotal": 4401,
+   "receiveTotal": 4803,
+   "gap": -402,
+   "fairness": "lean",
+   "rationale": "You have WR surplus (7 rostered, need 4). Move Travis Hunter for a LB upgrade.",
+   "whyThisHelps": "Converts WR depth into a LB you actually need.",
+   "confidence": "medium",
+   "strategy": "rebuilder",
+   "rankScore": {
+    "base_value": 4.4,
+    "fairness": 1.0,
+    "confidence": 1.0,
+    "need_severity": 2.0,
+    "edge": 0.0,
+    "opponent_fit": 1.5,
+    "overflow_penalty": -0.0,
+    "total": 9.9
+   },
+   "opponentFit": "Potential trade partners (8): Ed, Ty, Collin"
+  }
+ ],
+ "buyLow": [
+  {
+   "type": "buy_low",
+   "give": [
+    {
+     "name": "Josh Jacobs",
+     "position": "RB",
+     "displayValue": 3859,
+     "team": "GB",
+     "rookie": false,
+     "dispersionCV": 0.0487,
+     "boardRank": 119,
+     "ktcRank": 119
+    }
+   ],
+   "receive": [
+    {
+     "name": "Edgerrin Cooper",
+     "position": "LB",
+     "displayValue": 3919,
+     "team": "GB",
+     "rookie": false,
+     "dispersionCV": 0.2907,
+     "boardRank": 115,
+     "ktcRank": 115
+    }
+   ],
+   "giveTotal": 3859,
+   "receiveTotal": 3919,
+   "gap": -60,
+   "fairness": "even",
+   "rationale": "Target Edgerrin Cooper (LB) fills your roster need. You can afford to trade Josh Jacobs from RB surplus.",
+   "whyThisHelps": "Adds a starter-caliber LB without weakening your RB starting lineup.",
+   "confidence": "medium",
+   "strategy": "neutral",
+   "rankScore": {
+    "base_value": 3.86,
+    "fairness": 3.0,
+    "confidence": 1.0,
+    "need_severity": 2.0,
+    "edge": 1.5,
+    "opponent_fit": 1.5,
+    "overflow_penalty": -0.0,
+    "total": 12.86
+   },
+   "edge": "market_discount",
+   "edgeExplanation": "Sources disagree on Edgerrin Cooper (CV 29%) \u2014 potential buy-low if the higher sources are right.",
+   "opponentFit": "Potential trade partners (8): Jason, Ed, Ty"
+  },
+  {
+   "type": "buy_low",
+   "give": [
+    {
+     "name": "Rashee Rice",
+     "position": "WR",
+     "displayValue": 4887,
+     "team": "KC",
+     "rookie": false,
+     "dispersionCV": 0.0754,
+     "boardRank": 78,
+     "ktcRank": 78
+    }
+   ],
+   "receive": [
+    {
+     "name": "Jack Campbell",
+     "position": "LB",
+     "displayValue": 4803,
+     "team": "DET",
+     "rookie": false,
+     "dispersionCV": 0.0281,
+     "boardRank": 80,
+     "ktcRank": 80
+    }
+   ],
+   "giveTotal": 4887,
+   "receiveTotal": 4803,
+   "gap": 84,
+   "fairness": "even",
+   "rationale": "Target Jack Campbell (LB) fills your roster need. You can afford to trade Rashee Rice from WR surplus.",
+   "whyThisHelps": "Adds a starter-caliber LB without weakening your WR starting lineup.",
+   "confidence": "medium",
+   "strategy": "neutral",
+   "rankScore": {
+    "base_value": 4.8,
+    "fairness": 3.0,
+    "confidence": 1.0,
+    "need_severity": 2.0,
+    "edge": 0.0,
+    "opponent_fit": 1.5,
+    "overflow_penalty": -0.0,
+    "total": 12.3
+   },
+   "opponentFit": "Potential trade partners (8): Ed, Ty, Collin"
+  },
+  {
+   "type": "buy_low",
+   "give": [
+    {
+     "name": "George Pickens",
+     "position": "WR",
+     "displayValue": 6271,
+     "team": "DAL",
+     "rookie": false,
+     "dispersionCV": 0.0506,
+     "boardRank": 39,
+     "ktcRank": 39
+    }
+   ],
+   "receive": [
+    {
+     "name": "Carson Schwesinger",
+     "position": "LB",
+     "displayValue": 5908,
+     "team": "CLE",
+     "rookie": false,
+     "dispersionCV": 0.3123,
+     "boardRank": 44,
+     "ktcRank": 44
+    }
+   ],
+   "giveTotal": 6271,
+   "receiveTotal": 5908,
+   "gap": 363,
+   "fairness": "lean",
+   "rationale": "Target Carson Schwesinger (LB) fills your roster need. You can afford to trade George Pickens from WR surplus.",
+   "whyThisHelps": "Adds a starter-caliber LB without weakening your WR starting lineup.",
+   "confidence": "medium",
+   "strategy": "neutral",
+   "rankScore": {
+    "base_value": 5.91,
+    "fairness": 1.0,
+    "confidence": 1.0,
+    "need_severity": 2.0,
+    "edge": 0.5,
+    "opponent_fit": 1.5,
+    "overflow_penalty": -0.0,
+    "total": 11.91
+   },
+   "edge": "high_dispersion",
+   "edgeExplanation": "Sources disagree on Carson Schwesinger (CV 31%) \u2014 value is less certain than usual.",
+   "opponentFit": "Potential trade partners (8): Ed, Ty, Collin"
+  }
+ ],
+ "consolidation": [
+  {
+   "type": "consolidation",
+   "give": [
+    {
+     "name": "George Pickens",
+     "position": "WR",
+     "displayValue": 6307,
+     "team": "DAL",
+     "rookie": false,
+     "dispersionCV": 0.0506,
+     "boardRank": 39,
+     "ktcRank": 39
+    },
+    {
+     "name": "Travis Hunter",
+     "position": "WR",
+     "displayValue": 5637,
+     "team": "JAX",
+     "rookie": false,
+     "dispersionCV": 0.1105,
+     "boardRank": 96,
+     "ktcRank": 96
+    }
+   ],
+   "receive": [
+    {
+     "name": "Josh Allen",
+     "position": "QB",
+     "displayValue": 9987,
+     "team": "BUF",
+     "rookie": false,
+     "dispersionCV": 0.0071,
+     "boardRank": 1,
+     "ktcRank": 1
+    }
+   ],
+   "giveTotal": 11944,
+   "receiveTotal": 9987,
+   "gap": -3090,
+   "fairness": "stretch",
+   "rationale": "Package George Pickens + Travis Hunter into Josh Allen. Turns two depth pieces into one difference-maker.",
+   "whyThisHelps": "Upgrades roster quality by condensing WR/WR depth into a higher-tier asset.",
+   "confidence": "high",
+   "strategy": "contender",
+   "rankScore": {
+    "base_value": 9.99,
+    "fairness": 0.0,
+    "confidence": 2.0,
+    "need_severity": 0.0,
+    "edge": 0.0,
+    "opponent_fit": 1.5,
+    "overflow_penalty": -0.0,
+    "total": 13.49
+   },
+   "suggestedBalancers": [
+    {
+     "name": "Josh Jacobs",
+     "position": "RB",
+     "displayValue": 3889,
+     "team": "GB",
+     "rookie": false,
+     "dispersionCV": 0.0487,
+     "boardRank": 119,
+     "ktcRank": 119
+    },
+    {
+     "name": "Travis Etienne",
+     "position": "RB",
+     "displayValue": 4045,
+     "team": "NO",
+     "rookie": false,
+     "dispersionCV": 0.063,
+     "boardRank": 107,
+     "ktcRank": 107
+    }
+   ],
+   "balancerSide": "you_add",
+   "opponentFit": "Potential trade partners (8): Ed, Ty, Collin"
+  }
+ ],
+ "positionalUpgrades": [],
+ "totalSuggestions": 9,
+ "metadata": {
+  "assetPoolSize": 150,
+  "boardTopNFilter": 150,
+  "ktcTopNFilter": 150,
+  "rosterMatched": 21,
+  "rosterProvided": 57,
+  "starterNeeds": {
+   "QB": 2,
+   "RB": 3,
+   "WR": 4,
+   "TE": 2,
+   "DL": 3,
+   "LB": 3,
+   "DB": 3
+  },
+  "opponentRostersProvided": 12,
+  "opponentRostersAnalyzed": 12
+ },
+ "leagueKey": "dynasty_main",
+ "valuationMode": "market"
+}

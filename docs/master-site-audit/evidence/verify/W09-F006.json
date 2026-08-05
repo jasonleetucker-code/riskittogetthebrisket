@@ -1,0 +1,76 @@
+{
+ "id": "W09-F006",
+ "workstream": "W09",
+ "promptSections": [
+  14,
+  15
+ ],
+ "title": "The leagueAdjusted valuation lens is a silent no-op on every all-offense trade in /api/trade/simulate and /api/trade/finder, while the response still stamps valuationMode: leagueAdjusted",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "S",
+ "subsystem": "Valuation lens threading",
+ "surface": {
+  "routes": [
+   "/api/trade/simulate",
+   "/api/trade/finder"
+  ],
+  "pages": [
+   "/trade",
+   "/arbitrage"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/league_intel/overlay.py",
+   "lines": "86-93"
+  },
+  {
+   "path": "src/api/trade_simulator.py",
+   "lines": "60-65"
+  },
+  {
+   "path": "src/trade/finder.py",
+   "lines": "686-691"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md: 'No engine knows the feature exists, because every engine reads exactly one value \u2014 rankDerivedValue' and 'Every response stamps valuationMode \u2014 including \"market\". \"This is the market board\" and \"this field is missing\" must not read the same.'",
+ "observed": "overlay.adjusted_rows multiplies ONLY row['rankDerivedValue'] by the position factor. But both trade_simulator._resolve_asset and finder._score_trade prefer offenseOnlyRankDerivedValue when the trade contains no IDP asset \u2014 a field the overlay never touches. A Bowers-for-(Taylor+Mahomes) simulate call returns equity 4004 and per-player values 9950/6472/7482 under BOTH valuationMode=market and valuationMode=leagueAdjusted, and stamps 'leagueAdjusted' on the second. Substituting an IDP asset makes the lens visible immediately (Bowers 9947->10062, Hutchinson 6362->6984), proving the plumbing works and only the offense-only field is missed.",
+ "reproduction": {
+  "command": "for M in market leagueAdjusted; do curl -s -b /tmp/audit-cookies-w09.txt -X POST http://127.0.0.1:8000/api/trade/simulate -H 'Content-Type: application/json' -d \"{\\\"teamName\\\":\\\"Jason\\\",\\\"playersOut\\\":[\\\"Brock Bowers\\\"],\\\"playersIn\\\":[\\\"Jonathan Taylor\\\",\\\"Patrick Mahomes\\\"],\\\"valuationMode\\\":\\\"$M\\\"}\" | python -c 'import json,sys;r=json.load(sys.stdin);print(r[\"valuationMode\"], r[\"equity\"], [(x[\"name\"],x[\"value\"]) for x in r[\"sending\"]+r[\"receiving\"]])'; done",
+  "expected": "equity differs between the two modes",
+  "actual": "market 4004 [...9950, 6472, 7482]; leagueAdjusted 4004 [...9950, 6472, 7482] \u2014 byte identical",
+  "artifact": "docs/master-site-audit/evidence/W09/valuation-mode-threading.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "bowersOffenseOnly": 9950,
+   "taylorOffenseOnly": 6472,
+   "mahomesOffenseOnly": 7482,
+   "factorTE_Bowers": 1.011595,
+   "factorRB_Taylor": 1.041554,
+   "factorQB_Mahomes": 1.018366
+  },
+  "formula": "equityAdjusted = taylor*f_RB + mahomes*f_QB - bowers*f_TE",
+  "expected": 4295.0,
+  "actual": 4004,
+  "tolerance": 5.0
+ },
+ "userImpact": "A user who switches the board to 'league adjusted' and re-runs a player-for-player trade sees an unchanged verdict labelled as adjusted. They conclude the lens has no effect on trades \u2014 or, worse, act on a market-priced equity number believing it is scarcity-corrected. The 291-point gap on this one trade is 7.3% of the equity.",
+ "blastRadius": {
+  "playersAffected": 812,
+  "routesAffected": 2,
+  "pagesAffected": 2
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A20-F06",
+  "relation": "confirmed",
+  "note": "Prior stated the overlay scales only rankDerivedValue and named suggestions.py as the mixer. New here: route-level live proof on /api/trade/simulate and /api/trade/finder, the exact 291-point arithmetic gap, and the observation that the honest 'valuationMode' stamp CLAUDE.md is proud of is what turns a silent no-op into an active misstatement."
+ },
+ "whatWorks": "valuation_mode threading itself is real and correct on all five engine routes I tested: each accepts both the snake_case body field and the camelCase form, each stamps valuationMode on the response, and the finder's top-10 result set genuinely changes between modes (driven by the IDP rows, which DO get repriced).",
+ "rootCause": "overlay.adjusted_rows repriced the field CLAUDE.md says every engine reads, but two engines read a second field (offenseOnlyRankDerivedValue) for all-offense trades \u2014 a case the 'every engine reads exactly one value' invariant does not cover.",
+ "requiredRepair": "Scale offenseOnlyRankDerivedValue by the same factor inside overlay.adjusted_rows (and audit values.* for the same omission), or have the engines stop preferring the offense-only field when a lens is active. Add a test that asserts an all-offense simulate differs between the two modes.",
+ "dependencies": ""
+}

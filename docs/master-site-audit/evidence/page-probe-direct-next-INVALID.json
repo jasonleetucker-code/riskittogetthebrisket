@@ -1,0 +1,2676 @@
+[
+ {
+  "route": "/",
+  "url": "/",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 603,
+  "settleMs": 25622,
+  "finalUrl": "/",
+  "redirected": false,
+  "htmlBytes": 23759,
+  "textChars": 351,
+  "h1": "Chase Upside",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/league?_rsc=5CB68i4pnAekjehf net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=uSms6JUNsNBYwd4R net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/admin",
+  "url": "/admin",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 115,
+  "settleMs": 25129,
+  "finalUrl": "/login?next=%2Fadmin",
+  "redirected": true,
+  "htmlBytes": 23337,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/angle",
+  "url": "/angle",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 39,
+  "settleMs": 25060,
+  "finalUrl": "/login?next=%2Fangle",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/arbitrage",
+  "url": "/arbitrage",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 46,
+  "settleMs": 25072,
+  "finalUrl": "/login?next=%2Farbitrage",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/bdvm",
+  "url": "/bdvm",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 54,
+  "settleMs": 25084,
+  "finalUrl": "/login?next=%2Fbdvm",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/consensus-edge",
+  "url": "/consensus-edge",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 47,
+  "settleMs": 25075,
+  "finalUrl": "/login?next=%2Fconsensus-edge",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/design",
+  "url": "/design",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 62,
+  "settleMs": 25090,
+  "finalUrl": "/login?next=%2Fdesign",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/draft",
+  "url": "/draft",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 46,
+  "settleMs": 25050,
+  "finalUrl": "/login?next=%2Fdraft",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/edge",
+  "url": "/edge",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 54,
+  "settleMs": 25070,
+  "finalUrl": "/login?next=%2Fedge",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/finder",
+  "url": "/finder",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 52,
+  "settleMs": 25080,
+  "finalUrl": "/login?next=%2Ffinder",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/idptc-rookies",
+  "url": "/idptc-rookies",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 58,
+  "settleMs": 25083,
+  "finalUrl": "/login?next=%2Fidptc-rookies",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/intel",
+  "url": "/intel",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 51,
+  "settleMs": 25079,
+  "finalUrl": "/login?next=%2Fintel",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league",
+  "url": "/league",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 244,
+  "settleMs": 25262,
+  "finalUrl": "/league",
+  "redirected": false,
+  "htmlBytes": 80419,
+  "textChars": 2720,
+  "h1": "Risk It To Get The Brisket",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578 net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5 net::ERR_CONNECTION_RESET"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league-comparison",
+  "url": "/league-comparison",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 36,
+  "settleMs": 25057,
+  "finalUrl": "/login?next=%2Fleague-comparison",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/activity",
+  "url": "/league/activity",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 55,
+  "settleMs": 25082,
+  "finalUrl": "/league/activity",
+  "redirected": false,
+  "htmlBytes": 104426,
+  "textChars": 15454,
+  "h1": "Activity",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=sp1kHpVbJnldzSui net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=O2IDn8Y5VamzbkF4 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/articles/[season]/[week]",
+  "url": "/league/articles/2025/1",
+  "dynamic": true,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 108,
+  "settleMs": 25117,
+  "finalUrl": "/league/articles/2025/1",
+  "redirected": false,
+  "htmlBytes": 36782,
+  "textChars": 365,
+  "h1": "Week 1 \u00b7 2025",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=uwVpqYlV5XNZ3wEP net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=IRkzgrgK4rXpIrTa net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/articles/[season]/[week]/[matchupId]/[mode]",
+  "url": "/league/articles/2025/1/1/preview",
+  "dynamic": true,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 107,
+  "settleMs": 25132,
+  "finalUrl": "/league/articles/2025/1/1/preview",
+  "redirected": false,
+  "htmlBytes": 36426,
+  "textChars": 176,
+  "h1": null,
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/articles/2025/1?_rsc=b3zfOnzRzVaPV3aF net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=b3zfOnzRzVaPV3aF net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/articles/2025/1?_rsc=6bcmjb1oJt04ej_U net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=6bcmjb1oJt04ej_U net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/franchise/[owner]",
+  "url": "/league/franchise/jasonleetucker",
+  "dynamic": true,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 928,
+  "settleMs": 25958,
+  "finalUrl": "/league/franchise/jasonleetucker",
+  "redirected": false,
+  "htmlBytes": 37322,
+  "textChars": 143,
+  "h1": null,
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/insider-trading",
+  "url": "/league/insider-trading",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 39,
+  "settleMs": 25063,
+  "finalUrl": "/login?next=%2Fleague%2Finsider-trading",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/player/[playerId]",
+  "url": "/league/player/4046",
+  "dynamic": true,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 1471,
+  "settleMs": 26475,
+  "finalUrl": "/league/player/4046",
+  "redirected": false,
+  "htmlBytes": 71737,
+  "textChars": 1613,
+  "h1": "Patrick Mahomes",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=a_Rxx1C0-j_UGQBl net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=Ar5BYQMVMkUngTdD net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/franchise/472206636534984704?_rsc=a_Rxx1C0-j_UGQBl net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/rivalry/[pair]",
+  "url": "/league/rivalry/jasonleetucker-vs-blaine",
+  "dynamic": true,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 130,
+  "settleMs": 25157,
+  "finalUrl": "/league/rivalry/jasonleetucker-vs-blaine",
+  "redirected": false,
+  "htmlBytes": 37248,
+  "textChars": 156,
+  "h1": null,
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?tab=rivalries&_rsc=AcfzuWhq4nCPnSyw net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=AcfzuWhq4nCPnSyw net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=EkKbO1G2fGKWCkzK net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/week/[season]/[week]",
+  "url": "/league/week/2025/1",
+  "dynamic": true,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 509,
+  "settleMs": 25525,
+  "finalUrl": "/league/week/2025/1",
+  "redirected": false,
+  "htmlBytes": 175500,
+  "textChars": 3982,
+  "h1": "Roy put Eric on a milk carton, 399.9-327.0",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?tab=weeklyRecap&_rsc=krGKV2B63Oxdnbxa net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/9390b03f2ee7c35a9eb529a188db0679 net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578 net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/avatars/thumbs/3ccea9e01e4b4d914a43c66a975621c8 net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/avatars/thumbs/02ee3ed59a2fa3b8dddf3ef090c3aa54 net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/avatars/thumbs/5ff406ba4a31a7f4a9ca19d72bb7dade net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/avatars/thumbs/6bae2753ef9e291d6a42bffddd394717 net::ERR_CONNECTION_RESET"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/weekly/[season]/[week]/[matchup]",
+  "url": "/league/weekly/2025/1/1",
+  "dynamic": true,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 168,
+  "settleMs": 25194,
+  "finalUrl": "/league/weekly/2025/1/1",
+  "redirected": false,
+  "htmlBytes": 83964,
+  "textChars": 1497,
+  "h1": "2025 \u00b7 Week 1",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5 net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/197fbf70fcab426ead60204e810ff485 net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/7df22f5c69196c4ef96741c5f0ed2b43 net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/a8ab35cf264be5bbd6603b22232a2ee2 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/player/12591?_rsc=VVnfJF1iGw1fPUt9 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/player/5839?_rsc=VVnfJF1iGw1fPUt9 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/player/10914?_rsc=VVnfJF1iGw1fPUt9 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/login",
+  "url": "/login",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 32,
+  "settleMs": 25052,
+  "finalUrl": "/login",
+  "redirected": false,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/market/sharp-roster-percentage",
+  "url": "/market/sharp-roster-percentage",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 55,
+  "settleMs": 25083,
+  "finalUrl": "/login?next=%2Fmarket%2Fsharp-roster-percentage",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/market/sharp-tracker",
+  "url": "/market/sharp-tracker",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 43,
+  "settleMs": 25071,
+  "finalUrl": "/login?next=%2Fmarket%2Fsharp-tracker",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/more",
+  "url": "/more",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 42,
+  "settleMs": 25070,
+  "finalUrl": "/login?next=%2Fmore",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/news",
+  "url": "/news",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 43,
+  "settleMs": 25193,
+  "finalUrl": "/login?next=%2Fnews",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/phases",
+  "url": "/phases",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 3134,
+  "settleMs": 3335,
+  "finalUrl": "/login?next=%2Fphases",
+  "redirected": true,
+  "htmlBytes": 23203,
+  "textChars": 158,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/players/compare",
+  "url": "/players/compare",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 956,
+  "settleMs": 25979,
+  "finalUrl": "/login?next=%2Fplayers%2Fcompare",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/auth/status net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/?_rsc=ESMN0uHFtARRz41R net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/?_rsc=EaZrM5HagweKL-6T net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/dynasty-data?view=array net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/rankings",
+  "url": "/rankings",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 326,
+  "settleMs": 25355,
+  "finalUrl": "/login?next=%2Frankings",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/rankings/[position]",
+  "url": "/rankings/qb",
+  "dynamic": true,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 36,
+  "settleMs": 25060,
+  "finalUrl": "/login?next=%2Frankings%2Fqb",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/rosters",
+  "url": "/rosters",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 45,
+  "settleMs": 25074,
+  "finalUrl": "/login?next=%2Frosters",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/settings",
+  "url": "/settings",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 50,
+  "settleMs": 25080,
+  "finalUrl": "/login?next=%2Fsettings",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/tools/ros-data-health",
+  "url": "/tools/ros-data-health",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 48,
+  "settleMs": 25057,
+  "finalUrl": "/login?next=%2Ftools%2Fros-data-health",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/tools/source-health",
+  "url": "/tools/source-health",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 51,
+  "settleMs": 25056,
+  "finalUrl": "/login?next=%2Ftools%2Fsource-health",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/tools/trade-coverage",
+  "url": "/tools/trade-coverage",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 42,
+  "settleMs": 25069,
+  "finalUrl": "/login?next=%2Ftools%2Ftrade-coverage",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/trade",
+  "url": "/trade",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 64,
+  "settleMs": 25077,
+  "finalUrl": "/login?next=%2Ftrade",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/trades",
+  "url": "/trades",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 57,
+  "settleMs": 25087,
+  "finalUrl": "/login?next=%2Ftrades",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/trending",
+  "url": "/trending",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 39,
+  "settleMs": 25066,
+  "finalUrl": "/login?next=%2Ftrending",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/waivers",
+  "url": "/waivers",
+  "dynamic": false,
+  "mode": "anon",
+  "status": 200,
+  "navMs": 43,
+  "settleMs": 25048,
+  "finalUrl": "/login?next=%2Fwaivers",
+  "redirected": true,
+  "htmlBytes": 23816,
+  "textChars": 173,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: [dynasty-data] buildRows received a payload with zero backend rank stamps. This is a hard bug signal \u2014 the scrape pipeline is not stamping canonicalConsensusRank.  Returning empty rows; the UI will su",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides returned 401; falling through to base contract."
+  ],
+  "failedRequests": [
+   "POST http://127.0.0.1:3000/api/rankings/overrides?view=delta net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=KX9pjIPWkuEe2Tv2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/",
+  "url": "/",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 191,
+  "settleMs": 25215,
+  "finalUrl": "/",
+  "redirected": false,
+  "htmlBytes": 36956,
+  "textChars": 1346,
+  "h1": "Pick your team",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/league?_rsc=5CB68i4pnAekjehf net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=uSms6JUNsNBYwd4R net::ERR_ABORTED"
+  ],
+  "errorLikeText": [
+   "no players",
+   "unavailable"
+  ]
+ },
+ {
+  "route": "/admin",
+  "url": "/admin",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 87,
+  "settleMs": 25103,
+  "finalUrl": "/admin",
+  "redirected": false,
+  "htmlBytes": 34755,
+  "textChars": 1980,
+  "h1": "Admin",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/movers?window=14&threshold=15&limit=8 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/data/rank-history?days=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/angle",
+  "url": "/angle",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 55,
+  "settleMs": 25079,
+  "finalUrl": "/angle",
+  "redirected": false,
+  "htmlBytes": 54520,
+  "textChars": 1652,
+  "h1": "Package Builder",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/admin/guest-passes net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=CB8fCozz729okwku net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/arbitrage",
+  "url": "/arbitrage",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 56,
+  "settleMs": 25083,
+  "finalUrl": "/arbitrage",
+  "redirected": false,
+  "htmlBytes": 39041,
+  "textChars": 564,
+  "h1": "Arbitrage",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=tyKt1xtVX4q4sAl_ net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/bdvm",
+  "url": "/bdvm",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 88,
+  "settleMs": 25105,
+  "finalUrl": "/bdvm",
+  "redirected": false,
+  "htmlBytes": 29622,
+  "textChars": 376,
+  "h1": "Fundamental Values",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=EMbMzL8vmyG6dSPo net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/consensus-edge",
+  "url": "/consensus-edge",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 82,
+  "settleMs": 25110,
+  "finalUrl": "/consensus-edge",
+  "redirected": false,
+  "htmlBytes": 27509,
+  "textChars": 239,
+  "h1": "Consensus Edge",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=nGIMpJGdVkLLSIdw net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/design",
+  "url": "/design",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 137,
+  "settleMs": 25162,
+  "finalUrl": "/design",
+  "redirected": false,
+  "htmlBytes": 72999,
+  "textChars": 3967,
+  "h1": "Design system",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/draft",
+  "url": "/draft",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 109,
+  "settleMs": 25139,
+  "finalUrl": "/draft",
+  "redirected": false,
+  "htmlBytes": 161184,
+  "textChars": 7012,
+  "h1": "Draft Board",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=rqG6M6kttbep0wcQ net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/edge",
+  "url": "/edge",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 61,
+  "settleMs": 25089,
+  "finalUrl": "/edge",
+  "redirected": false,
+  "htmlBytes": 142102,
+  "textChars": 2591,
+  "h1": "Source Disagreement",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/data net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=Og0CwV9yWM0cHteb net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=iMFfSTGGafxSLFml net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/finder",
+  "url": "/finder",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 58,
+  "settleMs": 25071,
+  "finalUrl": "/rankings",
+  "redirected": true,
+  "htmlBytes": 583271,
+  "textChars": 17934,
+  "h1": "Rankings",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=5pW1Luyqt_qVwRh5 net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/4984.jpg net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/images/team_logos/nfl/buf.png net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/11604.jpg net::ERR_CONNECTION_RESET"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/idptc-rookies",
+  "url": "/idptc-rookies",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 113,
+  "settleMs": 25140,
+  "finalUrl": "/idptc-rookies",
+  "redirected": false,
+  "htmlBytes": 153121,
+  "textChars": 41681,
+  "h1": "Rookie Board",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET https://sleepercdn.com/content/nfl/players/thumb/6801.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/11635.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/7523.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/12512.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/13269.jpg net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/9488.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/9493.jpg net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/intel",
+  "url": "/intel",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 63,
+  "settleMs": 25091,
+  "finalUrl": "/league/insider-trading",
+  "redirected": true,
+  "htmlBytes": 36044,
+  "textChars": 210,
+  "h1": "Insider Trading",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: [dynasty-data] /api/rankings/overrides request failed: Failed to fetch"
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=wti29u5JR0LOuYC1 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=-rfTTP4ew--t5Jme net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league",
+  "url": "/league",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 89,
+  "settleMs": 25103,
+  "finalUrl": "/league",
+  "redirected": false,
+  "htmlBytes": 84032,
+  "textChars": 2764,
+  "h1": "Risk It To Get The Brisket",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/intel/summary?limit=200&window=30d&sort=net net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=AMvjIHzCsk_wC87J net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578 net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5 net::ERR_CONNECTION_RESET"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league-comparison",
+  "url": "/league-comparison",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 49,
+  "settleMs": 25074,
+  "finalUrl": "/league-comparison",
+  "redirected": false,
+  "htmlBytes": 27663,
+  "textChars": 332,
+  "h1": "Scoring Comparison",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=wttnJrK3_Y4MY8xn net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=S1tcD9g7LSfcnmB1 net::ERR_ABORTED"
+  ],
+  "errorLikeText": [
+   "unavailable"
+  ]
+ },
+ {
+  "route": "/league/activity",
+  "url": "/league/activity",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 40,
+  "settleMs": 25070,
+  "finalUrl": "/league/activity",
+  "redirected": false,
+  "htmlBytes": 108161,
+  "textChars": 15627,
+  "h1": "Activity",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=sp1kHpVbJnldzSui net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=O2IDn8Y5VamzbkF4 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/articles/[season]/[week]",
+  "url": "/league/articles/2025/1",
+  "dynamic": true,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 77,
+  "settleMs": 25106,
+  "finalUrl": "/league/articles/2025/1",
+  "redirected": false,
+  "htmlBytes": 39985,
+  "textChars": 409,
+  "h1": "Week 1 \u00b7 2025",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=uwVpqYlV5XNZ3wEP net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=IRkzgrgK4rXpIrTa net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/articles/[season]/[week]/[matchupId]/[mode]",
+  "url": "/league/articles/2025/1/1/preview",
+  "dynamic": true,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 78,
+  "settleMs": 25131,
+  "finalUrl": "/league/articles/2025/1/1/preview",
+  "redirected": false,
+  "htmlBytes": 39928,
+  "textChars": 220,
+  "h1": null,
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=b3zfOnzRzVaPV3aF net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/articles/2025/1?_rsc=b3zfOnzRzVaPV3aF net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=6bcmjb1oJt04ej_U net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/articles/2025/1?_rsc=6bcmjb1oJt04ej_U net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/franchise/[owner]",
+  "url": "/league/franchise/jasonleetucker",
+  "dynamic": true,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 695,
+  "settleMs": 25725,
+  "finalUrl": "/league/franchise/jasonleetucker",
+  "redirected": false,
+  "htmlBytes": 39507,
+  "textChars": 187,
+  "h1": null,
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=0YzURBNaiqJc7GNa net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=b5g9oviTZM4vKE1B net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/insider-trading",
+  "url": "/league/insider-trading",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 38,
+  "settleMs": 25065,
+  "finalUrl": "/league/insider-trading",
+  "redirected": false,
+  "htmlBytes": 36183,
+  "textChars": 210,
+  "h1": "Insider Trading",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=8KyKohGodKON6wHg net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=TY8xj3N7QJPH5HiO net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/player/[playerId]",
+  "url": "/league/player/4046",
+  "dynamic": true,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 89,
+  "settleMs": 25101,
+  "finalUrl": "/league/player/4046",
+  "redirected": false,
+  "htmlBytes": 74837,
+  "textChars": 1657,
+  "h1": "Patrick Mahomes",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/intel/summary?limit=200&window=30d&sort=net net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=a_Rxx1C0-j_UGQBl net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/franchise/472206636534984704?_rsc=a_Rxx1C0-j_UGQBl net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/franchise/1002085133723299840?_rsc=a_Rxx1C0-j_UGQBl net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/rivalry/[pair]",
+  "url": "/league/rivalry/jasonleetucker-vs-blaine",
+  "dynamic": true,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 79,
+  "settleMs": 25090,
+  "finalUrl": "/league/rivalry/jasonleetucker-vs-blaine",
+  "redirected": false,
+  "htmlBytes": 39436,
+  "textChars": 200,
+  "h1": null,
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?tab=rivalries&_rsc=AcfzuWhq4nCPnSyw net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=AcfzuWhq4nCPnSyw net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=EkKbO1G2fGKWCkzK net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?tab=rivalries&_rsc=EkKbO1G2fGKWCkzK net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/week/[season]/[week]",
+  "url": "/league/week/2025/1",
+  "dynamic": true,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 173,
+  "settleMs": 25188,
+  "finalUrl": "/league/week/2025/1",
+  "redirected": false,
+  "htmlBytes": 174170,
+  "textChars": 4026,
+  "h1": "Roy put Eric on a milk carton, 399.9-327.0",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=rkO3qBJ9GB2oe2EQ net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=krGKV2B63Oxdnbxa net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?tab=weeklyRecap&_rsc=krGKV2B63Oxdnbxa net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/197fbf70fcab426ead60204e810ff485 net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/avatars/thumbs/7308291b2025f511b1cae36286c44578 net::ERR_CONNECTION_RESET"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/league/weekly/[season]/[week]/[matchup]",
+  "url": "/league/weekly/2025/1/1",
+  "dynamic": true,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 143,
+  "settleMs": 25166,
+  "finalUrl": "/league/weekly/2025/1/1",
+  "redirected": false,
+  "htmlBytes": 85488,
+  "textChars": 1541,
+  "h1": "2025 \u00b7 Week 1",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/8865a7143b19e97d5c864ded2a3035c5 net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/6bae2753ef9e291d6a42bffddd394717 net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/7df22f5c69196c4ef96741c5f0ed2b43 net::ERR_ABORTED",
+   "GET https://sleepercdn.com/avatars/thumbs/a8ab35cf264be5bbd6603b22232a2ee2 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=VVnfJF1iGw1fPUt9 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/login",
+  "url": "/login",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 72,
+  "settleMs": 25095,
+  "finalUrl": "/login",
+  "redirected": false,
+  "htmlBytes": 27988,
+  "textChars": 234,
+  "h1": "Sign in",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=_H_fFy2_Q06N8BA7 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/market/sharp-roster-percentage",
+  "url": "/market/sharp-roster-percentage",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 44,
+  "settleMs": 25054,
+  "finalUrl": "/market/sharp-roster-percentage",
+  "redirected": false,
+  "htmlBytes": 34516,
+  "textChars": 1414,
+  "h1": "Sharp Roster Percentage",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=bAv42QAoLPJaFtOP net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=lX64ahDfbzR6HsWW net::ERR_ABORTED"
+  ],
+  "errorLikeText": [
+   "no data"
+  ]
+ },
+ {
+  "route": "/market/sharp-tracker",
+  "url": "/market/sharp-tracker",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 43,
+  "settleMs": 25059,
+  "finalUrl": "/market/sharp-tracker",
+  "redirected": false,
+  "htmlBytes": 31821,
+  "textChars": 1352,
+  "h1": "Sharp Tracker",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=nUESzy_NvE8KYTgT net::ERR_ABORTED"
+  ],
+  "errorLikeText": [
+   "unavailable"
+  ]
+ },
+ {
+  "route": "/more",
+  "url": "/more",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 43,
+  "settleMs": 25066,
+  "finalUrl": "/more",
+  "redirected": false,
+  "htmlBytes": 34848,
+  "textChars": 1728,
+  "h1": "All destinations",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [
+   "warning: The resource http://127.0.0.1:3000/_next/static/css/ea35ff9791da35be.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an app",
+   "warning: The resource http://127.0.0.1:3000/_next/static/css/a32fac6ab75521ec.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an app"
+  ],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=EbraYl7VUUzoG56p net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=id1f7MdO2LFkfMQX net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/news",
+  "url": "/news",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 36,
+  "settleMs": 25063,
+  "finalUrl": "/news",
+  "redirected": false,
+  "htmlBytes": 52231,
+  "textChars": 4514,
+  "h1": "News",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/phases",
+  "url": "/phases",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 45,
+  "settleMs": 25052,
+  "finalUrl": "/phases",
+  "redirected": false,
+  "htmlBytes": 32832,
+  "textChars": 720,
+  "h1": "Win-now vs Rebuild",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=pAo2_KMr8toYSMKX net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/franchise/712035316776669184?_rsc=pAo2_KMr8toYSMKX net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/franchise/1303549304882892800?_rsc=pAo2_KMr8toYSMKX net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league/franchise/472206636534984704?_rsc=pAo2_KMr8toYSMKX net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/players/compare",
+  "url": "/players/compare",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 36,
+  "settleMs": 25063,
+  "finalUrl": "/players/compare",
+  "redirected": false,
+  "htmlBytes": 29032,
+  "textChars": 388,
+  "h1": "Compare Players",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=xJce79A8EmAWNAR2 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/rankings",
+  "url": "/rankings",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 54,
+  "settleMs": 25067,
+  "finalUrl": "/rankings",
+  "redirected": false,
+  "htmlBytes": 593585,
+  "textChars": 17934,
+  "h1": "Rankings",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=8uisVwxVtwU7bmA7 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=hEPb3m80sh8F8jW3 net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/4984.jpg net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/11604.jpg net::ERR_CONNECTION_RESET"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/rankings/[position]",
+  "url": "/rankings/qb",
+  "dynamic": true,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 136,
+  "settleMs": 25148,
+  "finalUrl": "/rankings?pos=QB",
+  "redirected": true,
+  "htmlBytes": 248964,
+  "textChars": 7715,
+  "h1": "Rankings",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET https://sleepercdn.com/content/nfl/players/thumb/4881.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/11628.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/6786.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/12517.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/9997.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/6801.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/13375.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/9226.jpg net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/rosters",
+  "url": "/rosters",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 98,
+  "settleMs": 25106,
+  "finalUrl": "/rosters",
+  "redirected": false,
+  "htmlBytes": 119224,
+  "textChars": 4803,
+  "h1": "Team Strength",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/13272.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/8183.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/8161.jpg net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET https://sleepercdn.com/images/team_logos/nfl/cin.png net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/9229.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/4943.jpg net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/settings",
+  "url": "/settings",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 101,
+  "settleMs": 25127,
+  "finalUrl": "/settings",
+  "redirected": false,
+  "htmlBytes": 118121,
+  "textChars": 4659,
+  "h1": "Settings",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/8270.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/8225.jpg net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/13309.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/12473.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/images/team_logos/nfl/kc.png net::ERR_ABORTED",
+   "GET https://sleepercdn.com/images/team_logos/nfl/chi.png net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/tools/ros-data-health",
+  "url": "/tools/ros-data-health",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 40,
+  "settleMs": 25067,
+  "finalUrl": "/tools/ros-data-health",
+  "redirected": false,
+  "htmlBytes": 27551,
+  "textChars": 188,
+  "h1": "ROS Data Health",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=432XbgbiDUggfPdz net::ERR_ABORTED"
+  ],
+  "errorLikeText": [
+   "unavailable"
+  ]
+ },
+ {
+  "route": "/tools/source-health",
+  "url": "/tools/source-health",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 41,
+  "settleMs": 25067,
+  "finalUrl": "/tools/source-health",
+  "redirected": false,
+  "htmlBytes": 28607,
+  "textChars": 253,
+  "h1": "Source Health",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/ros/sources net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/ros/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=XQFPyhLyawmXbhp- net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/tools/trade-coverage",
+  "url": "/tools/trade-coverage",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 68,
+  "settleMs": 25095,
+  "finalUrl": "/tools/trade-coverage",
+  "redirected": false,
+  "htmlBytes": 35994,
+  "textChars": 860,
+  "h1": "Trade Coverage Audit",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=E2cynoIQjwP6k7j9 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=UapIbawVLbP1OzWx net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/trade",
+  "url": "/trade",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 47,
+  "settleMs": 25065,
+  "finalUrl": "/trade",
+  "redirected": false,
+  "htmlBytes": 47856,
+  "textChars": 936,
+  "h1": "Trade Calculator",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/terminal?team=1303549304882892800&windowDays=180 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?team=711452264774041600&windowDays=180 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?team=831633191830933504&windowDays=180 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?team=1012114412049731584&windowDays=180 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?team=1002085133723299840&windowDays=180 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?team=1208452010173538304&windowDays=180 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?team=714912789268865024&windowDays=180 net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/trades",
+  "url": "/trades",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 40,
+  "settleMs": 25052,
+  "finalUrl": "/trades",
+  "redirected": false,
+  "htmlBytes": 858007,
+  "textChars": 53997,
+  "h1": "Trade History",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/ros/player-values?limit=2000 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=BiFJxaJn-cvCX1An net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/7525.jpg net::ERR_CONNECTION_RESET",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/8126.jpg net::ERR_CONNECTION_RESET"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/trending",
+  "url": "/trending",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 72,
+  "settleMs": 25099,
+  "finalUrl": "/trending",
+  "redirected": false,
+  "htmlBytes": 30430,
+  "textChars": 385,
+  "h1": "Trending",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/7523.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/13287.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/images/team_logos/nfl/ten.png net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/2306.jpg net::ERR_ABORTED",
+   "GET https://sleepercdn.com/images/team_logos/nfl/bal.png net::ERR_ABORTED",
+   "GET https://sleepercdn.com/images/team_logos/nfl/phi.png net::ERR_ABORTED",
+   "GET https://sleepercdn.com/content/nfl/players/thumb/2307.jpg net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ },
+ {
+  "route": "/waivers",
+  "url": "/waivers",
+  "dynamic": false,
+  "mode": "auth",
+  "status": 200,
+  "navMs": 46,
+  "settleMs": 25057,
+  "finalUrl": "/waivers",
+  "redirected": false,
+  "htmlBytes": 39885,
+  "textChars": 642,
+  "h1": "Waivers",
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "consoleWarnings": [],
+  "failedRequests": [
+   "GET http://127.0.0.1:3000/api/terminal?windowDays=30 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/leagues net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/user/state net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/api/health net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=5kTbum_80oX_Iyd9 net::ERR_ABORTED",
+   "GET http://127.0.0.1:3000/league?_rsc=7gEWLHKG0vpbbITr net::ERR_ABORTED"
+  ],
+  "errorLikeText": []
+ }
+]

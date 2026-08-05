@@ -1,0 +1,9 @@
+model: hill_scope_masters
+champion: v2  confidence=measured
+  held-out criterion: 787.8 (lower is better)
+  fitted: 2026-07-28T09:08:00.219336+00:00   producer: scripts/fit_hill_curve_percentile.py @ 3df9cc4
+
+ ver  status     confidence     criterion  fitted
+   1  retired    measured           819.7  unknown
+   2  champion   measured           787.8  2026-07-28T09:08:00.219336+00:00
+   3  rejected   measured           775.0  2026-08-04T09:11:58.945109+00:00

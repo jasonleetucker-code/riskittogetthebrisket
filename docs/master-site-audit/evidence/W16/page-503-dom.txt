@@ -1,0 +1,42 @@
+session 200
+status 200 url http://127.0.0.1:3000/league/insider-trading
+----TEXT----
+Skip to content
+▪
+CHASE UPSIDE
+Rankings
+News
+Trades
+My Team
+Market
+League
+Risk It To Get The Brisket
+▾
+Search
+/
+System
+Insider Trading
+Trades your league-mates made in their OTHER Sleeper leagues — 0 managers, 0 leagues observed. These are the managers in this league, not a skill-filtered cohort.
+No intel snapshot yet — the first crawl hasn't run. Trigger a refresh or wait for the daily cron.
+TRADE LEADS FOR ANY PLAYER
+Find leads
+WINDOW
+7 days
+30 days
+90 days
+SORT
+Net
+Volume
+Most bought
+Most sold
+DIRECTION
+All
+Buying
+Selling
+SEARCH
+All assets
+Players
+Picks
+No tracked activity yet
+No buy/sell events in the rolling windows. Check back after the next crawl.
+SAVE

@@ -1,0 +1,32 @@
+{
+ "/api/trade/finder": {
+  "market": "market",
+  "camelLA": "leagueAdjusted",
+  "snakeLA": "leagueAdjusted",
+  "note": null
+ },
+ "/api/trade/suggestions": {
+  "market": "market",
+  "camelLA": "leagueAdjusted",
+  "snakeLA": "leagueAdjusted",
+  "note": null
+ },
+ "/api/angle/find": {
+  "market": "market",
+  "camelLA": "leagueAdjusted",
+  "snakeLA": "leagueAdjusted",
+  "note": null
+ },
+ "/api/angle/packages": {
+  "market": "market",
+  "camelLA": "leagueAdjusted",
+  "snakeLA": "leagueAdjusted",
+  "note": null
+ },
+ "/api/trade/simulate": {
+  "market": "market",
+  "camelLA": "leagueAdjusted",
+  "snakeLA": "leagueAdjusted",
+  "note": null
+ }
+}

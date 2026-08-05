@@ -1,0 +1,9 @@
+{
+ "ourValue": {
+  "meter": "5,021 | VS | 5,222 | Gap: 201 | Side A | Side B | FAIR | Side B wins by 4% | Simulate (Monte Carlo)"
+ },
+ "rawClicked": true,
+ "rawMode": {
+  "meter": "5,564 | VS | 4,180 | Gap: 1,384 | Side A | Side B | UNFAIR | Side A wins by 25% | Simulate (Monte Carlo)"
+ }
+}

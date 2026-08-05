@@ -1,0 +1,19 @@
+{
+  "realDistinctTrades": 1,
+  "reportedTradeCount": 3,
+  "movementCount": 3,
+  "assetRows": [
+    {
+      "assetId": "p1",
+      "tradeCount": 1
+    },
+    {
+      "assetId": "p2",
+      "tradeCount": 1
+    },
+    {
+      "assetId": "p3",
+      "tradeCount": 1
+    }
+  ]
+}

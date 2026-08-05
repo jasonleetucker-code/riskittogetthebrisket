@@ -1,0 +1,352 @@
+[
+ {
+  "winProbA": 0.0002,
+  "winProbB": 0.9998,
+  "meanDelta": -4446.9,
+  "stdDelta": 1443.4,
+  "deltaRange": {
+   "p10": -6327.8,
+   "p50": -4421.0,
+   "p90": -2601.7
+  },
+  "sideAMean": 9441.9,
+  "sideBMean": 13888.8,
+  "nSims": 100000,
+  "method": "consensus_based_win_rate_symmetrized",
+  "labelHint": "consensus_based_win_rate",
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  Direction-symmetrized to eliminate ordering bias.",
+  "symmetryCheck": {
+   "winProbA_AB": 0.0003,
+   "winProbA_BA_flipped": 0.0002,
+   "drift": 0.0001,
+   "enforced": true
+  },
+  "vaAdjustment": {
+   "side": 0,
+   "value": 0,
+   "effectiveValue": 0,
+   "applied": false
+  },
+  "valueDelta": -3945.0,
+  "adjustedDelta": -3157.9,
+  "winPct": 0.0,
+  "riskLevel": "high",
+  "tierImpact": "significant",
+  "decisionSummary": "Side B favored at 0% (\u0394=-3945 significant, risk high)"
+ },
+ {
+  "winProbA": 0.0001,
+  "winProbB": 0.9999,
+  "meanDelta": -4444.4,
+  "stdDelta": 1442.6,
+  "deltaRange": {
+   "p10": -6314.4,
+   "p50": -4411.8,
+   "p90": -2601.6
+  },
+  "sideAMean": 9448.0,
+  "sideBMean": 13892.4,
+  "nSims": 100000,
+  "method": "consensus_based_win_rate_symmetrized",
+  "labelHint": "consensus_based_win_rate",
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  Direction-symmetrized to eliminate ordering bias.",
+  "symmetryCheck": {
+   "winProbA_AB": 0.0002,
+   "winProbA_BA_flipped": 0.0001,
+   "drift": 0.0001,
+   "enforced": true
+  },
+  "vaAdjustment": {
+   "side": 0,
+   "value": 0,
+   "effectiveValue": 0,
+   "applied": false
+  },
+  "valueDelta": -3945.0,
+  "adjustedDelta": -3157.9,
+  "winPct": 0.0,
+  "riskLevel": "high",
+  "tierImpact": "significant",
+  "decisionSummary": "Side B favored at 0% (\u0394=-3945 significant, risk high)"
+ },
+ {
+  "winProbA": 0.0001,
+  "winProbB": 0.9999,
+  "meanDelta": -4446.9,
+  "stdDelta": 1447.3,
+  "deltaRange": {
+   "p10": -6333.8,
+   "p50": -4423.1,
+   "p90": -2590.5
+  },
+  "sideAMean": 9442.7,
+  "sideBMean": 13889.6,
+  "nSims": 100000,
+  "method": "consensus_based_win_rate_symmetrized",
+  "labelHint": "consensus_based_win_rate",
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  Direction-symmetrized to eliminate ordering bias.",
+  "symmetryCheck": {
+   "winProbA_AB": 0.0001,
+   "winProbA_BA_flipped": 0.0002,
+   "drift": 0.0001,
+   "enforced": true
+  },
+  "vaAdjustment": {
+   "side": 0,
+   "value": 0,
+   "effectiveValue": 0,
+   "applied": false
+  },
+  "valueDelta": -3945.0,
+  "adjustedDelta": -3157.9,
+  "winPct": 0.0,
+  "riskLevel": "high",
+  "tierImpact": "significant",
+  "decisionSummary": "Side B favored at 0% (\u0394=-3945 significant, risk high)"
+ },
+ {
+  "winProbA": 0.0002,
+  "winProbB": 0.9999,
+  "meanDelta": -4454.2,
+  "stdDelta": 1444.1,
+  "deltaRange": {
+   "p10": -6334.3,
+   "p50": -4425.8,
+   "p90": -2609.6
+  },
+  "sideAMean": 9442.0,
+  "sideBMean": 13896.1,
+  "nSims": 100000,
+  "method": "consensus_based_win_rate_symmetrized",
+  "labelHint": "consensus_based_win_rate",
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  Direction-symmetrized to eliminate ordering bias.",
+  "symmetryCheck": {
+   "winProbA_AB": 0.0002,
+   "winProbA_BA_flipped": 0.0001,
+   "drift": 0.0001,
+   "enforced": true
+  },
+  "vaAdjustment": {
+   "side": 0,
+   "value": 0,
+   "effectiveValue": 0,
+   "applied": false
+  },
+  "valueDelta": -3945.0,
+  "adjustedDelta": -3157.9,
+  "winPct": 0.0,
+  "riskLevel": "high",
+  "tierImpact": "significant",
+  "decisionSummary": "Side B favored at 0% (\u0394=-3945 significant, risk high)"
+ },
+ {
+  "winProbA": 0.0001,
+  "winProbB": 0.9999,
+  "meanDelta": -4443.1,
+  "stdDelta": 1445.6,
+  "deltaRange": {
+   "p10": -6328.6,
+   "p50": -4414.4,
+   "p90": -2600.9
+  },
+  "sideAMean": 9445.2,
+  "sideBMean": 13888.3,
+  "nSims": 100000,
+  "method": "consensus_based_win_rate_symmetrized",
+  "labelHint": "consensus_based_win_rate",
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  Direction-symmetrized to eliminate ordering bias.",
+  "symmetryCheck": {
+   "winProbA_AB": 0.0001,
+   "winProbA_BA_flipped": 0.0001,
+   "drift": 0.0,
+   "enforced": true
+  },
+  "vaAdjustment": {
+   "side": 0,
+   "value": 0,
+   "effectiveValue": 0,
+   "applied": false
+  },
+  "valueDelta": -3945.0,
+  "adjustedDelta": -3157.9,
+  "winPct": 0.0,
+  "riskLevel": "high",
+  "tierImpact": "significant",
+  "decisionSummary": "Side B favored at 0% (\u0394=-3945 significant, risk high)"
+ },
+ {
+  "winProbA": 0.0003,
+  "winProbB": 0.9997,
+  "meanDelta": -4445.4,
+  "stdDelta": 1445.1,
+  "deltaRange": {
+   "p10": -6323.6,
+   "p50": -4420.5,
+   "p90": -2593.5
+  },
+  "sideAMean": 9442.2,
+  "sideBMean": 13887.6,
+  "nSims": 100000,
+  "method": "consensus_based_win_rate_symmetrized",
+  "labelHint": "consensus_based_win_rate",
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  Direction-symmetrized to eliminate ordering bias.",
+  "symmetryCheck": {
+   "winProbA_AB": 0.0002,
+   "winProbA_BA_flipped": 0.0003,
+   "drift": 0.0,
+   "enforced": true
+  },
+  "vaAdjustment": {
+   "side": 0,
+   "value": 0,
+   "effectiveValue": 0,
+   "applied": false
+  },
+  "valueDelta": -3945.0,
+  "adjustedDelta": -3157.9,
+  "winPct": 0.0,
+  "riskLevel": "high",
+  "tierImpact": "significant",
+  "decisionSummary": "Side B favored at 0% (\u0394=-3945 significant, risk high)"
+ },
+ {
+  "winProbA": 0.0002,
+  "winProbB": 0.9998,
+  "meanDelta": -4450.7,
+  "stdDelta": 1449.6,
+  "deltaRange": {
+   "p10": -6337.4,
+   "p50": -4426.2,
+   "p90": -2598.7
+  },
+  "sideAMean": 9441.9,
+  "sideBMean": 13892.6,
+  "nSims": 100000,
+  "method": "consensus_based_win_rate_symmetrized",
+  "labelHint": "consensus_based_win_rate",
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  Direction-symmetrized to eliminate ordering bias.",
+  "symmetryCheck": {
+   "winProbA_AB": 0.0002,
+   "winProbA_BA_flipped": 0.0002,
+   "drift": 0.0,
+   "enforced": true
+  },
+  "vaAdjustment": {
+   "side": 0,
+   "value": 0,
+   "effectiveValue": 0,
+   "applied": false
+  },
+  "valueDelta": -3945.0,
+  "adjustedDelta": -3157.9,
+  "winPct": 0.0,
+  "riskLevel": "high",
+  "tierImpact": "significant",
+  "decisionSummary": "Side B favored at 0% (\u0394=-3945 significant, risk high)"
+ },
+ {
+  "winProbA": 0.0001,
+  "winProbB": 0.9999,
+  "meanDelta": -4440.1,
+  "stdDelta": 1439.3,
+  "deltaRange": {
+   "p10": -6298.2,
+   "p50": -4412.2,
+   "p90": -2604.4
+  },
+  "sideAMean": 9444.8,
+  "sideBMean": 13884.9,
+  "nSims": 100000,
+  "method": "consensus_based_win_rate_symmetrized",
+  "labelHint": "consensus_based_win_rate",
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  Direction-symmetrized to eliminate ordering bias.",
+  "symmetryCheck": {
+   "winProbA_AB": 0.0001,
+   "winProbA_BA_flipped": 0.0002,
+   "drift": 0.0001,
+   "enforced": true
+  },
+  "vaAdjustment": {
+   "side": 0,
+   "value": 0,
+   "effectiveValue": 0,
+   "applied": false
+  },
+  "valueDelta": -3945.0,
+  "adjustedDelta": -3157.9,
+  "winPct": 0.0,
+  "riskLevel": "high",
+  "tierImpact": "significant",
+  "decisionSummary": "Side B favored at 0% (\u0394=-3945 significant, risk high)"
+ },
+ {
+  "winProbA": 0.0002,
+  "winProbB": 0.9998,
+  "meanDelta": -4439.3,
+  "stdDelta": 1444.8,
+  "deltaRange": {
+   "p10": -6321.8,
+   "p50": -4409.5,
+   "p90": -2594.8
+  },
+  "sideAMean": 9441.7,
+  "sideBMean": 13881.0,
+  "nSims": 100000,
+  "method": "consensus_based_win_rate_symmetrized",
+  "labelHint": "consensus_based_win_rate",
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  Direction-symmetrized to eliminate ordering bias.",
+  "symmetryCheck": {
+   "winProbA_AB": 0.0003,
+   "winProbA_BA_flipped": 0.0001,
+   "drift": 0.0001,
+   "enforced": true
+  },
+  "vaAdjustment": {
+   "side": 0,
+   "value": 0,
+   "effectiveValue": 0,
+   "applied": false
+  },
+  "valueDelta": -3945.0,
+  "adjustedDelta": -3157.9,
+  "winPct": 0.0,
+  "riskLevel": "high",
+  "tierImpact": "significant",
+  "decisionSummary": "Side B favored at 0% (\u0394=-3945 significant, risk high)"
+ },
+ {
+  "winProbA": 0.0002,
+  "winProbB": 0.9998,
+  "meanDelta": -4455.2,
+  "stdDelta": 1447.5,
+  "deltaRange": {
+   "p10": -6341.6,
+   "p50": -4431.4,
+   "p90": -2598.6
+  },
+  "sideAMean": 9441.7,
+  "sideBMean": 13896.9,
+  "nSims": 100000,
+  "method": "consensus_based_win_rate_symmetrized",
+  "labelHint": "consensus_based_win_rate",
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  Direction-symmetrized to eliminate ordering bias.",
+  "symmetryCheck": {
+   "winProbA_AB": 0.0002,
+   "winProbA_BA_flipped": 0.0002,
+   "drift": 0.0,
+   "enforced": true
+  },
+  "vaAdjustment": {
+   "side": 0,
+   "value": 0,
+   "effectiveValue": 0,
+   "applied": false
+  },
+  "valueDelta": -3945.0,
+  "adjustedDelta": -3157.9,
+  "winPct": 0.0,
+  "riskLevel": "high",
+  "tierImpact": "significant",
+  "decisionSummary": "Side B favored at 0% (\u0394=-3945 significant, risk high)"
+ }
+]

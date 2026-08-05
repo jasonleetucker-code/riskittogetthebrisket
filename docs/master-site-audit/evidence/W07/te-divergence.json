@@ -1,0 +1,88 @@
+{
+ "rowsCompared": 1092,
+ "valueDiffRows": 135,
+ "rankDiffRows": 627,
+ "tierDiffRows": 654,
+ "worst10": [
+  {
+   "player": "Grant Calcaterra",
+   "apiDataValue": 1340,
+   "renderedValue": null,
+   "ratio": 0.0,
+   "pctUnderstated": 100.0
+  },
+  {
+   "player": "Josh Oliver",
+   "apiDataValue": 1405,
+   "renderedValue": null,
+   "ratio": 0.0,
+   "pctUnderstated": 100.0
+  },
+  {
+   "player": "Thomas Fidone",
+   "apiDataValue": 1392,
+   "renderedValue": null,
+   "ratio": 0.0,
+   "pctUnderstated": 100.0
+  },
+  {
+   "player": "Tyler Conklin",
+   "apiDataValue": 1450,
+   "renderedValue": 1142,
+   "ratio": 0.787586,
+   "pctUnderstated": 21.241
+  },
+  {
+   "player": "Josh Cuevas",
+   "apiDataValue": 1541,
+   "renderedValue": 1215,
+   "ratio": 0.788449,
+   "pctUnderstated": 21.155
+  },
+  {
+   "player": "Will Kacmarek",
+   "apiDataValue": 1795,
+   "renderedValue": 1417,
+   "ratio": 0.789415,
+   "pctUnderstated": 21.058
+  },
+  {
+   "player": "Erick All",
+   "apiDataValue": 1853,
+   "renderedValue": 1476,
+   "ratio": 0.796546,
+   "pctUnderstated": 20.345
+  },
+  {
+   "player": "Noah Fant",
+   "apiDataValue": 1846,
+   "renderedValue": 1485,
+   "ratio": 0.804442,
+   "pctUnderstated": 19.556
+  },
+  {
+   "player": "Noah Gray",
+   "apiDataValue": 1834,
+   "renderedValue": 1476,
+   "ratio": 0.804798,
+   "pctUnderstated": 19.52
+  },
+  {
+   "player": "Elijah Higgins",
+   "apiDataValue": 1727,
+   "renderedValue": 1399,
+   "ratio": 0.810075,
+   "pctUnderstated": 18.992
+  }
+ ],
+ "payloadBytes": {
+  "apiData_GET_/api/data": 11953535,
+  "page_POST_overrides_tep1.15": 3897827,
+  "POST_overrides_empty_body": 3918131,
+  "POST_overrides_ktcSfTep_off": 3735822,
+  "POST_overrides_idpTradeCalc_off": 3718269,
+  "POST_overrides_dlfSf_weight3": 3918105,
+  "view=full_ktcSfTep_off": 11265051
+ },
+ "note": "renderedValue is what /rankings shows (POST /api/rankings/overrides with the frontend's forced tep_multiplier=1.15); apiDataValue is what GET /api/data serves and what every server-side engine prices from."
+}

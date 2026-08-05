@@ -1,0 +1,150 @@
+{
+ "unreadNonzeroKeys": {
+  "blk_kick": 1.0,
+  "def_2pt": 4.0,
+  "def_3_and_out": 1.0,
+  "def_4_and_stop": 1.0,
+  "def_forced_punts": 1.0,
+  "def_kr_yd": 0.01,
+  "def_pr_yd": 0.01,
+  "def_st_ff": 0.5,
+  "def_st_fum_rec": 0.5,
+  "def_st_td": 6.0,
+  "def_td": 6.0,
+  "fg_ret_yd": 0.01,
+  "fgm_yds": 0.07,
+  "fgmiss_0_19": -4.55,
+  "fgmiss_20_29": -3.85,
+  "fgmiss_30_39": -3.15,
+  "fgmiss_40_49": -2.45,
+  "fgmiss_50_59": -1.75,
+  "fgmiss_60p": -1.05,
+  "fum_rec": 1.0,
+  "fum_rec_td": 6.0,
+  "fum_ret_yd": 0.01,
+  "idp_blk_kick": 5.32,
+  "idp_pass_def": 5.32,
+  "idp_qb_hit": 2.13,
+  "int": 1.0,
+  "int_ret_yd": 0.01,
+  "kr_yd": 0.03333333333333333,
+  "pass_int_td": -2.0,
+  "pr_yd": 0.03333333333333333,
+  "pts_allow": -1.0,
+  "pts_allow_0": 45.0,
+  "pts_allow_14_20": 35.0,
+  "pts_allow_1_6": 35.0,
+  "pts_allow_21_27": 35.0,
+  "pts_allow_28_34": 35.0,
+  "pts_allow_35p": 35.0,
+  "pts_allow_7_13": 35.0,
+  "rec_0_4": 0.17,
+  "rec_10_19": 0.67,
+  "rec_20_29": 0.92,
+  "rec_30_39": 1.17,
+  "rec_40p": 1.92,
+  "rec_5_9": 0.42,
+  "sack_yd": 0.01,
+  "safe": 4.0,
+  "st_ff": 4.25,
+  "st_fum_rec": 3.19,
+  "st_td": 6.0,
+  "st_tkl_solo": 1.33,
+  "xpm": 2.31,
+  "xpmiss": -3.15,
+  "yds_allow": -0.05
+ },
+ "attribution": {
+  "UNREAD:fgm_yds": {
+   "n": 29,
+   "totalPoints": 149.03
+  },
+  "UNREAD:xpm": {
+   "n": 29,
+   "totalPoints": 180.18
+  },
+  "DEADCOL:pass_sack(sacks)": {
+   "n": 28,
+   "totalPoints": -72.0
+  },
+  "DEADCOL:fum_lost(fumbles_lost)": {
+   "n": 7,
+   "totalPoints": -28.0
+  },
+  "UNREAD:idp_qb_hit": {
+   "n": 103,
+   "totalPoints": 332.28
+  },
+  "UNREAD:idp_pass_def": {
+   "n": 59,
+   "totalPoints": 430.92
+  },
+  "UNREAD:rec_0_4": {
+   "n": 43,
+   "totalPoints": 9.01
+  },
+  "UNREAD:rec_10_19": {
+   "n": 53,
+   "totalPoints": 62.98
+  },
+  "UNREAD:rec_5_9": {
+   "n": 65,
+   "totalPoints": 40.32
+  },
+  "UNREAD:rec_20_29": {
+   "n": 21,
+   "totalPoints": 23.0
+  },
+  "DEADCOL:pass_int(interceptions)": {
+   "n": 19,
+   "totalPoints": -108.0
+  },
+  "UNREAD:st_tkl_solo": {
+   "n": 30,
+   "totalPoints": 42.56
+  },
+  "UNREAD:fgmiss_40_49": {
+   "n": 6,
+   "totalPoints": -14.7
+  },
+  "UNREAD:rec_30_39": {
+   "n": 11,
+   "totalPoints": 14.04
+  },
+  "UNREAD:kr_yd": {
+   "n": 14,
+   "totalPoints": 30.667
+  },
+  "UNREAD:fum_rec_td": {
+   "n": 1,
+   "totalPoints": 6.0
+  },
+  "UNREAD:pr_yd": {
+   "n": 4,
+   "totalPoints": 2.267
+  },
+  "UNREAD:pass_int_td": {
+   "n": 1,
+   "totalPoints": -2.0
+  },
+  "UNREAD:fgmiss_50_59": {
+   "n": 5,
+   "totalPoints": -8.75
+  },
+  "UNREAD:rec_40p": {
+   "n": 4,
+   "totalPoints": 7.68
+  },
+  "UNREAD:idp_blk_kick": {
+   "n": 1,
+   "totalPoints": 5.32
+  },
+  "UNREAD:xpmiss": {
+   "n": 1,
+   "totalPoints": -3.15
+  }
+ },
+ "n": 636,
+ "withinTol": 406,
+ "meanAbs": 1.292335779175402
+}

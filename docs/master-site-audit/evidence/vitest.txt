@@ -1,0 +1,42 @@
+
+> dynasty-trade-calculator-frontend@1.0.0 test
+> vitest run
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.js:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.10 /home/user/riskittogetthebrisket/frontend
+
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at navigateFetch (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/living/window/navigation.js:77:3)
+    at exports.navigate (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/living/window/navigation.js:55:3)
+    at Timeout._onTimeout (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/living/nodes/HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:585:17)
+    at processTimers (node:internal/timers:521:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at navigateFetch (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/living/window/navigation.js:77:3)
+    at exports.navigate (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/living/window/navigation.js:55:3)
+    at Timeout._onTimeout (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/living/nodes/HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:585:17)
+    at processTimers (node:internal/timers:521:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at navigateFetch (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/living/window/navigation.js:77:3)
+    at exports.navigate (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/living/window/navigation.js:55:3)
+    at Timeout._onTimeout (/home/user/riskittogetthebrisket/frontend/node_modules/jsdom/lib/jsdom/living/nodes/HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:585:17)
+    at processTimers (node:internal/timers:521:7) undefined
+(node:15948) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/riskittogetthebrisket/frontend/lib/auction-power.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /home/user/riskittogetthebrisket/frontend/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  104 passed (104)
+      Tests  1754 passed (1754)
+   Start at  20:16:24
+   Duration  32.38s (transform 7.44s, setup 8.89s, import 14.63s, tests 19.81s, environment 28.71s)
+
+VITEST_EXIT=0

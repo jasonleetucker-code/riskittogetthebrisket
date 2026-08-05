@@ -1,0 +1,2766 @@
+{
+ "edgeTables": [
+  {
+   "head": "",
+   "rows": [
+    [
+     "244",
+     "Eli Raridon\nNE",
+     "TE",
+     "\u00b1332",
+     "2,372"
+    ],
+    [
+     "202",
+     "De'Zhaun Stribling\nSF",
+     "WR",
+     "\u00b1181",
+     "2,683"
+    ],
+    [
+     "249",
+     "Greg Dulcich\nMIA",
+     "TE",
+     "\u00b1175",
+     "2,325"
+    ],
+    [
+     "238",
+     "Hunter Henry\nNE",
+     "TE",
+     "\u00b1141",
+     "2,472"
+    ],
+    [
+     "250",
+     "Dalton Schultz\nHOU",
+     "TE",
+     "\u00b1131",
+     "2,304"
+    ],
+    [
+     "243",
+     "Max Klare\nLAR",
+     "TE",
+     "\u00b1128",
+     "2,373"
+    ],
+    [
+     "180",
+     "Travis Kelce\nKC",
+     "TE",
+     "\u00b1127",
+     "2,854"
+    ],
+    [
+     "222",
+     "Juwan Johnson\nNO",
+     "TE",
+     "\u00b1125",
+     "2,563"
+    ],
+    [
+     "199",
+     "Terrance Ferguson\nLAR",
+     "TE",
+     "\u00b1112",
+     "2,715"
+    ],
+    [
+     "186",
+     "Dallas Goedert\nPHI",
+     "TE",
+     "\u00b1104",
+     "2,833"
+    ]
+   ]
+  },
+  {
+   "head": "",
+   "rows": [
+    [
+     "217",
+     "J.J. McCarthy\nMIN",
+     "QB",
+     "\u00b1171",
+     "2,588"
+    ],
+    [
+     "207",
+     "Tua Tagovailoa\nATL",
+     "QB",
+     "\u00b1167",
+     "2,657"
+    ],
+    [
+     "181",
+     "Chris Godwin\nTB",
+     "WR",
+     "\u00b1163",
+     "2,853"
+    ],
+    [
+     "226",
+     "Shedeur Sanders\nCLE",
+     "QB",
+     "\u00b1156",
+     "2,534"
+    ],
+    [
+     "239",
+     "Jacoby Brissett\nARI",
+     "QB",
+     "\u00b1152",
+     "2,418"
+    ],
+    [
+     "247",
+     "Jordan Mason\nMIN",
+     "RB",
+     "\u00b1141",
+     "2,349"
+    ],
+    [
+     "241",
+     "Tre' Harris\nLAC",
+     "WR",
+     "\u00b1137",
+     "2,397"
+    ],
+    [
+     "246",
+     "Tyrone Tracy\nNYG",
+     "RB",
+     "\u00b1136",
+     "2,350"
+    ],
+    [
+     "230",
+     "Rachaad White\nWAS",
+     "RB",
+     "\u00b1134",
+     "2,520"
+    ],
+    [
+     "209",
+     "Tony Pollard\nTEN",
+     "RB",
+     "\u00b1132",
+     "2,620"
+    ]
+   ]
+  },
+  {
+   "head": "",
+   "rows": [
+    [
+     "82",
+     "Abdul Carter\nNYG",
+     "DL",
+     "176",
+     "4,598"
+    ],
+    [
+     "80",
+     "Micah Parsons\nGB",
+     "DL",
+     "156",
+     "4,606"
+    ],
+    [
+     "84",
+     "Jared Verse\nCLE",
+     "DL",
+     "155",
+     "4,593"
+    ],
+    [
+     "123",
+     "Jacob Rodriguez\nMIA",
+     "LB",
+     "113",
+     "3,544"
+    ],
+    [
+     "81",
+     "Myles Garrett\nLAR",
+     "DL",
+     "107",
+     "4,602"
+    ],
+    [
+     "145",
+     "Caleb Downs\nDAL",
+     "DB",
+     "87",
+     "3,159"
+    ],
+    [
+     "106",
+     "Arvell Reese\nNYG",
+     "LB",
+     "72",
+     "3,841"
+    ],
+    [
+     "140",
+     "CJ Allen\nIND",
+     "LB",
+     "66",
+     "3,184"
+    ],
+    [
+     "154",
+     "Nick Bosa\nSF",
+     "DL",
+     "59",
+     "3,065"
+    ],
+    [
+     "42",
+     "Carson Schwesinger\nCLE",
+     "LB",
+     "16",
+     "5,908"
+    ]
+   ]
+  },
+  {
+   "head": "",
+   "rows": [
+    [
+     "112",
+     "Nick Bolton\nKC",
+     "LB",
+     "83",
+     "3,778"
+    ],
+    [
+     "102",
+     "Edgerrin Cooper\nGB",
+     "LB",
+     "54",
+     "3,919"
+    ],
+    [
+     "135",
+     "Jordyn Brooks\nMIA",
+     "LB",
+     "48",
+     "3,224"
+    ],
+    [
+     "141",
+     "Fred Warner\nSF",
+     "LB",
+     "10",
+     "3,180"
+    ]
+   ]
+  }
+ ],
+ "rankingsHeader": [
+  "#",
+  "TIER",
+  "PLAYER",
+  "POS",
+  "CONSENSUS",
+  "VALUE",
+  "SOURCES",
+  "CONFIDENCE",
+  "EDGE",
+  "SIGNAL"
+ ],
+ "rankingsRows": [
+  [
+   "1",
+   "Tier 1",
+   "JA\nJosh Allen\nBUF \u00b7 30",
+   "QB\n1",
+   "1.5",
+   "9,988\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "2",
+   "Tier 1",
+   "BB\nBrock Bowers\nLV \u00b7 23",
+   "TE\n1",
+   "9.9",
+   "9,876\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "3",
+   "Tier 1",
+   "Bijan Robinson\nATL \u00b7 24\nN",
+   "RB\n1",
+   "3.9",
+   "9,706\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "4",
+   "Tier 1",
+   "Ja'Marr Chase\nCIN \u00b7 26",
+   "WR\n1",
+   "4.4",
+   "9,641\nS+",
+   "13/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "5",
+   "Tier 1",
+   "Drake Maye\nNE \u00b7 23",
+   "QB\n2",
+   "3.9",
+   "9,577\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "6",
+   "Tier 1",
+   "Jahmyr Gibbs\nDET \u00b7 24\nN",
+   "RB\n2",
+   "5.0",
+   "9,576\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "TIER 2"
+  ],
+  [
+   "7",
+   "Tier 2",
+   "Jaxon Smith-Njigba\nSEA \u00b7 24",
+   "WR\n2",
+   "6.4",
+   "9,337\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "8",
+   "Tier 2",
+   "Puka Nacua\nLAR \u00b7 25",
+   "WR\n3",
+   "8.1",
+   "9,132\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "9",
+   "Tier 2",
+   "Trey McBride\nARI \u00b7 26",
+   "TE\n2",
+   "15.6",
+   "8,993\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "10",
+   "Tier 2",
+   "Jayden Daniels\nWAS \u00b7 25",
+   "QB\n3",
+   "8.2",
+   "8,898\nS+",
+   "14/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "11",
+   "Tier 2",
+   "Lamar Jackson\nBAL \u00b7 29\nN",
+   "QB\n4",
+   "10.1",
+   "8,784\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "12",
+   "Tier 2",
+   "Caleb Williams\nCHI \u00b7 24",
+   "QB\n5",
+   "10.2",
+   "8,753\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "TIER 3"
+  ],
+  [
+   "13",
+   "Tier 3",
+   "Joe Burrow\nCIN \u00b7 29\nN",
+   "QB\n6",
+   "12.4",
+   "8,383\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "14",
+   "Tier 3",
+   "Amon-Ra St. Brown\nDET \u00b7 26",
+   "WR\n4",
+   "13.1",
+   "8,326\nS+",
+   "13/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "15",
+   "Tier 3",
+   "Justin Jefferson\nMIN \u00b7 27",
+   "WR\n5",
+   "15.5",
+   "8,054\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "16",
+   "Tier 3",
+   "Ashton Jeanty\nLV \u00b7 22",
+   "RB\n3",
+   "14.6",
+   "8,039\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "17",
+   "Tier 3",
+   "Malik Nabers\nNYG \u00b7 23",
+   "WR\n6",
+   "17.5",
+   "7,924\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "18",
+   "Tier 3",
+   "Jeremiyah Love\nARI \u00b7 21\nR",
+   "RB\n4",
+   "17.9",
+   "7,799\nS",
+   "16/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "19",
+   "Tier 3",
+   "CeeDee Lamb\nDAL \u00b7 27",
+   "WR\n7",
+   "18.3",
+   "7,767\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "20",
+   "Tier 3",
+   "Justin Herbert\nLAC \u00b7 28\nN",
+   "QB\n7",
+   "18.4",
+   "7,684\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "21",
+   "Tier 3",
+   "Colston Loveland\nCHI \u00b7 22",
+   "TE\n3",
+   "28.0",
+   "7,646\nS",
+   "14/15",
+   "High",
+   "SELL",
+   "Consensus asset"
+  ],
+  [
+   "TIER 4"
+  ],
+  [
+   "22",
+   "Tier 4",
+   "Patrick Mahomes\nKC \u00b7 30\nN",
+   "QB\n8",
+   "21.4",
+   "7,461\nS",
+   "14/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "23",
+   "Tier 4",
+   "Drake London\nATL \u00b7 25\nN",
+   "WR\n8",
+   "22.4",
+   "7,348\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "24",
+   "Tier 4",
+   "Jalen Hurts\nPHI \u00b7 27",
+   "QB\n9",
+   "23.9",
+   "7,183\nS",
+   "14/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "25",
+   "Tier 4",
+   "Jaxson Dart\nNYG \u00b7 23\nN",
+   "QB\n10",
+   "25.3",
+   "7,165\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "26",
+   "Tier 4",
+   "Omarion Hampton\nLAC \u00b7 23",
+   "RB\n5",
+   "23.9",
+   "7,126\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "27",
+   "Tier 4",
+   "Tyler Warren\nIND \u00b7 24",
+   "TE\n4",
+   "35.2",
+   "7,099\nS",
+   "14/15",
+   "High",
+   "SELL",
+   "Consensus asset"
+  ],
+  [
+   "28",
+   "Tier 4",
+   "21\n2027 Early 1st",
+   "PICK\n1",
+   "23.5",
+   "7,049\nS",
+   "2/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "29",
+   "Tier 4",
+   "De'Von Achane\nMIA \u00b7 24",
+   "RB\n6",
+   "25.8",
+   "6,980\nS",
+   "13/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "30",
+   "Tier 4",
+   "Trevor Lawrence\nJAX \u00b7 26",
+   "QB\n11",
+   "26.8",
+   "6,886\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "TIER 5"
+  ],
+  [
+   "31",
+   "Tier 5",
+   "Tetairoa McMillan\nCAR \u00b7 23",
+   "WR\n9",
+   "29.2",
+   "6,766\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "32",
+   "Tier 5",
+   "Bo Nix\nDEN \u00b7 26",
+   "QB\n12",
+   "31.9",
+   "6,572\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "33",
+   "Tier 5",
+   "Jonathan Taylor\nIND \u00b7 27",
+   "RB\n7",
+   "32.1",
+   "6,431\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "34",
+   "Tier 5",
+   "Emeka Egbuka\nTB \u00b7 23",
+   "WR\n10",
+   "33.7",
+   "6,388\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "35",
+   "Tier 5",
+   "Brock Purdy\nSF \u00b7 26",
+   "QB\n13",
+   "33.8",
+   "6,376\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "36",
+   "Tier 5",
+   "Aidan Hutchinson\nDET \u00b7 25",
+   "DL\n1",
+   "34.0",
+   "6,362\nS",
+   "5/6",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "37",
+   "Tier 5",
+   "James Cook\nBUF \u00b7 26",
+   "RB\n8",
+   "33.7",
+   "6,332\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "38",
+   "Tier 5",
+   "George Pickens\nDAL \u00b7 25\nN",
+   "WR\n11",
+   "35.0",
+   "6,271\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "39",
+   "Tier 5",
+   "Carnell Tate\nTEN \u00b7 21\nR\nN",
+   "WR\n12",
+   "36.8",
+   "6,160\nS",
+   "16/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "40",
+   "Tier 5",
+   "Nico Collins\nHOU \u00b7 27",
+   "WR\n13",
+   "37.9",
+   "6,080\nS",
+   "14/15",
+   "High",
+   "BUY",
+   "Consensus asset"
+  ],
+  [
+   "41",
+   "Tier 5",
+   "Jordan Love\nGB \u00b7 27",
+   "QB\n14",
+   "39.8",
+   "6,038\nS",
+   "14/15",
+   "High",
+   "BUY",
+   "Consensus asset"
+  ],
+  [
+   "TIER 6"
+  ],
+  [
+   "42",
+   "Tier 6",
+   "Carson Schwesinger\nCLE \u00b7 23",
+   "LB\n1",
+   "59.6",
+   "5,908\nD+",
+   "5/6",
+   "High",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "43",
+   "Tier 6",
+   "Will Anderson\nHOU \u00b7 24",
+   "DL\n2",
+   "41.0",
+   "5,876\nD+",
+   "5/6",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "44",
+   "Tier 6",
+   "Kenneth Walker\nKC \u00b7 25",
+   "RB\n9",
+   "42.6",
+   "5,813\nD+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "45",
+   "Tier 6",
+   "Garrett Wilson\nNYJ \u00b7 26",
+   "WR\n14",
+   "41.8",
+   "5,766\nD+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "TIER 7"
+  ],
+  [
+   "46",
+   "Tier 7",
+   "Chris Olave\nNO \u00b7 26",
+   "WR\n15",
+   "46.2",
+   "5,617\nD+",
+   "14/15",
+   "High",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "47",
+   "Tier 7",
+   "21\n2027 Mid 1st",
+   "PICK\n2",
+   "48.0",
+   "5,606\nD+",
+   "2/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "48",
+   "Tier 7",
+   "Ladd McConkey\nLAC \u00b7 24",
+   "WR\n16",
+   "45.5",
+   "5,605\nD+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "49",
+   "Tier 7",
+   "Fernando Mendoza\nLV \u00b7 22\nR",
+   "QB\n15",
+   "45.8",
+   "5,597\nD+",
+   "16/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "50",
+   "Tier 7",
+   "Tucker Kraft\nGB \u00b7 25",
+   "TE\n5",
+   "57.1",
+   "5,595\nD+",
+   "14/15",
+   "Med",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "TIER 8"
+  ],
+  [
+   "51",
+   "Tier 8",
+   "Dak Prescott\nDAL \u00b7 33",
+   "QB\n16",
+   "49.4",
+   "5,519\nD+",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "52",
+   "Tier 8",
+   "Harold Fannin\nCLE \u00b7 22",
+   "TE\n6",
+   "58.2",
+   "5,515\nD+",
+   "14/15",
+   "Med",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "53",
+   "Tier 8",
+   "Chase Brown\nCIN \u00b7 26",
+   "RB\n10",
+   "51.9",
+   "5,419\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "54",
+   "Tier 8",
+   "Breece Hall\nNYJ \u00b7 25",
+   "RB\n11",
+   "50.4",
+   "5,404\nD+",
+   "14/15",
+   "High",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "55",
+   "Tier 8",
+   "Luther Burden\nCHI \u00b7 22\nN",
+   "WR\n17",
+   "52.3",
+   "5,353\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "56",
+   "Tier 8",
+   "Jordyn Tyson\nNO \u00b7 21\nR",
+   "WR\n18",
+   "50.8",
+   "5,320\nD+",
+   "16/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "57",
+   "Tier 8",
+   "Quinshon Judkins\nCLE \u00b7 22",
+   "RB\n12",
+   "51.2",
+   "5,309\nD+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  [
+   "58",
+   "Tier 8",
+   "TreVeyon Henderson\nNE \u00b7 23",
+   "RB\n13",
+   "53.3",
+   "5,262\nD+",
+   "14/15",
+   "High",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "59",
+   "Tier 8",
+   "Sonny Styles\nWAS \u00b7 21\nR",
+   "LB\n2",
+   "64.0",
+   "5,222\nD+",
+   "6/6",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "60",
+   "Tier 8",
+   "DeVonta Smith\nPHI \u00b7 27",
+   "WR\n19",
+   "55.2",
+   "5,215\nD+",
+   "14/15",
+   "High",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "TIER 9"
+  ],
+  [
+   "61",
+   "Tier 9",
+   "Christian McCaffrey\nSF \u00b7 30",
+   "RB\n14",
+   "55.4",
+   "5,140\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "62",
+   "Tier 9",
+   "21\n2028 Early 1st",
+   "PICK\n3",
+   "70.5",
+   "5,089\nD+",
+   "2/15",
+   "High",
+   "SELL",
+   "Consensus asset"
+  ],
+  [
+   "63",
+   "Tier 9",
+   "Cam Ward\nTEN \u00b7 24",
+   "QB\n17",
+   "58.8",
+   "5,049\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "64",
+   "Tier 9",
+   "Saquon Barkley\nPHI \u00b7 29",
+   "RB\n15",
+   "59.5",
+   "5,026\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "65",
+   "Tier 9",
+   "Sam LaPorta\nDET \u00b7 25",
+   "TE\n7",
+   "69.2",
+   "5,021\nD+",
+   "14/15",
+   "Med",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "66",
+   "Tier 9",
+   "Makai Lemon\nPHI \u00b7 22\nR",
+   "WR\n20",
+   "59.2",
+   "4,987\nD+",
+   "16/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "67",
+   "Tier 9",
+   "Zay Flowers\nBAL \u00b7 25\nN",
+   "WR\n21",
+   "60.7",
+   "4,953\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "68",
+   "Tier 9",
+   "21\n2027 Late 1st",
+   "PICK\n4",
+   "77.5",
+   "4,933\nD+",
+   "2/15",
+   "High",
+   "SELL",
+   "Consensus asset"
+  ],
+  [
+   "69",
+   "Tier 9",
+   "Rome Odunze\nCHI \u00b7 24",
+   "WR\n22",
+   "62.4",
+   "4,930\nD+",
+   "14/15",
+   "High",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "70",
+   "Tier 9",
+   "A.J. Brown\nNE \u00b7 29",
+   "WR\n23",
+   "60.9",
+   "4,925\nD+",
+   "13/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "71",
+   "Tier 9",
+   "Rashee Rice\nKC \u00b7 26",
+   "WR\n24",
+   "62.7",
+   "4,887\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "72",
+   "Tier 9",
+   "Jared Goff\nDET \u00b7 31",
+   "QB\n18",
+   "64.2",
+   "4,881\nD+",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "73",
+   "Tier 9",
+   "Kyle Pitts\nATL \u00b7 25\nN",
+   "TE\n8",
+   "74.4",
+   "4,831\nD+",
+   "14/15",
+   "Med",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "74",
+   "Tier 9",
+   "Jack Campbell\nDET \u00b7 25",
+   "LB\n3",
+   "55.8",
+   "4,803\nD+",
+   "5/6",
+   "High",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "TIER 10"
+  ],
+  [
+   "75",
+   "Tier 10",
+   "Tee Higgins\nCIN \u00b7 27",
+   "WR\n25",
+   "65.4",
+   "4,726\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "76",
+   "Tier 10",
+   "Baker Mayfield\nTB \u00b7 31\nN",
+   "QB\n19",
+   "68.3",
+   "4,659\nD+",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "77",
+   "Tier 10",
+   "Marvin Harrison\nARI \u00b7 23",
+   "WR\n26",
+   "68.7",
+   "4,619\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "78",
+   "Tier 10",
+   "C.J. Stroud\nHOU \u00b7 24",
+   "QB\n20",
+   "71.7",
+   "4,608\nD+",
+   "13/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "79",
+   "Tier 10",
+   "Kyren Williams\nLAR \u00b7 25",
+   "RB\n16",
+   "67.7",
+   "4,607\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "80",
+   "Tier 10",
+   "Micah Parsons\nGB \u00b7 27\n~\nN",
+   "DL\n3",
+   "189.0",
+   "4,606\nD+",
+   "5/6",
+   "Low",
+   "\u2014",
+   "Caution: wide disagreement"
+  ],
+  [
+   "81",
+   "Tier 10",
+   "Myles Garrett\nLAR \u00b7 30",
+   "DL\n4",
+   "151.4",
+   "4,602\nD+",
+   "5/6",
+   "High",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "82",
+   "Tier 10",
+   "Abdul Carter\nNYG \u00b7 22",
+   "DL\n5",
+   "207.6",
+   "4,598\nD+",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "83",
+   "Tier 10",
+   "Jaylen Waddle\nDEN \u00b7 27",
+   "WR\n27",
+   "68.6",
+   "4,595\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "84",
+   "Tier 10",
+   "Jared Verse\nCLE \u00b7 25",
+   "DL\n6",
+   "191.8",
+   "4,593\nD+",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "TIER 11"
+  ],
+  [
+   "85",
+   "Tier 11",
+   "Kenyon Sadiq\nNYJ \u00b7 21\nR\n!N",
+   "TE\n9",
+   "82.4",
+   "4,566\nD+",
+   "16/15",
+   "Med",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "86",
+   "Tier 11",
+   "21\n2028 Mid 1st",
+   "PICK\n5",
+   "97.0",
+   "4,564\nD+",
+   "2/15",
+   "High",
+   "SELL",
+   "Consensus asset"
+  ],
+  [
+   "87",
+   "Tier 11",
+   "Cam Skattebo\nNYG \u00b7 24",
+   "RB\n17",
+   "72.5",
+   "4,488\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "88",
+   "Tier 11",
+   "Brian Thomas\nJAX \u00b7 23",
+   "WR\n28",
+   "73.4",
+   "4,466\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "TIER 12"
+  ],
+  [
+   "89",
+   "Tier 12",
+   "Travis Hunter\nJAX \u00b7 23\n~\nN",
+   "WR\n29",
+   "120.1",
+   "4,401\nD+",
+   "14/15",
+   "Low",
+   "BUY",
+   "Caution: wide disagreement"
+  ],
+  [
+   "90",
+   "Tier 12",
+   "Bucky Irving\nTB \u00b7 23",
+   "RB\n18",
+   "74.8",
+   "4,369\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "91",
+   "Tier 12",
+   "Tyler Shough\nNO \u00b7 26",
+   "QB\n21",
+   "77.5",
+   "4,321\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "92",
+   "Tier 12",
+   "Jameson Williams\nDET \u00b7 25",
+   "WR\n30",
+   "76.1",
+   "4,308\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "93",
+   "Tier 12",
+   "Jadarian Price\nSEA \u00b7 22\nR",
+   "RB\n19",
+   "74.0",
+   "4,286\nD+",
+   "16/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "94",
+   "Tier 12",
+   "Javonte Williams\nDAL \u00b7 26",
+   "RB\n20",
+   "81.9",
+   "4,224\nD+",
+   "14/15",
+   "High",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "TIER 13"
+  ],
+  [
+   "95",
+   "Tier 13",
+   "Travis Etienne\nNO \u00b7 27",
+   "RB\n21",
+   "84.9",
+   "4,081\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "96",
+   "Tier 13",
+   "Sam Darnold\nSEA \u00b7 29",
+   "QB\n22",
+   "82.2",
+   "4,080\nD+",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "97",
+   "Tier 13",
+   "21\n2028 Late 1st",
+   "PICK\n6",
+   "108.0",
+   "4,079\nD+",
+   "2/15",
+   "High",
+   "SELL",
+   "Consensus asset"
+  ],
+  [
+   "98",
+   "Tier 13",
+   "Kyler Murray\nMIN \u00b7 28",
+   "QB\n23",
+   "83.3",
+   "4,069\nD+",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "99",
+   "Tier 13",
+   "Eli Stowers\nPHI \u00b7 23\nR",
+   "TE\n10",
+   "100.7",
+   "4,056\nD+",
+   "16/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "TIER 14"
+  ],
+  [
+   "100",
+   "Tier 14",
+   "KC Concepcion\nCLE \u00b7 21\nR",
+   "WR\n31",
+   "84.2",
+   "4,001\nD+",
+   "16/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "101",
+   "Tier 14",
+   "Oronde Gadsden\nLAC \u00b7 23",
+   "TE\n11",
+   "103.1",
+   "3,945\nD",
+   "14/15",
+   "Med",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "102",
+   "Tier 14",
+   "Edgerrin Cooper\nGB \u00b7 24",
+   "LB\n4",
+   "112.8",
+   "3,919\nD",
+   "5/6",
+   "High",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "TIER 15"
+  ],
+  [
+   "103",
+   "Tier 15",
+   "Derrick Henry\nBAL \u00b7 32",
+   "RB\n22",
+   "90.5",
+   "3,884\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "104",
+   "Tier 15",
+   "Christian Watson\nGB \u00b7 27",
+   "WR\n32",
+   "92.6",
+   "3,867\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "105",
+   "Tier 15",
+   "Josh Jacobs\nGB \u00b7 28",
+   "RB\n23",
+   "89.5",
+   "3,859\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "106",
+   "Tier 15",
+   "Arvell Reese\nNYG \u00b7 20\nR",
+   "LB\n5",
+   "163.0",
+   "3,841\nD",
+   "6/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "107",
+   "Tier 15",
+   "Dalton Kincaid\nBUF \u00b7 26",
+   "TE\n12",
+   "107.6",
+   "3,817\nD",
+   "14/15",
+   "Low",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "108",
+   "Tier 15",
+   "George Kittle\nSF \u00b7 32",
+   "TE\n13",
+   "108.6",
+   "3,816\nD",
+   "14/15",
+   "Med",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "109",
+   "Tier 15",
+   "22\n2027 Early 2nd",
+   "PICK\n7",
+   "120.0",
+   "3,815\nD",
+   "2/15",
+   "High",
+   "SELL",
+   "Consensus asset"
+  ],
+  [
+   "110",
+   "Tier 15",
+   "Bryce Young\nCAR \u00b7 25",
+   "QB\n24",
+   "92.9",
+   "3,803\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "111",
+   "Tier 15",
+   "Bhayshul Tuten\nJAX \u00b7 23",
+   "RB\n24",
+   "94.4",
+   "3,798\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "TIER 16"
+  ],
+  [
+   "112",
+   "Tier 16",
+   "Nick Bolton\nKC \u00b7 26",
+   "LB\n6",
+   "109.0",
+   "3,778\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "113",
+   "Tier 16",
+   "Isaiah Likely\nNYG \u00b7 26",
+   "TE\n14",
+   "110.1",
+   "3,732\nD",
+   "14/15",
+   "Med",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "114",
+   "Tier 16",
+   "Jordan Addison\nMIN \u00b7 24",
+   "WR\n33",
+   "97.1",
+   "3,732\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "115",
+   "Tier 16",
+   "Alec Pierce\nIND \u00b7 26",
+   "WR\n34",
+   "96.1",
+   "3,726\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "116",
+   "Tier 16",
+   "Daniel Jones\nIND \u00b7 29\nN",
+   "QB\n25",
+   "96.1",
+   "3,717\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "TIER 17"
+  ],
+  [
+   "117",
+   "Tier 17",
+   "Matthew Stafford\nLAR \u00b7 38",
+   "QB\n26",
+   "97.3",
+   "3,687\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "118",
+   "Tier 17",
+   "Malik Willis\nMIA \u00b7 27",
+   "QB\n27",
+   "96.7",
+   "3,684\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "119",
+   "Tier 17",
+   "Omar Cooper\nNYJ \u00b7 22\nR",
+   "WR\n35",
+   "98.8",
+   "3,637\nD",
+   "16/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "120",
+   "Tier 17",
+   "DJ Moore\nBUF \u00b7 29",
+   "WR\n36",
+   "98.8",
+   "3,616\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "TIER 18"
+  ],
+  [
+   "121",
+   "Tier 18",
+   "Terry McLaurin\nWAS \u00b7 30",
+   "WR\n37",
+   "102.2",
+   "3,567\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "122",
+   "Tier 18",
+   "Jake Ferguson\nDAL \u00b7 27",
+   "TE\n15",
+   "118.5",
+   "3,559\nD",
+   "14/15",
+   "Low",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "123",
+   "Tier 18",
+   "Jacob Rodriguez\nMIA \u00b7 23\nR",
+   "LB\n7",
+   "191.2",
+   "3,544\nD",
+   "6/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "124",
+   "Tier 18",
+   "Dallas Turner\nMIN \u00b7 23\n!\n~",
+   "DL\n7",
+   "285.3",
+   "3,539\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "Caution: flaggedCaution: wide disagreement"
+  ],
+  [
+   "125",
+   "Tier 18",
+   "D'Andre Swift\nCHI \u00b7 27",
+   "RB\n25",
+   "106.2",
+   "3,538\nD",
+   "13/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "126",
+   "Tier 18",
+   "Parker Washington\nJAX \u00b7 24",
+   "WR\n38",
+   "104.6",
+   "3,501\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "TIER 19"
+  ],
+  [
+   "127",
+   "Tier 19",
+   "22\n2027 Mid 2nd",
+   "PICK\n8",
+   "155.5",
+   "3,415\nD",
+   "2/15",
+   "High",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "128",
+   "Tier 19",
+   "Michael Wilson\nARI \u00b7 26",
+   "WR\n39",
+   "110.2",
+   "3,407\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "129",
+   "Tier 19",
+   "Ty Simpson\nLAR \u00b7 23\nR",
+   "QB\n28",
+   "109.5",
+   "3,400\nD",
+   "16/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "TIER 20"
+  ],
+  [
+   "130",
+   "Tier 20",
+   "David Montgomery\nHOU \u00b7 29",
+   "RB\n26",
+   "114.0",
+   "3,371\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "131",
+   "Tier 20",
+   "DK Metcalf\nPIT \u00b7 28",
+   "WR\n40",
+   "110.7",
+   "3,370\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "132",
+   "Tier 20",
+   "Davante Adams\nLAR \u00b7 33",
+   "WR\n41",
+   "114.1",
+   "3,316\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "TIER 21"
+  ],
+  [
+   "133",
+   "Tier 21",
+   "Denzel Boston\nCLE \u00b7 22\nR",
+   "WR\n42",
+   "116.8",
+   "3,259\nD",
+   "16/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "134",
+   "Tier 21",
+   "Josh Downs\nIND \u00b7 24",
+   "WR\n43",
+   "115.5",
+   "3,250\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "135",
+   "Tier 21",
+   "Jordyn Brooks\nMIA \u00b7 28",
+   "LB\n8",
+   "141.8",
+   "3,224\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "136",
+   "Tier 21",
+   "Brenton Strange\nJAX \u00b7 25",
+   "TE\n16",
+   "135.2",
+   "3,222\nD",
+   "14/15",
+   "Low",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "137",
+   "Tier 21",
+   "Mike Evans\nSF \u00b7 32",
+   "WR\n44",
+   "121.0",
+   "3,210\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "138",
+   "Tier 21",
+   "Wan'Dale Robinson\nTEN \u00b7 25",
+   "WR\n45",
+   "121.8",
+   "3,206\nD",
+   "13/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "139",
+   "Tier 21",
+   "Quentin Johnston\nLAC \u00b7 24",
+   "WR\n46",
+   "120.2",
+   "3,195\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "140",
+   "Tier 21",
+   "CJ Allen\nIND \u00b7 21\nR",
+   "LB\n9",
+   "215.8",
+   "3,184\nD",
+   "6/6",
+   "High",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "141",
+   "Tier 21",
+   "Fred Warner\nSF \u00b7 29",
+   "LB\n10",
+   "139.0",
+   "3,180\nD",
+   "5/6",
+   "High",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "142",
+   "Tier 21",
+   "Matthew Golden\nGB \u00b7 23",
+   "WR\n47",
+   "118.3",
+   "3,177\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "143",
+   "Tier 21",
+   "22\n2028 Early 2nd",
+   "PICK\n9",
+   "179.0",
+   "3,172\nD",
+   "2/15",
+   "High",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "144",
+   "Tier 21",
+   "22\n2027 Late 2nd",
+   "PICK\n10",
+   "179.0",
+   "3,166\nD",
+   "2/15",
+   "High",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "145",
+   "Tier 21",
+   "Caleb Downs\nDAL \u00b7 21\nR",
+   "DB\n1",
+   "218.2",
+   "3,159\nD",
+   "6/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "146",
+   "Tier 21",
+   "Jayden Higgins\nHOU \u00b7 23",
+   "WR\n48",
+   "121.8",
+   "3,155\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "TIER 22"
+  ],
+  [
+   "147",
+   "Tier 22",
+   "Michael Pittman\nPIT \u00b7 28",
+   "WR\n49",
+   "125.9",
+   "3,135\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "148",
+   "Tier 22",
+   "RJ Harvey\nDEN \u00b7 25",
+   "RB\n27",
+   "123.4",
+   "3,133\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "149",
+   "Tier 22",
+   "Xavier Worthy\nKC \u00b7 23",
+   "WR\n50",
+   "125.3",
+   "3,126\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "TIER 23"
+  ],
+  [
+   "150",
+   "Tier 23",
+   "Ricky Pearsall\nSF \u00b7 25\nN",
+   "WR\n51",
+   "131.3",
+   "3,088\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "151",
+   "Tier 23",
+   "Mark Andrews\nBAL \u00b7 30",
+   "TE\n17",
+   "141.4",
+   "3,088\nD",
+   "14/15",
+   "Med",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "152",
+   "Tier 23",
+   "Laiatu Latu\nIND \u00b7 25",
+   "DL\n8",
+   "225.0",
+   "3,068\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "153",
+   "Tier 23",
+   "Roquan Smith\nBAL \u00b7 29",
+   "LB\n11",
+   "220.0",
+   "3,067\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "TIER 24"
+  ],
+  [
+   "154",
+   "Tier 24",
+   "Nick Bosa\nSF \u00b7 28",
+   "DL\n9",
+   "196.8",
+   "3,065\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "155",
+   "Tier 24",
+   "Maxx Crosby\nLV \u00b7 28",
+   "DL\n10",
+   "210.8",
+   "3,064\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "156",
+   "Tier 24",
+   "Nick Emmanwori\nSEA \u00b7 22",
+   "DB\n2",
+   "168.7",
+   "3,063\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "157",
+   "Tier 24",
+   "Kyle Hamilton\nBAL \u00b7 25",
+   "DB\n3",
+   "205.3",
+   "3,062\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "TIER 25"
+  ],
+  [
+   "158",
+   "Tier 25",
+   "Brian Burns\nNYG \u00b7 28",
+   "DL\n11",
+   "229.3",
+   "3,060\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "159",
+   "Tier 25",
+   "David Bailey\nNYJ \u00b7 22\nR",
+   "DL\n12",
+   "178.3",
+   "3,059\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "160",
+   "Tier 25",
+   "Jayden Reed\nGB \u00b7 26",
+   "WR\n52",
+   "123.4",
+   "3,058\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "161",
+   "Tier 25",
+   "Josh Hines-Allen\nJAX \u00b7 29",
+   "DL\n13",
+   "269.3",
+   "3,057\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "162",
+   "Tier 25",
+   "Nik Bonitto\nDEN \u00b7 26",
+   "DL\n14",
+   "230.8",
+   "3,054\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "TIER 26"
+  ],
+  [
+   "163",
+   "Tier 26",
+   "Kyle Monangai\nCHI \u00b7 24",
+   "RB\n28",
+   "127.4",
+   "3,029\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "164",
+   "Tier 26",
+   "Jonathon Brooks\nCAR \u00b7 23\nN",
+   "RB\n29",
+   "132.6",
+   "3,005\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "165",
+   "Tier 26",
+   "Chig Okonkwo\nWAS \u00b7 26",
+   "TE\n18",
+   "151.2",
+   "3,003\nD",
+   "13/15",
+   "Low",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "TIER 27"
+  ],
+  [
+   "166",
+   "Tier 27",
+   "22\n2028 Mid 2nd",
+   "PICK\n11",
+   "203.5",
+   "2,987\nD",
+   "2/15",
+   "High",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "167",
+   "Tier 27",
+   "Blake Corum\nLAR \u00b7 25",
+   "RB\n30",
+   "133.4",
+   "2,986\nD",
+   "14/15",
+   "Low",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "168",
+   "Tier 27",
+   "Jihaad Campbell\nPHI \u00b7 22",
+   "LB\n12",
+   "190.7",
+   "2,968\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "169",
+   "Tier 27",
+   "Courtland Sutton\nDEN \u00b7 30",
+   "WR\n53",
+   "134.4",
+   "2,955\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "170",
+   "Tier 27",
+   "Rueben Bain\nTB \u00b7 21\nR",
+   "DL\n15",
+   "270.0",
+   "2,939\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "171",
+   "Tier 27",
+   "Jaylen Warren\nPIT \u00b7 27",
+   "RB\n31",
+   "136.2",
+   "2,937\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "172",
+   "Tier 27",
+   "AJ Barner\nSEA \u00b7 24",
+   "TE\n19",
+   "155.0",
+   "2,936\nD",
+   "14/15",
+   "Low",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "173",
+   "Tier 27",
+   "Dillon Thieneman\nCHI \u00b7 21\nR",
+   "DB\n4",
+   "298.2",
+   "2,935\nD",
+   "6/6",
+   "Low",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "TIER 28"
+  ],
+  [
+   "174",
+   "Tier 28",
+   "Devin Lloyd\nCAR \u00b7 27",
+   "LB\n13",
+   "210.7",
+   "2,912\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "175",
+   "Tier 28",
+   "Cedric Gray\nTEN \u00b7 23",
+   "LB\n14",
+   "199.8",
+   "2,887\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "176",
+   "Tier 28",
+   "Chuba Hubbard\nCAR \u00b7 27",
+   "RB\n32",
+   "137.2",
+   "2,887\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "TIER 29"
+  ],
+  [
+   "177",
+   "Tier 29",
+   "Zack Baun\nPHI \u00b7 29",
+   "LB\n15",
+   "179.4",
+   "2,872\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "178",
+   "Tier 29",
+   "Cooper DeJean\nPHI \u00b7 23\n!\n~",
+   "DB\n5",
+   "329.8",
+   "2,868\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "Caution: flaggedCaution: wide disagreement"
+  ],
+  [
+   "179",
+   "Tier 29",
+   "Nakobe Dean\nLV \u00b7 25",
+   "LB\n16",
+   "179.5",
+   "2,860\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "180",
+   "Tier 29",
+   "Travis Kelce\nKC \u00b7 36",
+   "TE\n20",
+   "161.4",
+   "2,854\nD",
+   "14/15",
+   "Low",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "181",
+   "Tier 29",
+   "Chris Godwin\nTB \u00b7 30",
+   "WR\n54",
+   "144.5",
+   "2,853\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "182",
+   "Tier 29",
+   "Jonah Coleman\nDEN \u00b7 22\nR",
+   "RB\n33",
+   "142.8",
+   "2,846\nD",
+   "16/15",
+   "Low",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "183",
+   "Tier 29",
+   "T.J. Hockenson\nMIN \u00b7 29",
+   "TE\n21",
+   "160.3",
+   "2,840\nD",
+   "13/15",
+   "Low",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "184",
+   "Tier 29",
+   "Jakobi Meyers\nJAX \u00b7 29",
+   "WR\n55",
+   "144.0",
+   "2,840\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "185",
+   "Tier 29",
+   "T.J. Watt\nPIT \u00b7 31\n!\n~",
+   "DL\n16",
+   "351.8",
+   "2,838\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "Caution: flaggedCaution: wide disagreement"
+  ],
+  [
+   "186",
+   "Tier 29",
+   "Dallas Goedert\nPHI \u00b7 31",
+   "TE\n22",
+   "157.4",
+   "2,833\nD",
+   "14/15",
+   "Low",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "187",
+   "Tier 29",
+   "Zach Charbonnet\nSEA \u00b7 25",
+   "RB\n34",
+   "140.9",
+   "2,826\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "TIER 30"
+  ],
+  [
+   "188",
+   "Tier 30",
+   "Ernest Jones\nSEA \u00b7 26",
+   "LB\n17",
+   "167.0",
+   "2,795\nD",
+   "5/6",
+   "High",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "189",
+   "Tier 30",
+   "22\n2028 Late 2nd",
+   "PICK\n12",
+   "226.5",
+   "2,785\nD",
+   "2/15",
+   "High",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "190",
+   "Tier 30",
+   "Rico Dowdle\nPIT \u00b7 28",
+   "RB\n35",
+   "147.0",
+   "2,775\nD",
+   "14/15",
+   "Med",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "191",
+   "Tier 30",
+   "Quay Walker\nLV \u00b7 26",
+   "LB\n18",
+   "180.3",
+   "2,774\nD",
+   "5/6",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "192",
+   "Tier 30",
+   "Kevin Winston\nTEN \u00b7 22\n!\n~",
+   "DB\n6",
+   "340.5",
+   "2,763\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "Caution: flaggedCaution: wide disagreement"
+  ],
+  [
+   "193",
+   "Tier 30",
+   "Jalon Walker\nATL \u00b7 22\n!N",
+   "DL\n17",
+   "323.0",
+   "2,755\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "194",
+   "Tier 30",
+   "Rhamondre Stevenson\nNE \u00b7 28",
+   "RB\n36",
+   "148.9",
+   "2,750\nD",
+   "14/15",
+   "Low",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "195",
+   "Tier 30",
+   "Jalen Coker\nCAR \u00b7 24",
+   "WR\n56",
+   "148.6",
+   "2,737\nD",
+   "14/15",
+   "Low",
+   "HOLD",
+   "\u2014"
+  ],
+  [
+   "196",
+   "Tier 30",
+   "Tuli Tuipulotu\nLAC \u00b7 23\n~\nN",
+   "DL\n18",
+   "307.5",
+   "2,737\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "Caution: wide disagreement"
+  ],
+  [
+   "197",
+   "Tier 30",
+   "Romeo Doubs\nNE \u00b7 26",
+   "WR\n57",
+   "148.1",
+   "2,732\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ],
+  [
+   "TIER 31"
+  ],
+  [
+   "198",
+   "Tier 31",
+   "Brian Branch\nDET \u00b7 24",
+   "DB\n7",
+   "253.3",
+   "2,720\nD",
+   "5/6",
+   "Med",
+   "\u2014",
+   "\u2014"
+  ],
+  [
+   "199",
+   "Tier 31",
+   "Terrance Ferguson\nLAR \u00b7 23",
+   "TE\n23",
+   "163.9",
+   "2,715\nD",
+   "14/15",
+   "Low",
+   "SELL",
+   "\u2014"
+  ],
+  [
+   "200",
+   "Tier 31",
+   "Michael Penix\nATL \u00b7 26",
+   "QB\n29",
+   "151.7",
+   "2,690\nD",
+   "14/15",
+   "Med",
+   "BUY",
+   "\u2014"
+  ]
+ ]
+}

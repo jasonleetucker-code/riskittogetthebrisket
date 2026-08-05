@@ -1,0 +1,4 @@
+{"season": 2026, "snapshotPath": null}
+{"scheduleSeconds": 1.27, "scheduleTeams": 32}
+{"contextSeconds": 7.41, "contextPlayers": 23934}
+{"totalWastedSeconds": 8.69, "usedByRunValuation": false, "note": "run_valuation returns no_projection_snapshot before reading either"}

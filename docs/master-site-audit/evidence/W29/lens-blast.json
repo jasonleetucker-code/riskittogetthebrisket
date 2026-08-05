@@ -1,0 +1,133 @@
+{
+ "teams": 12,
+ "totalLegs": 51,
+ "unadjustedLegs": 21,
+ "examples": [
+  [
+   "Travis Hunter",
+   5637,
+   4519,
+   -19.83
+  ],
+  [
+   "Derrick Henry",
+   3837,
+   4045,
+   5.42
+  ],
+  [
+   "Jadarian Price",
+   4274,
+   4464,
+   4.45
+  ],
+  [
+   "Cam Skattebo",
+   4482,
+   4674,
+   4.28
+  ],
+  [
+   "David Montgomery",
+   3370,
+   3511,
+   4.18
+  ],
+  [
+   "Kenneth Walker",
+   5831,
+   6055,
+   3.84
+  ],
+  [
+   "Jameson Williams",
+   4262,
+   4423,
+   3.78
+  ],
+  [
+   "Michael Wilson",
+   3383,
+   3498,
+   3.4
+  ],
+  [
+   "Brian Thomas",
+   4436,
+   4586,
+   3.38
+  ],
+  [
+   "Brian Thomas",
+   4436,
+   4586,
+   3.38
+  ],
+  [
+   "Josh Jacobs",
+   3889,
+   4019,
+   3.34
+  ],
+  [
+   "Jake Ferguson",
+   3794,
+   3912,
+   3.11
+  ],
+  [
+   "Jordan Addison",
+   3728,
+   3832,
+   2.79
+  ],
+  [
+   "Jordan Addison",
+   3728,
+   3832,
+   2.79
+  ],
+  [
+   "Christian Watson",
+   3865,
+   3971,
+   2.74
+  ],
+  [
+   "Chris Olave",
+   5640,
+   5768,
+   2.27
+  ],
+  [
+   "Chris Olave",
+   5640,
+   5768,
+   2.27
+  ],
+  [
+   "George Pickens",
+   6307,
+   6439,
+   2.09
+  ],
+  [
+   "Josh Allen",
+   9987,
+   10171,
+   1.84
+  ],
+  [
+   "Harold Fannin",
+   5700,
+   5801,
+   1.77
+  ],
+  [
+   "Oronde Gadsden",
+   4199,
+   4262,
+   1.5
+  ]
+ ]
+}

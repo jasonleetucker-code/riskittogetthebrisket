@@ -1,0 +1,34 @@
+Cohort log-gap statistics computed from the served board
+(docs/master-site-audit/evidence/W14/players.json), reproducing
+src/consensus_edge/mispricing.py::build_cohorts exactly:
+
+cohort            n     median(logGap)  sigma    usable
+QB               52     +0.0024         0.1177   True
+QB|deep           1      -               -       False (n < 12)
+QB|elite         11      -               -       False (n < 12)
+QB|high          15     -0.0077         0.0635   True
+QB|mid           25     -0.0545         0.1102   True
+RB_WR_TE        273     -0.1031         0.1161   True
+RB_WR_TE|deep     5      -               -       False (n < 12)
+RB_WR_TE|elite   23     +0.0269         0.0392   True
+RB_WR_TE|high    88     -0.0755         0.0528   True
+RB_WR_TE|mid    157     -0.1688         0.1076   True
+
+The anchor-free board sits 15.5% BELOW the KTC anchor for the median
+mid-value skill player (exp(-0.1688) = 0.845) and 2.7% ABOVE it for the
+median elite one. That level shift is an artifact of removing ktcSfTep +
+fantasyNavigatorSf from the blend, not a market opinion. The z-score
+de-means it; the pctGap the UI prints does not.
+
+Consequence, measured over the 325 scored rows:
+  73 rows carry a buy-side label (62 Buy + 11 Strong Buy)
+  28 of those 73 have fairValue < marketValue
+Worst four:
+  James Conner     Buy  score +30.00  pctGap -6.35%  z +0.96  RB_WR_TE|mid
+  Tommy Tremble    Buy  score +30.74  pctGap -6.07%  z +0.99  RB_WR_TE|mid
+  Mike Gesicki     Buy  score +30.89  pctGap -6.02%  z +0.99  RB_WR_TE|mid
+  Brevin Jordan    Buy  score +31.64  pctGap -5.74%  z +1.02  RB_WR_TE|mid
+Each row's own `explanation[0]`, rendered verbatim by
+frontend/app/consensus-edge/page.jsx:306, reads e.g.
+  "Our anchor-free fair value is 6% below the market (1594 vs 1702)."
+directly under the word "Buy".

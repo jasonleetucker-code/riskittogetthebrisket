@@ -1,0 +1,67 @@
+{
+ "id": "W23-F007",
+ "workstream": "W23",
+ "promptSections": [
+  38,
+  41
+ ],
+ "title": "/tools/source-health claims \"Scraper status for every ranking source in the pipeline\" and renders 4 sources; the live board blends 21",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "S",
+ "subsystem": "Monitoring UI",
+ "surface": {
+  "routes": [
+   "/api/status"
+  ],
+  "pages": [
+   "/tools/source-health"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/components/SourceHealthStrip.jsx",
+   "lines": "99-136"
+  },
+  {
+   "path": "server.py",
+   "lines": "4340-4351"
+  }
+ ],
+ "claimUnderTest": "The page's own subtitle: \"Scraper status for every ranking source in the pipeline.\"",
+ "observed": "SourceHealthStrip builds its row set from `runtime.enabled_sources` (status.source_health.source_runtime.enabled_sources) \u2014 the legacy browser-driven scraper's source list, today ['IDPTradeCalc','KTC','KTC_TradeDB','KTC_WaiverDB']. The live board blends 21 sources per /api/status.served_source_coverage, and /api/status.source_health.sources already carries per-source freshness for 22 of them. The 17 sources rendered nowhere on this page include every rank-signal contributor: dlfSf, dlfIdp, dlfRookieSf, dlfRookieIdp, idpShow, fantasyCalc, dynastyDaddySf, dynastyNerdsSfTep, yahooBoone, fantasyProsSf, fantasyProsIdp, fantasyProsFitzmaurice, flockFantasySf, flockFantasySfRookies, draftSharks, draftSharksIdp, otcffbSf, pfkDynasty, fantasyNavigatorSf. Verified in a real browser with the protocol's request-interception topology: the page header reads \"Sources \u00b7 4 \u00b7 4h ago \u00b7 2 issues\". The exact failure mode source_health_alerts.py was written for per CLAUDE.md \u2014 \"IDP Show prod cookie expired and the source went silently stale for two weeks\" \u2014 is invisible on the only page dedicated to source health.",
+ "reproduction": {
+  "command": "curl -s -b /tmp/audit-cookies-w23.txt http://127.0.0.1:8000/api/status | .venv/bin/python -c \"import json,sys; d=json.load(sys.stdin); en=d['source_health']['source_runtime']['enabled_sources']; print('rendered by SourceHealthStrip:', len(en), en); print('served by the board:', len(d['served_source_coverage'])); print('freshness stamps available:', len(d['source_health']['sources'])); print('invisible:', sorted(set(d['served_source_coverage']) - set(en)))\"",
+  "expected": "rendered == served (21)",
+  "actual": "rendered 4 ['IDPTradeCalc','KTC','KTC_TradeDB','KTC_WaiverDB'] / served 21 / freshness stamps available 22 / 21 invisible \u2014 browser confirms header \"Sources \u00b7 4\"",
+  "artifact": "docs/master-site-audit/evidence/W23/api-status.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "sources_rendered": 4,
+   "sources_blended_into_board": 21,
+   "per_source_freshness_stamps_available": 22
+  },
+  "formula": "coverage = rendered / blended",
+  "expected": 1.0,
+  "actual": 0.19,
+  "tolerance": 0.0
+ },
+ "userImpact": "An operator (or a user who navigates to /tools/source-health after noticing odd values) reads \"Sources \u00b7 4 \u00b7 2 issues\", concludes the two flagged KTC sub-feeds are the whole story, and does not discover that e.g. idpShow has been stale for a fortnight \u2014 because that source has no row on the page at all.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 1,
+  "pagesAffected": 2
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A06-F11",
+  "relation": "partial",
+  "note": "The prior finding notes /settings' 'Live' badge contradicts /tools/source-health for the same source. That contradiction is real but the deeper problem is on the /tools/source-health side: it only knows about 4 of 21 sources, so for 17 sources there is nothing to contradict. New in this shard: the 19-source list and the browser-verified 'Sources \u00b7 4' header."
+ },
+ "whatWorks": "For the four sources it does render, the component is good: it prefers the per-source ageHours over the aggregate, surfaces source_failures[].details.message inline, and (per its own comment) deliberately renders an explicit failure state on the page variant rather than hiding. server.py:4350 already computes and serves the honest 21-source served_source_coverage \u2014 the correct input exists and is unused by this component.",
+ "rootCause": "enabled_sources describes the Playwright scraper's run plan, which stopped being the whole ingestion story when 19 sources moved to scripts/fetch_*.py CSVs. The component was pointed at the run plan rather than at the board.",
+ "requiredRepair": "Render the union of served_source_coverage keys and source_health.sources keys, using source_runtime only to annotate which of them the scraper drives. Retire enabled_sources as the row set.",
+ "dependencies": "W23-F008, W23-F003 (all three descend from the legacy 2-to-4-source view of ingestion)"
+}

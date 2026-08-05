@@ -1,0 +1,80 @@
+{
+ "ktcSfTepRows": 501,
+ "idpTradeCalcRows": 911,
+ "ktcSfTepByPosition": {
+  "PICK": 36,
+  "WR": 193,
+  "RB": 128,
+  "QB": 69,
+  "TE": 73,
+  "T": 1,
+  "?": 1
+ },
+ "idpTradeCalcByPosition": {
+  "PICK": 96,
+  "WR": 177,
+  "RB": 121,
+  "QB": 67,
+  "DL": 140,
+  "TE": 72,
+  "DB": 121,
+  "LB": 109,
+  "T": 1,
+  "?": 7
+ },
+ "pairedRows": 475,
+ "pairedShareOfKtc": 0.9481,
+ "ktcSfTepMax": 9999.0,
+ "idpTradeCalcMax": 9999.0,
+ "ratioPooled": {
+  "n": 475,
+  "p10": 0.8864,
+  "median": 0.997,
+  "p90": 1.0826
+ },
+ "ratioByPosition": {
+  "WR": {
+   "n": 177,
+   "p10": 0.9331,
+   "median": 1.0103,
+   "p90": 1.0902
+  },
+  "RB": {
+   "n": 121,
+   "p10": 0.9183,
+   "median": 0.9939,
+   "p90": 1.0741
+  },
+  "TE": {
+   "n": 72,
+   "p10": 0.8385,
+   "median": 0.9,
+   "p90": 0.9434
+  },
+  "QB": {
+   "n": 67,
+   "p10": 0.9819,
+   "median": 1.0322,
+   "p90": 1.1263
+  },
+  "PICK": {
+   "n": 36,
+   "p10": 0.9743,
+   "median": 1.0,
+   "p90": 1.0264
+  },
+  "T": {
+   "n": 1,
+   "p10": 1.0714,
+   "median": 1.0714,
+   "p90": 1.0714
+  },
+  "?": {
+   "n": 1,
+   "p10": 0.7743,
+   "median": 0.7743,
+   "p90": 0.7743
+  }
+ },
+ "idpTradeCalcIdpMax": 6444.0
+}

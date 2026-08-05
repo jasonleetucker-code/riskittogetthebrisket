@@ -1,0 +1,55 @@
+[
+ {
+  "tier": "REVIEW",
+  "ghostRow": "Jamarion Miller",
+  "realRow": "Jam Miller",
+  "nameSimilarity": 0.8,
+  "ghostTeam": "DEN",
+  "ghostAge": 26,
+  "realTeam": "NE",
+  "realAge": null,
+  "realPlayerId": "13403",
+  "identicalSourceValuesOnBothRows": [],
+  "realSourceCount": 10,
+  "realRank": 635,
+  "realRankDerivedValue": 1175,
+  "vendorVotesStrandedOnGhost": [
+   "draftSharks"
+  ],
+  "ghostOriginalRanks": {
+   "draftSharks": 323.0
+  }
+ },
+ {
+  "tier": "CONFIRMED",
+  "ghostRow": "Matthew Hibner",
+  "realRow": "Matt Hibner",
+  "nameSimilarity": 0.88,
+  "ghostTeam": "BAL",
+  "ghostAge": 24,
+  "realTeam": "BAL",
+  "realAge": 24,
+  "realPlayerId": "13324",
+  "identicalSourceValuesOnBothRows": [
+   "ktc",
+   "idpTradeCalc",
+   "ktcSfTep"
+  ],
+  "realSourceCount": 8,
+  "realRank": 377,
+  "realRankDerivedValue": 1737,
+  "vendorVotesStrandedOnGhost": [
+   "dlfSf",
+   "draftSharks",
+   "flockFantasySf"
+  ],
+  "ghostOriginalRanks": {
+   "dlfSf": 250.83,
+   "flockFantasySf": 383.0,
+   "draftSharks": 400.0
+  }
+ }
+]
+
+SPLIT IDENTITIES: 1 confirmed, 1 review
+contract validationSummary reports duplicateCanonicalIdentityCount = 0 and nearNameMismatchCount = 0

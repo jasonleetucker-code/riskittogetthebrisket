@@ -1,0 +1,41 @@
+{
+ "conflicts": [
+  {
+   "name": "Brian Thomas",
+   "pos": "WR",
+   "suggestionValues": [
+    4436,
+    4466
+   ],
+   "rosterAnalysisValues": [
+    4466
+   ],
+   "rankDerivedValue": 4466,
+   "offenseOnlyRankDerivedValue": 4436
+  },
+  {
+   "name": "Chris Olave",
+   "pos": "WR",
+   "suggestionValues": [
+    5640
+   ],
+   "rosterAnalysisValues": [
+    5617
+   ],
+   "rankDerivedValue": 5617,
+   "offenseOnlyRankDerivedValue": 5640
+  },
+  {
+   "name": "Jordan Addison",
+   "pos": "WR",
+   "suggestionValues": [
+    3728
+   ],
+   "rosterAnalysisValues": [
+    3732
+   ],
+   "rankDerivedValue": 3732,
+   "offenseOnlyRankDerivedValue": 3728
+  }
+ ]
+}

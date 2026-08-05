@@ -1,0 +1,75 @@
+{
+ "id": "W26-F003",
+ "workstream": "W26",
+ "promptSections": [
+  35
+ ],
+ "title": "/draft downloads the full 11.95 MB /api/data contract to read a 46.8 KB list of 12 team names, from three separate call sites, two of them with cache: \"no-store\"",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "S",
+ "subsystem": "Draft board",
+ "surface": {
+  "routes": [
+   "/api/data",
+   "/api/data?leagueKey=dynasty_main",
+   "/api/dynasty-data?view=array"
+  ],
+  "pages": [
+   "/draft"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/app/draft/page.jsx",
+   "lines": "3929-3940"
+  },
+  {
+   "path": "frontend/app/draft/page.jsx",
+   "lines": "4200-4212"
+  },
+  {
+   "path": "frontend/app/draft/page.jsx",
+   "lines": "4483-4492"
+  }
+ ],
+ "claimUnderTest": "server.py:8324-8329 records that /api/draft-capital was already fixed once for exactly this class of problem \u2014 '/draft calling it three times per page load'. The contract fetch on the same page was not covered by that fix.",
+ "observed": "/draft issues BOTH `/api/data?leagueKey=dynasty_main` (no `view` param, so the backend serves the FULL 11,953,535-byte contract) AND `/api/dynasty-data?view=array` (6,514,536 b), plus `/api/data` bare from a third call site. Browser-measured totals for /draft: desktop decoded 23,849,422 b / transferred 2,216,644 b; mobile decoded 24,571,176 b / transferred 2,312,148 b \u2014 roughly double every other page in the app. All three /api/data call sites consume only `data.sleeper.teams`, which is 46,792 bytes of the 11,953,535 served \u2014 0.39%. Two of the three pass `cache: \"no-store\"`, which defeats both the browser HTTP cache and the ETag/304 path the backend already implements, so the bytes are re-fetched on every mount and every sync-preview click.",
+ "reproduction": {
+  "command": "curl -s -b /tmp/audit-cookies.txt 'http://127.0.0.1:8000/api/data?leagueKey=dynasty_main' -o /tmp/f.json && python3 -c \"import json,os;d=json.load(open('/tmp/f.json'));print('served',os.path.getsize('/tmp/f.json'),'sleeper.teams',len(json.dumps(d['sleeper']['teams'])),'teams',len(d['sleeper']['teams']))\"",
+  "expected": "the page fetches roughly the bytes it consumes",
+  "actual": "served 11953535  sleeper.teams 46792  teams 12",
+  "artifact": "docs/master-site-audit/evidence/W26/full-contract-key-sizes.txt"
+ },
+ "numericProof": {
+  "inputs": {
+   "fullContractBytes": 11953535,
+   "sleeperTeamsBytes": 46792,
+   "teamCount": 12,
+   "draftPageDecodedBytesDesktop": 23849422,
+   "otherPageDecodedBytesDesktop": 11767159,
+   "callSites": 3,
+   "noStoreCallSites": 2
+  },
+  "formula": "utilisation = sleeperTeamsBytes / fullContractBytes",
+  "expected": 1.0,
+  "actual": 0.003915,
+  "tolerance": 0.001
+ },
+ "userImpact": "Opening the live draft board \u2014 the one page a user loads under time pressure, mid-auction, often on a phone on venue wifi \u2014 costs twice the bytes of any other page. Clicking 'Sync rookies' re-downloads the full 11.95 MB contract again because that call site is cache:no-store.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 2,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "PRIOR-A00-* findings on /draft concern bid arithmetic, not payload. The /api/draft-capital triple-fetch on this page was fixed previously (server.py:8324); the contract triple-fetch beside it was not."
+ },
+ "whatWorks": "The parallelisation in fetchSyncPreview (Promise.all over /api/data and /api/draft-capital) is correct \u2014 those two are genuinely independent and are not serialised. The cancellation guard on the mount effect is correct.",
+ "rootCause": "Three call sites want `sleeper.teams` and there is no narrow endpoint that serves it, so each reaches for the whole contract. None passes a `view` param, so each gets the widest view the backend has.",
+ "requiredRepair": "Add `?view=startup` (or a new teams-only view) to the three call sites \u2014 that alone halves the cost \u2014 and hoist the three fetches into one memoised call keyed on selectedLeagueKey. Drop `cache: \"no-store\"` so the backend's existing ETag/304 does its job. Best fix: serve `sleeper.teams` from the existing /api/leagues response, which already carries per-league roster settings and would make the contract fetch unnecessary here."
+}

@@ -1,0 +1,71 @@
+{
+ "run_id": "20260420T194828Z",
+ "created_at": "2026-04-20T19:48:28.024800+00:00",
+ "config_file": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/config/sources/dlf_sources.template.json",
+ "warnings": [],
+ "snapshots": [
+  {
+   "source": "KTC",
+   "record_count": 500,
+   "pulled_at_utc": "2026-04-20T19:48:28.042803+00:00",
+   "universe": "offense_vet",
+   "snapshot_id": "ktc_2026_20260420T194828Z"
+  },
+  {
+   "source": "IDPTRADECALC",
+   "record_count": 900,
+   "pulled_at_utc": "2026-04-20T19:48:28.078241+00:00",
+   "universe": "idp_vet",
+   "snapshot_id": "idptradecalc_2026_20260420T194828Z"
+  },
+  {
+   "source": "DLF_IDP",
+   "record_count": 185,
+   "pulled_at_utc": "2026-04-20T19:48:28.101827+00:00",
+   "universe": "idp_vet",
+   "snapshot_id": "dlf_idp_2026_20260420T194828Z"
+  },
+  {
+   "source": "FANTASYPROS_SF",
+   "record_count": 0,
+   "pulled_at_utc": "2026-04-20T19:48:28.110536+00:00",
+   "universe": "offense_vet",
+   "snapshot_id": "fantasypros_sf_2026_20260420T194828Z"
+  },
+  {
+   "source": "DYNASTY_DADDY_SF",
+   "record_count": 321,
+   "pulled_at_utc": "2026-04-20T19:48:28.120198+00:00",
+   "universe": "offense_vet",
+   "snapshot_id": "dynasty_daddy_sf_2026_20260420T194828Z"
+  },
+  {
+   "source": "FLOCK_FANTASY_SF",
+   "record_count": 0,
+   "pulled_at_utc": "2026-04-20T19:48:28.129163+00:00",
+   "universe": "offense_vet",
+   "snapshot_id": "flock_fantasy_sf_2026_20260420T194828Z"
+  },
+  {
+   "source": "FOOTBALLGUYS_SF",
+   "record_count": 563,
+   "pulled_at_utc": "2026-04-20T19:48:28.148566+00:00",
+   "universe": "offense_vet",
+   "snapshot_id": "footballguys_sf_2026_20260420T194828Z"
+  },
+  {
+   "source": "FOOTBALLGUYS_IDP",
+   "record_count": 525,
+   "pulled_at_utc": "2026-04-20T19:48:28.179430+00:00",
+   "universe": "idp_vet",
+   "snapshot_id": "footballguys_idp_2026_20260420T194828Z"
+  },
+  {
+   "source": "YAHOO_BOONE",
+   "record_count": 500,
+   "pulled_at_utc": "2026-04-20T19:48:28.205549+00:00",
+   "universe": "offense_vet",
+   "snapshot_id": "yahoo_boone_2026_20260420T194828Z"
+  }
+ ]
+}

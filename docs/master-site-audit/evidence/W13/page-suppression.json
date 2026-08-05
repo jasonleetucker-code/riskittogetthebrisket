@@ -1,0 +1,69 @@
+{
+ "bdvm": {
+  "status": 200,
+  "hasFundGapHeader": false,
+  "headerSample": [],
+  "bodyMentionsProjectionSnapshot": true,
+  "bodyMentionsFundamentals": true,
+  "bodyLen": 551,
+  "bodyExcerpt": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nRANKINGS\n\nFundamental Values\n\nBDVM projection-driven dynasty values \u2014 fundamentals first, market strictly after. A second value concept beside the market board, never merged into it.\n\nValue Board\nRosters\nTrade Scan\nNo projection snapshot yet\n\nFundamental values are priced from a weekly projection snapshot, and this season's hasn't been built yet. It refreshes automatically \u2014 check back after the next run.\n\nSAVE"
+ },
+ "rankings": {
+  "status": 200,
+  "hasFundGapHeader": false,
+  "headerSample": [
+   "#",
+   "TIER",
+   "PLAYER",
+   "POS",
+   "CONSENSUS",
+   "VALUE",
+   "SOURCES",
+   "CONFIDENCE",
+   "EDGE",
+   "SIGNAL"
+  ],
+  "bodyMentionsProjectionSnapshot": false,
+  "bodyMentionsFundamentals": false,
+  "bodyLen": 17956,
+  "bodyExcerpt": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nRANKINGS\n\nRankings\n\nUnified dynasty board \u2014 offense + IDP blended by consensus rank.\n\nMarket\nMy league\nHide edge\nHow rankings work\nMethodology charts\nCopy\nExport CSV\nSources\nColumns (off)\nPLAYERS\n965\nHIGH CONF\n110\n2+ src, tight\nMEDIUM\n229\nLOW\n626\nMULTI-SOURCE\n883\nQUARANTINED\n0\nLast scraped 2h ago\nEdge summary\n\nDerived from source agreement data \u2014 not predictions\n\nSELL SIGNALS\n#244 Eli Raridon\nTE\nSell +332 ranks\n#202 De'Zhaun Stribling\nWR\nSell +181 ranks\n#249 Greg Dulcich\nTE\nSell +175 ranks\n#238 Hunter Henry\nTE\nSell +141 ranks\n#250 Dalton Schultz\nTE\nSell +131 ranks\nBUY SIGNALS\n#217 J.J. McCarthy\nQB\nBuy +171 ranks\n#207 Tua Tagovailoa\nQB\nBuy +167 ranks\n#181 Chris Godwin\nWR\nBuy +163 ranks\n#226 Shedeur Sanders\nQB\nBuy +156 ranks\n#239 Jacoby Brissett\nQB\nBuy +152 ranks\nCONSENSUS ASSETS\n#1 Josh Allen\nQB\nspread 2\n#2 Brock Bowers\nTE\nspread 11\n#3 Bijan Robinson\nRB\nspread 8\n#4 Ja'Marr Chase\nWR\nspread 9\n#5 Drake Maye\nQB\nspread 6\nFLAGGED \u2014 NEEDS CAUTION\n#124 Dallas Turner\nDL\nsuspicious_disagreement\n#178 Cooper DeJean\nDB\nsuspicious_disagreement\n#185 T.J. Watt\nDL\n"
+ },
+ "draft": {
+  "status": 200,
+  "hasFundGapHeader": false,
+  "headerSample": [
+   "#",
+   "TIER",
+   "TAG",
+   "REC",
+   "PLAYER",
+   "PREDRAFT",
+   "MARKET",
+   "FAIR",
+   "ENFORCE",
+   "WIN AT",
+   "MAX BID",
+   "FINAL",
+   "DRAFTED TO",
+   ""
+  ],
+  "bodyMentionsProjectionSnapshot": false,
+  "bodyMentionsFundamentals": false,
+  "bodyLen": 7796,
+  "bodyExcerpt": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nMY TEAM\n\nDraft Board\n\nLive inflation-aware auction dashboard \u2014 every pick you record moves the per-player bid ceiling immediately.\n\nHow this works\nLive sync: OFF\nSync rookies\nReview\nShortcuts\nUndo last\nReset\nPick 0 of 46\n0% through draft\nINFLATION\n1.00\u00d7\n(sparkline populates after first pick)\nMY REMAINING\n$685\nBUDGET ADVANTAGE\n14.63\u00d7\nTOP RIVAL CEILING\n$175\nPHASE\n6 of 6 slots\nLEAGUE $ LEFT\n$1,200\nTeams & budgets\nBudgets pre-fill from the live Draft Capital feed. Edit any row to match your carry-over balances; click Load from Draft Capital to re-pull.\n\u21bb Load from Draft Capital\nSource: 2027 Draft Capital \u00b7 $1200 total\nMINE\nTEAM\nINITIAL\nSPENT\nREMAINING\nSLOTS\nEFF $\nMDV\nOVER%\n$0\n$685\n0/6\n$680\n$114\n\u2014\n$0\n$180\n0/6\n$175\n$30\n\u2014\n$0\n$119\n0/5\n$115\n$24\n\u2014\n$0\n$111\n0/6\n$106\n$19\n\u2014\n$0\n$74\n0/6\n$69\n$12\n\u2014\n$0\n$8\n0/4\n$5\n$2\n\u2014\n$0\n$7\n0/3\n$5\n$2\n\u2014\n$0\n$6\n0/3\n$4\n$2\n\u2014\n$0\n$5\n0/3\n$3\n$2\n\u2014\n$0\n$4\n0/3\n$2\n$1\n\u2014\n$0\n$1\n0/1\n$1\n$1\n\u2014\n$0\n$0\n0/0\n$0\n\u2014\n\u2014\nBid knobs\nAggression \u2014 how much of the budget advantage to spend on stars\nEnforce % of fair \u2014 bid up to this fraction of fair to keep prices hones"
+ },
+ "bdvmApiCalls": [
+  [
+   "http://127.0.0.1:8000/api/bdvm/values",
+   200
+  ],
+  [
+   "http://127.0.0.1:3000/api/bdvm/values",
+   200
+  ],
+  [
+   "http://127.0.0.1:3000/api/bdvm/values",
+   200
+  ]
+ ]
+}

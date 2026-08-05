@@ -1,0 +1,78 @@
+{
+ "id": "W18-F001",
+ "workstream": "W18",
+ "promptSections": [
+  4,
+  5
+ ],
+ "title": "scoringProfile is a hand-typed label, not a fact about scoring: dynasty_main and dynasty_new carry the same string while their host scoring differs on 35 of 48 shared keys, so /api/data serves dynasty_main's board verbatim for dynasty_new",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "League registry / rankings routing",
+ "surface": {
+  "routes": [
+   "/api/data",
+   "/api/rankings/overrides",
+   "/api/leagues"
+  ],
+  "pages": [
+   "/rankings",
+   "/trade",
+   "/rosters",
+   "/waivers",
+   "/terminal"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "config/leagues/registry.json",
+   "lines": "9,46"
+  },
+  {
+   "path": "src/api/league_registry.py",
+   "lines": "144,467-507"
+  },
+  {
+   "path": "server.py",
+   "lines": "3069-3091"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md: 'Two leagues that use identical scoring share ONE ranking pipeline and ONE output... 503 data_not_ready only fires when the scoring profiles genuinely differ.' src/api/league_registry.py:480 calls scoringProfile 'the identifier for which set of rules produces this league's player values'.",
+ "observed": "scoringProfile is an opaque free-text field parsed at league_registry.py:144 and never validated against any scoring_settings. Both registry entries carry \"superflex_tep15_ppr1\". The live host says the two leagues share only 48 scoring keys and DISAGREE on 35 of them (rec 0.08 vs 1.0, pass_td 6.0 vs 4.0, pass_yd 1/30 vs 1/25, pass_int -4.0 vs -1.0, fum_lost -4.0 vs -2.0, bonus_rec_te 0.0 vs 0.5), plus 48 nonzero keys exist only in dynasty_main (the entire IDP card, first-down bonuses, completion/incompletion scoring, reception-distance bonuses). server.py:3076 compares the two label strings, they match, the 503 never fires, and GET /api/data?leagueKey=dynasty_new returns the dynasty_main board with rankDerivedValue identical on 1092 of 1092 rows. The only test that touches the field (tests/api/test_config_parity.py:199) asserts the string is non-empty and not literally \"default\".",
+ "reproduction": {
+  "command": "bash docs/master-site-audit/evidence/W18/repro.sh   # section R3",
+  "expected": "either a 503 data_not_ready for dynasty_new, or a board computed under dynasty_new's own 48-key full-PPR non-IDP scoring",
+  "actual": "HTTP 200, identical rankDerivedValue on 1092/1092 rows, meta.scoringProfile \"superflex_tep15_ppr1\"",
+  "artifact": "docs/master-site-audit/evidence/W18/scoring-matrix-dynasty_new.csv"
+ },
+ "numericProof": {
+  "inputs": {
+   "dynasty_main_scoring_keys": 141,
+   "dynasty_new_scoring_keys": 48,
+   "shared_keys": 48,
+   "players_compared": 1092
+  },
+  "formula": "count(k in shared : main[k] != new[k]) ; count(rows : rankDerivedValue_main == rankDerivedValue_new)",
+  "expected": 0,
+  "actual": 35,
+  "tolerance": 0
+ },
+ "userImpact": "A user who switches to 'Blood, Sweat, and Beers' in the LeagueSwitcher sees a full-PPR, no-IDP, 4-pt-passing-TD league priced with a 0.08-PPR IDP superflex board. Every trade value, every rank, every tier on /rankings and /trade is computed under the wrong league's rules, and nothing on the page says so.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 2,
+  "pagesAffected": 8
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "Adjacent to PRIOR-A20-F04 (TE++ basis wrong for dynasty_new) but that finding assumes the shared-profile premise; this one refutes the premise itself."
+ },
+ "whatWorks": "The 503 gate and the leagues_share_scoring helper are correctly wired and would fire if the labels differed; the mechanism is sound and only its input is unverified.",
+ "rootCause": "scoringProfile is authored by hand in registry.json with no derivation from, or check against, the league's actual scoring_settings. src/league_comparison/sleeper_scoring.py already computes a content hash of a scoring dict (_scoring_hash, sha1[:12]) \u2014 the registry does not use it.",
+ "requiredRepair": "Derive the profile identity from a content hash of the league's live scoring_settings (the mechanism already exists in sleeper_scoring._scoring_hash), or add a startup/CI check that every pair of leagues sharing a scoringProfile has byte-identical scoring_settings. Until then dynasty_new must get its own profile string.",
+ "dependencies": "Requires one read-only GET per league to api.sleeper.app, which config.py::fetch_live_league already does."
+}
