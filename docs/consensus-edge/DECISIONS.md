@@ -872,9 +872,41 @@ sibling raw cache deliberately is not, because that one IS a cache.
 Coverage mirrors `rank_history.coverage` (`missingDays` / `staleDays`)
 so a stalled timer is visible before a study needs the data.
 
-**Not yet enabled in production.** The push installs a new timer and
-starts committing generated data on a schedule; that step is flagged for
-explicit sign-off rather than taken here.
+**Enabled in production 2026-08-05, on explicit sign-off.** The push
+installs a new timer and starts committing generated data on a schedule,
+so it was built and tested first and held for approval rather than
+taken unilaterally; approval was then given. Repo-side wiring:
+
+- `dynasty-playerctx-refresh.service.template` gains `--retain-history`,
+  so the producer writes the dated file at all.
+- `dynasty-playerctx-history.{service,timer}.template` run
+  `deploy/playerctx_history_push.sh` weekly at **Tue 06:45 UTC** — 40
+  minutes after the refresh's worst-case finish (05:40 + 600s randomized
+  delay + 900s timeout ≈ 06:05), and off the three minutes already
+  spoken for by prod→main pushers (`:27` DLF, `:32` IDP Show, `:42` CI).
+- Installed by `deploy/install-systemd-service.sh`, gated on the deploy
+  SSH key exactly like its two siblings: without a key the script could
+  only ever fail at the push, and a timer that fails weekly is worse
+  than one that was never installed.
+- The timer carries **no `Requires=`** (diverging from the sibling
+  refresh timer, following `dynasty-reception-depth`): `Requires=` in a
+  timer's `[Unit]` pulls the service in whenever the timer starts, which
+  would fire a push on deploy day for a file that does not exist yet,
+  and again on every reboot.
+
+One thing this exposed, fixed rather than worked around: the installer
+gated reinstallation on *"does the timer already exist"*, so a template
+edit on an already-provisioned box was silently ignored until someone
+remembered `FORCE_SERVICE_INSTALL`. Adding `--retain-history` to an
+existing unit is exactly that case — the repo would say retention is on
+and the box would keep running the old `ExecStart`. Both playerctx
+blocks now render the unit first and compare content, the way the
+backup-unit loop at the bottom of the same function already did.
+
+Wiring is pinned by `tests/deploy/test_playerctx_history_timer_is_wired.py`,
+including the one that makes the rest pointless if it regresses:
+`--retain-history` must be on the refresh `ExecStart`, or the push runs
+weekly, exits clean, and retains nothing.
 
 **Status:** superseded by the amendment; retention accepted 2026-08-05.
 

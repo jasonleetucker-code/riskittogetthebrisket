@@ -355,12 +355,38 @@ main() {
   local playerctx_needs_install=false
 
   if [[ -f "${playerctx_service_template}" && -f "${playerctx_timer_template}" ]]; then
+    # Render FIRST, then decide.  Every sibling block here gates on
+    # "does the timer exist" alone, which means a template edit is
+    # silently ignored on an already-provisioned box until someone
+    # remembers FORCE_SERVICE_INSTALL — the same class of failure the
+    # reload-and-enable block below documents, one step earlier: the
+    # change is deployed, reported as deployed, and not running.  That
+    # bit for real when --retain-history was added to the ExecStart, so
+    # this block compares CONTENT the way the backup-unit loop at the
+    # bottom of this function already does.
+    local tmp_playerctx_service tmp_playerctx_timer
+    tmp_playerctx_service="$(mktemp)"
+    tmp_playerctx_timer="$(mktemp)"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+      -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+      -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+      "${playerctx_service_template}" > "${tmp_playerctx_service}"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      "${playerctx_timer_template}" > "${tmp_playerctx_timer}"
+
     if sudo -n "${SYSTEMCTL_BIN}" cat "${playerctx_service_name}.timer" >/dev/null 2>&1; then
       if [[ "${force_install_on}" == "true" ]]; then
         log "FORCE_SERVICE_INSTALL enabled; rewriting ${playerctx_service_path} + timer."
         playerctx_needs_install=true
+      elif ! sudo -n cmp -s "${tmp_playerctx_service}" "${playerctx_service_path}" 2>/dev/null \
+        || ! sudo -n cmp -s "${tmp_playerctx_timer}" "${playerctx_timer_path}" 2>/dev/null; then
+        log "Player-context unit files changed; rewriting ${playerctx_service_path} + timer."
+        playerctx_needs_install=true
       else
-        log "Player-context timer already installed; skipping."
+        log "Player-context timer already installed and current; skipping."
       fi
     else
       log "Installing player-context refresh service + timer."
@@ -368,23 +394,75 @@ main() {
     fi
 
     if [[ "${playerctx_needs_install}" == "true" ]]; then
-      local tmp_playerctx_service tmp_playerctx_timer
-      tmp_playerctx_service="$(mktemp)"
-      tmp_playerctx_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${playerctx_service_template}" > "${tmp_playerctx_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${playerctx_timer_template}" > "${tmp_playerctx_timer}"
       sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_playerctx_service}" "${playerctx_service_path}"
       sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_playerctx_timer}" "${playerctx_timer_path}"
-      rm -f "${tmp_playerctx_service}" "${tmp_playerctx_timer}"
       log "Installed ${playerctx_service_name}.service + .timer"
     fi
+    rm -f "${tmp_playerctx_service}" "${tmp_playerctx_timer}"
+  fi
+
+  # ── Player-context retention push timer (dated snapshots -> main) ──────
+  # The refresh above writes data/playerctx/history/snapshot_<date>.json
+  # into the LIVE deploy dir; this pushes those dated files to main from
+  # a dedicated clone.  Split into two units on purpose: deploy.sh does
+  # `git checkout --force` + `git reset --hard` on the live tree, so
+  # anything committed there is destroyed on the next deploy.  See the
+  # header of deploy/playerctx_history_push.sh.
+  #
+  # Gated on the deploy SSH key, exactly like the DLF / IDP Show
+  # pushers — without it the script can only fail at the push, and a
+  # timer that fails weekly is worse than one that was never installed.
+  local pchist_service_template="${APP_DIR}/deploy/systemd/dynasty-playerctx-history.service.template"
+  local pchist_timer_template="${APP_DIR}/deploy/systemd/dynasty-playerctx-history.timer.template"
+  local pchist_service_name="${SERVICE_NAME}-playerctx-history"
+  local pchist_service_path="/etc/systemd/system/${pchist_service_name}.service"
+  local pchist_timer_path="/etc/systemd/system/${pchist_service_name}.timer"
+  local pchist_needs_install=false
+  local pchist_ssh_key="${PLAYERCTX_HISTORY_SSH_KEY:-/home/${APP_USER}/.ssh/github_deploy_key}"
+  local has_pchist_key=false
+
+  if sudo -n test -f "${pchist_ssh_key}" 2>/dev/null || [[ -f "${pchist_ssh_key}" ]]; then
+    has_pchist_key=true
+  fi
+
+  if [[ -f "${pchist_service_template}" && -f "${pchist_timer_template}" && "${has_pchist_key}" == "true" ]]; then
+    local tmp_pchist_service tmp_pchist_timer
+    tmp_pchist_service="$(mktemp)"
+    tmp_pchist_timer="$(mktemp)"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+      -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+      "${pchist_service_template}" > "${tmp_pchist_service}"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      "${pchist_timer_template}" > "${tmp_pchist_timer}"
+
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${pchist_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${pchist_service_path} + timer."
+        pchist_needs_install=true
+      elif ! sudo -n cmp -s "${tmp_pchist_service}" "${pchist_service_path}" 2>/dev/null \
+        || ! sudo -n cmp -s "${tmp_pchist_timer}" "${pchist_timer_path}" 2>/dev/null; then
+        log "Player-context retention unit files changed; rewriting."
+        pchist_needs_install=true
+      else
+        log "Player-context retention timer already installed and current; skipping."
+      fi
+    else
+      log "Installing player-context retention push service + timer."
+      pchist_needs_install=true
+    fi
+
+    if [[ "${pchist_needs_install}" == "true" ]]; then
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_pchist_service}" "${pchist_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_pchist_timer}" "${pchist_timer_path}"
+      log "Installed ${pchist_service_name}.service + .timer"
+      sudo -n "${INSTALL_BIN}" -d -m 0755 -o "${APP_USER}" -g "${APP_USER}" /var/lib/playerctx-history
+    fi
+    rm -f "${tmp_pchist_service}" "${tmp_pchist_timer}"
+  elif [[ -f "${pchist_service_template}" && "${has_pchist_key}" != "true" ]]; then
+    log "Player-context retention timer skipped: ${pchist_ssh_key} missing - no deploy key to push with."
   fi
 
   # ── BDVM projection refresh timer (weekly snapshots for /api/bdvm/*) ──
@@ -913,7 +991,7 @@ main() {
   # one, because nothing had told systemd to re-read it — the failure
   # mode where the fix is deployed, reported as deployed, and not
   # running.
-  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${playerctx_needs_install}" == "true" || "${bdvm_needs_install}" == "true" || "${ce_needs_install}" == "true" || "${sharp_needs_install}" == "true" || "${sharprec_needs_install}" == "true" || "${ffpc_needs_install}" == "true" || "${rd_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
+  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${playerctx_needs_install}" == "true" || "${pchist_needs_install}" == "true" || "${bdvm_needs_install}" == "true" || "${ce_needs_install}" == "true" || "${sharp_needs_install}" == "true" || "${sharprec_needs_install}" == "true" || "${ffpc_needs_install}" == "true" || "${rd_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Reloaded systemd unit files."
   fi
@@ -946,6 +1024,14 @@ main() {
       sudo -n "${SYSTEMCTL_BIN}" start --no-block "${playerctx_service_name}.service" || \
         log "Note: initial player-context build could not be started; the timer will cover it."
     fi
+  fi
+  if [[ "${pchist_needs_install}" == "true" ]]; then
+    # --now arms the weekly timer.  NO initial kick: the first run would
+    # clone the repo during a deploy for a file the refresh has not
+    # written yet (retention only starts producing on the next Tuesday),
+    # and the script would correctly exit clean having done nothing.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${pchist_service_name}.timer"
+    log "Enabled ${pchist_service_name}.timer"
   fi
   if [[ "${ce_needs_install}" == "true" ]]; then
     # --now arms the daily timer, plus one immediate kick so the history
