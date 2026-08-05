@@ -43,23 +43,69 @@ class OpsAlert:
 
 
 def _check_scrape_rate(status_payload: dict[str, Any]) -> OpsAlert | None:
-    rate = status_payload.get("scrape_success_rate_24h")
+    """Alert when under half the scrapes in 24h succeeded.
+
+    Audit O-1: this could never fire, for two independent reasons, and
+    the combination meant there was NO email path for sustained
+    ingestion failure.
+
+    1. ``scrape_success_rate_24h`` was attached only inside the
+       ``/api/status`` route.  The payload ``check_and_alert`` is
+       actually called with — ``_scrape_status_payload()`` — never
+       carried the key, so this returned ``None`` on every sweep.
+    2. Even when present the value is a **dict**
+       (``{"total", "success", "failure", "rate"}``), not a float, so
+       ``float(rate)`` raised ``TypeError``, was caught, and returned
+       ``None`` again.
+
+    Both are fixed: server.py now attaches the key, and this reads
+    either shape.  A bare float is still accepted because the /api/status
+    contract is public and callers may pass either.
+    """
+    raw = status_payload.get("scrape_success_rate_24h")
+    if raw is None:
+        return None
+
+    sample_total: int | None = None
+    if isinstance(raw, dict):
+        rate = raw.get("rate")
+        try:
+            sample_total = int(raw.get("total") or 0)
+        except (TypeError, ValueError):
+            sample_total = None
+    else:
+        rate = raw
+
+    # NO DATA IS NOT A 0% SUCCESS RATE.  ``_scrape_success_rate_24h``
+    # returns ``rate: None`` with ``total: 0`` when no scrape has been
+    # recorded in the window — a fresh boot, or a restarted process.
+    # Coercing that to zero would page the operator for an empty
+    # history, which is the "missing data becomes a confident number"
+    # pattern this whole audit is about, pointed at the alerting layer.
     if rate is None:
         return None
+    if sample_total is not None and sample_total <= 0:
+        return None
+
     try:
         r = float(rate)
     except (TypeError, ValueError):
         return None
     if r >= 0.5:
         return None
+
+    sample_note = f" over {sample_total} run(s)" if sample_total else ""
     return OpsAlert(
         severity="critical" if r < 0.25 else "warning",
         category="scrape_failure",
-        title=f"Scrape success rate 24h = {r:.0%}",
+        title=f"Scrape success rate 24h = {r:.0%}{sample_note}",
         detail=(
             "Fewer than half of the scheduled scrapes in the last 24 hours "
             "succeeded.  Rankings may be stale.  Check "
-            "/api/status.last_n_scrapes for the failure pattern."
+            "/api/status.last_n_scrapes for the failure pattern.  Note a "
+            "scrape whose output was refused for being too degraded to "
+            "publish counts as 'blocked', not 'success', so this rate "
+            "falls when the partial-scrape guard is firing repeatedly."
         ),
     )
 
