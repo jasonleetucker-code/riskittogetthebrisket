@@ -1,20 +1,20 @@
 {
- "generatedAt": "2026-08-05T08:49:10+00:00",
+ "generatedAt": "2026-08-05T09:42:28+00:00",
  "totals": {
   "findings": 432,
-  "claimedClosed": 69,
+  "claimedClosed": 85,
   "reproSafeToRerun": 338
  },
  "byClosure": {
-  "open": 283,
-  "open-unsafe-to-rerun": 80,
-  "claimed-unverified": 69
+  "open": 270,
+  "open-unsafe-to-rerun": 77,
+  "claimed-unverified": 85
  },
  "claimedByPriority": {
   "P0": 9,
-  "P1": 36,
-  "P2": 19,
-  "P3": 5
+  "P1": 38,
+  "P2": 29,
+  "P3": 9
  },
  "records": [
   {
@@ -851,11 +851,11 @@
    "status_label": "Partially implemented",
    "subsystem": "Contract validation",
    "title": "9 of 21 registered sources have no row-count floor \u2014 deleting ktcSfTep (the retail anchor, 501 rows) from the whole board leaves contractHealth 'healthy' with zero errors",
-   "claimedBy": null,
+   "claimedBy": "c7eccb16",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W05-F005",
@@ -959,11 +959,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Player identity - cross-source name join",
    "title": "Two real players occupy two board rows each because name-variant drift splits one human across a resolved row and an unresolved ghost, stranding vendor votes",
-   "claimedBy": null,
+   "claimedBy": "c7980b20",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W06-F002",
@@ -971,11 +971,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Identity validation / quarantine pass",
    "title": "Both identity-duplicate detectors on the contract are structurally unable to fire, and scripts/audit_identity.py renders a permanently empty section for the one that would have caught W06-F001",
-   "claimedBy": null,
+   "claimedBy": "c7980b20",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W06-F003",
@@ -995,11 +995,11 @@
    "status_label": "Implemented but disconnected",
    "subsystem": "Manual identity overrides",
    "title": "config/identity/id_overrides.json cannot influence the board at all, and where it IS read the override loses to the directory it exists to override",
-   "claimedBy": null,
+   "claimedBy": "9c334afe",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W06-F005",
@@ -1019,11 +1019,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Unified identity mapper - fuzzy rung",
    "title": "unified_mapper.resolve_player merges 11 demonstrably different NFL players at its default threshold on today's real corpus, and the scraper's own fuzzy guard passes 5 of the same 11 pairs",
-   "claimedBy": null,
+   "claimedBy": "9c334afe",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W06-F007",
@@ -1031,11 +1031,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Unified identity mapper - batch path",
    "title": "resolve_many rebuilds the entire Sleeper directory index once per input row - 203x its own documented cost",
-   "claimedBy": null,
+   "claimedBy": "9c334afe",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W06-F008",
@@ -1055,11 +1055,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Source CSV identity join",
    "title": "dynastyNerdsSfTep.csv ships a stable SleeperId column that the ID-join alias list cannot see, so a 294-row source joins by name only",
-   "claimedBy": null,
+   "claimedBy": "75c19898",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W06-F010",
@@ -1067,11 +1067,11 @@
    "status_label": "Deprecated but still active",
    "subsystem": "Identity scaffold surface",
    "title": "/api/scaffold/identity serves a 106-day-old identity report whose master players carry zero Sleeper IDs and whose pick table is empty, with no staleness marker on the response",
-   "claimedBy": null,
+   "claimedBy": "95692936",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W06-F011",
@@ -1079,11 +1079,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Sleeper roster identity",
    "title": "One rostered player is absent from the board and from all three Sleeper identity maps while still appearing on his team's roster lists",
-   "claimedBy": null,
+   "claimedBy": "29d97660",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W06-F012",
@@ -1103,11 +1103,11 @@
    "status_label": "Implemented and verified",
    "subsystem": "Terminal identity backfill",
    "title": "Terminal re-derives each row's Sleeper ID by lowercased display name even though every row already carries playerId - verified correct on the live payload",
-   "claimedBy": null,
+   "claimedBy": "b910e1f9",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W06-F014",
@@ -3935,11 +3935,11 @@
    "status_label": "Implemented but disconnected",
    "subsystem": "Operator alerting",
    "title": "The ops \"scrape success rate < 50%\" alert can never fire: the payload it is handed never carries the key, and /api/status carries it as a dict the float() cast rejects",
-   "claimedBy": null,
+   "claimedBy": "4d2573a6",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "contains 'scrape'",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W23-F002",
@@ -3947,11 +3947,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Scrape lifecycle / monitoring",
    "title": "A partial scrape that the promotion guard REFUSES to publish is recorded as a success \u2014 same event name, same history outcome, same last_success_at, and it increments scrape_count",
-   "claimedBy": null,
+   "claimedBy": "4d2573a6",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W23-F003",
@@ -3959,11 +3959,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Scrape lifecycle",
    "title": "The \"fewer than half the sites returned\" partial-scrape guard degenerates to \"block only on total loss\": `sites` carries 2 entries on the live snapshot and only lists sources that already produced values",
-   "claimedBy": null,
+   "claimedBy": "4d2573a6",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "redirects output",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W23-F004",
@@ -3971,11 +3971,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "CI / Sharp production verification",
    "title": "verify-sharp-production.yml runs on EVERY push to main and always fails at `git add data/ops/...` because .gitignore excludes data/ \u2014 so its \"Enforce healthy population\" verdict step has never once executed",
-   "claimedBy": null,
+   "claimedBy": "502ba889",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W23-F005",
@@ -3983,11 +3983,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "CI / Sharp production verification",
    "title": "The Sharp production smoke reports `unmappedAssets` from `dataQuality`, a key /api/sharp/market has never emitted \u2014 it is hard-zero on every run",
-   "claimedBy": null,
+   "claimedBy": "502ba889",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W23-F006",
@@ -3995,11 +3995,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Monitoring / staleness",
    "title": "/api/metrics.data_age_seconds and /api/health.data_age_hours measure time since the process loaded the file, not since the data was scraped \u2014 they are numerically identical to uptime and reset to zero on every restart",
-   "claimedBy": null,
+   "claimedBy": "4d2573a6",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "contains 'scrape'",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W23-F007",
