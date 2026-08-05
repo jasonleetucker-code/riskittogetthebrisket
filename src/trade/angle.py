@@ -417,6 +417,43 @@ def find_angles(
         }
     my_val_selected, market_val_selected, selected_market_source = pair
 
+    # ── Cross-market honesty on the 1-for-1 path (W27-F004) ──────────
+    # There is no SUM here, and that is why this path was exempted from
+    # the cross-market rewiring.  But there is still a cross-market
+    # SUBTRACTION, and the visibility gate is applied to it: selecting
+    # an IDP player returns a candidate list that is almost entirely
+    # IDPTC-minus-KTC, and the default ±5% gate is narrower than the two
+    # boards' own measured p10-p90 disagreement (0.886-1.083 over 475
+    # shared players — roughly ±10%).  A difference of two numbers from
+    # different publishers carries the same scale risk as a sum of them.
+    #
+    # So this path runs the SAME machinery ``/api/angle/packages``
+    # already ships, with single-asset packages: a band, straddle
+    # suppression, and diagnostics.  Measured on the live board, a
+    # single-asset ``value_package`` total equals ``_value_pair``'s
+    # market value exactly for all 296 rankable rows sampled, so the
+    # point estimates the gates use are unchanged — what is added is
+    # the uncertainty around them.
+    diag = _new_market_diagnostics()
+    selected_pkg = value_package([selected_row])
+    if not selected_pkg.is_rankable:
+        return {
+            "selected": {
+                "name": selected_player_name,
+                "position": str(selected_row.get("position") or ""),
+                "my_value": int(my_val_selected),
+                "market_value": None,
+                "market_source": selected_market_source,
+                **_unvaluable_stamp(selected_pkg),
+            },
+            "candidates": [],
+            "market_diagnostics": diag,
+            "warnings": [
+                f"{selected_player_name!r} has no defensible market total, so no "
+                "comparison can be made against it."
+            ],
+        }
+
     # Build reverse index: canonical name -> owner's team dict.
     owner_by_player: dict[str, dict[str, Any]] = {}
     my_team_name: str | None = None
@@ -464,6 +501,27 @@ def find_angles(
         if market_gain_pct > max_market_gain_pct:
             continue
 
+        # Does the verdict survive its own uncertainty?  For an
+        # offense-vs-offense comparison both bands are zero and this is
+        # certain by construction; it bites exactly when the two sides
+        # sit on different retail boards, which is when the
+        # offense<->IDP exchange rate is load-bearing (W27-F004).
+        target_pkg = value_package([target_row])
+        diag["combos_valued"] += 1
+        if not target_pkg.is_rankable:
+            diag["unvaluable"] += 1
+            _note_reason(diag, target_pkg.suppressed_reason)
+            continue
+        comparison = compare_packages(
+            target_pkg,
+            selected_pkg,
+            gate_pct=max_market_gain_pct,
+        )
+        if not comparison.verdict_certain:
+            diag["withheld_uncertain"] += 1
+            _note_reason(diag, comparison.suppressed_reason)
+            continue
+
         candidates.append(
             {
                 "name": target_name,
@@ -477,7 +535,18 @@ def find_angles(
                 "market_gain": int(round(market_gain)),
                 "my_gain_pct": round(my_gain_pct, 2),
                 "market_gain_pct": round(market_gain_pct, 2),
+                "market_gain_low_pct": (
+                    round(comparison.gain_low_pct, 2)
+                    if comparison.gain_low_pct is not None
+                    else None
+                ),
+                "market_gain_high_pct": (
+                    round(comparison.gain_high_pct, 2)
+                    if comparison.gain_high_pct is not None
+                    else None
+                ),
                 "arb_score": round(my_gain_pct - market_gain_pct, 2),
+                **_market_stamp(target_pkg, verbose=False),
             }
         )
 
@@ -492,15 +561,17 @@ def find_angles(
             "my_value": int(my_val_selected),
             "market_value": int(market_val_selected),
             "market_source": selected_market_source,
+            **_market_stamp(selected_pkg),
         },
         "candidates": candidates,
+        "market_diagnostics": diag,
         "thresholds": {
             "min_my_gain_pct": min_my_gain_pct,
             "max_market_gain_pct": max_market_gain_pct,
             "limit": limit,
             "target_team_owner_id": target_team_owner_id or "",
         },
-        "warnings": warnings,
+        "warnings": warnings + _diagnostic_warnings(diag),
     }
 
 
