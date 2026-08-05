@@ -207,8 +207,18 @@ def _players_array(contract: dict[str, Any]) -> list[dict[str, Any]]:
                 .strip()
                 .lower()
             )
-            if name_lower and "_sleeperId" not in r:
-                sid = sleeper_lookup.get(name_lower)
+            if "_sleeperId" not in r:
+                # ``playerId`` IS the Sleeper id — ``data_contract``
+                # maps ``_sleeperId`` onto it — so re-deriving it from
+                # the lowercased display name was a name join standing
+                # in for an id already on the row (W06-F013).  Correct
+                # today only because both surfaces are minted from one
+                # build and spell every name identically; one vendor
+                # rename away from dropping the row silently.  The name
+                # lookup stays as the fallback for rows without an id.
+                sid = str(r.get("playerId") or "").strip()
+                if not sid and name_lower:
+                    sid = sleeper_lookup.get(name_lower) or ""
                 if sid:
                     r = {**r, "_sleeperId": sid}
             rows.append(r)
@@ -247,7 +257,7 @@ def _build_sleeper_id_lookup(contract: dict[str, Any]) -> dict[str, str]:
         for row in arr:
             if not isinstance(row, dict):
                 continue
-            sid = row.get("_sleeperId") or row.get("sleeperId")
+            sid = row.get("_sleeperId") or row.get("sleeperId") or row.get("playerId")
             if sid is None:
                 continue
             n = (
