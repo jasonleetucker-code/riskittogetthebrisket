@@ -16,30 +16,47 @@ export const SETTINGS_DEFAULTS = {
   // TE Premium boost applied at blend time.
   //
   //   * ``tepMultiplier`` → non-TEP sources (DLF, FBG, FP consensus,
-  //     Flock, etc.).  Defaults to 1.15: this platform's leagues are
-  //     TEP-1.5 (``superflex_tep15_ppr1``) and the derivation formula
-  //     ``1.0 + 0.5*0.30`` maps TEP-1.5 → 1.15.  1.25 over-boosted
-  //     elite TEs above the individual-source consensus (Bowers #2
-  //     overall when no source ranked him near there).
+  //     Flock, etc.).  ``null`` = "no operator override", which is what
+  //     lets the backend apply the MEASURED ADR-015 TE basis conversion
+  //     (``te_premium.convert_te_value``, KTC's own uplift: 1.209 at the
+  //     top of the board rising toward 2.05 down it).
   //   * ``tepNativeMultiplier`` → TEP-native sources (DN SF-TEP,
   //     Yahoo Boone, FP Fitzmaurice).  Default 1.10 backend-side.
   //
+  // Why this is ``null`` and not a number.  It used to default to 1.15,
+  // derived as ``1.0 + 0.5*0.30`` for a TEP-1.5 league.  That derivation
+  // predates ADR-015 and is strictly worse than it — a flat 1.15 sits
+  // BELOW the entire measured range.  Worse, the backend decides whether
+  // to apply the curve from "did the operator choose a number?", and
+  // ``tepMultiplierIsCustomized`` (lib/dynasty-data.js) answers yes for
+  // ANY finite number.  A numeric default is therefore indistinguishable
+  // from a deliberate override, so every page load for every user posted
+  // ``tep_multiplier=1.15`` and silently disabled the measured curve —
+  // 627 of 740 ranks and 654 tiers diverged from what ``GET /api/data``
+  // serves, while the response still stamped ``isCustomized:false``.
+  // Audit findings W03-F001 / W07-F001 / W08-F001.
+  //
+  // ``null`` is the only value the customization predicate reads as
+  // "auto", which is why this knob and ``tepNativeMultiplier`` now use
+  // the same sentinel. A number here is a decision and is still honoured
+  // verbatim — that path is unchanged.
+  //
   // KTC variants (ktc, ktcSfTep) stay exempt regardless — KTC's TE++
-  // board is the canonical reference.  When the user types a value on
-  // /settings this becomes their explicit override; "Reset" returns
-  // it to the 1.15 default.  ``tepNativeMultiplier`` keeps the ``null``
-  // = backend-default sentinel.  A one-time migration in
-  // ``readSettings`` lifts any persisted "default-ish" value (``null``
-  // pre-2026-05 auto-derive, ``1.0`` from a stray wheel-scroll, or the
-  // interim ``1.25``) to 1.15.
-  tepMultiplier: 1.15,               // 1.15 default; 1.0..1.5 = explicit operator override
+  // board is the canonical reference.
+  tepMultiplier: null,               // null = auto (measured ADR-015 curve); 1.0..1.5 = explicit operator override
   tepNativeMultiplier: null,         // null = backend default (1.10); 1.0..1.5 = explicit operator override
 
-  // One-time migration marker.  False/absent → ``readSettings``
-  // promotes a stale ``tepMultiplier`` of ``null`` / ``1.0`` / ``1.25``
-  // to the 1.15 default exactly once, then sets this so a deliberate
-  // later value still sticks.
-  tepDefaultV3Applied: false,
+  // One-time migration marker.  False/absent → ``readSettings`` returns
+  // a persisted ``tepMultiplier`` of 1.15 to ``null`` exactly once.
+  //
+  // This REPLACES the v3 migration, which promoted ``null`` → 1.15 and
+  // so actively moved users who were on the correct auto path off it,
+  // permanently. Anyone still carrying that 1.15 was moved there by a
+  // migration or by the old default, not by choosing it; a user who did
+  // deliberately type 1.15 is indistinguishable, and the cost of being
+  // wrong about them is that they get the measured curve instead of a
+  // flat factor below its whole range.
+  tepDefaultV4Applied: false,
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"
@@ -172,22 +189,26 @@ function readSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const merged = { ...SETTINGS_DEFAULTS, ...JSON.parse(raw) };
-      // One-time TEP default migration.  Earlier builds left
-      // tepMultiplier at null ("auto-derive"), a stray wheel-scroll
-      // could pin it to 1.0, and an interim build defaulted it to
-      // 1.25 (which over-boosted elite TEs).  Promote any of those
-      // "default-ish" values to the corrected 1.15 default exactly
-      // once; a deliberate later value persists because the flag is
-      // set.
-      if (!merged.tepDefaultV3Applied) {
-        if (
-          merged.tepMultiplier == null ||
-          merged.tepMultiplier === 1.0 ||
-          merged.tepMultiplier === 1.25
-        ) {
-          merged.tepMultiplier = 1.15;
+      // One-time TEP default migration (v4).  Return a persisted 1.15
+      // to ``null`` = auto, so the backend applies the measured ADR-015
+      // basis conversion instead of a flat factor that sits below its
+      // entire range.
+      //
+      // This undoes v3, which ran the other way (null → 1.15) and so
+      // took users who were correctly on auto and pinned them to the
+      // override path for good.  Anyone holding 1.15 today was put there
+      // by that migration or by the old numeric default; see the
+      // ``tepDefaultV4Applied`` note in SETTINGS_DEFAULTS for why
+      // reclaiming the ambiguous case is the right trade.
+      //
+      // A value the operator typed that is NOT 1.15 is untouched, and
+      // once the flag is set a deliberate later 1.15 persists.
+      if (!merged.tepDefaultV4Applied) {
+        if (merged.tepMultiplier === 1.15) {
+          merged.tepMultiplier = null;
         }
-        merged.tepDefaultV3Applied = true;
+        merged.tepDefaultV4Applied = true;
+        delete merged.tepDefaultV3Applied;
         writeSettings(merged);
       }
       return merged;

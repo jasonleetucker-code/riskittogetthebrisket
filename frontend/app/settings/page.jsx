@@ -227,12 +227,9 @@ export default function SettingsPage() {
     reset();
   }
 
-  // TE Premium input value.  The backend stamps the operator's
-  // current default (``rankingsOverride.tepMultiplierDerived``, the
-  // hardcoded non-native default 1.15 — TEP-1.5 platform; Sleeper
-  // never exposes ``bonus_rec_te`` here); we use that as the displayed
-  // value when the user has not set an explicit override, falling back
-  // to 1.15 if the field is missing.
+  // TE Premium input value.  ``rankingsOverride.tepMultiplierDerived``
+  // is the flat factor the backend would fall back to; it is only a
+  // display seed for the number input, never the automatic behaviour.
   const tepDefault = (() => {
     const v = Number(rawData?.rankingsOverride?.tepMultiplierDerived);
     return Number.isFinite(v) ? v : 1.15;
@@ -243,13 +240,12 @@ export default function SettingsPage() {
     const n = Number(raw);
     return Number.isFinite(n) ? n : tepDefault;
   })();
-  // 1.15 is the platform default (see SETTINGS_DEFAULTS.tepMultiplier).
-  // Treat the explicit default value — or a legacy null — as "default"
-  // so the UI doesn't render the default as a Custom override.
+  // ONLY ``null``/absent is automatic.  A number — including 1.15 — is
+  // an operator override that disables the measured ADR-015 basis
+  // conversion, so labelling it "Default" told the user the opposite of
+  // what the board was doing (audit finding W07-F002).
   const tepIsDefault =
-    settings?.tepMultiplier === null ||
-    settings?.tepMultiplier === undefined ||
-    Number(settings?.tepMultiplier) === 1.15;
+    settings?.tepMultiplier === null || settings?.tepMultiplier === undefined;
 
   // Parallel "TEP-native" multiplier — the per-bucket boost applied
   // to TEP-native sources (DN SF-TEP, Yahoo Boone, FP Fitzmaurice)
@@ -406,8 +402,8 @@ export default function SettingsPage() {
           />
           <span className="muted" style={{ fontSize: "0.66rem" }}>
             {tepIsDefault
-              ? `Default ${tepDefault.toFixed(2)}× — applied to non-TEP sources on TE rows`
-              : `Custom ${Number(tepSliderValue).toFixed(2)}× — non-TEP sources on TE rows`}
+              ? `Automatic — measured TE basis curve on non-TEP sources`
+              : `Custom ${Number(tepSliderValue).toFixed(2)}× — overrides the measured curve`}
           </span>
         </div>
         {!tepIsDefault && (
@@ -422,9 +418,13 @@ export default function SettingsPage() {
                 cursor: "pointer",
                 padding: 0,
               }}
-              onClick={() => update("tepMultiplier", 1.15)}
+              // ``null``, not 1.15 — a number here reads as a deliberate
+              // operator override and disables the measured ADR-015
+              // curve. Resetting to a number would leave the user in the
+              // state they were trying to leave.
+              onClick={() => update("tepMultiplier", null)}
             >
-              Reset to default ({tepDefault.toFixed(2)}×)
+              Reset to automatic
             </button>
           </div>
         )}
