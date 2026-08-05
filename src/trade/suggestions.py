@@ -146,7 +146,30 @@ def starter_needs_for_league(league_key: str | None = None) -> dict[str, int]:
     return needs or dict(DEFAULT_STARTER_NEEDS)
 
 
-# Minimum display value to consider a player "rosterable" (not a throw-in)
+# Minimum display value to consider a player "rosterable" (not a throw-in).
+#
+# ⚠ INERT ON THE CURRENT BOARD, twice over.  Measured on the pinned
+# 2026-07-30 contract:
+#
+#   * the board's structural floor is **757** — every row the pipeline
+#     prices lands above it, and unpriced rows are already dropped by
+#     the ``cv_int <= 0`` guard in ``_players_from_contract``, so this
+#     removes **0 of 812**;
+#   * every call site below runs AFTER ``BOARD_TOP_N_FILTER`` (150), and
+#     the 150th row is worth **3,217** — a 6.4x margin.
+#
+# So the "not a throw-in" gate this names is really enforced by
+# ``BOARD_TOP_N_FILTER``.  Kept rather than deleted: it is a cheap
+# defensive floor across 14 call sites, and the board's floor is a
+# property of today's sources rather than a guarantee.
+#
+# But it is NOT a free dial.  Anything above ~900 starts removing real
+# players (900 -> 31 rows, 1200 -> 124, 1500 -> 292), so raising it
+# "since it does nothing anyway" would silently cut suggestions.  Pinned
+# by ``tests/trade/test_actionability_floors.py``.
+#
+# Contrast ``MIN_ACTIONABLE_VALUE`` below, which is NOT inert: at 2,000
+# it suppresses 477 of the 812 priced rows and is doing real work.
 MIN_RELEVANT_VALUE = 500
 
 # Fairness band: how close two trade sides need to be (display scale).
