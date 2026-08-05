@@ -9671,6 +9671,35 @@ def build_api_data_contract(
                 ),
                 "minFullDepth": 60,
             },
+            # What this board does NOT know about IDP.  Audit W27-F012:
+            # the ordering of the IDP families is inherited wholesale
+            # from generic IDP calculators, and nothing in the live
+            # value path re-scores a defender under the league's own
+            # settings.  On dynasty_main that pays 5.32 per pass
+            # defensed and 5.32 per interception against 1.33 per solo
+            # tackle, and a 15-pass-defensed cornerback earns 79.8
+            # points from that one category alone — yet DB is the
+            # cheapest family at every quantile (max 3,159 against DL
+            # 6,362 and LB 5,908; median 943 against 1,376 and 1,319).
+            # The scoring-exact concept exists in src/bdvm/ and is a
+            # separate, fundamental board; this one is the market.
+            #
+            # Disclosed rather than corrected: correcting it needs a
+            # projection feed, and a reader who knows the values are
+            # format-generic reads them correctly today.
+            "formatSensitivity": {
+                "scoredUnderLeagueSettings": False,
+                "description": (
+                    "IDP values on this board are FORMAT-GENERIC. Every "
+                    "registered IDP source publishes a board built for a "
+                    "generic IDP league, and no stage of the live value path "
+                    "re-scores a defender under this league's actual scoring "
+                    "settings. Positional supply is the only league-aware "
+                    "IDP lever, and it reaches values only through the "
+                    "optional league-adjusted overlay. For a scoring-exact "
+                    "fundamental valuation see /bdvm."
+                ),
+            },
         },
         "blendWeights": {
             "description": (

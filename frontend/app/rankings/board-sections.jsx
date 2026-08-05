@@ -44,6 +44,13 @@ export function MethodologySection({ methodology } = {}) {
   const sourceNames = RANKING_SOURCES.map((s) => s.displayName).join(", ");
   const formula = methodology?.formula;
   const buckets = methodology?.confidenceBuckets;
+  // What the board does NOT know, straight from the contract — never a
+  // mirrored constant, for the reason the formula line above was
+  // deleted. Rendered only while the contract says the values are not
+  // scored under the league's own settings, so it disappears by itself
+  // the day that changes (W27-F012).
+  const idpFormat = methodology?.idpTranslation?.formatSensitivity;
+  const idpUnscored = idpFormat && idpFormat.scoredUnderLeagueSettings === false;
   return (
     <ol className={styles.methodologyList}>
       <li><strong>Source ingestion</strong> — Raw values from {sourceNames}.</li>
@@ -61,6 +68,11 @@ export function MethodologySection({ methodology } = {}) {
         )}
       </li>
       <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).</li>
+      {idpUnscored ? (
+        <li>
+          <strong>IDP values are format-generic</strong> — {idpFormat.description}
+        </li>
+      ) : null}
       {formula?.expression ? (
         <li className={styles.methodologyFormula}>
           {formula.name ? `${formula.name}: ` : null}
