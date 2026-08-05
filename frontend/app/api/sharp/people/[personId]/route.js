@@ -3,10 +3,11 @@ import { proxyGet } from "@/lib/backend-proxy";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_request, { params }) {
+export async function GET(request, { params }) {
   const { personId } = await params;
   try {
     const { data, status } = await proxyGet(`/api/sharp/people/${encodeURIComponent(personId)}`, {
+      cookie: request.headers.get("cookie") || "",
       timeoutMs: 20000,
     });
     return NextResponse.json(data, { status });

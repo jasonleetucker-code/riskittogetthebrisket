@@ -15,6 +15,7 @@ export async function GET(request) {
     // canonical league config directly.
     const searchParams = {};
     const { data, status } = await proxyGet("/api/consensus-edge/players", {
+      cookie: request.headers.get("cookie") || "",
       searchParams,
       timeoutMs: 30000,
     });
