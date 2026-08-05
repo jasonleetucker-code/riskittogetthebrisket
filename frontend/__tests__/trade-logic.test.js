@@ -23,6 +23,7 @@ import {
   VA_PER_EXTRA_BOOST,
   VA_EFFECTIVE_CAP,
   effectiveValue,
+  displayValue,
   addAssetToSide,
   removeAssetFromSide,
   isAssetInTrade,
@@ -1911,5 +1912,47 @@ describe("adjustedSideTotals / multiAdjustedSideTotals with stack", () => {
       expect(t.stackAdjustment).toBe(0);
       expect(t.adjusted).toBe(t.raw + t.adjustment);
     }
+  });
+});
+
+// ── displayValue and effectiveValue must not disagree on one row ───────
+//
+// W29-F008. ``displayValue`` never consulted ``row.customValue`` while
+// ``effectiveValue`` — and therefore ``sideTotal``, the gap and the
+// verdict — used it verbatim. Today the only call site is the search
+// dropdown, which renders candidates BEFORE they are on a side and so
+// before an override can exist, which is why this is latent rather than
+// live. The docstring is what makes it dangerous: it instructs
+// developers to use ``displayValue`` for "picker cells, sort
+// comparators, headers", and any such use inside a side would render the
+// pre-override number beside a total computed from the override.
+//
+// Same rule as the backend R28 repair: one field name, one concept.
+
+describe("displayValue honours the user's per-player override", () => {
+  it("returns the typed override, exactly as effectiveValue does", () => {
+    const row = {
+      customValue: 7777,
+      values: { full: 4000, overall: 4000 },
+      rankDerivedValue: 4000,
+    };
+    expect(displayValue(row)).toBe(7777);
+    expect(effectiveValue(row, "full")).toBe(7777);
+  });
+
+  it("a side's rendered numbers sum to the side total the meter uses", () => {
+    const side = [
+      { customValue: 7777, values: { full: 4000 }, rankDerivedValue: 4000 },
+      { values: { full: 3000 }, rankDerivedValue: 3000 },
+    ];
+    const rendered = side.reduce((sum, r) => sum + displayValue(r), 0);
+    expect(rendered).toBe(sideTotal(side, "full"));
+  });
+
+  it("falls back to the board when there is no override", () => {
+    expect(displayValue({ values: { full: 4000 }, rankDerivedValue: 3900 })).toBe(4000);
+    expect(displayValue({ rankDerivedValue: 3900 })).toBe(3900);
+    expect(displayValue({ customValue: 0, values: { full: 4000 } })).toBe(4000);
+    expect(displayValue(null)).toBe(0);
   });
 });

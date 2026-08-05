@@ -191,18 +191,32 @@ export function sideTotal(side, valueMode, settings = null) {
 }
 
 /**
- * Resolve the value to *display* for a player row, including the
- * Apply Scoring Fit adjustment when the global toggle is on.
+ * Resolve the value to *display* for a player row.
  *
- * Use this anywhere a row's "Our Value" number is shown (picker
- * cells, sort comparators, headers).  Don't use ``effectiveValue``
- * directly for display — it also applies the pick-year discount
- * which is trade-math-only, not display.
+ * Use this anywhere a row's "Our Value" number is shown (picker cells,
+ * sort comparators, headers).  It differs from ``effectiveValue`` in
+ * exactly one way: the value-mode key.  ``effectiveValue`` reads
+ * ``row.values[valueMode]`` — whichever board the mode selector is on —
+ * while this always reads the "full" (Our Value) board, because that is
+ * what these surfaces are labelled with.
+ *
+ * It honours ``row.customValue`` for the same reason ``effectiveValue``
+ * does: a typed override is the user's answer to "what is this worth in
+ * this trade", and a cell showing the pre-override number beside a total
+ * computed from the override is one field name carrying two concepts
+ * (W29-F008).
+ *
+ * The docstring here used to say the difference was the pick-year
+ * discount, "trade-math-only, not display".  ``effectiveValue`` applies
+ * no such discount — stage 12 of the backend pipeline bakes it into the
+ * value both functions read, and re-applying it client-side would
+ * double-count.
  *
  * Returns 0 when no value is available.
  */
 export function displayValue(row, _settings = null) {
   if (!row) return 0;
+  if (row.customValue != null && row.customValue > 0) return row.customValue;
   const fromValues = Number(row.values?.full);
   if (Number.isFinite(fromValues) && fromValues > 0) return fromValues;
   const fromRdv = Number(row.rankDerivedValue);
