@@ -228,14 +228,20 @@ function SideCard({ side, managers, isWinner }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 10 }}>
-        <Link
-          href={`/league/franchise/${encodeURIComponent(side.ownerId)}`}
-          style={{ color: "var(--cyan)", fontSize: "0.7rem" }}
-        >
-          Franchise page →
-        </Link>
-      </div>
+      {/* Retired/orphaned rosters carry a synthetic ownerId so the winner
+          comparison stays unique, but they have no franchise page —
+          identity.py deliberately does not register them. Link only when
+          the owner actually resolved. */}
+      {side.ownerResolved !== false ? (
+        <div style={{ marginTop: 10 }}>
+          <Link
+            href={`/league/franchise/${encodeURIComponent(side.ownerId)}`}
+            style={{ color: "var(--cyan)", fontSize: "0.7rem" }}
+          >
+            Franchise page →
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
