@@ -5881,6 +5881,13 @@ async def post_bdvm_trade_eval(request: Request):
 async def get_gameplan(request: Request):
     """Roster intelligence for one team: needs, window, targets, partners.
 
+    **INTERNAL-ONLY — no frontend consumer.**  No page, component or
+    Next bridge route fetches this (audit W20-F001); it answers 200 with
+    a 92 KB payload nobody reads.  See ``src/api/gameplan.py``'s module
+    docstring for why it is marked rather than deleted, and why the
+    ``override_state`` hook has no caller (W20-F013).  The marker is
+    enforced by ``tests/api/test_gameplan_internal_only.py``.
+
     The API surface over ``src/roster_intel/`` — ``analyze_roster``,
     the per-position profiles, the five-state competitive window, both
     target engines, the partner model, and (on request) the Trade

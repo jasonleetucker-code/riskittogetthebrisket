@@ -110,8 +110,8 @@ export default function TeamPhasePanel() {
             : "league percentile of total player value — this league's lineup slots aren't in the current data, so no lineup could be solved"}
           ) and <strong>trajectory</strong> (value-weighted age of the players who
           enter that lineup). Placed against five anchored states, probabilities
-          from a softmax — the same classifier /rosters and{" "}
-          <code>/api/gameplan</code> use. {ORDERING_CAVEAT}
+          from a softmax — the same classifier the Team Strength page and the
+          backend roster-intelligence engine use. {ORDERING_CAVEAT}
         </p>
       </div>
 

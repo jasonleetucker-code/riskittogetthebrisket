@@ -1,5 +1,36 @@
 """``GET /api/gameplan`` — the API surface over the WS-J roster engines.
 
+**STATUS: INTERNAL-ONLY. NO FRONTEND CONSUMER. NOT LIVE PRODUCT.**
+
+Nothing in ``frontend/`` fetches this route.  There is no page, no
+component and no Next bridge route for it; the only occurrence of the
+word "gameplan" under ``frontend/`` is a comment.  Every number this
+subsystem produces — replacement-relative positional deficit,
+fragility, tradeable surplus, the competitive window, target ranking,
+partner fit, trade packages — is unreachable by any user (audit
+W20-F001).  Treat it as an internal API and a staging ground, not as a
+shipped feature, until a surface is built.
+
+That status is **machine-checked**, not asserted here:
+``tests/api/test_gameplan_internal_only.py`` fails if this banner is
+removed while the route still has no frontend caller, AND fails if a
+frontend caller appears while the banner still says there is none.  The
+two cannot drift.
+
+It is deliberately NOT deleted.  Its 22 dedicated tests were written to
+catch exactly the failure mode this repo keeps producing — a constant
+masquerading as a score — and they execute in neither CI tier
+(W24-F002), so nobody knows whether it works.  Deleting an unmeasured
+subsystem destroys the evidence needed to decide about it.  The
+decision (build the surface, or remove) belongs after W24-F002.
+
+One consequence worth stating: the manual contender/rebuilder override
+(``override_state`` / ``override_reason``) is implemented correctly in
+``window.compute_window`` and ``engine.analyze_roster`` and is passed by
+nothing outside tests (W20-F013).  That is not a separate defect — it
+is this one.  A hook has no setter because the surface that would set
+it does not exist.
+
 Everything in ``src/roster_intel/`` merged with no caller.  ``git grep
 roster_intel`` outside its own package and tests returned zero matches:
 ``analyze_roster``, the per-position profiles, the five-state
