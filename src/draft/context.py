@@ -202,6 +202,57 @@ def _match_team(
     return None
 
 
+def build_roster_assets(
+    team: Mapping[str, Any],
+    by_name: Mapping[str, Mapping[str, Any]],
+    by_id: Mapping[str, Mapping[str, Any]],
+) -> tuple[list[RosterAsset], list[str]]:
+    """Join one team's roster to the board.
+
+    Returns ``(assets, unmatched_names)``.  Extracted from
+    :func:`build_roster_context` so analysis tooling can get at the roster
+    itself — the context payload carries only per-position *counts*, and
+    anything asking "what would this lineup actually be?" needs the players.
+    Duplicating the join in a script would be a second definition of who is on
+    a roster, which is exactly the kind of parallel system this repo avoids.
+    """
+    names = [str(n) for n in (team.get("players") or []) if str(n or "").strip()]
+    ids = [str(i) for i in (team.get("playerIds") or []) if str(i or "").strip()]
+    assets: list[RosterAsset] = []
+    unmatched: list[str] = []
+    for idx, name in enumerate(names):
+        row = by_name.get(_norm(name))
+        if row is None and idx < len(ids):
+            row = by_id.get(_norm(ids[idx]))
+        if row is None:
+            unmatched.append(name)
+            # Still occupies a roster spot, and is a legitimate cut candidate —
+            # dropping him from the model would understate roster pressure.
+            assets.append(
+                RosterAsset(
+                    player_id=ids[idx] if idx < len(ids) else name,
+                    name=name,
+                    position="",
+                    board_value=None,
+                )
+            )
+            continue
+        value = row.get("rankDerivedValue")
+        fantasy = row.get("fantasyPositions")
+        assets.append(
+            RosterAsset(
+                player_id=str(row.get("playerId") or name),
+                name=str(row.get("displayName") or row.get("canonicalName") or name),
+                position=str(row.get("position") or "").strip().upper(),
+                board_value=float(value) if isinstance(value, (int, float)) and value > 0 else None,
+                ros_value=float(row.get("rosValue") or 0.0),
+                fantasy_positions=tuple(fantasy) if isinstance(fantasy, (list, tuple)) else (),
+                injured=bool(row.get("injured")),
+            )
+        )
+    return assets, unmatched
+
+
 def build_roster_context(
     contract: Mapping[str, Any] | None,
     league_key: str | None,
@@ -265,41 +316,7 @@ def build_roster_context(
             "rookie surplus is therefore the raw board value"
         )
 
-    # Join this team's roster to the board.
-    names = [str(n) for n in (team.get("players") or []) if str(n or "").strip()]
-    ids = [str(i) for i in (team.get("playerIds") or []) if str(i or "").strip()]
-    assets: list[RosterAsset] = []
-    unmatched: list[str] = []
-    for idx, name in enumerate(names):
-        row = by_name.get(_norm(name))
-        if row is None and idx < len(ids):
-            row = by_id.get(_norm(ids[idx]))
-        if row is None:
-            unmatched.append(name)
-            # Still occupies a roster spot, and is a legitimate cut candidate —
-            # dropping him from the model would understate roster pressure.
-            assets.append(
-                RosterAsset(
-                    player_id=ids[idx] if idx < len(ids) else name,
-                    name=name,
-                    position="",
-                    board_value=None,
-                )
-            )
-            continue
-        value = row.get("rankDerivedValue")
-        fantasy = row.get("fantasyPositions")
-        assets.append(
-            RosterAsset(
-                player_id=str(row.get("playerId") or name),
-                name=str(row.get("displayName") or row.get("canonicalName") or name),
-                position=str(row.get("position") or "").strip().upper(),
-                board_value=float(value) if isinstance(value, (int, float)) and value > 0 else None,
-                ros_value=float(row.get("rosValue") or 0.0),
-                fantasy_positions=tuple(fantasy) if isinstance(fantasy, (list, tuple)) else (),
-                injured=bool(row.get("injured")),
-            )
-        )
+    assets, unmatched = build_roster_assets(team, by_name, by_id)
 
     if unmatched:
         notes.append(
