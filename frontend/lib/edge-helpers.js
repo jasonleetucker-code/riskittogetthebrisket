@@ -15,13 +15,18 @@
 
 import {
   MARKET_PREMIUM_SPREAD,
-  PREMIUM_SUMMARY_SPREAD,
+  PREMIUM_SUMMARY_VALUE_RATIO,
   LENS_DISAGREEMENT_SPREAD,
   LENS_INEFFICIENCY_SPREAD,
   LENS_INEFFICIENCY_RANK,
   EDGE_CAUTION_RANK_LIMIT,
   EDGE_PREMIUM_RANK_LIMIT,
 } from "./thresholds.js";
+import {
+  formatMarketGap,
+  marketGapAtLeast,
+  marketGapRatioOf,
+} from "./display-helpers.js";
 import { isEligibleForAnalysis } from "./display-helpers.js";
 import { getRetailLabel } from "./dynasty-data.js";
 
@@ -341,18 +346,27 @@ export function applyLens(rows, lensKey) {
  */
 export function topRetailPremium(rows, limit = 5) {
   const retailLabel = getRetailLabel();
+  // AUDIT S-3, third instance. This gated, sorted AND LABELLED on
+  // ``sourceRankSpread`` — how much the sources disagree with each other —
+  // while the panel's whole premise is the retail-vs-consensus gap. The
+  // rendered "Sell +45 ranks" showed the user the disagreement width and
+  // called it the gap. Both now come from ``marketGapValueRatio``, the
+  // magnitude of the direction actually being filtered on.  (NOT
+  // ``marketGapMagnitude`` — that is the retired rank-space field, stamped
+  // None on every row; naming it here was the same conflation this comment
+  // exists to warn about.)
   return rows
     .filter((r) => r.marketGapDirection === "retail_premium"
-      && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD
+      && marketGapAtLeast(r, PREMIUM_SUMMARY_VALUE_RATIO)
       && !r.quarantined
       && isTopRankedForEdgePremium(r))
-    .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
+    .sort((a, b) => (marketGapRatioOf(b) ?? -Infinity) - (marketGapRatioOf(a) ?? -Infinity))
     .slice(0, limit)
     .map((r) => ({
       name: r.name,
       pos: r.pos,
       rank: r.rank,
-      detail: `Sell +${r.sourceRankSpread} ranks`,
+      detail: `Sell — retail ${formatMarketGap(r)} higher`,
       row: r,
     }));
 }
@@ -365,16 +379,16 @@ export function topRetailPremium(rows, limit = 5) {
 export function topConsensusPremium(rows, limit = 5) {
   return rows
     .filter((r) => r.marketGapDirection === "consensus_premium"
-      && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD
+      && marketGapAtLeast(r, PREMIUM_SUMMARY_VALUE_RATIO)
       && !r.quarantined
       && isTopRankedForEdgePremium(r))
-    .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
+    .sort((a, b) => (marketGapRatioOf(b) ?? -Infinity) - (marketGapRatioOf(a) ?? -Infinity))
     .slice(0, limit)
     .map((r) => ({
       name: r.name,
       pos: r.pos,
       rank: r.rank,
-      detail: `Buy +${r.sourceRankSpread} ranks`,
+      detail: `Buy — experts ${formatMarketGap(r)} higher`,
       row: r,
     }));
 }

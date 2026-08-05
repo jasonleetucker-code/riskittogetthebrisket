@@ -165,27 +165,57 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C08": (
         "S-2",
         "src/api/data_contract.py",
-        "retail_mean = sum(retail_ranks) / len(retail_ranks)",
-        OPEN,
-        "Raw ordinals averaged across pools of different depth, and the "
-        "sole retail anchor is a TE-premium board while the consensus is "
-        "not. Same mechanism as S-1 (C19).",
+        None,
+        CLOSED,
+        "Closed by #740 with S-1 (C19) — same site, same fix. The audit "
+        "framed this as 'the sole retail anchor is a TE-premium board and "
+        "the consensus is not', implying a basis split would fix it. "
+        "Measured in batch C4, neither percentile normalization (68 of 72 "
+        "TEs SELL -> 66) nor restricting the consensus side to TEP-native "
+        "peers (-> 63) moved it, because the reading was CORRECT: KTC "
+        "ranks AJ Barner 121 and every other source ranks him 139-248. "
+        "Value space dissolves it instead — valueContribution is already "
+        "on the TE++ basis, so the artifact never forms. Pinned by the "
+        "market_gap harness surface's "
+        "'tight_end_rank_gap_but_value_agreement' case: a TE with a huge "
+        "ordinal gap (40 vs 180/200) and a 0.025 value ratio, correctly "
+        "below the label floor.",
     ),
     "C09": (
         "S-3",
         "frontend/app/edge/page.jsx",
-        "(r.sourceRankSpread ?? 0) > PREMIUM_SUMMARY_SPREAD",
-        OPEN,
-        "Panels still gate and sort on sourceRankSpread while taking sign "
-        "from marketGapDirection — magnitude and sign come from different "
-        "quantities.",
+        None,
+        CLOSED,
+        "Closed by THIS pass (C4-R) — the only one of the four S findings "
+        "#740 left open, and the one with live user impact. Worse than "
+        "recorded: both /edge premium panels FILTERED and SORTED on "
+        "sourceRankSpread — how much the sources disagree with each "
+        "other — while displaying marketGapDirection's sign. A clean, "
+        "large gap on a player every source agreed about was EXCLUDED; a "
+        "negligible gap on a player they were arguing over sorted FIRST. "
+        "Measured: the spread gate passed 148 of the 414 two-sided rows, "
+        "and on the wrong axis entirely.\n\n"
+        "Two further instances beyond the recorded one: edge-helpers' "
+        "topRetailPremium / topConsensusPremium did the same AND rendered "
+        "it, printing 'Sell +45 ranks' where 45 was the disagreement "
+        "width described to the user as the gap. All four now gate, sort "
+        "and label on marketGapValueRatio at PREMIUM_SUMMARY_VALUE_RATIO "
+        "(0.15, p70 of the live distribution). PREMIUM_SUMMARY_SPREAD "
+        "survives, narrowed to the disagreements panel where it belongs.",
     ),
     "C10": (
         "S-4",
         "frontend/lib/display-helpers.js",
-        "if (diff < MARKET_GAP_MIN_DIFF)",
-        OPEN,
-        "A second, different threshold for the same backend field as the " "/edge panels use.",
+        None,
+        CLOSED,
+        "Closed by #740. display-helpers no longer thresholds a rank "
+        "difference: marketEdge / marketAction / marketGapLabel all read "
+        "valueContribution through the same relative-gap formula the "
+        "backend uses, gated on the single shared "
+        "MARKET_GAP_MIN_VALUE_RATIO. The four competing thresholds that "
+        "gated this one concept are down to two, and "
+        "config/thresholds.json + tests/api/test_threshold_parity.py "
+        "(landed here) make a third impossible to add silently.",
     ),
     "C11": (
         "S-6",
@@ -199,10 +229,16 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C12": (
         "V-4",
         "frontend/components/useSettings.js",
-        "tepMultiplier: 1.15",
-        OPEN,
-        "Default is still a finite number, so every session posts an "
-        "explicit operator override and the ADR-015 curve never runs.",
+        None,
+        CLOSED,
+        "Closed on MAIN, not by this pass — picked up during the C4-R "
+        "merge. SETTINGS_DEFAULTS.tepMultiplier is now the null auto "
+        "sentinel, so a default session posts no tep_multiplier and the "
+        "backend applies the measured ADR-015 curve; "
+        "tepMultiplierIsCustomized is deliberately unchanged so an "
+        "explicit operator number still overrides, and a one-shot "
+        "tepAutoRestored migration moves installs the previous migration "
+        "had pinned to a flat 1.15. Batch C6 step 6.4 no longer needs it.",
     ),
     "C13": (
         "O-4",
@@ -280,10 +316,28 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C19": (
         "S-1",
         "src/api/data_contract.py",
-        "retail_mean = sum(retail_ranks) / len(retail_ranks)",
-        OPEN,
-        "Same site and mechanism as C08 — the registry records the pool "
-        "normalization and the TE-basis consequence as separate findings.",
+        None,
+        CLOSED,
+        "Closed by #740, NOT by this pass, and the difference is worth "
+        "recording so nobody re-does the inferior version.\n\n"
+        "Both fixes agreed on the diagnosis: differencing mean ORDINAL "
+        "ranks across sources drawn from pools of very unequal depth "
+        "(ktcSfTep 473 rows, idpTradeCalc 901, dlfSf 278) measures pool "
+        "depth and format basis rather than opinion. Batch C4 fixed it by "
+        "normalizing into rank space (rank / observed board depth) and "
+        "then SUBTRACTING a measured per-position basis — TE +121, PICK "
+        "-109 per-mille — because the tight-end reading is arithmetically "
+        "correct and only looks like a signal.\n\n"
+        "#740 instead compares "
+        "``sourceRankMeta[key].valueContribution``: post-ladder, "
+        "common-scaled 0-9999, and already past ADR-015's "
+        "convert_te_value. That removes the CAUSE. Their medians — QB "
+        "+0.008, TE +0.084, WR +0.110, RB +0.112 — show TE sitting "
+        "between the others instead of outside them, where C4's approach "
+        "had to measure the offset and subtract it. Removing a cause "
+        "beats correcting for it, so src/api/rank_space.py and the "
+        "de-meaning were deleted in the C4-R rework rather than merged "
+        "alongside.",
     ),
     "C20": (
         "V-2",
@@ -371,10 +425,23 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C30": (
         "P-1",
         "src/sharp/score.py",
-        'float(weights.get("rosterQuality", 0.22)) * roster',
-        OPEN,
-        "Weighted at 0.22 and structurally zero, with no renormalization "
-        "of the remaining weights.",
+        None,
+        CLOSED,
+        "Closed on main by #734 while batch C4 was open — NOT by this "
+        "pass, and picked up here rather than reverted. Batch C12 no "
+        "longer needs to fix P-1.\n\n"
+        "_roster_quality_component now returns None (not 0.0) when it "
+        "has no evidence, and the scoring sum renormalizes over the "
+        "components that do; the unconditional "
+        '`float(weights.get("rosterQuality", 0.22)) * roster` term is '
+        "gone and components.weightsApplied is stamped per manager so "
+        "the renormalization is auditable rather than assumed.\n\n"
+        "Found by diffing main's generated status.json against this "
+        "table during the C4 merge — the file is generated, so resolving "
+        "the conflict by regenerating would have silently reverted the "
+        "closure. Worth knowing for every future merge: the generated "
+        "artifact is not the authority, but it IS the only place another "
+        "PR's closure shows up.",
     ),
     "C31": (
         "P-2",

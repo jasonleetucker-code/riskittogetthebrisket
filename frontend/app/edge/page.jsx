@@ -8,6 +8,8 @@ import {
   isEligibleForAnalysis,
   idpMarketAction,
   isIdpInTopByIdptc,
+  marketGapAtLeast,
+  marketGapRatioOf,
 } from "@/lib/display-helpers";
 import ConfidenceValueScatter from "@/components/graphs/ConfidenceValueScatter";
 import {
@@ -16,6 +18,7 @@ import {
   EDGE_CAUTION_RANK_LIMIT,
   EDGE_PREMIUM_RANK_LIMIT,
   PREMIUM_SUMMARY_SPREAD,
+  PREMIUM_SUMMARY_VALUE_RATIO,
 } from "@/lib/thresholds";
 import { getRetailLabel } from "@/lib/dynasty-data";
 import {
@@ -37,6 +40,7 @@ import {
   colFlags,
   colGapDirection,
   colIdpGap,
+  colMarketGap,
   colPlayer,
   colPos,
   colRank,
@@ -134,35 +138,32 @@ export default function EdgePage() {
     [eligible],
   );
 
-  const retailPremium = useMemo(
-    () =>
-      eligible
-        .filter(
-          (r) =>
-            r.marketGapDirection === "retail_premium" &&
-            (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD &&
-            !r.quarantined &&
-            isTopRankedForEdgePremium(r),
-        )
-        .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
-        .slice(0, EDGE_PREMIUM_LIMIT),
-    [eligible],
-  );
+  // AUDIT S-3 — these two panels display the SIGN of the market gap and
+  // used to gate and sort on ``sourceRankSpread``, which measures how much
+  // the sources disagree with EACH OTHER.  Two different quantities: a
+  // clean, large retail-vs-consensus gap on a player every source agrees
+  // about was excluded outright, while a negligible gap on a player the
+  // sources were arguing over sorted to the top.  The spread gate also
+  // barely filtered — measured on the live board it admitted 376 of the
+  // 414 rows carrying a gap.
+  //
+  // ``marketGapValueRatio`` — the magnitude OF the direction being filtered
+  // on — was stamped by the backend all along and read by nothing here.
+  const premiumBy = (direction) =>
+    eligible
+      .filter(
+        (r) =>
+          r.marketGapDirection === direction &&
+          marketGapAtLeast(r, PREMIUM_SUMMARY_VALUE_RATIO) &&
+          !r.quarantined &&
+          isTopRankedForEdgePremium(r),
+      )
+      .sort((a, b) => (marketGapRatioOf(b) ?? -Infinity) - (marketGapRatioOf(a) ?? -Infinity))
+      .slice(0, EDGE_PREMIUM_LIMIT);
 
-  const consensusPremium = useMemo(
-    () =>
-      eligible
-        .filter(
-          (r) =>
-            r.marketGapDirection === "consensus_premium" &&
-            (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD &&
-            !r.quarantined &&
-            isTopRankedForEdgePremium(r),
-        )
-        .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
-        .slice(0, EDGE_PREMIUM_LIMIT),
-    [eligible],
-  );
+  const retailPremium = useMemo(() => premiumBy("retail_premium"), [eligible]);
+
+  const consensusPremium = useMemo(() => premiumBy("consensus_premium"), [eligible]);
 
   // ── IDP Buy/Sell — IDPTC as the retail anchor ──────────────────────
   // KTC doesn't list IDP, so defenders never surface in the offense
@@ -362,8 +363,21 @@ export default function EdgePage() {
                   rows={retailPremium}
                   caption={`Players the retail market ${retail} values above consensus`}
                   emptyText={`No sell signals in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
-                  defaultSort={{ key: "spread", direction: "desc" }}
-                  columns={[colRank(), colPlayer(openPlayerPopup), colPos(), colSpread(), colValue()]}
+                  // AUDIT S-3, display half.  Was `spread` on both, which
+                  // re-sorted the rows by source disagreement after
+                  // `premiumBy` had ranked them by the market gap —
+                  // `DataTable` is not `presorted`, so `defaultSort` wins.
+                  // The column showed that same wrong quantity beside the
+                  // signal.  Both now name the gap, matching what the IDP
+                  // panels below have always done with `colIdpGap`.
+                  defaultSort={{ key: "marketGap", direction: "desc" }}
+                  columns={[
+                    colRank(),
+                    colPlayer(openPlayerPopup),
+                    colPos(),
+                    colMarketGap(),
+                    colValue(),
+                  ]}
                 />
                 <SignalPanel
                   title="Buy signals"
@@ -372,8 +386,14 @@ export default function EdgePage() {
                   rows={consensusPremium}
                   caption={`Players the expert consensus values above ${retail}`}
                   emptyText={`No buy signals in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
-                  defaultSort={{ key: "spread", direction: "desc" }}
-                  columns={[colRank(), colPlayer(openPlayerPopup), colPos(), colSpread(), colValue()]}
+                  defaultSort={{ key: "marketGap", direction: "desc" }}
+                  columns={[
+                    colRank(),
+                    colPlayer(openPlayerPopup),
+                    colPos(),
+                    colMarketGap(),
+                    colValue(),
+                  ]}
                 />
                 <SignalPanel
                   title="IDP sell signals"

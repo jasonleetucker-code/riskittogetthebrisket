@@ -11,6 +11,7 @@
 // missing extension silently broke the entire trade-logic test suite
 // (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
 import { effectiveAuctionPower } from "./auction-power.js";
+import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
 
 // ── Value Modes ──────────────────────────────────────────────────────────
 export const VALUE_MODES = [
@@ -946,7 +947,22 @@ export function verdictBarPosition(gap, maxGap = 4000) {
 //   3 ranks is the floor.  Below that we treat it as noise — the mean-
 //   of-means comparison can flicker by a rank from scrape to scrape.
 //   Anything 3+ is a real, actionable disagreement.
-const MIN_EDGE_RANK_GAP = 3;
+// LIVE REGRESSION FIX. #740 moved the market gap into value space and did
+// the careful thing on the way: it published the new number as
+// ``marketGapValueRatio`` and stamped ``marketGapMagnitude = None`` on every
+// row, so that a consumer still reading the old field would fail visibly
+// rather than gate on a retired unit.
+//
+// This function was that consumer, and it failed silently anyway:
+// ``Number(null)`` is 0, 0 is finite, and ``0 < 3`` — so the guard below
+// returned early for EVERY player and the trade page's BUY/SELL edge went
+// dead across the board. Its tests stayed green because they feed
+// rank-space fixtures (2, 5, 6) against a rank-space threshold (3); nothing
+// exercised it against a real contract row.
+//
+// Reads the live field now, gated on the shared ratio threshold rather than
+// a local literal — if the board will not label a gap, a trade surface must
+// not signal on it.
 
 /**
  * Compute the retail-vs-consensus edge signal for a player row.
@@ -956,20 +972,20 @@ const MIN_EDGE_RANK_GAP = 3;
  * per-source values.
  *
  * @param {object} row - Player row with marketGapDirection + marketGapMagnitude
- * @returns {{ signal: 'BUY'|'SELL'|null, edgePct: number, rankGap: number, sources: string[] }}
+ * @returns {{ signal: 'BUY'|'SELL'|null, edgePct: number, valueGapPct: number, sources: string[] }}
  */
 export function getPlayerEdge(row) {
-  if (!row) return { signal: null, edgePct: 0, rankGap: 0, sources: [] };
+  if (!row) return { signal: null, edgePct: 0, valueGapPct: 0, sources: [] };
 
   const direction = String(row.marketGapDirection || "none");
-  const magnitude = Number(row.marketGapMagnitude);
-  // ``marketGapMagnitude`` is the absolute rank gap between retail
-  // mean and consensus mean — float because both sides are mean-of-N.
-  if (!Number.isFinite(magnitude) || magnitude < MIN_EDGE_RANK_GAP) {
-    return { signal: null, edgePct: 0, rankGap: 0, sources: ["ktc"] };
+  // ``marketGapValueRatio`` is a RELATIVE gap in blended-value space:
+  // 0.25 means one side prices the player 25% above the other.
+  const magnitude = Number(row.marketGapValueRatio);
+  if (!Number.isFinite(magnitude) || magnitude < MARKET_GAP_MIN_VALUE_RATIO) {
+    return { signal: null, edgePct: 0, valueGapPct: 0, sources: ["ktc"] };
   }
   if (direction !== "retail_premium" && direction !== "consensus_premium") {
-    return { signal: null, edgePct: 0, rankGap: 0, sources: ["ktc"] };
+    return { signal: null, edgePct: 0, valueGapPct: 0, sources: ["ktc"] };
   }
 
   // Translate the rank gap into a rough value-% for display continuity
@@ -993,10 +1009,13 @@ export function getPlayerEdge(row) {
   if (Number.isFinite(ourValue) && ourValue > 0 && Number.isFinite(ktcValue) && ktcValue > 0) {
     edgePct = Math.round(Math.abs(((ourValue - ktcValue) / ktcValue) * 100));
   } else {
-    // Fallback: magnitude-in-ranks is the best we have.  Render as
-    // "3-rank gap" style.  The popup handles the suffix via the
-    // ``rankGap`` field.
-    edgePct = Math.round(magnitude);
+    // Fallback: the market gap is the best we have.  This used to render
+    // an ordinal rank difference into a field named ``edgePct``, which was
+    // not a percentage of anything — "a 3-rank gap" and "3%" are unrelated
+    // quantities and the UI printed the second while meaning the first.
+    // In value space the conversion is real: the ratio IS a relative
+    // difference, so x100 is an honest percentage.
+    edgePct = Math.round(magnitude * 100);
   }
 
   return {
@@ -1004,7 +1023,9 @@ export function getPlayerEdge(row) {
     // retail_premium    → SELL HIGH (market overvalues the player)
     signal: direction === "consensus_premium" ? "BUY" : "SELL",
     edgePct,
-    rankGap: Math.round(magnitude),
+    // Renamed from ``rankGap``: it is no longer a count of ranks.
+    // Math.round() on a 0-1 ratio collapsed every gap to 0.
+    valueGapPct: Math.round(magnitude * 100),
     sources: ["ktc"],
   };
 }

@@ -19,6 +19,7 @@ branches are evidence.
 | Claim | Paths | Defect ids | Branch | Status |
 |---|---|---|---|---|
 | Work-claim protocol | docs/WORK_CLAIMS.md, scripts/check_work_claims.py, ASSISTANT_COORDINATION.md | — | claude/work-claim-protocol | done |
+| PR-backlog audit: repair of the /edge market-gap display half | frontend/app/edge/page.jsx, frontend/app/edge/edge-columns.jsx, frontend/lib/edge-helpers.js | C09 (S-3) | claude/fix-plan-uex7ug | done |
 
 ---
 

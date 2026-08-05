@@ -1,839 +1,827 @@
 {
-  "source": "decision-intelligence-audit-2026-08-04.registry.json",
-  "severity": "Critical",
-  "total": 43,
-  "tally": {
-    "closed": 20,
-    "deferred": 1,
-    "needs_review": 2,
-    "open": 20
+ "source": "decision-intelligence-audit-2026-08-04.registry.json",
+ "severity": "Critical",
+ "total": 43,
+ "tally": {
+  "open": 19,
+  "needs_review": 2,
+  "closed": 21,
+  "deferred": 1
+ },
+ "findings": [
+  {
+   "id": "C01",
+   "title": "Every bid recommendation ignores my remaining budget and my remaining roster slots",
+   "area": "Draft / auction decision engine \u2014 frontend/lib/draft-logic.js, pick-stack.js, auction-power.js, app/draft/page.jsx, app/idptc-rookies/page.jsx, backend /api/draft-capital + src/api/draft_capital_fallback.py + src/api/auction_power.py + CSVs/Draft Data.xlsx (commit 9c5d972)",
+   "complexity": "low",
+   "auditEvidence": "frontend/lib/draft-logic.js:717-731 \u2014 `const theoreticalMaxBid = Math.floor(preDraft * (1 + aggression * (budgetAdvantage - 1)) * combinedInflation * phaseMultiplier);` then `const myWinningBid = Math.max(0, Math.min(theoreticalMaxBid, winByCompetitor));` where `winByCompetitor = Math.max(1, competitorCeiling + 1)` and competitorCeiling is `topCompetitorMax`, computed at :479-485 by scanning only ",
+   "auditId": "D-1",
+   "path": "frontend/lib/draft-logic.js",
+   "signature": "Math.min(theoreticalMaxBid, winByCompetitor)",
+   "status": "open",
+   "verifiedBy": "Read the clamp: it caps against the richest RIVAL only. Neither myRemaining nor mySlotsRemaining appears in either figure.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "frontend/lib/draft-logic.js",
+    "needle": "Math.min(theoreticalMaxBid, winByCompetitor)"
+   }
   },
-  "findings": [
-    {
-      "id": "C01",
-      "title": "Every bid recommendation ignores my remaining budget and my remaining roster slots",
-      "area": "Draft / auction decision engine — frontend/lib/draft-logic.js, pick-stack.js, auction-power.js, app/draft/page.jsx, app/idptc-rookies/page.jsx, backend /api/draft-capital + src/api/draft_capital_fallback.py + src/api/auction_power.py + CSVs/Draft Data.xlsx (commit 9c5d972)",
-      "complexity": "low",
-      "auditEvidence": "frontend/lib/draft-logic.js:717-731 — `const theoreticalMaxBid = Math.floor(preDraft * (1 + aggression * (budgetAdvantage - 1)) * combinedInflation * phaseMultiplier);` then `const myWinningBid = Math.max(0, Math.min(theoreticalMaxBid, winByCompetitor));` where `winByCompetitor = Math.max(1, competitorCeiling + 1)` and competitorCeiling is `topCompetitorMax`, computed at :479-485 by scanning only ",
-      "auditId": "D-1",
-      "path": "frontend/lib/draft-logic.js",
-      "signature": "Math.min(theoreticalMaxBid, winByCompetitor)",
-      "status": "open",
-      "verifiedBy": "Read the clamp: it caps against the richest RIVAL only. Neither myRemaining nor mySlotsRemaining appears in either figure.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "frontend/lib/draft-logic.js",
-        "needle": "Math.min(theoreticalMaxBid, winByCompetitor)"
-      }
-    },
-    {
-      "id": "C02",
-      "title": "Inflation diverges hyperbolically at the end of every draft, producing absurd late-draft prices",
-      "area": "Draft / auction decision engine — frontend/lib/draft-logic.js, pick-stack.js, auction-power.js, app/draft/page.jsx, app/idptc-rookies/page.jsx, backend /api/draft-capital + src/api/draft_capital_fallback.py + src/api/auction_power.py + CSVs/Draft Data.xlsx (commit 9c5d972)",
-      "complexity": "medium",
-      "auditEvidence": "frontend/lib/draft-logic.js:550-551 — `const expectedPoolRemaining = Math.max(1, totalBudget - soldPreDraft); const inflation = remainingLeague / expectedPoolRemaining;`. Reproduced with a pool summing to exactly $1200 and every pick hammering at 75% of fair: inflation reads 58.20 at pick 67, 96.33 at 69, 144.00 at 70, 287.00 at 71 — the last $1 rookie shows Fair $287 / Enforce $229. Reproduced wi",
-      "auditId": "D-2",
-      "path": "frontend/lib/draft-logic.js",
-      "signature": "const inflationDegraded = !(expectedPoolRemaining > 0)",
-      "status": "needs_review",
-      "verifiedBy": "The Math.max(1, …) the audit cited is GONE — replaced by an explicit degraded-state guard. But remainingLeague / expectedPoolRemaining still grows without bound as the denominator approaches 0 from above, so the hyperbolic divergence needs re-measuring before this is called closed.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "frontend/lib/draft-logic.js",
-        "needle": "const inflationDegraded = !(expectedPoolRemaining > 0)"
-      }
-    },
-    {
-      "id": "C03",
-      "title": "Sleeper-derived draft capital fabricates 52% of the board on live data — and the 503 guard added to prevent exactly this does not fire",
-      "area": "Draft / auction decision engine — frontend/lib/draft-logic.js, pick-stack.js, auction-power.js, app/draft/page.jsx, app/idptc-rookies/page.jsx, backend /api/draft-capital + src/api/draft_capital_fallback.py + src/api/auction_power.py + CSVs/Draft Data.xlsx (commit 9c5d972)",
-      "complexity": "medium",
-      "auditEvidence": "src/api/draft_capital_fallback.py:96-99 — `# Fallback: flat per-round value.  Round 1 ≈ 7000, Round 2 ≈ 4000, / flat = {1: 7000.0, 2: 4000.0, 3: 2000.0, 4: 1200.0, 5: 700.0, 6: 300.0}` reached from the loop at :175 `for season in (current_season, current_season + 1):`. Guard at server.py:8154 — `if not is_default_league and not latest_contract_data:`. Verified against exports/latest/dynasty_data_2",
-      "auditId": "D-3",
-      "path": "src/api/draft_capital_fallback.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "The hardcoded {1: 7000, 2: 4000, …} table is gone. _pick_value_from_contract returns None on a miss and callers stamp isUnpriced; the docstring records the removal. Closed before this pass, by the work CLAUDE.md documents as D-2.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C04",
-      "title": "The Value column silently switches from the Hill-curve board to the raw scraper composite for 260 rows, and 158 of them display a LARGER number than the deepest genuinely-priced player",
-      "area": "Frontend rankings surface — `frontend/lib/dynasty-data.js` (buildRows / mergeRankingsDelta / applyValuationOverlay / RANKING_SOURCES), `rankings-helpers.js`, `player-filters.js`, `display-helpers.js`, `valuation-mode.js`, `weight-presets.js`, `thresholds.js`, `app/rankings/page.jsx`, `app/rankings/[position]/page.jsx`, `app/rankings/board-utils.js`, `app/rankings/board-sections.jsx`, `lib/edge-helpers.js`, `components/ds/DataTable.jsx`, `components/PlayerPopup.jsx` — verified against a real contract built from `exports/latest/dynasty_data_2026-08-04.json` via `src/api/data_contract.build_api_data_contract` (1,092 playersArray rows → 1,072 materialized rows).",
-      "complexity": "low — one expression in buildRows, one in the Value cell renderer, one in the exporter; the buildRows sort already treats these rows as valueless, so nothing downstream reorders.",
-      "auditEvidence": "frontend/lib/dynasty-data.js:1008 — `full: Math.round(backendValue || rawValues.full),` and the render at frontend/app/rankings/page.jsx:1050 — `const val = Math.round(row.rankDerivedValue || row.values?.full || 0);`. Live contract: Devin Bush `values={overall:2549, rawComposite:2549, finalAdjusted:2549, displayValue:null}`, `rankDerivedValue:null` → row displays 2,549, band 'D — Depth value (2000",
-      "auditId": "V-3",
-      "path": "frontend/lib/dynasty-data.js",
-      "signature": "full: Math.round(backendValue || rawValues.full)",
-      "status": "needs_review",
-      "verifiedBy": "PARTLY CLOSED, and the headline half is gone — re-measured in batch C3 by running buildRows over the real contract. The audit reported 260 rows promoting the raw scraper composite into the Value column, 158 of them above the deepest genuinely-priced player. Measured now: 261 rows the board declines to price, and ZERO render a non-zero number. The math audit's H1 fix made inferValueBundle return the board value only, so both sides of the `backendValue || rawValues.full` expression now derive from rankDerivedValue and the composite can no longer reach the column. The expression survives and looks like the defect, which is why this stays flagged rather than closed.\n\nWHAT REMAINS is the same defect class one step milder: those 261 rows render 0, which asserts 'worth nothing' rather than 'not priced', and 0 sorts and aggregates as a real value. That is the Unknown render rule (em-dash, sorts last, excluded from aggregates with the exclusion counted) and it is frontend-wide work — the type landed in C3 with the two ROS sites; this is scoped to its own batch rather than half-done here.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "frontend/lib/dynasty-data.js",
-        "needle": "full: Math.round(backendValue || rawValues.full)"
-      }
-    },
-    {
-      "id": "C05",
-      "title": "The trade verdict's direction is undefined: the meter calls the side with the BIGGER pile the winner, while every other part of the same page treats a side's pile as what that side GIVES AWAY",
-      "area": "Trade calculator, trade verdict, and trade retro-grading (frontend/lib/trade-logic.js, trade-share.js, trade-retro-value.js, /trade, /trades, /arbitrage, /finder, /angle, components/trade/*, RosTradeFitPanel, BdvmTradePanel, MonteCarloButton, TradeFlowSankey, MultiTradeFlow) at commit 9c5d972",
-      "complexity": "low to change, high to decide — every downstream label and the stack sign depend on the choice",
-      "auditEvidence": "GIVE convention — frontend/lib/trade-logic.js:1392-1393 `const value = ...effectiveValue(asset...); result[i].given += value;` then `result[dest].received += value`; frontend/app/trade/trade-sections.jsx:808 `<div className={styles.sideGroupLabel}>Giving</div>` over `side.assets`; frontend/components/graphs/MultiTradeFlow.jsx:80 \"Each side appears once on the left (giver)\"; frontend/app/trade/page",
-      "auditId": "T-1",
-      "path": "frontend/lib/trade-logic.js",
-      "signature": "result[i].given += value",
-      "status": "open",
-      "verifiedBy": "The GIVE convention is live at :1393 while the verdict names the bigger pile the winner. Both conventions still present.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "frontend/lib/trade-logic.js",
-        "needle": "result[i].given += value"
-      }
-    },
-    {
-      "id": "C06",
-      "title": "The live FAAB bid is a share of a DRAFT PICK's value - every recommended bid is ~2.4x too low",
-      "area": "Waivers + FAAB (frontend /waivers, lib/waiver-logic.js, ManualAddDrop, FaabRecommendation; backend /api/waiver/suggestions, /api/waiver/faab-recommend, faab_recommender, faab_contention, faab_analytics, ktc_crowd_faab, /api/intel/waiver-interest)",
-      "complexity": "low (2 lines) but requires re-baselining absolute-dollar test assertions",
-      "auditEvidence": "server.py:4969-4977 - `for row in arr: ... rname = _norm(row.get(\"displayName\")...); if not rname or rname in rostered_norms: continue; v = float(row.get(\"rankDerivedValue\") or 0); if v > top_pool_value: top_pool_value = v`. Measured on the 2026-08-04 contract rebuilt via build_api_data_contract: 427 unrostered rows, 144 of them assetClass=='pick'; top_pool_value = 7831.0 = '2026 Pick 1.01'; best ",
-      "auditId": "W-1",
-      "path": "server.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "FAAB pool denominator no longer counts draft picks (#715). Recorded twice in the registry — see C42, the same defect.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C07",
-      "title": "The FAAB dollar figure is a value percentile mapped onto a dollar scale, not a bid derived from budget, replacement value, competition or expected contribution",
-      "area": "Waivers + FAAB (frontend /waivers, lib/waiver-logic.js, ManualAddDrop, FaabRecommendation; backend /api/waiver/suggestions, /api/waiver/faab-recommend, faab_recommender, faab_contention, faab_analytics, ktc_crowd_faab, /api/intel/waiver-interest)",
-      "complexity": "high - modeling decision, not a bug fix",
-      "auditEvidence": "src/trade/waiver.py:86-95 - `share = candidate_value / top_v ...; aggressive_pct = 0.05 + 0.25 * share; aggressive = max(1, round(league_budget * aggressive_pct))`. Because share is normalized to the pool maximum, the top free agent always prices at exactly 30%/21%/10%: measured _compute_faab_bid(1905, 100, 1905) = (30, 21, 10), where 1905 is Marlin Klein, a TE outside every starting lineup on the",
-      "auditId": "W-2",
-      "path": "src/trade/waiver.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Closed by #707 while this batch was open — caught by this registry's own drift probe, not by noticing. The pool-relative `0.05 + 0.25 * (value / best on the wire)` is gone; _compute_faab_bid is now a shim over src/trade/faab_engine, whose ceiling is pinned to league-format anchors, and top_value_in_pool is accepted and ignored. Measured on the surface capture: a player at value 2000 now bids $20 on a rich wire AND $20 on a picked-over one, where before it was $11 vs $28 — the wire-dependence the finding was about is gone.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C08",
-      "title": "/edge \"Sell signals\" is a scoring-format artifact: 36 of 36 eligible tight ends are labelled SELL, and zero are labelled BUY",
-      "area": "SIGNAL layer — signal-engine, edge-helpers, movers/market-movers, thresholds, value-history, ros-index/sources, news-service/filters; pages /edge /trending /market/sharp-tracker /news /intel; components BuySellHold, MoversPanel, TopSignalsRail, MarketTicker, PlayerMarketMovement, ScoutingIntel, InsiderLeads, CustomAlertsConfigurator, PlayerRankHistoryChart, StaleDataBanner, SourceHealthStrip",
-      "complexity": "medium",
-      "auditEvidence": "src/api/data_contract.py:2786-2792 `retail_mean = sum(retail_ranks) / len(retail_ranks)` … `diff = consensus_mean - retail_mean` … `if diff > 0: return \"retail_premium\"`. Recomputed on the live 2026-08-04 contract, direction by position for top-250 offense rows: TE {sell: 36}, QB {buy: 29, sell: 2}, RB {sell: 14, buy: 31}, WR {buy: 47, sell: 17}. Of the 50 rows that qualify for the Sell panel, 34 ",
-      "auditId": "S-2",
-      "path": "src/api/data_contract.py",
-      "signature": "retail_mean = sum(retail_ranks) / len(retail_ranks)",
-      "status": "closed",
-      "verifiedBy": "CLOSED alongside C19 — same defect on the frontend label. marketEdge, marketGapLabel and idpMarketEdge all diff valueContribution, gated by MARKET_GAP_MIN_VALUE_RATIO (0.05, calibrated to 68.8% non-HOLD against the old gate's 69.2%).",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_absent",
-        "path": "frontend/lib/display-helpers.js",
-        "needle": "consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length"
-      }
-    },
-    {
-      "id": "C09",
-      "title": "/edge Buy/Sell panels gate and rank on sourceRankSpread, which is not the retail-vs-consensus gap they claim to show",
-      "area": "SIGNAL layer — signal-engine, edge-helpers, movers/market-movers, thresholds, value-history, ros-index/sources, news-service/filters; pages /edge /trending /market/sharp-tracker /news /intel; components BuySellHold, MoversPanel, TopSignalsRail, MarketTicker, PlayerMarketMovement, ScoutingIntel, InsiderLeads, CustomAlertsConfigurator, PlayerRankHistoryChart, StaleDataBanner, SourceHealthStrip",
-      "complexity": "low",
-      "auditEvidence": "frontend/app/edge/page.jsx:137-150 `r.marketGapDirection === \"retail_premium\" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD` … `.sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))`; frontend/lib/edge-helpers.js:336 `detail: \\`Sell +${r.sourceRankSpread} ranks\\``; frontend/app/edge/edge-columns.jsx:84 `accessor: (r) => r.sourceRankSpread ?? null`. Backend stamps the corr",
-      "auditId": "S-3",
-      "path": "frontend/app/edge/page.jsx",
-      "signature": "(r.sourceRankSpread ?? 0) > PREMIUM_SUMMARY_SPREAD",
-      "status": "open",
-      "verifiedBy": "Panels still gate and sort on sourceRankSpread while taking sign from marketGapDirection — magnitude and sign come from different quantities.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "frontend/app/edge/page.jsx",
-        "needle": "(r.sourceRankSpread ?? 0) > PREMIUM_SUMMARY_SPREAD"
-      }
-    },
-    {
-      "id": "C10",
-      "title": "38% of rows in /edge's Buy/Sell panels render as HOLD in the /rankings Edge column for the same player in the same session",
-      "area": "SIGNAL layer — signal-engine, edge-helpers, movers/market-movers, thresholds, value-history, ros-index/sources, news-service/filters; pages /edge /trending /market/sharp-tracker /news /intel; components BuySellHold, MoversPanel, TopSignalsRail, MarketTicker, PlayerMarketMovement, ScoutingIntel, InsiderLeads, CustomAlertsConfigurator, PlayerRankHistoryChart, StaleDataBanner, SourceHealthStrip",
-      "complexity": "low",
-      "auditEvidence": "frontend/lib/display-helpers.js:164-171 `if (diff < MARKET_GAP_MIN_DIFF) { return { label: \"aligned\", … kind: \"aligned\" } }` → marketAction:241-248 maps aligned to `label: \"HOLD\"`; frontend/lib/thresholds.js:46 `export const MARKET_GAP_MIN_DIFF = 10;` versus frontend/app/edge/page.jsx:143 `(r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD` (=20). Recomputed on the live contract: of the 143 rows ",
-      "auditId": "S-4",
-      "path": "frontend/lib/display-helpers.js",
-      "signature": "if (diff < MARKET_GAP_MIN_DIFF)",
-      "status": "closed",
-      "verifiedBy": "CLOSED alongside C08/C19. The HOLD share was an artifact of a rank threshold applied across pools of unequal depth; the gate is now a relative value gap.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_absent",
-        "path": "frontend/lib/thresholds.js",
-        "needle": "export const MARKET_GAP_MIN_DIFF = 10;"
-      }
-    },
-    {
-      "id": "C11",
-      "title": "A single source dropping out silently re-ranks most of the board, and the result is published as a real move with buy/sell framing",
-      "area": "SIGNAL layer — signal-engine, edge-helpers, movers/market-movers, thresholds, value-history, ros-index/sources, news-service/filters; pages /edge /trending /market/sharp-tracker /news /intel; components BuySellHold, MoversPanel, TopSignalsRail, MarketTicker, PlayerMarketMovement, ScoutingIntel, InsiderLeads, CustomAlertsConfigurator, PlayerRankHistoryChart, StaleDataBanner, SourceHealthStrip",
-      "complexity": "medium",
-      "auditEvidence": "src/api/data_contract.py:4729-4736 `prev = previous.get(name)` … `row[\"rankChange\"] = prev - cur_rank` — no coverage term. Simulation on the live payload via `build_api_data_contract(raw, source_overrides={key: {'include': False}})` (which does not write the snapshot): dropping dlfSf changes canonicalConsensusRank for 438 of 740 ranked rows, 7 of them by ≥15 ranks (Marquise Brown −20, Deebo Samuel",
-      "auditId": "S-6",
-      "path": "src/api/data_contract.py",
-      "signature": "write_snapshot=not source_overrides",
-      "status": "open",
-      "verifiedBy": "The shared rank snapshot is still written on any build without source overrides, and rankChange still diffs a board whose source set may have changed.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/api/data_contract.py",
-        "needle": "write_snapshot=not source_overrides"
-      }
-    },
-    {
-      "id": "C12",
-      "title": "The measured TE-premium curve (ADR-015) is structurally unreachable from the UI: the default settings object forces the override path on every session",
-      "area": "Remaining frontend surfaces: home, /settings, /more, /admin, /design, /players/compare, /tools/* (3), all 30 frontend/app/api bridge routes, middleware + public-routes, nav-model, chart-primitives, device-profile, api-retry, player-images, bdvm.js, HillCurveExplorer, components/shell/*, components/admin/*",
-      "complexity": "low",
-      "auditEvidence": "frontend/components/useSettings.js:35 `tepMultiplier: 1.15,               // 1.15 default; 1.0..1.5 = explicit operator override`\nfrontend/components/useSettings.js:184-188 `if (merged.tepMultiplier == null || merged.tepMultiplier === 1.0 || merged.tepMultiplier === 1.25) { merged.tepMultiplier = 1.15; }`\nfrontend/lib/dynasty-data.js:893-897 `export function tepMultiplierIsCustomized(tepMultiplier",
-      "auditId": "V-4",
-      "path": "frontend/components/useSettings.js",
-      "signature": "tepMultiplier: 1.15",
-      "status": "closed",
-      "verifiedBy": "CLOSED. SETTINGS_DEFAULTS.tepMultiplier is the null auto sentinel, so a default session posts no tep_multiplier and the backend applies the measured ADR-015 curve. tepMultiplierIsCustomized is deliberately unchanged — an explicit operator number still overrides. A one-shot tepAutoRestored migration moves installs the previous migration had pinned to a flat 1.15.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_absent",
-        "path": "frontend/components/useSettings.js",
-        "needle": "tepMultiplier: 1.15"
-      }
-    },
-    {
-      "id": "C13",
-      "title": "Every Sharp diagnostic workflow is structurally incapable of committing its artifact — `git add` on a path that .gitignore excludes",
-      "area": "Operational audit — scheduled jobs, monitoring, alerting and failure behavior (what is actually RUNNING vs merely configured)",
-      "complexity": "trivial",
-      "auditEvidence": "`.gitignore:45: data/`. verify-sharp-production.yml:163 `git add data/ops/sharp-production-smoke.json`; force-sharp-production-now.yml:257 `git add data/ops/sharp-force-production-live.json`; trigger-sharp-no-environment.yml:136 `git add data/ops/sharp-no-environment-result.json`; trigger-sharp-now-via-merge.yml:130 `git add data/ops/sharp-merge-trigger-result.json`. `git check-ignore -v data/ops/",
-      "auditId": "O-4",
-      "path": ".github/workflows/verify-sharp-production.yml",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Fixed in batch C2. All FOUR workflows force-add now — the audit named the pattern and a sweep found the other three (force-sharp-production-now, trigger-sharp-no-environment, trigger-sharp-now-via-merge). Verified with git check-ignore: no unguarded `git add data/` remains. The commit step also stops failing on an unchanged artifact, so the enforce gate below it can execute for the first time.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C14",
-      "title": "The Sharp production smoke polls auth-gated endpoints anonymously — 80/80 attempts return 401",
-      "area": "Operational audit — scheduled jobs, monitoring, alerting and failure behavior (what is actually RUNNING vs merely configured)",
-      "complexity": "moderate",
-      "auditEvidence": "verify-sharp-production.yml:55-64 `fetch_json` sends only `User-Agent` and `Cache-Control`. server.py:2801-2809 `_is_public_api_path` returns False for `/api/sharp/cohort`. Actions job 91858761506 result JSON: `\"attempts\": 80`, ten recorded errors all `{\"message\": \"HTTP Error 401: Unauthorized\", \"type\": \"HTTPError\"}` for attempts 71-80, `\"status\": \"degraded_timeout\"`, `\"cohort\": {}`, `\"ffpcMarket\"",
-      "auditId": "O-4b",
-      "path": ".github/workflows/verify-sharp-production.yml",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Fixed in batch C2, though NOT by adding auth — there is no credential to add. /api/sharp/* sits behind _private_api_gate and the workflow declares no secrets at all, so it structurally cannot authenticate. A 401 is now terminal rather than retryable: it means the service is up and correctly refusing an anonymous caller, which is a definitive answer, not a blip. The loop breaks with status unverifiable_unauthenticated instead of spending 80 attempts x 30s = 40 MINUTES on every push to main. The enforce gate reports that as insufficient evidence — loud, not fatal — and names the bearer pattern that would make it enforcing.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C15",
-      "title": "The '<50% of sites' partial-scrape guard degenerates to 'block only on total loss' because `sites` has exactly 2 entries",
-      "area": "Operational audit — scheduled jobs, monitoring, alerting and failure behavior (what is actually RUNNING vs merely configured)",
-      "complexity": "moderate",
-      "auditEvidence": "server.py:2362 `if total_sites > 0 and site_count < total_sites / 2:`. Live payload exports/latest/dynasty_data_2026-08-04.json `sites` = `[{\"key\":\"ktc\",\"label\":\"KTC\",\"max\":9999,\"playerCount\":500},{\"key\":\"idpTradeCalc\",\"label\":\"IDPTradeCalc\",\"max\":9999.0,\"playerCount\":900}]` — len 2. Reproduced numerically: total_sites=2 → threshold 1.0 → blocks only when site_count == 0; site_count=1 → `1 < 1.0` ",
-      "auditId": "O-3",
-      "path": "server.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Fixed in batch C2. Confirmed on the pinned export first: result['sites'] carries exactly 2 entries against a 21-source registry, so the ratio test blocked only on total loss. The guard now also requires every anchor the payload declares in coverageAudit.expectedSites — no invented threshold, no hardcoded source name. The ratio test is KEPT alongside it because a malformed payload yields 'no anchors known missing', which is not 'all present'. Pinned by tests/api/test_scrape_promotion_guard.py including the exact 1-of-2 case the old guard published.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C16",
-      "title": "The ops 'scrape success rate < 50%' alert can never fire — it reads a key its input never contains",
-      "area": "Operational audit — scheduled jobs, monitoring, alerting and failure behavior (what is actually RUNNING vs merely configured)",
-      "complexity": "trivial",
-      "auditEvidence": "src/api/ops_alerts.py:45-50 `rate = status_payload.get('scrape_success_rate_24h'); if rate is None: return None; try: r = float(rate) except (TypeError, ValueError): return None`. server.py:11588 `status_payload = _scrape_status_payload()`. server.py:1266-1304 `_scrape_status_payload` returns `dict(scrape_status)` + stall_threshold_sec + run_timeout_sec + status_summary — no rate key; the scrape_s",
-      "auditId": "O-1",
-      "path": "src/api/ops_alerts.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Fixed in batch C2. Was worse than the audit recorded: the key was attached at server.py:4352 inside the /api/status route only; _scrape_status_payload — what check_and_alert is actually called with — never sets it. And _scrape_success_rate_24h() returns a DICT, so float(rate) would raise even if it arrived. Two independent reasons the alert cannot fire.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C17",
-      "title": "The three routed Hill curves are on different scales from the market values they are averaged with — the IDP master pays ~48% of the IDP market at the same rank",
-      "area": "Core live valuation pipeline — `src/api/data_contract.py::_compute_unified_rankings` and everything it calls (rank→percentile→Hill, value-direct voting, scope routing, TE basis conversion, Hampel, anchor+α, count-aware aggregation, single-source haircut, market corridor clamp, two-way boost, pick year discount, pick tethering, final sort). Audited at commit 9c5d972 by reading the source and by rebuilding the real contract from `exports/latest/dynasty_data_2026-08-04.json` + `CSVs/site_raw/*` in a scratchpad copy (1,092 rows, 740 ranked). Every worked number below reproduces the live payload exactly.",
-      "complexity": "Medium",
-      "auditEvidence": "Measured on a contract rebuilt from the live 2026-08-04 payload. For each row I compared a source's vote at its own effective rank against the retail market value at that same rank:\n\n  IDP master (c=0.083, s=1.110) vs idpTradeCalc raw, n=293:   p10 0.36  median 0.48  p90 0.76\n  OFFENSE master (c=0.110, s=1.110) vs ktcSfTep raw, n=391:   p10 0.68  median 0.76  p90 1.00\n  GLOBAL master (c=0.112, s=0",
-      "auditId": "V-1",
-      "path": "src/api/data_contract.py",
-      "signature": "if src_def.get(\"is_cross_market\"):",
-      "status": "open",
-      "verifiedBy": "_curve_for_source tests is_cross_market FIRST, so IDP-scoped sources route to GLOBAL and the IDP master curve is applied to nothing it was fit on. Fit/apply overlap is zero.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/api/data_contract.py",
-        "needle": "if src_def.get(\"is_cross_market\"):"
-      }
-    },
-    {
-      "id": "C18",
-      "title": "The Hampel filter ejects the designated IDP anchor on 28% of IDP rows",
-      "area": "Core live valuation pipeline — `src/api/data_contract.py::_compute_unified_rankings` and everything it calls (rank→percentile→Hill, value-direct voting, scope routing, TE basis conversion, Hampel, anchor+α, count-aware aggregation, single-source haircut, market corridor clamp, two-way boost, pick year discount, pick tethering, final sort). Audited at commit 9c5d972 by reading the source and by rebuilding the real contract from `exports/latest/dynasty_data_2026-08-04.json` + `CSVs/site_raw/*` in a scratchpad copy (1,092 rows, 740 ranked). Every worked number below reproduces the live payload exactly.",
-      "complexity": "Small",
-      "auditEvidence": "src/api/data_contract.py:7293-7300 runs `_hampel_filter_per_player` over the mixed-scale value list before aggregation. Per-source drop rates on the live board, restricted to assetClass 'idp':\n\n  idpTradeCalc    82/293 = 28.0%   ← the registry's is_backbone:True, is_cross_market:True IDP anchor\n  draftSharksIdp  69/274 = 25.2%   ← the other cross-market anchor\n  fantasyProsIdp   4/166 =  2.4%\n  id",
-      "auditId": "V-1b",
-      "path": "src/api/data_contract.py",
-      "signature": "_hampel_filter_per_player",
-      "status": "open",
-      "verifiedBy": "Runs over the mixed-scale value list produced by C17; measured at 28% ejection of the designated IDP anchor.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/api/data_contract.py",
-        "needle": "_hampel_filter_per_player"
-      }
-    },
-    {
-      "id": "C19",
-      "title": "marketGapDirection (\"Buy\"/\"Sell\" on /edge) averages ordinal ranks across source pools of different depth — 47% of offense rows and 97% of pick rows flip sign under pool normalization",
-      "area": "Non-blend layers of the /api/data contract pipeline @ 9c5d972: tier assignment, confidence/trust scoring, rank stamping and compaction, delta payload, per-row diagnostics and signals, rank/source history, movers, injury impact, auction power, FAAB analytics, public trade-grade valuation (src/api/data_contract.py non-blend paths + compact_view.py, rank_history.py, source_history.py, injury_impact.py, auction_power.py, faab_analytics.py, public_activity_valuation.py)",
-      "complexity": "Medium",
-      "auditEvidence": "src/api/data_contract.py:2789-2796 `retail_mean = sum(retail_ranks)/len(retail_ranks)`, `consensus_mean = sum(consensus_ranks)/len(consensus_ranks)`, `diff = consensus_mean - retail_mean`. Called at :7721 with `effective_source_ranks` — raw ordinals, no pool normalization. The same file's `_percentile_rank_spread` docstring (:3944-3952) says this is invalid: \"an effective spread of 100 doesn't mea",
-      "auditId": "S-1",
-      "path": "src/api/data_contract.py",
-      "signature": "retail_mean = sum(retail_ranks) / len(retail_ranks)",
-      "status": "closed",
-      "verifiedBy": "CLOSED. _compute_market_gap averages sourceRankMeta[*].valueContribution and returns a RELATIVE gap, so pool depth no longer enters the comparison. Top-250 SELL went from 35 labels of which 32 were TE to 130 spread WR 47 / RB 34 / TE 32 / QB 13.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_absent",
-        "path": "src/api/data_contract.py",
-        "needle": "retail_mean = sum(retail_ranks) / len(retail_ranks)"
-      }
-    },
-    {
-      "id": "C20",
-      "title": "The 'held-out' boards are live inputs to the blend the curve serves — the benchmark is not independent of the system it grades",
-      "area": "Canonical Hill-curve valuation primitives + Model Registry (src/canonical/ 7 files, src/model_registry/ 6 files, scripts/auto_refit_hill_curves.py, scripts/fit_hill_curve_percentile.py, scripts/fit_hill_curve_from_market.py, scripts/model_registry.py, scripts/refit_tier_thresholds.py, config/model_registry/hill_scope_masters.json, config/tiers/thresholds.json, .github/workflows/refit-hill-curves.yml) @ 9c5d972",
-      "complexity": "Medium",
-      "auditEvidence": "src/model_registry/holdout.py:74-79 defines the holdout set as FantasyCalc (CSVs/site_raw/fantasyCalc.csv), OTCFFB (otcffbSf.csv), PFKDynasty (pfkDynasty.csv) and FantasyNavigator (fantasyNavigatorSf.csv). All four are registered LIVE BLEND SOURCES: src/api/data_contract.py:1302 (\"key\": \"fantasyCalc\"), :1327 (\"key\": \"otcffbSf\"), :1361 (\"key\": \"fantasyNavigatorSf\"), :1388 (\"key\": \"pfkDynasty\"). I e",
-      "auditId": "V-2",
-      "path": "src/model_registry/holdout.py",
-      "signature": "\"FantasyCalc\": (\"CSVs/site_raw/fantasyCalc.csv\", \"value\")",
-      "status": "open",
-      "verifiedBy": "All four holdout boards are still registered live blend sources.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/model_registry/holdout.py",
-        "needle": "\"FantasyCalc\": (\"CSVs/site_raw/fantasyCalc.csv\", \"value\")"
-      }
-    },
-    {
-      "id": "C21",
-      "title": "The gate rewards precisely the property the pipeline rejected for those same four boards",
-      "area": "Canonical Hill-curve valuation primitives + Model Registry (src/canonical/ 7 files, src/model_registry/ 6 files, scripts/auto_refit_hill_curves.py, scripts/fit_hill_curve_percentile.py, scripts/fit_hill_curve_from_market.py, scripts/model_registry.py, scripts/refit_tier_thresholds.py, config/model_registry/hill_scope_masters.json, config/tiers/thresholds.json, .github/workflows/refit-hill-curves.yml) @ 9c5d972",
-      "complexity": "Medium",
-      "auditEvidence": "All four holdout boards were moved OFF the value-direct path because their published value curves decay faster than our consensus and the Hampel filter discarded most of their votes: data_contract.py:364-381 (fantasyCalc, 'crowd values decay much *faster* down the board than the KTC-anchored Hill consensus', 54.9%→58% drop rate), :395-406 (otcffbSf, 'decay even faster', 55.6%→86%), :548-556 (fanta",
-      "auditId": "V-2b",
-      "path": "src/model_registry/holdout.py",
-      "signature": null,
-      "status": "open",
-      "verifiedBy": "The gate rewards the value-decay property those four boards were moved off the value-direct path for. No single line encodes it — it is a property of the scoring objective; closed together with C20.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C22",
-      "title": "The trade finder receives no position data on the live path, so its per-market gate is inert and it is still offense-only — the exact regression WS-J F-3 claims to have fixed",
-      "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
-      "complexity": "Small",
-      "auditEvidence": "src/trade/finder.py:477 `pos = _norm_pos(pdata.get(\"position\", \"\"))`, fed from server.py:5947 `players = latest_contract_data.get(\"players\")`. I rebuilt the live contract (build_api_data_contract on exports/latest/dynasty_data_2026-08-04.json) and measured: `positions in contract players: [(None, 1092)]` — the legacy players dict carries no `position` key at all. Consequences measured on the real ",
-      "auditId": "T-4",
-      "path": "src/trade/finder.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Positions are plumbed via positions_from_contract; the read at :529 is (positions or {}).get(name) or pdata.get('position'). The comment narrates the exact defect in past tense.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C23",
-      "title": "The finder's explicit IDP-blindness warning cannot fire, because it reads position from the same empty field",
-      "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
-      "complexity": "Small",
-      "auditEvidence": "src/trade/finder.py:992-1004: `league_has_idp = any(_norm_pos(str((p or {}).get(\"position\", \"\"))) in IDP_POSITIONS for p in players.values() ...)` followed by `if league_has_idp and idp_priced == 0: warnings.append(\"No IDP asset carries an IDPTradeCalc value ...\")`. Since every `position` is None, league_has_idp is always False. Confirmed on the live payload: the returned warnings list was exactly",
-      "auditId": "T-5",
-      "path": "src/trade/finder.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "league_has_idp at :1061 reads the plumbed positions map, so the IDP-blindness warning can fire. Closed with C22.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C24",
-      "title": "The finder applies KTC's package Value Adjustment to the market side only, never to the board side — manufacturing arbitrage out of a scale asymmetry",
-      "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
-      "complexity": "Medium",
-      "auditEvidence": "src/trade/finder_value_adjustment.py:44 `adjusted[index] = replace(adjusted[index], market_value=value + adjustment)` — only `market_value` is replaced; `model_value` is untouched, and finder.py:641-643 sums `_mv(a)` (the board value) raw. Live top result, verified end-to-end: give Josh Allen (board 9,993 / KTC 9,987), receive Joe Burrow + Patrick Mahomes (board 8,428 + 7,488 = 15,916 / KTC 7,395 ",
-      "auditId": "T-6",
-      "path": "src/trade/finder_value_adjustment.py",
-      "signature": "market_value=value + adjustment",
-      "status": "open",
-      "verifiedBy": "The package Value Adjustment is still applied to the market side only, manufacturing arbitrage from a scale asymmetry.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/trade/finder_value_adjustment.py",
-        "needle": "market_value=value + adjustment"
-      }
-    },
-    {
-      "id": "C25",
-      "title": "The finder's multi-piece guards run only in the give-more direction; the 1-for-N direction is completely unguarded and is now 98% of output",
-      "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
-      "complexity": "Small",
-      "auditEvidence": "src/trade/finder.py:665 `if len(give) > len(receive):` gates MULTI_FOR_ONE_MIN_RATIO (0.55), ELITE_MULTI_MIN_RATIO (0.65) and PACKAGE_ANCHOR_MIN_PCT (0.35). Nothing constrains `len(receive) > len(give)`. Measured across all 12 live rosters: package shapes returned were `Counter({'1-for-2': 441, '1-for-1': 8})` — zero 2-for-1s survived, and every 1-for-2 bypassed every ratio guard.",
-      "auditId": "T-7",
-      "path": "src/trade/finder.py",
-      "signature": "if len(give) > len(receive):",
-      "status": "open",
-      "verifiedBy": "Multi-piece guards still gate on the give-more direction only; the 1-for-N direction is unguarded.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/trade/finder.py",
-        "needle": "if len(give) > len(receive):"
-      }
-    },
-    {
-      "id": "C26",
-      "title": "The trade-suggestions engine analyses a roster it can only see 10-40% of, and produces zero suggestions for 7 of 12 live teams",
-      "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
-      "complexity": "Medium",
-      "auditEvidence": "suggestions.py:1614 `roster = analyze_roster(roster_names, pool, starter_needs)` is called with the ALREADY-FILTERED pool (server.py:5913 builds it with ktc_top_n=150). Measured on the live contract with dynasty_main starter needs, per team: Blaine roster=53 matched=5 total=0; Collin 58/10 total=0; Ed 57/10 total=0; Joey 58/10 total=0; Kich 58/9 total=0; Roy 51/7 total=0; Ty 56/7 total=0; jstuedle",
-      "auditId": "T-9",
-      "path": "src/trade/suggestions.py",
-      "signature": "analyze_roster(roster_names, pool, starter_needs)",
-      "status": "open",
-      "verifiedBy": "Still called with a name list the pool can only partly resolve.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/trade/suggestions.py",
-        "needle": "analyze_roster(roster_names, pool, starter_needs)"
-      }
-    },
-    {
-      "id": "C27",
-      "title": "Monte Carlo \"win probability\" is computed from an invented ±15% band that exists on zero live rows, and is uncalibrated against anything",
-      "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
-      "complexity": "Medium",
-      "auditEvidence": "src/trade/monte_carlo.py:362-382: `band = row.get(\"valueBand\") or {}` … fallback `p10=cv*0.85, p90=cv*1.15`. Measured on the rebuilt live contract: `any row with valueBand: False` (0 of 1,092). src/api/feature_flags.py:59 already records that `stamp_bands_on_players` has no caller. The frontend replicates the same fallback at MonteCarloButton.jsx:52-54. Because every asset gets the identical relat",
-      "auditId": "T-10",
-      "path": "src/trade/monte_carlo.py",
-      "signature": "p90=_shifted(cv * 1.15)",
-      "status": "open",
-      "verifiedBy": "The invented ±15% band is still the fallback, and no producer populates valueBand.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/trade/monte_carlo.py",
-        "needle": "p90=_shifted(cv * 1.15)"
-      }
-    },
-    {
-      "id": "C28",
-      "title": "BDVM has no projection data on disk — every endpoint is currently a 'no_projection_snapshot' stub, contradicting CLAUDE.md's '726 players priced'",
-      "area": "BDVM — Brisket Dynasty Valuation Model (src/bdvm/, src/api/bdvm_api.py, src/api/bdvm_signal_alerts.py, config/bdvm/, scripts/bdvm_*.py + fetch_clay/fetch_idpshow/refresh_bdvm_projections, docs/research/bdvm-v1/) @ 9c5d972",
-      "complexity": "Small",
-      "auditEvidence": "`data/bdvm/` does not exist on this checkout. Verified: `python3 -c \"from src.bdvm.projections import latest_snapshot_path, SNAPSHOT_DIR; print(SNAPSHOT_DIR.exists()); print(latest_snapshot_path(2026))\"` → `False` / `None`; same for 2025 and 2027. `src/bdvm/events.py:38 EVENTS_DIR` and `src/bdvm/service.py:57 VALUATION_DIR` also absent. `src/bdvm/service.py:281-296` then returns `{\"status\": \"no_pr",
-      "auditId": "B-1",
-      "path": null,
-      "signature": null,
-      "status": "deferred",
-      "verifiedBy": "Not verifiable from the repository: data/ is gitignored, so the absence of data/bdvm/ in a clone proves nothing about production. Requires deployment access to confirm whether the timer has run since the 2026-07-30 deploy.sh fix.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C29",
-      "title": "BDVM's 'exact league scoring' silently drops 6 active reception-band rules — WR fundamentals are ~15% understated, RB ~9%, QB 0%",
-      "area": "BDVM — Brisket Dynasty Valuation Model (src/bdvm/, src/api/bdvm_api.py, src/api/bdvm_signal_alerts.py, config/bdvm/, scripts/bdvm_*.py + fetch_clay/fetch_idpshow/refresh_bdvm_projections, docs/research/bdvm-v1/) @ 9c5d972",
-      "complexity": "Large",
-      "auditEvidence": "`src/nfl_data/realized_points.py:78-99 _SIMPLE_KEYS` has no entry for `rec_0_4`/`rec_5_9`/`rec_10_19`/`rec_20_29`/`rec_30_39`/`rec_40p`, and `compute_weekly_points` (`:323-420`) has no other branch for them. The live league card carries all six at nonzero rates: `rec_0_4=0.17, rec_5_9=0.42, rec_10_19=0.67, rec_20_29=0.92, rec_30_39=1.17, rec_40p=1.92` (exports/latest/dynasty_data_2026-08-04.json →",
-      "auditId": "B-2",
-      "path": "src/nfl_data/realized_points.py",
-      "signature": "\"rec\": (\"receptions\", \"Rec\")",
-      "status": "open",
-      "verifiedBy": "_SIMPLE_KEYS carries flat 'rec' and no rec_0_4 / rec_5_9 / rec_10_19 band keys, so the active reception-band rules score nothing.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/nfl_data/realized_points.py",
-        "needle": "\"rec\": (\"receptions\", \"Rec\")"
-      }
-    },
-    {
-      "id": "C30",
-      "title": "rosterQuality — 22% of the Sharp Score — is structurally zero for every manager in production, and the total is not renormalized",
-      "area": "Sharp Tracker (`src/sharp/` + `config/sharp/` + sharp crawl scripts + `/api/sharp/*` + `/market/sharp-tracker` + 6 GitHub workflows) at commit 9c5d972",
-      "complexity": "Medium",
-      "auditEvidence": "src/sharp/score.py:588-596 weights rosterQuality at 0.22. src/sharp/score.py:322-359 returns 0.0 when no ratio inputs are present: `if not parts: return 0.0, notes` (:356-358). Neither production builder ever supplies those inputs — src/sharp/platform_records.py:158-176 and src/sharp/records.py:418-437 both construct `ManagerRecord(...)` with no `roster_value_ratios`, `age_adjusted_value_ratio`, `",
-      "auditId": "P-1",
-      "path": "src/sharp/score.py",
-      "signature": "float(weights.get(\"rosterQuality\", 0.22)) * roster",
-      "status": "closed",
-      "verifiedBy": "_roster_quality_component now returns None (not 0.0) when it has no evidence, and the scoring sum renormalizes over the components that do — src/sharp/score.py. The unconditional `float(weights.get(\"rosterQuality\", 0.22)) * roster` term is gone; components.weightsApplied is stamped per manager so the renormalization is auditable rather than assumed.",
-      "closedBy": "PR #734 (claude/consensus-edge-recovery), ADR-028",
-      "measuredEffect": "A production-shaped record (6 seasons / 6 leagues / 58-26 / 5 playoffs / 2 titles) scored 64.9 against a real maximum of 78 because 0.22 of the weight was applied to a term that is 0.0 for every manager. It now scores 78.0 and the applied weights sum to 1.0. Ranking and cohort are UNCHANGED: the absent set is identical for every manager so all scores scale by the same factor, and qualification is minScorePercentile (a percentile, not an absolute bar). Asserted in tests/sharp/test_sharp_gates.py, which computes the old arithmetic inline and compares the full ordering and the qualified set. NOT measured against the live cohort: the ledger exists locally but cohort_members() returns 0 members, so a prod observation is still owed. methodologyVersion moved sharp-v2 -> sharp-v2.1.",
-      "batch": null,
-      "probe": {
-        "result": "signature_absent",
-        "path": "src/sharp/score.py",
-        "needle": "float(weights.get(\"rosterQuality\", 0.22)) * roster"
-      }
-    },
-    {
-      "id": "C31",
-      "title": "Activity evidence is only collected for managers who already qualified — the cohort is self-reinforcing and the recency gate is vacuous for everyone else",
-      "area": "Sharp Tracker (`src/sharp/` + `config/sharp/` + sharp crawl scripts + `/api/sharp/*` + `/market/sharp-tracker` + 6 GitHub workflows) at commit 9c5d972",
-      "complexity": "Medium",
-      "auditEvidence": "scripts/crawl_sharp_activity.py:34-44 selects `manager.qualified` managers only, and :63-75 crawls ONLY those: `if not selected: return {\"status\": \"cohort_building\", ...}`. Those crawls are the only writer of `asset_movements` for Sleeper sharp managers. src/sharp/platform_records.py:95-117 then derives BOTH `trades_completed` and `days_since_last_activity` from `asset_movements`. Consequences, bo",
-      "auditId": "P-2",
-      "path": "scripts/crawl_sharp_activity.py",
-      "signature": "def qualified_sleeper_ids()",
-      "status": "open",
-      "verifiedBy": "Activity evidence is still collected only for already-qualified managers.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "scripts/crawl_sharp_activity.py",
-        "needle": "def qualified_sleeper_ids()"
-      }
-    },
-    {
-      "id": "C32",
-      "title": "Trades between two cohort managers produce exactly zero directional signal while inflating volume and confidence",
-      "area": "Sharp Tracker (`src/sharp/` + `config/sharp/` + sharp crawl scripts + `/api/sharp/*` + `/market/sharp-tracker` + 6 GitHub workflows) at commit 9c5d972",
-      "complexity": "Medium",
-      "auditEvidence": "src/intel/crawler.py:288 `if not owner or owner not in pool: return` — both sides of a trade are emitted when both owners are in the pool; :315-316 `emit(rid, \"add\", ...)` / `emit(rid, \"drop\", ...)` for every player. src/intel/crawler.py:458 `pool = set(members)`, and scripts/crawl_sharp_activity.py:77-82 passes the qualified cohort as `member_ids`. src/sharp/market.py:307-312 then counts `entry[\"",
-      "auditId": "P-3",
-      "path": "src/intel/crawler.py",
-      "signature": "if not owner or owner not in pool:",
-      "status": "open",
-      "verifiedBy": "Both sides of a cohort-internal trade are dropped, so the trade adds volume and confidence but no direction.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/intel/crawler.py",
-        "needle": "if not owner or owner not in pool:"
-      }
-    },
-    {
-      "id": "C33",
-      "title": "Two shipped systems give the SAME team opposite contention labels: /phases says \"Win-now\", /api/gameplan says \"rebuild\"",
-      "area": "Roster & Trade Intelligence (src/roster_intel/), Terminal aggregation (src/api/terminal.py + GET /api/terminal), Gameplan API (src/api/gameplan.py + GET /api/gameplan), and their frontend surfaces (frontend/lib/portfolio-insights.js, frontend/lib/team-phase.js, frontend/lib/signal-engine.js, frontend/components/terminal/*, frontend/components/TeamPhasePanel.jsx) — commit 9c5d972",
-      "complexity": "Medium",
-      "auditEvidence": "Owner 831633191830933504 (\"Collin\"). Backend: `src/roster_intel/window.py:league_competitiveness` (lines ~300-330) takes the championship-odds percentile; measured live run → `comp=0.188, mostLikely='rebuild', confidence=0.388` while `lineup_score=673.0` (4th-highest of 12). Frontend: `frontend/lib/team-phase.js:83-90` `if (isHighValue && isYounger) return PHASES.WIN_NOW;` — measured live: Collin ",
-      "auditId": "R-3",
-      "path": "frontend/lib/team-phase.js",
-      "signature": "if (isHighValue && isYounger) return PHASES.WIN_NOW;",
-      "status": "open",
-      "verifiedBy": "The frontend 2x2 median-split classifier is still live alongside roster_intel/window.py and ros/direction.py.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "frontend/lib/team-phase.js",
-        "needle": "if (isHighValue && isYounger) return PHASES.WIN_NOW;"
-      }
-    },
-    {
-      "id": "C34",
-      "title": "Competitive window ranks 8 of 12 rosters on one scale and 4 on an incomparable other, then presents both in one five-state vocabulary",
-      "area": "Roster & Trade Intelligence (src/roster_intel/), Terminal aggregation (src/api/terminal.py + GET /api/terminal), Gameplan API (src/api/gameplan.py + GET /api/gameplan), and their frontend surfaces (frontend/lib/portfolio-insights.js, frontend/lib/team-phase.js, frontend/lib/signal-engine.js, frontend/components/terminal/*, frontend/components/TeamPhasePanel.jsx) — commit 9c5d972",
-      "complexity": "Medium",
-      "auditEvidence": "`data/ros/sims/latest_playoff.json` contains 8 rows for a 12-team league (verified: `len(playoffOdds)==8`; missing ownerIds `{1208452010173538304, 1002085133723299840, 1303549304882892800, 712035316776669184}`). `src/roster_intel/window.py:league_competitiveness` percentiles championshipOdds *over the rows it was given* (`below/ties over len(champ)`), else falls back to `lineupScoreRank` over all ",
-      "auditId": "R-3b",
-      "path": "src/ros/trade_deadline.py",
-      "signature": "owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))",
-      "status": "open",
-      "verifiedBy": "CONFIRMED against live data — data/ros/ is the tracked exception to the data/ gitignore, so this one IS checkable from the repo. data/ros/sims/latest_playoff.json carries 8 rows for a 12-team league, and its playoffOdds are exactly [1.0 x6, 0.0 x2] with converged: true on 2000 sims. That single file is the evidence for three findings at once: the 8-of-12 scale mix here, the degenerate 100%/0% odds (C35), and the four absent owners that the union at this line admits and the ladder then labels Seller (C36, C38). Probed on the union because that is the line the fix changes.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/ros/trade_deadline.py",
-        "needle": "owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))"
-      }
-    },
-    {
-      "id": "C35",
-      "title": "Playoff and championship \"odds\" are structurally degenerate out of season — every team is 100% or 0%, cached and served as current",
-      "area": "Rest-of-Season (ROS) engine — src/ros/ (15 modules, 5,031 lines) + src/ros/sources/ (5 adapters), the /api/ros/* router, the four /league lazy sections (rosTeamStrength, rosChampionship, rosTradeDeadline, rosPower), /trade's RosTradeFitPanel, /tools/ros-data-health, the /league?tab=draft-capital Pick Projector, frontend/lib/{ros-index,ros-sources,ros-data}.js, docs/ros-engine.md, scripts/fetch_draftsharks_ros.py, and the git-tracked data under data/ros/ (5,439 files, ~872 MB). Audited read-only at commit 9c5d972.",
-      "complexity": "Medium",
-      "auditEvidence": "`src/ros/playoff_sim.py:704` `schedule = _remaining_schedule(snapshot)` returns [] when the last loaded season is complete (offseason). The sim loop at `:721` then adds nothing to `sim_wins`, which was seeded from realized wins at `:719`, so every one of the 2,000 draws produces the identical ranking. Live output `data/ros/sims/latest_playoff.json`: `{'n_simulations': 2000, 'converged': True, 'wor",
-      "auditId": "N-1",
-      "path": "src/ros/playoff_sim.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Fixed in batch C3. With no remaining schedule the simulation loop drew no games, so all 2000 'simulations' replayed the standings and every team landed on exactly 1.0 or 0.0 — stamped converged: true, in August, before a 2026 game was played. The fix does NOT refuse every empty schedule, because a FINISHED season is the same shape and there 1.0/0.0 is a fact: it separates the two on whether any games have been played, and returns an empty board with an explicit unsimulable reason only when nothing has been played AND nothing is scheduled. simulate_playoff_odds therefore emits no odds rather than certain ones, which is what lets C36's classifier report 'Insufficient evidence' instead of reading a 0.0.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C36",
-      "title": "A team missing from the playoff sim is coerced to 0% playoff odds and labelled \"Seller\" — the #1 ROS-strength team is currently told to sell",
-      "area": "Rest-of-Season (ROS) engine — src/ros/ (15 modules, 5,031 lines) + src/ros/sources/ (5 adapters), the /api/ros/* router, the four /league lazy sections (rosTeamStrength, rosChampionship, rosTradeDeadline, rosPower), /trade's RosTradeFitPanel, /tools/ros-data-health, the /league?tab=draft-capital Pick Projector, frontend/lib/{ros-index,ros-sources,ros-data}.js, docs/ros-engine.md, scripts/fetch_draftsharks_ros.py, and the git-tracked data under data/ros/ (5,439 files, ~872 MB). Audited read-only at commit 9c5d972.",
-      "complexity": "Small",
-      "auditEvidence": "`src/ros/trade_deadline.py:82` `po = float((playoffs.get(owner) or {}).get(\"playoffOdds\") or 0.0)` — an owner absent from `latest_playoff.json` gets a confident 0.0, not None. The sim covers 8 owners; `data/ros/team_strength/latest.json` has 12. Executing `build_team_directions()` against the committed data on disk returns: `Brent | po 0.0 | co 0.0 | pct 1.0 | Seller` — Brent is ranked #1 of 12 on",
-      "auditId": "N-2",
-      "path": "src/ros/trade_deadline.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Fixed in batch C3, and MEASURED on the live cache rather than asserted: build_team_directions over data/ros/ moved FOUR managers (Brent, Kich, Blaine, jstuedle) from 'Seller' to 'Insufficient evidence' — Brent being rank #1 in the league on ROS strength, told to sell his roster for no reason but absence from an 8-row sim file in a 12-team league. The two genuinely measured 0% teams (Ed, Collin) still read Seller, which is the control: the fix withholds fabricated answers without silencing real ones. Absent owners are still LISTED (dropping them would trade one wrong answer for another) with null odds, a machine-readable reason, measurable: false, and a label that reuses none of the seven buy/sell verbs. They sort last rather than as the worst team. Pinned by tests/ros/test_trade_deadline_unknown.py, including a live-data case that fails if any unmeasurable row ever regains a sell verb.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C37",
-      "title": "structuralScarcity is computed from a log-rank index with an arbitrary zero, so every factor moves when the ROS source universe changes size",
-      "area": "src/league_intel/ — league-adjusted valuation overlay (positional scarcity, replacement levels, scoring/reception fit, TE premium), GET /api/valuation/league-adjusted, server.py::_valuation_scoped_contract, src/api/league_registry.py, config/league_intel/, config/weights/*, docs/adjusted-board-backtest.md, scripts/backtest_adjusted_board.py, scripts/measure_te_demand_actuals.py — audited read-only at commit 9c5d972",
-      "complexity": "Medium",
-      "auditEvidence": "src/league_intel/replacement.py:609-613 `_safe_drop(top, bottom) -> 1 - bottom/top`, used at :655 as `lineup_scarcity=_safe_drop(top, starter)`. Both operands are `rosValue`. src/ros/aggregate.py:171-173: \"``rosValue`` is therefore a normalized log-rank index on 0-100 — not points, and not projection-aware.\" src/ros/parse.py:43-46: `return 100.0 * (log(n+1) - log(r)) / log(n+1)` where `n = total_r",
-      "auditId": "L-1",
-      "path": "src/league_intel/replacement.py",
-      "signature": "def _safe_drop(",
-      "status": "open",
-      "verifiedBy": "structuralScarcity still derives from a log-rank index with an arbitrary zero, so factors move with source universe size.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/league_intel/replacement.py",
-        "needle": "def _safe_drop("
-      }
-    },
-    {
-      "id": "C38",
-      "title": "ROS Trade Deadline publishes explicit BUY/SELL recommendations from missing data coerced to zero — the #1-ranked roster in the league is labelled \"Seller\"",
-      "area": "Public League experience (src/public_league/, 28 modules / 12,655 lines) + the ROS engine sections it exposes (src/ros/, 5,031 lines) + routes /api/public/league*, /api/movers, /api/league-comparison, /api/player/{sleeper_id}/realized, /api/league/articles*, and the /league, /trades, /trending frontend surfaces",
-      "complexity": "Small",
-      "auditEvidence": "src/ros/trade_deadline.py:71 `owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))` unions 12 team-strength owners with 8 sim owners; :79-80 `po = float((playoffs.get(owner) or {}).get(\"playoffOdds\") or 0.0)` / `co = float((champs.get(owner) or {}).get(\"championshipOdds\") or 0.0)` silently substitute 0.0 for absent owners. Reproduced against the live on-disk caches (data/ros/sims/lates",
-      "auditId": "N-2b",
-      "path": "src/ros/trade_deadline.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Closed with C36, but note the union at this line was deliberately KEPT. Narrowing it to the intersection would have hidden four real managers to avoid mislabelling them — a league that appears to have 8 teams is its own wrong answer. What changed is what the union's extra rows are allowed to say: they reach the classifier no longer, and carry an explicit refusal instead of a coerced 0.0.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C39",
-      "title": "A keyword-matched RSS headline directly discounts a user-facing player value by up to 5%, and the severity is not player-specific",
-      "area": "News + player context + NFL data (src/news, src/playerctx, src/nfl_data) with routes /api/news, /api/playerctx/player, /api/player/{sleeper_id}/realized, /api/admin/nfl-data/flush",
-      "complexity": "Medium",
-      "auditEvidence": "src/api/injury_impact.py:80-84 `BASE_DISCOUNT_PCT = {\"alert\": 4.0, \"watch\": 2.0, \"info\": 0.5}`; :281 `discount = base * pos_mult * age_mult * decay`; :331 `adjusted = int(round(base_value * impact[\"adjustedPct\"] / 100.0))`. The severity comes from src/news/providers/_rss.py:97-102 `if _ALERT_RE.search(text): return \"alert\", \"injury\", \"negative\"` — a regex over the CONCATENATED headline+description",
-      "auditId": "E-1",
-      "path": "src/api/injury_impact.py",
-      "signature": "BASE_DISCOUNT_PCT",
-      "status": "open",
-      "verifiedBy": "A keyword-matched headline still discounts a user-facing value by up to 5%, and 'info' severity means no keyword matched at all.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/api/injury_impact.py",
-        "needle": "BASE_DISCOUNT_PCT"
-      }
-    },
-    {
-      "id": "C40",
-      "title": "classify() stamps impact=\"positive\" on every WATCH item — including \"released\" and \"waived\" — which produces a BUY recommendation and silently kills injury_impact's entire watch tier",
-      "area": "News + player context + NFL data (src/news, src/playerctx, src/nfl_data) with routes /api/news, /api/playerctx/player, /api/player/{sleeper_id}/realized, /api/admin/nfl-data/flush",
-      "complexity": "Small",
-      "auditEvidence": "src/news/providers/_rss.py:99-101 `if _WATCH_RE.search(text): kind = ...; return \"watch\", kind, \"positive\"`. `_WATCH_KEYWORDS` (_rss.py:47-63) contains `released`, `waived`, `traded`, `claim`. I ran it: `classify('Jones released by Bears')` -> `('watch','transaction','positive')`; `classify('Team waived WR Smith')` -> `('watch','transaction','positive')`. Two live consequences: (1) src/api/termina",
-      "auditId": "E-2",
-      "path": "src/news/providers/_rss.py",
-      "signature": "return \"watch\", kind, \"positive\"",
-      "status": "open",
-      "verifiedBy": "Every WATCH item is still stamped positive, including 'released' and 'waived'.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "signature_present",
-        "path": "src/news/providers/_rss.py",
-        "needle": "return \"watch\", kind, \"positive\""
-      }
-    },
-    {
-      "id": "C41",
-      "title": "Sleeper-derived draft capital: 53.7% of every non-default league's $1200 board is a hardcoded constant, and pick ownership assumes roster_id == draft slot",
-      "area": "server.py inline decision logic (routes, thresholds, and math implemented directly in the 12,683-line FastAPI monolith), plus the src/ modules those routes call for the audited concepts: src/trade/waiver.py, src/trade/faab_recommender.py, src/api/draft_capital_fallback.py, src/api/signal_alerts.py, src/news/custom_alerts.py, src/api/rank_history.py, src/api/source_history.py — audited at commit 9c5d972.",
-      "complexity": "Medium",
-      "auditEvidence": "src/api/draft_capital_fallback.py:96-99 — `flat = {1: 7000.0, 2: 4000.0, 3: 2000.0, 4: 1200.0, 5: 700.0, 6: 300.0}; return flat.get(round_num, 100.0)`. :175 — `for season in (current_season, current_season + 1):`. :178 — `original_rid = slot  # stand-in: slot N = original owner roster N`. Live data check: exports/latest/dynasty_data_2026-08-04.json carries 72 rows named '2026 Pick R.SS' and ZERO r",
-      "auditId": "X-5",
-      "path": "src/api/draft_capital_fallback.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Same defect as C03 — the invented per-round table is gone and unpriced picks are marked rather than fabricated.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C42",
-      "title": "FAAB bid desk computes its share-of-pool denominator over draft picks, understating every recommended bid by ~2.6x versus the same formula elsewhere",
-      "area": "server.py inline decision logic (routes, thresholds, and math implemented directly in the 12,683-line FastAPI monolith), plus the src/ modules those routes call for the audited concepts: src/trade/waiver.py, src/trade/faab_recommender.py, src/api/draft_capital_fallback.py, src/api/signal_alerts.py, src/news/custom_alerts.py, src/api/rank_history.py, src/api/source_history.py — audited at commit 9c5d972.",
-      "complexity": "Small",
-      "auditEvidence": "server.py:4967-4983 — `for row in arr: ... if rname in rostered_norms: continue ... if v > top_pool_value: top_pool_value = v`, with no asset-class, position, or value filter; passed at server.py:5139 as `top_value_in_pool=top_pool_value`. Draft picks live in playersArray and are never in a team's `players` name list, so they always survive the filter. I computed the pool from the live contract jo",
-      "auditId": "W-1b",
-      "path": "server.py",
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Same defect as C06 (#715) — the registry records the bid desk and the waiver module as separate findings.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    },
-    {
-      "id": "C43",
-      "title": "A preserved last-known-good CSV mints a fresh \"successful fetch\" stamp — the staleness watchdog cannot see a dead KTC or IDPTradeCalc scrape",
-      "area": "Data ingestion, source registry, and normalization pipeline — Dynasty Scraper.py + scripts/fetch_*.py + src/api/data_contract.py blend + refresh/audit workflows",
-      "complexity": "Small",
-      "auditEvidence": "`Dynasty Scraper.py:7452-7462` restores the prior CSV when a source produced no/insufficient data this run: `if not os.path.exists(dest): ... f.write(content); _preserved_site_raw.add(fname_sr); print(f\"  [site_raw] Preserved previous {fname_sr}\")`. That write gives the file a fresh mtime. `.github/workflows/scheduled-refresh.yml:224-236` then stamps it: `stamp_if_present() { if [[ -f \"$csv\" && \"$",
-      "auditId": "Z-2",
-      "path": null,
-      "signature": null,
-      "status": "closed",
-      "verifiedBy": "Fixed in batch C2, at the STAMPING layer rather than the preserve layer — preserving last-good is correct and desirable; claiming it was fetched is not. stamp_if_present already required the CSV to be newer than a pre-scraper marker, and that guard was DEFEATED because the scraper's restore pass rewrites the preserved board with open(dest,'wb') during the run, giving it a current mtime and a full row count. The scraper already records the answer — manifest.json carries siteRawPreserved — and nothing consulted it. stamp_if_present now skips any board listed there. Exercised in a real shell across four paths (preserved / fresh / corrupt manifest / missing manifest); the last two fall back to the mtime gate so one bad manifest cannot suppress stamping everywhere.",
-      "closedBy": null,
-      "measuredEffect": null,
-      "batch": null,
-      "probe": {
-        "result": "no_mechanical_probe"
-      }
-    }
-  ]
+  {
+   "id": "C02",
+   "title": "Inflation diverges hyperbolically at the end of every draft, producing absurd late-draft prices",
+   "area": "Draft / auction decision engine \u2014 frontend/lib/draft-logic.js, pick-stack.js, auction-power.js, app/draft/page.jsx, app/idptc-rookies/page.jsx, backend /api/draft-capital + src/api/draft_capital_fallback.py + src/api/auction_power.py + CSVs/Draft Data.xlsx (commit 9c5d972)",
+   "complexity": "medium",
+   "auditEvidence": "frontend/lib/draft-logic.js:550-551 \u2014 `const expectedPoolRemaining = Math.max(1, totalBudget - soldPreDraft); const inflation = remainingLeague / expectedPoolRemaining;`. Reproduced with a pool summing to exactly $1200 and every pick hammering at 75% of fair: inflation reads 58.20 at pick 67, 96.33 at 69, 144.00 at 70, 287.00 at 71 \u2014 the last $1 rookie shows Fair $287 / Enforce $229. Reproduced wi",
+   "auditId": "D-2",
+   "path": "frontend/lib/draft-logic.js",
+   "signature": "const inflationDegraded = !(expectedPoolRemaining > 0)",
+   "status": "needs_review",
+   "verifiedBy": "The Math.max(1, \u2026) the audit cited is GONE \u2014 replaced by an explicit degraded-state guard. But remainingLeague / expectedPoolRemaining still grows without bound as the denominator approaches 0 from above, so the hyperbolic divergence needs re-measuring before this is called closed.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "frontend/lib/draft-logic.js",
+    "needle": "const inflationDegraded = !(expectedPoolRemaining > 0)"
+   }
+  },
+  {
+   "id": "C03",
+   "title": "Sleeper-derived draft capital fabricates 52% of the board on live data \u2014 and the 503 guard added to prevent exactly this does not fire",
+   "area": "Draft / auction decision engine \u2014 frontend/lib/draft-logic.js, pick-stack.js, auction-power.js, app/draft/page.jsx, app/idptc-rookies/page.jsx, backend /api/draft-capital + src/api/draft_capital_fallback.py + src/api/auction_power.py + CSVs/Draft Data.xlsx (commit 9c5d972)",
+   "complexity": "medium",
+   "auditEvidence": "src/api/draft_capital_fallback.py:96-99 \u2014 `# Fallback: flat per-round value.  Round 1 \u2248 7000, Round 2 \u2248 4000, / flat = {1: 7000.0, 2: 4000.0, 3: 2000.0, 4: 1200.0, 5: 700.0, 6: 300.0}` reached from the loop at :175 `for season in (current_season, current_season + 1):`. Guard at server.py:8154 \u2014 `if not is_default_league and not latest_contract_data:`. Verified against exports/latest/dynasty_data_2",
+   "auditId": "D-3",
+   "path": "src/api/draft_capital_fallback.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "The hardcoded {1: 7000, 2: 4000, \u2026} table is gone. _pick_value_from_contract returns None on a miss and callers stamp isUnpriced; the docstring records the removal. Closed before this pass, by the work CLAUDE.md documents as D-2.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C04",
+   "title": "The Value column silently switches from the Hill-curve board to the raw scraper composite for 260 rows, and 158 of them display a LARGER number than the deepest genuinely-priced player",
+   "area": "Frontend rankings surface \u2014 `frontend/lib/dynasty-data.js` (buildRows / mergeRankingsDelta / applyValuationOverlay / RANKING_SOURCES), `rankings-helpers.js`, `player-filters.js`, `display-helpers.js`, `valuation-mode.js`, `weight-presets.js`, `thresholds.js`, `app/rankings/page.jsx`, `app/rankings/[position]/page.jsx`, `app/rankings/board-utils.js`, `app/rankings/board-sections.jsx`, `lib/edge-helpers.js`, `components/ds/DataTable.jsx`, `components/PlayerPopup.jsx` \u2014 verified against a real contract built from `exports/latest/dynasty_data_2026-08-04.json` via `src/api/data_contract.build_api_data_contract` (1,092 playersArray rows \u2192 1,072 materialized rows).",
+   "complexity": "low \u2014 one expression in buildRows, one in the Value cell renderer, one in the exporter; the buildRows sort already treats these rows as valueless, so nothing downstream reorders.",
+   "auditEvidence": "frontend/lib/dynasty-data.js:1008 \u2014 `full: Math.round(backendValue || rawValues.full),` and the render at frontend/app/rankings/page.jsx:1050 \u2014 `const val = Math.round(row.rankDerivedValue || row.values?.full || 0);`. Live contract: Devin Bush `values={overall:2549, rawComposite:2549, finalAdjusted:2549, displayValue:null}`, `rankDerivedValue:null` \u2192 row displays 2,549, band 'D \u2014 Depth value (2000",
+   "auditId": "V-3",
+   "path": "frontend/lib/dynasty-data.js",
+   "signature": "full: Math.round(backendValue || rawValues.full)",
+   "status": "needs_review",
+   "verifiedBy": "PARTLY CLOSED, and the headline half is gone \u2014 re-measured in batch C3 by running buildRows over the real contract. The audit reported 260 rows promoting the raw scraper composite into the Value column, 158 of them above the deepest genuinely-priced player. Measured now: 261 rows the board declines to price, and ZERO render a non-zero number. The math audit's H1 fix made inferValueBundle return the board value only, so both sides of the `backendValue || rawValues.full` expression now derive from rankDerivedValue and the composite can no longer reach the column. The expression survives and looks like the defect, which is why this stays flagged rather than closed.\n\nWHAT REMAINS is the same defect class one step milder: those 261 rows render 0, which asserts 'worth nothing' rather than 'not priced', and 0 sorts and aggregates as a real value. That is the Unknown render rule (em-dash, sorts last, excluded from aggregates with the exclusion counted) and it is frontend-wide work \u2014 the type landed in C3 with the two ROS sites; this is scoped to its own batch rather than half-done here.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "frontend/lib/dynasty-data.js",
+    "needle": "full: Math.round(backendValue || rawValues.full)"
+   }
+  },
+  {
+   "id": "C05",
+   "title": "The trade verdict's direction is undefined: the meter calls the side with the BIGGER pile the winner, while every other part of the same page treats a side's pile as what that side GIVES AWAY",
+   "area": "Trade calculator, trade verdict, and trade retro-grading (frontend/lib/trade-logic.js, trade-share.js, trade-retro-value.js, /trade, /trades, /arbitrage, /finder, /angle, components/trade/*, RosTradeFitPanel, BdvmTradePanel, MonteCarloButton, TradeFlowSankey, MultiTradeFlow) at commit 9c5d972",
+   "complexity": "low to change, high to decide \u2014 every downstream label and the stack sign depend on the choice",
+   "auditEvidence": "GIVE convention \u2014 frontend/lib/trade-logic.js:1392-1393 `const value = ...effectiveValue(asset...); result[i].given += value;` then `result[dest].received += value`; frontend/app/trade/trade-sections.jsx:808 `<div className={styles.sideGroupLabel}>Giving</div>` over `side.assets`; frontend/components/graphs/MultiTradeFlow.jsx:80 \"Each side appears once on the left (giver)\"; frontend/app/trade/page",
+   "auditId": "T-1",
+   "path": "frontend/lib/trade-logic.js",
+   "signature": "result[i].given += value",
+   "status": "open",
+   "verifiedBy": "The GIVE convention is live at :1393 while the verdict names the bigger pile the winner. Both conventions still present.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "frontend/lib/trade-logic.js",
+    "needle": "result[i].given += value"
+   }
+  },
+  {
+   "id": "C06",
+   "title": "The live FAAB bid is a share of a DRAFT PICK's value - every recommended bid is ~2.4x too low",
+   "area": "Waivers + FAAB (frontend /waivers, lib/waiver-logic.js, ManualAddDrop, FaabRecommendation; backend /api/waiver/suggestions, /api/waiver/faab-recommend, faab_recommender, faab_contention, faab_analytics, ktc_crowd_faab, /api/intel/waiver-interest)",
+   "complexity": "low (2 lines) but requires re-baselining absolute-dollar test assertions",
+   "auditEvidence": "server.py:4969-4977 - `for row in arr: ... rname = _norm(row.get(\"displayName\")...); if not rname or rname in rostered_norms: continue; v = float(row.get(\"rankDerivedValue\") or 0); if v > top_pool_value: top_pool_value = v`. Measured on the 2026-08-04 contract rebuilt via build_api_data_contract: 427 unrostered rows, 144 of them assetClass=='pick'; top_pool_value = 7831.0 = '2026 Pick 1.01'; best ",
+   "auditId": "W-1",
+   "path": "server.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "FAAB pool denominator no longer counts draft picks (#715). Recorded twice in the registry \u2014 see C42, the same defect.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C07",
+   "title": "The FAAB dollar figure is a value percentile mapped onto a dollar scale, not a bid derived from budget, replacement value, competition or expected contribution",
+   "area": "Waivers + FAAB (frontend /waivers, lib/waiver-logic.js, ManualAddDrop, FaabRecommendation; backend /api/waiver/suggestions, /api/waiver/faab-recommend, faab_recommender, faab_contention, faab_analytics, ktc_crowd_faab, /api/intel/waiver-interest)",
+   "complexity": "high - modeling decision, not a bug fix",
+   "auditEvidence": "src/trade/waiver.py:86-95 - `share = candidate_value / top_v ...; aggressive_pct = 0.05 + 0.25 * share; aggressive = max(1, round(league_budget * aggressive_pct))`. Because share is normalized to the pool maximum, the top free agent always prices at exactly 30%/21%/10%: measured _compute_faab_bid(1905, 100, 1905) = (30, 21, 10), where 1905 is Marlin Klein, a TE outside every starting lineup on the",
+   "auditId": "W-2",
+   "path": "src/trade/waiver.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed by #707 while this batch was open \u2014 caught by this registry's own drift probe, not by noticing. The pool-relative `0.05 + 0.25 * (value / best on the wire)` is gone; _compute_faab_bid is now a shim over src/trade/faab_engine, whose ceiling is pinned to league-format anchors, and top_value_in_pool is accepted and ignored. Measured on the surface capture: a player at value 2000 now bids $20 on a rich wire AND $20 on a picked-over one, where before it was $11 vs $28 \u2014 the wire-dependence the finding was about is gone.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C08",
+   "title": "/edge \"Sell signals\" is a scoring-format artifact: 36 of 36 eligible tight ends are labelled SELL, and zero are labelled BUY",
+   "area": "SIGNAL layer \u2014 signal-engine, edge-helpers, movers/market-movers, thresholds, value-history, ros-index/sources, news-service/filters; pages /edge /trending /market/sharp-tracker /news /intel; components BuySellHold, MoversPanel, TopSignalsRail, MarketTicker, PlayerMarketMovement, ScoutingIntel, InsiderLeads, CustomAlertsConfigurator, PlayerRankHistoryChart, StaleDataBanner, SourceHealthStrip",
+   "complexity": "medium",
+   "auditEvidence": "src/api/data_contract.py:2786-2792 `retail_mean = sum(retail_ranks) / len(retail_ranks)` \u2026 `diff = consensus_mean - retail_mean` \u2026 `if diff > 0: return \"retail_premium\"`. Recomputed on the live 2026-08-04 contract, direction by position for top-250 offense rows: TE {sell: 36}, QB {buy: 29, sell: 2}, RB {sell: 14, buy: 31}, WR {buy: 47, sell: 17}. Of the 50 rows that qualify for the Sell panel, 34 ",
+   "auditId": "S-2",
+   "path": "src/api/data_contract.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed by #740 with S-1 (C19) \u2014 same site, same fix. The audit framed this as 'the sole retail anchor is a TE-premium board and the consensus is not', implying a basis split would fix it. Measured in batch C4, neither percentile normalization (68 of 72 TEs SELL -> 66) nor restricting the consensus side to TEP-native peers (-> 63) moved it, because the reading was CORRECT: KTC ranks AJ Barner 121 and every other source ranks him 139-248. Value space dissolves it instead \u2014 valueContribution is already on the TE++ basis, so the artifact never forms. Pinned by the market_gap harness surface's 'tight_end_rank_gap_but_value_agreement' case: a TE with a huge ordinal gap (40 vs 180/200) and a 0.025 value ratio, correctly below the label floor.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C09",
+   "title": "/edge Buy/Sell panels gate and rank on sourceRankSpread, which is not the retail-vs-consensus gap they claim to show",
+   "area": "SIGNAL layer \u2014 signal-engine, edge-helpers, movers/market-movers, thresholds, value-history, ros-index/sources, news-service/filters; pages /edge /trending /market/sharp-tracker /news /intel; components BuySellHold, MoversPanel, TopSignalsRail, MarketTicker, PlayerMarketMovement, ScoutingIntel, InsiderLeads, CustomAlertsConfigurator, PlayerRankHistoryChart, StaleDataBanner, SourceHealthStrip",
+   "complexity": "low",
+   "auditEvidence": "frontend/app/edge/page.jsx:137-150 `r.marketGapDirection === \"retail_premium\" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD` \u2026 `.sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))`; frontend/lib/edge-helpers.js:336 `detail: \\`Sell +${r.sourceRankSpread} ranks\\``; frontend/app/edge/edge-columns.jsx:84 `accessor: (r) => r.sourceRankSpread ?? null`. Backend stamps the corr",
+   "auditId": "S-3",
+   "path": "frontend/app/edge/page.jsx",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed by THIS pass (C4-R) \u2014 the only one of the four S findings #740 left open, and the one with live user impact. Worse than recorded: both /edge premium panels FILTERED and SORTED on sourceRankSpread \u2014 how much the sources disagree with each other \u2014 while displaying marketGapDirection's sign. A clean, large gap on a player every source agreed about was EXCLUDED; a negligible gap on a player they were arguing over sorted FIRST. Measured: the spread gate passed 148 of the 414 two-sided rows, and on the wrong axis entirely.\n\nTwo further instances beyond the recorded one: edge-helpers' topRetailPremium / topConsensusPremium did the same AND rendered it, printing 'Sell +45 ranks' where 45 was the disagreement width described to the user as the gap. All four now gate, sort and label on marketGapValueRatio at PREMIUM_SUMMARY_VALUE_RATIO (0.15, p70 of the live distribution). PREMIUM_SUMMARY_SPREAD survives, narrowed to the disagreements panel where it belongs.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C10",
+   "title": "38% of rows in /edge's Buy/Sell panels render as HOLD in the /rankings Edge column for the same player in the same session",
+   "area": "SIGNAL layer \u2014 signal-engine, edge-helpers, movers/market-movers, thresholds, value-history, ros-index/sources, news-service/filters; pages /edge /trending /market/sharp-tracker /news /intel; components BuySellHold, MoversPanel, TopSignalsRail, MarketTicker, PlayerMarketMovement, ScoutingIntel, InsiderLeads, CustomAlertsConfigurator, PlayerRankHistoryChart, StaleDataBanner, SourceHealthStrip",
+   "complexity": "low",
+   "auditEvidence": "frontend/lib/display-helpers.js:164-171 `if (diff < MARKET_GAP_MIN_DIFF) { return { label: \"aligned\", \u2026 kind: \"aligned\" } }` \u2192 marketAction:241-248 maps aligned to `label: \"HOLD\"`; frontend/lib/thresholds.js:46 `export const MARKET_GAP_MIN_DIFF = 10;` versus frontend/app/edge/page.jsx:143 `(r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD` (=20). Recomputed on the live contract: of the 143 rows ",
+   "auditId": "S-4",
+   "path": "frontend/lib/display-helpers.js",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed by #740. display-helpers no longer thresholds a rank difference: marketEdge / marketAction / marketGapLabel all read valueContribution through the same relative-gap formula the backend uses, gated on the single shared MARKET_GAP_MIN_VALUE_RATIO. The four competing thresholds that gated this one concept are down to two, and config/thresholds.json + tests/api/test_threshold_parity.py (landed here) make a third impossible to add silently.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C11",
+   "title": "A single source dropping out silently re-ranks most of the board, and the result is published as a real move with buy/sell framing",
+   "area": "SIGNAL layer \u2014 signal-engine, edge-helpers, movers/market-movers, thresholds, value-history, ros-index/sources, news-service/filters; pages /edge /trending /market/sharp-tracker /news /intel; components BuySellHold, MoversPanel, TopSignalsRail, MarketTicker, PlayerMarketMovement, ScoutingIntel, InsiderLeads, CustomAlertsConfigurator, PlayerRankHistoryChart, StaleDataBanner, SourceHealthStrip",
+   "complexity": "medium",
+   "auditEvidence": "src/api/data_contract.py:4729-4736 `prev = previous.get(name)` \u2026 `row[\"rankChange\"] = prev - cur_rank` \u2014 no coverage term. Simulation on the live payload via `build_api_data_contract(raw, source_overrides={key: {'include': False}})` (which does not write the snapshot): dropping dlfSf changes canonicalConsensusRank for 438 of 740 ranked rows, 7 of them by \u226515 ranks (Marquise Brown \u221220, Deebo Samuel",
+   "auditId": "S-6",
+   "path": "src/api/data_contract.py",
+   "signature": "write_snapshot=not source_overrides",
+   "status": "open",
+   "verifiedBy": "The shared rank snapshot is still written on any build without source overrides, and rankChange still diffs a board whose source set may have changed.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/api/data_contract.py",
+    "needle": "write_snapshot=not source_overrides"
+   }
+  },
+  {
+   "id": "C12",
+   "title": "The measured TE-premium curve (ADR-015) is structurally unreachable from the UI: the default settings object forces the override path on every session",
+   "area": "Remaining frontend surfaces: home, /settings, /more, /admin, /design, /players/compare, /tools/* (3), all 30 frontend/app/api bridge routes, middleware + public-routes, nav-model, chart-primitives, device-profile, api-retry, player-images, bdvm.js, HillCurveExplorer, components/shell/*, components/admin/*",
+   "complexity": "low",
+   "auditEvidence": "frontend/components/useSettings.js:35 `tepMultiplier: 1.15,               // 1.15 default; 1.0..1.5 = explicit operator override`\nfrontend/components/useSettings.js:184-188 `if (merged.tepMultiplier == null || merged.tepMultiplier === 1.0 || merged.tepMultiplier === 1.25) { merged.tepMultiplier = 1.15; }`\nfrontend/lib/dynasty-data.js:893-897 `export function tepMultiplierIsCustomized(tepMultiplier",
+   "auditId": "V-4",
+   "path": "frontend/components/useSettings.js",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed on MAIN, not by this pass \u2014 picked up during the C4-R merge. SETTINGS_DEFAULTS.tepMultiplier is now the null auto sentinel, so a default session posts no tep_multiplier and the backend applies the measured ADR-015 curve; tepMultiplierIsCustomized is deliberately unchanged so an explicit operator number still overrides, and a one-shot tepAutoRestored migration moves installs the previous migration had pinned to a flat 1.15. Batch C6 step 6.4 no longer needs it.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C13",
+   "title": "Every Sharp diagnostic workflow is structurally incapable of committing its artifact \u2014 `git add` on a path that .gitignore excludes",
+   "area": "Operational audit \u2014 scheduled jobs, monitoring, alerting and failure behavior (what is actually RUNNING vs merely configured)",
+   "complexity": "trivial",
+   "auditEvidence": "`.gitignore:45: data/`. verify-sharp-production.yml:163 `git add data/ops/sharp-production-smoke.json`; force-sharp-production-now.yml:257 `git add data/ops/sharp-force-production-live.json`; trigger-sharp-no-environment.yml:136 `git add data/ops/sharp-no-environment-result.json`; trigger-sharp-now-via-merge.yml:130 `git add data/ops/sharp-merge-trigger-result.json`. `git check-ignore -v data/ops/",
+   "auditId": "O-4",
+   "path": ".github/workflows/verify-sharp-production.yml",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C2. All FOUR workflows force-add now \u2014 the audit named the pattern and a sweep found the other three (force-sharp-production-now, trigger-sharp-no-environment, trigger-sharp-now-via-merge). Verified with git check-ignore: no unguarded `git add data/` remains. The commit step also stops failing on an unchanged artifact, so the enforce gate below it can execute for the first time.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C14",
+   "title": "The Sharp production smoke polls auth-gated endpoints anonymously \u2014 80/80 attempts return 401",
+   "area": "Operational audit \u2014 scheduled jobs, monitoring, alerting and failure behavior (what is actually RUNNING vs merely configured)",
+   "complexity": "moderate",
+   "auditEvidence": "verify-sharp-production.yml:55-64 `fetch_json` sends only `User-Agent` and `Cache-Control`. server.py:2801-2809 `_is_public_api_path` returns False for `/api/sharp/cohort`. Actions job 91858761506 result JSON: `\"attempts\": 80`, ten recorded errors all `{\"message\": \"HTTP Error 401: Unauthorized\", \"type\": \"HTTPError\"}` for attempts 71-80, `\"status\": \"degraded_timeout\"`, `\"cohort\": {}`, `\"ffpcMarket\"",
+   "auditId": "O-4b",
+   "path": ".github/workflows/verify-sharp-production.yml",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C2, though NOT by adding auth \u2014 there is no credential to add. /api/sharp/* sits behind _private_api_gate and the workflow declares no secrets at all, so it structurally cannot authenticate. A 401 is now terminal rather than retryable: it means the service is up and correctly refusing an anonymous caller, which is a definitive answer, not a blip. The loop breaks with status unverifiable_unauthenticated instead of spending 80 attempts x 30s = 40 MINUTES on every push to main. The enforce gate reports that as insufficient evidence \u2014 loud, not fatal \u2014 and names the bearer pattern that would make it enforcing.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C15",
+   "title": "The '<50% of sites' partial-scrape guard degenerates to 'block only on total loss' because `sites` has exactly 2 entries",
+   "area": "Operational audit \u2014 scheduled jobs, monitoring, alerting and failure behavior (what is actually RUNNING vs merely configured)",
+   "complexity": "moderate",
+   "auditEvidence": "server.py:2362 `if total_sites > 0 and site_count < total_sites / 2:`. Live payload exports/latest/dynasty_data_2026-08-04.json `sites` = `[{\"key\":\"ktc\",\"label\":\"KTC\",\"max\":9999,\"playerCount\":500},{\"key\":\"idpTradeCalc\",\"label\":\"IDPTradeCalc\",\"max\":9999.0,\"playerCount\":900}]` \u2014 len 2. Reproduced numerically: total_sites=2 \u2192 threshold 1.0 \u2192 blocks only when site_count == 0; site_count=1 \u2192 `1 < 1.0` ",
+   "auditId": "O-3",
+   "path": "server.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C2. Confirmed on the pinned export first: result['sites'] carries exactly 2 entries against a 21-source registry, so the ratio test blocked only on total loss. The guard now also requires every anchor the payload declares in coverageAudit.expectedSites \u2014 no invented threshold, no hardcoded source name. The ratio test is KEPT alongside it because a malformed payload yields 'no anchors known missing', which is not 'all present'. Pinned by tests/api/test_scrape_promotion_guard.py including the exact 1-of-2 case the old guard published.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C16",
+   "title": "The ops 'scrape success rate < 50%' alert can never fire \u2014 it reads a key its input never contains",
+   "area": "Operational audit \u2014 scheduled jobs, monitoring, alerting and failure behavior (what is actually RUNNING vs merely configured)",
+   "complexity": "trivial",
+   "auditEvidence": "src/api/ops_alerts.py:45-50 `rate = status_payload.get('scrape_success_rate_24h'); if rate is None: return None; try: r = float(rate) except (TypeError, ValueError): return None`. server.py:11588 `status_payload = _scrape_status_payload()`. server.py:1266-1304 `_scrape_status_payload` returns `dict(scrape_status)` + stall_threshold_sec + run_timeout_sec + status_summary \u2014 no rate key; the scrape_s",
+   "auditId": "O-1",
+   "path": "src/api/ops_alerts.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C2. Was worse than the audit recorded: the key was attached at server.py:4352 inside the /api/status route only; _scrape_status_payload \u2014 what check_and_alert is actually called with \u2014 never sets it. And _scrape_success_rate_24h() returns a DICT, so float(rate) would raise even if it arrived. Two independent reasons the alert cannot fire.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C17",
+   "title": "The three routed Hill curves are on different scales from the market values they are averaged with \u2014 the IDP master pays ~48% of the IDP market at the same rank",
+   "area": "Core live valuation pipeline \u2014 `src/api/data_contract.py::_compute_unified_rankings` and everything it calls (rank\u2192percentile\u2192Hill, value-direct voting, scope routing, TE basis conversion, Hampel, anchor+\u03b1, count-aware aggregation, single-source haircut, market corridor clamp, two-way boost, pick year discount, pick tethering, final sort). Audited at commit 9c5d972 by reading the source and by rebuilding the real contract from `exports/latest/dynasty_data_2026-08-04.json` + `CSVs/site_raw/*` in a scratchpad copy (1,092 rows, 740 ranked). Every worked number below reproduces the live payload exactly.",
+   "complexity": "Medium",
+   "auditEvidence": "Measured on a contract rebuilt from the live 2026-08-04 payload. For each row I compared a source's vote at its own effective rank against the retail market value at that same rank:\n\n  IDP master (c=0.083, s=1.110) vs idpTradeCalc raw, n=293:   p10 0.36  median 0.48  p90 0.76\n  OFFENSE master (c=0.110, s=1.110) vs ktcSfTep raw, n=391:   p10 0.68  median 0.76  p90 1.00\n  GLOBAL master (c=0.112, s=0",
+   "auditId": "V-1",
+   "path": "src/api/data_contract.py",
+   "signature": "if src_def.get(\"is_cross_market\"):",
+   "status": "open",
+   "verifiedBy": "_curve_for_source tests is_cross_market FIRST, so IDP-scoped sources route to GLOBAL and the IDP master curve is applied to nothing it was fit on. Fit/apply overlap is zero.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/api/data_contract.py",
+    "needle": "if src_def.get(\"is_cross_market\"):"
+   }
+  },
+  {
+   "id": "C18",
+   "title": "The Hampel filter ejects the designated IDP anchor on 28% of IDP rows",
+   "area": "Core live valuation pipeline \u2014 `src/api/data_contract.py::_compute_unified_rankings` and everything it calls (rank\u2192percentile\u2192Hill, value-direct voting, scope routing, TE basis conversion, Hampel, anchor+\u03b1, count-aware aggregation, single-source haircut, market corridor clamp, two-way boost, pick year discount, pick tethering, final sort). Audited at commit 9c5d972 by reading the source and by rebuilding the real contract from `exports/latest/dynasty_data_2026-08-04.json` + `CSVs/site_raw/*` in a scratchpad copy (1,092 rows, 740 ranked). Every worked number below reproduces the live payload exactly.",
+   "complexity": "Small",
+   "auditEvidence": "src/api/data_contract.py:7293-7300 runs `_hampel_filter_per_player` over the mixed-scale value list before aggregation. Per-source drop rates on the live board, restricted to assetClass 'idp':\n\n  idpTradeCalc    82/293 = 28.0%   \u2190 the registry's is_backbone:True, is_cross_market:True IDP anchor\n  draftSharksIdp  69/274 = 25.2%   \u2190 the other cross-market anchor\n  fantasyProsIdp   4/166 =  2.4%\n  id",
+   "auditId": "V-1b",
+   "path": "src/api/data_contract.py",
+   "signature": "_hampel_filter_per_player",
+   "status": "open",
+   "verifiedBy": "Runs over the mixed-scale value list produced by C17; measured at 28% ejection of the designated IDP anchor.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/api/data_contract.py",
+    "needle": "_hampel_filter_per_player"
+   }
+  },
+  {
+   "id": "C19",
+   "title": "marketGapDirection (\"Buy\"/\"Sell\" on /edge) averages ordinal ranks across source pools of different depth \u2014 47% of offense rows and 97% of pick rows flip sign under pool normalization",
+   "area": "Non-blend layers of the /api/data contract pipeline @ 9c5d972: tier assignment, confidence/trust scoring, rank stamping and compaction, delta payload, per-row diagnostics and signals, rank/source history, movers, injury impact, auction power, FAAB analytics, public trade-grade valuation (src/api/data_contract.py non-blend paths + compact_view.py, rank_history.py, source_history.py, injury_impact.py, auction_power.py, faab_analytics.py, public_activity_valuation.py)",
+   "complexity": "Medium",
+   "auditEvidence": "src/api/data_contract.py:2789-2796 `retail_mean = sum(retail_ranks)/len(retail_ranks)`, `consensus_mean = sum(consensus_ranks)/len(consensus_ranks)`, `diff = consensus_mean - retail_mean`. Called at :7721 with `effective_source_ranks` \u2014 raw ordinals, no pool normalization. The same file's `_percentile_rank_spread` docstring (:3944-3952) says this is invalid: \"an effective spread of 100 doesn't mea",
+   "auditId": "S-1",
+   "path": "src/api/data_contract.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed by #740, NOT by this pass, and the difference is worth recording so nobody re-does the inferior version.\n\nBoth fixes agreed on the diagnosis: differencing mean ORDINAL ranks across sources drawn from pools of very unequal depth (ktcSfTep 473 rows, idpTradeCalc 901, dlfSf 278) measures pool depth and format basis rather than opinion. Batch C4 fixed it by normalizing into rank space (rank / observed board depth) and then SUBTRACTING a measured per-position basis \u2014 TE +121, PICK -109 per-mille \u2014 because the tight-end reading is arithmetically correct and only looks like a signal.\n\n#740 instead compares ``sourceRankMeta[key].valueContribution``: post-ladder, common-scaled 0-9999, and already past ADR-015's convert_te_value. That removes the CAUSE. Their medians \u2014 QB +0.008, TE +0.084, WR +0.110, RB +0.112 \u2014 show TE sitting between the others instead of outside them, where C4's approach had to measure the offset and subtract it. Removing a cause beats correcting for it, so src/api/rank_space.py and the de-meaning were deleted in the C4-R rework rather than merged alongside.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C20",
+   "title": "The 'held-out' boards are live inputs to the blend the curve serves \u2014 the benchmark is not independent of the system it grades",
+   "area": "Canonical Hill-curve valuation primitives + Model Registry (src/canonical/ 7 files, src/model_registry/ 6 files, scripts/auto_refit_hill_curves.py, scripts/fit_hill_curve_percentile.py, scripts/fit_hill_curve_from_market.py, scripts/model_registry.py, scripts/refit_tier_thresholds.py, config/model_registry/hill_scope_masters.json, config/tiers/thresholds.json, .github/workflows/refit-hill-curves.yml) @ 9c5d972",
+   "complexity": "Medium",
+   "auditEvidence": "src/model_registry/holdout.py:74-79 defines the holdout set as FantasyCalc (CSVs/site_raw/fantasyCalc.csv), OTCFFB (otcffbSf.csv), PFKDynasty (pfkDynasty.csv) and FantasyNavigator (fantasyNavigatorSf.csv). All four are registered LIVE BLEND SOURCES: src/api/data_contract.py:1302 (\"key\": \"fantasyCalc\"), :1327 (\"key\": \"otcffbSf\"), :1361 (\"key\": \"fantasyNavigatorSf\"), :1388 (\"key\": \"pfkDynasty\"). I e",
+   "auditId": "V-2",
+   "path": "src/model_registry/holdout.py",
+   "signature": "\"FantasyCalc\": (\"CSVs/site_raw/fantasyCalc.csv\", \"value\")",
+   "status": "open",
+   "verifiedBy": "All four holdout boards are still registered live blend sources.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/model_registry/holdout.py",
+    "needle": "\"FantasyCalc\": (\"CSVs/site_raw/fantasyCalc.csv\", \"value\")"
+   }
+  },
+  {
+   "id": "C21",
+   "title": "The gate rewards precisely the property the pipeline rejected for those same four boards",
+   "area": "Canonical Hill-curve valuation primitives + Model Registry (src/canonical/ 7 files, src/model_registry/ 6 files, scripts/auto_refit_hill_curves.py, scripts/fit_hill_curve_percentile.py, scripts/fit_hill_curve_from_market.py, scripts/model_registry.py, scripts/refit_tier_thresholds.py, config/model_registry/hill_scope_masters.json, config/tiers/thresholds.json, .github/workflows/refit-hill-curves.yml) @ 9c5d972",
+   "complexity": "Medium",
+   "auditEvidence": "All four holdout boards were moved OFF the value-direct path because their published value curves decay faster than our consensus and the Hampel filter discarded most of their votes: data_contract.py:364-381 (fantasyCalc, 'crowd values decay much *faster* down the board than the KTC-anchored Hill consensus', 54.9%\u219258% drop rate), :395-406 (otcffbSf, 'decay even faster', 55.6%\u219286%), :548-556 (fanta",
+   "auditId": "V-2b",
+   "path": "src/model_registry/holdout.py",
+   "signature": null,
+   "status": "open",
+   "verifiedBy": "The gate rewards the value-decay property those four boards were moved off the value-direct path for. No single line encodes it \u2014 it is a property of the scoring objective; closed together with C20.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C22",
+   "title": "The trade finder receives no position data on the live path, so its per-market gate is inert and it is still offense-only \u2014 the exact regression WS-J F-3 claims to have fixed",
+   "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
+   "complexity": "Small",
+   "auditEvidence": "src/trade/finder.py:477 `pos = _norm_pos(pdata.get(\"position\", \"\"))`, fed from server.py:5947 `players = latest_contract_data.get(\"players\")`. I rebuilt the live contract (build_api_data_contract on exports/latest/dynasty_data_2026-08-04.json) and measured: `positions in contract players: [(None, 1092)]` \u2014 the legacy players dict carries no `position` key at all. Consequences measured on the real ",
+   "auditId": "T-4",
+   "path": "src/trade/finder.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Positions are plumbed via positions_from_contract; the read at :529 is (positions or {}).get(name) or pdata.get('position'). The comment narrates the exact defect in past tense.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C23",
+   "title": "The finder's explicit IDP-blindness warning cannot fire, because it reads position from the same empty field",
+   "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
+   "complexity": "Small",
+   "auditEvidence": "src/trade/finder.py:992-1004: `league_has_idp = any(_norm_pos(str((p or {}).get(\"position\", \"\"))) in IDP_POSITIONS for p in players.values() ...)` followed by `if league_has_idp and idp_priced == 0: warnings.append(\"No IDP asset carries an IDPTradeCalc value ...\")`. Since every `position` is None, league_has_idp is always False. Confirmed on the live payload: the returned warnings list was exactly",
+   "auditId": "T-5",
+   "path": "src/trade/finder.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "league_has_idp at :1061 reads the plumbed positions map, so the IDP-blindness warning can fire. Closed with C22.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C24",
+   "title": "The finder applies KTC's package Value Adjustment to the market side only, never to the board side \u2014 manufacturing arbitrage out of a scale asymmetry",
+   "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
+   "complexity": "Medium",
+   "auditEvidence": "src/trade/finder_value_adjustment.py:44 `adjusted[index] = replace(adjusted[index], market_value=value + adjustment)` \u2014 only `market_value` is replaced; `model_value` is untouched, and finder.py:641-643 sums `_mv(a)` (the board value) raw. Live top result, verified end-to-end: give Josh Allen (board 9,993 / KTC 9,987), receive Joe Burrow + Patrick Mahomes (board 8,428 + 7,488 = 15,916 / KTC 7,395 ",
+   "auditId": "T-6",
+   "path": "src/trade/finder_value_adjustment.py",
+   "signature": "market_value=value + adjustment",
+   "status": "open",
+   "verifiedBy": "The package Value Adjustment is still applied to the market side only, manufacturing arbitrage from a scale asymmetry.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/trade/finder_value_adjustment.py",
+    "needle": "market_value=value + adjustment"
+   }
+  },
+  {
+   "id": "C25",
+   "title": "The finder's multi-piece guards run only in the give-more direction; the 1-for-N direction is completely unguarded and is now 98% of output",
+   "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
+   "complexity": "Small",
+   "auditEvidence": "src/trade/finder.py:665 `if len(give) > len(receive):` gates MULTI_FOR_ONE_MIN_RATIO (0.55), ELITE_MULTI_MIN_RATIO (0.65) and PACKAGE_ANCHOR_MIN_PCT (0.35). Nothing constrains `len(receive) > len(give)`. Measured across all 12 live rosters: package shapes returned were `Counter({'1-for-2': 441, '1-for-1': 8})` \u2014 zero 2-for-1s survived, and every 1-for-2 bypassed every ratio guard.",
+   "auditId": "T-7",
+   "path": "src/trade/finder.py",
+   "signature": "if len(give) > len(receive):",
+   "status": "open",
+   "verifiedBy": "Multi-piece guards still gate on the give-more direction only; the 1-for-N direction is unguarded.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/trade/finder.py",
+    "needle": "if len(give) > len(receive):"
+   }
+  },
+  {
+   "id": "C26",
+   "title": "The trade-suggestions engine analyses a roster it can only see 10-40% of, and produces zero suggestions for 7 of 12 live teams",
+   "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
+   "complexity": "Medium",
+   "auditEvidence": "suggestions.py:1614 `roster = analyze_roster(roster_names, pool, starter_needs)` is called with the ALREADY-FILTERED pool (server.py:5913 builds it with ktc_top_n=150). Measured on the live contract with dynasty_main starter needs, per team: Blaine roster=53 matched=5 total=0; Collin 58/10 total=0; Ed 57/10 total=0; Joey 58/10 total=0; Kich 58/9 total=0; Roy 51/7 total=0; Ty 56/7 total=0; jstuedle",
+   "auditId": "T-9",
+   "path": "src/trade/suggestions.py",
+   "signature": "analyze_roster(roster_names, pool, starter_needs)",
+   "status": "open",
+   "verifiedBy": "Still called with a name list the pool can only partly resolve.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/trade/suggestions.py",
+    "needle": "analyze_roster(roster_names, pool, starter_needs)"
+   }
+  },
+  {
+   "id": "C27",
+   "title": "Monte Carlo \"win probability\" is computed from an invented \u00b115% band that exists on zero live rows, and is uncalibrated against anything",
+   "area": "Trade engines: src/trade/ (15 modules, ~8,200 LOC) + src/api/trade_simulator.py + routes /api/trade/{suggestions,finder,simulate,simulate-mc,import-ktc,export-ktc} and /api/angle/{find,packages}. Audited at commit 9c5d972 against the live 2026-08-04 payload (exports/latest/dynasty_data_2026-08-04.json, scrapeTimestamp 2026-08-04T03:56:40Z) by rebuilding the real contract with src.api.data_contract.build_api_data_contract and executing the engines on it.",
+   "complexity": "Medium",
+   "auditEvidence": "src/trade/monte_carlo.py:362-382: `band = row.get(\"valueBand\") or {}` \u2026 fallback `p10=cv*0.85, p90=cv*1.15`. Measured on the rebuilt live contract: `any row with valueBand: False` (0 of 1,092). src/api/feature_flags.py:59 already records that `stamp_bands_on_players` has no caller. The frontend replicates the same fallback at MonteCarloButton.jsx:52-54. Because every asset gets the identical relat",
+   "auditId": "T-10",
+   "path": "src/trade/monte_carlo.py",
+   "signature": "p90=_shifted(cv * 1.15)",
+   "status": "open",
+   "verifiedBy": "The invented \u00b115% band is still the fallback, and no producer populates valueBand.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/trade/monte_carlo.py",
+    "needle": "p90=_shifted(cv * 1.15)"
+   }
+  },
+  {
+   "id": "C28",
+   "title": "BDVM has no projection data on disk \u2014 every endpoint is currently a 'no_projection_snapshot' stub, contradicting CLAUDE.md's '726 players priced'",
+   "area": "BDVM \u2014 Brisket Dynasty Valuation Model (src/bdvm/, src/api/bdvm_api.py, src/api/bdvm_signal_alerts.py, config/bdvm/, scripts/bdvm_*.py + fetch_clay/fetch_idpshow/refresh_bdvm_projections, docs/research/bdvm-v1/) @ 9c5d972",
+   "complexity": "Small",
+   "auditEvidence": "`data/bdvm/` does not exist on this checkout. Verified: `python3 -c \"from src.bdvm.projections import latest_snapshot_path, SNAPSHOT_DIR; print(SNAPSHOT_DIR.exists()); print(latest_snapshot_path(2026))\"` \u2192 `False` / `None`; same for 2025 and 2027. `src/bdvm/events.py:38 EVENTS_DIR` and `src/bdvm/service.py:57 VALUATION_DIR` also absent. `src/bdvm/service.py:281-296` then returns `{\"status\": \"no_pr",
+   "auditId": "B-1",
+   "path": null,
+   "signature": null,
+   "status": "deferred",
+   "verifiedBy": "Not verifiable from the repository: data/ is gitignored, so the absence of data/bdvm/ in a clone proves nothing about production. Requires deployment access to confirm whether the timer has run since the 2026-07-30 deploy.sh fix.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C29",
+   "title": "BDVM's 'exact league scoring' silently drops 6 active reception-band rules \u2014 WR fundamentals are ~15% understated, RB ~9%, QB 0%",
+   "area": "BDVM \u2014 Brisket Dynasty Valuation Model (src/bdvm/, src/api/bdvm_api.py, src/api/bdvm_signal_alerts.py, config/bdvm/, scripts/bdvm_*.py + fetch_clay/fetch_idpshow/refresh_bdvm_projections, docs/research/bdvm-v1/) @ 9c5d972",
+   "complexity": "Large",
+   "auditEvidence": "`src/nfl_data/realized_points.py:78-99 _SIMPLE_KEYS` has no entry for `rec_0_4`/`rec_5_9`/`rec_10_19`/`rec_20_29`/`rec_30_39`/`rec_40p`, and `compute_weekly_points` (`:323-420`) has no other branch for them. The live league card carries all six at nonzero rates: `rec_0_4=0.17, rec_5_9=0.42, rec_10_19=0.67, rec_20_29=0.92, rec_30_39=1.17, rec_40p=1.92` (exports/latest/dynasty_data_2026-08-04.json \u2192",
+   "auditId": "B-2",
+   "path": "src/nfl_data/realized_points.py",
+   "signature": "\"rec\": (\"receptions\", \"Rec\")",
+   "status": "open",
+   "verifiedBy": "_SIMPLE_KEYS carries flat 'rec' and no rec_0_4 / rec_5_9 / rec_10_19 band keys, so the active reception-band rules score nothing.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/nfl_data/realized_points.py",
+    "needle": "\"rec\": (\"receptions\", \"Rec\")"
+   }
+  },
+  {
+   "id": "C30",
+   "title": "rosterQuality \u2014 22% of the Sharp Score \u2014 is structurally zero for every manager in production, and the total is not renormalized",
+   "area": "Sharp Tracker (`src/sharp/` + `config/sharp/` + sharp crawl scripts + `/api/sharp/*` + `/market/sharp-tracker` + 6 GitHub workflows) at commit 9c5d972",
+   "complexity": "Medium",
+   "auditEvidence": "src/sharp/score.py:588-596 weights rosterQuality at 0.22. src/sharp/score.py:322-359 returns 0.0 when no ratio inputs are present: `if not parts: return 0.0, notes` (:356-358). Neither production builder ever supplies those inputs \u2014 src/sharp/platform_records.py:158-176 and src/sharp/records.py:418-437 both construct `ManagerRecord(...)` with no `roster_value_ratios`, `age_adjusted_value_ratio`, `",
+   "auditId": "P-1",
+   "path": "src/sharp/score.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed on main by #734 while batch C4 was open \u2014 NOT by this pass, and picked up here rather than reverted. Batch C12 no longer needs to fix P-1.\n\n_roster_quality_component now returns None (not 0.0) when it has no evidence, and the scoring sum renormalizes over the components that do; the unconditional `float(weights.get(\"rosterQuality\", 0.22)) * roster` term is gone and components.weightsApplied is stamped per manager so the renormalization is auditable rather than assumed.\n\nFound by diffing main's generated status.json against this table during the C4 merge \u2014 the file is generated, so resolving the conflict by regenerating would have silently reverted the closure. Worth knowing for every future merge: the generated artifact is not the authority, but it IS the only place another PR's closure shows up.",
+   "closedBy": "PR #734 (claude/consensus-edge-recovery), ADR-028",
+   "measuredEffect": "A production-shaped record (6 seasons / 6 leagues / 58-26 / 5 playoffs / 2 titles) scored 64.9 against a real maximum of 78 because 0.22 of the weight was applied to a term that is 0.0 for every manager. It now scores 78.0 and the applied weights sum to 1.0. Ranking and cohort are UNCHANGED: the absent set is identical for every manager so all scores scale by the same factor, and qualification is minScorePercentile (a percentile, not an absolute bar). Asserted in tests/sharp/test_sharp_gates.py, which computes the old arithmetic inline and compares the full ordering and the qualified set. NOT measured against the live cohort: the ledger exists locally but cohort_members() returns 0 members, so a prod observation is still owed. methodologyVersion moved sharp-v2 -> sharp-v2.1.",
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C31",
+   "title": "Activity evidence is only collected for managers who already qualified \u2014 the cohort is self-reinforcing and the recency gate is vacuous for everyone else",
+   "area": "Sharp Tracker (`src/sharp/` + `config/sharp/` + sharp crawl scripts + `/api/sharp/*` + `/market/sharp-tracker` + 6 GitHub workflows) at commit 9c5d972",
+   "complexity": "Medium",
+   "auditEvidence": "scripts/crawl_sharp_activity.py:34-44 selects `manager.qualified` managers only, and :63-75 crawls ONLY those: `if not selected: return {\"status\": \"cohort_building\", ...}`. Those crawls are the only writer of `asset_movements` for Sleeper sharp managers. src/sharp/platform_records.py:95-117 then derives BOTH `trades_completed` and `days_since_last_activity` from `asset_movements`. Consequences, bo",
+   "auditId": "P-2",
+   "path": "scripts/crawl_sharp_activity.py",
+   "signature": "def qualified_sleeper_ids()",
+   "status": "open",
+   "verifiedBy": "Activity evidence is still collected only for already-qualified managers.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "scripts/crawl_sharp_activity.py",
+    "needle": "def qualified_sleeper_ids()"
+   }
+  },
+  {
+   "id": "C32",
+   "title": "Trades between two cohort managers produce exactly zero directional signal while inflating volume and confidence",
+   "area": "Sharp Tracker (`src/sharp/` + `config/sharp/` + sharp crawl scripts + `/api/sharp/*` + `/market/sharp-tracker` + 6 GitHub workflows) at commit 9c5d972",
+   "complexity": "Medium",
+   "auditEvidence": "src/intel/crawler.py:288 `if not owner or owner not in pool: return` \u2014 both sides of a trade are emitted when both owners are in the pool; :315-316 `emit(rid, \"add\", ...)` / `emit(rid, \"drop\", ...)` for every player. src/intel/crawler.py:458 `pool = set(members)`, and scripts/crawl_sharp_activity.py:77-82 passes the qualified cohort as `member_ids`. src/sharp/market.py:307-312 then counts `entry[\"",
+   "auditId": "P-3",
+   "path": "src/intel/crawler.py",
+   "signature": "if not owner or owner not in pool:",
+   "status": "open",
+   "verifiedBy": "Both sides of a cohort-internal trade are dropped, so the trade adds volume and confidence but no direction.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/intel/crawler.py",
+    "needle": "if not owner or owner not in pool:"
+   }
+  },
+  {
+   "id": "C33",
+   "title": "Two shipped systems give the SAME team opposite contention labels: /phases says \"Win-now\", /api/gameplan says \"rebuild\"",
+   "area": "Roster & Trade Intelligence (src/roster_intel/), Terminal aggregation (src/api/terminal.py + GET /api/terminal), Gameplan API (src/api/gameplan.py + GET /api/gameplan), and their frontend surfaces (frontend/lib/portfolio-insights.js, frontend/lib/team-phase.js, frontend/lib/signal-engine.js, frontend/components/terminal/*, frontend/components/TeamPhasePanel.jsx) \u2014 commit 9c5d972",
+   "complexity": "Medium",
+   "auditEvidence": "Owner 831633191830933504 (\"Collin\"). Backend: `src/roster_intel/window.py:league_competitiveness` (lines ~300-330) takes the championship-odds percentile; measured live run \u2192 `comp=0.188, mostLikely='rebuild', confidence=0.388` while `lineup_score=673.0` (4th-highest of 12). Frontend: `frontend/lib/team-phase.js:83-90` `if (isHighValue && isYounger) return PHASES.WIN_NOW;` \u2014 measured live: Collin ",
+   "auditId": "R-3",
+   "path": "frontend/lib/team-phase.js",
+   "signature": "if (isHighValue && isYounger) return PHASES.WIN_NOW;",
+   "status": "open",
+   "verifiedBy": "The frontend 2x2 median-split classifier is still live alongside roster_intel/window.py and ros/direction.py.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "frontend/lib/team-phase.js",
+    "needle": "if (isHighValue && isYounger) return PHASES.WIN_NOW;"
+   }
+  },
+  {
+   "id": "C34",
+   "title": "Competitive window ranks 8 of 12 rosters on one scale and 4 on an incomparable other, then presents both in one five-state vocabulary",
+   "area": "Roster & Trade Intelligence (src/roster_intel/), Terminal aggregation (src/api/terminal.py + GET /api/terminal), Gameplan API (src/api/gameplan.py + GET /api/gameplan), and their frontend surfaces (frontend/lib/portfolio-insights.js, frontend/lib/team-phase.js, frontend/lib/signal-engine.js, frontend/components/terminal/*, frontend/components/TeamPhasePanel.jsx) \u2014 commit 9c5d972",
+   "complexity": "Medium",
+   "auditEvidence": "`data/ros/sims/latest_playoff.json` contains 8 rows for a 12-team league (verified: `len(playoffOdds)==8`; missing ownerIds `{1208452010173538304, 1002085133723299840, 1303549304882892800, 712035316776669184}`). `src/roster_intel/window.py:league_competitiveness` percentiles championshipOdds *over the rows it was given* (`below/ties over len(champ)`), else falls back to `lineupScoreRank` over all ",
+   "auditId": "R-3b",
+   "path": "src/ros/trade_deadline.py",
+   "signature": "owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))",
+   "status": "open",
+   "verifiedBy": "CONFIRMED against live data \u2014 data/ros/ is the tracked exception to the data/ gitignore, so this one IS checkable from the repo. data/ros/sims/latest_playoff.json carries 8 rows for a 12-team league, and its playoffOdds are exactly [1.0 x6, 0.0 x2] with converged: true on 2000 sims. That single file is the evidence for three findings at once: the 8-of-12 scale mix here, the degenerate 100%/0% odds (C35), and the four absent owners that the union at this line admits and the ladder then labels Seller (C36, C38). Probed on the union because that is the line the fix changes.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/ros/trade_deadline.py",
+    "needle": "owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))"
+   }
+  },
+  {
+   "id": "C35",
+   "title": "Playoff and championship \"odds\" are structurally degenerate out of season \u2014 every team is 100% or 0%, cached and served as current",
+   "area": "Rest-of-Season (ROS) engine \u2014 src/ros/ (15 modules, 5,031 lines) + src/ros/sources/ (5 adapters), the /api/ros/* router, the four /league lazy sections (rosTeamStrength, rosChampionship, rosTradeDeadline, rosPower), /trade's RosTradeFitPanel, /tools/ros-data-health, the /league?tab=draft-capital Pick Projector, frontend/lib/{ros-index,ros-sources,ros-data}.js, docs/ros-engine.md, scripts/fetch_draftsharks_ros.py, and the git-tracked data under data/ros/ (5,439 files, ~872 MB). Audited read-only at commit 9c5d972.",
+   "complexity": "Medium",
+   "auditEvidence": "`src/ros/playoff_sim.py:704` `schedule = _remaining_schedule(snapshot)` returns [] when the last loaded season is complete (offseason). The sim loop at `:721` then adds nothing to `sim_wins`, which was seeded from realized wins at `:719`, so every one of the 2,000 draws produces the identical ranking. Live output `data/ros/sims/latest_playoff.json`: `{'n_simulations': 2000, 'converged': True, 'wor",
+   "auditId": "N-1",
+   "path": "src/ros/playoff_sim.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C3. With no remaining schedule the simulation loop drew no games, so all 2000 'simulations' replayed the standings and every team landed on exactly 1.0 or 0.0 \u2014 stamped converged: true, in August, before a 2026 game was played. The fix does NOT refuse every empty schedule, because a FINISHED season is the same shape and there 1.0/0.0 is a fact: it separates the two on whether any games have been played, and returns an empty board with an explicit unsimulable reason only when nothing has been played AND nothing is scheduled. simulate_playoff_odds therefore emits no odds rather than certain ones, which is what lets C36's classifier report 'Insufficient evidence' instead of reading a 0.0.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C36",
+   "title": "A team missing from the playoff sim is coerced to 0% playoff odds and labelled \"Seller\" \u2014 the #1 ROS-strength team is currently told to sell",
+   "area": "Rest-of-Season (ROS) engine \u2014 src/ros/ (15 modules, 5,031 lines) + src/ros/sources/ (5 adapters), the /api/ros/* router, the four /league lazy sections (rosTeamStrength, rosChampionship, rosTradeDeadline, rosPower), /trade's RosTradeFitPanel, /tools/ros-data-health, the /league?tab=draft-capital Pick Projector, frontend/lib/{ros-index,ros-sources,ros-data}.js, docs/ros-engine.md, scripts/fetch_draftsharks_ros.py, and the git-tracked data under data/ros/ (5,439 files, ~872 MB). Audited read-only at commit 9c5d972.",
+   "complexity": "Small",
+   "auditEvidence": "`src/ros/trade_deadline.py:82` `po = float((playoffs.get(owner) or {}).get(\"playoffOdds\") or 0.0)` \u2014 an owner absent from `latest_playoff.json` gets a confident 0.0, not None. The sim covers 8 owners; `data/ros/team_strength/latest.json` has 12. Executing `build_team_directions()` against the committed data on disk returns: `Brent | po 0.0 | co 0.0 | pct 1.0 | Seller` \u2014 Brent is ranked #1 of 12 on",
+   "auditId": "N-2",
+   "path": "src/ros/trade_deadline.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C3, and MEASURED on the live cache rather than asserted: build_team_directions over data/ros/ moved FOUR managers (Brent, Kich, Blaine, jstuedle) from 'Seller' to 'Insufficient evidence' \u2014 Brent being rank #1 in the league on ROS strength, told to sell his roster for no reason but absence from an 8-row sim file in a 12-team league. The two genuinely measured 0% teams (Ed, Collin) still read Seller, which is the control: the fix withholds fabricated answers without silencing real ones. Absent owners are still LISTED (dropping them would trade one wrong answer for another) with null odds, a machine-readable reason, measurable: false, and a label that reuses none of the seven buy/sell verbs. They sort last rather than as the worst team. Pinned by tests/ros/test_trade_deadline_unknown.py, including a live-data case that fails if any unmeasurable row ever regains a sell verb.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C37",
+   "title": "structuralScarcity is computed from a log-rank index with an arbitrary zero, so every factor moves when the ROS source universe changes size",
+   "area": "src/league_intel/ \u2014 league-adjusted valuation overlay (positional scarcity, replacement levels, scoring/reception fit, TE premium), GET /api/valuation/league-adjusted, server.py::_valuation_scoped_contract, src/api/league_registry.py, config/league_intel/, config/weights/*, docs/adjusted-board-backtest.md, scripts/backtest_adjusted_board.py, scripts/measure_te_demand_actuals.py \u2014 audited read-only at commit 9c5d972",
+   "complexity": "Medium",
+   "auditEvidence": "src/league_intel/replacement.py:609-613 `_safe_drop(top, bottom) -> 1 - bottom/top`, used at :655 as `lineup_scarcity=_safe_drop(top, starter)`. Both operands are `rosValue`. src/ros/aggregate.py:171-173: \"``rosValue`` is therefore a normalized log-rank index on 0-100 \u2014 not points, and not projection-aware.\" src/ros/parse.py:43-46: `return 100.0 * (log(n+1) - log(r)) / log(n+1)` where `n = total_r",
+   "auditId": "L-1",
+   "path": "src/league_intel/replacement.py",
+   "signature": "def _safe_drop(",
+   "status": "open",
+   "verifiedBy": "structuralScarcity still derives from a log-rank index with an arbitrary zero, so factors move with source universe size.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/league_intel/replacement.py",
+    "needle": "def _safe_drop("
+   }
+  },
+  {
+   "id": "C38",
+   "title": "ROS Trade Deadline publishes explicit BUY/SELL recommendations from missing data coerced to zero \u2014 the #1-ranked roster in the league is labelled \"Seller\"",
+   "area": "Public League experience (src/public_league/, 28 modules / 12,655 lines) + the ROS engine sections it exposes (src/ros/, 5,031 lines) + routes /api/public/league*, /api/movers, /api/league-comparison, /api/player/{sleeper_id}/realized, /api/league/articles*, and the /league, /trades, /trending frontend surfaces",
+   "complexity": "Small",
+   "auditEvidence": "src/ros/trade_deadline.py:71 `owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))` unions 12 team-strength owners with 8 sim owners; :79-80 `po = float((playoffs.get(owner) or {}).get(\"playoffOdds\") or 0.0)` / `co = float((champs.get(owner) or {}).get(\"championshipOdds\") or 0.0)` silently substitute 0.0 for absent owners. Reproduced against the live on-disk caches (data/ros/sims/lates",
+   "auditId": "N-2b",
+   "path": "src/ros/trade_deadline.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed with C36, but note the union at this line was deliberately KEPT. Narrowing it to the intersection would have hidden four real managers to avoid mislabelling them \u2014 a league that appears to have 8 teams is its own wrong answer. What changed is what the union's extra rows are allowed to say: they reach the classifier no longer, and carry an explicit refusal instead of a coerced 0.0.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C39",
+   "title": "A keyword-matched RSS headline directly discounts a user-facing player value by up to 5%, and the severity is not player-specific",
+   "area": "News + player context + NFL data (src/news, src/playerctx, src/nfl_data) with routes /api/news, /api/playerctx/player, /api/player/{sleeper_id}/realized, /api/admin/nfl-data/flush",
+   "complexity": "Medium",
+   "auditEvidence": "src/api/injury_impact.py:80-84 `BASE_DISCOUNT_PCT = {\"alert\": 4.0, \"watch\": 2.0, \"info\": 0.5}`; :281 `discount = base * pos_mult * age_mult * decay`; :331 `adjusted = int(round(base_value * impact[\"adjustedPct\"] / 100.0))`. The severity comes from src/news/providers/_rss.py:97-102 `if _ALERT_RE.search(text): return \"alert\", \"injury\", \"negative\"` \u2014 a regex over the CONCATENATED headline+description",
+   "auditId": "E-1",
+   "path": "src/api/injury_impact.py",
+   "signature": "BASE_DISCOUNT_PCT",
+   "status": "open",
+   "verifiedBy": "A keyword-matched headline still discounts a user-facing value by up to 5%, and 'info' severity means no keyword matched at all.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/api/injury_impact.py",
+    "needle": "BASE_DISCOUNT_PCT"
+   }
+  },
+  {
+   "id": "C40",
+   "title": "classify() stamps impact=\"positive\" on every WATCH item \u2014 including \"released\" and \"waived\" \u2014 which produces a BUY recommendation and silently kills injury_impact's entire watch tier",
+   "area": "News + player context + NFL data (src/news, src/playerctx, src/nfl_data) with routes /api/news, /api/playerctx/player, /api/player/{sleeper_id}/realized, /api/admin/nfl-data/flush",
+   "complexity": "Small",
+   "auditEvidence": "src/news/providers/_rss.py:99-101 `if _WATCH_RE.search(text): kind = ...; return \"watch\", kind, \"positive\"`. `_WATCH_KEYWORDS` (_rss.py:47-63) contains `released`, `waived`, `traded`, `claim`. I ran it: `classify('Jones released by Bears')` -> `('watch','transaction','positive')`; `classify('Team waived WR Smith')` -> `('watch','transaction','positive')`. Two live consequences: (1) src/api/termina",
+   "auditId": "E-2",
+   "path": "src/news/providers/_rss.py",
+   "signature": "return \"watch\", kind, \"positive\"",
+   "status": "open",
+   "verifiedBy": "Every WATCH item is still stamped positive, including 'released' and 'waived'.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "signature_present",
+    "path": "src/news/providers/_rss.py",
+    "needle": "return \"watch\", kind, \"positive\""
+   }
+  },
+  {
+   "id": "C41",
+   "title": "Sleeper-derived draft capital: 53.7% of every non-default league's $1200 board is a hardcoded constant, and pick ownership assumes roster_id == draft slot",
+   "area": "server.py inline decision logic (routes, thresholds, and math implemented directly in the 12,683-line FastAPI monolith), plus the src/ modules those routes call for the audited concepts: src/trade/waiver.py, src/trade/faab_recommender.py, src/api/draft_capital_fallback.py, src/api/signal_alerts.py, src/news/custom_alerts.py, src/api/rank_history.py, src/api/source_history.py \u2014 audited at commit 9c5d972.",
+   "complexity": "Medium",
+   "auditEvidence": "src/api/draft_capital_fallback.py:96-99 \u2014 `flat = {1: 7000.0, 2: 4000.0, 3: 2000.0, 4: 1200.0, 5: 700.0, 6: 300.0}; return flat.get(round_num, 100.0)`. :175 \u2014 `for season in (current_season, current_season + 1):`. :178 \u2014 `original_rid = slot  # stand-in: slot N = original owner roster N`. Live data check: exports/latest/dynasty_data_2026-08-04.json carries 72 rows named '2026 Pick R.SS' and ZERO r",
+   "auditId": "X-5",
+   "path": "src/api/draft_capital_fallback.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Same defect as C03 \u2014 the invented per-round table is gone and unpriced picks are marked rather than fabricated.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C42",
+   "title": "FAAB bid desk computes its share-of-pool denominator over draft picks, understating every recommended bid by ~2.6x versus the same formula elsewhere",
+   "area": "server.py inline decision logic (routes, thresholds, and math implemented directly in the 12,683-line FastAPI monolith), plus the src/ modules those routes call for the audited concepts: src/trade/waiver.py, src/trade/faab_recommender.py, src/api/draft_capital_fallback.py, src/api/signal_alerts.py, src/news/custom_alerts.py, src/api/rank_history.py, src/api/source_history.py \u2014 audited at commit 9c5d972.",
+   "complexity": "Small",
+   "auditEvidence": "server.py:4967-4983 \u2014 `for row in arr: ... if rname in rostered_norms: continue ... if v > top_pool_value: top_pool_value = v`, with no asset-class, position, or value filter; passed at server.py:5139 as `top_value_in_pool=top_pool_value`. Draft picks live in playersArray and are never in a team's `players` name list, so they always survive the filter. I computed the pool from the live contract jo",
+   "auditId": "W-1b",
+   "path": "server.py",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Same defect as C06 (#715) \u2014 the registry records the bid desk and the waiver module as separate findings.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  },
+  {
+   "id": "C43",
+   "title": "A preserved last-known-good CSV mints a fresh \"successful fetch\" stamp \u2014 the staleness watchdog cannot see a dead KTC or IDPTradeCalc scrape",
+   "area": "Data ingestion, source registry, and normalization pipeline \u2014 Dynasty Scraper.py + scripts/fetch_*.py + src/api/data_contract.py blend + refresh/audit workflows",
+   "complexity": "Small",
+   "auditEvidence": "`Dynasty Scraper.py:7452-7462` restores the prior CSV when a source produced no/insufficient data this run: `if not os.path.exists(dest): ... f.write(content); _preserved_site_raw.add(fname_sr); print(f\"  [site_raw] Preserved previous {fname_sr}\")`. That write gives the file a fresh mtime. `.github/workflows/scheduled-refresh.yml:224-236` then stamps it: `stamp_if_present() { if [[ -f \"$csv\" && \"$",
+   "auditId": "Z-2",
+   "path": null,
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C2, at the STAMPING layer rather than the preserve layer \u2014 preserving last-good is correct and desirable; claiming it was fetched is not. stamp_if_present already required the CSV to be newer than a pre-scraper marker, and that guard was DEFEATED because the scraper's restore pass rewrites the preserved board with open(dest,'wb') during the run, giving it a current mtime and a full row count. The scraper already records the answer \u2014 manifest.json carries siteRawPreserved \u2014 and nothing consulted it. stamp_if_present now skips any board listed there. Exercised in a real shell across four paths (preserved / fresh / corrupt manifest / missing manifest); the last two fall back to the mtime gate so one bad manifest cannot suppress stamping everywhere.",
+   "closedBy": null,
+   "measuredEffect": null,
+   "batch": null,
+   "probe": {
+    "result": "no_mechanical_probe"
+   }
+  }
+ ]
 }

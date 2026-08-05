@@ -158,6 +158,88 @@ def _ros_deadline_rows() -> dict[str, dict]:
     return rows
 
 
+# ── Market gap (retail vs consensus) ──────────────────────────────────
+# S-1/S-2/S-3.  The gap is measured in VALUE space (#740): each source's
+# ``valueContribution`` — post-ladder, common-scaled 0-9999, and already
+# past ADR-015's convert_te_value — averaged per side, differenced, and
+# expressed RELATIVE to the mean of the two.
+#
+# The grid covers the cases the ordinal version got wrong and the ones
+# that must keep working.  Fixed synthetic stamps rather than live rows,
+# so a data refresh cannot masquerade as a code change.
+_MARKET_GAP_RETAIL = frozenset({"ktcSfTep"})
+
+
+def _meta(**values) -> dict[str, dict]:
+    return {k: {"valueContribution": v} for k, v in values.items()}
+
+
+_MARKET_GAP_CASES = [
+    # (label, ranks, meta)
+    (
+        "retail_premium_large",
+        {"ktcSfTep": 10, "idpTradeCalc": 50},
+        _meta(ktcSfTep=6000.0, idpTradeCalc=4000.0),
+    ),
+    (
+        "consensus_premium_large",
+        {"ktcSfTep": 50, "idpTradeCalc": 10},
+        _meta(ktcSfTep=4000.0, idpTradeCalc=6000.0),
+    ),
+    (
+        "exact_tie",
+        {"ktcSfTep": 30, "idpTradeCalc": 30},
+        _meta(ktcSfTep=5000.0, idpTradeCalc=5000.0),
+    ),
+    (
+        "small_gap_under_floor",
+        {"ktcSfTep": 20, "idpTradeCalc": 25},
+        _meta(ktcSfTep=5100.0, idpTradeCalc=4900.0),
+    ),
+    (
+        "multi_consensus_averaged",
+        {"ktcSfTep": 10, "idpTradeCalc": 40, "dlfIdp": 60},
+        _meta(ktcSfTep=6000.0, idpTradeCalc=4500.0, dlfIdp=3500.0),
+    ),
+    # A tight end whose RANKS look like a structural SELL — retail ranks him
+    # far above every consensus board — but whose VALUES agree, because
+    # valueContribution is already on the TE++ basis.  Under the ordinal
+    # comparison this was the 68-of-72 artifact; here it is unremarkable.
+    (
+        "tight_end_rank_gap_but_value_agreement",
+        {"ktcSfTep": 40, "idpTradeCalc": 180, "dlfIdp": 200},
+        _meta(ktcSfTep=3050.0, idpTradeCalc=3000.0, dlfIdp=2950.0),
+    ),
+    # Abstentions.
+    ("retail_only", {"ktcSfTep": 10}, _meta(ktcSfTep=6000.0)),
+    (
+        "consensus_only_every_defender",
+        {"idpTradeCalc": 10, "dlfIdp": 20},
+        _meta(idpTradeCalc=6000.0, dlfIdp=5800.0),
+    ),
+    ("unranked", {}, {}),
+    # Ranks present but NO value stamps — the legacy-payload path. Must
+    # abstain rather than fall back to the ordinal arithmetic it replaced.
+    ("ranked_but_unpriced", {"ktcSfTep": 10, "idpTradeCalc": 50}, {}),
+]
+
+
+def _market_gap_rows() -> dict[str, dict]:
+    from src.api.data_contract import _compute_market_gap
+
+    rows: dict[str, dict] = {}
+    for label, ranks, meta in _MARKET_GAP_CASES:
+        direction, ratio = _compute_market_gap(
+            ranks, source_meta=meta, retail_keys=_MARKET_GAP_RETAIL
+        )
+        rows[f"market_gap/{label}"] = {
+            "value": _num(ratio),
+            "label": direction,
+            "pricedSides": len(meta),
+        }
+    return rows
+
+
 # ── FAAB bid desk ─────────────────────────────────────────────────────
 # The grid varies the two quantities W-2 says the bid should NOT be a
 # pure function of (the candidate's value and the best asset on the
@@ -233,6 +315,7 @@ def _news_polarity_rows() -> dict[str, dict]:
 _SURFACES = {
     "ros_direction": _ros_direction_rows,
     "ros_deadline": _ros_deadline_rows,
+    "market_gap": _market_gap_rows,
     "faab_bid": _faab_rows,
     "news_polarity": _news_polarity_rows,
 }
