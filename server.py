@@ -2557,6 +2557,13 @@ def load_from_disk() -> dict | None:
     return None
 
 
+# An identity report older than this is stamped ``stale`` on the
+# scaffold response.  The producer (``scripts/identity_resolve.py``) is
+# run by no scheduler, so "old" is the normal state and the number is a
+# reporting threshold, not an SLA.
+_IDENTITY_REPORT_STALE_AFTER_DAYS = 7
+
+
 def _latest_file(directory: Path, pattern: str) -> Path | None:
     if not directory.exists():
         return None
@@ -5374,12 +5381,53 @@ async def get_scaffold_league():
 
 @app.get("/api/scaffold/identity")
 async def get_scaffold_identity():
+    """The identity-resolution report, with its age stamped on it.
+
+    The payload is produced by ``scripts/identity_resolve.py``, which no
+    workflow, timer or service runs — so the file on disk is whatever
+    the last manual run left behind, and the response carried no age
+    field at all.  Measured 2026-08-04: ``generated_at``
+    2026-04-20T19:48:28Z, **106 days** older than the live contract,
+    served as current (audit W06-F010).
+
+    Repairing the report's CONTENT is separate work — its ``sleeper_id``
+    is hardcoded empty in ``src/identity/matcher.py`` and its pick table
+    is empty because the bridge adapter types every record ``player``.
+    What is fixed here is the surface implying a freshness it does not
+    have: ``_meta.ageDays`` / ``_meta.stale`` make the age visible, and
+    an unparseable timestamp reports ``None`` rather than defaulting to
+    fresh.
+    """
     file_path = _latest_file(DATA_DIR / "identity", "identity_resolution_*.json")
     if file_path is None:
         file_path = _latest_file(DATA_DIR / "identity", "identity_report_*.json")
     payload = _load_json_file(file_path)
     if payload is None:
         return JSONResponse(status_code=404, content={"error": "No identity report found"})
+    generated_at = str(payload.get("generated_at") or "").strip()
+    age_days: int | None = None
+    stale: bool | None = None
+    if generated_at:
+        try:
+            stamped = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+            if stamped.tzinfo is None:
+                stamped = stamped.replace(tzinfo=timezone.utc)
+            age_days = max(0, (datetime.now(timezone.utc) - stamped).days)
+            stale = age_days > _IDENTITY_REPORT_STALE_AFTER_DAYS
+        except (TypeError, ValueError):
+            age_days = None
+            stale = None
+    payload = {
+        **payload,
+        "_meta": {
+            "generatedAt": generated_at or None,
+            "ageDays": age_days,
+            "stale": stale,
+            "staleAfterDays": _IDENTITY_REPORT_STALE_AFTER_DAYS,
+            "sourceFile": file_path.name,
+            "producer": "scripts/identity_resolve.py (no scheduler runs it)",
+        },
+    }
     return JSONResponse(content=payload)
 
 
