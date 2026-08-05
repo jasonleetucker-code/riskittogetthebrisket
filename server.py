@@ -5404,7 +5404,7 @@ async def post_waiver_faab_recommend(request: Request):
         if intel_snapshot is not None:
             intel_index = _faab_contention.build_intel_index(
                 intel_snapshot,
-                id_to_position=_faab_contention.player_position_map(latest_contract_data),
+                id_to_position=_faab_contention.player_position_map(contract),
             )
         # The rival base must be TEAM-INDEPENDENT: the user's own
         # ``standard`` bakes in THEIR remaining-FAAB cap and THEIR
@@ -5424,7 +5424,14 @@ async def post_waiver_faab_recommend(request: Request):
                     add_position=add_position,
                     add_player_id=add_player_id or None,
                     opponents=opponents,
-                    contract=latest_contract_data,
+                    # The LENS-SCOPED contract, not the module global.
+                    # ``estimate_rival_bids`` builds the opponent asset
+                    # pool from it (``build_opponent_asset_pool``), so
+                    # the module global priced rival demand on the
+                    # market board while the user's own bid above was
+                    # priced on the adjusted one — two boards behind one
+                    # ``valuationMode`` stamp (W11-F018).
+                    contract=contract,
                     team_aggression=team_aggression,
                     league_median_winning_bid=(league_summary or {}).get("leagueMedianWinningBid"),
                     intel_index=intel_index,

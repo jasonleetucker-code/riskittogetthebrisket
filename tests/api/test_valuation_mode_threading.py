@@ -482,3 +482,75 @@ def test_every_board_scale_field_is_in_the_list_the_overlay_scales():
     moved = out[[r["displayName"] for r in out].index(rows[0]["displayName"])]
     for field in _overlay.BOARD_SCALE_ROW_FIELDS:
         assert moved[field] == int(round(rows[0][field] * 1.5)), field
+
+
+# ── 5. A scoped handler must not reach back for the module global ───────
+#
+# W11-F018. ``/api/waiver/faab-recommend`` threaded the lens correctly for
+# the user's own bid — add/drop values, the pool max, the next-best-FA
+# value all came off ``contract`` — and then handed
+# ``latest_contract_data`` to ``estimate_rival_bids``, which builds the
+# opponent asset pool from it. Rival demand was therefore priced on the
+# market board while the bid it was compared against was priced on the
+# adjusted one, and ONE ``valuationMode`` was stamped for both. Same
+# class as R28's field-name collisions: two boards, one label.
+
+# Callee name -> why the MARKET board is the right input there anyway.
+# Anything not named here must take the scoped contract.
+_MODULE_GLOBAL_IS_CORRECT_FOR = {
+    # KTC's crowd FAAB map is a retail market signal in dollars, not a
+    # board value; the lens has nothing to say about it.
+    "crowd_bid_map_from_contract": "retail market signal, not a board value",
+    # This IS the scoping function. Its factors are measured from the
+    # loaded contract's rows by definition.
+    "get_league_adjusted_values": "computes the factors themselves",
+}
+
+
+def _module_global_passed_to(tree: ast.Module, handler_names: set[str]) -> list[str]:
+    """``(handler, callee)`` for every call that hands the module global
+    to another function from inside a lens-scoped handler.
+
+    Attribute reads (``latest_contract_data.get("sleeper")``) are not
+    flagged: the overlay shares every untouched block by reference, so
+    reading ``sleeper`` off either object returns the same thing.
+    """
+    offenders: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name not in handler_names:
+            continue
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Call):
+                continue
+            fn = inner.func
+            callee = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
+            if callee in _MODULE_GLOBAL_IS_CORRECT_FOR:
+                continue
+            args = [*inner.args, *(kw.value for kw in inner.keywords)]
+            for arg in args:
+                if isinstance(arg, ast.Name) and arg.id == "latest_contract_data":
+                    offenders.append(f"{node.name} -> {callee}")
+    return offenders
+
+
+def test_a_lens_scoped_handler_never_hands_the_module_global_to_a_helper():
+    tree = ast.parse(_SERVER_PY.read_text(encoding="utf-8"))
+    applies = _handlers_calling(tree, "_valuation_scoped_contract")
+    assert len(applies) >= 8, f"only {len(applies)} handlers apply the lens; the scan is broken"
+    offenders = _module_global_passed_to(tree, applies)
+    assert not offenders, (
+        "these lens-scoped handlers price part of their answer on the market "
+        f"board while stamping one mode for the whole response: {sorted(set(offenders))}"
+    )
+
+
+def test_that_scan_would_catch_it():
+    """The guard above is only worth anything if it can fail."""
+    tree = ast.parse(
+        "async def h():\n"
+        "    contract, m, n = await _valuation_scoped_contract(request, body, cfg)\n"
+        "    return estimate_rival_bids(contract=latest_contract_data)\n"
+    )
+    assert _module_global_passed_to(tree, {"h"}) == ["h -> estimate_rival_bids"]
