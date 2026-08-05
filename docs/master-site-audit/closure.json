@@ -1,18 +1,20 @@
 {
- "generatedAt": "2026-08-05T03:23:53+00:00",
+ "generatedAt": "2026-08-05T07:55:23+00:00",
  "totals": {
   "findings": 431,
-  "claimedClosed": 12,
+  "claimedClosed": 63,
   "reproSafeToRerun": 338
  },
  "byClosure": {
-  "open": 330,
-  "open-unsafe-to-rerun": 89,
-  "claimed-unverified": 12
+  "open": 289,
+  "open-unsafe-to-rerun": 79,
+  "claimed-unverified": 63
  },
  "claimedByPriority": {
   "P0": 9,
-  "P1": 3
+  "P1": 33,
+  "P2": 16,
+  "P3": 5
  },
  "records": [
   {
@@ -873,11 +875,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Pick ingestion / blend",
    "title": "Only 2 of 21 sources cast any vote on any draft pick, and all 72 slot picks are single-source: a fresh KTC pick value sits unread in canonicalSiteValues while the anchor is IDPTradeCalc alone",
-   "claimedBy": null,
+   "claimedBy": "00a3ce2c",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W05-F007",
@@ -1149,11 +1151,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "buildRows materializer",
    "title": "222 rows on the live board display a client-invented ordinal in the # column, and CLAUDE.md's stated bound for that fallback is factually wrong \u2014 the backend's board stops at rank 740, never reaching the 800 limit the doc cites",
-   "claimedBy": null,
+   "claimedBy": "19739ec9",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W07-F004",
@@ -1161,11 +1163,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Rankings display layer",
    "title": "The board fabricates a tier, a positional rank, a confidence badge and an actionable BUY/SELL verdict for the 222 players it declines to price",
-   "claimedBy": null,
+   "claimedBy": "19739ec9",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W07-F005",
@@ -1245,11 +1247,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade verdict copy",
    "title": "The Value Adjustment tooltip tells the user the bonus goes to 'the side with fewer pieces', but 46.7% of fired VAs go to a side with equal or MORE pieces",
-   "claimedBy": null,
+   "claimedBy": "556f7410",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W08-F003",
@@ -1269,11 +1271,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade asset picker",
    "title": "Current-year (2026) draft picks cannot be found in the trade calculator's only search box \u2014 the exclusion is a hardcoded /^2026\\b/ regex, not the contract's currentDraftYear",
-   "claimedBy": null,
+   "claimedBy": "00a3ce2c",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W08-F005",
@@ -1413,11 +1415,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade suggestions",
    "title": "Trade suggestions returns zero suggestions for 8 of 12 live teams, with no diagnosis in the payload",
-   "claimedBy": null,
+   "claimedBy": "91b098cb",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "contains '-X POST'",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F002",
@@ -1425,11 +1427,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade finder",
    "title": "Every trade the arbitrage finder returns is a 1-for-2; 1-for-1 candidates exist but rank 2,159th and 2-for-1 never qualifies at all",
-   "claimedBy": null,
+   "claimedBy": "e604b446",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F003",
@@ -1437,11 +1439,11 @@
    "status_label": "Implemented but disconnected",
    "subsystem": "Trade finder",
    "title": "Draft picks can never appear in a trade-finder or trade-suggestion result: both engines resolve rosters from sleeper.teams[].players, which contains zero picks",
-   "claimedBy": null,
+   "claimedBy": "00a3ce2c",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F004",
@@ -1449,11 +1451,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade suggestions",
    "title": "No defensive back is eligible for any trade suggestion: the best DB on the board ranks 167th, past the top-150 gate, in a league that starts three of them",
-   "claimedBy": null,
+   "claimedBy": "91b098cb",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F005",
@@ -1461,11 +1463,11 @@
    "status_label": "Mocked or hard-coded",
    "subsystem": "Monte Carlo trade simulator",
    "title": "Monte Carlo uncertainty is a hard-coded flat +/-15% band on zero live rows, and the 9999 clamp makes it understate an elite asset by 5.07%",
-   "claimedBy": null,
+   "claimedBy": "0394382f",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "contains '-X POST'",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F006",
@@ -1473,11 +1475,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Valuation lens threading",
    "title": "The leagueAdjusted valuation lens is a silent no-op on every all-offense trade in /api/trade/simulate and /api/trade/finder, while the response still stamps valuationMode: leagueAdjusted",
-   "claimedBy": null,
+   "claimedBy": "8fe26b42",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "contains '-X POST'",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F007",
@@ -1497,11 +1499,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade finder",
    "title": "The finder's 'high confidence' tier is structurally unreachable: it measures the scraper's 3-source site count against a 5-source baseline while the board blends up to 14",
-   "claimedBy": null,
+   "claimedBy": "2b592eeb",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F009",
@@ -1509,11 +1511,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade finder",
    "title": "The finder's 'arbitrage' score is 80% own-side gain and 20% opponent appeal, so it ranks lopsidedness rather than the market/board gap it is named for",
-   "claimedBy": null,
+   "claimedBy": "e0df5e31",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F010",
@@ -1521,11 +1523,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade finder",
    "title": "Finder metadata.myRosterSize reports the post-filter asset count, understating a 57-man roster as 34 and a 44-man roster as 12",
-   "claimedBy": null,
+   "claimedBy": "aab3fa3f",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F011",
@@ -1545,11 +1547,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade finder",
    "title": "The finder performs no dominance pruning: 40 returned trades for Jason are built from only 4 distinct give-side assets, one of which appears in 20 of them",
-   "claimedBy": null,
+   "claimedBy": "7bd4079b",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F013",
@@ -1557,11 +1559,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade suggestions",
    "title": "Trade suggestions emits the same trade under two categories, so totalSuggestions overstates the distinct ideas produced",
-   "claimedBy": null,
+   "claimedBy": "aab3fa3f",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "redirects output",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W09-F014",
@@ -1593,11 +1595,11 @@
    "status_label": "Partially implemented",
    "subsystem": "Monte Carlo trade simulator",
    "title": "Monte Carlo run-to-run variance is small but no convergence statistic is exposed, and the panel that calls it 404s through the Next origin",
-   "claimedBy": null,
+   "claimedBy": "0394382f",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "contains '-X POST'",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W10-F001",
@@ -2013,11 +2015,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "FAAB contention",
    "title": "The rival-contention model reads the unscoped market contract while the user's own bid reads the valuation-lens-scoped one, and a single valuationMode is stamped for both",
-   "claimedBy": null,
+   "claimedBy": "54312c7b",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W11-F019",
@@ -2073,11 +2075,11 @@
    "status_label": "Duplicate or conflicting implementation",
    "subsystem": "Directional labels / market-gap family",
    "title": "Clicking a /rankings row opens a popup whose BUY/SELL verdict contradicts the Edge column on the row you just clicked \u2014 83 rows, including 7 of the top 15",
-   "claimedBy": null,
+   "claimedBy": "274646e6",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W12-F002",
@@ -2121,11 +2123,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Signal alerts / hysteresis",
    "title": "The 12-hour signal-alert cooldown is keyed on the rule TAG, so it never engages when the reason changes \u2014 which is exactly what changes when a signal flips \u2014 and the email then renders the flip as a first-ever signal",
-   "claimedBy": null,
+   "claimedBy": "526ba28f",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W12-F006",
@@ -2145,11 +2147,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Directional labels / confidence",
    "title": "Direction is never gated on confidence: 253 of the 356 directional verbs on /rankings sit on rows the same page badges as low or no confidence, and 102 rest on a 'consensus' of two sources or fewer",
-   "claimedBy": null,
+   "claimedBy": "274646e6",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W12-F008",
@@ -2193,11 +2195,11 @@
    "status_label": "Blocked by data",
    "subsystem": "Rule engines / evidence honesty",
    "title": "Both live rule engines return HOLD 'Stable \u2014 no movement, volatility, or news triggers' for 665 of 665 rostered players because the rank-history log does not exist, and no surface says the evidence is missing",
-   "claimedBy": null,
+   "claimedBy": "0092df60",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W12-F012",
@@ -2265,11 +2267,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "BDVM roster analysis",
    "title": "BDVM roster strategy capitals and the double-positive trade scan exclude every draft pick, omitting 8-52% of rebuilder capital and flipping 2 of 12 direction labels",
-   "claimedBy": null,
+   "claimedBy": "00a3ce2c",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "redirects output",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W13-F003",
@@ -2289,11 +2291,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "BDVM pick valuation",
    "title": "Tier-form rookie picks in rounds 5-6 cannot be priced: the regex covers 1st-4th only, and the 24 affected rows are labelled with the factually wrong reason \"unparseable_pick_name\"",
-   "claimedBy": null,
+   "claimedBy": "00a3ce2c",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W13-F005",
@@ -3129,11 +3131,11 @@
    "status_label": "Implemented but disconnected",
    "subsystem": "ROS buyer/seller direction",
    "title": "direction.py's position-aware veteran-age table is unreachable in production \u2014 build_section never passes teams, so ageProfile is {} on all 12 live rows and the age-gated Strong Seller branch can never fire",
-   "claimedBy": null,
+   "claimedBy": "5e286edc",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W17-F011",
@@ -3333,11 +3335,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Public league \u2014 activity / trade grading",
    "title": "Public trade letter grades silently drop 224 of 1,708 traded asset slots (13.1%) that the board cannot price \u2014 including 20 first-round-pick slots \u2014 and emit a confident 'Robbery'/'Fleeced' badge with no unpriced-asset disclosure anywhere on the payload or the page",
-   "claimedBy": null,
+   "claimedBy": "0507e06a",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W19-F004",
@@ -3345,11 +3347,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Public league \u2014 awards",
    "title": "Eight 2026 awards are manufactured from a season with zero scored games \u2014 'Points King: Jason, 0.0 PF', 'Regular-Season Crown: Jason, 0-0', 'League MVP: Justin Jefferson, 0.0 VORP' \u2014 and the live Awards tab counts them into its 'N yrs' award-history badge",
-   "claimedBy": null,
+   "claimedBy": "0092df60",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W19-F005",
@@ -3513,11 +3515,11 @@
    "status_label": "Implemented but disconnected",
    "subsystem": "Roster intelligence / gameplan",
    "title": "GET /api/gameplan and all 4,385 lines of src/roster_intel/ have zero frontend consumers \u2014 no page, no component, no Next bridge route references it",
-   "claimedBy": null,
+   "claimedBy": "7ef33a95",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F002",
@@ -3537,11 +3539,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Terminal / team aggregates",
    "title": "Terminal roster strength is the raw sum of rankDerivedValue over rostered players \u2014 no lineup solve, no starter/depth weighting, no positional deficit, and draft picks excluded entirely",
-   "claimedBy": null,
+   "claimedBy": "bdc2894c",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F004",
@@ -3549,11 +3551,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Terminal / portfolio panel",
    "title": "PortfolioSummary renders a Total Value that excludes picks beside a 'Picks' legend that includes them \u2014 the three legend numbers sum to 314,562 under a Total Value of 171,495",
-   "claimedBy": null,
+   "claimedBy": "00a3ce2c",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F005",
@@ -3573,11 +3575,11 @@
    "status_label": "Duplicate or conflicting implementation",
    "subsystem": "Team direction",
    "title": "Four independent team-direction classifiers ship simultaneously and disagree on 9 of 12 teams; three are reachable by a user and none references the others",
-   "claimedBy": null,
+   "claimedBy": "0e39b666",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "redirects output",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F007",
@@ -3585,11 +3587,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Team strength (/rosters)",
    "title": "/rosters shows two contradictory rankings of the same 12 teams on one screen: Jason is #1 in the power table and #5 'Mid-Tier' in the tier cards 400px below",
-   "claimedBy": null,
+   "claimedBy": "0e39b666",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F008",
@@ -3597,11 +3599,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Team direction (/phases)",
    "title": "/phases classifies zero teams as 'Rebuild' on live data, so its headline trade-partner feature renders nothing and the page never says why",
-   "claimedBy": null,
+   "claimedBy": "0e39b666",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F009",
@@ -3609,11 +3611,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Team direction (/phases)",
    "title": "team-phase.js is a pure median split, so a 10x increase in one team's roster value changes nothing while a 50% cut to that team relabels a DIFFERENT team",
-   "claimedBy": null,
+   "claimedBy": "0e39b666",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F010",
@@ -3621,11 +3623,11 @@
    "status_label": "Partially implemented",
    "subsystem": "Roster intelligence / value rollups",
    "title": "/api/gameplan reports roster market / consensus / leagueAdjusted / pickValue as 0.0 for all 12 teams while the same payload reports marketPriceCoverage 627 of 666 priced",
-   "claimedBy": null,
+   "claimedBy": "4599a159",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F011",
@@ -3633,11 +3635,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Roster intelligence / positional needs",
    "title": "/api/gameplan flags 'only 2 of 3 dedicated DL slots filled' and urgentNeed=true on rosters whose own lineup solve in the same payload reports 21 of 21 slots filled \u2014 6 position rows across 5 of 12 teams",
-   "claimedBy": null,
+   "claimedBy": "d63a77eb",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F012",
@@ -3669,11 +3671,11 @@
    "status_label": "Blocked by data",
    "subsystem": "Terminal / signals",
    "title": "The terminal labels all 665 rostered players 'Stable \u2014 no movement, volatility, or news triggers' while the same payload's delta panel correctly says 'Insufficient rank history'; data/rank_history.jsonl does not exist and source_value_history.jsonl holds one day",
-   "claimedBy": null,
+   "claimedBy": "0092df60",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F015",
@@ -3693,11 +3695,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Team direction (ROS)",
    "title": "src/ros/direction.py's roster-strength percentile and roster age profile have no effect on any label, and only three of its seven labels occur on live data",
-   "claimedBy": null,
+   "claimedBy": "5e286edc",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W21-F001",
@@ -4281,11 +4283,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Rankings materializer / documentation",
    "title": "CLAUDE.md attributes 239 client-numbered rows to the 800-rank limit; the board never reaches 800 and every one of those rows is unpriced",
-   "claimedBy": null,
+   "claimedBy": "19739ec9",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W25-F004",
@@ -4629,11 +4631,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade suggestions",
    "title": "Trade suggestions cannot propose a defensive back to anyone \u2014 the top-150 board gate contains zero DBs \u2014 yet /trade tells all 12 teams to 'target DB' while every team already rosters 5-9 of them against a 3-DB requirement",
-   "claimedBy": null,
+   "claimedBy": "91b098cb",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W27-F003",
@@ -4641,11 +4643,11 @@
    "status_label": "Implemented but disconnected",
    "subsystem": "Angle / package builder",
    "title": "The /angle page can never return an IDP player in a counter-package: the engine defaults include_idp=False and the page never sends the flag",
-   "claimedBy": null,
+   "claimedBy": "67071471",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "contains '-X POST'",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W27-F004",
@@ -4653,11 +4655,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Angle 1-for-1 pivot",
    "title": "/api/angle/find applies a +/-5% cross-market plausibility gate that is narrower than the two boards' own measured p10-p90 disagreement, and stamps no uncertainty band",
-   "claimedBy": null,
+   "claimedBy": "2ea608c0",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "contains '-X POST'",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W27-F005",
@@ -4737,11 +4739,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Documentation / trade finder",
    "title": "CLAUDE.md's stated assetsUnpricedByBoard figure (202) does not match the live payload (186)",
-   "claimedBy": null,
+   "claimedBy": "953d6b2e",
    "hasRepro": true,
    "reproSafe": false,
    "reproSafetyNote": "contains '-X POST'",
-   "closure": "open-unsafe-to-rerun"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W27-F012",
@@ -4749,11 +4751,11 @@
    "status_label": "Partially implemented",
    "subsystem": "IDP valuation",
    "title": "The live board is blind to the league's IDP scoring: defensive backs are the cheapest family (best DB at board rank 167) even though this league pays 5.32 per pass defensed and 5.32 per interception against 1.33 per solo tackle",
-   "claimedBy": null,
+   "claimedBy": "95f207b3",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W28-F001",
@@ -4833,11 +4835,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade suggestions / value architecture",
    "title": "/api/trade/suggestions emits two different value concepts under one field name, showing Travis Hunter at 5,637 on /trade while /rankings shows 4,401",
-   "claimedBy": null,
+   "claimedBy": "8fe26b42",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W29-F002",
@@ -4845,11 +4847,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "League-adjusted valuation lens",
    "title": "valuationMode=leagueAdjusted is stamped on responses where 41% of asset legs are still priced on the unadjusted market board",
-   "claimedBy": null,
+   "claimedBy": "8fe26b42",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W29-F003",
@@ -4917,11 +4919,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade calculator value selection",
    "title": "trade-logic.js::displayValue ignores the user's per-player value override and its docstring describes a pick-year discount effectiveValue does not apply",
-   "claimedBy": null,
+   "claimedBy": "9e401093",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W30-F001",
@@ -4941,11 +4943,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Playoff odds",
    "title": "Both playoff-odds engines publish 100%/0% certainty with zero games played and 14 weeks remaining, and the convergence check passes on it",
-   "claimedBy": null,
+   "claimedBy": "0092df60",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W30-F003",
@@ -5001,11 +5003,11 @@
    "status_label": "Duplicate or conflicting implementation",
    "subsystem": "Shared math",
    "title": "Five incompatible percentile definitions; the one behind Power Rankings v1 returns a literal 0.0 for the league minimum and the one behind v2 returns 0.0 for an unmeasurable population",
-   "claimedBy": null,
+   "claimedBy": "c9e94b79",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W30-F008",
@@ -5109,11 +5111,11 @@
    "status_label": "Duplicate or conflicting implementation",
    "subsystem": "Team classification",
    "title": "'Contender' is computed six different ways across six surfaces, from four unrelated input families",
-   "claimedBy": null,
+   "claimedBy": "0e39b666",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W30-F017",
@@ -5121,11 +5123,11 @@
    "status_label": "Duplicate or conflicting implementation",
    "subsystem": "Roster strength",
    "title": "Team total value is computed three ways and the two simple sums differ by pick capital \u2014 22.5% of a portfolio on the live snapshot",
-   "claimedBy": null,
+   "claimedBy": "bdc2894c",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W30-F018",
