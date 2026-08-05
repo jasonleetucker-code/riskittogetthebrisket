@@ -1,0 +1,457 @@
+[
+ {
+  "route": "/api/admin/guest-passes",
+  "url": "/api/admin/guest-passes",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/auth/status",
+  "url": "/api/auth/status",
+  "status": 200,
+  "bytes": 23,
+  "head": "{\"authenticated\":false}"
+ },
+ {
+  "route": "/api/bdvm/roster",
+  "url": "/api/bdvm/roster",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/bdvm/trades",
+  "url": "/api/bdvm/trades",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/bdvm/values",
+  "url": "/api/bdvm/values",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/consensus-edge/health",
+  "url": "/api/consensus-edge/health",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/consensus-edge/methodology",
+  "url": "/api/consensus-edge/methodology",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/consensus-edge/player/{player_key}",
+  "url": "/api/consensus-edge/player/josh-allen",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/consensus-edge/players",
+  "url": "/api/consensus-edge/players",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/consensus-edge/top",
+  "url": "/api/consensus-edge/top",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/custom-alerts",
+  "url": "/api/custom-alerts",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/data",
+  "url": "/api/data",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/data/player-source-history",
+  "url": "/api/data/player-source-history",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/data/rank-history",
+  "url": "/api/data/rank-history",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/draft-capital",
+  "url": "/api/draft-capital",
+  "status": 200,
+  "bytes": 17400,
+  "head": "{\"picks\":[{\"pick\":\"1.01\",\"round\":1,\"pickInRound\":1,\"overallPick\":1,\"dollarValue\":134.5,\"adjustedDollarValue\":134.5,\"originalDollarValue\":134.5,\"originalOwner\":\"jstuedle\",\"currentOwner\":\"jstuedle\",\"isTraded\":false,\"isExpansion\":true},{\"pick\":\"1.02\",\"round\":1,\"pickInRound\":2,\"overallPick\":2,\"dollarVal"
+ },
+ {
+  "route": "/api/dynasty-data",
+  "url": "/api/dynasty-data",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/gameplan",
+  "url": "/api/gameplan",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/health",
+  "url": "/api/health",
+  "status": 200,
+  "bytes": 2261,
+  "head": "{\"status\":\"ok\",\"service\":\"dynasty-server\",\"time_utc\":\"2026-08-04T21:44:29.360002+00:00\",\"has_data\":true,\"data_stale\":false,\"data_age_hours\":1.5,\"last_scrape\":null,\"scrape_running\":false,\"scrape_stalled\":false,\"scrape_interrupted\":false,\"current_step\":null,\"current_source\":null,\"contract_version\":\"20"
+ },
+ {
+  "route": "/api/intel/member/{owner_id}",
+  "url": "/api/intel/member/1",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/intel/player",
+  "url": "/api/intel/player",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/intel/refresh/status",
+  "url": "/api/intel/refresh/status",
+  "status": 401,
+  "bytes": 71,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in or bearer token required.\"}"
+ },
+ {
+  "route": "/api/intel/summary",
+  "url": "/api/intel/summary",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/intel/waiver-interest",
+  "url": "/api/intel/waiver-interest",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/league-comparison",
+  "url": "/api/league-comparison",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/league/articles",
+  "url": "/api/league/articles",
+  "status": 200,
+  "bytes": 1383,
+  "head": "{\"articles\":[{\"season\":\"2025\",\"week\":17,\"mode\":\"preview\",\"matchupId\":1,\"title\":\"Down 18.43, with one week to find it: Aguilar's championship bid\",\"kicker\":\"Aguilar erases the 18.43 by Sunday-night kickoff. Brenthany's lone Monday-night dart \u2014 Puka Nacua at Atlanta \u2014 needs to clear 28 to save it."
+ },
+ {
+  "route": "/api/league/articles/{season}/{week}/{matchup_id}/{mode}",
+  "url": "/api/league/articles/2025/1/1/recap",
+  "status": 404,
+  "bytes": 80,
+  "head": "{\"error\":\"not_found\",\"message\":\"No recap article on disk for 2025 W1 matchup 1\"}"
+ },
+ {
+  "route": "/api/leagues",
+  "url": "/api/leagues",
+  "status": 200,
+  "bytes": 808,
+  "head": "{\"leagues\":[{\"key\":\"dynasty_main\",\"displayName\":\"Risk It To Get The Brisket\",\"scoringProfile\":\"superflex_tep15_ppr1\",\"idpEnabled\":true,\"bestBall\":true,\"rosterSettings\":{\"teamCount\":12,\"rosterSize\":58,\"taxiSize\":0,\"starters\":{\"QB\":1,\"RB\":2,\"WR\":3,\"TE\":2,\"FLEX\":2,\"SFLEX\":1,\"K\":1,\"DL\":3,\"LB\":3,\"DB\":3,\""
+ },
+ {
+  "route": "/api/metrics",
+  "url": "/api/metrics",
+  "status": 200,
+  "bytes": 313,
+  "head": "{\"server_start_time\":\"2026-08-04T20:11:59.774433+00:00\",\"uptime_seconds\":5551.0,\"request_count\":2631,\"scrape_total\":0,\"scrape_failures\":0,\"scrape_duration_seconds_last\":0.0,\"data_age_seconds\":5551.0,\"data_stale\":false,\"has_data\":true,\"player_count\":1092,\"disk_free_mb\":25391,\"disk_ok\":true,\"scrape_ru"
+ },
+ {
+  "route": "/api/movers",
+  "url": "/api/movers",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/news",
+  "url": "/api/news",
+  "status": 200,
+  "bytes": 46902,
+  "head": "{\"items\":[{\"id\":\"espn-7802a213e4ba\",\"ts\":\"2026-08-04T21:49:26+00:00\",\"provider\":\"espn\",\"providerLabel\":\"ESPN\",\"severity\":\"alert\",\"kind\":\"injury\",\"headline\":\"Sources: Falcons' Walker feared to have torn ACL\",\"body\":\"Falcons edge rusher Jalon Walker is feared to have torn his ACL, sources told NFL Net"
+ },
+ {
+  "route": "/api/player/{sleeper_id}/realized",
+  "url": "/api/player/4046/realized",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/playerctx/player",
+  "url": "/api/playerctx/player",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/public/league",
+  "url": "/api/public/league",
+  "status": 200,
+  "bytes": 2081957,
+  "head": "{\"contractVersion\":\"public-league/2026-04-18.v1\",\"league\":{\"rootLeagueId\":\"1312006700437352448\",\"leagueName\":\"Risk It To Get The Brisket\",\"seasonsCovered\":[\"2026\",\"2025\",\"2024\"],\"leagueIds\":[\"1312006700437352448\",\"1180092661344120832\",\"1090320428817592320\"],\"currentLeagueId\":\"1312006700437352448\",\"g"
+ },
+ {
+  "route": "/api/public/league/matchup/{season}/{week}/{matchup_id}",
+  "url": "/api/public/league/matchup/2025/1/1",
+  "status": 200,
+  "bytes": 17006,
+  "head": "{\"contractVersion\":\"public-league-matchup/2026-04-17.v1\",\"league\":{\"rootLeagueId\":\"1312006700437352448\",\"currentLeagueId\":\"1312006700437352448\",\"leagueName\":\"Risk It To Get The Brisket\",\"managers\":[{\"ownerId\":\"1303549304882892800\",\"displayName\":\"Blaine\",\"avatar\":\"e83d90af2b89daf5746057a01f063401\",\"c"
+ },
+ {
+  "route": "/api/public/league/matchups",
+  "url": "/api/public/league/matchups",
+  "status": 200,
+  "bytes": 14672,
+  "head": "{\"seasonsCovered\":[\"2026\",\"2025\",\"2024\"],\"matchups\":[{\"season\":\"2025\",\"leagueId\":\"1180092661344120832\",\"week\":1,\"isPlayoff\":false,\"matchupId\":3},{\"season\":\"2025\",\"leagueId\":\"1180092661344120832\",\"week\":1,\"isPlayoff\":false,\"matchupId\":5},{\"season\":\"2025\",\"leagueId\":\"1180092661344120832\",\"week\":1,\"isP"
+ },
+ {
+  "route": "/api/public/league/metrics",
+  "url": "/api/public/league/metrics",
+  "status": 200,
+  "bytes": 814,
+  "head": "{\"leagueId\":\"1312006700437352448\",\"cacheTtlSeconds\":300,\"warmupEnabled\":true,\"persistEnabled\":true,\"tradeGrading\":{\"valuationReady\":true,\"privateContractLoaded\":true,\"privateContractPlayerCount\":1092},\"metrics\":{\"cache_hit\":382,\"cache_stale_served\":24,\"cache_miss_cold_rebuild\":0,\"force_refresh\":0,\"b"
+ },
+ {
+  "route": "/api/public/league/player/{player_id}",
+  "url": "/api/public/league/player/4046",
+  "status": 200,
+  "bytes": 19176,
+  "head": "{\"contractVersion\":\"public-league-player/2026-04-17.v1\",\"league\":{\"rootLeagueId\":\"1312006700437352448\",\"leagueName\":\"Risk It To Get The Brisket\",\"managers\":[{\"ownerId\":\"1303549304882892800\",\"displayName\":\"Blaine\",\"avatar\":\"e83d90af2b89daf5746057a01f063401\",\"currentTeamName\":\"ughb\",\"currentRosterId\":"
+ },
+ {
+  "route": "/api/public/league/players",
+  "url": "/api/public/league/players",
+  "status": 200,
+  "bytes": 63323,
+  "head": "{\"seasonsCovered\":[\"2026\",\"2025\",\"2024\"],\"players\":[{\"playerId\":\"10213\",\"playerName\":\"Tre Tucker\",\"position\":\"WR\"},{\"playerId\":\"10214\",\"playerName\":\"Davis Allen\",\"position\":\"TE\"},{\"playerId\":\"10218\",\"playerName\":\"Xavier Hutchinson\",\"position\":\"WR\"},{\"playerId\":\"10219\",\"playerName\":\"Chris Rodriguez\","
+ },
+ {
+  "route": "/api/public/league/{section}",
+  "url": "/api/public/league/standings",
+  "status": 404,
+  "bytes": 380,
+  "head": "{\"error\":\"Unknown public league section: 'standings'\",\"availableSections\":[\"overview\",\"history\",\"rivalries\",\"awards\",\"records\",\"franchise\",\"activity\",\"draft\",\"weekly\",\"superlatives\",\"archives\",\"luck\",\"streaks\",\"power\",\"matchupPreview\",\"weeklyRecap\",\"teamAssignment\",\"playoffOdds\",\"rosTeamStrength\",\"r"
+ },
+ {
+  "route": "/api/public/league/{section}.csv",
+  "url": "/api/public/league/standings.csv",
+  "status": 404,
+  "bytes": 395,
+  "head": "{\"error\":\"Unknown public league section: 'standings'\",\"availableSections\":[\"overview\",\"history\",\"rivalries\",\"awards\",\"records\",\"franchise\",\"activity\",\"draft\",\"weekly\",\"superlatives\",\"archives\",\"luck\",\"streaks\",\"power\",\"matchupPreview\",\"weeklyRecap\",\"teamAssignment\",\"playoffOdds\",\"rosTeamStrength\",\"r"
+ },
+ {
+  "route": "/api/push/public-key",
+  "url": "/api/push/public-key",
+  "status": 503,
+  "bytes": 31,
+  "head": "{\"error\":\"push_not_configured\"}"
+ },
+ {
+  "route": "/api/rankings/sources",
+  "url": "/api/rankings/sources",
+  "status": 200,
+  "bytes": 7709,
+  "head": "{\"sources\":[{\"key\":\"ktcSfTep\",\"displayName\":\"KeepTradeCut SF-TE++\",\"columnLabel\":\"KeepTradeCut SF-TE++\",\"scope\":\"overall_offense\",\"extraScopes\":[],\"positionGroup\":null,\"depth\":null,\"weight\":1.0,\"isBackbone\":false,\"isRetail\":true,\"isTepPremium\":true,\"isRankSignal\":false,\"needsSharedMarketTranslation\""
+ },
+ {
+  "route": "/api/ros/health",
+  "url": "/api/ros/health",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/ros/pick-projections",
+  "url": "/api/ros/pick-projections",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/ros/player-values",
+  "url": "/api/ros/player-values",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/ros/sources",
+  "url": "/api/ros/sources",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/ros/status",
+  "url": "/api/ros/status",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/ros/team-strength",
+  "url": "/api/ros/team-strength",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/scaffold/identity",
+  "url": "/api/scaffold/identity",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/scaffold/league",
+  "url": "/api/scaffold/league",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/scaffold/raw",
+  "url": "/api/scaffold/raw",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/scaffold/report",
+  "url": "/api/scaffold/report",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/scaffold/status",
+  "url": "/api/scaffold/status",
+  "status": 200,
+  "bytes": 756,
+  "head": "{\"raw_sources\":{\"file\":{\"name\":\"raw_source_snapshot_20260420T194828Z.json\",\"path\":\"/home/user/riskittogetthebrisket/data/raw_sources/raw_source_snapshot_20260420T194828Z.json\",\"mtime\":\"2026-08-03T22:00:56.736684+00:00\",\"size_bytes\":4204991},\"source_count\":9,\"record_count\":3494},\"ingest_validation\":{"
+ },
+ {
+  "route": "/api/scaffold/validation",
+  "url": "/api/scaffold/validation",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/sharp/cohort",
+  "url": "/api/sharp/cohort",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/sharp/market",
+  "url": "/api/sharp/market",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/sharp/market/audit",
+  "url": "/api/sharp/market/audit",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/sharp/roster-percentage",
+  "url": "/api/sharp/roster-percentage",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/sharp/roster-percentage/audit",
+  "url": "/api/sharp/roster-percentage/audit",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/sleeper/draft/picks",
+  "url": "/api/sleeper/draft/picks",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/status",
+  "url": "/api/status",
+  "status": 200,
+  "bytes": 7482,
+  "head": "{\"running\":false,\"is_running\":false,\"hung\":false,\"stalled\":false,\"interrupted\":false,\"interrupted_at\":null,\"started_at\":null,\"finished_at\":null,\"last_heartbeat\":null,\"last_scrape\":null,\"last_success_at\":null,\"last_failure_at\":null,\"last_duration_sec\":null,\"next_scrape\":\"2026-08-04T22:12:05.550335+00"
+ },
+ {
+  "route": "/api/terminal",
+  "url": "/api/terminal",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/uptime",
+  "url": "/api/uptime",
+  "status": 200,
+  "bytes": 167,
+  "head": "{\"enabled\":false,\"target_url\":\"https://chaseupside.com/api/health\",\"last_check\":null,\"last_ok\":null,\"last_error\":null,\"last_http_status\":null,\"consecutive_failures\":0}"
+ },
+ {
+  "route": "/api/user/state",
+  "url": "/api/user/state",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ },
+ {
+  "route": "/api/valuation/league-adjusted",
+  "url": "/api/valuation/league-adjusted",
+  "status": 401,
+  "bytes": 55,
+  "head": "{\"error\":\"auth_required\",\"message\":\"Sign-in required.\"}"
+ }
+]

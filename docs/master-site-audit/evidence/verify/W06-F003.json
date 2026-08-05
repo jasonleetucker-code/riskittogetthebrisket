@@ -1,0 +1,89 @@
+{
+ "id": "W06-F003",
+ "title": "/api/player/{sleeper_id}/realized returns unmapped_player for every player because the Sleeper block never contains the key the identity mapper is handed",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "XS",
+ "subsystem": "Unified identity mapper - live consumer",
+ "surface": {
+  "routes": [
+   "/api/player/{sleeper_id}/realized"
+  ],
+  "pages": [
+   "PlayerPopup"
+  ],
+  "flags": [
+   "realized_points_api"
+  ]
+ },
+ "codeRefs": [
+  {
+   "path": "server.py",
+   "lines": "11261-11268"
+  },
+  {
+   "path": "Dynasty Scraper.py",
+   "lines": "1297-1306"
+  },
+  {
+   "path": "src/identity/unified_mapper.py",
+   "lines": "192-234"
+  }
+ ],
+ "claimUnderTest": "server.py:11260 'Find this player's GSIS via the unified mapper, then filter.' The route's own comment says the row-filter bug was the defect and was fixed.",
+ "observed": "players_dir = sleeper_block.get(\"players\") or sleeper_block.get(\"playerDict\"). The Sleeper block the scraper writes (Dynasty Scraper.py:1297-1306) contains exactly leagueId, leagueName, teams, positions, playerIds, idToPlayer, scoringSettings, rosterPositions, leagueSettings - no 'players', no 'playerDict', ever. players_dir is therefore always None, _index_directory(None) returns four empty dicts, resolve_player returns None, and the route short-circuits at reason: unmapped_player. Confirmed live on four real Sleeper ids (A.J. Brown 5859, Josh Allen 4984, Bijan Robinson 9509, Kenny Gainwell 7567): all four return unmapped_player. The stats fetch SUCCEEDS first (the route would otherwise say no_stats_available), so the mapper is the sole blocker. /api/status corroborates: idMappingCoverage = {resolve_attempts: 8, unresolved: 8, coverage_pct: 0.0}. This is a key-name mismatch in committed code, not container state.",
+ "reproduction": {
+  "command": "for sid in 5859 4984 9509 7567; do curl -s -b /tmp/audit-cookies.txt \"http://127.0.0.1:8000/api/player/$sid/realized\"; echo; done",
+  "expected": "weekly realized-points arrays for each player",
+  "actual": "{\"sleeperId\":\"5859\",\"leagueKey\":\"dynasty_main\",\"reason\":\"unmapped_player\",\"weeks\":[]} for all four",
+  "artifact": "docs/master-site-audit/evidence/W06/mapper-repro-output.txt"
+ },
+ "numericProof": {
+  "inputs": {
+   "sleeperIdsProbed": 4,
+   "boardRowsCarryingASleeperId": 937,
+   "sleeperBlockKeys": [
+    "leagueId",
+    "leagueName",
+    "teams",
+    "positions",
+    "playerIds",
+    "idToPlayer",
+    "scoringSettings",
+    "rosterPositions",
+    "leagueSettings",
+    "trades",
+    "waivers",
+    "overlaySource",
+    "overlayFetchedAt",
+    "tradeWindowCutoffMs",
+    "tradeWindowDays",
+    "tradeWindowStart"
+   ]
+  },
+  "formula": "resolvable = |{sid : sleeper_block['players'] is a dict and sid in it}|",
+  "expected": 937,
+  "actual": 0,
+  "tolerance": 0
+ },
+ "userImpact": "PlayerPopup's realized-points panel is empty for every player in every league. A user comparing a player's market value against his actual production sees nothing and concludes there is no data.",
+ "blastRadius": {
+  "playersAffected": 937,
+  "routesAffected": 1,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A22-F03",
+  "relation": "not-reproducible",
+  "note": "A22-F03 claims the route 'emits a full array of 0.0-point weeks'; A22-F02 claims IDP players 'silently return zero weeks'. Neither reproduces: the route never reaches the scoring stage for ANY player. Both describe behaviour downstream of a bail that always fires. Same for PRIOR-A21-F16's league-scoping claim - the response never contains weeks to mis-score."
+ },
+ "whatWorks": "The route's auth gate, flag gate, league resolution and the nfl_data weekly fetch all work - the fetch returns rows, which is why the response is unmapped_player rather than no_stats_available.",
+ "rootCause": "server.py reads sleeper.players / sleeper.playerDict; the producer emits sleeper.playerIds (name->id) and sleeper.idToPlayer (id->name). No writer has ever produced the key the reader asks for.",
+ "requiredRepair": "Either fetch the Sleeper player directory for the mapper, or resolve the GSIS id from idToPlayer[sid] plus the nflverse name index. A key rename alone is NOT enough - playerIds/idToPlayer carry no gsis_id.",
+ "dependencies": "none",
+ "workstream": "W06",
+ "promptSections": [
+  6
+ ]
+}

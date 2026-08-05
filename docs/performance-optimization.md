@@ -940,8 +940,46 @@ defect.  `main`'s runs mostly pass because each spec navigates once;
 `waivers-smoke.spec.js` and `journey-trade.spec.js` are simply the two
 specs whose assertions are strict enough to notice.  Do not "fix" this by
 loosening those locators — they are the only detector the repo has for a
-class of bug that no performance metric in this document can see.  Track
-it as its own defect.
+class of bug that no performance metric in this document can see.
+
+### Resolved 2026-08-05 — it was never "main's own defect"
+
+The paragraph above is right that round 6 did not cause the ambient race
+and wrong about whose defect it is.  It is **React 19.2's deferred
+Suspense reveal**, read from the pinned `react-dom@19.2.8` source rather
+than inferred:
+
+```js
+$RC = function (a, b) { ... a.previousSibling.data = "$~"; $RB.push(a, b);
+  2 === $RB.length && ("number" !== typeof $RT
+    ? requestAnimationFrame($RV.bind(null, $RB))
+    : setTimeout($RV.bind(null, $RB), ...)) ... }
+```
+
+`$RC` no longer reveals; it marks the boundary `"$~"`, queues the pair,
+and schedules `$RV` — rAF for the first reveal, thereafter a `setTimeout`
+throttled to `$RT + 300 - now` (up to 2300ms in one window).  `$RV` is
+the only thing that removes `<div hidden id="S:n">`.  A full copy of the
+boundary is therefore **supposed** to be in the DOM for that window.  No
+app-side change removes it, and no user can see it.
+
+Measured locally against the E2E stack, chromium under
+`Emulation.setCPUThrottlingRate` (a loaded CI runner by other means):
+
+| | |
+|---|---|
+| boundary marker `"$~"` seen | 30/30 loads (unthrottled) |
+| staging container present | 20/25 loads (8× throttle) |
+| `<main>` == 3 **and** toggle resolving to 2 | **2/25** — the CI symptom |
+| same loop after `awaitStreamSettled()` | **0/25** |
+
+So the suite waits it out (`tests/e2e/helpers/journey.js`) rather than
+treating it as a bug to fix in the app.  The locators stay strict, and
+that still matters: a **permanent** duplicate — what round 6's
+`dynamic()` produced, and what a service worker replaying a frozen
+mid-stream document would produce — is a real defect, and those two
+specs remain its only detector.  Verified by injecting one: the wait
+returns immediately and the strict locator still fails.
 
 ### Regression check
 

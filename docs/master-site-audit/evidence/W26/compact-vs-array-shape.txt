@@ -1,0 +1,9 @@
+--- view=array topkeys: [('playersArray', 6672883), ('sleeper', 371174), ('settings', 11081), ('methodology', 9041), ('pickAnchors', 4377)]
+--- view=compact topkeys: [('playersArray', 3964280), ('players', 3612501), ('sleeper', 371174), ('settings', 11081), ('pickAnchors', 4377)]
+--- view=app topkeys: [('players', 5913738), ('sleeper', 371174), ('settings', 11081), ('methodology', 9041), ('pickAnchors', 4377)]
+
+array has players dict? False playersArray? True
+compact has players dict? True playersArray? True
+per-row fields array= 55 compact= 41
+compact-stripped fields: ['alphaShrinkage', 'anchorValue', 'anomalyFlags', 'blendedSourceRank', 'confidenceLabel', 'droppedSources', 'effectiveSourceRanks', 'hillValueSpread', 'madPenaltyApplied', 'marketDispersionCV', 'softFallbackCount', 'sourceOriginalRanks', 'subgroupBlendValue', 'subgroupDelta']
+compact-only fields: []

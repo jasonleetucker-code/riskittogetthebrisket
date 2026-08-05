@@ -7,6 +7,7 @@ export async function GET(request) {
   const searchParams = Object.fromEntries(new URL(request.url).searchParams.entries());
   try {
     const { data, status } = await proxyGet("/api/sharp/review", {
+      cookie: request.headers.get("cookie") || "",
       timeoutMs: 20000,
       searchParams,
     });

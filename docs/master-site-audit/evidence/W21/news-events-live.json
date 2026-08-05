@@ -1,0 +1,148 @@
+[
+ {
+  "eventId": "news:espn-7802a213e4ba:jalon walker",
+  "type": "SURGERY",
+  "player": "jalon walker",
+  "impact": {
+   "sigma_mult": 1.062100720645163
+  }
+ },
+ {
+  "eventId": "news:cbs-7b3e7a54d32d:jalon walker",
+  "type": "SURGERY",
+  "player": "jalon walker",
+  "impact": {
+   "sigma_mult": 1.062100720645163
+  }
+ },
+ {
+  "eventId": "news:cbs-2a9e77ce754e:coby bryant",
+  "type": "INJURY",
+  "player": "coby bryant",
+  "impact": {
+   "sigma_mult": 1.0384567578716974
+  }
+ },
+ {
+  "eventId": "news:cbs-2a9e77ce754e:jalon walker",
+  "type": "INJURY",
+  "player": "jalon walker",
+  "impact": {
+   "sigma_mult": 1.0384567578716974
+  }
+ },
+ {
+  "eventId": "news:cbs-2a9e77ce754e:kenyon sadiq",
+  "type": "INJURY",
+  "player": "kenyon sadiq",
+  "impact": {
+   "sigma_mult": 1.0384567578716974
+  }
+ },
+ {
+  "eventId": "news:cbs-87ec43234570:kenyon sadiq",
+  "type": "SURGERY",
+  "player": "kenyon sadiq",
+  "impact": {
+   "sigma_mult": 1.062100720645163
+  }
+ },
+ {
+  "eventId": "news:cbs-0e03f499b141:bijan robinson",
+  "type": "INJURY",
+  "player": "bijan robinson",
+  "impact": {
+   "sigma_mult": 1.0384567578716974
+  }
+ },
+ {
+  "eventId": "news:cbs-d9d92d4633e9:coby bryant",
+  "type": "INJURY",
+  "player": "coby bryant",
+  "impact": {
+   "sigma_mult": 1.0375621130221913
+  }
+ },
+ {
+  "eventId": "news:cbs-2b8c3c19a5a5:aaron rodgers",
+  "type": "INJURY",
+  "player": "aaron rodgers",
+  "impact": {
+   "sigma_mult": 1.0375621130221913
+  }
+ },
+ {
+  "eventId": "news:espn-a09f05a144c8:brandon aiyuk",
+  "type": "RELEASE",
+  "player": "brandon aiyuk",
+  "impact": {
+   "sigma_mult": 1.0734076969986166
+  }
+ },
+ {
+  "eventId": "news:espn-a09f05a144c8:deebo samuel",
+  "type": "RELEASE",
+  "player": "deebo samuel",
+  "impact": {
+   "sigma_mult": 1.0734076969986166
+  }
+ },
+ {
+  "eventId": "news:espn-a09f05a144c8:ricky pearsall",
+  "type": "RELEASE",
+  "player": "ricky pearsall",
+  "impact": {
+   "sigma_mult": 1.0734076969986166
+  }
+ },
+ {
+  "eventId": "news:espn-ae250b4f3e71:bijan robinson",
+  "type": "CONTRACT_EXTENSION",
+  "player": "bijan robinson",
+  "impact": {}
+ },
+ {
+  "eventId": "news:espn-13d8adc8529d:zay flowers",
+  "type": "CONTRACT_EXTENSION",
+  "player": "zay flowers",
+  "impact": {}
+ },
+ {
+  "eventId": "news:cbs-c00de1f41846:bijan robinson",
+  "type": "CONTRACT_EXTENSION",
+  "player": "bijan robinson",
+  "impact": {}
+ },
+ {
+  "eventId": "news:cbs-ee843b2994dc:bijan robinson",
+  "type": "CONTRACT_EXTENSION",
+  "player": "bijan robinson",
+  "impact": {}
+ },
+ {
+  "eventId": "news:cbs-64541f845f6e:baker mayfield",
+  "type": "TRADE",
+  "player": "baker mayfield",
+  "impact": {
+   "sigma_mult": 1.0381561572461766
+  }
+ },
+ {
+  "eventId": "news:espn-f0f7eb32e070:bijan robinson",
+  "type": "CONTRACT_EXTENSION",
+  "player": "bijan robinson",
+  "impact": {}
+ },
+ {
+  "eventId": "news:espn-f0f7eb32e070:drake london",
+  "type": "CONTRACT_EXTENSION",
+  "player": "drake london",
+  "impact": {}
+ },
+ {
+  "eventId": "news:espn-f0f7eb32e070:kyle pitts",
+  "type": "CONTRACT_EXTENSION",
+  "player": "kyle pitts",
+  "impact": {}
+ }
+]

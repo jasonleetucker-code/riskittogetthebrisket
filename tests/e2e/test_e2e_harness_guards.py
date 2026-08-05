@@ -514,5 +514,97 @@ class TestSubsetRunsCarryTheirOwnCoverageFloor(unittest.TestCase):
         self.assertEqual(offenders, [], "\n".join(offenders))
 
 
+class TestNoWaitCanOutliveItsTest(unittest.TestCase):
+    """A single wait must never be able to outlive the test that runs it.
+
+    When one ``timeout:`` equals or exceeds the per-test cap, that wait
+    can never reach its own deadline: the test is killed first, and the
+    run reports "Test timeout of Nms exceeded" at whatever line happened
+    to be executing.  The wait's own message — the one written to explain
+    what was being waited for — never prints.  So the defect surfaces as
+    a different "flaky" test each run and reads as a product regression.
+
+    This is not hypothetical.  It was hit twice on 2026-08-05, from the
+    two opposite directions, which is why the guard checks the pair
+    rather than either number alone:
+
+    * ``journey-trade.spec.js`` polled ``/arbitrage`` with a 90s budget
+      inside a 90s cap.  Run 31026906945 died as a TEST timeout.
+    * ``gotoRankingsBoard`` waited 60s inside that same 90s cap, after
+      the page load had already spent part of it.  Run 31027451127 died
+      as the INNER wait — its own message, "Timeout: 60000ms" — so
+      raising the cap alone would not have covered it.
+
+    Both were repaired by giving the waits room under a larger cap, never
+    by weakening an assertion.
+
+    The per-file bound is a deliberate over-approximation: a test may
+    raise its own ceiling with ``test.setTimeout(N)``, and resolving
+    which wait sits inside which test would mean parsing the file's
+    scopes.  Taking the largest override in the file cannot produce a
+    false positive — it only makes the guard slightly permissive for a
+    file that mixes raised and unraised tests.
+    """
+
+    # Two spaces of indentation: the per-test key inside defineConfig({}).
+    # `expect: { timeout: … }` and the webServer entries are nested deeper
+    # and are different budgets entirely.
+    _CONFIG_TIMEOUT = re.compile(r"^  timeout:\s*([\d_]+)\s*,", re.MULTILINE)
+    _WAIT = re.compile(r"\btimeout:\s*([\d_]+)\b")
+    _SET_TIMEOUT = re.compile(r"\btest\.setTimeout\(\s*([\d_]+)\s*\)")
+
+    def _config_timeout(self) -> int:
+        src = PLAYWRIGHT_CONFIG.read_text(encoding="utf-8")
+        found = self._CONFIG_TIMEOUT.findall(src)
+        self.assertEqual(
+            len(found),
+            1,
+            "could not read exactly one per-test `timeout:` from "
+            "playwright.config.js — this guard reads it by indentation, so "
+            "reformatting that block silently disarms it. Fix the pattern "
+            "rather than deleting the test.",
+        )
+        return int(found[0].replace("_", ""))
+
+    def test_no_declared_wait_reaches_the_per_test_cap(self) -> None:
+        cap = self._config_timeout()
+        files = sorted((E2E_DIR / "specs").glob("*.js")) + sorted(
+            (E2E_DIR / "helpers").glob("*.js")
+        )
+        # Without this the whole guard passes vacuously if either directory
+        # is renamed — the failure mode every guard in this file exists to
+        # avoid.
+        self.assertGreater(len(files), 10, f"found only {len(files)} E2E JS files to scan")
+
+        offenders = []
+        scanned = 0
+        for path in files:
+            src = path.read_text(encoding="utf-8")
+            overrides = [int(v.replace("_", "")) for v in self._SET_TIMEOUT.findall(src)]
+            ceiling = max([cap, *overrides])
+            for line_no, line in enumerate(src.splitlines(), start=1):
+                for raw in self._WAIT.findall(line):
+                    scanned += 1
+                    value = int(raw.replace("_", ""))
+                    if value >= ceiling:
+                        offenders.append(
+                            f"{path.relative_to(E2E_DIR)}:{line_no} waits {value}ms "
+                            f"against a {ceiling}ms ceiling"
+                        )
+
+        self.assertGreater(
+            scanned, 20, f"only found {scanned} waits — the pattern stopped matching"
+        )
+        self.assertEqual(
+            offenders,
+            [],
+            "A wait is budgeted at or above the test that contains it, so it "
+            "can never reach its own deadline and its message can never "
+            "print. Raise the cap in playwright.config.js (and keep its "
+            "arithmetic comment in step), or lower the wait — do not relax "
+            "the assertion underneath it.\n" + "\n".join(offenders),
+        )
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

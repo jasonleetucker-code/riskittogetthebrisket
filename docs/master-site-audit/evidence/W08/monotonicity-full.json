@@ -1,0 +1,1040 @@
+{
+ "sampled": 40000,
+ "violations": 772,
+ "flips": 27,
+ "worst": [
+  {
+   "A": [
+    "Sam LaPorta:5222"
+   ],
+   "B": [
+    "Josh Allen:9988"
+   ],
+   "extra": "Justin Reid:1044",
+   "gapBefore": -4766,
+   "gapAfter": -7743,
+   "loss": 2977,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Jacoby Brissett:2418"
+   ],
+   "B": [
+    "Jaxon Smith-Njigba:9337"
+   ],
+   "extra": "Taron Johnson:1002",
+   "gapBefore": -6919,
+   "gapAfter": -8405,
+   "loss": 1486,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Patrick Queen:2003"
+   ],
+   "B": [
+    "Saquon Barkley:5026"
+   ],
+   "extra": "Pat Surtain:877",
+   "gapBefore": -3023,
+   "gapAfter": -4037,
+   "loss": 1014,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "Cade Stover:1844"
+   ],
+   "B": [
+    "Marvin Harrison:4619"
+   ],
+   "extra": "Zach Harrison:889",
+   "gapBefore": -2775,
+   "gapAfter": -3655,
+   "loss": 880,
+   "meterBefore": "LOPSIDED",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  }
+ ],
+ "flipExamples": [
+  {
+   "A": [
+    "Daiyan Henley:1923"
+   ],
+   "B": [
+    "2028 Late 2nd:2785"
+   ],
+   "extra": "Omar Speights:894",
+   "gapBefore": -862,
+   "gapAfter": -1219,
+   "loss": 357,
+   "meterBefore": "SLIGHT EDGE",
+   "meterAfter": "UNFAIR",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  },
+  {
+   "A": [
+    "2026 Pick 4.10:1822"
+   ],
+   "B": [
+    "Parker Washington:3501"
+   ],
+   "extra": "Roman Wilson:1321",
+   "gapBefore": -1679,
+   "gapAfter": -1811,
+   "loss": 132,
+   "meterBefore": "UNFAIR",
+   "meterAfter": "LOPSIDED",
+   "sizes": [
+    1,
+    1
+   ]
+  }
+ ],
+ "bySize": {
+  "1v1": 559,
+  "3v3": 106,
+  "2v3": 107
+ }
+}

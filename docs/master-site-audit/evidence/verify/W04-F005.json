@@ -1,0 +1,66 @@
+{
+ "id": "W04-F005",
+ "workstream": "W04",
+ "promptSections": [
+  39,
+  42
+ ],
+ "title": "`model_registry.py validate` decides promotion by comparing criteria recorded on different snapshot dates \u2014 the exact unpaired comparison promotion.py's docstring says invalidates the verdict",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "S",
+ "subsystem": "Model registry CLI",
+ "surface": {
+  "routes": [],
+  "pages": [],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "scripts/model_registry.py",
+   "lines": "180-201"
+  },
+  {
+   "path": "src/model_registry/promotion.py",
+   "lines": "6-29"
+  }
+ ],
+ "claimUnderTest": "promotion.py module docstring: 'the comparison is always made on ONE snapshot with both curves scored against it\u2026 A rule that compared this week's challenger to last week's champion SCORE would be reading five days of market drift as model quality.'",
+ "observed": "cmd_validate reads champ.holdout['criterion'] and challenger.holdout['criterion'] straight out of the registry JSON and feeds both to decide_promotion. Those two numbers were recorded on different days against different scrapes of the four holdout CSVs. Champion v2's criterion is stamped 2026-07-28; challenger v3's is stamped 2026-08-04. Running `validate 3` today prints improvement +12.8; the paired comparison of the same two parameter sets on today's boards is +22.3, and the registry's own v3 note (written by the PAIRED driver) records +22.4. The CLI is off by 9.6 points against a 25-point margin whose stated noise floor is ~1.5 points.",
+ "reproduction": {
+  "command": "cd /home/user/riskittogetthebrisket && .venv/bin/python scripts/model_registry.py validate 3 && .venv/bin/python -c \"import sys;sys.path.insert(0,'.');from src.model_registry.holdout import evaluate_offense_master as e;a=e(0.11,1.11).criterion;b=e(0.108,1.11).criterion;print('paired improvement today: %+.2f' % (a-b))\"",
+  "expected": "the CLI's improvement equals the paired improvement",
+  "actual": "CLI: 'improvement +12.8 does not clear the 25-point margin'; paired today: +22.25",
+  "artifact": "docs/master-site-audit/evidence/W04/validate-v3-unpaired.txt"
+ },
+ "numericProof": {
+  "inputs": {
+   "storedChampionCriterion": 787.8416,
+   "storedChallengerCriterion": 775.0471,
+   "pairedChampionToday": 753.0495,
+   "pairedChallengerToday": 730.8023,
+   "promotionMargin": 25.0,
+   "statedNoiseFloor": 1.51
+  },
+  "formula": "unpaired = 787.8416 \u2212 775.0471 ; paired = 753.0495 \u2212 730.8023",
+  "expected": 22.25,
+  "actual": 12.79,
+  "tolerance": 1.51
+ },
+ "userImpact": "No user-visible number today \u2014 both paths reject v3. But the operator-facing decision tool disagrees with the automated driver by 6.3x the noise the margin was sized against, so it can reject a genuine improvement or promote a non-improvement, and the operator has no signal that the two disagree. `status` compounds it by printing three criteria from three dates in one comparable-looking column.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 0,
+  "pagesAffected": 0
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A13-F03",
+  "relation": "confirmed",
+  "note": "Reproduced by running the CLI and the paired evaluation side by side; the prior finding asserts the defect but not the 9.5-point live magnitude."
+ },
+ "whatWorks": "auto_refit_hill_curves.py, the automated path, DOES score both curves on one snapshot and is correct. promotion.decide_promotion itself is a clean, well-documented function.",
+ "rootCause": "decide_promotion takes two scalars and cannot tell whether they came from one snapshot; the CLI is the caller that supplies mismatched ones.",
+ "requiredRepair": "cmd_validate must re-score the champion's params via evaluate_offense_master before comparing, exactly as the driver does. Stored per-version criteria should be labelled with the snapshot fingerprint they were measured on and never compared across rows.",
+ "dependencies": "W04-F006"
+}

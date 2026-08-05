@@ -287,15 +287,21 @@ class StackDeathReporter {
         `would retire the open e2e-failures issue on this run — and it\n` +
         `iterates .[], so it drains every open one.\n\n` +
         `FIRST THING TO CHECK: a strict-mode violation ("resolved to 2\n` +
-        `elements").  React streaming intermittently leaves its\n` +
-        `<div id="S:1"> staging copy in the DOM, so the page's markup\n` +
-        `exists twice.  It is invisible in a screenshot, in the a11y\n` +
-        `tree, and to a human clicking around.  That is a PRODUCT defect.\n\n` +
-        `DO NOT "fix" it by adding .first() to the locator.  The two\n` +
-        `sites that can see it — journey-trade.spec.js (/arbitrage) and\n` +
+        `elements").  React 19.2 defers its Suspense reveal — $RC stages\n` +
+        `the content in <div hidden id="S:n"> and only $RV (rAF, then a\n` +
+        `throttle of up to 300ms) moves it and deletes the container.  So\n` +
+        `a full copy of the boundary legitimately exists for a window.\n` +
+        `That is REACT'S BEHAVIOUR, not a defect in this app — an earlier\n` +
+        `version of this banner called it a product defect and was wrong.\n\n` +
+        `The fix for a spec that trips on it is awaitStreamSettled()\n` +
+        `from helpers/journey.js, which waits the transient out.  If a\n` +
+        `spec already calls it and STILL sees two, that is the real bug:\n` +
+        `a duplicate React is never going to clean up.\n\n` +
+        `Either way, DO NOT add .first().  The two sites that can see\n` +
+        `this — journey-trade.spec.js (/arbitrage) and\n` +
         `waivers-smoke.spec.js (/waivers) — are the ONLY detectors this\n` +
-        `repo has for duplicated markup, and .first() restores the\n` +
-        `silence while looking like a fix.\n\n` +
+        `repo has for a PERMANENT duplicate (what #709's dynamic() bug\n` +
+        `produced), and .first() silences that too.\n\n` +
         `Traces for the failed attempt are in tests/e2e/test-results/\n` +
         `(trace: "on-first-retry").  Read those before re-running.\n` +
         `E2E_ALLOW_FLAKY=1 accepts a retried green locally; a workflow\n` +

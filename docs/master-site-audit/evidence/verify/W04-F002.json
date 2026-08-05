@@ -1,0 +1,66 @@
+{
+ "id": "W04-F002",
+ "workstream": "W04",
+ "promptSections": [
+  39,
+  42
+ ],
+ "title": "The promotion gate scores the Hill curve against the exact value columns the live pipeline throws away \u2014 all four holdout boards are rank-signal sources demoted for having the wrong value decay",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "Model registry / Hill curve promotion gate",
+ "surface": {
+  "routes": [
+   "/api/data"
+  ],
+  "pages": [],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/model_registry/holdout.py",
+   "lines": "74-79"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "351-410"
+  }
+ ],
+ "claimUnderTest": "promotion.py: 'a promotion means the challenger generalizes better across held-out dynasty markets'. The implied object of generalization is the thing the pipeline consumes from those markets.",
+ "observed": "holdout.py loads each holdout board's `value` column and computes RMSE of the Hill curve against its normalized value decay. But dc.rank_signal_source_keys() contains all four of fantasyCalc, otcffbSf, fantasyNavigatorSf, pfkDynasty \u2014 the live blend reads only their ORDINAL RANK and synthesizes a value by pushing that rank through the Hill curve. Their published values never enter the board. The registry comments record why: fantasyCalc and otcffbSf were value-direct until 2026-07-25 and were switched to rank-signal precisely because their value decay was too steep against the consensus (Hampel-flagged 54.9%->58% and 55.6%->86% of rows respectively, 'four of every five of its votes were discarded'). So the gate now rewards the champion curve for reproducing decay shapes the pipeline formally rejected as unusable, on boards whose values it deletes.",
+ "reproduction": {
+  "command": "cd /home/user/riskittogetthebrisket && .venv/bin/python -c \"import sys;sys.path.insert(0,'.');import src.api.data_contract as dc;from src.model_registry import holdout;rs=dc.rank_signal_source_keys();cfg=dc._SOURCE_CSV_PATHS;f=lambda p:[k for k,v in cfg.items() if isinstance(v,dict) and v.get('path')==p];print({l:(col,f(p)[0] in rs) for l,(p,col) in holdout.OFFENSE_HOLDOUT_SOURCES.items()})\"",
+  "expected": "holdout boards whose value columns the blend actually consumes",
+  "actual": "{'FantasyCalc': ('value', True), 'OTCFFB': ('value', True), 'PFKDynasty': ('value', True), 'FantasyNavigator': ('value', True)} \u2014 all four scored on `value`, all four rank-signal in the blend",
+  "artifact": "docs/master-site-audit/evidence/W04/holdout-independence.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "holdoutBoards": 4,
+   "scoredOnValueColumn": 4,
+   "rankSignalInLiveBlend": 4,
+   "valueColumnsConsumedByBlend": 0
+  },
+  "formula": "count(holdout boards whose scored column is read by _compute_unified_rankings)",
+  "expected": 4,
+  "actual": 0,
+  "tolerance": 0
+ },
+ "userImpact": "The curve that prices every player on /rankings is tuned to match value distributions the same codebase declared systematically wrong. A promotion driven by this criterion moves the whole board toward a decay shape the Hampel filter would eject if it arrived as a vote.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 100,
+  "pagesAffected": 38
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A13-F01",
+  "relation": "confirmed",
+  "note": "Reproduced from the live registry; the demotion rationale is quoted verbatim from _SOURCE_CSV_PATHS comments at data_contract.py:351-410."
+ },
+ "whatWorks": "The rank-signal conversion itself is well-evidenced and documented with before/after Hampel rates.",
+ "rootCause": "The holdout set was chosen when the four boards were value-direct and never revisited when three months later they were all switched to rank-signal.",
+ "requiredRepair": "Score the gate on the quantity the pipeline actually uses (rank ordering \u2014 e.g. Spearman of the curve-implied order against the board's order), or restrict the holdout to boards whose values the blend consumes value-direct. Neither is possible today without first fixing W04-F001.",
+ "dependencies": "W04-F001"
+}

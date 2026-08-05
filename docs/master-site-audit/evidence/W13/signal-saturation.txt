@@ -1,0 +1,13 @@
+BDVM fundamental board vs market board, same 676 assets
+  fundamental balanced: median=   511.6 mean=   980.7 max=  9800.0
+  market anchor:        median=  1914.5 mean=  2378.8 max=  9999.0
+  gap (fund - market):  median= -1228.8 p10= -2809.5 p90=  -183.3
+  fraction of assets with gap < 0: 92.6%
+
+  signal distribution: {'STRONG_SELL': 570, 'NO_MARKET': 23, 'BUY': 14, 'HOLD': 69, 'STRONG_BUY': 10, 'SELL': 13}
+  STRONG_SELL share: 570/699 = 81.5%
+
+  Signal thresholds are ABSOLUTE alpha values; no board-level scale
+  reconciliation runs between the fundamental scale and the market
+  scale before differencing, so a systematic level offset lands
+  entirely in the signal.

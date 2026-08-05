@@ -1,0 +1,1025 @@
+[
+ {
+  "query": "Josh Allen",
+  "found": true,
+  "displayName": "Josh Allen",
+  "position": null,
+  "team": "BUF",
+  "playerId": null,
+  "rawSources": {
+   "dlfSf": {
+    "name": "Josh Allen",
+    "rank": "1"
+   },
+   "draftSharksRosIdp": {
+    "canonicalName": "",
+    "sourceName": "Josh Allen",
+    "position": "QB",
+    "team": "",
+    "rank": "17",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "draftSharksRosSf": {
+    "canonicalName": "",
+    "sourceName": "Josh Allen",
+    "position": "QB",
+    "team": "",
+    "rank": "1",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "draftSharksSf": {
+    "Rank": "1",
+    "Team": "",
+    "Player": "Josh Allen",
+    "Fantasy Position": "QB",
+    "ADP": "1.01",
+    "Bye": "7",
+    "Age": "30.2",
+    "1yr. Proj": "403",
+    "3yr. Proj": "1106",
+    "5yr. Proj": "1799",
+    "10yr. Proj": "3411",
+    "DS Analysis": "Despite a weak pass-catching corps, Allen led all QBs in fantasy points per game in 2025. At 30, Allen\u2019s run of elite play should continue for the foreseeable future. He gets a nice boost with the addition of D.J. Moore, who should stick around for at least the next two seasons.",
+    "3D Value +": "100"
+   },
+   "dynastyDaddySf": {
+    "name": "Josh Allen",
+    "value": "10200",
+    "rank": "2"
+   },
+   "dynastyNerdsSfTep": {
+    "Name": "Josh Allen",
+    "Rank": "1",
+    "Value": "10256",
+    "SleeperId": "4984",
+    "Pos": "QB",
+    "Team": "BUF"
+   },
+   "fantasyCalc": {
+    "name": "Josh Allen",
+    "value": "10338",
+    "rank": "1"
+   },
+   "fantasyNavigatorSf": {
+    "name": "Josh Allen",
+    "value": "9891.0",
+    "rank": "1"
+   },
+   "fantasyProsFitzmaurice": {
+    "name": "Josh Allen",
+    "team": "BUF",
+    "position": "QB",
+    "value": "100",
+    "rank": "1"
+   },
+   "fantasyProsSf": {
+    "name": "Josh Allen",
+    "Rank": "1",
+    "position": "QB",
+    "team": "BUF"
+   },
+   "flockFantasySf": {
+    "name": "Josh Allen",
+    "Rank": "2.13"
+   },
+   "idpTradeCalc": {
+    "name": "Josh Allen",
+    "value": "9983.0"
+   },
+   "ktc": {
+    "name": "Josh Allen",
+    "value": "9983"
+   },
+   "ktcSfTep": {
+    "name": "Josh Allen",
+    "value": "9983"
+   },
+   "otcffbSf": {
+    "name": "Josh Allen",
+    "value": "92.7",
+    "rank": "3"
+   },
+   "pfkDynasty": {
+    "name": "Josh Allen",
+    "value": "9960.0",
+    "rank": "2",
+    "sleeper_id": "4984"
+   },
+   "yahooBoone": {
+    "name": "Josh Allen",
+    "pos": "QB",
+    "rank": "1",
+    "boone_value": "141"
+   }
+  },
+  "pipeline": {
+   "_rawComposite": 9983,
+   "_composite": 9983,
+   "_finalAdjusted": 9983,
+   "_offenseOnlyFinalAdjusted": 9987,
+   "sourceRanks": {
+    "ktcSfTep": 3,
+    "idpTradeCalc": 2,
+    "dlfSf": 1,
+    "dynastyNerdsSfTep": 1,
+    "fantasyCalc": 1,
+    "otcffbSf": 3,
+    "fantasyNavigatorSf": 1,
+    "pfkDynasty": 2,
+    "dynastyDaddySf": 2,
+    "fantasyProsSf": 1,
+    "fantasyProsFitzmaurice": 1,
+    "flockFantasySf": 1,
+    "yahooBoone": 1,
+    "draftSharks": 1
+   },
+   "sourceOriginalRanks": {
+    "dlfSf": 1.0,
+    "dynastyNerdsSfTep": 1.0,
+    "fantasyProsSf": 1.0,
+    "fantasyCalc": 1.0,
+    "otcffbSf": 3.0,
+    "dynastyDaddySf": 2.0,
+    "flockFantasySf": 2.13,
+    "yahooBoone": 1.0,
+    "fantasyProsFitzmaurice": 1.0,
+    "draftSharks": 1.0,
+    "fantasyNavigatorSf": 1.0,
+    "pfkDynasty": 2.0
+   },
+   "sourceCount": 14,
+   "isSingleSource": false,
+   "isStructurallySingleSource": false,
+   "blendedSourceRank": 1.5,
+   "rankDerivedValue": 9988,
+   "canonicalTierId": 1,
+   "confidenceBucket": "high",
+   "confidenceLabel": "High \u2014 multi-source, tight agreement",
+   "marketGapDirection": "consensus_premium",
+   "marketGapMagnitude": 1.6153846153846154,
+   "quarantined": false,
+   "anomalyFlags": [],
+   "identityMethod": "canonical_id",
+   "identityConfidence": 1.0
+  },
+  "crossSurface": {
+   "leagueAdjusted": 1
+  }
+ },
+ {
+  "query": "Travis Etienne",
+  "found": true,
+  "displayName": "Travis Etienne",
+  "position": null,
+  "team": "NO",
+  "playerId": null,
+  "rawSources": {
+   "dlfSf": {
+    "name": "Travis Etienne",
+    "rank": "85.67"
+   },
+   "draftSharksRosIdp": {
+    "canonicalName": "",
+    "sourceName": "Travis Etienne",
+    "position": "RB",
+    "team": "",
+    "rank": "43",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "draftSharksRosSf": {
+    "canonicalName": "",
+    "sourceName": "Travis Etienne",
+    "position": "RB",
+    "team": "",
+    "rank": "64",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "draftSharksSf": {
+    "Rank": "112",
+    "Team": "",
+    "Player": "Travis Etienne",
+    "Fantasy Position": "RB",
+    "ADP": "7.01",
+    "Bye": "8",
+    "Age": "27.5",
+    "1yr. Proj": "209",
+    "3yr. Proj": "389",
+    "5yr. Proj": "469",
+    "10yr. Proj": "658",
+    "DS Analysis": "Etienne missed time with a hamstring in 2024 and was outplayed by Tank Bigsby for parts of the season. Come 2025, Etienne watched Bigbsy depart via a September trade. While rookie Bhayshul Tuten replaced Bigsby as a rotational piece, Etienne still delivered the goods in Year 1 under HC Liam Coen (260-1,107-7). The Clemson product landed with the Saints in free agency, giving him a solid OL and an ascending QB in Tyler Shough.",
+    "3D Value +": "26"
+   },
+   "dynastyDaddySf": {
+    "name": "Travis Etienne",
+    "value": "2860",
+    "rank": "80"
+   },
+   "dynastyNerdsSfTep": {
+    "Name": "Travis Etienne",
+    "Rank": "76",
+    "Value": "1719",
+    "SleeperId": "7543",
+    "Pos": "RB",
+    "Team": "NO"
+   },
+   "fantasyCalc": {
+    "name": "Travis Etienne",
+    "value": "2564",
+    "rank": "87"
+   },
+   "fantasyNavigatorSf": {
+    "name": "Travis Etienne",
+    "value": "3039.0",
+    "rank": "67"
+   },
+   "fantasyProsFitzmaurice": {
+    "name": "Travis Etienne Jr.",
+    "team": "NO",
+    "position": "RB",
+    "value": "47",
+    "rank": "77"
+   },
+   "fantasyProsSf": {
+    "name": "Travis Etienne Jr.",
+    "Rank": "74",
+    "position": "RB",
+    "team": "NO"
+   },
+   "flockFantasySf": {
+    "name": "Travis Etienne",
+    "Rank": "87.5"
+   },
+   "idpTradeCalc": {
+    "name": "Travis Etienne",
+    "value": "4508.0"
+   },
+   "ktc": {
+    "name": "Travis Etienne",
+    "value": "4367"
+   },
+   "ktcSfTep": {
+    "name": "Travis Etienne",
+    "value": "4367"
+   },
+   "otcffbSf": {
+    "name": "Travis Etienne",
+    "value": "23.5",
+    "rank": "80"
+   },
+   "pfkDynasty": {
+    "name": "Travis Etienne",
+    "value": "3211.0",
+    "rank": "85",
+    "sleeper_id": "7543"
+   },
+   "yahooBoone": {
+    "name": "Travis Etienne Jr.",
+    "pos": "RB",
+    "rank": "76",
+    "boone_value": "47"
+   }
+  },
+  "pipeline": {
+   "_rawComposite": 4508,
+   "_composite": 4508,
+   "_finalAdjusted": 4508,
+   "_offenseOnlyFinalAdjusted": 4045,
+   "sourceRanks": {
+    "ktcSfTep": 87,
+    "idpTradeCalc": 111,
+    "dlfSf": 81,
+    "dynastyNerdsSfTep": 76,
+    "fantasyCalc": 87,
+    "otcffbSf": 80,
+    "fantasyNavigatorSf": 67,
+    "pfkDynasty": 85,
+    "dynastyDaddySf": 80,
+    "fantasyProsSf": 74,
+    "fantasyProsFitzmaurice": 77,
+    "flockFantasySf": 79,
+    "yahooBoone": 76,
+    "draftSharks": 129
+   },
+   "sourceOriginalRanks": {
+    "dlfSf": 85.67,
+    "dynastyNerdsSfTep": 76.0,
+    "fantasyProsSf": 74.0,
+    "fantasyCalc": 87.0,
+    "otcffbSf": 80.0,
+    "dynastyDaddySf": 80.0,
+    "flockFantasySf": 87.5,
+    "yahooBoone": 76.0,
+    "fantasyProsFitzmaurice": 77.0,
+    "draftSharks": 112.0,
+    "fantasyNavigatorSf": 67.0,
+    "pfkDynasty": 85.0
+   },
+   "sourceCount": 14,
+   "isSingleSource": false,
+   "isStructurallySingleSource": false,
+   "blendedSourceRank": 84.93,
+   "rankDerivedValue": 4081,
+   "canonicalTierId": 17,
+   "confidenceBucket": "medium",
+   "confidenceLabel": "Medium \u2014 multi-source, moderate spread",
+   "marketGapDirection": "consensus_premium",
+   "marketGapMagnitude": 2.2307692307692264,
+   "quarantined": false,
+   "anomalyFlags": [],
+   "identityMethod": "canonical_id",
+   "identityConfidence": 1.0
+  },
+  "crossSurface": {
+   "leagueAdjusted": 97
+  }
+ },
+ {
+  "query": "Aidan Hutchinson",
+  "found": true,
+  "displayName": "Aidan Hutchinson",
+  "position": null,
+  "team": "DET",
+  "playerId": null,
+  "rawSources": {
+   "dlfIdp": {
+    "name": "Aidan Hutchinson",
+    "rank": "1"
+   },
+   "draftSharksIdp": {
+    "Rank": "41",
+    "Team": "",
+    "Player": "Aidan Hutchinson",
+    "Fantasy Position": "DL",
+    "ADP": "N/A",
+    "Bye": "6",
+    "Age": "25.9",
+    "1yr. Proj": "201",
+    "3yr. Proj": "400",
+    "5yr. Proj": "660",
+    "10yr. Proj": "1005",
+    "DS Analysis": "",
+    "3D Value +": "11"
+   },
+   "draftSharksRosIdp": {
+    "canonicalName": "",
+    "sourceName": "Aidan Hutchinson",
+    "position": "DL",
+    "team": "",
+    "rank": "92",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "draftSharksRosSf": {
+    "canonicalName": "",
+    "sourceName": "Aidan Hutchinson",
+    "position": "DL",
+    "team": "",
+    "rank": "97",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "fantasyProsIdp": {
+    "name": "Aidan Hutchinson",
+    "originalRank": "1",
+    "effectiveRank": "1",
+    "derivationMethod": "direct_combined",
+    "family": "DL",
+    "normalizedValue": "9999",
+    "matchedSourceName": "Aidan Hutchinson",
+    "position": "DE",
+    "team": "DET"
+   },
+   "idpShow": {
+    "name": "Aidan Hutchinson",
+    "position": "DE",
+    "rank": "1"
+   },
+   "idpTradeCalc": {
+    "name": "Aidan Hutchinson",
+    "value": "6444.0"
+   }
+  },
+  "pipeline": {
+   "_rawComposite": 4871,
+   "_composite": 4871,
+   "_finalAdjusted": 4871,
+   "sourceRanks": {
+    "idpTradeCalc": 34,
+    "dlfIdp": 34,
+    "idpShow": 34,
+    "fantasyProsIdp": 34,
+    "draftSharksIdp": 345
+   },
+   "sourceOriginalRanks": {
+    "dlfIdp": 1.0,
+    "idpShow": 1.0,
+    "fantasyProsIdp": 1.0,
+    "draftSharksIdp": 41.0
+   },
+   "sourceCount": 5,
+   "isSingleSource": false,
+   "isStructurallySingleSource": false,
+   "blendedSourceRank": 34.0,
+   "rankDerivedValue": 6362,
+   "canonicalTierId": 6,
+   "confidenceBucket": "high",
+   "confidenceLabel": "High \u2014 multi-source, tight agreement",
+   "marketGapDirection": "none",
+   "marketGapMagnitude": null,
+   "quarantined": false,
+   "anomalyFlags": [],
+   "identityMethod": "canonical_id",
+   "identityConfidence": 1.0
+  },
+  "crossSurface": {
+   "leagueAdjusted": 31
+  }
+ },
+ {
+  "query": "Brock Bowers",
+  "found": true,
+  "displayName": "Brock Bowers",
+  "position": null,
+  "team": "LV",
+  "playerId": null,
+  "rawSources": {
+   "dlfSf": {
+    "name": "Brock Bowers",
+    "rank": "15.17"
+   },
+   "draftSharksRosIdp": {
+    "canonicalName": "",
+    "sourceName": "Brock Bowers",
+    "position": "TE",
+    "team": "",
+    "rank": "25",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "draftSharksRosSf": {
+    "canonicalName": "",
+    "sourceName": "Brock Bowers",
+    "position": "TE",
+    "team": "",
+    "rank": "36",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "draftSharksSf": {
+    "Rank": "16",
+    "Team": "",
+    "Player": "Brock Bowers",
+    "Fantasy Position": "TE",
+    "ADP": "2.01",
+    "Bye": "13",
+    "Age": "23.6",
+    "1yr. Proj": "214",
+    "3yr. Proj": "641",
+    "5yr. Proj": "1074",
+    "10yr. Proj": "2094",
+    "DS Analysis": "Bowers disappointed in 2025 while dealing with a knee injury. He only played in 12 games and finished with 64-680-7 receiving. The talent is still undeniable, and Bowers should rebound alongside Fernando Mendoza in 2026.",
+    "3D Value +": "57"
+   },
+   "dynastyDaddySf": {
+    "name": "Brock Bowers",
+    "value": "8583",
+    "rank": "8"
+   },
+   "dynastyNerdsSfTep": {
+    "Name": "Brock Bowers",
+    "Rank": "7",
+    "Value": "8907",
+    "SleeperId": "11604",
+    "Pos": "TE",
+    "Team": "LV"
+   },
+   "fantasyCalc": {
+    "name": "Brock Bowers",
+    "value": "7676",
+    "rank": "8"
+   },
+   "fantasyNavigatorSf": {
+    "name": "Brock Bowers",
+    "value": "6454.0",
+    "rank": "16"
+   },
+   "fantasyProsFitzmaurice": {
+    "name": "Brock Bowers",
+    "team": "LV",
+    "position": "TE",
+    "value": "85",
+    "rank": "8"
+   },
+   "fantasyProsSf": {
+    "name": "Brock Bowers",
+    "Rank": "28",
+    "position": "TE",
+    "team": "LV"
+   },
+   "flockFantasySf": {
+    "name": "Brock Bowers",
+    "Rank": "16.13"
+   },
+   "idpTradeCalc": {
+    "name": "Brock Bowers",
+    "value": "8975.0"
+   },
+   "ktc": {
+    "name": "Brock Bowers",
+    "value": "8207"
+   },
+   "ktcSfTep": {
+    "name": "Brock Bowers",
+    "value": "9924"
+   },
+   "otcffbSf": {
+    "name": "Brock Bowers",
+    "value": "64.2",
+    "rank": "13"
+   },
+   "pfkDynasty": {
+    "name": "Brock Bowers",
+    "value": "9294.0",
+    "rank": "8",
+    "sleeper_id": "11604"
+   },
+   "yahooBoone": {
+    "name": "Brock Bowers",
+    "pos": "TE",
+    "rank": "8",
+    "boone_value": "109"
+   }
+  },
+  "pipeline": {
+   "_rawComposite": 9316,
+   "_composite": 9316,
+   "_finalAdjusted": 9316,
+   "_offenseOnlyFinalAdjusted": 9950,
+   "sourceRanks": {
+    "ktcSfTep": 5,
+    "idpTradeCalc": 7,
+    "dlfSf": 15,
+    "dynastyNerdsSfTep": 7,
+    "fantasyCalc": 8,
+    "otcffbSf": 13,
+    "fantasyNavigatorSf": 16,
+    "pfkDynasty": 8,
+    "dynastyDaddySf": 8,
+    "fantasyProsSf": 28,
+    "fantasyProsFitzmaurice": 8,
+    "flockFantasySf": 16,
+    "yahooBoone": 8,
+    "draftSharks": 16
+   },
+   "sourceOriginalRanks": {
+    "dlfSf": 15.17,
+    "dynastyNerdsSfTep": 7.0,
+    "fantasyProsSf": 28.0,
+    "fantasyCalc": 8.0,
+    "otcffbSf": 13.0,
+    "dynastyDaddySf": 8.0,
+    "flockFantasySf": 16.13,
+    "yahooBoone": 8.0,
+    "fantasyProsFitzmaurice": 8.0,
+    "draftSharks": 16.0,
+    "fantasyNavigatorSf": 16.0,
+    "pfkDynasty": 8.0
+   },
+   "sourceCount": 14,
+   "isSingleSource": false,
+   "isStructurallySingleSource": false,
+   "blendedSourceRank": 9.92,
+   "rankDerivedValue": 9947,
+   "canonicalTierId": 1,
+   "confidenceBucket": "high",
+   "confidenceLabel": "High \u2014 multi-source, tight agreement",
+   "marketGapDirection": "retail_premium",
+   "marketGapMagnitude": 5.363636363636363,
+   "quarantined": false,
+   "anomalyFlags": [],
+   "identityMethod": "canonical_id",
+   "identityConfidence": 1.0
+  },
+  "crossSurface": {
+   "leagueAdjusted": 3
+  }
+ },
+ {
+  "query": "George Kittle",
+  "found": true,
+  "displayName": "George Kittle",
+  "position": null,
+  "team": "SF",
+  "playerId": null,
+  "rawSources": {
+   "dlfSf": {
+    "name": "George Kittle",
+    "rank": "99.33"
+   },
+   "draftSharksRosIdp": {
+    "canonicalName": "",
+    "sourceName": "George Kittle",
+    "position": "TE",
+    "team": "",
+    "rank": "100",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "draftSharksRosSf": {
+    "canonicalName": "",
+    "sourceName": "George Kittle",
+    "position": "TE",
+    "team": "",
+    "rank": "112",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "draftSharksSf": {
+    "Rank": "33",
+    "Team": "",
+    "Player": "Brock Purdy",
+    "Fantasy Position": "QB",
+    "ADP": "3.12",
+    "Bye": "8",
+    "Age": "26.6",
+    "1yr. Proj": "346",
+    "3yr. Proj": "859",
+    "5yr. Proj": "1409",
+    "10yr. Proj": "2699",
+    "DS Analysis": "Purdy missed a chunk of early-season games with turf toe. But he rebounded to finish as the QB4 in total points from Week 11 on. Purdy benefits from HC stability and a solid group of pass catchers, although Christian McCaffrey and George Kittle are likely nearing the end of their prime. San Francisco also added veteran Mike Evans on a multi-year deal. Purdy is under contract through the 2030 season.",
+    "3D Value +": "47"
+   },
+   "dynastyDaddySf": {
+    "name": "George Kittle",
+    "value": "1832",
+    "rank": "115"
+   },
+   "dynastyNerdsSfTep": {
+    "Name": "George Kittle",
+    "Rank": "136",
+    "Value": "410",
+    "SleeperId": "4217",
+    "Pos": "TE",
+    "Team": "SF"
+   },
+   "fantasyCalc": {
+    "name": "George Kittle",
+    "value": "2132",
+    "rank": "100"
+   },
+   "fantasyNavigatorSf": {
+    "name": "George Kittle",
+    "value": "1532.0",
+    "rank": "101"
+   },
+   "fantasyProsFitzmaurice": {
+    "name": "George Kittle",
+    "team": "SF",
+    "position": "TE",
+    "value": "41",
+    "rank": "98"
+   },
+   "fantasyProsSf": {
+    "name": "George Kittle",
+    "Rank": "118",
+    "position": "TE",
+    "team": "SF"
+   },
+   "flockFantasySf": {
+    "name": "George Kittle",
+    "Rank": "133.88"
+   },
+   "idpTradeCalc": {
+    "name": "George Kittle",
+    "value": "3727.0"
+   },
+   "ktc": {
+    "name": "George Kittle",
+    "value": "3368"
+   },
+   "ktcSfTep": {
+    "name": "George Kittle",
+    "value": "4205"
+   },
+   "otcffbSf": {
+    "name": "George Kittle",
+    "value": "13.4",
+    "rank": "114"
+   },
+   "pfkDynasty": {
+    "name": "George Kittle",
+    "value": "2765.0",
+    "rank": "104",
+    "sleeper_id": "4217"
+   },
+   "yahooBoone": {
+    "name": "George Kittle",
+    "pos": "TE",
+    "rank": "98",
+    "boone_value": "35"
+   }
+  },
+  "pipeline": {
+   "_rawComposite": 4205,
+   "_composite": 4205,
+   "_finalAdjusted": 4205,
+   "_offenseOnlyFinalAdjusted": 3991,
+   "sourceRanks": {
+    "ktcSfTep": 94,
+    "idpTradeCalc": 138,
+    "dlfSf": 94,
+    "dynastyNerdsSfTep": 136,
+    "fantasyCalc": 100,
+    "otcffbSf": 114,
+    "fantasyNavigatorSf": 101,
+    "pfkDynasty": 104,
+    "dynastyDaddySf": 115,
+    "fantasyProsSf": 118,
+    "fantasyProsFitzmaurice": 98,
+    "flockFantasySf": 116,
+    "yahooBoone": 98,
+    "draftSharks": 95
+   },
+   "sourceOriginalRanks": {
+    "dlfSf": 99.33,
+    "dynastyNerdsSfTep": 136.0,
+    "fantasyProsSf": 118.0,
+    "fantasyCalc": 100.0,
+    "otcffbSf": 114.0,
+    "dynastyDaddySf": 115.0,
+    "flockFantasySf": 133.88,
+    "yahooBoone": 98.0,
+    "fantasyProsFitzmaurice": 98.0,
+    "draftSharks": 86.0,
+    "fantasyNavigatorSf": 101.0,
+    "pfkDynasty": 104.0
+   },
+   "sourceCount": 14,
+   "isSingleSource": false,
+   "isStructurallySingleSource": false,
+   "blendedSourceRank": 106.54,
+   "rankDerivedValue": 4088,
+   "canonicalTierId": 17,
+   "confidenceBucket": "medium",
+   "confidenceLabel": "Medium \u2014 multi-source, moderate spread",
+   "marketGapDirection": "retail_premium",
+   "marketGapMagnitude": 13.583333333333329,
+   "quarantined": false,
+   "anomalyFlags": [],
+   "identityMethod": "canonical_id",
+   "identityConfidence": 1.0
+  },
+  "crossSurface": {
+   "leagueAdjusted": 100
+  }
+ },
+ {
+  "query": "Carson Schwesinger",
+  "found": true,
+  "displayName": "Carson Schwesinger",
+  "position": null,
+  "team": "CLE",
+  "playerId": null,
+  "rawSources": {
+   "dlfIdp": {
+    "name": "Carson Schwesinger",
+    "rank": "4.33"
+   },
+   "draftSharksIdp": {
+    "Rank": "1",
+    "Team": "",
+    "Player": "Carson Schwesinger",
+    "Fantasy Position": "LB",
+    "ADP": "N/A",
+    "Bye": "11",
+    "Age": "23.4",
+    "1yr. Proj": "281",
+    "3yr. Proj": "814",
+    "5yr. Proj": "1346",
+    "10yr. Proj": "2521",
+    "DS Analysis": "",
+    "3D Value +": "53"
+   },
+   "draftSharksRosIdp": {
+    "canonicalName": "",
+    "sourceName": "Carson Schwesinger",
+    "position": "LB",
+    "team": "",
+    "rank": "35",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "draftSharksRosSf": {
+    "canonicalName": "",
+    "sourceName": "Carson Schwesinger",
+    "position": "LB",
+    "team": "",
+    "rank": "45",
+    "total_ranked": "977",
+    "projection": ""
+   },
+   "fantasyProsIdp": {
+    "name": "Carson Schwesinger",
+    "originalRank": "12",
+    "effectiveRank": "12",
+    "derivationMethod": "direct_combined",
+    "family": "LB",
+    "normalizedValue": "8248",
+    "matchedSourceName": "Carson Schwesinger",
+    "position": "LB",
+    "team": "CLE"
+   },
+   "idpShow": {
+    "name": "Carson Schwesinger",
+    "position": "LB",
+    "rank": "3"
+   },
+   "idpTradeCalc": {
+    "name": "Carson Schwesinger",
+    "value": "5667.0"
+   }
+  },
+  "pipeline": {
+   "_rawComposite": 4357,
+   "_composite": 4357,
+   "_finalAdjusted": 4357,
+   "sourceRanks": {
+    "idpTradeCalc": 47,
+    "dlfIdp": 64,
+    "idpShow": 47,
+    "fantasyProsIdp": 117,
+    "draftSharksIdp": 23
+   },
+   "sourceOriginalRanks": {
+    "dlfIdp": 4.33,
+    "idpShow": 3.0,
+    "fantasyProsIdp": 12.0,
+    "draftSharksIdp": 1.0
+   },
+   "sourceCount": 5,
+   "isSingleSource": false,
+   "isStructurallySingleSource": false,
+   "blendedSourceRank": 59.6,
+   "rankDerivedValue": 5908,
+   "canonicalTierId": 8,
+   "confidenceBucket": "high",
+   "confidenceLabel": "High \u2014 multi-source, tight agreement",
+   "marketGapDirection": "none",
+   "marketGapMagnitude": null,
+   "quarantined": false,
+   "anomalyFlags": [],
+   "identityMethod": "canonical_id",
+   "identityConfidence": 1.0
+  },
+  "crossSurface": {
+   "leagueAdjusted": 47
+  }
+ },
+ {
+  "query": "2026 Pick 1.01",
+  "found": true,
+  "displayName": "2026 Pick 1.01",
+  "position": null,
+  "team": null,
+  "playerId": null,
+  "rawSources": {
+   "idpTradeCalc": {
+    "name": "2026 Pick 1.01",
+    "value": "8013.0"
+   }
+  },
+  "pipeline": {
+   "_rawComposite": 7587,
+   "_composite": 7587,
+   "_finalAdjusted": 7587,
+   "_offenseOnlyFinalAdjusted": 7829,
+   "sourceRanks": {
+    "idpTradeCalc": 12
+   },
+   "sourceOriginalRanks": {
+    "dlfRookieSf": 1.0
+   },
+   "sourceCount": 1,
+   "isSingleSource": true,
+   "isStructurallySingleSource": false,
+   "blendedSourceRank": 9.0,
+   "rankDerivedValue": 7799,
+   "canonicalTierId": null,
+   "confidenceBucket": "low",
+   "confidenceLabel": "Low \u2014 single pick source",
+   "marketGapDirection": "none",
+   "marketGapMagnitude": null,
+   "quarantined": false,
+   "anomalyFlags": [],
+   "identityMethod": "position_source_aligned",
+   "identityConfidence": 0.95
+  },
+  "crossSurface": {
+   "leagueAdjusted": null
+  }
+ },
+ {
+  "query": "2027 Early 1st",
+  "found": true,
+  "displayName": "2027 Early 1st",
+  "position": null,
+  "team": null,
+  "playerId": null,
+  "rawSources": {
+   "idpTradeCalc": {
+    "name": "2027 Early 1st",
+    "value": "7052.0"
+   },
+   "ktc": {
+    "name": "2027 Early 1st",
+    "value": "7047"
+   },
+   "ktcSfTep": {
+    "name": "2027 Early 1st",
+    "value": "7047"
+   }
+  },
+  "pipeline": {
+   "_rawComposite": 6746,
+   "_composite": 6746,
+   "_finalAdjusted": 6746,
+   "_offenseOnlyFinalAdjusted": 7047,
+   "sourceRanks": {
+    "ktcSfTep": 24,
+    "idpTradeCalc": 23
+   },
+   "sourceOriginalRanks": {},
+   "sourceCount": 2,
+   "isSingleSource": false,
+   "isStructurallySingleSource": false,
+   "blendedSourceRank": 23.5,
+   "rankDerivedValue": 7049,
+   "canonicalTierId": 5,
+   "confidenceBucket": "high",
+   "confidenceLabel": "High \u2014 picks agree within 15%",
+   "marketGapDirection": "consensus_premium",
+   "marketGapMagnitude": 1.0,
+   "quarantined": false,
+   "anomalyFlags": [],
+   "identityMethod": "position_source_aligned",
+   "identityConfidence": 0.95
+  },
+  "crossSurface": {
+   "leagueAdjusted": 29
+  }
+ },
+ {
+  "query": "2028 Late 1st",
+  "found": true,
+  "displayName": "2028 Late 1st",
+  "position": null,
+  "team": null,
+  "playerId": null,
+  "rawSources": {
+   "idpTradeCalc": {
+    "name": "2028 Late 1st",
+    "value": "4132.0"
+   },
+   "ktc": {
+    "name": "2028 Late 1st",
+    "value": "4026"
+   },
+   "ktcSfTep": {
+    "name": "2028 Late 1st",
+    "value": "4026"
+   }
+  },
+  "pipeline": {
+   "_rawComposite": 3847,
+   "_composite": 3847,
+   "_finalAdjusted": 3847,
+   "_offenseOnlyFinalAdjusted": 4026,
+   "sourceRanks": {
+    "ktcSfTep": 97,
+    "idpTradeCalc": 119
+   },
+   "sourceOriginalRanks": {},
+   "sourceCount": 2,
+   "isSingleSource": false,
+   "isStructurallySingleSource": false,
+   "blendedSourceRank": 108.0,
+   "rankDerivedValue": 4079,
+   "canonicalTierId": 17,
+   "confidenceBucket": "high",
+   "confidenceLabel": "High \u2014 picks agree within 15%",
+   "marketGapDirection": "retail_premium",
+   "marketGapMagnitude": 22.0,
+   "quarantined": false,
+   "anomalyFlags": [],
+   "identityMethod": "position_source_aligned",
+   "identityConfidence": 0.95
+  },
+  "crossSurface": {
+   "leagueAdjusted": 102
+  }
+ }
+]

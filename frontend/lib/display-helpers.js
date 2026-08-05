@@ -151,6 +151,39 @@ function pctText(ratio) {
   return `${Math.round(Math.abs(ratio) * 100)}%`;
 }
 
+/**
+ * The row's market gap as a relative value ratio, or null when it has none.
+ *
+ * An explicit accessor rather than `?? 0` at each call site: a row the backend
+ * declined to price has NO gap, and folding that into a gap of zero is the
+ * coercion this remediation pass exists to remove.  It also reads the LIVE
+ * field — `marketGapMagnitude` is the retired rank-space one and is stamped
+ * None on every row.
+ */
+export function marketGapRatioOf(row) {
+  const ratio = Number(row?.marketGapValueRatio);
+  return Number.isFinite(ratio) ? ratio : null;
+}
+
+/** True when the row carries a gap at or above `floor`. */
+export function marketGapAtLeast(row, floor) {
+  const ratio = marketGapRatioOf(row);
+  return ratio !== null && ratio >= floor;
+}
+
+/**
+ * The gap as a short human string, e.g. "by 18%".
+ *
+ * The single formatter.  The /edge rails previously built their own out of
+ * `sourceRankSpread` and rendered "Sell +45 ranks" — a source-disagreement
+ * width, described to the user as the retail-vs-consensus gap (audit S-3).
+ */
+export function formatMarketGap(row) {
+  const ratio = marketGapRatioOf(row);
+  if (ratio === null) return "by an unknown amount";
+  return `by ${Math.round(Math.abs(ratio) * 100)}%`;
+}
+
 export function marketEdge(row) {
   const retailLabel = getRetailLabel();
   // Prefer ``effectiveSourceRanks`` (post-Hampel filter on the

@@ -50,6 +50,56 @@
    "reasonable": 70,
    "value": 100
   },
+  "market_gap/consensus_only_every_defender": {
+   "label": "none",
+   "pricedSides": 2,
+   "value": null
+  },
+  "market_gap/consensus_premium_large": {
+   "label": "consensus_premium",
+   "pricedSides": 2,
+   "value": 0.4
+  },
+  "market_gap/exact_tie": {
+   "label": "none",
+   "pricedSides": 2,
+   "value": 0.0
+  },
+  "market_gap/multi_consensus_averaged": {
+   "label": "retail_premium",
+   "pricedSides": 3,
+   "value": 0.4
+  },
+  "market_gap/ranked_but_unpriced": {
+   "label": "none",
+   "pricedSides": 0,
+   "value": null
+  },
+  "market_gap/retail_only": {
+   "label": "none",
+   "pricedSides": 1,
+   "value": null
+  },
+  "market_gap/retail_premium_large": {
+   "label": "retail_premium",
+   "pricedSides": 2,
+   "value": 0.4
+  },
+  "market_gap/small_gap_under_floor": {
+   "label": "retail_premium",
+   "pricedSides": 2,
+   "value": 0.04
+  },
+  "market_gap/tight_end_rank_gap_but_value_agreement": {
+   "label": "retail_premium",
+   "pricedSides": 3,
+   "value": 0.024896
+  },
+  "market_gap/unranked": {
+   "label": "none",
+   "pricedSides": 0,
+   "value": null
+  },
   "news_polarity/LB suspended six games": {
    "impact": "negative",
    "kind": "injury",
@@ -1798,11 +1848,12 @@
  "surfaces": [
   "ros_direction(294)",
   "ros_deadline(12)",
+  "market_gap(10)",
   "faab_bid(7)",
   "news_polarity(10)",
   "js(12)"
  ],
  "totals": {
-  "rows": 335
+  "rows": 345
  }
 }

@@ -1,0 +1,146 @@
+{
+ "teRows": 85,
+ "doubleApplied": 0,
+ "perSource": {
+  "dlfRookieSf": {
+   "boost": 8,
+   "native": 0,
+   "noneApplied": 0,
+   "multMin": 1.2444,
+   "multMedian": 1.4002,
+   "multMax": 1.5306
+  },
+  "dlfSf": {
+   "boost": 42,
+   "native": 0,
+   "noneApplied": 0,
+   "multMin": 1.2091,
+   "multMedian": 1.3365,
+   "multMax": 1.4403
+  },
+  "draftSharks": {
+   "boost": 0,
+   "native": 72,
+   "noneApplied": 0,
+   "multMin": 1.1,
+   "multMedian": 1.1,
+   "multMax": 1.1
+  },
+  "dynastyDaddySf": {
+   "boost": 56,
+   "native": 0,
+   "noneApplied": 0,
+   "multMin": 1.1017,
+   "multMedian": 1.3439,
+   "multMax": 1.5073
+  },
+  "dynastyNerdsSfTep": {
+   "boost": 0,
+   "native": 48,
+   "noneApplied": 0,
+   "multMin": 1.1,
+   "multMedian": 1.1,
+   "multMax": 1.1
+  },
+  "fantasyCalc": {
+   "boost": 67,
+   "native": 0,
+   "noneApplied": 0,
+   "multMin": 1.1017,
+   "multMedian": 1.3973,
+   "multMax": 1.5403
+  },
+  "fantasyNavigatorSf": {
+   "boost": 69,
+   "native": 0,
+   "noneApplied": 0,
+   "multMin": 1.2092,
+   "multMedian": 1.3853,
+   "multMax": 1.5915
+  },
+  "fantasyProsFitzmaurice": {
+   "boost": 0,
+   "native": 46,
+   "noneApplied": 0,
+   "multMin": 1.1,
+   "multMedian": 1.1,
+   "multMax": 1.1
+  },
+  "fantasyProsSf": {
+   "boost": 82,
+   "native": 0,
+   "noneApplied": 0,
+   "multMin": 1.2092,
+   "multMedian": 1.4388,
+   "multMax": 1.5915
+  },
+  "flockFantasySf": {
+   "boost": 65,
+   "native": 0,
+   "noneApplied": 0,
+   "multMin": 1.2092,
+   "multMedian": 1.3872,
+   "multMax": 1.5606
+  },
+  "flockFantasySfRookies": {
+   "boost": 14,
+   "native": 0,
+   "noneApplied": 0,
+   "multMin": 1.2214,
+   "multMedian": 1.5048,
+   "multMax": 1.6367
+  },
+  "idpTradeCalc": {
+   "boost": 0,
+   "native": 72,
+   "noneApplied": 0,
+   "multMin": 1.1,
+   "multMedian": 1.1,
+   "multMax": 1.1
+  },
+  "ktcSfTep": {
+   "boost": 0,
+   "native": 0,
+   "noneApplied": 73,
+   "multMin": null,
+   "multMedian": null,
+   "multMax": null
+  },
+  "otcffbSf": {
+   "boost": 57,
+   "native": 0,
+   "noneApplied": 0,
+   "multMin": 1.1844,
+   "multMedian": 1.3892,
+   "multMax": 1.4591
+  },
+  "pfkDynasty": {
+   "boost": 76,
+   "native": 0,
+   "noneApplied": 0,
+   "multMin": 1.1017,
+   "multMedian": 1.4038,
+   "multMax": 1.5836
+  },
+  "yahooBoone": {
+   "boost": 0,
+   "native": 79,
+   "noneApplied": 0,
+   "multMin": 1.1,
+   "multMedian": 1.1,
+   "multMax": 1.1
+  }
+ },
+ "exemptKeys": [
+  "ktc",
+  "ktcSfTep"
+ ],
+ "leagueAdjustedOverlayInactiveAxes": [
+  "tePremium",
+  "projectionCorroboration",
+  "receptionFit"
+ ],
+ "leagueAdjustedTEFactorDistinctValues": [
+  1.011595
+ ]
+}

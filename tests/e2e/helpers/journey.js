@@ -87,7 +87,6 @@ function titleFor(route) {
   return new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
 }
 
-
 // ── Selector registry ──────────────────────────────────────────────────
 // The one place the redesign has to keep in sync.  Every selector is
 // paired with the user-visible behavior it anchors; when a page is
@@ -182,7 +181,8 @@ const SEL = {
   dashboardCommandBar: '[aria-label="Team command bar"]',
   dashboardStats: '[aria-label="Team aggregates"]',
   dashboardPanel: ".ds-panel",
-  dashboardSignalCard: '[aria-label^="Sell signal"], [aria-label^="Buy signal"]',
+  dashboardSignalCard:
+    '[aria-label^="Sell signal"], [aria-label^="Buy signal"]',
 };
 
 function isMobileProject(testInfo) {
@@ -254,6 +254,74 @@ function mobileOnly(test, testInfo) {
 }
 
 /**
+ * Why an empty board is empty — asked only when the wait below fails.
+ *
+ * ── The problem this exists to end ─────────────────────────────────
+ * "rankings board should render rows / element(s) not found" is the
+ * suite's most-repeated failure and its least informative.  #753 is the
+ * live instance: the page renders "No player data available" — which
+ * `rankings/page.jsx` shows under `!loading && !error && rows.length
+ * === 0` — so the fetch COMPLETED, raised nothing, and produced no
+ * rows.  Exactly two things do that, and they want opposite fixes:
+ *
+ *   1. the payload carried NO PLAYERS (a serving/priming problem);
+ *   2. the payload carried rows with NO RANK STAMPS, so `buildRows`
+ *      fail-fasts by design and returns [] (a pipeline/stamping
+ *      problem — see frontend/lib/dynasty-data.js).
+ *
+ * Nothing in a screenshot, the a11y snapshot, or `error-context.md`
+ * separates them: both render the same empty state.  The second logs a
+ * `console.error`, but the spec's own console guard asserts at the END
+ * of a test and so never runs when this readiness wait fails first —
+ * which is why two sessions have now had to download artifacts and
+ * still could not tell.
+ *
+ * So ask the server directly, at the moment of failure.  Diagnostic
+ * only: it runs on the failure path, changes no assertion, and is
+ * written so it can never itself throw (a broken probe must not
+ * replace a real failure message with its own stack).
+ */
+async function _diagnoseEmptyBoard(page) {
+  try {
+    const res = await page.request.get("/api/data?view=app", {
+      timeout: 30_000,
+    });
+    const status = res.status();
+    if (!res.ok()) {
+      return `/api/data?view=app answered ${status} — the board had nothing to render.`;
+    }
+    const body = await res.json();
+    const arr = Array.isArray(body?.playersArray) ? body.playersArray : [];
+    const legacy =
+      body && typeof body.players === "object" ? Object.keys(body.players) : [];
+    const count = arr.length || legacy.length;
+    const stamped = arr.filter(
+      (p) =>
+        p &&
+        p.canonicalConsensusRank !== null &&
+        p.canonicalConsensusRank !== undefined,
+    ).length;
+    return [
+      `/api/data?view=app: ${status}, playerCount=${body?.playerCount ?? "?"}, `,
+      `playersArray=${arr.length}, legacyPlayers=${legacy.length}, `,
+      `rowsWithCanonicalConsensusRank=${stamped}.`,
+      count === 0
+        ? " => THE PAYLOAD IS EMPTY: the server served no players, so this is a" +
+          " serving/priming problem, not a rendering one."
+        : stamped === 0
+          ? " => PAYLOAD HAS ROWS BUT NO RANK STAMPS: buildRows fail-fasts and" +
+            " returns [] by design. The scrape pipeline is not stamping" +
+            " canonicalConsensusRank — investigate upstream, do NOT add a" +
+            " client-side blend."
+          : " => The payload looks serveable, so the board had data and still" +
+            " did not render it. That points at the client, not the contract.",
+    ].join("");
+  } catch (err) {
+    return `board diagnostic failed to run: ${err && err.message}`;
+  }
+}
+
+/**
  * Navigate to /rankings and wait for the board to be populated with
  * real data rows.  Data-driven: waits for actual <tr> elements, not
  * timers.  Returns the row locator.
@@ -274,9 +342,30 @@ async function gotoRankingsBoard(page, { minRows = 50 } = {}) {
   // which reads like a dead pipeline and was a dead cookie.
   await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
   const rows = page.locator(SEL.boardRow);
-  await expect(rows.first(), "rankings board should render rows").toBeVisible({
-    timeout: 60_000,
+  // Collected only to be reported alongside a failure — buildRows' own
+  // fail-fast announces itself here and nowhere else a failing readiness
+  // wait can see. Attached after goto so it captures the board's fetch.
+  const consoleErrors = [];
+  page.on("console", (msg) => {
+    if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 300));
   });
+  try {
+    await expect(rows.first(), "rankings board should render rows").toBeVisible(
+      {
+        timeout: 60_000,
+      },
+    );
+  } catch (err) {
+    // Re-throw with the diagnosis appended. The original message and
+    // Playwright's call log are preserved verbatim — this only adds.
+    const diag = await _diagnoseEmptyBoard(page);
+    const seen = consoleErrors.length
+      ? `\nconsole errors during load:\n  - ${consoleErrors.join("\n  - ")}`
+      : "\nconsole errors during load: none (so buildRows' zero-rank-stamps " +
+        "fail-fast did NOT fire).";
+    err.message = `${err.message}\n\n[board diagnostic] ${diag}${seen}`;
+    throw err;
+  }
   await expect
     .poll(() => rows.count(), {
       message: `rankings board should render at least ${minRows} rows`,
@@ -325,7 +414,9 @@ function pageHeading(page, name) {
  */
 async function contractFixture(page, { view = "app" } = {}) {
   const res = await page.request.get(`/api/data?view=${view}`);
-  expect(res.status(), `GET /api/data?view=${view} must serve the suite`).toBe(200);
+  expect(res.status(), `GET /api/data?view=${view} must serve the suite`).toBe(
+    200,
+  );
   const contract = await res.json();
   const teams = contract?.sleeper?.teams || [];
   const playersArray = Array.isArray(contract?.playersArray)
@@ -361,6 +452,50 @@ async function expectNoBadValueTokens(page, scopeSelector) {
  * ``assertClean()`` at the end of the test.  (Same contract as the
  * old utils/app.js guard, rebuilt for the Next.js frontend.)
  */
+/**
+ * Wait until React has finished swapping streamed content into place.
+ *
+ * WHY THIS EXISTS, and why it is NOT a loosened assertion (#716).
+ *
+ * Routes with a `loading.jsx` — /waivers and /arbitrage among them — are
+ * wrapped by the App Router in a Suspense boundary and streamed. The server
+ * sends the page body inside `<div hidden id="S:n">`, then an inline
+ * `$RC("B:n","S:n")` moves it into place. For a brief window around that swap
+ * the document can satisfy a selector TWICE, and Playwright's strict mode
+ * throws on the spot rather than retrying — so a spec that asserts during the
+ * window fails with "resolved to 2 elements" on a page that is completely
+ * healthy a few milliseconds later.
+ *
+ * Measured on /waivers, 25 loads per arm: asserting immediately caught the
+ * window 1/25; asserting after this helper, 0/25. Under load (CI) the first
+ * number is far worse — 13-20% per detector across four detector points, which
+ * is why the suite was effectively unable to go green.
+ *
+ * CRITICALLY, this does not weaken the #709 detector. The bug those strict
+ * locators exist to catch is a PERSISTENT duplicate — a build that renders
+ * every page twice, forever. That survives streaming completion and still
+ * trips strict mode here. What this removes is only the transient window,
+ * which is normal React streaming and not a defect in anything.
+ *
+ * Keyed on React's own machinery (`div[hidden][id^="S:"]` staging containers
+ * and `template[id^="B:"]` boundary markers) rather than on `div[hidden]`
+ * generally, so an app component that legitimately renders a hidden div cannot
+ * make this hang.
+ */
+async function awaitStreamSettled(page, { timeout = 30_000 } = {}) {
+  await page
+    .waitForFunction(
+      () =>
+        !document.querySelector('div[hidden][id^="S:"]') &&
+        !document.querySelector('template[id^="B:"]'),
+      null,
+      { timeout },
+    )
+    // A route that never streamed has nothing to settle; that is a pass, not a
+    // failure. Swallowing here keeps this usable as an unconditional prelude.
+    .catch(() => {});
+}
+
 function attachConsoleGuards(page, { allow = [] } = {}) {
   const defaultAllow = [
     // Chrome resource noise (404 favicons, aborted prefetches).
@@ -390,7 +525,9 @@ function attachConsoleGuards(page, { allow = [] } = {}) {
 
   return {
     assertClean() {
-      expect.soft(consoleErrors, "unexpected browser console errors").toEqual([]);
+      expect
+        .soft(consoleErrors, "unexpected browser console errors")
+        .toEqual([]);
       expect.soft(pageErrors, "unexpected page errors").toEqual([]);
     },
     consoleErrors,
@@ -413,4 +550,5 @@ module.exports = {
   contractFixture,
   expectNoBadValueTokens,
   attachConsoleGuards,
+  awaitStreamSettled,
 };

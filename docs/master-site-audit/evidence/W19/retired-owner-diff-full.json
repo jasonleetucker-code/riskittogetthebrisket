@@ -1,0 +1,287 @@
+{
+ "recordCategoryDiff": {
+  "singleWeekHighest": {
+   "shipped": [
+    "None|489.2",
+    "None|475.86",
+    "None|475.01",
+    "None|474.7",
+    "None|467.15",
+    "None|460.43",
+    "None|458.9",
+    "None|454.41",
+    "None|453.35",
+    "None|451.61"
+   ],
+   "full": [
+    "None|489.2",
+    "None|475.86",
+    "None|475.01",
+    "None|474.7",
+    "None|467.15",
+    "None|460.43",
+    "None|458.9",
+    "None|454.41",
+    "None|453.35",
+    "None|451.61"
+   ],
+   "changed": false
+  },
+  "singleWeekLowest": {
+   "shipped": [
+    "None|177.25",
+    "None|192.48",
+    "None|193.79",
+    "None|195.49",
+    "None|195.88",
+    "None|196.4",
+    "None|206.0",
+    "None|210.44",
+    "None|211.57",
+    "None|214.21"
+   ],
+   "full": [
+    "None|164.79",
+    "None|177.25",
+    "None|178.47",
+    "None|192.48",
+    "None|193.79",
+    "None|195.37",
+    "None|195.49",
+    "None|195.88",
+    "None|196.4",
+    "None|203.04"
+   ],
+   "changed": true
+  },
+  "biggestMargin": {
+   "shipped": [
+    "None|474.7",
+    "None|453.35",
+    "None|475.86",
+    "None|367.43",
+    "None|369.16",
+    "None|411.64",
+    "None|345.33",
+    "None|287.65",
+    "None|315.56",
+    "None|437.97"
+   ],
+   "full": [
+    "None|474.7",
+    "None|453.35",
+    "None|475.86",
+    "None|367.43",
+    "None|369.16",
+    "None|411.64",
+    "None|345.33",
+    "None|287.65",
+    "None|315.56",
+    "None|437.97"
+   ],
+   "changed": false
+  },
+  "narrowestVictory": {
+   "shipped": [
+    "None|290.8",
+    "None|274.88",
+    "None|429.35",
+    "None|334.61",
+    "None|363.86",
+    "None|357.24",
+    "None|352.15",
+    "None|374.46",
+    "None|282.41",
+    "None|380.01"
+   ],
+   "full": [
+    "None|271.82",
+    "None|290.8",
+    "None|274.88",
+    "None|429.35",
+    "None|334.61",
+    "None|363.86",
+    "None|357.24",
+    "None|282.1",
+    "None|352.15",
+    "None|374.46"
+   ],
+   "changed": true
+  },
+  "mostPointsInLoss": {
+   "shipped": [
+    "None|449.83",
+    "None|441.94",
+    "None|427.96",
+    "None|426.27",
+    "None|415.74"
+   ],
+   "full": [
+    "None|449.83",
+    "None|441.94",
+    "None|427.96",
+    "None|426.27",
+    "None|415.74"
+   ],
+   "changed": false
+  },
+  "fewestPointsInWin": {
+   "shipped": [
+    "None|241.23",
+    "None|253.92",
+    "None|256.7",
+    "None|258.41",
+    "None|259.09"
+   ],
+   "full": [
+    "None|236.61",
+    "None|238.62",
+    "None|241.23",
+    "None|253.92",
+    "None|254.52"
+   ],
+   "changed": true
+  },
+  "mostPointsInSeason": {
+   "shipped": [
+    "Brent|5581.01",
+    "Ed|5036.11",
+    "Joey|5005.57",
+    "MaKayla|4999.92",
+    "Kich|4862.49",
+    "Eric|4778.49",
+    "Ty|4752.98",
+    "Roy|4719.53",
+    "Collin|4711.89",
+    "Jason|4325.9"
+   ],
+   "full": [
+    "Brent|5581.01",
+    "Ed|5036.11",
+    "Joey|5005.57",
+    "MaKayla|4999.92",
+    "Kich|4862.49",
+    "Eric|4778.49",
+    "Ty|4752.98",
+    "Roy|4719.53",
+    "Collin|4711.89",
+    "Jason|4325.9"
+   ],
+   "changed": false
+  },
+  "mostPointsAgainstInSeason": {
+   "shipped": [
+    "Roy|4719.53",
+    "Eric|4778.49",
+    "Jason|4325.9",
+    "Ed|5036.11",
+    "Kich|4862.49",
+    "MaKayla|4999.92",
+    "Brent|5581.01",
+    "Collin|4711.89",
+    "Ty|4752.98",
+    "Joey|5005.57"
+   ],
+   "full": [
+    "Roy|4719.53",
+    "Eric|4778.49",
+    "Jason|4325.9",
+    "Ed|5036.11",
+    "Kich|4862.49",
+    "MaKayla|4999.92",
+    "Brent|5581.01",
+    "Collin|4711.89",
+    "Ty|4752.98",
+    "Joey|5005.57"
+   ],
+   "changed": false
+  },
+  "longestWinStreaks": {
+   "shipped": [
+    "Joey|10",
+    "Brent|6",
+    "Jason|4",
+    "MaKayla|4",
+    "Ed|3",
+    "Collin|3",
+    "Ty|3",
+    "Eric|3",
+    "Roy|3",
+    "Kich|2"
+   ],
+   "full": [
+    "Joey|10",
+    "Brent|6",
+    "SheriffB|6",
+    "Jason|4",
+    "MaKayla|4",
+    "Ed|3",
+    "Collin|3",
+    "Ty|3",
+    "Eric|3",
+    "Roy|3"
+   ],
+   "changed": true
+  },
+  "longestLossStreaks": {
+   "shipped": [
+    "Eric|6",
+    "Roy|6",
+    "Jason|5",
+    "Collin|5",
+    "MaKayla|5",
+    "Ed|4",
+    "Ty|3",
+    "Kich|2",
+    "Joey|2",
+    "Brent|1"
+   ],
+   "full": [
+    "Eric|6",
+    "Roy|6",
+    "Jason|5",
+    "Collin|5",
+    "MaKayla|5",
+    "SheriffB|5",
+    "Ed|4",
+    "Ty|3",
+    "Kich|2",
+    "Joey|2"
+   ],
+   "changed": true
+  }
+ },
+ "changedCategories": [
+  "singleWeekLowest",
+  "narrowestVictory",
+  "fewestPointsInWin",
+  "longestWinStreaks",
+  "longestLossStreaks"
+ ],
+ "historyStandingsRowsShipped": {
+  "2026": 12,
+  "2025": 10,
+  "2024": 8
+ },
+ "historyStandingsRowsFull": {
+  "2026": 12,
+  "2025": 10,
+  "2024": 10
+ },
+ "hallOfFame": [
+  12,
+  14
+ ],
+ "luckCareerRows": [
+  10,
+  12
+ ],
+ "powerCurrentRanking": [
+  10,
+  10
+ ],
+ "streaksCurrentByOwner": [
+  12,
+  14
+ ]
+}

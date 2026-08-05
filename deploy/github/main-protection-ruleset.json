@@ -1,0 +1,70 @@
+{
+  "_comment": [
+    "GitHub branch ruleset for `main`, as an API payload. INERT until an",
+    "admin-scoped token applies it — see deploy/github/apply-branch-protection.sh.",
+    "",
+    "This exists because `main` has NO protection today (OA-02 in",
+    "docs/OWNER_ACTION_AUDIT_2026-07-29.md confirms `\"protected\": false`),",
+    "and deploy.yml ships every push to main straight to production. So an",
+    "accidental direct push is an unreviewed path to the live site.",
+    "",
+    "The second reason is subtler and is why `required_status_checks` matters",
+    "more than it looks: a PR with merge conflicts gets ZERO check runs,",
+    "because GitHub cannot build the merge ref. On the merge page that reads",
+    "identically to checks having passed. Requiring a check turns 'no checks'",
+    "from something that looks mergeable into something that cannot be merged.",
+    "",
+    "`Validate PR` is the JOB name in pr-validation.yml, not the workflow name.",
+    "GitHub matches job names. The audit originally named `E2E Safety Net` and",
+    "`Deploy Production` here — both workflow names, neither of which would",
+    "ever match a check run.",
+    "",
+    "Deliberately NOT required: `Boot stack + run journeys` (e2e.yml). It runs",
+    "only on PRs touching the shell/SSR paths, so requiring it would block",
+    "every PR that does not. And `Deploy To Production`, which only runs",
+    "post-merge and so can never be green pre-merge.",
+    "",
+    "`required_approving_review_count: 0` is deliberate: this is a solo repo,",
+    "and requiring 1 approval means never being able to merge your own PR.",
+    "Zero still forces the PR path and still runs the check.",
+    "",
+    "Admins are in the bypass list so a hotfix is always possible."
+  ],
+  "name": "main-protection",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [
+    {
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
+  ],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [{ "context": "Validate PR" }]
+      }
+    }
+  ]
+}

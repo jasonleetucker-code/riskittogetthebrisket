@@ -1,0 +1,377 @@
+
+==============================================================================
+TRACE: Josh Allen
+==============================================================================
+  Josh Allen  pos=None team=BUF playerId=None assetClass=None
+
+  --- STAGE 1: what the raw committed source CSVs say ---
+    dlfSf            {"name": "Josh Allen", "rank": "1"}
+    draftSharksRosIdp {"sourceName": "Josh Allen", "position": "QB", "rank": "17", "total_ranked": "977"}
+    draftSharksRosSf {"sourceName": "Josh Allen", "position": "QB", "rank": "1", "total_ranked": "977"}
+    draftSharksSf    {"Rank": "1", "Player": "Josh Allen", "Fantasy Position": "QB", "ADP": "1.01", "Bye": "7", "Age": "30.2", "1yr. Proj": "403", "3yr. Proj": "1106", "5y
+    dynastyDaddySf   {"name": "Josh Allen", "value": "10200", "rank": "2"}
+    dynastyNerdsSfTep {"Name": "Josh Allen", "Rank": "1", "Value": "10256", "SleeperId": "4984", "Pos": "QB", "Team": "BUF"}
+    fantasyCalc      {"name": "Josh Allen", "value": "10338", "rank": "1"}
+    fantasyNavigatorSf {"name": "Josh Allen", "value": "9891.0", "rank": "1"}
+    fantasyProsFitzmaurice {"name": "Josh Allen", "team": "BUF", "position": "QB", "value": "100", "rank": "1"}
+    fantasyProsSf    {"name": "Josh Allen", "Rank": "1", "position": "QB", "team": "BUF"}
+    flockFantasySf   {"name": "Josh Allen", "Rank": "2.13"}
+    idpTradeCalc     {"name": "Josh Allen", "value": "9983.0"}
+    ktc              {"name": "Josh Allen", "value": "9983"}
+    ktcSfTep         {"name": "Josh Allen", "value": "9983"}
+    otcffbSf         {"name": "Josh Allen", "value": "92.7", "rank": "3"}
+    pfkDynasty       {"name": "Josh Allen", "value": "9960.0", "rank": "2", "sleeper_id": "4984"}
+    yahooBoone       {"name": "Josh Allen", "pos": "QB", "rank": "1", "boone_value": "141"}
+
+  --- STAGE 2: pipeline fields on the served row ---
+    _rawComposite                    = 9983   (raw scraper composite)
+    _composite                       = 9983   (composite)
+    _finalAdjusted                   = 9983   (legacy adjusted (what the finder used to read))
+    _offenseOnlyFinalAdjusted        = 9987   (offense-only adjusted)
+    sourceRanks                      = {"ktcSfTep": 3, "idpTradeCalc": 2, "dlfSf": 1, "dynastyNerdsSfTep": 1, "fantasyCalc": 1, "otcffbSf": 3, "fantasyNavigato   (rank each source gave it)
+    sourceOriginalRanks              = {"dlfSf": 1.0, "dynastyNerdsSfTep": 1.0, "fantasyProsSf": 1.0, "fantasyCalc": 1.0, "otcffbSf": 3.0, "dynastyDaddySf": 2.   (pre-normalization source ranks)
+    sourceCount                      = 14   (surviving source count)
+    isSingleSource                   = False   (single-source haircut applied?)
+    isStructurallySingleSource       = False   (structurally single-source)
+    blendedSourceRank                = 1.5   (blended rank)
+    rankDerivedValue                 = 9988   (>>> THE SERVED VALUE <<<)
+    canonicalTierId                  = 1   (tier)
+    confidenceBucket                 = high   (confidence bucket)
+    confidenceLabel                  = High — multi-source, tight agreement   (confidence label)
+    marketGapDirection               = consensus_premium   (market gap direction)
+    marketGapMagnitude               = 1.6153846153846154   (market gap magnitude)
+    quarantined                      = False   (quarantined?)
+    anomalyFlags                     = []   (anomaly flags)
+    identityMethod                   = canonical_id   (how identity was resolved)
+    identityConfidence               = 1.0   (identity confidence)
+
+  --- STAGE 3: what other surfaces serve for the same asset ---
+    league-adjusted overlay: 1
+
+==============================================================================
+TRACE: Travis Etienne
+==============================================================================
+  Travis Etienne  pos=None team=NO playerId=None assetClass=None
+
+  --- STAGE 1: what the raw committed source CSVs say ---
+    dlfSf            {"name": "Travis Etienne", "rank": "85.67"}
+    draftSharksRosIdp {"sourceName": "Travis Etienne", "position": "RB", "rank": "43", "total_ranked": "977"}
+    draftSharksRosSf {"sourceName": "Travis Etienne", "position": "RB", "rank": "64", "total_ranked": "977"}
+    draftSharksSf    {"Rank": "112", "Player": "Travis Etienne", "Fantasy Position": "RB", "ADP": "7.01", "Bye": "8", "Age": "27.5", "1yr. Proj": "209", "3yr. Proj": "389"
+    dynastyDaddySf   {"name": "Travis Etienne", "value": "2860", "rank": "80"}
+    dynastyNerdsSfTep {"Name": "Travis Etienne", "Rank": "76", "Value": "1719", "SleeperId": "7543", "Pos": "RB", "Team": "NO"}
+    fantasyCalc      {"name": "Travis Etienne", "value": "2564", "rank": "87"}
+    fantasyNavigatorSf {"name": "Travis Etienne", "value": "3039.0", "rank": "67"}
+    fantasyProsFitzmaurice {"name": "Travis Etienne Jr.", "team": "NO", "position": "RB", "value": "47", "rank": "77"}
+    fantasyProsSf    {"name": "Travis Etienne Jr.", "Rank": "74", "position": "RB", "team": "NO"}
+    flockFantasySf   {"name": "Travis Etienne", "Rank": "87.5"}
+    idpTradeCalc     {"name": "Travis Etienne", "value": "4508.0"}
+    ktc              {"name": "Travis Etienne", "value": "4367"}
+    ktcSfTep         {"name": "Travis Etienne", "value": "4367"}
+    otcffbSf         {"name": "Travis Etienne", "value": "23.5", "rank": "80"}
+    pfkDynasty       {"name": "Travis Etienne", "value": "3211.0", "rank": "85", "sleeper_id": "7543"}
+    yahooBoone       {"name": "Travis Etienne Jr.", "pos": "RB", "rank": "76", "boone_value": "47"}
+
+  --- STAGE 2: pipeline fields on the served row ---
+    _rawComposite                    = 4508   (raw scraper composite)
+    _composite                       = 4508   (composite)
+    _finalAdjusted                   = 4508   (legacy adjusted (what the finder used to read))
+    _offenseOnlyFinalAdjusted        = 4045   (offense-only adjusted)
+    sourceRanks                      = {"ktcSfTep": 87, "idpTradeCalc": 111, "dlfSf": 81, "dynastyNerdsSfTep": 76, "fantasyCalc": 87, "otcffbSf": 80, "fantasyN   (rank each source gave it)
+    sourceOriginalRanks              = {"dlfSf": 85.67, "dynastyNerdsSfTep": 76.0, "fantasyProsSf": 74.0, "fantasyCalc": 87.0, "otcffbSf": 80.0, "dynastyDaddyS   (pre-normalization source ranks)
+    sourceCount                      = 14   (surviving source count)
+    isSingleSource                   = False   (single-source haircut applied?)
+    isStructurallySingleSource       = False   (structurally single-source)
+    blendedSourceRank                = 84.93   (blended rank)
+    rankDerivedValue                 = 4081   (>>> THE SERVED VALUE <<<)
+    canonicalTierId                  = 17   (tier)
+    confidenceBucket                 = medium   (confidence bucket)
+    confidenceLabel                  = Medium — multi-source, moderate spread   (confidence label)
+    marketGapDirection               = consensus_premium   (market gap direction)
+    marketGapMagnitude               = 2.2307692307692264   (market gap magnitude)
+    quarantined                      = False   (quarantined?)
+    anomalyFlags                     = []   (anomaly flags)
+    identityMethod                   = canonical_id   (how identity was resolved)
+    identityConfidence               = 1.0   (identity confidence)
+
+  --- STAGE 3: what other surfaces serve for the same asset ---
+    league-adjusted overlay: 97
+
+==============================================================================
+TRACE: Aidan Hutchinson
+==============================================================================
+  Aidan Hutchinson  pos=None team=DET playerId=None assetClass=None
+
+  --- STAGE 1: what the raw committed source CSVs say ---
+    dlfIdp           {"name": "Aidan Hutchinson", "rank": "1"}
+    draftSharksIdp   {"Rank": "41", "Player": "Aidan Hutchinson", "Fantasy Position": "DL", "ADP": "N/A", "Bye": "6", "Age": "25.9", "1yr. Proj": "201", "3yr. Proj": "400"
+    draftSharksRosIdp {"sourceName": "Aidan Hutchinson", "position": "DL", "rank": "92", "total_ranked": "977"}
+    draftSharksRosSf {"sourceName": "Aidan Hutchinson", "position": "DL", "rank": "97", "total_ranked": "977"}
+    fantasyProsIdp   {"name": "Aidan Hutchinson", "originalRank": "1", "effectiveRank": "1", "derivationMethod": "direct_combined", "family": "DL", "normalizedValue": "999
+    idpShow          {"name": "Aidan Hutchinson", "position": "DE", "rank": "1"}
+    idpTradeCalc     {"name": "Aidan Hutchinson", "value": "6444.0"}
+
+  --- STAGE 2: pipeline fields on the served row ---
+    _rawComposite                    = 4871   (raw scraper composite)
+    _composite                       = 4871   (composite)
+    _finalAdjusted                   = 4871   (legacy adjusted (what the finder used to read))
+    sourceRanks                      = {"idpTradeCalc": 34, "dlfIdp": 34, "idpShow": 34, "fantasyProsIdp": 34, "draftSharksIdp": 345}   (rank each source gave it)
+    sourceOriginalRanks              = {"dlfIdp": 1.0, "idpShow": 1.0, "fantasyProsIdp": 1.0, "draftSharksIdp": 41.0}   (pre-normalization source ranks)
+    sourceCount                      = 5   (surviving source count)
+    isSingleSource                   = False   (single-source haircut applied?)
+    isStructurallySingleSource       = False   (structurally single-source)
+    blendedSourceRank                = 34.0   (blended rank)
+    rankDerivedValue                 = 6362   (>>> THE SERVED VALUE <<<)
+    canonicalTierId                  = 6   (tier)
+    confidenceBucket                 = high   (confidence bucket)
+    confidenceLabel                  = High — multi-source, tight agreement   (confidence label)
+    marketGapDirection               = none   (market gap direction)
+    marketGapMagnitude               = None   (market gap magnitude)
+    quarantined                      = False   (quarantined?)
+    anomalyFlags                     = []   (anomaly flags)
+    identityMethod                   = canonical_id   (how identity was resolved)
+    identityConfidence               = 1.0   (identity confidence)
+
+  --- STAGE 3: what other surfaces serve for the same asset ---
+    league-adjusted overlay: 31
+
+==============================================================================
+TRACE: Brock Bowers
+==============================================================================
+  Brock Bowers  pos=None team=LV playerId=None assetClass=None
+
+  --- STAGE 1: what the raw committed source CSVs say ---
+    dlfSf            {"name": "Brock Bowers", "rank": "15.17"}
+    draftSharksRosIdp {"sourceName": "Brock Bowers", "position": "TE", "rank": "25", "total_ranked": "977"}
+    draftSharksRosSf {"sourceName": "Brock Bowers", "position": "TE", "rank": "36", "total_ranked": "977"}
+    draftSharksSf    {"Rank": "16", "Player": "Brock Bowers", "Fantasy Position": "TE", "ADP": "2.01", "Bye": "13", "Age": "23.6", "1yr. Proj": "214", "3yr. Proj": "641", 
+    dynastyDaddySf   {"name": "Brock Bowers", "value": "8583", "rank": "8"}
+    dynastyNerdsSfTep {"Name": "Brock Bowers", "Rank": "7", "Value": "8907", "SleeperId": "11604", "Pos": "TE", "Team": "LV"}
+    fantasyCalc      {"name": "Brock Bowers", "value": "7676", "rank": "8"}
+    fantasyNavigatorSf {"name": "Brock Bowers", "value": "6454.0", "rank": "16"}
+    fantasyProsFitzmaurice {"name": "Brock Bowers", "team": "LV", "position": "TE", "value": "85", "rank": "8"}
+    fantasyProsSf    {"name": "Brock Bowers", "Rank": "28", "position": "TE", "team": "LV"}
+    flockFantasySf   {"name": "Brock Bowers", "Rank": "16.13"}
+    idpTradeCalc     {"name": "Brock Bowers", "value": "8975.0"}
+    ktc              {"name": "Brock Bowers", "value": "8207"}
+    ktcSfTep         {"name": "Brock Bowers", "value": "9924"}
+    otcffbSf         {"name": "Brock Bowers", "value": "64.2", "rank": "13"}
+    pfkDynasty       {"name": "Brock Bowers", "value": "9294.0", "rank": "8", "sleeper_id": "11604"}
+    yahooBoone       {"name": "Brock Bowers", "pos": "TE", "rank": "8", "boone_value": "109"}
+
+  --- STAGE 2: pipeline fields on the served row ---
+    _rawComposite                    = 9316   (raw scraper composite)
+    _composite                       = 9316   (composite)
+    _finalAdjusted                   = 9316   (legacy adjusted (what the finder used to read))
+    _offenseOnlyFinalAdjusted        = 9950   (offense-only adjusted)
+    sourceRanks                      = {"ktcSfTep": 5, "idpTradeCalc": 7, "dlfSf": 15, "dynastyNerdsSfTep": 7, "fantasyCalc": 8, "otcffbSf": 13, "fantasyNaviga   (rank each source gave it)
+    sourceOriginalRanks              = {"dlfSf": 15.17, "dynastyNerdsSfTep": 7.0, "fantasyProsSf": 28.0, "fantasyCalc": 8.0, "otcffbSf": 13.0, "dynastyDaddySf"   (pre-normalization source ranks)
+    sourceCount                      = 14   (surviving source count)
+    isSingleSource                   = False   (single-source haircut applied?)
+    isStructurallySingleSource       = False   (structurally single-source)
+    blendedSourceRank                = 9.92   (blended rank)
+    rankDerivedValue                 = 9947   (>>> THE SERVED VALUE <<<)
+    canonicalTierId                  = 1   (tier)
+    confidenceBucket                 = high   (confidence bucket)
+    confidenceLabel                  = High — multi-source, tight agreement   (confidence label)
+    marketGapDirection               = retail_premium   (market gap direction)
+    marketGapMagnitude               = 5.363636363636363   (market gap magnitude)
+    quarantined                      = False   (quarantined?)
+    anomalyFlags                     = []   (anomaly flags)
+    identityMethod                   = canonical_id   (how identity was resolved)
+    identityConfidence               = 1.0   (identity confidence)
+
+  --- STAGE 3: what other surfaces serve for the same asset ---
+    league-adjusted overlay: 3
+
+==============================================================================
+TRACE: George Kittle
+==============================================================================
+  George Kittle  pos=None team=SF playerId=None assetClass=None
+
+  --- STAGE 1: what the raw committed source CSVs say ---
+    dlfSf            {"name": "George Kittle", "rank": "99.33"}
+    draftSharksRosIdp {"sourceName": "George Kittle", "position": "TE", "rank": "100", "total_ranked": "977"}
+    draftSharksRosSf {"sourceName": "George Kittle", "position": "TE", "rank": "112", "total_ranked": "977"}
+    draftSharksSf    {"Rank": "33", "Player": "Brock Purdy", "Fantasy Position": "QB", "ADP": "3.12", "Bye": "8", "Age": "26.6", "1yr. Proj": "346", "3yr. Proj": "859", "5
+    dynastyDaddySf   {"name": "George Kittle", "value": "1832", "rank": "115"}
+    dynastyNerdsSfTep {"Name": "George Kittle", "Rank": "136", "Value": "410", "SleeperId": "4217", "Pos": "TE", "Team": "SF"}
+    fantasyCalc      {"name": "George Kittle", "value": "2132", "rank": "100"}
+    fantasyNavigatorSf {"name": "George Kittle", "value": "1532.0", "rank": "101"}
+    fantasyProsFitzmaurice {"name": "George Kittle", "team": "SF", "position": "TE", "value": "41", "rank": "98"}
+    fantasyProsSf    {"name": "George Kittle", "Rank": "118", "position": "TE", "team": "SF"}
+    flockFantasySf   {"name": "George Kittle", "Rank": "133.88"}
+    idpTradeCalc     {"name": "George Kittle", "value": "3727.0"}
+    ktc              {"name": "George Kittle", "value": "3368"}
+    ktcSfTep         {"name": "George Kittle", "value": "4205"}
+    otcffbSf         {"name": "George Kittle", "value": "13.4", "rank": "114"}
+    pfkDynasty       {"name": "George Kittle", "value": "2765.0", "rank": "104", "sleeper_id": "4217"}
+    yahooBoone       {"name": "George Kittle", "pos": "TE", "rank": "98", "boone_value": "35"}
+
+  --- STAGE 2: pipeline fields on the served row ---
+    _rawComposite                    = 4205   (raw scraper composite)
+    _composite                       = 4205   (composite)
+    _finalAdjusted                   = 4205   (legacy adjusted (what the finder used to read))
+    _offenseOnlyFinalAdjusted        = 3991   (offense-only adjusted)
+    sourceRanks                      = {"ktcSfTep": 94, "idpTradeCalc": 138, "dlfSf": 94, "dynastyNerdsSfTep": 136, "fantasyCalc": 100, "otcffbSf": 114, "fanta   (rank each source gave it)
+    sourceOriginalRanks              = {"dlfSf": 99.33, "dynastyNerdsSfTep": 136.0, "fantasyProsSf": 118.0, "fantasyCalc": 100.0, "otcffbSf": 114.0, "dynastyDa   (pre-normalization source ranks)
+    sourceCount                      = 14   (surviving source count)
+    isSingleSource                   = False   (single-source haircut applied?)
+    isStructurallySingleSource       = False   (structurally single-source)
+    blendedSourceRank                = 106.54   (blended rank)
+    rankDerivedValue                 = 4088   (>>> THE SERVED VALUE <<<)
+    canonicalTierId                  = 17   (tier)
+    confidenceBucket                 = medium   (confidence bucket)
+    confidenceLabel                  = Medium — multi-source, moderate spread   (confidence label)
+    marketGapDirection               = retail_premium   (market gap direction)
+    marketGapMagnitude               = 13.583333333333329   (market gap magnitude)
+    quarantined                      = False   (quarantined?)
+    anomalyFlags                     = []   (anomaly flags)
+    identityMethod                   = canonical_id   (how identity was resolved)
+    identityConfidence               = 1.0   (identity confidence)
+
+  --- STAGE 3: what other surfaces serve for the same asset ---
+    league-adjusted overlay: 100
+
+==============================================================================
+TRACE: Carson Schwesinger
+==============================================================================
+  Carson Schwesinger  pos=None team=CLE playerId=None assetClass=None
+
+  --- STAGE 1: what the raw committed source CSVs say ---
+    dlfIdp           {"name": "Carson Schwesinger", "rank": "4.33"}
+    draftSharksIdp   {"Rank": "1", "Player": "Carson Schwesinger", "Fantasy Position": "LB", "ADP": "N/A", "Bye": "11", "Age": "23.4", "1yr. Proj": "281", "3yr. Proj": "81
+    draftSharksRosIdp {"sourceName": "Carson Schwesinger", "position": "LB", "rank": "35", "total_ranked": "977"}
+    draftSharksRosSf {"sourceName": "Carson Schwesinger", "position": "LB", "rank": "45", "total_ranked": "977"}
+    fantasyProsIdp   {"name": "Carson Schwesinger", "originalRank": "12", "effectiveRank": "12", "derivationMethod": "direct_combined", "family": "LB", "normalizedValue": 
+    idpShow          {"name": "Carson Schwesinger", "position": "LB", "rank": "3"}
+    idpTradeCalc     {"name": "Carson Schwesinger", "value": "5667.0"}
+
+  --- STAGE 2: pipeline fields on the served row ---
+    _rawComposite                    = 4357   (raw scraper composite)
+    _composite                       = 4357   (composite)
+    _finalAdjusted                   = 4357   (legacy adjusted (what the finder used to read))
+    sourceRanks                      = {"idpTradeCalc": 47, "dlfIdp": 64, "idpShow": 47, "fantasyProsIdp": 117, "draftSharksIdp": 23}   (rank each source gave it)
+    sourceOriginalRanks              = {"dlfIdp": 4.33, "idpShow": 3.0, "fantasyProsIdp": 12.0, "draftSharksIdp": 1.0}   (pre-normalization source ranks)
+    sourceCount                      = 5   (surviving source count)
+    isSingleSource                   = False   (single-source haircut applied?)
+    isStructurallySingleSource       = False   (structurally single-source)
+    blendedSourceRank                = 59.6   (blended rank)
+    rankDerivedValue                 = 5908   (>>> THE SERVED VALUE <<<)
+    canonicalTierId                  = 8   (tier)
+    confidenceBucket                 = high   (confidence bucket)
+    confidenceLabel                  = High — multi-source, tight agreement   (confidence label)
+    marketGapDirection               = none   (market gap direction)
+    marketGapMagnitude               = None   (market gap magnitude)
+    quarantined                      = False   (quarantined?)
+    anomalyFlags                     = []   (anomaly flags)
+    identityMethod                   = canonical_id   (how identity was resolved)
+    identityConfidence               = 1.0   (identity confidence)
+
+  --- STAGE 3: what other surfaces serve for the same asset ---
+    league-adjusted overlay: 47
+
+==============================================================================
+TRACE: 2026 Pick 1.01
+==============================================================================
+  2026 Pick 1.01  pos=None team=None playerId=None assetClass=None
+
+  --- STAGE 1: what the raw committed source CSVs say ---
+    idpTradeCalc     {"name": "2026 Pick 1.01", "value": "8013.0"}
+
+  --- STAGE 2: pipeline fields on the served row ---
+    _rawComposite                    = 7587   (raw scraper composite)
+    _composite                       = 7587   (composite)
+    _finalAdjusted                   = 7587   (legacy adjusted (what the finder used to read))
+    _offenseOnlyFinalAdjusted        = 7829   (offense-only adjusted)
+    sourceRanks                      = {"idpTradeCalc": 12}   (rank each source gave it)
+    sourceOriginalRanks              = {"dlfRookieSf": 1.0}   (pre-normalization source ranks)
+    sourceCount                      = 1   (surviving source count)
+    isSingleSource                   = True   (single-source haircut applied?)
+    isStructurallySingleSource       = False   (structurally single-source)
+    blendedSourceRank                = 9.0   (blended rank)
+    rankDerivedValue                 = 7799   (>>> THE SERVED VALUE <<<)
+    canonicalTierId                  = None   (tier)
+    confidenceBucket                 = low   (confidence bucket)
+    confidenceLabel                  = Low — single pick source   (confidence label)
+    marketGapDirection               = none   (market gap direction)
+    marketGapMagnitude               = None   (market gap magnitude)
+    quarantined                      = False   (quarantined?)
+    anomalyFlags                     = []   (anomaly flags)
+    identityMethod                   = position_source_aligned   (how identity was resolved)
+    identityConfidence               = 0.95   (identity confidence)
+
+  --- STAGE 3: what other surfaces serve for the same asset ---
+    league-adjusted overlay: absent
+
+==============================================================================
+TRACE: 2027 Early 1st
+==============================================================================
+  2027 Early 1st  pos=None team=None playerId=None assetClass=None
+
+  --- STAGE 1: what the raw committed source CSVs say ---
+    idpTradeCalc     {"name": "2027 Early 1st", "value": "7052.0"}
+    ktc              {"name": "2027 Early 1st", "value": "7047"}
+    ktcSfTep         {"name": "2027 Early 1st", "value": "7047"}
+
+  --- STAGE 2: pipeline fields on the served row ---
+    _rawComposite                    = 6746   (raw scraper composite)
+    _composite                       = 6746   (composite)
+    _finalAdjusted                   = 6746   (legacy adjusted (what the finder used to read))
+    _offenseOnlyFinalAdjusted        = 7047   (offense-only adjusted)
+    sourceRanks                      = {"ktcSfTep": 24, "idpTradeCalc": 23}   (rank each source gave it)
+    sourceOriginalRanks              = {}   (pre-normalization source ranks)
+    sourceCount                      = 2   (surviving source count)
+    isSingleSource                   = False   (single-source haircut applied?)
+    isStructurallySingleSource       = False   (structurally single-source)
+    blendedSourceRank                = 23.5   (blended rank)
+    rankDerivedValue                 = 7049   (>>> THE SERVED VALUE <<<)
+    canonicalTierId                  = 5   (tier)
+    confidenceBucket                 = high   (confidence bucket)
+    confidenceLabel                  = High — picks agree within 15%   (confidence label)
+    marketGapDirection               = consensus_premium   (market gap direction)
+    marketGapMagnitude               = 1.0   (market gap magnitude)
+    quarantined                      = False   (quarantined?)
+    anomalyFlags                     = []   (anomaly flags)
+    identityMethod                   = position_source_aligned   (how identity was resolved)
+    identityConfidence               = 0.95   (identity confidence)
+
+  --- STAGE 3: what other surfaces serve for the same asset ---
+    league-adjusted overlay: 29
+
+==============================================================================
+TRACE: 2028 Late 1st
+==============================================================================
+  2028 Late 1st  pos=None team=None playerId=None assetClass=None
+
+  --- STAGE 1: what the raw committed source CSVs say ---
+    idpTradeCalc     {"name": "2028 Late 1st", "value": "4132.0"}
+    ktc              {"name": "2028 Late 1st", "value": "4026"}
+    ktcSfTep         {"name": "2028 Late 1st", "value": "4026"}
+
+  --- STAGE 2: pipeline fields on the served row ---
+    _rawComposite                    = 3847   (raw scraper composite)
+    _composite                       = 3847   (composite)
+    _finalAdjusted                   = 3847   (legacy adjusted (what the finder used to read))
+    _offenseOnlyFinalAdjusted        = 4026   (offense-only adjusted)
+    sourceRanks                      = {"ktcSfTep": 97, "idpTradeCalc": 119}   (rank each source gave it)
+    sourceOriginalRanks              = {}   (pre-normalization source ranks)
+    sourceCount                      = 2   (surviving source count)
+    isSingleSource                   = False   (single-source haircut applied?)
+    isStructurallySingleSource       = False   (structurally single-source)
+    blendedSourceRank                = 108.0   (blended rank)
+    rankDerivedValue                 = 4079   (>>> THE SERVED VALUE <<<)
+    canonicalTierId                  = 17   (tier)
+    confidenceBucket                 = high   (confidence bucket)
+    confidenceLabel                  = High — picks agree within 15%   (confidence label)
+    marketGapDirection               = retail_premium   (market gap direction)
+    marketGapMagnitude               = 22.0   (market gap magnitude)
+    quarantined                      = False   (quarantined?)
+    anomalyFlags                     = []   (anomaly flags)
+    identityMethod                   = position_source_aligned   (how identity was resolved)
+    identityConfidence               = 0.95   (identity confidence)
+
+  --- STAGE 3: what other surfaces serve for the same asset ---
+    league-adjusted overlay: 102
+
+wrote docs/master-site-audit/evidence/proof-cases/traces.json

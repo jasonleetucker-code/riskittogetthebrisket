@@ -92,8 +92,39 @@ def _side_block(
     if rid is None:
         return None
     owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
-    if not owner_id:
-        return None
+
+    # An unresolved owner USED TO return None here, which killed the whole
+    # recap — `build_matchup_recap` bails when either side is None, so
+    # `server.py` 404s.  That silently broke 28 of 158 public recap links
+    # (measured against live Sleeper 2026-08-05; all 2024, roster_ids 9 and
+    # 10), because `identity.py` deliberately does not register rosters
+    # whose owner is orphaned or retired.
+    #
+    # The index never applied the same rule: `list_matchups` admits a pair
+    # on "two entries and either side scored", with no owner check.  So the
+    # archive advertised 28 links that could not be built — the asymmetry
+    # is the defect, not the retirement list.  `identity.py`'s own comment
+    # says such data "falls through to the same '' attribution path ... and
+    # filtered out"; nothing filtered it.
+    #
+    # Resolved by making the DETAIL tolerant rather than making the index
+    # hide games: a real 2024 matchup between real teams stays reachable,
+    # attributed to the roster instead of to a person.  The retirement list
+    # keeps doing its actual job — retired managers stay out of dropdowns
+    # and franchise pages — because that filtering lives in identity.py,
+    # not here.
+    #
+    # The synthetic id is unique per roster ON PURPOSE.  The frontend marks
+    # the winner with `winnerOwnerId === side.ownerId`, so two retired
+    # owners facing each other would both compare equal on "" and both
+    # render as the winner.  It also cannot collide with a Sleeper user id,
+    # which is numeric.  `ownerResolved: false` is what the UI gates on —
+    # it must not link to /league/franchise/<synthetic>, which does not
+    # exist.
+    owner_resolved = bool(owner_id)
+    if not owner_resolved:
+        owner_id = f"retired:{season.league_id}:{rid}"
+
     starters = _starter_scores(entry, snapshot)
     bench = _bench_scores(entry, snapshot)
     top_scorer = max(starters, key=lambda r: r["points"], default=None) if starters else None
@@ -101,8 +132,14 @@ def _side_block(
     pre = pre_standings_lookup.get(owner_id) or {}
     return {
         "ownerId": owner_id,
+        "ownerResolved": owner_resolved,
         "rosterId": rid,
-        "displayName": metrics.display_name_for(snapshot, owner_id),
+        # display_name_for() returns the id itself when no manager matches,
+        # which for the synthetic id would print "retired:12345:9" on the
+        # card.  team_name() already degrades correctly to "Team <rid>".
+        "displayName": (
+            metrics.display_name_for(snapshot, owner_id) if owner_resolved else "Former manager"
+        ),
         "teamName": metrics.team_name(snapshot, season.league_id, rid),
         "points": round(metrics.matchup_points(entry), 2),
         "starters": starters,

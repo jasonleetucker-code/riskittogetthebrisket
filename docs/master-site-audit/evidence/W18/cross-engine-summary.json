@@ -1,0 +1,64 @@
+{
+ "byGroup": {
+  "IDP": {
+   "n": 350,
+   "agree": 312,
+   "meanSigned": -0.0339,
+   "maxAbs": 5.32
+  },
+  "other": {
+   "n": 71,
+   "agree": 66,
+   "meanSigned": -0.0834,
+   "maxAbs": 1.33
+  },
+  "WR": {
+   "n": 64,
+   "agree": 11,
+   "meanSigned": -1.5577,
+   "maxAbs": 9.61
+  },
+  "TE": {
+   "n": 48,
+   "agree": 10,
+   "meanSigned": -1.0954,
+   "maxAbs": 6.52
+  },
+  "QB": {
+   "n": 38,
+   "agree": 3,
+   "meanSigned": 6.5326,
+   "maxAbs": 17.68
+  },
+  "K": {
+   "n": 33,
+   "agree": 0,
+   "meanSigned": -9.2506,
+   "maxAbs": 21.42
+  },
+  "RB": {
+   "n": 32,
+   "agree": 4,
+   "meanSigned": -0.7636,
+   "maxAbs": 7.4033
+  }
+ },
+ "deadColumns": {
+  "pass_sack -> stat_row['sacks'] (MISSING)": {
+   "rows": 28,
+   "pointsMissed": 72.0
+  },
+  "fum_lost -> stat_row['fumbles_lost'] (MISSING)": {
+   "rows": 7,
+   "pointsMissed": 28.0
+  },
+  "pass_int -> stat_row['interceptions'] (MISSING)": {
+   "rows": 19,
+   "pointsMissed": 108.0
+  }
+ },
+ "receptionDistanceBonuses": {
+  "rows": 197,
+  "pointsMissed": -157.03
+ }
+}

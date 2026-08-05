@@ -1,0 +1,74 @@
+{
+ "rowsTotal": 1092,
+ "rowsWithChangedRankDerivedValue": 135,
+ "rowsWithChangedCanonicalConsensusRank": 627,
+ "changedValueByPosition": {
+  "PICK": 50,
+  "TE": 82,
+  "QB": 1,
+  "RB": 1,
+  "WR": 1
+ },
+ "largestMoves": [
+  {
+   "player": "Josh Oliver",
+   "pos": "TE",
+   "on": 1405,
+   "off": null
+  },
+  {
+   "player": "Thomas Fidone",
+   "pos": "TE",
+   "on": 1392,
+   "off": null
+  },
+  {
+   "player": "Grant Calcaterra",
+   "pos": "TE",
+   "on": 1340,
+   "off": null
+  },
+  {
+   "player": "Samaje Perine",
+   "pos": "RB",
+   "on": null,
+   "off": 1117
+  },
+  {
+   "player": "Gardner Minshew",
+   "pos": "QB",
+   "on": null,
+   "off": 1115
+  },
+  {
+   "player": "Tai Felton",
+   "pos": "WR",
+   "on": null,
+   "off": 1112
+  },
+  {
+   "player": "Pat Freiermuth",
+   "pos": "TE",
+   "on": 2484,
+   "off": 2091
+  },
+  {
+   "player": "Theo Johnson",
+   "pos": "TE",
+   "on": 2322,
+   "off": 1938
+  },
+  {
+   "player": "Will Kacmarek",
+   "pos": "TE",
+   "on": 1795,
+   "off": 1417
+  },
+  {
+   "player": "Erick All",
+   "pos": "TE",
+   "on": 1853,
+   "off": 1476
+  }
+ ]
+}

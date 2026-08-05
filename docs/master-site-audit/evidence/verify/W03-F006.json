@@ -1,0 +1,83 @@
+{
+ "id": "W03-F006",
+ "workstream": "W03",
+ "promptSections": [
+  7
+ ],
+ "title": "marketGapDirection averages ordinal ranks across source pools of 169-903 rows; 55.4% of offense rows and 95.8% of pick rows carry the OPPOSITE label under pool normalization, and Calvin Ridley renders BUY on /rankings because of it",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "M",
+ "subsystem": "Market gap / edge signal",
+ "surface": {
+  "routes": [
+   "GET /api/data",
+   "POST /api/rankings/overrides"
+  ],
+  "pages": [
+   "/rankings",
+   "/trade",
+   "/edge"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "3006-3057"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "4210-4235"
+  },
+  {
+   "path": "frontend/lib/display-helpers.js",
+   "lines": "106-165"
+  },
+  {
+   "path": "frontend/lib/trade-logic.js",
+   "lines": "960-1000"
+  }
+ ],
+ "claimUnderTest": "marketGapDirection/Magnitude 'quantify the disagreement between retail and expert consensus' and drive the /rankings EDGE column plus the trade page's BUY/SELL signal.",
+ "observed": "_compute_market_gap takes the arithmetic mean of retail ranks and of consensus ranks and subtracts them \u2014 raw ordinals, no pool normalization. The same module's _percentile_rank_spread docstring states this is invalid: 'an effective spread of 100 doesn't mean the sources disagree, it means one is on a 1-185 scale and the other is on a 1-600 scale.' Live pool sizes: dlfIdp 169, dlfSf 278, ktcSfTep 499, idpTradeCalc 903. Recomputing the same comparison in percentile space (rawRank/poolSize, exactly what the sibling function uses) flips the direction on 214 of 386 offense rows (55.4%) and 23 of 24 pick rows (95.8%). Confirmed in the live DOM: Calvin Ridley renders EDGE = BUY on http://127.0.0.1:3000/rankings. Separately, all 293 ranked IDP rows carry direction 'none' because KTC publishes no defenders, so the EDGE column is permanently blank for 40% of the board (honestly, but the column has no coverage note). frontend/lib/display-helpers.js::marketEdge recomputes the identical ordinal-mean logic client-side, so the frontend mirrors rather than checks the backend.",
+ "reproduction": {
+  "command": ".venv/bin/python docs/master-site-audit/evidence/W03/gapbias.py; .venv/bin/python docs/master-site-audit/evidence/W03/final.py  # section C",
+  "expected": "direction stable under pool normalization",
+  "actual": "237/410 rows overall flip; offense 214/386 (55.4%), picks 23/24 (95.8%)",
+  "artifact": "docs/master-site-audit/evidence/W03/gapbias.py"
+ },
+ "numericProof": {
+  "inputs": {
+   "player": "Calvin Ridley",
+   "ktcSfTep": {
+    "rawRank": 325,
+    "pool": 499,
+    "pct": 0.6513
+   },
+   "consensusOrdinalMean": 269.7692,
+   "consensusPercentileMean": 0.6616,
+   "retailOrdinal": 325
+  },
+  "formula": "ordinal: diff = consensusMean - retailMean = 269.769 - 325 = -55.23 -> consensus_premium (BUY). percentile: 0.6616 - 0.6513 = +0.0103 -> retail_premium (the opposite).",
+  "expected": "retail_premium",
+  "actual": "consensus_premium",
+  "tolerance": 0.0
+ },
+ "userImpact": "A manager opens /rankings, sees Calvin Ridley flagged BUY (\"experts value him above retail \u2014 buy low from a retail-first partner\"), and offers for a player the retail market actually prices ABOVE the expert consensus. The same field drives getPlayerEdge on /trade, the buy/sell advanced filter and the EdgeRail. No caveat is shown.",
+ "blastRadius": {
+  "playersAffected": 237,
+  "routesAffected": 2,
+  "pagesAffected": 3
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A12-F00",
+  "relation": "confirmed",
+  "note": "Confirmed independently on the live stack with a new worked example (Calvin Ridley) and live DOM proof of the rendered BUY badge. My rates: offense 55.4% (prior 47%), picks 95.8% (prior 97%)."
+ },
+ "whatWorks": "marketGapDirection/Magnitude reproduce exactly from effectiveSourceRanks \u2014 0 mismatches over 740 ranked rows. The arithmetic is right; the inputs are incommensurable.",
+ "rootCause": "_compute_market_gap predates the percentile-normalisation work that fixed the same class of bug in _percentile_rank_spread, and was never revisited when the source registry grew from 3 similar-depth boards to 21 boards spanning 169-903 rows.",
+ "requiredRepair": "Normalise both sides by each source's own pool size before differencing (reuse the pool-size map _percentile_rank_spread already builds), re-express marketGapMagnitude in percentile points, and re-derive MARKET_GAP_MIN_DIFF / MIN_EDGE_RANK_GAP for the new units. Update frontend/lib/display-helpers.js::marketEdge in lockstep or delete it in favour of the backend stamp.",
+ "dependencies": "Blocks any re-tuning of MARKET_GAP_MIN_DIFF; touches the same effectiveSourceRanks map as W03-F004."
+}

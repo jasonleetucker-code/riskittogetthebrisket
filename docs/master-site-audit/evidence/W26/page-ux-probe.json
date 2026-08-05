@@ -1,0 +1,4579 @@
+[
+ {
+  "route": "/",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 185,
+  "settleMs": 2202,
+  "finalUrl": "/",
+  "timing": {
+   "domContentLoaded": 167,
+   "load": 420,
+   "fcp": 272,
+   "resourceCount": 71,
+   "transferBytes": 1388936,
+   "decodedBytes": 11806116
+  },
+  "apiCallCount": 10,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/data/rank-history?days=30",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/movers?window=14&threshold=15&limit=8",
+   "/api/news?limit=100",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 56,
+   "smallTargetCount": 48,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H2",
+    "H2",
+    "H3",
+    "H3",
+    "H2",
+    "H2",
+    "H2",
+    "H3",
+    "H2",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 3,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 81,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    9.6
+   ],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nMY TEAM \u00b7 RISK IT TO GET THE BRISKET\n\nPick your team\nTEAM VALUE\n\u2014\n\u0394 7D\n\u2014\n\u0394 30D\n\u2014\n\u0394 90D\n\u2014\n\u0394 180D\n\u2014\nTIERS\n\u2014\nelite\u00b7high\u00b7mid\u00b7depth\nSCOPE\nMy Roster\nLeague\nTop 150\nMarket quiet in my roster \u2014 fewer than 3 moves since last update.\nPortfolio\n\nPositional allocation\n\nPick a team to see allocation.\nScouting\n\nData confidence + anomalies\n\nPick a team to see intel.\nTop movers\n\nRank deltas vs. 14d ago \u00b7 click a row for source breakdown\n\n7d\n14d\n30d\nRISERS \u2014 SELL-HIGH CANDIDATES\n\nNo qualifying movers in this window.\n\nFALLERS \u2014 BUY-LOW CANDIDATES\n\nNo qualifying movers in this window.\n\nPlayer Market Movement\n\nReal deltas from rank history\n\n7d\n30d\n90d\n180d\nMy Roster\nLeague\nTop 150\nTop Gainers\nTop Fallers\nBy Value\nMost Volatile\nPick a team to see your roster's movement.\nSignals\n\nRule-driven Buy / Sell / Hold per roster player\n\nRisk\n0\nSell\n0\nMonitor\n0\nStrong Hold\n0\nBuy\n0\nHold\n0\nPick a team to see roster signals.\nWatchlist\n\nSynced across your devices\n\nNo players on your watchlist yet\n\nUse the star on any player profile to add them. Watchlist entries show value plus 7/30/90/180-day trends at a glance.\n\nNews\n\nRoster-relevant headlines\n\nMy Roster\nLeague\nAll\nNo roster-relevant headlines\nSwitch scope to League or All to see broader coverage.\nQuick actions\nRankings\nTrade Calculator\nWaivers\nTeam Strength\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/rankings",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 218,
+  "networkIdleTimeout": true,
+  "settleMs": 25231,
+  "finalUrl": "/rankings",
+  "timing": {
+   "domContentLoaded": 211,
+   "load": 492,
+   "fcp": 304,
+   "resourceCount": 71,
+   "transferBytes": 1040158,
+   "decodedBytes": 11767159
+  },
+  "apiCallCount": 9,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/bdvm/values",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/news?limit=100",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 900,
+   "smallTargetCount": 891,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 186,
+   "tables": [
+    {
+     "rows": 231,
+     "th": 10,
+     "thScope": 10,
+     "caption": true,
+     "ariaLabel": false,
+     "scrollW": 1278,
+     "clientW": 1278,
+     "parentScrolls": true
+    }
+   ],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H4",
+    "H4",
+    "H4",
+    "H4"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 2331,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.6,
+    10.9,
+    9,
+    9.2,
+    9.3,
+    9.9
+   ],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nRANKINGS\n\nRankings\n\nUnified dynasty board \u2014 offense + IDP blended by consensus rank.\n\nMarket\nMy league\nHide edge\nHow rankings work\nMethodology charts\nCopy\nExport CSV\nSources\nColumns (off)\nPLAYERS\n965\nHIGH CONF\n110\n2+ src, tight\nMEDIUM\n229\nLOW\n626\nMULTI-SOURCE\n883\nQUARANTINED\n0\nLast scraped 2h ago\nEdge summary\n\nDerived from source agreement data \u2014 not predictions\n\nSELL SIGNALS\n#244 Eli Raridon\nTE\nSell +332 ranks\n#202 De'Zhaun Stribling\nWR\nSell +181 ranks\n#249 Greg Dulcich\nTE\nSell +175 ranks\n#238 Hunter Henry\nTE\nSell +141 ranks\n#250 Dalton Schultz\nTE\nSell +131 ranks\nBUY SIGNALS\n#217 J.J. McCarthy\nQB\nBuy +171 ranks\n#207 Tua Tagovailoa\nQB\nBuy +167 ranks\n#181 Chris Godwin\nWR\nBuy +163 ranks\n#226 Shedeur Sanders\nQB\nBuy +156 ranks\n#239 Jacoby Brissett\nQB\nBuy +152 ranks\nCONSENSUS ASSETS\n#1 Josh Allen\nQB\nspread 2\n#2 Brock Bowers\nTE\nspread 11\n#3 Bijan Robinson\nRB\nspread 8\n#4 Ja'Marr Chase\nWR\nspread 9\n#5 Drake Maye\nQB\nspread 6\nFLAGGED \u2014 NEEDS CAUTION\n#124 Dallas Turner\nDL\nsuspicious_disagreement\n#178 Cooper DeJean\nDB\nsuspicious_disagreement\n#185 T.J. Watt\nDL\nsuspicious_disagreement\n#192 Kevin Winston\nDB\nsuspicious_disagreement\n#210 Nick Herbig\nDL\nsuspicious_disagreement\nConsensus\nDisagreements\nInefficiencies\nSafest\nFragile\nScreens\u2026\nWR Gaps\nStable IDP\n1-Source Risk\nRookie Spread\nAll\nOFF\nIDP\nPicks\nAll Rookies\nR \u00b7 QB\nR \u00b7 RB\nR \u00b7 WR\nR \u00b7 TE\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nAny confidence\nHigh\nMedium\nLow\nTiers\nFilters\n\n200 of 965 shown \u00b7 grouped by tier\n\nUnified dynasty value board: rank, tier, player, position, consensus, value, per-source values, confidence, and market signals\n#\n\tTIER\t\nPLAYER\n\t\nPOS\n\t\nCONSENSUS\n\t\nVALUE\n\tSOURCES\n\t\nCONFIDENCE\n\tEDGE\n\tSIGNAL\n1\tTier 1\t\nJosh Allen\nBUF \u00b7 30\n\tQB\n1\n\t1.5\t\n9,988\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n2\tTier 1\t\nBB\nBrock Bowers\nLV \u00b7 23\n\tTE\n1\n\t9.9\t\n9,876\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n3\tTier 1\t\nBR\nBijan Robinson\nATL \u00b7 24\nN\n\tRB\n1\n\t3.9\t\n9,706\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n4\tTier 1\t\nJa'Marr Chase\nCIN \u00b7 26\n\tWR\n1\n\t4.4\t\n9,641\nS+\n\t13/15\tHigh\tHOLD\tConsensus asset\n5\tTier 1\t\nDrake Maye\nNE \u00b7 23\n\tQB\n2\n\t3.9\t\n9,577\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n6\tTier 1\t\nJahmyr Gibbs\nDET \u00b7 24\nN\n\tRB\n2\n\t5.0\t\n9,576\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\nTIER 2\n7\tTier 2\t\nJaxon Smith-Njigba\nSEA \u00b7 24\n\tWR\n2\n\t6.4\t\n9,337\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n8\tTier 2\t\nPuka Nacua\nLAR \u00b7 25\n\tWR\n3\n\t8.1\t\n9,132\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n9\tTier 2\t\nTrey McBride\nARI \u00b7 26\n\tTE\n2\n\t15.6\t\n8,993\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n10\tTier 2\t\nJayden Daniels\nWAS \u00b7 25\n\tQB\n3\n\t8.2\t\n8,898\nS+\n\t14/15\tHigh\t\u2014\tConsensus asset\n11\tTier 2\t\nLamar Jackson\nBAL \u00b7 29\nN\n\tQB\n4\n\t10.1\t\n8,784\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n12\tTier 2\t\nCaleb Williams\nCHI \u00b7 24\n\tQB\n5\n\t10.2\t\n8,753\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\nTIER 3\n13\tTier 3\t\nJoe Burrow\nCIN \u00b7 29\nN\n\tQB\n6\n\t12.4\t\n8,383\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n14\tTier 3\t\nAmon-Ra St. Brown\nDET \u00b7 26\n\tWR\n4\n\t13.1\t\n8,326\nS+\n\t13/15\tHigh\tHOLD\tConsensus asset\n15\tTier 3\t\nJustin Jefferson\nMIN \u00b7 27\n\tWR\n5\n\t15.5\t\n8,054\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n16\tTier 3\t\nAshton Jeanty\nLV \u00b7 22\n\tRB\n3\n\t14.6\t\n8,039\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n17\tTier 3\t\nMalik Nabers\nNYG \u00b7 23\n\tWR\n6\n\t17.5\t\n7,924\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n18\tTier 3\t\nJeremiyah Love\nARI \u00b7 21\nR\n\tRB\n4\n\t17.9\t\n7,799\nS\n\t16/15\tHigh\tHOLD\tConsensus asset\n19\tTier 3\t\nCeeDee Lamb\nDAL \u00b7 27\n\tWR\n7\n\t18.3\t\n7,767\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n20\tTier 3\t\nJustin Herbert\nLAC \u00b7 28\nN\n\tQB\n7\n\t18.4\t\n7,684\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n21\tTier 3\t\nColston Loveland\nCHI \u00b7 22\n\tTE\n3\n\t28.0\t\n7,646\nS\n\t14/15\tHigh\tSELL\tConsensus asset\nTIER 4\n22\tTier 4\t\nPatrick Mahomes\nKC \u00b7 30\nN\n\tQB\n8\n\t21.4\t\n7,461\nS\n\t14/15\tHigh\t\u2014\tConsensus asset\n23\tTier 4\t\nDrake London\nATL \u00b7 25\nN\n\tWR\n8\n\t22.4\t\n7,348\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n24\tTier 4\t\nJalen Hurts\nPHI \u00b7 27\n\tQB\n9\n\t23.9\t\n7,183\nS\n\t14/15\tHigh\t\u2014\tConsensus asset\n25\tTier 4\t\nJaxson Dart\nNYG \u00b7 23\nN\n\tQB\n10\n\t25.3\t\n7,165\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n26\tTier 4\t\nOmarion Hampton\nLAC \u00b7 23\n\tRB\n5\n\t23.9\t\n7,126\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n27\tTier 4\t\nTyler Warren\nIND \u00b7 24\n\tTE\n4\n\t35.2\t\n7,099\nS\n\t14/15\tHigh\tSELL\tConsensus asset\n28\tTier 4\t\n21\n2027 Early 1st\n\tPICK\n1\n\t23.5\t\n7,049\nS\n\t2/15\tHigh\tHOLD\tConsensus asset\n29\tTier 4\t\nDe'Von Achane\nMIA \u00b7 24\n\tRB\n6\n\t25.8\t\n6,980\nS\n\t13/15\tHigh\tHOLD\tConsensus asset\n30\tTier 4\t\nTrevor Lawrence\nJAX \u00b7 26\n\tQB\n11\n\t26.8\t\n6,886\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\nTIER 5\n31\tTier 5\t\nTetairoa McMillan\nCAR \u00b7 23\n\tWR\n9\n\t29.2\t\n6,766\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n32\tTier 5\t\nBo Nix\nDEN \u00b7 26\n\tQB\n12\n\t31.9\t\n6,572\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n33\tTier 5\t\nJonathan Taylor\nIND \u00b7 27\n\tRB\n7\n\t32.1\t\n6,431\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n34\tTier 5\t\nEmeka Egbuka\nTB \u00b7 23\n\tWR\n10\n\t33.7\t\n6,388\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n35\tTier 5\t\nBrock Purdy\nSF \u00b7 26\n\tQB\n13\n\t33.8\t\n6,376\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n36\tTier 5\t\nAidan Hutchinson\nDET \u00b7 25\n\tDL\n1\n\t34.0\t\n6,362\nS\n\t5/6\tHigh\t\u2014\tConsensus asset\n37\tTier 5\t\nJames Cook\nBUF \u00b7 26\n\tRB\n8\n\t33.7\t\n6,332\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n38\tTier 5\t\nGeorge Pickens\nDAL \u00b7 25\nN\n\tWR\n11\n\t35.0\t\n6,271\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n39\tTier 5\t\nCarnell Tate\nTEN \u00b7 21\nR\nN\n\tWR\n12\n\t36.8\t\n6,160\nS\n\t16/15\tHigh\tHOLD\tConsensus asset\n40\tTier 5\t\nNico Collins\nHOU \u00b7 27\n\tWR\n13\n\t37.9\t\n6,080\nS\n\t14/15\tHigh\tBUY\tConsensus asset\n41\tTier 5\t\nJordan Love\nGB \u00b7 27\n\tQB\n14\n\t39.8\t\n6,038\nS\n\t14/15\tHigh\tBUY\tConsensus asset\nTIER 6\n42\tTier 6\t\nCarson Schwesinger\nCLE \u00b7 23\n\tLB\n1\n\t59.6\t\n5,908\nD+\n\t5/6\tHigh\t\u2014\t\u2014\n43\tTier 6\t\nWill Anderson\nHOU \u00b7 24\n\tDL\n2\n\t41.0\t\n5,876\nD+\n\t5/6\tHigh\t\u2014\tConsensus asset\n44\tTier 6\t\nKenneth Walker\nKC \u00b7 25\n\tRB\n9\n\t42.6\t\n5,813\nD+\n\t14/15\tHigh\tHOLD\tConsensus asset\n45\tTier 6\t\nGarrett Wilson\nNYJ \u00b7 26\n\tWR\n14\n\t41.8\t\n5,766\nD+\n\t14/15\tHigh\tHOLD\tConsensus asset\nTIER 7\n46\tTier 7\t\nChris Olave\nNO \u00b7 26\n\tWR\n15\n\t46.2\t\n5,617\nD+\n\t14/15\tHigh\tHOLD\t\u2014\n47\tTier 7\t\n21\n2027 Mid 1st\n\tPICK\n2\n\t48.0\t\n5,606\nD+\n\t2/15\tHigh\tHOLD\tConsensus asset\n48\tTier 7\t\nLadd McConkey\nLAC \u00b7 24\n\tWR\n16\n\t45.5\t\n5,605\nD+\n\t14"
+  },
+  "consoleErrors": [
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "route": "/trade",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 158,
+  "settleMs": 2141,
+  "finalUrl": "/trade",
+  "timing": {
+   "domContentLoaded": 151,
+   "load": 363,
+   "fcp": 212,
+   "resourceCount": 67,
+   "transferBytes": 1040158,
+   "decodedBytes": 12329134
+  },
+  "apiCallCount": 11,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/draft-capital",
+   "/api/draft-capital?leagueKey=dynasty_main",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/public/league/rosTradeDeadline",
+   "/api/rankings/overrides?view=delta",
+   "/api/ros/player-values?limit=2000",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 46,
+   "smallTargetCount": 34,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H3",
+    "H3",
+    "H2",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 2,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 48,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.6
+   ],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nTRADES\n\nTrade Calculator\n\nMulti-team trade calculator with live fairness visualization.\n\nMarket\nMy league\nOur Value\nRaw\nSwap Sides\nClear Trade\nAdd Team\nImport KTC\nCopy share link\nCopy KTC URL\nCSV\nJSON\nSide A\n0\nRaw 0\nNo assets yet.\nSide B\n0\nRaw 0\nNo assets yet.\n0\nVS\n0\nGap: 0\nSide A\nSide B\nFAIR\nEven\nSecond opinions\nTrade suggestions\n\nSelect your team from the league, or enter a roster manually.\n\nYour team\nSelect your team\u2026\nJason (57 players, 62 picks)\nEd (58 players, 8 picks)\nTy (56 players, 15 picks)\nCollin (58 players, 18 picks)\nMaKayla (58 players, 16 picks)\nEric (58 players, 12 picks)\nRoy (51 players, 20 picks)\nJoey (58 players, 14 picks)\nBrent (57 players, 6 picks)\nKich (58 players, 14 picks)\njstuedle (44 players, 18 picks)\nBlaine (53 players, 13 picks)\nRoster\nGet suggestions\nSIDE A\n0\nNear even\nGap 0\nSIDE B\n0\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/draft",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 191,
+  "settleMs": 2461,
+  "finalUrl": "/draft",
+  "timing": {
+   "domContentLoaded": 189,
+   "load": 228,
+   "fcp": 156,
+   "resourceCount": 70,
+   "transferBytes": 2216644,
+   "decodedBytes": 23849422
+  },
+  "apiCallCount": 11,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/bdvm/values",
+   "/api/data?leagueKey=dynasty_main",
+   "/api/draft-capital",
+   "/api/draft-capital?leagueKey=dynasty_main",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [
+    {
+     "tag": "div",
+     "cls": "draft-nbt-row",
+     "right": 1491,
+     "w": 570
+    },
+    {
+     "tag": "div",
+     "cls": "draft-nbt-row",
+     "right": 1491,
+     "w": 570
+    },
+    {
+     "tag": "div",
+     "cls": "draft-nbt-row",
+     "right": 1491,
+     "w": 570
+    },
+    {
+     "tag": "div",
+     "cls": "draft-nbt-row",
+     "right": 1491,
+     "w": 570
+    },
+    {
+     "tag": "div",
+     "cls": "draft-nbt-row",
+     "right": 1491,
+     "w": 570
+    },
+    {
+     "tag": "div",
+     "cls": "draft-nbt-row",
+     "right": 1491,
+     "w": 570
+    }
+   ],
+   "interactiveCount": 480,
+   "smallTargetCount": 472,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 102,
+   "unlabelled": [
+    {
+     "tag": "input",
+     "type": "",
+     "cls": "draft-inline-input"
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": "draft-inline-input draft-money-input"
+    },
+    {
+     "tag": "input",
+     "type": "",
+     "cls": "draft-inline-input"
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": "draft-inline-input draft-money-input"
+    },
+    {
+     "tag": "input",
+     "type": "",
+     "cls": "draft-inline-input"
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": "draft-inline-input draft-money-input"
+    },
+    {
+     "tag": "input",
+     "type": "",
+     "cls": "draft-inline-input"
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": "draft-inline-input draft-money-input"
+    },
+    {
+     "tag": "input",
+     "type": "",
+     "cls": "draft-inline-input"
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": "draft-inline-input draft-money-input"
+    }
+   ],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [
+    {
+     "rows": 73,
+     "th": 14,
+     "thScope": 0,
+     "caption": false,
+     "ariaLabel": false,
+     "scrollW": 1238,
+     "clientW": 1238,
+     "parentScrolls": true
+    }
+   ],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H3"
+   ],
+   "landmarks": {
+    "main": 2,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 878,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.6,
+    10.9,
+    9.3
+   ],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nMY TEAM\n\nDraft Board\n\nLive inflation-aware auction dashboard \u2014 every pick you record moves the per-player bid ceiling immediately.\n\nHow this works\nLive sync: OFF\nSync rookies\nReview\nShortcuts\nUndo last\nReset\nPick 0 of 46\n0% through draft\nINFLATION\n1.00\u00d7\n(sparkline populates after first pick)\nMY REMAINING\n$685\nBUDGET ADVANTAGE\n14.63\u00d7\nTOP RIVAL CEILING\n$175\nPHASE\n6 of 6 slots\nLEAGUE $ LEFT\n$1,200\nTeams & budgets\nBudgets pre-fill from the live Draft Capital feed. Edit any row to match your carry-over balances; click Load from Draft Capital to re-pull.\n\u21bb Load from Draft Capital\nSource: 2027 Draft Capital \u00b7 $1200 total\nMINE\nTEAM\nINITIAL\nSPENT\nREMAINING\nSLOTS\nEFF $\nMDV\nOVER%\n$0\n$685\n0/6\n$680\n$114\n\u2014\n$0\n$180\n0/6\n$175\n$30\n\u2014\n$0\n$119\n0/5\n$115\n$24\n\u2014\n$0\n$111\n0/6\n$106\n$19\n\u2014\n$0\n$74\n0/6\n$69\n$12\n\u2014\n$0\n$8\n0/4\n$5\n$2\n\u2014\n$0\n$7\n0/3\n$5\n$2\n\u2014\n$0\n$6\n0/3\n$4\n$2\n\u2014\n$0\n$5\n0/3\n$3\n$2\n\u2014\n$0\n$4\n0/3\n$2\n$1\n\u2014\n$0\n$1\n0/1\n$1\n$1\n\u2014\n$0\n$0\n0/0\n$0\n\u2014\n\u2014\nBid knobs\nAggression \u2014 how much of the budget advantage to spend on stars\nEnforce % of fair \u2014 bid up to this fraction of fair to keep prices honest\nPar Sheet (0 rows \u00b7 0 open \u00b7 0 won \u00b7 0 lost)\nPre-draft shopping list with your own fair value \u00b7 surplus on bargains rolls into headroom you can spend elsewhere\nType a player and your fair-value $ below to start your par sheet. As picks land, each row marks itself \"Won\" (with surplus vs your FV) or \"Lost\". Bottom-line headroom shows what you have left if you hit every open row at your FV.\nFV \u03a3 (OPEN)\n$0\nFV \u03a3 (WON)\n$0\nPAID \u03a3 (WON)\n$0\nSURPLUS BANKED\n$0\nMY REMAINING\n$685\n\u2212 OPEN FV\n$0\n=\n$685\nHEADROOM\nAdd players to your par sheet\nAdd\nTarget Board (0 of 6)\nLive fair + win bid \u00b7 paid if won \u00b7 buffer vs my budget\nPick up to 6 rookies to track closely. The board will show what each costs now, what you paid (if won), and how the full portfolio fits your remaining budget.\nPREDRAFT \u03a3\n$0\nFAIR \u03a3\n$0\nWIN \u03a3 (OPEN)\n$0\nPAID \u03a3 (WON)\n$0\nMY REMAINING\n$685\n\u2212 BUYS AT WIN\n$0\n\u2212 OTHER SLOTS\n$6\n=\n$679\nAdd targets to your board\nNext Best Targets\nNothing to flag yet \u2014 tag a few players as \u2605 target to seed EV ranking.\nGood to nominate\nTop 10 rookies KTC / IDPTC overrates vs our board (% gap)\n#1\n+\nS\nJeremiyah Love\nours $136\nktc $139\n+3%\n#2\n+\nS\nCarnell Tate\nours $105\nktc $110\n+4%\n#3\n+\nS\nFernando Mendoza\nours $92\nktc $95\n+3%\n#4\n+\nS\nJordyn Tyson\nours $82\nktc $87\n+6%\n#5\n+\nS\nMakai Lemon\nours $69\nktc $78\n+14%\n#6\n+\nS\nKenyon Sadiq\nours $60\nktc $72\n+19%\n#7\n+\nA\nJadarian Price\nours $53\nktc $64\n+22%\n#8\n+\nA\nKC Concepcion\nours $43\nktc $56\n+29%\n#9\n+\nA\nEli Stowers\nours $48\nktc $51\n+5%\n#10\n+\nA\nArvell Reese\nours $39\nidptc $44\n+12%\nBest value on the board\nTop 10 rookies KTC / IDPTC underrates vs our board (% gap)\n#1\n+\nB\nCJ Allen\nours $23\nidptc $18\n\u221229%\n#2\n+\nB\nDillon Thieneman\nours $16\nidptc $15\n\u22127%\n#3\n+\nS\nJeremiyah Love\nours $136\nktc $139\n\u2212-3%\n#4\n+\nS\nCarnell Tate\nours $105\nktc $110\n\u2212-4%\n#5\n+\nS\nFernando Mendoza\nours $92\nktc $95\n\u2212-3%\n#6\n+\nS\nJordyn Tyson\nours $82\nktc $87\n\u2212-6%\n#7\n+\nS\nSonny Styles\nours $76\nidptc $77\n\u2212-1%\n#8\n+\nS\nMakai Lemon\nours $69\nktc $78\n\u2212-12%\n#9\n+\nS\nKenyon Sadiq\nours $60\nktc $72\n\u2212-16%\n#10\n+\nA\nJadarian Price\nours $53\nktc $64\n\u2212-18%\nRookie board\nShow drafted\n+\nAll\n72\nTargets\n0\nAvoid\n0\nUntagged\n72\n#\n\tTIER\n\tTAG\tREC\t\nPLAYER\n\t\nPREDRAFT\n\tMARKET\n\t\nFAIR\n\t\nENFORCE\n\t\nWIN AT\n\t\nMAX BID\n\t\nFINAL\n\tDRAFTED TO\t\n1\tSNEED\t+\t\u2014\tJeremiyah Love\t\t$139\t$135\t$108\t$176\u2713\t$301\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n2\tSNEED\t+\t\u2014\tCarnell Tate\t\t$110\t$105\t$84\t$176\u2713\t$233\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n3\tSNEED\t+\t\u2014\tFernando Mendoza\t\t$95\t$91\t$72\t$176\u2713\t$203\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n4\tSNEED\t+\t\u2014\tJordyn Tyson\t\t$87\t$82\t$65\t$176\u2713\t$182\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n5\tSNEED\t+\t\u2014\tSonny Styles\t\t$77\t$76\t$60\t$169\t$169\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n6\tSNEED\t+\t\u2014\tMakai Lemon\t\t$78\t$68\t$54\t$152\t$152\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n7\tSNEED\t+\t\u2014\tKenyon Sadiq\t\t$72\t$60\t$48\t$133\t$133\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n8\tANEED\t+\t\u2014\tJadarian Price\t\t$64\t$52\t$41\t$116\t$116\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n9\tANEED\t+\t\u2014\tEli Stowers\t\t$51\t$48\t$38\t$106\t$106\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n10\tANEED\t+\t\u2014\tKC Concepcion\t\t$56\t$43\t$34\t$95\t$95\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n11\tANEED\t+\t\u2014\tArvell Reese\t\t$44\t$39\t$31\t$86\t$86\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n12\tANEED\t+\t\u2014\tOmar Cooper\t\t$39\t$34\t$27\t$76\t$76\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n13\tANEED\t+\t\u2014\tJacob Rodriguez\t\t$41\t$30\t$24\t$66\t$66\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n14\tANEED\t+\t\u2014\tTy Simpson\t\t$35\t$27\t$21\t$60\t$60\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n15\tBNEED\t+\t\u2014\tDenzel Boston\t\t$42\t$24\t$19\t$54\t$54\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n16\tBNEED\t+\t\u2014\tCJ Allen\t\t$18\t$22\t$17\t$50\t$50\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n17\tBNEED\t+\t\u2014\tCaleb Downs\t\t$26\t$20\t$16\t$44\t$44\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n18\tBNEED\t+\t\u2014\tDavid Bailey\t\t$28\t$18\t$14\t$41\t$41\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n19\tBNEED\t+\t\u2014\tRueben Bain\t\t$20\t$16\t$12\t$36\t$36\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n20\tBNEED\t+\t\u2014\tDillon Thieneman\t\t$15\t$15\t$12\t$34\t$34\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n21\tBNEED\t+\t\u2014\tJonah Coleman\t\t$28\t$14\t$11\t$31\t$31\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n22\tBNEED\t+\t\u2014\tDe'Zhaun Stribling\t\t$30\t$12\t$9\t$27\t$27\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n23\tBNEED\t+\t\u2014\tEli Raridon\t\t$19\t$11\t$8\t$24\t$24\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n24\tBNEED\t+\t\u2014\tAntonio Williams\t\t$25\t$10\t$8\t$23\t$23\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n25\tBNEED\t+\t\u2014\tMax Klare\t\t$23\t$9\t$7\t$21\t$21\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n26\tBNEED\t+\t\u2014\tChris Bell\t\t$21\t$9\t$7\t$20\t$20\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n27\tBNEED\t+\t\u2014\tNicholas Singleton\t\t$18\t$8\t$6\t$17\t$17\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n28\tCNEED\t+\t\u2014\tGermie Bernard\t\t$16\t$7\t$5\t$16\t$16\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n29\tCNEED\t+\t\u2014\tOscar Delp\t\t$15\t$7\t$5\t$15\t$15\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n30\tCNEED\t+\t\u2014\tZachariah Branch\t\t$14\t$6\t$4\t$13\t$13\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n31\tCNEED\t+\t\u2014\tTed Hurst\t\t$11\t$5\t$4\t$12\t$12\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n32\tCNEED\t+\t\u2014\tJustin Joly\t\t$8\t$5\t$4\t$11\t$11\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n33\tCNEED\t+\t\u2014\tCarson Beck\t\t$10\t$4\t$3\t$10\t$10\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n34\tCNEED\t+\t\u2014\tElijah Sarratt\t\t$12\t$4\t$3\t$10\t$10\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n35\tCNEED\t+\t\u2014\tEmmett Johnson\t\t$8\t$4\t$3\t$8\t$8\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n36\tCNEED\t+\t\u2014\tMalachi Fields\t\t$10\t$4\t$3\t$8\t$8\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n37\tCNEED\t+\t\u2014\tKaytron Allen\t\t$9\t$3\t$2\t$7\t$7\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n38\tCNEED\t+\t\u2014\tChris Brazzell\t\t$6\t$3\t$2\t$7\t$7\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n39\tCNEED\t+\t\u2014\tMike Washington\t\t$5\t$3\t$2\t$6\t$6\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n40\tCNEED\t+\t\u2014\tJa'Kobi Lane\t\t$7\t$3\t$2\t$6\t$6\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n41\tCNEED\t+\t\u2014\tSkyler Bell\t\t$6\t$3\t$2\t$6\t$6\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n42\tDNEED\t+\t\u2014\tMarlin Klein\t\t\u2014\t$2\t"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/terminal",
+  "viewport": "desktop",
+  "status": 404,
+  "navMs": 64,
+  "settleMs": 1590,
+  "finalUrl": "/terminal",
+  "timing": {
+   "domContentLoaded": 58,
+   "load": 195,
+   "fcp": 116,
+   "resourceCount": 64,
+   "transferBytes": 1040158,
+   "decodedBytes": 11695402
+  },
+  "apiCallCount": 7,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 26,
+   "smallTargetCount": 18,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 15,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n404\nThis page could not be found.\nSAVE"
+  },
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+ },
+ {
+  "route": "/waivers",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 108,
+  "settleMs": 2067,
+  "finalUrl": "/waivers",
+  "timing": {
+   "domContentLoaded": 101,
+   "load": 273,
+   "fcp": 188,
+   "resourceCount": 66,
+   "transferBytes": 1040158,
+   "decodedBytes": 11811546
+  },
+  "apiCallCount": 8,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/public/league/faabAnalytics?leagueKey=dynasty_main",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 31,
+   "smallTargetCount": 23,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H3"
+   ],
+   "landmarks": {
+    "main": 2,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 26,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nMY TEAM\n\nWaivers\n\nEvery unrostered player measured against your roster \u2014 Risk It To Get The Brisket\n\nManual add/drop calculator\n\nOne player out, one in \u2014 the trade calculator's fairness bar and per-vendor breakdown, applied to a single transaction.\n\nSelect a team below to use the manual add/drop calculator.\n\nPick your team\n\u25be\nPosition\nAll positions\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nUpgrade strength\nAll strengths\nConsidering & up\nStrong & up\nSmash only\nMIN NET GAIN\n0\nInclude rookies\nPick your team\n\nSelect a team above to start comparing the pool against your roster.\n\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/news",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 109,
+  "settleMs": 1744,
+  "finalUrl": "/news",
+  "timing": {
+   "domContentLoaded": 98,
+   "load": 209,
+   "fcp": 144,
+   "resourceCount": 64,
+   "transferBytes": 1040158,
+   "decodedBytes": 11766371
+  },
+  "apiCallCount": 8,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/news?limit=100",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 47,
+   "smallTargetCount": 39,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 116,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nNEWS\n\nNews\n\nEvery source, deduplicated and combined per player. Rolling 7-day window.\n\nSTORIES\n89\nPLAYERS COVERED\n12\nALERTS\n8\ninjury / status\nON YOUR ROSTER\n0\nno team selected\nSOURCES LIVE\n4\nBy player\nStories\nMy roster\nLeague\nAll\nAll teams\nARI\nATL\nBAL\nBUF\nCAR\nCHI\nCIN\nCLE\nDAL\nDEN\nDET\nFA\nGB\nHOU\nIND\nJAX\nKC\nLAC\nLAR\nLV\nMIA\nMIN\nNE\nNO\nNYG\nNYJ\nPHI\nPIT\nSEA\nSF\nTB\nTEN\nWAS\nAll positions\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nAll sources\nCBS Sports\nESPN\nPlay For Keeps\nSleeper\nJalon Walker\nDL\nATL\n3\nstories \u00b7 1s\nalert\n\n- Sources: Falcons' Walker feared to have torn ACL (ESPN, 2026-08-04)\n- Jalon Walker injury: Falcons EDGE feared to have torn ACL in latest blow to Atlanta's defense, per report (CBS Sports, 2026-08-04)\n- NFL training camp injuries tracker: Latest updates on Jalon Walker, Kenyon Sadiq, Coby Bryant and more (CBS Sports, 2026-08-04)\n\nSources: ESPN \u00b7 CBS Sports\n\nBijan Robinson\nRB\nATL\n6\nstories \u00b7 1s\nalert\n\n- Sources: Falcons RB Robinson gets record deal (ESPN, 2026-08-04)\n- Falcons extend Bijan Robinson, offensive core, put spotlight on QB (ESPN, 2026-08-04)\n- With Bijan Robinson's extension, Falcons' new front office did the easy stuff, now, the hard part: Quarterback (CBS Sports, 2026-08-04)\n- Falcons sign Bijan Robinson to historic three-year extension, making him NFL's highest-paid running back (CBS Sports, 2026-08-04)\n- Which teams won the MLB trade deadline; Bijan Robinson becomes NFL's highest-paid RB (CBS Sports, 2026-08-04)\n- Tracking NFL preseason hold-ins: Robinson, Gibbs, Vea and Tuipulotu (ESPN, 2026-07-31)\n\nSources: ESPN \u00b7 CBS Sports\n\nJeffery Simmons\nDL\nTEN\n2\nstories \u00b7 1s\ninfo\n\n- Titans' Simmons throws punch, sent to side field (ESPN, 2026-08-04)\n- Titans' Jeffery Simmons ejected from practice for throwing punch at JC Latham (CBS Sports, 2026-08-04)\n\nSources: ESPN \u00b7 CBS Sports\n\nRicky Pearsall\nWR\nSF\n2\nstories \u00b7 6m\nwatch\n\n- Ricky Pearsall dropped in 4,795 leagues (last 24h) (Sleeper, 2026-08-04)\n- What's next for 49ers receivers Brandon Aiyuk, Deebo Samuel and Ricky Pearsall? (ESPN, 2026-08-04)\n\nSources: Sleeper \u00b7 ESPN\n\nDrake London\nWR\nATL\n2\nstories \u00b7 17m\nwatch\n\n- Falcons extend Bijan Robinson, offensive core, put spotlight on QB (ESPN, 2026-08-04)\n- George Pickens' 2026 season likely to be his Cowboys swan song after Zay Flowers, Drake London contracts (CBS Sports, 2026-08-04)\n\nSources: ESPN \u00b7 CBS Sports\n\nCoby Bryant\nDB\nCHI\n2\nstories \u00b7 2h\nalert\n\n- NFL training camp injuries tracker: Latest updates on Jalon Walker, Kenyon Sadiq, Coby Bryant and more (CBS Sports, 2026-08-04)\n- Bears lose Coby Bryant for 8-10 weeks after training camp knee injury (CBS Sports, 2026-08-03)\n\nSources: CBS Sports\n\nKenyon Sadiq\nTE\nNYJ\n2\nstories \u00b7 2h\nalert\n\n- NFL training camp injuries tracker: Latest updates on Jalon Walker, Kenyon Sadiq, Coby Bryant and more (CBS Sports, 2026-08-04)\n- Kenyon Sadiq injury update: Jets tight end to miss time after suffering 'setback' (CBS Sports, 2026-08-04)\n\nSources: CBS Sports\n\nZay Flowers\nWR\nBAL\n2\nstories \u00b7 4h\nwatch\n\n- George Pickens' 2026 season likely to be his Cowboys swan song after Zay Flowers, Drake London contracts (CBS Sports, 2026-08-04)\n- Ravens extending Zay Flowers: Baltimore retaining Lamar Jackson's top target with reported four-year deal (CBS Sports, 2026-08-04)\n\nSources: CBS Sports\n\nPatrick Mahomes\nQB\nKC\n2\nstories \u00b7 4h\ninfo\n\n- Buzz from 12 NFL training camps -- including the latest on Daniel Jones, Patrick Mahomes, Travis Hunter (ESPN, 2026-08-04)\n- Which AFC teams will bounce back, and which playoff teams could fall off in 2026? (CBS Sports, 2026-08-04)\n\nSources: ESPN \u00b7 CBS Sports\n\nLamar Jackson\nQB\nBAL\n2\nstories \u00b7 5h\ninfo\n\n- Ravens extending Zay Flowers: Baltimore retaining Lamar Jackson's top target with reported four-year deal (CBS Sports, 2026-08-04)\n- Which AFC teams will bounce back, and which playoff teams could fall off in 2026? (CBS Sports, 2026-08-04)\n\nSources: CBS Sports\n\nLuther Burden\nWR\nCHI\n2\nstories \u00b7 22h\ninfo\n\n- Signal Or Noise Luther Burden Iii (Play For Keeps, 2026-08-04)\n- Bears' Ben Johnson compares Luther Burden III's mentality, approach to one of the NFL's best wide receivers (CBS Sports, 2026-08-03)\n\nSources: Play For Keeps \u00b7 CBS Sports\n\nAaron Rodgers\nQB\nPIT\n2\nstories \u00b7 1d\nalert\n\n- Aaron Rodgers' preseason revenge tour could be coming: Steelers QB might play games vs. Packers and Jets (CBS Sports, 2026-08-03)\n- Aaron Rodgers credits wife Brittani for helping mend family rift after years of estrangement (CBS Sports, 2026-08-03)\n\nSources: CBS Sports\n\nShowing 12 players \u00b7 last 7 days\n\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/settings",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 111,
+  "settleMs": 1806,
+  "finalUrl": "/settings",
+  "timing": {
+   "domContentLoaded": 101,
+   "load": 216,
+   "fcp": 136,
+   "resourceCount": 66,
+   "transferBytes": 1040158,
+   "decodedBytes": 11738697
+  },
+  "apiCallCount": 8,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/custom-alerts",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 126,
+   "smallTargetCount": 82,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 4,
+   "unlabelled": [
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": ""
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": ""
+    },
+    {
+     "tag": "input",
+     "type": "range",
+     "cls": ""
+    },
+    {
+     "tag": "input",
+     "type": "range",
+     "cls": ""
+    }
+   ],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [
+    {
+     "rows": 16,
+     "th": 6,
+     "thScope": 0,
+     "caption": false,
+     "ariaLabel": false,
+     "scrollW": 1218,
+     "clientW": 1218,
+     "parentScrolls": true
+    },
+    {
+     "rows": 7,
+     "th": 6,
+     "thScope": 0,
+     "caption": false,
+     "ariaLabel": false,
+     "scrollW": 1218,
+     "clientW": 1218,
+     "parentScrolls": true
+    },
+    {
+     "rows": 6,
+     "th": 5,
+     "thScope": 0,
+     "caption": false,
+     "ariaLabel": false,
+     "scrollW": 0,
+     "clientW": 0,
+     "parentScrolls": true
+    }
+   ],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H3",
+    "H2",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H2",
+    "H3",
+    "H3",
+    "H3"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 206,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.2,
+    10.6,
+    10.9,
+    9.3
+   ],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\nSettings\n\nTuning controls that affect valuations, trade calculations, and rankings display.\n\nReset Defaults\nLEAGUE & SCORING\n\nHow your league is set up. These change what the numbers mean.\n\nLeague Format\n\u2212\nSuperflex\nStandard (1QB)\nTEP \u2014 non-native\nDefault 1.15\u00d7 \u2014 applied to non-TEP sources on TE rows\nTEP \u2014 native\nDefault 1.10\u00d7 \u2014 applied to TEP-native sources on TE rows\n\nApplied at blend time, on TE rows only.\n\nHOW VALUES ARE CALCULATED\n\nTuning for the valuation engine. The defaults are sensible; change these only if you want a different board.\n\nTrade Calculation\n\u2212\nTrade History Window\n365\n365 days\nSuggestion Pool Cap\n150\nTop 150 KTC offense players considered for trade suggestions\n\nDefault 150 suits a standard 12-team Superflex league.\n\nValuation\n\u2212\nThis is the only setting that changes the numbers themselves. It applies everywhere \u2014 rankings, the trade calculator, exports.\nValue basis\nMarket\nMy league\n\nMarket \u2014 the blended consensus board exactly as the pipeline computes it. Shared by every league on the same scoring settings.\n\nMy league \u2014 takes that board and re-prices it by how scarce each position actually is here. We solve your exact starting lineup against the 12 real rosters, measure the drop-off from the best player at a position to the last startable one, and scale every player at that position by up to \u00b110%. Thin positions lift; deep positions trim. Ranks and tiers are recomputed on the backend.\n\nWhat this changes\nRankings Display\n\u2212\nSort Basis\nOur Value\nRaw Composite\nShow source site columns\nPer-site value columns in rankings\nRanking Sources\n\u2212\nEvery registered source contributes equally (default weight 1.0) to the blended consensus rank. Toggle a source off or adjust its weight to recompute the board with your own mix. Changing any knob flips the rankings page into override mode so your settings materially affect the displayed rank and value; clearing the overrides returns to the canonical server blend. IDP Trade Calculator is the IDP backbone and also feeds offense via its secondary scope. Backend registry: src/api/data_contract.py.\nBalanced \u2713\nMarket (retail-lean)\nExpert consensus\nReset source weights\nOffense\nSOURCE\tROLE\tON\tWEIGHT\tCOVERED\tSTATUS\n\nKeepTradeCut SF-TE++\nRetail market\nTEP NATIVE\nKTC \u00b7 ktcSfTep\n\tRetail market\t\t\t500\tLive\n\nDynasty League Football Superflex\nExpert consensus\nDLF SF \u00b7 dlfSf\n\tExpert consensus\t\t\t280\tLive\n\nDynasty League Football Rookie SF\nExpert consensus\nDLF RK \u00b7 dlfRookieSf\n\tExpert consensus\t\t\t110\tLive\n\nDynasty Nerds SF-TEP\nExpert consensus\nTEP NATIVE\nDN SF-TEP \u00b7 dynastyNerdsSfTep\n\tExpert consensus\t\t\t293\tLive\n\nFantasyCalc Dynasty SF\nExpert consensus\nFC \u00b7 fantasyCalc\n\tExpert consensus\t\t\t394\tLive\n\nOTC Fantasy Football SF\nExpert consensus\nOTC \u00b7 otcffbSf\n\tExpert consensus\t\t\t343\tLive\n\nFantasy Navigator SF\nExpert consensus\nFN \u00b7 fantasyNavigatorSf\n\tExpert consensus\t\t\t455\tLive\n\nPlay for Keeps Dynasty\nExpert consensus\nPFK \u00b7 pfkDynasty\n\tExpert consensus\t\t\t476\tLive\n\nDynasty Daddy Superflex\nExpert consensus\nDD \u00b7 dynastyDaddySf\n\tExpert consensus\t\t\t365\tLive\n\nFantasyPros Dynasty Superflex\nExpert consensus\nFP SF \u00b7 fantasyProsSf\n\tExpert consensus\t\t\t474\tLive\n\nFantasyPros / Pat Fitzmaurice SF-TEP\nExpert consensus\nTEP NATIVE\nFitzmaurice \u00b7 fantasyProsFitzmaurice\n\tExpert consensus\t\t\t299\tLive\n\nFlock Fantasy Superflex\nExpert consensus\nFF \u00b7 flockFantasySf\n\tExpert consensus\t\t\t415\tLive\n\nFlock Fantasy Rookie SF\nExpert consensus\nFlock RK \u00b7 flockFantasySfRookies\n\tExpert consensus\t\t\t76\tLive\n\nYahoo / Justin Boone SF-TEP\nExpert consensus\nTEP NATIVE\nBoone \u00b7 yahooBoone\n\tExpert consensus\t\t\t377\tLive\n\nDraft Sharks Dynasty\nExpert consensus\nTEP NATIVE\nDS \u00b7 draftSharks\n\tExpert consensus\t\t\t398\tLive\nIDP\nSOURCE\tROLE\tON\tWEIGHT\tCOVERED\tSTATUS\n\nIDP Trade Calculator\nBackbone (IDP)\nTEP NATIVE\nIDPTC \u00b7 idpTradeCalc\n\tBackbone (IDP)\t\t\t910\tLive\n\nDynasty League Football IDP\nExpert consensus\nDLF IDP \u00b7 dlfIdp\n\tExpert consensus\t\t\t171\tLive\n\nDynasty League Football Rookie IDP\nExpert consensus\nDLF RK-IDP \u00b7 dlfRookieIdp\n\tExpert consensus\t\t\t29\tLive\n\nThe IDP Show (Adamidp)\nExpert consensus\nIDP Show \u00b7 idpShow\n\tExpert consensus\t\t\t349\tLive\n\nFantasyPros Dynasty IDP\nExpert consensus\nFP IDP \u00b7 fantasyProsIdp\n\tExpert consensus\t\t\t211\tLive\n\nDraft Sharks IDP Dynasty\nExpert consensus\nDS IDP \u00b7 draftSharksIdp\n\tExpert consensus\t\t\t143\tLive\nRest-of-Season Engine\n+\nALERTS & LISTS\n\nWhat the site tells you about, and which players you are tracking.\n\nNotifications\n+\nWatchlist\n+\nCustom alerts\n+\nSettings are saved automatically to your browser. They affect trade calculations, rankings display, and value composites.\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/bdvm",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 98,
+  "settleMs": 1938,
+  "finalUrl": "/bdvm",
+  "timing": {
+   "domContentLoaded": 84,
+   "load": 211,
+   "fcp": 192,
+   "resourceCount": 67,
+   "transferBytes": 1040158,
+   "decodedBytes": 11721734
+  },
+  "apiCallCount": 8,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/bdvm/values",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 29,
+   "smallTargetCount": 21,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H3"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 21,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nRANKINGS\n\nFundamental Values\n\nBDVM projection-driven dynasty values \u2014 fundamentals first, market strictly after. A second value concept beside the market board, never merged into it.\n\nValue Board\nRosters\nTrade Scan\nNo projection snapshot yet\n\nFundamental values are priced from a weekly projection snapshot, and this season's hasn't been built yet. It refreshes automatically \u2014 check back after the next run.\n\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/league",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 170,
+  "settleMs": 13782,
+  "finalUrl": "/league",
+  "timing": {
+   "domContentLoaded": 141,
+   "load": 271,
+   "fcp": 348,
+   "resourceCount": 66,
+   "transferBytes": 793,
+   "decodedBytes": 1422681
+  },
+  "apiCallCount": 4,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/health",
+   "/api/leagues",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [
+    {
+     "tag": "button",
+     "cls": "sub-nav-btn",
+     "right": 1962,
+     "w": 123
+    },
+    {
+     "tag": "button",
+     "cls": "sub-nav-btn",
+     "right": 1839,
+     "w": 137
+    },
+    {
+     "tag": "button",
+     "cls": "sub-nav-btn",
+     "right": 1702,
+     "w": 88
+    },
+    {
+     "tag": "button",
+     "cls": "sub-nav-btn",
+     "right": 1614,
+     "w": 116
+    },
+    {
+     "tag": "button",
+     "cls": "sub-nav-btn",
+     "right": 1498,
+     "w": 74
+    },
+    {
+     "tag": "button",
+     "cls": "sub-nav-btn",
+     "right": 1424,
+     "w": 67
+    }
+   ],
+   "interactiveCount": 59,
+   "smallTargetCount": 51,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 23,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H2",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 148,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.2,
+    10.4,
+    10.6,
+    10.9,
+    9.9
+   ],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nSearch\n/\nSystem\nRisk It To Get The Brisket\n\nSeasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons\n\nHome\nPreviews\nRecaps\nPower\nROS Strength\nChampionship\nTrade Deadline\nLuck\nStreaks\nHistory\nRivalries\nAwards\nRecords\nFranchises\nTrades\nDraft\nWeekly\nSuperlatives\nArchives\nTeam Assignment\nDraft Capital\nAt a glance\n\nPublic snapshot across the last 2 dynasty seasons\n\nSEASONS\n3\n2024\u20132026\nMANAGERS\n12\nTRADES\n191\nWAIVERS\n1092\nSCORED WEEKS\n34\nDEFENDING CHAMPION\nEd\nStill Jerry\u2019s Team \u00b7 2025 title\nView championship history \u2192\nFEATURED RIVALRY \u00b7 HOTTEST INDEX\nvs\nJoey vs Ed\n5 meetings \u00b7 2 playoff \u00b7 Rivalry Index 21\nSeries: 3\u20132\nExplore rivalries \u2192\nTHIS WEEK \u00b7 2026 WK 1\n@\nJoey vs Ed\nJoey leads the series 3-2; most recent: Ed by 41.8 in 2025 wk 15.\nFull H2H preview \u2192\nPOWER RANK #1\nBrent\nKarma Cowboy\nPower 97.211-2\nPower rankings \u2192\nLONGEST ACTIVE STREAK\nEd\n2 straight wins\nAll streaks \u2192\nRECORD WITHIN REACH\nLongest losing streak\nHolder: Roy (6 straight)\nChaser: Roy (6 active)\nSee all \u2192\nWEEK IN REVIEW \u00b7 2025 WK 17\nCollin put Roy on a milk carton, 297.2-238.8\nWeek 17 (playoffs) closed with 4 games on the slate and 2680.8 total points. Ed paced the league at 393.4. Collin put together one of the cleaner top-to-bottom outings of the week, taking Roy by 58.4. Podium for the week \u2014 Ed 393.4, MaKayla 382.7, Joey 375.8. The slate averaged 335.1 points per side \u2014 well above league norm. Cellar of the week was Roy at 238.8 \u2014 a get-back-on-the-horse week. Playoffs heighten everything; that was visible across the slate.\nAll recaps \u2192\nHeadline records\n\nBiggest numbers in the last 2 seasons\n\nHIGHEST WEEK\n489.2 pts\nBrent\n\u00b7 2025\u00b7 Wk 15\nBIGGEST BLOWOUT\n164.83 pts\nBrent\n\u00b7 2025\u00b7 Wk 7\nMOST SEASON POINTS\n5581.01 pts\nBrent\n\u00b7 2025\nLONGEST WIN STREAK\n10 straight\nJoey\nFull record book \u2192\nMOST DECORATED FRANCHISE\nJoey\n1\u00d7 champ \u00b7 1 finals \u00b7 3 playoffs\nOpen franchise page \u2192\nBEST DRAFT STOCKPILE\nJason\n59 picks \u00b7 Weighted score 134\nFull draft center \u2192\nLATEST WEEKLY RECAP\n2025 \u00b7 Week 17 (playoffs)\nGame of the week: MaKayla vs Joey (margin 7.0)\nTop scorer: Ed (393.4)\nOpen weekly recap \u2192\nHOTTEST TRADE \u00b7 BIGGEST BLOCKBUSTER\nJason \u2194 Ed\n13 total assets \u00b7 2025 Wk 7\nOpen trade center \u2192\nRecent trades\n\nLast 5 completed deals\n\n2026 \u00b7 Week 1 \u00b7 7 assets\nJason\nreceived 2 players \u00b7 3 picks\nEd\nreceived 2 players \u00b7 0 picks\n2026 \u00b7 Week 1 \u00b7 7 assets\nEd\nreceived 3 players \u00b7 1 picks\nBrent\nreceived 3 players \u00b7 0 picks\n2026 \u00b7 Week 1 \u00b7 3 assets\nJason\nreceived 1 players \u00b7 0 picks\nEric\nreceived 2 players \u00b7 0 picks\n2026 \u00b7 Week 1 \u00b7 4 assets\nJason\nreceived 1 players \u00b7 1 picks\nBlaine\nreceived 2 players \u00b7 0 picks\n2026 \u00b7 Week 1 \u00b7 4 assets\nJason\nreceived 0 players \u00b7 2 picks\nEd\nreceived 2 players \u00b7 0 picks\nView all trades \u2192\nSAVE"
+  },
+  "consoleErrors": [
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "route": "/rosters",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 77,
+  "networkIdleTimeout": true,
+  "settleMs": 25087,
+  "finalUrl": "/rosters",
+  "timing": {
+   "domContentLoaded": 66,
+   "load": 236,
+   "fcp": 124,
+   "resourceCount": 69,
+   "transferBytes": 1040158,
+   "decodedBytes": 11694725
+  },
+  "apiCallCount": 7,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 63,
+   "smallTargetCount": 55,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 25,
+   "tables": [
+    {
+     "rows": 13,
+     "th": 4,
+     "thScope": 0,
+     "caption": false,
+     "ariaLabel": false,
+     "scrollW": 1248,
+     "clientW": 1248,
+     "parentScrolls": true
+    }
+   ],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 332,
+   "contrastFailCount": 53,
+   "contrastWorst": [
+    {
+     "text": "PICKS",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 12.16,
+     "cls": "pos-chip pos-chip-active"
+    },
+    {
+     "text": "PICKS 158k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 38k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 28k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 40k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 17k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 53k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 29k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 24k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 40k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    }
+   ],
+   "tinyFontSizes": [
+    10.6,
+    10.9,
+    9,
+    9.3,
+    9.6,
+    9.9
+   ],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\nTeam Strength\n\nPower rankings, position breakdowns, waiver wire, and trade targets.\n\nMy team...\nJason\nEd\nTy\nCollin\nMaKayla\nEric\nRoy\nJoey\nBrent\nKich\njstuedle\nBlaine\nPlayers + Picks\nPlayers only\nStarters only\nPositions:\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nPICKS\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nPICKS\n#\tTEAM\tTOTAL\tPOSITION BREAKDOWN\n1\tJason\n57 players, 62 picks\n\t328,504\t\nQB 22k\nWR 51k\nTE 19k\nDL 17k\nLB 33k\nPICKS 158k\n\n2\tBrent\n57 players, 6 picks\n\t189,621\t\nQB 26k\nRB 28k\nWR 53k\nTE 21k\nDL 24k\n\n3\tMaKayla\n58 players, 16 picks\n\t186,863\t\nRB 23k\nWR 57k\nDL 20k\nPICKS 38k\n\n4\tJoey\n58 players, 14 picks\n\t178,594\t\nQB 19k\nRB 40k\nWR 30k\nTE 22k\nPICKS 28k\n\n5\tCollin\n58 players, 18 picks\n\t166,966\t\nRB 31k\nWR 38k\nTE 20k\nPICKS 40k\n\n6\tEric\n58 players, 12 picks\n\t162,250\t\nRB 38k\nWR 42k\nTE 21k\nPICKS 17k\n\n7\tRoy\n51 players, 20 picks\n\t143,027\t\nQB 23k\nPICKS 53k\n\n8\tEd\n58 players, 8 picks\n\t140,787\t\nQB 19k\nRB 23k\nWR 28k\nTE 19k\n\n9\tTy\n56 players, 15 picks\n\t138,046\t\nRB 25k\nWR 33k\nPICKS 29k\n\n10\tKich\n58 players, 14 picks\n\t123,180\t\nQB 21k\nWR 33k\nPICKS 24k\n\n11\tjstuedle\n44 players, 18 picks\n\t119,060\t\nWR 21k\nPICKS 40k\n\n12\tBlaine\n53 players, 13 picks\n\t109,060\t\nQB 20k\nPICKS 21k\nContender / Rebuilder Tiers\nBrent\n#1\nContender\n189,621 total\nStarters: 103,392\nDepth: 70,896\nPicks: 15,333\nJoey\n#2\nContender\n178,594 total\nStarters: 91,017\nDepth: 59,728\nPicks: 27,849\nEric\n#3\nContender\n162,250 total\nStarters: 88,036\nDepth: 56,784\nPicks: 17,430\nMaKayla\n#4\nContender\n186,863 total\nStarters: 84,254\nDepth: 64,804\nPicks: 37,805\nJason\n#5\nMid-Tier\n328,504 total\nStarters: 97,159\nDepth: 72,945\nPicks: 158,400\nCollin\n#6\nMid-Tier\n166,966 total\nStarters: 77,904\nDepth: 49,205\nPicks: 39,857\nEd\n#7\nMid-Tier\n140,787 total\nStarters: 69,772\nDepth: 55,682\nPicks: 15,333\nTy\n#8\nMid-Tier\n138,046 total\nStarters: 67,790\nDepth: 41,755\nPicks: 28,501\nKich\n#9\nRebuilder\n123,180 total\nStarters: 59,761\nDepth: 38,952\nPicks: 24,467\nBlaine\n#10\nRebuilder\n109,060 total\nStarters: 60,417\nDepth: 27,870\nPicks: 20,773\nRoy\n#11\nRebuilder\n143,027 total\nStarters: 58,936\nDepth: 31,412\nPicks: 52,679\njstuedle\n#12\nRebuilder\n119,060 total\nStarters: 52,949\nDepth: 26,254\nPicks: 39,857\nLeague Edge Map\nCollin\n10 sell\n23 buy\nOvervalued: Luke Musgrave +34%, Noah Gray +31%, Pat Freiermuth +28% \u00b7 Undervalued: Ollie Gordon -25%, Kimani Vidal -23%, Jalen Nailor -22%\nJoey\n11 sell\n15 buy\nOvervalued: Mason Taylor +27%, Oscar Delp +26%, Treylon Burks +24% \u00b7 Undervalued: Cole Payton -46%, Jaylen Wright -24%, Sean Tucker -23%\nEric\n10 sell\n14 buy\nOvervalued: Ja'Tavion Sanders +32%, Jaylin Lane +30%, Ben Sinnott +30% \u00b7 Undervalued: Brandon Aiyuk -29%, Isaiah Davis -20%, Ricky Pearsall -18%\nBlaine\n7 sell\n7 buy\nOvervalued: Cole Kmet +33%, Jake Tonges +33%, Erick All +29% \u00b7 Undervalued: Zavion Thomas -20%, Eli Heidenreich -18%, Chris Brazzell -13%\nEd\n9 sell\n19 buy\nOvervalued: Colby Parkinson +30%, Gunnar Helm +23%, Max Klare +20% \u00b7 Undervalued: Tre Tucker -24%, Kayshon Boutte -20%, J'Mari Taylor -17%\nKich\n7 sell\n23 buy\nOvervalued: Dawson Knox +32%, Tank Dell +26%, Xavier Hutchinson +23% \u00b7 Undervalued: Xavier Legette -17%, Lamar Jackson -16%, Germie Bernard -13%\nTy\n5 sell\n23 buy\nOvervalued: Jalen Milroe +27%, Cade Otton +27%, Isaiah Bond +25% \u00b7 Undervalued: Tez Johnson -25%, Pat Bryant -23%, Tyquan Thornton -20%\nJason\n8 sell\n15 buy\nOvervalued: Michael Mayer +32%, Terrance Ferguson +24%, De'Zhaun Stribling +16% \u00b7 Undervalued: Marcus Mariota -31%, Chris Rodriguez -16%, Demond Claiborne -16%\nMaKayla\n6 sell\n23 buy\nOvervalued: Malik Washington +27%, Keaton Mitchell +24%, Greg Dulcich +23% \u00b7 Undervalued: Marvin Mims -23%, Caleb Douglas -21%, Troy Franklin -20%\nBrent\n7 sell\n12 buy\nOvervalued: Darnell Washington +31%, Travis Kelce +15%, Kyle Pitts +13% \u00b7 Undervalued: Travis Hunter -30%, Joe Flacco -29%, Rashod Bateman -24%\nRoy\n6 sell\n17 buy\nOvervalued: Theo Johnson +30%, KeAndre Lambert-Smith +17%, Isaiah Likely +12% \u00b7 Undervalued: Samaje Perine -48%, Najee Harris -30%, Jalen Royals -20%\njstuedle\n3 sell\n17 buy\nOvervalued: Dalton Schultz +18%, Dallas Goedert +15%, Xavier Restrepo +3% \u00b7 Undervalued: Tyreek Hill -30%, Mac Jones -19%, Cade Klubnik -17%\nWaiver Wire Gems\nPlayers not on any roster with meaningful trade value.\nDL\nDerrick Moore\n1,797\nDB\nJonas Sanker\n1,731\nLB\nHarold Landry\n1,684\nWR\nKevin Coleman\n1,579\nTE\nTanner Koziol\n1,566\nTE\nMarlin Klein\n1,554\nTE\nCharlie Kolar\n1,546\nTE\nSam Roush\n1,520\nWR\nEmmanuel Henderson\n1,519\nWR\nCyrus Allen\n1,511\nTE\nJack Endries\n1,505\nWR\nTyren Montgomery\n1,493\nTE\nRJ Maryland\n1,488\nLB\nMack Wilson\n1,460\nTE\nMitchell Evans\n1,459\nDL\nZion Young\n1,447\nDL\nNic Scourton\n1,442\nWR\nAaron Anderson\n1,424\nTE\nDaniel Bellinger\n1,423\nTE\nJosh Oliver\n1,405\nTE\nElijah Higgins\n1,399\nDL\nDevonte Wyatt\n1,396\nDL\nBryan Bresee\n1,395\nTE\nThomas Fidone\n1,392\nDB\nBud Clark\n1,390\nSAVE"
+  },
+  "consoleErrors": [
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "route": "/finder",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 50,
+  "networkIdleTimeout": true,
+  "settleMs": 25060,
+  "finalUrl": "/rankings",
+  "timing": {
+   "domContentLoaded": 47,
+   "load": 148,
+   "fcp": 88,
+   "resourceCount": 79,
+   "transferBytes": 1040158,
+   "decodedBytes": 11789665
+  },
+  "apiCallCount": 9,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/bdvm/values",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/news?limit=100",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 900,
+   "smallTargetCount": 891,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 185,
+   "tables": [
+    {
+     "rows": 231,
+     "th": 10,
+     "thScope": 10,
+     "caption": true,
+     "ariaLabel": false,
+     "scrollW": 1278,
+     "clientW": 1278,
+     "parentScrolls": true
+    }
+   ],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H4",
+    "H4",
+    "H4",
+    "H4"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 2332,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.6,
+    10.9,
+    9,
+    9.2,
+    9.3,
+    9.9
+   ],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nRANKINGS\n\nRankings\n\nUnified dynasty board \u2014 offense + IDP blended by consensus rank.\n\nMarket\nMy league\nHide edge\nHow rankings work\nMethodology charts\nCopy\nExport CSV\nSources\nColumns (off)\nPLAYERS\n965\nHIGH CONF\n110\n2+ src, tight\nMEDIUM\n229\nLOW\n626\nMULTI-SOURCE\n883\nQUARANTINED\n0\nLast scraped 2h ago\nEdge summary\n\nDerived from source agreement data \u2014 not predictions\n\nSELL SIGNALS\n#244 Eli Raridon\nTE\nSell +332 ranks\n#202 De'Zhaun Stribling\nWR\nSell +181 ranks\n#249 Greg Dulcich\nTE\nSell +175 ranks\n#238 Hunter Henry\nTE\nSell +141 ranks\n#250 Dalton Schultz\nTE\nSell +131 ranks\nBUY SIGNALS\n#217 J.J. McCarthy\nQB\nBuy +171 ranks\n#207 Tua Tagovailoa\nQB\nBuy +167 ranks\n#181 Chris Godwin\nWR\nBuy +163 ranks\n#226 Shedeur Sanders\nQB\nBuy +156 ranks\n#239 Jacoby Brissett\nQB\nBuy +152 ranks\nCONSENSUS ASSETS\n#1 Josh Allen\nQB\nspread 2\n#2 Brock Bowers\nTE\nspread 11\n#3 Bijan Robinson\nRB\nspread 8\n#4 Ja'Marr Chase\nWR\nspread 9\n#5 Drake Maye\nQB\nspread 6\nFLAGGED \u2014 NEEDS CAUTION\n#124 Dallas Turner\nDL\nsuspicious_disagreement\n#178 Cooper DeJean\nDB\nsuspicious_disagreement\n#185 T.J. Watt\nDL\nsuspicious_disagreement\n#192 Kevin Winston\nDB\nsuspicious_disagreement\n#210 Nick Herbig\nDL\nsuspicious_disagreement\nConsensus\nDisagreements\nInefficiencies\nSafest\nFragile\nScreens\u2026\nWR Gaps\nStable IDP\n1-Source Risk\nRookie Spread\nAll\nOFF\nIDP\nPicks\nAll Rookies\nR \u00b7 QB\nR \u00b7 RB\nR \u00b7 WR\nR \u00b7 TE\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nAny confidence\nHigh\nMedium\nLow\nTiers\nFilters\n\n200 of 965 shown \u00b7 grouped by tier\n\nUnified dynasty value board: rank, tier, player, position, consensus, value, per-source values, confidence, and market signals\n#\n\tTIER\t\nPLAYER\n\t\nPOS\n\t\nCONSENSUS\n\t\nVALUE\n\tSOURCES\n\t\nCONFIDENCE\n\tEDGE\n\tSIGNAL\n1\tTier 1\t\nJA\nJosh Allen\nBUF \u00b7 30\n\tQB\n1\n\t1.5\t\n9,988\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n2\tTier 1\t\nBB\nBrock Bowers\nLV \u00b7 23\n\tTE\n1\n\t9.9\t\n9,876\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n3\tTier 1\t\nBR\nBijan Robinson\nATL \u00b7 24\nN\n\tRB\n1\n\t3.9\t\n9,706\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n4\tTier 1\t\nJa'Marr Chase\nCIN \u00b7 26\n\tWR\n1\n\t4.4\t\n9,641\nS+\n\t13/15\tHigh\tHOLD\tConsensus asset\n5\tTier 1\t\nDrake Maye\nNE \u00b7 23\n\tQB\n2\n\t3.9\t\n9,577\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n6\tTier 1\t\nJahmyr Gibbs\nDET \u00b7 24\nN\n\tRB\n2\n\t5.0\t\n9,576\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\nTIER 2\n7\tTier 2\t\nJaxon Smith-Njigba\nSEA \u00b7 24\n\tWR\n2\n\t6.4\t\n9,337\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n8\tTier 2\t\nPuka Nacua\nLAR \u00b7 25\n\tWR\n3\n\t8.1\t\n9,132\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n9\tTier 2\t\nTrey McBride\nARI \u00b7 26\n\tTE\n2\n\t15.6\t\n8,993\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n10\tTier 2\t\nJayden Daniels\nWAS \u00b7 25\n\tQB\n3\n\t8.2\t\n8,898\nS+\n\t14/15\tHigh\t\u2014\tConsensus asset\n11\tTier 2\t\nLamar Jackson\nBAL \u00b7 29\nN\n\tQB\n4\n\t10.1\t\n8,784\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n12\tTier 2\t\nCaleb Williams\nCHI \u00b7 24\n\tQB\n5\n\t10.2\t\n8,753\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\nTIER 3\n13\tTier 3\t\nJoe Burrow\nCIN \u00b7 29\nN\n\tQB\n6\n\t12.4\t\n8,383\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n14\tTier 3\t\nAmon-Ra St. Brown\nDET \u00b7 26\n\tWR\n4\n\t13.1\t\n8,326\nS+\n\t13/15\tHigh\tHOLD\tConsensus asset\n15\tTier 3\t\nJustin Jefferson\nMIN \u00b7 27\n\tWR\n5\n\t15.5\t\n8,054\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n16\tTier 3\t\nAshton Jeanty\nLV \u00b7 22\n\tRB\n3\n\t14.6\t\n8,039\nS+\n\t14/15\tHigh\tHOLD\tConsensus asset\n17\tTier 3\t\nMalik Nabers\nNYG \u00b7 23\n\tWR\n6\n\t17.5\t\n7,924\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n18\tTier 3\t\nJeremiyah Love\nARI \u00b7 21\nR\n\tRB\n4\n\t17.9\t\n7,799\nS\n\t16/15\tHigh\tHOLD\tConsensus asset\n19\tTier 3\t\nCeeDee Lamb\nDAL \u00b7 27\n\tWR\n7\n\t18.3\t\n7,767\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n20\tTier 3\t\nJustin Herbert\nLAC \u00b7 28\nN\n\tQB\n7\n\t18.4\t\n7,684\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n21\tTier 3\t\nColston Loveland\nCHI \u00b7 22\n\tTE\n3\n\t28.0\t\n7,646\nS\n\t14/15\tHigh\tSELL\tConsensus asset\nTIER 4\n22\tTier 4\t\nPatrick Mahomes\nKC \u00b7 30\nN\n\tQB\n8\n\t21.4\t\n7,461\nS\n\t14/15\tHigh\t\u2014\tConsensus asset\n23\tTier 4\t\nDrake London\nATL \u00b7 25\nN\n\tWR\n8\n\t22.4\t\n7,348\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n24\tTier 4\t\nJalen Hurts\nPHI \u00b7 27\n\tQB\n9\n\t23.9\t\n7,183\nS\n\t14/15\tHigh\t\u2014\tConsensus asset\n25\tTier 4\t\nJaxson Dart\nNYG \u00b7 23\nN\n\tQB\n10\n\t25.3\t\n7,165\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n26\tTier 4\t\nOmarion Hampton\nLAC \u00b7 23\n\tRB\n5\n\t23.9\t\n7,126\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n27\tTier 4\t\nTyler Warren\nIND \u00b7 24\n\tTE\n4\n\t35.2\t\n7,099\nS\n\t14/15\tHigh\tSELL\tConsensus asset\n28\tTier 4\t\n21\n2027 Early 1st\n\tPICK\n1\n\t23.5\t\n7,049\nS\n\t2/15\tHigh\tHOLD\tConsensus asset\n29\tTier 4\t\nDe'Von Achane\nMIA \u00b7 24\n\tRB\n6\n\t25.8\t\n6,980\nS\n\t13/15\tHigh\tHOLD\tConsensus asset\n30\tTier 4\t\nTrevor Lawrence\nJAX \u00b7 26\n\tQB\n11\n\t26.8\t\n6,886\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\nTIER 5\n31\tTier 5\t\nTetairoa McMillan\nCAR \u00b7 23\n\tWR\n9\n\t29.2\t\n6,766\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n32\tTier 5\t\nBo Nix\nDEN \u00b7 26\n\tQB\n12\n\t31.9\t\n6,572\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n33\tTier 5\t\nJonathan Taylor\nIND \u00b7 27\n\tRB\n7\n\t32.1\t\n6,431\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n34\tTier 5\t\nEmeka Egbuka\nTB \u00b7 23\n\tWR\n10\n\t33.7\t\n6,388\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n35\tTier 5\t\nBrock Purdy\nSF \u00b7 26\n\tQB\n13\n\t33.8\t\n6,376\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n36\tTier 5\t\nAidan Hutchinson\nDET \u00b7 25\n\tDL\n1\n\t34.0\t\n6,362\nS\n\t5/6\tHigh\t\u2014\tConsensus asset\n37\tTier 5\t\nJames Cook\nBUF \u00b7 26\n\tRB\n8\n\t33.7\t\n6,332\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n38\tTier 5\t\nGeorge Pickens\nDAL \u00b7 25\nN\n\tWR\n11\n\t35.0\t\n6,271\nS\n\t14/15\tHigh\tHOLD\tConsensus asset\n39\tTier 5\t\nCarnell Tate\nTEN \u00b7 21\nR\nN\n\tWR\n12\n\t36.8\t\n6,160\nS\n\t16/15\tHigh\tHOLD\tConsensus asset\n40\tTier 5\t\nNico Collins\nHOU \u00b7 27\n\tWR\n13\n\t37.9\t\n6,080\nS\n\t14/15\tHigh\tBUY\tConsensus asset\n41\tTier 5\t\nJordan Love\nGB \u00b7 27\n\tQB\n14\n\t39.8\t\n6,038\nS\n\t14/15\tHigh\tBUY\tConsensus asset\nTIER 6\n42\tTier 6\t\nCarson Schwesinger\nCLE \u00b7 23\n\tLB\n1\n\t59.6\t\n5,908\nD+\n\t5/6\tHigh\t\u2014\t\u2014\n43\tTier 6\t\nWill Anderson\nHOU \u00b7 24\n\tDL\n2\n\t41.0\t\n5,876\nD+\n\t5/6\tHigh\t\u2014\tConsensus asset\n44\tTier 6\t\nKenneth Walker\nKC \u00b7 25\n\tRB\n9\n\t42.6\t\n5,813\nD+\n\t14/15\tHigh\tHOLD\tConsensus asset\n45\tTier 6\t\nGarrett Wilson\nNYJ \u00b7 26\n\tWR\n14\n\t41.8\t\n5,766\nD+\n\t14/15\tHigh\tHOLD\tConsensus asset\nTIER 7\n46\tTier 7\t\nChris Olave\nNO \u00b7 26\n\tWR\n15\n\t46.2\t\n5,617\nD+\n\t14/15\tHigh\tHOLD\t\u2014\n47\tTier 7\t\n21\n2027 Mid 1st\n\tPICK\n2\n\t48.0\t\n5,606\nD+\n\t2/15\tHigh\tHOLD\tConsensus asset\n48\tTier 7\t\nLadd McConkey\nLAC \u00b7 24\n\tWR\n16\n\t45.5\t\n5,605\nD+\n"
+  },
+  "consoleErrors": [
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "route": "/market/sharp-roster-percentage",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 110,
+  "settleMs": 2125,
+  "finalUrl": "/market/sharp-roster-percentage",
+  "timing": {
+   "domContentLoaded": 95,
+   "load": 201,
+   "fcp": 144,
+   "resourceCount": 66,
+   "transferBytes": 1040158,
+   "decodedBytes": 11709495
+  },
+  "apiCallCount": 8,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/sharp/roster-percentage?position=all&platform=all&format=all&contention=all&experience=all&sort=rostered&limit=50&_sharpRefresh=1785882396371",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 33,
+   "smallTargetCount": 25,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H2",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 2,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 41,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.9
+   ],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\nSharp Roster Percentage\n\nWhich players our verified sharp managers actually roster, across every league we can observe.\n\nFilters\nPOSITION\nAll players\nQuarterbacks\nRunning backs\nWide receivers\nTight ends\nDefensive line / EDGE\nLinebackers\nDefensive backs\nOffense only\nIDP only\nPLATFORM\nAll supported platforms\nSleeper only\nFFPC only\nLEAGUE FORMAT\nAll formats\nSuperflex leagues\nOne-quarterback leagues\nTight-end premium\nNon tight-end premium\nROSTER STANCE\nAll sharp rosters\nContending rosters\nRebuilding rosters\nEXPERIENCE\nRookies and veterans\nRookies\nVeterans\nSORT BY\nMost rostered by sharps\nLargest positive sharp advantage\nLargest negative sharp advantage\nHigh value, low sharp ownership\nLow rank, high sharp ownership\nRising fastest (30 days)\nSHOW\nTop 25\nTop 50\nTop 100\nAll qualifying players\nSample behind these numbers\nSHARP MANAGERS\n0\nELIGIBLE ROSTERS\n0\nSLEEPER ROSTERS\n0\nFFPC ROSTERS\n0\nOTHER PLATFORMS\n0\nCOHORT REPRESENTED\n\u2014\n0 of 0\nLAST REFRESH\n\u2014\n\nSample too small\n\nBased on 0 eligible sharp rosters. That is below the 8-roster minimum, so these percentages are not ranked as meaningful results.\n\nNo market comparison available\n\nNo general-dynasty roster-percentage feed is ingested by this platform, so sharp-vs-market advantage is unavailable. Every ranking source we ingest publishes values or ranks, and Sleeper's trending endpoint publishes 24-hour add counts \u2014 a flow, not an ownership rate. Those columns stay null rather than estimated.\nMost rostered by sharps\n\n0 qualifying players \u00b7 updated \u2014\n\nCollecting sharp rosters\n\nThe sharp cohort is known, but its rosters have not been collected yet. Run the sharp roster crawl to populate this board.\n\nA high roster percentage is not a buy signal on its own. Elite players are rostered almost everywhere, and ownership is also shaped by league depth, format, acquisition cost, age and positional scarcity. Rows marked * rest on a small denominator.\n\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/league-comparison",
+  "viewport": "desktop",
+  "status": 200,
+  "navMs": 189,
+  "settleMs": 1937,
+  "finalUrl": "/league-comparison",
+  "timing": {
+   "domContentLoaded": 185,
+   "load": 185,
+   "fcp": 136,
+   "resourceCount": 65,
+   "transferBytes": 1040158,
+   "decodedBytes": 11735957
+  },
+  "apiCallCount": 7,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=array",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 1366,
+   "clientWidth": 1366,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 27,
+   "smallTargetCount": 19,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "a",
+     "text": "\u25aa\nCHASE UPSIDE",
+     "w": 129,
+     "h": 19
+    },
+    {
+     "tag": "a",
+     "text": "Rankings",
+     "w": 80,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Rankings menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "News",
+     "w": 56,
+     "h": 31
+    },
+    {
+     "tag": "a",
+     "text": "Trades",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Trades menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "My Team",
+     "w": 72,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "My Team menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "Market",
+     "w": 64,
+     "h": 31
+    },
+    {
+     "tag": "button",
+     "text": "Market menu",
+     "w": 18,
+     "h": 26
+    },
+    {
+     "tag": "a",
+     "text": "League",
+     "w": 64,
+     "h": 31
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 17,
+   "contrastFailCount": 1,
+   "contrastWorst": [
+    {
+     "text": "Recalculate",
+     "ratio": 1.02,
+     "need": 4.5,
+     "fg": "rgba(16, 16, 16, 0.3)",
+     "bg": "rgb(11,13,16)",
+     "fontSize": 13.3333,
+     "cls": "btn btn-secondary"
+    }
+   ],
+   "tinyFontSizes": [],
+   "bodyText": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\nScoring Comparison\n\nCompares your custom league scoring against a standard baseline league to detect whether positional value gets accidentally distorted.\n\nRecalculate\nLoading comparison data\u2026 (first hit may take 30+ seconds while historical NFL stats download)\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 134,
+  "settleMs": 2260,
+  "finalUrl": "/",
+  "timing": {
+   "domContentLoaded": 128,
+   "load": 291,
+   "fcp": 144,
+   "resourceCount": 55,
+   "transferBytes": 1484662,
+   "decodedBytes": 12538194
+  },
+  "apiCallCount": 10,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/data/rank-history?days=30",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/movers?window=14&threshold=15&limit=8",
+   "/api/news?limit=100",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 56,
+   "smallTargetCount": 34,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "My Roster",
+     "w": 72,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "League",
+     "w": 57,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Top 150",
+     "w": 59,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "7d",
+     "w": 38,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "14d",
+     "w": 45,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "30d",
+     "w": 45,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "7d",
+     "w": 29,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "30d",
+     "w": 36,
+     "h": 32
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H2",
+    "H2",
+    "H3",
+    "H3",
+    "H2",
+    "H2",
+    "H2",
+    "H3",
+    "H2",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 3,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 78,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    9.6
+   ],
+   "bodyText": "Skip to content\nHome\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\n\nMY TEAM \u00b7 RISK IT TO GET THE BRISKET\n\nPick your team\nTEAM VALUE\n\u2014\n\u0394 7D\n\u2014\n\u0394 30D\n\u2014\n\u0394 90D\n\u2014\n\u0394 180D\n\u2014\nTIERS\n\u2014\nelite\u00b7high\u00b7mid\u00b7depth\nSCOPE\nMy Roster\nLeague\nTop 150\nMarket quiet in my roster \u2014 fewer than 3 moves since last update.\nPortfolio\n\nPositional allocation\n\nPick a team to see allocation.\nScouting\n\nData confidence + anomalies\n\nPick a team to see intel.\nTop movers\n\nRank deltas vs. 14d ago \u00b7 click a row for source breakdown\n\n7d\n14d\n30d\nRISERS \u2014 SELL-HIGH CANDIDATES\n\nNo qualifying movers in this window.\n\nFALLERS \u2014 BUY-LOW CANDIDATES\n\nNo qualifying movers in this window.\n\nPlayer Market Movement\n\nReal deltas from rank history\n\n7d\n30d\n90d\n180d\nMy Roster\nLeague\nTop 150\nTop Gainers\nTop Fallers\nBy Value\nMost Volatile\nPick a team to see your roster's movement.\nSignals\n\nRule-driven Buy / Sell / Hold per roster player\n\nRisk\n0\nSell\n0\nMonitor\n0\nStrong Hold\n0\nBuy\n0\nHold\n0\nPick a team to see roster signals.\nWatchlist\n\nSynced across your devices\n\nNo players on your watchlist yet\n\nUse the star on any player profile to add them. Watchlist entries show value plus 7/30/90/180-day trends at a glance.\n\nNews\n\nRoster-relevant headlines\n\nMy Roster\nLeague\nAll\nNo roster-relevant headlines\nSwitch scope to League or All to see broader coverage.\nQuick actions\nRankings\nTrade Calculator\nWaivers\nTeam Strength\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/rankings",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 127,
+  "networkIdleTimeout": true,
+  "settleMs": 25139,
+  "finalUrl": "/rankings",
+  "timing": {
+   "domContentLoaded": 123,
+   "load": 326,
+   "fcp": 208,
+   "resourceCount": 65,
+   "transferBytes": 1135662,
+   "decodedBytes": 12553077
+  },
+  "apiCallCount": 9,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/bdvm/values",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/news?limit=100",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [
+    {
+     "tag": "table",
+     "cls": "ds-table ds-table--compact",
+     "right": 585,
+     "w": 578
+    },
+    {
+     "tag": "colgroup",
+     "cls": "",
+     "right": 585,
+     "w": 578
+    },
+    {
+     "tag": "col",
+     "cls": "",
+     "right": 585,
+     "w": 80
+    },
+    {
+     "tag": "thead",
+     "cls": "",
+     "right": 585,
+     "w": 578
+    },
+    {
+     "tag": "tr",
+     "cls": "",
+     "right": 585,
+     "w": 578
+    },
+    {
+     "tag": "th",
+     "cls": "ds-table__cell--num",
+     "right": 585,
+     "w": 80
+    }
+   ],
+   "interactiveCount": 900,
+   "smallTargetCount": 873,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "Market",
+     "w": 66,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "My league",
+     "w": 87,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Hide edge",
+     "w": 89,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "How rankings work",
+     "w": 165,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Methodology charts",
+     "w": 152,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Copy",
+     "w": 54,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Export CSV",
+     "w": 96,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Sources",
+     "w": 75,
+     "h": 26
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 188,
+   "tables": [
+    {
+     "rows": 231,
+     "th": 10,
+     "thScope": 10,
+     "caption": true,
+     "ariaLabel": false,
+     "scrollW": 578,
+     "clientW": 578,
+     "parentScrolls": true
+    }
+   ],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H4",
+    "H4",
+    "H4",
+    "H4"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 1545,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.6,
+    10.9,
+    9,
+    9.2,
+    9.3,
+    9.9
+   ],
+   "bodyText": "Skip to content\nRankings\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\n\nRANKINGS\n\nRankings\n\nUnified dynasty board \u2014 offense + IDP blended by consensus rank.\n\nMarket\nMy league\nHide edge\nHow rankings work\nMethodology charts\nCopy\nExport CSV\nSources\nColumns (off)\nPLAYERS\n965\nHIGH CONF\n110\n2+ src, tight\nMEDIUM\n229\nLOW\n626\nMULTI-SOURCE\n883\nQUARANTINED\n0\nLast scraped 2h ago\nEdge summary\n\nDerived from source agreement data \u2014 not predictions\n\nSELL SIGNALS\n#244 Eli Raridon\nTE\nSell +332 ranks\n#202 De'Zhaun Stribling\nWR\nSell +181 ranks\n#249 Greg Dulcich\nTE\nSell +175 ranks\n#238 Hunter Henry\nTE\nSell +141 ranks\n#250 Dalton Schultz\nTE\nSell +131 ranks\nBUY SIGNALS\n#217 J.J. McCarthy\nQB\nBuy +171 ranks\n#207 Tua Tagovailoa\nQB\nBuy +167 ranks\n#181 Chris Godwin\nWR\nBuy +163 ranks\n#226 Shedeur Sanders\nQB\nBuy +156 ranks\n#239 Jacoby Brissett\nQB\nBuy +152 ranks\nCONSENSUS ASSETS\n#1 Josh Allen\nQB\nspread 2\n#2 Brock Bowers\nTE\nspread 11\n#3 Bijan Robinson\nRB\nspread 8\n#4 Ja'Marr Chase\nWR\nspread 9\n#5 Drake Maye\nQB\nspread 6\nFLAGGED \u2014 NEEDS CAUTION\n#124 Dallas Turner\nDL\nsuspicious_disagreement\n#178 Cooper DeJean\nDB\nsuspicious_disagreement\n#185 T.J. Watt\nDL\nsuspicious_disagreement\n#192 Kevin Winston\nDB\nsuspicious_disagreement\n#210 Nick Herbig\nDL\nsuspicious_disagreement\nConsensus\nDisagreements\nInefficiencies\nSafest\nFragile\nScreens\u2026\nWR Gaps\nStable IDP\n1-Source Risk\nRookie Spread\nAll\nOFF\nIDP\nPicks\nAll Rookies\nR \u00b7 QB\nR \u00b7 RB\nR \u00b7 WR\nR \u00b7 TE\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nAny confidence\nHigh\nMedium\nLow\nTiers\nFilters\n\n200 of 965 shown \u00b7 grouped by tier\n\nUnified dynasty value board: rank, tier, player, position, consensus, value, per-source values, confidence, and market signals\n#\n\t\nPLAYER\n\t\nPOS\n\t\nCONSENSUS\n\t\nVALUE\n\n1\t\nJosh Allen\nBUF \u00b7 30\n\tQB\n1\n\t1.5\t\n9,988\nS+\n\n2\t\nBrock Bowers\nLV \u00b7 23\n\tTE\n1\n\t9.9\t\n9,876\nS+\n\n3\t\nBijan Robinson\nATL \u00b7 24\nN\n\tRB\n1\n\t3.9\t\n9,706\nS+\n\n4\t\nJa'Marr Chase\nCIN \u00b7 26\n\tWR\n1\n\t4.4\t\n9,641\nS+\n\n5\t\nDrake Maye\nNE \u00b7 23\n\tQB\n2\n\t3.9\t\n9,577\nS+\n\n6\t\nJahmyr Gibbs\nDET \u00b7 24\nN\n\tRB\n2\n\t5.0\t\n9,576\nS+\n\nTIER 2\n7\t\nJaxon Smith-Njigba\nSEA \u00b7 24\n\tWR\n2\n\t6.4\t\n9,337\nS+\n\n8\t\nPuka Nacua\nLAR \u00b7 25\n\tWR\n3\n\t8.1\t\n9,132\nS+\n\n9\t\nTrey McBride\nARI \u00b7 26\n\tTE\n2\n\t15.6\t\n8,993\nS+\n\n10\t\nJayden Daniels\nWAS \u00b7 25\n\tQB\n3\n\t8.2\t\n8,898\nS+\n\n11\t\nLamar Jackson\nBAL \u00b7 29\nN\n\tQB\n4\n\t10.1\t\n8,784\nS+\n\n12\t\nCaleb Williams\nCHI \u00b7 24\n\tQB\n5\n\t10.2\t\n8,753\nS+\n\nTIER 3\n13\t\nJoe Burrow\nCIN \u00b7 29\nN\n\tQB\n6\n\t12.4\t\n8,383\nS+\n\n14\t\nAmon-Ra St. Brown\nDET \u00b7 26\n\tWR\n4\n\t13.1\t\n8,326\nS+\n\n15\t\nJustin Jefferson\nMIN \u00b7 27\n\tWR\n5\n\t15.5\t\n8,054\nS+\n\n16\t\nAshton Jeanty\nLV \u00b7 22\n\tRB\n3\n\t14.6\t\n8,039\nS+\n\n17\t\nMalik Nabers\nNYG \u00b7 23\n\tWR\n6\n\t17.5\t\n7,924\nS\n\n18\t\nJeremiyah Love\nARI \u00b7 21\nR\n\tRB\n4\n\t17.9\t\n7,799\nS\n\n19\t\nCeeDee Lamb\nDAL \u00b7 27\n\tWR\n7\n\t18.3\t\n7,767\nS\n\n20\t\nJustin Herbert\nLAC \u00b7 28\nN\n\tQB\n7\n\t18.4\t\n7,684\nS\n\n21\t\nColston Loveland\nCHI \u00b7 22\n\tTE\n3\n\t28.0\t\n7,646\nS\n\nTIER 4\n22\t\nPatrick Mahomes\nKC \u00b7 30\nN\n\tQB\n8\n\t21.4\t\n7,461\nS\n\n23\t\nDrake London\nATL \u00b7 25\nN\n\tWR\n8\n\t22.4\t\n7,348\nS\n\n24\t\nJalen Hurts\nPHI \u00b7 27\n\tQB\n9\n\t23.9\t\n7,183\nS\n\n25\t\nJaxson Dart\nNYG \u00b7 23\nN\n\tQB\n10\n\t25.3\t\n7,165\nS\n\n26\t\nOmarion Hampton\nLAC \u00b7 23\n\tRB\n5\n\t23.9\t\n7,126\nS\n\n27\t\nTyler Warren\nIND \u00b7 24\n\tTE\n4\n\t35.2\t\n7,099\nS\n\n28\t\n21\n2027 Early 1st\n\tPICK\n1\n\t23.5\t\n7,049\nS\n\n29\t\nDe'Von Achane\nMIA \u00b7 24\n\tRB\n6\n\t25.8\t\n6,980\nS\n\n30\t\nTrevor Lawrence\nJAX \u00b7 26\n\tQB\n11\n\t26.8\t\n6,886\nS\n\nTIER 5\n31\t\nTetairoa McMillan\nCAR \u00b7 23\n\tWR\n9\n\t29.2\t\n6,766\nS\n\n32\t\nBo Nix\nDEN \u00b7 26\n\tQB\n12\n\t31.9\t\n6,572\nS\n\n33\t\nJonathan Taylor\nIND \u00b7 27\n\tRB\n7\n\t32.1\t\n6,431\nS\n\n34\t\nEmeka Egbuka\nTB \u00b7 23\n\tWR\n10\n\t33.7\t\n6,388\nS\n\n35\t\nBrock Purdy\nSF \u00b7 26\n\tQB\n13\n\t33.8\t\n6,376\nS\n\n36\t\nAidan Hutchinson\nDET \u00b7 25\n\tDL\n1\n\t34.0\t\n6,362\nS\n\n37\t\nJames Cook\nBUF \u00b7 26\n\tRB\n8\n\t33.7\t\n6,332\nS\n\n38\t\nGeorge Pickens\nDAL \u00b7 25\nN\n\tWR\n11\n\t35.0\t\n6,271\nS\n\n39\t\nCarnell Tate\nTEN \u00b7 21\nR\nN\n\tWR\n12\n\t36.8\t\n6,160\nS\n\n40\t\nNico Collins\nHOU \u00b7 27\n\tWR\n13\n\t37.9\t\n6,080\nS\n\n41\t\nJordan Love\nGB \u00b7 27\n\tQB\n14\n\t39.8\t\n6,038\nS\n\nTIER 6\n42\t\nCarson Schwesinger\nCLE \u00b7 23\n\tLB\n1\n\t59.6\t\n5,908\nD+\n\n43\t\nWill Anderson\nHOU \u00b7 24\n\tDL\n2\n\t41.0\t\n5,876\nD+\n\n44\t\nKenneth Walker\nKC \u00b7 25\n\tRB\n9\n\t42.6\t\n5,813\nD+\n\n45\t\nGarrett Wilson\nNYJ \u00b7 26\n\tWR\n14\n\t41.8\t\n5,766\nD+\n\nTIER 7\n46\t\nChris Olave\nNO \u00b7 26\n\tWR\n15\n\t46.2\t\n5,617\nD+\n\n47\t\n21\n2027 Mid 1st\n\tPICK\n2\n\t48.0\t\n5,606\nD+\n\n48\t\nLadd McConkey\nLAC \u00b7 24\n\tWR\n16\n\t45.5\t\n5,605\nD+\n\n49\t\nFernando Mendoza\nLV \u00b7 22\nR\n\tQB\n15\n\t45.8\t\n5,597\nD+\n\n50\t\nTucker Kraft\nGB \u00b7 25\n\tTE\n5\n\t57.1\t\n5,595\nD+\n\nTIER 8\n51\t\nDak Prescott\nDAL \u00b7 33\n\tQB\n16\n\t49.4\t\n5,519\nD+\n\n52\t\nHarold Fannin\nCLE \u00b7 22\n\tTE\n6\n\t58.2\t\n5,515\nD+\n\n53\t\nChase Brown\nCIN \u00b7 26\n\tRB\n10\n\t51.9\t\n5,419\nD+\n\n54\t\nBreece Hall\nNYJ \u00b7 25\n\tRB\n11\n\t50.4\t\n5,404\nD+\n\n55\t\nLuther Burden\nCHI \u00b7 22\nN\n\tWR\n17\n\t52.3\t\n5,353\nD+\n\n56\t\nJordyn Tyson\nNO \u00b7 21\nR\n\tWR\n18\n\t50.8\t\n5,320\nD+\n\n57\t\nQuinshon Judkins\nCLE \u00b7 22\n\tRB\n12\n\t51.2\t\n5,309\nD+\n\n58\t\nTreVeyon Henderson\nNE \u00b7 23\n\tRB\n13\n\t53.3\t\n5,262\nD+\n\n59\t\nSonny Styles\nWAS \u00b7 21\nR\n\tLB\n2\n\t64.0\t\n5,222\nD+\n\n60\t\nDeVonta Smith\nPHI \u00b7 27\n\tWR\n19\n\t55.2\t\n5,215\nD+\n\nTIER 9\n61\t\nChristian McCaffrey\nSF \u00b7 30\n\tRB\n14\n\t55.4\t\n5,140\nD+\n\n62\t\n21\n2028 Early 1st\n\tPICK\n3\n\t70.5\t\n5,089\nD+\n\n63\t\nCam Ward\nTEN \u00b7 24\n\tQB\n17\n\t58.8\t\n5,049\nD+\n\n64\t\nSaquon Barkley\nPHI \u00b7 29\n\tRB\n15\n\t59.5\t\n5,026\nD+\n\n65\t\nSam LaPorta\nDET \u00b7 25\n\tTE\n7\n\t69.2\t\n5,021\nD+\n\n66\t\nMakai Lemon\nPHI \u00b7 22\nR\n\tWR\n20\n\t59.2\t\n4,987\nD+\n\n67\t\nZay Flowers\nBAL \u00b7 25\nN\n\tWR\n21\n\t60.7\t\n4,953\nD+\n\n68\t\n21\n2027 Late 1st\n\tPICK\n4\n\t77.5\t\n4,933\nD+\n\n69\t\nRome Odunze\nCHI \u00b7 24\n\tWR\n22\n\t62.4\t\n4,930\nD+\n\n70\t\nA.J. Brown\nNE \u00b7 29\n\tWR\n23\n\t60.9\t\n4,925\nD+\n\n71\t\nRashee Rice\nKC \u00b7 26\n\tWR\n24\n\t62.7\t\n4,887\nD+\n\n72\t\nJared Goff\nDET \u00b7 31\n\tQB\n18\n\t64.2\t\n4,881\nD+\n\n73\t\nKyle Pitts\nATL \u00b7 25\nN\n\tTE\n8\n\t74.4\t\n4,831\nD+\n\n74\t\nJack Campbell\nDET \u00b7 25\n\tLB\n3\n\t55.8\t\n4,803\nD+\n\nTIER 10\n75\t\nTee Higgins\nCIN \u00b7 27\n\tWR\n25\n\t65.4\t\n4,726\nD+\n\n76\t\nBaker Mayfield\nTB \u00b7 31\nN\n\tQB\n19\n\t68.3\t\n4,659\nD+\n\n77\t\nMarvin Harrison\nARI \u00b7 23\n\tWR\n26\n\t68.7\t\n4,619\nD+\n\n78\t\nC.J. Stroud\nHOU \u00b7 24\n\tQB\n20\n\t71.7\t\n4,608\nD+\n\n79\t\nKyren Williams\nLAR \u00b7 25\n\tRB\n16\n\t67.7\t\n4,607\nD+\n\n80\t\nMicah Parsons\nGB \u00b7 27\n~\nN\n\tDL\n3\n\t189.0\t\n4,606\nD+\n\n81\t\nMyles Garrett\nLAR \u00b7 30\n\tDL\n4\n\t151.4\t\n4,602\nD+\n\n82\t\nAbdul Carter\nNYG \u00b7 22\n\tDL\n5\n\t207.6\t\n4,598\nD+\n\n83\t\nJaylen Waddle\nDEN \u00b7 27\n\tWR\n27\n\t68.6\t\n4,595\nD+\n\n84\t\nJared Verse\nCLE \u00b7 25\n\tDL\n6\n\t191.8\t\n4,593\nD+\n\nTIER 11\n85\t\nKenyon Sadiq\nNYJ \u00b7 21\nR\n!N\n\tTE\n9\n\t82.4\t\n4,566\nD+"
+  },
+  "consoleErrors": [
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "route": "/trade",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 56,
+  "settleMs": 2693,
+  "finalUrl": "/trade",
+  "timing": {
+   "domContentLoaded": 51,
+   "load": 172,
+   "fcp": 96,
+   "resourceCount": 59,
+   "transferBytes": 1135662,
+   "decodedBytes": 13064108
+  },
+  "apiCallCount": 9,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/public/league/rosTradeDeadline",
+   "/api/rankings/overrides?view=delta",
+   "/api/ros/player-values?limit=2000",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 46,
+   "smallTargetCount": 19,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "Market",
+     "w": 66,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "My league",
+     "w": 87,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "A",
+     "w": 56,
+     "h": 40
+    },
+    {
+     "tag": "select",
+     "text": "Our Value\nRaw",
+     "w": 118,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Swap Sides",
+     "w": 114,
+     "h": 33
+    },
+    {
+     "tag": "button",
+     "text": "Clear Trade",
+     "w": 122,
+     "h": 33
+    },
+    {
+     "tag": "button",
+     "text": "Add Team",
+     "w": 98,
+     "h": 33
+    },
+    {
+     "tag": "button",
+     "text": "Import KTC",
+     "w": 114,
+     "h": 33
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H3",
+    "H3",
+    "H2",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 2,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 45,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.2,
+    10.6
+   ],
+   "bodyText": "Skip to content\nTrade Calculator\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\n\nTRADES\n\nTrade Calculator\n\nMulti-team trade calculator with live fairness visualization.\n\nMarket\nMy league\nA\nOur Value\nRaw\nSwap Sides\nClear Trade\nAdd Team\nImport KTC\nCopy share link\nCopy KTC URL\nCSV\nJSON\nSide A\n0\nRaw 0\nNo assets yet.\nSide B\n0\nRaw 0\nNo assets yet.\n0\nVS\n0\nGap: 0\nSide A\nSide B\nFAIR\nEven\nSecond opinions\nTrade suggestions\n\nSelect your team from the league, or enter a roster manually.\n\nYour team\nSelect your team\u2026\nJason (57 players, 62 picks)\nEd (58 players, 8 picks)\nTy (56 players, 15 picks)\nCollin (58 players, 18 picks)\nMaKayla (58 players, 16 picks)\nEric (58 players, 12 picks)\nRoy (51 players, 20 picks)\nJoey (58 players, 14 picks)\nBrent (57 players, 6 picks)\nKich (58 players, 14 picks)\njstuedle (44 players, 18 picks)\nBlaine (53 players, 13 picks)\nRoster\nGet suggestions\nSIDE A\n0\nNear even\nGap 0\nSIDE B\n0\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/draft",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 134,
+  "settleMs": 2237,
+  "finalUrl": "/draft",
+  "timing": {
+   "domContentLoaded": 132,
+   "load": 156,
+   "fcp": 100,
+   "resourceCount": 58,
+   "transferBytes": 2312148,
+   "decodedBytes": 24571176
+  },
+  "apiCallCount": 9,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/bdvm/values",
+   "/api/data?leagueKey=dynasty_main",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [
+    {
+     "tag": "table",
+     "cls": "draft-table",
+     "right": 1097,
+     "w": 1084
+    },
+    {
+     "tag": "thead",
+     "cls": "",
+     "right": 1097,
+     "w": 1084
+    },
+    {
+     "tag": "tr",
+     "cls": "",
+     "right": 1097,
+     "w": 1084
+    },
+    {
+     "tag": "th",
+     "cls": "",
+     "right": 1097,
+     "w": 116
+    },
+    {
+     "tag": "tbody",
+     "cls": "",
+     "right": 1097,
+     "w": 1084
+    },
+    {
+     "tag": "tr",
+     "cls": "draft-row",
+     "right": 1097,
+     "w": 1084
+    }
+   ],
+   "interactiveCount": 475,
+   "smallTargetCount": 373,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "How this works",
+     "w": 144,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Sync rookies",
+     "w": 110,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Review",
+     "w": 68,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Shortcuts",
+     "w": 89,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Undo last",
+     "w": 89,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Reset",
+     "w": 61,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "What is Eff $?",
+     "w": 24,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "What is MDV?",
+     "w": 24,
+     "h": 24
+    }
+   ],
+   "unlabelledCount": 102,
+   "unlabelled": [
+    {
+     "tag": "input",
+     "type": "",
+     "cls": "draft-inline-input"
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": "draft-inline-input draft-money-input"
+    },
+    {
+     "tag": "input",
+     "type": "",
+     "cls": "draft-inline-input"
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": "draft-inline-input draft-money-input"
+    },
+    {
+     "tag": "input",
+     "type": "",
+     "cls": "draft-inline-input"
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": "draft-inline-input draft-money-input"
+    },
+    {
+     "tag": "input",
+     "type": "",
+     "cls": "draft-inline-input"
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": "draft-inline-input draft-money-input"
+    },
+    {
+     "tag": "input",
+     "type": "",
+     "cls": "draft-inline-input"
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": "draft-inline-input draft-money-input"
+    }
+   ],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [
+    {
+     "rows": 73,
+     "th": 14,
+     "thScope": 0,
+     "caption": false,
+     "ariaLabel": false,
+     "scrollW": 1084,
+     "clientW": 1084,
+     "parentScrolls": true
+    }
+   ],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H3"
+   ],
+   "landmarks": {
+    "main": 2,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 714,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.6,
+    10.9
+   ],
+   "bodyText": "Skip to content\nDraft Board\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\n\nMY TEAM\n\nDraft Board\n\nLive inflation-aware auction dashboard \u2014 every pick you record moves the per-player bid ceiling immediately.\n\nHow this works\nLive sync: OFF\nSync rookies\nReview\nShortcuts\nUndo last\nReset\nPick 0 of 72\n0% through draft\nINFLATION\n1.00\u00d7\n(sparkline populates after first pick)\nMY REMAINING\n$417\nBUDGET ADVANTAGE\n5.85\u00d7\nTOP RIVAL CEILING\n$68\nPHASE\n6 of 6 slots\nLEAGUE $ LEFT\n$1,200\nTeams & budgets\nBudgets pre-fill from the live Draft Capital feed. Edit any row to match your carry-over balances; click Load from Draft Capital to re-pull.\nLoading\u2026\nMINE\nTEAM\nINITIAL\nSPENT\nREMAINING\nSLOTS\nEFF $\nMDV\nOVER%\n$0\n$417\n0/6\n$412\n$70\n\u2014\n$0\n$71\n0/6\n$66\n$12\n\u2014\n$0\n$71\n0/6\n$66\n$12\n\u2014\n$0\n$71\n0/6\n$66\n$12\n\u2014\n$0\n$71\n0/6\n$66\n$12\n\u2014\n$0\n$71\n0/6\n$66\n$12\n\u2014\n$0\n$71\n0/6\n$66\n$12\n\u2014\n$0\n$71\n0/6\n$66\n$12\n\u2014\n$0\n$71\n0/6\n$66\n$12\n\u2014\n$0\n$71\n0/6\n$66\n$12\n\u2014\n$0\n$71\n0/6\n$66\n$12\n\u2014\n$0\n$73\n0/6\n$68\n$12\n\u2014\nBid knobs\nAggression \u2014 how much of the budget advantage to spend on stars\nEnforce % of fair \u2014 bid up to this fraction of fair to keep prices honest\nPar Sheet (0 rows \u00b7 0 open \u00b7 0 won \u00b7 0 lost)\nPre-draft shopping list with your own fair value \u00b7 surplus on bargains rolls into headroom you can spend elsewhere\nType a player and your fair-value $ below to start your par sheet. As picks land, each row marks itself \"Won\" (with surplus vs your FV) or \"Lost\". Bottom-line headroom shows what you have left if you hit every open row at your FV.\nFV \u03a3 (OPEN)\n$0\nFV \u03a3 (WON)\n$0\nPAID \u03a3 (WON)\n$0\nSURPLUS BANKED\n$0\nMY REMAINING\n$417\n\u2212 OPEN FV\n$0\n=\n$417\nHEADROOM\nAdd players to your par sheet\nAdd\nTarget Board (0 of 6)\nLive fair + win bid \u00b7 paid if won \u00b7 buffer vs my budget\nPick up to 6 rookies to track closely. The board will show what each costs now, what you paid (if won), and how the full portfolio fits your remaining budget.\nPREDRAFT \u03a3\n$0\nFAIR \u03a3\n$0\nWIN \u03a3 (OPEN)\n$0\nPAID \u03a3 (WON)\n$0\nMY REMAINING\n$417\n\u2212 BUYS AT WIN\n$0\n\u2212 OTHER SLOTS\n$6\n=\n$411\nAdd targets to your board\nNext Best Targets\nEV = (fair \u2212 winBid) \u00d7 tag weight + scarcity boost\n#1\n+\nS\nJeremiyah Love\n$69\nfair $135\n\u2014\nEV 66\n#2\n+\nS\nFernando Mendoza\n$69\nfair $102\n\u2014\nEV 33\n#3\n+\nS\nMakai Lemon\n$69\nfair $90\n\u2014\nEV 21\n#4\n+\nS\nCarnell Tate\n$69\nfair $83\n\u2014\nEV 14\n#5\n+\nS\nJordyn Tyson\n$69\nfair $73\n\u2014\nEV 4\nGood to nominate\nNo vendor overrates \u2014 either every rookie's vendor price and our board agree, or KTC / IDPTradeCalc values are missing from the live contract.\nBest value on the board\nTop 10 rookies KTC / IDPTC underrates vs our board (% gap)\n#1\n+\nS\nJeremiyah Love\nours $135\nktc $0\n\u22120%\n#2\n+\nS\nFernando Mendoza\nours $102\nktc $0\n\u22120%\n#3\n+\nS\nMakai Lemon\nours $90\nktc $0\n\u22120%\n#4\n+\nS\nCarnell Tate\nours $83\nktc $0\n\u22120%\n#5\n+\nS\nJordyn Tyson\nours $73\nktc $0\n\u22120%\n#6\n+\nS\nSonny Styles\nours $66\nktc $0\n\u22120%\n#7\n+\nS\nCaleb Downs\nours $61\nktc $0\n\u22120%\n#8\n+\nA\nKenyon Sadiq\nours $55\nktc $0\n\u22120%\n#9\n+\nA\nEmmanuel McNeil-Warren\nours $51\nktc $0\n\u22120%\n#10\n+\nA\nDillon Thieneman\nours $45\nktc $0\n\u22120%\nRookie board\nShow drafted\n+\nAll\n72\nTargets\n0\nAvoid\n0\nUntagged\n72\n#\n\tTIER\n\tTAG\tREC\t\nPLAYER\n\t\nPREDRAFT\n\tMARKET\n\t\nFAIR\n\t\nENFORCE\n\t\nWIN AT\n\t\nMAX BID\n\t\nFINAL\n\tDRAFTED TO\t\n1\tS\t+\t\u2014\tJeremiyah Love\t\t\u2014\t$135\t$108\t$69\u2713\t$193\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n2\tS\t+\t\u2014\tFernando Mendoza\t\t\u2014\t$102\t$81\t$69\u2713\t$146\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n3\tS\t+\t\u2014\tMakai Lemon\t\t\u2014\t$90\t$72\t$69\u2713\t$129\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n4\tS\t+\t\u2014\tCarnell Tate\t\t\u2014\t$83\t$66\t$69\u2713\t$119\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n5\tS\t+\t\u2014\tJordyn Tyson\t\t\u2014\t$73\t$58\t$69\u2713\t$104\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n6\tS\t+\t\u2014\tSonny Styles\t\t\u2014\t$66\t$52\t$69\u2713\t$94\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n7\tS\t+\t\u2014\tCaleb Downs\t\t\u2014\t$61\t$48\t$69\u2713\t$87\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n8\tA\t+\t\u2014\tKenyon Sadiq\t\t\u2014\t$55\t$44\t$69\u2713\t$79\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n9\tA\t+\t\u2014\tEmmanuel McNeil-Warren\t\t\u2014\t$51\t$40\t$69\u2713\t$73\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n10\tA\t+\t\u2014\tDillon Thieneman\t\t\u2014\t$45\t$36\t$64\t$64\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n11\tA\t+\t\u2014\tDavid Bailey\t\t\u2014\t$41\t$32\t$58\t$58\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n12\tA\t+\t\u2014\tArvell Reese\t\t\u2014\t$36\t$28\t$51\t$51\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n13\tA\t+\t\u2014\tCJ Allen\t\t\u2014\t$32\t$25\t$45\t$45\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n14\tA\t+\t\u2014\tKC Concepcion\t\t\u2014\t$29\t$23\t$41\t$41\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n15\tA\t+\t\u2014\tOmar Cooper\t\t\u2014\t$26\t$20\t$37\t$37\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n16\tB\t+\t\u2014\tDenzel Boston\t\t\u2014\t$24\t$19\t$34\t$34\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n17\tB\t+\t\u2014\tEli Stowers\t\t\u2014\t$21\t$16\t$30\t$30\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n18\tB\t+\t\u2014\tTy Simpson\t\t\u2014\t$19\t$15\t$27\t$27\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n19\tB\t+\t\u2014\tJadarian Price\t\t\u2014\t$17\t$13\t$24\t$24\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n20\tB\t+\t\u2014\tRueben Bain\t\t\u2014\t$15\t$12\t$21\t$21\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n21\tB\t+\t\u2014\tJonah Coleman\t\t\u2014\t$14\t$11\t$20\t$20\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n22\tB\t+\t\u2014\tMike Washington\t\t\u2014\t$13\t$10\t$18\t$18\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n23\tB\t+\t\u2014\tNicholas Singleton\t\t\u2014\t$11\t$8\t$15\t$15\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n24\tB\t+\t\u2014\tEmmett Johnson\t\t\u2014\t$10\t$8\t$14\t$14\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n25\tB\t+\t\u2014\tElijah Sarratt\t\t\u2014\t$9\t$7\t$12\t$12\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n26\tB\t+\t\u2014\tChris Brazzell\t\t\u2014\t$9\t$7\t$12\t$12\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n27\tB\t+\t\u2014\tChris Bell\t\t\u2014\t$8\t$6\t$11\t$11\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n28\tC\t+\t\u2014\tZachariah Branch\t\t\u2014\t$7\t$5\t$10\t$10\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n29\tC\t+\t\u2014\tGermie Bernard\t\t\u2014\t$7\t$5\t$10\t$10\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n30\tC\t+\t\u2014\tMalachi Fields\t\t\u2014\t$6\t$4\t$8\t$8\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n31\tC\t+\t\u2014\tMax Klare\t\t\u2014\t$5\t$4\t$7\t$7\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n32\tC\t+\t\u2014\tKaytron Allen\t\t\u2014\t$5\t$4\t$7\t$7\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n33\tC\t+\t\u2014\tJa'Kobi Lane\t\t\u2014\t$5\t$4\t$7\t$7\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n34\tC\t+\t\u2014\tGarrett Nussmeier\t\t\u2014\t$4\t$3\t$5\t$5\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n35\tC\t+\t\u2014\tSkyler Bell\t\t\u2014\t$4\t$3\t$5\t$5\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n36\tC\t+\t\u2014\tMichael Trigg\t\t\u2014\t$4\t$3\t$5\t$5\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n37\tC\t+\t\u2014\tJake Golday\t\t\u2014\t$4\t$3\t$5\t$5\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n38\tC\t+\t\u2014\tJoe Royer\t\t\u2014\t$3\t$2\t$4\t$4\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n39\tC\t+\t\u2014\tAnthony Hill\t\t\u2014\t$3\t$2\t$4\t$4\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n40\tC\t+\t\u2014\tJosiah Trotter\t\t\u2014\t$3\t$2\t$4\t$4\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n41\tC\t+\t\u2014\tTed Hurst\t\t\u2014\t$3\t$2\t$4\t$4\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n42\tC\t+\t\u2014\tAdam Randall\t\t\u2014\t$3\t$2\t$4\t$4\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n43\tC\t+\t\u2014\tBryce Lance\t\t\u2014\t$3\t$2\t$4\t$4\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n44\tC\t+\t\u2014\tDemond Claiborne\t\t\u2014\t$3\t$2\t$4\t$4\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n45\tD\t+\t\u2014\tJustin Joly\t\t\u2014\t$2\t$1\t$2\t$2\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n46\tD\t+\t\u2014\tCashius Howell\t\t\u2014\t$2\t$1\t$2\t$2\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n47\tD\t+\t\u2014\tBrenen Thompson\t\t\u2014\t$2\t$1\t$2\t$2\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n48\tD\t+\t\u2014\tOscar Delp\t\t\u2014\t$2\t$1\t$2\t$2\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n49\tD\t+\t\u2014\tVinny Anthony\t\t\u2014\t$2\t$1\t$2\t$2\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n50\tD\t+\t\u2014\tAkheem Mesidor\t\t\u2014\t$2\t$1\t$2\t$2\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n51\tD\t+\t\u2014\tSam Roush\t\t\u2014\t$2\t$1\t$2\t$2\t\u2014\t\u2014\t\nDraft\nQ\n\u00d7\n\n52\tD\t+\t\u2014\tA.J. Haulcy\t\t\u2014\t$2\t$1"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/terminal",
+  "viewport": "mobile",
+  "status": 404,
+  "navMs": 134,
+  "settleMs": 2356,
+  "finalUrl": "/terminal",
+  "timing": {
+   "domContentLoaded": 119,
+   "load": 178,
+   "fcp": 132,
+   "resourceCount": 58,
+   "transferBytes": 1135662,
+   "decodedBytes": 12481320
+  },
+  "apiCallCount": 7,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 26,
+   "smallTargetCount": 4,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 12,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [],
+   "bodyText": "Skip to content\nChase Upside\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\n404\nThis page could not be found.\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": [
+   "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+ },
+ {
+  "route": "/waivers",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 120,
+  "settleMs": 2226,
+  "finalUrl": "/waivers",
+  "timing": {
+   "domContentLoaded": 86,
+   "load": 190,
+   "fcp": 116,
+   "resourceCount": 59,
+   "transferBytes": 1135662,
+   "decodedBytes": 12578490
+  },
+  "apiCallCount": 7,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/public/league/faabAnalytics?leagueKey=dynasty_main",
+   "/api/rankings/overrides?view=delta",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 31,
+   "smallTargetCount": 9,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 123,
+     "h": 27
+    },
+    {
+     "tag": "select",
+     "text": "All positions\nQB\nRB\nWR\nTE\nDL\nLB\nDB",
+     "w": 150,
+     "h": 35
+    },
+    {
+     "tag": "select",
+     "text": "All strengths\nConsidering & up\nStr",
+     "w": 174,
+     "h": 35
+    },
+    {
+     "tag": "input",
+     "text": "0",
+     "w": 332,
+     "h": 34
+    },
+    {
+     "tag": "input",
+     "text": "on",
+     "w": 13,
+     "h": 13
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H3"
+   ],
+   "landmarks": {
+    "main": 2,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 23,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [],
+   "bodyText": "Skip to content\nWaivers\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\n\nMY TEAM\n\nWaivers\n\nEvery unrostered player measured against your roster \u2014 Risk It To Get The Brisket\n\nManual add/drop calculator\n\nOne player out, one in \u2014 the trade calculator's fairness bar and per-vendor breakdown, applied to a single transaction.\n\nSelect a team below to use the manual add/drop calculator.\n\nPick your team\n\u25be\nPosition\nAll positions\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nUpgrade strength\nAll strengths\nConsidering & up\nStrong & up\nSmash only\nMIN NET GAIN\n0\nInclude rookies\nPick your team\n\nSelect a team above to start comparing the pool against your roster.\n\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/news",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 60,
+  "settleMs": 1762,
+  "finalUrl": "/news",
+  "timing": {
+   "domContentLoaded": 57,
+   "load": 152,
+   "fcp": 112,
+   "resourceCount": 57,
+   "transferBytes": 1135662,
+   "decodedBytes": 12533315
+  },
+  "apiCallCount": 7,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/news?limit=100",
+   "/api/rankings/overrides?view=delta",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 47,
+   "smallTargetCount": 25,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "By player",
+     "w": 96,
+     "h": 37
+    },
+    {
+     "tag": "button",
+     "text": "Stories",
+     "w": 80,
+     "h": 37
+    },
+    {
+     "tag": "button",
+     "text": "My roster",
+     "w": 87,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "League",
+     "w": 66,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "All",
+     "w": 45,
+     "h": 24
+    },
+    {
+     "tag": "input",
+     "text": "Search news by player or headline",
+     "w": 216,
+     "h": 39
+    },
+    {
+     "tag": "select",
+     "text": "All teams\nARI\nATL\nBAL\nBUF\nCAR\nCHI\n",
+     "w": 120,
+     "h": 35
+    },
+    {
+     "tag": "select",
+     "text": "All positions\nQB\nRB\nWR\nTE\nDL\nLB\nDB",
+     "w": 150,
+     "h": 35
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 113,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [],
+   "bodyText": "Skip to content\nNews\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\n\nNEWS\n\nNews\n\nEvery source, deduplicated and combined per player. Rolling 7-day window.\n\nSTORIES\n89\nPLAYERS COVERED\n12\nALERTS\n8\ninjury / status\nON YOUR ROSTER\n0\nno team selected\nSOURCES LIVE\n4\nBy player\nStories\nMy roster\nLeague\nAll\nAll teams\nARI\nATL\nBAL\nBUF\nCAR\nCHI\nCIN\nCLE\nDAL\nDEN\nDET\nFA\nGB\nHOU\nIND\nJAX\nKC\nLAC\nLAR\nLV\nMIA\nMIN\nNE\nNO\nNYG\nNYJ\nPHI\nPIT\nSEA\nSF\nTB\nTEN\nWAS\nAll positions\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nAll sources\nCBS Sports\nESPN\nPlay For Keeps\nSleeper\nJalon Walker\nDL\nATL\n3\nstories \u00b7 1s\nalert\n\n- Sources: Falcons' Walker feared to have torn ACL (ESPN, 2026-08-04)\n- Jalon Walker injury: Falcons EDGE feared to have torn ACL in latest blow to Atlanta's defense, per report (CBS Sports, 2026-08-04)\n- NFL training camp injuries tracker: Latest updates on Jalon Walker, Kenyon Sadiq, Coby Bryant and more (CBS Sports, 2026-08-04)\n\nSources: ESPN \u00b7 CBS Sports\n\nBijan Robinson\nRB\nATL\n6\nstories \u00b7 1s\nalert\n\n- Sources: Falcons RB Robinson gets record deal (ESPN, 2026-08-04)\n- Falcons extend Bijan Robinson, offensive core, put spotlight on QB (ESPN, 2026-08-04)\n- With Bijan Robinson's extension, Falcons' new front office did the easy stuff, now, the hard part: Quarterback (CBS Sports, 2026-08-04)\n- Falcons sign Bijan Robinson to historic three-year extension, making him NFL's highest-paid running back (CBS Sports, 2026-08-04)\n- Which teams won the MLB trade deadline; Bijan Robinson becomes NFL's highest-paid RB (CBS Sports, 2026-08-04)\n- Tracking NFL preseason hold-ins: Robinson, Gibbs, Vea and Tuipulotu (ESPN, 2026-07-31)\n\nSources: ESPN \u00b7 CBS Sports\n\nJeffery Simmons\nDL\nTEN\n2\nstories \u00b7 1s\ninfo\n\n- Titans' Simmons throws punch, sent to side field (ESPN, 2026-08-04)\n- Titans' Jeffery Simmons ejected from practice for throwing punch at JC Latham (CBS Sports, 2026-08-04)\n\nSources: ESPN \u00b7 CBS Sports\n\nRicky Pearsall\nWR\nSF\n2\nstories \u00b7 8m\nwatch\n\n- Ricky Pearsall dropped in 4,795 leagues (last 24h) (Sleeper, 2026-08-04)\n- What's next for 49ers receivers Brandon Aiyuk, Deebo Samuel and Ricky Pearsall? (ESPN, 2026-08-04)\n\nSources: Sleeper \u00b7 ESPN\n\nDrake London\nWR\nATL\n2\nstories \u00b7 19m\nwatch\n\n- Falcons extend Bijan Robinson, offensive core, put spotlight on QB (ESPN, 2026-08-04)\n- George Pickens' 2026 season likely to be his Cowboys swan song after Zay Flowers, Drake London contracts (CBS Sports, 2026-08-04)\n\nSources: ESPN \u00b7 CBS Sports\n\nCoby Bryant\nDB\nCHI\n2\nstories \u00b7 2h\nalert\n\n- NFL training camp injuries tracker: Latest updates on Jalon Walker, Kenyon Sadiq, Coby Bryant and more (CBS Sports, 2026-08-04)\n- Bears lose Coby Bryant for 8-10 weeks after training camp knee injury (CBS Sports, 2026-08-03)\n\nSources: CBS Sports\n\nKenyon Sadiq\nTE\nNYJ\n2\nstories \u00b7 2h\nalert\n\n- NFL training camp injuries tracker: Latest updates on Jalon Walker, Kenyon Sadiq, Coby Bryant and more (CBS Sports, 2026-08-04)\n- Kenyon Sadiq injury update: Jets tight end to miss time after suffering 'setback' (CBS Sports, 2026-08-04)\n\nSources: CBS Sports\n\nZay Flowers\nWR\nBAL\n2\nstories \u00b7 4h\nwatch\n\n- George Pickens' 2026 season likely to be his Cowboys swan song after Zay Flowers, Drake London contracts (CBS Sports, 2026-08-04)\n- Ravens extending Zay Flowers: Baltimore retaining Lamar Jackson's top target with reported four-year deal (CBS Sports, 2026-08-04)\n\nSources: CBS Sports\n\nPatrick Mahomes\nQB\nKC\n2\nstories \u00b7 4h\ninfo\n\n- Buzz from 12 NFL training camps -- including the latest on Daniel Jones, Patrick Mahomes, Travis Hunter (ESPN, 2026-08-04)\n- Which AFC teams will bounce back, and which playoff teams could fall off in 2026? (CBS Sports, 2026-08-04)\n\nSources: ESPN \u00b7 CBS Sports\n\nLamar Jackson\nQB\nBAL\n2\nstories \u00b7 5h\ninfo\n\n- Ravens extending Zay Flowers: Baltimore retaining Lamar Jackson's top target with reported four-year deal (CBS Sports, 2026-08-04)\n- Which AFC teams will bounce back, and which playoff teams could fall off in 2026? (CBS Sports, 2026-08-04)\n\nSources: CBS Sports\n\nLuther Burden\nWR\nCHI\n2\nstories \u00b7 22h\ninfo\n\n- Signal Or Noise Luther Burden Iii (Play For Keeps, 2026-08-04)\n- Bears' Ben Johnson compares Luther Burden III's mentality, approach to one of the NFL's best wide receivers (CBS Sports, 2026-08-03)\n\nSources: Play For Keeps \u00b7 CBS Sports\n\nAaron Rodgers\nQB\nPIT\n2\nstories \u00b7 1d\nalert\n\n- Aaron Rodgers' preseason revenge tour could be coming: Steelers QB might play games vs. Packers and Jets (CBS Sports, 2026-08-03)\n- Aaron Rodgers credits wife Brittani for helping mend family rift after years of estrangement (CBS Sports, 2026-08-03)\n\nSources: CBS Sports\n\nShowing 12 players \u00b7 last 7 days\n\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/settings",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 54,
+  "settleMs": 1872,
+  "finalUrl": "/settings",
+  "timing": {
+   "domContentLoaded": 45,
+   "load": 170,
+   "fcp": 132,
+   "resourceCount": 58,
+   "transferBytes": 1135662,
+   "decodedBytes": 12505629
+  },
+  "apiCallCount": 6,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 126,
+   "smallTargetCount": 39,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "input",
+     "text": "1.15",
+     "w": 82,
+     "h": 29
+    },
+    {
+     "tag": "input",
+     "text": "1.1",
+     "w": 82,
+     "h": 29
+    },
+    {
+     "tag": "button",
+     "text": "What is the two TE Premium multipl",
+     "w": 24,
+     "h": 24
+    },
+    {
+     "tag": "input",
+     "text": "360",
+     "w": 52,
+     "h": 34
+    },
+    {
+     "tag": "input",
+     "text": "150",
+     "w": 0,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "What is the suggestion pool cap?",
+     "w": 24,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "What this changes",
+     "w": 165,
+     "h": 26
+    },
+    {
+     "tag": "input",
+     "text": "on",
+     "w": 13,
+     "h": 13
+    }
+   ],
+   "unlabelledCount": 4,
+   "unlabelled": [
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": ""
+    },
+    {
+     "tag": "input",
+     "type": "number",
+     "cls": ""
+    },
+    {
+     "tag": "input",
+     "type": "range",
+     "cls": ""
+    },
+    {
+     "tag": "input",
+     "type": "range",
+     "cls": ""
+    }
+   ],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [
+    {
+     "rows": 16,
+     "th": 6,
+     "thScope": 0,
+     "caption": false,
+     "ariaLabel": false,
+     "scrollW": 340,
+     "clientW": 340,
+     "parentScrolls": true
+    },
+    {
+     "rows": 7,
+     "th": 6,
+     "thScope": 0,
+     "caption": false,
+     "ariaLabel": false,
+     "scrollW": 340,
+     "clientW": 340,
+     "parentScrolls": true
+    },
+    {
+     "rows": 6,
+     "th": 5,
+     "thScope": 0,
+     "caption": false,
+     "ariaLabel": false,
+     "scrollW": 0,
+     "clientW": 0,
+     "parentScrolls": true
+    }
+   ],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H3",
+    "H2",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H3",
+    "H2",
+    "H3",
+    "H3",
+    "H3"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 155,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.2,
+    10.6,
+    10.9,
+    9.3
+   ],
+   "bodyText": "Skip to content\nSettings\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSettings\n\nTuning controls that affect valuations, trade calculations, and rankings display.\n\nReset Defaults\nLEAGUE & SCORING\n\nHow your league is set up. These change what the numbers mean.\n\nLeague Format\n\u2212\nSuperflex\nStandard (1QB)\nTEP \u2014 non-native\nDefault 1.15\u00d7 \u2014 applied to non-TEP sources on TE rows\nTEP \u2014 native\nDefault 1.10\u00d7 \u2014 applied to TEP-native sources on TE rows\n\nApplied at blend time, on TE rows only.\n\nHOW VALUES ARE CALCULATED\n\nTuning for the valuation engine. The defaults are sensible; change these only if you want a different board.\n\nTrade Calculation\n\u2212\nTrade History Window\n365\n365 days\nSuggestion Pool Cap\n150\nTop 150 KTC offense players considered for trade suggestions\n\nDefault 150 suits a standard 12-team Superflex league.\n\nValuation\n\u2212\nThis is the only setting that changes the numbers themselves. It applies everywhere \u2014 rankings, the trade calculator, exports.\nValue basis\nMarket\nMy league\n\nMarket \u2014 the blended consensus board exactly as the pipeline computes it. Shared by every league on the same scoring settings.\n\nMy league \u2014 takes that board and re-prices it by how scarce each position actually is here. We solve your exact starting lineup against the 12 real rosters, measure the drop-off from the best player at a position to the last startable one, and scale every player at that position by up to \u00b110%. Thin positions lift; deep positions trim. Ranks and tiers are recomputed on the backend.\n\nWhat this changes\nRankings Display\n\u2212\nSort Basis\nOur Value\nRaw Composite\nShow source site columns\nPer-site value columns in rankings\nRanking Sources\n\u2212\nEvery registered source contributes equally (default weight 1.0) to the blended consensus rank. Toggle a source off or adjust its weight to recompute the board with your own mix. Changing any knob flips the rankings page into override mode so your settings materially affect the displayed rank and value; clearing the overrides returns to the canonical server blend. IDP Trade Calculator is the IDP backbone and also feeds offense via its secondary scope. Backend registry: src/api/data_contract.py.\nBalanced \u2713\nMarket (retail-lean)\nExpert consensus\nReset source weights\nOffense\nSOURCE\tON\tWEIGHT\n\nKeepTradeCut SF-TE++\nRetail market\nTEP NATIVE\nKTC \u00b7 ktcSfTep \u00b7 500 covered\n\t\t\n\nDynasty League Football Superflex\nExpert consensus\nDLF SF \u00b7 dlfSf \u00b7 280 covered\n\t\t\n\nDynasty League Football Rookie SF\nExpert consensus\nDLF RK \u00b7 dlfRookieSf \u00b7 110 covered\n\t\t\n\nDynasty Nerds SF-TEP\nExpert consensus\nTEP NATIVE\nDN SF-TEP \u00b7 dynastyNerdsSfTep \u00b7 293 covered\n\t\t\n\nFantasyCalc Dynasty SF\nExpert consensus\nFC \u00b7 fantasyCalc \u00b7 394 covered\n\t\t\n\nOTC Fantasy Football SF\nExpert consensus\nOTC \u00b7 otcffbSf \u00b7 343 covered\n\t\t\n\nFantasy Navigator SF\nExpert consensus\nFN \u00b7 fantasyNavigatorSf \u00b7 455 covered\n\t\t\n\nPlay for Keeps Dynasty\nExpert consensus\nPFK \u00b7 pfkDynasty \u00b7 476 covered\n\t\t\n\nDynasty Daddy Superflex\nExpert consensus\nDD \u00b7 dynastyDaddySf \u00b7 365 covered\n\t\t\n\nFantasyPros Dynasty Superflex\nExpert consensus\nFP SF \u00b7 fantasyProsSf \u00b7 474 covered\n\t\t\n\nFantasyPros / Pat Fitzmaurice SF-TEP\nExpert consensus\nTEP NATIVE\nFitzmaurice \u00b7 fantasyProsFitzmaurice \u00b7 299 covered\n\t\t\n\nFlock Fantasy Superflex\nExpert consensus\nFF \u00b7 flockFantasySf \u00b7 415 covered\n\t\t\n\nFlock Fantasy Rookie SF\nExpert consensus\nFlock RK \u00b7 flockFantasySfRookies \u00b7 76 covered\n\t\t\n\nYahoo / Justin Boone SF-TEP\nExpert consensus\nTEP NATIVE\nBoone \u00b7 yahooBoone \u00b7 377 covered\n\t\t\n\nDraft Sharks Dynasty\nExpert consensus\nTEP NATIVE\nDS \u00b7 draftSharks \u00b7 398 covered\n\t\t\nIDP\nSOURCE\tON\tWEIGHT\n\nIDP Trade Calculator\nBackbone (IDP)\nTEP NATIVE\nIDPTC \u00b7 idpTradeCalc \u00b7 910 covered\n\t\t\n\nDynasty League Football IDP\nExpert consensus\nDLF IDP \u00b7 dlfIdp \u00b7 171 covered\n\t\t\n\nDynasty League Football Rookie IDP\nExpert consensus\nDLF RK-IDP \u00b7 dlfRookieIdp \u00b7 29 covered\n\t\t\n\nThe IDP Show (Adamidp)\nExpert consensus\nIDP Show \u00b7 idpShow \u00b7 349 covered\n\t\t\n\nFantasyPros Dynasty IDP\nExpert consensus\nFP IDP \u00b7 fantasyProsIdp \u00b7 211 covered\n\t\t\n\nDraft Sharks IDP Dynasty\nExpert consensus\nDS IDP \u00b7 draftSharksIdp \u00b7 143 covered\n\t\t\nRest-of-Season Engine\n+\nALERTS & LISTS\n\nWhat the site tells you about, and which players you are tracking.\n\nNotifications\n+\nWatchlist\n+\nCustom alerts\n+\nSettings are saved automatically to your browser. They affect trade calculations, rankings display, and value composites.\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/bdvm",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 89,
+  "settleMs": 1877,
+  "finalUrl": "/bdvm",
+  "timing": {
+   "domContentLoaded": 78,
+   "load": 151,
+   "fcp": 96,
+   "resourceCount": 60,
+   "transferBytes": 1135662,
+   "decodedBytes": 12488678
+  },
+  "apiCallCount": 7,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/bdvm/values",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 29,
+   "smallTargetCount": 7,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "Value Board",
+     "w": 112,
+     "h": 37
+    },
+    {
+     "tag": "button",
+     "text": "Rosters",
+     "w": 80,
+     "h": 37
+    },
+    {
+     "tag": "button",
+     "text": "Trade Scan",
+     "w": 104,
+     "h": 37
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H3"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 18,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [],
+   "bodyText": "Skip to content\nFundamental Values\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\n\nRANKINGS\n\nFundamental Values\n\nBDVM projection-driven dynasty values \u2014 fundamentals first, market strictly after. A second value concept beside the market board, never merged into it.\n\nValue Board\nRosters\nTrade Scan\nNo projection snapshot yet\n\nFundamental values are priced from a weekly projection snapshot, and this season's hasn't been built yet. It refreshes automatically \u2014 check back after the next run.\n\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/league",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 195,
+  "settleMs": 13616,
+  "finalUrl": "/league",
+  "timing": {
+   "domContentLoaded": 188,
+   "load": 276,
+   "fcp": 152,
+   "resourceCount": 60,
+   "transferBytes": 793,
+   "decodedBytes": 1359375
+  },
+  "apiCallCount": 4,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/health",
+   "/api/leagues",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 59,
+   "smallTargetCount": 16,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "View championship history \u2192",
+     "w": 169,
+     "h": 22
+    },
+    {
+     "tag": "button",
+     "text": "Explore rivalries \u2192",
+     "w": 116,
+     "h": 22
+    },
+    {
+     "tag": "button",
+     "text": "Full H2H preview \u2192",
+     "w": 121,
+     "h": 22
+    },
+    {
+     "tag": "button",
+     "text": "Power rankings \u2192",
+     "w": 113,
+     "h": 22
+    },
+    {
+     "tag": "button",
+     "text": "All streaks \u2192",
+     "w": 88,
+     "h": 22
+    },
+    {
+     "tag": "button",
+     "text": "See all \u2192",
+     "w": 71,
+     "h": 22
+    },
+    {
+     "tag": "button",
+     "text": "All recaps \u2192",
+     "w": 85,
+     "h": 22
+    },
+    {
+     "tag": "button",
+     "text": "Full record book \u2192",
+     "w": 117,
+     "h": 22
+    },
+    {
+     "tag": "button",
+     "text": "Open franchise page \u2192",
+     "w": 140,
+     "h": 22
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 23,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H2",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 125,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.2,
+    10.4,
+    10.6,
+    10.9,
+    9.9
+   ],
+   "bodyText": "Skip to content\nHub\nRisk It To Get The Brisket\n\u25be\nRisk It To Get The Brisket\n\nSeasons: 2024\u20132026 \u00b7 12 managers \u00b7 Last 3 dynasty seasons\n\nSECTION\nHome\nPreviews\nRecaps\nPower\nROS Strength\nChampionship\nTrade Deadline\nLuck\nStreaks\nHistory\nRivalries\nAwards\nRecords\nFranchises\nTrades\nDraft\nWeekly\nSuperlatives\nArchives\nTeam Assignment\nDraft Capital\nAt a glance\n\nPublic snapshot across the last 2 dynasty seasons\n\nSEASONS\n3\n2024\u20132026\nMANAGERS\n12\nTRADES\n191\nWAIVERS\n1092\nSCORED WEEKS\n34\nDEFENDING CHAMPION\nEd\nStill Jerry\u2019s Team \u00b7 2025 title\nView championship history \u2192\nFEATURED RIVALRY \u00b7 HOTTEST INDEX\nvs\nJoey vs Ed\n5 meetings \u00b7 2 playoff \u00b7 Rivalry Index 21\nSeries: 3\u20132\nExplore rivalries \u2192\nTHIS WEEK \u00b7 2026 WK 1\n@\nJoey vs Ed\nJoey leads the series 3-2; most recent: Ed by 41.8 in 2025 wk 15.\nFull H2H preview \u2192\nPOWER RANK #1\nBrent\nKarma Cowboy\nPower 97.211-2\nPower rankings \u2192\nLONGEST ACTIVE STREAK\nEd\n2 straight wins\nAll streaks \u2192\nRECORD WITHIN REACH\nLongest losing streak\nHolder: Roy (6 straight)\nChaser: Roy (6 active)\nSee all \u2192\nWEEK IN REVIEW \u00b7 2025 WK 17\nCollin put Roy on a milk carton, 297.2-238.8\nWeek 17 (playoffs) closed with 4 games on the slate and 2680.8 total points. Ed paced the league at 393.4. Collin put together one of the cleaner top-to-bottom outings of the week, taking Roy by 58.4. Podium for the week \u2014 Ed 393.4, MaKayla 382.7, Joey 375.8. The slate averaged 335.1 points per side \u2014 well above league norm. Cellar of the week was Roy at 238.8 \u2014 a get-back-on-the-horse week. Playoffs heighten everything; that was visible across the slate.\nAll recaps \u2192\nHeadline records\n\nBiggest numbers in the last 2 seasons\n\nHIGHEST WEEK\n489.2 pts\nBrent\n\u00b7 2025\u00b7 Wk 15\nBIGGEST BLOWOUT\n164.83 pts\nBrent\n\u00b7 2025\u00b7 Wk 7\nMOST SEASON POINTS\n5581.01 pts\nBrent\n\u00b7 2025\nLONGEST WIN STREAK\n10 straight\nJoey\nFull record book \u2192\nMOST DECORATED FRANCHISE\nJoey\n1\u00d7 champ \u00b7 1 finals \u00b7 3 playoffs\nOpen franchise page \u2192\nBEST DRAFT STOCKPILE\nJason\n59 picks \u00b7 Weighted score 134\nFull draft center \u2192\nLATEST WEEKLY RECAP\n2025 \u00b7 Week 17 (playoffs)\nGame of the week: MaKayla vs Joey (margin 7.0)\nTop scorer: Ed (393.4)\nOpen weekly recap \u2192\nHOTTEST TRADE \u00b7 BIGGEST BLOCKBUSTER\nJason \u2194 Ed\n13 total assets \u00b7 2025 Wk 7\nOpen trade center \u2192\nRecent trades\n\nLast 5 completed deals\n\n2026 \u00b7 Week 1 \u00b7 7 assets\nJason\nreceived 2 players \u00b7 3 picks\nEd\nreceived 2 players \u00b7 0 picks\n2026 \u00b7 Week 1 \u00b7 7 assets\nEd\nreceived 3 players \u00b7 1 picks\nBrent\nreceived 3 players \u00b7 0 picks\n2026 \u00b7 Week 1 \u00b7 3 assets\nJason\nreceived 1 players \u00b7 0 picks\nEric\nreceived 2 players \u00b7 0 picks\n2026 \u00b7 Week 1 \u00b7 4 assets\nJason\nreceived 1 players \u00b7 1 picks\nBlaine\nreceived 2 players \u00b7 0 picks\n2026 \u00b7 Week 1 \u00b7 4 assets\nJason\nreceived 0 players \u00b7 2 picks\nEd\nreceived 2 players \u00b7 0 picks\nView all trades \u2192\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": [
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "route": "/rosters",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 63,
+  "networkIdleTimeout": true,
+  "settleMs": 25076,
+  "finalUrl": "/rosters",
+  "timing": {
+   "domContentLoaded": 58,
+   "load": 156,
+   "fcp": 68,
+   "resourceCount": 66,
+   "transferBytes": 1135662,
+   "decodedBytes": 12515078
+  },
+  "apiCallCount": 7,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [
+    {
+     "tag": "table",
+     "cls": "",
+     "right": 447,
+     "w": 431
+    },
+    {
+     "tag": "thead",
+     "cls": "",
+     "right": 447,
+     "w": 431
+    },
+    {
+     "tag": "tr",
+     "cls": "",
+     "right": 447,
+     "w": 431
+    },
+    {
+     "tag": "th",
+     "cls": "",
+     "right": 447,
+     "w": 212
+    },
+    {
+     "tag": "tbody",
+     "cls": "",
+     "right": 447,
+     "w": 431
+    },
+    {
+     "tag": "tr",
+     "cls": "",
+     "right": 447,
+     "w": 431
+    }
+   ],
+   "interactiveCount": 63,
+   "smallTargetCount": 31,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "What is contender and rebuilder ti",
+     "w": 24,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "What is the league edge map?",
+     "w": 24,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Derrick Moore",
+     "w": 91,
+     "h": 17
+    },
+    {
+     "tag": "button",
+     "text": "Jonas Sanker",
+     "w": 84,
+     "h": 17
+    },
+    {
+     "tag": "button",
+     "text": "Harold Landry",
+     "w": 91,
+     "h": 17
+    },
+    {
+     "tag": "button",
+     "text": "Kevin Coleman",
+     "w": 91,
+     "h": 17
+    },
+    {
+     "tag": "button",
+     "text": "Tanner Koziol",
+     "w": 91,
+     "h": 17
+    },
+    {
+     "tag": "button",
+     "text": "Marlin Klein",
+     "w": 84,
+     "h": 17
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 25,
+   "tables": [
+    {
+     "rows": 13,
+     "th": 4,
+     "thScope": 0,
+     "caption": false,
+     "ariaLabel": false,
+     "scrollW": 431,
+     "clientW": 431,
+     "parentScrolls": true
+    }
+   ],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 329,
+   "contrastFailCount": 53,
+   "contrastWorst": [
+    {
+     "text": "PICKS",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 13.44,
+     "cls": "pos-chip pos-chip-active"
+    },
+    {
+     "text": "PICKS 158k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 38k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 28k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 40k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 17k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 53k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 29k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 24k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    },
+    {
+     "text": "PICKS 40k",
+     "ratio": 2.19,
+     "need": 4.5,
+     "fg": "rgb(255, 255, 255)",
+     "bg": "rgb(243,156,18)",
+     "fontSize": 8.96,
+     "cls": ""
+    }
+   ],
+   "tinyFontSizes": [
+    10.6,
+    10.9,
+    9,
+    9.3,
+    9.6,
+    9.9
+   ],
+   "bodyText": "Skip to content\nTeam Strength\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nTeam Strength\n\nPower rankings, position breakdowns, waiver wire, and trade targets.\n\nMy team...\nJason\nEd\nTy\nCollin\nMaKayla\nEric\nRoy\nJoey\nBrent\nKich\njstuedle\nBlaine\nPlayers + Picks\nPlayers only\nStarters only\nPositions:\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nPICKS\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nPICKS\n#\tTEAM\tTOTAL\tPOSITION BREAKDOWN\n1\tJason\n57 players, 62 picks\n\t328,504\t\nQB 22k\nWR 51k\nTE 19k\nDL 17k\nLB 33k\nPICKS 158k\n\n2\tBrent\n57 players, 6 picks\n\t189,621\t\nQB 26k\nRB 28k\nWR 53k\nTE 21k\nDL 24k\n\n3\tMaKayla\n58 players, 16 picks\n\t186,863\t\nRB 23k\nWR 57k\nDL 20k\nPICKS 38k\n\n4\tJoey\n58 players, 14 picks\n\t178,594\t\nQB 19k\nRB 40k\nWR 30k\nTE 22k\nPICKS 28k\n\n5\tCollin\n58 players, 18 picks\n\t166,966\t\nRB 31k\nWR 38k\nTE 20k\nPICKS 40k\n\n6\tEric\n58 players, 12 picks\n\t162,250\t\nRB 38k\nWR 42k\nTE 21k\nPICKS 17k\n\n7\tRoy\n51 players, 20 picks\n\t143,027\t\nQB 23k\nPICKS 53k\n\n8\tEd\n58 players, 8 picks\n\t140,787\t\nQB 19k\nRB 23k\nWR 28k\nTE 19k\n\n9\tTy\n56 players, 15 picks\n\t138,046\t\nRB 25k\nWR 33k\nPICKS 29k\n\n10\tKich\n58 players, 14 picks\n\t123,180\t\nQB 21k\nWR 33k\nPICKS 24k\n\n11\tjstuedle\n44 players, 18 picks\n\t119,060\t\nWR 21k\nPICKS 40k\n\n12\tBlaine\n53 players, 13 picks\n\t109,060\t\nQB 20k\nPICKS 21k\nContender / Rebuilder Tiers\nBrent\n#1\nContender\n189,621 total\nStarters: 103,392\nDepth: 70,896\nPicks: 15,333\nJoey\n#2\nContender\n178,594 total\nStarters: 91,017\nDepth: 59,728\nPicks: 27,849\nEric\n#3\nContender\n162,250 total\nStarters: 88,036\nDepth: 56,784\nPicks: 17,430\nMaKayla\n#4\nContender\n186,863 total\nStarters: 84,254\nDepth: 64,804\nPicks: 37,805\nJason\n#5\nMid-Tier\n328,504 total\nStarters: 97,159\nDepth: 72,945\nPicks: 158,400\nCollin\n#6\nMid-Tier\n166,966 total\nStarters: 77,904\nDepth: 49,205\nPicks: 39,857\nEd\n#7\nMid-Tier\n140,787 total\nStarters: 69,772\nDepth: 55,682\nPicks: 15,333\nTy\n#8\nMid-Tier\n138,046 total\nStarters: 67,790\nDepth: 41,755\nPicks: 28,501\nKich\n#9\nRebuilder\n123,180 total\nStarters: 59,761\nDepth: 38,952\nPicks: 24,467\nBlaine\n#10\nRebuilder\n109,060 total\nStarters: 60,417\nDepth: 27,870\nPicks: 20,773\nRoy\n#11\nRebuilder\n143,027 total\nStarters: 58,936\nDepth: 31,412\nPicks: 52,679\njstuedle\n#12\nRebuilder\n119,060 total\nStarters: 52,949\nDepth: 26,254\nPicks: 39,857\nLeague Edge Map\nCollin\n10 sell\n23 buy\nOvervalued: Luke Musgrave +34%, Noah Gray +31%, Pat Freiermuth +28% \u00b7 Undervalued: Ollie Gordon -25%, Kimani Vidal -23%, Jalen Nailor -22%\nJoey\n11 sell\n15 buy\nOvervalued: Mason Taylor +27%, Oscar Delp +26%, Treylon Burks +24% \u00b7 Undervalued: Cole Payton -46%, Jaylen Wright -24%, Sean Tucker -23%\nEric\n10 sell\n14 buy\nOvervalued: Ja'Tavion Sanders +32%, Jaylin Lane +30%, Ben Sinnott +30% \u00b7 Undervalued: Brandon Aiyuk -29%, Isaiah Davis -20%, Ricky Pearsall -18%\nBlaine\n7 sell\n7 buy\nOvervalued: Cole Kmet +33%, Jake Tonges +33%, Erick All +29% \u00b7 Undervalued: Zavion Thomas -20%, Eli Heidenreich -18%, Chris Brazzell -13%\nEd\n9 sell\n19 buy\nOvervalued: Colby Parkinson +30%, Gunnar Helm +23%, Max Klare +20% \u00b7 Undervalued: Tre Tucker -24%, Kayshon Boutte -20%, J'Mari Taylor -17%\nKich\n7 sell\n23 buy\nOvervalued: Dawson Knox +32%, Tank Dell +26%, Xavier Hutchinson +23% \u00b7 Undervalued: Xavier Legette -17%, Lamar Jackson -16%, Germie Bernard -13%\nTy\n5 sell\n23 buy\nOvervalued: Jalen Milroe +27%, Cade Otton +27%, Isaiah Bond +25% \u00b7 Undervalued: Tez Johnson -25%, Pat Bryant -23%, Tyquan Thornton -20%\nJason\n8 sell\n15 buy\nOvervalued: Michael Mayer +32%, Terrance Ferguson +24%, De'Zhaun Stribling +16% \u00b7 Undervalued: Marcus Mariota -31%, Chris Rodriguez -16%, Demond Claiborne -16%\nMaKayla\n6 sell\n23 buy\nOvervalued: Malik Washington +27%, Keaton Mitchell +24%, Greg Dulcich +23% \u00b7 Undervalued: Marvin Mims -23%, Caleb Douglas -21%, Troy Franklin -20%\nBrent\n7 sell\n12 buy\nOvervalued: Darnell Washington +31%, Travis Kelce +15%, Kyle Pitts +13% \u00b7 Undervalued: Travis Hunter -30%, Joe Flacco -29%, Rashod Bateman -24%\nRoy\n6 sell\n17 buy\nOvervalued: Theo Johnson +30%, KeAndre Lambert-Smith +17%, Isaiah Likely +12% \u00b7 Undervalued: Samaje Perine -48%, Najee Harris -30%, Jalen Royals -20%\njstuedle\n3 sell\n17 buy\nOvervalued: Dalton Schultz +18%, Dallas Goedert +15%, Xavier Restrepo +3% \u00b7 Undervalued: Tyreek Hill -30%, Mac Jones -19%, Cade Klubnik -17%\nWaiver Wire Gems\nPlayers not on any roster with meaningful trade value.\nDL\nDerrick Moore\n1,797\nDB\nJonas Sanker\n1,731\nLB\nHarold Landry\n1,684\nWR\nKevin Coleman\n1,579\nTE\nTanner Koziol\n1,566\nTE\nMarlin Klein\n1,554\nTE\nCharlie Kolar\n1,546\nTE\nSam Roush\n1,520\nWR\nEmmanuel Henderson\n1,519\nWR\nCyrus Allen\n1,511\nTE\nJack Endries\n1,505\nWR\nTyren Montgomery\n1,493\nTE\nRJ Maryland\n1,488\nLB\nMack Wilson\n1,460\nTE\nMitchell Evans\n1,459\nDL\nZion Young\n1,447\nDL\nNic Scourton\n1,442\nWR\nAaron Anderson\n1,424\nTE\nDaniel Bellinger\n1,423\nTE\nJosh Oliver\n1,405\nTE\nElijah Higgins\n1,399\nDL\nDevonte Wyatt\n1,396\nDL\nBryan Bresee\n1,395\nTE\nThomas Fidone\n1,392\nDB\nBud Clark\n1,390\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": [
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "route": "/finder",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 151,
+  "networkIdleTimeout": true,
+  "settleMs": 25165,
+  "finalUrl": "/rankings",
+  "timing": {
+   "domContentLoaded": 141,
+   "load": 161,
+   "fcp": 152,
+   "resourceCount": 71,
+   "transferBytes": 1135662,
+   "decodedBytes": 12577077
+  },
+  "apiCallCount": 9,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/bdvm/values",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/news?limit=100",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [
+    {
+     "tag": "table",
+     "cls": "ds-table ds-table--compact",
+     "right": 585,
+     "w": 578
+    },
+    {
+     "tag": "colgroup",
+     "cls": "",
+     "right": 585,
+     "w": 578
+    },
+    {
+     "tag": "col",
+     "cls": "",
+     "right": 585,
+     "w": 80
+    },
+    {
+     "tag": "thead",
+     "cls": "",
+     "right": 585,
+     "w": 578
+    },
+    {
+     "tag": "tr",
+     "cls": "",
+     "right": 585,
+     "w": 578
+    },
+    {
+     "tag": "th",
+     "cls": "ds-table__cell--num",
+     "right": 585,
+     "w": 80
+    }
+   ],
+   "interactiveCount": 900,
+   "smallTargetCount": 873,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "Market",
+     "w": 66,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "My league",
+     "w": 87,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Hide edge",
+     "w": 89,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "How rankings work",
+     "w": 165,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Methodology charts",
+     "w": 152,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Copy",
+     "w": 54,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Export CSV",
+     "w": 96,
+     "h": 26
+    },
+    {
+     "tag": "button",
+     "text": "Sources",
+     "w": 75,
+     "h": 26
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 188,
+   "tables": [
+    {
+     "rows": 231,
+     "th": 10,
+     "thScope": 10,
+     "caption": true,
+     "ariaLabel": false,
+     "scrollW": 578,
+     "clientW": 578,
+     "parentScrolls": true
+    }
+   ],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H4",
+    "H4",
+    "H4",
+    "H4"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 1545,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.6,
+    10.9,
+    9,
+    9.2,
+    9.3,
+    9.9
+   ],
+   "bodyText": "Skip to content\nRankings\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\n\nRANKINGS\n\nRankings\n\nUnified dynasty board \u2014 offense + IDP blended by consensus rank.\n\nMarket\nMy league\nHide edge\nHow rankings work\nMethodology charts\nCopy\nExport CSV\nSources\nColumns (off)\nPLAYERS\n965\nHIGH CONF\n110\n2+ src, tight\nMEDIUM\n229\nLOW\n626\nMULTI-SOURCE\n883\nQUARANTINED\n0\nLast scraped 2h ago\nEdge summary\n\nDerived from source agreement data \u2014 not predictions\n\nSELL SIGNALS\n#244 Eli Raridon\nTE\nSell +332 ranks\n#202 De'Zhaun Stribling\nWR\nSell +181 ranks\n#249 Greg Dulcich\nTE\nSell +175 ranks\n#238 Hunter Henry\nTE\nSell +141 ranks\n#250 Dalton Schultz\nTE\nSell +131 ranks\nBUY SIGNALS\n#217 J.J. McCarthy\nQB\nBuy +171 ranks\n#207 Tua Tagovailoa\nQB\nBuy +167 ranks\n#181 Chris Godwin\nWR\nBuy +163 ranks\n#226 Shedeur Sanders\nQB\nBuy +156 ranks\n#239 Jacoby Brissett\nQB\nBuy +152 ranks\nCONSENSUS ASSETS\n#1 Josh Allen\nQB\nspread 2\n#2 Brock Bowers\nTE\nspread 11\n#3 Bijan Robinson\nRB\nspread 8\n#4 Ja'Marr Chase\nWR\nspread 9\n#5 Drake Maye\nQB\nspread 6\nFLAGGED \u2014 NEEDS CAUTION\n#124 Dallas Turner\nDL\nsuspicious_disagreement\n#178 Cooper DeJean\nDB\nsuspicious_disagreement\n#185 T.J. Watt\nDL\nsuspicious_disagreement\n#192 Kevin Winston\nDB\nsuspicious_disagreement\n#210 Nick Herbig\nDL\nsuspicious_disagreement\nConsensus\nDisagreements\nInefficiencies\nSafest\nFragile\nScreens\u2026\nWR Gaps\nStable IDP\n1-Source Risk\nRookie Spread\nAll\nOFF\nIDP\nPicks\nAll Rookies\nR \u00b7 QB\nR \u00b7 RB\nR \u00b7 WR\nR \u00b7 TE\nQB\nRB\nWR\nTE\nDL\nLB\nDB\nAny confidence\nHigh\nMedium\nLow\nTiers\nFilters\n\n200 of 965 shown \u00b7 grouped by tier\n\nUnified dynasty value board: rank, tier, player, position, consensus, value, per-source values, confidence, and market signals\n#\n\t\nPLAYER\n\t\nPOS\n\t\nCONSENSUS\n\t\nVALUE\n\n1\t\nJosh Allen\nBUF \u00b7 30\n\tQB\n1\n\t1.5\t\n9,988\nS+\n\n2\t\nBrock Bowers\nLV \u00b7 23\n\tTE\n1\n\t9.9\t\n9,876\nS+\n\n3\t\nBijan Robinson\nATL \u00b7 24\nN\n\tRB\n1\n\t3.9\t\n9,706\nS+\n\n4\t\nJa'Marr Chase\nCIN \u00b7 26\n\tWR\n1\n\t4.4\t\n9,641\nS+\n\n5\t\nDrake Maye\nNE \u00b7 23\n\tQB\n2\n\t3.9\t\n9,577\nS+\n\n6\t\nJahmyr Gibbs\nDET \u00b7 24\nN\n\tRB\n2\n\t5.0\t\n9,576\nS+\n\nTIER 2\n7\t\nJaxon Smith-Njigba\nSEA \u00b7 24\n\tWR\n2\n\t6.4\t\n9,337\nS+\n\n8\t\nPuka Nacua\nLAR \u00b7 25\n\tWR\n3\n\t8.1\t\n9,132\nS+\n\n9\t\nTrey McBride\nARI \u00b7 26\n\tTE\n2\n\t15.6\t\n8,993\nS+\n\n10\t\nJayden Daniels\nWAS \u00b7 25\n\tQB\n3\n\t8.2\t\n8,898\nS+\n\n11\t\nLamar Jackson\nBAL \u00b7 29\nN\n\tQB\n4\n\t10.1\t\n8,784\nS+\n\n12\t\nCaleb Williams\nCHI \u00b7 24\n\tQB\n5\n\t10.2\t\n8,753\nS+\n\nTIER 3\n13\t\nJoe Burrow\nCIN \u00b7 29\nN\n\tQB\n6\n\t12.4\t\n8,383\nS+\n\n14\t\nAmon-Ra St. Brown\nDET \u00b7 26\n\tWR\n4\n\t13.1\t\n8,326\nS+\n\n15\t\nJustin Jefferson\nMIN \u00b7 27\n\tWR\n5\n\t15.5\t\n8,054\nS+\n\n16\t\nAshton Jeanty\nLV \u00b7 22\n\tRB\n3\n\t14.6\t\n8,039\nS+\n\n17\t\nMalik Nabers\nNYG \u00b7 23\n\tWR\n6\n\t17.5\t\n7,924\nS\n\n18\t\nJeremiyah Love\nARI \u00b7 21\nR\n\tRB\n4\n\t17.9\t\n7,799\nS\n\n19\t\nCeeDee Lamb\nDAL \u00b7 27\n\tWR\n7\n\t18.3\t\n7,767\nS\n\n20\t\nJustin Herbert\nLAC \u00b7 28\nN\n\tQB\n7\n\t18.4\t\n7,684\nS\n\n21\t\nColston Loveland\nCHI \u00b7 22\n\tTE\n3\n\t28.0\t\n7,646\nS\n\nTIER 4\n22\t\nPatrick Mahomes\nKC \u00b7 30\nN\n\tQB\n8\n\t21.4\t\n7,461\nS\n\n23\t\nDrake London\nATL \u00b7 25\nN\n\tWR\n8\n\t22.4\t\n7,348\nS\n\n24\t\nJalen Hurts\nPHI \u00b7 27\n\tQB\n9\n\t23.9\t\n7,183\nS\n\n25\t\nJaxson Dart\nNYG \u00b7 23\nN\n\tQB\n10\n\t25.3\t\n7,165\nS\n\n26\t\nOmarion Hampton\nLAC \u00b7 23\n\tRB\n5\n\t23.9\t\n7,126\nS\n\n27\t\nTyler Warren\nIND \u00b7 24\n\tTE\n4\n\t35.2\t\n7,099\nS\n\n28\t\n21\n2027 Early 1st\n\tPICK\n1\n\t23.5\t\n7,049\nS\n\n29\t\nDe'Von Achane\nMIA \u00b7 24\n\tRB\n6\n\t25.8\t\n6,980\nS\n\n30\t\nTrevor Lawrence\nJAX \u00b7 26\n\tQB\n11\n\t26.8\t\n6,886\nS\n\nTIER 5\n31\t\nTetairoa McMillan\nCAR \u00b7 23\n\tWR\n9\n\t29.2\t\n6,766\nS\n\n32\t\nBo Nix\nDEN \u00b7 26\n\tQB\n12\n\t31.9\t\n6,572\nS\n\n33\t\nJonathan Taylor\nIND \u00b7 27\n\tRB\n7\n\t32.1\t\n6,431\nS\n\n34\t\nEmeka Egbuka\nTB \u00b7 23\n\tWR\n10\n\t33.7\t\n6,388\nS\n\n35\t\nBrock Purdy\nSF \u00b7 26\n\tQB\n13\n\t33.8\t\n6,376\nS\n\n36\t\nAidan Hutchinson\nDET \u00b7 25\n\tDL\n1\n\t34.0\t\n6,362\nS\n\n37\t\nJames Cook\nBUF \u00b7 26\n\tRB\n8\n\t33.7\t\n6,332\nS\n\n38\t\nGeorge Pickens\nDAL \u00b7 25\nN\n\tWR\n11\n\t35.0\t\n6,271\nS\n\n39\t\nCarnell Tate\nTEN \u00b7 21\nR\nN\n\tWR\n12\n\t36.8\t\n6,160\nS\n\n40\t\nNico Collins\nHOU \u00b7 27\n\tWR\n13\n\t37.9\t\n6,080\nS\n\n41\t\nJordan Love\nGB \u00b7 27\n\tQB\n14\n\t39.8\t\n6,038\nS\n\nTIER 6\n42\t\nCarson Schwesinger\nCLE \u00b7 23\n\tLB\n1\n\t59.6\t\n5,908\nD+\n\n43\t\nWill Anderson\nHOU \u00b7 24\n\tDL\n2\n\t41.0\t\n5,876\nD+\n\n44\t\nKenneth Walker\nKC \u00b7 25\n\tRB\n9\n\t42.6\t\n5,813\nD+\n\n45\t\nGarrett Wilson\nNYJ \u00b7 26\n\tWR\n14\n\t41.8\t\n5,766\nD+\n\nTIER 7\n46\t\nChris Olave\nNO \u00b7 26\n\tWR\n15\n\t46.2\t\n5,617\nD+\n\n47\t\n21\n2027 Mid 1st\n\tPICK\n2\n\t48.0\t\n5,606\nD+\n\n48\t\nLadd McConkey\nLAC \u00b7 24\n\tWR\n16\n\t45.5\t\n5,605\nD+\n\n49\t\nFernando Mendoza\nLV \u00b7 22\nR\n\tQB\n15\n\t45.8\t\n5,597\nD+\n\n50\t\nTucker Kraft\nGB \u00b7 25\n\tTE\n5\n\t57.1\t\n5,595\nD+\n\nTIER 8\n51\t\nDak Prescott\nDAL \u00b7 33\n\tQB\n16\n\t49.4\t\n5,519\nD+\n\n52\t\nHarold Fannin\nCLE \u00b7 22\n\tTE\n6\n\t58.2\t\n5,515\nD+\n\n53\t\nChase Brown\nCIN \u00b7 26\n\tRB\n10\n\t51.9\t\n5,419\nD+\n\n54\t\nBreece Hall\nNYJ \u00b7 25\n\tRB\n11\n\t50.4\t\n5,404\nD+\n\n55\t\nLuther Burden\nCHI \u00b7 22\nN\n\tWR\n17\n\t52.3\t\n5,353\nD+\n\n56\t\nJordyn Tyson\nNO \u00b7 21\nR\n\tWR\n18\n\t50.8\t\n5,320\nD+\n\n57\t\nQuinshon Judkins\nCLE \u00b7 22\n\tRB\n12\n\t51.2\t\n5,309\nD+\n\n58\t\nTreVeyon Henderson\nNE \u00b7 23\n\tRB\n13\n\t53.3\t\n5,262\nD+\n\n59\t\nSonny Styles\nWAS \u00b7 21\nR\n\tLB\n2\n\t64.0\t\n5,222\nD+\n\n60\t\nDeVonta Smith\nPHI \u00b7 27\n\tWR\n19\n\t55.2\t\n5,215\nD+\n\nTIER 9\n61\t\nChristian McCaffrey\nSF \u00b7 30\n\tRB\n14\n\t55.4\t\n5,140\nD+\n\n62\t\n21\n2028 Early 1st\n\tPICK\n3\n\t70.5\t\n5,089\nD+\n\n63\t\nCam Ward\nTEN \u00b7 24\n\tQB\n17\n\t58.8\t\n5,049\nD+\n\n64\t\nSaquon Barkley\nPHI \u00b7 29\n\tRB\n15\n\t59.5\t\n5,026\nD+\n\n65\t\nSam LaPorta\nDET \u00b7 25\n\tTE\n7\n\t69.2\t\n5,021\nD+\n\n66\t\nMakai Lemon\nPHI \u00b7 22\nR\n\tWR\n20\n\t59.2\t\n4,987\nD+\n\n67\t\nZay Flowers\nBAL \u00b7 25\nN\n\tWR\n21\n\t60.7\t\n4,953\nD+\n\n68\t\n21\n2027 Late 1st\n\tPICK\n4\n\t77.5\t\n4,933\nD+\n\n69\t\nRome Odunze\nCHI \u00b7 24\n\tWR\n22\n\t62.4\t\n4,930\nD+\n\n70\t\nA.J. Brown\nNE \u00b7 29\n\tWR\n23\n\t60.9\t\n4,925\nD+\n\n71\t\nRashee Rice\nKC \u00b7 26\n\tWR\n24\n\t62.7\t\n4,887\nD+\n\n72\t\nJared Goff\nDET \u00b7 31\n\tQB\n18\n\t64.2\t\n4,881\nD+\n\n73\t\nKyle Pitts\nATL \u00b7 25\nN\n\tTE\n8\n\t74.4\t\n4,831\nD+\n\n74\t\nJack Campbell\nDET \u00b7 25\n\tLB\n3\n\t55.8\t\n4,803\nD+\n\nTIER 10\n75\t\nTee Higgins\nCIN \u00b7 27\n\tWR\n25\n\t65.4\t\n4,726\nD+\n\n76\t\nBaker Mayfield\nTB \u00b7 31\nN\n\tQB\n19\n\t68.3\t\n4,659\nD+\n\n77\t\nMarvin Harrison\nARI \u00b7 23\n\tWR\n26\n\t68.7\t\n4,619\nD+\n\n78\t\nC.J. Stroud\nHOU \u00b7 24\n\tQB\n20\n\t71.7\t\n4,608\nD+\n\n79\t\nKyren Williams\nLAR \u00b7 25\n\tRB\n16\n\t67.7\t\n4,607\nD+\n\n80\t\nMicah Parsons\nGB \u00b7 27\n~\nN\n\tDL\n3\n\t189.0\t\n4,606\nD+\n\n81\t\nMyles Garrett\nLAR \u00b7 30\n\tDL\n4\n\t151.4\t\n4,602\nD+\n\n82\t\nAbdul Carter\nNYG \u00b7 22\n\tDL\n5\n\t207.6\t\n4,598\nD+\n\n83\t\nJaylen Waddle\nDEN \u00b7 27\n\tWR\n27\n\t68.6\t\n4,595\nD+\n\n84\t\nJared Verse\nCLE \u00b7 25\n\tDL\n6\n\t191.8\t\n4,593\nD+\n\nTIER 11\n85\t\nKenyon Sadiq\nNYJ \u00b7 21\nR\n!N\n\tTE\n9\n\t82.4\t\n4,566\nD+"
+  },
+  "consoleErrors": [
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET",
+   "error: Failed to load resource: net::ERR_CONNECTION_RESET"
+  ]
+ },
+ {
+  "route": "/market/sharp-roster-percentage",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 58,
+  "settleMs": 1138,
+  "finalUrl": "/market/sharp-roster-percentage",
+  "timing": {
+   "domContentLoaded": 47,
+   "load": 124,
+   "fcp": 92,
+   "resourceCount": 55,
+   "transferBytes": 1135662,
+   "decodedBytes": 12481120
+  },
+  "apiCallCount": 8,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/sharp/roster-percentage?position=all&platform=all&format=all&contention=all&experience=all&sort=rostered&limit=50&_sharpRefresh=1785882508128",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 33,
+   "smallTargetCount": 11,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "select",
+     "text": "All players\nQuarterbacks\nRunning b",
+     "w": 214,
+     "h": 35
+    },
+    {
+     "tag": "select",
+     "text": "All supported platforms\nSleeper on",
+     "w": 230,
+     "h": 35
+    },
+    {
+     "tag": "select",
+     "text": "All formats\nSuperflex leagues\nOne-",
+     "w": 230,
+     "h": 35
+    },
+    {
+     "tag": "select",
+     "text": "All sharp rosters\nContending roste",
+     "w": 190,
+     "h": 35
+    },
+    {
+     "tag": "select",
+     "text": "Rookies and veterans\nRookies\nVeter",
+     "w": 206,
+     "h": 35
+    },
+    {
+     "tag": "select",
+     "text": "Most rostered by sharps\nLargest po",
+     "w": 302,
+     "h": 35
+    },
+    {
+     "tag": "select",
+     "text": "Top 25\nTop 50\nTop 100\nAll qualifyi",
+     "w": 222,
+     "h": 35
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2",
+    "H2",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 2,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 38,
+   "contrastFailCount": 0,
+   "contrastWorst": [],
+   "tinyFontSizes": [
+    10.9
+   ],
+   "bodyText": "Skip to content\nSharp Roster Percentage\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSharp Roster Percentage\n\nWhich players our verified sharp managers actually roster, across every league we can observe.\n\nFilters\nPOSITION\nAll players\nQuarterbacks\nRunning backs\nWide receivers\nTight ends\nDefensive line / EDGE\nLinebackers\nDefensive backs\nOffense only\nIDP only\nPLATFORM\nAll supported platforms\nSleeper only\nFFPC only\nLEAGUE FORMAT\nAll formats\nSuperflex leagues\nOne-quarterback leagues\nTight-end premium\nNon tight-end premium\nROSTER STANCE\nAll sharp rosters\nContending rosters\nRebuilding rosters\nEXPERIENCE\nRookies and veterans\nRookies\nVeterans\nSORT BY\nMost rostered by sharps\nLargest positive sharp advantage\nLargest negative sharp advantage\nHigh value, low sharp ownership\nLow rank, high sharp ownership\nRising fastest (30 days)\nSHOW\nTop 25\nTop 50\nTop 100\nAll qualifying players\nSample behind these numbers\nSHARP MANAGERS\n0\nELIGIBLE ROSTERS\n0\nSLEEPER ROSTERS\n0\nFFPC ROSTERS\n0\nOTHER PLATFORMS\n0\nCOHORT REPRESENTED\n\u2014\n0 of 0\nLAST REFRESH\n\u2014\n\nSample too small\n\nBased on 0 eligible sharp rosters. That is below the 8-roster minimum, so these percentages are not ranked as meaningful results.\n\nNo market comparison available\n\nNo general-dynasty roster-percentage feed is ingested by this platform, so sharp-vs-market advantage is unavailable. Every ranking source we ingest publishes values or ranks, and Sleeper's trending endpoint publishes 24-hour add counts \u2014 a flow, not an ownership rate. Those columns stay null rather than estimated.\nMost rostered by sharps\n\n0 qualifying players \u00b7 updated \u2014\n\nCollecting sharp rosters\n\nThe sharp cohort is known, but its rosters have not been collected yet. Run the sharp roster crawl to populate this board.\n\nA high roster percentage is not a buy signal on its own. Elite players are rostered almost everywhere, and ownership is also shaped by league depth, format, acquisition cost, age and positional scarcity. Rows marked * rest on a small denominator.\n\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": []
+ },
+ {
+  "route": "/league-comparison",
+  "viewport": "mobile",
+  "status": 200,
+  "navMs": 46,
+  "settleMs": 1189,
+  "finalUrl": "/league-comparison",
+  "timing": {
+   "domContentLoaded": 40,
+   "load": 119,
+   "fcp": 76,
+   "resourceCount": 59,
+   "transferBytes": 1135662,
+   "decodedBytes": 12560784
+  },
+  "apiCallCount": 8,
+  "apiDuplicates": {},
+  "apiUnique": [
+   "/api/auth/status",
+   "/api/dynasty-data?view=compact",
+   "/api/health",
+   "/api/league-comparison",
+   "/api/leagues",
+   "/api/rankings/overrides?view=delta",
+   "/api/terminal?windowDays=30",
+   "/api/user/state"
+  ],
+  "dom": {
+   "scrollWidth": 390,
+   "clientWidth": 390,
+   "horizontalOverflow": false,
+   "overflowing": [],
+   "interactiveCount": 34,
+   "smallTargetCount": 12,
+   "smallTargets": [
+    {
+     "tag": "a",
+     "text": "Skip to content",
+     "w": 152,
+     "h": 35
+    },
+    {
+     "tag": "button",
+     "text": "Risk It To Get The Brisket\n\u25be",
+     "w": 120,
+     "h": 32
+    },
+    {
+     "tag": "button",
+     "text": "Pick your team\n\u25be",
+     "w": 112,
+     "h": 24
+    },
+    {
+     "tag": "button",
+     "text": "Search",
+     "w": 34,
+     "h": 34
+    },
+    {
+     "tag": "button",
+     "text": "Recalculate",
+     "w": 86,
+     "h": 21
+    },
+    {
+     "tag": "button",
+     "text": "Summary",
+     "w": 58,
+     "h": 40
+    },
+    {
+     "tag": "button",
+     "text": "Positional",
+     "w": 76,
+     "h": 40
+    },
+    {
+     "tag": "button",
+     "text": "Flex",
+     "w": 40,
+     "h": 40
+    },
+    {
+     "tag": "button",
+     "text": "Year-by-Year",
+     "w": 88,
+     "h": 40
+    },
+    {
+     "tag": "button",
+     "text": "Methodology",
+     "w": 82,
+     "h": 40
+    },
+    {
+     "tag": "button",
+     "text": "Improved",
+     "w": 72,
+     "h": 21
+    },
+    {
+     "tag": "button",
+     "text": "Legacy (avg+median)/2",
+     "w": 156,
+     "h": 21
+    }
+   ],
+   "unlabelledCount": 0,
+   "unlabelled": [],
+   "imgNoAlt": 0,
+   "imgCount": 0,
+   "tables": [],
+   "gridRoleCount": 0,
+   "h1Count": 1,
+   "headingOrder": [
+    "H1",
+    "H2"
+   ],
+   "landmarks": {
+    "main": 1,
+    "nav": 2,
+    "skipLink": true
+   },
+   "lang": "en",
+   "contrastChecked": 107,
+   "contrastFailCount": 1,
+   "contrastWorst": [
+    {
+     "text": "Improved",
+     "ratio": 2.53,
+     "need": 4.5,
+     "fg": "rgb(79, 155, 236)",
+     "bg": "rgb(239,239,239)",
+     "fontSize": 13.3333,
+     "cls": "btn btn-secondary active"
+    }
+   ],
+   "tinyFontSizes": [
+    10.6,
+    10.9
+   ],
+   "bodyText": "Skip to content\nScoring Comparison\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nScoring Comparison\n\nCompares your custom league scoring against a standard baseline league to detect whether positional value gets accidentally distorted.\n\nRecalculate\nMY LEAGUE\nScoring\nMy League \u00b7 ID 131273\u20260752 \u00b7 hash 9a05fe1dbb51\nSTANDARD BASELINE\nStandard\nStandard Baseline \u00b7 ID 132854\u20260240 \u00b7 hash ecef1e4e5d47\nSeasons included:2022, 2023, 2024, 2025 (nflverse)\nVersion:v1.2\nGenerated:8/4/2026, 8:14:26 PM\nCached\n\nNotes & warnings\n\nScoring rules in your league that available data cannot reconstruct (idp_blk_kick, pass_int_td, rec_0_4, rec_10_19, rec_20_29, rec_30_39, rec_40p, rec_5_9) \u2014 realized points for affected players are understated. idp_blk_kick (5.32/event) cannot be scored: blocked kicks are not a column on the weekly defensive feed. pass_int_td (-2/event) cannot be scored: pick-six thrown is not a column on the weekly feed. rec_40p (1.92/event) cannot be scored: reception distance bands need play-by-play. rec_30_39 (1.17/event) cannot be scored: reception distance bands need play-by-play. rec_20_29 (0.92/event) cannot be scored: reception distance bands need play-by-play. rec_10_19 (0.67/event) cannot be scored: reception distance bands need play-by-play. rec_5_9 (0.42/event) cannot be scored: reception distance bands need play-by-play. rec_0_4 (0.17/event) cannot be scored: reception distance bands need play-by-play; weekly stats carry only a reception count.\nScoring rules in the baseline league that available data cannot reconstruct (idp_blk_kick) \u2014 realized points for affected players are understated. idp_blk_kick (3.8/event) cannot be scored: blocked kicks are not a column on the weekly defensive feed.\nSummary\nPositional\nFlex\nYear-by-Year\nMethodology\nMETHOD\nImproved\nLegacy (avg+median)/2\nMulti-signal blend of median, average, percentiles, and replacement-adjusted value.\nSIMILARITY SCORE\n61\nMeaningfully different\nDistortion: High\nQB\nToo high\nMine: 41.5% \u00a0\u00b7\u00a0 Base: 34.3%\n\u0394 +7.2 pp\nRB\nGood match\nMine: 25.9% \u00a0\u00b7\u00a0 Base: 25.2%\n\u0394 +0.7 pp\nWR\nLow\nMine: 18.2% \u00a0\u00b7\u00a0 Base: 22.3%\n\u0394 -4.1 pp\nTE\nLow\nMine: 14.4% \u00a0\u00b7\u00a0 Base: 18.1%\n\u0394 -3.7 pp\nTOP-96 FLEX\nMine: 206.4\nBase: 188.0\n\u0394 +9.8%\nBIGGEST DIFFERENCE\nQB\nStatus: Too high\nCLOSEST MATCH\nRB\nStatus: Good match\nCharts\nBLENDED SCORE BY POSITION\n0\n112\n224\n336\n448\nQB\nRB\nWR\nTE\nStandard\nMy League\nPOSITIONAL SHARE (%)\n0.0%\n10.4%\n20.7%\n31.1%\n41.5%\nQB\nRB\nWR\nTE\nStandard\nMy League\nSHARE DIFFERENCE (PP)\nQB\n+7.17\nRB\n+0.67\nWR\n-4.11\nTE\n-3.73\n-7.2\n-3.6\n+0.0\n+3.6\n+7.2\nHome\nRanks\nTrade\nNews\nMenu\nSAVE"
+  },
+  "consoleErrors": []
+ }
+]

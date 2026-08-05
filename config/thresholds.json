@@ -1,0 +1,88 @@
+{
+  "_comment": "Single source of truth for the numeric thresholds that gate decision surfaces. src/api/thresholds.py LOADS this file, so the Python side cannot drift. frontend/lib/thresholds.js mirrors it and tests/api/test_threshold_parity.py enforces the match - the same mirror+parity mechanism as the ranking-source registry. Every entry records how its value was derived; an entry without a derivation is a number someone invented.",
+  "version": "2026-08-05.v2",
+  "_removed": {
+    "MARKET_GAP_MIN_DIFF / MARKET_GAP_MIN_MAGNITUDE": "Both retired with the rank-space market gap. The gap is now a relative ratio in blended-value space (marketGapValueRatio); a rank threshold has nothing left to gate. Listing one here would make the parity test demand the JS export it back.",
+    "CONFIDENCE_SPREAD_HIGH / CONFIDENCE_SPREAD_MEDIUM": "Removed by #725: they claimed to mirror the backend's confidence buckets and did not, and their one consumer re-applied the retired ordinal rule on top of the backend's verdict, suppressing 'Consensus asset' on 54 of 111 qualifying rows."
+  },
+  "thresholds": {
+    "MARKET_PREMIUM_SPREAD": {
+      "value": 30,
+      "unit": "ordinalRanks",
+      "appliesTo": "sourceRankSpread",
+      "derivedFrom": "Pre-existing source-disagreement gate. Unchanged - it measures how much sources disagree with each other, which is a different quantity from the market gap."
+    },
+    "PREMIUM_SUMMARY_SPREAD": {
+      "value": 20,
+      "unit": "ordinalRanks",
+      "appliesTo": "sourceRankSpread",
+      "derivedFrom": "Pre-existing. RETAINED but NARROWED to the /edge disagreements panel and the disagreement stat; the premium panels moved to PREMIUM_SUMMARY_VALUE_RATIO (audit S-3)."
+    },
+    "LENS_DISAGREEMENT_SPREAD": {
+      "value": 40,
+      "unit": "ordinalRanks",
+      "appliesTo": "sourceRankSpread",
+      "derivedFrom": "Pre-existing rankings-page lens. Unchanged."
+    },
+    "LENS_INEFFICIENCY_SPREAD": {
+      "value": 30,
+      "unit": "ordinalRanks",
+      "appliesTo": "sourceRankSpread",
+      "derivedFrom": "Pre-existing rankings-page lens. Unchanged."
+    },
+    "LENS_INEFFICIENCY_RANK": {
+      "value": 200,
+      "unit": "rank",
+      "appliesTo": "canonicalConsensusRank",
+      "derivedFrom": "Pre-existing rankings-page lens eligibility cap. Unchanged."
+    },
+    "MARKET_GAP_MIN_VALUE_RATIO": {
+      "value": 0.05,
+      "unit": "relativeValueRatio",
+      "appliesTo": "marketGapValueRatio",
+      "derivedFrom": "Set by #740 and CALIBRATED, not chosen: on the live board it labels 68.8% of two-sided rows non-HOLD against 69.2% under the retired rank gate, so it re-aims the signal instead of quietly silencing it. Also reused by trade-logic getPlayerEdge - if the board will not label a gap, a trade surface must not signal on it."
+    },
+    "PREMIUM_SUMMARY_VALUE_RATIO": {
+      "value": 0.15,
+      "unit": "relativeValueRatio",
+      "appliesTo": "marketGapValueRatio",
+      "derivedFrom": "p70 of |marketGapValueRatio| across the 414 two-sided rows on the 2026-08-05 board (0.1565). Yields 127 candidates before the top-250 filter, the same order as the 148 the retired sourceRankSpread>=20 gate passed - so the /edge premium panels are re-aimed onto the right axis rather than emptied or flooded."
+    },
+    "EDGE_CAUTION_RANK_LIMIT": {
+      "value": 300,
+      "unit": "rank",
+      "appliesTo": "canonicalConsensusRank",
+      "derivedFrom": "Pre-existing /edge cap for flagged and single-source sections. Unchanged."
+    },
+    "EDGE_PREMIUM_RANK_LIMIT": {
+      "value": 250,
+      "unit": "rank",
+      "appliesTo": "canonicalConsensusRank",
+      "derivedFrom": "Pre-existing; raised 150 -> 250 on 2026-04-29 to surface mid-board WR/RB disagreements. Unchanged."
+    },
+    "RANKINGS_DEFAULT_ROW_LIMIT": {
+      "value": 200,
+      "unit": "rows",
+      "appliesTo": "display",
+      "derivedFrom": "Page-level UX choice, not a data threshold. Listed so this file is the COMPLETE inventory of the frontend's numeric constants - the parity test allows no exemptions, because an exemption list is where an unreviewed threshold would hide."
+    },
+    "FINDER_ROW_LIMIT": {
+      "value": 100,
+      "unit": "rows",
+      "appliesTo": "display",
+      "derivedFrom": "Page-level UX choice: maximum rows per workflow on /finder."
+    },
+    "EDGE_SECTION_LIMIT": {
+      "value": 15,
+      "unit": "rows",
+      "appliesTo": "display",
+      "derivedFrom": "Page-level UX choice: items per /edge section."
+    },
+    "EDGE_PREMIUM_LIMIT": {
+      "value": 10,
+      "unit": "rows",
+      "appliesTo": "display",
+      "derivedFrom": "Page-level UX choice: items per /edge premium panel, applied AFTER the ratio gate and the top-250 filter."
+    }
+  }
+}

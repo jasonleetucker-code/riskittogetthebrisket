@@ -28,6 +28,7 @@ No function raises.  Transient failures log + return [].
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -42,6 +43,96 @@ _DEFAULT_TTL_SECONDS = 24 * 3600
 _SNAP_COUNTS_TTL = 24 * 3600
 _WEEKLY_STATS_TTL = 24 * 3600
 _ROSTERS_TTL = 24 * 3600
+
+# ── Cold-cache single-flight ───────────────────────────────────────
+# Every fetch below was check-then-fill with nothing in between:
+#
+#     cached = _cache.get(key, ...)
+#     if cached is not None: return cached
+#     rows = _try_fetch_with_fallback(...)   # seconds, over the network
+#     _cache.put(key, rows, ...)
+#
+# The TTL comment above says "the first call each day hits nflverse and
+# subsequent calls hit disk", and that is true of calls made in
+# SEQUENCE.  Concurrently, every caller that arrives before the first
+# one finishes its put() also misses, and they all fetch.
+#
+# Measured on E2E run 31027451127, cold cache, one uvicorn process:
+# ``snap_counts_2020.csv`` was downloaded 4 times, ``2022`` 6 times, and
+# the full 157,615-row snap set completed 3 times inside 6 seconds
+# (16:56:53 / :58 / :59).  Each of those is a multi-MB download from
+# github.com plus a CSV parse, and they ran while the suite was trying
+# to load /rankings — POST /api/trade/finder measured 66s against 7.7s
+# on a quiet run.  Reported as #753.
+#
+# Same leader/follower shape as ``src/news/service.py`` (and the
+# sleeper overlay): the first caller for a key becomes the leader and
+# fetches; concurrent callers wait on its Event and then RE-CHECK the
+# cache rather than launching their own fetch.
+#
+# Two properties worth stating because they are what make this safe:
+#
+#   * A follower never returns the leader's value directly — it
+#     re-reads the cache.  So a leader whose fetch FAILED (returns []
+#     and deliberately does not put()) does not poison anyone: the
+#     follower simply misses and becomes the next leader.  Failures
+#     degrade to sequential retries, never to a stampede and never to a
+#     shared wrong answer.
+#   * The wait is bounded.  The timeout only guards a wedged leader; on
+#     expiry the follower re-evaluates and may take leadership itself,
+#     so no caller can block forever on a thread that died.
+#
+# The in-flight key includes ``cache_dir`` because two callers pointed
+# at different cache directories are filling different entries and must
+# not wait on each other — which is also what keeps tests that pass
+# ``cache_dir=tmp_path`` independent.
+_INFLIGHT_LOCK = threading.Lock()
+_INFLIGHT: dict[tuple[str, str], threading.Event] = {}
+
+# Only guards a wedged leader — see above.  Comfortably longer than a
+# real nflverse pull (the slowest observed is ~10s for six seasons of
+# snap counts) and far shorter than any request timeout.
+_INFLIGHT_WAIT_TIMEOUT_S = 120.0
+
+
+def _cached_or_fetch(
+    key: str,
+    *,
+    ttl_seconds: float,
+    cache_dir,
+    fetch: Callable[[], list[dict[str, Any]] | None],
+) -> list[dict[str, Any]]:
+    """Return ``key`` from cache, fetching at most once across threads.
+
+    Preserves the previous contract exactly: a fetch that fails returns
+    ``[]`` and writes nothing, so the next caller retries.
+    """
+    inflight_key = (key, str(cache_dir) if cache_dir is not None else "")
+    while True:
+        cached = _cache.get(key, ttl_seconds=ttl_seconds, cache_dir=cache_dir)
+        if cached is not None:
+            return cached
+        with _INFLIGHT_LOCK:
+            waiter = _INFLIGHT.get(inflight_key)
+            if waiter is None:
+                waiter = threading.Event()
+                _INFLIGHT[inflight_key] = waiter
+                break  # this thread leads
+        # Follower: wait for the leader, then loop to re-check the
+        # cache.  On timeout the loop re-evaluates and this thread can
+        # take over leadership.
+        waiter.wait(timeout=_INFLIGHT_WAIT_TIMEOUT_S)
+
+    try:
+        rows = fetch()
+        if rows is None:
+            return []
+        _cache.put(key, rows, cache_dir=cache_dir)
+        return rows
+    finally:
+        with _INFLIGHT_LOCK:
+            _INFLIGHT.pop(inflight_key, None)
+        waiter.set()
 
 
 @dataclass(frozen=True)
@@ -315,20 +406,18 @@ def fetch_weekly_stats(
     if not _gated():
         return []
     key = f"weekly_stats:{','.join(str(y) for y in sorted(years))}"
-    cached = _cache.get(key, ttl_seconds=_WEEKLY_STATS_TTL, cache_dir=cache_dir)
-    if cached is not None:
-        return cached
-    rows = _try_fetch_with_fallback(
-        years,
-        _provider,
-        nfl_method="import_weekly_data",
-        direct_method="fetch_weekly_stats",
-        label="weekly_stats",
+    return _cached_or_fetch(
+        key,
+        ttl_seconds=_WEEKLY_STATS_TTL,
+        cache_dir=cache_dir,
+        fetch=lambda: _try_fetch_with_fallback(
+            years,
+            _provider,
+            nfl_method="import_weekly_data",
+            direct_method="fetch_weekly_stats",
+            label="weekly_stats",
+        ),
     )
-    if rows is None:
-        return []
-    _cache.put(key, rows, cache_dir=cache_dir)
-    return rows
 
 
 def fetch_weekly_defensive_stats(
@@ -351,23 +440,21 @@ def fetch_weekly_defensive_stats(
     if not _gated():
         return []
     key = f"weekly_def_stats:{','.join(str(y) for y in sorted(years))}"
-    cached = _cache.get(key, ttl_seconds=_WEEKLY_STATS_TTL, cache_dir=cache_dir)
-    if cached is not None:
-        return cached
-    rows = _try_fetch_with_fallback(
-        years,
-        _provider,
-        # ``import_weekly_data_def`` was added in nfl_data_py 0.3.5;
-        # earlier versions don't expose it.  The fall-through to the
-        # direct fetcher handles that case.
-        nfl_method="import_weekly_data_def",
-        direct_method="fetch_weekly_defensive_stats",
-        label="weekly_def_stats",
+    return _cached_or_fetch(
+        key,
+        ttl_seconds=_WEEKLY_STATS_TTL,
+        cache_dir=cache_dir,
+        fetch=lambda: _try_fetch_with_fallback(
+            years,
+            _provider,
+            # ``import_weekly_data_def`` was added in nfl_data_py 0.3.5;
+            # earlier versions don't expose it.  The fall-through to the
+            # direct fetcher handles that case.
+            nfl_method="import_weekly_data_def",
+            direct_method="fetch_weekly_defensive_stats",
+            label="weekly_def_stats",
+        ),
     )
-    if rows is None:
-        return []
-    _cache.put(key, rows, cache_dir=cache_dir)
-    return rows
 
 
 def fetch_snap_counts(
@@ -384,20 +471,18 @@ def fetch_snap_counts(
     if not _gated():
         return []
     key = f"snap_counts:{','.join(str(y) for y in sorted(years))}"
-    cached = _cache.get(key, ttl_seconds=_SNAP_COUNTS_TTL, cache_dir=cache_dir)
-    if cached is not None:
-        return cached
-    rows = _try_fetch_with_fallback(
-        years,
-        _provider,
-        nfl_method="import_snap_counts",
-        direct_method="fetch_snap_counts",
-        label="snap_counts",
+    return _cached_or_fetch(
+        key,
+        ttl_seconds=_SNAP_COUNTS_TTL,
+        cache_dir=cache_dir,
+        fetch=lambda: _try_fetch_with_fallback(
+            years,
+            _provider,
+            nfl_method="import_snap_counts",
+            direct_method="fetch_snap_counts",
+            label="snap_counts",
+        ),
     )
-    if rows is None:
-        return []
-    _cache.put(key, rows, cache_dir=cache_dir)
-    return rows
 
 
 def fetch_id_map(
@@ -414,20 +499,18 @@ def fetch_id_map(
     if not _gated():
         return []
     key = "id_map:v1"
-    cached = _cache.get(key, ttl_seconds=_ROSTERS_TTL, cache_dir=cache_dir)
-    if cached is not None:
-        return cached
-    rows = _try_fetch_with_fallback(
-        None,
-        _provider,
-        nfl_method="import_ids",
-        direct_method="fetch_id_map",
-        label="id_map",
+    return _cached_or_fetch(
+        key,
+        ttl_seconds=_ROSTERS_TTL,
+        cache_dir=cache_dir,
+        fetch=lambda: _try_fetch_with_fallback(
+            None,
+            _provider,
+            nfl_method="import_ids",
+            direct_method="fetch_id_map",
+            label="id_map",
+        ),
     )
-    if rows is None:
-        return []
-    _cache.put(key, rows, cache_dir=cache_dir)
-    return rows
 
 
 def provider_status() -> dict[str, Any]:

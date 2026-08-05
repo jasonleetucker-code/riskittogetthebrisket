@@ -1,0 +1,3 @@
+COUNTERFACTUAL (movements keyed by displayName instead of ledger asset_id)
+componentAvailability.sharpFlow: {"available": true, "rowsWithValue": 400, "rowsScored": 573, "weight": 0.3}
+rows with sharpFlow: 400

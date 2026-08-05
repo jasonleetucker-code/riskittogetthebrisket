@@ -1,0 +1,1 @@
+{"error":"team_required","message":"Pass ?team=<ownerId>. It could not be inferred: this session carries no Sleeper user id and the league has no default team mapping for it.","leagueKey":"dynasty_main"}

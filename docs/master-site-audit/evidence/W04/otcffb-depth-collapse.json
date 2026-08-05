@@ -1,0 +1,29 @@
+{
+  "current": {
+    "totalRows": 347,
+    "pricedRows": 347,
+    "maxValue": 100.0,
+    "minPositive": 0.1
+  },
+  "history": [
+    {
+      "sha": "f320e560",
+      "date": "2026-08-04",
+      "totalRows": 347,
+      "pricedRows": 347,
+      "maxValue": 100.0,
+      "minPositive": 0.1
+    },
+    {
+      "sha": "891d1600",
+      "date": "2026-08-03",
+      "totalRows": 454,
+      "pricedRows": 454,
+      "maxValue": 100.0,
+      "minPositive": 0.1
+    }
+  ],
+  "registryDeclaredDepth": 460,
+  "holdoutFitTopN": 400,
+  "holdoutMinRowsForScoring": 100
+}

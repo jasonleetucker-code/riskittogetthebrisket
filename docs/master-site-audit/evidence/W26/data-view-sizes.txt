@@ -1,0 +1,5 @@
+(full)           raw=11953535     gzip=1176186
+?view=app        raw=5818304      gzip=576583
+?view=array      raw=6514536      gzip=669214
+?view=compact    raw=7363760      gzip=764718
+?view=startup    raw=5817724      gzip=576383

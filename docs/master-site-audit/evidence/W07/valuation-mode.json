@@ -1,0 +1,154 @@
+{
+ "requestsAfterToggle": [
+  {
+   "m": "POST",
+   "u": "http://127.0.0.1:3000/api/rankings/overrides?view=delta",
+   "b": "{\"tep_multiplier\":1.15,\"valuation_mode\":\"leagueAdjusted\"}"
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/terminal?valuationMode=leagueAdjusted&windowDays=30",
+   "b": ""
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/terminal?valuationMode=leagueAdjusted&windowDays=30",
+   "b": ""
+  }
+ ],
+ "settingsAfterToggle": "{\"leagueFormat\":\"superflex\",\"tepMultiplier\":1.15,\"tepNativeMultiplier\":null,\"tepDefaultV3Applied\":false,\"rankingsSortBasis\":\"full\",\"showSiteCols\":false,\"hiddenSiteCols\":{},\"siteWeights\":{},\"valuationMode\":\"leagueAdjusted\",\"tradeHistoryWindowDays\":365,\"selectedTeam\":\"\",\"selectedTeamTouched\":false,\"selectedTeamsByLeague\":{},\"selectedTeamTouchedByLeague\":{},\"rosEnabled\":true,\"useRosPowerRankings\":true,\"useRosPlayoffOdds\":true,\"showRosTradePanel\":true,\"showRosTags\":true,\"rosSimulationCount\":10000,\"rosTepBoost\":0.05,\"ktcSuggestionTopN\":150,\"rosSourceOverrides\":{}}",
+ "cellAfterToggle": {
+  "Josh Allen": [
+   "1",
+   "Tier 1",
+   "Josh Allen\nBUF \u00b7 30",
+   "QB\n1",
+   "1.5",
+   "10,171\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  "Brevin Jordan": [
+   "618",
+   "Tier 102",
+   "Brevin Jordan\nHOU \u00b7 26",
+   "TE\n77",
+   "412.3",
+   "1,257\nF",
+   "7/15",
+   "Low",
+   "SELL",
+   "\u2014"
+  ],
+  "T.J. Watt": [
+   "163",
+   "Tier 23",
+   "T.J. Watt\nPIT \u00b7 31\n!\n~",
+   "DL\n16",
+   "351.8",
+   "3,115\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "Caution: flaggedCaution: wide disagreement"
+  ]
+ },
+ "cellAfterReload": {
+  "Josh Allen": [
+   "1",
+   "Tier 1",
+   "Josh Allen\nBUF \u00b7 30",
+   "QB\n1",
+   "1.5",
+   "10,171\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  "Brevin Jordan": [
+   "618",
+   "Tier 102",
+   "Brevin Jordan\nHOU \u00b7 26",
+   "TE\n77",
+   "412.3",
+   "1,257\nF",
+   "7/15",
+   "Low",
+   "SELL",
+   "\u2014"
+  ],
+  "T.J. Watt": [
+   "163",
+   "Tier 23",
+   "T.J. Watt\nPIT \u00b7 31\n!\n~",
+   "DL\n16",
+   "351.8",
+   "3,115\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "Caution: flaggedCaution: wide disagreement"
+  ]
+ },
+ "settingsAfterReload": "{\"leagueFormat\":\"superflex\",\"tepMultiplier\":1.15,\"tepNativeMultiplier\":null,\"tepDefaultV3Applied\":true,\"rankingsSortBasis\":\"full\",\"showSiteCols\":false,\"hiddenSiteCols\":{},\"siteWeights\":{},\"valuationMode\":\"leagueAdjusted\",\"tradeHistoryWindowDays\":365,\"selectedTeam\":\"\",\"selectedTeamTouched\":false,\"selectedTeamsByLeague\":{},\"selectedTeamTouchedByLeague\":{},\"rosEnabled\":true,\"useRosPowerRankings\":true,\"useRosPlayoffOdds\":true,\"showRosTradePanel\":true,\"showRosTags\":true,\"rosSimulationCount\":10000,\"rosTepBoost\":0.05,\"ktcSuggestionTopN\":150,\"rosSourceOverrides\":{}}",
+ "tradeRequests": [
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/user/state",
+   "b": ""
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/auth/status",
+   "b": ""
+  },
+  {
+   "m": "POST",
+   "u": "http://127.0.0.1:3000/api/rankings/overrides?view=delta",
+   "b": "{\"tep_multiplier\":1.15,\"valuation_mode\":\"leagueAdjusted\"}"
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/health",
+   "b": ""
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/leagues",
+   "b": ""
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/draft-capital",
+   "b": ""
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/dynasty-data?view=array",
+   "b": ""
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/draft-capital?leagueKey=dynasty_main",
+   "b": ""
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/ros/player-values?limit=2000",
+   "b": ""
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/public/league/rosTradeDeadline",
+   "b": ""
+  },
+  {
+   "m": "GET",
+   "u": "http://127.0.0.1:3000/api/terminal?valuationMode=leagueAdjusted&windowDays=30",
+   "b": ""
+  }
+ ]
+}

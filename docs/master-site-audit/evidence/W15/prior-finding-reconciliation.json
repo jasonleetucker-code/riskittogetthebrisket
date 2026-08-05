@@ -1,0 +1,95 @@
+{
+  "F00_rosterQuality_inputs": {
+    "sleeper:elite1": {
+      "roster_value_ratios": [],
+      "age_adjusted": null,
+      "depth_adjusted": null,
+      "pick_capital": null,
+      "abandoned_rosters": 0
+    },
+    "sleeper:elite2": {
+      "roster_value_ratios": [],
+      "age_adjusted": null,
+      "depth_adjusted": null,
+      "pick_capital": null,
+      "abandoned_rosters": 0
+    },
+    "sleeper:elite3": {
+      "roster_value_ratios": [],
+      "age_adjusted": null,
+      "depth_adjusted": null,
+      "pick_capital": null,
+      "abandoned_rosters": 0
+    }
+  },
+  "F00_rosterQuality_component_value": 0.0,
+  "F00_score_decomposition": {
+    "performance": 0.8177777777777778,
+    "rosterQuality": 0.0,
+    "consistency": 1.0,
+    "longevity": 0.7058823529411765,
+    "activity": 0.3333333333333333,
+    "championshipBonus": 0.08,
+    "uncertaintyPenalty": -0.025,
+    "weights": {
+      "_comment": "Must sum to 1.0 across the positive components. uncertaintyPenalty and the championship bonus are applied separately and are NOT part of that sum.",
+      "performance": 0.36,
+      "rosterQuality": 0.22,
+      "multiLeagueConsistency": 0.22,
+      "longevity": 0.12,
+      "activity": 0.08
+    },
+    "manual_total_x100": 68.1,
+    "engine_score": 68.1,
+    "rosterQuality_weight_lost": 0.22,
+    "max_reachable_score_x100": 78.0
+  },
+  "F03_consistency_population": {
+    "elite1_finish_percentiles_n": 6,
+    "elite1_observed_leagues": 3,
+    "elite1_completed_seasons": 6,
+    "contributor_notes": [
+      "Above median in 100% of 6 independent leagues"
+    ],
+    "minLeaguesForFullCredit": 4
+  },
+  "F15_championship_double_count": {
+    "in_performance_subweight": 0.26,
+    "separate_bonus_applied": 0.08,
+    "both_nonzero": true,
+    "contributor_note": [
+      "Won the league 2x in an observed dynasty season"
+    ]
+  },
+  "F09_dead_gates": {
+    "abandoned_rate_all_zero": true,
+    "abandoned_rosters_ever_set": false,
+    "maxAbandonedRosterRate": 0.34,
+    "days_since_last_activity_none_count": 0,
+    "n_records": 10
+  },
+  "F11_tiny_population": {
+    "evaluable": 2,
+    "qualified": 0,
+    "qualified_share": 0.0,
+    "minScorePercentile": 0.75,
+    "detail": [
+      [
+        "sleeper:elite1",
+        64.8,
+        0.5,
+        0.6,
+        false
+      ],
+      [
+        "sleeper:elite2",
+        51.6,
+        0.5,
+        0.575,
+        false
+      ]
+    ]
+  },
+  "F12_build_manager_records_calls_per_market_request": 2,
+  "F12_calls_per_roster_percentage_request": 1
+}

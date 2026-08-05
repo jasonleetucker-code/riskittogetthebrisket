@@ -347,6 +347,7 @@ class TestSurfaceHarness(unittest.TestCase):
             {
                 "ros_direction",  # C0 — the ladder itself (R-2)
                 "ros_deadline",  # C3 — its caller (N-2), where absence became "Seller"
+                "market_gap",  # C4 — retail vs consensus (S-1/S-2/S-3)
                 "faab_bid",
                 "news_polarity",
                 "trade_verdict",
@@ -377,6 +378,72 @@ class TestSurfaceHarness(unittest.TestCase):
             if k.startswith("ros_deadline/") and "covered" in k
         ]
         self.assertTrue(min(r["sortPosition"] for r in absent.values()) > max(covered))
+
+    def test_the_gap_is_measured_in_value_space(self) -> None:
+        """S-1, pinned at the harness level.
+
+        REWRITTEN. This used to assert a rank-space result on a
+        depth-mismatched pair, because batch C4 fixed the ordinal
+        comparison by normalizing ranks. #740 fixed it differently and
+        better — by comparing ``valueContribution``, which is already
+        common-scaled and past ADR-015's TE conversion — so rank space
+        no longer exists to assert on. The property that survives is the
+        one that mattered: the gap follows the VALUES, not the ordinals.
+        """
+        retail = self.rows["market_gap/retail_premium_large"]
+        consensus = self.rows["market_gap/consensus_premium_large"]
+        self.assertEqual(retail["label"], "retail_premium")
+        self.assertEqual(consensus["label"], "consensus_premium")
+        # 6000 vs 4000 either way → |(6000-4000)/5000| = 0.40.
+        self.assertAlmostEqual(retail["value"], 0.40, places=6)
+        self.assertAlmostEqual(consensus["value"], 0.40, places=6)
+
+    def test_a_tight_end_with_a_huge_rank_gap_is_not_a_signal(self) -> None:
+        """S-2, pinned at the harness level, and the reason value space wins.
+
+        The retail anchor is a TE-premium board, so an ordinary tight end
+        shows an enormous ORDINAL gap — here rank 40 against 180 and 200.
+        Under the old comparison that was the 68-of-72 SELL artifact.
+        Their values agree to within 2.5%, because valueContribution is
+        already on the TE++ basis, so the artifact never forms and no
+        basis has to be measured and subtracted.
+        """
+        row = self.rows["market_gap/tight_end_rank_gap_but_value_agreement"]
+        self.assertEqual(row["label"], "retail_premium")
+        self.assertLess(row["value"], 0.05)  # below the label floor
+
+    def test_a_gap_under_the_floor_still_reports_its_direction(self) -> None:
+        """The floor is a DISPLAY gate, not a measurement.
+
+        The backend reports the direction and the ratio; the frontend
+        decides what is big enough to show. Collapsing small gaps to
+        "none" in the contract would throw away a real measurement.
+        """
+        row = self.rows["market_gap/small_gap_under_floor"]
+        self.assertEqual(row["label"], "retail_premium")
+        self.assertLess(row["value"], 0.05)
+
+    def test_the_cases_that_cannot_be_compared_abstain(self) -> None:
+        """Four ways to have no gap, all of which must return none/None.
+
+        Note ``ranked_but_unpriced``: a payload with per-source RANKS but
+        no value stamps must abstain rather than quietly fall back to the
+        ordinal arithmetic that value space replaced.
+        """
+        for key in (
+            "market_gap/retail_only",
+            "market_gap/consensus_only_every_defender",
+            "market_gap/unranked",
+            "market_gap/ranked_but_unpriced",
+        ):
+            with self.subTest(row=key):
+                self.assertEqual(self.rows[key]["label"], "none")
+                self.assertIsNone(self.rows[key]["value"])
+
+    def test_an_exact_tie_is_a_measured_zero_not_an_absence(self) -> None:
+        row = self.rows["market_gap/exact_tie"]
+        self.assertEqual(row["label"], "none")
+        self.assertEqual(row["value"], 0.0)
 
     def test_a_measured_zero_still_sells(self) -> None:
         """The control on the batch above: real signal is not silenced."""

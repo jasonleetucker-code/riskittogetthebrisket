@@ -1,0 +1,254 @@
+{
+ "idpCurveScaleMismatch": {
+  "dlfIdp": {
+   "n": 137,
+   "medianRatioActual": 0.4612,
+   "medianRatioIfGlobalCurve": 0.9457
+  },
+  "idpShow": {
+   "n": 279,
+   "medianRatioActual": 0.4806,
+   "medianRatioIfGlobalCurve": 1.3224
+  },
+  "fantasyProsIdp": {
+   "n": 165,
+   "medianRatioActual": 0.4845,
+   "medianRatioIfGlobalCurve": 1.2922
+  },
+  "dlfRookieIdp": {
+   "n": 24,
+   "medianRatioActual": 0.4737,
+   "medianRatioIfGlobalCurve": 0.922
+  }
+ },
+ "anchorEjection": {
+  "idpRowsWithMeta": 293,
+  "hampelEligible": 177,
+  "ejected": 52,
+  "rateOfEligible": 0.2938,
+  "rateOfAllRankedIdp": 0.1775,
+  "ejectedForBeingHigh": 52,
+  "ejectedForBeingLow": 0,
+  "players": [
+   "Alex Highsmith",
+   "Andrew Van Ginkel",
+   "Brian Branch",
+   "Brian Burns",
+   "Byron Murphy",
+   "Byron Young",
+   "Chase Young",
+   "Dallas Turner",
+   "Danielle Hunter",
+   "David Bailey",
+   "Dee Winters",
+   "Derrick Brown",
+   "Derwin James",
+   "Devin Lloyd",
+   "Emmanuel McNeil-Warren",
+   "Ernest Jones",
+   "George Karlaftis",
+   "Greg Rousseau",
+   "Jack Campbell",
+   "Jaelan Phillips",
+   "Jake Golday",
+   "Jalen Carter",
+   "Jalon Walker",
+   "Jeffery Simmons",
+   "Jihaad Campbell",
+   "Jonathan Greenard",
+   "Josh Hines-Allen",
+   "Josiah Trotter",
+   "Kam Curl",
+   "Kayvon Thibodeaux",
+   "Kobie Turner",
+   "Kyle Hamilton",
+   "Laiatu Latu",
+   "Maxx Crosby",
+   "Montez Sweat",
+   "Nakobe Dean",
+   "Nate Landman",
+   "Nick Emmanwori",
+   "Nick Herbig",
+   "Nik Bonitto",
+   "Nolan Smith",
+   "Quay Walker",
+   "Roquan Smith",
+   "Rueben Bain",
+   "T.J. Watt",
+   "Travon Walker",
+   "Trey Hendrickson",
+   "Tuli Tuipulotu",
+   "Tykee Smith",
+   "Tyrel Dodson",
+   "Will McDonald",
+   "Yaya Diaby"
+  ]
+ },
+ "corridorClamp": {
+  "eligibleRows": 293,
+  "bucketP90": {
+   "medium": 0.4805,
+   "high": 0.5228,
+   "low": 0.5097
+  },
+  "hardCap": 0.15,
+  "clampsAppliedTotal": 127,
+  "clampRateOfEligible": 0.4334,
+  "allCappedByMaxBand": true,
+  "byAssetClass": {
+   "idp": 127
+  },
+  "byDirection": {
+   "up": 58,
+   "down": 69
+  },
+  "marketSource": {
+   "idpTradeCalc": 126,
+   "fantasyProsIdp": 1
+  },
+  "meanAbsShift": 464.7,
+  "meanRelShiftPct": 28.86,
+  "maxRelShiftPct": 110.86,
+  "rowsWhereFinalEqualsAnchorTimesBand": 127
+ },
+ "percentileReferenceClamp": {
+  "referenceN": 500,
+  "totalSourceVotes": 6442,
+  "votesAtPercentile1": 743,
+  "rankHillVotesAtPercentile1": 440,
+  "perSource": {
+   "draftSharks": {
+    "votes": 381,
+    "atP1": 21,
+    "rawRankSpanCollapsed": [
+     386,
+     411
+    ],
+    "singleValue": [
+     1698,
+     1868
+    ]
+   },
+   "idpShow": {
+    "votes": 279,
+    "atP1": 164,
+    "rawRankSpanCollapsed": [
+     146,
+     344
+    ],
+    "singleValue": [
+     594
+    ]
+   },
+   "draftSharksIdp": {
+    "votes": 273,
+    "atP1": 175,
+    "rawRankSpanCollapsed": [
+     100,
+     315
+    ],
+    "singleValue": [
+     1698
+    ]
+   },
+   "dlfIdp": {
+    "votes": 137,
+    "atP1": 16,
+    "rawRankSpanCollapsed": [
+     146,
+     170
+    ],
+    "singleValue": [
+     594
+    ]
+   },
+   "fantasyProsIdp": {
+    "votes": 166,
+    "atP1": 48,
+    "rawRankSpanCollapsed": [
+     146,
+     211
+    ],
+    "singleValue": [
+     594
+    ]
+   },
+   "dlfRookieIdp": {
+    "votes": 24,
+    "atP1": 7,
+    "rawRankSpanCollapsed": [
+     23,
+     28
+    ],
+    "singleValue": [
+     594
+    ]
+   },
+   "flockFantasySfRookies": {
+    "votes": 70,
+    "atP1": 9,
+    "rawRankSpanCollapsed": [
+     64,
+     75
+    ],
+    "singleValue": [
+     794,
+     1300
+    ]
+   }
+  }
+ },
+ "correlatedDoubleVotes": {
+  "ktcSfTep+fantasyNavigatorSf": 368,
+  "fantasyProsSf+fantasyProsFitzmaurice": 298,
+  "dlfSf+dlfRookieSf": 33,
+  "dlfIdp+dlfRookieIdp": 12
+ },
+ "verified": {
+  "blendReproducedExactly": {
+   "rows": 800,
+   "mismatchesVsBlendedValueUncapped": 0
+  },
+  "hampelReproducedExactly": {
+   "rows": 800,
+   "mismatchesVsDroppedSourcesStamp": 0
+  },
+  "singleSourceHaircut": {
+   "rowsStamped": 35,
+   "allExactAt0_30": true
+  },
+  "teBasisConversion": {
+   "votesConverted": 536,
+   "arithmeticMismatches": 0,
+   "doubleAppliedRows": 0,
+   "ktcExempt": true
+  },
+  "pickTethering": {
+   "picksAnchored": 72,
+   "mismatches": 0
+  },
+  "pickYearDiscount": {
+   "rowsDiscounted": 12,
+   "years": [
+    "2029"
+   ],
+   "factor": 0.53,
+   "doubleDiscountedRows": 0
+  },
+  "boardCoherence": {
+   "rankedRows": 740,
+   "contiguous": true,
+   "rankValueInversions": 0,
+   "valueRange": [
+    757,
+    9988
+   ],
+   "rowsOutside_0_9999": 0
+  },
+  "clampScope": {
+   "offenseRowsClamped": 0,
+   "pickRowsClamped": 0
+  },
+  "truncationRows": 280
+ }
+}

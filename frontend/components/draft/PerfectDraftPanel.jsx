@@ -14,7 +14,7 @@
  * configuration states, not failures worth shouting about mid-draft.
  */
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import {
   Badge,
@@ -87,15 +87,43 @@ export function PerfectDraftPanel({ stats, workspace }) {
   // passed, because the test fixture used the flat shape.
   const myTeamIdx = workspace?.settings?.myTeamIdx ?? workspace?.myTeamIdx ?? 0;
   const myTeamName = workspace?.teams?.[myTeamIdx]?.name || "";
-  const [teamName, setTeamName] = useState(myTeamName);
+  // FOLLOW the workspace; only an explicit pick overrides it.
+  //
+  // This used to be `useState(myTeamName)`, which latched the FIRST name it
+  // ever saw. `teamName || myTeamName` below looks like a fallback but only
+  // rescues the empty-string case — a wrong non-empty name stuck forever.
+  //
+  // And on a cold load it is reliably wrong. `useLeague()` reports no league
+  // until /api/leagues answers, so the page hydrates from the unsuffixed
+  // legacy storage key, misses, and falls back to `createDefaultWorkspace()`
+  // — whose first team is the placeholder "Russini Panini". The lazy panel
+  // resolves inside that window, latches the placeholder, and asks the
+  // backend for a team the league does not have. That is a 400
+  // (`unknown_team`), which classifies as a failure, which returns null at
+  // the guard below — taking this panel's own team <Select> down with it, so
+  // the user cannot correct it without a reload. The real workspace arriving
+  // moments later changed nothing, because the latched name never changed
+  // and so `useRosterContext` never refetched.
+  const [teamOverride, setTeamOverride] = useState("");
+  const teamName = teamOverride || myTeamName;
   const [strategy, setStrategy] = useState("balanced");
   const [priceBasis, setPriceBasis] = useState("fair");
   // Live bidding: which rookie is on the block, and where the bidding is now.
   const [bidTarget, setBidTarget] = useState("");
   const [bidAmount, setBidAmount] = useState("");
   const { teams, context, failure, loading, refetch } = useRosterContext({
-    teamName: teamName || myTeamName,
+    teamName,
   });
+
+  // An explicit pick belongs to the league it was made in. Carrying it across
+  // a league switch asks the new league for a team it does not have, which is
+  // the same `unknown_team` 400 that made this panel vanish in the first
+  // place — so drop it and fall back to the workspace's own team.
+  useEffect(() => {
+    const clear = () => setTeamOverride("");
+    window.addEventListener("league:changed", clear);
+    return () => window.removeEventListener("league:changed", clear);
+  }, []);
 
   // Available rookies with their live expected price. `inflatedFair` is the
   // board's own live price model (preDraft x tier-adjusted inflation) — the
@@ -507,8 +535,8 @@ export function PerfectDraftPanel({ stats, workspace }) {
         {teams.length > 1 ? (
           <Select
             aria-label="Team to optimize"
-            value={teamName || myTeamName}
-            onChange={(e) => setTeamName(e.target.value)}
+            value={teamName}
+            onChange={(e) => setTeamOverride(e.target.value)}
           >
             {teams.map((t) => (
               <option key={t.ownerId || t.name} value={t.name}>

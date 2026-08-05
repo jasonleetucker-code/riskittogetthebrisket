@@ -1,0 +1,131 @@
+{
+  "three_team_events": 10,
+  "three_team_event_ids": [
+    "T3:uA:add:p3",
+    "T3:uA:drop:p1",
+    "T3:uA:drop:pick:2027:1:o1",
+    "T3:uB:add:p1",
+    "T3:uB:add:pick:2027:1:o1",
+    "T3:uB:add:pick:2027:1:o3",
+    "T3:uB:drop:p2",
+    "T3:uC:add:p2",
+    "T3:uC:drop:p3",
+    "T3:uC:drop:pick:2027:1:o3"
+  ],
+  "refetch_events": 0,
+  "waiver_events": 2,
+  "failed_tx_events": 0,
+  "waiver_faab": [
+    42,
+    null
+  ],
+  "counterparty_present": [
+    "None"
+  ],
+  "ingest_first": [
+    14,
+    14,
+    3
+  ],
+  "ingest_second": [
+    14,
+    0,
+    0
+  ],
+  "trades_7d": {
+    "pick:2027:1": {
+      "buys": 2,
+      "sells": 2,
+      "volume": 4
+    },
+    "p1": {
+      "buys": 1,
+      "sells": 1,
+      "volume": 2
+    },
+    "p2": {
+      "buys": 1,
+      "sells": 1,
+      "volume": 2
+    },
+    "p3": {
+      "buys": 1,
+      "sells": 1,
+      "volume": 2
+    }
+  },
+  "waivers_7d": {
+    "p1": {
+      "buys": 1,
+      "sells": 0
+    },
+    "p9": {
+      "buys": 0,
+      "sells": 1
+    }
+  },
+  "trades_30d": {
+    "pick:2027:1": {
+      "buys": 2,
+      "sells": 2,
+      "volume": 4
+    },
+    "p1": {
+      "buys": 1,
+      "sells": 1,
+      "volume": 2
+    },
+    "p2": {
+      "buys": 1,
+      "sells": 1,
+      "volume": 2
+    },
+    "p3": {
+      "buys": 1,
+      "sells": 1,
+      "volume": 2
+    }
+  },
+  "waivers_30d": {
+    "p1": {
+      "buys": 1,
+      "sells": 0
+    },
+    "p9": {
+      "buys": 0,
+      "sells": 1
+    }
+  },
+  "trades_90d": {
+    "p1": {
+      "buys": 2,
+      "sells": 2,
+      "volume": 4
+    },
+    "pick:2027:1": {
+      "buys": 2,
+      "sells": 2,
+      "volume": 4
+    },
+    "p2": {
+      "buys": 1,
+      "sells": 1,
+      "volume": 2
+    },
+    "p3": {
+      "buys": 1,
+      "sells": 1,
+      "volume": 2
+    }
+  },
+  "waivers_90d": {
+    "p1": {
+      "buys": 1,
+      "sells": 0
+    },
+    "p9": {
+      "buys": 0,
+      "sells": 1
+    }
+  }
+}

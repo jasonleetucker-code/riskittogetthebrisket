@@ -1,0 +1,88 @@
+{
+ "id": "W04-F003",
+ "workstream": "W04",
+ "promptSections": [
+  39,
+  42
+ ],
+ "title": "Six of the eight Hill constants a promotion ships have no out-of-sample score at all \u2014 the 2026-07-29 promotion shipped a \u221234.6% IDP curve change on the strength of an offense-only \u00b14.8% verdict",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "Model registry / Hill curve promotion gate",
+ "surface": {
+  "routes": [
+   "/api/data"
+  ],
+  "pages": [
+   "/rankings",
+   "/trade",
+   "/draft"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/model_registry/hill_masters.py",
+   "lines": "39-53"
+  },
+  {
+   "path": "src/model_registry/holdout.py",
+   "lines": "207-281"
+  },
+  {
+   "path": "config/model_registry/hill_scope_masters.json",
+   "lines": "80-151"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md: 'It produces a challenger, scores it against dynasty boards the fit never reads, records the verdict.' Read naturally, the challenger is the parameter set.",
+ "observed": "A ModelVersion carries all eight CONSTANT_NAMES and `apply` writes all eight. But evaluate_offense_master() takes exactly (c, s) and the registry's holdout.params for champion v2 is {'c': 0.11, 's': 1.11} \u2014 the OFFENSE pair only. hill_masters.py names this honestly (VALIDATED_PARAMS = HILL_PERCENTILE_C/S, 'only these two of the eight have a genuine out-of-sample check today'), but that honesty does not reach the version-level `qualified: true` flag, the `confidence: measured` label, `status` output, or CLAUDE.md. The v1\u2192v2 promotion of 2026-07-29 therefore shipped, unscored: HILL_GLOBAL_PERCENTILE_S 0.87\u21920.725, IDP_HILL_PERCENTILE_C/S 0.093/0.97\u21920.083/1.11, HILL_ROOKIE 0.128/0.865\u21920.153/0.885.",
+ "reproduction": {
+  "command": "cd /home/user/riskittogetthebrisket && .venv/bin/python -c \"import sys,json;sys.path.insert(0,'.');from src.model_registry.versioning import ModelRegistry;from src.model_registry.hill_masters import VALIDATED_PARAMS,CONSTANT_NAMES;r=ModelRegistry.load('hill_scope_masters');v=r.champion;print('shipped:',len(CONSTANT_NAMES),'scored:',v.holdout['params'],'validated:',VALIDATED_PARAMS,'qualified:',v.qualified,'confidence:',v.confidence)\"",
+  "expected": "the scored parameter set equals the shipped parameter set",
+  "actual": "shipped: 8 \u00b7 scored: {'c': 0.11, 's': 1.11} \u00b7 validated: ('HILL_PERCENTILE_C','HILL_PERCENTILE_S') \u00b7 qualified: True \u00b7 confidence: measured",
+  "artifact": "docs/master-site-audit/evidence/W04/unvalidated-curve-params.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "referenceN": 500,
+   "percentile_at_rank_200": 0.3988,
+   "IDP_v1": {
+    "c": 0.093,
+    "s": 0.97
+   },
+   "IDP_v2_live": {
+    "c": 0.083,
+    "s": 1.11
+   },
+   "OFFENSE_v1": {
+    "c": 0.118,
+    "s": 1.17
+   },
+   "OFFENSE_v2_live": {
+    "c": 0.11,
+    "s": 1.11
+   }
+  },
+  "formula": "V(p)=9999/(1+(p/c)^s); pct = (V_v2 \u2212 V_v1)/V_v1 at p=(r\u22121)/499",
+  "expected": -0.048,
+  "actual": -0.2392,
+  "tolerance": 0.005
+ },
+ "userImpact": "Every IDP value on /rankings and in every trade engine moved by up to \u221234.6% (\u221223.9% at rank 200, \u221215.0% at rank 100) in a change whose only evidence was an offense-board RMSE. An IDP-heavy roster was repriced against no measurement, and the payload labels the champion `confidence: measured`.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 100,
+  "pagesAffected": 38
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A13-F02",
+  "relation": "confirmed",
+  "note": "Confirmed and quantified: the prior finding states the 6-of-8 ratio; this adds the per-rank curve deltas that make the size of the unscored change concrete."
+ },
+ "whatWorks": "hill_masters.VALIDATED_PARAMS is an explicit, correct in-code admission of exactly this gap.",
+ "rootCause": "evaluate_offense_master is the only scorer that was ever written; the version/promotion machinery was built to carry a whole parameter set and no one narrowed the verdict to what it covers.",
+ "requiredRepair": "Either build GLOBAL/IDP scorers over their own held-out boards, or split the registry so a promotion moves only HILL_PERCENTILE_C/S and the other six require a separate explicit human decision. At minimum, ModelVersion.qualified/confidence must be per-parameter, not per-version.",
+ "dependencies": "W04-F001"
+}

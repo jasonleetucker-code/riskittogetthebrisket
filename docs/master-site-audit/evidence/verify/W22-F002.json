@@ -1,0 +1,83 @@
+{
+ "id": "W22-F002",
+ "workstream": "W22",
+ "promptSections": [
+  37
+ ],
+ "title": "The rate limiter keys on an unvalidated client-supplied `X-Forwarded-For`, so every public endpoint's limit is bypassed by rotating one header",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "S",
+ "subsystem": "Rate limiting",
+ "surface": {
+  "routes": [
+   "/api/auth/login",
+   "/api/health",
+   "/api/status",
+   "/api/public/league",
+   "/api/draft-capital",
+   "/api/news",
+   "/api/leagues",
+   "/api/metrics",
+   "/api/uptime",
+   "/api/rankings/sources",
+   "/api/scaffold/status",
+   "/api/league/articles"
+  ],
+  "pages": [],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "server.py",
+   "lines": "2906-2916"
+  },
+  {
+   "path": "server.py",
+   "lines": "2845-2866"
+  },
+  {
+   "path": "src/api/rate_limit.py",
+   "lines": "78-109"
+  },
+  {
+   "path": "deploy/nginx/chaseupside-proxy.conf",
+   "lines": "58-62"
+  }
+ ],
+ "claimUnderTest": "src/api/rate_limit.py:9-11 \u2014 \"60 requests/minute per IP \u2026 1000 requests/hour per IP (burst cap)\", and server.py:2840-2842 \"Also applies rate limiting to public endpoints \u2026 to protect against scraper abuse.\"",
+ "observed": "`_client_ip_from_request` returns the FIRST comma-separated entry of `X-Forwarded-For` whenever the header is present, with no trusted-proxy check and no fallback preference for `request.client.host`. nginx sets `X-Forwarded-For $proxy_add_x_forwarded_for`, which APPENDS `$remote_addr` to whatever the client sent \u2014 so in production the first entry is entirely attacker-controlled. Measured on a second backend booted without `RATE_LIMIT_BYPASS_IPS`: the real client IP was driven to a hard 429, and 20 consecutive requests sent from that same socket with rotating `X-Forwarded-For: 203.0.113.N` all returned 200.",
+ "reproduction": {
+  "command": "# boot a backend on :8001 without RATE_LIMIT_BYPASS_IPS, then:\nfor i in $(seq 1 70); do curl -s -o /dev/null http://127.0.0.1:8001/api/health; done\ncurl -s -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8001/api/health   # 429\nfor i in $(seq 1 20); do curl -s -o /dev/null -w '%s ' -H \"X-Forwarded-For: 203.0.113.$i\" http://127.0.0.1:8001/api/health; done",
+  "expected": "429 for all 20, because they originate from the throttled socket",
+  "actual": "200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200",
+  "artifact": "docs/master-site-audit/evidence/W22/probe-transcript.md#5-rate-limiting"
+ },
+ "numericProof": {
+  "inputs": {
+   "perMinuteLimit": 60,
+   "requestsAfterBucketExhausted": 20,
+   "distinctSpoofedIps": 20
+  },
+  "formula": "429_count over 20 spoofed-XFF requests issued from an already-throttled socket",
+  "expected": 20,
+  "actual": 0,
+  "tolerance": 0
+ },
+ "userImpact": "The scraper-abuse defence the module exists for does not exist. Anyone can pull the 2.08 MB `/api/public/league` contract, or the 47 KB `/api/news` feed, at whatever rate the box will serve \u2014 and, because `/api/auth/login` sits behind the same limiter, the login endpoint has no effective throttle either (W22-F003).",
+ "blastRadius": {
+  "playersAffected": 0,
+  "routesAffected": 12,
+  "pagesAffected": 0
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "No prior finding mentions X-Forwarded-For or the rate limiter."
+ },
+ "whatWorks": "The token-bucket arithmetic itself is correct and thread-safe: 60 requests pass and the 61st gets 429 with a sane `Retry-After`, refill is proportional to elapsed time, and the `_MAX_TRACKED_IPS` eviction bounds memory. The limiter fails open around a raising `should_rate_limit`, which is the right posture. Nothing here is wrong except the key.",
+ "rootCause": "`_client_ip_from_request` trusts a hop-by-hop header unconditionally. The comment \"First entry in the chain is the original client\" is true only when every hop appends and the leftmost hop is itself trusted \u2014 which is exactly what `$proxy_add_x_forwarded_for` does NOT guarantee for a directly-reachable client.",
+ "requiredRepair": "Prefer `X-Real-IP` (nginx sets it from `$remote_addr` and OVERWRITES, so it is not client-controlled) and fall back to `request.client.host`; use `X-Forwarded-For` only after stripping a configured count of trusted proxy hops from the RIGHT. `_MAX_TRACKED_IPS`-based eviction also becomes a memory-exhaustion lever while the key is attacker-chosen.",
+ "dependencies": "nginx already sets `X-Real-IP $remote_addr` in both `location /api/` and `location /`, so no deploy change is needed."
+}

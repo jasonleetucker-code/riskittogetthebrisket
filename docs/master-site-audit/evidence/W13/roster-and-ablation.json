@@ -1,0 +1,240 @@
+{
+ "surplusAblation": {
+  "A.J. Brown": {
+   "option": 1075.5,
+   "truncated": 658.6,
+   "plain": 366.1
+  },
+  "Aaron Jones": {
+   "option": 321.4,
+   "truncated": 101.6,
+   "plain": 0.0
+  },
+  "Aaron Rodgers": {
+   "option": 429.4,
+   "truncated": 0.0,
+   "plain": 0.0
+  },
+  "Abdul Carter": {
+   "option": 1196.5,
+   "truncated": 122.8,
+   "plain": 0.0
+  },
+  "Adam Thielen": {
+   "option": 0.0,
+   "truncated": 0.0,
+   "plain": 0.0
+  },
+  "Adonai Mitchell": {
+   "option": 249.7,
+   "truncated": 0.0,
+   "plain": 0.0
+  }
+ },
+ "rosters": [
+  {
+   "team": "Jason",
+   "assets": 49,
+   "pickCount": 62,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 80820.2,
+    "balanced": 72853.9,
+    "rebuilder": 59692.7,
+    "risk_neutral": 74209.1
+   }
+  },
+  {
+   "team": "Ed",
+   "assets": 43,
+   "pickCount": 8,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 62338.5,
+    "balanced": 47054.0,
+    "rebuilder": 32420.5,
+    "risk_neutral": 48087.3
+   }
+  },
+  {
+   "team": "Ty",
+   "assets": 43,
+   "pickCount": 15,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 57354.8,
+    "balanced": 44933.9,
+    "rebuilder": 32826.1,
+    "risk_neutral": 45962.3
+   }
+  },
+  {
+   "team": "Collin",
+   "assets": 43,
+   "pickCount": 18,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 68082.4,
+    "balanced": 52553.3,
+    "rebuilder": 37683.1,
+    "risk_neutral": 53509.9
+   }
+  },
+  {
+   "team": "MaKayla",
+   "assets": 50,
+   "pickCount": 16,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 73600.0,
+    "balanced": 59815.5,
+    "rebuilder": 45314.3,
+    "risk_neutral": 60992.0
+   }
+  },
+  {
+   "team": "Eric",
+   "assets": 50,
+   "pickCount": 12,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 67353.0,
+    "balanced": 55585.5,
+    "rebuilder": 43288.9,
+    "risk_neutral": 56817.7
+   }
+  },
+  {
+   "team": "Roy",
+   "assets": 42,
+   "pickCount": 20,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 44294.2,
+    "balanced": 35967.1,
+    "rebuilder": 27033.4,
+    "risk_neutral": 37033.7
+   }
+  },
+  {
+   "team": "Joey",
+   "assets": 43,
+   "pickCount": 14,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 97888.4,
+    "balanced": 76659.3,
+    "rebuilder": 54094.9,
+    "risk_neutral": 77844.0
+   }
+  },
+  {
+   "team": "Brent",
+   "assets": 48,
+   "pickCount": 6,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 113518.1,
+    "balanced": 82994.0,
+    "rebuilder": 54811.2,
+    "risk_neutral": 84058.7
+   }
+  },
+  {
+   "team": "Kich",
+   "assets": 47,
+   "pickCount": 14,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 50269.6,
+    "balanced": 33181.2,
+    "rebuilder": 19854.0,
+    "risk_neutral": 34274.8
+   }
+  },
+  {
+   "team": "jstuedle",
+   "assets": 31,
+   "pickCount": 18,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 25458.7,
+    "balanced": 18820.4,
+    "rebuilder": 12502.2,
+    "risk_neutral": 19515.8
+   }
+  },
+  {
+   "team": "Blaine",
+   "assets": 36,
+   "pickCount": 13,
+   "unpricedPicksHeld": [],
+   "capitals": {
+    "contender": 42381.6,
+    "balanced": 34652.5,
+    "rebuilder": 25841.1,
+    "risk_neutral": 35531.4
+   }
+  }
+ ],
+ "rosterCount": 12,
+ "unpricedPickNames": [
+  "2026 Early 5th",
+  "2026 Early 6th",
+  "2026 Late 5th",
+  "2026 Late 6th",
+  "2026 Mid 5th",
+  "2026 Mid 6th",
+  "2027 Early 5th",
+  "2027 Early 6th",
+  "2027 Late 5th",
+  "2027 Late 6th",
+  "2027 Mid 5th",
+  "2027 Mid 6th",
+  "2028 Early 5th",
+  "2028 Early 6th",
+  "2028 Late 5th",
+  "2028 Late 6th",
+  "2028 Mid 5th",
+  "2028 Mid 6th",
+  "2029 Early 5th",
+  "2029 Early 6th",
+  "2029 Late 5th",
+  "2029 Late 6th",
+  "2029 Mid 5th",
+  "2029 Mid 6th"
+ ],
+ "tradeScan": {
+  "tradeCount": 40,
+  "keys": [
+   "pruning",
+   "scanned",
+   "trades"
+  ],
+  "sample": {
+   "from": {
+    "ownerId": "473973924808355840",
+    "name": "Ty",
+    "strategy": "balanced",
+    "gives": [
+     "James Cook",
+     "Josh Hines-Allen"
+    ],
+    "gain": 2479.7
+   },
+   "to": {
+    "ownerId": "1002085133723299840",
+    "name": "Brent",
+    "strategy": "contender",
+    "gives": [
+     "Harold Fannin"
+    ],
+    "gain": 1906.0
+   },
+   "marketFairnessPct": 10.9,
+   "fairnessBasis": "model_clearing",
+   "doublePositive": true,
+   "minGain": 1906.0
+  }
+ }
+}

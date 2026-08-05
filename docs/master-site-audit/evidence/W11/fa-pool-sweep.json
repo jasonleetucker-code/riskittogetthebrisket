@@ -1,0 +1,8498 @@
+[
+ {
+  "name": "Marlin Klein",
+  "pos": "TE",
+  "value": 1908.0,
+  "rank": 325,
+  "standard": 15,
+  "aggressive": 21,
+  "max": 100,
+  "clearing": 20,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 2% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tanner Koziol",
+  "pos": "TE",
+  "value": 1866.0,
+  "rank": 336,
+  "standard": 15,
+  "aggressive": 21,
+  "max": 100,
+  "clearing": 20,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jack Endries",
+  "pos": "TE",
+  "value": 1802.0,
+  "rank": 355,
+  "standard": 15,
+  "aggressive": 21,
+  "max": 100,
+  "clearing": 20,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $20"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Sam Roush",
+  "pos": "TE",
+  "value": 1801.0,
+  "rank": 356,
+  "standard": 16,
+  "aggressive": 22,
+  "max": 100,
+  "clearing": 21,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $20"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.10"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Derrick Moore",
+  "pos": "DL",
+  "value": 1797.0,
+  "rank": 357,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $20"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-8"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($7)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Mitchell Evans",
+  "pos": "TE",
+  "value": 1766.0,
+  "rank": 365,
+  "standard": 15,
+  "aggressive": 21,
+  "max": 100,
+  "clearing": 20,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $20"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Daniel Bellinger",
+  "pos": "TE",
+  "value": 1744.0,
+  "rank": 375,
+  "standard": 14,
+  "aggressive": 20,
+  "max": 100,
+  "clearing": 19,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $19"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jonas Sanker",
+  "pos": "DB",
+  "value": 1731.0,
+  "rank": 380,
+  "standard": 16,
+  "aggressive": 22,
+  "max": 100,
+  "clearing": 16,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $19"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-7"
+   ],
+   [
+    "Rival contention",
+    "+$4 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Elijah Higgins",
+  "pos": "TE",
+  "value": 1727.0,
+  "rank": 382,
+  "standard": 14,
+  "aggressive": 20,
+  "max": 100,
+  "clearing": 19,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $19"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "RJ Maryland",
+  "pos": "TE",
+  "value": 1687.0,
+  "rank": 398,
+  "standard": 14,
+  "aggressive": 20,
+  "max": 100,
+  "clearing": 19,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $19"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Harold Landry",
+  "pos": "LB",
+  "value": 1684.0,
+  "rank": 401,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "clearing": 29,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $19"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-7"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 13% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Joe Royer",
+  "pos": "TE",
+  "value": 1668.0,
+  "rank": 407,
+  "standard": 15,
+  "aggressive": 21,
+  "max": 100,
+  "clearing": 20,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $19"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.10"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Charlie Kolar",
+  "pos": "TE",
+  "value": 1665.0,
+  "rank": 411,
+  "standard": 15,
+  "aggressive": 21,
+  "max": 100,
+  "clearing": 20,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $19"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.10"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Luke Schoonmaker",
+  "pos": "TE",
+  "value": 1614.0,
+  "rank": 426,
+  "standard": 14,
+  "aggressive": 20,
+  "max": 100,
+  "clearing": 19,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $18"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Riley Nowakowski",
+  "pos": "TE",
+  "value": 1611.0,
+  "rank": 427,
+  "standard": 14,
+  "aggressive": 20,
+  "max": 100,
+  "clearing": 19,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $18"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kevin Coleman",
+  "pos": "WR",
+  "value": 1579.0,
+  "rank": 435,
+  "standard": 19,
+  "aggressive": 27,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $18"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$1"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 4% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jared Wiley",
+  "pos": "TE",
+  "value": 1548.0,
+  "rank": 443,
+  "standard": 14,
+  "aggressive": 20,
+  "max": 100,
+  "clearing": 19,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $18"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Josh Cuevas",
+  "pos": "TE",
+  "value": 1541.0,
+  "rank": 446,
+  "standard": 14,
+  "aggressive": 20,
+  "max": 100,
+  "clearing": 19,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $18"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Davis Allen",
+  "pos": "TE",
+  "value": 1522.0,
+  "rank": 449,
+  "standard": 13,
+  "aggressive": 18,
+  "max": 100,
+  "clearing": 17,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Brevin Jordan",
+  "pos": "TE",
+  "value": 1519.0,
+  "rank": 451,
+  "standard": 13,
+  "aggressive": 18,
+  "max": 100,
+  "clearing": 17,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Emmanuel Henderson",
+  "pos": "WR",
+  "value": 1519.0,
+  "rank": 452,
+  "standard": 19,
+  "aggressive": 27,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Cyrus Allen",
+  "pos": "WR",
+  "value": 1511.0,
+  "rank": 453,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "clearing": 13,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.20"
+   ],
+   [
+    "League historical calibration",
+    "+$1"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tyren Montgomery",
+  "pos": "WR",
+  "value": 1493.0,
+  "rank": 457,
+  "standard": 19,
+  "aggressive": 27,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Brock Wright",
+  "pos": "TE",
+  "value": 1460.0,
+  "rank": 462,
+  "standard": 13,
+  "aggressive": 18,
+  "max": 100,
+  "clearing": 17,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Mack Wilson",
+  "pos": "LB",
+  "value": 1460.0,
+  "rank": 463,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 26,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Zion Young",
+  "pos": "DL",
+  "value": 1447.0,
+  "rank": 472,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-7"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Nic Scourton",
+  "pos": "DL",
+  "value": 1442.0,
+  "rank": 477,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-7"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Aaron Anderson",
+  "pos": "WR",
+  "value": 1424.0,
+  "rank": 482,
+  "standard": 19,
+  "aggressive": 27,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Josh Oliver",
+  "pos": "TE",
+  "value": 1405.0,
+  "rank": 491,
+  "standard": 13,
+  "aggressive": 18,
+  "max": 100,
+  "clearing": 17,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Devonte Wyatt",
+  "pos": "DL",
+  "value": 1396.0,
+  "rank": 496,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Bryan Bresee",
+  "pos": "DL",
+  "value": 1395.0,
+  "rank": 499,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Thomas Fidone",
+  "pos": "TE",
+  "value": 1392.0,
+  "rank": 502,
+  "standard": 13,
+  "aggressive": 18,
+  "max": 100,
+  "clearing": 17,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Bud Clark",
+  "pos": "DB",
+  "value": 1390.0,
+  "rank": 503,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 15,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kwity Paye",
+  "pos": "DL",
+  "value": 1387.0,
+  "rank": 505,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Vinny Anthony",
+  "pos": "WR",
+  "value": 1387.0,
+  "rank": 506,
+  "standard": 18,
+  "aggressive": 25,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Malik Mustapha",
+  "pos": "DB",
+  "value": 1384.0,
+  "rank": 508,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 15,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Seth McGowan",
+  "pos": "RB",
+  "value": 1383.0,
+  "rank": 510,
+  "standard": 31,
+  "aggressive": 43,
+  "max": 100,
+  "clearing": 19,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.15"
+   ],
+   [
+    "League historical calibration",
+    "+$13"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 1% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Savion Williams",
+  "pos": "WR",
+  "value": 1382.0,
+  "rank": 514,
+  "standard": 18,
+  "aggressive": 25,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jakobe Thomas",
+  "pos": "DB",
+  "value": 1379.0,
+  "rank": 518,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 15,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jack Sawyer",
+  "pos": "DL",
+  "value": 1377.0,
+  "rank": 531,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "JT Tuimoloau",
+  "pos": "DL",
+  "value": 1377.0,
+  "rank": 526,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Derick Hall",
+  "pos": "DL",
+  "value": 1376.0,
+  "rank": 533,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Dorance Armstrong",
+  "pos": "DL",
+  "value": 1376.0,
+  "rank": 535,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jevon Holland",
+  "pos": "DB",
+  "value": 1376.0,
+  "rank": 534,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 15,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Joseph Ossai",
+  "pos": "DL",
+  "value": 1376.0,
+  "rank": 537,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Christian Barmore",
+  "pos": "DL",
+  "value": 1375.0,
+  "rank": 544,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Josaiah Stewart",
+  "pos": "DL",
+  "value": 1375.0,
+  "rank": 539,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Zaven Collins",
+  "pos": "LB",
+  "value": 1375.0,
+  "rank": 541,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 26,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Akeem Davis-Gaither",
+  "pos": "LB",
+  "value": 1374.0,
+  "rank": 546,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 26,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Alohi Gilman",
+  "pos": "DB",
+  "value": 1374.0,
+  "rank": 547,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 15,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Bryce Boettcher",
+  "pos": "LB",
+  "value": 1374.0,
+  "rank": 549,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 26,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Craig Woodson",
+  "pos": "DB",
+  "value": 1374.0,
+  "rank": 550,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 15,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jonah Elliss",
+  "pos": "DL",
+  "value": 1374.0,
+  "rank": 551,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-6"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kamren Kinchens",
+  "pos": "DB",
+  "value": 1374.0,
+  "rank": 552,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 15,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Wade Woodaz",
+  "pos": "LB",
+  "value": 1374.0,
+  "rank": 555,
+  "standard": 11,
+  "aggressive": 15,
+  "max": 100,
+  "clearing": 26,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "George Holani",
+  "pos": "RB",
+  "value": 1373.0,
+  "rank": 556,
+  "standard": 30,
+  "aggressive": 42,
+  "max": 100,
+  "clearing": 18,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Joe Milton",
+  "pos": "QB",
+  "value": 1359.0,
+  "rank": 558,
+  "standard": 27,
+  "aggressive": 38,
+  "max": 100,
+  "clearing": 35,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$11"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 1% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Noah Whittington",
+  "pos": "RB",
+  "value": 1354.0,
+  "rank": 561,
+  "standard": 30,
+  "aggressive": 42,
+  "max": 100,
+  "clearing": 18,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tyson Bagent",
+  "pos": "QB",
+  "value": 1345.0,
+  "rank": 566,
+  "standard": 27,
+  "aggressive": 38,
+  "max": 100,
+  "clearing": 35,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$11"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Grant Calcaterra",
+  "pos": "TE",
+  "value": 1340.0,
+  "rank": 569,
+  "standard": 13,
+  "aggressive": 18,
+  "max": 100,
+  "clearing": 17,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Justice Hill",
+  "pos": "RB",
+  "value": 1329.0,
+  "rank": 572,
+  "standard": 31,
+  "aggressive": 43,
+  "max": 100,
+  "clearing": 19,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.15"
+   ],
+   [
+    "League historical calibration",
+    "+$13"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Roman Wilson",
+  "pos": "WR",
+  "value": 1321.0,
+  "rank": 574,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "clearing": 13,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.20"
+   ],
+   [
+    "League historical calibration",
+    "+$1"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Roschon Johnson",
+  "pos": "RB",
+  "value": 1319.0,
+  "rank": 576,
+  "standard": 30,
+  "aggressive": 42,
+  "max": 100,
+  "clearing": 18,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Harrison Wallace",
+  "pos": "WR",
+  "value": 1311.0,
+  "rank": 580,
+  "standard": 18,
+  "aggressive": 25,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $16"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "CJ Donaldson",
+  "pos": "RB",
+  "value": 1308.0,
+  "rank": 581,
+  "standard": 29,
+  "aggressive": 41,
+  "max": 100,
+  "clearing": 18,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Konata Mumpfield",
+  "pos": "WR",
+  "value": 1284.0,
+  "rank": 589,
+  "standard": 18,
+  "aggressive": 25,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "John Metchie",
+  "pos": "WR",
+  "value": 1269.0,
+  "rank": 593,
+  "standard": 19,
+  "aggressive": 27,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.10"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Malik Benson",
+  "pos": "WR",
+  "value": 1268.0,
+  "rank": 594,
+  "standard": 19,
+  "aggressive": 27,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.20"
+   ],
+   [
+    "League historical calibration",
+    "+$1"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Audric Estime",
+  "pos": "RB",
+  "value": 1266.0,
+  "rank": 595,
+  "standard": 29,
+  "aggressive": 41,
+  "max": 100,
+  "clearing": 18,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Malik Davis",
+  "pos": "RB",
+  "value": 1255.0,
+  "rank": 597,
+  "standard": 30,
+  "aggressive": 42,
+  "max": 100,
+  "clearing": 18,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.10"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tutu Atwell",
+  "pos": "WR",
+  "value": 1241.0,
+  "rank": 601,
+  "standard": 18,
+  "aggressive": 25,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kaden Wetjen",
+  "pos": "WR",
+  "value": 1236.0,
+  "rank": 604,
+  "standard": 18,
+  "aggressive": 25,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Christian Harris",
+  "pos": "LB",
+  "value": 1234.0,
+  "rank": 606,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 24,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Ventrell Miller",
+  "pos": "LB",
+  "value": 1227.0,
+  "rank": 608,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 24,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jordan Whittington",
+  "pos": "WR",
+  "value": 1225.0,
+  "rank": 610,
+  "standard": 18,
+  "aggressive": 25,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jaydn Ott",
+  "pos": "RB",
+  "value": 1209.0,
+  "rank": 617,
+  "standard": 29,
+  "aggressive": 41,
+  "max": 100,
+  "clearing": 18,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Damien Martinez",
+  "pos": "RB",
+  "value": 1200.0,
+  "rank": 620,
+  "standard": 29,
+  "aggressive": 41,
+  "max": 100,
+  "clearing": 18,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $15"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tahj Washington",
+  "pos": "WR",
+  "value": 1197.0,
+  "rank": 622,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Nnamdi Madubuike",
+  "pos": "DL",
+  "value": 1193.0,
+  "rank": 623,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Dyami Brown",
+  "pos": "WR",
+  "value": 1190.0,
+  "rank": 624,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Roman Hemby",
+  "pos": "RB",
+  "value": 1185.0,
+  "rank": 627,
+  "standard": 28,
+  "aggressive": 39,
+  "max": 100,
+  "clearing": 17,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Caleb Banks",
+  "pos": "DL",
+  "value": 1183.0,
+  "rank": 629,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Raheim Sanders",
+  "pos": "RB",
+  "value": 1180.0,
+  "rank": 631,
+  "standard": 28,
+  "aggressive": 39,
+  "max": 100,
+  "clearing": 17,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Eric Rivers",
+  "pos": "WR",
+  "value": 1179.0,
+  "rank": 632,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jam Miller",
+  "pos": "RB",
+  "value": 1175.0,
+  "rank": 635,
+  "standard": 29,
+  "aggressive": 41,
+  "max": 100,
+  "clearing": 18,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.10"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Lathan Ransom",
+  "pos": "DB",
+  "value": 1175.0,
+  "rank": 637,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Desmond Reid",
+  "pos": "RB",
+  "value": 1174.0,
+  "rank": 640,
+  "standard": 28,
+  "aggressive": 39,
+  "max": 100,
+  "clearing": 17,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kameron Johnson",
+  "pos": "WR",
+  "value": 1174.0,
+  "rank": 638,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kenneth Grant",
+  "pos": "DL",
+  "value": 1174.0,
+  "rank": 639,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Keeanu Benton",
+  "pos": "DL",
+  "value": 1173.0,
+  "rank": 641,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Lukas Van Ness",
+  "pos": "DL",
+  "value": 1171.0,
+  "rank": 644,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Braden Fiske",
+  "pos": "DL",
+  "value": 1170.0,
+  "rank": 645,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Junior Colson",
+  "pos": "LB",
+  "value": 1170.0,
+  "rank": 647,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 24,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Treydan Stukes",
+  "pos": "DB",
+  "value": 1170.0,
+  "rank": 646,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Eric McAlister",
+  "pos": "WR",
+  "value": 1168.0,
+  "rank": 650,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Elijah Moore",
+  "pos": "WR",
+  "value": 1164.0,
+  "rank": 654,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jack Kiser",
+  "pos": "LB",
+  "value": 1163.0,
+  "rank": 656,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 24,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Christian Elliss",
+  "pos": "LB",
+  "value": 1162.0,
+  "rank": 658,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 24,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "CJ Daniels",
+  "pos": "WR",
+  "value": 1160.0,
+  "rank": 663,
+  "standard": 18,
+  "aggressive": 25,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.10"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Phil Mafah",
+  "pos": "RB",
+  "value": 1155.0,
+  "rank": 664,
+  "standard": 28,
+  "aggressive": 39,
+  "max": 100,
+  "clearing": 17,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$14"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kendrick Law",
+  "pos": "WR",
+  "value": 1150.0,
+  "rank": 667,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tyler Huntley",
+  "pos": "QB",
+  "value": 1145.0,
+  "rank": 669,
+  "standard": 26,
+  "aggressive": 36,
+  "max": 100,
+  "clearing": 34,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$12"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Will Levis",
+  "pos": "QB",
+  "value": 1132.0,
+  "rank": 674,
+  "standard": 27,
+  "aggressive": 38,
+  "max": 100,
+  "clearing": 35,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.10"
+   ],
+   [
+    "League historical calibration",
+    "+$12"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Evan Williams",
+  "pos": "DB",
+  "value": 1094.0,
+  "rank": 677,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $14"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jimmy Rolder",
+  "pos": "LB",
+  "value": 1087.0,
+  "rank": 678,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 22,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $13"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Justin Reid",
+  "pos": "DB",
+  "value": 1044.0,
+  "rank": 683,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $13"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jordan Burch",
+  "pos": "DL",
+  "value": 1028.0,
+  "rank": 686,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $13"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Micah McFadden",
+  "pos": "LB",
+  "value": 1014.0,
+  "rank": 688,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 22,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $13"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Javon Bullard",
+  "pos": "DB",
+  "value": 1005.0,
+  "rank": 689,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $13"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Taron Johnson",
+  "pos": "DB",
+  "value": 1002.0,
+  "rank": 690,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $13"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Oluwafemi Oladejo",
+  "pos": "DL",
+  "value": 994.0,
+  "rank": 691,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $13"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Alex Wright",
+  "pos": "DL",
+  "value": 982.0,
+  "rank": 692,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $13"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-5"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Harold Perkins",
+  "pos": "LB",
+  "value": 972.0,
+  "rank": 693,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 22,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Joey Porter",
+  "pos": "DB",
+  "value": 953.0,
+  "rank": 697,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Justin Strnad",
+  "pos": "LB",
+  "value": 949.0,
+  "rank": 698,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 22,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Deommodore Lenoir",
+  "pos": "DB",
+  "value": 943.0,
+  "rank": 699,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Geno Stone",
+  "pos": "DB",
+  "value": 941.0,
+  "rank": 700,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tarheeb Still",
+  "pos": "DB",
+  "value": 911.0,
+  "rank": 705,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jourdan Lewis",
+  "pos": "DB",
+  "value": 905.0,
+  "rank": 707,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Brandon Dorlus",
+  "pos": "DL",
+  "value": 903.0,
+  "rank": 708,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jaycee Horn",
+  "pos": "DB",
+  "value": 902.0,
+  "rank": 709,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Dayo Odeyingbo",
+  "pos": "DL",
+  "value": 900.0,
+  "rank": 710,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Christian Benford",
+  "pos": "DB",
+  "value": 899.0,
+  "rank": 711,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "John Franklin-Myers",
+  "pos": "DL",
+  "value": 896.0,
+  "rank": 714,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jonathan Allen",
+  "pos": "DL",
+  "value": 896.0,
+  "rank": 713,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Elijah Molden",
+  "pos": "DB",
+  "value": 895.0,
+  "rank": 715,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Omar Speights",
+  "pos": "LB",
+  "value": 894.0,
+  "rank": 716,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 22,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jonah Laulu",
+  "pos": "DL",
+  "value": 892.0,
+  "rank": 717,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jaden Dugger",
+  "pos": "LB",
+  "value": 891.0,
+  "rank": 718,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 22,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "B.J. Hill",
+  "pos": "DL",
+  "value": 890.0,
+  "rank": 719,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Zach Harrison",
+  "pos": "DL",
+  "value": 889.0,
+  "rank": 720,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "DJ Wonnum",
+  "pos": "DL",
+  "value": 888.0,
+  "rank": 721,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Ja'Quan McMillian",
+  "pos": "DB",
+  "value": 888.0,
+  "rank": 722,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Keyron Crawford",
+  "pos": "DL",
+  "value": 882.0,
+  "rank": 724,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 6,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Zakee Wheatley",
+  "pos": "DB",
+  "value": 882.0,
+  "rank": 725,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Ji'Ayir Brown",
+  "pos": "DB",
+  "value": 880.0,
+  "rank": 726,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kendal Daniels",
+  "pos": "LB",
+  "value": 879.0,
+  "rank": 727,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 22,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Ronnie Hickman",
+  "pos": "DB",
+  "value": 876.0,
+  "rank": 730,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Will Johnson",
+  "pos": "DB",
+  "value": 873.0,
+  "rank": 733,
+  "standard": 9,
+  "aggressive": 13,
+  "max": 100,
+  "clearing": 12,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $12"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Alim McNeill",
+  "pos": "DL",
+  "value": 872.0,
+  "rank": 737,
+  "standard": 7,
+  "aggressive": 10,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $11"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-4"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "David Walker",
+  "pos": "LB",
+  "value": 872.0,
+  "rank": 735,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 19,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $11"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jadon Canady",
+  "pos": "DB",
+  "value": 871.0,
+  "rank": 738,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $11"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Theo Jackson",
+  "pos": "DB",
+  "value": 871.0,
+  "rank": 739,
+  "standard": 8,
+  "aggressive": 11,
+  "max": 100,
+  "clearing": 11,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $11"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "$-3"
+   ],
+   [
+    "Replaceable at position",
+    "dropoff 0% < 15% \u2014 value bid only"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Ainias Smith",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "AJ Dillon",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Alexander Mattison",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Andrew Wingard",
+  "pos": "DB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $5 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Arian Smith",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Azeez Ojulari",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Barika Kpeenu",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Barion Brown",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.10"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Baron Browning",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Bo Melton",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Brandin Cooks",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Brandon Knight",
+  "pos": "T",
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "medium",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Brenden Rice",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Bub Means",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Cam Taylor-Britt",
+  "pos": "DB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $5 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Caullin Lacy",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Chip Trayanum",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Chris Braswell",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Chris Hilton",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Christian Izien",
+  "pos": "DB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $5 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Colbie Young",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.15"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Dameon Pierce",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Dante Trader",
+  "pos": "DB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $5 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Darius Robinson",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Daron Payne",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "David Bell",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Demarcus Robinson",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "\u00d71.10"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Deontae Lawson",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Derius Davis",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "DJ Rogers",
+  "pos": "TE",
+  "value": 0.0,
+  "rank": null,
+  "standard": 7,
+  "aggressive": 10,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$5"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $7"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $7 exceeds this player's value ceiling $7."
+  ]
+ },
+ {
+  "name": "Donovan Edwards",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Donoven McCulley",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Drew Lock",
+  "pos": "QB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 25,
+  "aggressive": 35,
+  "max": 100,
+  "clearing": 25,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$19"
+   ],
+   [
+    "Rival contention",
+    "+$6 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Dylan Laube",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Elijah Mitchell",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Foster Moreau",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "medium",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Frank Gore",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Gracen Halton",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Greg Dortch",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Harrison Bryant",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "medium",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Isaiah Hodgins",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Isaiah McDuffie",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Isaiah McGuire",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Israel Abanikanda",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "J. Michael Sturdivant",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jack Sanborn",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Jacob Cowing",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jake Bobo",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jake Browning",
+  "pos": "QB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 25,
+  "aggressive": 35,
+  "max": 100,
+  "clearing": 25,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$19"
+   ],
+   [
+    "Rival contention",
+    "+$6 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jalen Huskey",
+  "pos": "DB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $5 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Jalen Walthall",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jalin Hyatt",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jamal Haynes",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jamari Thrash",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jamarion Miller",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Javon Baker",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jaylon Carlies",
+  "pos": "DB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $5 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Jer'Zhan Newton",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jeremiah Trotter",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Jeremy McNichols",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jeremy Ruckert",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "medium",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jermaine Burton",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Johnny Wilson",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jonathan Mingo",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jordan Hudson",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Jordan Magee",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Jordan Watkins",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Josh Cameron",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kalel Mullings",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Keion White",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kendall Milton",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kenny McIntosh",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kenny Pickett",
+  "pos": "QB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 25,
+  "aggressive": 35,
+  "max": 100,
+  "clearing": 25,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$19"
+   ],
+   [
+    "Rival contention",
+    "+$6 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Kentrel Bullock",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Keyshaun Elliott",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Kyle Louis",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Kyle McCord",
+  "pos": "QB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 25,
+  "aggressive": 35,
+  "max": 100,
+  "clearing": 25,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$19"
+   ],
+   [
+    "Rival contention",
+    "+$6 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "LaJohntay Wester",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Lake McRee",
+  "pos": "TE",
+  "value": 0.0,
+  "rank": null,
+  "standard": 7,
+  "aggressive": 10,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$5"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $7"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $7 exceeds this player's value ceiling $7."
+  ]
+ },
+ {
+  "name": "Lander Barton",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Landon Jackson",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Le'Veon Moss",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Lil'Jordan Humphrey",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "LT Overton",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Malachi Corley",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Malcolm Koonce",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Malik Heath",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Mason Tipton",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Matayo Uiagalelei",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Matthew Hibner",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Mecole Hardman",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Michael Carter",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Michael Taaffe",
+  "pos": "DB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $5 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Mikail Kamara",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Milton Williams",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Nick Westbrook-Ikhine",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Noah Sewell",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Omarr Norman-Lott",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Osa Odighizuwa",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Princely Umanmielen",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Quan Martin",
+  "pos": "DB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $5 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Rahsul Faison",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Rasheen Ali",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Ray-Ray McCloud",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Red Murdock",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Reggie Virgil",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Rob Henry",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Rod Moore",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Romello Brinson",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Sam Howell",
+  "pos": "QB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 25,
+  "aggressive": 35,
+  "max": 100,
+  "clearing": 25,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$19"
+   ],
+   [
+    "Rival contention",
+    "+$6 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Shaun Dolac",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Sione Vaki",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Skyy Moore",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Suntarine Perkins",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "T'Vondre Sweat",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tai Felton",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tatum Bethune",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Taurean York",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Terrell Jennings",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Terrion Arnold",
+  "pos": "DB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $5 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Tommy Eichenberg",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Travis Jones",
+  "pos": "DL",
+  "value": 0.0,
+  "rank": null,
+  "standard": 2,
+  "aggressive": 3,
+  "max": 100,
+  "clearing": 2,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$2"
+   ],
+   [
+    "Rival contention",
+    "+$0 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Trenton Simpson",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Trey Palmer",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Trinidad Chambliss",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Troy Dye",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Ty Chandler",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Ty Okada",
+  "pos": "DB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 5,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $5 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Ty'Ron Hopper",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Tyler Badie",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tyler Goodson",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tyler Johnson",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tyler Scott",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Tyree Wilson",
+  "pos": "LB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 4,
+  "aggressive": 6,
+  "max": 100,
+  "clearing": 8,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$3"
+   ],
+   [
+    "Rival contention",
+    "stopped at value ceiling $4"
+   ]
+  ],
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $8 exceeds this player's value ceiling $4."
+  ]
+ },
+ {
+  "name": "Tyrell Shavers",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Whit Weeks",
+  "pos": null,
+  "value": 0.0,
+  "rank": null,
+  "standard": 0,
+  "aggressive": 0,
+  "max": 100,
+  "clearing": 1,
+  "confidence": "low",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending data",
+    "missing"
+   ],
+   [
+    "League historical data",
+    "insufficient samples"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Xavier Gipson",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Zach Wilson",
+  "pos": "QB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 25,
+  "aggressive": 35,
+  "max": 100,
+  "clearing": 25,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$19"
+   ],
+   [
+    "Rival contention",
+    "+$6 to clear top rival"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Zavier Scott",
+  "pos": "RB",
+  "value": 0.0,
+  "rank": null,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "clearing": 14,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$22"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($13)"
+   ]
+  ],
+  "warnings": []
+ },
+ {
+  "name": "Zay Jones",
+  "pos": "WR",
+  "value": 0.0,
+  "rank": null,
+  "standard": 10,
+  "aggressive": 14,
+  "max": 100,
+  "clearing": 7,
+  "confidence": "high",
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $0"
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint"
+   ],
+   [
+    "League historical calibration",
+    "+$10"
+   ],
+   [
+    "Rival contention",
+    "value bid already clears projected top rival ($6)"
+   ]
+  ],
+  "warnings": []
+ }
+]

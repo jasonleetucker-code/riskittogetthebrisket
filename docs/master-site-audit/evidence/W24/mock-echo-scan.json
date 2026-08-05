@@ -1,0 +1,9 @@
+{
+ "count": 4,
+ "hits": [
+  "tests/api/test_league_routing.py:207: asserts `None` which the test installed on a mock at line 203  [in test_api_data_returns_200_with_nulled_sleeper_for_legacy_stub]",
+  "tests/api/test_league_routing.py:244: asserts `'compact-etag-xyz'` which the test installed on a mock at line 235  [in test_api_data_compact_view_serves_precomputed_bytes]",
+  "tests/api/test_league_routing.py:248: asserts `compact_obj` which the test installed on a mock at line 232  [in test_api_data_compact_view_serves_precomputed_bytes]",
+  "tests/intel/test_ledger.py:391: asserts `tmp_path / 'elsewhere'` which the test installed on a mock at line 390  [in test_ledger_path_follows_store_data_dir]"
+ ]
+}

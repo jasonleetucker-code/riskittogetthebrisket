@@ -1,0 +1,92 @@
+{
+ "id": "W09-F005",
+ "workstream": "W09",
+ "promptSections": [
+  14,
+  15
+ ],
+ "title": "Monte Carlo uncertainty is a hard-coded flat +/-15% band on zero live rows, and the 9999 clamp makes it understate an elite asset by 5.07%",
+ "status": "Mocked or hard-coded",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "Monte Carlo trade simulator",
+ "surface": {
+  "routes": [
+   "/api/trade/simulate-mc"
+  ],
+  "pages": [
+   "/trade"
+  ],
+  "flags": [
+   "monte_carlo_trade"
+  ]
+ },
+ "codeRefs": [
+  {
+   "path": "src/trade/monte_carlo.py",
+   "lines": "368-387"
+  },
+  {
+   "path": "frontend/components/ui/MonteCarloButton.jsx",
+   "lines": "41-54"
+  }
+ ],
+ "claimUnderTest": "monte_carlo.py module docstring: 'Given side-A and side-B as lists of players, each with a valueBand from Phase 4 (p10, p50, p90)... Depends on: Phase 4 confidence intervals'. build_trade_player: 'Prefers the Phase 4 valueBand dict; falls back to +/-15% band'.",
+ "observed": "0 of 1,092 playersArray rows carry a valueBand, so the fallback IS the production path for every asset \u2014 every player, pick and defender is drawn from an identical +/-15% triangle regardless of whether the board blended 1 source or 14 (effectiveSourceRanks ranges 0-14 across the contract). The frontend synthesizes the same +/-15% band client-side. Worse, _shifted() clamps to 9999 while the +15% leg is not, so for a top-of-board asset the upper half of the band is truncated and the sampled mean falls BELOW the board value: Brock Bowers (rankDerivedValue 9947) simulates at sideAMean 9441.9. No convergence diagnostic, standard error, confidence interval or seed echo is returned; ten identical calls give winProbA 0.0001-0.0003 and meanDelta -4455.2 to -4439.3.",
+ "reproduction": {
+  "command": ".venv/bin/python -c \"import json;d=json.load(open('/tmp/w09-full.json'));print('rows with valueBand:',sum(1 for r in d['playersArray'] if r.get('valueBand')),'of',len(d['playersArray']))\" ; curl -s -b /tmp/audit-cookies-w09.txt -X POST http://127.0.0.1:8000/api/trade/simulate-mc -H 'Content-Type: application/json' -d '{\"sideA\":[{\"name\":\"Brock Bowers\",\"rankDerivedValue\":9947,\"pos\":\"TE\",\"team\":\"LV\"}],\"sideB\":[{\"name\":\"Jonathan Taylor\",\"rankDerivedValue\":6431,\"pos\":\"RB\",\"team\":\"IND\"},{\"name\":\"Patrick Mahomes\",\"rankDerivedValue\":7461,\"pos\":\"QB\",\"team\":\"KC\"}]}' | python -c 'import json,sys;r=json.load(sys.stdin);print(r[\"sideAMean\"], r[\"nSims\"])'",
+  "expected": "sideAMean == 9947 (the board value the user is shown)",
+  "actual": "rows with valueBand: 0 of 1092; sideAMean 9441.9",
+  "artifact": "docs/master-site-audit/evidence/W09/mc-10runs.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "rankDerivedValue": 9947,
+   "p10": 8454.95,
+   "p50": 9947.0,
+   "p90": "min(9999, 9947*1.15) = 9999.0",
+   "segments": [
+    [
+     6962.9,
+     8454.95,
+     0.1
+    ],
+    [
+     8454.95,
+     9947.0,
+     0.4
+    ],
+    [
+     9947.0,
+     9999.0,
+     0.4
+    ],
+    [
+     9999.0,
+     10051.0,
+     0.1
+    ]
+   ]
+  },
+  "formula": "E[draw] = sum over segments of ((lo+hi)/2)*weight, using the piecewise-linear _triangular_draw quantile map",
+  "expected": 9947.0,
+  "actual": 9443.0,
+  "tolerance": 25.0
+ },
+ "userImpact": "On /trade the MC panel says 'Side B came out ahead in 100% of 20,000 simulations'. That number is produced from an invented, uniform uncertainty and a mean that is 5% low for exactly the elite assets a trade usually hinges on. A user rejects an even trade because the simulator's fabricated distribution says it is not close.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 1,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A14-F05",
+  "relation": "confirmed",
+  "note": "Also confirms PRIOR-A09-F03 and PRIOR-A10-F02, which state the same defect from the constants and documentation angles. New here is the 9999-clamp bias: the fabricated band is not merely uninformative, it is directionally WRONG at the top of the board, understating the board value by 504 points (5.07%) with an analytic derivation that matches the live sideAMean to 1.1 points."
+ },
+ "whatWorks": "The direction-symmetrization is real and effective (symmetryCheck.drift 0.0001, enforced true), the labelHint/disclaimer contract fields ARE returned by the backend, and run-to-run variance is genuinely small (meanDelta sd 5.1 on a magnitude of 4,447 over 10 runs at 100k sims) \u2014 the estimator is stable, it is just estimating a fabricated quantity.",
+ "rootCause": "The band producer (src/canonical/confidence_intervals) never stamps valueBand onto contract rows, so the documented input does not exist on any live row; the fallback was written as a degradation path and became the only path.",
+ "requiredRepair": "Either stamp valueBand from the data the contract already carries (effectiveSourceRanks spread / sourceSpread / confidenceBucket are all present per row), or stop reporting a win probability and report the point delta only. At minimum, clamp p50 and p90 consistently so the sampled mean equals the displayed board value, and return a convergence statistic (MC standard error on winProbA) so the reader can tell a stable 0.50 from a noisy one.",
+ "dependencies": "src/canonical/confidence_intervals.py has no producer wired into the contract build."
+}

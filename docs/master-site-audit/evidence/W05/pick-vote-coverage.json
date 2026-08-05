@@ -1,0 +1,32 @@
+{
+ "pickRows": 144,
+ "slotPickRows": 72,
+ "sourcesVotingOnPicks": {
+  "ktcSfTep": 36,
+  "idpTradeCalc": 96
+ },
+ "sourceValuesPresentOnPicks": {
+  "ktc": 144,
+  "idpTradeCalc": 96,
+  "ktcSfTep": 36,
+  "dlfRookieSf": 55
+ },
+ "slotPickSourceCountHistogram": {
+  "1": 72
+ },
+ "example": {
+  "displayName": "2026 Pick 1.01",
+  "rankDerivedValue": 7799,
+  "anchorValue": 8013,
+  "sourceCount": 1,
+  "canonicalSiteValues": {
+   "ktc": 6726,
+   "idpTradeCalc": 8013,
+   "dlfRookieSf": 999880
+  },
+  "sourceRanks": {
+   "idpTradeCalc": 12
+  },
+  "isSingleSource": true
+ }
+}

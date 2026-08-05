@@ -87,6 +87,40 @@ export function colSpread() {
   };
 }
 
+/** Market gap magnitude — the relative value distance behind an offense
+ *  buy/sell signal, and the quantity those panels are actually about.
+ *
+ *  AUDIT S-3, the display half.  The Sell/Buy panels rendered `colSpread()`
+ *  and sorted on it via `defaultSort`, so the number beside a market-gap
+ *  signal was how much the SOURCES disagreed with each other — a different
+ *  quantity, and the one the panel is not about.  Fixing the filter alone
+ *  left that half live: `DataTable` is not `presorted`, so it re-sorts by
+ *  `defaultSort` and the caller's ordering never reached the screen.
+ *
+ *  This is the offense twin of `colIdpGap()`, which the IDP panels have
+ *  always had.  Unit is a RELATIVE gap in value space — 0.18 renders 18%.
+ */
+export function colMarketGap() {
+  return {
+    key: "marketGap",
+    header: "Gap",
+    numeric: true,
+    sortable: true,
+    headerInfo: "How far apart retail and the expert consensus value this player",
+    // No `?? 0`: a row the backend declined to price has NO gap, and
+    // folding that into a gap of zero is the coercion this pass removes.
+    // `sortRows` sinks nulls, which is the wanted behaviour here.
+    accessor: (r) => {
+      const ratio = Number(r.marketGapValueRatio);
+      return Number.isFinite(ratio) ? Math.abs(ratio) : null;
+    },
+    render: (r) => {
+      const ratio = Number(r.marketGapValueRatio);
+      return Number.isFinite(ratio) ? `${Math.round(Math.abs(ratio) * 100)}%` : EM_DASH;
+    },
+  };
+}
+
 /** IDP gap magnitude — the ordinal distance behind an IDP buy/sell
  *  signal. Pre-R3 this lived only in a title attribute even though it
  *  drove the section's ordering; surfacing it as a real column makes

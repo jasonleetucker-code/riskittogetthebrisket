@@ -207,7 +207,33 @@ Then tick these rules and leave the rest unticked:
 
 **Why 0 required approvals:** you are the only human contributor (`list_repository_collaborators` shows a single account). Requiring 1 approval on a solo repo means you can never merge your own PR without a second account. Zero approvals still forces the PR path and still runs the status check.
 
-**Why `Validate PR` and nothing else:** that is the exact check-run name I observed on PR #626 (`{"name": "Validate PR", "conclusion": "success"}`, from `.github/workflows/pr-validation.yml`). Adding `E2E Safety Net` or `Deploy Production` as required checks would deadlock every PR — E2E is currently **failing** (OA-04) and Deploy only runs post-merge.
+**Why `Validate PR` and nothing else:** that is the exact check-run name I observed on PR #626 (`{"name": "Validate PR", "conclusion": "success"}`, from `.github/workflows/pr-validation.yml`). Adding the E2E or deploy checks as required would deadlock every PR — E2E is intermittently red (OA-04) and Deploy only runs post-merge.
+
+> **Corrected 2026-08-05 — the names in the sentence above were wrong.**
+> It originally said "adding `E2E Safety Net` or `Deploy Production`".
+> Those are **workflow** names (the `name:` at the top of the file).
+> GitHub's required-checks picker matches **job** names — the `name:` on
+> the job — so neither string would ever have matched a check run, and a
+> ruleset requiring them would block every PR forever waiting for a check
+> that cannot report.
+>
+> The real strings, read from the workflow files:
+>
+> | file | job id | check-run name |
+> |---|---|---|
+> | `pr-validation.yml` | `validate` | **`Validate PR`** |
+> | `e2e.yml` | `e2e` | **`Boot stack + run journeys`** |
+> | `deploy.yml` | `validate` | **`Validate Build Inputs`** |
+> | `deploy.yml` | `deploy` | **`Deploy To Production`** |
+>
+> `Validate PR` was right by luck — that job's name happens to differ from
+> its workflow's. The advice in this section is unchanged and still
+> correct; only the identifiers were wrong.
+>
+> Note also that `e2e.yml` gained a path-filtered `pull_request` trigger
+> (#726), so `Boot stack + run journeys` *can* now appear on a PR — but
+> only on PRs touching the shell/SSR surface. Requiring a check that is
+> absent on most PRs blocks them, so it still must not be required.
 
 **Expected result.** The ruleset appears as Active. Pushing directly to `main` is rejected with `GH006: Protected branch update failed`.
 

@@ -1,0 +1,248 @@
+{
+ "csvRows": 1074,
+ "matched": 805,
+ "exactEqual": 1,
+ "medianRatio": 1.085496183206107,
+ "examples": [
+  [
+   "Carson Schwesinger",
+   4357,
+   5908,
+   0.737
+  ],
+  [
+   "Aidan Hutchinson",
+   4871,
+   6362,
+   0.766
+  ],
+  [
+   "Will Anderson",
+   4553,
+   5876,
+   0.775
+  ],
+  [
+   "Lamar Jackson",
+   7631,
+   8784,
+   0.869
+  ],
+  [
+   "Jayden Daniels",
+   7850,
+   8898,
+   0.882
+  ],
+  [
+   "Sonny Styles",
+   4180,
+   5222,
+   0.8
+  ],
+  [
+   "Jalen Hurts",
+   6168,
+   7183,
+   0.859
+  ],
+  [
+   "Edgerrin Cooper",
+   2988,
+   3919,
+   0.762
+  ],
+  [
+   "Joe Burrow",
+   7459,
+   8383,
+   0.89
+  ],
+  [
+   "Nate Boerkircher",
+   923,
+   1803,
+   0.512
+  ],
+  [
+   "Will Kacmarek",
+   923,
+   1795,
+   0.514
+  ],
+  [
+   "Nick Bolton",
+   2941,
+   3778,
+   0.778
+  ],
+  [
+   "Eric McAlister",
+   2003,
+   1168,
+   1.715
+  ],
+  [
+   "Patrick Mahomes",
+   6672,
+   7461,
+   0.894
+  ],
+  [
+   "Trey McBride",
+   8475,
+   9264,
+   0.915
+  ],
+  [
+   "Elijah Arroyo",
+   3200,
+   2413,
+   1.326
+  ],
+  [
+   "Caleb Williams",
+   8032,
+   8753,
+   0.918
+  ],
+  [
+   "Harrison Wallace",
+   2016,
+   1311,
+   1.538
+  ],
+  [
+   "Tory Horton",
+   2678,
+   1977,
+   1.355
+  ],
+  [
+   "Malik Washington",
+   2579,
+   1881,
+   1.371
+  ],
+  [
+   "Roman Hemby",
+   1879,
+   1185,
+   1.586
+  ],
+  [
+   "Ollie Gordon",
+   2398,
+   1723,
+   1.392
+  ],
+  [
+   "Tank Dell",
+   2635,
+   1961,
+   1.344
+  ],
+  [
+   "Dontayvion Wicks",
+   2530,
+   1866,
+   1.356
+  ],
+  [
+   "Jaxson Dart",
+   6512,
+   7165,
+   0.909
+  ],
+  [
+   "Isaac TeSlaa",
+   2743,
+   2092,
+   1.311
+  ],
+  [
+   "John Michael Gyllenborg",
+   923,
+   1574,
+   0.586
+  ],
+  [
+   "Jaylin Lane",
+   1986,
+   1346,
+   1.475
+  ],
+  [
+   "Keaton Mitchell",
+   2617,
+   1985,
+   1.318
+  ],
+  [
+   "Brock Bowers",
+   9316,
+   9947,
+   0.937
+  ],
+  [
+   "Troy Franklin",
+   2625,
+   1996,
+   1.315
+  ],
+  [
+   "Skyler Bell",
+   2535,
+   1911,
+   1.327
+  ],
+  [
+   "Tre Tucker",
+   2515,
+   1905,
+   1.32
+  ],
+  [
+   "Jack Endries",
+   1195,
+   1802,
+   0.663
+  ],
+  [
+   "Kyle Williams",
+   2373,
+   1766,
+   1.344
+  ],
+  [
+   "Jalen Milroe",
+   2245,
+   1639,
+   1.37
+  ],
+  [
+   "Sean Tucker",
+   2271,
+   1665,
+   1.364
+  ],
+  [
+   "Elijah Sarratt",
+   2768,
+   2166,
+   1.278
+  ],
+  [
+   "Malachi Fields",
+   2733,
+   2133,
+   1.281
+  ],
+  [
+   "Chimere Dike",
+   2402,
+   1804,
+   1.331
+  ]
+ ]
+}

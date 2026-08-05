@@ -1,13 +1,23 @@
 // ── Shared thresholds ────────────────────────────────────────────────────────
-// Single source of truth for numeric thresholds used across Rankings, Edge,
-// and Finder surfaces.  Backend-authoritative thresholds (confidence spread
-// cutoffs, disagreement threshold) mirror values in src/api/data_contract.py.
+// MIRROR OF config/thresholds.json — that file is the source of truth.
 //
-// When changing a threshold here, check whether the backend equivalent needs
-// to match:
-//   Python: _SUSPICIOUS_DISAGREEMENT_THRESHOLD (150)
+// This used to sync to the backend via a hand-written comment listing the
+// Python constant names and their values.  A comment cannot fail a build, so
+// whenever it disagreed with the code it was the comment people believed —
+// and #725 measured the cost of exactly that: two of the constants it listed
+// described a rule the backend had retired.
+// It has been replaced by the mechanism that works elsewhere in this repo
+// (see tests/api/test_source_registry_parity.py): a JSON source, a Python
+// loader that CANNOT drift because it reads the JSON at import, and a parity
+// test that fails when this mirror stops matching.
 //
-// Tests: frontend/__tests__/thresholds.test.js
+// One backend constant still has no mirror here and should not gain one
+// without a reader: _SUSPICIOUS_DISAGREEMENT_THRESHOLD (150).
+//
+// To change a threshold: edit config/thresholds.json — including its
+// `derivedFrom`, which is where the reason lives — then update the matching
+// line here.  Adding a constant here that the JSON does not declare fails
+// tests/api/test_threshold_parity.py by design.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Confidence spread cutoffs — REMOVED 2026-08-05 ──────────────────────────
@@ -29,12 +39,18 @@
 // answer is `row.confidenceBucket`, stamped by the backend.
 // See frontend/__tests__/consensus-label-reads-backend-bucket.test.js.
 
-// ── Market premium / disagreement thresholds ────────────────────────────────
+// ── Source-disagreement thresholds ──────────────────────────────────────────
+// These measure how much the SOURCES disagree with each other.  That is a
+// different quantity from the market gap below, and conflating the two is
+// audit finding S-3: the /edge premium panels used to gate and sort on
+// disagreement while displaying the market gap's sign, so a clean large gap
+// with tight source agreement was excluded and a tiny gap with wild
+// disagreement sorted first.
 
 /** Minimum spread for a row to qualify as a "market premium" (action label). */
 export const MARKET_PREMIUM_SPREAD = 30;
 
-/** Minimum spread for a row to appear in premium summary lists (edge rail). */
+/** Minimum spread for the /edge disagreements panel and the disagreement stat. */
 export const PREMIUM_SUMMARY_SPREAD = 20;
 
 /** Minimum spread for "disagreements" lens on Rankings page. */
@@ -47,6 +63,11 @@ export const LENS_INEFFICIENCY_SPREAD = 30;
 export const LENS_INEFFICIENCY_RANK = 200;
 
 // ── Market gap ──────────────────────────────────────────────────────────────
+// UNIT: a RELATIVE gap in blended-value space.  0.25 means one side prices the
+// player 25% above the other.  These are not ranks and not points on the
+// 0-9999 scale.  The backend publishes it as `marketGapValueRatio`; the old
+// `marketGapMagnitude` is stamped None on every row precisely so a consumer
+// still reading it fails visibly instead of gating on a stale unit.
 
 /** Minimum rank difference for a market gap label to display. */
 // RETIRED: MARKET_GAP_MIN_DIFF (was 10 ordinal ranks).  The market gap is
@@ -77,6 +98,27 @@ export const LENS_INEFFICIENCY_RANK = 200;
 // point is to re-aim the signal, not to quietly silence it.
 export const MARKET_GAP_MIN_VALUE_RATIO = 0.05;
 
+/**
+ * Minimum relative gap for a row to appear in the /edge premium panels.
+ *
+ * Those panels used to gate and sort on `sourceRankSpread` — how much the
+ * SOURCES disagree with each other — while displaying the market gap's sign
+ * (audit S-3).  Two different quantities: a clean, large gap on a player every
+ * source agrees about was excluded outright, while a negligible gap on a
+ * player they were arguing over sorted first.
+ *
+ * 0.15 is p70 of |marketGapValueRatio| across the 414 two-sided rows on the
+ * 2026-08-05 board (0.1565), giving 127 candidates before the top-250 filter
+ * — the same order as the 148 the spread gate passed, so this re-aims the
+ * panel rather than silently emptying or flooding it.
+ *
+ * Deliberately NOT a separate constant for the trade page: `getPlayerEdge`
+ * reuses MARKET_GAP_MIN_VALUE_RATIO, because if the board will not label a
+ * gap, a trade surface must not signal on it.  Four thresholds gated this one
+ * concept before; there are now two.
+ */
+export const PREMIUM_SUMMARY_VALUE_RATIO = 0.15;
+
 // ── Rank cutoffs ────────────────────────────────────────────────────────────
 
 /** Maximum rank for flagged/single-source sections on Edge page. */
@@ -102,7 +144,10 @@ export const EDGE_CAUTION_RANK_LIMIT = 300;
 export const EDGE_PREMIUM_RANK_LIMIT = 250;
 
 // ── Display limits ──────────────────────────────────────────────────────────
-// These are page-level UX choices, not data thresholds.
+// These are page-level UX choices, not data thresholds, so they are NOT in
+// config/thresholds.json and the parity test does not know about them.
+// They are declared with a lowercase-free name but grouped apart on purpose;
+// if one ever becomes a data threshold, move it into the JSON.
 
 /** Default number of rows shown on Rankings page before "show more". */
 export const RANKINGS_DEFAULT_ROW_LIMIT = 200;

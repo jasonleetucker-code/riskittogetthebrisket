@@ -16,10 +16,10 @@ import { proxyGet } from "@/lib/backend-proxy";
 export async function GET(request) {
   try {
     const leagueKey = request?.nextUrl?.searchParams?.get("leagueKey");
-    const { data, status } = await proxyGet(
-      "/api/ros/pick-projections",
-      leagueKey ? { searchParams: { leagueKey } } : undefined,
-    );
+    const { data, status } = await proxyGet("/api/ros/pick-projections", {
+      cookie: request.headers.get("cookie") || "",
+      ...(leagueKey ? { searchParams: { leagueKey } } : {}),
+    });
     return NextResponse.json(data, { status });
   } catch (err) {
     return NextResponse.json(

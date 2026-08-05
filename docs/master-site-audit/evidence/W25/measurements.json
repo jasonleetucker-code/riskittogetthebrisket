@@ -1,0 +1,168 @@
+{
+  "measuredAt": "2026-08-04",
+  "stack": "http://127.0.0.1:8000",
+  "payloadSizes": {
+    "GET /api/data": {
+      "bytes": 11953535,
+      "mb": 11.95,
+      "documented": "~4 MB",
+      "ratio": 2.99
+    },
+    "GET /api/data (gzip)": {
+      "bytes": 1176184
+    },
+    "GET /api/data?view=app": {
+      "bytes": 5818304
+    },
+    "GET /api/data?view=delta": {
+      "bytes": 11953535,
+      "note": "identical to no view param \u2014 the delta view does not exist on this route (conflict C-14)"
+    },
+    "POST /api/rankings/overrides?view=full": {
+      "bytes": 11789991,
+      "documented": "~4 MB"
+    },
+    "POST /api/rankings/overrides?view=delta": {
+      "bytes": 3918195,
+      "mb": 3.92,
+      "documented": "~1.25 MB",
+      "ratio": 3.13
+    },
+    "POST /api/rankings/overrides?view=delta (gzip)": {
+      "bytes": 372690,
+      "kb": 373,
+      "documented": "~100 KB",
+      "ratio": 3.73
+    },
+    "deltaAsFractionOfFull": 0.3323,
+    "documentedFraction": "~70% smaller",
+    "verdict": "ratio claim TRUE (66.8% smaller); all three absolute figures ~3x low"
+  },
+  "boardShape": {
+    "playersArrayRows": 1092,
+    "rowsWithCanonicalConsensusRank": 740,
+    "maxStampedRank": 740,
+    "OVERALL_RANK_LIMIT": 800,
+    "unrankedRows": 352,
+    "unrankedPicks": 113,
+    "unrankedNonPicks": 239,
+    "unrankedNonPicksWithNullRankDerivedValue": 239,
+    "rowsUnpricedByBoard": 280,
+    "claim": "CLAUDE.md: 'In practice that is players past the backend's OVERALL_RANK_LIMIT (800)'",
+    "verdict": "FALSE \u2014 the board never reaches 800; the 239 rows are unpriced, not over-limit"
+  },
+  "valuationOverlay": {
+    "playerCount": 1092,
+    "rankedCount": 740,
+    "adjustedCount": 709,
+    "isNoop": false,
+    "monotonicityViolations": [],
+    "claim": "740 of 1093",
+    "verdict": "TRUE (1092 not 1093 today)"
+  },
+  "crossMarket": {
+    "framing": "KTC top-500 rows, canonicalSiteValues on the live contract",
+    "overlapWithIdpTradeCalc": 453,
+    "documented": 475,
+    "ktc_over_idptc": {
+      "median": 0.9877,
+      "p10": 0.8601,
+      "p90": 1.0644
+    },
+    "documented_ratios": {
+      "median": 1.0,
+      "p10": 0.888,
+      "p90": 1.054
+    },
+    "bothCapAt9999": true,
+    "verdict": "PARTIALLY TRUE \u2014 reproduces within 9 days of market drift; overlap count 22 low"
+  },
+  "featureFlags": {
+    "consensus_edge": {
+      "codeDefault": false,
+      "server.py:2686-2693 comment": "default **ON** since 2026-08-04",
+      "live": {
+        "/api/consensus-edge/board": 404,
+        "/players": 503,
+        "/top": 503,
+        "/health": 503,
+        "/methodology": 200
+      },
+      "verdict": "comment FALSE; flag is OFF"
+    },
+    "bdvm_engine": {
+      "codeDefault": true,
+      "docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md:129": "defaults OFF",
+      "live": "endpoints reachable, status no_projection_snapshot (data/bdvm absent)",
+      "verdict": "report FALSE; flag is ON"
+    },
+    "te_basis_conversion": {
+      "codeDefault": true
+    }
+  },
+  "crossLeague": {
+    "GET /api/data?leagueKey=dynasty_new": {
+      "meta.leagueKey": "dynasty_new",
+      "meta.sleeperDataReady": true,
+      "meta.sleeperLoadedLeagueKey": "dynasty_main",
+      "sleeper.leagueId": "1320092771247222784",
+      "sleeper.leagueName": "Blood, Sweat, and Beers",
+      "teams": 10,
+      "verdict": "block is genuinely dynasty_new's; sleeperLoadedLeagueKey names the WRONG league"
+    },
+    "GET /api/terminal?leagueKey=dynasty_new": {
+      "status": 200,
+      "documented": "503 whenever leagueKey doesn't match",
+      "verdict": "doc FALSE for terminal"
+    },
+    "POST /api/trade/finder leagueKey=dynasty_new": {
+      "status": 503,
+      "error": "data_not_ready",
+      "verdict": "doc TRUE for trade/*"
+    },
+    "POST /api/angle/find leagueKey=dynasty_new": {
+      "status": 503,
+      "error": "data_not_ready",
+      "verdict": "doc TRUE for angle/*"
+    },
+    "GET /api/draft-capital?leagueKey=dynasty_new": {
+      "numTeams": 10,
+      "coveredPickYears": [
+        2026
+      ],
+      "pricedPickCount": 40,
+      "unpricedPickCount": 40,
+      "unpricedPickYears": [
+        2027
+      ],
+      "verdict": "D-2 fix shape TRUE, on the correct foreign league"
+    }
+  },
+  "adrNamespace": {
+    "citationsInSrcAndServer": 44,
+    "inAmbiguous001to015Range": 36,
+    "modulesAffected": 24,
+    "filesDefiningADR001to015": [
+      "docs/league-intelligence/DECISIONS.md",
+      "docs/consensus-edge/DECISIONS.md"
+    ],
+    "thirdFile": "docs/roster-trade-intelligence/DECISIONS.md holds ONE ADR, numbered 008"
+  },
+  "commitDrift": {
+    "priorAuditSha": "9c5d972f",
+    "priorAuditShaDate": "2026-08-04 06:32 UTC",
+    "finderIdpFixSha": "a62af217",
+    "finderIdpFixDate": "2026-08-04 13:16 UTC",
+    "fixIsAncestorOfAuditedSha": false,
+    "commitsFromAuditedShaToLastNonAuditHead": 372,
+    "srcAndServerDiff": "59 files changed, 10541 insertions(+), 759 deletions(-)"
+  },
+  "docCensus": {
+    "trackedMd": 144,
+    "keep": 81,
+    "archive": 48,
+    "retire": 10,
+    "review": 5,
+    "bytesOutOfWorkingSet": 794145
+  }
+}

@@ -21,6 +21,67 @@
 const base = require("@playwright/test");
 const { pageUrl } = require("./journey");
 
+// Minting the session is a network call made before every signed-in test,
+// and it used to be a SINGLE attempt whose every non-ok answer became
+// `test.skip()`.  Both halves were wrong, in the way this repo keeps
+// finding (ORCHESTRATION.md §6.15 — a guard whose stated purpose and
+// actual predicate differ):
+//
+//   * The skip claimed "likely E2E_TEST_MODE not set on server", but it
+//     fired on ANY non-2xx.  A 429 from the rate limiter or a transient
+//     5xx under suite load silently skipped the test — and a skip reads
+//     as "fine" in every summary this repo prints.  e2e.yml's own header
+//     already records that "create-session 429 makes signed-in specs
+//     skip", i.e. the hole was known and described as an aside.  NINE
+//     specs use this fixture, so one blip could quietly retire most of
+//     the signed-in suite.
+//   * The bare `post()` had no timeout and no retry, so a dropped
+//     connection threw straight out of the fixture.  That is the
+//     observed first-attempt failure of run 31025224262 — the throw is
+//     at this call, not at an assertion.
+//
+// So: retry only what is genuinely transient, skip only the one status
+// that actually means "not configured", and FAIL loudly on everything
+// else rather than reporting a skip.
+const SESSION_MINT_ATTEMPTS = 3;
+const SESSION_MINT_TIMEOUT_MS = 15_000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function mintSession(page, baseURL, secret) {
+  let lastStatus = null;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= SESSION_MINT_ATTEMPTS; attempt += 1) {
+    try {
+      const resp = await page.request.post(`${baseURL}/api/test/create-session`, {
+        headers: { Authorization: `Bearer ${secret}` },
+        timeout: SESSION_MINT_TIMEOUT_MS,
+      });
+      if (resp.ok()) return { ok: true };
+      lastStatus = resp.status();
+
+      // 404 is the ONLY status that means what the old skip message
+      // claimed: the route is not mounted, because E2E_TEST_MODE is off.
+      // It is deterministic — retrying cannot change it, and skipping is
+      // the documented, intended behaviour.
+      if (lastStatus === 404) return { ok: false, skip: true, status: 404 };
+
+      // 429 (rate limiter) and 5xx (server busy) are the transient ones.
+      // Anything else — 401/403 on a wrong secret, say — is a real
+      // misconfiguration that must not masquerade as a skip.
+      if (lastStatus !== 429 && lastStatus < 500) {
+        return { ok: false, skip: false, status: lastStatus };
+      }
+    } catch (err) {
+      lastError = err;
+    }
+    if (attempt < SESSION_MINT_ATTEMPTS) await sleep(500 * 2 ** (attempt - 1));
+  }
+
+  return { ok: false, skip: false, status: lastStatus, error: lastError };
+}
+
 exports.test = base.test.extend({
   authedPage: async ({ page, baseURL }, use) => {
     const secret = process.env.E2E_TEST_SECRET;
@@ -28,15 +89,23 @@ exports.test = base.test.extend({
       base.test.skip(true, "E2E_TEST_SECRET not set — skipping signed-in tests");
       return;
     }
-    const resp = await page.request.post(`${baseURL}/api/test/create-session`, {
-      headers: { Authorization: `Bearer ${secret}` },
-    });
-    if (!resp.ok()) {
+    const minted = await mintSession(page, baseURL, secret);
+    if (minted.skip) {
       base.test.skip(
         true,
-        `test-session endpoint returned ${resp.status()} — likely E2E_TEST_MODE not set on server`,
+        "test-session endpoint returned 404 — E2E_TEST_MODE not set on server",
       );
       return;
+    }
+    if (!minted.ok) {
+      throw new Error(
+        `Could not mint a test session after ${SESSION_MINT_ATTEMPTS} attempts: ` +
+          (minted.status !== null
+            ? `last status ${minted.status}.`
+            : `last error ${minted.error && minted.error.message}.`) +
+          " This is a REAL failure, not a skip — the server answered, so" +
+          " E2E_TEST_MODE is on and the secret or the server is at fault.",
+      );
     }
     // The fixture page inherits the cookies from page.request — it's
     // the same browser context.  Reload so subsequent nav uses them.
