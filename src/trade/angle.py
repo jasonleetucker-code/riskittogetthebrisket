@@ -501,26 +501,47 @@ def find_angles(
         if market_gain_pct > max_market_gain_pct:
             continue
 
-        # Does the verdict survive its own uncertainty?  For an
-        # offense-vs-offense comparison both bands are zero and this is
-        # certain by construction; it bites exactly when the two sides
-        # sit on different retail boards, which is when the
-        # offense<->IDP exchange rate is load-bearing (W27-F004).
+        # Does the verdict survive its own uncertainty?  Only a
+        # CROSS-market comparison has any to survive (W27-F004).
+        #
+        # When both sides are priced by the same publisher the exchange
+        # rate cancels exactly in the ratio this gate reads —
+        # (a·k − b·k)/(b·k) = (a − b)/b — so ``market_gain_pct`` is
+        # scale-invariant and the verdict is assumption-free however
+        # wide the packages' own bands are.  Running the straddle test
+        # on such a pair suppresses a decision no assumption could
+        # change: an IDP counter at +2% on IDPTC against a 5% gate,
+        # judged entirely on IDPTC, was withheld because a
+        # single-asset IDPTC package carries a ~910-point band from
+        # being re-expressed on the offense scale — a conversion this
+        # comparison never performs.
+        #
+        # (The same over-suppression exists on the packages path for a
+        # pair that happens to be single-market on both sides.  It is
+        # not touched here: that path's packages are usually mixed,
+        # where the band IS load-bearing, and it is outside this
+        # finding.)
         target_pkg = value_package([target_row])
         diag["combos_valued"] += 1
         if not target_pkg.is_rankable:
             diag["unvaluable"] += 1
             _note_reason(diag, target_pkg.suppressed_reason)
             continue
-        comparison = compare_packages(
-            target_pkg,
-            selected_pkg,
-            gate_pct=max_market_gain_pct,
-        )
-        if not comparison.verdict_certain:
-            diag["withheld_uncertain"] += 1
-            _note_reason(diag, comparison.suppressed_reason)
-            continue
+        cross_market_pair = target_pkg.market != selected_pkg.market
+        if cross_market_pair:
+            comparison = compare_packages(
+                target_pkg,
+                selected_pkg,
+                gate_pct=max_market_gain_pct,
+            )
+            if not comparison.verdict_certain:
+                diag["withheld_uncertain"] += 1
+                _note_reason(diag, comparison.suppressed_reason)
+                continue
+            gain_low = comparison.gain_low_pct
+            gain_high = comparison.gain_high_pct
+        else:
+            gain_low = gain_high = market_gain_pct
 
         candidates.append(
             {
@@ -535,16 +556,13 @@ def find_angles(
                 "market_gain": int(round(market_gain)),
                 "my_gain_pct": round(my_gain_pct, 2),
                 "market_gain_pct": round(market_gain_pct, 2),
-                "market_gain_low_pct": (
-                    round(comparison.gain_low_pct, 2)
-                    if comparison.gain_low_pct is not None
-                    else None
-                ),
-                "market_gain_high_pct": (
-                    round(comparison.gain_high_pct, 2)
-                    if comparison.gain_high_pct is not None
-                    else None
-                ),
+                "market_gain_low_pct": (round(gain_low, 2) if gain_low is not None else None),
+                "market_gain_high_pct": (round(gain_high, 2) if gain_high is not None else None),
+                # Why this candidate's gain range is wide or exact.  The
+                # package band below is a property of the PACKAGE (what
+                # it costs to state its total on a common scale); this
+                # says whether the COMPARISON had to pay it.
+                "market_verdict_basis": ("cross_market" if cross_market_pair else "same_market"),
                 "arb_score": round(my_gain_pct - market_gain_pct, 2),
                 **_market_stamp(target_pkg, verbose=False),
             }

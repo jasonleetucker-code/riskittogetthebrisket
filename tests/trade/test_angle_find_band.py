@@ -88,15 +88,35 @@ class TestCrossMarketCarriesItsUncertainty:
         assert any("uncertainty band" in r for r in reasons)
         assert any("withheld" in w for w in res["warnings"])
 
-    def test_a_decisive_same_market_comparison_still_gets_through(self):
-        """The band suppresses coin-flips, not every IDP comparison.
+    def test_a_same_market_comparison_is_assumption_free(self):
+        """Both sides on IDPTC: the exchange rate cancels in the ratio.
 
-        TheirLb is +8% on our board and -40% on the shared IDPTC board —
-        far enough outside the 5% gate that no plausible exchange rate
-        flips it.
+        (a·k - b·k)/(b·k) = (a - b)/b, so `market_gain_pct` is
+        scale-invariant and no exchange-rate assumption can flip the
+        verdict — however wide each package's own band is.  Suppressing
+        these would withhold a decision nothing could change.
         """
         res = _find("MyLb")
-        assert "TheirLb" in [c["name"] for c in res["candidates"]]
+        got = next(c for c in res["candidates"] if c["name"] == "TheirLb")
+        assert got["market_verdict_basis"] == "same_market"
+        assert got["market_gain_low_pct"] == got["market_gain_high_pct"]
+
+    def test_a_near_gate_same_market_comparison_is_not_withheld(self):
+        """The case the band was wrongly eating: +2% IDPTC vs a 5% gate."""
+        board = [
+            _row("MyLb", "LB", 5000, "idpTradeCalc", 5000),
+            _row("NearLb", "LB", 5400, "idpTradeCalc", 5100),
+        ]
+        teams = [
+            {"name": "Mine", "ownerId": "me", "rosterId": 1, "players": ["MyLb"]},
+            {"name": "Theirs", "ownerId": "them", "rosterId": 2, "players": ["NearLb"]},
+        ]
+        res = find_angles(board, "MyLb", "me", teams, limit=50)
+        assert "NearLb" in [c["name"] for c in res["candidates"]]
+
+    def test_the_cross_market_case_still_carries_a_range(self):
+        res = _find("MyLb")
+        assert res["market_diagnostics"]["withheld_uncertain"] >= 1
 
 
 class TestProvenanceIsStamped:
