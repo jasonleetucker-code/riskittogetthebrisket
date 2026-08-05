@@ -133,10 +133,22 @@ class TestTheBoardIsActuallyBuilt(_Enabled):
         self.assertIn("offense", scored_classes)
 
         for cls, meta in coverage.items():
+            # `rows == scored + unscored` is the row identity and is
+            # exact. This used to compare against the SUM of reason
+            # counts, which silently required every unscored row to carry
+            # exactly one reason — and that requirement is what hid rows
+            # losing two dependencies at once. The reason tally is a
+            # separate number that over-counts by design, so it is
+            # asserted as a lower bound instead.
             self.assertEqual(
                 meta["rows"],
-                meta["scored"] + sum(meta["unpricedReasons"].values()),
+                meta["scored"] + meta["unscored"],
                 f"{cls} rows are unaccounted for",
+            )
+            self.assertGreaterEqual(
+                sum(meta["unpricedReasons"].values()),
+                meta["unscored"],
+                f"{cls} has unscored rows carrying no reason at all",
             )
             if meta["scored"] or not meta["rows"]:
                 continue

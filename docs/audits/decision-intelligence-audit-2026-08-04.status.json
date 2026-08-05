@@ -3,9 +3,9 @@
  "severity": "Critical",
  "total": 43,
  "tally": {
-  "open": 25,
+  "open": 24,
   "needs_review": 2,
-  "closed": 15,
+  "closed": 16,
   "deferred": 1
  },
  "findings": [
@@ -576,13 +576,13 @@
    "auditId": "P-1",
    "path": "src/sharp/score.py",
    "signature": "float(weights.get(\"rosterQuality\", 0.22)) * roster",
-   "status": "open",
-   "verifiedBy": "Weighted at 0.22 and structurally zero, with no renormalization of the remaining weights.",
-   "closedBy": null,
-   "measuredEffect": null,
+   "status": "closed",
+   "verifiedBy": "_roster_quality_component now returns None (not 0.0) when it has no evidence, and the scoring sum renormalizes over the components that do \u2014 src/sharp/score.py. The unconditional `float(weights.get(\"rosterQuality\", 0.22)) * roster` term is gone; components.weightsApplied is stamped per manager so the renormalization is auditable rather than assumed.",
+   "closedBy": "PR #734 (claude/consensus-edge-recovery), ADR-028",
+   "measuredEffect": "A production-shaped record (6 seasons / 6 leagues / 58-26 / 5 playoffs / 2 titles) scored 64.9 against a real maximum of 78 because 0.22 of the weight was applied to a term that is 0.0 for every manager. It now scores 78.0 and the applied weights sum to 1.0. Ranking and cohort are UNCHANGED: the absent set is identical for every manager so all scores scale by the same factor, and qualification is minScorePercentile (a percentile, not an absolute bar). Asserted in tests/sharp/test_sharp_gates.py, which computes the old arithmetic inline and compares the full ordering and the qualified set. NOT measured against the live cohort: the ledger exists locally but cohort_members() returns 0 members, so a prod observation is still owed. methodologyVersion moved sharp-v2 -> sharp-v2.1.",
    "batch": null,
    "probe": {
-    "result": "signature_present",
+    "result": "signature_absent",
     "path": "src/sharp/score.py",
     "needle": "float(weights.get(\"rosterQuality\", 0.22)) * roster"
    }

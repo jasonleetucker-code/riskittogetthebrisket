@@ -1,7 +1,7 @@
 {
   "modelVersion": "ce.2026-08-04.v0-shadow",
   "paramSetId": "b90ef7db61a10905",
-  "measuredAt": "2026-08-04T11:26:38.582811+00:00",
+  "measuredAt": "2026-08-04T20:00:39.667581+00:00",
   "target": "cohort-excess market return of the anchor board",
   "lookbackDays": 30,
   "lookbackPoints": 3,
@@ -62,7 +62,7 @@
       "foldsPositive": 2,
       "horizonDays": 14,
       "panelStart": "2026-05-16",
-      "panelEnd": "2026-08-03",
+      "panelEnd": "2026-08-04",
       "foldsTruncated": false
     },
     "momentum": {
@@ -113,8 +113,71 @@
       "foldsPositive": 0,
       "horizonDays": 14,
       "panelStart": "2026-05-16",
-      "panelEnd": "2026-08-03",
+      "panelEnd": "2026-08-04",
       "foldsTruncated": false
+    },
+    "snapTrend": {
+      "foldsAttempted": 5,
+      "foldsUsable": 5,
+      "unusableReasons": [],
+      "meanSpearman": 0.037021985377019555,
+      "medianSpearman": 0.04288912116409389,
+      "spearmanByFold": [
+        {
+          "origin": "2026-05-16",
+          "n": 331,
+          "rho": 0.04288912116409389
+        },
+        {
+          "origin": "2026-05-30",
+          "n": 321,
+          "rho": -0.001920633443565051
+        },
+        {
+          "origin": "2026-06-13",
+          "n": 323,
+          "rho": 0.04768074793826393
+        },
+        {
+          "origin": "2026-06-27",
+          "n": 315,
+          "rho": 0.07941286011496779
+        },
+        {
+          "origin": "2026-07-11",
+          "n": 322,
+          "rho": 0.017047831111337227
+        }
+      ],
+      "benchmarks": {
+        "marketValue": {
+          "meanSpearman": 0.12099363925207567,
+          "beatenInFolds": 0
+        },
+        "mispricing": {
+          "meanSpearman": 0.021293500817348102,
+          "beatenInFolds": 4
+        },
+        "random": {
+          "meanSpearman": -0.005279214189667214,
+          "beatenInFolds": 4
+        }
+      },
+      "verdict": "no effect detected (mean rho +0.037 over 5 non-overlapping folds; 4/5 folds positive; beat market-value benchmark in 0/5)",
+      "foldsPositive": 4,
+      "horizonDays": 14,
+      "panelStart": "2026-05-16",
+      "panelEnd": "2026-08-04",
+      "foldsTruncated": false,
+      "status": "measured",
+      "snapWindows": [
+        {
+          "season": 2025,
+          "throughWeek": 22
+        }
+      ],
+      "effectiveSignalObservations": 1,
+      "independenceCaveat": "Every fold shares ONE snap window, so the signal is identical on every origin and the fold count does not represent independent observations of it. Read this as a single cross-section, not as 5 folds. This is what an all-offseason panel does to this axis; it resolves when the panel covers in-season dates."
     }
   },
   "decision": {
@@ -126,10 +189,13 @@
     "foldsBeaten": 0,
     "foldsUsable": 5
   },
-  "panelBuilds": 32,
-  "elapsedSeconds": 38.9,
+  "panelBuilds": 34,
+  "playerctxReconstructions": 5,
+  "elapsedSeconds": 167.4,
   "caveats": [
-    "Measures Opportunity as it ships OUTSIDE production: the momentum axis alone. The snapTrend axis reads data/playerctx/snapshot.json, which has no history in the repo and cannot be replayed, so it remains unvalidated.",
+    "The composite arm measures Opportunity as it ships OUTSIDE production: the momentum axis alone. snapTrend is measured SEPARATELY rather than folded in, because the composite's declared 0.2 Opportunity weight describes the two axes together and this panel cannot support that combination \u2014 see the snapTrend run.",
+    "snapTrend is replayed from nflverse's own per-game snap counts bounded to the weeks completed before each origin, not from data/playerctx/snapshot.json (which is overwritten weekly and has no history). It is NOT unreplayable, but on an all-offseason panel every origin resolves to the same completed season and the same final week, so the axis is one frozen cross-section rather than a signal that varies across folds. The run reports snapWindows and effectiveSignalObservations so that is legible in the output.",
+    "The snapTrend replay joins through the LIVE Sleeper directory \u2014 there is no historical edition of it \u2014 so a player out of the league by run time cannot join. The run's per-source join rates quantify that survivorship rather than assuming it away.",
     "Sharp Flow is absent throughout \u2014 the ledger is empty in every reachable environment \u2014 so this is a two-component composite.",
     "Replays today's pipeline over past inputs: inputs cannot leak, but the model is current.",
     "Measures market movement, not fantasy production \u2014 the panel covers an offseason.",

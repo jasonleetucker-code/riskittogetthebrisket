@@ -8,17 +8,34 @@ hierarchy, ``roster_intel.targets``, and a never-wired
 and none has ever been validated against an outcome.  "Buy" means a
 different thing on each screen.
 
-This package is the single answer.  It does NOT add a seventh opinion to
-the pile: it consumes the existing engines as components, scores them on
-one scale, and — crucially — says out loud when they disagree or when the
-evidence is too thin to support a call at all.
+This package is the intended single answer, and it is honest about how
+far that has got.  It scores its components on one scale and — crucially
+— says out loud when they disagree or when the evidence is too thin to
+support a call at all.
+
+**It does not, today, consume those six engines.**  This paragraph used
+to claim it did.  What it actually reads is the canonical contract
+(``src.api.data_contract``), the raw intel ledger, ``src.league_intel``,
+``src.nfl_data``, ``src.playerctx``, ``src.public_league`` and
+``src.sharp.cohort`` — and the incumbent Sharps formula is
+*reimplemented* in ``sharp_flow.legacy_signal_strength`` as a benchmark
+to score against, not consumed.  None of the six has been retired
+either, so for now this is a seventh opinion that is measured and
+labelled, rather than the one that replaced the other six.  Saying
+otherwise made a plan sound like a state.
 
 Isolation contract (same posture as ``src/bdvm``):
 
 * Nothing here writes ``rankDerivedValue``, mutates
   ``latest_contract_data``, or changes an existing route's output.
-* Everything is reachable only behind the ``consensus_edge`` feature
-  flag, which defaults **OFF**.
+* Every board-serving route is reachable only behind the
+  ``consensus_edge`` feature flag, which defaults **OFF**.  The one
+  deliberate exception is ``GET /api/consensus-edge/methodology``, which
+  answers with the flag off so a user who cannot see the board can still
+  read what it does and does not claim (``api.py``, and pinned by
+  ``test_methodology_is_readable_even_when_disabled``).  This said
+  "everything" until 2026-08-05, which understated the surface by
+  exactly one route and made an isolation contract slightly false.
 * Every payload carries a model version, a parameter-set id, and the
   timestamps of the data it was computed from.  A number without
   provenance is not shippable here.

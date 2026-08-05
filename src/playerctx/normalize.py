@@ -295,24 +295,59 @@ def parse_contracts(path: Path) -> list[dict[str, Any]]:
 # ── Snap counts ──────────────────────────────────────────────────────
 
 
-def parse_snap_counts(path: Path) -> list[dict[str, Any]]:
-    """Per-game rows for the file's newest season, minimally typed."""
+def parse_snap_counts(
+    path: Path,
+    *,
+    season: int | None = None,
+    through_week: int | None = None,
+) -> list[dict[str, Any]]:
+    """Per-game rows for one season, minimally typed.
+
+    Defaults to the file's newest season and every week in it, which is
+    what the live refresh wants and is byte-identical to the behaviour
+    this function had before the two parameters existed.
+
+    ``season`` / ``through_week`` make it an AS-OF read, and that is the
+    whole point of them.  nflverse publishes ``snap_counts_{season}.csv``
+    as one row per player *per game*, carrying ``season``, ``game_type``
+    and ``week`` — the history is already in the file.  This function
+    used to discard it with a newest-season filter and no week cutoff,
+    which is why :mod:`consensus_edge.opportunity`'s ``snapTrend`` axis
+    was described everywhere as "production-only and unmeasurable".  It
+    is not: reconstructing what the axis would have said at week W is a
+    predicate, not a collection problem.
+
+    ``through_week`` is inclusive and applies within the chosen season.
+    Postseason rows are ordered after the regular season by
+    ``aggregate_snaps``' own sort, so a cutoff of 18 keeps the full REG
+    slate and drops the playoffs — which is usually what an as-of replay
+    at the end of the regular season means.
+
+    One honest limit this cannot fix: the file is the CURRENT publication
+    of that season.  If nflverse restates a past week, a replay sees the
+    restatement rather than what was observable at the time.  That is a
+    much smaller distortion than the rank-signal leakage
+    ``consensus_edge.panel`` guards against, but it is not zero.
+    """
     rows: list[dict[str, Any]] = []
     max_season: int | None = None
     with _open_maybe_gzip(path) as fh:
         reader = csv.DictReader(fh)
         _check_columns(reader.fieldnames, SNAPS_REQUIRED_COLS, "snap_counts")
         for row in reader:
-            season = _to_int(row.get("season"))
+            # Deliberately NOT named `season`: that is the as-of
+            # parameter, and rebinding it here silently disabled it for
+            # every row after the first.
+            row_season = _to_int(row.get("season"))
             week = _to_int(row.get("week"))
             name = str(row.get("player") or "").strip()
-            if season is None or week is None or not name:
+            if row_season is None or week is None or not name:
                 continue
-            if max_season is None or season > max_season:
-                max_season = season
+            if max_season is None or row_season > max_season:
+                max_season = row_season
             rows.append(
                 {
-                    "season": season,
+                    "season": row_season,
                     "gameType": str(row.get("game_type") or "").strip().upper(),
                     "week": week,
                     "name": name,
@@ -327,7 +362,12 @@ def parse_snap_counts(path: Path) -> list[dict[str, Any]]:
                     "stPct": _to_float(row.get("st_pct")) or 0.0,
                 }
             )
-    return [r for r in rows if r["season"] == max_season]
+    target = max_season if season is None else int(season)
+    out = [r for r in rows if r["season"] == target]
+    if through_week is not None:
+        cutoff = int(through_week)
+        out = [r for r in out if r["week"] <= cutoff]
+    return out
 
 
 def aggregate_snaps(rows: list[dict[str, Any]], *, recent_games: int = 3) -> list[dict[str, Any]]:
@@ -416,14 +456,33 @@ def aggregate_snaps(rows: list[dict[str, Any]], *, recent_games: int = 3) -> lis
 # ── Depth charts ─────────────────────────────────────────────────────
 
 
-def parse_depth_charts(path: Path) -> list[dict[str, Any]]:
+def parse_depth_charts(path: Path, *, as_of: str | None = None) -> list[dict[str, Any]]:
     """Rows of the newest snapshot (``dt``) per team, fantasy slots only.
 
     Streaming single pass: the seasonal file replays every dated
     snapshot (35-55 MB); we keep only rows carrying each team's newest
     ``dt``.  ISO-8601 timestamps compare correctly as strings.
+
+    ``as_of`` narrows "newest" to "newest at or before this timestamp",
+    making the read reproducible for a past date.  Default None is
+    unbounded and byte-identical to the behaviour before the parameter
+    existed.
+
+    Same observation as :func:`parse_snap_counts`: the file already
+    contains the history — it appends a full dated snapshot per upstream
+    scrape — and this function was the thing discarding it.
+
+    The bound is matched against the same-length PREFIX of ``dt``, not
+    the whole string.  ``dt`` is published as a full timestamp
+    (``2026-07-25T08:57:25Z``), so a plain ``dt > as_of`` would make the
+    natural bound ``"2026-07-25"`` drop that whole day rather than keep
+    it — an off-by-one-day that reads as working code.  With a prefix
+    comparison an ISO-8601 prefix at any granularity means what it looks
+    like: ``"2026-07-25"`` selects through the end of that day,
+    ``"2026-07-25T08"`` through the end of that hour.
     """
     latest: dict[str, tuple[str, list[dict[str, Any]]]] = {}
+    bound = str(as_of).strip() if as_of else None
     with _open_maybe_gzip(path) as fh:
         reader = csv.DictReader(fh)
         _check_columns(reader.fieldnames, DEPTH_REQUIRED_COLS, "depth_charts")
@@ -431,6 +490,8 @@ def parse_depth_charts(path: Path) -> list[dict[str, Any]]:
             dt = str(row.get("dt") or "").strip()
             team = normalize_team_code(row.get("team"))
             if not dt or not team:
+                continue
+            if bound is not None and dt[: len(bound)] > bound:
                 continue
             base = _DEPTH_ABB_TO_BASE.get(str(row.get("pos_abb") or "").strip().upper(), "")
             if not base:

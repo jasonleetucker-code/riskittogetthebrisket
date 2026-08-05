@@ -323,7 +323,25 @@ def _roster_quality_component(
     rec: ManagerRecord,
     population: dict[str, list[float]],
     cfg: dict[str, Any],
-) -> tuple[float, list[str]]:
+) -> tuple[float | None, list[str]]:
+    """Roster strength percentile, or **None** when there is no evidence.
+
+    Returns None rather than 0.0 for "nothing to score", and that
+    distinction is the whole point. The four ``ManagerRecord`` fields
+    this reads — ``roster_value_ratios``, ``age_adjusted_value_ratio``,
+    ``depth_adjusted_value_ratio``, ``draft_pick_capital_ratio`` — are
+    populated by NO builder in the repo (`platform_records.py`,
+    `records.py`), so in production this has always been the empty case.
+    Returning 0.0 for it meant every manager scored a hard zero on a term
+    weighted 0.22, the total was never renormalized, and 22 points of a
+    0-100 scale were unreachable: a production-shaped record scored 64.9
+    against a real maximum of 78.
+
+    "Absent" and "measured zero" are different claims, and the scoring
+    aggregation now renormalizes over whichever components are present —
+    the same posture ``consensus_edge.score.composite`` takes for its
+    components, and for the same reason.
+    """
     block = cfg.get("rosterQuality") or {}
     sub = block.get("subWeights") or {}
     lo, hi = block.get("clampRatio", [0.4, 2.5])
@@ -354,7 +372,7 @@ def _roster_quality_component(
         parts.append((float(sub.get(weight_key, 0.2)), p))
 
     if not parts:
-        return 0.0, notes
+        return None, notes
     total_w = sum(w for w, _ in parts)
     return _clamp(sum(w * v for w, v in parts) / total_w, 0.0, 1.0), notes
 
@@ -585,14 +603,55 @@ def score_managers(
         penalty = _uncertainty_penalty(rec, cfg)
         title_bonus, title_notes = _championship_bonus(rec, cfg)
 
-        total = (
-            float(weights.get("performance", 0.36)) * perf
-            + float(weights.get("rosterQuality", 0.22)) * roster
-            + float(weights.get("multiLeagueConsistency", 0.22)) * consistency
-            + float(weights.get("longevity", 0.12)) * longevity
-            + float(weights.get("activity", 0.08)) * activity
-            + title_bonus
-        ) - penalty
+        # Renormalize over the components that actually have evidence.
+        #
+        # This was a plain weighted sum with every declared weight
+        # applied unconditionally. `rosterQuality` carries 0.22 and no
+        # builder populates any of its four inputs, so it contributed a
+        # hard 0.0 for every manager and 22 points of the 0-100 scale
+        # were unreachable — a production-shaped record topped out at
+        # 64.9 against a real maximum of 78.
+        #
+        # Renormalizing is safe for the COHORT because qualification is a
+        # percentile (`minScorePercentile`), not an absolute threshold:
+        # when the absent set is the same for everyone — which it is,
+        # since rosterQuality is absent for all — every score scales by
+        # the same factor and the ranking, and therefore the cohort, is
+        # unchanged. `weightsApplied` is stamped so this is auditable per
+        # manager rather than assumed.
+        contributions: list[tuple[str, float, float]] = [
+            ("performance", float(weights.get("performance", 0.36)), perf),
+            (
+                "multiLeagueConsistency",
+                float(weights.get("multiLeagueConsistency", 0.22)),
+                consistency,
+            ),
+            ("longevity", float(weights.get("longevity", 0.12)), longevity),
+            ("activity", float(weights.get("activity", 0.08)), activity),
+        ]
+        if roster is not None:
+            contributions.append(
+                ("rosterQuality", float(weights.get("rosterQuality", 0.22)), roster)
+            )
+
+        declared = sum(
+            float(weights.get(name, default))
+            for name, default in (
+                ("performance", 0.36),
+                ("rosterQuality", 0.22),
+                ("multiLeagueConsistency", 0.22),
+                ("longevity", 0.12),
+                ("activity", 0.08),
+            )
+        )
+        present_weight = sum(w for _, w, _ in contributions)
+        # Scale present weights back up to the declared total, so a full
+        # set of components is a no-op and the bonus/penalty stay on the
+        # scale they were calibrated against.
+        scale = (declared / present_weight) if present_weight > 0 else 0.0
+        weights_applied = {name: round(w * scale, 6) for name, w, _ in contributions}
+
+        total = (sum(w * scale * value for _, w, value in contributions) + title_bonus) - penalty
         total = _clamp(total, 0.0, 1.0) * 100.0
 
         confidence, tier = compute_confidence(rec, cfg)
@@ -605,12 +664,17 @@ def score_managers(
                 confidence_tier=tier,
                 components={
                     "performance": perf,
+                    # None, not 0.0, when there is no evidence — see
+                    # `_roster_quality_component`. A reader can now tell
+                    # "scored badly" from "never measured", and
+                    # `weightsApplied` says what was actually used.
                     "rosterQuality": roster,
                     "multiLeagueConsistency": consistency,
                     "longevity": longevity,
                     "activity": activity,
                     "championshipBonus": title_bonus,
                     "uncertaintyPenalty": -penalty,
+                    "weightsApplied": weights_applied,
                 },
                 # Title first: it is the preference most likely to have
                 # decided a marginal qualification.

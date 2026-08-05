@@ -1,0 +1,129 @@
+name: Closed PR — stranded commits
+
+# Did closing this PR throw work away?
+#
+# Written after a real loss. On 2026-08-04, PR #723 consolidated six open
+# PRs onto main. It merged #714 at the state it had FIVE HOURS EARLIER —
+# a single one-line doc commit — then #714 was closed as "superseded".
+# The four commits pushed in between (the whole snapTrend + Sharp Flow +
+# forward-validation body of work, CI green) were silently discarded.
+# #723 was created twenty-nine minutes after the last of them landed, so
+# this was a stale ref, not a race.
+#
+# Nothing anywhere reported it. A superseded-and-closed PR looks exactly
+# like a merged one on the PR list, and the commits are only missing if
+# you go and check. This check goes and checks.
+#
+# It deliberately does NOT try to distinguish "abandoned on purpose" from
+# "lost by accident" — that needs intent, which a workflow does not have.
+# It asks a question and leaves the answer to a human. A PR you meant to
+# abandon will trip it too; that costs one comment and is the correct
+# trade against silently losing a day of work.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check:
+    # Only unmerged closures. A merged PR's commits are on main by
+    # definition, so there is nothing to check and nothing to say.
+    if: github.event.pull_request.merged == false
+    name: Stranded commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # Ancestry needs real history. On a shallow clone
+          # `merge-base --is-ancestor` answers about the truncated graph
+          # and would report commits stranded that are simply not
+          # fetched — a false alarm on every run.
+          fetch-depth: 0
+
+      - name: Compare the PR head against main
+        id: check
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          git fetch --no-tags origin "${BASE_REF}" "${HEAD_SHA}" 2>/dev/null || true
+
+          # The PR's own commits: everything on the head not reachable
+          # from the base. Merge commits are excluded — a merge of main
+          # into the branch carries no work of its own, and reporting it
+          # as stranded is noise.
+          mapfile -t commits < <(
+            git rev-list --no-merges "${HEAD_SHA}" --not "origin/${BASE_REF}" 2>/dev/null || true
+          )
+
+          if [[ ${#commits[@]} -eq 0 ]]; then
+            echo "Nothing on this head that is not already on ${BASE_REF}."
+            echo "stranded=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          stranded=()
+          for sha in "${commits[@]}"; do
+            # An ancestor of the base landed some other way — squashed,
+            # rebased, cherry-picked, or carried in by a consolidation.
+            # That is the good case and is the reason this checks
+            # ancestry rather than whether the PR itself merged.
+            if ! git merge-base --is-ancestor "${sha}" "origin/${BASE_REF}" 2>/dev/null; then
+              stranded+=("${sha}")
+            fi
+          done
+
+          {
+            echo "stranded=${#stranded[@]}"
+            echo "total=${#commits[@]}"
+          } >> "$GITHUB_OUTPUT"
+
+          if [[ ${#stranded[@]} -eq 0 ]]; then
+            echo "All ${#commits[@]} commit(s) reached ${BASE_REF}."
+            exit 0
+          fi
+
+          # Written to a file rather than an output: subjects contain
+          # quotes, backticks and newlines, and interpolating them into
+          # a shell string is how a workflow starts executing a commit
+          # message.
+          {
+            echo "### ${#stranded[@]} of ${#commits[@]} commit(s) did not reach \`${BASE_REF}\`"
+            echo
+            echo "This PR was closed without merging, and these commits are not"
+            echo "ancestors of \`${BASE_REF}\` by any route — not squashed, not"
+            echo "rebased, not carried in by another PR:"
+            echo
+            for sha in "${stranded[@]}"; do
+              printf -- '- `%s` %s\n' \
+                "$(git rev-parse --short "${sha}")" \
+                "$(git log -1 --format=%s "${sha}" | tr -d '`')"
+            done
+            echo
+            echo "**Intentional?** If you abandoned this work, nothing to do."
+            echo "If the PR was closed as superseded, check that whatever"
+            echo "superseded it took the LATEST head — a consolidation that"
+            echo "merged a stale ref looks identical to a clean one."
+            echo
+            echo "Recover with:"
+            echo '```'
+            echo "git checkout -b recover-${{ github.event.pull_request.number }} origin/${BASE_REF}"
+            echo "git cherry-pick ${stranded[*]}"
+            echo '```'
+          } > /tmp/stranded.md
+
+          cat /tmp/stranded.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ask on the PR
+        if: steps.check.outputs.stranded != '0' && steps.check.outputs.stranded != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/stranded.md

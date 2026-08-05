@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from src.intel import platform_ledger, signals
+from src.utils.share_cap import apply_share_cap
 from src.sharp import consensus
 
 # Re-exported for the same reason as the cohort names below: the curated
@@ -42,6 +43,20 @@ from src.sharp.cohort import (  # noqa: F401
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+# Quality assigned to a movement whose manager is not in the cohort map.
+# Deliberately the FLOOR, not 1.0: a qualified member's quality is
+# `score / 100` and so is always below 1.0, which made the old 1.0
+# default rank an unrecognised manager above every genuine sharp. An
+# unknown contributor should count for the least, not the most.
+UNMATCHED_MANAGER_QUALITY = 0.0
+
+# Ceiling on any one manager's / league's share of an asset's evidence.
+# Matches `config/consensus_edge/params_v1.json` (0.34 each, ADR-011) on
+# purpose: the two boards aggregate the same movements from the same
+# cohort, and letting them bound concentration differently would mean
+# "the sharps are buying him" meant two different things on two pages.
+_CONCENTRATION_CAPS = {"manager": 0.34, "league": 0.34}
+
 _ALLOWED_WINDOWS = ("48h", "7d", "14d", "30d", "90d", "all")
 _ALLOWED_SORTS = ("strength", "net", "volume", "velocity", "buys", "sells")
 _ALLOWED_PLATFORMS = ("all", "sleeper", "ffpc")
@@ -116,6 +131,53 @@ def _fallback_asset_metadata(asset_id: str) -> dict[str, Any]:
     return _local_asset_catalog().get(asset_id, {})
 
 
+def _capped_buy_sell(entry: dict[str, Any]) -> tuple[float, float]:
+    """Buy/sell counts with per-manager and per-league concentration capped.
+
+    Consensus Edge has bounded this since ADR-011; ``src/sharp`` did not
+    bound it at all, so one manager active in ten leagues contributed ten
+    observations and ``breadth_factor = m/(m+3)`` saturated far too fast
+    to push back. Same shared implementation, same declared shares.
+
+    Returns FRACTIONAL weights, which is why they are reported beside the
+    integer counts rather than replacing them: ``volume``, ``tradeCount``
+    and ``uniqueManagers`` keep answering "what happened", and these
+    answer "how much of it should count". Conflating the two would make
+    the board misreport its own evidence.
+
+    Buys and sells are scaled by the SAME per-contributor factor, so a
+    cap can shrink a lean but can never flip its direction.
+    """
+    caps = _CONCENTRATION_CAPS
+    scales: list[dict[str, float]] = []
+    for bucket, share in (("byManager", caps["manager"]), ("byLeague", caps["league"])):
+        totals = {k: float(v["buys"] + v["sells"]) for k, v in (entry.get(bucket) or {}).items()}
+        capped = apply_share_cap(totals, share)
+        scales.append({k: (capped[k] / v if v > 0 else 1.0) for k, v in totals.items()})
+    mgr_scale, lg_scale = scales
+
+    buys = sells = 0.0
+    for manager, tally in (entry.get("byManager") or {}).items():
+        # A manager's movements are spread across leagues, so the league
+        # factor cannot be read off the manager bucket. Apply the manager
+        # factor here and the league factor in the second pass, matching
+        # how `sharp_flow.aggregate_asset` composes them per movement.
+        factor = mgr_scale.get(manager, 1.0)
+        buys += tally["buys"] * factor
+        sells += tally["sells"] * factor
+    total_mgr = buys + sells
+    lg_total = sum(
+        (tally["buys"] + tally["sells"]) * lg_scale.get(league, 1.0)
+        for league, tally in (entry.get("byLeague") or {}).items()
+    )
+    raw_total = float(entry["buys"] + entry["sells"])
+    if raw_total > 0 and total_mgr > 0:
+        league_factor = (lg_total / raw_total) if raw_total else 1.0
+        buys *= league_factor
+        sells *= league_factor
+    return buys, sells
+
+
 def _aggregate_window(
     rows: Sequence[dict[str, Any]],
     quality: dict[str, float],
@@ -143,6 +205,11 @@ def _aggregate_window(
                 "qualityObservations": 0,
                 "lastTs": None,
                 "sources": {},
+                # Per-contributor tallies, so concentration can be capped
+                # at output time. One manager active in ten leagues used
+                # to contribute ten unbounded observations.
+                "byManager": {},
+                "byLeague": {},
             },
         )
         action = row.get("action")
@@ -157,9 +224,32 @@ def _aggregate_window(
         entry["leagueKeys"].add(str(row.get("leagueKey")))
         entry["transactionKeys"].add(str(row.get("transactionKey")))
         entry["movementKeys"].add(str(row.get("movementKey")))
-        manager_quality = quality.get(str(row.get("managerKey")), 1.0)
+        # Canonical key first, raw key as the fallback — the same order
+        # the breadth dedup above uses. The two used to disagree: breadth
+        # counted `canonicalManagerKey` while quality looked up the raw
+        # `managerKey`, so one human's linked accounts deduped to one
+        # manager for breadth and were priced by whichever raw key each
+        # movement carried.
+        #
+        # The default is UNMATCHED_MANAGER_QUALITY, not 1.0. A cohort
+        # member's quality is `score/100` and is always below 1.0, so
+        # defaulting an unrecognised manager to 1.0 ranked them ABOVE
+        # every genuine sharp — an inversion that is currently
+        # unreachable (`query_movements` filters on the same key list
+        # this map is built from, so every row's key is present) but is
+        # one join change away from being live, and would fail in the
+        # flattering direction.
+        manager_quality = quality.get(
+            canonical_manager,
+            quality.get(str(row.get("managerKey")), UNMATCHED_MANAGER_QUALITY),
+        )
         entry["qualityTotal"] += manager_quality
         entry["qualityObservations"] += 1
+        league_key = str(row.get("leagueKey"))
+        is_buy = action == "add"
+        for bucket, key in (("byManager", canonical_manager), ("byLeague", league_key)):
+            tally = entry[bucket].setdefault(key, {"buys": 0, "sells": 0})
+            tally["buys" if is_buy else "sells"] += 1
         timestamp = int(row.get("timestampMs") or 0)
         if timestamp and (entry["lastTs"] is None or timestamp > entry["lastTs"]):
             entry["lastTs"] = timestamp
@@ -194,6 +284,7 @@ def _aggregate_window(
         entry["nflTeam"] = entry.get("nflTeam") or fallback.get("nflTeam")
         buys, sells = entry["buys"], entry["sells"]
         volume = buys + sells
+        weighted_buys, weighted_sells = _capped_buy_sell(entry)
         sources = {}
         for platform, source in entry["sources"].items():
             source_volume = source["buys"] + source["sells"]
@@ -214,11 +305,26 @@ def _aggregate_window(
             "assetType": entry["assetType"],
             "nflTeam": entry["nflTeam"],
             "position": entry["position"],
+            # RAW counts: what actually happened. Left integer and
+            # uncapped on purpose — `volume`, `tradeCount` and
+            # `uniqueManagers` are evidence descriptions, and a capped
+            # number in those fields would misreport the record.
             "buys": buys,
             "sells": sells,
             "net": buys - sells,
             "volume": volume,
             "buyRate": buys / volume if volume else None,
+            # CAPPED weights: how much of it should count. Per-manager
+            # and per-league concentration bounded at 0.34 each, the same
+            # bound Consensus Edge applies. These are what `strength`
+            # is computed from.
+            "weightedBuys": round(weighted_buys, 4),
+            "weightedSells": round(weighted_sells, 4),
+            "weightedNet": round(weighted_buys - weighted_sells, 4),
+            "weightedVolume": round(weighted_buys + weighted_sells, 4),
+            "concentrationCapped": (
+                round(weighted_buys + weighted_sells, 4) < round(float(volume), 4)
+            ),
             "uniqueManagers": len(entry["managerKeys"]),
             "uniqueLeagues": len(entry["leagueKeys"]),
             "tradeCount": len(entry["transactionKeys"]),
@@ -322,9 +428,13 @@ def market_payload(
             {**short_item, "_spanMs": signals.WINDOWS_MS["48h"]} if short_item else None,
             {**long_item, "_spanMs": signals.WINDOWS_MS["30d"]} if long_item else None,
         )
+        # Strength reads the CAPPED weights. This is the whole point of
+        # the cap: `net`/`volume` describe the record and must stay raw,
+        # while the number a user acts on must not be ten observations
+        # from one manager wearing the authority of ten managers.
         strength = signals.signal_strength(
-            net=item["net"],
-            volume=item["volume"],
+            net=item.get("weightedNet", item["net"]),
+            volume=item.get("weightedVolume", item["volume"]),
             unique_managers=item["uniqueManagers"],
             manager_quality=item["managerQuality"],
         )
@@ -369,6 +479,16 @@ def market_payload(
                             "tradeCount",
                             "movementCount",
                             "lastTs",
+                            # The capped weights travel with the raw
+                            # counts. A consumer that sees `volume: 10`
+                            # and no `weightedVolume` cannot tell one
+                            # manager from ten, which is the whole
+                            # distinction the cap exists to draw.
+                            "weightedBuys",
+                            "weightedSells",
+                            "weightedNet",
+                            "weightedVolume",
+                            "concentrationCapped",
                         )
                     }
                 },
