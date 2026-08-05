@@ -16,6 +16,7 @@ import {
   EDGE_CAUTION_RANK_LIMIT,
   EDGE_PREMIUM_RANK_LIMIT,
   PREMIUM_SUMMARY_SPREAD,
+  PREMIUM_SUMMARY_MAGNITUDE,
 } from "@/lib/thresholds";
 import { getRetailLabel } from "@/lib/dynasty-data";
 import {
@@ -134,35 +135,32 @@ export default function EdgePage() {
     [eligible],
   );
 
-  const retailPremium = useMemo(
-    () =>
-      eligible
-        .filter(
-          (r) =>
-            r.marketGapDirection === "retail_premium" &&
-            (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD &&
-            !r.quarantined &&
-            isTopRankedForEdgePremium(r),
-        )
-        .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
-        .slice(0, EDGE_PREMIUM_LIMIT),
-    [eligible],
-  );
+  // AUDIT S-3 — these two panels display the SIGN of the market gap and
+  // used to gate and sort on ``sourceRankSpread``, which measures how much
+  // the sources disagree with EACH OTHER.  Two different quantities: a
+  // clean, large retail-vs-consensus gap on a player every source agrees
+  // about was excluded outright, while a negligible gap on a player the
+  // sources were arguing over sorted to the top.  The spread gate also
+  // barely filtered — measured on the live board it admitted 376 of the
+  // 414 rows carrying a gap.
+  //
+  // ``marketGapMagnitude`` — the magnitude OF the direction being filtered
+  // on — was stamped by the backend all along and read by nothing here.
+  const premiumBy = (direction) =>
+    eligible
+      .filter(
+        (r) =>
+          r.marketGapDirection === direction &&
+          (r.marketGapMagnitude ?? 0) >= PREMIUM_SUMMARY_MAGNITUDE &&
+          !r.quarantined &&
+          isTopRankedForEdgePremium(r),
+      )
+      .sort((a, b) => (b.marketGapMagnitude ?? 0) - (a.marketGapMagnitude ?? 0))
+      .slice(0, EDGE_PREMIUM_LIMIT);
 
-  const consensusPremium = useMemo(
-    () =>
-      eligible
-        .filter(
-          (r) =>
-            r.marketGapDirection === "consensus_premium" &&
-            (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD &&
-            !r.quarantined &&
-            isTopRankedForEdgePremium(r),
-        )
-        .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
-        .slice(0, EDGE_PREMIUM_LIMIT),
-    [eligible],
-  );
+  const retailPremium = useMemo(() => premiumBy("retail_premium"), [eligible]);
+
+  const consensusPremium = useMemo(() => premiumBy("consensus_premium"), [eligible]);
 
   // ── IDP Buy/Sell — IDPTC as the retail anchor ──────────────────────
   // KTC doesn't list IDP, so defenders never surface in the offense

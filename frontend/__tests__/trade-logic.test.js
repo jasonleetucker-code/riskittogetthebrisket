@@ -866,7 +866,13 @@ describe("getPlayerEdge", () => {
     expect(result.signal).toBeNull();
   });
 
-  it("returns no signal when the market-gap magnitude is below 3 ranks", () => {
+  it("returns no signal when the market-gap magnitude is below the shared floor", () => {
+    // Batch C4: the unit changed from ordinal ranks to rank-space
+    // per-mille net of positional basis, and the floor moved from a
+    // local MIN_EDGE_RANK_GAP=3 (which admitted essentially every
+    // row) to the shared MIN_EDGE_MAGNITUDE. Fixture magnitudes below
+    // were scaled to match the new unit; this one stays under the
+    // floor on purpose.
     const row = {
       values: { full: 5000 },
       canonicalSites: { ktc: 5200 },
@@ -884,11 +890,11 @@ describe("getPlayerEdge", () => {
       values: { full: 9000 },
       canonicalSites: { ktc: 7000 },
       marketGapDirection: "consensus_premium",
-      marketGapMagnitude: 6,
+      marketGapMagnitude: 60,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("BUY");
-    expect(result.rankGap).toBe(6);
+    expect(result.rankGap).toBe(60);
     expect(result.edgePct).toBeGreaterThan(0);
   });
 
@@ -899,17 +905,17 @@ describe("getPlayerEdge", () => {
       values: { full: 5000 },
       canonicalSites: { ktc: 6800 },
       marketGapDirection: "retail_premium",
-      marketGapMagnitude: 8,
+      marketGapMagnitude: 80,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("SELL");
-    expect(result.rankGap).toBe(8);
+    expect(result.rankGap).toBe(80);
   });
 
   it("falls back to rank-gap for edgePct when per-source values are missing", () => {
     const row = {
       marketGapDirection: "consensus_premium",
-      marketGapMagnitude: 5,
+      marketGapMagnitude: 50,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("BUY");

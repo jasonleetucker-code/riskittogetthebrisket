@@ -347,6 +347,7 @@ class TestSurfaceHarness(unittest.TestCase):
             {
                 "ros_direction",  # C0 — the ladder itself (R-2)
                 "ros_deadline",  # C3 — its caller (N-2), where absence became "Seller"
+                "market_gap",  # C4 — retail vs consensus (S-1/S-2/S-3)
                 "faab_bid",
                 "news_polarity",
                 "trade_verdict",
@@ -377,6 +378,44 @@ class TestSurfaceHarness(unittest.TestCase):
             if k.startswith("ros_deadline/") and "covered" in k
         ]
         self.assertTrue(min(r["sortPosition"] for r in absent.values()) > max(covered))
+
+    def test_ranks_are_compared_in_rank_space_not_ordinals(self) -> None:
+        """S-1, pinned at the harness level.
+
+        Retail rank 10 of 100 versus consensus rank 50 of 1000: ordinal
+        arithmetic called this a 40-rank retail premium, and in the only
+        space where two boards of different depth can be compared it is
+        a consensus premium. If this row ever reads "retail_premium"
+        again, the ordinal comparison is back.
+        """
+        row = self.rows["market_gap/depth_mismatch_10v50,WR"]
+        self.assertEqual(row["label"], "consensus_premium")
+
+    def test_a_tight_end_on_its_basis_is_not_a_signal(self) -> None:
+        """S-2, pinned at the harness level.
+
+        The retail anchor is a TE-premium board, so an ordinary tight
+        end shows a positive raw gap. That is the basis, not a
+        mispricing — the absolute number survives, the signal does not.
+        """
+        row = self.rows["market_gap/te_on_basis,TE"]
+        self.assertEqual(row["label"], "none")
+        self.assertEqual(row["value"], 0.0)
+        self.assertGreater(row["absolute"], 0)
+
+    def test_abstentions_say_which_kind_they_are(self) -> None:
+        """All of these used to be one undifferentiated "none", which is
+        why the frontend grew its own copy of the computation."""
+        expected = {
+            "market_gap/retail_only,WR": "retail_only",
+            "market_gap/consensus_only_every_defender,WR": "consensus_only",
+            "market_gap/unranked,WR": "unranked",
+            "market_gap/no_basis_for_position,K": "position_sample_too_small",
+        }
+        for key, reason in expected.items():
+            with self.subTest(row=key):
+                self.assertEqual(self.rows[key]["label"], "none")
+                self.assertEqual(self.rows[key]["unknownReason"], reason)
 
     def test_a_measured_zero_still_sells(self) -> None:
         """The control on the batch above: real signal is not silenced."""

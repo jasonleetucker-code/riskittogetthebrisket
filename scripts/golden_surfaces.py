@@ -158,6 +158,61 @@ def _ros_deadline_rows() -> dict[str, dict]:
     return rows
 
 
+# ── Market gap (retail vs consensus) ──────────────────────────────────
+# S-1/S-2/S-3.  The grid varies the two things the audit says were
+# conflated: the DEPTH of the board each rank came from, and the
+# POSITION whose basis the gap has to be measured against.  Fixed
+# synthetic ranks rather than live rows, so the capture is deterministic
+# and a data refresh cannot masquerade as a code change.
+#
+# The (10, 50) pair on mismatched depths is the reproduction: ordinal
+# arithmetic called it a 40-rank retail premium, and in rank space it is
+# a consensus premium.
+_MARKET_GAP_DEPTHS = {"ktcSfTep": 100, "idpTradeCalc": 1000, "dlfIdp": 1000}
+_MARKET_GAP_BASIS = {"WR": 0.0, "TE": 0.100, "PICK": -0.100}
+_MARKET_GAP_CASES = [
+    # (label, ranks, position)
+    ("depth_mismatch_10v50", {"ktcSfTep": 10, "idpTradeCalc": 50}, "WR"),
+    ("depth_mismatch_50v10", {"ktcSfTep": 50, "idpTradeCalc": 10}, "WR"),
+    ("retail_far_higher", {"ktcSfTep": 5, "idpTradeCalc": 800}, "WR"),
+    ("consensus_far_higher", {"ktcSfTep": 95, "idpTradeCalc": 100}, "WR"),
+    ("exact_tie", {"ktcSfTep": 30, "idpTradeCalc": 300}, "WR"),
+    ("multi_consensus", {"ktcSfTep": 10, "idpTradeCalc": 400, "dlfIdp": 600}, "WR"),
+    # A tight end sitting exactly on its basis is an ORDINARY tight end,
+    # not a sell candidate — the S-2 case in miniature.
+    ("te_on_basis", {"ktcSfTep": 10, "idpTradeCalc": 200}, "TE"),
+    ("te_above_basis", {"ktcSfTep": 10, "idpTradeCalc": 400}, "TE"),
+    ("te_below_basis", {"ktcSfTep": 40, "idpTradeCalc": 200}, "TE"),
+    ("pick_on_basis", {"ktcSfTep": 50, "idpTradeCalc": 400}, "PICK"),
+    # Abstentions, which used to be one undifferentiated "none".
+    ("retail_only", {"ktcSfTep": 10}, "WR"),
+    ("consensus_only_every_defender", {"idpTradeCalc": 10, "dlfIdp": 20}, "WR"),
+    ("unranked", {}, "WR"),
+    ("no_basis_for_position", {"ktcSfTep": 10, "idpTradeCalc": 200}, "K"),
+]
+
+
+def _market_gap_rows() -> dict[str, dict]:
+    from src.api.data_contract import _compute_market_gap
+
+    rows: dict[str, dict] = {}
+    for label, ranks, position in _MARKET_GAP_CASES:
+        direction, magnitude, absolute, unknown = _compute_market_gap(
+            ranks,
+            _MARKET_GAP_DEPTHS,
+            position,
+            _MARKET_GAP_BASIS,
+            retail_keys=frozenset({"ktcSfTep"}),
+        )
+        rows[f"market_gap/{label},{position}"] = {
+            "value": _num(magnitude),
+            "absolute": _num(absolute),
+            "label": direction,
+            "unknownReason": (unknown or {}).get("reason"),
+        }
+    return rows
+
+
 # ── FAAB bid desk ─────────────────────────────────────────────────────
 # The grid varies the two quantities W-2 says the bid should NOT be a
 # pure function of (the candidate's value and the best asset on the
@@ -233,6 +288,7 @@ def _news_polarity_rows() -> dict[str, dict]:
 _SURFACES = {
     "ros_direction": _ros_direction_rows,
     "ros_deadline": _ros_deadline_rows,
+    "market_gap": _market_gap_rows,
     "faab_bid": _faab_rows,
     "news_polarity": _news_polarity_rows,
 }

@@ -60,55 +60,66 @@ describe("confBadgeLabel", () => {
 });
 
 describe("marketGapLabel", () => {
-  it("returns KTC label when KTC ranks higher than consensus mean", () => {
-    // KTC 5 vs mean(IDPTC 50) = 50 → KTC premium 45
-    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50 } })).toBe("KTC +45");
-  });
-  it("returns Consensus label when consensus mean ranks higher than KTC", () => {
-    // KTC 80 vs mean(IDPTC 10) = 10 → Consensus premium 70
-    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 80, idpTradeCalc: 10 } })).toBe("Consensus +70");
-  });
-  it("averages multiple consensus sources", () => {
-    // KTC 10 vs mean(IDPTC 50, DLF 70) = 60 → KTC premium 50
+  // REVERSAL RECORDED IN PLACE (audit S-1/C19 + S-4/C10, batch C4).
+  //
+  // These tests used to feed `sourceRanks` in and assert ordinal
+  // arithmetic on the way out — `{ktcSfTep: 5, idpTradeCalc: 50}` was
+  // expected to render "KTC +45". That asserted TWO defects as correct:
+  //
+  //   1. that a rank difference of 45 means the same thing on boards
+  //      278 and 900 rows deep (it does not — normalizing flipped the
+  //      sign on 42% of offense rows), and
+  //   2. that this function should compute the gap AT ALL. It was a
+  //      client-side reimplementation of the backend's
+  //      `_compute_market_gap`, i.e. a second authority for a number the
+  //      contract already stamps — the same shape as the
+  //      `computeUnifiedRanks` fallback that was removed from buildRows.
+  //
+  // Both are gone. The helper now reads `marketGapDirection` /
+  // `marketGapMagnitude` verbatim, and the number is rank-space
+  // per-mille net of positional basis, not an ordinal rank gap.
+  it("renders the backend's retail premium", () => {
     expect(
-      marketGapLabel({ sourceRanks: { ktcSfTep: 10, idpTradeCalc: 50, dlfIdp: 70 } })
+      marketGapLabel({ marketGapDirection: "retail_premium", marketGapMagnitude: 45 })
+    ).toBe("KTC +45");
+  });
+  it("renders the backend's consensus premium", () => {
+    expect(
+      marketGapLabel({ marketGapDirection: "consensus_premium", marketGapMagnitude: 70 })
+    ).toBe("Consensus +70");
+  });
+  it("rounds the magnitude for display", () => {
+    expect(
+      marketGapLabel({ marketGapDirection: "retail_premium", marketGapMagnitude: 50.4 })
     ).toBe("KTC +50");
   });
-  it("returns null for small differences", () => {
-    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 10, idpTradeCalc: 15 } })).toBeNull();
+  it("returns null below the label threshold", () => {
+    expect(
+      marketGapLabel({ marketGapDirection: "retail_premium", marketGapMagnitude: 5 })
+    ).toBeNull();
   });
-  it("returns null when KTC is missing", () => {
-    expect(marketGapLabel({ sourceRanks: { idpTradeCalc: 20, dlfIdp: 30 } })).toBeNull();
+  it("returns null when the backend reported no direction", () => {
+    expect(
+      marketGapLabel({ marketGapDirection: "none", marketGapUnknown: { reason: "consensus_only" } })
+    ).toBeNull();
   });
-  it("returns null when only KTC is present", () => {
-    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 10 } })).toBeNull();
-  });
-  it("returns null for no sourceRanks", () => {
+  it("returns null for an unstamped row", () => {
     expect(marketGapLabel({})).toBeNull();
   });
   it("returns null for null row", () => {
     expect(marketGapLabel(null)).toBeNull();
   });
-  it("prefers effectiveSourceRanks over sourceRanks when present", () => {
-    // sourceRanks contains a Hampel-dropped outlier (ktc: 200) that
-    // would otherwise pull the retail mean way out.  effectiveSourceRanks
-    // reflects the post-Hampel set the backend uses for its own
-    // marketGapDirection — frontend must agree.
-    const row = {
-      sourceRanks: { ktcSfTep: 200, idpTradeCalc: 10, dlfIdp: 20 },
-      effectiveSourceRanks: { idpTradeCalc: 10, dlfIdp: 20 },
-    };
-    // KTC dropped → no retail rank → null per the "KTC missing" rule.
-    expect(marketGapLabel(row)).toBeNull();
-  });
-  it("falls back to sourceRanks when effectiveSourceRanks is empty", () => {
-    // Legacy / pre-Hampel payloads stamp effectiveSourceRanks as {}.
-    // Display helpers must still work off sourceRanks in that case.
-    const row = {
-      sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50 },
-      effectiveSourceRanks: {},
-    };
-    expect(marketGapLabel(row)).toBe("KTC +45");
+  it("IGNORES per-source ranks entirely", () => {
+    // The guard on the no-frontend-recompute rule: a row whose raw
+    // ranks scream "huge retail premium" but which the backend did not
+    // stamp must render nothing. If this ever returns a label again,
+    // the client-side gap engine has grown back.
+    expect(
+      marketGapLabel({
+        sourceRanks: { ktcSfTep: 5, idpTradeCalc: 500 },
+        effectiveSourceRanks: { ktcSfTep: 5, idpTradeCalc: 500 },
+      })
+    ).toBeNull();
   });
 });
 
@@ -159,54 +170,71 @@ describe("isEligibleForAnalysis", () => {
 // ── marketAction (BUY / SELL / HOLD) ────────────────────────────────
 
 describe("marketAction", () => {
-  // Build a row with rank dict matching the retail/expert split.
-  // Retail = ktc by default; everything else = expert/consensus.
-  function _row({ ktc, dlf, fc }) {
-    const sourceRanks = {};
-    if (ktc != null) sourceRanks.ktcSfTep = ktc;
-    if (dlf != null) sourceRanks.dlf = dlf;
-    if (fc != null) sourceRanks.fc = fc;
-    return { sourceRanks };
-  }
+  // REVERSAL RECORDED IN PLACE (batch C4). These rows used to be built
+  // from `sourceRanks` and the verb derived by re-averaging them on the
+  // client. The helper now reads the backend's stamps, so the fixtures
+  // are stamps — which is also the point: there is one place a BUY/SELL
+  // verb can come from, and it is the contract.
+  const stamped = (direction, magnitude, extra = {}) => ({
+    marketGapDirection: direction,
+    marketGapMagnitude: magnitude,
+    ...extra,
+  });
 
-  it("BUY when experts rank well above retail (consensus_higher)", () => {
-    // ktc=50, experts=10/12 — experts 38+ ranks above retail.
-    const r = _row({ ktc: 50, dlf: 10, fc: 12 });
-    const a = marketAction(r);
+  it("BUY when experts rank above retail (consensus_premium)", () => {
+    const a = marketAction(stamped("consensus_premium", 80));
     expect(a.label).toBe("BUY");
     expect(a.kind).toBe("buy");
     expect(a.css).toBe("edge-buy");
   });
 
-  it("SELL when retail ranks well above experts (retail_higher)", () => {
-    // ktc=10, experts=50/55 — market overvalues.
-    const r = _row({ ktc: 10, dlf: 50, fc: 55 });
-    const a = marketAction(r);
+  it("SELL when retail ranks above experts (retail_premium)", () => {
+    const a = marketAction(stamped("retail_premium", 80));
     expect(a.label).toBe("SELL");
     expect(a.kind).toBe("sell");
     expect(a.css).toBe("edge-sell");
   });
 
-  it("HOLD when sides are aligned within threshold", () => {
-    const r = _row({ ktc: 25, dlf: 26, fc: 24 });
-    const a = marketAction(r);
+  it("HOLD when the gap is below the label threshold", () => {
+    const a = marketAction(stamped("retail_premium", 3));
     expect(a.label).toBe("HOLD");
     expect(a.kind).toBe("hold");
     expect(a.css).toBe("edge-hold");
   });
 
-  it("— when only retail (consensus_only would be inverse here)", () => {
-    const r = _row({ ktc: 25 });
-    const a = marketAction(r);
+  it("HOLD on a measured tie", () => {
+    const a = marketAction(stamped("none", 0));
+    expect(a.label).toBe("HOLD");
+    expect(a.kind).toBe("hold");
+  });
+
+  it("— when only retail ranked the player", () => {
+    const a = marketAction(stamped("none", null, { marketGapUnknown: { reason: "retail_only" } }));
     expect(a.label).toBe("—");
+    expect(a.kind).toBe("retail_only");
     expect(a.css).toBe("edge-none");
   });
 
-  it("— when only experts", () => {
-    const r = _row({ dlf: 25, fc: 26 });
-    const a = marketAction(r);
+  it("— when only the experts did, which is every defender", () => {
+    // The retail anchor publishes no IDP, so all 386 IDP rows on the
+    // live board land here. Before C4 this was indistinguishable from a
+    // tie, which is why the gap being unavailable for half the board
+    // was invisible.
+    const a = marketAction(
+      stamped("none", null, { marketGapUnknown: { reason: "consensus_only" } })
+    );
     expect(a.label).toBe("—");
-    expect(a.css).toBe("edge-none");
+    expect(a.kind).toBe("consensus_only");
+  });
+
+  it("— when the positional basis could not be established", () => {
+    const a = marketAction(
+      stamped("none", null, {
+        marketGapUnknown: { reason: "position_sample_too_small", detail: "too few" },
+      })
+    );
+    expect(a.label).toBe("—");
+    expect(a.kind).toBe("insufficient_basis");
   });
 
   it("— when no source ranks at all", () => {
@@ -215,11 +243,16 @@ describe("marketAction", () => {
   });
 
   it("title surfaces direction context", () => {
-    const a = marketAction(_row({ ktc: 50, dlf: 10, fc: 12 }));
+    const a = marketAction(stamped("consensus_premium", 80));
     expect(a.title.toLowerCase()).toContain("market is undervaluing");
   });
-});
 
+  it("does NOT derive a verb from per-source ranks", () => {
+    // Guard on the no-frontend-recompute rule, same as marketGapLabel's.
+    const a = marketAction({ sourceRanks: { ktcSfTep: 5, idpTradeCalc: 500 } });
+    expect(a.label).toBe("—");
+  });
+});
 
 // ── idpMarketAction (IDP BUY / SELL / HOLD vs IDPTC) ────────────────
 

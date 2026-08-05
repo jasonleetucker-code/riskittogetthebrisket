@@ -12,6 +12,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from src.api import rank_space
+from src.api.thresholds import threshold
 from src.data_models.contracts import utc_now_iso
 
 _LOGGER = logging.getLogger(__name__)
@@ -3003,56 +3005,165 @@ def _active_sources(
     return out
 
 
+def market_gap_position(row: dict[str, Any]) -> str:
+    """The group a row's market gap is de-meaned within.
+
+    Picks are their own group rather than a position: they are the
+    second-largest basis offset on the board (-109 per-mille, measured
+    2026-08-05) and nothing about "PICK" as a position label would carry
+    that.
+    """
+    if str(row.get("assetClass") or "").lower() == "pick":
+        return "PICK"
+    return str(row.get("position") or "").strip().upper() or "UNKNOWN"
+
+
+def _absolute_market_gap(
+    source_ranks: dict[str, Any],
+    depths: dict[str, int],
+    retail_keys: set[str] | frozenset[str],
+) -> tuple[float | None, str | None]:
+    """Retail-vs-consensus gap in rank space, before de-meaning.
+
+    Returns ``(gap, None)`` or ``(None, reason)``.  The reason matters:
+    "only retail ranked this player", "only the experts did" and "nobody
+    did" are three different facts, and the previous implementation
+    collapsed all of them into a bare ``"none"``.  That is precisely why
+    ``frontend/lib/display-helpers.js`` grew its own copy of this
+    computation — it needed the distinction and the contract did not
+    carry it.
+    """
+    retail_present = [k for k in source_ranks if k in retail_keys]
+    consensus_present = [k for k in source_ranks if k not in retail_keys]
+    if not retail_present and not consensus_present:
+        return None, "unranked"
+    if not retail_present:
+        return None, "consensus_only"
+    if not consensus_present:
+        return None, "retail_only"
+
+    retail_mean, _ = rank_space.mean_rank_space(source_ranks, depths, retail_present)
+    consensus_mean, _ = rank_space.mean_rank_space(source_ranks, depths, consensus_present)
+    if retail_mean is None:
+        return None, "retail_depth_unknown"
+    if consensus_mean is None:
+        return None, "consensus_depth_unknown"
+    # Positive → retail places the player higher up its own board than
+    # the consensus places them on theirs.
+    return consensus_mean - retail_mean, None
+
+
 def _compute_market_gap(
-    source_ranks: dict[str, int],
+    source_ranks: dict[str, Any],
+    depths: dict[str, int],
+    position: str,
+    position_basis: dict[str, float],
     retail_keys: set[str] | frozenset[str] | None = None,
-) -> tuple[str, float | None]:
+) -> tuple[str, float | None, float | None, dict[str, str] | None]:
     """Quantify the disagreement between retail and expert consensus.
 
-    "Market gap" frames the retail market (sources flagged `is_retail`
-    in the registry — today just KTC) against every other registered
-    source (the expert consensus — IDPTC, DLF, and any future non-retail
-    source).  Both sides are averaged, and the gap is the ordinal rank
-    difference between the two means.
+    "Market gap" frames the retail market (sources flagged ``is_retail``
+    in the registry — today just ``ktcSfTep``) against every other
+    registered source, and asks whether retail is pricing a player above
+    or below where the experts have them.  A retail premium is a
+    sell-into-retail signal; a consensus premium is a buy-low.
 
-    A retail premium means retail ranks the player higher (lower rank
-    number) than consensus — i.e. the retail market is pricing the
-    player above where the experts have them.  A consensus premium is
-    the reverse: the experts value the player more than retail does,
-    making them a potential "buy low" from a retail-first trade partner.
+    TWO THINGS CHANGED HERE IN BATCH C4, both measured on the live board
+    rather than reasoned about (audit S-1/C19 and S-2/C08):
 
-    Returns (direction, magnitude) where direction is one of:
-      "retail_premium"     — retail mean rank is lower number than consensus mean
-      "consensus_premium"  — consensus mean rank is lower number than retail mean
-      "none"               — tie, or either side has zero sources present
+    1. **The comparison is in rank space, not raw ordinals.**  The
+       sources publish boards 278 to 900 rows deep, so averaging their
+       ordinals compares numbers that do not mean the same thing.  On
+       AJ Barner, draftSharks rank 143 (of 683) is a BETTER placement
+       than ktcSfTep rank 121 (of 469), and ordinal arithmetic said the
+       reverse.  Normalizing flipped the sign on 42% of offense rows and
+       35 of 36 picks.
 
-    magnitude is the absolute ordinal rank difference between the two
-    means as a float, or None when the comparison cannot be made (one
-    side has no source ranks on this row).  Magnitude is 0.0 on a tie.
+    2. **The positional basis is subtracted.**  The retail anchor is a
+       TE-premium board and this pipeline's own values are anchored on
+       it (ADR-015), so "retail ranks this tight end higher" restates
+       the basis rather than reporting a mispricing.  Measured median
+       gap by position: TE +121, PICK -109, versus WR +20 / RB +16 /
+       QB -7 per-mille.  Left in, that constant made 94% of tight ends
+       and 97% of picks read SELL.  Note that percentile normalization
+       ALONE does not fix this — measured, it moved the tight ends from
+       68/72 to 66/72 — because the reading was arithmetically correct
+       all along.  What was wrong was calling it a signal.
 
-    `retail_keys` is an optional override for tests; when None the set is
-    derived from `_RANKING_SOURCES` via `_retail_source_keys()`.
+    Returns ``(direction, magnitude, absolute_magnitude, unknown)``:
+
+      direction   "retail_premium" | "consensus_premium" | "none"
+      magnitude   de-meaned gap, rank-space per-mille, absolute value.
+                  This is the SIGNAL — what panels gate and sort on.
+      absolute    the same gap before de-meaning, same unit.  Kept
+                  because it is what you actually capture trading a
+                  tight end to a partner who prices off KTC, which the
+                  de-meaned number deliberately hides.
+      unknown     ``{"reason": ..., "detail": ...}`` when there is no
+                  direction, else None.  Stamped via ``utils.unknown``
+                  so an absent gap is distinguishable from a zero one.
+
+    ``retail_keys`` is an optional override for tests; when None the set
+    is derived from ``_RANKING_SOURCES`` via ``_retail_source_keys()``.
     """
     if retail_keys is None:
         retail_keys = _retail_source_keys()
 
-    retail_ranks = [
-        rank for key, rank in source_ranks.items() if key in retail_keys and rank is not None
-    ]
-    consensus_ranks = [
-        rank for key, rank in source_ranks.items() if key not in retail_keys and rank is not None
-    ]
-    if not retail_ranks or not consensus_ranks:
-        return "none", None
+    absolute, reason = _absolute_market_gap(source_ranks, depths, retail_keys)
+    if absolute is None:
+        return "none", None, None, _market_gap_unknown(reason or "unranked", position)
 
-    retail_mean = sum(retail_ranks) / len(retail_ranks)
-    consensus_mean = sum(consensus_ranks) / len(consensus_ranks)
-    diff = consensus_mean - retail_mean  # positive → retail ranks higher
-    if diff > 0:
-        return "retail_premium", float(abs(diff))
-    if diff < 0:
-        return "consensus_premium", float(abs(diff))
-    return "none", 0.0
+    absolute_per_mille = round(absolute * rank_space.PER_MILLE, 1)
+    basis = position_basis.get(position)
+    if basis is None:
+        # No basis means too few rows at this position to know what its
+        # constant is.  Reporting the raw gap anyway would present the
+        # basis AS the signal, which is the defect; so the magnitude is
+        # withheld and the absolute is still published for anyone who
+        # wants the unadjusted number.
+        return (
+            "none",
+            None,
+            absolute_per_mille,
+            _market_gap_unknown("position_sample_too_small", position),
+        )
+
+    demeaned = absolute - basis
+    magnitude = round(abs(demeaned) * rank_space.PER_MILLE, 1)
+    # A gap sitting exactly on its positional basis subtracts to zero in
+    # exact arithmetic and to a float residue in practice, and the sign
+    # of that residue is noise.  Without this guard a pick landing
+    # precisely on the pick basis came back "retail_premium" with a
+    # magnitude of 0.0 — a confident direction with nothing behind it,
+    # which is how a meaningless row reaches a BUY/SELL panel.  Anything
+    # below the published resolution (magnitudes are rounded to 0.1
+    # per-mille) is a tie, because it is not distinguishable from one.
+    if magnitude < 0.05:
+        return "none", 0.0, absolute_per_mille, None
+    if demeaned > 0:
+        return "retail_premium", magnitude, absolute_per_mille, None
+    return "consensus_premium", magnitude, absolute_per_mille, None
+
+
+_MARKET_GAP_UNKNOWN_DETAIL = {
+    "unranked": "no source ranked this player, so there is nothing to compare.",
+    "retail_only": "only the retail board ranked this player — no expert consensus to compare against.",
+    "consensus_only": "no retail board ranked this player, so there is no market price to compare against.",
+    "retail_depth_unknown": "the retail board's depth could not be established, so its rank cannot be normalized.",
+    "consensus_depth_unknown": "no consensus source's board depth could be established.",
+    "position_sample_too_small": (
+        "too few players at this position carry a market gap to establish the "
+        "positional basis, and the raw gap is mostly basis rather than signal."
+    ),
+}
+
+
+def _market_gap_unknown(reason: str, position: str) -> dict[str, str]:
+    return {
+        "reason": reason,
+        "detail": _MARKET_GAP_UNKNOWN_DETAIL.get(reason, reason),
+        "position": position,
+    }
 
 
 def _normalize_for_collision(name: str) -> str:
@@ -3356,6 +3467,9 @@ _TRUST_MIRROR_FIELDS = (
     "sourceRankPercentileSpread",
     "marketGapDirection",
     "marketGapMagnitude",
+    "marketGapAbsoluteMagnitude",
+    "marketGapUnit",
+    "marketGapUnknown",
     "identityConfidence",
     "identityMethod",
     "quarantined",
@@ -6778,6 +6892,7 @@ def _compute_unified_rankings(
     tep_native_correction: float = 1.0,
     tep_multiplier_is_override: bool = False,
     suppress_market_corridor_clamp: bool = False,
+    market_gap_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -8120,6 +8235,55 @@ def _compute_unified_rankings(
     # the denominator of a row's consensus percentile.
     total_ranked = min(len(row_normalized), OVERALL_RANK_LIMIT)
 
+    # ── Market-gap pre-pass (audit S-1/C19, S-2/C08) ────────────────
+    # The gap is a comparison BETWEEN rows as much as within one: it
+    # needs each source's board depth, and the median gap at each
+    # position, before any single row can be stamped.  Both are
+    # properties of the whole board, so they are computed once here
+    # rather than recomputed per row.
+    #
+    # ``effective_source_ranks`` is built here and reused by the loop
+    # below via ``effective_ranks_by_row``, so the post-Hampel subset
+    # has exactly ONE definition.  Computing it twice would be an
+    # invitation for the two to drift, and the gap and the confidence
+    # bands would then be measured on different source sets.
+    effective_ranks_by_row: dict[int, dict[str, Any]] = {}
+    for _, row_idx in row_normalized[:OVERALL_RANK_LIMIT]:
+        row = players_array[row_idx]
+        dropped = set(row.get("droppedSources") or [])
+        effective_ranks_by_row[row_idx] = {
+            k: v for k, v in row_source_ranks.get(row_idx, {}).items() if k not in dropped
+        }
+
+    market_gap_depths = rank_space.pool_depths(effective_ranks_by_row.values())
+    _retail_keys = _retail_source_keys()
+    _absolute_gaps_by_position: dict[str, list[float]] = {}
+    for row_idx, eff_ranks in effective_ranks_by_row.items():
+        absolute, _reason = _absolute_market_gap(eff_ranks, market_gap_depths, _retail_keys)
+        if absolute is None:
+            continue
+        position = market_gap_position(players_array[row_idx])
+        _absolute_gaps_by_position.setdefault(position, []).append(absolute)
+    market_gap_basis = rank_space.position_basis(
+        _absolute_gaps_by_position,
+        min_sample=int(threshold("MARKET_GAP_MIN_POSITION_N")),
+    )
+    if market_gap_diagnostics is not None:
+        # Published into the methodology block.  The basis is the part
+        # of each position's gap this pipeline calls definitional rather
+        # than tradeable, so it is the single number a reader needs to
+        # check whether the de-meaning is doing something reasonable.
+        # Hiding it would make the correction unfalsifiable.
+        market_gap_diagnostics["positionBasisPerMille"] = {
+            pos: round(val * rank_space.PER_MILLE, 1)
+            for pos, val in sorted(market_gap_basis.items())
+        }
+        market_gap_diagnostics["positionSampleSize"] = {
+            pos: len(gaps) for pos, gaps in sorted(_absolute_gaps_by_position.items())
+        }
+        market_gap_diagnostics["sourceDepths"] = dict(sorted(market_gap_depths.items()))
+        market_gap_diagnostics["unit"] = rank_space.RANK_SPACE_UNIT
+
     for overall_idx, (norm_val, row_idx) in enumerate(row_normalized[:OVERALL_RANK_LIMIT]):
         row = players_array[row_idx]
         overall_rank = overall_idx + 1
@@ -8142,7 +8306,9 @@ def _compute_unified_rankings(
         row["sourceCount"] = len(source_ranks)
 
         dropped_set = set(row.get("droppedSources") or [])
-        effective_source_ranks = {k: v for k, v in source_ranks.items() if k not in dropped_set}
+        # Built in the market-gap pre-pass above so the post-Hampel
+        # subset has one definition rather than two that can drift.
+        effective_source_ranks = effective_ranks_by_row[row_idx]
         effective_source_meta = {k: v for k, v in source_meta.items() if k not in dropped_set}
         # Publish the post-Hampel rank map so frontend display helpers
         # (frontend/lib/display-helpers.js::marketEdge / marketGapLabel)
@@ -8199,9 +8365,21 @@ def _compute_unified_rankings(
             and percentile_spread > _DISAGREEMENT_BASE_THRESHOLD + depth_allowance
         )
 
-        gap_dir, gap_mag = _compute_market_gap(effective_source_ranks)
+        gap_dir, gap_mag, gap_abs, gap_unknown = _compute_market_gap(
+            effective_source_ranks,
+            market_gap_depths,
+            market_gap_position(row),
+            market_gap_basis,
+            retail_keys=_retail_keys,
+        )
         row["marketGapDirection"] = gap_dir
         row["marketGapMagnitude"] = gap_mag
+        row["marketGapAbsoluteMagnitude"] = gap_abs
+        row["marketGapUnit"] = rank_space.RANK_SPACE_UNIT
+        if gap_unknown is None:
+            row.pop("marketGapUnknown", None)
+        else:
+            row["marketGapUnknown"] = gap_unknown
 
         # Picks get their own confidence logic (CV-based on raw values),
         # because rank-spread is dominated by flat-value regions in
@@ -9200,6 +9378,7 @@ def build_api_data_contract(
     # threaded through the same path so TE premium is a
     # backend-authoritative adjustment baked into every ``rankDerivedValue``
     # stamp before the delta / full contract is materialized.
+    market_gap_diagnostics: dict[str, Any] = {}
     pick_aliases = _compute_unified_rankings(
         players_array,
         players_by_name,
@@ -9210,6 +9389,7 @@ def build_api_data_contract(
         tep_native_correction=tep_native_correction,
         tep_multiplier_is_override=(tep_multiplier_source == "override"),
         suppress_market_corridor_clamp=suppress_market_corridor_clamp,
+        market_gap_diagnostics=market_gap_diagnostics,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -9349,6 +9529,24 @@ def build_api_data_contract(
             "scopeMasters": "see the hillCurves contract block for per-scope (c, s)",
             "scaleMin": 1,
             "scaleMax": 9999,
+        },
+        "marketGap": {
+            "description": (
+                "Retail (is_retail sources) versus expert consensus, compared in "
+                "RANK SPACE — each source's rank divided by the depth of its own "
+                "board — because the registered sources publish boards between "
+                "278 and 900 rows deep and their ordinals are not comparable. "
+                "The published magnitude then has the position's median gap "
+                "subtracted: the retail anchor is a TE-premium board and this "
+                "board is anchored on it (ADR-015), so a tight end's raw gap is "
+                "mostly a restatement of that basis rather than a mispricing. "
+                "marketGapAbsoluteMagnitude carries the number before that "
+                "subtraction, which is what a trade with a retail-anchored "
+                "partner actually turns on."
+            ),
+            "unit": rank_space.RANK_SPACE_UNIT,
+            "retailSources": sorted(_retail_source_keys()),
+            **market_gap_diagnostics,
         },
         "idpTranslation": {
             "description": (
@@ -9547,6 +9745,9 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "confidenceLabel",
     "marketGapDirection",
     "marketGapMagnitude",
+    "marketGapAbsoluteMagnitude",
+    "marketGapUnit",
+    "marketGapUnknown",
     "anomalyFlags",
     "canonicalTierId",
     "marketConfidence",

@@ -5,7 +5,7 @@
 // Tests: frontend/__tests__/display-helpers.test.js
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { MARKET_GAP_MIN_DIFF } from "./thresholds.js";
+import { MARKET_GAP_MIN_MAGNITUDE, MARKET_GAP_MIN_DIFF } from "./thresholds.js";
 import { getRetailSourceKeys, getRetailLabel } from "./dynasty-data.js";
 
 /**
@@ -103,85 +103,88 @@ export function isEligibleForAnalysis(row) {
  */
 export function marketEdge(row) {
   const retailLabel = getRetailLabel();
-  // Prefer ``effectiveSourceRanks`` (post-Hampel filter on the
-  // backend) when present so retail-vs-consensus edge labels stay in
-  // lockstep with backend marketGapDirection / confidence /
-  // anomalyFlags.  Fall back to ``sourceRanks`` for legacy payloads.
-  const ranks =
-    row?.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
-      ? row.effectiveSourceRanks
-      : row?.sourceRanks;
-  if (!ranks || Object.keys(ranks).length === 0) {
+  const direction = String(row?.marketGapDirection || "");
+  const magnitude = Number(row?.marketGapMagnitude);
+  const reason = row?.marketGapUnknown?.reason;
+
+  // No direction. The backend now says WHY, which is the whole reason
+  // this function no longer computes anything: it used to rebuild the
+  // retail/consensus means locally because the contract collapsed
+  // "only retail ranked him", "only the experts did" and "nobody did"
+  // into one bare "none" and it needed the distinction.
+  if (!direction || direction === "none" || !Number.isFinite(magnitude)) {
+    if (reason === "consensus_only") {
+      return {
+        label: "expert only",
+        css: "edge-none",
+        kind: "consensus_only",
+        title: `No ${retailLabel} rank for this player — only expert/consensus sources contributed.`,
+      };
+    }
+    if (reason === "retail_only") {
+      return {
+        label: `${retailLabel} only`,
+        css: "edge-none",
+        kind: "retail_only",
+        title: `No expert/consensus rank for this player — only ${retailLabel} contributed.`,
+      };
+    }
+    if (reason === "position_sample_too_small") {
+      return {
+        label: "—",
+        css: "edge-none",
+        kind: "insufficient_basis",
+        title:
+          row?.marketGapUnknown?.detail ||
+          "Too few players at this position to separate signal from positional basis.",
+      };
+    }
+    // A measured tie is direction "none" WITH a finite magnitude — the
+    // backend computed the gap and it came out at zero. Everything else
+    // here is an absence, and the two must not render alike: "aligned"
+    // is a confident statement that the market and the experts agree,
+    // and an unstamped row supports no such claim. Getting this wrong
+    // is the C3 defect one layer up, and the test below is what caught
+    // it in this very function.
+    if (direction === "none" && Number.isFinite(magnitude)) {
+      return {
+        label: "aligned",
+        css: "edge-aligned",
+        kind: "aligned",
+        title: `${retailLabel} and expert consensus agree once board depth and positional basis are accounted for.`,
+      };
+    }
     return {
       label: "unranked",
       css: "edge-none",
       kind: "unranked",
-      title: "This player has no per-source ranks available.",
-    };
-  }
-  const retailKeys = new Set(getRetailSourceKeys());
-
-  const retailRanks = Object.entries(ranks)
-    .filter(([key, rank]) => retailKeys.has(key) && rank != null)
-    .map(([, rank]) => Number(rank))
-    .filter((n) => Number.isFinite(n));
-
-  const consensusRanks = Object.entries(ranks)
-    .filter(([key, rank]) => !retailKeys.has(key) && rank != null)
-    .map(([, rank]) => Number(rank))
-    .filter((n) => Number.isFinite(n));
-
-  if (retailRanks.length === 0 && consensusRanks.length > 0) {
-    return {
-      label: "expert only",
-      css: "edge-none",
-      kind: "consensus_only",
-      title: `No ${retailLabel} rank for this player — only expert/consensus sources contributed.`,
-    };
-  }
-  if (consensusRanks.length === 0 && retailRanks.length > 0) {
-    return {
-      label: `${retailLabel} only`,
-      css: "edge-none",
-      kind: "retail_only",
-      title: `No expert/consensus rank for this player — only ${retailLabel} contributed.`,
-    };
-  }
-  if (retailRanks.length === 0 && consensusRanks.length === 0) {
-    return {
-      label: "unranked",
-      css: "edge-none",
-      kind: "unranked",
-      title: "This player has no per-source ranks available.",
+      title:
+        row?.marketGapUnknown?.detail ||
+        "No market gap was stamped for this player, so there is nothing to compare.",
     };
   }
 
-  const retailMean = retailRanks.reduce((s, v) => s + v, 0) / retailRanks.length;
-  const consensusMean =
-    consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length;
-  const diff = Math.round(Math.abs(consensusMean - retailMean));
-
-  if (diff < MARKET_GAP_MIN_DIFF) {
+  if (magnitude < MARKET_GAP_MIN_MAGNITUDE) {
     return {
       label: "aligned",
       css: "edge-aligned",
       kind: "aligned",
-      title: `${retailLabel} and expert consensus agree within ${MARKET_GAP_MIN_DIFF} ranks (actual difference: ${diff}).`,
+      title: `${retailLabel} and expert consensus agree within ${MARKET_GAP_MIN_MAGNITUDE} (actual: ${Math.round(magnitude)}).`,
     };
   }
-  if (retailMean < consensusMean) {
+  if (direction === "retail_premium") {
     return {
-      label: `${retailLabel} higher by ${diff}`,
+      label: `${retailLabel} higher by ${Math.round(magnitude)}`,
       css: "edge-retail",
       kind: "retail_higher",
-      title: `${retailLabel} ranks this player ~${diff} ordinal ranks above expert consensus.`,
+      title: `${retailLabel} places this player ${Math.round(magnitude)} higher than expert consensus, measured in rank space and net of the positional basis.`,
     };
   }
   return {
-    label: `Experts higher by ${diff}`,
+    label: `Experts higher by ${Math.round(magnitude)}`,
     css: "edge-consensus",
     kind: "consensus_higher",
-    title: `Expert consensus ranks this player ~${diff} ordinal ranks above ${retailLabel}.`,
+    title: `Expert consensus places this player ${Math.round(magnitude)} higher than ${retailLabel}, measured in rank space and net of the positional basis.`,
   };
 }
 
@@ -195,12 +198,8 @@ export function marketEdge(row) {
  *   - "retail_higher"     market prices the player above experts
  *                         → market is overvaluing → SELL
  *   - "aligned"           sides agree                        → HOLD
- *   - anything else (consensus_only / retail_only / unranked)
- *                         → "—"   (insufficient data)
- *
- * Returns { label, css, title, kind } so the rankings table can
- * style the cell uniformly.  Title surfaces the underlying gap
- * for hover-debug.
+ *   - anything else (consensus_only / retail_only / unranked /
+ *     insufficient_basis)  → "—"   (insufficient data)
  */
 export function marketAction(row) {
   const edge = marketEdge(row);
@@ -236,42 +235,38 @@ export function marketAction(row) {
   };
 }
 
+/**
+ * Render the market gap as a short human string, e.g. "84 (rank-space)".
+ *
+ * The single formatter for the gap.  It exists because the /edge rails
+ * previously built their own label out of ``sourceRankSpread`` and
+ * printed "Sell +45 ranks" — a source-disagreement width, described to
+ * the user as the retail-vs-consensus gap.
+ */
+export function formatMarketGap(row) {
+  const magnitude = Number(row?.marketGapMagnitude);
+  if (!Number.isFinite(magnitude)) return "by an unknown amount";
+  return `by ${Math.round(magnitude)}`;
+}
 
 /**
- * Legacy string-only market gap label.  Retained for tests and any
- * consumer that still expects the old `"KTC +N"` / `"Consensus +N"` /
- * `null` contract.  New code should prefer `marketEdge()` which
- * returns an explicit structured object.
+ * Legacy string-only market gap label: `"KTC +N"` / `"Consensus +N"` /
+ * `null`.  Retained for consumers that still expect the string
+ * contract; new code should prefer `marketEdge()`.
+ *
+ * N IS NO LONGER AN ORDINAL RANK DIFFERENCE.  It is the backend's
+ * ``marketGapMagnitude`` in rank-space per-mille, net of positional
+ * basis — see config/thresholds.json.  The old local recompute is gone
+ * along with the raw-ordinal arithmetic that made "+45" mean something
+ * different on every source board.
  */
 export function marketGapLabel(row) {
-  // Mirror ``marketEdge``: prefer the post-Hampel ``effectiveSourceRanks``
-  // when stamped, fall back to ``sourceRanks`` for legacy payloads.
-  const ranks =
-    row?.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
-      ? row.effectiveSourceRanks
-      : row?.sourceRanks;
-  if (!ranks) return null;
-  const retailKeys = new Set(getRetailSourceKeys());
-
-  const retailRanks = Object.entries(ranks)
-    .filter(([key, rank]) => retailKeys.has(key) && rank != null)
-    .map(([, rank]) => Number(rank))
-    .filter((n) => Number.isFinite(n));
-  if (retailRanks.length === 0) return null;
-
-  const consensusRanks = Object.entries(ranks)
-    .filter(([key, rank]) => !retailKeys.has(key) && rank != null)
-    .map(([, rank]) => Number(rank))
-    .filter((n) => Number.isFinite(n));
-  if (consensusRanks.length === 0) return null;
-
-  const retailMean = retailRanks.reduce((s, v) => s + v, 0) / retailRanks.length;
-  const consensusMean =
-    consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length;
-  const diff = Math.round(Math.abs(consensusMean - retailMean));
-  if (diff < MARKET_GAP_MIN_DIFF) return null;
-  const higher = retailMean < consensusMean ? getRetailLabel() : "Consensus";
-  return `${higher} +${diff}`;
+  const direction = String(row?.marketGapDirection || "");
+  const magnitude = Number(row?.marketGapMagnitude);
+  if (direction !== "retail_premium" && direction !== "consensus_premium") return null;
+  if (!Number.isFinite(magnitude) || magnitude < MARKET_GAP_MIN_MAGNITUDE) return null;
+  const higher = direction === "retail_premium" ? getRetailLabel() : "Consensus";
+  return `${higher} +${Math.round(magnitude)}`;
 }
 
 

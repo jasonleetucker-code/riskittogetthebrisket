@@ -226,6 +226,14 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "finder_output",
         "marketGapDirection",
         "marketGapMagnitude",
+        # Batch C4 split the gap into a de-meaned signal and the raw
+        # number, and added the abstention reason.  All three are the
+        # same private edge signal in different clothes — redacting the
+        # first two and publishing the rest would hand out what this
+        # list exists to withhold.
+        "marketGapAbsoluteMagnitude",
+        "marketGapUnit",
+        "marketGapUnknown",
         "confidenceBucket",
         "anomalyFlags",
         "waiverGems",

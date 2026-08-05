@@ -165,27 +165,88 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C08": (
         "S-2",
         "src/api/data_contract.py",
-        "retail_mean = sum(retail_ranks) / len(retail_ranks)",
-        OPEN,
-        "Raw ordinals averaged across pools of different depth, and the "
-        "sole retail anchor is a TE-premium board while the consensus is "
-        "not. Same mechanism as S-1 (C19).",
+        None,
+        CLOSED,
+        "Fixed in batch C4 — but NOT by the mechanism the audit proposed, "
+        "and the measurement is the reason. The brief said the tight ends "
+        "read SELL because the sole retail anchor is a TE-premium board "
+        "and the consensus is not, implying that normalizing or splitting "
+        "the bases would fix it. Measured on the live board, neither "
+        "does: 68 of 72 TEs read retail_premium, percentile "
+        "normalization moved that to 66, restricting the consensus side "
+        "to TEP-native peers moved it to 63. Reading the rows explains "
+        "why — KTC ranks AJ Barner 121 and EVERY other source ranks him "
+        "139-248. The TE reading was arithmetically CORRECT all along; "
+        "it is the TE++ basis the whole board is anchored on (ADR-015) "
+        "showing through, and no normalization can remove a true fact.\n\n"
+        "The actual defect is that a definitional constant was being "
+        "presented as a tradeable signal. Median gap in rank space by "
+        "position: TE +121, PICK -109, against WR +20 / RB +16 / QB -7 "
+        "per-mille — a 6x separation. Subtracting each position's median "
+        "leaves the per-player disagreement, which survives rather than "
+        "being annihilated (within TEs the de-meaned gap still spans "
+        "Jack Endries -281 to Elijah Arroyo +145). Measured effect: TE "
+        "68/72 -> 36/72 retail_premium, PICK 35/36 -> 18/36, every "
+        "position balanced. marketGapAbsoluteMagnitude keeps the "
+        "pre-de-meaning number, because that is what a trade with a "
+        "KTC-anchored partner actually turns on. The basis is stamped at "
+        "methodology.marketGap so the correction is falsifiable.",
     ),
     "C09": (
         "S-3",
         "frontend/app/edge/page.jsx",
-        "(r.sourceRankSpread ?? 0) > PREMIUM_SUMMARY_SPREAD",
-        OPEN,
-        "Panels still gate and sort on sourceRankSpread while taking sign "
-        "from marketGapDirection — magnitude and sign come from different "
-        "quantities.",
+        None,
+        CLOSED,
+        "Fixed in batch C4, and it was worse than recorded. The premium "
+        "panels did not merely take magnitude and sign from different "
+        "quantities — they FILTERED and SORTED on sourceRankSpread, how "
+        "much the sources disagree with each other, while displaying "
+        "marketGapDirection's sign. So a clean large gap on a player "
+        "every source agreed about was EXCLUDED, and a negligible gap on "
+        "a player the sources were arguing over sorted FIRST: the panel "
+        "structurally surfaced its least reliable rows and hid its most "
+        "reliable. The gate also barely gated — measured, it admitted "
+        "376 of the 414 rows carrying a gap (91%). marketGapMagnitude, "
+        "the magnitude OF the direction being filtered on, was stamped "
+        "by the backend all along and read by nothing here.\n\n"
+        "Two more instances found beyond the recorded one: "
+        "edge-helpers.py's topRetailPremium/topConsensusPremium did the "
+        "same thing AND rendered it, printing 'Sell +45 ranks' where 45 "
+        "was the disagreement width described to the user as the gap. "
+        "All four now gate, sort and label on marketGapMagnitude. "
+        "PREMIUM_SUMMARY_SPREAD is retained but narrowed to the "
+        "disagreements panel and the disagreement stat, which are "
+        "genuinely about sources disagreeing.",
     ),
     "C10": (
         "S-4",
         "frontend/lib/display-helpers.js",
-        "if (diff < MARKET_GAP_MIN_DIFF)",
-        OPEN,
-        "A second, different threshold for the same backend field as the " "/edge panels use.",
+        None,
+        CLOSED,
+        "Fixed in batch C4. The recorded finding was 'a second, different "
+        "threshold', which undersold it: display-helpers.js was not just "
+        "thresholding the backend field differently, it was RECOMPUTING "
+        "the whole retail-vs-consensus comparison client-side from raw "
+        "ordinals (marketEdge, marketAction, marketGapLabel all rebuilt "
+        "the two means locally). That is a second authority for a number "
+        "the contract already stamps — the same shape as the "
+        "computeUnifiedRanks fallback removed from buildRows, and it "
+        "carried S-1 independently.\n\n"
+        "All three now read the stamps verbatim. The reason they had "
+        "grown a local copy is itself fixed: the contract used to "
+        "collapse 'only retail ranked him', 'only the experts did' and "
+        "'nobody did' into one bare \"none\", so the helper recomputed to "
+        "recover the distinction — the backend now stamps "
+        "marketGapUnknown.reason (C3's vocabulary). Four thresholds "
+        "gating one concept are now one entry each in "
+        "config/thresholds.json, with the JSON as the source, Python "
+        "LOADING it so it cannot drift, and "
+        "tests/api/test_threshold_parity.py enforcing the JS mirror — "
+        "replacing a hand-written 'mirror these Python constants' "
+        "comment. idpMarketEdge is deliberately LEFT on the ordinal "
+        "path and documented as such: the backend emits no IDP gap at "
+        "all, so deleting it would remove a working surface to satisfy "
+        "a rule. Tracked as the IDP-anchor follow-up.",
     ),
     "C11": (
         "S-6",
@@ -280,10 +341,24 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C19": (
         "S-1",
         "src/api/data_contract.py",
-        "retail_mean = sum(retail_ranks) / len(retail_ranks)",
-        OPEN,
-        "Same site and mechanism as C08 — the registry records the pool "
-        "normalization and the TE-basis consequence as separate findings.",
+        None,
+        CLOSED,
+        "Fixed in batch C4 by src/api/rank_space.py: every cross-source "
+        "rank comparison now happens in RANK SPACE (a rank divided by "
+        "the observed depth of its own board) instead of on raw "
+        "ordinals. Confirmed and quantified on the live board first — "
+        "the registered sources publish between 278 and 900 rows, a 3.2x "
+        "spread, and normalizing flips the sign of the gap on 42% of "
+        "offense rows and 35 of 36 picks (the audit said 47%/97%; the "
+        "pick figure matches exactly). The concrete case: draftSharks "
+        "rank 143 of 683 is a BETTER placement than ktcSfTep rank 121 of "
+        "469, and ordinal arithmetic said the reverse.\n\n"
+        "Depths are OBSERVED per build rather than read from the "
+        "registry's declared depth field, which is None for most sources "
+        "and describes intent rather than what arrived. Board effect "
+        "measured through the harness: 0 values, 0 ranks, 0 tiers moved; "
+        "177 marketGapDirection flips. A market_gap surface was added to "
+        "golden_surfaces.py BEFORE the claim, per the plan's trap 7.",
     ),
     "C20": (
         "V-2",

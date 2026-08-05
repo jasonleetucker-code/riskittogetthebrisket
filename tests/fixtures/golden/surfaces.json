@@ -50,6 +50,90 @@
    "reasonable": 70,
    "value": 100
   },
+  "market_gap/consensus_far_higher,WR": {
+   "absolute": -850.0,
+   "label": "consensus_premium",
+   "unknownReason": null,
+   "value": 850.0
+  },
+  "market_gap/consensus_only_every_defender,WR": {
+   "absolute": null,
+   "label": "none",
+   "unknownReason": "consensus_only",
+   "value": null
+  },
+  "market_gap/depth_mismatch_10v50,WR": {
+   "absolute": -50.0,
+   "label": "consensus_premium",
+   "unknownReason": null,
+   "value": 50.0
+  },
+  "market_gap/depth_mismatch_50v10,WR": {
+   "absolute": -490.0,
+   "label": "consensus_premium",
+   "unknownReason": null,
+   "value": 490.0
+  },
+  "market_gap/exact_tie,WR": {
+   "absolute": 0.0,
+   "label": "none",
+   "unknownReason": null,
+   "value": 0.0
+  },
+  "market_gap/multi_consensus,WR": {
+   "absolute": 400.0,
+   "label": "retail_premium",
+   "unknownReason": null,
+   "value": 400.0
+  },
+  "market_gap/no_basis_for_position,K": {
+   "absolute": 100.0,
+   "label": "none",
+   "unknownReason": "position_sample_too_small",
+   "value": null
+  },
+  "market_gap/pick_on_basis,PICK": {
+   "absolute": -100.0,
+   "label": "none",
+   "unknownReason": null,
+   "value": 0.0
+  },
+  "market_gap/retail_far_higher,WR": {
+   "absolute": 750.0,
+   "label": "retail_premium",
+   "unknownReason": null,
+   "value": 750.0
+  },
+  "market_gap/retail_only,WR": {
+   "absolute": null,
+   "label": "none",
+   "unknownReason": "retail_only",
+   "value": null
+  },
+  "market_gap/te_above_basis,TE": {
+   "absolute": 300.0,
+   "label": "retail_premium",
+   "unknownReason": null,
+   "value": 200.0
+  },
+  "market_gap/te_below_basis,TE": {
+   "absolute": -200.0,
+   "label": "consensus_premium",
+   "unknownReason": null,
+   "value": 300.0
+  },
+  "market_gap/te_on_basis,TE": {
+   "absolute": 100.0,
+   "label": "none",
+   "unknownReason": null,
+   "value": 0.0
+  },
+  "market_gap/unranked,WR": {
+   "absolute": null,
+   "label": "none",
+   "unknownReason": "unranked",
+   "value": null
+  },
   "news_polarity/LB suspended six games": {
    "impact": "negative",
    "kind": "injury",
@@ -1798,11 +1882,12 @@
  "surfaces": [
   "ros_direction(294)",
   "ros_deadline(12)",
+  "market_gap(14)",
   "faab_bid(7)",
   "news_polarity(10)",
   "js(12)"
  ],
  "totals": {
-  "rows": 335
+  "rows": 349
  }
 }
