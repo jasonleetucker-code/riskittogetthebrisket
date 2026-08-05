@@ -52,6 +52,24 @@ jobs:
           deploy_sha = os.environ.get("DEPLOY_HEAD_SHA", "")
           deploy_run = os.environ.get("DEPLOY_RUN_ID", "")
 
+          class Unauthenticated(Exception):
+              """The endpoint answered, and told us we may not look.
+
+              AUDIT O-4. ``/api/sharp/*`` sits behind the session-cookie
+              gate in ``server.py::_private_api_gate`` and this workflow
+              holds no credential — it has no ``secrets`` at all. So every
+              request returns 401, the bare ``except Exception`` below
+              filed it as a retryable blip, and the loop spent its full
+              80 attempts x 30s = 40 MINUTES before giving up. On every
+              push to main. Measured: 80/80 attempts 401, 79 runs.
+
+              A 401 is not a transient error. It is a definitive answer:
+              the service is up and correctly refusing an anonymous
+              caller. Retrying it is guaranteed to waste the same 40
+              minutes, and reporting it as a timeout hides a credential
+              problem behind what looks like a slow deploy.
+              """
+
           def fetch_json(url):
               request = urllib.request.Request(
                   url,
@@ -60,8 +78,13 @@ jobs:
                       "Cache-Control": "no-cache",
                   },
               )
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  return response.status, json.loads(response.read().decode("utf-8"))
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      return response.status, json.loads(response.read().decode("utf-8"))
+              except urllib.error.HTTPError as exc:
+                  if exc.code in (401, 403):
+                      raise Unauthenticated(f"{exc.code} from {url}") from exc
+                  raise
 
           result = {
               "checkedAt": datetime.now(timezone.utc).isoformat(),
@@ -135,6 +158,15 @@ jobs:
                           result["status"] = "healthy"
                           break
                       result["status"] = "population_in_progress"
+                  except Unauthenticated as exc:
+                      # Terminal, not transient. Say what is actually
+                      # wrong — the check has no credential — instead of
+                      # burning 40 minutes to report a timeout.
+                      result["status"] = "unverifiable_unauthenticated"
+                      result["errors"].append(
+                          {"attempt": attempt, "type": "Unauthenticated", "message": str(exc)}
+                      )
+                      break
                   except Exception as exc:  # noqa: BLE001
                       result["errors"].append(
                           {
@@ -156,20 +188,55 @@ jobs:
           PY
 
       - name: Commit production smoke result
+        # AUDIT O-4: ``git add`` without ``-f`` on a path under the
+        # gitignored ``data/`` (.gitignore:45) fails, and it failed
+        # BEFORE the enforce gate below — which is why that gate had
+        # never executed once. The artifact is force-added the same way
+        # scheduled-refresh.yml force-adds data/scrape_state/.
         run: |
+          set -Eeuo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git pull --rebase origin main
-          git add data/ops/sharp-production-smoke.json
-          git commit -m "chore(ops): record Sharp production smoke"
-          git push origin HEAD:main
+          git add -f data/ops/sharp-production-smoke.json
+          # A byte-identical result is not an error; only commit a change.
+          if git diff --cached --quiet; then
+            echo "No change in smoke result — nothing to commit."
+          else
+            git commit -m "chore(ops): record Sharp production smoke"
+            git push origin HEAD:main
+          fi
 
       - name: Enforce healthy population
+        # This step had never run: the commit above always failed first.
+        # Now that it can run, it must distinguish "measured unhealthy"
+        # from "could not measure" — reporting the second as the first
+        # would fail every push to main for a credential this workflow
+        # was never given, and a gate that cries wolf gets deleted.
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
+
           result = json.loads(Path("data/ops/sharp-production-smoke.json").read_text())
-          if result.get("status") != "healthy":
-              raise SystemExit(f"Sharp production smoke is not healthy: {result.get('status')}")
+          status = result.get("status")
+
+          if status == "healthy":
+              print("Sharp production population is healthy.")
+              raise SystemExit(0)
+
+          if status == "unverifiable_unauthenticated":
+              # Insufficient evidence. Loud, not fatal, and specific
+              # about what would make it a real check.
+              print(
+                  "::warning title=Sharp smoke cannot verify::"
+                  "/api/sharp/* requires a session and this workflow holds no "
+                  "credential, so population health was NOT measured. Provision a "
+                  "token for the smoke (see _SELF_AUTHED_API_EXACT in server.py for "
+                  "the bearer pattern used by /api/signal-alerts/run) to turn this "
+                  "into an enforcing gate."
+              )
+              raise SystemExit(0)
+
+          raise SystemExit(f"Sharp production smoke is not healthy: {status}")
           PY

@@ -193,32 +193,53 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C13": (
         "O-4",
         ".github/workflows/verify-sharp-production.yml",
-        "git add data/ops/sharp-production-smoke.json",
-        OPEN,
-        "data/ is gitignored (.gitignore:45), so the step always fails "
-        "before the enforce-healthy-population gate.",
+        None,
+        CLOSED,
+        "Fixed in batch C2. All FOUR workflows force-add now — the audit "
+        "named the pattern and a sweep found the other three "
+        "(force-sharp-production-now, trigger-sharp-no-environment, "
+        "trigger-sharp-now-via-merge). Verified with git check-ignore: no "
+        "unguarded `git add data/` remains. The commit step also stops "
+        "failing on an unchanged artifact, so the enforce gate below it "
+        "can execute for the first time.",
     ),
     "C14": (
         "O-4b",
         ".github/workflows/verify-sharp-production.yml",
-        '"User-Agent": "ChaseUpside-Production-Smoke/1.0"',
-        OPEN,
-        "fetch_json sends no Authorization header while polling " "auth-gated endpoints.",
+        None,
+        CLOSED,
+        "Fixed in batch C2, though NOT by adding auth — there is no "
+        "credential to add. /api/sharp/* sits behind _private_api_gate and "
+        "the workflow declares no secrets at all, so it structurally "
+        "cannot authenticate. A 401 is now terminal rather than retryable: "
+        "it means the service is up and correctly refusing an anonymous "
+        "caller, which is a definitive answer, not a blip. The loop breaks "
+        "with status unverifiable_unauthenticated instead of spending 80 "
+        "attempts x 30s = 40 MINUTES on every push to main. The enforce "
+        "gate reports that as insufficient evidence — loud, not fatal — "
+        "and names the bearer pattern that would make it enforcing.",
     ),
     "C15": (
         "O-3",
         "server.py",
-        "if total_sites > 0 and site_count < total_sites / 2:",
-        OPEN,
-        "Denominator is the legacy in-scraper SITES dict, so the guard "
-        "blocks only on total loss.",
+        None,
+        CLOSED,
+        "Fixed in batch C2. Confirmed on the pinned export first: "
+        "result['sites'] carries exactly 2 entries against a 21-source "
+        "registry, so the ratio test blocked only on total loss. The guard "
+        "now also requires every anchor the payload declares in "
+        "coverageAudit.expectedSites — no invented threshold, no hardcoded "
+        "source name. The ratio test is KEPT alongside it because a "
+        "malformed payload yields 'no anchors known missing', which is not "
+        "'all present'. Pinned by tests/api/test_scrape_promotion_guard.py "
+        "including the exact 1-of-2 case the old guard published.",
     ),
     "C16": (
         "O-1",
         "src/api/ops_alerts.py",
-        'status_payload.get("scrape_success_rate_24h")',
-        OPEN,
-        "Worse than the audit recorded. The key is attached at "
+        None,
+        CLOSED,
+        "Fixed in batch C2. Was worse than the audit recorded: the key was attached at "
         "server.py:4352 inside the /api/status route only; "
         "_scrape_status_payload — what check_and_alert is actually "
         "called with — never sets it. And _scrape_success_rate_24h() "
@@ -445,11 +466,22 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     ),
     "C43": (
         "Z-2",
-        "Dynasty Scraper.py",
-        'preserving "\n                    f"last-good (not overwriting).',
-        OPEN,
-        "A preserved last-known-good CSV still mints a fresh success "
-        "stamp, so the freshness watchdog cannot see a dead vendor.",
+        None,
+        None,
+        CLOSED,
+        "Fixed in batch C2, at the STAMPING layer rather than the preserve "
+        "layer — preserving last-good is correct and desirable; claiming "
+        "it was fetched is not. stamp_if_present already required the CSV "
+        "to be newer than a pre-scraper marker, and that guard was "
+        "DEFEATED because the scraper's restore pass rewrites the "
+        "preserved board with open(dest,'wb') during the run, giving it a "
+        "current mtime and a full row count. The scraper already records "
+        "the answer — manifest.json carries siteRawPreserved — and nothing "
+        "consulted it. stamp_if_present now skips any board listed there. "
+        "Exercised in a real shell across four paths (preserved / fresh / "
+        "corrupt manifest / missing manifest); the last two fall back to "
+        "the mtime gate so one bad manifest cannot suppress stamping "
+        "everywhere.",
     ),
 }
 
