@@ -122,8 +122,34 @@ test.describe("journey: /tools health pages", () => {
       })
       .toBe(teamNames.length);
 
-    const renderedNames = (await page.locator(".trade-coverage-team-name").allInnerTexts())
-      .map((t) => t.trim());
+    // Poll the VALUE being asserted, not a different selector and then a
+    // one-shot read of this one.
+    //
+    // The row <li> and its name <span> are emitted together
+    // (tools/trade-coverage/page.jsx:201-203), so a matched row count can
+    // never mean "rows without names". The observed failure was the list
+    // re-rendering in the gap between the row poll above and this read —
+    // the page fans out one request per team and re-renders as each
+    // lands — which surfaced as `Received array: []` on an otherwise
+    // healthy page, then passed on retry. Polling the rows and reading
+    // the names is two observations of a moving list; this is one.
+    const nameCells = page.locator(".trade-coverage-team-name");
+    await expect
+      .poll(
+        async () => {
+          const names = (await nameCells.allInnerTexts()).map((t) => t.trim());
+          return teamNames.filter((n) => !names.includes(n)).length;
+        },
+        {
+          message: `every contract team (${teamNames.length}) must appear in the audit`,
+          timeout: 60_000,
+        },
+      )
+      .toBe(0);
+
+    // Re-read once settled, so the per-team failure below names the exact
+    // missing team rather than reporting a count.
+    const renderedNames = (await nameCells.allInnerTexts()).map((t) => t.trim());
     for (const name of teamNames) {
       expect(renderedNames, `team "${name}" missing from the coverage audit`).toContain(
         name,
