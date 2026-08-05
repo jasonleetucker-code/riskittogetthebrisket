@@ -4,7 +4,8 @@ Combines:
   - Cached ROS team-strength snapshot (data/ros/team_strength/latest.json)
   - Cached ROS playoff sim output (or recomputes if cache is missing)
   - Cached ROS championship sim output
-  - Sleeper roster age profile (from the live overlay)
+  - Roster ages, joined from the team-strength snapshot's ``fullRoster``
+    player ids against ``snapshot.nfl_players`` — see ``teams_with_ages``
 
 Returns one row per team with the direction label + recommendation.
 Lazy-section friendly — call ``build_section(snapshot)`` from the
@@ -22,6 +23,15 @@ from src.ros.direction import build_roster_age_profile, classify_team
 from src.ros.team_strength import load_team_strength_snapshot
 
 LOG = logging.getLogger("ros.trade_deadline")
+
+DIRECTION_ENGINE = "ros.direction"
+"""Which team-direction model produced these rows.
+
+The app has TWO, on purpose, and they are not interchangeable — see
+``build_section``. Every direction-bearing payload stamps its engine so
+"Seller" from simulated odds and "rebuild" from roster shape can never
+be mistaken for the same claim about the same team (audit W20-F006)."""
+
 
 
 def _load_playoff_odds_map() -> dict[str, dict[str, float]]:
@@ -105,7 +115,10 @@ def build_team_directions(
         # rank/length is the cheapest proxy.
         rank = float(strength_row.get("rank") or 0.0)
         total = max(1.0, float(len(strengths) or 1))
-        strength_pct = (total - rank + 1) / total if rank > 0 else 0.0
+        # ``None`` when this owner has no strength row: a team we could
+        # not rank is not a team ranked last. The summary renders it as
+        # "unavailable" rather than "0%".
+        strength_pct = (total - rank + 1) / total if rank > 0 else None
         team_obj = next((t for t in (teams or []) if t.get("ownerId") == owner), None)
         roster_age = build_roster_age_profile(team_obj.get("players") or []) if team_obj else {}
         direction = classify_team(
@@ -122,8 +135,11 @@ def build_team_directions(
                 or owner,
                 "playoffOdds": po,
                 "championshipOdds": co,
-                "rosStrengthPercentile": round(strength_pct, 4),
+                "rosStrengthPercentile": (
+                    round(strength_pct, 4) if strength_pct is not None else None
+                ),
                 "rank": rank,
+                "directionEngine": DIRECTION_ENGINE,
                 **direction,
             }
         )
@@ -134,9 +150,67 @@ def build_team_directions(
     return out
 
 
+def teams_with_ages(snapshot: Any) -> list[dict[str, Any]]:
+    """Rosters shaped for ``build_team_directions(teams=...)``.
+
+    ``[{ownerId, players: [{position, age}]}]``, joined from two things
+    that were both already here and never introduced to each other:
+
+    * the team-strength snapshot's ``fullRoster`` — ownerId + playerId +
+      position for all 12 rosters (57 players on the live board), and
+    * ``snapshot.nfl_players`` — Sleeper's player dump, which carries
+      ``age``.  The public pipeline already reads it this way in
+      ``awards.py``, ``records.py`` and ``player_journey.py``.
+
+    ``build_section`` used to do ``_ = snapshot`` under a comment saying
+    "roster ages come from team_strength snapshot directly".  They do
+    not: ``fullRoster`` rows carry ``position`` and ``rosValue`` and no
+    age at all, so ``build_roster_age_profile`` was never called on any
+    production path and all 12 rows shipped ``ageProfile: {}``.  The
+    "Strong Seller / Rebuilder" band, gated on ``vetCount >= 4``, was
+    structurally unreachable (audit W17-F010 / W20-F016).
+
+    Returns ``[]`` when either input is missing, so the caller keeps the
+    empty age profile and the classifier keeps abstaining from the
+    age-gated band — a missing age is not a young player.
+    """
+    rows = load_team_strength_snapshot() or []
+    dump = getattr(snapshot, "nfl_players", None)
+    if not rows or not isinstance(dump, dict) or not dump:
+        return []
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        owner = str(row.get("ownerId") or "").strip()
+        if not owner:
+            continue
+        players: list[dict[str, Any]] = []
+        for entry in row.get("fullRoster") or []:
+            if not isinstance(entry, dict):
+                continue
+            meta = dump.get(str(entry.get("playerId") or "")) or {}
+            age = meta.get("age") if isinstance(meta, dict) else None
+            # No age from Sleeper stays None. ``build_roster_age_profile``
+            # skips it rather than counting it as young OR veteran.
+            players.append({"position": entry.get("position"), "age": age})
+        out.append({"ownerId": owner, "players": players})
+    return out
+
+
 def build_section(snapshot: Any) -> dict[str, Any]:
-    """Lazy-section builder for /api/public/league/rosTradeDeadline."""
-    _ = snapshot  # roster ages come from team_strength snapshot directly
+    """Lazy-section builder for /api/public/league/rosTradeDeadline.
+
+    ``directionEngine`` stamps which of the app's direction models
+    produced these labels.  There are two, they answer different
+    questions from different input families, and until this stamp
+    existed a consumer had no way to tell them apart:
+
+    * ``ros.direction`` (here) — buyer/seller off SIMULATED playoff and
+      championship odds.
+    * ``roster_intel.window`` (``/api/gameplan``, ``/phases``,
+      ``/rosters``) — a five-state distribution over measured roster
+      shape (lineup competitiveness x starter age).
+    """
     return {
-        "teams": build_team_directions(),
+        "teams": build_team_directions(teams=teams_with_ages(snapshot)),
+        "directionEngine": DIRECTION_ENGINE,
     }

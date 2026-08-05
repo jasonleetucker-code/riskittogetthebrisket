@@ -52,8 +52,21 @@ from src.roster_intel.marginal import solve_summary
 from src.ros.lineup import RosterPlayer
 from src.utils.percentile import percentile_rank
 
+DIRECTION_ENGINE = "roster_intel.window"
+"""Which team-direction model produced a payload carrying these states.
+
+THE nominated definition (audit W20-F006).  Four independent classifiers
+used to ship at once and agreed on 3 of 12 live teams; two were deleted
+in favour of this one — ``frontend/lib/team-phase.js`` is now a port of
+this module, pinned by ``tests/fixtures/competitive_window_cases.json``.
+``src/ros/direction.py`` survives because it answers a DIFFERENT
+question from a different input family (simulated in-season odds, not
+roster shape), and both stamp their engine so the two claims can never
+be mistaken for one."""
+
 __all__ = [
     "COMPETITIVE_STATES",
+    "DIRECTION_ENGINE",
     "ORDERING_CAVEAT",
     "STATE_ORDER",
     "CompetitiveWindow",
@@ -184,6 +197,7 @@ class CompetitiveWindow:
         # ``affinities`` (audit finding H).
         rounded = _round_preserving_sum(self.probabilities)
         return {
+            "engine": DIRECTION_ENGINE,
             "affinities": rounded,
             "probabilities": rounded,  # deprecated alias
             "mostLikely": self.most_likely,

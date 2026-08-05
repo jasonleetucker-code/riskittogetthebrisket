@@ -1,11 +1,41 @@
 """Team direction labels: Strong Buyer / Buyer / Selective Buyer /
 Hold / Selective Seller / Seller / Strong Seller.
 
-Combines:
-  - Playoff odds (from ros.playoff_sim)
-  - Championship odds (from ros.championship)
-  - Team ROS strength (from data/ros/team_strength/latest.json)
-  - Roster age profile (computed from the live player pool)
+ONE OF TWO DIRECTION MODELS, AND THEY ARE NOT INTERCHANGEABLE
+─────────────────────────────────────────────────────────────
+The app deliberately keeps two, because they answer different
+questions from different input families:
+
+* **this module** — buyer/seller from SIMULATED playoff and
+  championship odds. A statement about the season in progress.
+* ``src/roster_intel/window.py`` (+ its frontend port
+  ``frontend/lib/team-phase.js``) — a five-state distribution over
+  measured roster shape: lineup competitiveness x value-weighted
+  starter age. A statement about the roster's window.
+
+Four such models used to ship at once and agreed on 3 of 12 live teams
+(audit W20-F006). Two were deleted; these two remain and every
+direction-bearing payload now stamps ``directionEngine`` so a consumer
+can tell which claim it is holding. Do not add a third.
+
+WHAT ACTUALLY MOVES A LABEL HERE
+────────────────────────────────
+Two inputs gate the bands, and the docstring used to imply four:
+
+  - Playoff odds (from ros.playoff_sim)          — gates every band
+  - Championship odds (from ros.championship)    — gates every band
+  - Roster age profile                           — gates ONLY the
+    "Strong Seller / Rebuilder" band (``vetCount >= 4``), joined from
+    Sleeper's player dump by ``trade_deadline.teams_with_ages``
+  - Team ROS strength (data/ros/team_strength/latest.json)
+    — **reported as context, gates nothing.** It is in the summary line
+    and in ``rosStrengthPercentile`` on the row, and that is all it
+    does. The previous docstring claimed a team's "exact band can shift
+    on age + roster strength"; for strength that was never true
+    (``classify_team(playoff=0, champ=0, strength=0.0|0.5|1.0)``
+    returned "Seller" in all three cases — W20-F016). Writing a
+    strength threshold to make the sentence true would be inventing a
+    band nobody specified, so the sentence went instead.
 
 Per spec, age thresholds are position-aware:
   QB 32+, RB 26+, WR 29+, TE 30+, DL/EDGE 30+, LB 29+, DB 29+
@@ -81,11 +111,15 @@ def classify_team(
                              AND age-heavy roster
 
     The spec's ranges overlap intentionally so a team's exact band can
-    shift on age + roster strength.  We resolve ambiguity by checking
-    the strongest tier first and falling through to weaker tiers.
+    shift on age.  We resolve ambiguity by checking the strongest tier
+    first and falling through to weaker tiers.
+
+    ``team_ros_strength_percentile`` is REPORTED, not consumed — see the
+    module docstring. It is reported honestly: ``None`` renders as
+    "unavailable" rather than as a confident 0%, which is the same
+    absence-as-zero mistake the odds guard below exists to prevent.
     """
     age_heavy = bool((roster_age_profile or {}).get("vetCount", 0) >= 4)
-    strength_pct = team_ros_strength_percentile or 0.0
 
     # Abstain rather than classify. Every band below is a statement about
     # simulated odds; with no odds there is nothing to say, and saying
@@ -141,10 +175,15 @@ def classify_team(
             "asymmetric.  Re-evaluate weekly as standings shift."
         )
 
+    strength_text = (
+        f"{round(team_ros_strength_percentile * 100)}%"
+        if team_ros_strength_percentile is not None
+        else "unavailable"
+    )
     summary = (
         f"Playoff odds {playoff_odds_pct * 100:.0f}% · "
         f"Championship odds {championship_odds_pct * 100:.1f}% · "
-        f"ROS strength percentile {round(strength_pct * 100)}%"
+        f"ROS strength percentile {strength_text}"
     )
 
     return {

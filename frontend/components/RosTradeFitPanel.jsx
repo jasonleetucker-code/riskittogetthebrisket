@@ -5,33 +5,22 @@
 // players in the trade.  NEVER mutates trade math — informational
 // only, gated by ``settings.showRosTradePanel``.
 
+// The buyer/seller direction fetch that used to live here is gone
+// (audit W20-F016). This panel pulled /api/public/league/rosTradeDeadline
+// on every mount, kept a 30-minute cache of it, defined a LABEL_COLOR
+// map for all seven direction labels — and never rendered a label. The
+// only thing the payload did was keep the panel ALIVE: the drop
+// condition was `!hasAnyTags && !hasDirections`, so a trade with no ROS
+// read on any asset still rendered an empty panel on the strength of
+// data the user could not see.
+//
+// It could not render one anyway: `sides` carries A/B labels, not owner
+// ids, so there is nothing to join a per-team direction against. The
+// direction board has its own surface at /league?tab=rosTradeDeadline.
+// Removed rather than half-wired.
+
 import { useEffect, useState } from "react";
 import { buildRosIndex, rosEntryForRow } from "@/lib/ros-index";
-
-const CACHE_TTL_MS = 30 * 60 * 1000;
-const _cache = { data: null, fetchedAt: 0, inflight: null };
-
-async function _loadDirections() {
-  if (_cache.data && Date.now() - _cache.fetchedAt < CACHE_TTL_MS) {
-    return _cache.data;
-  }
-  if (_cache.inflight) return _cache.inflight;
-  const promise = fetch("/api/public/league/rosTradeDeadline")
-    .then((r) => (r.ok ? r.json() : null))
-    .then((payload) => {
-      const body = payload?.data || payload?.section || payload;
-      _cache.data = body || { teams: [] };
-      _cache.fetchedAt = Date.now();
-      _cache.inflight = null;
-      return _cache.data;
-    })
-    .catch(() => {
-      _cache.inflight = null;
-      return _cache.data || { teams: [] };
-    });
-  _cache.inflight = promise;
-  return promise;
-}
 
 const TAG_COLOR = {
   "Win-now target": "var(--cyan)",
@@ -43,16 +32,6 @@ const TAG_COLOR = {
   "Best-ball boost": "var(--cyan)",
   "IDP contender target": "var(--cyan)",
   "Injury/bye cover": "var(--subtext)",
-};
-
-const LABEL_COLOR = {
-  "Strong Buyer": "var(--cyan)",
-  "Buyer": "var(--green)",
-  "Selective Buyer": "var(--green)",
-  "Hold / Evaluate": "var(--subtext)",
-  "Selective Seller": "var(--amber)",
-  "Seller": "var(--red)",
-  "Strong Seller / Rebuilder": "var(--red)",
 };
 
 // Pure tag classifier — mirrors src/ros/tags.py::tags_for_player so
@@ -83,16 +62,11 @@ function tagsForPlayer({ position, age, rosValue, rosRank, dynastyValue, volatil
 }
 
 export default function RosTradeFitPanel({ sides, settings }) {
-  const [directions, setDirections] = useState({ teams: [] });
   const [valuesByName, setValuesByName] = useState(() => new Map());
 
   useEffect(() => {
     if (settings?.showRosTradePanel === false) return;
     let active = true;
-    _loadDirections().then((d) => {
-      if (!active || !d) return;
-      setDirections(d);
-    });
     fetch("/api/ros/player-values?limit=2000")
       .then((r) => (r.ok ? r.json() : null))
       .then((payload) => {
@@ -132,11 +106,12 @@ export default function RosTradeFitPanel({ sides, settings }) {
     return { sideLabel: side.label || "?", tagged };
   });
 
-  // Drop the panel entirely when no asset has a ROS read AND no team
-  // direction is available — nothing useful to show.
+  // Drop the panel entirely when no asset has a ROS read — nothing
+  // useful to show. The old `|| hasDirections` escape hatch kept it on
+  // screen because a direction payload had loaded, which this panel
+  // never rendered.
   const hasAnyTags = enriched.some((s) => s.tagged.some((p) => p.tags.length));
-  const hasDirections = (directions?.teams || []).length > 0;
-  if (!hasAnyTags && !hasDirections) return null;
+  if (!hasAnyTags) return null;
 
   return (
     <div
