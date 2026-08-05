@@ -350,8 +350,11 @@ export function topRetailPremium(rows, limit = 5) {
   // ``sourceRankSpread`` — how much the sources disagree with each other —
   // while the panel's whole premise is the retail-vs-consensus gap. The
   // rendered "Sell +45 ranks" showed the user the disagreement width and
-  // called it the gap. Both now come from ``marketGapMagnitude``, the
-  // magnitude of the direction actually being filtered on.
+  // called it the gap. Both now come from ``marketGapValueRatio``, the
+  // magnitude of the direction actually being filtered on.  (NOT
+  // ``marketGapMagnitude`` — that is the retired rank-space field, stamped
+  // None on every row; naming it here was the same conflation this comment
+  // exists to warn about.)
   return rows
     .filter((r) => r.marketGapDirection === "retail_premium"
       && marketGapAtLeast(r, PREMIUM_SUMMARY_VALUE_RATIO)

@@ -8,6 +8,8 @@ import {
   isEligibleForAnalysis,
   idpMarketAction,
   isIdpInTopByIdptc,
+  marketGapAtLeast,
+  marketGapRatioOf,
 } from "@/lib/display-helpers";
 import ConfidenceValueScatter from "@/components/graphs/ConfidenceValueScatter";
 import {
@@ -38,6 +40,7 @@ import {
   colFlags,
   colGapDirection,
   colIdpGap,
+  colMarketGap,
   colPlayer,
   colPos,
   colRank,
@@ -360,8 +363,21 @@ export default function EdgePage() {
                   rows={retailPremium}
                   caption={`Players the retail market ${retail} values above consensus`}
                   emptyText={`No sell signals in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
-                  defaultSort={{ key: "spread", direction: "desc" }}
-                  columns={[colRank(), colPlayer(openPlayerPopup), colPos(), colSpread(), colValue()]}
+                  // AUDIT S-3, display half.  Was `spread` on both, which
+                  // re-sorted the rows by source disagreement after
+                  // `premiumBy` had ranked them by the market gap —
+                  // `DataTable` is not `presorted`, so `defaultSort` wins.
+                  // The column showed that same wrong quantity beside the
+                  // signal.  Both now name the gap, matching what the IDP
+                  // panels below have always done with `colIdpGap`.
+                  defaultSort={{ key: "marketGap", direction: "desc" }}
+                  columns={[
+                    colRank(),
+                    colPlayer(openPlayerPopup),
+                    colPos(),
+                    colMarketGap(),
+                    colValue(),
+                  ]}
                 />
                 <SignalPanel
                   title="Buy signals"
@@ -370,8 +386,14 @@ export default function EdgePage() {
                   rows={consensusPremium}
                   caption={`Players the expert consensus values above ${retail}`}
                   emptyText={`No buy signals in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
-                  defaultSort={{ key: "spread", direction: "desc" }}
-                  columns={[colRank(), colPlayer(openPlayerPopup), colPos(), colSpread(), colValue()]}
+                  defaultSort={{ key: "marketGap", direction: "desc" }}
+                  columns={[
+                    colRank(),
+                    colPlayer(openPlayerPopup),
+                    colPos(),
+                    colMarketGap(),
+                    colValue(),
+                  ]}
                 />
                 <SignalPanel
                   title="IDP sell signals"
