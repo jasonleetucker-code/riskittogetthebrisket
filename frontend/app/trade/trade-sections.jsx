@@ -759,7 +759,7 @@ export function SideCard({
           {total.adjustment > 0 ? (
             <div
               className={styles.sideTotalMeta}
-              title="Consolidation / roster-spot premium: the side with fewer pieces frees a roster spot, so KTC-style math adds this bonus on top of the raw total."
+              title="Consolidation premium: KTC-style math adds this to the side whose value is most concentrated in its biggest pieces. That is usually — but not always — the side with fewer pieces. Piece count only shrinks the bonus as a side grows, and suppresses it entirely on a 1-for-1."
             >
               Raw {Math.round(total.raw).toLocaleString()} + VA{" "}
               {Math.round(total.adjustment).toLocaleString()}
