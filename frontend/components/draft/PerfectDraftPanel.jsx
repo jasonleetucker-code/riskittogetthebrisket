@@ -152,14 +152,20 @@ export function PerfectDraftPanel({ stats, workspace }) {
   // both past what has already been bought so the recommendation below is the
   // REMAINING plan — otherwise roster room is double-counted and the ladder
   // re-offers cuts those purchases already consumed.
+  //
+  // `waiverLadder` is what tells it WHICH rungs those were. Without it the
+  // function consumes the backend's ECC head while the solve below charges the
+  // release-cheapest, and this is the only production call site — so omitting
+  // it leaves the shared-consumption-order fix inert on the live page.
   const progress = useMemo(
     () =>
       applyDraftProgress({
         openRosterSpots: context?.openRosterSpots || 0,
         cutLadder: context?.cutLadder?.rungs || [],
+        waiverLadder: context?.waiverLadder || null,
         rookiesBought,
       }),
-    [context?.openRosterSpots, context?.cutLadder?.rungs, rookiesBought],
+    [context?.openRosterSpots, context?.cutLadder?.rungs, context?.waiverLadder, rookiesBought],
   );
 
   const solveInput = useMemo(

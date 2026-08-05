@@ -376,6 +376,49 @@ describe("live updating as the auction proceeds", () => {
     expect(within(table).getByText("Unpriced Body")).toBeInTheDocument();
   });
 
+  it("consumes the rung the plan charged, not the head of the backend's list", async () => {
+    // The two orders coincide in the default fixture — Deep Bench Guy is both
+    // the ECC head and the cheapest release — so nothing above discriminates
+    // whether the panel actually hands `waiverLadder` to `applyDraftProgress`.
+    // This ladder separates them: the ECC head releases for 3000 and the
+    // cheapest release is the ECC tail.
+    const ctx = {
+      ...CONTEXT,
+      openRosterSpots: 0,
+      cutLadder: {
+        ...CONTEXT.cutLadder,
+        rungs: [
+          {
+            playerId: "big",
+            name: "Big Release",
+            position: "WR",
+            effectiveCutCost: 0,
+            baseValue: 3000,
+            scarcityMultiplier: 1,
+            valueBasis: "board",
+          },
+          {
+            playerId: "small",
+            name: "Small Release",
+            position: "WR",
+            effectiveCutCost: 500,
+            baseValue: 1000,
+            scarcityMultiplier: 1,
+            valueBasis: "board",
+          },
+        ],
+      },
+    };
+    fetch.mockResolvedValue(jsonResponse(200, { ...okPayload(), context: ctx }));
+    render(<PerfectDraftPanel stats={withBought(1, 20)} workspace={WORKSPACE} />);
+    const table = await screen.findByRole("table");
+    // One purchase against zero open spots consumes Small Release (cheapest to
+    // let go), leaving Big Release. Slicing the backend's head instead would
+    // spend Big Release and re-offer Small Release — the double-charge.
+    expect(within(table).getByText("Big Release")).toBeInTheDocument();
+    expect(within(table).queryByText("Small Release")).not.toBeInTheDocument();
+  });
+
   it("reports what has already been bought alongside the remaining plan", async () => {
     render(<PerfectDraftPanel stats={withBought(1, 20)} workspace={WORKSPACE} />);
     await screen.findByRole("table");
