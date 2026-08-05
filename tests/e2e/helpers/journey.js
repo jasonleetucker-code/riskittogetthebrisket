@@ -87,6 +87,7 @@ function titleFor(route) {
   return new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
 }
 
+
 // ── Selector registry ──────────────────────────────────────────────────
 // The one place the redesign has to keep in sync.  Every selector is
 // paired with the user-visible behavior it anchors; when a page is
