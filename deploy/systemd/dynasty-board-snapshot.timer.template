@@ -1,0 +1,32 @@
+[Unit]
+Description=Daily canonical board as-of snapshot for __SERVICE_NAME__
+# No Requires= on the service: [Timer] Unit= already binds it, and a
+# Requires= here would start the service on every boot and let a
+# service failure stop the timer. Persistent=true is the catch-up.
+
+[Timer]
+# Daily, 07:10 UTC. Slot rationale: the scheduled data refresh runs at
+# :42 every two hours, so 07:10 lands after the 06:42 refresh has
+# settled and well before the 08:42 one starts — the snapshot records a
+# board built on a stable contract rather than one mid-rewrite. It sits
+# clear of the sharp collectors (04:20-06:30), the intel refresh
+# (09:10), and 20 minutes ahead of the consensus-edge snapshot (07:30)
+# so the two contract builds do not overlap.
+#
+# Daily rather than hourly: the forward horizons this feeds are 7 and
+# 30 days, so intra-day snapshots would multiply storage without adding
+# a single independent observation.
+#
+# Persistent=true matters more here than for most timers. A missed day
+# is not recoverable later — the board that existed that day is gone —
+# so a box that was down at 07:10 should still record on boot, even
+# late. A late row carries its own written_at and the as_of it was
+# filed under, so the lateness is visible rather than silent.
+OnCalendar=*-*-* 07:10:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-board-snapshot.service
+
+[Install]
+WantedBy=timers.target

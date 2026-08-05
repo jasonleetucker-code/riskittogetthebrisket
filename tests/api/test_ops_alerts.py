@@ -178,3 +178,74 @@ def test_never_crashes_on_missing_delivery(kv):
     )
     assert s["delivered"] is False
     assert s["fired"] == 1
+
+
+# ── Audit O-1: the alert that could never fire ────────────────────────
+#
+# ``_check_scrape_rate`` was unreachable for two independent reasons:
+# the key was attached only inside the /api/status route (never in the
+# payload ``check_and_alert`` receives), and the value is a DICT, so
+# ``float(rate)`` raised and was swallowed.  Combined, there was no
+# email path for sustained ingestion failure at all.
+
+
+def test_scrape_rate_reads_the_dict_shape_the_producer_emits():
+    """_scrape_success_rate_24h returns a dict, not a float."""
+    payload = {"scrape_success_rate_24h": {"total": 12, "success": 3, "failure": 9, "rate": 0.25}}
+    a = oa._check_scrape_rate(payload)  # noqa: SLF001
+    assert a is not None
+    assert a.category == "scrape_failure"
+    assert "12 run(s)" in a.title
+
+
+def test_scrape_rate_dict_above_threshold_is_quiet():
+    payload = {"scrape_success_rate_24h": {"total": 12, "success": 11, "failure": 1, "rate": 0.92}}
+    assert oa._check_scrape_rate(payload) is None  # noqa: SLF001
+
+
+def test_no_scrape_history_is_not_a_zero_percent_success_rate():
+    """An empty window means "unknown", never "everything failed".
+
+    ``_scrape_success_rate_24h`` returns ``rate: None`` with
+    ``total: 0`` on a fresh boot or after a restart.  Coercing that to
+    0.0 would page the operator for an empty history — the audit's
+    central "missing data becomes a confident number" pattern, aimed
+    at the alerting layer itself.
+    """
+    payload = {"scrape_success_rate_24h": {"total": 0, "success": 0, "failure": 0, "rate": None}}
+    assert oa._check_scrape_rate(payload) is None  # noqa: SLF001
+
+
+def test_status_payload_actually_carries_the_key_the_alert_reads():
+    """The whole of O-1's first half: producer and consumer must agree.
+
+    A unit test of ``_check_scrape_rate`` alone passed for months while
+    the alert was dead, because nothing checked that the payload
+    ``check_and_alert`` is CALLED with contains the key it reads.
+    """
+    import server  # noqa: PLC0415
+
+    payload = server._scrape_status_payload()  # noqa: SLF001
+    assert "scrape_success_rate_24h" in payload, (
+        "_scrape_status_payload must carry the key _check_scrape_rate reads — "
+        "without it the scrape-failure alert cannot fire"
+    )
+    # And the shape it carries must be one the reader accepts.
+    assert oa._check_scrape_rate(payload) is None or True  # noqa: SLF001 — must not raise
+
+
+def test_missing_sample_total_does_not_suppress_a_real_rate():
+    """Absent ``total`` means unknown sample size, not zero samples.
+
+    Caught by the repo's own coercion gate during batch C2: the first
+    cut wrote ``int(raw.get("total") or 0)``, and because a zero sample
+    size suppresses the alert, a payload with a valid rate but no
+    ``total`` would have silently stopped alerting — the exact
+    missing-data-becomes-a-number substitution that batch was fixing,
+    reintroduced inside the fix.
+    """
+    a = oa._check_scrape_rate({"scrape_success_rate_24h": {"rate": 0.1}})  # noqa: SLF001
+    assert a is not None, "a valid rate must still alert when the sample size is unknown"
+    assert a.severity == "critical"
+    # No sample size claimed in the title, because none is known.
+    assert "run(s)" not in a.title

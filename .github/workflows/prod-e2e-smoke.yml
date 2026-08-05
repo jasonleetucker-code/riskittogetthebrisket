@@ -87,6 +87,24 @@ jobs:
         shell: bash
         env:
           E2E_BASE_URL: ${{ steps.url.outputs.url }}
+          # This job runs ONE spec, not the full suite, so the reporter's
+          # default floor — sized for the nightly's 139 passed — would
+          # fail every prod smoke run.  Measured on run 30953000224
+          # (5349fea29, 2026-08-04 21:35Z): "32 passed (1.3m)", tests
+          # numbered [1/32]..[32/32], zero skipped = 16 tests x 2 chromium
+          # projects.
+          #
+          # 30 rather than 32: a floor equal to the exact count fires on
+          # any legitimate consolidation of two tests, and a floor that
+          # gets "adjusted" every quarter stops being believed.  30 still
+          # catches what this exists for — a spec-path typo or a project
+          # filter matching nothing takes the count to 0 or 16, not 31.
+          E2E_MIN_PASSED: "30"
+          # Zero, and it CAN be zero: public-league.spec.js has no
+          # conditional skips left — its three data-condition gates were
+          # converted to assertions.  Any skip here means a gate came
+          # back, which is exactly what we want to hear about.
+          E2E_MAX_SKIPPED: "0"
         run: |
           set -Eeuo pipefail
           # Chromium desktop + mobile viewport.  We intentionally skip
@@ -94,12 +112,27 @@ jobs:
           # require ``playwright install webkit`` and don't buy us
           # anything over the chromium mobile viewport for the public
           # /league layout coverage.
+          #
+          # NO `--reporter` FLAG.  It REPLACES playwright.config.js's
+          # whole reporter array, which unloaded stack-death-reporter.js
+          # and with it BOTH the stack-death abort AND the coverage floor
+          # — for every prod smoke run this workflow made before
+          # 2026-08-05.  The reporter's own header warns about this in
+          # capitals; this workflow did it anyway, which is the same
+          # never-fires class the guard was written to catch.
+          # tests/e2e/test_e2e_harness_guards.py now fails the PR if any
+          # workflow reintroduces the flag.
+          #
+          # Side effect worth knowing: the config's reporters are `list`
+          # + `html`.  `list` is what `--reporter=line` was approximating,
+          # and `html` now actually populates tests/e2e/playwright-report/,
+          # which the failure-artifact step below has been uploading empty
+          # since it was written.
           npx playwright test \
             -c tests/e2e/playwright.config.js \
             --project=desktop-1366 \
             --project=mobile-chromium \
-            tests/e2e/specs/public-league.spec.js \
-            --reporter=line
+            tests/e2e/specs/public-league.spec.js
 
       - name: Upload Playwright trace artifacts on failure
         if: failure()

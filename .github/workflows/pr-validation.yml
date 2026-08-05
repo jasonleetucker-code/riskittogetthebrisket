@@ -135,6 +135,36 @@ jobs:
           set -Eeuo pipefail
           python -m ruff check .
 
+      - name: Decision-path coercion gate
+        # The 2026-08-04 audit's largest cross-cutting pattern: missing
+        # data resolving to an optimistic or fabricated number instead of
+        # abstention. A team absent from a sim file becomes `or 0.0`
+        # playoff odds and is told to SELL; an unknown FAAB budget becomes
+        # `or 100`. Those had all been through review — a convention does
+        # not catch three characters, so it is a gate.
+        #
+        # Blocking from introduction, which is safe because the baseline
+        # absorbs the 618 pre-existing violations: only NEW coercions and
+        # STALE allowances fail. That is the same ratchet the ruff gate
+        # used through phase A3, and the same anti-rot rule as
+        # `_LIVEDATA_MODULES` — an exemption nobody can check is how 33
+        # core-blend tests sat outside the hard gate unnoticed.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_decision_coercions.py
+
+      - name: Audit finding-status drift gate
+        # Re-runs each Critical finding's defect signature and fails when
+        # a finding recorded as closed has its signature back. Keeps
+        # "41 Criticals closed" a checkable claim rather than a assertion
+        # in a PR description — which is the failure mode that produced
+        # the audit in the first place.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/audit_status.py
+
       - name: Python import gate
         shell: bash
         env:

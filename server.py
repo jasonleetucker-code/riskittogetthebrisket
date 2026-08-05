@@ -1052,6 +1052,123 @@ def _mark_scrape_success(
     _metrics["scrape_duration_seconds_last"] = round(elapsed, 1)
 
 
+def _missing_expected_sites(result: dict | None) -> list[str]:
+    """Anchor sources the scrape was expected to produce and did not.
+
+    Audit O-3.  The payload declares its own load-bearing inputs in
+    ``coverageAudit.expectedSites`` — ``{"offense": ["ktc"], "idp":
+    ["idpTradeCalc"]}`` on live data — so "did we lose an anchor?" is
+    answerable without inventing a threshold or hardcoding a source
+    name here.  A source counts as produced only if it actually carried
+    players; present-but-empty is exactly the degraded case the guard
+    exists to catch.
+
+    Returns ``[]`` on any shape surprise.  This runs on the scrape path
+    and a diagnostic that can crash the scrape is worse than the defect
+    it reports — but note that an empty list from a MALFORMED payload
+    means "no anchors known to be missing", not "all anchors present",
+    which is why the ratio test is kept alongside it rather than
+    replaced by it.
+    """
+    try:
+        audit = (result or {}).get("coverageAudit") or {}
+        expected_block = audit.get("expectedSites") or {}
+        expected: set[str] = set()
+        for names in expected_block.values():
+            if isinstance(names, (list, tuple)):
+                expected.update(str(n) for n in names if n)
+        if not expected:
+            return []
+
+        def _reported_rows(block: object, field: str) -> bool:
+            """True only when the block states a positive row count.
+
+            Absent, null or non-numeric means the source did not report
+            producing anything — which is treated the same as zero HERE
+            because this guard's question is "can we prove the anchor
+            arrived?", and unproven must not read as arrived.  Written
+            out rather than as ``or 0`` so the reasoning is visible:
+            the coercion gate flags that shape precisely because it
+            usually hides this decision instead of stating it.
+            """
+            if not isinstance(block, dict):
+                return False
+            count = block.get(field)
+            return isinstance(count, (int, float)) and count > 0
+
+        produced: set[str] = set()
+        for site in (result or {}).get("sites") or []:
+            if _reported_rows(site, "playerCount"):
+                produced.add(str(site.get("key") or ""))
+        for key, stats in ((result or {}).get("siteStats") or {}).items():
+            if _reported_rows(stats, "count"):
+                produced.add(str(key))
+
+        return sorted(expected - produced)
+    except Exception:  # noqa: BLE001 — never break the scrape over a diagnostic
+        return []
+
+
+def _mark_scrape_blocked(
+    reason: str, elapsed: float, player_count: int, site_count: int, total_sites: int
+) -> None:
+    """Record a scrape that ran but whose output was REFUSED.
+
+    Audit O-2.  The partial-scrape guard called ``_mark_scrape_success``,
+    so a scrape that was rejected for being too degraded to publish was
+    filed as a success — in ``scrape_status.last_success_at``, in the
+    event log, and in the rolling history that ``_scrape_success_rate_24h``
+    reads.  The rate therefore read 100% while every scrape was being
+    thrown away, which is the precise inversion that made the "success
+    rate < 50%" alert useless even once O-1 let it fire at all.
+
+    A blocked run is neither a success nor a crash: the scraper worked,
+    the server is healthy, and it is still serving last-known-good data
+    — but nothing new was published, and that must be visible.  So
+    ``last_success_at`` is deliberately NOT advanced, and the history
+    outcome is ``blocked``, which counts against the success rate
+    because ``_scrape_success_rate_24h`` counts only ``success``.
+    """
+    now_iso = _utc_now_iso()
+    scrape_status.update(
+        {
+            "running": False,
+            "hung": False,
+            "stalled": False,
+            "finished_at": now_iso,
+            "last_scrape": now_iso,
+            # NOT last_success_at — nothing was promoted.
+            "last_blocked_at": now_iso,
+            "last_duration_sec": round(elapsed, 1),
+            "error": None,
+            "current_step": "blocked",
+            "current_source": None,
+        }
+    )
+    _touch_scrape_heartbeat()
+    _sync_scrape_alias_fields()
+    _record_scrape_event(
+        "scrape_blocked",
+        level="warning",
+        message=reason,
+        player_count=player_count,
+        site_count=site_count,
+        total_sites=total_sites,
+        duration_sec=round(elapsed, 1),
+    )
+    _record_scrape_history(
+        "blocked",
+        elapsed,
+        player_count=player_count,
+        site_count=site_count,
+        total_sites=total_sites,
+        reason=reason,
+    )
+    _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
+    _metrics["scrape_blocked"] = _metrics.get("scrape_blocked", 0) + 1
+    _metrics["scrape_duration_seconds_last"] = round(elapsed, 1)
+
+
 def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
     now_iso = _utc_now_iso()
     error_text = f"{type(exc).__name__}: {str(exc)[:400]}"
@@ -1291,6 +1408,15 @@ def _scrape_status_payload() -> dict:
     payload = dict(scrape_status)
     payload["stall_threshold_sec"] = SCRAPE_STALL_SECONDS
     payload["run_timeout_sec"] = SCRAPE_RUN_TIMEOUT_SECONDS
+    # Audit O-1: ops_alerts._check_scrape_rate reads
+    # ``scrape_success_rate_24h``, and this payload — the one
+    # ``check_and_alert`` is actually called with — never carried it.
+    # The key existed only inside the /api/status route handler, so the
+    # "scrape success rate < 50%" alert returned None on every sweep and
+    # could not fire once, ever. Attaching it here is the whole fix on
+    # this side; the reader also had to learn this dict shape (see
+    # ops_alerts).
+    payload["scrape_success_rate_24h"] = _scrape_success_rate_24h()
     payload["status_summary"] = (
         "stalled"
         if payload.get("stalled")
@@ -2359,31 +2485,62 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             site_count = len([s for s in result.get("sites", []) if s.get("playerCount", 0) > 0])
             total_sites = len(result.get("sites", []))
 
-            # R-3: Block partial scrape promotion — don't overwrite good data
-            # with degraded data when fewer than half the sites returned results.
-            if total_sites > 0 and site_count < total_sites / 2:
+            # R-3 / audit O-3: Block partial scrape promotion.
+            #
+            # The ratio test below is NOT sufficient on its own and for a
+            # long time was the whole guard.  ``result["sites"]`` is
+            # populated from the legacy in-scraper SITES dict, which has
+            # exactly TWO entries on live data (ktc, idpTradeCalc) against
+            # a 21-source registry — measured on the pinned export
+            # fixture.  So "fewer than half the sites" degenerates to
+            # "fewer than one of two", i.e. it blocks only on TOTAL loss:
+            # if KTC dies and IDPTradeCalc survives, 1 < 1 is false and
+            # the board publishes without its own cross-market anchor.
+            #
+            # The payload already declares what it cannot do without.
+            # ``coverageAudit.expectedSites`` names the anchor per asset
+            # class ({"offense": ["ktc"], "idp": ["idpTradeCalc"]}), so a
+            # missing anchor is detectable without inventing a threshold.
+            # Losing one is not a "half the sites" condition — it is the
+            # loss of a load-bearing input, and IDPTradeCalc in
+            # particular is the IDP backbone and 90% of every IDP value
+            # under alpha-shrinkage.
+            missing_anchors = _missing_expected_sites(result)
+            if missing_anchors or (total_sites > 0 and site_count < total_sites / 2):
+                anchor_note = (
+                    f"MISSING ANCHOR SOURCE(S): {', '.join(missing_anchors)}"
+                    if missing_anchors
+                    else f"only {site_count}/{total_sites} sites"
+                )
                 log.warning(
-                    f"PARTIAL SCRAPE NOT PROMOTED — {site_count}/{total_sites} sites, "
+                    f"PARTIAL SCRAPE NOT PROMOTED — {anchor_note}; "
                     f"{player_count} players, {elapsed:.1f}s. Keeping last-known-good data."
                 )
                 send_alert(
-                    f"PARTIAL SCRAPE NOT PROMOTED: only {site_count}/{total_sites} sites",
+                    f"PARTIAL SCRAPE NOT PROMOTED: {anchor_note}",
                     (
                         f"Players: {player_count}\n"
                         f"Sites with data: {site_count}/{total_sites}\n"
-                        f"Duration: {elapsed:.1f}s\n\n"
+                        + (
+                            f"Missing anchor sources: {', '.join(missing_anchors)}\n"
+                            if missing_anchors
+                            else ""
+                        )
+                        + f"Duration: {elapsed:.1f}s\n\n"
                         "Partial scrape data was NOT promoted to production.\n"
                         "The server continues serving last-known-good data.\n"
                         "Some sites may be down or blocking the scraper."
                     ),
                 )
-                _mark_scrape_success(elapsed, player_count, site_count, total_sites)
-                _record_scrape_event(
-                    "partial_scrape_blocked",
-                    level="warning",
-                    message=f"Only {site_count}/{total_sites} sites — data not promoted",
-                    site_count=site_count,
-                    total_sites=total_sites,
+                # Audit O-2: this used to call _mark_scrape_success, filing a
+                # REFUSED scrape as a successful one — so the 24h success
+                # rate read 100% while every run was being thrown away.
+                _mark_scrape_blocked(
+                    f"Not promoted — {anchor_note}",
+                    elapsed,
+                    player_count,
+                    site_count,
+                    total_sites,
                 )
                 return latest_data  # Return existing data, not the partial result
 
@@ -8607,6 +8764,15 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         # what stops /draft there falling back to a hardcoded list. A league on
         # a different profile gets no rookie fields rather than another
         # profile's board.
+        #
+        # Profile match is necessary but NOT sufficient. Both live leagues are
+        # ``superflex_tep15_ppr1``, yet ``dynasty_main`` starts DL/LB/DB and
+        # ``dynasty_new`` starts none — ``idpEnabled`` and ``rosterSettings``
+        # are leagueKey properties, not profile properties. Serving the shared
+        # board verbatim would put defenders nobody can start onto a non-IDP
+        # league's draft board, at real dollar values, ahead of offensive
+        # rookies it can. So IDP rows are dropped for a league that does not
+        # use them and the dollar ladder is rebuilt over what remains.
         rookie_rows = None
         try:
             from src.api.league_registry import get_scoring_profile  # noqa: PLC0415
@@ -8615,7 +8781,16 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             if loaded_key and get_scoring_profile(loaded_key) == get_scoring_profile(
                 league_cfg.key
             ):
+                from src.trade.angle import _IDP_POSITIONS as _ANGLE_IDP_POSITIONS  # noqa: PLC0415
+
                 pool = _our_rookie_pool(_KTC_TOTAL_PICKS)
+                if pool and not getattr(league_cfg, "idp_enabled", True):
+                    pool = [
+                        r
+                        for r in pool
+                        if str(r.get("assetClass") or "").lower() != "idp"
+                        and str(r.get("pos") or "").upper() not in _ANGLE_IDP_POSITIONS
+                    ]
                 if pool:
                     dollars = _rookie_dollars_from_values(
                         [r["value"] for r in pool], DRAFT_TOTAL_BUDGET
@@ -8735,10 +8910,17 @@ async def get_draft_roster_context(
             },
         )
     # The league-match gate is what scopes this feature to the league whose
-    # rosters are actually loaded.  A league served only by the Sleeper-derived
-    # draft-capital fallback has no genuine rookie pool on /draft, and would
-    # also fail this check — so the panel vanishes rather than optimizing
-    # against placeholder players.
+    # rosters are actually loaded.  Every figure the optimizer needs — open
+    # spots, the cut ladder, waiver levels — is derived from THIS league's
+    # rosters, and the server holds one league's at a time, so serving another
+    # league's would be wrong rather than merely incomplete.
+    #
+    # This comment used to justify the gate by saying a league served only by
+    # the Sleeper-derived draft-capital fallback "has no genuine rookie pool on
+    # /draft, and would also fail this check".  The first half stopped being
+    # true when ``_serialize_pick`` began stapling the real rookie board onto
+    # that path; the gate is unchanged and still correct, because it turns on
+    # rosters and never on rookie fields.
     loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
     loaded_league = loaded_meta.get("leagueKey")
     if loaded_league and loaded_league != league_cfg.key:

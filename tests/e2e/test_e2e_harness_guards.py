@@ -313,5 +313,206 @@ class TestNoRetiredNameInE2EAssertions(unittest.TestCase):
         )
 
 
+WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
+PLAYWRIGHT_CONFIG = E2E_DIR / "playwright.config.js"
+
+
+def _yaml_code_only(text: str) -> str:
+    """Strip ``#`` comment lines from YAML before pattern-matching.
+
+    MANDATORY for every check below, not a nicety.  The workflows now
+    carry long comments explaining why ``--reporter`` must not be passed
+    and why ``E2E_ALLOW_FLAKY`` must not be set — so a naive substring
+    scan matches the warning against the defect and fails on a correct
+    file.  This file already recorded that trap hitting it once; it hit
+    again while these guards were written.
+
+    Deliberately line-oriented and conservative: a ``#`` inside a quoted
+    scalar would be over-stripped, which can only cause a guard to look
+    at less text, never to invent an offender.
+    """
+    out = []
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            continue
+        out.append(line.split(" #", 1)[0])
+    return "\n".join(out)
+
+
+def _playwright_run_blocks() -> list[tuple[Path, str]]:
+    """(workflow, run-block text) for every step that invokes playwright."""
+    blocks = []
+    for path in sorted(WORKFLOWS_DIR.glob("*.yml")):
+        code = _yaml_code_only(path.read_text(encoding="utf-8"))
+        for chunk in re.split(r"\n\s*-\s+name:", code):
+            if "playwright test" in chunk:
+                blocks.append((path, chunk))
+    return blocks
+
+
+class TestNoWorkflowUnloadsThePlaywrightReporters(unittest.TestCase):
+    """``--reporter`` on the CLI unloads every guard in the reporter array.
+
+    Playwright's ``--reporter`` REPLACES ``playwright.config.js``'s
+    ``reporter`` list rather than adding to it, so one flag silently
+    unloads ``stack-death-reporter.js`` — the stack-death abort, the
+    coverage floor and the flaky banner, all three at once, with nothing
+    printed to say so.
+
+    This is not hypothetical twice over.  The reporter's own header
+    records that the stack-death guard was first "verified" under
+    ``--reporter=line`` and had therefore never executed.  And
+    ``prod-e2e-smoke.yml`` passed the same flag for its entire history:
+    every production smoke run this repo ever made ran with no guards.
+    Fixed 2026-08-05; this test is what stops it coming back.
+    """
+
+    # Keyed (workflow filename, flag).  EMPTY, and that is the desired
+    # state — every entry here is a hole in the guard, same convention as
+    # _GOTO_EXEMPT above.  An entry needs a reason that survives being
+    # read adversarially; "we only wanted prettier output" is not one,
+    # because that is exactly the trade that produced the incident.
+    _REPORTER_EXEMPT: dict[tuple[str, str], str] = {}
+
+    def test_no_workflow_passes_a_reporter_flag(self):
+        offenders = []
+        for path, chunk in _playwright_run_blocks():
+            if not re.search(r"--reporter\b", chunk):
+                continue
+            if (path.name, "--reporter") in self._REPORTER_EXEMPT:
+                continue
+            offenders.append(path.name)
+        self.assertEqual(
+            offenders,
+            [],
+            "A workflow passes --reporter to playwright, which replaces the "
+            "config's reporter array and unloads stack-death-reporter.js "
+            "(stack-death abort + coverage floor + flaky banner). Remove the "
+            "flag; the config already provides list + html.\n" + "\n".join(offenders),
+        )
+
+    def test_every_exemption_is_still_real(self):
+        for name, _flag in self._REPORTER_EXEMPT:
+            self.assertTrue(
+                (WORKFLOWS_DIR / name).exists(),
+                f"_REPORTER_EXEMPT names {name}, which no longer exists. "
+                "Drop the entry rather than leaving a hole propped open.",
+            )
+
+
+class TestFlakyRunsCannotReportGreen(unittest.TestCase):
+    """A retried pass must not read as a clean pass.
+
+    ``retries: 1`` in CI means a test can fail, be retried, pass, and
+    leave the run's status at ``passed`` with exit 0.  Nothing read that
+    flaky count until 2026-08-05, so ``e2e.yml``'s close step would
+    retire the ``e2e-failures`` tracker on a run that contained failures
+    — draining every open one, since it iterates ``.[]``.
+
+    The predicate lives in ``playwright.config.js`` as
+    ``failOnFlakyTests``, NOT in the reporter, precisely because a
+    ``--reporter`` flag can unload the reporter and cannot touch a config
+    key.
+    """
+
+    def test_config_fails_the_run_on_flaky(self):
+        src = PLAYWRIGHT_CONFIG.read_text(encoding="utf-8")
+        self.assertIn(
+            "failOnFlakyTests",
+            src,
+            "playwright.config.js no longer sets failOnFlakyTests. Without it "
+            "a retried failure reports as a green run and e2e.yml's close "
+            "step retires the tracking issue on it.",
+        )
+
+    def test_retries_and_fail_on_flaky_stay_paired(self):
+        """The invariant that actually matters.
+
+        ``retries: 0`` plus the key is merely stricter and is fine.  What
+        must never happen is a non-zero CI retry count with the key gone:
+        that silently restores the old false green, and the diff that
+        does it does not look wrong on its own.
+        """
+        src = PLAYWRIGHT_CONFIG.read_text(encoding="utf-8")
+        retries = re.search(r"^\s*retries:\s*(.+?),\s*$", src, re.MULTILINE)
+        self.assertIsNotNone(retries, "could not find a retries: line to check")
+        expr = retries.group(1)
+        has_nonzero_ci_branch = "CI" in expr and not re.fullmatch(r"0", expr.strip())
+        if has_nonzero_ci_branch:
+            self.assertIn(
+                "failOnFlakyTests",
+                src,
+                f"retries is {expr!r} (non-zero under CI) but failOnFlakyTests "
+                "is gone. Those two are a pair: retries without it means a "
+                "flaky test reports green.",
+            )
+
+    def test_no_workflow_disables_the_guards(self):
+        offenders = []
+        for path in sorted(WORKFLOWS_DIR.glob("*.yml")):
+            code = _yaml_code_only(path.read_text(encoding="utf-8"))
+            for var in ("E2E_ALLOW_FLAKY", "E2E_NO_STACK_GUARD"):
+                if re.search(rf"^\s*{var}\s*:", code, re.MULTILINE):
+                    offenders.append(f"{path.name} sets {var}")
+        self.assertEqual(
+            offenders,
+            [],
+            "A workflow disables an E2E guard. Both switches exist for a "
+            "human debugging locally, not for CI — setting either in a "
+            "workflow restores the green this repo just stopped "
+            "manufacturing.\n" + "\n".join(offenders),
+        )
+
+
+class TestSubsetRunsCarryTheirOwnCoverageFloor(unittest.TestCase):
+    """A workflow running ONE spec needs its own floor, or none at all.
+
+    ``stack-death-reporter.js`` defaults to ``E2E_MIN_PASSED=100``, sized
+    for the nightly's full suite (139 passed on run 30945387957).  A
+    workflow that names a single spec path runs ~32 and would fail every
+    time — so a subset run MUST declare its own bounds.
+
+    The converse matters just as much: a workflow running the FULL suite
+    must NOT set them, or the nightly's floor becomes editable from YAML,
+    which is how a floor quietly becomes unenforceable.
+
+    Values must be numeric literals.  ``Number("3O")`` is NaN and both
+    ``passed < NaN`` and ``skipped > NaN`` are false, so one typo would
+    disable the coverage floor while its banner claims the opposite.
+    ``coverageBound()`` in the reporter now throws on that, and this
+    keeps the typo out of the tree in the first place.
+    """
+
+    _BOUNDS = ("E2E_MIN_PASSED", "E2E_MAX_SKIPPED")
+
+    def test_subset_runs_declare_numeric_bounds(self):
+        offenders = []
+        for path, chunk in _playwright_run_blocks():
+            names_a_spec = bool(re.search(r"tests/e2e/specs/\S+\.spec\.js", chunk))
+            found = {}
+            for var in self._BOUNDS:
+                m = re.search(rf"^\s*{var}\s*:\s*(.+?)\s*$", chunk, re.MULTILINE)
+                if m:
+                    found[var] = m.group(1).strip().strip("\"'")
+
+            if names_a_spec:
+                for var in self._BOUNDS:
+                    if var not in found:
+                        offenders.append(f"{path.name} runs a single spec but does not set {var}")
+                    elif not re.fullmatch(r"\d+", found[var]):
+                        offenders.append(
+                            f"{path.name} sets {var}={found[var]!r}, which is not a "
+                            "plain integer — an unparseable bound disables the floor"
+                        )
+            elif found:
+                offenders.append(
+                    f"{path.name} runs the full suite but sets "
+                    f"{sorted(found)} — that makes the nightly's floor "
+                    "editable from YAML"
+                )
+        self.assertEqual(offenders, [], "\n".join(offenders))
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
