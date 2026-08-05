@@ -1374,8 +1374,35 @@ def build_terminal_payload(
     * ``team``              — {ownerId, name} resolved selection (or null)
     * ``availableTeams``    — [{ownerId, name, playerCount}] for picker
     * ``windowDays``        — the clamped window echoed back
-    * ``teamAggregates``    — {totalValue, delta7d, delta30d, delta90d,
-                               delta180d, tiers, starterCount, benchCount}
+    * ``teamAggregates``    — {totalValue, valueBasis, delta7d, delta30d,
+                               delta90d, delta180d, tiers, starterCount,
+                               benchCount}
+
+      ``totalValue`` is a PORTFOLIO TOTAL, not a roster-strength score,
+      and ``valueBasis`` says so on the payload rather than in a
+      comment.  It is the plain sum of ``rankDerivedValue`` over the
+      roster's PLAYERS: no lineup solve, no starter/depth weighting, no
+      positional replacement level, and draft picks excluded entirely
+      (audit W20-F003 / W30-F017).  A team with 28 IDP bench bodies and
+      no startable RB scores identically to one with the same total
+      concentrated in starters.
+
+      Two consumers on one screen therefore report different numbers
+      for the same team, legitimately: this tile is players-only while
+      ``/terminal``'s Portfolio panel composes picks back in (442,936
+      of pick value against 1,524,591 of player value on the live
+      12-team snapshot — 22.5% of a portfolio).  ``valueBasis`` is what
+      lets the UI label them instead of contradicting itself.
+
+      Picks stay out HERE on purpose: the delta series
+      (``delta7d``..``delta180d``) is computed from rank history over
+      the same player set, and adding pick capital to the level without
+      a matching history would make the level and its deltas describe
+      different portfolios.  The lineup-weighted view of the same
+      roster is the competitiveness axis of the ONE team-direction
+      classifier (``src/roster_intel/window.py`` and its frontend port
+      ``frontend/lib/team-phase.js``), which is where "how strong is
+      this team" is answered.
     * ``movers``            — {roster, league, top150} scoped mover lists
     * ``trendWindows``      — [7, 30, 90, 180] supported windows
     * ``signals``           — [{name, pos, signal, reason, tag, fired,
@@ -1448,6 +1475,22 @@ def build_terminal_payload(
     # Defaults we populate further below.
     teamAggregates = {
         "totalValue": None,
+        # Names the concept the number IS, so a consumer cannot read a
+        # portfolio total as a strength score. See the docstring.
+        "valueBasis": {
+            "concept": "portfolioValue",
+            "assetScope": "playersOnly",
+            "includesPicks": False,
+            "lineupWeighted": False,
+            "valueField": "rankDerivedValue",
+            "note": (
+                "Plain sum of board value over rostered PLAYERS. Not a "
+                "roster-strength score: no lineup solve, no starter/depth "
+                "weighting, no replacement level, picks excluded. The "
+                "Portfolio panel composes picks back in, so the two totals "
+                "differ by design."
+            ),
+        },
         "delta7d": None,
         "delta30d": None,
         "delta90d": None,

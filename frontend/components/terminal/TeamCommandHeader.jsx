@@ -208,9 +208,17 @@ export default function TeamCommandHeader() {
     <section aria-label="Team command bar">
       <PageHeader eyebrow={eyebrow} title={teamName} />
       <div className={styles.commandStats} aria-label="Team aggregates">
+        {/* Say WHICH total this is. The Portfolio panel below composes
+            draft picks back in, so it reports a bigger number for the
+            same team — 22.5% of a portfolio on the live snapshot. Two
+            unlabelled totals reading differently on one screen is the
+            defect (audit W20-F003 / W30-F017); two labelled ones are
+            two facts. `valueBasis` is stamped by /api/terminal, and the
+            local fallback sums the same player-only set. */}
         <StatTile
           label="Team value"
           value={valueLoading ? "…" : formatValue(totalValue)}
+          meta={valueLoading ? undefined : "players only — picks in Portfolio"}
           size="lg"
         />
         <DeltaTile label="Δ 7d" value={delta7} detail={serverAggregates?.delta7dDetail} />
