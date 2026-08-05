@@ -106,6 +106,38 @@ test.describe("public /league page", () => {
     // via a <select> dropdown; on desktop, each tab is a <button>.  Detect
     // which control is currently visible and drive it accordingly.
     const mobileSelect = page.getByLabel("Select league section");
+    const desktopTab = page.getByRole("button", { name: TABS[0], exact: true }).first();
+    // Wait for whichever control this viewport actually uses BEFORE deciding,
+    // rather than sampling visibility once at an arbitrary instant (#732).
+    //
+    // Both controls are always in the DOM — LeagueClient.jsx:323 renders the
+    // <select>, :336 renders <SubNav> inside `.desktop-only` — and CSS decides
+    // which applies. Measured on 390x844 right after domcontentloaded, the
+    // select EXISTS but is not yet visible at t~0 and becomes visible by
+    // ~200ms. A one-shot `isVisible()` landing in that window returns false on
+    // a phone, so the walk took the desktop branch; there `.desktop-only` is
+    // `display: none`, which drops those buttons out of the ACCESSIBILITY TREE,
+    // and `getByRole("button", …)` reads exactly that tree — so it found 0 for
+    // all twelve tabs and every one landed in `missingTabs`.
+    //
+    // Load-dependent, so it never reproduced locally (0/12) and only surfaced
+    // on a busy runner. Readiness only: the tab-presence assertion below is
+    // untouched and still fails on a genuinely dropped or renamed tab.
+    // Polled rather than `expect(a.or(b)).toBeVisible()`: on desktop BOTH
+    // controls match their selectors, so `or()` resolves to 2 elements and
+    // strict mode throws before it can wait for anything. Measured — that
+    // version passed 8/8 on mobile and failed 8/8 on desktop.
+    await expect
+      .poll(
+        async () =>
+          (await mobileSelect.isVisible().catch(() => false)) ||
+          (await desktopTab.isVisible().catch(() => false)),
+        {
+          message: "neither sub-nav control (mobile <select> / desktop tabs) became visible",
+          timeout: 60_000,
+        },
+      )
+      .toBe(true);
     const useMobile = await mobileSelect.isVisible().catch(() => false);
 
     // ── What this test does and does NOT prove ────────────────────

@@ -286,15 +286,29 @@ class StackDeathReporter {
         `failOnFlakyTests in playwright.config.js, e2e.yml's close step\n` +
         `would retire the open e2e-failures issue on this run — and it\n` +
         `iterates .[], so it drains every open one.\n\n` +
-        `FIRST THING TO CHECK: a strict-mode violation ("resolved to 2\n` +
-        `elements").  React streaming intermittently leaves its\n` +
-        `<div id="S:1"> staging copy in the DOM, so the page's markup\n` +
-        `exists twice.  It is invisible in a screenshot, in the a11y\n` +
-        `tree, and to a human clicking around.  That is a PRODUCT defect.\n\n` +
-        `DO NOT "fix" it by adding .first() to the locator.  The two\n` +
-        `sites that can see it — journey-trade.spec.js (/arbitrage) and\n` +
-        `waivers-smoke.spec.js (/waivers) — are the ONLY detectors this\n` +
-        `repo has for duplicated markup, and .first() restores the\n` +
+        `TWO COMMON CAUSES, and they want opposite responses.\n\n` +
+        `1. A READINESS race — the spec sampled the page before it was\n` +
+        `   done.  Routes with a loading.jsx are streamed, so around the\n` +
+        `   swap a selector can match twice; and a control can exist\n` +
+        `   while still measuring as not-visible, so a one-shot\n` +
+        `   isVisible() picks the wrong branch (measured 4/15 on a phone\n` +
+        `   viewport — that was #732).  Neither is a product defect.\n` +
+        `   Fix the WAIT: awaitStreamSettled() in helpers/journey.js for\n` +
+        `   the streaming case, locator.or() for "which control is\n` +
+        `   live".  Never the assertion.\n\n` +
+        `2. A PERSISTENT duplicate — the page's markup really does\n` +
+        `   exist twice, and still does after streaming completes.  THAT\n` +
+        `   is a product defect (#709 shipped one: every route rendered\n` +
+        `   twice, invisible in a screenshot, in the a11y tree, and to a\n` +
+        `   human clicking around).  Fix the app.\n\n` +
+        `Tell them apart by whether it survives awaitStreamSettled().\n` +
+        `NOTE the earlier story here — "React leaves its <div id=\\"S:1\\">\n` +
+        `staging copy behind" — was WRONG on both the mechanism and the\n` +
+        `rate (see #747); it sent one investigation down a dead end.\n\n` +
+        `DO NOT "fix" either by adding .first() to the locator.  The two\n` +
+        `sites that can see case 2 — journey-trade.spec.js (/arbitrage)\n` +
+        `and waivers-smoke.spec.js (/waivers) — are the ONLY detectors\n` +
+        `this repo has for duplicated markup, and .first() restores the\n` +
         `silence while looking like a fix.\n\n` +
         `Traces for the failed attempt are in tests/e2e/test-results/\n` +
         `(trace: "on-first-retry").  Read those before re-running.\n` +
