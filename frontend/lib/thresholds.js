@@ -43,7 +43,33 @@ export const LENS_INEFFICIENCY_RANK = 200;
 // ── Market gap ──────────────────────────────────────────────────────────────
 
 /** Minimum rank difference for a market gap label to display. */
-export const MARKET_GAP_MIN_DIFF = 10;
+// RETIRED: MARKET_GAP_MIN_DIFF (was 10 ordinal ranks).  The market gap is
+// no longer measured in rank space at all, so a rank threshold has nothing
+// to gate.  Removed rather than left at its old value, where it would read
+// as a live knob nobody is turning.
+
+// Minimum RELATIVE gap, in blended-value space, for a market-gap label to
+// fire.  Replaces MARKET_GAP_MIN_DIFF for that purpose.
+//
+// The gap used to be a difference of raw ordinal RANKS averaged across
+// sources drawn from pools of very unequal depth (ktcSfTep 473 rows,
+// idpTradeCalc 901, dlfSf 278).  Differencing ordinals across those pools
+// measures pool depth and format basis, not opinion — measured on the
+// 2026-08-05 board the median signed gap was TE +40.7 ranks while QB was
+// -18.3, RB -9.3 and WR -6.0, i.e. every position negative and TE alone
+// hugely positive.  That is not 15 independent boards agreeing about
+// tight ends; it is a basis offset.
+//
+// In value space the same medians are QB +0.008, TE +0.084, WR +0.110,
+// RB +0.112 — TE sits between the others instead of outside them.
+//
+// A relative gate, not an absolute one: 300 points of a 0-9999 scale is
+// noise at the top of the board and a whole tier at rank 400.
+//
+// 0.05 is CALIBRATED, not chosen: on the live board it labels 68.8% of
+// two-sided rows non-HOLD, against 69.2% under the old rank gate.  The
+// point is to re-aim the signal, not to quietly silence it.
+export const MARKET_GAP_MIN_VALUE_RATIO = 0.05;
 
 // ── Rank cutoffs ────────────────────────────────────────────────────────────
 
