@@ -138,13 +138,16 @@ class BuildValuationFromContractTests(unittest.TestCase):
             valuation({"kind": "player", "playerId": "priced"}),
             5000.0,
         )
-        # 0.0 means "cannot grade this asset", which is what
-        # ``activity.build_section`` needs to hear.  2500.0 would be the
+        # ``None`` means "cannot price this asset", which is what
+        # ``activity._side_values`` needs to hear.  2500.0 would be the
         # composite leaking in on the wrong scale.
-        self.assertEqual(
-            valuation({"kind": "player", "playerId": "unpriced"}),
-            0.0,
-        )
+        #
+        # This assertion read ``0.0`` until W19-F003.  0.0 is dropped by
+        # ``sanitize_side_values``, so an asset the board refused to
+        # price became indistinguishable from one that was never in the
+        # trade — 224 of 1,708 live slots, including 20 first-round
+        # picks, silently removed from a grade that was still emitted.
+        self.assertIsNone(valuation({"kind": "player", "playerId": "unpriced"}))
 
     def test_falls_back_to_player_name_when_id_misses(self) -> None:
         contract = {
@@ -225,7 +228,14 @@ class BuildValuationFromContractTests(unittest.TestCase):
             7200.0,
         )
 
-    def test_unknown_asset_returns_zero(self) -> None:
+    def test_unknown_asset_is_unpriced_not_worthless(self) -> None:
+        """Every miss returns ``None`` (W19-F003).
+
+        The 2026 board carries pick rows for 2026-2028 rounds 1-6 only,
+        so a 2025 first is a PERMANENT miss on the historical public
+        feed — 156 of the 224 unpriced slots there are picks.  Returning
+        0.0 reported each of them as an asset worth nothing.
+        """
         contract = {
             "playersArray": [
                 {"playerId": "p1", "displayName": "A", "values": {"displayValue": 100}},
@@ -233,10 +243,13 @@ class BuildValuationFromContractTests(unittest.TestCase):
         }
         valuation = build_valuation_from_contract(contract)
         self.assertIsNotNone(valuation)
-        self.assertEqual(valuation({"kind": "player", "playerId": "unknown"}), 0.0)
-        self.assertEqual(valuation({"kind": "pick", "season": "2099", "round": 1}), 0.0)
-        self.assertEqual(valuation({"kind": "other"}), 0.0)
-        self.assertEqual(valuation(None), 0.0)
+        self.assertIsNone(valuation({"kind": "player", "playerId": "unknown"}))
+        self.assertIsNone(valuation({"kind": "pick", "season": "2099", "round": 1}))
+        self.assertIsNone(valuation({"kind": "pick", "season": "2025", "round": 1}))
+        self.assertIsNone(valuation({"kind": "other"}))
+        self.assertIsNone(valuation(None))
+        # …and a real hit is unaffected.
+        self.assertEqual(valuation({"kind": "player", "playerId": "p1"}), 100.0)
 
 
 if __name__ == "__main__":

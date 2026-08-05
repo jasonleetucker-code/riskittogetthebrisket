@@ -172,6 +172,21 @@ class PublicFeedUsesTheCanonicalGrade(unittest.TestCase):
                     ],
                 }
                 activity._apply_trade_grades([trade], lambda asset: asset["v"])
+                if case.get("activityAbstains"):
+                    # The fixture declares that this case's values are
+                    # not merely garbage numbers but assets the
+                    # valuation could not price, and the public feed
+                    # withholds the letter for those (W19-F003).  The
+                    # fixture states why in ``activityWhy``; the
+                    # arithmetic half is still asserted by
+                    # ``TradeCaseParity`` above.
+                    self.assertEqual(
+                        [s["grade"]["grade"] for s in trade["sides"]],
+                        [trade_grading.UNGRADED["grade"]] * len(trade["sides"]),
+                        case["activityWhy"],
+                    )
+                    self.assertTrue(all(s["unpricedAssetCount"] > 0 for s in trade["sides"]))
+                    continue
                 self.assertEqual(
                     [s["grade"]["grade"] for s in trade["sides"]],
                     [e["grade"] for e in case["expected"]],
@@ -182,6 +197,7 @@ class PublicFeedUsesTheCanonicalGrade(unittest.TestCase):
                     [e["label"] for e in case["expected"]],
                     case["why"],
                 )
+                self.assertTrue(all(s["unpricedAssetCount"] == 0 for s in trade["sides"]))
 
 
 class VaEngineParity(unittest.TestCase):

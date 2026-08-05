@@ -318,6 +318,8 @@
     {
       "id": "t-unpriceable-values-dropped",
       "why": "Both halves must discard the same garbage before summing: null, negatives, zero, and non-numeric strings all vanish, leaving a 1000-for-1000 swap. If either half let one through as a NaN, every band comparison against it would be false and the side would fall out the bottom as Fleeced.",
+      "activityAbstains": true,
+      "activityWhy": "This case states what the ARITHMETIC does with an unusable number, and both halves still agree on that. It is NOT what the public activity feed does with an unusable ASSET: there, null / non-numeric is the valuation callable saying it could not price the asset, and since 2026-08-05 (W19-F003) the feed withholds the letter rather than grading the remaining subset. So the activity replay of this one case asserts the abstention instead of the letter. The two are consistent — grade_trade_side is still handed exactly the sanitized numbers below — and stating the divergence here keeps it deliberate rather than a drift nobody noticed.",
       "sides": [
         { "got": [1000, null, -50, 0, "abc"], "gave": [1000] },
         { "got": [1000], "gave": [1000, null, -50, 0, "abc"] }

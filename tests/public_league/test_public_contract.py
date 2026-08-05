@@ -366,7 +366,14 @@ class ActivityGradingTests(unittest.TestCase):
         # into the net, every band comparison against it is False, and
         # the side falls through to the "F Fleeced" tail — on a trade
         # that is a dead-even 1000-for-1000 swap.
+        #
+        # Since W19-F003 a NaN is also recognised for what it is — the
+        # valuation could not price that asset — so the outcome is the
+        # explicit abstention rather than a letter over the remaining
+        # subset.  The original property still holds and is still what
+        # this test guards: "F Fleeced" must never appear here.
         from src.public_league.activity import _apply_trade_grades
+        from src.public_league.trade_grading import UNGRADED
 
         got_a = [
             {"kind": "player", "playerId": "a"},
@@ -392,9 +399,11 @@ class ActivityGradingTests(unittest.TestCase):
 
         _apply_trade_grades([trade], _valuation)
         grades = [s["grade"]["grade"] for s in trade["sides"]]
-        labels = [s["grade"]["label"] for s in trade["sides"]]
-        self.assertEqual(grades, ["A", "A"])
-        self.assertEqual(labels, ["Fair trade", "Fair trade"])
+        self.assertEqual(grades, [UNGRADED["grade"], UNGRADED["grade"]])
+        self.assertNotIn("F", grades)
+        # Two unpriceable assets per side: one received, one given.
+        self.assertEqual([s["unpricedAssetCount"] for s in trade["sides"]], [2, 2])
+        self.assertEqual(trade["unpricedAssetCount"], 4)
 
     def test_activity_grades_each_multi_team_side_on_its_own_net(self) -> None:
         # 3-team trade, graded the way the private /trades page grades

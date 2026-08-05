@@ -421,6 +421,14 @@ def sanitize_side_values(raw: Iterable[Any] | None) -> list[float]:
     positive values into the array the VA sees, so a NaN or a negative
     contributes nothing to either the linear sum or the VA.  Both halves
     must agree on that or the grades diverge on unpriced assets.
+
+    This function is deliberately NOT where "unpriced" is decided.  It
+    normalises a list of numbers; whether a dropped entry was worthless
+    or unknown is information the caller holds and passes separately —
+    see :func:`grade_trade_sides`.  Answering that question here is
+    what produced W19-F003: an asset the board could not price was
+    dropped and became indistinguishable from one that was never in
+    the trade.
     """
     out: list[float] = []
     for value in raw or []:
@@ -430,6 +438,36 @@ def sanitize_side_values(raw: Iterable[Any] | None) -> list[float]:
         if num > 0:
             out.append(num)
     return out
+
+
+# ── Abstention ───────────────────────────────────────────────────────
+#
+# The band table above answers "how lopsided was this trade".  It can
+# only answer that over a set of assets that were all priced.  When one
+# was not, there is no honest bucket: the missing asset can be a 2025
+# first, and 224 of 1,708 slots on the live public feed are exactly
+# that.  So the letter is withheld rather than computed over a subset
+# and presented as if it covered the whole trade (W19-F003).
+#
+# Shaped like a grade block so every consumer that renders
+# ``{grade, color, label}`` keeps working without a branch — but with a
+# dash where the letter goes, which no band can produce.
+UNGRADED: dict[str, str] = {
+    "grade": "—",
+    "color": "var(--subtext)",
+    "label": "Not graded — unpriced assets",
+}
+
+
+def ungraded_badge(unpriced: int) -> dict[str, str]:
+    """:data:`UNGRADED` with the count spelled out in the label."""
+    if unpriced <= 0:
+        return dict(UNGRADED)
+    noun = "asset" if unpriced == 1 else "assets"
+    return {
+        **UNGRADED,
+        "label": f"Not graded — {unpriced} unpriced {noun}",
+    }
 
 
 def grade_trade_side(
@@ -466,7 +504,7 @@ def grade_trade_side(
 
 
 def grade_trade_sides(
-    sides: Iterable[tuple[Iterable[Any] | None, Iterable[Any] | None]],
+    sides: Iterable[tuple[Any, ...]],
 ) -> list[dict[str, Any]]:
     """Grade every side of one trade from ``(got_values, gave_values)`` pairs.
 
@@ -474,10 +512,39 @@ def grade_trade_sides(
     sides' received totals — which is what makes 3+ team trades come out
     right, since the sent and received pools do not pair up there.  For a
     two-team trade the two are algebraically identical (A.got == B.gave).
+
+    A side may be supplied as a THIRD element: the number of that
+    side's assets the valuation could not price.  When any side reports
+    one, EVERY side's letter is withheld (:data:`UNGRADED`) — not just
+    the side holding the unpriced asset.  A two-team trade is one
+    equation: if A received a pick nothing could price, B gave that
+    same pick, so B's net is wrong by exactly the same unknown amount.
+    Grading B while abstaining on A would publish a verdict on half of
+    a trade nobody could evaluate (W19-F003).
+
+    Every result carries ``unpricedAssetCount`` (that side's own) and
+    ``tradeUnpricedAssetCount`` (the whole trade's), so the omission is
+    on the payload whether or not a surface renders the badge.  Omitting
+    the third element preserves the previous behavior exactly, which is
+    what the shared parity fixture exercises.
     """
+    parsed: list[tuple[list[float], list[float], int]] = []
+    for side in sides:
+        raw_got, raw_gave, *rest = side
+        unpriced = int(rest[0]) if rest and rest[0] else 0
+        parsed.append(
+            (sanitize_side_values(raw_got), sanitize_side_values(raw_gave), max(0, unpriced))
+        )
+
+    trade_unpriced = sum(u for _got, _gave, u in parsed)
     out: list[dict[str, Any]] = []
-    for raw_got, raw_gave in sides:
-        got_values = sanitize_side_values(raw_got)
-        gave_values = sanitize_side_values(raw_gave)
-        out.append(grade_trade_side(got_values, gave_values, trade_va_net(got_values, gave_values)))
+    for got_values, gave_values, unpriced in parsed:
+        result = grade_trade_side(
+            got_values, gave_values, trade_va_net(got_values, gave_values)
+        )
+        result["unpricedAssetCount"] = unpriced
+        result["tradeUnpricedAssetCount"] = trade_unpriced
+        if trade_unpriced:
+            result["grade"] = ungraded_badge(trade_unpriced)
+        out.append(result)
     return out

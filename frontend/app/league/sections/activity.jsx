@@ -152,7 +152,16 @@ export function TradeCard({ trade, managers, onNavigate }) {
               </span>
               {side.grade && (
                 <>
-                  <span style={{ fontSize: "0.78rem", fontWeight: 800, color: side.grade.color }}>
+                  <span
+                    style={{ fontSize: "0.78rem", fontWeight: 800, color: side.grade.color }}
+                    // A withheld grade must read as withheld, not as a
+                    // letter the reader missed (W19-F003).
+                    title={
+                      side.unpricedAssetCount > 0
+                        ? `Not graded: ${side.unpricedAssetCount} asset(s) in this trade are not on the current board (picks from past seasons and deep future rounds have no row), so any grade would cover only part of the trade.`
+                        : undefined
+                    }
+                  >
                     {side.grade.grade}
                   </span>
                   <span style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500 }}>

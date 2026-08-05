@@ -53,7 +53,7 @@ _TIER_CENTER_SLOTS: tuple[tuple[str, int], ...] = (
 )
 
 
-def _value_from_bundle(bundle: dict[str, Any]) -> float:
+def _value_from_bundle(bundle: dict[str, Any]) -> float | None:
     """Read the canonical board value out of a contract row's ``values``.
 
     SCALE (math audit 2026-07-30, finding H1).  This chain used to end in
@@ -71,11 +71,16 @@ def _value_from_bundle(bundle: dict[str, Any]) -> float:
     a renamed key must not silently disable grading — but ``rawComposite``
     is deliberately NOT here.
 
-    Returns 0.0 when no board value is available, which
-    ``activity.build_section`` treats as "cannot grade this asset".
+    Returns ``None`` when no board value is available — NOT 0.0
+    (W19-F003).  ``sanitize_side_values`` drops non-positive numbers,
+    so a 0.0 here made an asset the board declined to price
+    indistinguishable from one that was never in the trade: dropped
+    from both the linear sum and the KTC value adjustment, with the
+    letter grade still emitted over what was left.  ``None`` is the
+    signal ``activity._side_values`` counts.
     """
     if not isinstance(bundle, dict):
-        return 0.0
+        return None
     for key in ("displayValue", "overall", "finalAdjusted"):
         raw = bundle.get(key)
         try:
@@ -84,14 +89,20 @@ def _value_from_bundle(bundle: dict[str, Any]) -> float:
             continue
         if val > 0:
             return val
-    return 0.0
+    return None
 
 
 def build_valuation_from_contract(
     contract: dict[str, Any] | None,
-) -> Callable[[dict[str, Any]], float] | None:
-    """Build a ``(asset_dict) -> float`` valuation callable from the
-    cached canonical contract.
+) -> Callable[[dict[str, Any]], float | None] | None:
+    """Build a ``(asset_dict) -> float | None`` valuation callable from
+    the cached canonical contract.
+
+    The callable returns ``None`` for any asset the board does not
+    price.  That is a different answer from ``0.0``, which means
+    "priced, and worth nothing" — see :func:`_value_from_bundle`.
+    Note the two ``None``s in this signature are unrelated: the outer
+    one disables grading entirely, the inner one abstains on one asset.
 
     Returns ``None`` when the contract is empty or the players array
     has no rows carrying a positive value — ``activity.build_section``
@@ -102,9 +113,9 @@ def build_valuation_from_contract(
     ``public_league.activity.build_section(... valuation=...)``: it
     accepts the public trade-side received-asset shape
     (``{kind: "player"|"pick", playerId, playerName, position,
-    season, round, ...}``) and returns a numeric value.  Neither the
-    callable nor its source values is ever serialized into the
-    public payload.
+    season, round, ...}``) and returns a numeric value or ``None``.
+    Neither the callable nor its source values is ever serialized into
+    the public payload.
     """
     if not contract:
         return None
@@ -125,7 +136,7 @@ def build_valuation_from_contract(
         if not isinstance(row, dict):
             continue
         val = _value_from_bundle(row.get("values") or {})
-        if val <= 0:
+        if val is None:
             continue
         # Suppressed generic-tier pick rows keep a stale legacy value
         # for name-search purposes but are NOT authoritative — the
@@ -154,15 +165,23 @@ def build_valuation_from_contract(
                 return hit
         return by_name.get(key)
 
-    def _pick_value(season: Any, round_: Any) -> float:
+    # Every miss below returns ``None``, never 0.0 (W19-F003).  The
+    # 2026 board carries pick rows for 2026-2028 rounds 1-6 only, so
+    # every 2024/2025 pick and every round >= 5 future pick misses
+    # PERMANENTLY — 156 of the 224 unpriced slots on the live 191-trade
+    # feed are picks, including six ``2024 R1`` and fourteen
+    # ``2025 R1``.  "Off the board" is a lasting property of this
+    # historical feed, not a transient gap, and a zero would report
+    # every one of those as a worthless asset.
+    def _pick_value(season: Any, round_: Any) -> float | None:
         try:
             round_int = int(round_)
         except (TypeError, ValueError):
-            return 0.0
+            return None
         label = _ROUND_LABELS.get(round_int)
         season_str = str(season or "").strip()
         if not label or not season_str:
-            return 0.0
+            return None
         for tier, _slot in _TIER_CENTER_SLOTS:
             hit = _resolve(f"{season_str} {tier} {label}")
             if hit is not None:
@@ -171,11 +190,11 @@ def build_valuation_from_contract(
             hit = _resolve(f"{season_str} Pick {round_int}.{slot:02d}")
             if hit is not None:
                 return hit
-        return 0.0
+        return None
 
-    def _valuation(asset: Any) -> float:
+    def _valuation(asset: Any) -> float | None:
         if not isinstance(asset, dict):
-            return 0.0
+            return None
         kind = asset.get("kind")
         if kind == "player":
             pid = str(asset.get("playerId") or "").strip()
@@ -185,10 +204,10 @@ def build_valuation_from_contract(
                     return hit
             name = str(asset.get("playerName") or "").strip()
             if name:
-                return by_name.get(name.lower(), 0.0)
-            return 0.0
+                return by_name.get(name.lower())
+            return None
         if kind == "pick":
             return _pick_value(asset.get("season"), asset.get("round"))
-        return 0.0
+        return None
 
     return _valuation

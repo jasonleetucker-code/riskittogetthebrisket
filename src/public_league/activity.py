@@ -24,6 +24,7 @@ Blockbuster tiebreaks (prompt spec):
 
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from typing import Any, Callable
 
@@ -61,27 +62,53 @@ NOTABLE_POSITIONS = OFFENSIVE_CORE | {"DL", "LB", "DB", "EDGE"}
 
 def _side_values(
     assets: Any,
-    valuation: Callable[[dict[str, Any]], float],
-) -> list[float]:
+    valuation: Callable[[dict[str, Any]], float | None],
+) -> tuple[list[float], int]:
     """Value one side's asset list, tolerating a hostile valuation.
 
-    A callable that raises, or returns ``float('nan')`` for a missing
-    value (common with dataframe-derived numbers), must not poison the
-    side — ``sanitize_side_values`` drops anything non-finite or
-    non-positive, exactly as the frontend's resolver does.
+    Returns ``(priced_values, unpriced_count)``.
+
+    Three things mean "this asset has no value on the board", and all
+    three used to collapse into a silent ``0.0`` that
+    ``sanitize_side_values`` then dropped, leaving the asset looking as
+    though it had never been in the trade (W19-F003):
+
+    * the valuation returns ``None`` — the explicit signal from
+      ``src.api.public_activity_valuation``, which is what a 2025 pick
+      or an off-board player produces on a 2026 board;
+    * it returns ``float('nan')`` (common with dataframe-derived
+      numbers) or any other non-finite value;
+    * it raises.
+
+    A returned ``0.0`` is NOT unpriced — it is a priced asset worth
+    nothing, which the grade can legitimately use.  That distinction is
+    the whole point of the split.
     """
-    out: list[float] = []
+    priced: list[float] = []
+    unpriced = 0
     for asset in assets or []:
         try:
-            out.append(float(valuation(asset) or 0.0))
+            raw = valuation(asset)
         except (TypeError, ValueError):
-            out.append(0.0)
-    return trade_grading.sanitize_side_values(out)
+            raw = None
+        if raw is None:
+            unpriced += 1
+            continue
+        try:
+            num = float(raw)
+        except (TypeError, ValueError):
+            unpriced += 1
+            continue
+        if not math.isfinite(num):
+            unpriced += 1
+            continue
+        priced.append(num)
+    return trade_grading.sanitize_side_values(priced), unpriced
 
 
 def _apply_trade_grades(
     feed: list[dict[str, Any]],
-    valuation: Callable[[dict[str, Any]], float],
+    valuation: Callable[[dict[str, Any]], float | None],
 ) -> None:
     """Attach a ``grade`` block to each side of every trade in ``feed``.
 
@@ -91,21 +118,30 @@ def _apply_trade_grades(
     sides against each other's received totals mislabels whoever
     happened to receive fewest pieces.  The per-side totals are
     discarded after grading; the public payload surfaces only the
-    grade letter, label, and color.
+    grade letter, label, color, and the unpriced-asset COUNT.
+
+    The count is a count, not a value — no board number leaves the
+    backend — and it is emitted whether or not it is non-zero, because
+    "we priced everything" and "this field does not exist" must not
+    read the same (W19-F003).  A trade with any unpriced asset gets
+    ``trade_grading.UNGRADED`` on every side; see
+    :func:`trade_grading.grade_trade_sides` for why the abstention is
+    per-trade rather than per-side.
     """
     for trade in feed:
         sides = trade.get("sides") or []
         if len(sides) < 2:
             continue
-        graded = trade_grading.grade_trade_sides(
-            (
-                _side_values(side.get("receivedAssets"), valuation),
-                _side_values(side.get("sentAssets"), valuation),
-            )
-            for side in sides
-        )
+        per_side: list[tuple[list[float], list[float], int]] = []
+        for side in sides:
+            got, got_unpriced = _side_values(side.get("receivedAssets"), valuation)
+            gave, gave_unpriced = _side_values(side.get("sentAssets"), valuation)
+            per_side.append((got, gave, got_unpriced + gave_unpriced))
+        graded = trade_grading.grade_trade_sides(per_side)
         for side, result in zip(sides, graded):
             side["grade"] = result["grade"]
+            side["unpricedAssetCount"] = result["unpricedAssetCount"]
+        trade["unpricedAssetCount"] = graded[0]["tradeUnpricedAssetCount"]
 
 
 def _pick_asset(pick: dict[str, Any], snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
