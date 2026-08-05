@@ -8748,10 +8748,17 @@ async def get_draft_roster_context(
             },
         )
     # The league-match gate is what scopes this feature to the league whose
-    # rosters are actually loaded.  A league served only by the Sleeper-derived
-    # draft-capital fallback has no genuine rookie pool on /draft, and would
-    # also fail this check — so the panel vanishes rather than optimizing
-    # against placeholder players.
+    # rosters are actually loaded.  Every figure the optimizer needs — open
+    # spots, the cut ladder, waiver levels — is derived from THIS league's
+    # rosters, and the server holds one league's at a time, so serving another
+    # league's would be wrong rather than merely incomplete.
+    #
+    # This comment used to justify the gate by saying a league served only by
+    # the Sleeper-derived draft-capital fallback "has no genuine rookie pool on
+    # /draft, and would also fail this check".  The first half stopped being
+    # true when ``_serialize_pick`` began stapling the real rookie board onto
+    # that path; the gate is unchanged and still correct, because it turns on
+    # rosters and never on rookie fields.
     loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
     loaded_league = loaded_meta.get("leagueKey")
     if loaded_league and loaded_league != league_cfg.key:
