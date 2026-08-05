@@ -1,22 +1,23 @@
 # Open modeling decisions — resolved to evidence
 
-**Date:** 2026-07-29, updated 2026-07-30
+**Date:** 2026-07-29, updated 2026-07-30, updated 2026-08-05
 **Context:** the 2026-07-29 repository audit
-(`docs/audits/complete-codebase-audit-2026-07-29.md`) left three
+(`docs/audits/complete-codebase-audit-2026-07-30.md`) left three
 questions as "requires a product decision". Each was under-specified:
 they were stated as choices without the measurements needed to make
-them. This document closes that gap.
+them. This document closes that gap. Decision #4 was added by the
+2026-08-05 unfalsifiable-number audit on the same terms.
 
-**Status as of 2026-07-30 — all three are decided:**
+**Status:**
 
 | # | question | outcome |
 |---|---|---|
 | 1 | apply `coverageWeight`? | **No.** Measured: 297 rows / 221 ranks move for a 3-source input change, with no accuracy evidence either way. Stays DIAGNOSTIC ONLY. |
 | 2 | retire the legacy rank-form curves? | **No — re-tuned and kept**, with a tested drift alarm. Migration turned out not to be a live option; the old constants were fit to the wrong target. |
 | 3 | re-threshold `low_conf_unstable`? | **No — rule retired.** The metric is structurally capped; no threshold makes it sound. |
+| 4 | what width should the Monte Carlo band be? | **Open — deliberately.** The flat ±15% is 4.8× the median measured source disagreement but 0.4× the maximum. Made *visible* (`bandSources` + disclaimer) rather than silently re-tuned. |
 
-Only #1 remains reversible-on-new-evidence (a holdout backtest would
-settle it); #2 and #3 are closed.
+#1 and #4 remain reversible-on-new-evidence; #2 and #3 are closed.
 
 ---
 
@@ -312,3 +313,114 @@ With `low_conf_unstable` gone there is no signal-path pressure to change
 the divisor either. Honest status: a fossil constant whose only live
 reach is the finder's fallback path, worth fixing when the scraper is
 next touched, not worth a speculative re-scrape now.
+
+---
+
+## 4. What width should the Monte Carlo trade band be?
+
+**Status: measured. Recommendation — leave the width alone for now,
+but stop calling it a consensus. Added 2026-08-05.**
+
+### The question, as it actually stands
+
+`src/trade/monte_carlo.py` draws each asset's value from a band
+`(p10, p50, p90)` and reports the fraction of draws where side A wins.
+The output is labelled `consensus_based_win_rate` and carries a
+disclaimer — a contract field the UI is *required* to render — saying
+the number comes from "the sources' consensus distribution".
+
+That description does not match what runs. Measured on the pinned
+2026-07-30 contract:
+
+* **0 of 1093** rows carry a stamped `valueBand`. Phase 4 confidence
+  intervals were never wired to the live contract.
+* `frontend/components/ui/MonteCarloButton.jsx` therefore synthesizes
+  a flat **±15%** band and posts it under the same `valueBand` key a
+  real interval would use.
+
+So 100% of live simulations run on a constant, and the backend had no
+way to tell — the presence of the key was the only signal, and both
+branches set it.
+
+### What the measured disagreement actually looks like
+
+Against `marketDispersionCV` on the 683 priced rows that carry it,
+converting a CV to an implied p10..p90 half-width under normality
+(`1.2816 × CV`):
+
+| quantile | `marketDispersionCV` | implied band | flat ±15% is |
+|---|---|---|---|
+| p10 | 0.0000 | ±0.00% | ∞× too wide |
+| p25 | 0.0000 | ±0.00% | ∞× too wide |
+| median | 0.0243 | ±3.12% | 4.8× too wide |
+| p75 | 0.0542 | ±6.95% | 2.2× too wide |
+| p90 | 0.0837 | ±10.73% | 1.4× too wide |
+| max | 0.2631 | ±33.72% | **0.4× — too NARROW** |
+
+**24 of 683** rows have measured disagreement exceeding ±15%.
+
+### Why the width is not simply "wrong"
+
+Two arguments point in opposite directions and neither is settled by
+this repository's data:
+
+* **Too wide.** At the median the band is nearly 5× the disagreement
+  the sources actually show. A simulator that inflates uncertainty
+  reports win probabilities closer to 50% than they should be, which
+  makes lopsided trades look closer than they are.
+* **Too narrow, and for the right reason.** Source disagreement is a
+  *lower bound* on value uncertainty. It measures how much the boards
+  differ today, not how wrong they might all be together. Dropping to
+  ±3% would make the simulator absurdly confident — a 2-point edge
+  would read as a near-certain win.
+
+There is no backtest in this repository that scores band width against
+realized outcomes, so picking a number here would be substituting one
+unjustified constant for another.
+
+### What IS wrong, and is fixed
+
+Not the width — the **flatness**, and the **label**.
+
+A flat band cannot express that the board knows some players better
+than others. At least a quarter of priced rows have *zero* measured
+disagreement and get the same ±15% as the row with 26%. That is
+information the contract already carries and the simulator discards.
+
+And the label asserted a measurement that never happened. Fixed on
+2026-08-05:
+
+* `TradePlayer.band_source` carries provenance
+  (`stamped_value_band` / `synthetic_flat_15pct` / `unknown`), declared
+  by the caller rather than inferred from which key was present.
+* An undeclared band is `unknown`, **not** assumed measured — the
+  flattering default is the one that made this unfalsifiable.
+* `simulate_trade` reports the tally as `bandSources`, and the
+  disclaimer appends "N of M assets used a synthesized ±15% band
+  rather than measured source disagreement, so the spread is an
+  assumption, not a measurement" — and only when that is true.
+
+Pinned by `tests/trade/test_monte_carlo_band_integrity.py`, including
+the asymmetry (a fully-measured run gets a clean disclaimer), so the
+qualification cannot be hardcoded into the string.
+
+### What would settle the width
+
+Stamping the real Phase 4 interval — `src/canonical/confidence_intervals.py`
+exists and nothing calls it on the live contract — and then scoring
+band-implied win probabilities against realized trade outcomes, the
+same shape as `scripts/backtest_adjusted_board.py`. Until one of those
+exists, the honest state is a documented assumption that says so on
+every response.
+
+### Also fixed alongside (not a modeling question)
+
+The band endpoints were clamped to `[0, 9999]`. 9999 is where the
+*board's* normalization tops out; it is not a bound on a quantile.
+Because the draw is otherwise exactly unbiased, that clamp was the
+simulator's only source of bias, and it landed on the top 12 assets
+only — Josh Allen's simulated mean was marked down 520 points (−5.2%),
+Brock Bowers 510, Bijan Robinson 404. The ceiling is removed from the
+endpoints (the 0 floor stays); the p50 cap in the consolidation shift
+stays, since that one is a value on the board scale and is already
+reported honestly via `effectiveValue`.

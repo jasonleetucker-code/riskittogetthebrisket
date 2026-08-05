@@ -26,7 +26,11 @@ import { effectiveValue } from "@/lib/trade-logic";
 import { useSettings } from "@/components/useSettings";
 
 
-function _payloadFromSides(sides, valueMode, settings) {
+// Exported for tests.  It had none: the band this builds is the ONLY
+// band any live simulation ever sees (nothing stamps `valueBand` on a
+// contract row), so it was the least-tested most-load-bearing number
+// in the simulator.
+export function _payloadFromSides(sides, valueMode, settings) {
   const pick = (i) => {
     const assets = sides?.[i]?.assets || [];
     return assets.map((r) => {
@@ -39,7 +43,7 @@ function _payloadFromSides(sides, valueMode, settings) {
       // the row's existing valueBand if present (real source-
       // disagreement), else a ±15% synthesized band.
       const existing = r?.valueBand;
-      let p10, p50, p90;
+      let p10, p50, p90, bandSource;
       if (existing && typeof existing.p50 === "number" && existing.p50 > 0) {
         // Scale the existing band to v's center.  Preserves the
         // shape of the source disagreement.
@@ -47,10 +51,12 @@ function _payloadFromSides(sides, valueMode, settings) {
         p10 = (existing.p10 || 0) * ratio;
         p50 = v;
         p90 = (existing.p90 || 0) * ratio;
+        bandSource = "stamped_value_band";
       } else {
         p10 = v * 0.85;
         p50 = v;
         p90 = v * 1.15;
+        bandSource = "synthetic_flat_15pct";
       }
       return {
         name: r?.name,
@@ -58,6 +64,15 @@ function _payloadFromSides(sides, valueMode, settings) {
         pos: r?.pos || r?.position,
         rankDerivedValue: v,
         valueBand: { p10: Math.round(p10), p50: Math.round(p50), p90: Math.round(p90) },
+        // Declare WHICH branch produced the band. Both post under the
+        // same `valueBand` key, so without this the backend cannot
+        // tell measured source disagreement from a constant — and it
+        // labels every result "consensus_based_win_rate" regardless.
+        // Measured on the pinned 2026-07-30 contract: 0 of 1093 rows
+        // carry a stamped `valueBand`, so today this is always the
+        // synthetic branch. Sending the flag rather than assuming it
+        // is what makes that checkable if it ever changes.
+        bandSource,
       };
     });
   };
