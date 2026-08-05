@@ -42,7 +42,19 @@ To check: `git stash push -q <the source file>`, run the test, confirm red,
    value — do not add another instance while fixing one.
 5. **Do not edit source while a test suite is running.** `inspect.getsource`
    reads the file at call time, so a mid-run edit produces phantom failures in
-   unrelated tests. This cost a false alarm already.
+   unrelated tests.
+
+   **This has now produced three false alarms**, and the orchestrator caused all
+   three by running the full suite while a repair wave was editing source. The
+   signature is always the same: a handful of failures in modules nobody touched
+   (`tests/intel/test_defect_fixes.py` and one `te_premium` invariant are the
+   usual victims), all of which pass in isolation and together. Timestamps
+   settle it — compare the run's finish time against `git log --format=%cI`.
+
+   **The rule that follows: the full-suite gate only runs on a QUIESCENT tree.**
+   No wave in flight, nothing being edited. A per-area suite is fine to run
+   concurrently; the full gate is not, and a green full gate measured during a
+   wave means nothing either.
 6. **One root cause per commit**, so it stays bisectable. Say `Closes W##-F###`
    in the body — `tools/verify_closure.py` parses it sentence-scoped, so
    mentioning a finding you did NOT fix in the same sentence will over-claim.
@@ -50,8 +62,10 @@ To check: `git stash push -q <the source file>`, run the test, confirm red,
 ## Verifying
 
 - Run the suite for every area you touched, and the full suite before the phase
-  ends. Baseline to beat: **6,338 passed / 0 failed** (Python),
-  **1,770 passed / 0 failed** (frontend).
+  ends — on a quiescent tree, per rule 5. Baseline to beat: **6,553 passed /
+  0 failed** (Python, measured after wave C), **1,866 passed / 0 failed**
+  (frontend). The Python count grows as repairs add regression tests; it started
+  at 6,278.
 - Where the finding has a measurable before/after, MEASURE IT and put both
   numbers in the commit message. Precedents: 627/654/135 rank/tier/value
   divergences → 0/0/0; 48.0s → 0.57s; 32-of-35 TEs SELL → 14-of-35.

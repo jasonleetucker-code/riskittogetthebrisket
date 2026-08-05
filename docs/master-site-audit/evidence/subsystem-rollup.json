@@ -4731,5 +4731,18 @@
   "worstStatus": "Duplicate or conflicting implementation",
   "p0Titles": [],
   "verified": 0
+ },
+ {
+  "subsystem": "Data refresh and deployment hygiene",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
  }
 ]
