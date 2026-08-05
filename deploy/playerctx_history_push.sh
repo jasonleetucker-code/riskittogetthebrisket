@@ -46,6 +46,29 @@ err() { printf '[playerctx-history][ERR] %s\n' "$*" >&2; }
 
 export GIT_SSH_COMMAND="ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
 
+# The deploy-key check lives HERE, not in install-systemd-service.sh, and
+# that placement is the fix for a measured failure rather than a
+# preference.  The installer gated the whole unit on this file and
+# reported it missing on the 2026-08-05 deploy, installing nothing —
+# but the installer runs as the DEPLOY user, whose sudo is scoped to
+# specific commands, so it can neither `sudo test -f` nor stat another
+# user's ~/.ssh.  This script runs as the app user under
+# `User=__APP_USER__`, which is the only context that can answer the
+# question it is actually asking: can the thing that pushes read the key?
+#
+# Exit 0, not 1.  Nothing has been lost or half-done at this point, and a
+# unit that goes red every week is a unit nobody reads.  The backlog is
+# safe because the glob below takes EVERY dated snapshot rather than the
+# newest, so supplying the key later backfills every missed week on the
+# next run.  A stalled retention is meant to surface through
+# `store.history_coverage()`'s missingDays — the same way rank_history
+# reports its own gaps — not through a permanently failing timer.
+if [[ ! -r "${SSH_KEY}" ]]; then
+  log "no readable deploy key at ${SSH_KEY} - snapshots stay on disk, nothing pushed"
+  log "fix: place the key there, or set PLAYERCTX_HISTORY_SSH_KEY in ${LIVE_APP_DIR}/.env"
+  exit 0
+fi
+
 SRC_DIR="${LIVE_APP_DIR}/${HISTORY_REL}"
 if [[ ! -d "${SRC_DIR}" ]]; then
   log "no history directory at ${SRC_DIR} - nothing to push (exiting clean)"
