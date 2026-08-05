@@ -86,6 +86,48 @@ const DEFAULT_ROUTES = [
   { path: "/settings", loadingJsx: false },
 ];
 
+/**
+ * Needles — the LIKE-FOR-LIKE half of the oracle.
+ *
+ * The structural probe below (ids / <main> / <h1>) found zero defects in
+ * 1,200 loads.  That is not yet a contradiction of the ledger's 1/15 and
+ * 1/45, because the ledger's detector was different: a Playwright
+ * strict-mode violation, i.e. a LOCATOR resolving to 2 elements.  A
+ * duplicate carrying no id and adding no landmark would slip past the
+ * structural probe, so retiring a measured number on it alone would be
+ * the retracted-firstLoadChunks mistake in a new costume.
+ *
+ * These are therefore the specs' OWN locators, not hand-rolled text
+ * matches — `getByLabel(/Include rookies/i, {exact:false})` is copied
+ * from waivers-smoke.spec.js:38 via NAME.waiverRookieToggle
+ * (helpers/journey.js:24).  `.count() > 1` is precisely the condition
+ * that makes strict mode throw.
+ *
+ * Note "Include rookies" also appears in an EmptyState `description`
+ * (waivers/page.jsx:510) as well as the toggle label (:727), which is
+ * why the count is compared against the route's own modal baseline
+ * rather than a hardcoded 1 — same self-calibrating rule the <main>
+ * count uses, and the reason a naive text match was rejected here.
+ */
+const ROUTE_NEEDLES = {
+  "/waivers": [{ kind: "label", value: /Include rookies/i }],
+  "/arbitrage": [{ kind: "text", value: "Pick a team and scan" }],
+};
+
+async function countNeedles(page, routePath) {
+  const out = {};
+  // Universal: a full-page duplicate doubles the <h1>, on every route.
+  out.h1Role = await page.getByRole("heading", { level: 1 }).count();
+  for (const nd of ROUTE_NEEDLES[routePath] || []) {
+    const loc =
+      nd.kind === "label"
+        ? page.getByLabel(nd.value, { exact: false })
+        : page.getByText(nd.value, { exact: false });
+    out[String(nd.value)] = await loc.count();
+  }
+  return out;
+}
+
 function parseArgs(argv) {
   const out = { loads: 200, routes: null, settleMs: 750 };
   for (let i = 0; i < argv.length; i += 1) {
@@ -154,10 +196,20 @@ function mode(values) {
 function summarize(samples, phase) {
   const mainMode = mode(samples.map((s) => s.mainCount));
   const h1Mode = mode(samples.map((s) => s.h1Count));
+  // Per-needle modal baseline, for the same reason mainCount has one: the
+  // clean count is a property of the route, not a constant.
+  const needleKeys = [...new Set(samples.flatMap((s) => Object.keys(s.needles || {})))];
+  const needleMode = {};
+  for (const k of needleKeys) {
+    needleMode[k] = mode(samples.map((s) => (s.needles || {})[k]).filter((v) => v !== undefined));
+  }
+  const needleExceeded = (s) =>
+    needleKeys.filter((k) => (s.needles || {})[k] > needleMode[k]);
   const isDirty = (s) =>
     s.dupIds.length > 0 ||
     s.mainCount > mainMode ||
     s.h1Count > h1Mode ||
+    needleExceeded(s).length > 0 ||
     (phase === "settle" && s.staged.length > 0);
   const dirty = samples.filter(isDirty);
   return {
@@ -168,6 +220,8 @@ function summarize(samples, phase) {
     mainMode,
     h1Mode,
     mains: [...new Set(samples.map((s) => s.mainCount))].sort(),
+    needleMode,
+    needlesExceeded: dirty.length ? needleExceeded(dirty[0]) : [],
     exampleDupIds: dirty.length ? dirty[0].dupIds.slice(0, 5) : [],
     exampleStaged: dirty.length ? dirty[0].staged.slice(0, 3) : [],
   };
@@ -216,7 +270,9 @@ async function main() {
         }
         atDcl.push(a);
         await page.waitForTimeout(args.settleMs);
-        atSettle.push(await page.evaluate(PROBE));
+        const settled = await page.evaluate(PROBE);
+        settled.needles = await countNeedles(page, route.path);
+        atSettle.push(settled);
         measuredAnything = true;
       } catch {
         // A single failed load is noise; a route that never loads shows
