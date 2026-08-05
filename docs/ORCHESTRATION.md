@@ -146,24 +146,55 @@ Idle agents with retained domain context (resume, never cold-spawn):
 intel, FAAB, playerctx, news, prod-hardening — reassigned as B/C owners or
 LI contributors as checkpoints arrive.
 
-## 2. Git & integration policy (REVISED — effective now)
+## 2. Git & integration policy (EXPIRED 2026-08-01 — see ASSISTANT_COORDINATION.md)
 
-Old mode (per-task PR, merge-on-green, ~13 merges/day) is retired. New:
+> ⚠ **Rules 1–4 below are HISTORICAL. Do not follow them.**
+>
+> This policy was time-boxed to two named integration windows, ~2026-07-29
+> and ~2026-08-01. Both have passed and neither was renewed, so from
+> 2026-08-02 onward it governs nothing — but it was still written in the
+> present tense ("REVISED — effective now"), and it flatly contradicted
+> `ASSISTANT_COORDINATION.md`'s "merge one task at a time back to `main`".
+> Two live-sounding process docs, opposite instructions, no cross-link.
+>
+> **Measured 2026-08-05** — merge commits landing on `main` per day:
+>
+> | date | merges |
+> |---|---|
+> | 2026-07-29 | 2 |
+> | 2026-07-30 | 12 |
+> | 2026-07-31 | 1 |
+> | 2026-08-03 | 1 |
+> | **2026-08-04** | **37** |
+>
+> The mode rule 1 calls retired — per-task PR, merge-on-green, "~13
+> merges/day" — is not merely still running, it is running at nearly 3×
+> the rate cited as the reason to retire it. The batching policy was
+> never adopted.
+>
+> **`ASSISTANT_COORDINATION.md` is the authority for day-to-day branch
+> and merge practice.** It describes what actually happens.
+>
+> **Rule 6 below is NOT expired** — the safety rules, §2a's git mechanics
+> and §3's file custodians are timeless and remain in force. They are
+> summarised in `ASSISTANT_COORDINATION.md`; this file is the detail.
 
-1. **One branch per WORKSTREAM**, not per task. Batch logical commits;
+1. ~~**One branch per WORKSTREAM**, not per task.~~ Batch logical commits;
    checkpoint-commit at least at each completed sub-milestone. Push
-   regularly (container loss protection) — pushing ≠ PR.
-2. **PR only at integration checkpoints** or when: cross-workstream
+   regularly (container loss protection) — pushing ≠ PR. *(The pushing
+   advice stands; the one-branch-per-workstream rule does not.)*
+2. ~~**PR only at integration checkpoints**~~ or when: cross-workstream
    contract must become canonical (e.g. LI registry fix), risk warrants a
-   rollback boundary, or a workstream is complete.
-3. **Two scheduled integration windows**: mid-week (~2026-07-29: R2+R3+R4
-   merged in dependency order; LI-1..LI-4 merged; E2E reconciled) and
-   final (~2026-08-01: everything; full-system validation).
-4. Reviewer runs at integration windows (and on high-risk diffs), not per
-   push. CI runs on PRs as before — fewer PRs = fewer runs.
-5. Data-refresh/deploy automation on main is unaffected.
+   rollback boundary, or a workstream is complete. *(Open a PR when the
+   work is ready — see ASSISTANT_COORDINATION.md.)*
+3. ~~**Two scheduled integration windows**: mid-week (~2026-07-29 …) and
+   final (~2026-08-01 …).~~ **Both dates have passed.**
+4. ~~Reviewer runs at integration windows~~, not per push. CI runs on PRs
+   as before.
+5. Data-refresh/deploy automation on main is unaffected. **(Still true.)**
 6. Safety: no destructive resets, no force-push on shared branches, no
    cross-agent file edits without registry entry, secrets untouched.
+   **(Still in force — this rule never expires.)**
 
 ## 2a. Git mechanics that cost real time (2026-07-26)
 

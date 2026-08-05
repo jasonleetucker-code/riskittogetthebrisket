@@ -402,8 +402,28 @@ class TestOutlierHandling:
 class TestOneValueEverywhere:
     def test_legacy_dict_mirrors_the_row_value(self, contract):
         """The legacy ``players`` dict and ``playersArray`` must not
-        disagree — several engines still read the dict."""
+        disagree — several engines still read the dict.
+
+        WHAT THIS USED TO DO
+        ====================
+        It read ``rdv`` from the row, then never used it. The only
+        assertion was ``isinstance(mirrored, (int, float))`` on
+        ``_finalAdjusted``. So it checked a TYPE, on the WRONG KEY, and
+        compared nothing — a mirror off by any amount passed, which is
+        the exact "asserts a shape, never a value" shape this audit
+        exists to find. Worse, ``_finalAdjusted`` is the legacy scraper
+        COMPOSITE, a different scale from ``rankDerivedValue``: measured
+        on the live contract it equals the row value on **1 of 812**
+        rows, so even a proper equality check against it would have been
+        wrong.
+
+        The dict does carry the right key. Measured: ``rankDerivedValue``
+        is present on all **812** rows that have a ``legacyRef`` and a
+        row value, and matches **812/812**. That is the invariant this
+        test's name always claimed, and it now asserts it.
+        """
         players = contract.get("players") or {}
+        checked = 0
         for row in _rows(contract):
             legacy_ref = row.get("legacyRef")
             if not legacy_ref or legacy_ref not in players:
@@ -411,10 +431,27 @@ class TestOneValueEverywhere:
             rdv = row.get("rankDerivedValue")
             if rdv is None:
                 continue
-            mirrored = (players[legacy_ref] or {}).get("_finalAdjusted")
-            if mirrored is None:
+            entry = players[legacy_ref] or {}
+            if "rankDerivedValue" not in entry:
                 continue
-            assert isinstance(mirrored, (int, float))
+            checked += 1
+            assert entry["rankDerivedValue"] == rdv, (
+                f"legacy dict disagrees with the row for {legacy_ref!r}: "
+                f"dict={entry['rankDerivedValue']} row={rdv}. Engines that read the "
+                f"dict (finder, suggestions, waiver) would price this asset "
+                f"differently from the board the user sees."
+            )
+
+        # Non-vacuity: the loop above `continue`s on four conditions, so
+        # an empty comparison set would make every assertion trivially
+        # true — which is how the version this replaced passed. This
+        # fixture yields 15 eligible rows (16 playersArray rows, one
+        # without a legacyRef); 10 is a floor with headroom for fixture
+        # edits, not a pin on the exact count.
+        assert checked >= 10, (
+            f"only {checked} rows were actually compared; the mirror key or "
+            f"legacyRef population changed and this guard has gone hollow"
+        )
 
     def test_trade_finder_reads_the_same_board(self, contract):
         """``board_values_from_contract`` is what the arbitrage finder

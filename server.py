@@ -5128,10 +5128,15 @@ async def post_waiver_suggestions(request: Request):
     )
     sleeper = (latest_contract_data or {}).get("sleeper") or {}
     sleeper_teams = sleeper.get("teams") or []
+    # Import the constant rather than re-typing its value: this endpoint
+    # hardcoded 500 twice, so changing MIN_WAIVER_VALUE would have moved
+    # the engine default while leaving the API's default behind it.
+    from src.trade.waiver import MIN_WAIVER_VALUE as _MIN_WAIVER_VALUE  # noqa: PLC0415
+
     try:
-        min_value = int(body.get("minValue", 500))
+        min_value = int(body.get("minValue", _MIN_WAIVER_VALUE))
     except (TypeError, ValueError):
-        min_value = 500
+        min_value = _MIN_WAIVER_VALUE
     include_kicker = bool(body.get("includeKicker"))
     try:
         faab_remaining = int(body.get("faabRemaining", 100))
