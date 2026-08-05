@@ -48,20 +48,28 @@ describe("actionLabel", () => {
   // higher by N", and rendering both was noisy duplication.  The
   // Signal column is now strictly: Consensus asset + caution labels.
 
-  it("returns null for retail-premium row (Market column handles it)", () => {
+  // These two assert the ABSENCE of a market-premium label, which is
+  // what their names say.  They previously asserted `toBeNull()` and
+  // passed for the wrong reason: `makeRow` defaults to a
+  // high-confidence multi-source row, so the only thing suppressing a
+  // label was the retired `sourceRankSpread <= 30` recompute.  Once
+  // that came out they returned "Consensus asset" — correctly, since
+  // the backend calls these rows high-confidence.  Narrowed to the
+  // claim they were written to make.
+  it("returns no market-premium label for a retail-premium row (Market column handles it)", () => {
     const label = actionLabel(makeRow({
       marketGapDirection: "retail_premium",
       sourceRankSpread: 45,
     }));
-    expect(label).toBeNull();
+    expect(label?.label ?? "").not.toMatch(/premium/i);
   });
 
-  it("returns null for consensus-premium row (Market column handles it)", () => {
+  it("returns no market-premium label for a consensus-premium row (Market column handles it)", () => {
     const label = actionLabel(makeRow({
       marketGapDirection: "consensus_premium",
       sourceRankSpread: 50,
     }));
-    expect(label).toBeNull();
+    expect(label?.label ?? "").not.toMatch(/premium/i);
   });
 
   it("returns consensus asset for high-confidence tight agreement", () => {
@@ -99,16 +107,25 @@ describe("actionLabel", () => {
     expect(label).toBeNull();
   });
 
-  it("does not return consensus for spread > 30", () => {
+  it("still returns consensus for a wide ordinal spread the backend calls high-confidence", () => {
+    // This test previously asserted the OPPOSITE, pinning a frontend
+    // copy of `_CONFIDENCE_SPREAD_HIGH` (30) that the backend retired:
+    // `_confidence_bucket` decides off the PERCENTILE spread and only
+    // falls back to the absolute ordinal for callers with nothing else.
+    // Re-imposing the ordinal cap suppressed "Consensus asset" on 54 of
+    // the 111 rows the backend calls high-confidence on the pinned
+    // 2026-07-30 contract, with spreads up to 486.
+    //
+    // 486 is that observed maximum, not a round number — a row the
+    // backend is confident about despite a very wide raw ordinal
+    // spread is exactly the case the percentile signal exists for.
     const label = actionLabel(makeRow({
       confidenceBucket: "high",
       sourceCount: 2,
-      sourceRankSpread: 31,
+      sourceRankSpread: 486,
       marketGapDirection: "none",
     }));
-    // spread 31 is above the consensus threshold of 30 but below the
-    // market premium threshold (no direction set), so no label
-    expect(label).toBeNull();
+    expect(label?.label).toBe("Consensus asset");
   });
 });
 

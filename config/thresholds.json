@@ -32,18 +32,6 @@
       "appliesTo": "position basis sample size",
       "derivedFrom": "Floor below which a position's median gap is noise rather than a basis. Every position on the live board clears it comfortably (WR 146, RB 103, TE 72, QB 57, PICK 36), so it binds only on a coverage collapse - which is exactly when de-meaning off a tiny sample would invent a constant out of the noise it exists to remove."
     },
-    "CONFIDENCE_SPREAD_HIGH": {
-      "value": 30,
-      "unit": "ordinalRanks",
-      "appliesTo": "sourceRankSpread",
-      "derivedFrom": "Pre-existing; mirrors _CONFIDENCE_SPREAD_HIGH in src/api/data_contract.py. Unchanged by this batch - it gates source DISAGREEMENT, which is a different quantity from the market gap and is still measured in ordinal ranks."
-    },
-    "CONFIDENCE_SPREAD_MEDIUM": {
-      "value": 80,
-      "unit": "ordinalRanks",
-      "appliesTo": "sourceRankSpread",
-      "derivedFrom": "Pre-existing; mirrors _CONFIDENCE_SPREAD_MEDIUM in src/api/data_contract.py. Unchanged."
-    },
     "PREMIUM_SUMMARY_SPREAD": {
       "value": 20,
       "unit": "ordinalRanks",
@@ -116,5 +104,8 @@
       "appliesTo": "IDP market gap (client-side)",
       "derivedFrom": "Pre-existing, and DELIBERATELY still in ordinal ranks. It gates only frontend/lib/display-helpers.js::idpMarketEdge, the one surviving client-side gap computation. That path exists because the backend emits NO market gap for IDP at all - the sole is_retail source publishes no defenders, so all 386 IDP rows abstain with reason 'consensus_only' - and deleting it would remove a working surface to satisfy a rule. It carries audit finding S-1 (raw ordinals across boards of different depth) exactly as the offense path did before C4. Tracked as the IDP-anchor follow-up: give the backend an IDP retail anchor, stamp the gap, then delete this and its threshold together."
     }
+  },
+  "_removed": {
+    "CONFIDENCE_SPREAD_HIGH / CONFIDENCE_SPREAD_MEDIUM": "Removed 2026-08-05 by #725, and this file follows rather than resurrecting them. They claimed to mirror the backend's confidence buckets and did not: _confidence_bucket decides off the PERCENTILE spread on the live path, and their one consumer re-applied the retired ordinal rule on top of the backend's verdict, suppressing 'Consensus asset' on 54 of 111 qualifying rows. A threshold with no reader does not belong in an inventory of live thresholds - and listing one here would make test_threshold_parity.py demand the JS export it back."
   }
 }

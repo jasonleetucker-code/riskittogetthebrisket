@@ -22,6 +22,22 @@ from src.trade.suggestions import _rookies_eligible_today
 _LOGGER = logging.getLogger(__name__)
 
 
+# Default floor for a waiver target's blended value.
+#
+# ⚠ The NUMBER is inert on the current board; the EXPRESSION that uses
+# it is not.  ``find_waiver_targets`` filters with
+# ``not isinstance(consensus, (int, float)) or consensus < min_value``,
+# and on the pinned 2026-07-30 contract that splits as:
+#
+#   rows with rankDerivedValue None ..... 281  (caught by isinstance)
+#   rows with rankDerivedValue <= 0 .....   0
+#   rows below 500 ......................   0  (board floor is 757)
+#
+# So the type check is what excludes unpriced rows and the comparison
+# never fires.  Kept as a defensive floor — and because callers can
+# override it via the ``minValue`` request field, where it IS reachable.
+#
+# Pinned by ``tests/trade/test_actionability_floors.py``.
 MIN_WAIVER_VALUE = 500
 DEFAULT_PER_POSITION_LIMIT = 6
 

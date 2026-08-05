@@ -115,6 +115,35 @@ _RETIRED_FROM_CHART_KEYS: frozenset[str] = frozenset({"ktc"})
 _RAW_VALUE_PREFERRED_KEYS: frozenset[str] = frozenset({"ktcSfTep"})
 
 
+# Highest legitimate value on the normalized scale this module's
+# docstring promises ("Every source value is on the normalized 1-9999
+# scale").  Anything above it is not a value.
+_MAX_NORMALIZED_VALUE: int = 9999
+
+
+def _rank_signal_keys() -> frozenset[str]:
+    """Sources whose ``canonicalSiteValues`` slot holds a synthetic rank
+    encoding rather than a value.
+
+    Lazy + cached for the same reason ``_allowed_assets_for_source`` is:
+    ``data_contract`` is ~9k lines of pipeline code and this module is
+    imported by the history endpoints.  Returns an empty set if the
+    registry cannot be loaded, which degrades to the old behaviour
+    rather than dropping every source from the chart.
+    """
+    cache = _rank_signal_keys.__dict__
+    if "_cached" in cache:
+        return cache["_cached"]
+    try:
+        from src.api.data_contract import rank_signal_source_keys  # noqa: PLC0415
+
+        keys = frozenset(rank_signal_source_keys())
+    except Exception:
+        keys = frozenset()
+    cache["_cached"] = keys
+    return keys
+
+
 def _allowed_assets_for_source(source_key: str) -> frozenset[str] | None:
     """Return the set of asset classes ``source_key`` is allowed to
     rank, or None when the source isn't in the registry (legacy
@@ -279,6 +308,7 @@ def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
     # ``_canonicalSiteValues`` keeps the rest of the legacy keys.
     if not meta_yielded_any:
         canonical = row.get("canonicalSiteValues") or row.get("_canonicalSiteValues")
+        rank_signal = _rank_signal_keys()
         if isinstance(canonical, dict):
             for key, value in canonical.items():
                 if str(key) in sources:
@@ -287,8 +317,50 @@ def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
                     v = int(value) if value is not None else None
                 except (TypeError, ValueError):
                     v = None
-                if v is not None and v > 0:
-                    sources[str(key)] = v
+                if v is None or v <= 0:
+                    continue
+                # A MODERN contract puts a SYNTHETIC RANK ENCODING
+                # (``999900 − rank×100``) in a rank-signal source's
+                # ``canonicalSiteValues`` slot, not a value —
+                # ``rank_signal_source_keys()`` says so in as many words,
+                # and ``suggestions.py`` already skips them for exactly
+                # this reason after the same confusion produced two real
+                # bugs (PR #530).  This module never got the same
+                # treatment, so it wrote six-digit bookkeeping numbers
+                # into a series this file's own docstring promises is
+                # "on the normalized 1-9999 scale".
+                #
+                # Measured on the pinned 2026-07-30 contract: 5,119 such
+                # encodings sit in ``canonicalSiteValues``, and 452 of
+                # them reached this series (on 169 of 1,093 rows, out of
+                # 7,187 values written).  Worst case charted a 995,420
+                # beside a blended 1,799 on a SHARED Y axis — a 553x
+                # spike that flattens every other series on that
+                # player's chart to a line along the bottom.
+                #
+                # The test is BOTH key-based and scale-based on purpose.
+                # A LEGACY export predates the encoding and carries
+                # genuine values under these same keys, which
+                # ``backfill_from_exports`` then ranks — so a key-only
+                # skip silently stops deriving rank history from every
+                # historical export (caught by
+                # ``test_backfill_derives_ranks_for_legacy_dict_export``).
+                # Together the two conditions are exact on real data:
+                # rank-signal keys carrying an in-scale value number 0,
+                # value-signal keys carrying an off-scale one number 0,
+                # and an encoding can only fall under 9,999 at rank
+                # >= 9,899 when the deepest rank any source publishes is
+                # 903.
+                #
+                # Nothing is lost by skipping the encodings: the rank is
+                # already carried in the ``sourceRanks`` channel below
+                # for 424 of the 452.  The other 28 are picks whose
+                # encoding decodes to a FRACTIONAL rank (995420 -> 44.8),
+                # an interpolated bookkeeping number that was never a
+                # rank either — recovering it would invent precision.
+                if str(key) in rank_signal and v > _MAX_NORMALIZED_VALUE:
+                    continue
+                sources[str(key)] = v
     # Drop sources that are kept around in the contract but should not
     # appear in the per-player chart (see ``_RETIRED_FROM_CHART_KEYS``).
     for key in _RETIRED_FROM_CHART_KEYS:
@@ -616,6 +688,33 @@ def load_player_history(
         for key in _RETIRED_FROM_CHART_KEYS:
             sources.pop(key, None)
             ranks.pop(key, None)
+
+        # Mask synthetic rank encodings that historical snapshots
+        # captured before the write-time skip landed.  Same
+        # non-destructive posture as the retired-key mask above: the
+        # JSONL is not rewritten, the chart just stops rendering them.
+        #
+        # The test is deliberately BOTH key-based and scale-based, and
+        # neither half is sound alone:
+        #
+        #   * key alone would drop 15 of the 17 sources' entire history,
+        #     because a rank-signal source's ``valueContribution`` (the
+        #     normal write path) IS a legitimate 1-9999 value;
+        #   * scale alone would be a magnitude heuristic that keeps
+        #     passing while remaining wrong in principle, and would fire
+        #     on a value-signal source that legitimately publishes above
+        #     the scale.
+        #
+        # Together they are exact: only a rank-signal key can leak an
+        # encoding, and only a number above the documented ceiling IS
+        # one.  This matters twice over — the derived-blend fallback
+        # below takes the MEDIAN of these values, so one six-digit
+        # encoding drags the whole blended line with it.
+        _rank_signal = _rank_signal_keys()
+        for key in [k for k in sources if k in _rank_signal]:
+            v = sources.get(key)
+            if isinstance(v, (int, float)) and v > _MAX_NORMALIZED_VALUE:
+                sources.pop(key, None)
 
         # If the snapshot is pre-contract-builder (no blended value
         # persisted) derive an approximate blend from the median of
