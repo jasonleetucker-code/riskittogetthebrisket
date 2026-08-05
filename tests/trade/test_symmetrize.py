@@ -86,15 +86,23 @@ def test_delta_range_monotonic_after_symmetrization():
     assert r["p10"] <= r["p50"] <= r["p90"]
 
 
-def test_n_sims_doubled_to_capture_both_directions():
-    """The reported nSims should reflect that we ran the sim twice."""
+def test_n_sims_is_the_request_and_n_draws_reflects_both_directions():
+    """W09-F016: ``nSims`` used to be the SUM of the two passes.
+
+    A caller asking for 3,000 was told 6,000, and the UI rendered that
+    verbatim as "X% of 6,000 simulations".  The doubling is real and
+    still reported — under ``nDraws``, which is what it is, and which is
+    the denominator ``mcStandardError`` uses.
+    """
     result = sym.simulate_symmetric(
         [_p("A", 5000)],
         [_p("B", 5000)],
         n_sims=3000,
         seed=1,
     )
-    assert result["nSims"] == 6000
+    assert result["nSims"] == 3000
+    assert result["nDraws"] == 6000
+    assert result["nPasses"] == 2
 
 
 def test_disclaimer_mentions_symmetrization():

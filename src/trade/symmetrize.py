@@ -33,9 +33,18 @@ can optionally surface ``drift`` as a diagnostic.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from src.trade import monte_carlo as _mc
+
+
+def _standard_error(p: float, n_draws: int) -> float:
+    """Binomial standard error on the win-probability estimate."""
+    if n_draws <= 0:
+        return 0.0
+    p = min(1.0, max(0.0, float(p)))
+    return math.sqrt(p * (1.0 - p) / n_draws)
 
 
 def _average_results(ab: _mc.SimResult, ba: _mc.SimResult) -> dict[str, Any]:
@@ -71,7 +80,20 @@ def _average_results(ab: _mc.SimResult, ba: _mc.SimResult) -> dict[str, Any]:
         },
         "sideAMean": round((ab.side_a_mean + ba.side_b_mean) / 2.0, 1),
         "sideBMean": round((ab.side_b_mean + ba.side_a_mean) / 2.0, 1),
-        "nSims": ab.n_sims + ba.n_sims,
+        # ``nSims`` is what the CALLER asked for.  It used to be
+        # ``ab.n_sims + ba.n_sims`` — the two symmetrization passes
+        # summed — so a 50,000 request came back 100,000 and the UI
+        # rendered "X% of 100,000 simulations" (W09-F016).  The total
+        # draws are still reported, under a name that says what they
+        # are, because the standard error below is computed over them.
+        "nSims": ab.n_sims,
+        "nDraws": ab.n_sims + ba.n_sims,
+        "nPasses": 2,
+        # sqrt(p(1-p)/n) on the symmetrized estimate.  Without it a
+        # caller cannot tell a stable 0.50 from a noisy one — the only
+        # diagnostic on the payload was ``symmetryCheck.drift``, which
+        # measures ordering bias, not convergence (W09-F016).
+        "mcStandardError": round(_standard_error(avg_win_a, ab.n_sims + ba.n_sims), 6),
         "method": "consensus_based_win_rate_symmetrized",
         "labelHint": "consensus_based_win_rate",
         "disclaimer": (
@@ -121,6 +143,12 @@ def simulate_symmetric(
         apply_consolidation_adjustment=apply_consolidation_adjustment,
     )
     result = _average_results(ab, ba)
+    # Provenance of the distributions this run sampled, and the seed
+    # that produced it — a run a caller cannot reproduce and whose
+    # inputs it cannot characterise is not a measurement (W09-F005 /
+    # W09-F016).
+    result["bandProvenance"] = _mc.band_provenance(side_a, side_b)
+    result["seed"] = seed
     # AB pass is canonical for VA metadata: its side=1/2 labels already
     # use the caller's convention (1=sideA, 2=sideB).  The BA pass has
     # swapped arguments so its va_side would need re-mapping.

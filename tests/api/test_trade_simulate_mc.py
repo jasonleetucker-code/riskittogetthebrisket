@@ -138,9 +138,13 @@ def test_n_sims_clamped_to_max(monkeypatch):
         res = c.post("/api/trade/simulate-mc", json=body)
     assert res.status_code == 200
     # Guard clamps each direction to SIMULATE_MC_MAX_SIMS (50k — bounds
-    # worst-case event-loop-free compute).  The symmetrize pipeline runs
-    # the sim in BOTH directions, so reported nSims is exactly 2×50k.
-    assert res.json()["nSims"] == 2 * server.SIMULATE_MC_MAX_SIMS
+    # worst-case event-loop-free compute).  ``nSims`` reports the clamped
+    # REQUEST; ``nDraws`` reports that the symmetrize pipeline ran the
+    # sim in both directions.  It reported the doubled number as nSims
+    # until W09-F016, which the UI rendered as the simulation count.
+    body_out = res.json()
+    assert body_out["nSims"] == server.SIMULATE_MC_MAX_SIMS
+    assert body_out["nDraws"] == 2 * server.SIMULATE_MC_MAX_SIMS
 
 
 def test_timeout_returns_clean_504(monkeypatch):

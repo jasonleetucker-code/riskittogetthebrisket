@@ -36,16 +36,21 @@ export async function proxyGet(path, { timeoutMs = 5000, searchParams } = {}) {
  * Proxy a POST request to the backend.
  * @param {string} path — backend path
  * @param {object} body — JSON body
- * @param {object} opts — { timeoutMs }
+ * @param {object} opts — { timeoutMs, headers }
+ *
+ * `headers` is merged over `Content-Type: application/json` and exists
+ * for one reason: a backend route behind `_get_auth_session` answers 401
+ * to a bridge that drops the session cookie.  Pass
+ * `{ cookie: request.headers.get("cookie") }` for those.
  */
-export async function proxyPost(path, body, { timeoutMs = 8000 } = {}) {
+export async function proxyPost(path, body, { timeoutMs = 8000, headers } = {}) {
   const url = new URL(path, BACKEND_BASE);
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     const res = await fetch(url.toString(), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(headers || {}) },
       body: JSON.stringify(body),
       signal: ctl.signal,
       cache: "no-store",

@@ -47,6 +47,23 @@ from typing import Any
 
 _DEFAULT_SIMS = 50_000
 
+# ── Where a band came from ───────────────────────────────────────────
+#
+# The module docstring above says bands come from Phase 4 confidence
+# intervals.  Measured on the 2026-08-04 contract: 0 of 1,092 rows
+# carry a ``valueBand``, so the flat +/-15% fallback below is not a
+# degradation path — it is THE path, for every player, pick and
+# defender, whether the board blended 1 source or 14 (W09-F005).
+#
+# That is not repaired by inventing a better band.  It is repaired by
+# saying which one the caller got, so a reader can tell a measured
+# spread from a placeholder one.  ``src.canonical.confidence_intervals``
+# exists but has no producer wired into the contract build; until it
+# does, every band is synthetic and the payload says so.
+BAND_SOURCE_STAMPED = "contract_value_band"
+BAND_SOURCE_SYNTHETIC = "synthetic_flat_15pct"
+SYNTHETIC_BAND_WIDTH_PCT = 15
+
 
 @dataclass(frozen=True)
 class TradePlayer:
@@ -58,6 +75,8 @@ class TradePlayer:
     p10: float
     p50: float
     p90: float
+    #: :data:`BAND_SOURCE_STAMPED` or :data:`BAND_SOURCE_SYNTHETIC`.
+    band_source: str = BAND_SOURCE_SYNTHETIC
 
 
 @dataclass(frozen=True)
@@ -363,7 +382,17 @@ def build_trade_player(
             fit_shift = float(delta) * w
 
     def _shifted(v: float) -> float:
-        return max(0.0, min(9999.0, float(v) + fit_shift))
+        # Floor at 0 — a negative dynasty value is not a thing.  There
+        # is deliberately NO ceiling at 9999 (W09-F005): the quantile
+        # map in ``_triangular_draw`` is mean-preserving, so clamping
+        # the +15% leg of a top-of-board asset while leaving the -15%
+        # leg alone biases the sampled mean DOWNWARD.  Measured: Brock
+        # Bowers, board value 9,947, p90 truncated 11,439 -> 9,999,
+        # simulated at 9,441.9 — the simulator disagreeing with the
+        # trade meter about the same player by 5.07%.  9999 is the
+        # board's display ceiling, not a bound on how uncertain we are
+        # about the best asset in the league.
+        return max(0.0, float(v) + fit_shift)
 
     band = row.get("valueBand") or {}
     if isinstance(band, dict) and band.get("p50") is not None:
@@ -374,8 +403,10 @@ def build_trade_player(
             p10=_shifted(band.get("p10") or 0),
             p50=_shifted(band.get("p50") or 0),
             p90=_shifted(band.get("p90") or 0),
+            band_source=BAND_SOURCE_STAMPED,
         )
     # Fallback: synthesize a 15% band around the canonical value.
+    # Today this is every row — see BAND_SOURCE_SYNTHETIC above.
     cv = float(row.get("rankDerivedValue") or row.get("values", {}).get("full") or 0)
     return TradePlayer(
         name=name,
@@ -384,4 +415,38 @@ def build_trade_player(
         p10=_shifted(cv * 0.85),
         p50=_shifted(cv),
         p90=_shifted(cv * 1.15),
+        band_source=BAND_SOURCE_SYNTHETIC,
     )
+
+
+def band_provenance(*sides: list[TradePlayer]) -> dict[str, Any]:
+    """How many of this run's bands were measured vs invented.
+
+    Emitted on every simulate-mc response.  Zero stamped bands is the
+    live state, and a reader who is told "we sample the disagreement
+    between our sources" deserves to know when there was no measured
+    disagreement to sample (W09-F005).
+    """
+    players = [p for side in sides for p in side]
+    stamped = sum(1 for p in players if p.band_source == BAND_SOURCE_STAMPED)
+    synthetic = len(players) - stamped
+    if synthetic and not stamped:
+        note = (
+            "No asset in this trade carries a measured value band, so every "
+            f"range below is a flat +/-{SYNTHETIC_BAND_WIDTH_PCT}% placeholder "
+            "around the board value — it reflects no source disagreement at all."
+        )
+    elif synthetic:
+        note = (
+            f"{synthetic} of {len(players)} assets carry no measured value band; "
+            f"theirs is a flat +/-{SYNTHETIC_BAND_WIDTH_PCT}% placeholder around "
+            "the board value."
+        )
+    else:
+        note = "Every asset carries a measured value band from the contract."
+    return {
+        "stamped": stamped,
+        "synthetic": synthetic,
+        "syntheticWidthPct": SYNTHETIC_BAND_WIDTH_PCT,
+        "note": note,
+    }

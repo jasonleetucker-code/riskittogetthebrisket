@@ -35,30 +35,35 @@ function _payloadFromSides(sides, valueMode, settings) {
       // discount is already baked in upstream).  This is the
       // canonical "what is this player worth" number.
       const v = effectiveValue(r, valueMode, settings) || 0;
-      // Build the consensus band centered on v.  Width comes from
-      // the row's existing valueBand if present (real source-
-      // disagreement), else a ±15% synthesized band.
+      // Build the consensus band centered on v.  Width comes from the
+      // row's existing valueBand when the backend stamped one — that is
+      // real source disagreement, and it is rescaled to v's center so
+      // the pick-year discount carries through.
+      //
+      // When there is NO stamped band, we send NO band (W09-F005).
+      // This component used to synthesize p10 = v*0.85 / p90 = v*1.15
+      // here — numerically identical to the backend's own fallback, but
+      // arriving as if it were measured, which suppressed the backend's
+      // provenance stamp and left the panel free to describe a flat
+      // placeholder as "our 6+ ranking sources don't fully agree".
+      // 0 of 1,092 live rows carry a band, so that was every asset.
+      // One synthesizer, in one place, that labels its own output.
       const existing = r?.valueBand;
-      let p10, p50, p90;
-      if (existing && typeof existing.p50 === "number" && existing.p50 > 0) {
-        // Scale the existing band to v's center.  Preserves the
-        // shape of the source disagreement.
-        const ratio = v / existing.p50;
-        p10 = (existing.p10 || 0) * ratio;
-        p50 = v;
-        p90 = (existing.p90 || 0) * ratio;
-      } else {
-        p10 = v * 0.85;
-        p50 = v;
-        p90 = v * 1.15;
-      }
-      return {
+      const asset = {
         name: r?.name,
         team: r?.team || "",
         pos: r?.pos || r?.position,
         rankDerivedValue: v,
-        valueBand: { p10: Math.round(p10), p50: Math.round(p50), p90: Math.round(p90) },
       };
+      if (existing && typeof existing.p50 === "number" && existing.p50 > 0) {
+        const ratio = v / existing.p50;
+        asset.valueBand = {
+          p10: Math.round((existing.p10 || 0) * ratio),
+          p50: Math.round(v),
+          p90: Math.round((existing.p90 || 0) * ratio),
+        };
+      }
+      return asset;
     });
   };
   return { sideA: pick(0), sideB: pick(1) };
@@ -228,16 +233,38 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
               How is this calculated?
             </summary>
             <div style={{ marginTop: 4, lineHeight: 1.5 }}>
-              For each player, our 6+ ranking sources don't fully
-              agree on value — a player worth 8,500 by one source
-              might be 7,900 by another.  We sample {result.nSims?.toLocaleString() || "20,000"} times
-              from this disagreement range, sum each side, and
-              check who came out ahead.  The "win %" is the
-              fraction of those samples where Side A's total beat
-              Side B's.  This is NOT a real-world win probability
-              — it's how often the sources' own ranges put one
-              side ahead.
+              For each player we sample {result.nSims?.toLocaleString() || "20,000"} times
+              from a range around their board value, sum each side, and
+              check who came out ahead.  The "win %" is the fraction of
+              those samples where Side A's total beat Side B's.
+              {result.mcStandardError != null && (
+                <>
+                  {" "}Simulation noise on that percentage is about ±
+                  {(result.mcStandardError * 100).toFixed(2)} points.
+                </>
+              )}
             </div>
+            {/* The backend's ``disclaimer`` is declared PART OF THE
+                CONTRACT (server.py, /api/trade/simulate-mc): "the
+                frontend MUST render the disclaimer somewhere visible so
+                users don't mis-read win probability as real-world odds."
+                Nothing rendered it. */}
+            {result.disclaimer && (
+              <div style={{ marginTop: 6, lineHeight: 1.5 }}>
+                {result.disclaimer}
+              </div>
+            )}
+            {/* Where the sampled range came from.  Today every band is
+                a flat ±15% placeholder because no contract row carries
+                a measured one — this panel used to describe that as
+                source disagreement (W09-F005). */}
+            {result.bandProvenance?.note && (
+              <div
+                style={{ marginTop: 6, lineHeight: 1.5, color: "var(--amber)" }}
+              >
+                {result.bandProvenance.note}
+              </div>
+            )}
           </details>
         </div>
       )}
