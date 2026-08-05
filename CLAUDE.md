@@ -674,12 +674,40 @@ Flow:
 One precise nuance on ranks (documented 2026-07-29 audit — the line
 above used to read "never recomputes ranks", which overstated it):
 `buildRows` assigns a display ordinal `computedConsensusRank = i + 1`
-after sorting (`dynasty-data.js:1366`) and uses it for `r.rank`
-(`:1378`) **only** when the backend stamped no `canonicalConsensusRank`
-on that row. In practice that is players past the backend's
-`OVERALL_RANK_LIMIT` (800) — rows the backend deliberately left
-unranked — and it is suppressed for picks and whenever a valuation
-overlay is active. A backend-stamped rank always wins.
+after sorting and uses it for `r.rank` **only** when the backend
+stamped no `canonicalConsensusRank` on that row. A backend-stamped
+rank always wins — that half was measured and is true (Trey Lance
+#673 and T.J. Watt #185 reproduce the stamp exactly).
+
+The population it applies to was **guessed and was wrong**, and the
+wrong guess hid a live defect (W07-F003 / W25-F003). This paragraph
+used to say the fallback covered "players past the backend's
+`OVERALL_RANK_LIMIT` (800)". Measured on the 2026-08-04 contract:
+1,092 rows, 740 ranked, and the DEEPEST stamped rank is **740** — the
+800 limit is never reached, so that population does not exist. What
+actually took the fallback was the 239 non-pick rows the board
+**could not price**: `canonicalConsensusRank` null AND
+`rankDerivedValue` null AND `canonicalTierId` null AND
+`confidenceBucket` `"none"`. 202 of them rendered a client-invented
+`#` in the range 854-1072, visually identical to a real rank — and
+that ordinal was then the input to `tierLabel` (202 fabricated tiers),
+to /rankings' positional-rank map ("RB 115" on a row whose backend
+`positionRank` is null) and, alongside per-source ranks, to a
+BUY/SELL verdict on 74 of them.
+
+Now: **an unpriced row gets `r.rank = null`** and the `#` column
+renders its existing `—`, the same treatment picks and overlay-active
+rows already had. `computedConsensusRank` stays on the row as an
+internal sort key (`resolvedRank` still orders by it) but never
+reaches a display field. `frontend/lib/display-helpers.js::isUnpricedRow`
+is the single client-side definition of "the board declined to price
+this", and every abstaining surface keys off it: `confBadgeLabel`
+returns `—` for the `"none"` bucket instead of `"Low"`, `marketEdge` /
+`idpMarketEdge` return `kind: "unpriced"` instead of a gap computed
+from source ranks, and the Value column renders `—` instead of `0`.
+Measured before/after on the live contract: 202/202/202/74 fabricated
+ordinals/tiers/confidence-badges/verbs → 0/0/0/0. Pinned by
+`frontend/__tests__/components/UnpricedAbstention.test.jsx`.
 
 This is a display ordinal for otherwise-unnumbered rows, not a ranking
 engine: no value is recomputed and the sort key is the backend's

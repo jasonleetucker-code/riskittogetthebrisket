@@ -23,21 +23,52 @@ export function posBadgeClass(row) {
 }
 
 /**
+ * True when the board declined to price this row.
+ *
+ * The canonical materializers (`_materializePlayerArrayRow` /
+ * `_materializeLegacyDictRow`) both read `rankDerivedValue` as
+ * `Number(...) || null`, so an unpriced row carries an explicit null
+ * — never 0, never absent.  A row that does not carry the key at all
+ * (a hand-built descriptor, a partial fixture) is NOT treated as
+ * unpriced: absence of the field is not evidence of a refusal.
+ *
+ * This is the single predicate every abstaining display helper keys
+ * off, so "the board could not price this" has exactly one definition
+ * on the client (W07-F004).
+ */
+export function isUnpricedRow(row) {
+  if (!row || typeof row !== "object") return false;
+  if (!("rankDerivedValue" in row)) return false;
+  return row.rankDerivedValue == null;
+}
+
+/**
  * Return the CSS class for a confidence badge.
+ *
+ * ``none`` is the backend's "no confidence could be computed" bucket
+ * (``confidenceLabel: "None - unranked"``), not the bottom of the
+ * scale.  It used to fall through to the same red "Low" badge as a
+ * genuinely low-confidence row, which read as a graded verdict on a
+ * row the pipeline never graded (W07-F004).
  */
 export function confBadgeClass(bucket) {
   if (bucket === "high") return "badge badge-green";
   if (bucket === "medium") return "badge badge-amber";
-  return "badge badge-red";
+  if (bucket === "low") return "badge badge-red";
+  return "badge badge-muted";
 }
 
 /**
  * Return a short human label for a confidence bucket.
+ *
+ * See :func:`confBadgeClass` — ``none``/absent is an abstention and
+ * renders as a dash, never as "Low".
  */
 export function confBadgeLabel(bucket) {
   if (bucket === "high") return "High";
   if (bucket === "medium") return "Med";
-  return "Low";
+  if (bucket === "low") return "Low";
+  return "—";
 }
 
 // ── Eligibility filters ─────────────────────────────────────────────────────
@@ -103,6 +134,23 @@ export function isEligibleForAnalysis(row) {
  */
 export function marketEdge(row) {
   const retailLabel = getRetailLabel();
+  // The board declined to price this row, so there is no consensus to
+  // compare the retail market against.  Per-source ranks can still be
+  // present — Austin Ekeler carried ktcSfTep 400 / dlf 100 with every
+  // backend stamp null — and computing a gap off them manufactured a
+  // BUY/SELL verdict on a player the pipeline explicitly refused
+  // (W07-F004).  Abstain instead, with its own `kind` so a caller can
+  // tell "refused to price" from "no sources at all".
+  if (isUnpricedRow(row)) {
+    return {
+      label: "unpriced",
+      css: "edge-none",
+      kind: "unpriced",
+      title:
+        "The board could not price this player, so there is no consensus " +
+        "value to compare against the market.",
+    };
+  }
   // Prefer ``effectiveSourceRanks`` (post-Hampel filter on the
   // backend) when present so retail-vs-consensus edge labels stay in
   // lockstep with backend marketGapDirection / confidence /
@@ -251,6 +299,9 @@ export function marketGapLabel(row) {
       ? row.effectiveSourceRanks
       : row?.sourceRanks;
   if (!ranks) return null;
+  // Same abstention as ``marketEdge`` (W07-F004): no board value, no
+  // gap to describe.
+  if (isUnpricedRow(row)) return null;
   const retailKeys = new Set(getRetailSourceKeys());
 
   const retailRanks = Object.entries(ranks)
@@ -317,6 +368,18 @@ const IDP_CONSENSUS_KEYS = new Set([
  *     — same semantics as `marketEdge`.
  */
 export function idpMarketEdge(row) {
+  // Same abstention as ``marketEdge`` — an unpriced defender has no
+  // consensus to compare IDPTC against (W07-F004).
+  if (isUnpricedRow(row)) {
+    return {
+      label: "unpriced",
+      css: "edge-none",
+      kind: "unpriced",
+      title:
+        "The board could not price this player, so there is no consensus " +
+        "value to compare against the IDP market.",
+    };
+  }
   const ranks =
     row?.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
       ? row.effectiveSourceRanks

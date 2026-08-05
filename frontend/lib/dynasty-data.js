@@ -1394,10 +1394,32 @@ export function buildRows(data) {
     // local computed ordinal as before; picks show no rank number.
     if (r.canonicalConsensusRank != null) {
       r.rank = r.canonicalConsensusRank;
-    } else if (r.assetClass === "pick" || overlayActive) {
+    } else if (
+      r.assetClass === "pick" ||
+      overlayActive ||
+      r.rankDerivedValue == null
+    ) {
       // With an overlay active the local ordinal would be derived from
       // ADJUSTED values — a client-computed rank in the `#` column,
       // which is the one thing `buildRows` must never produce.
+      //
+      // ``rankDerivedValue == null`` is the case this branch was
+      // MISSING (W07-F003).  CLAUDE.md used to attribute the fallback
+      // to rows past the backend's OVERALL_RANK_LIMIT (800); measured
+      // on the 2026-08-04 contract the deepest stamped rank is 740, so
+      // that population does not exist.  What actually took the
+      // fallback was the 239 non-pick rows the board DECLINED TO PRICE
+      // — canonicalConsensusRank null AND rankDerivedValue null AND
+      // canonicalTierId null AND confidenceBucket "none" — and 222 of
+      // them rendered a client-invented ordinal in the range 854-1092,
+      // visually identical to Josh Allen's backend-stamped #1.  Worse,
+      // that ordinal was the input to every derived display field:
+      // ``tierLabel`` fell through to ``rankBasedTierLabel(row.rank)``
+      // and /rankings re-derived "RB 115" from it (W07-F004).
+      //
+      // An unpriced row gets no rank.  ``computedConsensusRank`` stays
+      // on the row as an internal sort key — ``resolvedRank`` still
+      // orders the board by it — but it never reaches the `#` column.
       r.rank = null;
     } else {
       r.rank = r.computedConsensusRank;

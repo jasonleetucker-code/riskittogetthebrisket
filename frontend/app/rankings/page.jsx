@@ -44,6 +44,7 @@ import {
   marketEdge,
   marketAction,
   isEligibleForBoard,
+  isUnpricedRow,
 } from "@/lib/display-helpers";
 import {
   EXPERIENCE_BUCKETS,
@@ -714,6 +715,13 @@ export default function RankingsPage() {
 
   // Per-position ranks (QB3, RB5, LB2…) — computed from the eligible
   // board sorted by rank ASC, independent of the user's sort/filter.
+  //
+  // Rows the board declined to price are SKIPPED, not numbered at the
+  // end (W07-F004).  They used to sort to the tail on `?? Infinity`
+  // and still collect an ordinal, which is where "RB 115" came from on
+  // a row whose backend `positionRank` is null — a positional rank
+  // within a board that does not contain the player.  Skipping them
+  // also keeps the numbering of the priced rows contiguous.
   const positionRankByName = useMemo(() => {
     const counts = new Map();
     const byName = new Map();
@@ -723,6 +731,7 @@ export default function RankingsPage() {
     for (const row of sorted) {
       const pos = String(row?.pos || "").toUpperCase();
       if (!pos || !row?.name) continue;
+      if (isUnpricedRow(row)) continue;
       const next = (counts.get(pos) || 0) + 1;
       counts.set(pos, next);
       byName.set(row.name, next);
@@ -1047,6 +1056,20 @@ export default function RankingsPage() {
         sortable: true,
         numeric: true,
         render: (row) => {
+          // An unpriced row renders no number.  `Math.round(null || 0)`
+          // put a confident "0" in the Value column of every row the
+          // board refused to price, and 0 on a 1-9999 scale reads as
+          // "worthless", not as "unknown" (W07-F004).
+          if (isUnpricedRow(row)) {
+            return (
+              <span
+                className="muted"
+                title="The board could not price this player — no source coverage survived the blend."
+              >
+                —
+              </span>
+            );
+          }
           const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
           const band = valueBand(val);
           return (

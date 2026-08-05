@@ -10,7 +10,66 @@ import {
   idpMarketEdge,
   idpMarketAction,
   isIdpInTopByIdptc,
+  isUnpricedRow,
+  marketEdge,
 } from "../lib/display-helpers.js";
+
+// ── Unpriced rows abstain (W07-F004) ─────────────────────────────────
+//
+// Austin Ekeler on the live 2026-08-04 contract: every backend stamp
+// null, but ktcSfTep 400 / dlf 100 still present.  The 300-rank gap
+// used to render "BUY" on a row the board explicitly declined to
+// price.  A 300-rank gap between two sources is not evidence about a
+// player the blend refused to value — it is why the blend refused.
+const UNPRICED_ROW = {
+  rankDerivedValue: null,
+  sourceRanks: { ktcSfTep: 400, dlf: 100 },
+  effectiveSourceRanks: { ktcSfTep: 400, dlf: 100 },
+};
+const PRICED_ROW = {
+  rankDerivedValue: 4200,
+  sourceRanks: { ktcSfTep: 400, dlf: 100 },
+  effectiveSourceRanks: { ktcSfTep: 400, dlf: 100 },
+};
+
+describe("isUnpricedRow", () => {
+  it("is true only when the row CARRIES a null rankDerivedValue", () => {
+    expect(isUnpricedRow(UNPRICED_ROW)).toBe(true);
+    expect(isUnpricedRow({ rankDerivedValue: undefined })).toBe(true);
+    expect(isUnpricedRow(PRICED_ROW)).toBe(false);
+  });
+  it("does not treat an absent field as a refusal", () => {
+    // A descriptor that never had the key is not evidence of anything.
+    expect(isUnpricedRow({ sourceRanks: { ktcSfTep: 1 } })).toBe(false);
+    expect(isUnpricedRow(null)).toBe(false);
+  });
+  it("a genuine zero is priced, not unpriced", () => {
+    expect(isUnpricedRow({ rankDerivedValue: 0 })).toBe(false);
+  });
+});
+
+describe("directional verbs abstain on an unpriced row", () => {
+  it("marketEdge returns kind 'unpriced' rather than a gap", () => {
+    expect(marketEdge(UNPRICED_ROW).kind).toBe("unpriced");
+    expect(marketEdge(PRICED_ROW).kind).toBe("consensus_higher");
+  });
+  it("marketAction renders a dash rather than BUY", () => {
+    expect(marketAction(UNPRICED_ROW).label).toBe("—");
+    expect(marketAction(PRICED_ROW).label).toBe("BUY");
+  });
+  it("marketGapLabel returns null rather than a signed gap", () => {
+    expect(marketGapLabel(UNPRICED_ROW)).toBeNull();
+    expect(marketGapLabel(PRICED_ROW)).toBe("Consensus +300");
+  });
+  it("idpMarketEdge abstains too", () => {
+    const idpUnpriced = {
+      rankDerivedValue: null,
+      effectiveSourceRanks: { idpTradeCalc: 200, dlfIdp: 20 },
+    };
+    expect(idpMarketEdge(idpUnpriced).kind).toBe("unpriced");
+    expect(idpMarketAction(idpUnpriced).label).toBe("—");
+  });
+});
 
 describe("posBadgeClass", () => {
   it("returns cyan for offense", () => {
@@ -39,8 +98,15 @@ describe("confBadgeClass", () => {
   it("returns red for low", () => {
     expect(confBadgeClass("low")).toBe("badge badge-red");
   });
-  it("returns red for none", () => {
-    expect(confBadgeClass("none")).toBe("badge badge-red");
+  // W07-F004: "none" is the backend's abstention bucket
+  // (confidenceLabel "None - unranked"), not the bottom of the scale.
+  // It used to share the red "Low" badge with genuinely low-confidence
+  // rows, which read as a graded verdict on a row nothing graded.
+  it("returns a muted badge for none — an abstention, not a low grade", () => {
+    expect(confBadgeClass("none")).toBe("badge badge-muted");
+  });
+  it("returns a muted badge for an absent bucket", () => {
+    expect(confBadgeClass(undefined)).toBe("badge badge-muted");
   });
 });
 
@@ -54,8 +120,11 @@ describe("confBadgeLabel", () => {
   it("returns Low for low", () => {
     expect(confBadgeLabel("low")).toBe("Low");
   });
-  it("returns Low for unknown", () => {
-    expect(confBadgeLabel("none")).toBe("Low");
+  it("returns a dash for none — the pipeline computed no confidence", () => {
+    expect(confBadgeLabel("none")).toBe("—");
+  });
+  it("returns a dash for an absent bucket", () => {
+    expect(confBadgeLabel(undefined)).toBe("—");
   });
 });
 
