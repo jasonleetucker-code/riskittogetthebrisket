@@ -7102,6 +7102,16 @@ _DRAFT_CAPITAL_PRIVATE_PICK_FIELDS = (
     "rookieKtcValue",
     "rookieKtcDollar",
     "rookieIdpDollar",
+    # The raw board value the dollar ladder is derived from — the single
+    # most proprietary number on the payload, and blocklisted outright by
+    # the public-league guard.  Added with the field itself, not after.
+    "rookieBoardValue",
+    # Per-rookie board trust diagnostics (source dispersion, single-source
+    # flag).  Board internals, not Sleeper facts, so they redact with the
+    # rest of the rookie board rather than leaking how confident our
+    # pipeline is in each row.  Added with the fields, not after.
+    "rookieDispersionCV",
+    "rookieSingleSource",
 )
 
 
@@ -7338,6 +7348,18 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
     ``ktcRaw`` / ``idpRaw`` are the per-vendor raw values used to
     derive each rookie's KTC and IDPTradeCalc dollar equivalents on
     the same $1200 scale (see ``_vendor_dollars_for_rookies``).
+
+    ``dispersionCV`` / ``singleSource`` are trust diagnostics carried
+    for Perfect Draft's confidence bootstrap, which needs a per-player
+    sigma and was previously falling back to one flat constant for the
+    whole board.  Read the CV's ZERO carefully: the scraper's
+    ``_coeff_var`` returns 0.0 whenever it has fewer than two
+    comparable site values, so ``0.0`` means *dispersion unobserved*,
+    not *perfect agreement*.  Measured on the 2026-08-04 board that is
+    31 of the top 72 rookies, and they are exactly the thinnest-covered
+    rows — handing them a literal sigma of zero would present the least
+    trustworthy values as the most certain.  The client treats
+    non-positive as unobserved for that reason.
     """
     contract = latest_contract_data or {}
     if not isinstance(contract, dict):
@@ -7346,25 +7368,24 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
     if not isinstance(pa, list) or not pa:
         return []
 
+    # Selection lives in src/draft/rookie_pool.py because the Perfect Draft
+    # roster context needs the SAME set for the opposite purpose — to exclude
+    # it from the free-agent pool.  Two copies of "who is in this auction"
+    # would eventually disagree, and the failure would be silent.
+    from src.draft.rookie_pool import select_rookie_rows  # noqa: PLC0415
+
     out: list[dict] = []
-    for p in pa:
-        if not isinstance(p, dict):
-            continue
-        if not p.get("rookie"):
-            continue
-        if not p.get("playerId"):
-            continue
+    for p in select_rookie_rows(contract, top_n):
         val = p.get("rankDerivedValue")
         if val is None:
             vals = p.get("values") or {}
             val = vals.get("overall") if isinstance(vals, dict) else None
-        if val is None or float(val) <= 0:
-            continue
         csv = p.get("canonicalSiteValues") or {}
         if not isinstance(csv, dict):
             csv = {}
         ktc_raw = csv.get("ktcSfTep") or csv.get("ktc")
         idp_raw = csv.get("idpTradeCalc")
+        cv = p.get("marketDispersionCV")
         out.append(
             {
                 "name": str(p.get("canonicalName") or p.get("displayName") or ""),
@@ -7377,11 +7398,11 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
                 if isinstance(idp_raw, (int, float)) and idp_raw > 0
                 else None,
                 "assetClass": p.get("assetClass"),
+                "dispersionCV": float(cv) if isinstance(cv, (int, float)) and cv > 0 else None,
+                "singleSource": bool(p.get("isSingleSource")),
             }
         )
-    out = [r for r in out if r["name"]]
-    out.sort(key=lambda r: -r["value"])
-    return out[:top_n]
+    return out
 
 
 def _vendor_dollars_for_rookies(
@@ -8387,6 +8408,17 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 "value": d,
                 "ktcDollar": ktc_by_name.get(r["name"].lower()),
                 "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
+                # The board value the dollar ladder was derived FROM.
+                # ``_our_rookie_pool`` already carries it; it used to be
+                # discarded here.  Perfect Draft needs it because net roster
+                # value is measured in rankDerivedValue units against the
+                # displaced player, and the $ ladder is not convertible back.
+                "boardValue": r["value"],
+                # Per-rookie trust, for the confidence bootstrap.  ``None``
+                # on the CV means dispersion was unobservable (one site),
+                # NOT that the sources agreed — see ``_our_rookie_pool``.
+                "dispersionCV": r.get("dispersionCV"),
+                "singleSource": r.get("singleSource"),
             }
             for r, d in zip(our_rookies, rookie_dollar_overrides)
         ]
@@ -8408,6 +8440,11 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             if "ktcDollar" in rookies[i]:
                 pick["rookieKtcDollar"] = rookies[i]["ktcDollar"]
                 pick["rookieIdpDollar"] = rookies[i]["idpTradeCalcDollar"]
+            if "boardValue" in rookies[i]:
+                pick["rookieBoardValue"] = rookies[i]["boardValue"]
+            if "dispersionCV" in rookies[i]:
+                pick["rookieDispersionCV"] = rookies[i]["dispersionCV"]
+                pick["rookieSingleSource"] = rookies[i]["singleSource"]
 
     sorted_teams = sorted(team_totals.items(), key=lambda x: -x[1])
 
@@ -8552,13 +8589,56 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         # "workbook-calibrated".
         from src.api.draft_capital_fallback import build_sleeper_derived
 
+        # ``draft_rounds`` used to be omitted here, so every non-default league
+        # was built as a 4-round draft while the default runs 6 — and the $1200
+        # budget is normalized across whatever picks that loop produces, so the
+        # wrong count silently redistributed every team's auction dollars.
+        # ``num_teams`` is gone: it was declared, never referenced, and shadowed
+        # by the roster feed's own count, which is exactly what made the missing
+        # parameter next to it look wired.
+        # The rookie board follows the SCORING PROFILE, not the league key
+        # (CLAUDE.md, "Rankings vs league context"), so a league sharing the
+        # loaded contract's profile can be served the same rookies — which is
+        # what stops /draft there falling back to a hardcoded list. A league on
+        # a different profile gets no rookie fields rather than another
+        # profile's board.
+        rookie_rows = None
+        try:
+            from src.api.league_registry import get_scoring_profile  # noqa: PLC0415
+
+            loaded_key = ((latest_contract_data or {}).get("meta") or {}).get("leagueKey")
+            if loaded_key and get_scoring_profile(loaded_key) == get_scoring_profile(
+                league_cfg.key
+            ):
+                pool = _our_rookie_pool(_KTC_TOTAL_PICKS)
+                if pool:
+                    dollars = _rookie_dollars_from_values(
+                        [r["value"] for r in pool], DRAFT_TOTAL_BUDGET
+                    )
+                    ktc_by_name, idp_by_name = _vendor_dollars_for_rookies(pool, DRAFT_TOTAL_BUDGET)
+                    rookie_rows = [
+                        {
+                            "name": r["name"],
+                            "pos": r["pos"],
+                            "dollar": d,
+                            "boardValue": r["value"],
+                            "ktcDollar": ktc_by_name.get(r["name"].lower()),
+                            "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
+                            "dispersionCV": r.get("dispersionCV"),
+                            "singleSource": r.get("singleSource"),
+                        }
+                        for r, d in zip(pool, dollars)
+                    ]
+        except Exception:  # noqa: BLE001 — a missing rookie board must not 500 the page
+            logging.warning("draft-capital fallback: rookie board unavailable", exc_info=True)
+            rookie_rows = None
+
         return build_sleeper_derived(
             league_cfg.sleeper_league_id,
             latest_contract_data or {},
             current_season=datetime.now(timezone.utc).year,
-            num_teams=league_cfg.roster_settings.get("teamCount", 12)
-            if hasattr(league_cfg, "roster_settings")
-            else 12,
+            declared_draft_rounds=(league_cfg.roster_settings or {}).get("draftRounds"),
+            rookies=rookie_rows,
         )
 
     lock = _DRAFT_CAPITAL_LOCKS.get(league_cfg.key)
@@ -8590,6 +8670,124 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         return JSONResponse(
             status_code=500, content={"error": f"Draft capital computation failed: {str(e)}"}
         )
+
+
+@app.get("/api/draft/roster-context")
+async def get_draft_roster_context(
+    request: Request,
+    ownerId: str = "",
+    rosterId: str = "",
+    teamName: str = "",
+):
+    """Roster context the Perfect Draft optimizer runs against.
+
+    Everything here is static for the duration of a draft — rosters, board
+    values, waiver levels and the cut ladder do not move when a rookie sells —
+    which is why the budget solve itself runs on the client against live
+    ``localStorage`` state instead of round-tripping the whole draft workspace
+    on every recorded pick.  See ``src/draft/context.py``.
+
+    Called with no team identifier this returns just the team list, so the UI
+    can populate its selector in the same request it will later use to fetch a
+    context.
+
+    Query parameters::
+
+        leagueKey  optional; falls back to the user's active league, then the
+                   registry default
+        ownerId    preferred team handle (stable across a team rename)
+        rosterId   secondary handle
+        teamName   display-name fallback, matched case-insensitively
+
+    Responses::
+
+        200  {teams, context|null, leagueKey}
+        400  bad_request      — team identifier supplied but no such team
+        503  feature_disabled — perfect_draft flag is off
+        503  data_not_ready   — no contract, or none for the requested league
+        503  draft_context_unavailable — the build raised
+    """
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    if not _ff.is_enabled("perfect_draft"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "feature_disabled", "flag": "perfect_draft"},
+        )
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    # The league-match gate is what scopes this feature to the league whose
+    # rosters are actually loaded.  A league served only by the Sleeper-derived
+    # draft-capital fallback has no genuine rookie pool on /draft, and would
+    # also fail this check — so the panel vanishes rather than optimizing
+    # against placeholder players.
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"No rosters loaded for league {league_cfg.key!r} yet "
+                    f"(server holds {loaded_league!r})."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    from src.api import draft_optimizer_api as _draft_api  # noqa: PLC0415
+
+    def _compute():
+        teams = _draft_api.get_draft_teams(contract)
+        ctx = None
+        if ownerId or rosterId or teamName:
+            ctx = _draft_api.get_roster_context(
+                contract,
+                league_cfg.key,
+                owner_id=ownerId or None,
+                roster_id=rosterId or None,
+                team_name=teamName or None,
+            )
+        return {"teams": teams, "context": ctx}
+
+    try:
+        payload = await run_in_threadpool(_compute)
+    except ValueError as exc:
+        # ``unknown_team`` / ``no_rosters_loaded`` — never fall back to some
+        # other team's numbers; every figure in this payload is roster-specific.
+        code = str(exc) or "bad_request"
+        status = 503 if code == "no_rosters_loaded" else 400
+        return JSONResponse(
+            status_code=status,
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception as exc:  # noqa: BLE001 — surface, never 500-crash the board
+        logging.exception("Perfect Draft roster context failed")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "draft_context_unavailable",
+                "message": str(exc),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    payload["leagueKey"] = league_cfg.key
+    return JSONResponse(content=payload)
 
 
 @app.get("/api/sleeper/draft/picks")
@@ -12930,6 +13128,17 @@ from src.sharp import service as _sharp_service  # noqa: E402
 # path is already present), so calling it here is safe alongside the
 # module-level call and the self-heal in ``cohort_status``.
 _sharp_service.register_http_routes()
+
+# ``curated_service`` was previously imported by nothing but its own test,
+# which left /api/sharp/people, /api/sharp/people/{id}, /api/sharp/review,
+# /api/sharp/review/{id}, /api/sharp/curated/summary and
+# /api/sharp/curated/refresh returning 404, and with them the whole
+# /market/sharp-people and /admin/sharp-identities surface.  Registered
+# explicitly here for the same reason as the tracker above: an import-time
+# side effect does not re-run if the module is already in ``sys.modules``.
+from src.sharp import curated_service as _sharp_curated_service  # noqa: E402
+
+_sharp_curated_service._register_http_routes()
 
 
 @app.get("/api/sharp/cohort")

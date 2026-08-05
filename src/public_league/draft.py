@@ -47,6 +47,23 @@ def _normalize_pick(
     player_id = str(pick.get("player_id") or "")
     if not player_name and player_id:
         player_name = snapshot.player_display(player_id) or None
+    # What an auction pick actually SOLD for.  Sleeper puts it on the pick's
+    # metadata for auction drafts and omits it for snake drafts, so ``None``
+    # means "not an auction" rather than "free" — the two must not read alike.
+    #
+    # This is the only place in the codebase where realized rookie prices from
+    # a COMPLETED auction can enter, and it was discarding them.  The raw picks
+    # are already fetched for every season the snapshot covers
+    # (``src/public_league/snapshot.py``), so carrying one field through turns
+    # an existing fetch into the realized-price corpus that
+    # ``PRICE_DISPERSION_PRIOR`` and any Perfect Draft backtest need.  See
+    # ``docs/perfect-draft.md`` §10 for what is still missing after this.
+    raw_amount = metadata.get("amount")
+    try:
+        amount = int(raw_amount) if raw_amount not in (None, "") else None
+    except (TypeError, ValueError):
+        amount = None
+
     return {
         "round": round_,
         "pickNo": pick_no,
@@ -57,6 +74,7 @@ def _normalize_pick(
         "playerName": player_name,
         "position": metadata.get("position") or snapshot.player_position(player_id) or None,
         "nflTeam": metadata.get("team") or None,
+        "amount": amount,
     }
 
 

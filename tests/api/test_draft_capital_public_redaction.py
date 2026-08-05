@@ -7,13 +7,21 @@ and pick dollar values — all of it already visible on Sleeper.
 What was NOT public-safe is what got stapled onto every pick.
 ``_our_rookie_pool()`` reads ``latest_contract_data['playersArray']``
 ordered by ``rankDerivedValue`` — the same field the public-league
-payload guard blocklists outright — and the endpoint copied five of its
-fields onto each pick.  An anonymous ``curl`` therefore returned the
-full ordered top-72 rookie board with per-rookie derived dollars.
+payload guard blocklists outright — and the endpoint copied its fields
+onto each pick.  An anonymous ``curl`` therefore returned the full
+ordered top-72 rookie board with per-rookie derived dollars.
 
 Only the private /draft page consumes those fields
 (frontend/app/draft/page.jsx), so redacting them for anonymous callers
 costs no functionality.
+
+``ROOKIE_FIELDS`` below is the ORIGINAL five, kept deliberately as a
+regression floor rather than being grown to match
+``_DRAFT_CAPITAL_PRIVATE_PICK_FIELDS`` — that tuple has since gained
+``rookieBoardValue`` (PR #655) and ``rookieDispersionCV`` /
+``rookieSingleSource``, each pinned by membership in its own test beside
+the change that added it.  Coupling this file to the live tuple would
+make it assert only that the code agrees with itself.
 
 These tests pin both halves of the fix:
   * anonymous responses carry none of the five fields;

@@ -122,6 +122,7 @@ webkit `mobile-390` / `mobile-430` projects, which need
 | `waivers-smoke.spec.js` | signed-in UI | `/waivers` renders + filters operate |
 | `multi-league.spec.js` | API | League registry + `?leagueKey=` contract |
 | `api-trade-intelligence.spec.js` | signed-in API | `/api/draft-capital` pick-board completeness + round-over-round value monotonicity; `/api/trade/suggestions` top-150 board gate and "you can only trade players you own" |
+| `journey-perfect-draft.spec.js` | signed-in UI | `/draft` Perfect Draft panel renders real recommended rookies, never plans past the budget, and stays ABSENT for a league whose rosters are not loaded (the panel silent-vanishes, so a vanished panel and a broken one are DOM-identical — this spec is the only thing that tells them apart) |
 | `journey-tools-health.spec.js` | signed-in UI | `/tools/source-health` names match `/api/status`'s enabled sources; `/tools/trade-coverage` renders one audited row per Sleeper team |
 | `chart-visual-regression.spec.js`, `public-league-visual.spec.js` | visual | Pixel baselines (not committed — run with `--update-snapshots` locally to generate; skipped by `--ignore-snapshots` / `SKIP_VISUAL_REGRESSION=1`) |
 

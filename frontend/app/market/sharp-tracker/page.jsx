@@ -174,6 +174,9 @@ export default function SharpTrackerPage() {
     if (methods.length > 1) return "Mixed cohort";
     if (methods[0] === "curated_high_stakes") return "Curated FFPC high-stakes cohort";
     if (methods[0] === "provisional_public") return "Provisional public FFPC activity";
+    if (methods[0] === "curated_industry") return "Curated industry sharps";
+    if (methods[0] === "both_curated_and_performance")
+      return "Curated industry sharps with measured performance";
     return "Automated Sharp Score";
   }, [market]);
 
@@ -263,8 +266,14 @@ export default function SharpTrackerPage() {
             >
               <option value="all">All allowed methods</option>
               <option value="automated">Automated only</option>
-              <option value="curated">Curated only</option>
+              <option value="curated">Curated FFPC high-stakes only</option>
               <option value="provisional">Provisional FFPC only</option>
+              {/* Researched dynasty-industry people. Empty until an identity
+                  is explicitly verified through the review queue -- an honest
+                  state, rendered by the normal empty-state copy below. */}
+              <option value="industry">Curated industry sharps only</option>
+              <option value="super">Super Sharps only</option>
+              <option value="both">Curated + performance qualified</option>
             </select>
           </label>
           <button

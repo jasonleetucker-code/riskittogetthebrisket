@@ -281,9 +281,25 @@ export function SourceAuditPanel({ row, val, edge, confExplain }) {
                       <span className="source-audit-val">{meta.valueContribution.toLocaleString()}</span>
                     </div>
                   )}
+                  {/* `effectiveWeight` is the depth-scaled coverage
+                      DIAGNOSTIC (declared x min(1, depth/60)). The
+                      contract says so in as many words — "never applied
+                      to the blend" (data_contract.py) — and
+                      docs/open-modeling-decisions.md decision #1 is the
+                      measured call NOT to apply it. Labelling it
+                      "Weight" told the reader it was the number doing
+                      the work. The number that IS applied is
+                      `appliedWeight`, stamped right beside it, so show
+                      that one first and mark the other as diagnostic. */}
+                  {meta?.appliedWeight != null && (
+                    <div className="source-audit-field">
+                      <span className="source-audit-label">Weight (applied)</span>
+                      <span className="source-audit-val">{meta.appliedWeight}</span>
+                    </div>
+                  )}
                   {meta?.effectiveWeight != null && (
                     <div className="source-audit-field">
-                      <span className="source-audit-label">Weight</span>
+                      <span className="source-audit-label">Coverage wt (diagnostic)</span>
                       <span className="source-audit-val">{meta.effectiveWeight}</span>
                     </div>
                   )}

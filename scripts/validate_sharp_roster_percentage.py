@@ -62,22 +62,34 @@ class Report:
         }
 
 
-def _contract() -> dict[str, Any] | None:
+def _contract(explicit_path: str | None = None) -> dict[str, Any] | None:
     """The live board, if this process can see one.
 
-    Read the same way every other out-of-server module reads it. When
-    the validator runs standalone there is no server, and the value join
-    is simply reported as unavailable rather than faked.
+    ``latest_contract_data`` is an in-process global of the RUNNING
+    server, so a standalone script almost never has it — the common case
+    for this validator is no contract at all. That is why
+    ``--contract PATH`` exists: without positions, every player's
+    position family is ``unknown`` and the position-aware denominator —
+    the subtlest rule in the feature — is never actually exercised.
+
+    A contract file must carry ``playersArray``. Note the artifact in
+    ``exports/latest/dynasty_data_*.json`` is the LEGACY shape and does
+    not, so it cannot be used here.
     """
+    if explicit_path:
+        try:
+            loaded = json.loads(Path(explicit_path).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"could not read --contract {explicit_path}: {exc}") from None
+        if not isinstance(loaded, dict) or not isinstance(loaded.get("playersArray"), list):
+            raise SystemExit(
+                f"--contract {explicit_path} has no 'playersArray'; "
+                "this is not an /api/data contract"
+            )
+        return loaded
     server = sys.modules.get("server") or sys.modules.get("__main__")
     contract = getattr(server, "latest_contract_data", None)
-    if isinstance(contract, dict):
-        return contract
-    snapshot = Path(__file__).resolve().parents[1] / "data" / "latest_contract.json"
-    try:
-        return json.loads(snapshot.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+    return contract if isinstance(contract, dict) else None
 
 
 def validate(
@@ -85,9 +97,10 @@ def validate(
     ledger_path: Path | None = None,
     player_count: int = 10,
     now_ms: int | None = None,
+    contract_path: str | None = None,
 ) -> tuple[Report, dict[str, Any]]:
     report = Report()
-    contract = _contract()
+    contract = _contract(contract_path)
 
     members, _coverage = sharp_cohort.cohort_members(ledger_path=ledger_path)
     cohort_keys = {m.manager_key for m in members}
@@ -123,15 +136,32 @@ def validate(
         for asset in row["assets"]:
             holders[asset["canonicalAssetId"]].append(row["rosterKey"])
 
+    # Iterate the ENGINE's family tuple, never a local copy. A hardcoded
+    # list here omitted FAMILY_UNKNOWN, which made every player's
+    # denominator recount to just its holders whenever positions were
+    # unavailable — reported as a confident failure of a correct board.
     supports: dict[str, set[str]] = defaultdict(set)
     for row in eligible:
         fmt = row.get("format") or {}
-        for family in (rp.FAMILY_OFFENSE, rp.FAMILY_IDP, rp.FAMILY_KICKER, rp.FAMILY_TEAM_DEFENSE):
+        for family in rp.POSITION_FAMILIES:
             if rp._roster_supports_family(fmt, family):
                 supports[family].add(row["rosterKey"])
 
     player_index = rp.build_player_index(contract)
     sample = board["players"][: max(1, int(player_count))]
+
+    report.add(
+        "contract_available_for_position_aware_checks",
+        bool(player_index),
+        (
+            f"{len(player_index)} players joined from the live contract"
+            if player_index
+            else "NO CONTRACT — every position reads as unknown, so the per-player "
+            "denominator rule and the value join are NOT exercised. Re-run with "
+            "--contract PATH to audit them."
+        ),
+        degraded=not player_index,
+    )
 
     # 1 + 4 — numerator and the arithmetic itself
     numerator_bad, bounds_bad = [], []
@@ -225,26 +255,53 @@ def validate(
         offenders=split,
     )
 
-    # 7 — asset mapping
-    unmapped = []
-    if player_index:
-        for row in sample:
-            if row["assetType"] == "player" and row["assetId"] not in player_index:
-                unmapped.append(row["assetId"])
+    # 7 — asset IDENTITY mapping.
+    #
+    # The audit question is "are Sleeper and FFPC players mapped to the
+    # correct internal player ids", NOT "does our board price them".
+    # Those are different, and conflating them makes the audit fail on
+    # correct behaviour: a genuinely rostered veteran outside our ranked
+    # pool has no rankDerivedValue by design, and the engine reports him
+    # as unpriced rather than inventing a value.
+    #
+    # So identity is checked against the canonical catalog, and
+    # unpriced-but-identified players are reported as INFORMATION.
+    catalog = rp._catalog_metadata(ledger_path)
+    players_in_sample = [r for r in sample if r["assetType"] == "player"]
+    unidentified = [
+        r["assetId"]
+        for r in players_in_sample
+        if r["assetId"] not in catalog and r["assetId"] not in player_index
+    ]
+    if catalog or player_index:
         report.add(
-            "counted_assets_resolve_to_internal_player_ids",
-            not unmapped,
-            f"{len(sample) - len(unmapped)}/{len(sample)} sampled assets resolve in the board index",
-            unresolved=unmapped,
+            "counted_assets_resolve_to_a_known_player_identity",
+            not unidentified,
+            f"{len(players_in_sample) - len(unidentified)}/{len(players_in_sample)} "
+            f"sampled players resolve ({len(catalog)} in the catalog, "
+            f"{len(player_index)} priced by the board)",
+            unresolved=unidentified,
         )
     else:
         report.add(
-            "counted_assets_resolve_to_internal_player_ids",
-            True,
-            "SKIPPED — no live contract available to this process; "
-            "player identity could not be cross-checked",
-            skipped=True,
+            "counted_assets_resolve_to_a_known_player_identity",
+            False,
+            "No player catalog and no contract — identity could not be checked at all.",
+            degraded=True,
         )
+
+    unpriced = [r["assetId"] for r in players_in_sample if r["value"] is None]
+    report.add(
+        "board_coverage_of_rostered_players",
+        True,  # informational: incomplete coverage is expected, not a defect
+        (
+            f"{len(players_in_sample) - len(unpriced)}/{len(players_in_sample)} sampled "
+            f"players carry a board value; {len(unpriced)} are rostered but outside our "
+            "ranked pool (reported as unpriced, never valued at zero)"
+        ),
+        informational=True,
+        unpriced=unpriced,
+    )
 
     # 8 — excluded rosters never reach a numerator
     excluded_keys = {r["rosterKey"] for r in stored if not r["isEligible"]}
@@ -305,9 +362,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--players", type=int, default=10, help="How many top players to verify.")
     parser.add_argument("--json", action="store_true", help="Machine-readable output.")
+    parser.add_argument(
+        "--contract",
+        metavar="PATH",
+        help=(
+            "An /api/data contract JSON (must contain 'playersArray'). Without it "
+            "positions are unknown and the position-aware denominator is not audited."
+        ),
+    )
     args = parser.parse_args()
 
-    report, board = validate(player_count=args.players)
+    report, board = validate(player_count=args.players, contract_path=args.contract)
 
     if args.json:
         print(json.dumps({"report": report.to_dict(), "sample": board["players"][:5]}, indent=2))

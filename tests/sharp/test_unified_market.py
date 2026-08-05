@@ -272,7 +272,18 @@ def test_disabling_ffpc_excludes_automated_and_curated_ffpc_members(monkeypatch)
             }
         ],
     }
+    # Isolate from the real curated store. Without this the test reads the
+    # production ledger, so an operational action — verifying one industry
+    # sharp's identity through the review queue — flips a unit test. It did:
+    # a Sleeper-platform curated member appeared and the blanket `== []`
+    # assertion failed even though the FFPC behaviour under test was correct.
+    monkeypatch.setattr(market.curated_model, "curated_cohort_members", lambda **_kwargs: [])
+
     selected, coverage = market.cohort_members(qualification="all", ffpc_config=config)
+    # The claim in the test's name is about FFPC, so assert exactly that. A
+    # blanket "nobody at all" also passes when the FFPC filter is broken and
+    # some unrelated population happens to be empty.
+    assert [member for member in selected if member.platform == "ffpc"] == []
     assert selected == []
     assert coverage["curatedContributionEnabled"] is False
 

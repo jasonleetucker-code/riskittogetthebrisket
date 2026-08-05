@@ -1,0 +1,24 @@
+[Unit]
+Description=Chase Upside curated Sharp identity and model refresh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__SERVICE_USER__
+Group=__SERVICE_GROUP__
+WorkingDirectory=__APP_DIR__
+Environment=PYTHONPATH=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/refresh_curated_sharps.py --sleeper-budget 75 --output-dir __APP_DIR__/data/intel/sharp_curated
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=__APP_DIR__/data
+TimeoutStartSec=45min
+
+[Install]
+WantedBy=multi-user.target

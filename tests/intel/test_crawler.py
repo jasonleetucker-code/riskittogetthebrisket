@@ -636,3 +636,91 @@ class TestSeedCollection:
         member_ids, names = crawler.collect_seed_members("SEED", http_get=fake)
         assert member_ids == ["A", "A2", "B"]
         assert names == {"A": "Alice", "B": "Bob"}
+
+
+class TestMovementKeyStability:
+    """D10 — the movement key must not move when attribution does.
+
+    ``_pool_holdings`` substitutes a pool co-owner when the primary
+    owner sits outside the pool, and it recomputes that from live
+    ``/rosters`` on EVERY run.  While the key embedded that attributed
+    user, a co-ownership change produced a fresh id for a movement
+    already in the ledger, and ``INSERT OR IGNORE`` let the same
+    transaction land twice.
+    """
+
+    def _tx(self):
+        return make_trade_tx("t1", NOW_MS - DAY_MS, adds={"p1": 1}, drops={"p1": 2})
+
+    def test_key_is_stable_when_the_attributed_owner_changes(self):
+        # Same transaction, same roster slots — but roster 1's
+        # attribution flips from A to its co-owner A2 between runs.
+        first = crawler._events_from_tx(
+            self._tx(), "L1", 1, {"1": "A", "2": "B"}, {"A", "B"}, set()
+        )
+        second = crawler._events_from_tx(
+            self._tx(), "L1", 1, {"1": "A2", "2": "B"}, {"A2", "B"}, set()
+        )
+        assert {e["eventId"] for e in first} == {e["eventId"] for e in second}
+
+    def test_the_owner_still_rides_along_as_data(self):
+        """Stable KEY, not a frozen record — the attributed user is
+        still reported, it simply is not part of the identity."""
+        events = crawler._events_from_tx(
+            self._tx(), "L1", 1, {"1": "A2", "2": "B"}, {"A2", "B"}, set()
+        )
+        adds = [e for e in events if e["action"] == "add"]
+        assert adds[0]["ownerId"] == "A2"
+        assert adds[0]["rosterId"] == "1"
+
+    def test_key_carries_the_roster_slot_not_the_user(self):
+        events = crawler._events_from_tx(
+            self._tx(), "L1", 1, {"1": "A", "2": "B"}, {"A", "B"}, set()
+        )
+        add = next(e for e in events if e["action"] == "add")
+        assert add["eventId"] == "t1:r1:add:p1"
+
+    def test_one_user_on_two_rosters_keeps_both_movements(self):
+        """The old key collapsed these into one event — an UNDERCOUNT
+        that the roster-slot key also fixes."""
+        tx = make_trade_tx("t1", NOW_MS - DAY_MS, adds={"p1": 1, "p2": 2})
+        events = crawler._events_from_tx(tx, "L1", 1, {"1": "A", "2": "A"}, {"A"}, set())
+        assert len({e["eventId"] for e in events}) == 2
+
+    def test_repeat_extraction_still_dedupes_within_a_run(self):
+        known: set = set()
+        crawler._events_from_tx(self._tx(), "L1", 1, {"1": "A", "2": "B"}, {"A", "B"}, known)
+        again = crawler._events_from_tx(
+            self._tx(), "L1", 1, {"1": "A", "2": "B"}, {"A", "B"}, known
+        )
+        assert again == []
+
+    def test_multiple_same_round_picks_stay_distinct(self):
+        """The pick discriminator must survive the re-key, or two picks
+        of the same season+round collapse into one."""
+        tx = make_trade_tx(
+            "t1",
+            NOW_MS - DAY_MS,
+            draft_picks=[
+                {
+                    "season": "2027",
+                    "round": 1,
+                    "roster_id": 5,
+                    "owner_id": 1,
+                    "previous_owner_id": 2,
+                },
+                {
+                    "season": "2027",
+                    "round": 1,
+                    "roster_id": 7,
+                    "owner_id": 1,
+                    "previous_owner_id": 3,
+                },
+            ],
+        )
+        events = crawler._events_from_tx(
+            tx, "L1", 1, {"1": "A", "2": "B", "3": "C"}, {"A", "B", "C"}, set()
+        )
+        adds = [e for e in events if e["action"] == "add"]
+        assert len(adds) == 2
+        assert len({e["eventId"] for e in adds}) == 2

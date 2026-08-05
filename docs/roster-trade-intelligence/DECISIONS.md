@@ -292,3 +292,276 @@ a week with no new entry means the workflow did not run.
 **Status:** accepted 2026-07-26; registry in `src/model_registry/`,
 wiring landed in `scripts/auto_refit_hill_curves.py` +
 `.github/workflows/refit-hill-curves.yml`.
+
+---
+
+## ADR-009: the rookie auction has no per-team slot limit, and the optimizer treats `k` as a free variable
+
+**Original spec idea:** strip the slot UI from `/draft`.
+
+**Finding:** the slot model was not a display concern. `draft-logic.js`
+carried `DEFAULT_INITIAL_SLOTS = 6` and used it in three load-bearing
+places: `effectiveBudgetFor` reserved $1 per unfilled slot and returned
+**0** once a team's picks were "used"; `phaseMultiplier` scaled every
+MaxBid by up to 1.5x as slots drained; and `mdv` divided a budget by the
+number of openings. A team missing from the draft-capital feed got 0
+slots and therefore vanished from `topCompetitorMax` entirely — modelled
+as unable to bid while holding real money.
+
+None of it describes this league. Rookie picks are *valued* into
+`teamTotals[].auctionDollars`; the auction itself places no cap on how
+many rookies a team may buy. The doc comment claiming the constant was
+only a pre-fetch placeholder was also false — `mergeDraftCapitalTeams`
+applied `Math.min(feedSlots, 6)`, so a team owning nine picks was
+silently clamped.
+
+**Decision:** remove the slot dimension outright. Effective budget is
+remaining dollars; `topCompetitorMax` is the richest rival's actual
+remaining. `phaseMultiplier` is **deleted, not replaced** — its
+legitimate job was "I am rich, bid up", and `budgetAdvantage` already
+does that, more meaningfully now that budgets are no longer slot-shrunk.
+Removing a term beats inventing one. `draftProgress` is denominated by
+the rookie pool, and the "Spend up" chip keys on board progress plus
+budget advantage instead of slot pressure and $-per-slot.
+
+This changes MaxBid numbers and breaks parity with the owner's
+`Inflation` spreadsheet. That was accepted explicitly: the spreadsheet
+encodes the same wrong assumption.
+
+Roster **capacity** (58 in `dynasty_main`) is a real constraint and is
+kept — but it lives in the optimizer, where it belongs, as
+`openRosterSpots`. It caps how many rookies you can hold without cutting,
+not how many you may draft.
+
+**Status:** accepted 2026-07-30; pinned by the "no per-team slot limit"
+block in `frontend/__tests__/draft-logic.test.js`.
+
+---
+
+## ADR-010: Perfect Draft measures both sides over replacement, and solves the whole budget at once
+
+**Original spec idea:** `Net Value Added = Rookie Value − Displaced Player
+Value`, maximized subject to a budget.
+
+**Finding:** taken literally that objective is degenerate. Rookie board
+values and the $1200 dollar ladder both come from the same convex Hill
+curve (`server.py::_rookie_dollars_from_values`), so value-per-dollar
+rises roughly **30x** from the top of the rookie ladder to the 72nd —
+#1 Jeremiyah Love at 7587/$135 versus #72 at 1721/$1. A raw
+`max Σ value s.t. Σ price ≤ B` therefore does not analyse a market; it
+reads the shape of the price curve back out and recommends buying thirty
+$1 dart throws.
+
+A second measured problem: the roster tail is not a value. 19 players sit
+at exactly 497 and 19 more at exactly 375, nearly all single-source with
+no position — `src/league_intel/replacement.py` calls it "the noisiest
+number in the league (deep dart throws, and any identity-join miss lands
+there)". Costing a cut at that number turns an identity-join miss on a
+real asset into a cheap-cut recommendation.
+
+**Decision:** measure both sides over replacement, using one primitive.
+
+```
+waiverValue(pos)  = best unrostered player at that position
+surplus(rookie)   = max(0, boardValue − waiverValue(pos))
+ECC(player)       = max(0, base − waiverValue(pos)) × (0.85 + 0.30·waiverScarcity)
+   base           = boardValue, or waiverValue when unranked ("assumedWaiver")
+NetValue(S)       = Σ surplus − D(|S|)
+```
+
+An empty roster spot is worth waiver level, not zero — that symmetry is
+what makes the objective mean something. The scarcity multiplier is taken
+verbatim from `src/roster_intel/targets.py::_scarcity_multiplier`, and
+uses `waiverScarcity` alone for the reason that file gives. Only the
+three `*Scarcity` fields are dimensionless; `replacementGap`,
+`eliteSeparation` and `starterSeparation` are in `rosValue` units and are
+never mixed with a `rankDerivedValue` core.
+
+Because the cut ladder is cheapest-first and independent of *which*
+rookies are bought, total displacement `D(k)` is a function of `k` alone.
+That decomposes the problem into one cardinality-constrained 0/1
+knapsack, solved exactly — and it is a theorem, not an approximation:
+legal cut-sets are the independent sets of the dual of a transversal
+matroid, where greedy is optimal and successive minimum-weight sets nest.
+Droppability is therefore validated by re-running the real assignment
+solver (`src/ros/lineup.py::solve_optimal_assignment`) after each rung, not
+by a per-position count — with FLEX and SUPER_FLEX slots, whether a player
+is droppable depends on who else is being dropped.
+
+One solve yields every cardinality, so the star-focused and depth-focused
+alternatives are the ends of the same frontier rather than a second
+algorithm, and nothing is manufactured when the pool supports only one
+shape.
+
+**Max bid is an indifference price**, not a converted value:
+`planMaxBid(i) = max{ q : bestNetWith(i at q) ≥ bestNetWithout(i) }`. The
+tempting `price + (netWith − netWithout)` adds a value quantity to a
+dollar quantity and invents an exchange rate this codebase refuses to
+invent anywhere else. It is named `planMaxBid` because the board already
+shows five max-bid concepts and a sixth that silently disagreed would be
+a UI failure.
+
+**Confidence** is the share of bootstrap scenarios in which the
+recommended plan still wins, over the frontier *plus* the per-rookie
+pivot plans. The pivots are load-bearing: the frontier keeps one winner
+per cardinality, so two genuinely tied plans of the *same size* are
+invisible without them, and the UI would name one of two coin-flips.
+
+**Status:** accepted 2026-07-30. Engine in `src/draft/` +
+`frontend/lib/perfect-draft.js`; the matroid claim is checked against
+brute force in `tests/draft/test_displacement.py`, and the
+greedy-loses-to-exact instance is pinned in
+`frontend/__tests__/perfect-draft.test.js`.
+
+**Amended 2026-08-04 — the uncertainty half was described but not
+wired.** As shipped, three of the statements above about confidence were
+true of the code's *shape* and false of its *behaviour*:
+`marketDispersionCV` and `singleSource` were read by the bootstrap but
+set by nothing in the draft data path, so every rookie drew from one flat
+constant and the single-source floor could never fire; the panel called
+`priceBand(price, 0.35)` with the sigma hardcoded, leaving
+`logPriceDispersion` dead; and the docstring's "joint draws of value and
+price uncertainty" described a loop with no price term at all. A panel
+presenting a placeholder as a measurement is worse than one that omits
+the measurement.
+
+Now wired, with two decisions worth recording:
+
+* **A zero CV is *unobserved*, not *agreed*.** The scraper's dispersion
+  is undefined below two comparable site values, and on the 2026-08-04
+  board that is 31 of the top 72 rookies — the thinnest-covered rows.
+  Shipping the literal `0.0` would have made exactly the least
+  trustworthy values look like the most certain ones, which is strictly
+  worse than the flat constant it replaced. `_our_rookie_pool` nulls
+  non-positive at the source, and an unobserved row is placed at the
+  **p90 of the dispersion observed across the pool** — the pessimistic
+  end of the real distribution rather than another declared number.
+* **Price is a feasibility risk, not a value risk.** Surplus is measured
+  over replacement and does not depend on what a rookie cost, so a price
+  draw cannot move a plan's net value; what it moves is whether the plan
+  can be bought. Plans under budget are unaffected, ceiling plans lose
+  confidence, and the frontier's empty `k = 0` plan absorbs scenarios in
+  which nothing is affordable.
+
+Honest measurement of what this bought: on the live board the
+recommendation is **unchanged** and confidence matches to three
+significant figures (39.5% either way), because the measured stand-in
+(0.075) lands almost exactly where the old constant (0.08) sat. The
+wiring is live rather than inert — 5x the real CVs moves confidence to
+22.0% and surfaces a near-tie — but the value-side fix is correctness,
+not an improvement to today's numbers. The **price** side is the one that
+moves things: the same $53 rookie's band is $42–$67 on the prior and
+$52–$54 after six calm sales, and a plan spending the full budget shows
+−$28 of headroom at p75.
+
+`PRICE_DISPERSION_PRIOR = 0.35` remains a **declared prior** in the BDVM
+"priors, not validated truth" posture — no completed auction exists in
+this repo to fit it against, and `priceSigmaByTier(...).measured` reports
+which regime a band is in rather than letting an assumption read as an
+observation. It lives in `perfect-draft.js` beside the estimator rather
+than in `config/`, because `frontend/` is its own bundler root and
+nothing there resolves paths outside it.
+
+**Amended again 2026-08-04 — replacement level is a ladder, and the cut
+side had to move with it.** The formula above charges each addition
+`waiverValue(pos)`, which assumes the best free agent at a position can
+fill every spot you give him. He cannot. `R(k)` charges off a ladder of
+freely-available values — and off its **tail**, which is the part that
+inverts if you reason quickly: the baseline is "buy nothing", and an idle
+team fills its open spots off the wire, so a plan that uses `k` of them
+forgoes the *last* `k` free agents it would have signed. With five open
+spots, buying one rookie costs the fifth-best free agent. The charge
+saturates at `W(open)`; past that, rookies displace rostered players.
+
+Making that change surfaced two defects, each larger than the change:
+
+* **The auction's own rookies were on the waiver wire.** Five of the six
+  best "free agents" on the live board were lots in the draft being
+  optimized, so the model priced a rookie tight end against himself.
+  `src/draft/rookie_pool.py` is now the one definition of "in this
+  auction", consumed by `server._our_rookie_pool` (which shapes it into
+  the payload) and by the roster context (which excludes it).
+* **`ECC = max(0, base − waiver)` made most releases free.** 23 of 30
+  rungs scored exactly zero, twelve of them unranked players whose
+  `max(0, waiver − waiver)` is structurally 0 — the free-cut-on-a-join-
+  miss failure this ADR set out to prevent, caused by the formula meant
+  to prevent it. Under the flat model it was invisible because the two
+  waiver terms cancelled; under a ladder they do not. The client charges
+  `releaseCost = baseValue × scarcityMultiplier`. `effective_cut_cost`
+  is unchanged for every other consumer.
+
+Taking the **cheapest releases rather than ladder order** is exact rather
+than a heuristic, and reuses this ADR's own matroid argument from the
+other end: the backend's greedy built its rungs as a nested sequence of
+legal cut-sets, so all thirty are jointly droppable, and every subset of
+an independent set is independent.
+
+**Measured, and it did not do what the deferred note predicted.** That
+note claimed the flat charge caused the model's preference for large
+plans and that `W(k)` would correct it. On the live board the
+recommendation moved from 35 rookies to 34. The real cause is that
+**roster value is an unweighted sum of market values** — a 58-man roster
+starts 21, but the model books bench player #40 at full market value, so
+swapping deep bench bodies (~1300) for marginal rookies (~2400) scores
+positive every time. Lineup-aware roster value is the honest fix;
+`src/ros/lineup.py::solve_optimal_assignment` already computes it and is
+already used here for *droppability*, but using it for *value* breaks the
+cardinality decomposition this ADR rests on. Left open and stated
+plainly in `docs/perfect-draft.md` §9 rather than half-fixed.
+
+One performance note, because it is a trap rather than a tuning detail:
+the charge table must be built once per solve. `computeMaxBid` evaluates
+its indifference price over every dollar from the budget down, times
+every cardinality, times every recommended rookie — sorting the release
+ladder inside that loop measured **1129 ms** against 327 ms before,
+roughly 460,000 sorts of the same thirty numbers.
+
+---
+
+## ADR-011: the Perfect Draft solve runs on the client, the roster context on the server
+
+**Original spec idea:** a backend engine with a POST endpoint, matching
+the BDVM family.
+
+**Finding:** the `/draft` board is a client-side application. Every input
+that moves during a draft — team budgets, recorded picks, live prices,
+the inflation model — lives in `localStorage` and never reaches the
+server. There is no server-side store of budgets or picks at all. A
+backend solve would mean POSTing the entire draft workspace on every
+recorded pick, mid-auction, to run a knapsack that takes single-digit
+milliseconds.
+
+**Decision:** split on what actually changes.
+
+*Server, once per draft, cached* — `GET /api/draft/roster-context`:
+rosters joined to canonical `rankDerivedValue`, per-position waiver
+levels, and the feasibility-checked cut ladder. All static for the whole
+draft, all requiring the ~4 MB contract, the lineup solver and league
+scarcity, none of which belong in the browser.
+
+*Client* — the knapsack, against live workspace state.
+
+This does not breach the "no frontend ranking engine, period" rule: the
+optimizer recomputes no player value and consumes backend stamps exactly
+as `draft-logic.js` already consumes `rookieKtcValue`. `rookieBoardValue`
+was added to `/api/draft-capital` for the same reason — the dollar ladder
+is not invertible, so a client holding only dollars cannot recover board
+value. It is redacted for public callers alongside the other rookie
+fields.
+
+The cache key carries **team identity**; every number in the payload is
+roster-specific, so a key without it would serve one manager's cut ladder
+to another. An unresolvable team is a 400, never a silent fallback to
+whichever team sorted first.
+
+Scoping: the league-match gate is what confines the feature to the league
+whose rosters are loaded. A league served only by the Sleeper-derived
+draft-capital fallback has no genuine rookie pool, fails that gate, and
+the panel vanishes rather than optimizing against the hardcoded
+placeholder rookie list. That is data-driven rather than a hardcoded
+league key, so it starts working on its own if the fallback is ever
+fixed.
+
+**Status:** accepted 2026-07-30. Flag `perfect_draft` (LIVE, default on);
+rollback `RISKIT_FEATURE_PERFECT_DRAFT=0` **and restart** — flag reads are
+cached per process.
