@@ -1,0 +1,21 @@
+{
+ "baseline": 345,
+ "headerOnly": {
+  "entries": null,
+  "parseErrors": []
+ },
+ "deleted": {
+  "entries": null,
+  "parseErrors": [
+   {
+    "source": "otcffbSf",
+    "path": "CSVs/site_raw/otcffbSf.csv",
+    "error": "file_not_found"
+   }
+  ]
+ },
+ "badSchema": {
+  "entries": null,
+  "parseErrors": []
+ }
+}

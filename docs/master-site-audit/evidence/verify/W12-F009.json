@@ -1,0 +1,78 @@
+{
+ "id": "W12-F009",
+ "workstream": "W12",
+ "promptSections": [
+  16,
+  40
+ ],
+ "title": "The terminal home page prescribes opposite actions from the same rank-history input: the Movers panel calls a riser a sell-high candidate while the Signals panel directly below calls the same rise a BUY",
+ "status": "Duplicate or conflicting implementation",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "Directional labels / momentum",
+ "surface": {
+  "routes": [
+   "/api/movers",
+   "/api/terminal"
+  ],
+  "pages": [
+   "/",
+   "/trending"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/components/terminal/MoversPanel.jsx",
+   "lines": "189-216"
+  },
+  {
+   "path": "frontend/lib/signal-engine.js",
+   "lines": "151-160"
+  },
+  {
+   "path": "src/api/terminal.py",
+   "lines": "970-976"
+  },
+  {
+   "path": "server.py",
+   "lines": "3580-3630"
+  }
+ ],
+ "claimUnderTest": "MoversPanel's in-code comment: 'A riser's price has already gone UP, so it is a candidate to sell HIGH \u2014 not to buy low.' signal-engine.js's buy.uptrend_controlled: a 7-day rank rise of +3 or more with non-high volatility is BUY, reason '7d trend of +N and volatility is low'.",
+ "observed": "Both panels render on the terminal home page, both are driven by data/rank_history.jsonl ordinal deltas, and they prescribe opposite actions for the same movement. Movers is a momentum-REVERSAL thesis at a 15-rank threshold; the signal engine is a momentum-FOLLOWING thesis at a 3-rank threshold. A player who rose 20 ranks in 7 days is simultaneously a 'SELL-HIGH CANDIDATE' in one panel and 'BUY' in the other. Neither thesis has ever been validated against an outcome, neither panel references the other, and no copy anywhere tells the user they are different theories rather than different facts.",
+ "reproduction": {
+  "command": ".venv/bin/python /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/w12_page2.py   # renders / with /api/* re-routed; body contains 'RISERS \u2014 SELL-HIGH CANDIDATES' and 'Signals / Rule-driven Buy / Sell / Hold per roster player' on one page",
+  "expected": "one directional interpretation of a rank rise per page",
+  "actual": "MoversPanel: riser -> sell-high. signal-engine buy.uptrend_controlled: trend7 >= +3 -> BUY. Same page, same input, opposite verbs.",
+  "artifact": "docs/master-site-audit/evidence/W12/page-probe-2.json + page--home.png"
+ },
+ "numericProof": {
+  "inputs": {
+   "moversThresholdRanks": 15,
+   "buyRuleThresholdRanks": 3,
+   "moversDirectionForARise": "sell-high",
+   "ruleEngineDirectionForARise": "BUY"
+  },
+  "formula": "sign of the prescribed action for delta > 0",
+  "expected": 1,
+  "actual": -1,
+  "tolerance": 0
+ },
+ "userImpact": "The two most prominent widgets on the landing page give a user opposite instructions about the same player from the same number, with no way to tell which the product believes.",
+ "blastRadius": {
+  "playersAffected": 1072,
+  "routesAffected": 2,
+  "pagesAffected": 2
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A05-F12",
+  "relation": "refuted",
+  "note": "PRIOR-A05-F12 and PRIOR-A23-F08 both claim 'MoversPanel labels risers as buy-low candidates and fallers as sell-high \u2014 both inverted'. That is NOT true at HEAD e96c06ef. The source at MoversPanel.jsx:196-215 reads 'Risers \u2014 sell-high candidates' / 'Fallers \u2014 buy-low candidates', carries a comment recording the correction as 'audit finding S-8', and the rendered DOM confirms it. Both prior findings are already fixed. What survives is a different and larger problem \u2014 the corrected polarity is now the exact opposite of the signal engine on the same page \u2014 which is recorded here as new."
+ },
+ "whatWorks": "The Movers polarity itself is now correct and the fix is documented in-code. /api/movers also degrades honestly: with no history it returns risers:[] fallers:[] plus historyDepthDays:0 rather than inventing movement.",
+ "rootCause": "Two panels were written from two different trading theses and neither was ever chosen as the product's position.",
+ "requiredRepair": "Pick one thesis, state it in the UI, and make the other panel descriptive rather than prescriptive ('biggest movers' with no buy/sell framing) until one is validated against realized outcomes.",
+ "dependencies": "W12-F003."
+}

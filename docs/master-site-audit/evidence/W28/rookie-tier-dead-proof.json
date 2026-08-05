@@ -1,0 +1,28 @@
+{
+ "sleeperPlayerRecords": 12208,
+ "recordsWithDraftRoundKey": 0,
+ "recordsWithDraftRoundCamelKey": 0,
+ "rosteredPlayers2026": 666,
+ "rosteredRookiesYearsExpZero": 102,
+ "rosteredRookiesWithNonNullDraftRound": 0,
+ "liveContributorReasonHistogram": {
+  "QB anchor": 16,
+  "IDP DB starter": 13,
+  "WR committee": 13,
+  "IDP LB starter": 13,
+  "RB committee": 10,
+  "RB starter": 9,
+  "TE starter": 8,
+  "WR starter": 8,
+  "IDP DE starter": 4,
+  "IDP DL starter": 2,
+  "TE committee": 2,
+  "IDP DT starter": 2,
+  "IDP CB starter": 1
+ },
+ "rookieReasonsOnLivePayload": 0,
+ "deadWeights": {
+  "rookieRound1": 4,
+  "rookieRound2": 2
+ }
+}

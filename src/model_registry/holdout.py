@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -180,8 +181,23 @@ class HoldoutResult:
     training_labels: tuple[str, ...]
 
     def to_dict(self) -> dict[str, Any]:
+        # ``measuredAt`` exists because the criterion's absolute level
+        # drifts with the market — ~19 points on IDENTICAL parameters in
+        # 7 days, measured 2026-08-05, against a 25-point promotion
+        # margin.  Without a date, three scores taken on three different
+        # days sit in one file looking directly comparable, and the only
+        # way to tell them apart was hand-written prose in ``notes``.
+        # That is what let the registry record a verdict its own stored
+        # numbers disagree with (v3's note says +22.4; the stored pair
+        # gives +12.79).
+        #
+        # ``cmd_validate`` no longer trusts a stored criterion at all —
+        # it re-scores both curves — but it prints this date when the
+        # stored figure differs, so a stale registry is visible rather
+        # than silently bypassed.
         return {
             "criterion": round(self.criterion, 4),
+            "measuredAt": datetime.now(timezone.utc).isoformat(),
             "criterionName": "mean_per_source_rmse",
             "criterionUnits": "points on the 0-9999 value scale (lower is better)",
             "perSource": {k: round(v, 4) for k, v in sorted(self.per_source.items())},

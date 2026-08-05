@@ -1,0 +1,111 @@
+{
+  "measurement": "monte-carlo-band-width",
+  "question": "The simulator draws every asset from a flat +-15% band. How far does the board actually move over the same kind of interval?",
+  "flatBandUnderTest": 0.15,
+  "horizonDays": 14,
+  "panelDays": 112,
+  "panelStart": "2026-04-16",
+  "panelEnd": "2026-08-05",
+  "foldsAttempted": 7,
+  "foldsUsable": 7,
+  "byFold": [
+    {
+      "n": 365,
+      "p10": -0.23194,
+      "p50": -0.00621,
+      "p90": 0.32345,
+      "impliedHalfWidth": 0.27769,
+      "medianAbsReturn": 0.12911,
+      "flatBandCoverage": 0.5425,
+      "origin": "2026-04-16",
+      "horizon": "2026-04-30"
+    },
+    {
+      "n": 791,
+      "p10": -0.04414,
+      "p50": -0.00073,
+      "p90": 0.03747,
+      "impliedHalfWidth": 0.0408,
+      "medianAbsReturn": 0.01222,
+      "flatBandCoverage": 0.9848,
+      "origin": "2026-04-30",
+      "horizon": "2026-05-14"
+    },
+    {
+      "n": 788,
+      "p10": -0.02769,
+      "p50": 0.0,
+      "p90": 0.01423,
+      "impliedHalfWidth": 0.02096,
+      "medianAbsReturn": 0.00498,
+      "flatBandCoverage": 0.9924,
+      "origin": "2026-05-14",
+      "horizon": "2026-05-28"
+    },
+    {
+      "n": 794,
+      "p10": -0.02048,
+      "p50": 0.0,
+      "p90": 0.02483,
+      "impliedHalfWidth": 0.02266,
+      "medianAbsReturn": 0.00616,
+      "flatBandCoverage": 0.9924,
+      "origin": "2026-05-28",
+      "horizon": "2026-06-11"
+    },
+    {
+      "n": 796,
+      "p10": -0.01069,
+      "p50": 0.0,
+      "p90": 0.01471,
+      "impliedHalfWidth": 0.0127,
+      "medianAbsReturn": 0.00316,
+      "flatBandCoverage": 0.9987,
+      "origin": "2026-06-11",
+      "horizon": "2026-06-25"
+    },
+    {
+      "n": 787,
+      "p10": -0.03613,
+      "p50": 0.0014,
+      "p90": 0.06362,
+      "impliedHalfWidth": 0.04987,
+      "medianAbsReturn": 0.0118,
+      "flatBandCoverage": 0.8983,
+      "origin": "2026-06-25",
+      "horizon": "2026-07-09"
+    },
+    {
+      "n": 802,
+      "p10": -0.02626,
+      "p50": -0.00046,
+      "p90": 0.01985,
+      "impliedHalfWidth": 0.02305,
+      "medianAbsReturn": 0.00641,
+      "flatBandCoverage": 0.98,
+      "origin": "2026-07-09",
+      "horizon": "2026-07-23"
+    }
+  ],
+  "attrition": {
+    "noOrigin": 561,
+    "noHorizon": 244
+  },
+  "caveats": {
+    "modelIsCurrent": "The replay runs TODAY's Hill curves over past inputs, so measured movement is input-driven only; real board movement also came from constant promotions. This UNDERSTATES true movement, and the direction of that bias is easy to invert: understated movement makes the flat band look MORE excessive than it is, so a 'too wide' verdict is an UPPER BOUND on the excess, not a conservative floor. A 'too narrow' verdict would be the emphatic one.",
+    "panelHeterogeneity": "CSVs/site_raw held 9 sources on 2026-04-16 and 24 from 2026-06-01. Source count drives both band width and movement; read byFold, not just the pooled figure.",
+    "offseasonOnly": "The whole reconstructable window is the offseason. April-August volatility is not September volatility.",
+    "measuresSelfConsistency": "This is how much OUR board moves, not how wrong it is. It cannot capture common-mode error, so decision #4's 'too narrow, and for the right reason' argument survives this measurement intact.",
+    "simulatorHasNoHorizon": "monte_carlo.py's band is horizonless, so this yields a family of numbers (h7/h14/h30) rather than one. Choosing among them remains a judgement \u2014 an anchored one."
+  },
+  "pooled": {
+    "n": 5123,
+    "p10": -0.03471,
+    "p50": 0.0,
+    "p90": 0.03237,
+    "impliedHalfWidth": 0.03354,
+    "medianAbsReturn": 0.0079,
+    "flatBandCoverage": 0.9438
+  },
+  "verdict": "Over 7 disjoint 14-day folds (5123 player-pairs), the board's own p10-p90 half-width is 0.0335 (3.35%), against the simulator's flat 15%. The flat band is 4.47x that, and covers 94.4% of observed moves. Read the caveats before quoting: the replay understates movement (so this ratio is an UPPER bound on the excess), this is offseason data, and the per-fold spread in byFold is wide."
+}

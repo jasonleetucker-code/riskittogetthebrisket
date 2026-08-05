@@ -4590,6 +4590,15 @@ async def get_status():
             # silent; surfacing coverage here is what makes it visible
             # before a study needs the history and finds it absent.
             "rankHistoryCoverage": _rank_history_coverage_safe(),
+            # The same argument one directory over, and the same defect
+            # the line above exists to prevent.  `store.history_coverage`
+            # was written so a halted retention timer is "visible before
+            # a study needs the data rather than after it produces a
+            # wrong answer" — and was then wired to nothing.  That is
+            # what let the 2026-08-05 deploy install the producer, skip
+            # the pusher, and leave the only symptom in a deploy log
+            # nobody re-reads.
+            "playerctxHistoryCoverage": _playerctx_history_coverage_safe(),
             "idMappingCoverage": _id_mapping_coverage_safe(),
             "nflDataProvider": _nfl_data_provider_status_safe(),
             "normalizationHealth": _normalization_health_safe(),
@@ -4633,6 +4642,76 @@ def _rank_history_coverage_safe() -> dict:
         return _rank_history.coverage()
     except Exception as exc:  # noqa: BLE001
         log.warning("rank_history coverage failed: %s", exc)
+        return {}
+
+
+def _playerctx_pending_push(history_dir) -> dict:
+    """Dated snapshots written locally but never committed.
+
+    THE PRODUCER AND THE PUSHER FAIL INDEPENDENTLY, and only one of the
+    two is visible in ``history_coverage``:
+
+    * the producer stalls  → the directory goes stale → ``staleDays`` grows.
+    * the pusher stalls    → the directory looks perfect and ``main`` gets
+      nothing.
+
+    The second is the one that actually happened on 2026-08-05, and
+    coverage alone cannot see it — which is precisely why it went
+    unnoticed until someone read a deploy log.  ``data/`` is gitignored
+    repo-wide and retained snapshots reach the tree only by an explicit
+    ``git add -f``, so "on disk but not tracked" is exactly "written but
+    not pushed".
+
+    Degrades to ``{}`` rather than raising or guessing: outside a git
+    checkout there is no answer, and a fabricated zero would read as
+    "nothing pending".
+    """
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", "ls-files", "--", "data/playerctx/history"],
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if proc.returncode != 0:
+            return {}
+        tracked = {
+            line.rsplit("/", 1)[-1].strip() for line in proc.stdout.splitlines() if line.strip()
+        }
+        pending = sorted(
+            p.name for p in history_dir.glob("snapshot_*.json") if p.name not in tracked
+        )
+        out: dict = {"pendingPush": len(pending)}
+        if pending:
+            # Filename carries the date and sorts chronologically, which
+            # is why store.history_path writes snapshot_YYYY-MM-DD.json.
+            out["oldestPendingDate"] = pending[0].replace("snapshot_", "", 1).replace(".json", "")
+        return out
+    except Exception as exc:  # noqa: BLE001
+        log.warning("playerctx pending-push probe failed: %s", exc)
+        return {}
+
+
+def _playerctx_history_coverage_safe() -> dict:
+    """Retained playerctx snapshot coverage, tolerant of read errors.
+
+    Same contract as ``_rank_history_coverage_safe`` — never raises —
+    plus the pending-push augmentation, which lives here rather than in
+    ``store`` so the store stays a pure filesystem module with no git
+    dependency.
+    """
+    try:
+        from src.playerctx import store as _pcx_store
+
+        coverage = _pcx_store.history_coverage()
+        if coverage.get("exists"):
+            coverage.update(_playerctx_pending_push(_pcx_store.HISTORY_DIR))
+        return coverage
+    except Exception as exc:  # noqa: BLE001
+        log.warning("playerctx history coverage failed: %s", exc)
         return {}
 
 

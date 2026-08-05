@@ -10,7 +10,7 @@ export async function POST(request, { params }) {
     const { data, status } = await proxyPost(
       `/api/sharp/review/${encodeURIComponent(candidateId)}`,
       body,
-      { timeoutMs: 30000 },
+      { cookie: request.headers.get("cookie") || "", timeoutMs: 30000 },
     );
     return NextResponse.json(data, { status });
   } catch (error) {

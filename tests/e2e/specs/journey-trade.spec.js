@@ -25,6 +25,7 @@ const {
   SEL,
   pageHeading,
   titleFor,
+  awaitStreamSettled,
 } = require("../helpers/journey");
 
 test.describe("journey: trade surfaces", () => {
@@ -147,6 +148,9 @@ test.describe("journey: trade surfaces", () => {
   }) => {
     const guard = attachConsoleGuards(page);
     await page.goto(pageUrl("/arbitrage"), { waitUntil: "domcontentloaded" });
+    // /arbitrage has a loading.jsx, so the App Router streams it. Let the swap
+    // finish before any strict locator runs — see awaitStreamSettled (#716).
+    await awaitStreamSettled(page);
 
     await expect(pageHeading(page, titleFor("/arbitrage"))).toBeVisible({
       timeout: 30_000,

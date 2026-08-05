@@ -1,0 +1,199 @@
+{
+ "formula": "aggressive_pct = 0.05 + 0.25 * (candidate_value / max(candidate_value, top_value_in_pool)); aggressive_raw = budget * aggressive_pct; (aggressive, reasonable, lowball) = roundHalfUp(raw), roundHalfUp(raw*0.70), roundHalfUp(raw*0.35), each floored at 1",
+ "codeRef": "src/trade/waiver.py:120-129",
+ "budget": 100,
+ "topOfFreeAgentPool": 1908.0,
+ "cases": [
+  {
+   "player": "Josh Allen",
+   "value": 9988.0,
+   "topPool": 1908.0,
+   "share": 1.0,
+   "aggressivePct": 0.3,
+   "aggressiveRaw": 30.0,
+   "expected": [
+    30,
+    21,
+    11
+   ],
+   "actual": [
+    30,
+    21,
+    11
+   ],
+   "match": true
+  },
+  {
+   "player": "Josh Jacobs",
+   "value": 3859.0,
+   "topPool": 1908.0,
+   "share": 1.0,
+   "aggressivePct": 0.3,
+   "aggressiveRaw": 30.0,
+   "expected": [
+    30,
+    21,
+    11
+   ],
+   "actual": [
+    30,
+    21,
+    11
+   ],
+   "match": true
+  },
+  {
+   "player": "Jaylen Warren",
+   "value": 2937.0,
+   "topPool": 1908.0,
+   "share": 1.0,
+   "aggressivePct": 0.3,
+   "aggressiveRaw": 30.0,
+   "expected": [
+    30,
+    21,
+    11
+   ],
+   "actual": [
+    30,
+    21,
+    11
+   ],
+   "match": true
+  },
+  {
+   "player": "J.K. Dobbins",
+   "value": 2660.0,
+   "topPool": 1908.0,
+   "share": 1.0,
+   "aggressivePct": 0.3,
+   "aggressiveRaw": 30.0,
+   "expected": [
+    30,
+    21,
+    11
+   ],
+   "actual": [
+    30,
+    21,
+    11
+   ],
+   "match": true
+  },
+  {
+   "player": "Marlin Klein (top FA)",
+   "value": 1908.0,
+   "topPool": 1908.0,
+   "share": 1.0,
+   "aggressivePct": 0.3,
+   "aggressiveRaw": 30.0,
+   "expected": [
+    30,
+    21,
+    11
+   ],
+   "actual": [
+    30,
+    21,
+    11
+   ],
+   "match": true
+  },
+  {
+   "player": "Chamarri Conner",
+   "value": 1502.0,
+   "topPool": 1908.0,
+   "share": 0.787212,
+   "aggressivePct": 0.246803,
+   "aggressiveRaw": 24.6803,
+   "expected": [
+    25,
+    17,
+    9
+   ],
+   "actual": [
+    25,
+    17,
+    9
+   ],
+   "match": true
+  },
+  {
+   "player": "Taron Johnson",
+   "value": 1002.0,
+   "topPool": 1908.0,
+   "share": 0.525157,
+   "aggressivePct": 0.181289,
+   "aggressiveRaw": 18.1289,
+   "expected": [
+    18,
+    13,
+    6
+   ],
+   "actual": [
+    18,
+    13,
+    6
+   ],
+   "match": true
+  },
+  {
+   "player": "Malachi Moore",
+   "value": 757.0,
+   "topPool": 1908.0,
+   "share": 0.396751,
+   "aggressivePct": 0.149188,
+   "aggressiveRaw": 14.9188,
+   "expected": [
+    15,
+    10,
+    5
+   ],
+   "actual": [
+    15,
+    10,
+    5
+   ],
+   "match": true
+  },
+  {
+   "player": "MIN_WAIVER_VALUE floor",
+   "value": 500.0,
+   "topPool": 1908.0,
+   "share": 0.262055,
+   "aggressivePct": 0.115514,
+   "aggressiveRaw": 11.5514,
+   "expected": [
+    12,
+    8,
+    4
+   ],
+   "actual": [
+    12,
+    8,
+    4
+   ],
+   "match": true
+  },
+  {
+   "player": "AJ Dillon (unpriced)",
+   "value": 0.0,
+   "topPool": 1908.0,
+   "share": 0.0,
+   "aggressivePct": 0.05,
+   "aggressiveRaw": 5.0,
+   "expected": [
+    0,
+    0,
+    0
+   ],
+   "actual": [
+    0,
+    0,
+    0
+   ],
+   "match": true
+  }
+ ],
+ "allMatch": true
+}

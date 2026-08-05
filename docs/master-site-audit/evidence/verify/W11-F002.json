@@ -1,0 +1,71 @@
+{
+ "id": "W11-F002",
+ "workstream": "W11",
+ "promptSections": [
+  22
+ ],
+ "title": "Players the board declines to price (rankDerivedValue = 0) are recommended $22-$25 bids and described as a 'strong free-agent target'; 125 of 283 free agents are affected",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "S",
+ "subsystem": "FAAB recommender",
+ "surface": {
+  "routes": [
+   "/api/waiver/faab-recommend"
+  ],
+  "pages": [
+   "/waivers"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/trade/waiver.py",
+   "lines": "120-121"
+  },
+  {
+   "path": "src/trade/faab_recommender.py",
+   "lines": "454-500"
+  },
+  {
+   "path": "src/trade/faab_recommender.py",
+   "lines": "661-682"
+  }
+ ],
+ "claimUnderTest": "_compute_faab_bid: 'if candidate_value <= 0 or budget <= 0: return (0, 0, 0)'. faab_recommender module docstring: 'Missing data is never imputed into a normal-looking value'.",
+ "observed": "The zero guard fires correctly and the baseline factor row honestly reads 'Player value baseline: start at $0'. Step 4 then blends that $0 against the position's historical average -- 0.5*avg + 0.5*0 -- and resurrects a bid out of nothing. The explanation string is chosen only on the magnitude of the final number, so a player worth 0 gets 'strong free-agent target'. Rival contention can then raise it further: Zach Wilson (value 0) received '+$6 to clear top rival'.",
+ "reproduction": {
+  "command": "curl -s -b /tmp/audit-cookies-W11.txt -X POST http://127.0.0.1:8000/api/waiver/faab-recommend -H 'Content-Type: application/json' -d '{\"addPlayerName\":\"AJ Dillon\",\"leagueKey\":\"dynasty_main\",\"teamOwnerId\":\"468418790212759552\"}'",
+  "expected": "standard 0, or an explicit 'we do not price this player' response",
+  "actual": "{\"conservative\":15,\"standard\":22,\"aggressive\":31,\"resolvedAddValue\":0.0,\"explanation\":\"Bid $22 - strong free-agent target.  Cap at $31 if you want the priority claim.\"}",
+  "artifact": "docs/master-site-audit/evidence/W11/fa-pool-sweep.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "add_player_value": 0.0,
+   "reasonable_base": 0,
+   "positionBids_RB_avg": 43.0,
+   "blend": 0.5
+  },
+  "formula": "standard = 0.5 * positionBids[pos].avg + 0.5 * reasonable_base = 0.5*43.0 + 0.5*0",
+  "expected": 0,
+  "actual": 22,
+  "tolerance": 0.5
+ },
+ "userImpact": "On /waivers a manager is told to spend 22% of the season budget on a player this product's own board refuses to value, with no warning and with copy calling it a strong target. The recommendation is a pure function of position, not of the player.",
+ "blastRadius": {
+  "playersAffected": 125,
+  "routesAffected": 1,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "125 of the 283 unrostered contract rows carry rankDerivedValue = 0 and 125 of those receive a non-zero bid; the observed bid set is {2,4,7,10,22,25} keyed entirely off position."
+ },
+ "whatWorks": "The 15 zero-value rows whose contract row also carries no position (e.g. Foster Moreau) DO correctly return $0 -- the calibration is skipped when position is None.",
+ "rootCause": "_position_calibration is an unconditional blend on the running bid; nothing re-checks that the baseline was a real number rather than the zero-guard's sentinel.",
+ "requiredRepair": "Short-circuit recommend_faab when add_player_value <= 0 and return an explicit unpriced response (mirroring the BDVM 'unpriced with a reason' posture), or gate every post-baseline multiplier/blend on reasonable_base > 0.",
+ "dependencies": "Independent of W11-F001, but F001 sets the magnitude."
+}

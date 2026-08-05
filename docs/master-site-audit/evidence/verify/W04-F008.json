@@ -1,0 +1,73 @@
+{
+ "id": "W04-F008",
+ "workstream": "W04",
+ "promptSections": [
+  42
+ ],
+ "title": "Every tuned constant in the core blend was selected against a day-to-day board-churn metric the repo's own report calls 'product-bad'; none was ever tuned against accuracy",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "L",
+ "subsystem": "Blend calibration / backtests",
+ "surface": {
+  "routes": [
+   "/api/data"
+  ],
+  "pages": [
+   "/rankings",
+   "/trade"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "reports/backtest_blend_params.md",
+   "lines": "7-9"
+  },
+  {
+   "path": "reports/alpha_lambda_joint_backtest_full.md",
+   "lines": "9"
+  },
+  {
+   "path": "scripts/backtest_percentile_reference_n.py",
+   "lines": "16-23"
+  }
+ ],
+ "claimUnderTest": "reports/backtest_blend_params.md: 'Lower = more stable = probably better-calibrated.' Six committed reports present recommendations in the vocabulary of validation ('Promote \u03b1 = 0.00', 'The design-choice justification \u2026 is empirically validated').",
+ "observed": "Every backtest in reports/ optimizes mean absolute change in canonicalConsensusRank across consecutive-day pairs. Per constant: \u03b1 shrinkage \u2014 stability; report recommends \u03b1=0.00, production ships 0.10, and the joint report states plainly that the stability optimum is 'use the anchor source alone, ignore the 15 other sources\u2026 That's product-bad'. MAD \u03bb \u2014 stability; report recommends 0.0, production ships 0.0, so the one constant that matched its report is the one that switched the stage off. _PERCENTILE_REFERENCE_N \u2014 stability; report recommends N=400, production ships 500, and the script's own header calls the metric 'degenerate for this particular question' because a smaller N flattens more of the board and therefore has less left to churn ('a maximally uninformative board can win'). Soft fallback \u2014 stability; recommends distance=0.00. Coverage weight (MIN_FULL_COVERAGE_DEPTH=60) \u2014 no backtest of any kind exists; docs/measurements/coverage-weight-impact-2026-07-29.json measures its IMPACT after the fact, not its correctness. No accuracy target exists anywhere in this path: the repo has no forward-looking outcome join for the market board.",
+ "reproduction": {
+  "command": "cd /home/user/riskittogetthebrisket && grep -n 'product-bad' reports/alpha_lambda_joint_backtest_full.md && grep -n 'Promote' reports/alpha_shrinkage_backtest_full.md reports/percentile_reference_n_backtest_full.md && .venv/bin/python -c \"import sys;sys.path.insert(0,'.');import src.api.data_contract as dc;print('live alpha',dc._ALPHA_SHRINKAGE,'live N',dc._PERCENTILE_REFERENCE_N,'live lambda',dc._MAD_PENALTY_LAMBDA)\"",
+  "expected": "live constants trace to an accuracy measurement",
+  "actual": "joint report line 9 contains 'That's product-bad'; alpha report says 'Promote \u03b1 = 0.00' vs live 0.1; N report says 'Promote N=400' vs live 500; every objective is mean absolute rank change",
+  "artifact": "docs/master-site-audit/evidence/W04/coverage-weight-live.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "tunedConstantsExamined": 5,
+   "tunedAgainstStability": 4,
+   "tunedAgainstAccuracy": 0,
+   "tunedAgainstNothing": 1,
+   "liveMatchesItsOwnRecommendation": 1
+  },
+  "formula": "count(constants whose shipped value equals its report's recommendation)",
+  "expected": 5,
+  "actual": 1,
+  "tolerance": 0
+ },
+ "userImpact": "Every value on /rankings and every trade verdict rests on a parameter set chosen to minimize how much the board moves day to day. That objective is maximized by discarding sources, is known-degenerate for N, and is unrelated to whether a player is priced correctly. Three of five constants do not even match the recommendation their own report produced, with no note anywhere saying why.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 100,
+  "pagesAffected": 38
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A11-F06",
+  "relation": "confirmed",
+  "note": "Confirmed with the verbatim 'product-bad' quote and the per-constant shipped-vs-recommended table. Also confirms PRIOR-A09-F08 (N ships 500 against its own 400 recommendation) and PRIOR-A24-F10."
+ },
+ "whatWorks": "The scripts themselves are honest instruments and reproducible; backtest_percentile_reference_n.py in particular states its own degeneracy in the module docstring and prints it into new reports. \u03bb=0.0 was correctly acted on and the MAD stage is genuinely inert.",
+ "rootCause": "No ground-truth target for dynasty asset value exists in this repository for the market board, so stability was adopted as a proxy and then read as if it were the target.",
+ "requiredRepair": "Either build a realized-outcome target for the market board (the machinery exists \u2014 src/model_registry/board_holdout.py + compute_player_season_scores already do exactly this for the adjusted-board test) and re-derive the constants, or rewrite every report to state that its recommendation is a churn preference and not evidence about the constant's value.",
+ "dependencies": "W04-F009"
+}

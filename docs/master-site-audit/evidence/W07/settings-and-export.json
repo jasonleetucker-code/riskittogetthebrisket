@@ -1,0 +1,444 @@
+{
+ "checkboxCount": 33,
+ "checkboxLabels": [
+  {
+   "i": 0,
+   "aria": null,
+   "ctx": "Show source site columns\nPer-site value columns in rankings"
+  },
+  {
+   "i": 1,
+   "aria": "Include KeepTradeCut SF-TE++ in blend",
+   "ctx": "KeepTradeCut SF-TE++\nRetail market\nTEP NATIVE\nKTC \u00b7 ktcSfTep"
+  },
+  {
+   "i": 2,
+   "aria": "Include Dynasty League Football Superflex in blend",
+   "ctx": "Dynasty League Football Superflex\nExpert consensus\nDLF SF \u00b7 "
+  },
+  {
+   "i": 3,
+   "aria": "Include Dynasty League Football Rookie SF in blend",
+   "ctx": "Dynasty League Football Rookie SF\nExpert consensus\nDLF RK \u00b7 "
+  },
+  {
+   "i": 4,
+   "aria": "Include Dynasty Nerds SF-TEP in blend",
+   "ctx": "Dynasty Nerds SF-TEP\nExpert consensus\nTEP NATIVE\nDN SF-TEP \u00b7"
+  },
+  {
+   "i": 5,
+   "aria": "Include FantasyCalc Dynasty SF in blend",
+   "ctx": "FantasyCalc Dynasty SF\nExpert consensus\nFC \u00b7 fantasyCalc\n\tEx"
+  },
+  {
+   "i": 6,
+   "aria": "Include OTC Fantasy Football SF in blend",
+   "ctx": "OTC Fantasy Football SF\nExpert consensus\nOTC \u00b7 otcffbSf\n\tExp"
+  },
+  {
+   "i": 7,
+   "aria": "Include Fantasy Navigator SF in blend",
+   "ctx": "Fantasy Navigator SF\nExpert consensus\nFN \u00b7 fantasyNavigatorS"
+  },
+  {
+   "i": 8,
+   "aria": "Include Play for Keeps Dynasty in blend",
+   "ctx": "Play for Keeps Dynasty\nExpert consensus\nPFK \u00b7 pfkDynasty\n\tEx"
+  },
+  {
+   "i": 9,
+   "aria": "Include Dynasty Daddy Superflex in blend",
+   "ctx": "Dynasty Daddy Superflex\nExpert consensus\nDD \u00b7 dynastyDaddySf"
+  },
+  {
+   "i": 10,
+   "aria": "Include FantasyPros Dynasty Superflex in blend",
+   "ctx": "FantasyPros Dynasty Superflex\nExpert consensus\nFP SF \u00b7 fanta"
+  },
+  {
+   "i": 11,
+   "aria": "Include FantasyPros / Pat Fitzmaurice SF-TEP in blend",
+   "ctx": "FantasyPros / Pat Fitzmaurice SF-TEP\nExpert consensus\nTEP NA"
+  },
+  {
+   "i": 12,
+   "aria": "Include Flock Fantasy Superflex in blend",
+   "ctx": "Flock Fantasy Superflex\nExpert consensus\nFF \u00b7 flockFantasySf"
+  },
+  {
+   "i": 13,
+   "aria": "Include Flock Fantasy Rookie SF in blend",
+   "ctx": "Flock Fantasy Rookie SF\nExpert consensus\nFlock RK \u00b7 flockFan"
+  },
+  {
+   "i": 14,
+   "aria": "Include Yahoo / Justin Boone SF-TEP in blend",
+   "ctx": "Yahoo / Justin Boone SF-TEP\nExpert consensus\nTEP NATIVE\nBoon"
+  },
+  {
+   "i": 15,
+   "aria": "Include Draft Sharks Dynasty in blend",
+   "ctx": "Draft Sharks Dynasty\nExpert consensus\nTEP NATIVE\nDS \u00b7 draftS"
+  },
+  {
+   "i": 16,
+   "aria": "Include IDP Trade Calculator in blend",
+   "ctx": "IDP Trade Calculator\nBackbone (IDP)\nTEP NATIVE\nIDPTC \u00b7 idpTr"
+  },
+  {
+   "i": 17,
+   "aria": "Include Dynasty League Football IDP in blend",
+   "ctx": "Dynasty League Football IDP\nExpert consensus\nDLF IDP \u00b7 dlfId"
+  },
+  {
+   "i": 18,
+   "aria": "Include Dynasty League Football Rookie IDP in blend",
+   "ctx": "Dynasty League Football Rookie IDP\nExpert consensus\nDLF RK-I"
+  },
+  {
+   "i": 19,
+   "aria": "Include The IDP Show (Adamidp) in blend",
+   "ctx": "The IDP Show (Adamidp)\nExpert consensus\nIDP Show \u00b7 idpShow\n\t"
+  },
+  {
+   "i": 20,
+   "aria": "Include FantasyPros Dynasty IDP in blend",
+   "ctx": "FantasyPros Dynasty IDP\nExpert consensus\nFP IDP \u00b7 fantasyPro"
+  },
+  {
+   "i": 21,
+   "aria": "Include Draft Sharks IDP Dynasty in blend",
+   "ctx": "Draft Sharks IDP Dynasty\nExpert consensus\nDS IDP \u00b7 draftShar"
+  },
+  {
+   "i": 22,
+   "aria": null,
+   "ctx": "Enable ROS engineMaster switch.  Off hides every ROS-driven "
+  },
+  {
+   "i": 23,
+   "aria": null,
+   "ctx": "Use ROS-driven Power RankingsSwap the /league Power tab from"
+  },
+  {
+   "i": 24,
+   "aria": null,
+   "ctx": "Use ROS-driven Playoff OddsWhen enabled, the playoff Monte C"
+  },
+  {
+   "i": 25,
+   "aria": null,
+   "ctx": "Show ROS Fit panel on Trade CalculatorAdds an informational "
+  },
+  {
+   "i": 26,
+   "aria": null,
+   "ctx": "Show ROS context tags on player popupsAppends a Short-term c"
+  },
+  {
+   "i": 27,
+   "aria": null,
+   "ctx": "FantasyPros Dynasty SF (ROS proxy)SFfantasyProsRosSfDynasty "
+  },
+  {
+   "i": 28,
+   "aria": null,
+   "ctx": "Draft Sharks ROS SuperflexSFdraftSharksRosSfReal ROS1.25"
+  },
+  {
+   "i": 29,
+   "aria": null,
+   "ctx": "FantasyPros Dynasty IDP (ROS proxy)IDPfantasyProsRosIdpDynas"
+  },
+  {
+   "i": 30,
+   "aria": null,
+   "ctx": "FantasyPros ROS Overall (ECR)fantasyProsRosOverallReal ROS1."
+  },
+  {
+   "i": 31,
+   "aria": null,
+   "ctx": "Fantasy Football Calculator 2QB ADPffc2qbAdpadp0.70"
+  },
+  {
+   "i": 32,
+   "aria": null,
+   "ctx": "Email me daily signal alertsBuy/sell/injury/roster digest, s"
+  }
+ ],
+ "target": {
+  "i": 1,
+  "aria": "Include KeepTradeCut SF-TE++ in blend",
+  "ctx": "KeepTradeCut SF-TE++\nRetail market\nTEP NATIVE\nKTC \u00b7 ktcSfTep"
+ },
+ "settingsAfterUncheck": "{\"leagueFormat\":\"superflex\",\"tepMultiplier\":1.15,\"tepNativeMultiplier\":null,\"tepDefaultV3Applied\":false,\"rankingsSortBasis\":\"full\",\"showSiteCols\":false,\"hiddenSiteCols\":{},\"siteWeights\":{\"ktcSfTep\":{\"include\":false}},\"valuationMode\":\"market\",\"tradeHistoryWindowDays\":365,\"selectedTeam\":\"\",\"selectedTeamTouched\":false,\"selectedTeamsByLeague\":{},\"selectedTeamTouchedByLeague\":{},\"rosEnabled\":true,\"useRosPowerRankings\":true,\"useRosPlayoffOdds\":true,\"showRosTradePanel\":true,\"showRosTags\":true,\"rosSimulationCount\":10000,\"rosTepBoost\":0.05,\"ktcSuggestionTopN\":150,\"rosSourceOverrides\":{}}",
+ "overridePostsFromSettings": [
+  {
+   "m": "POST",
+   "u": "http://127.0.0.1:3000/api/rankings/overrides?view=delta",
+   "b": "{\"ktcSfTep\":{\"include\":false},\"tep_multiplier\":1.15}"
+  }
+ ],
+ "boardAfterUncheck": [
+  [
+   "1",
+   "Tier 1",
+   "Josh Allen\nBUF \u00b7 30",
+   "QB\n1",
+   "1.4",
+   "9,987\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "2",
+   "Tier 1",
+   "Brock Bowers\nLV \u00b7 23",
+   "TE\n1",
+   "10.4",
+   "9,878\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "3",
+   "Tier 1",
+   "Bijan Robinson\nATL \u00b7 24\nN",
+   "RB\n1",
+   "4.1",
+   "9,689\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "4",
+   "Tier 1",
+   "Drake Maye\nNE \u00b7 23",
+   "QB\n2",
+   "3.7",
+   "9,630\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "5",
+   "Tier 1",
+   "Ja'Marr Chase\nCIN \u00b7 26",
+   "WR\n1",
+   "4.5",
+   "9,624\nS+",
+   "12/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "6",
+   "Tier 1",
+   "Jahmyr Gibbs\nDET \u00b7 24\nN",
+   "RB\n2",
+   "5.3",
+   "9,519\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "7",
+   "Tier 1",
+   "Jaxon Smith-Njigba\nSEA \u00b7 24",
+   "WR\n2",
+   "6.4",
+   "9,341\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "8",
+   "Tier 1",
+   "Puka Nacua\nLAR \u00b7 25",
+   "WR\n3",
+   "7.5",
+   "9,173\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "9",
+   "Tier 1",
+   "Trey McBride\nARI \u00b7 26",
+   "TE\n2",
+   "16.2",
+   "9,028\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "10",
+   "Tier 1",
+   "Lamar Jackson\nBAL \u00b7 29\nN",
+   "QB\n3",
+   "8.6",
+   "8,964\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "11",
+   "Tier 1",
+   "Jayden Daniels\nWAS \u00b7 25",
+   "QB\n4",
+   "8.2",
+   "8,898\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "12",
+   "Tier 1",
+   "Caleb Williams\nCHI \u00b7 24",
+   "QB\n5",
+   "10.2",
+   "8,789\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ]
+ ],
+ "overridePostsAll": [
+  {
+   "m": "POST",
+   "u": "http://127.0.0.1:3000/api/rankings/overrides?view=delta",
+   "b": "{\"tep_multiplier\":1.15}"
+  },
+  {
+   "m": "POST",
+   "u": "http://127.0.0.1:3000/api/rankings/overrides?view=delta",
+   "b": "{\"ktcSfTep\":{\"include\":false},\"tep_multiplier\":1.15}"
+  },
+  {
+   "m": "POST",
+   "u": "http://127.0.0.1:3000/api/rankings/overrides?view=delta",
+   "b": "{\"ktcSfTep\":{\"include\":false},\"tep_multiplier\":1.15}"
+  }
+ ],
+ "csvHead": [
+  "Rank,Player,Pos,Team,Tier,Value,Value Band,Confidence,Action,Sources,KTC,KTC Rank,IDPTC,IDPTC Rank,DLF SF,DLF SF Rank,DLF RK,DLF RK Rank,DLF IDP,DLF IDP Rank,DLF RK-IDP,DLF RK-IDP Rank,IDP Show,IDP Show Rank,DN SF-TEP,DN SF-TEP Rank,FC,FC Rank,OTC,OTC Rank,FN,FN Rank,PFK,PFK Rank,DD,DD Rank,FP SF,FP SF Rank,FP IDP,FP IDP Rank,Fitzmaurice,Fitzmaurice Rank,FF,FF Rank,Flock RK,Flock RK Rank,Boone,Boone Rank,DS,DS Rank,DS IDP,DS IDP Rank,Value Basis",
+  "1,Josh Allen,QB,BUF,Tier 1,9987,S+,high,Consensus asset,13,9983,,9983,2,9999,1,,,,,,,,,9999,1,9999,1,9752,3,9999,1,9883,2,9883,2,9999,1,,,9999,1,9999,1,,,9999,1,9999,1,,,Market consensus",
+  "2,Brock Bowers,TE,LV,Tier 1,9878,S+,high,Consensus asset,13,9924,,9872,7,9429,15,,,,,,,,,9989,7,9999,8,9704,13,9297,16,9999,8,9999,8,7903,28,,,9956,8,9297,16,,,9956,8,7940,16,,,Market consensus",
+  "3,Bijan Robinson,RB,ATL,Tier 1,9689,S+,high,Consensus asset,13,9999,,9999,1,9076,8,,,,,,,,,9883,2,9883,2,9999,1,9883,2,9617,4,9752,3,8944,9,,,9345,6,9752,3,,,9076,8,8344,7,,,Market consensus",
+  "4,Drake Maye,QB,NE,Tier 1,9630,S+,high,Consensus asset,13,9199,,9406,6,9752,3,,,,,,,,,9752,3,9345,6,9481,5,9481,5,9999,1,9481,5,9883,2,,,9999,1,9617,4,,,9883,2,8711,5,,,Market consensus",
+  "5,Ja'Marr Chase,WR,CIN,Tier 1,9624,S+,high,Consensus asset,12,9982,,9978,3,9883,2,,,,,,,,,9617,4,9752,3,9617,4,,,9210,7,9617,4,9617,4,,,9752,3,9617,4,,,8687,11,7898,10,,,Market consensus",
+  "6,Jahmyr Gibbs,RB,DET,Tier 1,9519,S+,high,Consensus asset,13,9993,,9835,4,9210,7,,,,,,,,,9481,5,9617,4,9883,2,9752,3,9345,6,9999,1,8687,11,,,9076,8,9883,2,,,8814,10,8036,9,,,Market consensus",
+  "7,Jaxon Smith-Njigba,WR,SEA,Tier 1,9341,S+,high,Consensus asset,13,9247,,9646,5,9617,4,,,,,,,,,9345,6,9481,5,9345,6,8561,12,9752,3,9345,6,9345,6,,,9345,6,9345,6,,,8561,12,7123,17,,,Market consensus"
+ ],
+ "csvLineCount": 201,
+ "screenRowCount": 230,
+ "screenHeaders": [
+  "#",
+  "TIER",
+  "PLAYER",
+  "POS",
+  "CONSENSUS",
+  "VALUE",
+  "SOURCES",
+  "CONFIDENCE",
+  "EDGE",
+  "SIGNAL"
+ ],
+ "screenFirst6": [
+  [
+   "1",
+   "Tier 1",
+   "Josh Allen\nBUF \u00b7 30",
+   "QB\n1",
+   "1.4",
+   "9,987\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "2",
+   "Tier 1",
+   "Brock Bowers\nLV \u00b7 23",
+   "TE\n1",
+   "10.4",
+   "9,878\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "3",
+   "Tier 1",
+   "Bijan Robinson\nATL \u00b7 24\nN",
+   "RB\n1",
+   "4.1",
+   "9,689\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "4",
+   "Tier 1",
+   "Drake Maye\nNE \u00b7 23",
+   "QB\n2",
+   "3.7",
+   "9,630\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "5",
+   "Tier 1",
+   "Ja'Marr Chase\nCIN \u00b7 26",
+   "WR\n1",
+   "4.5",
+   "9,624\nS+",
+   "12/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ],
+  [
+   "6",
+   "Tier 1",
+   "Jahmyr Gibbs\nDET \u00b7 24\nN",
+   "RB\n2",
+   "5.3",
+   "9,519\nS+",
+   "13/15",
+   "High",
+   "\u2014",
+   "Consensus asset"
+  ]
+ ]
+}

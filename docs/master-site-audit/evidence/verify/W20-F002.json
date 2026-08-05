@@ -1,0 +1,77 @@
+{
+ "id": "W20-F002",
+ "workstream": "W20",
+ "promptSections": [
+  13
+ ],
+ "title": "On the live /league Trade Deadline board the strongest roster in the league (Brent, ROS strength percentile 100%) is labelled 'Seller \u2014 sell aging win-now players' because an owner missing from the playoff sim is scored as 0% playoff odds",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "S",
+ "subsystem": "Team direction (ROS)",
+ "surface": {
+  "routes": [
+   "/api/public/league/rosTradeDeadline"
+  ],
+  "pages": [
+   "/league?tab=rosTradeDeadline"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/ros/trade_deadline.py",
+   "lines": "77-78"
+  },
+  {
+   "path": "src/ros/trade_deadline.py",
+   "lines": "108-114"
+  },
+  {
+   "path": "src/ros/direction.py",
+   "lines": "104-108"
+  },
+  {
+   "path": "frontend/app/league/sections/ros-trade-deadline.jsx",
+   "lines": "130-148"
+  }
+ ],
+ "claimUnderTest": "src/ros/trade_deadline.py docstring: 'Returns one row per team with the direction label + recommendation'; build_team_directions docstring: 'When a map is empty (e.g. no cached sim yet), the missing dimension defaults to 0 \u2014 the classifier degrades cleanly.'",
+ "observed": "data/ros/sims/latest_playoff.json contains 8 of 12 owners. Brent, Kich, Blaine and jstuedle are absent. `po = float((playoffs.get(owner) or {}).get('playoffOdds') or 0.0)` turns 'not simulated' into a hard 0.0, indistinguishable from a simulated 0%. Brent is rank 1 of 12 in data/ros/team_strength/latest.json (percentile 1.0) and is classified 'Seller' with recommendation 'Sell aging win-now players. Prioritize 2026/2027 picks and 23-or-younger upside.' The live page renders STRENGTH 100.0% in the column immediately left of the word Seller, with no coverage caveat anywhere on the page.",
+ "reproduction": {
+  "command": "curl -s -b /tmp/audit-cookies.txt 'http://127.0.0.1:8000/api/public/league/rosTradeDeadline' | python3 -c \"import json,sys; [print(t['displayName'],t['label'],t['playoffOdds'],t['rosStrengthPercentile'],t['rank']) for t in json.load(sys.stdin)['data']['teams']]\" ; python3 -c \"import json; print([r['displayName'] for r in json.load(open('data/ros/sims/latest_playoff.json'))['playoffOdds']])\"",
+  "expected": "Brent (rosStrengthPercentile 1.0, rank 1) is not told to sell, or the row is suppressed / flagged as not simulated",
+  "actual": "Brent playoffOdds 0.0, championshipOdds 0.0, rosStrengthPercentile 1.0, rank 1.0, label 'Seller'; sim owner list = [Joey, Jason, Roy, Ty, Eric, MaKayla, Ed, Collin] \u2014 Brent absent",
+  "artifact": "docs/master-site-audit/evidence/W20/ros-trade-deadline.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "simOwners": 8,
+   "leagueTeams": 12,
+   "brentPlayoffOddsEmitted": 0.0,
+   "brentInSim": false,
+   "brentStrengthRank": 1,
+   "brentStrengthPercentile": 1.0
+  },
+  "formula": "strength_pct = (total - rank + 1)/total = (12 - 1 + 1)/12 = 1.0 ; label = Seller iff playoff<0.25 and champ<0.02 ; playoff = float(None or 0.0) = 0.0",
+  "expected": 0.0,
+  "actual": 0.0,
+  "tolerance": 0.0
+ },
+ "userImpact": "On /league?tab=rosTradeDeadline a manager reads 'Brent \u2014 Seller \u2014 sell aging win-now players, prioritize picks' next to 'STRENGTH 100.0%'. Four of twelve managers (Brent, Kich, Blaine, jstuedle) get a direction derived from a fabricated 0% rather than a measurement; the top-ranked roster is the worst-affected. Acting on it means selling the league's best team's win-now assets for picks.",
+ "blastRadius": {
+  "playersAffected": 0,
+  "routesAffected": 1,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A03-F04",
+  "relation": "partial",
+  "note": "Prior F04 documented the dead inputs and the unreachable label but not the missing-owner-to-0.0 coercion, which is what produces the wrong ACTION on the strongest roster. Confirmed independently and extended."
+ },
+ "whatWorks": "src/api/gameplan.py DOES handle this correctly on the same data: it stamps oddsSource='owner_not_in_simulation', leaves playoffOdds/championshipOdds null, and emits a note that the two competitiveness scales are not comparable.",
+ "rootCause": "`or 0.0` collapses absence into a measurement, and build_section() supplies no coverage information the UI could render.",
+ "requiredRepair": "Return None for owners absent from the sim, render them as 'not simulated' rather than as a direction, and surface simulation coverage (8/12) on the page.",
+ "dependencies": "Depends on the ROS playoff-sim workstream for why only 8 owners are simulated."
+}

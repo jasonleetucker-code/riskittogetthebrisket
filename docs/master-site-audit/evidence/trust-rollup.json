@@ -1,0 +1,580 @@
+[
+ {
+  "subsystem": "Scoring",
+  "briefSections": [
+   5
+  ],
+  "findings": 5,
+  "p0": 0,
+  "p1": 3,
+  "p2": 1,
+  "p3": 1,
+  "worstStatus": "Implemented but defective",
+  "verified": 3,
+  "statusCounts": {
+   "Implemented but defective": 4,
+   "Implemented and verified": 1
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Player identity",
+  "briefSections": [
+   6
+  ],
+  "findings": 15,
+  "p0": 0,
+  "p1": 2,
+  "p2": 6,
+  "p3": 7,
+  "worstStatus": "Implemented but disconnected",
+  "verified": 1,
+  "statusCounts": {
+   "Implemented but defective": 9,
+   "Implemented but disconnected": 2,
+   "Partially implemented": 1,
+   "Deprecated but still active": 1,
+   "Implemented and verified": 2
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Market data",
+  "briefSections": [
+   9
+  ],
+  "findings": 30,
+  "p0": 0,
+  "p1": 8,
+  "p2": 10,
+  "p3": 12,
+  "worstStatus": "Implemented but disconnected",
+  "verified": 1,
+  "statusCounts": {
+   "Implemented but defective": 15,
+   "Deprecated but still active": 2,
+   "Implemented and verified": 8,
+   "Partially implemented": 3,
+   "Implemented but disconnected": 2
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Consensus",
+  "briefSections": [
+   7,
+   9
+  ],
+  "findings": 51,
+  "p0": 1,
+  "p1": 11,
+  "p2": 20,
+  "p3": 19,
+  "worstStatus": "Scaffolded only",
+  "verified": 4,
+  "statusCounts": {
+   "Partially implemented": 6,
+   "Implemented but defective": 27,
+   "Deprecated but still active": 2,
+   "Implemented and verified": 10,
+   "Blocked by data": 1,
+   "Scaffolded only": 1,
+   "Duplicate or conflicting implementation": 2,
+   "Implemented but disconnected": 2
+  },
+  "p0Findings": [
+   {
+    "id": "W03-F001",
+    "title": "The board /rankings renders is not the board GET /api/data serves: the stock frontend body {\"tep_multiplier\":1.15} changes 627 of 740 ranks and 654 tiers while the response stamps isCustomized:false",
+    "verdict": "rescoped"
+   }
+  ]
+ },
+ {
+  "subsystem": "Fundamental values",
+  "briefSections": [
+   8
+  ],
+  "findings": 17,
+  "p0": 0,
+  "p1": 3,
+  "p2": 4,
+  "p3": 10,
+  "worstStatus": "Scaffolded only",
+  "verified": 0,
+  "statusCounts": {
+   "Implemented but defective": 5,
+   "Blocked by data": 1,
+   "Scaffolded only": 1,
+   "Implemented and verified": 8,
+   "Partially implemented": 2
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "League-adjusted values",
+  "briefSections": [
+   10
+  ],
+  "findings": 9,
+  "p0": 1,
+  "p1": 3,
+  "p2": 1,
+  "p3": 4,
+  "worstStatus": "Scaffolded only",
+  "verified": 1,
+  "statusCounts": {
+   "Implemented but defective": 6,
+   "Scaffolded only": 1,
+   "Implemented and verified": 1,
+   "Deprecated but still active": 1
+  },
+  "p0Findings": [
+   {
+    "id": "W07-F001",
+    "title": "Every /rankings page load silently POSTs tep_multiplier=1.15, which bypasses the ADR-015 TE-basis curve \u2014 the rendered board under-prices 82 TEs by up to 21.2% and disagrees with GET /api/data on 627 ranks, while every server-side engine keeps pricing from /api/data",
+    "verdict": "rescoped"
+   }
+  ]
+ },
+ {
+  "subsystem": "Rankings",
+  "briefSections": [
+   11
+  ],
+  "findings": 16,
+  "p0": 2,
+  "p1": 4,
+  "p2": 3,
+  "p3": 7,
+  "worstStatus": "Scaffolded only",
+  "verified": 2,
+  "statusCounts": {
+   "Implemented but defective": 11,
+   "Implemented and verified": 2,
+   "Scaffolded only": 2,
+   "Deprecated but still active": 1
+  },
+  "p0Findings": [
+   {
+    "id": "W03-F001",
+    "title": "The board /rankings renders is not the board GET /api/data serves: the stock frontend body {\"tep_multiplier\":1.15} changes 627 of 740 ranks and 654 tiers while the response stamps isCustomized:false",
+    "verdict": "rescoped"
+   },
+   {
+    "id": "W07-F001",
+    "title": "Every /rankings page load silently POSTs tep_multiplier=1.15, which bypasses the ADR-015 TE-basis curve \u2014 the rendered board under-prices 82 TEs by up to 21.2% and disagrees with GET /api/data on 627 ranks, while every server-side engine keeps pricing from /api/data",
+    "verdict": "rescoped"
+   }
+  ]
+ },
+ {
+  "subsystem": "Trade Calculator",
+  "briefSections": [
+   12
+  ],
+  "findings": 15,
+  "p0": 1,
+  "p1": 5,
+  "p2": 4,
+  "p3": 5,
+  "worstStatus": "Missing",
+  "verified": 1,
+  "statusCounts": {
+   "Implemented but disconnected": 1,
+   "Implemented but defective": 7,
+   "Partially implemented": 2,
+   "Implemented and verified": 3,
+   "Missing": 1,
+   "Duplicate or conflicting implementation": 1
+  },
+  "p0Findings": [
+   {
+    "id": "W08-F001",
+    "title": "The /trade calculator never sums the canonical board: the frontend posts an explicit tep_multiplier=1.15 on every load, which disables the ADR-015 TE basis conversion and reprices 129 of 809 players by up to -21.2%",
+    "verdict": "upheld"
+   }
+  ]
+ },
+ {
+  "subsystem": "Roster Analyzer",
+  "briefSections": [
+   13
+  ],
+  "findings": 10,
+  "p0": 1,
+  "p1": 5,
+  "p2": 4,
+  "p3": 0,
+  "worstStatus": "Implemented but disconnected",
+  "verified": 1,
+  "statusCounts": {
+   "Implemented but disconnected": 1,
+   "Implemented but defective": 5,
+   "Partially implemented": 3,
+   "Blocked by data": 1
+  },
+  "p0Findings": [
+   {
+    "id": "W20-F002",
+    "title": "On the live /league Trade Deadline board the strongest roster in the league (Brent, ROS strength percentile 100%) is labelled 'Seller \u2014 sell aging win-now players' because an owner missing from the playoff sim is scored as 0% playoff odds",
+    "verdict": "upheld"
+   }
+  ]
+ },
+ {
+  "subsystem": "Trade Finder",
+  "briefSections": [
+   14,
+   15
+  ],
+  "findings": 16,
+  "p0": 0,
+  "p1": 7,
+  "p2": 6,
+  "p3": 3,
+  "worstStatus": "Missing",
+  "verified": 3,
+  "statusCounts": {
+   "Implemented but defective": 10,
+   "Implemented but disconnected": 2,
+   "Mocked or hard-coded": 1,
+   "Missing": 1,
+   "Implemented and verified": 1,
+   "Partially implemented": 1
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Buy/Sell Tracker",
+  "briefSections": [
+   16
+  ],
+  "findings": 18,
+  "p0": 1,
+  "p1": 7,
+  "p2": 7,
+  "p3": 3,
+  "worstStatus": "Missing",
+  "verified": 5,
+  "statusCounts": {
+   "Duplicate or conflicting implementation": 3,
+   "Implemented but defective": 8,
+   "Missing": 1,
+   "Partially implemented": 1,
+   "Blocked by data": 1,
+   "Scaffolded only": 1,
+   "Deprecated but still active": 1,
+   "Implemented and verified": 2
+  },
+  "p0Findings": [
+   {
+    "id": "W12-F002",
+    "title": "The /rankings Edge column labels 32 of 35 top-250 tight ends SELL and every single SELL in the top 250 is a tight end \u2014 the 'retail vs expert' gap is measuring TE-premium basis, not mispricing",
+    "verdict": "upheld"
+   }
+  ]
+ },
+ {
+  "subsystem": "Consensus Edge",
+  "briefSections": [
+   17
+  ],
+  "findings": 10,
+  "p0": 0,
+  "p1": 0,
+  "p2": 3,
+  "p3": 7,
+  "worstStatus": "Scaffolded only",
+  "verified": 1,
+  "statusCounts": {
+   "Implemented but defective": 3,
+   "Implemented and verified": 4,
+   "Partially implemented": 1,
+   "Scaffolded only": 1,
+   "Blocked by data": 1
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Sharp Tracker",
+  "briefSections": [
+   18,
+   19,
+   21
+  ],
+  "findings": 22,
+  "p0": 0,
+  "p1": 1,
+  "p2": 9,
+  "p3": 12,
+  "worstStatus": "Scaffolded only",
+  "verified": 0,
+  "statusCounts": {
+   "Blocked by data": 1,
+   "Implemented but defective": 12,
+   "Implemented but disconnected": 2,
+   "Duplicate or conflicting implementation": 2,
+   "Scaffolded only": 1,
+   "Implemented and verified": 3,
+   "Partially implemented": 1
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Insider Trading",
+  "briefSections": [
+   20
+  ],
+  "findings": 16,
+  "p0": 0,
+  "p1": 0,
+  "p2": 4,
+  "p3": 12,
+  "worstStatus": "Missing",
+  "verified": 0,
+  "statusCounts": {
+   "Implemented and verified": 4,
+   "Partially implemented": 3,
+   "Implemented but disconnected": 3,
+   "Implemented but defective": 4,
+   "Blocked by data": 1,
+   "Missing": 1
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "FAAB",
+  "briefSections": [
+   22
+  ],
+  "findings": 22,
+  "p0": 1,
+  "p1": 5,
+  "p2": 7,
+  "p3": 9,
+  "worstStatus": "Missing",
+  "verified": 2,
+  "statusCounts": {
+   "Implemented but defective": 13,
+   "Duplicate or conflicting implementation": 1,
+   "Implemented but disconnected": 3,
+   "Missing": 1,
+   "Blocked by data": 2,
+   "Implemented and verified": 2
+  },
+  "p0Findings": [
+   {
+    "id": "W11-F001",
+    "title": "Position FAAB calibration blends RAW dollar bids from three seasons with different budgets ($1000 / $200 / $100), inflating the RB anchor 5.0x and driving every bid too high",
+    "verdict": "upheld"
+   }
+  ]
+ },
+ {
+  "subsystem": "ROS",
+  "briefSections": [
+   23
+  ],
+  "findings": 11,
+  "p0": 2,
+  "p1": 0,
+  "p2": 7,
+  "p3": 2,
+  "worstStatus": "Implemented but disconnected",
+  "verified": 2,
+  "statusCounts": {
+   "Implemented but defective": 8,
+   "Implemented and verified": 2,
+   "Implemented but disconnected": 1
+  },
+  "p0Findings": [
+   {
+    "id": "W17-F001",
+    "title": "ROS playoff/championship sims run on the OLDEST loaded season (2024), not the newest \u2014 sorted(snapshot.seasons, key=luck._season_sort_key) passes objects to a function typed for strings, so every season sorts equal",
+    "verdict": "upheld"
+   },
+   {
+    "id": "W17-F002",
+    "title": "The #1 ROS-strength team is told 'Seller \u2014 sell aging win-now players' on /league -> Trade Deadline because he is absent from the 2024 sim and absence is coerced to 0.0 playoff odds",
+    "verdict": "upheld"
+   }
+  ]
+ },
+ {
+  "subsystem": "Playoff and championship odds",
+  "briefSections": [
+   24
+  ],
+  "findings": 2,
+  "p0": 0,
+  "p1": 0,
+  "p2": 1,
+  "p3": 1,
+  "worstStatus": "Partially implemented",
+  "verified": 0,
+  "statusCounts": {
+   "Implemented and verified": 1,
+   "Partially implemented": 1
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Rookie picks",
+  "briefSections": [
+   26
+  ],
+  "findings": 17,
+  "p0": 1,
+  "p1": 3,
+  "p2": 7,
+  "p3": 6,
+  "worstStatus": "Missing",
+  "verified": 2,
+  "statusCounts": {
+   "Implemented but defective": 10,
+   "Missing": 1,
+   "Implemented and verified": 1,
+   "Partially implemented": 1,
+   "Blocked by data": 1,
+   "Scaffolded only": 2,
+   "Unverifiable": 1
+  },
+  "p0Findings": [
+   {
+    "id": "W10-F002",
+    "title": "mergeDraftCapitalTeams hard-caps every team's slot count at 6, so the user's team \u2014 which owns 31 of the 72 live picks \u2014 renders as \"0/6 slots\" with a 5.2x-wrong $/slot",
+    "verdict": "upheld"
+   }
+  ]
+ },
+ {
+  "subsystem": "Perfect Draft",
+  "briefSections": [
+   27
+  ],
+  "findings": 17,
+  "p0": 1,
+  "p1": 3,
+  "p2": 7,
+  "p3": 6,
+  "worstStatus": "Missing",
+  "verified": 2,
+  "statusCounts": {
+   "Implemented but defective": 10,
+   "Missing": 1,
+   "Implemented and verified": 1,
+   "Partially implemented": 1,
+   "Blocked by data": 1,
+   "Scaffolded only": 2,
+   "Unverifiable": 1
+  },
+  "p0Findings": [
+   {
+    "id": "W10-F002",
+    "title": "mergeDraftCapitalTeams hard-caps every team's slot count at 6, so the user's team \u2014 which owns 31 of the 72 live picks \u2014 renders as \"0/6 slots\" with a 5.2x-wrong $/slot",
+    "verdict": "upheld"
+   }
+  ]
+ },
+ {
+  "subsystem": "Schedule",
+  "briefSections": [
+   28
+  ],
+  "findings": 1,
+  "p0": 0,
+  "p1": 1,
+  "p2": 0,
+  "p3": 0,
+  "worstStatus": "Missing",
+  "verified": 0,
+  "statusCounts": {
+   "Missing": 1
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Public League Page",
+  "briefSections": [
+   29,
+   30
+  ],
+  "findings": 18,
+  "p0": 0,
+  "p1": 4,
+  "p2": 8,
+  "p3": 6,
+  "worstStatus": "Missing",
+  "verified": 1,
+  "statusCounts": {
+   "Partially implemented": 2,
+   "Implemented but defective": 10,
+   "Missing": 1,
+   "Implemented and verified": 3,
+   "Implemented but disconnected": 1,
+   "Blocked by data": 1
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Historical records",
+  "briefSections": [
+   31,
+   39
+  ],
+  "findings": 23,
+  "p0": 0,
+  "p1": 3,
+  "p2": 14,
+  "p3": 6,
+  "worstStatus": "Missing",
+  "verified": 5,
+  "statusCounts": {
+   "Implemented but defective": 15,
+   "Partially implemented": 1,
+   "Missing": 1,
+   "Scaffolded only": 1,
+   "Implemented and verified": 4,
+   "Blocked by data": 1
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Performance",
+  "briefSections": [
+   35
+  ],
+  "findings": 14,
+  "p0": 0,
+  "p1": 5,
+  "p2": 7,
+  "p3": 2,
+  "worstStatus": "Implemented but defective",
+  "verified": 3,
+  "statusCounts": {
+   "Implemented but defective": 13,
+   "Partially implemented": 1
+  },
+  "p0Findings": []
+ },
+ {
+  "subsystem": "Security",
+  "briefSections": [
+   37
+  ],
+  "findings": 10,
+  "p0": 0,
+  "p1": 4,
+  "p2": 3,
+  "p3": 3,
+  "worstStatus": "Duplicate or conflicting implementation",
+  "verified": 1,
+  "statusCounts": {
+   "Implemented but defective": 7,
+   "Partially implemented": 2,
+   "Duplicate or conflicting implementation": 1
+  },
+  "p0Findings": []
+ }
+]

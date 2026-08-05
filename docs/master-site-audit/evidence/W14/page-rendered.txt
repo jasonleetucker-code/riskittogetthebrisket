@@ -1,0 +1,331 @@
+Skip to content
+▪
+CHASE UPSIDE
+Rankings
+News
+Trades
+My Team
+Market
+League
+Risk It To Get The Brisket
+▾
+Pick your team
+▾
+Search
+/
+System
+Consensus Edge
+
+Where our anchor-free fair value disagrees with the market.
+
+Experimental. 1 of 3 components are live — Sharp flow, Opportunity / risk have no data. Validated against market movement, not fantasy production.
+
+Market data is 4h old (oldest market anchor); confidence is discounted accordingly.
+
+Prices scraped 8/4/2026, 6:20:36 PM.
+
+Buys
+Sells
+Withheld
+Position
+All
+QB
+RB
+WR
+TE
+K
+DL
+LB
+DB
+PICK
+T
+Min confidence
+Any
+40+
+50+
+60+
+Travis Hunter
+WR · 3,389
+Strong Buy
++71
+conf 78
+Najee Harris
+RB · 1,121
+Strong Buy
++70
+conf 78
+Grant Calcaterra
+TE · 1,022
+Strong Buy
++70
+conf 78
+Tyreek Hill
+WR · 1,369
+Strong Buy
++70
+conf 78
+Brandon Aiyuk
+WR · 1,472
+Strong Buy
++70
+conf 78
+Matt Hibner
+TE · 1,458
+Strong Buy
++68
+conf 78
+Jonnu Smith
+TE · 1,372
+Strong Buy
++66
+conf 78
+Ricky Pearsall
+WR · 2,616
+Strong Buy
++65
+conf 78
+Nico Collins
+WR · 5,567
+Strong Buy
++65
+conf 78
+Tyler Conklin
+TE · 992
+Strong Buy
++71
+conf 71
+Marcus Mariota
+QB · 1,051
+Strong Buy
++64
+conf 78
+Josh Oliver
+TE · 988
+Buy
++71
+conf 66
+LaJohntay Wester
+WR · 589
+Buy
++76
+conf 62
+Derius Davis
+WR · 632
+Buy
++76
+conf 62
+Keenan Allen
+WR · 1,170
+Buy
++60
+conf 78
+Thomas Fidone
+TE · 997
+Buy
++69
+conf 66
+Kenneth Walker
+RB · 5,586
+Buy
++56
+conf 78
+Garrett Wilson
+WR · 5,533
+Buy
++55
+conf 78
+Breece Hall
+RB · 5,215
+Buy
++53
+conf 78
+Joe Flacco
+QB · 957
+Buy
++58
+conf 71
+Jordan Love
+QB · 5,401
+Buy
++52
+conf 78
+Stefon Diggs
+WR · 2,095
+Buy
++50
+conf 78
+Devaughn Vele
+WR · 1,364
+Buy
++50
+conf 78
+Jared Wiley
+TE · 1,526
+Buy
++49
+conf 78
+Bo Nix
+QB · 5,924
+Buy
++49
+conf 78
+Davis Allen
+TE · 1,509
+Buy
++48
+conf 78
+Tanner McKee
+QB · 1,148
+Buy
++47
+conf 78
+Emari Demercado
+RB · 1,199
+Buy
++46
+conf 78
+Brock Purdy
+QB · 5,809
+Buy
++46
+conf 78
+Konata Mumpfield
+WR · 1,293
+Buy
++45
+conf 78
+DJ Moore
+WR · 3,576
+Buy
++45
+conf 78
+Dalton Kincaid
+TE · 3,956
+Buy
++44
+conf 78
+Devin Singletary
+RB · 1,209
+Buy
++43
+conf 78
+Terry McLaurin
+WR · 3,542
+Buy
++43
+conf 78
+Kameron Johnson
+WR · 1,243
+Buy
++46
+conf 73
+Ja'Lynn Polk
+WR · 1,253
+Buy
++43
+conf 78
+Isaac Guerendo
+RB · 1,368
+Buy
++42
+conf 78
+Dak Prescott
+QB · 4,985
+Buy
++41
+conf 78
+CeeDee Lamb
+WR · 7,146
+Buy
++41
+conf 78
+Roschon Johnson
+RB · 1,349
+Buy
++40
+conf 78
+Charlie Kolar
+TE · 1,694
+Buy
++40
+conf 78
+Raheim Sanders
+RB · 1,184
+Buy
++40
+conf 78
+Malik Nabers
+WR · 7,338
+Buy
++39
+conf 78
+Chris Olave
+WR · 5,619
+Buy
++38
+conf 78
+Chase Brown
+RB · 5,448
+Buy
++38
+conf 78
+Oronde Gadsden
+TE · 4,233
+Buy
++38
+conf 78
+Mitchell Evans
+TE · 1,790
+Buy
++37
+conf 78
+Jayden Daniels
+QB · 7,519
+Buy
++41
+conf 71
+Patrick Mahomes
+QB · 6,298
+Buy
++41
+conf 71
+Chris Godwin
+WR · 2,950
+Buy
++37
+conf 78
+
+Showing 50 of 73 matching players. Narrow by position or confidence to see further down.
+
+Position leaders
+
+Best qualifying player per position, computed over the whole board. Positions with nothing above the threshold are listed as having no qualifying player rather than being filled from further down.
+
+QB
+Marcus Mariota
++64
+RB
+Najee Harris
++70
+WR
+Travis Hunter
++71
+TE
+Grant Calcaterra
++70
+K
+No qualifying buy
+DL
+No qualifying buy
+LB
+No qualifying buy
+DB
+No qualifying buy
+PICK
+No qualifying buy
+T
+No qualifying buy
+
+Model ce.2026-08-04.v0-shadow · params b90ef7db61a10905 · generated 2026-08-04T22:38:53.870050+00:00
+
+SAVE

@@ -1,0 +1,228 @@
+{
+ "team": {
+  "ownerId": "468418790212759552",
+  "name": "Jason",
+  "rosterId": 1
+ },
+ "before": {
+  "totalValue": 171279,
+  "tiers": {
+   "elite": 2,
+   "high": 1,
+   "mid": 16,
+   "depth": 38
+  },
+  "byPosition": {
+   "QB": {
+    "count": 6,
+    "value": 22272
+   },
+   "RB": {
+    "count": 6,
+    "value": 14555
+   },
+   "WR": {
+    "count": 11,
+    "value": 51485
+   },
+   "TE": {
+    "count": 5,
+    "value": 20590
+   },
+   "K": {
+    "count": 1,
+    "value": 0
+   },
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 28,
+    "value": 62377
+   },
+   "PICK": {
+    "count": 0,
+    "value": 0
+   }
+  }
+ },
+ "after": {
+  "totalValue": 175283,
+  "tiers": {
+   "elite": 1,
+   "high": 2,
+   "mid": 17,
+   "depth": 38
+  },
+  "byPosition": {
+   "QB": {
+    "count": 7,
+    "value": 29754
+   },
+   "RB": {
+    "count": 7,
+    "value": 21027
+   },
+   "WR": {
+    "count": 11,
+    "value": 51485
+   },
+   "TE": {
+    "count": 4,
+    "value": 10640
+   },
+   "K": {
+    "count": 1,
+    "value": 0
+   },
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 28,
+    "value": 62377
+   },
+   "PICK": {
+    "count": 0,
+    "value": 0
+   }
+  }
+ },
+ "delta": {
+  "totalValue": 4004,
+  "tiers": {
+   "elite": -1,
+   "high": 1,
+   "mid": 1,
+   "depth": 0
+  },
+  "byPosition": {
+   "QB": {
+    "count": 1,
+    "value": 7482
+   },
+   "RB": {
+    "count": 1,
+    "value": 6472
+   },
+   "WR": {
+    "count": 0,
+    "value": 0
+   },
+   "TE": {
+    "count": -1,
+    "value": -9950
+   },
+   "K": {
+    "count": 0,
+    "value": 0
+   },
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 0,
+    "value": 0
+   },
+   "PICK": {
+    "count": 0,
+    "value": 0
+   }
+  }
+ },
+ "receiving": [
+  {
+   "name": "Jonathan Taylor",
+   "pos": "RB",
+   "basePos": "RB",
+   "value": 6472,
+   "rank": 33,
+   "tier": "mid",
+   "age": 27,
+   "assetClass": "offense"
+  },
+  {
+   "name": "Patrick Mahomes",
+   "pos": "QB",
+   "basePos": "QB",
+   "value": 7482,
+   "rank": 22,
+   "tier": "high",
+   "age": 30,
+   "assetClass": "offense"
+  }
+ ],
+ "sending": [
+  {
+   "name": "Brock Bowers",
+   "pos": "TE",
+   "basePos": "TE",
+   "value": 9950,
+   "rank": 2,
+   "tier": "elite",
+   "age": 23,
+   "assetClass": "offense"
+  }
+ ],
+ "unresolvedIn": [],
+ "unresolvedOut": [],
+ "equity": 4004,
+ "teamImpact": {
+  "fitScore": -100.0,
+  "equityScore": 100.0,
+  "compositeScore": -10.0,
+  "verdict": "lean decline",
+  "posture": "rebuilder",
+  "starterDelta": {
+   "QB": 1,
+   "RB": 0,
+   "WR": -1,
+   "TE": 0,
+   "DL": 0,
+   "LB": 0,
+   "DB": 0
+  },
+  "starterValueDelta": {
+   "QB": 7482,
+   "RB": 4146,
+   "WR": -4436,
+   "TE": -6976,
+   "DL": 0,
+   "LB": 0,
+   "DB": 0
+  },
+  "depthDelta": {
+   "QB": 0,
+   "RB": 1,
+   "WR": 1,
+   "TE": -1,
+   "DL": 0,
+   "LB": 0,
+   "DB": 0
+  },
+  "windowFit": -0.5,
+  "ageDelta": 5.5,
+  "scarcityDelta": {
+   "QB": -735.5,
+   "RB": 2073.0,
+   "WR": 331.5,
+   "TE": -3488.0,
+   "DL": 0.0,
+   "LB": 0.0,
+   "DB": 0.0
+  },
+  "redundancy": [],
+  "rationale": [
+   "Adds a starting QB (+7482 starter value)",
+   "Loses a starting WR (-4436 starter value)",
+   "Shifts TE starter quality (-6976)",
+   "Shifts RB starter quality (+4146)",
+   "Net KTC equity +4004"
+  ]
+ },
+ "leagueKey": "dynasty_main",
+ "valuationMode": "market"
+}

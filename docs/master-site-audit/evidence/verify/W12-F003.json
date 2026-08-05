@@ -1,0 +1,95 @@
+{
+ "id": "W12-F003",
+ "workstream": "W12",
+ "promptSections": [
+  16,
+  40
+ ],
+ "title": "There is no central Buy/Sell Tracker: 16 label emitters, 14 reachable, 5 competing threshold sets on one quantity, and the two modules built to unify them are one flag-off and one caller-less",
+ "status": "Missing",
+ "priority": "P1",
+ "size": "XL",
+ "subsystem": "Directional labels \u2014 architecture",
+ "surface": {
+  "routes": [
+   "/api/data",
+   "/api/terminal",
+   "/api/movers",
+   "/api/bdvm/values",
+   "/api/consensus-edge/top",
+   "/api/trade/finder",
+   "/api/trade/suggestions",
+   "/api/sharp/market"
+  ],
+  "pages": [
+   "/rankings",
+   "/edge",
+   "/consensus-edge",
+   "/bdvm",
+   "/",
+   "/trending",
+   "/arbitrage",
+   "/trades",
+   "/market/sharp-tracker",
+   "/market/sharp-roster-percentage",
+   "/league",
+   "/trade"
+  ],
+  "flags": [
+   "consensus_edge",
+   "bdvm_engine",
+   "usage_signals"
+  ]
+ },
+ "codeRefs": [
+  {
+   "path": "src/consensus_edge/__init__.py",
+   "lines": "1-30"
+  },
+  {
+   "path": "src/news/unified_signal_engine.py",
+   "lines": "1-31"
+  },
+  {
+   "path": "src/api/feature_flags.py",
+   "lines": "73-95"
+  }
+ ],
+ "claimUnderTest": "The product requirement is a central Buy/Sell Tracker that is the broad primary recommendation system and is NOT the same feature as Consensus Edge. src/consensus_edge/__init__.py already states the problem in the repo's own words: 'The platform accumulated six overlapping answers to \"is this player a buy?\" ... \"Buy\" means a different thing on each screen. This package is the single answer.'",
+ "observed": "No module, route, page, table or state key is a central tracker. I enumerated 16 independent directional emitters (docs/master-site-audit/evidence/W12/label-families.json); 14 are reachable today. FIVE of them apply different cutoffs to the SAME retail-vs-consensus quantity: >0 (backend stamp), >=3 (getPlayerEdge, powers PlayerPopup and the /league Edge Map), >=10 (marketAction, powers the /rankings Edge column), sourceRankSpread>=20 AND rank<=250 (/edge panels and the /rankings rail), and >=10 on a different source set (idpMarketAction, /edge IDP tab). None of the 14 shares state, imports another, or reads another's output. The two candidates for an arbiter both fail: src/consensus_edge/* returns 503 on every route because the flag defaults off, and src/news/unified_signal_engine.py \u2014 352 lines whose docstring calls it 'Unified signal engine \u2014 single entry point for every BUY/SELL/HOLD decision emitted to users' \u2014 is imported by nothing outside tests and one audit script.",
+ "reproduction": {
+  "command": "grep -rn 'unified_signal_engine' --include=*.py . | grep -v __pycache__ | grep -v '^./tests'   # 3 hits, all comments/docstrings, zero imports;  then: curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/consensus-edge/top",
+  "expected": "one module that produces the platform's directional recommendation, consumed by every surface",
+  "actual": "unified_signal_engine has no production importer; /api/consensus-edge/top -> 503 {\"error\":\"feature_disabled\",\"flag\":\"consensus_edge\"}; 14 other emitters serve users",
+  "artifact": "docs/master-site-audit/evidence/W12/label-families.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "emittersTotal": 16,
+   "emittersReachable": 14,
+   "thresholdSetsOnTheRetailVsConsensusQuantity": 5,
+   "reconciliationLayers": 0,
+   "pagesShowingADirectionalVerb": 12
+  },
+  "formula": "count of distinct modules that emit a BUY/SELL/HOLD-class verb to a user surface",
+  "expected": 1,
+  "actual": 14,
+  "tolerance": 0
+ },
+ "userImpact": "Every screen answers 'should I buy this player' with a different rule and none of them says which one is authoritative or that the others exist. A user cannot form a consistent policy, and cannot tell whether two screens disagreeing means new information or just two constants.",
+ "blastRadius": {
+  "playersAffected": 1072,
+  "routesAffected": 8,
+  "pagesAffected": 12
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A05-F09",
+  "relation": "confirmed",
+  "note": "Prior said 'Four independent BUY/SELL label families run on the same players with four different threshold sets and no reconciliation'. Confirmed and expanded: the count is 16 emitters / 14 reachable, and the four-way threshold split is specifically FIVE cutoffs on one quantity. Prior did not record that consensus_edge was designed as the arbiter or that unified_signal_engine has no caller."
+ },
+ "whatWorks": "src/consensus_edge is the correct shape for the missing arbiter: it consumes other engines as components, renormalises weights over PRESENT components, refuses to score without a core component, forces Conflicted when strong evidence opposes, and separates direction from confidence. It is switched off for an honest reason (its top-20 buy list did not beat a random draw) rather than hidden.",
+ "rootCause": "Every new surface added its own label rather than consuming an existing one, and no module was ever made authoritative. The two attempts to consolidate were both left unreachable.",
+ "requiredRepair": "Pick one emitter as the tracker. The cheapest honest version: promote the retail-vs-consensus family to a single backend-stamped verb (one threshold, computed once in _compute_market_gap) that every surface renders verbatim, and demote the other emitters to explicitly-labelled secondary lenses. Then decide whether consensus_edge or unified_signal_engine is the long-term arbiter and delete the other.",
+ "dependencies": "W12-F001, W12-F002, W12-F004, W12-F008 are all instances of this."
+}

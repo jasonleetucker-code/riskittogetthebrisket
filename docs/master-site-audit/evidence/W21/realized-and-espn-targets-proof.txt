@@ -1,0 +1,23 @@
+# W21 proof: contract.sleeper has no "players" directory
+$ curl -s -b cookies "http://127.0.0.1:8000/api/data" | jq '.sleeper | keys'
+["leagueId","leagueName","teams","positions","playerIds","idToPlayer","scoringSettings",
+ "rosterPositions","leagueSettings","trades","tradeWindowDays","tradeWindowStart",
+ "tradeWindowCutoffMs","waivers","overlaySource","overlayFetchedAt"]
+# -> .sleeper.players is absent; .sleeper.playerDict is absent.
+
+# Consumer 1: server.py::get_player_realized (line ~11265)
+$ curl -s -b cookies "http://127.0.0.1:8000/api/player/4046/realized"
+{"sleeperId":"4046","leagueKey":"dynasty_main","reason":"unmapped_player","weeks":[]}
+
+# Consumer 2: server.py::_live_espn_news_targets (line ~541) -> [] always
+$ curl -s -b cookies "http://127.0.0.1:8000/api/news" | jq '.providerRuns[] | select(.name=="espn_player")'
+{"name":"espn_player","label":"ESPN Player News","count":0,"ok":true,"elapsedMs":1}
+
+# Producer: Dynasty Scraper.py:1297-1307 emits playerIds + idToPlayer, never "players".
+# idToPlayer is id -> NAME STRING (937 entries), not the /v1/players/nfl dict shape,
+# so unified_mapper.resolve_player cannot read gsis_id from it either:
+>>> um.resolve_player(None, sleeper_id="4046")        -> None
+>>> um.resolve_player(idToPlayer, sleeper_id="4046")  -> None
+
+# nflverse_direct fallback itself WORKS (nfl_data_py absent by design):
+>>> ing.fetch_weekly_stats([2025,2026]) -> 19421 rows in 0.77s; {2025: 19421} (2026 empty = honest)

@@ -1,0 +1,24 @@
+[Unit]
+Description=Daily sharp-cohort baseline snapshot for __SERVICE_NAME__
+# No `Requires=` — it pulls the service in whenever the TIMER starts,
+# firing a snapshot on deploy day and again on every reboot.  `Unit=`
+# below is the only binding this needs.  Same choice as
+# dynasty-playerctx-history and dynasty-reception-depth.
+
+[Timer]
+# Daily 05:10 UTC.  Slot rationale: the three sharp crawls run in a
+# dependency order and the cohort is only meaningful after the second —
+# discovery 04:20 finds MANAGERS, records 04:50 finds their RESULTS
+# (which is what makes them scoreable), rosters 05:50 finds what they
+# OWN.  05:10 sits after records and before rosters, clear of the FFPC
+# crawl at 05:20.
+#
+# Snapshotting before records would capture a cohort built from
+# yesterday's evidence and quietly date every baseline by a day.
+OnCalendar=*-*-* 05:10:00 UTC
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-sharp-cohort-snapshot.service
+
+[Install]
+WantedBy=timers.target

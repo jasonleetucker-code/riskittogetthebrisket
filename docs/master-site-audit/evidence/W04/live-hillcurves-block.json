@@ -1,0 +1,42 @@
+{
+  "global": {
+    "key": "global",
+    "label": "Global",
+    "c": 0.112,
+    "s": 0.725,
+    "referenceN": 500,
+    "midpoint": 55.888,
+    "slope": 0.725,
+    "routed": true
+  },
+  "offense": {
+    "key": "offense",
+    "label": "Offense",
+    "c": 0.11,
+    "s": 1.11,
+    "referenceN": 500,
+    "midpoint": 54.89,
+    "slope": 1.11,
+    "routed": true
+  },
+  "idp": {
+    "key": "idp",
+    "label": "IDP",
+    "c": 0.083,
+    "s": 1.11,
+    "referenceN": 500,
+    "midpoint": 41.417,
+    "slope": 1.11,
+    "routed": true
+  },
+  "rookie": {
+    "key": "rookie",
+    "label": "Rookie",
+    "c": 0.153,
+    "s": 0.885,
+    "referenceN": 500,
+    "midpoint": 76.347,
+    "slope": 0.885,
+    "routed": false
+  }
+}

@@ -1,0 +1,59 @@
+{
+ "population": [
+  10,
+  20,
+  30,
+  40,
+  50,
+  60,
+  70,
+  80,
+  90,
+  100,
+  110,
+  120
+ ],
+ "rows": [
+  {
+   "target": 10,
+   "n": 12,
+   "public_league/power.py::_percentile_rank": 0.0,
+   "sharp/score.py::percentile_rank": 0.041667,
+   "ros/power_v2.py::_percentile": 0.041667,
+   "roster_intel/window.py (inline)": 0.041667
+  },
+  {
+   "target": 60,
+   "n": 12,
+   "public_league/power.py::_percentile_rank": 0.454545,
+   "sharp/score.py::percentile_rank": 0.458333,
+   "ros/power_v2.py::_percentile": 0.458333,
+   "roster_intel/window.py (inline)": 0.458333
+  },
+  {
+   "target": 120,
+   "n": 12,
+   "public_league/power.py::_percentile_rank": 1.0,
+   "sharp/score.py::percentile_rank": 0.958333,
+   "ros/power_v2.py::_percentile": 0.958333,
+   "roster_intel/window.py (inline)": 0.958333
+  }
+ ],
+ "degenerate": {
+  "empty": {
+   "power": 0.5,
+   "sharp": 0.5,
+   "power_v2": 0.0
+  },
+  "singleton": {
+   "power": 0.5,
+   "sharp": 0.5,
+   "power_v2": 0.5
+  },
+  "allIdentical": {
+   "power": 0.5,
+   "sharp": 0.5,
+   "power_v2": 0.5
+  }
+ }
+}

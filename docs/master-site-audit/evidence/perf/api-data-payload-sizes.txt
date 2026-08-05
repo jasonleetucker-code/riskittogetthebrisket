@@ -1,0 +1,14 @@
+# /api/data payload sizes, measured on the live stack 2026-08-04
+# Command:
+#   curl -s -b cookies -o /dev/null -w '%{size_download}' "http://127.0.0.1:8000/api/data<view>"
+#   (gzip row adds -H 'Accept-Encoding: gzip')
+#
+# view          raw bytes     gzip bytes
+  (none/full)   11,953,535     1,176,182
+  ?view=app      5,818,304       576,580
+  ?view=compact  7,363,760       764,715
+#
+# Note 1: CLAUDE.md ("Rankings Override Payload Size Optimization") states the full
+#         canonical contract is "~4 MB uncompressed". Measured: 11.95 MB — ~3x that.
+# Note 2: view=compact returns MORE bytes than view=app (7.36 MB vs 5.82 MB), which
+#         inverts what the name implies.

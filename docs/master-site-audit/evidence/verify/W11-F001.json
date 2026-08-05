@@ -1,0 +1,81 @@
+{
+ "id": "W11-F001",
+ "workstream": "W11",
+ "promptSections": [
+  22
+ ],
+ "title": "Position FAAB calibration blends RAW dollar bids from three seasons with different budgets ($1000 / $200 / $100), inflating the RB anchor 5.0x and driving every bid too high",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "M",
+ "subsystem": "FAAB recommender / league analytics",
+ "surface": {
+  "routes": [
+   "/api/waiver/faab-recommend",
+   "/api/public/league/faabAnalytics"
+  ],
+  "pages": [
+   "/waivers"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/api/faab_analytics.py",
+   "lines": "102-121"
+  },
+  {
+   "path": "src/api/faab_analytics.py",
+   "lines": "143-172"
+  },
+  {
+   "path": "src/api/faab_analytics.py",
+   "lines": "224-246"
+  },
+  {
+   "path": "src/trade/faab_recommender.py",
+   "lines": "172-216"
+  }
+ ],
+ "claimUnderTest": "faab_analytics.py docstring: 'calibrates the per-player FAAB recommendation against the league's actual historical winning bids for similar position+tier so the recommendation reflects how THIS league bids'. _league_budget() reads 'the current season's waiver_budget setting'.",
+ "observed": "_walk_waivers() flattens EVERY season's transactions into one bid list with no budget normalization, while _league_budget() returns only the CURRENT season's budget. The live snapshot covers 2026 (waiver_budget=100), 2025 (200) and 2024 (1000). positionBids['RB'].avg is therefore $43.00 -- a mean over bids denominated in three different currencies, with a max of $340 which is physically impossible in a $100 league. recommend_faab blends that number 50/50 into every RB bid on a $100 budget.",
+ "reproduction": {
+  "command": ".venv/bin/python -c \"import sys;sys.path.insert(0,'.');from src.public_league import snapshot_store;s=snapshot_store.load_snapshot();[print(x.season,(getattr(x,'league',{}) or {}).get('settings',{}).get('waiver_budget')) for x in s.seasons]\" && curl -s -b /tmp/audit-cookies-W11.txt 'http://127.0.0.1:8000/api/public/league/faabAnalytics?leagueKey=dynasty_main' | .venv/bin/python -c \"import json,sys;print(json.load(sys.stdin)['data']['positionBids'])\"",
+  "expected": "Position averages expressed as a share of the season each bid was placed in, i.e. RB ~ $8.58 on a $100 budget",
+  "actual": "2026 budget=100, 2025 budget=200, 2024 budget=1000; positionBids RB {'avg': 43.0, 'min': 1, 'max': 340, 'count': 53}; league max bid $340 on a $100 budget",
+  "artifact": "docs/master-site-audit/evidence/W11/faab-analytics.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "seasonBudgets": {
+    "2026": 100,
+    "2025": 200,
+    "2024": 1000
+   },
+   "rbBidsRaw_n": 53,
+   "rbRawMean": 43.0,
+   "rbRawMedian": 18.0,
+   "currentBudget": 100
+  },
+  "formula": "normalized_bid = raw_bid / season_budget * 100 ; RB_anchor = mean(normalized_bids) ; recommended = 0.5*RB_anchor + 0.5*baseline",
+  "expected": 8.58,
+  "actual": 43.0,
+  "tolerance": 0.05
+ },
+ "userImpact": "Every RB waiver bid on /waivers is anchored to a number 5x larger than the league's own budget-normalized history. A user is told to bid $22-$32 of a $100 budget on replacement-level running backs. This is the single largest contributor to the reported 'FAAB recommendations are too aggressive'.",
+ "blastRadius": {
+  "playersAffected": 283,
+  "routesAffected": 2,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "Not in the prior area-4 set. PRIOR-A04-F08 noticed tierBids was unused but not that positionBids itself mixes budget regimes. Note the irony: src/adapters/ktc_crowd_faab.py::_parse_bid_pct DOES normalize by waiver_budget 'so multi-budget leagues normalize correctly' -- the league's own history is the one place it is skipped."
+ },
+ "whatWorks": "The multi-add split at full precision (faab_analytics.py:240-246) and the tier breakpoints scaling with league_budget are both correct.",
+ "rootCause": "_league_budget() is scalar and current-season-only; _walk_waivers() is multi-season. The two are combined without a per-season divisor.",
+ "requiredRepair": "Carry the season's waiver_budget alongside each bid in _walk_waivers, express every bid as a share of its own season's budget, and re-multiply by the CURRENT budget before it reaches positionBids / leagueAvgWinningBid / leagueMedianWinningBid / teamAggression.",
+ "dependencies": "Fixing this alone drops RB recommendations from ~$32 to ~$15 and unpriced-RB recommendations from $22 to $4; W11-F002 must be fixed too or the unpriced case survives at a lower number."
+}

@@ -1,0 +1,71 @@
+{
+ "id": "W23-F003",
+ "workstream": "W23",
+ "promptSections": [
+  38
+ ],
+ "title": "The \"fewer than half the sites returned\" partial-scrape guard degenerates to \"block only on total loss\": `sites` carries 2 entries on the live snapshot and only lists sources that already produced values",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "Scrape lifecycle",
+ "surface": {
+  "routes": [
+   "/api/scrape",
+   "/api/status"
+  ],
+  "pages": [],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "server.py",
+   "lines": "2357-2364"
+  },
+  {
+   "path": "Dynasty Scraper.py",
+   "lines": "5402-5427"
+  },
+  {
+   "path": "Dynasty Scraper.py",
+   "lines": "7387"
+  }
+ ],
+ "claimUnderTest": "server.py:2362-2363 \u2014 \"Block partial scrape promotion \u2014 don't overwrite good data with degraded data when fewer than half the sites returned results.\"",
+ "observed": "site_count counts entries of result['sites'] with playerCount>0; total_sites is len(result['sites']). On the live snapshot data/dynasty_data_2026-08-04.json, `sites` is a LIST of exactly 2 dicts \u2014 [{'key':'ktc',...,'playerCount':500},{'key':'idpTradeCalc',...,'playerCount':900}] \u2014 so the test is `site_count < 1.0`, i.e. it fires only when ZERO sites returned data. Worse, sites_meta is built by iterating `active_sites` (Dynasty Scraper.py:5413), the sources that actually ran, so a source that is skipped shrinks the denominator with the numerator: the two sources that DID fail this run (KTC_TradeDB, KTC_WaiverDB, both 'partial' per settings.sourceRunSummary) are absent from `sites` entirely. Meanwhile the served board blends 21 sources (/api/status.served_source_coverage), none of the other 19 of which the guard can see at all. The guard cannot distinguish 'KTC returned 500 rows and IDPTC returned 900' from 'KTC returned 1 row and IDPTC returned 1 row'.",
+ "reproduction": {
+  "command": ".venv/bin/python -c \"import json; d=json.load(open('data/dynasty_data_2026-08-04.json')); s=d['sites']; sc=len([x for x in s if x.get('playerCount',0)>0]); print('type',type(s).__name__,'total_sites',len(s),'site_count',sc,'threshold',len(s)/2,'blocks?',sc<len(s)/2); print('served sources:',len(json.load(open('docs/master-site-audit/evidence/W23/api-status.json'))['served_source_coverage']))\"",
+  "expected": "A guard whose denominator is the ~21 sources the board actually blends",
+  "actual": "type list total_sites 2 site_count 2 threshold 1.0 blocks? False \u2014 and served sources: 21",
+  "artifact": "docs/master-site-audit/evidence/W23/api-status.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "total_sites": 2,
+   "site_count": 2,
+   "sources_actually_blended": 21,
+   "enabled_sources_this_run": 4,
+   "sources_partial_this_run": 2
+  },
+  "formula": "block iff site_count < total_sites/2  =>  site_count < 1.0  =>  block iff site_count == 0",
+  "expected": 11,
+  "actual": 1,
+  "tolerance": 0
+ },
+ "userImpact": "A scrape in which 20 of 21 sources collapse promotes cleanly to production. Every value on /rankings, /trade and /draft is then a near-single-source blend presented with the same confidence chrome as a full 21-source consensus, and the single-source haircut is the only thing standing between the user and a one-vendor board.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 2,
+  "pagesAffected": 8
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A07-F02",
+  "relation": "confirmed",
+  "note": "Confirmed with one correction: `sites` is a LIST, not a dict as the prior finding says \u2014 the arithmetic and the conclusion are unaffected. Extended with the second, worse property the prior finding missed: sites_meta is derived from active_sites, so failed/skipped sources leave the denominator rather than zeroing the numerator, and 19 of the 21 blended sources are structurally invisible to the guard."
+ },
+ "whatWorks": "The guard's intent and its data handling are correct \u2014 on a true total loss it does refuse to promote and does return the previous snapshot. `served_source_coverage` (server.py:4350) already computes the honest 21-source count and its own comment admits `source_health` \"cannot detect a degraded board\".",
+ "rootCause": "`sites` is legacy scraper metadata describing the browser-driven sources only; the modern pipeline gets 19 of its 21 sources from scripts/fetch_*.py CSVs that never enter sites_meta. The guard was written against the legacy structure and never re-pointed.",
+ "requiredRepair": "Gate on served_source_coverage (or on settings.sourceRunSummary.enabledSources vs completeSources) rather than on `sites`. Compare against the previous snapshot's per-source coverage so a source dropping from 400 rows to 3 also trips the guard.",
+ "dependencies": "W23-F002 (same branch), W23-F008 (same legacy structure)"
+}

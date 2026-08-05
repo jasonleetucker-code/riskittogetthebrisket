@@ -5,9 +5,12 @@ import { proxyGet } from "@/lib/backend-proxy";
 // FastAPI.  Deliberately forwards NO leagueKey: Sharp Tracker's cohort
 // is global, and scoping it to a league would rebuild the merged
 // feature that /league/insider-trading was split out of.
-export async function GET() {
+export async function GET(request) {
   try {
-    const { data, status } = await proxyGet("/api/sharp/cohort", { timeoutMs: 15000 });
+    const { data, status } = await proxyGet("/api/sharp/cohort", {
+      cookie: request.headers.get("cookie") || "",
+      timeoutMs: 15000,
+    });
     return NextResponse.json(data, { status });
   } catch (err) {
     return NextResponse.json(

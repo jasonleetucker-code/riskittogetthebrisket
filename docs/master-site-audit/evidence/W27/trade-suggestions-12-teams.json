@@ -1,0 +1,362 @@
+{
+ "Jason": {
+  "rosterMatched": 16,
+  "rosterProvided": 57,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 1,
+   "WR": 4,
+   "TE": 1,
+   "DL": 1,
+   "LB": 3,
+   "DB": 0
+  },
+  "need": [
+   "RB",
+   "TE",
+   "DL",
+   "DB"
+  ],
+  "surplus": [
+   "WR"
+  ],
+  "suggCounts": {
+   "sellHigh": 6,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {
+   "WR": 6,
+   "TE": 2,
+   "RB": 3,
+   "DL": 1
+  }
+ },
+ "Ed": {
+  "rosterMatched": 10,
+  "rosterProvided": 58,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 2,
+   "WR": 2,
+   "TE": 2,
+   "DL": 0,
+   "LB": 1,
+   "DB": 0
+  },
+  "need": [
+   "RB",
+   "WR",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "surplus": [],
+  "suggCounts": {
+   "sellHigh": 0,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {}
+ },
+ "Ty": {
+  "rosterMatched": 7,
+  "rosterProvided": 56,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 2,
+   "WR": 1,
+   "TE": 0,
+   "DL": 1,
+   "LB": 1,
+   "DB": 0
+  },
+  "need": [
+   "RB",
+   "WR",
+   "TE",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "surplus": [],
+  "suggCounts": {
+   "sellHigh": 0,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {}
+ },
+ "Collin": {
+  "rosterMatched": 10,
+  "rosterProvided": 58,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 3,
+   "WR": 2,
+   "TE": 2,
+   "DL": 0,
+   "LB": 1,
+   "DB": 0
+  },
+  "need": [
+   "WR",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "surplus": [],
+  "suggCounts": {
+   "sellHigh": 0,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {}
+ },
+ "MaKayla": {
+  "rosterMatched": 14,
+  "rosterProvided": 58,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 2,
+   "WR": 4,
+   "TE": 2,
+   "DL": 0,
+   "LB": 1,
+   "DB": 0
+  },
+  "need": [
+   "RB",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "surplus": [
+   "WR"
+  ],
+  "suggCounts": {
+   "sellHigh": 6,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {
+   "WR": 6,
+   "DL": 2,
+   "LB": 1,
+   "RB": 3
+  }
+ },
+ "Eric": {
+  "rosterMatched": 15,
+  "rosterProvided": 58,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 3,
+   "WR": 4,
+   "TE": 2,
+   "DL": 1,
+   "LB": 0,
+   "DB": 0
+  },
+  "need": [
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "surplus": [
+   "WR"
+  ],
+  "suggCounts": {
+   "sellHigh": 4,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {
+   "WR": 4,
+   "LB": 2,
+   "DL": 2
+  }
+ },
+ "Roy": {
+  "rosterMatched": 7,
+  "rosterProvided": 51,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 1,
+   "WR": 1,
+   "TE": 2,
+   "DL": 0,
+   "LB": 0,
+   "DB": 0
+  },
+  "need": [
+   "RB",
+   "WR",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "surplus": [],
+  "suggCounts": {
+   "sellHigh": 0,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {}
+ },
+ "Joey": {
+  "rosterMatched": 10,
+  "rosterProvided": 58,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 3,
+   "WR": 2,
+   "TE": 2,
+   "DL": 0,
+   "LB": 0,
+   "DB": 0
+  },
+  "need": [
+   "WR",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "surplus": [],
+  "suggCounts": {
+   "sellHigh": 0,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {}
+ },
+ "Brent": {
+  "rosterMatched": 21,
+  "rosterProvided": 57,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 3,
+   "WR": 4,
+   "TE": 2,
+   "DL": 3,
+   "LB": 0,
+   "DB": 0
+  },
+  "need": [
+   "LB",
+   "DB"
+  ],
+  "surplus": [
+   "RB",
+   "WR"
+  ],
+  "suggCounts": {
+   "sellHigh": 5,
+   "buyLow": 3,
+   "consolidation": 1,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {
+   "RB": 3,
+   "LB": 8,
+   "WR": 7,
+   "QB": 1
+  }
+ },
+ "Kich": {
+  "rosterMatched": 9,
+  "rosterProvided": 58,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 2,
+   "WR": 3,
+   "TE": 1,
+   "DL": 0,
+   "LB": 0,
+   "DB": 0
+  },
+  "need": [
+   "RB",
+   "WR",
+   "TE",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "surplus": [],
+  "suggCounts": {
+   "sellHigh": 0,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {}
+ },
+ "jstuedle": {
+  "rosterMatched": 3,
+  "rosterProvided": 44,
+  "starterCounts": {
+   "QB": 1,
+   "RB": 1,
+   "WR": 1,
+   "TE": 0,
+   "DL": 0,
+   "LB": 0,
+   "DB": 0
+  },
+  "need": [
+   "QB",
+   "RB",
+   "WR",
+   "TE",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "surplus": [],
+  "suggCounts": {
+   "sellHigh": 0,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {}
+ },
+ "Blaine": {
+  "rosterMatched": 5,
+  "rosterProvided": 53,
+  "starterCounts": {
+   "QB": 2,
+   "RB": 1,
+   "WR": 1,
+   "TE": 0,
+   "DL": 1,
+   "LB": 0,
+   "DB": 0
+  },
+  "need": [
+   "RB",
+   "WR",
+   "TE",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "surplus": [],
+  "suggCounts": {
+   "sellHigh": 0,
+   "buyLow": 0,
+   "consolidation": 0,
+   "positionalUpgrades": 0
+  },
+  "suggestionAssetPositions": {}
+ }
+}

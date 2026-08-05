@@ -1,0 +1,4748 @@
+[
+ {
+  "subsystem": "FAAB recommender",
+  "findings": 10,
+  "byPriority": {
+   "P2": 6,
+   "P1": 2,
+   "P3": 2
+  },
+  "byStatus": {
+   "Implemented but defective": 6,
+   "Implemented but disconnected": 1,
+   "Missing": 1,
+   "Blocked by data": 1,
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Trade finder",
+  "findings": 9,
+  "byPriority": {
+   "P1": 2,
+   "P2": 4,
+   "P3": 3
+  },
+  "byStatus": {
+   "Implemented but defective": 5,
+   "Implemented but disconnected": 1,
+   "Missing": 1,
+   "Implemented and verified": 2
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade suggestions",
+  "findings": 5,
+  "byPriority": {
+   "P1": 3,
+   "P3": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 5
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 2
+ },
+ {
+  "subsystem": "Team assignment",
+  "findings": 5,
+  "byPriority": {
+   "P3": 4,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1,
+   "Implemented but defective": 3,
+   "Partially implemented": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Information architecture",
+  "findings": 4,
+  "byPriority": {
+   "P2": 2,
+   "P3": 2
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Scaffolded only": 1,
+   "Missing": 1,
+   "Partially implemented": 1
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Waivers page",
+  "findings": 4,
+  "byPriority": {
+   "P1": 2,
+   "P3": 2
+  },
+  "byStatus": {
+   "Implemented but defective": 4
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp Score v2",
+  "findings": 4,
+  "byPriority": {
+   "P2": 4
+  },
+  "byStatus": {
+   "Implemented but defective": 4
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Dead code",
+  "findings": 4,
+  "byPriority": {
+   "P3": 4
+  },
+  "byStatus": {
+   "Scaffolded only": 4
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rankings override delta view",
+  "findings": 3,
+  "byPriority": {
+   "P0": 1,
+   "P3": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 2,
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [
+   {
+    "id": "W03-F001",
+    "title": "The board /rankings renders is not the board GET /api/data serves: the stock frontend body {\"tep_multiplier\":1.15} changes 627 of 740 ranks and 654 tiers while the response stamps isCustomized:false"
+   }
+  ],
+  "verified": 1
+ },
+ {
+  "subsystem": "Monte Carlo trade simulator",
+  "findings": 3,
+  "byPriority": {
+   "P3": 1,
+   "P1": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Mocked or hard-coded": 1,
+   "Partially implemented": 1
+  },
+  "worstStatus": "Mocked or hard-coded",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Sharp Roster Percentage",
+  "findings": 3,
+  "byPriority": {
+   "P1": 1,
+   "P2": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 3
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Test suite integrity",
+  "findings": 3,
+  "byPriority": {
+   "P1": 1,
+   "P3": 2
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Scaffolded only": 1,
+   "Partially implemented": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "API contract / payload size",
+  "findings": 2,
+  "byPriority": {
+   "P2": 2
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Backend route surface",
+  "findings": 2,
+  "byPriority": {
+   "P2": 2
+  },
+  "byStatus": {
+   "Scaffolded only": 1,
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Confidence buckets",
+  "findings": 2,
+  "byPriority": {
+   "P1": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Tiering",
+  "findings": 2,
+  "byPriority": {
+   "P2": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Model registry / Hill curve promotion gate",
+  "findings": 2,
+  "byPriority": {
+   "P2": 2
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 2
+ },
+ {
+  "subsystem": "Sleeper roster identity",
+  "findings": 2,
+  "byPriority": {
+   "P3": 2
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "buildRows materializer",
+  "findings": 2,
+  "byPriority": {
+   "P1": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Deprecated but still active": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade verdict math",
+  "findings": 2,
+  "byPriority": {
+   "P1": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft vendor-comparison panels",
+  "findings": 2,
+  "byPriority": {
+   "P1": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "FAAB recommender / league analytics",
+  "findings": 2,
+  "byPriority": {
+   "P0": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [
+   {
+    "id": "W11-F001",
+    "title": "Position FAAB calibration blends RAW dollar bids from three seasons with different budgets ($1000 / $200 / $100), inflating the RB anchor 5.0x and driving every bid too high"
+   }
+  ],
+  "verified": 1
+ },
+ {
+  "subsystem": "Waivers page / FAAB recommender",
+  "findings": 2,
+  "byPriority": {
+   "P1": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1,
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "FAAB contention",
+  "findings": 2,
+  "byPriority": {
+   "P3": 2
+  },
+  "byStatus": {
+   "Blocked by data": 1,
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Directional labels / market-gap family",
+  "findings": 2,
+  "byPriority": {
+   "P1": 1,
+   "P0": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1,
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [
+   {
+    "id": "W12-F002",
+    "title": "The /rankings Edge column labels 32 of 35 top-250 tight ends SELL and every single SELL in the top 250 is a tight end \u2014 the 'retail vs expert' gap is measuring TE-premium basis, not mispricing"
+   }
+  ],
+  "verified": 2
+ },
+ {
+  "subsystem": "BDVM pick valuation",
+  "findings": 2,
+  "byPriority": {
+   "P2": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Consensus Edge \u2014 Sharp Flow component",
+  "findings": 2,
+  "byPriority": {
+   "P2": 2
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Sharp operations workflows",
+  "findings": 2,
+  "byPriority": {
+   "P2": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading board",
+  "findings": 2,
+  "byPriority": {
+   "P2": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Documentation",
+  "findings": 2,
+  "byPriority": {
+   "P3": 2
+  },
+  "byStatus": {
+   "Missing": 1,
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "ROS buyer/seller direction",
+  "findings": 2,
+  "byPriority": {
+   "P0": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [
+   {
+    "id": "W17-F002",
+    "title": "The #1 ROS-strength team is told 'Seller \u2014 sell aging win-now players' on /league -> Trade Deadline because he is absent from the 2024 sim and absence is coerced to 0.0 playoff odds"
+   }
+  ],
+  "verified": 1
+ },
+ {
+  "subsystem": "Team direction (ROS)",
+  "findings": 2,
+  "byPriority": {
+   "P0": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [
+   {
+    "id": "W20-F002",
+    "title": "On the live /league Trade Deadline board the strongest roster in the league (Brent, ROS strength percentile 100%) is labelled 'Seller \u2014 sell aging win-now players' because an owner missing from the playoff sim is scored as 0% playoff odds"
+   }
+  ],
+  "verified": 1
+ },
+ {
+  "subsystem": "Terminal / portfolio panel",
+  "findings": 2,
+  "byPriority": {
+   "P1": 2
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Team direction (/phases)",
+  "findings": 2,
+  "byPriority": {
+   "P1": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM structured events",
+  "findings": 2,
+  "byPriority": {
+   "P3": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1,
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Operator alerting",
+  "findings": 2,
+  "byPriority": {
+   "P2": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1,
+   "Partially implemented": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "CI / Sharp production verification",
+  "findings": 2,
+  "byPriority": {
+   "P2": 2
+  },
+  "byStatus": {
+   "Implemented but defective": 2
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Test suite integrity / valuation pipeline",
+  "findings": 2,
+  "byPriority": {
+   "P2": 2
+  },
+  "byStatus": {
+   "Unverifiable": 1,
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Playoff odds",
+  "findings": 2,
+  "byPriority": {
+   "P1": 2
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1,
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Power rankings",
+  "findings": 2,
+  "byPriority": {
+   "P1": 1,
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1,
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Value pipeline",
+  "findings": 2,
+  "byPriority": {
+   "P1": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1,
+   "Deprecated but still active": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Documentation / governance",
+  "findings": 2,
+  "byPriority": {
+   "P2": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1,
+   "Deprecated but still active": 1
+  },
+  "worstStatus": "Deprecated but still active",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Roster strength",
+  "findings": 2,
+  "byPriority": {
+   "P2": 1,
+   "P3": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1,
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft capital / auth boundary",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Feature flags / documentation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Routing",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Value architecture",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Confidence presentation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Identity / provenance",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Frontend shell",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league page",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Frontend/backend wiring",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Roster intelligence",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rest-of-season",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Feature flags",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Source registry",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 scope curve routing",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Core value blend \u2014 per-player outlier rejection",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 market corridor clamp",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 aggregation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 percentile normalization",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 source registry",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 pick year discount",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Deprecated but still active": 1
+  },
+  "worstStatus": "Deprecated but still active",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 two-way player boost",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 constant provenance",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 value stamping",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 audit stamps",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 determinism",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 post-blend stages",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Core value blend \u2014 abstention posture",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Market gap / edge signal",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "marketConfidence",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Identity confidence",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "rankChange snapshot",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rank history / movers",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Blocked by data": 1
+  },
+  "worstStatus": "Blocked by data",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Per-source value history",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Compact view",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Confidence buckets / published methodology",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Confidence buckets / frontend signal labels",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Hill curves / scope routing",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Model registry CLI",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Model registry / historical snapshots",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Model registry / holdout scoring",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Blend calibration / backtests",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Historical snapshots / backtesting",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Backtesting documentation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Value provenance",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Missing": 1
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Confidence",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Blend weights",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Backtesting",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Model registry",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Model registry / Hill curves",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Source health surface",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Source health API",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Source CSV ingestion",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Contract validation",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "KTC crowd ingestion / FAAB",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Pick ingestion / blend",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Raw ingest scaffold",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Deprecated but still active": 1
+  },
+  "worstStatus": "Deprecated but still active",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Source coverage monitoring",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Freshness reporting",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Source ingestion chain",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Source coverage accounting",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Refresh scheduling",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Player identity - cross-source name join",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Identity validation / quarantine pass",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Unified identity mapper - live consumer",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Manual identity overrides",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Identity confidence scoring",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Unified identity mapper - fuzzy rung",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Unified identity mapper - batch path",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Pick identity",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Source CSV identity join",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Identity scaffold surface",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Deprecated but still active": 1
+  },
+  "worstStatus": "Deprecated but still active",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Terminal identity backfill",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Source CSV identity join - coverage",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rankings surface / override pipeline",
+  "findings": 1,
+  "byPriority": {
+   "P0": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [
+   {
+    "id": "W07-F001",
+    "title": "Every /rankings page load silently POSTs tep_multiplier=1.15, which bypasses the ADR-015 TE-basis curve \u2014 the rendered board under-prices 82 TEs by up to 21.2% and disagrees with GET /api/data on 627 ranks, while every server-side engine keeps pricing from /api/data"
+   }
+  ],
+  "verified": 1
+ },
+ {
+  "subsystem": "Settings",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rankings display layer",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rankings override payload",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Valuation mode",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rankings surface / settings / export",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "League-adjusted valuation overlay",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade calculator value source",
+  "findings": 1,
+  "byPriority": {
+   "P0": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [
+   {
+    "id": "W08-F001",
+    "title": "The /trade calculator never sums the canonical board: the frontend posts an explicit tep_multiplier=1.15 on every load, which disables the ADR-015 TE basis conversion and reprices 129 of 809 players by up to -21.2%"
+   }
+  ],
+  "verified": 1
+ },
+ {
+  "subsystem": "Trade verdict copy",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade asset picker",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Pick ownership / asset identity",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade asset pricing",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade value modes",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "KTC export",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "KTC VA port",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade calculator disclosure",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Missing": 1
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade simulator",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade side management",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Cross-market value comparability",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Valuation lens threading",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Frontend bridge routes",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Partner fit and acceptance",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft auction bid engine",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Draft slot accounting",
+  "findings": 1,
+  "byPriority": {
+   "P0": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [
+   {
+    "id": "W10-F002",
+    "title": "mergeDraftCapitalTeams hard-caps every team's slot count at 6, so the user's team \u2014 which owns 31 of the 72 live picks \u2014 renders as \"0/6 slots\" with a 5.2x-wrong $/slot"
+   }
+  ],
+  "verified": 1
+ },
+ {
+  "subsystem": "Rookie auction optimizer",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Missing": 1
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft inflation model",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft league scoping",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft capital endpoint",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft capital fallback",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft capital endpoint auth",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft workspace persistence",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rookie pick valuation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Blocked by data": 1
+  },
+  "worstStatus": "Blocked by data",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft roster-fit accounting",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Auction power lens",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft seed data",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft capital workbook parse",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Unverifiable": 1
+  },
+  "worstStatus": "Unverifiable",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft UI",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "League analytics",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Waiver suggestions",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Directional labels \u2014 architecture",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Missing": 1
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Directional labels / edge panels",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Signal alerts / hysteresis",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Alerting",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Directional labels / confidence",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Directional labels / source taxonomy",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Directional labels / momentum",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Directional labels / IDP coverage",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rule engines / evidence honesty",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Blocked by data": 1
+  },
+  "worstStatus": "Blocked by data",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Directional labels / architecture",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rule engines / thresholds",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Directional labels / constants",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Deprecated but still active": 1
+  },
+  "worstStatus": "Deprecated but still active",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Directional labels / failure honesty",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM projections / realized scoring",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM roster analysis",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM market comparison / signals",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM API + frontend surfaces",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Blocked by data": 1
+  },
+  "worstStatus": "Blocked by data",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM parameters / validation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM engine parity",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM market isolation",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM curves / survival",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM surplus",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM value scale",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM frontend join",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM market signals",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM strategy currencies",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM uncertainty",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM API adapter",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Consensus Edge \u2014 mispricing / presentation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Consensus Edge \u2014 fair value",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Consensus Edge \u2014 scoring, classification, UI",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Consensus Edge vs Sharp Buy/Sell Tracker",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Consensus Edge \u2014 flag state",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Consensus Edge \u2014 revalidation workflow",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Consensus Edge \u2014 route surface",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Consensus Edge \u2014 snapshot store",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Blocked by data": 1
+  },
+  "worstStatus": "Blocked by data",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp cohort / Sharp Tracker / Sharp Roster Percentage",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Blocked by data": 1
+  },
+  "worstStatus": "Blocked by data",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp Score v2 qualification bar",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp Score v2 eligibility gates",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp cohort evidence assembly",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp cohort",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp Buy/Sell Tracker",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp route registration",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp cohort / qualification",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp cohort / performance",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp API bridge routes",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp cohort / FFPC configuration",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Sharp Score v2 documentation",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading / Sharp separation",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading ledger",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading UI",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading coverage honesty",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading member profile",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading waiver surface",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading drill-down",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading signal metrics",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading schema",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading refresh",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading data state",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Blocked by data": 1
+  },
+  "worstStatus": "Blocked by data",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading frontend plumbing",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Insider Trading docs",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "ROS playoff/championship Monte Carlo",
+  "findings": 1,
+  "byPriority": {
+   "P0": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [
+   {
+    "id": "W17-F001",
+    "title": "ROS playoff/championship sims run on the OLDEST loaded season (2024), not the newest \u2014 sorted(snapshot.seasons, key=luck._season_sort_key) passes objects to a function typed for strings, so every season sorts equal"
+   }
+  ],
+  "verified": 1
+ },
+ {
+  "subsystem": "ROS isolation invariant",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "ROS aggregate freshness",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "ROS aggregate identity",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Best-ball lineup optimizer",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Best-ball weekly scoring model",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Monte Carlo convergence reporting",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "ROS team-strength composite",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "ROS playoff bracket",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "ROS source registry",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "ROS data retention",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "League registry / rankings routing",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Sleeper overlay / contract meta",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Realized fantasy points / BDVM fundamentals",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Realized points endpoint",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "League comparison",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft board / roster gaps",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Mocked or hard-coded": 1
+  },
+  "worstStatus": "Mocked or hard-coded",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Scoring adjustment / baseline comparison",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "League config snapshot refresh",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "League configuration",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Exact scoring engine",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "League registry",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 records / history / streaks / luck",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Public league \u2014 history",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 activity / trade grading",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 awards",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 labelling",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 superlatives",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 navigation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Missing": 1
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 playoff odds",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 trade grading",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 records / awards / player journey",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 contract boundary",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 routing",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 archives",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 narratives / league media",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Blocked by data": 1
+  },
+  "worstStatus": "Blocked by data",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 routing / rendering",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 archives UI",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public league \u2014 records / streaks",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Roster intelligence / gameplan",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Terminal / team aggregates",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Team direction",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Team strength (/rosters)",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Roster intelligence / value rollups",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Roster intelligence / positional needs",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Roster intelligence / concentration",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Team direction / override",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Terminal / signals",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Blocked by data": 1
+  },
+  "worstStatus": "Blocked by data",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Roster intelligence / recommendations",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "News \u2192 value (injury impact)",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Terminal signals / news join",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "nfl_data realized points / ESPN per-player news",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "News providers",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "News \u2192 BDVM events / player attribution",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "BDVM event schema",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Usage / role signals",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Terminal signals UI",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Auth / login redirect",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rate limiting",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Authentication",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Authentication / configuration",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public API allowlist / observability",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public/private page boundary",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Authorization",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Public/private data boundary",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Cache correctness / privacy",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Scrape lifecycle / monitoring",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Scrape lifecycle",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Monitoring / staleness",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Monitoring UI",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Monitoring / status contract",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "CI / model registry alerting",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Data refresh pipeline",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Production monitoring / backup",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Deployment / Sharp ingestion",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Deployment / alerting",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Scripts / tooling",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "CI",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Admin / review",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Missing": 1
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Test suite integrity / roster intelligence",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Test suite integrity / CI gating",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Test suite integrity / E2E",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Test suite integrity / league routing",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Unverifiable": 1
+  },
+  "worstStatus": "Unverifiable",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Test suite integrity / consensus edge",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Feature flags / Consensus Edge",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rankings materializer / documentation",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft capital / documentation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Multi-league contract annotations",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Architecture decision records",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "API contract / documentation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Documentation / scraper",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Audit reconciliation",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Documentation corpus",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Deprecated but still active": 1
+  },
+  "worstStatus": "Deprecated but still active",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "API payload shaping / device profile",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Frontend data layer / app shell",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Draft board",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "BDVM engine / API adapter",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Caching",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Realized points / nfl_data ingest",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Caching / nfl_data ingest",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Draft capital / KTC ingest",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "HTTP caching",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Terminal / movers",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Trade calculator (display)",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Team strength UI",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rankings board / disclosure",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Accessibility",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Mobile layout",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Accessibility / keyboard navigation",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Mobile ergonomics",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Caching / multi-league",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Documentation accuracy",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Market-gap edge signal",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Angle / package builder",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but disconnected": 1
+  },
+  "worstStatus": "Implemented but disconnected",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Angle 1-for-1 pivot",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Market-gap edge signal / TE premium",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "ROS aggregate",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Position identity / roster construction",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Cross-market normalization",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "TE premium",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Documentation / trade finder",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "IDP valuation",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Schedule generator / optimizer",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Missing": 1
+  },
+  "worstStatus": "Missing",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade suggestions / value architecture",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "League-adjusted valuation lens",
+  "findings": 1,
+  "byPriority": {
+   "P1": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 1
+ },
+ {
+  "subsystem": "Exports / release artifacts",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade history grading",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "ROS context tags",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Rankings display / prior-audit reconciliation",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented and verified": 1
+  },
+  "worstStatus": "Implemented and verified",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "League-adjusted valuation / ROS coupling",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Partially implemented": 1
+  },
+  "worstStatus": "Partially implemented",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade calculator value selection",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Trade fairness",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Shared math",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Buy/Sell signals",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Adapters",
+  "findings": 1,
+  "byPriority": {
+   "P3": 1
+  },
+  "byStatus": {
+   "Scaffolded only": 1
+  },
+  "worstStatus": "Scaffolded only",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Team classification",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "TE correction",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Duplicate or conflicting implementation": 1
+  },
+  "worstStatus": "Duplicate or conflicting implementation",
+  "p0Titles": [],
+  "verified": 0
+ },
+ {
+  "subsystem": "Data refresh and deployment hygiene",
+  "findings": 1,
+  "byPriority": {
+   "P2": 1
+  },
+  "byStatus": {
+   "Implemented but defective": 1
+  },
+  "worstStatus": "Implemented but defective",
+  "p0Titles": [],
+  "verified": 0
+ }
+]

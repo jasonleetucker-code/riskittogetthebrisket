@@ -1,0 +1,5 @@
+players with sleeper id: 937
+movement asset keys: 400
+componentAvailability.sharpFlow: {"available": false, "rowsWithValue": 0, "rowsScored": 329, "weight": 0.3, "unavailableReason": "no_data"}
+sharpFlowStatus: ok
+rows receiving a sharpFlow component: 0 of 1092

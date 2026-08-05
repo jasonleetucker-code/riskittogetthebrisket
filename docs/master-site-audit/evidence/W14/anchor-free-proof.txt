@@ -1,0 +1,2 @@
+rows 1092 anchor votes surviving: {}
+served fairValue != freshly built LOO rankDerivedValue: 0 []

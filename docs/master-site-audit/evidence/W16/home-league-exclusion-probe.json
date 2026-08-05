@@ -1,0 +1,39 @@
+{
+  "ledgerPath": "/tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/intel_probe/ledger.sqlite3",
+  "snapshotPath": "/tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/intel_probe/snapshot_probe.json",
+  "boardAssets": [
+    "pAWAY",
+    "pHOME"
+  ],
+  "homeLeagueTradeOnBoard": true,
+  "awayLeagueTradeOnBoard": true,
+  "pHOME_window30d": {
+    "buys": 1,
+    "sells": 1,
+    "net": 0,
+    "volume": 2,
+    "buyRate": 0.5,
+    "uniqueBuyers": 1,
+    "uniqueSellers": 1,
+    "uniqueManagers": 2,
+    "uniqueLeagues": 1,
+    "tradeCount": 1,
+    "movementCount": 2
+  },
+  "payloadKeys": [
+    "assets",
+    "countedTxTypes",
+    "eventCount",
+    "generatedAt",
+    "leagueCount",
+    "leagueKey",
+    "memberCount",
+    "season",
+    "sort",
+    "staleHours",
+    "truncatedMemberCount",
+    "window",
+    "windows"
+  ],
+  "hasCoverageBlock": false
+}

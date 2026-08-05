@@ -1,0 +1,93 @@
+{
+ "budgetSweep": {
+  "100": {
+   "Josh Allen (board #1)": 32,
+   "Josh Jacobs (#109)": 32,
+   "Jaylen Warren (#176)": 32,
+   "J.K. Dobbins (#209)": 32,
+   "Marlin Klein (top FA, #325)": 32,
+   "AJ Dillon (unpriced)": 22
+  },
+  "50": {
+   "Josh Allen (board #1)": 32,
+   "Josh Jacobs (#109)": 32,
+   "Jaylen Warren (#176)": 32,
+   "J.K. Dobbins (#209)": 32,
+   "Marlin Klein (top FA, #325)": 32,
+   "AJ Dillon (unpriced)": 22
+  },
+  "20": {
+   "Josh Allen (board #1)": 20,
+   "Josh Jacobs (#109)": 20,
+   "Jaylen Warren (#176)": 20,
+   "J.K. Dobbins (#209)": 20,
+   "Marlin Klein (top FA, #325)": 20,
+   "AJ Dillon (unpriced)": 20
+  },
+  "5": {
+   "Josh Allen (board #1)": 5,
+   "Josh Jacobs (#109)": 5,
+   "Jaylen Warren (#176)": 5,
+   "J.K. Dobbins (#209)": 5,
+   "Marlin Klein (top FA, #325)": 5,
+   "AJ Dillon (unpriced)": 5
+  },
+  "1": {
+   "Josh Allen (board #1)": 1,
+   "Josh Jacobs (#109)": 1,
+   "Jaylen Warren (#176)": 1,
+   "J.K. Dobbins (#209)": 1,
+   "Marlin Klein (top FA, #325)": 1,
+   "AJ Dillon (unpriced)": 1
+  },
+  "0": {
+   "Josh Allen (board #1)": 0,
+   "Josh Jacobs (#109)": 0,
+   "Jaylen Warren (#176)": 0,
+   "J.K. Dobbins (#209)": 0,
+   "Marlin Klein (top FA, #325)": 0,
+   "AJ Dillon (unpriced)": 0
+  }
+ },
+ "dropSideSweep": {
+  "0": 32,
+  "500": 40,
+  "2000": 37,
+  "3858": 32,
+  "3859": 10,
+  "5000": 0
+ },
+ "trendingSweep": {
+  "0": 32,
+  "999": 32,
+  "1000": 33,
+  "5000": 34,
+  "10000": 34,
+  "100000": 34
+ },
+ "positionSweep": {
+  "QB": 19,
+  "RB": 22,
+  "WR": 10,
+  "TE": 5,
+  "DL": 2,
+  "LB": 3,
+  "DB": 3,
+  "K": 1
+ },
+ "contentionSweep": {
+  "10": 32,
+  "40": 40,
+  "60": 56,
+  "90": 56,
+  "200": 56
+ },
+ "noAnalytics": {
+  "Josh Allen (board #1)": 21,
+  "Josh Jacobs (#109)": 21,
+  "Jaylen Warren (#176)": 21,
+  "J.K. Dobbins (#209)": 21,
+  "Marlin Klein (top FA, #325)": 21,
+  "AJ Dillon (unpriced)": 0
+ }
+}

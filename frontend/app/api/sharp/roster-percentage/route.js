@@ -19,6 +19,7 @@ export async function GET(request) {
   const searchParams = Object.fromEntries(incoming.entries());
   try {
     const { data, status } = await proxyGet("/api/sharp/roster-percentage", {
+      cookie: request.headers.get("cookie") || "",
       timeoutMs: 20000,
       searchParams,
     });

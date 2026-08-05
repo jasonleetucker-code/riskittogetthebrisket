@@ -1,0 +1,28 @@
+{
+  "totalPlayers": 1092,
+  "bucketCounts": {
+    "medium": 227,
+    "none": 304,
+    "low": 448,
+    "high": 113
+  },
+  "medianValueByBucket": {
+    "medium": 2003,
+    "low": 1718.5,
+    "high": 4803,
+    "none": 1688.5
+  },
+  "medianPercentileSpreadByBucket": {
+    "medium": 0.1499,
+    "low": 0.3095,
+    "high": 0.0513,
+    "none": 0.0769
+  },
+  "dimensionsPresentOnRow": [
+    "_marketConfidence",
+    "confidenceBucket",
+    "confidenceLabel",
+    "identityConfidence"
+  ],
+  "note": "confidenceBucket is a single-signal derivation of sourceRankPercentileSpread + sourceCount"
+}

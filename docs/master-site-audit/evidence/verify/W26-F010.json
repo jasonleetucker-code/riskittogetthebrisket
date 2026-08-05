@@ -1,0 +1,74 @@
+{
+ "id": "W26-F010",
+ "workstream": "W26",
+ "promptSections": [
+  36
+ ],
+ "title": "The home page's Top Movers panel prints \"No qualifying movers in this window\" and a \"Rank deltas vs. 30d ago\" subtitle when the backend has told it there are ZERO days of history \u2014 an empty state that reads as a market fact",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "S",
+ "subsystem": "Terminal / movers",
+ "surface": {
+  "routes": [
+   "/api/movers"
+  ],
+  "pages": [
+   "/"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/components/terminal/MoversPanel.jsx",
+   "lines": "154-220"
+  },
+  {
+   "path": "frontend/components/terminal/MarketTicker.jsx",
+   "lines": "126"
+  },
+  {
+   "path": "server.py",
+   "lines": "3359-3390"
+  }
+ ],
+ "claimUnderTest": "server.py:3385-3386 documents the distinction explicitly: \"`window` is the span we ACTUALLY measured, not the span that was asked for \u2014 `windowRequested` echoes the request.\" The backend deliberately publishes `window`, `windowRequested` and `historyDepthDays` so a client can tell 'nothing moved' from 'nothing measured'. The frontend reads none of the three.",
+ "observed": "GET /api/movers returns {\"window\":0,\"windowRequested\":14,\"historyDepthDays\":0,\"threshold\":15,\"asOf\":null,\"risers\":[],\"fallers\":[]}. `historyDepthDays: 0` and `asOf: null` mean the platform holds a single rank snapshot, so no delta over any window is computable. MoversPanel.jsx:201 and :217 branch only on `risers.length === 0` / `fallers.length === 0` and render 'No qualifying movers in this window.' under headings 'Risers \u2014 sell-high candidates' and 'Fallers \u2014 buy-low candidates', with the panel subtitle asserting 'Rank deltas vs. 30d ago \u00b7 click a row for source breakdown'. A 30-day rank delta was never computed. MarketTicker.jsx:126 compounds it: 'Market quiet in my roster \u2014 fewer than 3 moves since last update.' Both sentences state a property of the MARKET; the true property is of our DATA. Captured verbatim from the rendered page.",
+ "reproduction": {
+  "command": "curl -s -b /tmp/audit-cookies.txt 'http://127.0.0.1:8000/api/movers' ; echo ; PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers .venv/bin/python docs/master-site-audit/evidence/W26/w26_probe.py /tmp/o.json && python3 -c \"import json;print([r['dom']['bodyText'] for r in json.load(open('/tmp/o.json')) if r['route']=='/' and r['viewport']=='desktop'][0][:1200])\"",
+  "expected": "the panel says it has no rank history, not that nobody moved",
+  "actual": "backend: historyDepthDays 0, window 0, asOf null.  page: 'RISERS \u2014 SELL-HIGH CANDIDATES / No qualifying movers in this window. / FALLERS \u2014 BUY-LOW CANDIDATES / No qualifying movers in this window.' under 'Rank deltas vs. 14d ago'",
+  "artifact": "docs/master-site-audit/evidence/W26/page-ux-probe.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "historyDepthDays": 0,
+   "window": 0,
+   "windowRequested": 14,
+   "asOf": null,
+   "risersLength": 0,
+   "fallersLength": 0,
+   "backendFieldsPublished": 3,
+   "backendFieldsRead": 0
+  },
+  "formula": "a rank delta over W days requires historyDepthDays >= W; here historyDepthDays = 0 so no window is computable, yet the UI asserts a 14/30-day comparison was made",
+  "expected": 14,
+  "actual": 0,
+  "tolerance": 0
+ },
+ "userImpact": "The user reads the most prominent movement widget on the landing page, sees both the sell-high and buy-low columns empty under a heading claiming a 30-day comparison, and concludes the dynasty market has been flat. The truth is that the platform holds one snapshot and cannot answer the question at all. The correct user action \u2014 go look at movement elsewhere, or find out why history is missing \u2014 is never prompted.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 1,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A05-F04",
+  "relation": "partial",
+  "note": "PRIOR-A05-F04 found the same class of error on the SIGNALS engine ('HOLD is returned for \"we have no history at all\" with the reason \"Stable \u2014 no movement\"'). This reproduces it on a different surface (MoversPanel + MarketTicker) with different code, so the class is systemic rather than local. Separately I REFUTE PRIOR-A05-F12 ('MoversPanel labels risers as buy-low and fallers as sell-high \u2014 both inverted') at HEAD e96c06ef: MoversPanel.jsx:196-199 now reads 'Risers \u2014 sell-high candidates' / 'Fallers \u2014 buy-low candidates', with an in-code note citing that finding. It is fixed."
+ },
+ "whatWorks": "The BACKEND is exemplary here and is not at fault: it separates measured window from requested window, publishes historyDepthDays and a null asOf, and its docstring explains why. Everything the frontend needs to tell the truth is already in the payload. MoversPanel's loading skeleton is also correctly sized to the settled shape (a documented fix for a ~500px layout jump).",
+ "rootCause": "MoversPanel treats an empty result array as the only state worth distinguishing, and hardcodes its subtitle from the user's window selection rather than from the response's `window`.",
+ "requiredRepair": "Branch on `historyDepthDays === 0 || asOf === null` first and render 'No rank history yet \u2014 we hold a single snapshot, so no movement can be measured', suppressing the subtitle's delta claim. When `window < windowRequested`, say so ('measured over N days, not 30'). Apply the same guard to MarketTicker.jsx:126. This is a display fix only \u2014 no backend change is needed."
+}

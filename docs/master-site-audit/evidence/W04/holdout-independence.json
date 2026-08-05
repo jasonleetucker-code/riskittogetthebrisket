@@ -1,0 +1,197 @@
+{
+  "siteConfigDictName": "_SOURCE_CSV_PATHS",
+  "registrySourceCount": 21,
+  "rankSignalKeys": [
+    "dlfIdp",
+    "dlfRookieIdp",
+    "dlfRookieSf",
+    "dlfSf",
+    "dynastyDaddySf",
+    "dynastyNerdsSfTep",
+    "fantasyCalc",
+    "fantasyNavigatorSf",
+    "fantasyProsFitzmaurice",
+    "fantasyProsIdp",
+    "fantasyProsSf",
+    "flockFantasySf",
+    "flockFantasySfRookies",
+    "idpShow",
+    "otcffbSf",
+    "pfkDynasty",
+    "yahooBoone"
+  ],
+  "valueBasedSources": [
+    "idpTradeCalc",
+    "ktcSfTep"
+  ],
+  "holdout": {
+    "FantasyCalc": {
+      "holdoutCsv": "CSVs/site_raw/fantasyCalc.csv",
+      "holdoutValueColumn": "value",
+      "siteConfigKeys": [
+        "fantasyCalc"
+      ],
+      "signal": {
+        "fantasyCalc": "rank"
+      },
+      "IS_LIVE_BLEND_SOURCE": {
+        "fantasyCalc": true
+      },
+      "registryEntry": {
+        "fantasyCalc": {
+          "key": "fantasyCalc",
+          "display_name": "FantasyCalc Dynasty SF",
+          "scope": "overall_offense",
+          "weight": 1.0,
+          "is_retail": false,
+          "is_backbone": false,
+          "depth": 450,
+          "correlation_group": null
+        }
+      }
+    },
+    "FantasyNavigator": {
+      "holdoutCsv": "CSVs/site_raw/fantasyNavigatorSf.csv",
+      "holdoutValueColumn": "value",
+      "siteConfigKeys": [
+        "fantasyNavigatorSf"
+      ],
+      "signal": {
+        "fantasyNavigatorSf": "rank"
+      },
+      "IS_LIVE_BLEND_SOURCE": {
+        "fantasyNavigatorSf": true
+      },
+      "registryEntry": {
+        "fantasyNavigatorSf": {
+          "key": "fantasyNavigatorSf",
+          "display_name": "Fantasy Navigator SF",
+          "scope": "overall_offense",
+          "weight": 1.0,
+          "is_retail": false,
+          "is_backbone": false,
+          "depth": 460,
+          "correlation_group": "ktc"
+        }
+      }
+    },
+    "OTCFFB": {
+      "holdoutCsv": "CSVs/site_raw/otcffbSf.csv",
+      "holdoutValueColumn": "value",
+      "siteConfigKeys": [
+        "otcffbSf"
+      ],
+      "signal": {
+        "otcffbSf": "rank"
+      },
+      "IS_LIVE_BLEND_SOURCE": {
+        "otcffbSf": true
+      },
+      "registryEntry": {
+        "otcffbSf": {
+          "key": "otcffbSf",
+          "display_name": "OTC Fantasy Football SF",
+          "scope": "overall_offense",
+          "weight": 1.0,
+          "is_retail": false,
+          "is_backbone": false,
+          "depth": 460,
+          "correlation_group": null
+        }
+      }
+    },
+    "PFKDynasty": {
+      "holdoutCsv": "CSVs/site_raw/pfkDynasty.csv",
+      "holdoutValueColumn": "value",
+      "siteConfigKeys": [
+        "pfkDynasty"
+      ],
+      "signal": {
+        "pfkDynasty": "rank"
+      },
+      "IS_LIVE_BLEND_SOURCE": {
+        "pfkDynasty": true
+      },
+      "registryEntry": {
+        "pfkDynasty": {
+          "key": "pfkDynasty",
+          "display_name": "Play for Keeps Dynasty",
+          "scope": "overall_offense",
+          "weight": 1.0,
+          "is_retail": false,
+          "is_backbone": false,
+          "depth": 460,
+          "correlation_group": null
+        }
+      }
+    }
+  },
+  "training": {
+    "DraftSharks": {
+      "trainCsv": "CSVs/site_raw/draftSharksSf.csv",
+      "siteConfigKeys": [
+        "draftSharks"
+      ],
+      "signal": {
+        "draftSharks": "value"
+      },
+      "IS_LIVE_BLEND_SOURCE": {
+        "draftSharks": true
+      }
+    },
+    "DynastyDaddy": {
+      "trainCsv": "CSVs/site_raw/dynastyDaddySf.csv",
+      "siteConfigKeys": [
+        "dynastyDaddySf"
+      ],
+      "signal": {
+        "dynastyDaddySf": "rank"
+      },
+      "IS_LIVE_BLEND_SOURCE": {
+        "dynastyDaddySf": true
+      }
+    },
+    "DynastyNerds": {
+      "trainCsv": "CSVs/site_raw/dynastyNerdsSfTep.csv",
+      "siteConfigKeys": [
+        "dynastyNerdsSfTep"
+      ],
+      "signal": {
+        "dynastyNerdsSfTep": "rank"
+      },
+      "IS_LIVE_BLEND_SOURCE": {
+        "dynastyNerdsSfTep": true
+      }
+    },
+    "Fitzmaurice": {
+      "trainCsv": "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+      "siteConfigKeys": [
+        "fantasyProsFitzmaurice"
+      ],
+      "signal": {
+        "fantasyProsFitzmaurice": "rank"
+      },
+      "IS_LIVE_BLEND_SOURCE": {
+        "fantasyProsFitzmaurice": true
+      }
+    },
+    "KTC": {
+      "trainCsv": "CSVs/site_raw/ktc.csv",
+      "siteConfigKeys": [],
+      "signal": {},
+      "IS_LIVE_BLEND_SOURCE": {}
+    },
+    "YahooBoone": {
+      "trainCsv": "CSVs/site_raw/yahooBoone.csv",
+      "siteConfigKeys": [
+        "yahooBoone"
+      ],
+      "signal": {
+        "yahooBoone": "rank"
+      },
+      "IS_LIVE_BLEND_SOURCE": {
+        "yahooBoone": true
+      }
+    }
+  }
+}

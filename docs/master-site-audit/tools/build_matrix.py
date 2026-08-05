@@ -1,0 +1,300 @@
+"""Audit-only: generate the status matrix and subsystem tables from findings.json.
+
+Deterministic, no model in the loop — so the published tables cannot drift from the
+registry they claim to summarise. Regenerate with:
+
+    .venv/bin/python docs/master-site-audit/tools/build_matrix.py
+
+Writes:
+    FEATURE_STATUS_MATRIX.md   one section per audit-brief requirement area
+    evidence/subsystem-rollup.json  input for the trust ratings write-up
+"""
+
+from __future__ import annotations
+
+import json
+from collections import Counter, defaultdict
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+SRC = ROOT / "docs/master-site-audit/findings.json"
+MATRIX = ROOT / "docs/master-site-audit/FEATURE_STATUS_MATRIX.md"
+ROLLUP = ROOT / "docs/master-site-audit/evidence/subsystem-rollup.json"
+
+# The audit brief's own section numbering, so every requirement it named has a home
+# and an omission is visible as an empty row rather than as silence.
+SECTIONS = {
+    3: "Repository and runtime inventory",
+    4: "Canonical league configuration",
+    5: "Exact scoring engine",
+    6: "Player identity and data provenance",
+    7: "Value architecture / single source of truth",
+    8: "Fundamental dynasty model (BDVM)",
+    9: "Market, consensus and normalization",
+    10: "Global valuation mode",
+    11: "Rankings, player cards and movement",
+    12: "Trade calculator",
+    13: "Roster intelligence",
+    14: "Trade finder and opportunity engine",
+    15: "Trade partner fit and acceptance",
+    16: "Central Buy/Sell Tracker",
+    17: "Consensus Edge",
+    18: "Sharp Tracker",
+    19: "Super Sharps",
+    20: "Insider Trading",
+    21: "Sharp roster percentage",
+    22: "Waiver wire and FAAB",
+    23: "Rest-of-season engine",
+    24: "Best-ball optimizer, power rankings and odds",
+    25: "Contender / rebuilder / team direction",
+    26: "Rookie picks",
+    27: "Perfect Draft rookie-auction optimizer",
+    28: "Schedule generator and optimizer",
+    29: "Public League page",
+    30: "Franchise pages",
+    31: "Awards, records, history, money, constitution, media",
+    32: "Team-to-NFL-franchise assignment",
+    33: "News, usage, role and text signals",
+    34: "IDP-specific systems",
+    35: "Performance, caching, API and database",
+    36: "User experience and design",
+    37: "Public/private data and security",
+    38: "Data refresh, jobs and monitoring",
+    39: "Historical snapshots and backtesting",
+    40: "Recommendation confidence and stability",
+    41: "Admin review and failure handling",
+    42: "Mathematical and formula audit",
+    43: "Testing audit",
+    44: "Dead code, duplication and documentation",
+    45: "Unlisted features",
+}
+
+# The 24 subsystems the audit brief demands a trust rating for, mapped to the brief
+# sections whose findings bear on them. Named here rather than derived from the
+# free-form `subsystem` field, which 31 workstreams filled in 355 different ways.
+TRUST_SUBSYSTEMS = {
+    "Scoring": [5],
+    "Player identity": [6],
+    "Market data": [9],
+    "Consensus": [7, 9],
+    "Fundamental values": [8],
+    "League-adjusted values": [10],
+    "Rankings": [11],
+    "Trade Calculator": [12],
+    "Roster Analyzer": [13],
+    "Trade Finder": [14, 15],
+    "Buy/Sell Tracker": [16],
+    "Consensus Edge": [17],
+    "Sharp Tracker": [18, 19, 21],
+    "Insider Trading": [20],
+    "FAAB": [22],
+    "ROS": [23],
+    "Playoff and championship odds": [24],
+    "Rookie picks": [26],
+    "Perfect Draft": [27],
+    "Schedule": [28],
+    "Public League Page": [29, 30],
+    "Historical records": [31, 39],
+    "Performance": [35],
+    "Security": [37],
+}
+
+PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+# Worst-first, so a subsystem's headline status is its weakest link rather than its best.
+STATUS_SEVERITY = [
+    "Missing",
+    "Mocked or hard-coded",
+    "Scaffolded only",
+    "Implemented but disconnected",
+    "Duplicate or conflicting implementation",
+    "Implemented but defective",
+    "Deprecated but still active",
+    "Partially implemented",
+    "Blocked by data",
+    "Blocked by credentials or licensing",
+    "Unverifiable",
+    "Reference-only",
+    "Implemented and verified",
+]
+
+
+def esc(s: object, limit: int = 200) -> str:
+    text = str(s or "").replace("|", "\\|").replace("\n", " ").strip()
+    return text[:limit]
+
+
+def main() -> None:
+    data = json.loads(SRC.read_text())
+    findings = [f for f in data["findings"] if f.get("published", True)]
+    refuted = [f for f in data["findings"] if not f.get("published", True)]
+
+    by_section: dict[int, list] = defaultdict(list)
+    unsectioned = []
+    for f in findings:
+        secs = f.get("promptSections") or []
+        if not secs:
+            unsectioned.append(f)
+        for s in secs:
+            try:
+                by_section[int(s)].append(f)
+            except (TypeError, ValueError):
+                unsectioned.append(f)
+
+    lines = [
+        "# Master Feature Status Matrix",
+        "",
+        "Generated by `tools/build_matrix.py` from `findings.json` — do not hand-edit;",
+        "regenerate instead, so this table can never drift from the registry it summarises.",
+        "",
+        f"- Findings published: **{len(findings)}**",
+        f"- Refuted under verification and withdrawn: **{len(refuted)}**",
+        f"- Commit: `{data.get('commit')}` · generated {data.get('generatedAt')}",
+        "",
+        "Priority shown is the **verified** priority where a verifier corrected the author;",
+        "`authored` records what the workstream originally claimed. `V` is the verification",
+        "verdict: `u` upheld, `r` rescoped, `x` overturned, blank = not individually verified.",
+        "",
+        "## Coverage of the audit brief",
+        "",
+        "| § | Requirement area | Findings | P0 | P1 | Worst status observed |",
+        "|---|---|---|---|---|---|",
+    ]
+    for num, name in SECTIONS.items():
+        fs = by_section.get(num, [])
+        p0 = sum(1 for f in fs if f.get("priority") == "P0")
+        p1 = sum(1 for f in fs if f.get("priority") == "P1")
+        worst = "— no findings —"
+        for st in STATUS_SEVERITY:
+            if any(f.get("status") == st for f in fs):
+                worst = st
+                break
+        lines.append(f"| {num} | {name} | {len(fs)} | {p0} | {p1} | {worst} |")
+
+    lines += ["", "---", ""]
+
+    for num, name in SECTIONS.items():
+        fs = by_section.get(num, [])
+        lines += [f"## § {num} — {name}", ""]
+        if not fs:
+            lines += [
+                "No findings recorded against this section. That is a coverage statement,",
+                "not a clean bill of health — see EXECUTIVE_SUMMARY.md for what was examined.",
+                "",
+            ]
+            continue
+        fs = sorted(fs, key=lambda f: (PRIORITY_ORDER.get(f.get("priority"), 9), f.get("id", "")))
+        lines += [
+            "| ID | V | Pri | Status | Size | Finding | Location | Repro |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+        for f in fs:
+            v = (f.get("verification") or {}).get("verdict") or ""
+            vmark = {"upheld": "u", "rescoped": "r", "overturned": "x", "unverifiable": "?"}.get(
+                v, ""
+            )
+            ref = (f.get("codeRefs") or [{}])[0]
+            loc = f"{ref.get('path','')}:{ref.get('lines','')}".strip(":")
+            pri = f.get("priority", "")
+            if f.get("authoredPriority") and f["authoredPriority"] != pri:
+                pri = f"{pri} _(was {f['authoredPriority']})_"
+            repro = "yes" if (f.get("reproduction") or {}).get("command") else "—"
+            lines.append(
+                f"| {f.get('id','')} | {vmark} | {pri} | {esc(f.get('status'),40)} | "
+                f"{f.get('size','')} | {esc(f.get('title'), 180)} | `{esc(loc, 70)}` | {repro} |"
+            )
+        lines.append("")
+
+    if unsectioned:
+        lines += [
+            "## Findings with no brief section mapped",
+            "",
+            f"{len(unsectioned)} findings carried no `promptSections`. Listed so they are not lost.",
+            "",
+            "| ID | Pri | Status | Finding |",
+            "|---|---|---|---|",
+        ]
+        for f in sorted(unsectioned, key=lambda f: f.get("id", "")):
+            lines.append(
+                f"| {f.get('id','')} | {f.get('priority','')} | {esc(f.get('status'),40)} | "
+                f"{esc(f.get('title'),180)} |"
+            )
+        lines.append("")
+
+    MATRIX.write_text("\n".join(lines))
+
+    # Subsystem rollup — the input the trust-ratings write-up reasons from.
+    rollup: dict[str, dict] = {}
+    for f in findings:
+        sub = f.get("subsystem") or f.get("workstream") or "unknown"
+        r = rollup.setdefault(
+            sub,
+            {
+                "subsystem": sub,
+                "findings": 0,
+                "byPriority": Counter(),
+                "byStatus": Counter(),
+                "worstStatus": None,
+                "p0Titles": [],
+                "verified": 0,
+            },
+        )
+        r["findings"] += 1
+        r["byPriority"][f.get("priority")] += 1
+        r["byStatus"][f.get("status")] += 1
+        if f.get("verification"):
+            r["verified"] += 1
+        if f.get("priority") == "P0":
+            r["p0Titles"].append({"id": f.get("id"), "title": f.get("title")})
+    for r in rollup.values():
+        for st in STATUS_SEVERITY:
+            if r["byStatus"].get(st):
+                r["worstStatus"] = st
+                break
+        r["byPriority"] = dict(r["byPriority"])
+        r["byStatus"] = dict(r["byStatus"])
+    ROLLUP.write_text(json.dumps(sorted(rollup.values(), key=lambda r: -r["findings"]), indent=1))
+
+    # Trust rollup over the brief's 24 named subsystems. The rating itself is a
+    # judgement written up in TRUST_RATINGS.md; this supplies the evidence it must
+    # be consistent with, so a rating cannot quietly disagree with the findings.
+    trust = []
+    for name, secs in TRUST_SUBSYSTEMS.items():
+        fs = [f for f in findings if set(map(int, f.get("promptSections") or [])) & set(secs)]
+        pri = Counter(f.get("priority") for f in fs)
+        sts = Counter(f.get("status") for f in fs)
+        worst = next((s for s in STATUS_SEVERITY if sts.get(s)), None)
+        trust.append(
+            {
+                "subsystem": name,
+                "briefSections": secs,
+                "findings": len(fs),
+                "p0": pri.get("P0", 0),
+                "p1": pri.get("P1", 0),
+                "p2": pri.get("P2", 0),
+                "p3": pri.get("P3", 0),
+                "worstStatus": worst,
+                "verified": sum(1 for f in fs if f.get("verification")),
+                "statusCounts": dict(sts),
+                "p0Findings": [
+                    {
+                        "id": f.get("id"),
+                        "title": f.get("title"),
+                        "verdict": (f.get("verification") or {}).get("verdict"),
+                    }
+                    for f in fs
+                    if f.get("priority") == "P0"
+                ],
+            }
+        )
+    (ROLLUP.parent / "trust-rollup.json").write_text(json.dumps(trust, indent=1))
+
+    print(f"wrote {MATRIX} ({len(findings)} published findings across {len(by_section)} sections)")
+    print(f"wrote {ROLLUP} ({len(rollup)} subsystems)")
+    print(f"wrote {ROLLUP.parent / 'trust-rollup.json'} ({len(trust)} named subsystems)")
+    empty = [n for n in SECTIONS if not by_section.get(n)]
+    if empty:
+        print(f"sections with no findings: {empty}")
+
+
+if __name__ == "__main__":
+    main()

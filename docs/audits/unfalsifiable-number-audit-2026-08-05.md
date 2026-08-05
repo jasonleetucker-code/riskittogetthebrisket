@@ -15,8 +15,22 @@ their positions; a curated entry is required for each and `rebuild()` raises if 
 missing. There is no mechanism to record a finding the frozen registry does not contain,
 and `remediation-protocol.md` is explicit that the registry is "never regenerated".
 
-So these are written down here instead. Everything below was checked against the 08-04
-registry first: **four of nine sweep findings were already recorded there** (the
+So they have their own registry, probed the same way:
+
+| artifact | role |
+|---|---|
+| `unfalsifiable-number-audit-2026-08-05.registry.json` | the findings as data — **the status authority** |
+| `unfalsifiable-number-audit-2026-08-05.status.json` | GENERATED; do not edit |
+| `scripts/unfalsifiable_status.py` | `--rebuild` / check, reusing `audit_status`'s `_probe` rather than forking it |
+| `tests/audit/test_unfalsifiable_status.py` | CI enforcement |
+
+Each finding carries a **defect signature** — a fragment of source present exactly while
+its mechanism is present — and each was verified to *vanish* under a simulated fix. That
+last step matters: U02's first signature was written from memory, did not match the
+source, and the checker reported "no drift" on a finding it was tracking not at all. The
+guard now asserts that an open finding's signature is locatable.
+
+Everything below was checked against the 08-04 registry first: **four of nine sweep findings were already recorded there** (the
 `model_registry.py validate` cross-snapshot comparison, the BDVM one-way sigma lane, the
 Perfect Draft scarcity multiplier, and the finder's confidence baseline — all High, none
 yet in a batch). Those are **not** repeated here. What follows is only what the registry

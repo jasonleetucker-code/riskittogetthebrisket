@@ -1,0 +1,65 @@
+{
+ "item": {
+  "id": "cbs-0e03f499b141",
+  "ts": "2026-08-04T12:46:54+00:00",
+  "provider": "cbs",
+  "providerLabel": "CBS Sports",
+  "severity": "alert",
+  "kind": "injury",
+  "headline": "Which teams won the MLB trade deadline; Bijan Robinson becomes NFL's highest-paid RB",
+  "body": "Plus, the Bears got unfortunate injury news in training camp",
+  "players": [
+   {
+    "name": "Bijan Robinson",
+    "impact": "negative",
+    "position": "RB",
+    "team": "ATL",
+    "ambiguous": false
+   }
+  ],
+  "url": "https://www.cbssports.com/mlb/news/mlb-trade-deadline-bijan-robinson-falcons-nfl-highest-paid-rb/",
+  "publishedAt": "2026-08-04T12:46:54+00:00",
+  "summary": "Plus, the Bears got unfortunate injury news in training camp",
+  "impactedPlayers": [
+   "Bijan Robinson"
+  ],
+  "tags": [
+   "injury"
+  ],
+  "confidence": null,
+  "relevance": null
+ },
+ "liveRow": {
+  "displayName": "Bijan Robinson",
+  "position": "RB",
+  "age": 24,
+  "rankDerivedValue": 9706,
+  "rookie": false
+ },
+ "inSeason": {
+  "appliedDiscountPct": 3.84,
+  "basePct": 4.0,
+  "positionMultiplier": 1.2,
+  "ageMultiplier": 0.8,
+  "decayFactor": 1.0,
+  "severity": "alert",
+  "headline": "Which teams won the MLB trade deadline; Bijan Robinson becomes NFL's highest-paid RB",
+  "newsTs": "2026-11-01T12:00:00+00:00",
+  "adjustedPct": 96.16,
+  "offseasonSuppressed": false,
+  "adjustedValue": 9333
+ },
+ "today": {
+  "appliedDiscountPct": 0.0,
+  "basePct": 0.0,
+  "positionMultiplier": 0.0,
+  "ageMultiplier": 0.0,
+  "decayFactor": 0.0,
+  "severity": "alert",
+  "headline": "Which teams won the MLB trade deadline; Bijan Robinson becomes NFL's highest-paid RB",
+  "newsTs": "2026-08-04T12:46:54+00:00",
+  "adjustedPct": 100.0,
+  "offseasonSuppressed": true,
+  "adjustedValue": 9706
+ }
+}

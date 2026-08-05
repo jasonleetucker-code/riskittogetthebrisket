@@ -1,0 +1,6 @@
+base                 Collin=Win-now    changed: (none)
+Collin ages -4y      Collin=Win-now    changed: (none)
+Collin ages +4y      Collin=Contender  changed: Collin:Win-now->Contender
+Collin value +50%    Collin=Win-now    changed: (none)
+Collin value -50%    Collin=Rebuild    changed: Collin:Win-now->Rebuild, Ed:Mixed->Contender
+Collin value x10     Collin=Win-now    changed: (none)

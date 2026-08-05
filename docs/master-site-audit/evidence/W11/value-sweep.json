@@ -1,0 +1,470 @@
+[
+ {
+  "name": "Josh Allen",
+  "pos": "QB",
+  "value": 9988,
+  "rank": 1,
+  "standard": 29,
+  "conservative": 20,
+  "aggressive": 41,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "+$8",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 9988.0
+ },
+ {
+  "name": "Ashton Jeanty",
+  "pos": "RB",
+  "value": 8039,
+  "rank": 16,
+  "standard": 32,
+  "conservative": 22,
+  "aggressive": 45,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "+$11",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 8039.0
+ },
+ {
+  "name": "Jordan Love",
+  "pos": "QB",
+  "value": 6038,
+  "rank": 41,
+  "standard": 29,
+  "conservative": 20,
+  "aggressive": 41,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "+$8",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 6038.0
+ },
+ {
+  "name": "Makai Lemon",
+  "pos": "WR",
+  "value": 4987,
+  "rank": 67,
+  "standard": 21,
+  "conservative": 15,
+  "aggressive": 29,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "$0",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 4987.0
+ },
+ {
+  "name": "KC Concepcion",
+  "pos": "WR",
+  "value": 4001,
+  "rank": 104,
+  "standard": 21,
+  "conservative": 15,
+  "aggressive": 29,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "$0",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 4001.0
+ },
+ {
+  "name": "Josh Jacobs",
+  "pos": "RB",
+  "value": 3859,
+  "rank": 109,
+  "standard": 32,
+  "conservative": 22,
+  "aggressive": 45,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "+$11",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 3859.0
+ },
+ {
+  "name": "Jaylen Warren",
+  "pos": "RB",
+  "value": 2937,
+  "rank": 176,
+  "standard": 32,
+  "conservative": 22,
+  "aggressive": 45,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "+$11",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 2937.0
+ },
+ {
+  "name": "J.K. Dobbins",
+  "pos": "RB",
+  "value": 2660,
+  "rank": 209,
+  "standard": 32,
+  "conservative": 22,
+  "aggressive": 45,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "+$11",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 2660.0
+ },
+ {
+  "name": "Jalen Nailor",
+  "pos": "WR",
+  "value": 2001,
+  "rank": 303,
+  "standard": 22,
+  "conservative": 15,
+  "aggressive": 31,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21",
+    false
+   ],
+   [
+    "Trending bump",
+    "\u00d71.15",
+    false
+   ],
+   [
+    "League historical calibration",
+    "$-2",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 2001.0
+ },
+ {
+  "name": "Marlin Klein",
+  "pos": "TE",
+  "value": 1908,
+  "rank": 325,
+  "standard": 15,
+  "conservative": 10,
+  "aggressive": 21,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $21",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "$-6",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 1908.0
+ },
+ {
+  "name": "Chamarri Conner",
+  "pos": "DB",
+  "value": 1502,
+  "rank": 456,
+  "standard": 11,
+  "conservative": 8,
+  "aggressive": 15,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $17",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "$-6",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 1502.0
+ },
+ {
+  "name": "Taron Johnson",
+  "pos": "DB",
+  "value": 1002,
+  "rank": 690,
+  "standard": 9,
+  "conservative": 6,
+  "aggressive": 13,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $13",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "$-4",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 1002.0
+ },
+ {
+  "name": "Malachi Moore",
+  "pos": "DB",
+  "value": 757,
+  "rank": 740,
+  "standard": 8,
+  "conservative": 6,
+  "aggressive": 11,
+  "max": 100,
+  "confidence": "medium",
+  "warnings": [],
+  "factors": [
+   [
+    "Player value baseline",
+    "start at $10",
+    false
+   ],
+   [
+    "Trending bump",
+    "none \u2014 below the lowest breakpoint",
+    false
+   ],
+   [
+    "League historical calibration",
+    "$-2",
+    false
+   ],
+   [
+    "Rival contention",
+    "missing",
+    true
+   ]
+  ],
+  "contention": true,
+  "resolvedAddValue": 757.0
+ }
+]

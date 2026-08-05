@@ -1,0 +1,29 @@
+{
+ "/rankings": [
+  "401 /api/bdvm/values",
+  "404 /api/health",
+  "404 /api/leagues",
+  "404 /api/terminal?windowDays=30",
+  "404 /api/user/state"
+ ],
+ "/": [
+  "404 /api/data/rank-history?days=30",
+  "404 /api/health",
+  "404 /api/leagues",
+  "404 /api/movers?window=14&threshold=15&limit=8",
+  "404 /api/terminal?windowDays=30",
+  "404 /api/user/state"
+ ],
+ "/trade": [
+  "404 /api/health",
+  "404 /api/leagues",
+  "404 /api/ros/player-values?limit=2000",
+  "404 /api/terminal?windowDays=30",
+  "404 /api/user/state"
+ ],
+ "/league": [
+  "404 /api/health",
+  "404 /api/leagues",
+  "404 /api/user/state"
+ ]
+}
