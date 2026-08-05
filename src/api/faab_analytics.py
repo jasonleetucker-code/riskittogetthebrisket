@@ -373,9 +373,45 @@ def summarize_league_faab(
     # expressed in today's dollars" rather than a literal historical price.
     budgets_by_season = {str(s.season): _budget_for_season(s) for s in (snapshot.seasons or [])}
 
+    # Whether the normalisation above actually did anything, stated rather
+    # than left to be inferred.
+    #
+    # Sleeper's persisted ``settings`` does not always carry
+    # ``waiver_budget`` — the committed dev snapshot's has two keys and
+    # none of them is it.  When no season records a budget every bid
+    # normalises by 1.0, which is the correct degradation but is
+    # INDISTINGUISHABLE from the fix working, because both leave the
+    # numbers unchanged.  That is the same "cannot verify reads as
+    # verified" failure this module was repaired for, one level up.
+    #
+    # So the payload says which it is.  A production call answers "is the
+    # budget fix live on this host?" without shell access, and a UI
+    # rendering these dollars can decline to call them normalised when
+    # they are not.
+    seasons_with_budget = sum(1 for v in budgets_by_season.values() if v)
+    mixed_regimes = len({v for v in budgets_by_season.values() if v}) > 1
+
     return {
         "leagueBudget": league_budget,
         "budgetsBySeason": budgets_by_season,
+        "budgetNormalization": {
+            # True only when there is something to normalise AND the
+            # divisors are known: more than one distinct budget on record.
+            "applied": bool(mixed_regimes),
+            "seasonsWithRecordedBudget": seasons_with_budget,
+            "seasonsTotal": len(budgets_by_season),
+            "reason": (
+                "multiple budget regimes normalised to the current budget"
+                if mixed_regimes
+                else (
+                    "no season records a waiver_budget, so every bid passed "
+                    "through unscaled — these are raw dollars, not normalised"
+                    if seasons_with_budget == 0
+                    else "every season on record ran the same budget; a no-op "
+                    "by arithmetic, not by omission"
+                )
+            ),
+        },
         "leagueAvgWinningBid": (round(statistics.fmean(all_bids), 2) if all_bids else 0.0),
         "leagueMedianWinningBid": (
             round(float(statistics.median(all_bids)), 2) if all_bids else 0.0

@@ -539,3 +539,43 @@ def test_raw_history_keeps_the_dollar_that_was_actually_spent():
     assert rows[0]["bid"] == 200
     assert rows[0]["seasonBudget"] == 1000
     assert rows[0]["bidPct"] == 0.2
+
+
+def test_the_payload_says_whether_normalisation_actually_applied():
+    """ "No-op because we agreed" and "no-op because we don't know" differ.
+
+    When no season records a `waiver_budget` every bid normalises by 1.0.
+    That is the correct degradation, but the numbers it produces are
+    identical to the ones a working normalisation produces on a
+    single-budget league — so the payload has to say which case it is, or
+    "cannot verify" reads as "verified" on the host where it matters.
+    """
+    unknown = faab_analytics.summarize_league_faab(
+        _snap([_season("2026", settings={"playoff_week_start": 15})])
+    )["budgetNormalization"]
+    assert unknown["applied"] is False
+    assert unknown["seasonsWithRecordedBudget"] == 0
+    assert "raw dollars" in unknown["reason"]
+
+    same = faab_analytics.summarize_league_faab(
+        _snap(
+            [
+                _season("2026", settings={"waiver_budget": 100}),
+                _season("2025", settings={"waiver_budget": 100}),
+            ]
+        )
+    )["budgetNormalization"]
+    assert same["applied"] is False  # nothing to rescale
+    assert same["seasonsWithRecordedBudget"] == 2
+    assert "by arithmetic, not by omission" in same["reason"]
+
+    mixed = faab_analytics.summarize_league_faab(
+        _snap(
+            [
+                _season("2026", settings={"waiver_budget": 100}),
+                _season("2024", settings={"waiver_budget": 1000}),
+            ]
+        )
+    )["budgetNormalization"]
+    assert mixed["applied"] is True
+    assert mixed["seasonsWithRecordedBudget"] == 2
