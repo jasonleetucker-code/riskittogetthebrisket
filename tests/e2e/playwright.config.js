@@ -109,7 +109,26 @@ module.exports = defineConfig({
   // silently skip.  See global-setup.js for why the obvious signals
   // (/api/health 503, /api/data 401) are misleading here.
   globalSetup: require.resolve("./global-setup.js"),
-  timeout: 90_000,
+  // 150s, raised from 90s on 2026-08-05.  This is a BUDGET fix, not a
+  // "make the flake go away" bump, and the arithmetic is the reason:
+  //
+  //   helpers/journey.js::gotoRankingsBoard waits 60s for the first board
+  //   row, then polls up to 30s for the row count.  60 + 30 = 90 — exactly
+  //   the old per-test timeout.  Twelve tests across three specs call it,
+  //   and every one of them had ZERO budget left for its own assertions if
+  //   the board happened to be slow.  The test then died at whatever
+  //   assertion it had reached, so the same root cause surfaced as a
+  //   different "flaky" test each run: 31025224262 reported :81/:109/:134
+  //   on one attempt and :109/:152 on the next.
+  //
+  // The board is SLOW under CI contention, not broken — every retried
+  // attempt passed, and journey-rankings runs 36/36 green locally with
+  // --retries=0 against the same production build.  So the right move is
+  // headroom, leaving 60s for the test body after the helper's worst case.
+  // If the board is ever genuinely dead, the helper still fails first,
+  // with its own message ("rankings board should render rows") instead of
+  // an unrelated timeout further down.
+  timeout: 150_000,
   expect: {
     timeout: 15_000,
   },
