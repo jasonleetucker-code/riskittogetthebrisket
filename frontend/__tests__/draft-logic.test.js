@@ -1288,15 +1288,32 @@ describe("mergeDraftCapitalTeams — with picks array", () => {
     ...Array(3).fill({ currentOwner: "jstuedle" }),
   ];
 
-  it("sets initialSlots from the picks array when supplied, capped at DEFAULT_INITIAL_SLOTS", () => {
+  // This assertion used to read "capped at DEFAULT_INITIAL_SLOTS" and
+  // expected 8 picks to produce 6 slots — it pinned the defect as the
+  // contract. DEFAULT_INITIAL_SLOTS is a pre-fetch default, not a ceiling;
+  // the feed is authoritative, exactly as the comment above buildTeam says.
+  // On the live board a team owning 31 of 72 picks rendered "0/6 slots"
+  // with a 5.2x-wrong $/slot. Audit finding W10-F002 (P0, upheld).
+  it("takes initialSlots from the picks array verbatim, uncapped", () => {
     const ws = createDefaultWorkspace();
     const { workspace } = mergeDraftCapitalTeams(ws, teamTotals, { picks });
     const russini = workspace.teams.find((t) => t.name === "Russini Panini");
     const jstu = workspace.teams.find((t) => t.name === "jstuedle");
     const pop = workspace.teams.find((t) => t.name === "Pop Trunk");
-    expect(russini.initialSlots).toBe(DEFAULT_INITIAL_SLOTS);
+    expect(russini.initialSlots).toBe(8);
+    expect(russini.initialSlots).toBeGreaterThan(DEFAULT_INITIAL_SLOTS);
     expect(jstu.initialSlots).toBe(3);
     expect(pop.initialSlots).toBe(0);
+  });
+
+  it("does not cap a real-world 31-pick holder", () => {
+    // The live shape: one team accumulating most of the league's picks.
+    // Capping here is what declared the draft over after six selections.
+    const ws = createDefaultWorkspace();
+    const many = Array(31).fill({ currentOwner: "Russini Panini" });
+    const { workspace } = mergeDraftCapitalTeams(ws, teamTotals, { picks: many });
+    const russini = workspace.teams.find((t) => t.name === "Russini Panini");
+    expect(russini.initialSlots).toBe(31);
   });
 
   it("without picks array, initialSlots falls back to DEFAULT_INITIAL_SLOTS", () => {

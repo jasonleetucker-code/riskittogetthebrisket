@@ -1418,6 +1418,14 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   // picks array is present, the slot count is authoritative.  When
   // it's not (no picks opts passed), we keep whatever ``initialSlots``
   // the existing team carried, falling back to the default.
+  //
+  // ``DEFAULT_INITIAL_SLOTS`` is a PRE-FETCH DEFAULT, not a ceiling.  Both
+  // branches used to clamp with ``Math.min(..., DEFAULT_INITIAL_SLOTS)``,
+  // which contradicted the "authoritative" sentence directly above and
+  // capped every team at 6.  A team owning 31 of the 72 live picks
+  // therefore rendered as "0/6 slots" with a 5.2x-wrong $/slot, and after
+  // six picks the app declared the draft over for them — while the feed
+  // had said 31 all along.  Audit finding W10-F002.
   const buildTeam = (nameOut, feedBudget, prior) => {
     const slotKey = String(nameOut || "").toLowerCase();
     const feedSlots = slotsByKey.get(slotKey);
@@ -1426,9 +1434,9 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
       : DEFAULT_INITIAL_SLOTS;
     const initialSlots = picksArray
       ? Number.isFinite(feedSlots)
-        ? Math.min(feedSlots, DEFAULT_INITIAL_SLOTS)
+        ? Math.max(0, feedSlots)
         : 0
-      : Math.min(priorSlots, DEFAULT_INITIAL_SLOTS);
+      : priorSlots;
     // In sync mode, preserve the user's typed initialBudget when it
     // diverges from the last-seen feed value.  In force mode (or when
     // no prior feedBudget exists), snap initialBudget to the new feed
