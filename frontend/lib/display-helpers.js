@@ -5,7 +5,7 @@
 // Tests: frontend/__tests__/display-helpers.test.js
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { MARKET_GAP_MIN_DIFF } from "./thresholds.js";
+import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
 import { getRetailSourceKeys, getRetailLabel } from "./dynasty-data.js";
 
 /**
@@ -101,6 +101,56 @@ export function isEligibleForAnalysis(row) {
  * The legacy `marketGapLabel` behavior (returning a raw string or null)
  * is preserved in `marketGapLabelLegacy` for back-compat with tests.
  */
+// ── the market gap is measured in VALUE space, not rank space ──────────
+//
+// `sourceRankMeta[key].valueContribution` is what the blend itself
+// compares sources in: post-ladder, common-scaled 0-9999, and — the load
+// bearing part — the stage AFTER ADR-015's `convert_te_value` has been
+// applied.  Averaging raw ordinals instead measured pool depth and format
+// basis, which is why every top-250 SELL label on the board was a tight
+// end while QB inverted to mostly BUY.
+//
+// This computes no rank and no value; it averages two subsets of a
+// backend stamp, exactly as TradeFairnessExplanation and
+// SourceContributionBars already do.  `buildRows` is untouched.
+//
+// Returns null when the payload carries no `sourceRankMeta` at all, so a
+// legacy contract DEGRADES to "can't tell" instead of being scored on a
+// field that isn't there.
+function sideValues(row, keys, isRetailKey) {
+  const meta = row?.sourceRankMeta;
+  if (!meta || typeof meta !== "object" || Object.keys(meta).length === 0)
+    return null;
+  const retail = [];
+  const consensus = [];
+  for (const key of keys) {
+    const v = Number((meta[key] || {}).valueContribution);
+    if (!Number.isFinite(v)) continue;
+    (isRetailKey(key) ? retail : consensus).push(v);
+  }
+  return { retail, consensus };
+}
+
+/**
+ * The signed relative gap between the two sides, in value space.
+ *
+ * Positive = the retail anchor values the player ABOVE expert consensus
+ * (the market is high on him → SELL).  Note this inverts the sense of the
+ * old rank comparison, where a LOWER mean rank meant "priced higher".
+ */
+function relativeValueGap(retailValues, consensusValues) {
+  const mean = (xs) => xs.reduce((s, v) => s + v, 0) / xs.length;
+  const r = mean(retailValues);
+  const c = mean(consensusValues);
+  const scale = (r + c) / 2;
+  if (!(scale > 0)) return null;
+  return { ratio: (r - c) / scale, retailMean: r, consensusMean: c };
+}
+
+function pctText(ratio) {
+  return `${Math.round(Math.abs(ratio) * 100)}%`;
+}
+
 export function marketEdge(row) {
   const retailLabel = getRetailLabel();
   // Prefer ``effectiveSourceRanks`` (post-Hampel filter on the
@@ -108,7 +158,8 @@ export function marketEdge(row) {
   // lockstep with backend marketGapDirection / confidence /
   // anomalyFlags.  Fall back to ``sourceRanks`` for legacy payloads.
   const ranks =
-    row?.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
+    row?.effectiveSourceRanks &&
+    Object.keys(row.effectiveSourceRanks).length > 0
       ? row.effectiveSourceRanks
       : row?.sourceRanks;
   if (!ranks || Object.keys(ranks).length === 0) {
@@ -156,32 +207,45 @@ export function marketEdge(row) {
     };
   }
 
-  const retailMean = retailRanks.reduce((s, v) => s + v, 0) / retailRanks.length;
-  const consensusMean =
-    consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length;
-  const diff = Math.round(Math.abs(consensusMean - retailMean));
+  const sides = sideValues(row, Object.keys(ranks), (k) => retailKeys.has(k));
+  const gap =
+    sides && sides.retail.length && sides.consensus.length
+      ? relativeValueGap(sides.retail, sides.consensus)
+      : null;
+  if (!gap) {
+    // No per-source value stamps (legacy payload). Say so rather than
+    // falling back to the rank arithmetic this replaced.
+    return {
+      label: "unpriced",
+      css: "edge-none",
+      kind: "unranked",
+      title:
+        "This payload carries no per-source value contributions, so the market gap cannot be measured.",
+    };
+  }
 
-  if (diff < MARKET_GAP_MIN_DIFF) {
+  const pct = pctText(gap.ratio);
+  if (Math.abs(gap.ratio) < MARKET_GAP_MIN_VALUE_RATIO) {
     return {
       label: "aligned",
       css: "edge-aligned",
       kind: "aligned",
-      title: `${retailLabel} and expert consensus agree within ${MARKET_GAP_MIN_DIFF} ranks (actual difference: ${diff}).`,
+      title: `${retailLabel} and expert consensus value this player within ${Math.round(MARKET_GAP_MIN_VALUE_RATIO * 100)}% of each other (actual difference: ${pct}).`,
     };
   }
-  if (retailMean < consensusMean) {
+  if (gap.ratio > 0) {
     return {
-      label: `${retailLabel} higher by ${diff}`,
+      label: `${retailLabel} higher by ${pct}`,
       css: "edge-retail",
       kind: "retail_higher",
-      title: `${retailLabel} ranks this player ~${diff} ordinal ranks above expert consensus.`,
+      title: `${retailLabel} values this player ~${pct} above expert consensus.`,
     };
   }
   return {
-    label: `Experts higher by ${diff}`,
+    label: `Experts higher by ${pct}`,
     css: "edge-consensus",
     kind: "consensus_higher",
-    title: `Expert consensus ranks this player ~${diff} ordinal ranks above ${retailLabel}.`,
+    title: `Expert consensus values this player ~${pct} above ${retailLabel}.`,
   };
 }
 
@@ -232,10 +296,11 @@ export function marketAction(row) {
     label: "—",
     css: "edge-none",
     kind: edge.kind,
-    title: edge.title || "Insufficient source coverage to compare market vs experts.",
+    title:
+      edge.title ||
+      "Insufficient source coverage to compare market vs experts.",
   };
 }
-
 
 /**
  * Legacy string-only market gap label.  Retained for tests and any
@@ -247,7 +312,8 @@ export function marketGapLabel(row) {
   // Mirror ``marketEdge``: prefer the post-Hampel ``effectiveSourceRanks``
   // when stamped, fall back to ``sourceRanks`` for legacy payloads.
   const ranks =
-    row?.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
+    row?.effectiveSourceRanks &&
+    Object.keys(row.effectiveSourceRanks).length > 0
       ? row.effectiveSourceRanks
       : row?.sourceRanks;
   if (!ranks) return null;
@@ -265,15 +331,13 @@ export function marketGapLabel(row) {
     .filter((n) => Number.isFinite(n));
   if (consensusRanks.length === 0) return null;
 
-  const retailMean = retailRanks.reduce((s, v) => s + v, 0) / retailRanks.length;
-  const consensusMean =
-    consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length;
-  const diff = Math.round(Math.abs(consensusMean - retailMean));
-  if (diff < MARKET_GAP_MIN_DIFF) return null;
-  const higher = retailMean < consensusMean ? getRetailLabel() : "Consensus";
-  return `${higher} +${diff}`;
+  const sides = sideValues(row, Object.keys(ranks), (k) => retailKeys.has(k));
+  if (!sides || !sides.retail.length || !sides.consensus.length) return null;
+  const gap = relativeValueGap(sides.retail, sides.consensus);
+  if (!gap || Math.abs(gap.ratio) < MARKET_GAP_MIN_VALUE_RATIO) return null;
+  const higher = gap.ratio > 0 ? getRetailLabel() : "Consensus";
+  return `${higher} +${pctText(gap.ratio)}`;
 }
-
 
 // ── IDP market gap (IDPTC vs other IDP sources) ─────────────────────────
 //
@@ -327,7 +391,8 @@ const IDP_CONSENSUS_KEYS = new Set([
  */
 export function idpMarketEdge(row) {
   const ranks =
-    row?.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
+    row?.effectiveSourceRanks &&
+    Object.keys(row.effectiveSourceRanks).length > 0
       ? row.effectiveSourceRanks
       : row?.sourceRanks;
   if (!ranks || Object.keys(ranks).length === 0) {
@@ -372,31 +437,51 @@ export function idpMarketEdge(row) {
     };
   }
 
-  const consensusMean =
-    consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length;
-  const diff = Math.round(Math.abs(consensusMean - retailRank));
+  // Same value-space treatment as the offense path.  The IDP side is
+  // if anything more exposed to the pool-depth artifact: idpTradeCalc
+  // publishes ~901 rows against dlfIdp/idpShow/fantasyProsIdp pools a
+  // fraction of that size.
+  const idpSides = sideValues(
+    row,
+    Object.keys(ranks),
+    (k) => k === IDP_RETAIL_KEY,
+  );
+  const idpGap =
+    idpSides && idpSides.retail.length && idpSides.consensus.length
+      ? relativeValueGap(idpSides.retail, idpSides.consensus)
+      : null;
+  if (!idpGap) {
+    return {
+      label: "unpriced",
+      css: "edge-none",
+      kind: "unranked",
+      title:
+        "This payload carries no per-source value contributions, so the IDP market gap cannot be measured.",
+    };
+  }
 
-  if (diff < MARKET_GAP_MIN_DIFF) {
+  const idpPct = pctText(idpGap.ratio);
+  if (Math.abs(idpGap.ratio) < MARKET_GAP_MIN_VALUE_RATIO) {
     return {
       label: "aligned",
       css: "edge-aligned",
       kind: "aligned",
-      title: `IDPTC and IDP-expert consensus agree within ${MARKET_GAP_MIN_DIFF} ranks (actual difference: ${diff}).`,
+      title: `IDPTC and IDP-expert consensus value this player within ${Math.round(MARKET_GAP_MIN_VALUE_RATIO * 100)}% of each other (actual difference: ${idpPct}).`,
     };
   }
-  if (retailRank < consensusMean) {
+  if (idpGap.ratio > 0) {
     return {
-      label: `IDPTC higher by ${diff}`,
+      label: `IDPTC higher by ${idpPct}`,
       css: "edge-retail",
       kind: "retail_higher",
-      title: `IDPTC ranks this player ~${diff} ordinal ranks above IDP-expert consensus.`,
+      title: `IDPTC values this player ~${idpPct} above IDP-expert consensus.`,
     };
   }
   return {
-    label: `Experts higher by ${diff}`,
+    label: `Experts higher by ${idpPct}`,
     css: "edge-consensus",
     kind: "consensus_higher",
-    title: `IDP-expert consensus ranks this player ~${diff} ordinal ranks above IDPTC.`,
+    title: `IDP-expert consensus values this player ~${idpPct} above IDPTC.`,
   };
 }
 
@@ -435,7 +520,9 @@ export function idpMarketAction(row) {
     label: "—",
     css: "edge-none",
     kind: edge.kind,
-    title: edge.title || "Insufficient IDP source coverage to compare IDPTC vs experts.",
+    title:
+      edge.title ||
+      "Insufficient IDP source coverage to compare IDPTC vs experts.",
   };
 }
 
@@ -453,7 +540,8 @@ export function isIdpInTopByIdptc(row, limit = 200) {
   if (!row || row.assetClass !== "idp") return false;
   if (row.quarantined) return false;
   const ranks =
-    (row.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
+    (row.effectiveSourceRanks &&
+    Object.keys(row.effectiveSourceRanks).length > 0
       ? row.effectiveSourceRanks
       : row.sourceRanks) || {};
   const idptcRank = Number(ranks[IDP_RETAIL_KEY]);

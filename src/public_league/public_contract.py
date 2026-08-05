@@ -226,6 +226,7 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "finder_output",
         "marketGapDirection",
         "marketGapMagnitude",
+        "marketGapValueRatio",
         "confidenceBucket",
         "anomalyFlags",
         "waiverGems",

@@ -3011,6 +3011,7 @@ def _active_sources(
 
 def _compute_market_gap(
     source_ranks: dict[str, int],
+    source_meta: dict[str, dict] | None = None,
     retail_keys: set[str] | frozenset[str] | None = None,
 ) -> tuple[str, float | None]:
     """Quantify the disagreement between retail and expert consensus.
@@ -3018,8 +3019,23 @@ def _compute_market_gap(
     "Market gap" frames the retail market (sources flagged `is_retail`
     in the registry — today just KTC) against every other registered
     source (the expert consensus — IDPTC, DLF, and any future non-retail
-    source).  Both sides are averaged, and the gap is the ordinal rank
-    difference between the two means.
+    source).  Both sides are averaged in VALUE space and the gap is their
+    RELATIVE difference.
+
+    Measured in ordinal ranks until 2026-08-05, which was wrong in a way
+    that looked plausible: the sides are drawn from pools of very unequal
+    depth (ktcSfTep 473 rows, idpTradeCalc 901, dlfSf 278), so
+    differencing their mean ordinals measured pool depth and format basis
+    rather than opinion.  On the live board the median signed gap by
+    position was TE +40.7 ranks against QB -18.3, RB -9.3 and WR -6.0 —
+    every position negative and TE alone hugely positive, which is not 15
+    independent boards agreeing about tight ends.  In value space the same
+    medians are QB +0.008, TE +0.084, WR +0.110, RB +0.112.
+
+    ``valueContribution`` is the right currency because it is what the
+    blend itself compares sources in: post-ladder, common-scaled 0-9999,
+    and after ADR-015's ``convert_te_value`` has been applied — which is
+    exactly the correction the rank-space gap never saw.
 
     A retail premium means retail ranks the player higher (lower rank
     number) than consensus — i.e. the retail market is pricing the
@@ -3032,9 +3048,10 @@ def _compute_market_gap(
       "consensus_premium"  — consensus mean rank is lower number than retail mean
       "none"               — tie, or either side has zero sources present
 
-    magnitude is the absolute ordinal rank difference between the two
-    means as a float, or None when the comparison cannot be made (one
-    side has no source ranks on this row).  Magnitude is 0.0 on a tie.
+    magnitude is the absolute RELATIVE gap in value space — 0.25 means
+    one side prices the player 25% above the other — or None when the
+    comparison cannot be made (one side has no priced source on this row,
+    or no value stamps were supplied).  Magnitude is 0.0 on a tie.
 
     `retail_keys` is an optional override for tests; when None the set is
     derived from `_RANKING_SOURCES` via `_retail_source_keys()`.
@@ -3042,22 +3059,35 @@ def _compute_market_gap(
     if retail_keys is None:
         retail_keys = _retail_source_keys()
 
-    retail_ranks = [
-        rank for key, rank in source_ranks.items() if key in retail_keys and rank is not None
-    ]
-    consensus_ranks = [
-        rank for key, rank in source_ranks.items() if key not in retail_keys and rank is not None
-    ]
-    if not retail_ranks or not consensus_ranks:
+    meta = source_meta or {}
+    retail_values: list[float] = []
+    consensus_values: list[float] = []
+    for key in source_ranks:
+        raw = (meta.get(key) or {}).get("valueContribution")
+        if not isinstance(raw, (int, float)):
+            continue
+        (retail_values if key in retail_keys else consensus_values).append(float(raw))
+
+    if not retail_values or not consensus_values:
+        # Either a side is absent, or the caller passed no value stamps.
+        # Both mean "cannot compare" — say so rather than silently
+        # dropping back to the ordinal arithmetic this replaced.
         return "none", None
 
-    retail_mean = sum(retail_ranks) / len(retail_ranks)
-    consensus_mean = sum(consensus_ranks) / len(consensus_ranks)
-    diff = consensus_mean - retail_mean  # positive → retail ranks higher
-    if diff > 0:
-        return "retail_premium", float(abs(diff))
-    if diff < 0:
-        return "consensus_premium", float(abs(diff))
+    retail_mean = sum(retail_values) / len(retail_values)
+    consensus_mean = sum(consensus_values) / len(consensus_values)
+    scale = (retail_mean + consensus_mean) / 2.0
+    if scale <= 0:
+        return "none", None
+
+    # Positive → retail VALUES the player above consensus.  Note this
+    # inverts the sense of the old rank comparison, where retail ranking
+    # him "higher" meant a LOWER mean rank number.
+    ratio = (retail_mean - consensus_mean) / scale
+    if ratio > 0:
+        return "retail_premium", float(abs(ratio))
+    if ratio < 0:
+        return "consensus_premium", float(abs(ratio))
     return "none", 0.0
 
 
@@ -3362,6 +3392,7 @@ _TRUST_MIRROR_FIELDS = (
     "sourceRankPercentileSpread",
     "marketGapDirection",
     "marketGapMagnitude",
+    "marketGapValueRatio",
     "identityConfidence",
     "identityMethod",
     "quarantined",
@@ -8244,9 +8275,21 @@ def _compute_unified_rankings(
             and percentile_spread > _DISAGREEMENT_BASE_THRESHOLD + depth_allowance
         )
 
-        gap_dir, gap_mag = _compute_market_gap(effective_source_ranks)
+        gap_dir, gap_ratio = _compute_market_gap(
+            effective_source_ranks,
+            source_meta=row.get("sourceRankMeta") or {},
+        )
         row["marketGapDirection"] = gap_dir
-        row["marketGapMagnitude"] = gap_mag
+        # NEW FIELD, not a redefinition.  ``marketGapMagnitude`` was an
+        # ordinal rank difference; this is a relative gap in value space.
+        # Writing the new number under the old name would silently change
+        # the units of a published field and of every row already recorded
+        # in the board-history store.
+        row["marketGapValueRatio"] = gap_ratio
+        # Retired with the rank-space computation it came from.  Kept as an
+        # explicit None so consumers see "no longer computed" rather than a
+        # missing key that could read as "not applicable to this row".
+        row["marketGapMagnitude"] = None
 
         # Picks get their own confidence logic (CV-based on raw values),
         # because rank-spread is dominated by flat-value regions in
@@ -8901,6 +8944,7 @@ def _derive_player_row(
         "effectiveSourceRanks": {},
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
+        "marketGapValueRatio": None,
         "sourceAudit": {
             "canonicalName": "",
             "positionGroup": "",
@@ -9592,6 +9636,7 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "confidenceLabel",
     "marketGapDirection",
     "marketGapMagnitude",
+    "marketGapValueRatio",
     "anomalyFlags",
     "canonicalTierId",
     "marketConfidence",

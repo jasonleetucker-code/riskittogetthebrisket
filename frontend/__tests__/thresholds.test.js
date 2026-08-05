@@ -10,7 +10,7 @@ import {
   LENS_DISAGREEMENT_SPREAD,
   LENS_INEFFICIENCY_SPREAD,
   LENS_INEFFICIENCY_RANK,
-  MARKET_GAP_MIN_DIFF,
+  MARKET_GAP_MIN_VALUE_RATIO,
   EDGE_CAUTION_RANK_LIMIT,
   RANKINGS_DEFAULT_ROW_LIMIT,
   FINDER_ROW_LIMIT,
@@ -59,7 +59,11 @@ describe("threshold constants exist and are sane", () => {
   });
 
   it("market gap min diff is positive", () => {
-    expect(MARKET_GAP_MIN_DIFF).toBeGreaterThan(0);
+    // A relative gap in blended-value space, so it must be a fraction —
+    // a value >= 1 would mean "only fire when one side is double the
+    // other", which would silence the signal rather than re-aim it.
+    expect(MARKET_GAP_MIN_VALUE_RATIO).toBeGreaterThan(0);
+    expect(MARKET_GAP_MIN_VALUE_RATIO).toBeLessThan(1);
   });
 
   it("edge caution rank limit is positive", () => {

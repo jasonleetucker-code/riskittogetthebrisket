@@ -32,14 +32,33 @@ export const SETTINGS_DEFAULTS = {
   // ``readSettings`` lifts any persisted "default-ish" value (``null``
   // pre-2026-05 auto-derive, ``1.0`` from a stray wheel-scroll, or the
   // interim ``1.25``) to 1.15.
-  tepMultiplier: 1.15,               // 1.15 default; 1.0..1.5 = explicit operator override
+  // ``null`` = AUTO: post no ``tep_multiplier`` and let the backend apply
+  // the measured ADR-015 TE-basis curve.  A number here is an explicit
+  // operator override and deliberately bypasses that curve.
+  //
+  // This was a concrete ``1.15`` until it was found to make the curve
+  // unreachable from a browser.  ``tepMultiplierIsCustomized`` treats ANY
+  // finite number as "the operator chose this", so the default itself
+  // claimed to be a choice: every page load posted
+  // ``{tep_multiplier: 1.15}``, the backend took its override branch, and
+  // ``convert_te_value`` never ran for real traffic.  The flat 1.15 sits
+  // BELOW the curve's measured floor of 1.2092, so every TE from a
+  // non-TEP source was under-lifted — by ~5% at the top of the board and
+  // ~78% at value 200.
+  //
+  // ``tepNativeMultiplier`` below already had the sentinel and is the
+  // working reference for the whole pattern; this now matches it.
+  tepMultiplier: null,               // null = auto (ADR-015 curve); 1.0..1.5 = explicit override
   tepNativeMultiplier: null,         // null = backend default (1.10); 1.0..1.5 = explicit operator override
 
-  // One-time migration marker.  False/absent → ``readSettings``
-  // promotes a stale ``tepMultiplier`` of ``null`` / ``1.0`` / ``1.25``
-  // to the 1.15 default exactly once, then sets this so a deliberate
-  // later value still sticks.
-  tepDefaultV3Applied: false,
+  // One-time migration marker.  Restores ``tepMultiplier`` to AUTO for
+  // installs the previous migration pinned to a flat number.  See
+  // ``readSettings``.
+  //
+  // A NEW key is required: ``tepDefaultV3Applied`` is already ``true`` in
+  // every existing install, so reusing it would make this migration a
+  // no-op on exactly the installs that need it.
+  tepAutoRestored: false,
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"
@@ -184,22 +203,34 @@ function readSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const merged = { ...SETTINGS_DEFAULTS, ...JSON.parse(raw) };
-      // One-time TEP default migration.  Earlier builds left
-      // tepMultiplier at null ("auto-derive"), a stray wheel-scroll
-      // could pin it to 1.0, and an interim build defaulted it to
-      // 1.25 (which over-boosted elite TEs).  Promote any of those
-      // "default-ish" values to the corrected 1.15 default exactly
-      // once; a deliberate later value persists because the flag is
-      // set.
-      if (!merged.tepDefaultV3Applied) {
+      // One-time TEP migration — RESTORE AUTO.
+      //
+      // This replaces the previous migration, which did the opposite: it
+      // promoted a stored ``null`` (the auto sentinel) to a flat 1.15 and
+      // set a flag so it never reverted.  That converted "let the backend
+      // measure it" into "the operator demands 1.15" on every install
+      // that had ever loaded the site, and the measured ADR-015 curve has
+      // been unreachable from a browser ever since.
+      //
+      // The values reset here are exactly the ones the old migration
+      // wrote or named as default-ish: 1.15 (what it wrote), plus 1.0 (a
+      // stray wheel-scroll on the /settings number input) and 1.25 (an
+      // interim build's default).  None was ever a deliberate choice —
+      // the UI could not even express the alternative — so restoring auto
+      // is returning them to a state they were never knowingly moved off.
+      //
+      // A number outside that set IS a real choice and is left alone, and
+      // the flag makes this run once, so an operator who types 1.15
+      // tomorrow keeps it.
+      if (!merged.tepAutoRestored) {
         if (
-          merged.tepMultiplier == null ||
+          merged.tepMultiplier === 1.15 ||
           merged.tepMultiplier === 1.0 ||
           merged.tepMultiplier === 1.25
         ) {
-          merged.tepMultiplier = 1.15;
+          merged.tepMultiplier = null;
         }
-        merged.tepDefaultV3Applied = true;
+        merged.tepAutoRestored = true;
         writeSettings(merged);
       }
       return merged;
