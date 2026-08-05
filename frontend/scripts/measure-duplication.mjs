@@ -60,6 +60,9 @@
  * measure (never conflate "measured zero" with "failed to measure" —
  * same posture as assertGateIsMeasuring() in check-bundle-sizes.mjs).
  */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const PAGE_ORIGIN = process.env.E2E_PAGE_ORIGIN || "http://127.0.0.1:3000";
@@ -70,20 +73,36 @@ const SECRET = process.env.E2E_TEST_SECRET || "";
 // Playwright resolves its own bundled browser.
 const CHROMIUM_PATH = process.env.PW_CHROMIUM_PATH || "";
 
-// Routes WITH their own loading.jsx (an App Router loading.jsx implicitly
-// wraps that segment's children in a <Suspense> boundary — the same shape
-// as the dynamic() regression) versus routes WITHOUT one.  The split is
-// the experiment: if only the first group stages, loading.jsx is the
-// cause.  Both measured routes from the ledger are in the first group.
-const DEFAULT_ROUTES = [
-  { path: "/arbitrage", loadingJsx: true },
-  { path: "/waivers", loadingJsx: true },
-  { path: "/rankings", loadingJsx: true },
-  { path: "/trade", loadingJsx: true },
-  { path: "/bdvm", loadingJsx: false },
-  { path: "/finder", loadingJsx: false },
-  { path: "/trending", loadingJsx: false },
-  { path: "/settings", loadingJsx: false },
+// Whether a route has its own loading.jsx is READ FROM DISK, not declared.
+// It was a hardcoded table, which had two problems: it went stale the
+// moment a loading file was added or removed, and `--routes` built its
+// route objects without it, so every run with an explicit route list
+// silently reported `null` for the whole column. A column that quietly
+// turns null is the same failure mode as an oracle that matches nothing.
+//
+// Resolved against this file, never cwd — the script is invoked from both
+// the repo root and frontend/.
+const APP_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../app");
+
+function hasLoadingJsx(routePath) {
+  const seg = routePath.replace(/^\/+|\/+$/g, "");
+  if (!seg) return fs.existsSync(path.join(APP_DIR, "loading.jsx"));
+  return fs.existsSync(path.join(APP_DIR, seg, "loading.jsx"));
+}
+
+// The split was the original experiment: if only routes WITH a loading.jsx
+// stage, the implicit <Suspense> it creates is the cause. It is NOT — /bdvm
+// has none and stages more often than /waivers, which has one. Kept because
+// the column is still the fastest way to see that for yourself.
+const DEFAULT_ROUTE_PATHS = [
+  "/arbitrage",
+  "/waivers",
+  "/rankings",
+  "/trade",
+  "/bdvm",
+  "/finder",
+  "/trending",
+  "/settings",
 ];
 
 /**
@@ -229,9 +248,10 @@ function summarize(samples, phase) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const routes = args.routes
-    ? args.routes.map((p) => ({ path: p, loadingJsx: null }))
-    : DEFAULT_ROUTES;
+  const routes = (args.routes || DEFAULT_ROUTE_PATHS).map((p) => ({
+    path: p,
+    loadingJsx: hasLoadingJsx(p),
+  }));
 
   const browser = await chromium.launch(
     CHROMIUM_PATH ? { executablePath: CHROMIUM_PATH } : {},

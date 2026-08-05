@@ -995,11 +995,20 @@ One known tail: `/draft` hits ~0.18 in roughly 1 run in 5, attributed
 to a `DIV.muted` block collapsing 361×166 → 0 at ~900ms.  Pre-existing,
 not round 6's doing, and not yet fixed.
 
-## 2026-08-05 — the duplication race, re-measured: it does not reproduce
+## 2026-08-05 — the same conclusion at 100x the sample, and one correction
 
-The race recorded above (1/15 loads on `/arbitrage`, 1/45 on `/waivers`)
-**does not reproduce on Next 16.2.12**. Measured across **2,400 loads**
-with a purpose-built harness, `frontend/scripts/measure-duplication.mjs`.
+The section above (#747) is the diagnosis and it stands: the transient
+copy is React 19.2's deferred reveal, not an app defect. This was reached
+**independently and in parallel**, from the other end — measuring the app
+rather than reading `react-dom`'s source — and it agrees. Recorded because
+corroboration from a different method is worth having, and because the
+sample is two orders of magnitude larger, which matters for a claim about
+a rate.
+
+**2,400 loads**, six routes, `frontend/scripts/measure-duplication.mjs`,
+two independent oracles: **zero persistent duplicates anywhere**. #747
+measured 0/25 after `awaitStreamSettled()`; this is 0/2400 after settle.
+Same answer.
 
 | route | own `loading.jsx` | staging seen mid-load | **duplicated after settle** |
 |---|---|---|---|
@@ -1019,44 +1028,54 @@ detector was a Playwright strict-mode violation, and retiring a measured
 number with a differently-shaped instrument is exactly how
 `firstLoadChunks()` earned its retraction. Both passes: zero.
 
-### Three corrections to what this doc said
+### The correction: `loading.jsx` does not predict which routes stream
 
-**1. A staging container mid-load is NORMAL, and this doc invited the
-opposite reading.** The `#S:1 present` row in the round-6 diagnostic table
-is true of the `dynamic()` regression but is not a defect signal on its
-own: `div[id^="S:"]` appears on 12–25% of loads on the heavier routes with
-**zero survivors after settle**. It is how streamed content arrives.
-Anyone taking that row as the oracle would grade a healthy app as ~25%
-broken. The defect is a staging container that *persists*.
+Both #747's summary and `e2e.yml`'s header say "routes with a
+`loading.jsx` (/waivers, /arbitrage, ~8 others) are wrapped by the App
+Router in a Suspense boundary and STREAMED". The first half is true and
+the implication is not: **having a `loading.jsx` is neither necessary nor
+sufficient for a route to stream.**
 
-**2. The `<main>` count is route-dependent.** The round-6 table's "2" is
-`/waivers`; the shell renders one `<main>` and only some pages render
-their own. `/arbitrage` baselines at **1**. A flat assertion of 2 would be
-wrong on half the routes measured.
+- `/bdvm` has **no** `loading.jsx` and stages on **20%** of loads — more
+  often than `/waivers` (15.5%), which has one.
+- `/trending` and `/finder` have none and stage on **0%**.
 
-**3. `loading.jsx` is not the cause of streaming, and was worth ruling
-out.** An App Router `loading.jsx` implicitly wraps its segment's children
-in `<Suspense>` — the same shape as the `dynamic()` bug — and both
-originally-measured routes have one. The data kills it: `/bdvm` has **no**
-`loading.jsx` and stages on 20% of loads, while `/arbitrage` has one and
-stages on 25%. No correlation. Streaming frequency tracks page weight and
-timing, not segment loading files.
+So the population that needs `awaitStreamSettled()` is not "the ~10 routes
+with a loading file", and a future spec on a route without one is not
+thereby safe. Any route whose tree suspends can stream; the loading file
+only supplies the fallback UI when it does. Reach for the helper based on
+observed streaming, not on the presence of a file.
 
-### What is NOT claimed
+(This does not affect #747's fix, which waits unconditionally and passes
+on routes that never streamed.)
 
-Not "the race was found and fixed". Nothing was changed to make this
-number zero — the likely cause is round 6's `dynamic()` removal, the
-Next 15.5.22 → 16.2.12 upgrade, or both, and no evidence here separates
-them. The honest statement is that it is **not observable at 2,400 loads**
-where it was previously observable at 15.
+### Two more traps this doc set
 
-### What now detects it
+**A staging container mid-load is NORMAL.** The `#S:1 present` row in the
+round-6 diagnostic table is true of the `dynamic()` regression but is not
+a defect signal on its own: `div[id^="S:"]` appears on 12–46% of loads on
+the heavier routes with **zero survivors after settle**. Taking that row
+as the oracle would grade a healthy app as up to half broken. The defect
+is a staging container that *persists*.
 
-- `tests/e2e/specs/ssr-duplication.spec.js` — names the invariant
-  directly. The previous detector was *incidental*: a spec about a rookie
-  toggle that failed because its locator resolved to two elements.
-- `frontend/scripts/measure-duplication.mjs --loads 200` — the instrument
-  for a *rate*, when a tripwire is not enough.
+**The `<main>` count is route-dependent.** The round-6 table's "2" is
+`/waivers`; the shell renders one and only some pages render their own.
+`/arbitrage` baselines at **1**. A flat assertion of 2 would be wrong on
+half the routes measured.
+
+### What now detects the PERSISTENT duplicate
+
+#747 keeps the strict locators as the detector, which is right — but that
+detector is *incidental*: it lives in a spec about a rookie toggle and
+fires only because the locator happens to resolve twice. It names the
+wrong subject when it goes off, and nothing states the invariant.
+
+- `tests/e2e/specs/ssr-duplication.spec.js` — states it directly, after
+  `awaitStreamSettled()`. A permanent duplicate is deterministic, so one
+  navigation per route suffices.
+- `frontend/scripts/measure-duplication.mjs --loads 200` — for a *rate*,
+  when a tripwire is not enough. Exit codes distinguish "measured clean"
+  from "could not measure".
 
 Local-run trap worth knowing: `/api/test/create-session` is in the public
 API set (`server.py:3021`) and rate-limited at 60/min, so running the

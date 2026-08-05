@@ -3,23 +3,32 @@
  *
  * WHY THIS SPEC EXISTS
  * --------------------
- * `dynamic()` in `components/AppShell.jsx` once put a React lazy boundary
- * around `{children}` — the whole page. Every route's content became
- * deferred streaming content: React staged it in a hidden
- * `<div id="S:1">`, moved it into place, and left the staged copy behind.
- * /waivers served THREE <main> elements.
+ * Two different things produce "the page is in the DOM twice", and only
+ * one is a bug. #747 established the distinction; this spec exists to
+ * detect the half that is still real.
  *
+ * TRANSIENT (not a bug): React 19.2 defers the Suspense reveal. `$RC`
+ * marks the boundary and schedules `$RV`, which is the only thing that
+ * removes `<div hidden id="S:n">` — so a full copy of the boundary is
+ * SUPPOSED to sit in the DOM for that window. Specs that asserted
+ * mid-stream saw it and failed. Fixed suite-side by `awaitStreamSettled()`
+ * in helpers/journey.js, which this spec uses before asserting anything.
+ *
+ * PERSISTENT (a real bug): `dynamic()` in `components/AppShell.jsx` once
+ * put a React lazy boundary around `{children}` — the whole page. The
+ * staged copy was never reclaimed; /waivers served THREE <main> elements.
  * Six rounds of performance instrumentation — CLS, LCP, INP, long-task,
  * scroll FPS, per-route bundle size — ALL reported unchanged numbers for
- * a build that rendered every page twice. `pr-validation.yml` runs
- * pytest, vitest and lint; it never opens a browser. The single detector
- * was an INCIDENTAL Playwright strict-mode violation in
- * waivers-smoke.spec.js — a spec about a rookie toggle, which happened to
- * fail because its locator resolved to two elements.
+ * a build that rendered every page twice, and `pr-validation.yml` never
+ * opens a browser.
  *
- * Depending on an accident is not a detector. This spec names the
- * invariant directly, so the next occurrence fails a test that is *about*
- * duplication instead of one that is about a checkbox.
+ * That second class is what this spec is for. The repo's existing
+ * detector for it is INCIDENTAL — a strict-mode violation in
+ * waivers-smoke.spec.js, a spec about a rookie toggle, which fails only
+ * because its locator happens to resolve to two elements. Depending on an
+ * accident is not a detector, and it names the wrong subject when it
+ * fires. This asserts the invariant directly, after the stream settles,
+ * so a permanent duplicate fails a test that is *about* duplication.
  *
  * WHAT IT ASSERTS, AND WHY THESE THREE
  * ------------------------------------
@@ -38,30 +47,27 @@
  *
  * The staging-container check is specifically an AFTER-SETTLE check. A
  * `div[id^="S:"]` mid-load is React streaming working correctly — it is
- * how streamed content arrives, measured on 24-46% of loads on the
- * heavier routes. Asserting its mere presence would fail constantly on a
- * perfectly healthy app.
+ * how streamed content arrives, measured on 12-46% of loads on the
+ * heavier routes across two 1,200-load runs. Asserting its mere presence
+ * would fail constantly on a perfectly healthy app.
  *
- * SCOPE: this is a TRIPWIRE, not a rate estimator. The historical race
- * was ~1/15 loads at worst, so one navigation per route has limited power
- * to catch a low-rate recurrence. It reliably catches the deterministic
- * shape (a boundary around `{children}` duplicates EVERY load, which is
- * what the `dynamic()` regression did), and
+ * SCOPE: this is a TRIPWIRE, not a rate estimator — and for the bug it
+ * targets, a tripwire is the right shape. A permanent duplicate is
+ * DETERMINISTIC: a boundary around `{children}` duplicates every load,
+ * which is what the `dynamic()` regression did, so one navigation per
+ * route catches it. Rates are the transient reveal's problem, and that is
+ * no longer a defect. When a rate IS wanted,
  * `frontend/scripts/measure-duplication.mjs --loads 200` is the
  * instrument for measuring a rate. Layered on purpose.
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
 
 // Private routes, chosen as the heaviest streamers measured: /rankings
 // (46% of loads stage mid-flight) and /waivers + /arbitrage (the two the
 // race was originally measured on). If a boundary regression lands, these
 // are where it shows first.
 const ROUTES = ["/rankings", "/waivers", "/arbitrage"];
-
-// Matches the settle delay used by the measurement harness, so this spec
-// and that instrument agree on when "after streaming" begins.
-const SETTLE_MS = 500;
 
 const PROBE = () => {
   const seen = Object.create(null);
@@ -81,7 +87,11 @@ test.describe("SSR streaming duplication", () => {
   for (const route of ROUTES) {
     test(`${route} renders exactly one copy of itself`, async ({ authedPage }) => {
       await authedPage.goto(pageUrl(route), { waitUntil: "domcontentloaded" });
-      await authedPage.waitForTimeout(SETTLE_MS);
+      // The repo's shared settle helper (#747), not a fixed delay. React
+      // 19.2 throttles the reveal to `$RT + 300 - now` — up to 2300ms in
+      // one window — so no constant timeout is both fast and safe. This
+      // waits for the machinery itself.
+      await awaitStreamSettled(authedPage);
 
       const { staged, dupIds } = await authedPage.evaluate(PROBE);
 
