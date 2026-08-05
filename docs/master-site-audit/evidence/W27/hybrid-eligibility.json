@@ -1,0 +1,259 @@
+{
+ "note": "Sleeper fantasy_positions is the field the host itself uses for slot eligibility. The /api/data contract carries a single position per player and no fantasyPositions field, so every consumer other than src/ros/* treats a hybrid as single-eligible.",
+ "rosteredPlayers": 937,
+ "multiEligible": 55,
+ "multiEligiblePctOfRostered": 5.9,
+ "byFantasyPositionPair": {
+  "DL/LB": 50,
+  "DB/LB": 3,
+  "DB/WR": 1,
+  "OL/OT": 1
+ },
+ "contractDisagreesWithSleeperPrimary": 32,
+ "contractCarriesFantasyPositions": false,
+ "sleeperBlockKeys": [
+  "idToPlayer",
+  "leagueId",
+  "leagueName",
+  "leagueSettings",
+  "overlayFetchedAt",
+  "overlaySource",
+  "playerIds",
+  "positions",
+  "rosterPositions",
+  "scoringSettings",
+  "teams",
+  "tradeWindowCutoffMs",
+  "tradeWindowDays",
+  "tradeWindowStart",
+  "trades",
+  "waivers"
+ ],
+ "examples": [
+  {
+   "name": "Andrew Van Ginkel",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Dallas Turner",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Odafe Oweh",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Josh Hines-Allen",
+   "sleeperPosition": "DE",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Will Anderson",
+   "sleeperPosition": "DL",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Brian Burns",
+   "sleeperPosition": "DE",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Nolan Smith",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Jaelan Phillips",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Tuli Tuipulotu",
+   "sleeperPosition": "DL",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Jonathan Greenard",
+   "sleeperPosition": "DE",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Chop Robinson",
+   "sleeperPosition": "DE",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "David Bailey",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Danielle Hunter",
+   "sleeperPosition": "DE",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Jadeveon Clowney",
+   "sleeperPosition": "DE",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Jonathon Cooper",
+   "sleeperPosition": "DL",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Rashan Gary",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Khalil Mack",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Carl Granderson",
+   "sleeperPosition": "DE",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Derrick Barnes",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Alex Highsmith",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Joey Bosa",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Bradley Chubb",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Akheem Mesidor",
+   "sleeperPosition": "DL",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Travon Walker",
+   "sleeperPosition": "LB",
+   "fantasyPositions": [
+    "DL",
+    "LB"
+   ],
+   "contractPosition": "DL"
+  },
+  {
+   "name": "Jeremy Chinn",
+   "sleeperPosition": "DB",
+   "fantasyPositions": [
+    "DB",
+    "LB"
+   ],
+   "contractPosition": "DB"
+  }
+ ]
+}

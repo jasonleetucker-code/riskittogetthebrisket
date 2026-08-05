@@ -1,0 +1,110 @@
+{
+  "N=2": {
+    "evaluable": 2,
+    "topScore": 68.8,
+    "topPercentile_actual": 0.5,
+    "topPercentile_if_self_counted": 0.75,
+    "delta": 0.25,
+    "bar": 0.75,
+    "qualified": 0,
+    "qualified_share_of_evaluable": 0.0,
+    "top_clears_bar_actual": false,
+    "top_clears_bar_if_self_counted": true,
+    "scores": [
+      68.8,
+      33.2
+    ]
+  },
+  "N=3": {
+    "evaluable": 3,
+    "topScore": 73.5,
+    "topPercentile_actual": 1.0,
+    "topPercentile_if_self_counted": 0.8333,
+    "delta": -0.1667,
+    "bar": 0.75,
+    "qualified": 1,
+    "qualified_share_of_evaluable": 0.333,
+    "top_clears_bar_actual": true,
+    "top_clears_bar_if_self_counted": true,
+    "scores": [
+      73.5,
+      61.2,
+      30.7
+    ]
+  },
+  "N=4": {
+    "evaluable": 4,
+    "topScore": 72.0,
+    "topPercentile_actual": 1.0,
+    "topPercentile_if_self_counted": 0.875,
+    "delta": -0.125,
+    "bar": 0.75,
+    "qualified": 1,
+    "qualified_share_of_evaluable": 0.25,
+    "top_clears_bar_actual": true,
+    "top_clears_bar_if_self_counted": true,
+    "scores": [
+      72.0,
+      62.2,
+      54.9,
+      31.8
+    ]
+  },
+  "N=5": {
+    "evaluable": 5,
+    "topScore": 71.0,
+    "topPercentile_actual": 0.8,
+    "topPercentile_if_self_counted": 0.9,
+    "delta": 0.1,
+    "bar": 0.75,
+    "qualified": 2,
+    "qualified_share_of_evaluable": 0.4,
+    "top_clears_bar_actual": true,
+    "top_clears_bar_if_self_counted": true,
+    "scores": [
+      71.0,
+      68.0,
+      60.9,
+      52.0,
+      30.6
+    ]
+  },
+  "N=8": {
+    "evaluable": 8,
+    "topScore": 73.0,
+    "topPercentile_actual": 1.0,
+    "topPercentile_if_self_counted": 0.9375,
+    "delta": -0.0625,
+    "bar": 0.75,
+    "qualified": 2,
+    "qualified_share_of_evaluable": 0.25,
+    "top_clears_bar_actual": true,
+    "top_clears_bar_if_self_counted": true,
+    "scores": [
+      73.0,
+      68.5,
+      68.0,
+      63.5,
+      58.9
+    ]
+  },
+  "N=20": {
+    "evaluable": 20,
+    "topScore": 76.0,
+    "topPercentile_actual": 1.0,
+    "topPercentile_if_self_counted": 0.975,
+    "delta": -0.025,
+    "bar": 0.75,
+    "qualified": 6,
+    "qualified_share_of_evaluable": 0.3,
+    "top_clears_bar_actual": true,
+    "top_clears_bar_if_self_counted": true,
+    "scores": [
+      76.0,
+      73.9,
+      71.9,
+      69.9,
+      69.1
+    ]
+  }
+}

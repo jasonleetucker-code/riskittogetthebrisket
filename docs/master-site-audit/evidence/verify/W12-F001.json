@@ -1,0 +1,79 @@
+{
+ "id": "W12-F001",
+ "workstream": "W12",
+ "promptSections": [
+  16,
+  40
+ ],
+ "title": "Clicking a /rankings row opens a popup whose BUY/SELL verdict contradicts the Edge column on the row you just clicked \u2014 83 rows, including 7 of the top 15",
+ "status": "Duplicate or conflicting implementation",
+ "priority": "P0",
+ "size": "S",
+ "subsystem": "Directional labels / market-gap family",
+ "surface": {
+  "routes": [
+   "/api/data"
+  ],
+  "pages": [
+   "/rankings",
+   "/trade",
+   "/league"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/lib/display-helpers.js",
+   "lines": "104-237"
+  },
+  {
+   "path": "frontend/lib/trade-logic.js",
+   "lines": "945-1012"
+  },
+  {
+   "path": "frontend/components/PlayerPopup.jsx",
+   "lines": "666,1058-1067"
+  },
+  {
+   "path": "frontend/app/rankings/page.jsx",
+   "lines": "1157-1172"
+  }
+ ],
+ "claimUnderTest": "display-helpers.js's header comment calls the Edge column the single 'market edge' state and says it is 'Always rendered with an explicit state'; trade-logic.js::getPlayerEdge says it 'Reads the backend-stamped marketGapDirection / marketGapMagnitude directly \u2014 no client-side recompute'. Both describe the SAME retail-vs-consensus quantity, so a row and its popup should agree.",
+ "observed": "They use different minimum-gap thresholds on the same quantity: marketAction requires MARKET_GAP_MIN_DIFF=10 ordinal ranks, getPlayerEdge requires MIN_EDGE_RANK_GAP=3. Every row whose gap falls in [3,10) therefore shows HOLD in the table and a full Buy Low / Sell High card in the popup opened from that row. 83 of 1,072 rows are in that band, including Brock Bowers (#2), Bijan Robinson (#3), Drake Maye (#5), Jahmyr Gibbs (#6), Trey McBride (#8), Lamar Jackson (#11), Joe Burrow (#13). Verified in a real browser: the Brock Bowers row renders 'HOLD' + 'Consensus asset', and the popup it opens renders 'Sell High \u2014 KTC ranks 5 spots higher than consensus \u2014 market overvalues'.",
+ "reproduction": {
+  "command": ".venv/bin/python /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/w12_popup.py   # Playwright, /api/* re-routed to :8000; clicks the Brock Bowers / Trey McBride / Justin Herbert rows on /rankings",
+  "expected": "the Edge column verb and the popup verdict agree for every row",
+  "actual": "Brock Bowers row='HOLD' popup='Sell High'; Trey McBride row='HOLD' popup='Sell High'; Justin Herbert row='HOLD' popup='Buy Low'",
+  "artifact": "docs/master-site-audit/evidence/W12/popup-vs-row.json + popup-Brock-Bowers.png"
+ },
+ "numericProof": {
+  "inputs": {
+   "MARKET_GAP_MIN_DIFF": 10,
+   "MIN_EDGE_RANK_GAP": 3,
+   "BrockBowers_marketGapMagnitude": 5.4,
+   "rowsInBand": 83,
+   "rowsWithAnyDirectionalVerb": 371
+  },
+  "formula": "contradiction iff 3 <= marketGapMagnitude < 10  (or the two verbs are opposite)",
+  "expected": 0,
+  "actual": 83,
+  "tolerance": 0
+ },
+ "userImpact": "A user scanning /rankings sees HOLD on his best assets, clicks one to read the detail, and is told to Sell High. Whichever he believes, the other surface told him the opposite about the same player in the same session. There is no indication that two thresholds exist.",
+ "blastRadius": {
+  "playersAffected": 83,
+  "routesAffected": 1,
+  "pagesAffected": 4
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A01-F02",
+  "relation": "confirmed",
+  "note": "PRIOR-A01-F02 claimed 'four different thresholds turn the same backend signal into three contradictory BUY/SELL verdicts on screen simultaneously'. Confirmed and made specific: the thresholds are 0 (backend stamp), 3 (getPlayerEdge), 10 (marketAction) and sourceRankSpread>=20 + rank<=250 (/edge panels), and I have a browser capture of the row/popup disagreement rather than a code reading. Also related to PRIOR-A01-F05."
+ },
+ "whatWorks": "Both functions read the same effectiveSourceRanks / marketGapMagnitude, so the DIRECTION never disagrees \u2014 only the minimum magnitude does. That makes the repair small.",
+ "rootCause": "Two independently-written thresholds for one quantity, in two files, with no shared constant. thresholds.js exists precisely to be the single source of truth for numeric cutoffs and MIN_EDGE_RANK_GAP is not in it \u2014 it is a private const inside trade-logic.js.",
+ "requiredRepair": "Move MIN_EDGE_RANK_GAP into frontend/lib/thresholds.js and make getPlayerEdge and marketAction read one constant; add a test that asserts marketAction(row).label and getPlayerEdge(row).signal never disagree on a real contract.",
+ "dependencies": "None. Pure frontend."
+}

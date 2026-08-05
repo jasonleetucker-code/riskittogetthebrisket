@@ -1,0 +1,81 @@
+{
+ "id": "W14-F001",
+ "workstream": "W14",
+ "promptSections": [
+  17,
+  16
+ ],
+ "title": "Sharp Flow can never score a single row: the ledger keys movements by Sleeper player id, the board looks them up by displayName",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "Consensus Edge \u2014 Sharp Flow component",
+ "surface": {
+  "routes": [
+   "/api/consensus-edge/players",
+   "/api/consensus-edge/top",
+   "/api/consensus-edge/health",
+   "/api/consensus-edge/player/{player_key}"
+  ],
+  "pages": [
+   "/consensus-edge"
+  ],
+  "flags": [
+   "consensus_edge"
+  ]
+ },
+ "codeRefs": [
+  {
+   "path": "src/consensus_edge/inputs.py",
+   "lines": "41-80"
+  },
+  {
+   "path": "src/consensus_edge/sharp_flow.py",
+   "lines": "303-329"
+  },
+  {
+   "path": "src/consensus_edge/service.py",
+   "lines": "361-392"
+  },
+  {
+   "path": "src/intel/ledger.py",
+   "lines": "405-455"
+  }
+ ],
+ "claimUnderTest": "config/consensus_edge/params_v1.json gives sharpFlow weight 0.30 and lists it as a coreComponent; src/consensus_edge/inputs.py says it 'degrades to None rather than to a neutral zero' when there is no ledger, implying it works when there IS one. The container's empty ledger is the pre-declared reason the component is dark.",
+ "observed": "The component is dark for a second, permanent reason that a populated ledger does not fix. inputs.sharp_movements() selects asset_movements.asset_id \u2014 which src/intel/ledger.py::ingest writes verbatim from the crawler's `assetId`, i.e. a Sleeper player id such as '12530' or a 'pick:' string \u2014 and sharp_flow.movements_from_ledger_rows keys the returned dict by that id. service.build_board then reads `(flow['assets'] or {}).get(key)` where `key` is the fair-value index key, which fair_value._row_key defines as `displayName`. The two key spaces never intersect and no identity join is applied (identity_join.py maps only gsis ids and playerctx). Fed 2,400 synthetic-but-correctly-shaped movements covering 400 of the board's players, sharp_flow_index scores all 400 assets (e.g. asset '12530' -> direction +0.7345) and build_board attaches sharpFlow to 0 of 1092 rows. The board then reports sharpFlowStatus 'ok' alongside componentAvailability.sharpFlow.unavailableReason 'no_data' \u2014 a misdiagnosis, since the data was present and it was the join that failed. Keying the identical movements by displayName instead attaches sharpFlow to 400 rows, which isolates the key space as the sole cause.",
+ "reproduction": {
+  "command": "cd /home/user/riskittogetthebrisket && .venv/bin/python - <<'PY'\nimport json,time,sys; sys.path.insert(0,'.')\nfrom src.consensus_edge import sharp_flow as SF, params as P, service\nraw=json.load(open('data/dynasty_data_2026-08-04.json')); now=int(time.time()*1000)\nids=[(n,str(p['_sleeperId'])) for n,p in raw['players'].items() if p.get('_sleeperId')][:400]\nrows=[{'asset_id':s,'action':'add','user_id':f'u{i}','league_id':f'l{i}','ts':now-86400000*i} for _,s in ids for i in range(6)]\nmv=SF.movements_from_ledger_rows(rows)\nb=service.build_board(raw,params=P.load(),hours_stale=4.0,movements_by_asset=mv)\nprint('assets with a computed direction:',sum(1 for a in SF.sharp_flow_index(mv,P.load())['assets'].values() if a.get('direction') is not None))\nprint('board rows receiving sharpFlow:',sum(1 for r in b['players'] if (r['components'] or {}).get('sharpFlow') is not None),'of',len(b['players']))\nprint(json.dumps(b['componentAvailability']['sharpFlow']))\nPY",
+  "expected": "400 assets scored -> ~400 board rows carry a sharpFlow component",
+  "actual": "400 assets scored -> 0 of 1092 board rows carry one; componentAvailability.sharpFlow = {\"available\": false, \"rowsWithValue\": 0, \"rowsScored\": 329, \"weight\": 0.3, \"unavailableReason\": \"no_data\"}. Same script with asset_id replaced by displayName: 400 rows, available true.",
+  "artifact": "docs/master-site-audit/evidence/W14/sharpflow-join-proof.txt"
+ },
+ "numericProof": {
+  "inputs": {
+   "movementsFed": 2400,
+   "boardPlayersCovered": 400,
+   "boardRows": 1092,
+   "sharpFlowWeight": 0.3
+  },
+  "formula": "rowsWithValue = |{playerKey in board} \u2229 {asset_key in ledger movements}| ; playerKey = displayName, asset_key = Sleeper player id",
+  "expected": 400,
+  "actual": 0,
+  "tolerance": 0
+ },
+ "userImpact": "With the flag on, every player on the board is scored on mispricing alone. The composite is then a monotone transform of one component, but the payload still advertises a 0.30-weighted 'Sharp Flow' axis and every row's explanation prints 'No qualified-manager activity supports or contradicts this' \u2014 which reads as a measured absence of sharp interest rather than a broken join. Confidence coverage is also pinned at 1/2 for every row forever (ceiling 77.75 on this contract), so no amount of accumulated ledger data can ever raise a player's confidence.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 4,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "prior-index.json contains 0 findings mentioning consensus_edge or Consensus Edge across all 531 records and 26 areas; this subsystem was not covered by the prior audit."
+ },
+ "whatWorks": "sharp_flow.py's own arithmetic is sound and independently exercised: Beta(1,1) posterior, 21-day recency half-life, per-manager and per-league 0.34 share caps, and an explicit no_ledger status that keeps the component out of the composite instead of contributing a neutral zero. The failure is entirely at the boundary.",
+ "rootCause": "There is no identity join between the intel ledger's asset id space (Sleeper player ids / 'pick:' strings) and Consensus Edge's row key space (displayName). fair_value._row_key deliberately chose displayName to match league_intel.overlay's convention; inputs.sharp_movements passes the ledger's ids straight through; nothing reconciles them and no test covers the pair (tests/consensus_edge/ has no test_sharp_flow.py, and the wiring test only checks that the three component names appear).",
+ "requiredRepair": "Resolve ledger asset ids to board player keys once, in src/consensus_edge/identity_join.py (the contract already carries _sleeperId per row), and key movements_from_ledger_rows' output by the resolved player key. Report unresolved asset ids as a coverage number rather than dropping them silently, and add a test that feeds sleeper-id-keyed movements and asserts a non-zero rowsWithValue. Separately, componentAvailability must distinguish 'no data supplied' from 'data supplied, nothing joined'.",
+ "dependencies": "A populated src/intel ledger (crawl output) is needed to observe the defect in production; the defect itself is present regardless."
+}

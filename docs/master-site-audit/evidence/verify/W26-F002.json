@@ -1,0 +1,88 @@
+{
+ "id": "W26-F002",
+ "workstream": "W26",
+ "promptSections": [
+  35
+ ],
+ "title": "AppShell fetches the full multi-megabyte player contract on EVERY private page \u2014 including a 404 page and pages that never render a player row",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "Frontend data layer / app shell",
+ "surface": {
+  "routes": [
+   "/api/dynasty-data",
+   "/api/data"
+  ],
+  "pages": [
+   "/news",
+   "/bdvm",
+   "/market/sharp-roster-percentage",
+   "/league-comparison",
+   "/waivers",
+   "/settings",
+   "/terminal",
+   "/rosters",
+   "/draft",
+   "/trade",
+   "/rankings",
+   "/finder",
+   "/"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/components/AppShell.jsx",
+   "lines": "33-75"
+  },
+  {
+   "path": "frontend/app/layout.jsx",
+   "lines": "84"
+  },
+  {
+   "path": "frontend/app/AppShellWrapper.jsx",
+   "lines": "25-113"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md 'Performance Rules' \u2014 'Reduce blocking work on initial load', 'Eliminate duplicated calculations, repeated fetches, oversized payloads'. AppShell.jsx:33 declares exactly one exemption from the private data fetch, PUBLIC_ONLY_ROUTE_PREFIXES = ['/league'], and that exemption exists for a SECURITY reason (leaking private rankings to public visitors), not a performance one.",
+ "observed": "Measured in a real browser through request interception, 13 of the 14 pages probed issue GET /api/dynasty-data?view=array|compact and decode 11.7-13.1 MB.  The only page that does not is /league, which is exempt for security.  Pages that fetch the whole 1,092-row board while rendering none of it: /news (12,533,315 b decoded), /bdvm (12,488,678), /market/sharp-roster-percentage (12,481,120), /league-comparison (12,560,784), /waivers (12,578,490), /settings (12,505,629).  /terminal \u2014 which is a Next 404, 'This page could not be found.' \u2014 still decodes 12,481,320 bytes.  The fetch is unconditional in PrivateAppShell (AppShell.jsx:61) because global search and the player popup want `rows`; the actual index those two need is name + id + position + value, roughly 90 KB for 1,092 rows.",
+ "reproduction": {
+  "command": "PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers .venv/bin/python docs/master-site-audit/evidence/W26/w26_probe.py /tmp/out.json   # then: jq '.[]|select(.viewport==\"mobile\")|{route,api:.apiUnique,decoded:.timing.decodedBytes}' /tmp/out.json",
+  "expected": "pages with no player board (/news, /bdvm, /league-comparison, /market/*, and a 404) do not download the player board",
+  "actual": "all of them download 12.4-12.6 MB decoded",
+  "artifact": "docs/master-site-audit/evidence/W26/page-ux-probe.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "pagesProbed": 14,
+   "pagesFetchingContract": 13,
+   "decodedBytesOn404Page": 12481320,
+   "decodedBytesNewsPage": 12533315,
+   "transferBytesDesktop": 1040158,
+   "pageRoutesExcludingLeague": 35,
+   "searchIndexFieldsNeeded": 4,
+   "rowCount": 1092
+  },
+  "formula": "wastedDecodedBytes_per_page_without_a_board = decodedBytes - (bytes actually rendered); for /terminal (a 404) the rendered board bytes are 0",
+  "expected": 0,
+  "actual": 12481320,
+  "tolerance": 0
+ },
+ "userImpact": "Opening /news to read three headlines, or /bdvm to see a 'no snapshot yet' message, costs the user a full board download and JSON parse. On mobile this is the dominant cost of every navigation in the app and it is paid before anything on the page can render its own data. A mistyped URL that lands on the 404 page costs 1.0 MB over the wire.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 2,
+  "pagesAffected": 30
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "No prior finding covers the app-shell-level unconditional contract fetch. PRIOR-A01-F17 and PRIOR-A01-F08 concern which VIEW is fetched, not that it is fetched everywhere."
+ },
+ "whatWorks": "The fetch itself is well engineered: single request per page, zero duplicate URLs measured across all 28 page/viewport combinations, ETag revalidation with 304 support, gzip, and a stream-through Next bridge with an idle-abort timeout. The /league security exemption is correctly implemented and correctly motivated.",
+ "rootCause": "AppShell.jsx:61 calls useDynastyData() unconditionally in PrivateAppShell. The only gate (isPublicOnlyRoute) was added for data-leak reasons; no route-level gate exists for 'this page has no board'.",
+ "requiredRepair": "Either (a) split useDynastyData into a lightweight search-index fetch (name/playerId/position/rankDerivedValue) that AppShell always makes and a full-board fetch that only board-rendering pages opt into, or (b) invert the gate so pages declare `needsBoard` and AppShell defers the full fetch until one does. Option (a) preserves global search on every page at ~1.5% of the current bytes.",
+ "dependencies": "Needs a new lightweight backend view (or reuse of ?view=startup narrowed further). Interacts with W26-F001 \u2014 fix that first so whichever view remains is the smallest."
+}

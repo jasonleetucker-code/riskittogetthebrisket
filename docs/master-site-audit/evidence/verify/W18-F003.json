@@ -1,0 +1,88 @@
+{
+ "id": "W18-F003",
+ "workstream": "W18",
+ "promptSections": [
+  5
+ ],
+ "title": "src/nfl_data/realized_points.py disagrees with the league host on 36% of player-weeks: it never reads the six reception-distance rules, maps pass_int/pass_sack/fum_lost to nflverse columns that no longer exist, and has no kicker scoring at all",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "Realized fantasy points / BDVM fundamentals",
+ "surface": {
+  "routes": [
+   "/api/player/{sleeper_id}/realized",
+   "/api/league-comparison",
+   "/api/bdvm/values",
+   "/api/bdvm/roster",
+   "/api/bdvm/trades"
+  ],
+  "pages": [
+   "/league-comparison",
+   "/bdvm",
+   "/rankings"
+  ],
+  "flags": [
+   "realized_points_api",
+   "bdvm_engine"
+  ]
+ },
+ "codeRefs": [
+  {
+   "path": "src/nfl_data/realized_points.py",
+   "lines": "82-106"
+  },
+  {
+   "path": "src/nfl_data/realized_points.py",
+   "lines": "171-186"
+  },
+  {
+   "path": "src/nfl_data/realized_points.py",
+   "lines": "449-457"
+  },
+  {
+   "path": "src/league_comparison/scoring_engine.py",
+   "lines": "5-9"
+  },
+  {
+   "path": "src/bdvm/scoring.py",
+   "lines": "41-75"
+  }
+ ],
+ "claimUnderTest": "src/league_comparison/scoring_engine.py:6 \u2014 'compute_weekly_points ... is already the single source of truth for Sleeper-format fantasy scoring'. CLAUDE.md \u2014 BDVM's baseline is 'realized nflverse PPG under the league's exact scoring'.",
+ "observed": "Scored 636 real 2025 player-weeks (nflverse rows) against the same 636 Sleeper host stat lines under the SAME live dynasty_main scoring_settings. Only 406 (63.8%) agree within 0.011. Three independent causes, each confirmed by decomposing individual players: (1) rec_0_4/rec_5_9/rec_10_19/rec_20_29/rec_30_39/rec_40p appear in neither _SIMPLE_KEYS nor the threshold-bonus list, costing 157.03 points across 197 rows \u2014 Stefon Diggs 2025 wk5 exact 30.100 vs realized 23.400, delta -6.700 = 0.34+4.02+2.34 exactly. (2) _SIMPLE_KEYS maps pass_int->'interceptions', pass_sack->'sacks', fum_lost->'fumbles_lost'; the 2025 unified nflverse release names them passing_interceptions, sacks_suffered and fumbles_lost_total, so stat_row.get returns None -> _num -> 0.0 and the key is skipped. Patrick Mahomes wk14 exact 0.823 vs realized 14.823, delta exactly +14.000 = 3 INT x 4.00 + 2 sacks x 1.00. Across the sample these three penalties are worth 208 points that are never charged. (3) No kicker key is read at all (fgm_yds 0.07, xpm 2.31, xpmiss -3.15, six fgmiss_* bands) although K is a starting slot; every kicker scores 0.000 (33/33 rows wrong, mean -9.251). Per-group agreement: IDP 312/350 (89.1%, mean -0.034 \u2014 this path is essentially correct), other 66/71, WR 11/64, TE 10/48, RB 4/32, QB 3/38 (mean +6.533), K 0/33 (mean -9.251).",
+ "reproduction": {
+  "command": "bash docs/master-site-audit/evidence/W18/repro.sh   # section R5",
+  "expected": "636/636 agree within 0.011 (the tolerance src/league_intel/scorer.py's own docstring sets)",
+  "actual": "406/636 agree; QB mean +6.533, K mean -9.251, WR mean -1.558",
+  "artifact": "docs/master-site-audit/evidence/W18/cross-engine-summary.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "player_weeks": 636,
+   "weeks": "2025 wk5, wk9, wk14",
+   "scoring": "live dynasty_main scoring_settings (141 keys)",
+   "reference": "src/league_intel/scorer.score_stat_line, itself validated 1339/1339 vs Sleeper players_points"
+  },
+  "formula": "delta = compute_weekly_points(nflverse_row) - score_stat_line(sleeper_stat_line); agreement = count(|delta| <= 0.011)",
+  "expected": 636,
+  "actual": 406,
+  "tolerance": 0.011
+ },
+ "userImpact": "The direction is systematic, not random: QBs are over-scored by ~6.5 pts/week and pass-catchers under-scored by 0.8-1.6 pts/week, so any fundamental value built on this engine tilts the board toward QBs and away from WR/TE/RB. On /rankings the 'Fund gap' column and on /bdvm the entire value board are derived from it; on /league-comparison the positional-balance verdict a user reads to decide whether their league over-pays QBs is computed from the engine that over-pays QBs.",
+ "blastRadius": {
+  "playersAffected": 636,
+  "routesAffected": 5,
+  "pagesAffected": 3
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A15-F01",
+  "relation": "confirmed",
+  "note": "Confirms the reception-band half exactly (6 rules, WR most affected) and extends it with two causes that audit did not report: three dead nflverse column mappings worth +208 pts of uncharged QB penalties, and the complete absence of kicker scoring in a league that starts a K. Also partially confirms PRIOR-A24-F19 and refutes the implication in PRIOR-A22-F02 that IDP is the broken half \u2014 measured, IDP is the ONE group this engine gets right."
+ },
+ "whatWorks": "The IDP path is correct and well-defended: the _SCORING_KEY_ALIASES derivation from sleeper_ingest.KEY_ALIASES resolves idp_pass_def->idp_pd and idp_qb_hit->idp_hit, _tackle_view reconstructs gamebook solo from the post-2025 columns, and the group agrees with the host at 89.1% with mean signed error -0.034.",
+ "rootCause": "realized_points is an allow-list engine keyed on nflverse column names, in a codebase that also contains a scoring-key-agnostic dot-product engine (src/league_intel/scorer.py) that is provably exact. The allow-list silently degrades in two ways \u2014 a live scoring rule with no entry, and an entry whose column was renamed \u2014 and _num(None) -> 0.0 makes both indistinguishable from 'the player did nothing'.",
+ "requiredRepair": "Add rec_0_4..rec_40p (nflverse publishes no reception-depth split, so they must come from src/nfl_data/reception_depth.py or be reported as uncovered, not silently zero); repoint pass_int/pass_sack/fum_lost at passing_interceptions/sacks_suffered/fumbles_lost_total via the existing candidate-tuple mechanism; add the kicker family. Structurally: make the engine assert that every NONZERO key in the league's scoring_settings is either mapped or explicitly declared uncoverable, and surface the uncovered set on the payload (src/nfl_data/scoring_coverage.py already exists for this and is not consulted at scoring time).",
+ "dependencies": "None. src/nfl_data/scoring_coverage.py already enumerates the gap."
+}

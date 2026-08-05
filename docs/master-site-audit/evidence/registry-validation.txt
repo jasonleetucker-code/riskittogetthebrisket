@@ -1,10 +1,13 @@
-registry merge — 2026-08-04T22:17:23.287274+00:00 @ fe53d75c
-shards: 20
-records: 268 raw -> 268 after dedupe (0 merged)
-by status: {'Implemented but defective': 137, 'Duplicate or conflicting implementation': 18, 'Partially implemented': 25, 'Implemented and verified': 29, 'Implemented but disconnected': 15, 'Scaffolded only': 20, 'Missing': 7, 'Deprecated but still active': 7, 'Blocked by data': 5, 'Mocked or hard-coded': 2, 'Unverifiable': 3}
-by priority: {'P1': 71, 'P2': 103, 'P3': 83, 'P0': 11}
-by workstream: {'W00': 10, 'W01': 12, 'W02': 14, 'W03': 15, 'W04': 16, 'W05': 12, 'W06': 14, 'W07': 9, 'W08': 15, 'W09': 16, 'W10': 17, 'W12': 15, 'W18': 11, 'W19': 17, 'W20': 16, 'W21': 10, 'W22': 9, 'W24': 10, 'W29': 8, 'W30': 22}
-prior-finding relations: {'new': 105, 'partial': 50, 'confirmed': 95, 'not-reproducible': 6, 'superseded': 4, 'refuted': 8}
-files with contradictory verdicts: ['server.py', 'src/api/draft_capital_fallback.py', 'CLAUDE.md', 'src/api/feature_flags.py', 'src/trade/finder.py', 'src/api/data_contract.py', 'frontend/app/rankings/page.jsx', 'src/league_intel/te_premium.py', 'frontend/lib/dynasty-data.js', 'frontend/lib/trade-logic.js', 'src/model_registry/hill_masters.py', 'config/model_registry/hill_scope_masters.json', 'src/api/terminal.py', 'frontend/app/trade/page.jsx', 'config/leagues/registry.json', 'src/bdvm/market.py', 'src/consensus_edge/score.py', 'src/league_intel/config.py', 'tests/league_intel/test_registry_consumers.py', 'src/public_league/records.py', 'src/public_league/trade_grading.py', 'src/public_league/activity.py', 'src/public_league/awards.py', 'frontend/lib/league-analysis.js', 'src/bdvm/news_events.py']
+registry merge — 2026-08-05T00:27:11.149268+00:00 @ ba9f348b
+shards: 31
+records: 432 raw -> 432 after dedupe (0 merged)
+published: 431  refuted+withdrawn: 1
+verification verdicts: {'unverified': 408, 'rescoped': 18, 'overturned': 1, 'upheld': 5}
+severity drift under verification: {'P0->P2': 1, 'P1->P3': 2, 'P1->P2': 4, 'P0->P1': 4}
+by status: {'Implemented but defective': 223, 'Duplicate or conflicting implementation': 25, 'Partially implemented': 39, 'Implemented and verified': 58, 'Implemented but disconnected': 27, 'Scaffolded only': 24, 'Missing': 11, 'Deprecated but still active': 8, 'Blocked by data': 11, 'Mocked or hard-coded': 2, 'Unverifiable': 3}
+by priority: {'P1': 95, 'P2': 169, 'P3': 156, 'P0': 11}
+by workstream: {'W00': 10, 'W01': 12, 'W02': 14, 'W03': 15, 'W04': 15, 'W05': 12, 'W06': 14, 'W07': 9, 'W08': 15, 'W09': 16, 'W10': 17, 'W11': 22, 'W12': 15, 'W13': 17, 'W14': 10, 'W15': 21, 'W16': 16, 'W17': 13, 'W18': 11, 'W19': 17, 'W20': 16, 'W21': 10, 'W22': 9, 'W23': 17, 'W24': 10, 'W25': 11, 'W26': 19, 'W27': 12, 'W28': 6, 'W29': 8, 'W30': 22}
+prior-finding relations: {'new': 174, 'partial': 90, 'confirmed': 140, 'not-reproducible': 9, 'superseded': 5, 'refuted': 13}
+files with contradictory verdicts: ['server.py', 'src/api/draft_capital_fallback.py', 'CLAUDE.md', 'src/api/feature_flags.py', 'src/trade/finder.py', 'src/api/data_contract.py', 'frontend/app/intel/page.jsx', 'frontend/app/rankings/page.jsx', 'src/league_intel/te_premium.py', 'frontend/lib/dynasty-data.js', 'frontend/lib/trade-logic.js', 'src/model_registry/hill_masters.py', 'config/model_registry/hill_scope_masters.json', '.github/workflows/refit-hill-curves.yml', 'src/api/terminal.py', 'frontend/app/trade/page.jsx', 'config/bdvm/pick_outcomes_v1.json', 'config/leagues/registry.json', 'src/trade/waiver.py', 'frontend/lib/waiver-logic.js', 'src/bdvm/market.py', 'src/consensus_edge/score.py', 'config/bdvm/params_v1.json', 'src/bdvm/engine.py', 'src/intel/ledger.py', 'src/sharp/market.py', 'src/sharp/cohort.py', 'frontend/app/consensus-edge/page.jsx', 'src/sharp/service.py', 'src/sharp/platform_records.py', 'src/sharp/score.py', 'src/intel/service.py', 'src/intel/signals.py', 'src/ros/__init__.py', 'src/league_intel/config.py', 'tests/league_intel/test_registry_consumers.py', 'src/public_league/records.py', 'src/public_league/trade_grading.py', 'src/public_league/activity.py', 'src/public_league/awards.py', 'frontend/lib/league-analysis.js', 'src/bdvm/news_events.py', 'docs/consensus-edge/DECISIONS.md', 'src/league_intel/cross_market.py', 'src/api/team_assignment.py', 'frontend/app/league/sections/team-assignment.jsx']
 
 VALIDATION PROBLEMS (0):

@@ -1,0 +1,78 @@
+{
+ "id": "W03-F001",
+ "workstream": "W03",
+ "promptSections": [
+  7,
+  11
+ ],
+ "title": "The board /rankings renders is not the board GET /api/data serves: the stock frontend body {\"tep_multiplier\":1.15} changes 627 of 740 ranks and 654 tiers while the response stamps isCustomized:false",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "M",
+ "subsystem": "Rankings override delta view",
+ "surface": {
+  "routes": [
+   "POST /api/rankings/overrides?view=delta",
+   "GET /api/data"
+  ],
+  "pages": [
+   "/rankings"
+  ],
+  "flags": [
+   "RISKIT_FEATURE_TE_BASIS_CONVERSION"
+  ]
+ },
+ "codeRefs": [
+  {
+   "path": "server.py",
+   "lines": "3832,3929-3938"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "2445-2500"
+  },
+  {
+   "path": "src/league_intel/te_premium.py",
+   "lines": "355-395"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md: 'Custom source configurations flow through the SAME canonical pipeline as the default board'; the delta is described as 'only the override-sensitive fields' merged onto the cached base, and rankingsOverride.isCustomized reports whether the board was customised.",
+ "observed": "A live browser load of http://127.0.0.1:3000/rankings POSTs {\"tep_multiplier\":1.15} (the /settings default) to /api/rankings/overrides?view=delta. That response is a materially different board from GET /api/data: 627 of 740 canonicalConsensusRank values differ, 654 canonicalTierId values differ, 135 rankDerivedValue values differ (82 TE, 50 PICK, 3 other) \u2014 yet rankingsOverride.isCustomized is false and no field on the response says the board diverged. Cause: an explicit tep_multiplier bypasses the measured base->tepp TE basis curve (ADR-015, 1.209 at the top rising toward 2.05 down the board) and substitutes a flat 1.15 \u2014 the exact constant ADR-015 removed for sitting below the entire observed range. Deep TEs lose up to 21% of value and ~200 ranks. The server-side engines (trade suggestions, finder, angles, terminal, simulate) all read latest_contract_data, i.e. the GET /api/data board \u2014 so the page and the advice disagree by construction.",
+ "reproduction": {
+  "command": "curl -s -b /tmp/audit-cookies.txt -X POST 'http://127.0.0.1:8000/api/rankings/overrides?view=delta' -H 'Content-Type: application/json' -d '{\"tep_multiplier\":1.15}' -o /tmp/tep.json; .venv/bin/python docs/master-site-audit/evidence/W03/delta_rt.py  # and see tep-board-divergence.json",
+  "expected": "delta ranks/tiers/values identical to GET /api/data when isCustomized is false, or isCustomized:true plus a stated reason",
+  "actual": "627 rank / 654 tier / 135 value divergences with isCustomized:false",
+  "artifact": "docs/master-site-audit/evidence/W03/tep-board-divergence.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "player": "Tyler Conklin (TE)",
+   "getRank": 469,
+   "getValue": 1450,
+   "pageRank": 666,
+   "pageValue": 1142,
+   "tep_multiplier": 1.15,
+   "measuredTeppUpliftAtThisDepth": ">1.15 per ADR-015 curve (1.209 top -> 2.05 deep)"
+  },
+  "formula": "pageValue = blended_TE_value_on_base_basis * flat_tep_multiplier  (explicit slider bypasses convert_te_value base->tepp)",
+  "expected": 1450,
+  "actual": 1142,
+  "tolerance": 1
+ },
+ "userImpact": "A manager reads Tyler Conklin at #666 / 1,142 on /rankings, then opens /trade where the engine values him at 1,450 (#469) \u2014 a 21% price difference on the same asset, in the same session, with no label distinguishing the two boards. Every TE trade priced from the rankings page is priced off a board no engine uses.",
+ "blastRadius": {
+  "playersAffected": 786,
+  "routesAffected": 2,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A12-F05",
+  "relation": "partial",
+  "note": "A12-F05 identified that a TEP-only body reaches the pipeline as source_overrides=={} (which is how it clears the 'not source_overrides' guard); it framed the consequence as a snapshot write. The board divergence itself and the isCustomized:false mislabel are new."
+ },
+ "whatWorks": "The delta payload is internally consistent with its own view=full sibling \u2014 zero field mismatches across all 1,092 rows and all 43 _DELTA_PLAYER_FIELDS (W03-F002).",
+ "rootCause": "normalize_tep_multiplier extracts tep_multiplier as a reserved top-level knob that normalize_source_overrides deliberately skips, so the body produces source_overrides == {} and rankingsOverride.isCustomized == False, while tep_multiplier is still threaded into build_rankings_delta_payload and does change the board. 'Customised' is defined as 'has source overrides' rather than 'differs from the canonical board'.",
+ "requiredRepair": "Either (a) build the canonical GET /api/data contract with the same default tep_multiplier the frontend posts so the two boards are one board, or (b) stamp isCustomized:true (or a distinct boardVariant/tepMultiplier field) on any response whose tep_multiplier differs from the contract's, and thread the same multiplier into the engine paths. Separately, decide whether the /settings default should be the flat 1.15 that ADR-015 retired.",
+ "dependencies": "Interacts with the value-pipeline workstream (ADR-015 TE basis) and the trade-engine workstream (engine board selection)."
+}

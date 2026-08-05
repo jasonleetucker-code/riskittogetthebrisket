@@ -1,0 +1,17 @@
+full bytes on disk 11953535
+sleeper.teams count 12 bytes 46792
+top-level keys and approx bytes:
+  playersArray                    6672883
+  players                         5913738
+  sleeper                          371174
+  settings                          11081
+  methodology                        9041
+  pickAnchors                        4377
+  pickAnchorsRaw                     4377
+  dataFreshness                      3559
+  poolAudit                          3153
+  rankingsOverride                   1624
+  pickAliases                         630
+  coverageAudit                       619
+  hillCurves                          561
+  valueAuthority                      305

@@ -1,0 +1,70 @@
+{
+ "id": "W04-F009",
+ "workstream": "W04",
+ "promptSections": [
+  39
+ ],
+ "title": "No historical record of the served board exists \u2014 archived exports carry the raw scraper composite only, so every 'historical' backtest blends today's 18 source CSVs into a weeks-old payload",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "XL",
+ "subsystem": "Historical snapshots / backtesting",
+ "surface": {
+  "routes": [
+   "/api/data"
+  ],
+  "pages": [],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "scripts/backtest_alpha_shrinkage.py",
+   "lines": "59-73"
+  },
+  {
+   "path": "scripts/backtest_soft_fallback.py",
+   "lines": "56-70"
+  },
+  {
+   "path": "scripts/backtest_legacy_rank_curve.py",
+   "lines": "108-136"
+  }
+ ],
+ "claimUnderTest": "reports/alpha_shrinkage_backtest_full.md: 'Snapshot count: 25, Date range: 2026-03-23 \u2192 2026-04-16'. player_valuation.py: 'The fit is structurally stable \u2014 16 archived snapshots spanning 2026-07-16 \u2192 07-30 returned offense midpoint 65.4\u2026 against rankDerivedValue on the served board.'",
+ "observed": "An archived export's player rows contain _composite, _finalAdjusted, _rawComposite, _canonicalSiteValues and three site columns. They contain NO rankDerivedValue, NO canonicalConsensusRank, NO confidenceBucket, NO sourceRanks \u2014 the entire canonical blend output is absent. Every backtest therefore RECONSTRUCTS a board by calling build_api_data_contract(old_payload), and that function reads the CSV-backed sources from CSVs/site_raw/ at the paths hardcoded in _RANKING_SOURCES \u2014 from disk, today, not from the snapshot. Rebuilding the 2026-07-14 payload produces 1,092 rows voted on by 21 sources, 18 of which have no representation in that archive at all, including pfkDynasty and fantasyNavigatorSf whose CSVs first entered the tree on 2026-08-03 \u2014 three weeks after the snapshot date. So the word 'served' in the player_valuation.py comment is false: those 16 boards were never served, they are counterfactuals under today's constants and today's expert boards.",
+ "reproduction": {
+  "command": "cd /home/user/riskittogetthebrisket && .venv/bin/python -c \"import sys,json,zipfile;sys.path.insert(0,'.');from src.api.data_contract import build_api_data_contract;z=zipfile.ZipFile('exports/archive/dynasty_export_20260714_233659.zip');p=json.loads(z.read('dynasty_data_2026-07-14.json'));print('archived site_raw:',[n for n in z.namelist() if n.startswith('site_raw/')]);print('has rankDerivedValue:', 'rankDerivedValue' in p['players'][list(p['players'])[0]]);c=build_api_data_contract(p);s=set();[s.update((r.get('sourceRanks') or {}).keys()) for r in c['playersArray']];print('sources voting in rebuild:',len(s))\"",
+  "expected": "a snapshot that reproduces the board served on 2026-07-14",
+  "actual": "archived site_raw: ['site_raw/ktcSfTep.csv','site_raw/ktc.csv','site_raw/idpTradeCalc.csv'] \u00b7 has rankDerivedValue: False \u00b7 sources voting in rebuild: 21 (18 of them from today's tree)",
+  "artifact": "docs/master-site-audit/evidence/W04/backtest-temporal-leakage.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "archivedSnapshots": 129,
+   "snapshotsCarryingRankDerivedValue": 0,
+   "sourcesInRebuild": 21,
+   "sourcesArchivedWithThatSnapshot": 3,
+   "leakedSources": 18
+  },
+  "formula": "leakedSources / sourcesInRebuild",
+  "expected": 0,
+  "actual": 0.857,
+  "tolerance": 0
+ },
+ "userImpact": "Nothing about the value model can be validated historically, and the repo's docs claim otherwise in at least four places: the \u03b1/\u03bb/N/soft-fallback reports ('Snapshot count: 25 \u00b7 Date range \u2026'), player_valuation.py's 'served board' stability note, docs/legacy-rank-curve-backtest.md, and CLAUDE.md's description of the refit gate. Per section 39: because no historical source snapshots exist for 18 of 21 sources, NO model in this repository may be described as validated. The splits are not rolling or expanding \u2014 there are no splits, only consecutive-day pairs of reconstructions.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 100,
+  "pagesAffected": 38
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A13-F13",
+  "relation": "confirmed",
+  "note": "Confirms PRIOR-A13-F13 ('no temporal validation exists anywhere in the calibration path') and PRIOR-A24-F10/F11. The repo has independently measured the same 21/18 split inside backtest_percentile_reference_n.py; this reproduces it and extends it to the missing rankDerivedValue in the archive, which that note does not cover."
+ },
+ "whatWorks": "src/model_registry/board_holdout.py is the one honest exception: it scores against realized 2025 points under the league's exact rules, uses a seeded paired bootstrap, and its docstring states outright that the forecast claim 'would need board snapshots taken before a season that this repo does not keep'. docs/adjusted-board-backtest.md reports 'no difference detected' rather than claiming a win.",
+ "rootCause": "The export format was designed as a scraper artifact and predates the canonical blend; nobody extended it when rankDerivedValue became the product's value. build_api_data_contract reads CSV paths from module constants, so it has no way to be pointed at a snapshot.",
+ "requiredRepair": "(1) Write playersArray (or at minimum rankDerivedValue + canonicalConsensusRank + confidenceBucket + sourceRanks) into every export. (2) Archive all 21 site_raw CSVs per snapshot. (3) Give build_api_data_contract an optional site_raw root so a replay reads the snapshot's own CSVs. Until (1)-(3) land, no backtest in reports/ should be cited as evidence.",
+ "dependencies": ""
+}

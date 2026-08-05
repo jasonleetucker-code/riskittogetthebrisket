@@ -1,0 +1,76 @@
+{
+ "id": "W10-F001",
+ "workstream": "W10",
+ "promptSections": [
+  26,
+  27
+ ],
+ "title": "Every bid recommendation on /draft ignores the user's remaining budget \u2014 with $4 left the board says \"Win at $69 / Max bid $80 / Push up to $48\"",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "M",
+ "subsystem": "Draft auction bid engine",
+ "surface": {
+  "routes": [],
+  "pages": [
+   "/draft"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/lib/draft-logic.js",
+   "lines": "733-748"
+  },
+  {
+   "path": "frontend/lib/draft-logic.js",
+   "lines": "2517-2537"
+  },
+  {
+   "path": "frontend/app/draft/page.jsx",
+   "lines": "795-815"
+  }
+ ],
+ "claimUnderTest": "draft-logic.js's header documents Winning bid(p) = min(Theoretical Max, topCompetitorMax + 1) and describes effectiveBudgetFor as 'the maximum $ a team can actually bid on a single player right now'. The /draft modal advertises an overpay guard.",
+ "observed": "theoreticalMaxBid, myMaxBid, myWinningBid and enforceUpTo are computed from preDraft x aggression x tierInflation x phaseMultiplier and capped ONLY by topCompetitorMax + 1. Not one of them reads myRemaining or effectiveBudgetByIdx[myTeamIdx]. effectiveBudgetFor() is applied to RIVALS only (line 480-485 skips myTeamIdx). bidStatus() classifies against myWinningBid, so a bid 6x the user's cash reads 'Push up'. The only modal warning fires on amt > myWinningBid, never on amt > myRemaining, so entering an unaffordable amount below the ceiling shows nothing at all.",
+ "reproduction": {
+  "command": "node docs/master-site-audit/evidence/W10/probe-bid-vs-budget.mjs",
+  "expected": "a bid ceiling <= myRemaining ($4), or an affordability warning",
+  "actual": "myRemaining=4, Sonny Styles myMaxBid=$80, myWinningBid=$69, enforceUpTo=$48, bidStatus($24) = {level:'push', label:'Push up'}",
+  "artifact": "docs/master-site-audit/evidence/W10/probe-bid-vs-budget.mjs"
+ },
+ "numericProof": {
+  "inputs": {
+   "myStarting": 417,
+   "mySpent": 413,
+   "myRemaining": 4,
+   "preDraft": 66,
+   "aggression": 0.09,
+   "budgetAdvantage": 0.05,
+   "inflation": 1.0976,
+   "tierMult": 1.0,
+   "phaseMultiplier": 1.4167,
+   "topCompetitorMax": 68
+  },
+  "formula": "theoreticalMaxBid = floor(preDraft * (1 + aggression*(BA-1)) * inflation*tierMult * phaseMultiplier); myWinningBid = min(theoreticalMaxBid, topCompetitorMax + 1); NO min(..., myRemaining) term exists",
+  "expected": 4,
+  "actual": 69,
+  "tolerance": 0
+ },
+ "userImpact": "Mid-draft the user reads 'Win at $69' on a player they can only pay $4 for, bids, and either loses the auction after driving the price up or wins a bid they cannot fund. The bid-status chip actively says 'Push up' on an amount 6x their cash.",
+ "blastRadius": {
+  "playersAffected": 72,
+  "routesAffected": 0,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A00-F00",
+  "relation": "confirmed",
+  "note": "Independently reproduced at runtime with concrete numbers and the bidStatus consequence, which the prior finding did not quantify. The slot half of the prior finding is split out as W10-F002."
+ },
+ "whatWorks": "The rival-side ceiling (effectiveBudgetFor over other teams) is applied correctly and topCompetitorMax does cap the recommendation from above; the overpay banner fires correctly for the case it does cover (amount above the rival ceiling).",
+ "rootCause": "myWinningBid was designed as 'the price that beats the field', and no second clamp for 'the price I can actually pay' was ever added. effectiveBudgetFor exists and would answer it, but is deliberately skipped for myTeamIdx.",
+ "requiredRepair": "Clamp every emitted bid number by effectiveBudgetFor(myRemaining, mySlotsRemaining) and add an affordability state to bidStatus distinct from 'pass'. Add an amt > myRemaining branch to the modal warning.",
+ "dependencies": "Depends on W10-F002 \u2014 mySlotsRemaining is currently wrong, so the clamp must not be built on the capped slot count."
+}

@@ -21,6 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SHARD_DIR = ROOT / "docs/master-site-audit/evidence/registry"
+VERDICT_DIR = ROOT / "docs/master-site-audit/evidence/verify"
 OUT = ROOT / "docs/master-site-audit/findings.json"
 REPORT = ROOT / "docs/master-site-audit/evidence/registry-validation.txt"
 
@@ -80,6 +81,53 @@ def load_shards() -> tuple[list[dict], list[str]]:
     return findings, problems
 
 
+def load_verdicts() -> dict[str, dict]:
+    """Adversarial-verification verdicts, keyed by finding id.
+
+    A finding's AUTHORED priority is a proposal; the verifier's corrected priority is
+    what publishes. Wave 1 rescoped 18 of 24, so this is not a formality — applying it
+    is the difference between a report and a pile of assertions.
+    """
+    verdicts: dict[str, dict] = {}
+    if not VERDICT_DIR.exists():
+        return verdicts
+    for path in sorted(VERDICT_DIR.glob("verdicts-*.jsonl")):
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if rec.get("id"):
+                rec["verdictSource"] = path.name
+                verdicts[rec["id"]] = rec
+    return verdicts
+
+
+def apply_verdict(f: dict, v: dict) -> None:
+    """Stamp the verdict onto the finding and honour the verifier's correction."""
+    f["verification"] = {
+        "verdict": v.get("verdict"),
+        "reran": v.get("reran"),
+        "reasoning": v.get("reasoning"),
+        "whatWouldSettleIt": v.get("whatWouldSettleIt"),
+        "source": v.get("verdictSource"),
+    }
+    f["authoredPriority"] = f.get("priority")
+    corrected = (v.get("correctedPriority") or "").strip()
+    if corrected in PRIORITIES:
+        f["priority"] = corrected
+    if v.get("correctedBlastRadius"):
+        f["authoredBlastRadius"] = f.get("blastRadius")
+        f["blastRadius"] = v["correctedBlastRadius"]
+    # An overturned finding is not deleted — a killed claim plus the argument that
+    # killed it is evidence, and burying it would repeat the failure this audit reports.
+    if v.get("verdict") == "overturned":
+        f["published"] = False
+
+
 def validate(f: dict, where: str) -> list[str]:
     out = []
     fid = f.get("id", "<no id>")
@@ -110,8 +158,13 @@ def main() -> None:
     args = ap.parse_args()
 
     findings, problems = load_shards()
+    verdicts = load_verdicts()
     for f in findings:
         problems.extend(validate(f, f.get("workstream", "?")))
+        f.setdefault("published", True)
+        v = verdicts.get(f.get("id"))
+        if v:
+            apply_verdict(f, v)
 
     # Dedupe on (title, first codeRef path) — two workstreams can legitimately
     # reach the same file; identical claims are merged and both owners recorded.
@@ -139,26 +192,42 @@ def main() -> None:
         and (statuses & {"Implemented but defective", "Mocked or hard-coded", "Scaffolded only"})
     ]
 
-    by_status = Counter(f.get("status") for f in merged)
-    by_priority = Counter(f.get("priority") for f in merged)
-    by_ws = Counter(f.get("workstream") for f in merged)
-    by_relation = Counter(((f.get("priorFinding") or {}).get("relation")) for f in merged)
+    published = [f for f in merged if f.get("published", True)]
+    refuted = [f for f in merged if not f.get("published", True)]
+
+    by_status = Counter(f.get("status") for f in published)
+    by_priority = Counter(f.get("priority") for f in published)
+    by_ws = Counter(f.get("workstream") for f in published)
+    by_relation = Counter(((f.get("priorFinding") or {}).get("relation")) for f in published)
+    by_verdict = Counter(
+        (f.get("verification") or {}).get("verdict") or "unverified" for f in merged
+    )
+    # Severity drift: how far the authored priorities were from what survived review.
+    drift = Counter(
+        f"{f.get('authoredPriority')}->{f.get('priority')}"
+        for f in merged
+        if f.get("authoredPriority") and f.get("authoredPriority") != f.get("priority")
+    )
 
     payload = {
         "schemaVersion": 1,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "commit": head(),
         "totals": {
-            "findings": len(merged),
+            "findings": len(published),
+            "refutedAndWithdrawn": len(refuted),
             "rawRecords": len(findings),
             "duplicatesMerged": dupes,
             "workstreams": len(by_ws),
             "validationProblems": len(problems),
+            "verified": sum(1 for f in merged if f.get("verification")),
         },
         "byStatus": dict(by_status),
         "byPriority": dict(by_priority),
         "byWorkstream": dict(by_ws),
         "byPriorRelation": {str(k): v for k, v in by_relation.items()},
+        "byVerificationVerdict": dict(by_verdict),
+        "severityDriftUnderVerification": dict(drift),
         "filesWithContradictoryVerdicts": conflicts,
         "findings": merged,
     }
@@ -168,6 +237,9 @@ def main() -> None:
         f"registry merge — {payload['generatedAt']} @ {payload['commit']}",
         f"shards: {len(list(SHARD_DIR.glob('*.jsonl'))) if SHARD_DIR.exists() else 0}",
         f"records: {len(findings)} raw -> {len(merged)} after dedupe ({dupes} merged)",
+        f"published: {len(published)}  refuted+withdrawn: {len(refuted)}",
+        f"verification verdicts: {dict(by_verdict)}",
+        f"severity drift under verification: {dict(drift)}",
         f"by status: {dict(by_status)}",
         f"by priority: {dict(by_priority)}",
         f"by workstream: {dict(by_ws)}",
@@ -178,7 +250,7 @@ def main() -> None:
         *problems,
     ]
     REPORT.write_text("\n".join(lines))
-    print("\n".join(lines[:9]))
+    print("\n".join(lines[:12]))
     print(f"\n{len(problems)} validation problems -> {REPORT}")
     print(f"wrote {OUT}")
     if args.strict and problems:

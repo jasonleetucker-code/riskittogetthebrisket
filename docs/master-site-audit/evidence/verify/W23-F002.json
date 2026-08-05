@@ -1,0 +1,73 @@
+{
+ "id": "W23-F002",
+ "workstream": "W23",
+ "promptSections": [
+  38
+ ],
+ "title": "A partial scrape that the promotion guard REFUSES to publish is recorded as a success \u2014 same event name, same history outcome, same last_success_at, and it increments scrape_count",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "S",
+ "subsystem": "Scrape lifecycle / monitoring",
+ "surface": {
+  "routes": [
+   "/api/status",
+   "/api/health",
+   "/api/metrics"
+  ],
+  "pages": [
+   "/admin"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "server.py",
+   "lines": "2362-2388"
+  },
+  {
+   "path": "server.py",
+   "lines": "1013-1050"
+  },
+  {
+   "path": "server.py",
+   "lines": "1090-1101"
+  }
+ ],
+ "claimUnderTest": "server.py:2362 comment \u2014 \"R-3: Block partial scrape promotion \u2014 don't overwrite good data with degraded data\". The implied contract is that a blocked run is visibly not a good run.",
+ "observed": "On the blocked branch server.py:2380 calls _mark_scrape_success(elapsed, player_count, site_count, total_sites) before returning the OLD data. _mark_scrape_success sets last_success_at and last_scrape to now, clears error to None, sets current_step='complete', increments scrape_count, emits the event scrape_succeeded, and appends outcome='success' to scrape_history. The only distinguishing artifact is a second run_event 'partial_scrape_blocked' at warning level emitted immediately afterward. Every aggregate built on scrape_history or last_success_at \u2014 _scrape_success_rate_24h(), /api/health's last_scrape, /api/metrics' scrape_total \u2014 counts the blocked run as a clean success. Compounded by W23-F003: the guard only trips on total data loss, so reaching this branch at all means the scrape returned literally zero sites, which is the single worst outcome and it is filed as a success.",
+ "reproduction": {
+  "command": "sed -n '2362,2389p' server.py && sed -n '1013,1050p' server.py",
+  "expected": "A _mark_scrape_failure / _record_scrape_history(\"partial_blocked\", ...) on the guard's branch",
+  "actual": "_mark_scrape_success(...) then `return latest_data` \u2014 line 2380 followed by line 2388",
+  "artifact": "docs/master-site-audit/evidence/W23/api-status.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "site_count_on_blocked_branch": 0,
+   "outcome_recorded": "success",
+   "last_success_at_updated": true,
+   "scrape_count_delta": 1
+  },
+  "formula": "success_rate_24h = successes/total over scrape_history; a blocked run contributes +1 to BOTH numerator and denominator",
+  "expected": 0,
+  "actual": 1,
+  "tolerance": 0
+ },
+ "userImpact": "An operator looking at /admin or /api/health after a total scrape failure sees a fresh timestamp, no error, and a 100% success rate. They conclude the pipeline is healthy and do not investigate, while the site serves last-known-good data indefinitely.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 3,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A07-F04",
+  "relation": "confirmed",
+  "note": "Reproduced by reading the live code path. Adds the specific downstream consumers that inherit the lie (scrape_history outcome, last_success_at, scrape_count, /api/metrics.scrape_total) and the interaction with W23-F003."
+ },
+ "whatWorks": "The guard itself does the right thing with the DATA \u2014 it returns latest_data and does not overwrite the good snapshot on disk or in memory. send_alert() is also called on this branch, so an email does go out if SMTP is configured. The defect is purely in the status/history bookkeeping.",
+ "rootCause": "The blocked branch needs to clear the 'running' flag and stamp a finish time, and _mark_scrape_success is the only helper that does that \u2014 so it was reused for its side effects rather than its meaning.",
+ "requiredRepair": "Split the bookkeeping: a _mark_scrape_finished(outcome) that both success and blocked-partial call, with outcome='partial_blocked' recorded to scrape_history and last_success_at left untouched on the blocked path.",
+ "dependencies": "W23-F003 (same branch); W23-F001 (the success-rate metric this corrupts is itself unread)"
+}

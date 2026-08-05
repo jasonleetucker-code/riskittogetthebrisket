@@ -1,0 +1,82 @@
+{
+ "id": "W23-F006",
+ "workstream": "W23",
+ "promptSections": [
+  38
+ ],
+ "title": "/api/metrics.data_age_seconds and /api/health.data_age_hours measure time since the process loaded the file, not since the data was scraped \u2014 they are numerically identical to uptime and reset to zero on every restart",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "S",
+ "subsystem": "Monitoring / staleness",
+ "surface": {
+  "routes": [
+   "/api/metrics",
+   "/api/health"
+  ],
+  "pages": [
+   "/rankings",
+   "/admin"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "server.py",
+   "lines": "4671-4700"
+  },
+  {
+   "path": "server.py",
+   "lines": "4509-4520"
+  },
+  {
+   "path": "server.py",
+   "lines": "1307-1315"
+  },
+  {
+   "path": "server.py",
+   "lines": "11749-11762"
+  },
+  {
+   "path": "frontend/components/StaleDataBanner.jsx",
+   "lines": "10-90"
+  }
+ ],
+ "claimUnderTest": "frontend/components/StaleDataBanner.jsx:10 \u2014 \"``data_age_hours`` \u2014 hours since the last successful scrape\", and server.py:4508 \u2014 \"R-1: Data freshness check \u2014 flag stale if no refresh in SCRAPE_INTERVAL_HOURS * 3\".",
+ "observed": "Both fields derive from latest_data_source['loadedAt'], which _set_latest_data_source (server.py:1307-1315) sets to _utc_now_iso() \u2014 the wall-clock moment this process read the file \u2014 regardless of when the data inside it was produced. On a disk-cache load at boot that is server start time, so data age and uptime are the same number. Measured live: uptime_seconds 7401 and data_age_seconds 7401, byte-identical, while the snapshot's own settings.sourceRunSummary.finishedAt is 2026-08-04T18:20:04Z, making the true age 14,117 s. The staleness threshold is SCRAPE_INTERVAL_HOURS*3 = 6 h, so data would have to be 6 h older than the last RESTART to trip \u2014 a server that restarts on any cadence under 6 h can never report stale data, however old it is. The same loadedAt feeds ops_alerts._check_data_freshness at server.py:11749-11754, so the operator email inherits the identical blind spot. The correct timestamps exist and are already served three feet away: /api/status.source_health.sources[*].ageHours reports the honest 3.83 h per source.",
+ "reproduction": {
+  "command": "curl -s -b /tmp/audit-cookies-w23.txt http://127.0.0.1:8000/api/metrics | .venv/bin/python -c \"import json,sys,datetime; m=json.load(sys.stdin); scrape=datetime.datetime.fromisoformat('2026-08-04T18:20:04.195690+00:00'); true_age=(datetime.datetime.now(datetime.timezone.utc)-scrape).total_seconds(); print('data_age_seconds',m['data_age_seconds'],'uptime_seconds',m['uptime_seconds'],'equal?',m['data_age_seconds']==m['uptime_seconds']); print('true age from sourceRunSummary.finishedAt', round(true_age), 'under-report h', round((true_age-m['data_age_seconds'])/3600,2)); print('data_stale',m['data_stale'])\"",
+  "expected": "data_age_seconds \u2248 14117 (3.92 h), independent of uptime",
+  "actual": "data_age_seconds 7401 uptime_seconds 7401 equal? True / true age 14117 / under-report 1.87 h / data_stale False",
+  "artifact": "docs/master-site-audit/evidence/W23/api-metrics.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "scrape_finished_at": "2026-08-04T18:20:04Z",
+   "server_start_time": "2026-08-04T20:11:59Z",
+   "observed_at": "2026-08-04T22:15:20Z",
+   "SCRAPE_INTERVAL_HOURS": 2,
+   "stale_threshold_hours": 6
+  },
+  "formula": "reported_age = now - loadedAt (= now - server_start on a cache load); true_age = now - sourceRunSummary.finishedAt; error = server_start - scrape_finished",
+  "expected": 14117,
+  "actual": 7401,
+  "tolerance": 60
+ },
+ "userImpact": "A user on /rankings trades off values that are hours older than the page admits: StaleDataBanner reads data_age_hours and stays silent, so a board that has not refreshed since a scraper outage looks current the moment the service is restarted \u2014 and restarting is exactly what an operator does when a scrape hangs. The staleness warning is suppressed by the very action taken in response to staleness.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 3,
+  "pagesAffected": 41
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "Not in the prior index. PRIOR-A06-F11 concerns /settings' 'Live' badge measuring contract presence rather than freshness; this is the sibling defect one layer down, in the number that badge's honest counterpart is supposed to use."
+ },
+ "whatWorks": "/api/status.source_health.sources[*].lastFetched/ageHours are computed from real per-source fetch stamps and were correct on the live payload (3.83 h, matching the snapshot). SourceHealthStrip already prefers those per-source ages. The fix has a correct source of truth to point at.",
+ "rootCause": "latest_data_source['loadedAt'] conflates 'when this process obtained the data' with 'when the data was made'. That is the right semantic for the disk_cache/scrape_run provenance field it was built for, and the wrong one for freshness, but it is the only timestamp the health path reaches for.",
+ "requiredRepair": "Derive age from the payload's own settings.sourceRunSummary.finishedAt (falling back to scrapeTimestamp / date) in both /api/health and /api/metrics and in the ops_alerts call site, and keep loadedAt as provenance only. Assert in a test that data_age != uptime for a cache-loaded snapshot.",
+ "dependencies": "W23-F001 (the ops alert that consumes the same wrong number is itself half-dead)"
+}

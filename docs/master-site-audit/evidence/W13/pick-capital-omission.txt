@@ -1,0 +1,33 @@
+BDVM /api/bdvm/roster: strategy capitals EXCLUDE all draft picks
+src/bdvm/roster.py::analyze_rosters builds `assets` from roster['playerIds'] only;
+roster['picks'] is used solely for len() -> pickCount.  Module docstring claims 'pick capital'.
+
+team       pickCnt  cont_rep   reb_rep  cont_true  reb_true reb_omitted% ratio_rep ratio_true
+Jason           62     80820     59693     115447    114477        47.9%     1.354      1.008
+Ed               8     62338     32420      66554     37400        13.3%     1.923      1.780
+Ty              15     57355     32826      63951     42313        22.4%     1.747      1.511
+Collin          18     68082     37683      77400     51330        26.6%     1.807      1.508
+MaKayla         16     73600     45314      82102     57204        20.8%     1.624      1.435
+Eric            12     67353     43289      72064     49178        12.0%     1.556      1.465
+Roy             20     44294     27033      57131     47650        43.3%     1.638      1.199
+Joey            14     97888     54095     104291     63103        14.3%     1.810      1.653
+Brent            6    113518     54811     117677     59693         8.2%     2.071      1.971
+Kich            14     50270     19854      56408     28555        30.5%     2.532      1.975
+jstuedle        18     25459     12502      34767     26146        52.2%     2.036      1.330
+Blaine          13     42382     25841      47267     32040        19.3%     1.640      1.475
+
+direction labels (production _directions_relative, CONTEND=1.15x median, REBUILD=1/1.15x):
+  Jason      reported=rebuild  with-picks=rebuild 
+  Ed         reported=retool   with-picks=contend  <-- FLIP
+  Ty         reported=retool   with-picks=retool  
+  Collin     reported=retool   with-picks=retool  
+  MaKayla    reported=retool   with-picks=retool  
+  Eric       reported=retool   with-picks=retool  
+  Roy        reported=retool   with-picks=rebuild  <-- FLIP
+  Joey       reported=retool   with-picks=retool  
+  Brent      reported=contend  with-picks=contend 
+  Kich       reported=contend  with-picks=contend 
+  jstuedle   reported=retool   with-picks=retool  
+  Blaine     reported=retool   with-picks=retool  
+
+rosters whose direction label changes: 2/12

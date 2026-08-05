@@ -1,0 +1,94 @@
+script,scheduled_by,cadence,writes_what,read_by,prod_refs,test_refs,last_real_output_in_repo
+scripts/__init__.py,none,n/a,nothing — prints + exit code only,NOTHING,0,0,(no matching file in repo)
+scripts/_shared.py,none,n/a,nothing — prints + exit code only,export_player_map.py; validate_ingest.py; identity_resolve.py; generate_test_seeds.py; src/utils/name_clean.py,5,0,(no matching file in repo)
+scripts/audit_dropped_sources.py,workflow:audit-dropped-sources.yml [weekly Mon 07:23Z],weekly Mon 07:23Z,nothing — prints + exit code only,src/api/data_contract.py,2,1,(no matching file in repo)
+scripts/audit_identity.py,none,n/a,nothing — prints + exit code only,audit_dropped_sources.py,1,0,(no matching file in repo)
+scripts/audit_identity_matches.py,workflow:audit-identity-matches.yml [daily 08:17Z],daily 08:17Z,writes (path built at runtime),src/utils/name_clean.py,2,1,(no matching file in repo)
+scripts/auto_refit_hill_curves.py,workflow:refit-hill-curves.yml [weekly Tue 06:17Z],weekly Tue 06:17Z,nothing — prints + exit code only,fit_hill_curve_percentile.py; src/model_registry/hill_masters.py; src/model_registry/holdout.py,4,2,(no matching file in repo)
+scripts/backfill_ktc_sftep_raw.py,none,n/a,data,NOTHING,0,0,data/public_league/nfl_players.json @ 2026-08-04
+scripts/backfill_rank_history.py,none,n/a,nothing — prints + exit code only,src/maintenance/retention.py,1,1,(no matching file in repo)
+scripts/backfill_source_history.py,deploy-script:deploy/deploy.sh,n/a,data,NOTHING,1,0,data/public_league/nfl_players.json @ 2026-08-04
+scripts/backtest_adjusted_board.py,none,n/a,exports,NOTHING,0,0,exports/latest/dynasty_values.csv @ 2026-08-04
+scripts/backtest_alpha_lambda_joint.py,none,n/a,data; reports,NOTHING,0,0,data/public_league/nfl_players.json @ 2026-08-04
+scripts/backtest_alpha_shrinkage.py,none,n/a,data; reports,NOTHING,0,0,data/public_league/nfl_players.json @ 2026-08-04
+scripts/backtest_consensus_edge_composite.py,none,n/a,writes (path built at runtime),NOTHING,0,0,(no matching file in repo)
+scripts/backtest_ktc_volatility.py,none,n/a,writes (path built at runtime),TESTS ONLY,0,1,(no matching file in repo)
+scripts/backtest_legacy_rank_curve.py,none,n/a,exports,src/canonical/player_valuation.py,1,3,exports/latest/dynasty_values.csv @ 2026-08-04
+scripts/backtest_percentile_reference_n.py,none,n/a,data; reports,TESTS ONLY,0,1,data/public_league/nfl_players.json @ 2026-08-04
+scripts/backtest_scoring_adjustment.py,none,n/a,writes (path built at runtime),NOTHING,0,0,(no matching file in repo)
+scripts/backtest_soft_fallback.py,none,n/a,data; reports,NOTHING,0,0,data/public_league/nfl_players.json @ 2026-08-04
+scripts/bdvm_build_baseline.py,none,n/a,exports,refresh_bdvm_projections.py; src/api/feature_flags.py,2,1,exports/latest/dynasty_values.csv @ 2026-08-04
+scripts/board_diff.py,none,n/a,nothing — prints + exit code only,golden_board.py,1,0,(no matching file in repo)
+scripts/board_invariance_hash.py,none,n/a,writes (path built at runtime),NOTHING,0,0,(no matching file in repo)
+scripts/build_historical_scoring_dataset.py,none,n/a,writes (path built at runtime),NOTHING,0,0,(no matching file in repo)
+scripts/build_public_league_snapshot.py,none,n/a,nothing — prints + exit code only,Dynasty Scraper.py,1,0,(no matching file in repo)
+scripts/calibrate_va_formula.py,none,n/a,scripts,collect_ktc_va.py; frontend/lib/trade-logic.js,2,1,scripts/__pycache__/refresh_reception_depth.cpython-311.pyc @ 2026-08-04
+scripts/check_env.py,workflow:smoke-test.yml [daily 06:15Z]; workflow:audit-rank-form-drift.yml [weekly Tue 07:41Z]; workflow:refit-hill-curves.yml [weekly Tue 06:17Z]; workflow:deploy.yml [on push to main]; workflow:audit-dropped-sources.yml [weekly Mon 07:23Z]; workflow:scheduled-refresh.yml [every 2h :42]; workflow:pr-validation.yml [on PR],daily 06:15Z; weekly Tue 07:41Z; weekly Tue 06:17Z; on push to main; weekly Mon 07:23Z; every 2h :42; on PR,nothing — prints + exit code only,setup.sh; Makefile,9,0,(no matching file in repo)
+scripts/check_ktc_health.py,none,n/a,nothing — prints + exit code only,collect_ktc_va.py,1,0,(no matching file in repo)
+scripts/check_rank_form_drift.py,workflow:audit-rank-form-drift.yml [weekly Tue 07:41Z],weekly Tue 07:41Z,scripts,src/canonical/player_valuation.py,2,4,scripts/__pycache__/refresh_reception_depth.cpython-311.pyc @ 2026-08-04
+scripts/collect_ktc_va.py,none,n/a,scripts,calibrate_va_formula.py,1,0,scripts/__pycache__/refresh_reception_depth.cpython-311.pyc @ 2026-08-04
+scripts/convert_dlf_csv.py,none,n/a,writes (path built at runtime),TESTS ONLY,0,1,(no matching file in repo)
+scripts/crawl_ffpc_sharp.py,timer:dynasty-ffpc-sharp [daily 05:20Z]; timer:chase-upside-ffpc-sharp [daily 05:20Z],daily 05:20Z; daily 05:20Z,config; data,TESTS ONLY,2,1,data/public_league/nfl_players.json @ 2026-08-04
+scripts/crawl_sharp_activity.py,deploy-script:deploy/bootstrap-sharp-records.sh; timer:dynasty-sharp-activity [daily 06:30Z],daily 06:30Z,nothing — prints + exit code only,TESTS ONLY,2,1,(no matching file in repo)
+scripts/crawl_sharp_records.py,deploy-script:deploy/bootstrap-sharp-records.sh; timer:dynasty-sharp-records [daily 04:50Z],daily 04:50Z,nothing — prints + exit code only,NOTHING,2,0,(no matching file in repo)
+scripts/crawl_sharp_rosters.py,timer:dynasty-sharp-rosters [daily 05:50Z],daily 05:50Z,nothing — prints + exit code only,validate_sharp_roster_percentage.py,2,0,(no matching file in repo)
+scripts/discover_sharp_graph.py,timer:dynasty-sharp-discovery [daily 04:20Z],daily 04:20Z,nothing — prints + exit code only,NOTHING,1,0,(no matching file in repo)
+scripts/export_player_map.py,none,n/a,writes (path built at runtime),NOTHING,0,0,(no matching file in repo)
+scripts/fetch_clay_projections.py,none,n/a,nothing — prints + exit code only,refresh_bdvm_projections.py; src/bdvm/clay_projections.py,2,0,(no matching file in repo)
+scripts/fetch_dlf.py,workflow:scheduled-refresh.yml [every 2h :42]; deploy-script:deploy/dlf_fetch_and_push.sh; deploy-script:deploy/install-systemd-service.sh,every 2h :42,CSVs/site_raw/dlfIdp.csv; CSVs/site_raw/dlfRookieIdp.csv; CSVs/site_raw/dlfRookieSf.csv; CSVs/site_raw/dlfSf.csv,src/api/data_contract.py,4,1,CSVs/site_raw/dlfSf.csv @ 2026-08-04
+scripts/fetch_draftsharks.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,writes (path built at runtime),fetch_draftsharks_ros.py; src/api/data_contract.py; src/ros/sources/draftsharks_ros.py,4,0,(no matching file in repo)
+scripts/fetch_draftsharks_ros.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,writes (path built at runtime),src/ros/sources/draftsharks_ros.py,2,0,(no matching file in repo)
+scripts/fetch_dynasty_daddy.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,src/api/data_contract.py; frontend/lib/dynasty-data.js,3,1,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fetch_dynasty_nerds.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,server.py; src/api/data_contract.py,3,1,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fetch_fantasycalc.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,src/api/data_contract.py; frontend/lib/dynasty-data.js,3,0,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fetch_fantasynavigator.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,refresh_playerctx.py; src/api/data_contract.py; src/playerctx/service.py; src/playerctx/normalize.py; frontend/lib/dynasty-data.js,6,0,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fetch_fantasypros_fitzmaurice.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,writes (path built at runtime),src/api/data_contract.py; frontend/lib/dynasty-data.js,3,1,(no matching file in repo)
+scripts/fetch_fantasypros_idp.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,src/api/data_contract.py; src/ros/sources/fantasypros_ros_idp.py; frontend/lib/dynasty-data.js,4,1,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fetch_fantasypros_offense.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,src/api/data_contract.py; frontend/lib/dynasty-data.js,3,1,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fetch_flock_fantasy.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,TESTS ONLY,1,1,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fetch_flock_fantasy_rookies.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,src/api/data_contract.py,2,1,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fetch_idpshow.py,workflow:scheduled-refresh.yml [every 2h :42]; deploy-script:deploy/idpshow_fetch_and_push.sh,every 2h :42,writes (path built at runtime),refresh_bdvm_projections.py; fetch_idpshow_projections.py; src/api/data_contract.py; frontend/lib/dynasty-data.js,6,0,(no matching file in repo)
+scripts/fetch_idpshow_projections.py,none,n/a,nothing — prints + exit code only,refresh_bdvm_projections.py; src/bdvm/idpshow_projections.py,2,0,(no matching file in repo)
+scripts/fetch_otcffb.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,fetch_fantasycalc.py; src/api/data_contract.py; frontend/lib/dynasty-data.js,4,0,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fetch_pfk.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,src/api/data_contract.py; frontend/lib/dynasty-data.js,3,0,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fetch_yahoo_boone.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,CSVs; data,src/api/data_contract.py; frontend/lib/dynasty-data.js,3,1,data/public_league/nfl_players.json @ 2026-08-04
+scripts/fit_hill_curve_from_market.py,none,n/a,CSVs/site_raw/dynastyDaddySf.csv; CSVs/site_raw/dynastyNerdsSfTep.csv; CSVs/site_raw/idpTradeCalc.csv; CSVs/site_raw/ktc.csv,backtest_legacy_rank_curve.py; src/canonical/player_valuation.py,2,4,CSVs/site_raw/idpTradeCalc.csv @ 2026-08-04
+scripts/fit_hill_curve_percentile.py,none,n/a,CSVs/site_raw/draftSharksIdp.csv; CSVs/site_raw/draftSharksSf.csv; CSVs/site_raw/dynastyDaddySf.csv; CSVs/site_raw/dynastyNerdsSfTep.csv; CSVs/site_raw/fantasyProsFitzmaurice.csv,model_registry.py; backtest_legacy_rank_curve.py; auto_refit_hill_curves.py; src/model_registry/holdout.py; src/canonical/player_valuation.py,5,1,CSVs/site_raw/draftSharksSf.csv @ 2026-08-04
+scripts/generate_test_seeds.py,none,n/a,writes (path built at runtime),NOTHING,0,0,(no matching file in repo)
+scripts/generate_weekly_narratives.py,workflow:weekly-narratives.yml [Tue 14:00Z + Wed 13:00Z],Tue 14:00Z + Wed 13:00Z,nothing — prints + exit code only,server.py,2,1,(no matching file in repo)
+scripts/golden_board.py,none,n/a,exports,NOTHING,0,0,exports/latest/dynasty_values.csv @ 2026-08-04
+scripts/identity_resolve.py,none,n/a,writes (path built at runtime),Jenkinsfile,1,0,(no matching file in repo)
+scripts/inspect_anomalies.py,none,n/a,nothing — prints + exit code only,NOTHING,0,0,(no matching file in repo)
+scripts/measure_bdvm_dispersion_scale.py,none,n/a,writes (path built at runtime),NOTHING,0,0,(no matching file in repo)
+scripts/measure_consensus_edge_panel.py,none,n/a,CSVs/site_raw,NOTHING,0,0,CSVs/site_raw/otcffbSf.csv @ 2026-08-04
+scripts/measure_coverage_weight_impact.py,none,n/a,exports,NOTHING,0,0,exports/latest/dynasty_values.csv @ 2026-08-04
+scripts/measure_engine_value_divergence.py,none,n/a,nothing — prints + exit code only,finder_migration_snapshot.py; src/trade/finder.py,2,0,(no matching file in repo)
+scripts/measure_te_demand_actuals.py,none,n/a,nothing — prints + exit code only,src/league_intel/replacement.py,1,0,(no matching file in repo)
+scripts/migrate_intel_ledger.py,none,n/a,nothing — prints + exit code only,src/intel/service.py,1,0,(no matching file in repo)
+scripts/migrate_intel_platform_v2.py,none,n/a,nothing — prints + exit code only,NOTHING,0,0,(no matching file in repo)
+scripts/model_registry.py,workflow:refit-hill-curves.yml [weekly Tue 06:17Z],weekly Tue 06:17Z,nothing — prints + exit code only,auto_refit_hill_curves.py; check_rank_form_drift.py; src/model_registry/hill_masters.py,4,2,(no matching file in repo)
+scripts/persist_nfl_actuals.py,none,n/a,nothing — prints + exit code only,measure_usage_signal_rate.py,1,0,(no matching file in repo)
+scripts/prep_scoring_data.R,none,n/a,nothing — prints + exit code only,NOTHING,0,0,(no matching file in repo)
+scripts/refit_source_weights.py,none,n/a,config/weights/dynamic_source_weights.json; data/realized_points_history.jsonl; data/source_rank_history.jsonl,NOTHING,0,0,(no matching file in repo)
+scripts/refit_tier_thresholds.py,none,n/a,config/tiers/thresholds.json; data/latest_contract.json,src/api/feature_flags.py,1,0,config/tiers/thresholds.json @ 2026-08-03
+scripts/refresh_bdvm_projections.py,timer:dynasty-bdvm-refresh [weekly Tue 06:10Z],weekly Tue 06:10Z,nothing — prints + exit code only,TESTS ONLY,1,2,(no matching file in repo)
+scripts/refresh_depth_charts.py,none,n/a,nothing — prints + exit code only,src/api/feature_flags.py,1,0,(no matching file in repo)
+scripts/refresh_playerctx.py,timer:dynasty-playerctx-refresh [weekly Tue 05:40Z],weekly Tue 05:40Z,nothing — prints + exit code only,measure_consensus_edge_panel.py; snapshot_consensus_edge.py; run_consensus_edge_backtest.py; server.py; src/playerctx/store.py,6,1,(no matching file in repo)
+scripts/refresh_reception_depth.py,timer:dynasty-reception-depth [weekly Wed 07:20Z],weekly Wed 07:20Z,nothing — prints + exit code only,TESTS ONLY,1,1,(no matching file in repo)
+scripts/run_consensus_edge_backtest.py,none,n/a,writes (path built at runtime),src/consensus_edge/validation_scope.py,1,0,(no matching file in repo)
+scripts/setup.sh,none,n/a,nothing — prints + exit code only,check_env.py; .gitignore; Makefile,3,0,(no matching file in repo)
+scripts/simulate_market_confidence_divisor.py,none,n/a,exports,src/api/terminal.py,1,1,exports/latest/dynasty_values.csv @ 2026-08-04
+scripts/snapshot_consensus_edge.py,timer:dynasty-consensus-edge-snapshot [daily 07:30Z],daily 07:30Z,nothing — prints + exit code only,src/consensus_edge/inputs.py,2,1,(no matching file in repo)
+scripts/test_ktc_va_port.mjs,none,n/a,nothing — prints + exit code only,TESTS ONLY,0,1,(no matching file in repo)
+scripts/trigger_jenkins.py,none,n/a,nothing — prints + exit code only,verify_lockstep.ps1; sync.bat,2,0,(no matching file in repo)
+scripts/validate_api_contract.py,workflow:smoke-test.yml [daily 06:15Z]; workflow:deploy.yml [on push to main]; workflow:pr-validation.yml [on PR],daily 06:15Z; on push to main; on PR,data,Jenkinsfile,4,0,data/public_league/nfl_players.json @ 2026-08-04
+scripts/validate_consensus_edge_board.py,workflow:consensus-edge-revalidate.yml [weekly Wed 05:40Z],weekly Wed 05:40Z,writes (path built at runtime),src/api/feature_flags.py,2,1,(no matching file in repo)
+scripts/validate_ingest.py,none,n/a,writes (path built at runtime),Jenkinsfile,1,0,(no matching file in repo)
+scripts/validate_scoring_fit.py,none,n/a,writes (path built at runtime),NOTHING,0,0,(no matching file in repo)
+scripts/validate_scrape_sanity.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,nothing — prints + exit code only,NOTHING,1,0,(no matching file in repo)
+scripts/validate_sharp_roster_percentage.py,none,n/a,nothing — prints + exit code only,NOTHING,0,0,(no matching file in repo)
+scripts/validate_va_v2.py,none,n/a,nothing — prints + exit code only,NOTHING,0,0,(no matching file in repo)
+scripts/verify_live_source_coverage.py,deploy-script:deploy/verify-deploy.sh,n/a,nothing — prints + exit code only,NOTHING,1,0,(no matching file in repo)
+scripts/verify_lockstep.ps1,none,n/a,nothing — prints + exit code only,NOTHING,0,0,(no matching file in repo)
+scripts/watchdog_contract_coverage.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,data; exports,verify_live_source_coverage.py,2,2,data/public_league/nfl_players.json @ 2026-08-04
+scripts/watchdog_freshness.py,workflow:scheduled-refresh.yml [every 2h :42],every 2h :42,data,verify_live_source_coverage.py; watchdog_contract_coverage.py,3,1,data/public_league/nfl_players.json @ 2026-08-04

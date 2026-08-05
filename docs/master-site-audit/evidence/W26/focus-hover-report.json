@@ -1,0 +1,2581 @@
+[
+ {
+  "route": "/rankings",
+  "viewport": "desktop",
+  "shot": "rankings-desktop.png",
+  "hoverOnly": {
+   "titleCount": 1933,
+   "samples": [
+    {
+     "tag": "button",
+     "title": "Copy the current rows as TSV for pasting into a spreadsheet",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Copy"
+    },
+    {
+     "tag": "button",
+     "title": "Choose which sources are factored into the blended rankings",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Sources"
+    },
+    {
+     "tag": "button",
+     "title": "Show/hide per-source columns",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Columns (off)"
+    },
+    {
+     "tag": "button",
+     "title": "Advanced filters: age, experience, NFL team, owner, rank/value range, edge, watchlist",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Filters"
+    },
+    {
+     "tag": "span",
+     "title": "QB1 \u2014 position rank within the full ranked board",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "1"
+    },
+    {
+     "tag": "span",
+     "title": "Mean source rank 1.50. Final rank is #1. Gap = blend penalty/bonus for source disagreement",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "1.5"
+    },
+    {
+     "tag": "button",
+     "title": "Hill-curve value 9,988 (scale 1\u20139,999) \u2014 click for the per-source breakdown",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "9,988"
+    },
+    {
+     "tag": "span",
+     "title": "Elite value (8000+)",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "S+"
+    },
+    {
+     "tag": "span",
+     "title": "KTC and expert consensus agree within 10 ranks (actual difference: 2).",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "HOLD"
+    },
+    {
+     "tag": "span",
+     "title": "Multiple sources agree closely on this player's value",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "Consensus asset"
+    }
+   ],
+   "scaleStatedInVisibleText": false
+  },
+  "tabStops": [
+   {
+    "tag": "a",
+    "text": "Skip to content",
+    "cls": "shell-skip-link",
+    "x": 12,
+    "y": 9,
+    "w": 152,
+    "h": 35,
+    "outline": "none 0px rgb(6, 8, 10)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "\u25aa\nCHASE UPSIDE",
+    "cls": "shell-brand",
+    "x": 39,
+    "y": 17,
+    "w": 129,
+    "h": 19,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Rankings",
+    "cls": "shell-nav-link shell-nav-link--group shell-nav-lin",
+    "x": 188,
+    "y": 11,
+    "w": 80,
+    "h": 31,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Rankings menu",
+    "cls": "shell-nav-caret-btn shell-nav-link--active",
+    "x": 268,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "News",
+    "cls": "shell-nav-link",
+    "x": 290,
+    "y": 11,
+    "w": 56,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Trades",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 350,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Trades menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 414,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "My Team",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 436,
+    "y": 11,
+    "w": 72,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "My Team menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 508,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Market",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 530,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Market menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 594,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "League",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 616,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "League menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 680,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Risk It To Get The Brisket\n\u25be",
+    "cls": "league-switcher-toggle",
+    "x": 814,
+    "y": 10,
+    "w": 174,
+    "h": 32,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Pick your team\n\u25be",
+    "cls": "team-switcher-toggle",
+    "x": 995,
+    "y": 13,
+    "w": 123,
+    "h": 27,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "rgba(79, 155, 236, 0.18) 0px 0px 0px 2.16024px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Search\n/",
+    "cls": "shell-search-btn",
+    "x": 1126,
+    "y": 11,
+    "w": 111,
+    "h": 29,
+    "outline": "none 0px rgb(139, 147, 165)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "System menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 1309,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Market",
+    "cls": "ds-segmented__option",
+    "x": 46,
+    "y": 179,
+    "w": 66,
+    "h": 24,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgba(8, 6, 16, 0.4) 0px 1px 2px 0px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Hide edge",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 212,
+    "y": 178,
+    "w": 89,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "How rankings work",
+    "cls": "ds-btn ds-btn--ghost ds-btn--sm",
+    "x": 309,
+    "y": 178,
+    "w": 165,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Methodology charts",
+    "cls": "ds-btn ds-btn--ghost ds-btn--sm",
+    "x": 482,
+    "y": 178,
+    "w": 152,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Copy",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 642,
+    "y": 178,
+    "w": 54,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   }
+  ],
+  "noFocusRing": 0
+ },
+ {
+  "route": "/rankings",
+  "viewport": "mobile",
+  "shot": "rankings-mobile.png",
+  "hoverOnly": {
+   "titleCount": 1933,
+   "samples": [
+    {
+     "tag": "button",
+     "title": "Copy the current rows as TSV for pasting into a spreadsheet",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Copy"
+    },
+    {
+     "tag": "button",
+     "title": "Choose which sources are factored into the blended rankings",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Sources"
+    },
+    {
+     "tag": "button",
+     "title": "Show/hide per-source columns",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Columns (off)"
+    },
+    {
+     "tag": "button",
+     "title": "Advanced filters: age, experience, NFL team, owner, rank/value range, edge, watchlist",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Filters"
+    },
+    {
+     "tag": "span",
+     "title": "QB1 \u2014 position rank within the full ranked board",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "1"
+    },
+    {
+     "tag": "span",
+     "title": "Mean source rank 1.50. Final rank is #1. Gap = blend penalty/bonus for source disagreement",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "1.5"
+    },
+    {
+     "tag": "button",
+     "title": "Hill-curve value 9,988 (scale 1\u20139,999) \u2014 click for the per-source breakdown",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "9,988"
+    },
+    {
+     "tag": "span",
+     "title": "Elite value (8000+)",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "S+"
+    },
+    {
+     "tag": "span",
+     "title": "KTC and expert consensus agree within 10 ranks (actual difference: 2).",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "HOLD"
+    },
+    {
+     "tag": "span",
+     "title": "Multiple sources agree closely on this player's value",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "Consensus asset"
+    }
+   ],
+   "scaleStatedInVisibleText": false
+  },
+  "tabStops": [
+   {
+    "tag": "a",
+    "text": "Skip to content",
+    "cls": "shell-skip-link",
+    "x": 12,
+    "y": -2,
+    "w": 152,
+    "h": 35,
+    "outline": "none 0px rgb(6, 8, 10)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Risk It To Get The Brisket\n\u25be",
+    "cls": "league-switcher-toggle",
+    "x": 96,
+    "y": 8,
+    "w": 120,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Pick your team\n\u25be",
+    "cls": "team-switcher-toggle",
+    "x": 224,
+    "y": 12,
+    "w": 112,
+    "h": 24,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "rgba(79, 155, 236, 0.043) 0px 0px 0px 0.500171px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Search",
+    "cls": "shell-icon-btn",
+    "x": 344,
+    "y": 7,
+    "w": 34,
+    "h": 34,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Market",
+    "cls": "ds-segmented__option",
+    "x": 9,
+    "y": 160,
+    "w": 66,
+    "h": 24,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgba(8, 6, 16, 0.4) 0px 1px 2px 0px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Hide edge",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 175,
+    "y": 159,
+    "w": 89,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "How rankings work",
+    "cls": "ds-btn ds-btn--ghost ds-btn--sm",
+    "x": 6,
+    "y": 195,
+    "w": 165,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Methodology charts",
+    "cls": "ds-btn ds-btn--ghost ds-btn--sm",
+    "x": 179,
+    "y": 195,
+    "w": 152,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Copy",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 6,
+    "y": 229,
+    "w": 54,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Export CSV",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 68,
+    "y": 229,
+    "w": 96,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Sources",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 172,
+    "y": 229,
+    "w": 75,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Columns (off)",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 255,
+    "y": 229,
+    "w": 117,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "#244 Eli Raridon",
+    "cls": "button-reset board_railName__njPho",
+    "x": 23,
+    "y": 630,
+    "w": 67,
+    "h": 21,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "#202 De'Zhaun Stribling",
+    "cls": "button-reset board_railName__njPho",
+    "x": 23,
+    "y": 656,
+    "w": 76,
+    "h": 21,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "#249 Greg Dulcich",
+    "cls": "button-reset board_railName__njPho",
+    "x": 23,
+    "y": 682,
+    "w": 68,
+    "h": 21,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "#238 Hunter Henry",
+    "cls": "button-reset board_railName__njPho",
+    "x": 23,
+    "y": 708,
+    "w": 68,
+    "h": 21,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "#250 Dalton Schultz",
+    "cls": "button-reset board_railName__njPho",
+    "x": 23,
+    "y": 734,
+    "w": 71,
+    "h": 21,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "#217 J.J. McCarthy",
+    "cls": "button-reset board_railName__njPho",
+    "x": 203,
+    "y": 630,
+    "w": 71,
+    "h": 21,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "#207 Tua Tagovailoa",
+    "cls": "button-reset board_railName__njPho",
+    "x": 203,
+    "y": 656,
+    "w": 73,
+    "h": 21,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "#181 Chris Godwin",
+    "cls": "button-reset board_railName__njPho",
+    "x": 203,
+    "y": 682,
+    "w": 70,
+    "h": 21,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "#226 Shedeur Sanders",
+    "cls": "button-reset board_railName__njPho",
+    "x": 203,
+    "y": 708,
+    "w": 74,
+    "h": 21,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "#239 Jacoby Brissett",
+    "cls": "button-reset board_railName__njPho",
+    "x": 203,
+    "y": 734,
+    "w": 74,
+    "h": 21,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   }
+  ],
+  "noFocusRing": 0
+ },
+ {
+  "route": "/draft",
+  "viewport": "mobile",
+  "shot": "draft-mobile.png",
+  "hoverOnly": {
+   "titleCount": 838,
+   "samples": [
+    {
+     "tag": "button",
+     "title": "Pull current rookie values from our live consensus rankings",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Sync rookies"
+    },
+    {
+     "tag": "button",
+     "title": "Show the post-draft review (deltas, rankings, CSV)",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Review"
+    },
+    {
+     "tag": "div",
+     "title": "RemainingLeague$ / (TotalAuction$ \u2212 \u03a3 soldPreDraft). >1.00 means the remaining market is c",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "INFLATION\n1.00\u00d7\n(sparkli"
+    },
+    {
+     "tag": "div",
+     "title": "0% pressure. MaxBid scales by phaseMultiplier 1.00\u00d7 to prevent unused $ at end of draft.",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "PHASE\n6 of 6 slots"
+    },
+    {
+     "tag": "div",
+     "title": "KTC values $139 vs our $136 \u00b7 3% over (+$4) \u2014 leaguemates following KTC will bid past your",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "#1\n+\nS\nJeremiyah Love\nou"
+    },
+    {
+     "tag": "span",
+     "title": "KTC's market value at the same scale",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "ktc $139"
+    },
+    {
+     "tag": "div",
+     "title": "KTC values $110 vs our $105 \u00b7 4% over (+$5) \u2014 leaguemates following KTC will bid past your",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "#2\n+\nS\nCarnell Tate\nours"
+    },
+    {
+     "tag": "span",
+     "title": "KTC's market value at the same scale",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "ktc $110"
+    },
+    {
+     "tag": "div",
+     "title": "KTC values $95 vs our $92 \u00b7 3% over (+$3) \u2014 leaguemates following KTC will bid past your b",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "#3\n+\nS\nFernando Mendoza\n"
+    },
+    {
+     "tag": "span",
+     "title": "KTC's market value at the same scale",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "ktc $95"
+    }
+   ],
+   "scaleStatedInVisibleText": false
+  },
+  "tabStops": [
+   {
+    "tag": "a",
+    "text": "Skip to content",
+    "cls": "shell-skip-link",
+    "x": 12,
+    "y": -64,
+    "w": 152,
+    "h": 35,
+    "outline": "none 0px rgb(6, 8, 10)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Risk It To Get The Brisket\n\u25be",
+    "cls": "league-switcher-toggle",
+    "x": 96,
+    "y": 8,
+    "w": 120,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Pick your team\n\u25be",
+    "cls": "team-switcher-toggle",
+    "x": 224,
+    "y": 12,
+    "w": 112,
+    "h": 24,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "rgba(79, 155, 236, 0.09) 0px 0px 0px 1.07713px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Search",
+    "cls": "shell-icon-btn",
+    "x": 344,
+    "y": 7,
+    "w": 34,
+    "h": 34,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "How this works",
+    "cls": "ds-btn ds-btn--ghost ds-btn--sm",
+    "x": 12,
+    "y": 191,
+    "w": 144,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Live sync: OFF",
+    "cls": "button",
+    "x": 164,
+    "y": 182,
+    "w": 152,
+    "h": 44,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Sync rookies",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 12,
+    "y": 234,
+    "w": 110,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Shortcuts",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 206,
+    "y": 234,
+    "w": 89,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Reset",
+    "cls": "ds-btn ds-btn--danger ds-btn--sm",
+    "x": 109,
+    "y": 268,
+    "w": 61,
+    "h": 26,
+    "outline": "none 0px rgb(242, 132, 141)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "\u21bb Load from Draft Capital",
+    "cls": "button",
+    "x": 133,
+    "y": 667,
+    "w": 224,
+    "h": 44,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "What is Eff $?",
+    "cls": "ds-infotip__trigger",
+    "x": 189,
+    "y": 410,
+    "w": 24,
+    "h": 24,
+    "outline": "none 0px rgb(139, 147, 165)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "What is MDV?",
+    "cls": "ds-infotip__trigger",
+    "x": 270,
+    "y": 402,
+    "w": 24,
+    "h": 24,
+    "outline": "none 0px rgb(139, 147, 165)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "What is Over%?",
+    "cls": "ds-infotip__trigger",
+    "x": 311,
+    "y": 410,
+    "w": 24,
+    "h": 24,
+    "outline": "none 0px rgb(139, 147, 165)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "on",
+    "cls": "",
+    "x": 43,
+    "y": 460,
+    "w": 13,
+    "h": 13,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "Russini Panini",
+    "cls": "draft-inline-input",
+    "x": 68,
+    "y": 451,
+    "w": 202,
+    "h": 27,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "685",
+    "cls": "draft-inline-input draft-money-input",
+    "x": 275,
+    "y": 449,
+    "w": 62,
+    "h": 31,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "jstuedle",
+    "cls": "draft-inline-input",
+    "x": 68,
+    "y": 494,
+    "w": 202,
+    "h": 27,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "180",
+    "cls": "draft-inline-input draft-money-input",
+    "x": 275,
+    "y": 492,
+    "w": 62,
+    "h": 31,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "Chargers Team Doctor",
+    "cls": "draft-inline-input",
+    "x": 68,
+    "y": 537,
+    "w": 202,
+    "h": 27,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "119",
+    "cls": "draft-inline-input draft-money-input",
+    "x": 275,
+    "y": 535,
+    "w": 62,
+    "h": 31,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "CollinFoz",
+    "cls": "draft-inline-input",
+    "x": 68,
+    "y": 580,
+    "w": 202,
+    "h": 27,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "111",
+    "cls": "draft-inline-input draft-money-input",
+    "x": 275,
+    "y": 578,
+    "w": 62,
+    "h": 31,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   }
+  ],
+  "noFocusRing": 8
+ },
+ {
+  "route": "/draft",
+  "viewport": "desktop",
+  "shot": "draft-desktop.png",
+  "hoverOnly": {
+   "titleCount": 838,
+   "samples": [
+    {
+     "tag": "button",
+     "title": "Pull current rookie values from our live consensus rankings",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Sync rookies"
+    },
+    {
+     "tag": "button",
+     "title": "Show the post-draft review (deltas, rankings, CSV)",
+     "hasAriaLabel": false,
+     "focusable": true,
+     "text": "Review"
+    },
+    {
+     "tag": "div",
+     "title": "RemainingLeague$ / (TotalAuction$ \u2212 \u03a3 soldPreDraft). >1.00 means the remaining market is c",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "INFLATION\n1.00\u00d7\n(sparkli"
+    },
+    {
+     "tag": "div",
+     "title": "0% pressure. MaxBid scales by phaseMultiplier 1.00\u00d7 to prevent unused $ at end of draft.",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "PHASE\n6 of 6 slots"
+    },
+    {
+     "tag": "div",
+     "title": "KTC values $139 vs our $136 \u00b7 3% over (+$4) \u2014 leaguemates following KTC will bid past your",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "#1\n+\nS\nJeremiyah Love\nou"
+    },
+    {
+     "tag": "span",
+     "title": "KTC's market value at the same scale",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "ktc $139"
+    },
+    {
+     "tag": "div",
+     "title": "KTC values $110 vs our $105 \u00b7 4% over (+$5) \u2014 leaguemates following KTC will bid past your",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "#2\n+\nS\nCarnell Tate\nours"
+    },
+    {
+     "tag": "span",
+     "title": "KTC's market value at the same scale",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "ktc $110"
+    },
+    {
+     "tag": "div",
+     "title": "KTC values $95 vs our $92 \u00b7 3% over (+$3) \u2014 leaguemates following KTC will bid past your b",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "#3\n+\nS\nFernando Mendoza\n"
+    },
+    {
+     "tag": "span",
+     "title": "KTC's market value at the same scale",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "ktc $95"
+    }
+   ],
+   "scaleStatedInVisibleText": false
+  },
+  "tabStops": [
+   {
+    "tag": "a",
+    "text": "Skip to content",
+    "cls": "shell-skip-link",
+    "x": 12,
+    "y": -40,
+    "w": 152,
+    "h": 35,
+    "outline": "none 0px rgb(6, 8, 10)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "\u25aa\nCHASE UPSIDE",
+    "cls": "shell-brand",
+    "x": 39,
+    "y": 17,
+    "w": 129,
+    "h": 19,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Rankings",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 188,
+    "y": 11,
+    "w": 80,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Rankings menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 268,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "News",
+    "cls": "shell-nav-link",
+    "x": 290,
+    "y": 11,
+    "w": 56,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Trades",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 350,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Trades menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 414,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "My Team",
+    "cls": "shell-nav-link shell-nav-link--group shell-nav-lin",
+    "x": 436,
+    "y": 11,
+    "w": 72,
+    "h": 31,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "My Team menu",
+    "cls": "shell-nav-caret-btn shell-nav-link--active",
+    "x": 508,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Market",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 530,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Market menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 594,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "League",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 616,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "League menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 680,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Risk It To Get The Brisket\n\u25be",
+    "cls": "league-switcher-toggle",
+    "x": 814,
+    "y": 10,
+    "w": 174,
+    "h": 32,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Pick your team\n\u25be",
+    "cls": "team-switcher-toggle",
+    "x": 995,
+    "y": 13,
+    "w": 123,
+    "h": 27,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "rgba(79, 155, 236, 0.243) 0px 0px 0px 2.89379px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Search\n/",
+    "cls": "shell-search-btn",
+    "x": 1126,
+    "y": 11,
+    "w": 111,
+    "h": 29,
+    "outline": "none 0px rgb(139, 147, 165)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "System menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 1309,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "How this works",
+    "cls": "ds-btn ds-btn--ghost ds-btn--sm",
+    "x": 63,
+    "y": 200,
+    "w": 144,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Live sync: OFF",
+    "cls": "button",
+    "x": 215,
+    "y": 196,
+    "w": 152,
+    "h": 35,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Sync rookies",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 375,
+    "y": 200,
+    "w": 110,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Shortcuts",
+    "cls": "ds-btn ds-btn--secondary ds-btn--sm",
+    "x": 569,
+    "y": 200,
+    "w": 89,
+    "h": 26,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Reset",
+    "cls": "ds-btn ds-btn--danger ds-btn--sm",
+    "x": 763,
+    "y": 200,
+    "w": 61,
+    "h": 26,
+    "outline": "none 0px rgb(242, 132, 141)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   }
+  ],
+  "noFocusRing": 0
+ },
+ {
+  "route": "/rosters",
+  "viewport": "desktop",
+  "shot": "rosters-desktop.png",
+  "hoverOnly": {
+   "titleCount": 185,
+   "samples": [
+    {
+     "tag": "div",
+     "title": "Market overvalues 10 of their players",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": ""
+    },
+    {
+     "tag": "div",
+     "title": "Market undervalues 23 of their players",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": ""
+    },
+    {
+     "tag": "div",
+     "title": "Market overvalues 11 of their players",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": ""
+    },
+    {
+     "tag": "div",
+     "title": "Market undervalues 15 of their players",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": ""
+    },
+    {
+     "tag": "div",
+     "title": "Market overvalues 10 of their players",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": ""
+    },
+    {
+     "tag": "div",
+     "title": "Market undervalues 14 of their players",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": ""
+    },
+    {
+     "tag": "div",
+     "title": "Market overvalues 7 of their players",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": ""
+    },
+    {
+     "tag": "div",
+     "title": "Market undervalues 7 of their players",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": ""
+    },
+    {
+     "tag": "div",
+     "title": "Market overvalues 9 of their players",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": ""
+    },
+    {
+     "tag": "div",
+     "title": "Market undervalues 19 of their players",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": ""
+    }
+   ],
+   "scaleStatedInVisibleText": false
+  },
+  "tabStops": [
+   {
+    "tag": "a",
+    "text": "Skip to content",
+    "cls": "shell-skip-link",
+    "x": 12,
+    "y": -64,
+    "w": 152,
+    "h": 35,
+    "outline": "none 0px rgb(6, 8, 10)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "\u25aa\nCHASE UPSIDE",
+    "cls": "shell-brand",
+    "x": 39,
+    "y": 17,
+    "w": 129,
+    "h": 19,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Rankings",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 188,
+    "y": 11,
+    "w": 80,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Rankings menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 268,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "News",
+    "cls": "shell-nav-link",
+    "x": 290,
+    "y": 11,
+    "w": 56,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Trades",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 350,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Trades menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 414,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "My Team",
+    "cls": "shell-nav-link shell-nav-link--group shell-nav-lin",
+    "x": 436,
+    "y": 11,
+    "w": 72,
+    "h": 31,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "My Team menu",
+    "cls": "shell-nav-caret-btn shell-nav-link--active",
+    "x": 508,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Market",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 530,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Market menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 594,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "League",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 616,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "League menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 680,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Risk It To Get The Brisket\n\u25be",
+    "cls": "league-switcher-toggle",
+    "x": 814,
+    "y": 10,
+    "w": 174,
+    "h": 32,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Pick your team\n\u25be",
+    "cls": "team-switcher-toggle",
+    "x": 995,
+    "y": 13,
+    "w": 123,
+    "h": 27,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "rgba(79, 155, 236, 0.14) 0px 0px 0px 1.67075px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Search\n/",
+    "cls": "shell-search-btn",
+    "x": 1126,
+    "y": 11,
+    "w": 111,
+    "h": 29,
+    "outline": "none 0px rgb(139, 147, 165)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "System menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 1309,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "select",
+    "text": "My team...\nJason\nEd\nTy\nCollin\nMaKayla\nEr",
+    "cls": "input",
+    "x": 1016,
+    "y": 88,
+    "w": 142,
+    "h": 37,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "select",
+    "text": "Players + Picks\nPlayers only\nStarters on",
+    "cls": "input",
+    "x": 1166,
+    "y": 88,
+    "w": 142,
+    "h": 37,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "QB",
+    "cls": "pos-chip pos-chip-active",
+    "x": 136,
+    "y": 148,
+    "w": 37,
+    "h": 32,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "RB",
+    "cls": "pos-chip pos-chip-active",
+    "x": 181,
+    "y": 148,
+    "w": 37,
+    "h": 32,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "WR",
+    "cls": "pos-chip pos-chip-active",
+    "x": 225,
+    "y": 148,
+    "w": 37,
+    "h": 32,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   }
+  ],
+  "noFocusRing": 2
+ },
+ {
+  "route": "/league-comparison",
+  "viewport": "desktop",
+  "shot": "league-comparison-desktop.png",
+  "hoverOnly": {
+   "titleCount": 10,
+   "samples": [],
+   "scaleStatedInVisibleText": false
+  },
+  "tabStops": [
+   {
+    "tag": "a",
+    "text": "Skip to content",
+    "cls": "shell-skip-link",
+    "x": 12,
+    "y": -64,
+    "w": 152,
+    "h": 35,
+    "outline": "none 0px rgb(6, 8, 10)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "\u25aa\nCHASE UPSIDE",
+    "cls": "shell-brand",
+    "x": 39,
+    "y": 17,
+    "w": 129,
+    "h": 19,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Rankings",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 188,
+    "y": 11,
+    "w": 80,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Rankings menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 268,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "News",
+    "cls": "shell-nav-link",
+    "x": 290,
+    "y": 11,
+    "w": 56,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Trades",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 350,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Trades menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 414,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "My Team",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 436,
+    "y": 11,
+    "w": 72,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "My Team menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 508,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Market",
+    "cls": "shell-nav-link shell-nav-link--group",
+    "x": 530,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Market menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 594,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "League",
+    "cls": "shell-nav-link shell-nav-link--group shell-nav-lin",
+    "x": 616,
+    "y": 11,
+    "w": 64,
+    "h": 31,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "League menu",
+    "cls": "shell-nav-caret-btn shell-nav-link--active",
+    "x": 680,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Risk It To Get The Brisket\n\u25be",
+    "cls": "league-switcher-toggle",
+    "x": 814,
+    "y": 10,
+    "w": 174,
+    "h": 32,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Pick your team\n\u25be",
+    "cls": "team-switcher-toggle",
+    "x": 995,
+    "y": 13,
+    "w": 123,
+    "h": 27,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "rgba(79, 155, 236, 0.192) 0px 0px 0px 2.30398px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Search\n/",
+    "cls": "shell-search-btn",
+    "x": 1126,
+    "y": 11,
+    "w": 111,
+    "h": 29,
+    "outline": "none 0px rgb(139, 147, 165)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "System menu",
+    "cls": "shell-nav-caret-btn",
+    "x": 1309,
+    "y": 12,
+    "w": 18,
+    "h": 26,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Recalculate",
+    "cls": "btn btn-secondary",
+    "x": 1237,
+    "y": 73,
+    "w": 86,
+    "h": 21,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Summary",
+    "cls": "sub-nav-btn active",
+    "x": 58,
+    "y": 535,
+    "w": 81,
+    "h": 34,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Positional",
+    "cls": "sub-nav-btn",
+    "x": 139,
+    "y": 535,
+    "w": 102,
+    "h": 34,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Flex",
+    "cls": "sub-nav-btn",
+    "x": 241,
+    "y": 535,
+    "w": 60,
+    "h": 34,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Year-by-Year",
+    "cls": "sub-nav-btn",
+    "x": 301,
+    "y": 535,
+    "w": 116,
+    "h": 34,
+    "outline": "auto 1px rgb(16, 16, 16)",
+    "boxShadow": "none",
+    "offscreen": false
+   }
+  ],
+  "noFocusRing": 0
+ },
+ {
+  "route": "/",
+  "viewport": "mobile",
+  "shot": "home-mobile.png",
+  "hoverOnly": {
+   "titleCount": 7,
+   "samples": [],
+   "scaleStatedInVisibleText": false
+  },
+  "tabStops": [
+   {
+    "tag": "a",
+    "text": "Skip to content",
+    "cls": "shell-skip-link",
+    "x": 12,
+    "y": -64,
+    "w": 152,
+    "h": 35,
+    "outline": "none 0px rgb(6, 8, 10)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Risk It To Get The Brisket\n\u25be",
+    "cls": "league-switcher-toggle",
+    "x": 96,
+    "y": 8,
+    "w": 120,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Pick your team\n\u25be",
+    "cls": "team-switcher-toggle",
+    "x": 224,
+    "y": 12,
+    "w": 112,
+    "h": 24,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "rgba(79, 155, 236, 0.008) 0px 0px 0px 0.106119px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Search",
+    "cls": "shell-icon-btn",
+    "x": 344,
+    "y": 7,
+    "w": 34,
+    "h": 34,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "My Roster",
+    "cls": "ticker-scope-tab is-active",
+    "x": 21,
+    "y": 504,
+    "w": 72,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "League",
+    "cls": "ticker-scope-tab",
+    "x": 95,
+    "y": 504,
+    "w": 57,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Top 150",
+    "cls": "ticker-scope-tab",
+    "x": 154,
+    "y": 504,
+    "w": 59,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "14d",
+    "cls": "ds-segmented__option",
+    "x": 268,
+    "y": 598,
+    "w": 45,
+    "h": 24,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgba(8, 6, 16, 0.4) 0px 1px 2px 0px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "7d",
+    "cls": "panel-tab is-active",
+    "x": 211,
+    "y": 406,
+    "w": 29,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "30d",
+    "cls": "panel-tab",
+    "x": 242,
+    "y": 406,
+    "w": 36,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "90d",
+    "cls": "panel-tab",
+    "x": 280,
+    "y": 406,
+    "w": 36,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "180d",
+    "cls": "panel-tab",
+    "x": 318,
+    "y": 406,
+    "w": 42,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "My Roster",
+    "cls": "pmm-scope-tab is-active",
+    "x": 27,
+    "y": 515,
+    "w": 78,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "League",
+    "cls": "pmm-scope-tab",
+    "x": 109,
+    "y": 515,
+    "w": 62,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Top 150",
+    "cls": "pmm-scope-tab",
+    "x": 175,
+    "y": 515,
+    "w": 65,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Top Gainers",
+    "cls": "pmm-sort-chip is-active",
+    "x": 27,
+    "y": 555,
+    "w": 82,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Top Fallers",
+    "cls": "pmm-sort-chip",
+    "x": 113,
+    "y": 555,
+    "w": 77,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "By Value",
+    "cls": "pmm-sort-chip",
+    "x": 194,
+    "y": 555,
+    "w": 65,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Most Volatile",
+    "cls": "pmm-sort-chip",
+    "x": 263,
+    "y": 555,
+    "w": 86,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Risk\n0",
+    "cls": "signal-filter signal-filter--down is-active",
+    "x": 27,
+    "y": 233,
+    "w": 70,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Sell\n0",
+    "cls": "signal-filter signal-filter--down is-active",
+    "x": 101,
+    "y": 233,
+    "w": 66,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Monitor\n0",
+    "cls": "signal-filter signal-filter--warn is-active",
+    "x": 172,
+    "y": 233,
+    "w": 88,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   }
+  ],
+  "noFocusRing": 0
+ },
+ {
+  "route": "/trade",
+  "viewport": "mobile",
+  "shot": "trade-mobile.png",
+  "hoverOnly": {
+   "titleCount": 8,
+   "samples": [
+    {
+     "tag": "label",
+     "title": "When ON: vendors that don't rank a piece (e.g. DLF on picks) get our blended value as a st",
+     "hasAriaLabel": false,
+     "focusable": false,
+     "text": "Fill uncovered pieces wi"
+    }
+   ],
+   "scaleStatedInVisibleText": false
+  },
+  "tabStops": [
+   {
+    "tag": "a",
+    "text": "Skip to content",
+    "cls": "shell-skip-link",
+    "x": 12,
+    "y": -64,
+    "w": 152,
+    "h": 35,
+    "outline": "none 0px rgb(6, 8, 10)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Risk It To Get The Brisket\n\u25be",
+    "cls": "league-switcher-toggle",
+    "x": 96,
+    "y": 8,
+    "w": 120,
+    "h": 32,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Pick your team\n\u25be",
+    "cls": "team-switcher-toggle",
+    "x": 224,
+    "y": 12,
+    "w": 112,
+    "h": 24,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "rgba(79, 155, 236, 0.063) 0px 0px 0px 0.765891px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Search",
+    "cls": "shell-icon-btn",
+    "x": 344,
+    "y": 7,
+    "w": 34,
+    "h": 34,
+    "outline": "none 0px rgb(168, 176, 190)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Market",
+    "cls": "ds-segmented__option",
+    "x": 15,
+    "y": 166,
+    "w": 66,
+    "h": 24,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgba(8, 6, 16, 0.4) 0px 1px 2px 0px",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "A",
+    "cls": "mobile-quick-add-side-badge",
+    "x": 23,
+    "y": 244,
+    "w": 56,
+    "h": 40,
+    "outline": "auto 1px rgb(229, 151, 0)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "Quick add a player to Side A",
+    "cls": "input mobile-quick-add-input",
+    "x": 87,
+    "y": 242,
+    "w": 280,
+    "h": 44,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "select",
+    "text": "Our Value\nRaw",
+    "cls": "ds-select",
+    "x": 29,
+    "y": 338,
+    "w": 118,
+    "h": 35,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Swap Sides",
+    "cls": "ds-btn ds-btn--secondary",
+    "x": 155,
+    "y": 339,
+    "w": 114,
+    "h": 33,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Clear Trade",
+    "cls": "ds-btn ds-btn--secondary",
+    "x": 29,
+    "y": 381,
+    "w": 122,
+    "h": 33,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Add Team",
+    "cls": "ds-btn ds-btn--secondary",
+    "x": 159,
+    "y": 381,
+    "w": 98,
+    "h": 33,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Import KTC",
+    "cls": "ds-btn ds-btn--secondary",
+    "x": 29,
+    "y": 422,
+    "w": 114,
+    "h": 33,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "Search to add a player to Side A",
+    "cls": "input trade-side-search-input",
+    "x": 33,
+    "y": 599,
+    "w": 324,
+    "h": 44,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "input",
+    "text": "Search to add a player to Side B",
+    "cls": "input trade-side-search-input",
+    "x": 33,
+    "y": 775,
+    "w": 324,
+    "h": 44,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "none",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Second opinions",
+    "cls": "ds-panel__disclosure",
+    "x": 33,
+    "y": 414,
+    "w": 140,
+    "h": 16,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "select",
+    "text": "Select your team\u2026\nJason (57 players, 62 ",
+    "cls": "ds-select",
+    "x": 33,
+    "y": 588,
+    "w": 294,
+    "h": 35,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "textarea",
+    "text": "",
+    "cls": "ds-input trade_suggestTextarea__gNUO4",
+    "x": 33,
+    "y": 656,
+    "w": 324,
+    "h": 69,
+    "outline": "none 0px rgb(236, 238, 242)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "button",
+    "text": "Get suggestions",
+    "cls": "ds-btn ds-btn--primary",
+    "x": 33,
+    "y": 737,
+    "w": 154,
+    "h": 33,
+    "outline": "none 0px rgb(6, 8, 10)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px, rgb(79, 155, 236) 0px 0px 0",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Home",
+    "cls": "shell-tab",
+    "x": 0,
+    "y": 792,
+    "w": 76,
+    "h": 52,
+    "outline": "none 0px rgb(139, 147, 165)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px inset, rgb(79, 155, 236) 0px",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Ranks",
+    "cls": "shell-tab",
+    "x": 76,
+    "y": 792,
+    "w": 76,
+    "h": 52,
+    "outline": "none 0px rgb(139, 147, 165)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px inset, rgb(79, 155, 236) 0px",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "Trade",
+    "cls": "shell-tab",
+    "x": 151,
+    "y": 792,
+    "w": 76,
+    "h": 52,
+    "outline": "none 0px rgb(79, 155, 236)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px inset, rgb(79, 155, 236) 0px",
+    "offscreen": false
+   },
+   {
+    "tag": "a",
+    "text": "News",
+    "cls": "shell-tab",
+    "x": 227,
+    "y": 792,
+    "w": 76,
+    "h": 52,
+    "outline": "none 0px rgb(139, 147, 165)",
+    "boxShadow": "rgb(11, 13, 16) 0px 0px 0px 2px inset, rgb(79, 155, 236) 0px",
+    "offscreen": false
+   }
+  ],
+  "noFocusRing": 3
+ }
+]

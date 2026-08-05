@@ -1,0 +1,7 @@
+{
+  "board_window": "90d",
+  "board_90d_volume": 4,
+  "board_30d_volume": 2,
+  "drilldown_window_field": "30d",
+  "drilldown_movement_rows": 2
+}

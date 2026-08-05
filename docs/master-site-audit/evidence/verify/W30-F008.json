@@ -1,0 +1,73 @@
+{
+ "id": "W30-F008",
+ "title": "Hill curves are fitted on percentiles over a 400-row denominator and served on a 500-row one, so the same rank is worth up to 25% more at serve time than the fit ever saw",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "L",
+ "subsystem": "Value pipeline",
+ "surface": {
+  "routes": [
+   "/api/data"
+  ],
+  "pages": [
+   "/rankings"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/model_registry/holdout.py",
+   "lines": "81-85, 145"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "5297-5303"
+  },
+  {
+   "path": "src/canonical/player_valuation.py",
+   "lines": "371"
+  }
+ ],
+ "claimUnderTest": "holdout.py:81-83 \u2014 'The fit truncates every source to its top 400 before computing percentiles. Matched exactly so train and holdout RMSE are the same quantity measured on different data.' The match is between train and holdout; nothing matches either to SERVING.",
+ "observed": "The fit maps native rank i to p = i/(n-1) with n capped at FIT_TOP_N = 400, i.e. a denominator of 399. Serving maps rank to p = (rank-1)/(_PERCENTILE_REFERENCE_N - 1) = (rank-1)/499. The same rank therefore lands at a smaller percentile at serve time and, under the fitted Hill V(p) = 9999/(1+(p/c)^s), at a HIGHER value than any observation the fit was scored against. With the champion OFFENSE constants (c=0.11, s=1.11): rank 50 serves 13.2% high, rank 100 18.5% high, rank 400 25.4% high.",
+ "reproduction": {
+  "command": ".venv/bin/python -c \"from src.model_registry.holdout import hill, FIT_TOP_N;from src.canonical.player_valuation import HILL_PERCENTILE_C as C, HILL_PERCENTILE_S as S;from src.api.data_contract import _PERCENTILE_REFERENCE_N as R;f=lambda r: hill((r-1)/(FIT_TOP_N-1),C,S);g=lambda r: hill((r-1)/(R-1),C,S);print([(r, round(f(r),1), round(g(r),1), round(100*(g(r)-f(r))/f(r),2)) for r in (50,100,200,400)])\"",
+  "expected": "identical percentile denominators, so 0% difference",
+  "actual": "[(50, 4694.3, 5314.0, 13.2), (100, 2884.2, 3419.0, 18.54), (200, 1573.6, 1931.3, 22.73), (400, 794.3, 995.8, 25.37)]",
+  "artifact": "docs/master-site-audit/evidence/W30/percentile-train-serve-skew.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "rank": 100,
+   "c": 0.11,
+   "s": 1.11,
+   "fitDenominator": 399,
+   "serveDenominator": 499
+  },
+  "formula": "V(p) = 9999 / (1 + (p/c)^s)",
+  "expected": 2884.2,
+  "actual": 3419.0,
+  "tolerance": 1.0
+ },
+ "userImpact": "Every value on /rankings past the top handful is produced by a curve evaluated outside the coordinate system it was scored in. The holdout RMSE that gates promotion (787.84 for the champion) is therefore not a measurement of the served board's error.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 1,
+  "pagesAffected": 1
+ },
+ "confidence": "medium",
+ "priorFinding": {
+  "match": "PRIOR-A13-F08",
+  "relation": "new",
+  "note": "the formula registry names 'TRAIN/SERVE SKEW, open' for percentile-reference without a magnitude. This attaches one. Confidence is medium rather than high because serving normalises POST-LADDER effective ranks, so the arithmetic is exact only for sources whose ladder is near identity \u2014 KTC, the very source _PERCENTILE_REFERENCE_N=500 was chosen to align with."
+ },
+ "whatWorks": "Train and holdout ARE matched to each other, as the docstring claims, and the champion's params match the committed constants exactly.",
+ "rootCause": "FIT_TOP_N and _PERCENTILE_REFERENCE_N are two independent constants with no assertion tying them together.",
+ "requiredRepair": "Either fit at 500 or serve at 400; add a test that imports both constants and asserts they agree.",
+ "dependencies": "",
+ "workstream": "W30",
+ "promptSections": [
+  42,
+  44
+ ]
+}

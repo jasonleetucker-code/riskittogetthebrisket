@@ -1,0 +1,23 @@
+== PRIOR-A15-F10  ceiling_p85 escapes 0-10000 ==
+  n=699 max=9999 rows>10000: 0  top5=[]
+== PRIOR-A15-F09  risk_neutral ~= balanced ==
+  n=566 median rel-diff=3.70%  p90=10.50%  max=19.07%
+== PRIOR-A15-F08  sigma_source = 0 for single-source projections ==
+  players with sigmaSource==0.0: 699/699   sourceCounts={1}
+== PRIOR-A15-F04  option surplus pays below-replacement players ==
+  players projected BELOW replacement: 424; of those with tradeValue.balanced>0: 404
+   Quinn Ewers            fpg=20.51 R=20.58 vorg=-0.07 balanced=4257
+   Riley Leonard          fpg=20.10 R=20.58 vorg=-0.48 balanced=3950
+   Jalen Milroe           fpg=19.32 R=20.58 vorg=-1.26 balanced=3402
+   Tyler Shough           fpg=20.26 R=20.58 vorg=-0.32 balanced=3130
+   Mason Taylor           fpg=5.45 R=5.73 vorg=-0.28 balanced=2766
+  ablation cross-check (same players, truncated/plain modes):
+   A.J. Brown             option=1075.5 truncated=658.6 plain=366.1
+   Aaron Jones            option=321.4 truncated=101.6 plain=0.0
+   Aaron Rodgers          option=429.4 truncated=0.0 plain=0.0
+   Abdul Carter           option=1196.5 truncated=122.8 plain=0.0
+   Adam Thielen           option=0.0 truncated=0.0 plain=0.0
+   Adonai Mitchell        option=249.7 truncated=0.0 plain=0.0
+== PRIOR-A15-F18  pick table flat past slot 36 ==
+   [('2026 Pick 3.01', 650.0), ('2026 Pick 3.02', 650.0), ('2026 Pick 3.03', 650.0), ('2026 Pick 3.04', 650.0), ('2026 Pick 3.05', 650.0), ('2026 Pick 3.06', 650.0)] ... [('2026 Pick 6.05', 53.3), ('2026 Pick 6.06', 50.2), ('2026 Pick 6.07', 47.4), ('2026 Pick 6.08', 44.6), ('2026 Pick 6.09', 42.1), ('2026 Pick 6.10', 39.7), ('2026 Pick 6.11', 37.4), ('2026 Pick 6.12', 35.3)]
+  distinct EVs among the 48 slots at/after 3.01: 38
