@@ -11,10 +11,19 @@ const BACKEND_BASE = (() => {
 
 /**
  * Proxy a GET request to the backend.
+ *
+ * `cookie` is REQUIRED for any backend endpoint behind auth. This helper
+ * sends no credentials of its own, so omitting it against an authenticated
+ * endpoint yields a 401 — and only where Next actually serves `/api/*`
+ * (dev, and the E2E stack, which runs no nginx). In production nginx routes
+ * `/api/*` straight to the backend and these routes are never reached, so
+ * the failure is invisible in prod and looks like a broken feature in dev.
+ * Pass `request.headers.get("cookie")` from the route handler.
+ *
  * @param {string} path — backend path (e.g. "/api/draft-capital")
- * @param {object} opts — { timeoutMs, searchParams }
+ * @param {object} opts — { timeoutMs, searchParams, cookie }
  */
-export async function proxyGet(path, { timeoutMs = 5000, searchParams } = {}) {
+export async function proxyGet(path, { timeoutMs = 5000, searchParams, cookie } = {}) {
   const url = new URL(path, BACKEND_BASE);
   if (searchParams) {
     for (const [k, v] of Object.entries(searchParams)) {
@@ -24,7 +33,11 @@ export async function proxyGet(path, { timeoutMs = 5000, searchParams } = {}) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const res = await fetch(url.toString(), { cache: "no-store", signal: ctl.signal });
+    const res = await fetch(url.toString(), {
+      cache: "no-store",
+      signal: ctl.signal,
+      ...(cookie ? { headers: { Cookie: cookie } } : {}),
+    });
     const data = await res.json();
     return { data, status: res.status };
   } finally {
