@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-08-05T03:27:40.777679+00:00",
+  "phase": "completed",
+  "remoteLogTail": "From github.com:jasonleetucker-code/riskittogetthebrisket\n * branch                main       -> FETCH_HEAD\n   84cb37894..f060dc49f  main       -> origin/main\nHEAD is now at f060dc49f Make ingestion failure visible: five Critical ops findings (#727)\n[ffpc-install] enabled dynasty-ffpc-sharp.timer\nRESULT_JSON={\"checkedAt\": \"2026-08-05T03:27:54.062471+00:00\", \"cohort\": {\"error\": \"<urlopen error [Errno 111] Connection refused>\", \"status\": null}, \"ffpc\": {\"error\": \"<urlopen error [Errno 111] Connection refused>\", \"status\": null}, \"gitSha\": \"f060dc49f6127cc371b2a896fda9f67609de4623\", \"market\": {\"error\": \"<urlopen error [Errno 111] Connection refused>\", \"status\": null}}\n",
+  "remoteResult": {
+    "checkedAt": "2026-08-05T03:27:54.062471+00:00",
+    "cohort": {
+      "error": "<urlopen error [Errno 111] Connection refused>",
+      "status": null
+    },
+    "ffpc": {
+      "error": "<urlopen error [Errno 111] Connection refused>",
+      "status": null
+    },
+    "gitSha": "f060dc49f6127cc371b2a896fda9f67609de4623",
+    "market": {
+      "error": "<urlopen error [Errno 111] Connection refused>",
+      "status": null
+    }
+  },
+  "repositorySecretsAvailable": {
+    "HOST": true,
+    "HOSTS": true,
+    "KEY": true,
+    "USER": true
+  },
+  "sshExitCode": 0
+}

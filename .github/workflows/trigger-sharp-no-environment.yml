@@ -133,6 +133,8 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git pull --rebase origin main
-          git add data/ops/sharp-no-environment-result.json
+          # AUDIT O-4: data/ is gitignored (.gitignore:45); without -f this
+          # step always failed, taking the workflow down before its verdict.
+          git add -f data/ops/sharp-no-environment-result.json
           git commit -m "chore(ops): record ungated Sharp kick result" || exit 0
           git push origin HEAD:main

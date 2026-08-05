@@ -44,11 +44,11 @@ const LABEL_COLORS = {
   "Selective Seller": "var(--amber)",
   "Seller": "var(--red)",
   "Strong Seller / Rebuilder": "var(--red)",
-  // Not a verb on the buy/sell axis — a manager the simulator never saw.
-  // Explicit rather than relying on the fallback below, so that removing
-  // a colour is a deliberate act and this state reads as neutral by
-  // design rather than by accident.
-  "Not simulated": "var(--subtext)",
+  // Not a verb on the buy/sell axis — a manager no simulation covers.
+  // The label is the one src/ros/trade_deadline.py emits; keeping the
+  // colour explicit means this state reads as neutral by design rather
+  // than by falling through to the default below.
+  "Insufficient evidence": "var(--subtext)",
 };
 
 function fmtPct(v) {

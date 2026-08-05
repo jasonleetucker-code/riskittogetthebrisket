@@ -41,6 +41,13 @@ Usage::
         --snapshot data/draft_backtest/2026-pre.json \\
         --results  data/draft_backtest/2026-results.json
 
+``--record-snapshot`` reads the contract the running server would serve, but it
+does not need one running: it primes from the same on-disk cache the FastAPI
+lifespan primes from.  It does need whatever ``import server`` needs, which on
+prod is the systemd unit's ``.env`` (``JASON_LOGIN_PASSWORD``); on a dev box
+export ``ALLOW_DEFAULT_LOGIN_DEV=1`` instead.  Run it on **prod**, where the
+scraped ``data/dynasty_data_*.json`` and the league's rosters actually live.
+
 Exit codes follow the repo's script convention: 0 success, 1 error, 2 skipped
 (nothing to do). A missing corpus is **2**, not 0 — "no data" must not read as
 "passed".
@@ -91,8 +98,32 @@ def record_snapshot(out_dir: Path, league_key: str | None) -> int:
 
     contract = getattr(server, "latest_contract_data", None)
     if not contract:
+        # ``latest_contract_data`` is populated inside the FastAPI *lifespan*
+        # (``load_from_disk`` then ``_prime_latest_payload`` in ``server.py``),
+        # and importing the module does not run it.  So from a cold shell this
+        # global is always ``None`` and the capture below could never happen —
+        # which made the one step that is unrecoverable once the auction starts
+        # the one step that did not work.  Do what lifespan does; both are
+        # plain module-level functions that read the on-disk cache and need no
+        # running app.
+        #
+        # ``is_fresh_scrape`` is left at its default False, exactly as the
+        # lifespan call does: priming from cached disk data must not append a
+        # "today" entry to the rank history.  Capturing a snapshot is an
+        # observation and must not itself alter the record.
+        try:
+            server._prime_latest_payload(server.load_from_disk())  # noqa: SLF001
+        except Exception as exc:  # noqa: BLE001
+            print(f"ERROR: could not load the cached contract ({exc})", file=sys.stderr)
+            return EXIT_ERROR
+        contract = getattr(server, "latest_contract_data", None)
+    if not contract:
+        # Genuinely nothing on disk either. Still SKIPPED rather than OK — "no
+        # data" must not read as "captured".  Note this no longer means "start
+        # the server": the disk cache has now been consulted directly, so if it
+        # were there this would have found it.  Only a scrape fixes this.
         print(
-            "SKIPPED: no contract loaded — start the server or run a scrape first.",
+            "SKIPPED: no contract cached on disk — run a scrape first.",
             file=sys.stderr,
         )
         return EXIT_SKIPPED

@@ -120,6 +120,102 @@
    "severity": "watch",
    "value": null
   },
+  "ros_deadline/o01,covered": {
+   "label": "Strong Buyer",
+   "measurable": true,
+   "rank": 2.0,
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "sortPosition": 0,
+   "value": 1.0
+  },
+  "ros_deadline/o02,covered": {
+   "label": "Strong Buyer",
+   "measurable": true,
+   "rank": 3.0,
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "sortPosition": 1,
+   "value": 1.0
+  },
+  "ros_deadline/o03,covered": {
+   "label": "Strong Buyer",
+   "measurable": true,
+   "rank": 4.0,
+   "recommendation": "Prioritize lineup-anchor upgrades.  Pay up for elite starter",
+   "sortPosition": 2,
+   "value": 1.0
+  },
+  "ros_deadline/o04,covered": {
+   "label": "Buyer",
+   "measurable": true,
+   "rank": 6.0,
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "sortPosition": 3,
+   "value": 1.0
+  },
+  "ros_deadline/o05,covered": {
+   "label": "Buyer",
+   "measurable": true,
+   "rank": 7.0,
+   "recommendation": "Buy if the cost is reasonable.  Target undervalued starters ",
+   "sortPosition": 4,
+   "value": 1.0
+  },
+  "ros_deadline/o06,covered": {
+   "label": "Hold / Evaluate",
+   "measurable": true,
+   "rank": 10.0,
+   "recommendation": "Avoid extreme buy/sell unless an offer is clearly asymmetric",
+   "sortPosition": 5,
+   "value": 1.0
+  },
+  "ros_deadline/o07,covered": {
+   "label": "Seller",
+   "measurable": true,
+   "rank": 9.0,
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "sortPosition": 6,
+   "value": 0.0
+  },
+  "ros_deadline/o08,covered": {
+   "label": "Seller",
+   "measurable": true,
+   "rank": 5.0,
+   "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
+   "sortPosition": 7,
+   "value": 0.0
+  },
+  "ros_deadline/o09,absent": {
+   "label": "Insufficient evidence",
+   "measurable": false,
+   "rank": 1,
+   "recommendation": "No rest-of-season simulation covers this team, so there is n",
+   "sortPosition": 8,
+   "value": null
+  },
+  "ros_deadline/o10,absent": {
+   "label": "Insufficient evidence",
+   "measurable": false,
+   "rank": 8,
+   "recommendation": "No rest-of-season simulation covers this team, so there is n",
+   "sortPosition": 9,
+   "value": null
+  },
+  "ros_deadline/o11,absent": {
+   "label": "Insufficient evidence",
+   "measurable": false,
+   "rank": 11,
+   "recommendation": "No rest-of-season simulation covers this team, so there is n",
+   "sortPosition": 10,
+   "value": null
+  },
+  "ros_deadline/o12,absent": {
+   "label": "Insufficient evidence",
+   "measurable": false,
+   "rank": 12,
+   "recommendation": "No rest-of-season simulation covers this team, so there is n",
+   "sortPosition": 11,
+   "value": null
+  },
   "ros_direction/p=0.00,c=0.00,age=0": {
    "label": "Seller",
    "recommendation": "Sell aging win-now players.  Prioritize 2026/2027 picks and ",
@@ -1701,11 +1797,12 @@
  },
  "surfaces": [
   "ros_direction(294)",
+  "ros_deadline(12)",
   "faab_bid(7)",
   "news_polarity(10)",
   "js(12)"
  ],
  "totals": {
-  "rows": 323
+  "rows": 335
  }
 }

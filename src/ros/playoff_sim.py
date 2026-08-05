@@ -566,6 +566,25 @@ def _current_record(
     return playoff_odds._regular_season_record_to_date(current, snapshot.managers)
 
 
+def _completed_games(row: Any) -> float:
+    """Games this owner has actually played, from a record row.
+
+    Written out rather than ``row.get("wins", 0) or 0`` because the
+    distinction it is measuring IS the audit finding: a missing key
+    means the season has not been observed, and collapsing that into a
+    zero here would put us back where N-1 started.  A row with no usable
+    numbers contributes nothing, which is the honest reading of it.
+    """
+    if not isinstance(row, dict):
+        return 0.0
+    total = 0.0
+    for key in ("wins", "losses"):
+        value = row.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            total += float(value)
+    return total
+
+
 def _league_best_ball() -> bool:
     """Read the default league's best_ball flag without forcing a
     PublicLeagueSnapshot dependency on caller side.  Lazy import so
@@ -703,6 +722,45 @@ def simulate_playoff_odds(
     record = _current_record(snapshot)
     schedule = _remaining_schedule(snapshot)
     owners = sorted(distributions.keys())
+
+    # AUDIT N-1 — with no remaining schedule the loop below draws no
+    # games, so every "simulation" replays the current standings and
+    # each team lands on exactly 1.0 or 0.0. Measured on the live cache:
+    # playoffOdds were [1.0 x6, 0.0 x2], stamped ``converged: true`` on
+    # 2000 simulations, in AUGUST, before a single 2026 game.
+    #
+    # There are two ways to have no games left, and they are opposites:
+    #   * the season FINISHED — the outcome is known, and 1.0/0.0 is a
+    #     fact rather than a projection;
+    #   * no season has STARTED (or none is loaded) — nothing has been
+    #     played and nothing is scheduled, so there is no evidence at
+    #     all, and 1.0/0.0 is fabricated certainty.
+    # Only the second is a defect, so they are distinguished by whether
+    # any games have actually been played rather than by refusing both.
+    games_played = sum(_completed_games(r) for r in record.values())
+    if not schedule and games_played <= 0:
+        return {
+            "playoffOdds": [],
+            "n_simulations": 0,
+            "playoffSeeds": playoff_seeds,
+            "byeSeeds": bye_seeds,
+            "rosStrengthAvailable": bool(ros_map),
+            "bestBallVarianceMode": "depth_aware" if best_ball else "off",
+            "pointsModelSource": model.source,
+            # Not ``converged``. Nothing was simulated, so there is
+            # nothing for a consumer to be confident about — and the
+            # trade-deadline classifier reads the empty list and reports
+            # every team as "Insufficient evidence" rather than turning
+            # a 0.0 into "Seller" (audit N-2).
+            "unsimulable": {
+                "reason": "no_games_played_and_none_scheduled",
+                "detail": (
+                    "no regular-season games have been played and none remain "
+                    "on the schedule, so playoff odds cannot be projected. This "
+                    "is not a 0% chance."
+                ),
+            },
+        }
 
     seed_counts: dict[str, list[int]] = {o: [0] * len(owners) for o in owners}
     playoff_count: dict[str, int] = {o: 0 for o in owners}

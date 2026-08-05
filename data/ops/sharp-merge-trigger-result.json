@@ -1,0 +1,54 @@
+{
+  "backend": {
+    "code": 0,
+    "stderr": "",
+    "stdout": "active"
+  },
+  "checkedAt": "2026-08-05T03:28:07.102335+00:00",
+  "cohort": {
+    "body": {
+      "error": "auth_required",
+      "message": "Sign-in required."
+    },
+    "status": 401
+  },
+  "discovery": {
+    "code": 3,
+    "stderr": "",
+    "stdout": "activating"
+  },
+  "ffpc": {
+    "body": {
+      "error": "auth_required",
+      "message": "Sign-in required."
+    },
+    "status": 401
+  },
+  "ffpcTimer": {
+    "code": 0,
+    "stderr": "",
+    "stdout": "active"
+  },
+  "gitSha": {
+    "code": 0,
+    "stderr": "",
+    "stdout": "f060dc49f6127cc371b2a896fda9f67609de4623"
+  },
+  "journal": {
+    "code": 0,
+    "stderr": "",
+    "stdout": "r_kv.sqlite ok=True message='ok'\nAug 05 05:27:59 vmi3454985 python[723052]: 2026-08-05 05:27:59 [INFO] startup_check=sqlite:session_store.sqlite ok=True message='ok'\nAug 05 05:27:59 vmi3454985 python[723052]: 2026-08-05 05:27:59 [INFO] startup_check=league_registry ok=True message='2 active' context={'keys': ['dynasty_main', 'dynasty_new']}\nAug 05 05:27:59 vmi3454985 python[723052]: 2026-08-05 05:27:59 [INFO] startup_check=env:PRIVATE_APP_ALLOWED_USERNAMES ok=True message='missing (optional)'\nAug 05 05:27:59 vmi3454985 python[723052]: 2026-08-05 05:27:59 [INFO] startup_check=env:SLEEPER_LEAGUE_ID ok=True message='set'\nAug 05 05:27:59 vmi3454985 python[723052]: 2026-08-05 05:27:59 [INFO] startup_summary=healthy checks=8\nAug 05 05:27:59 vmi3454985 python[723052]: 2026-08-05 05:27:59 [INFO] Loaded cached data from dynasty_data_2026-08-05.json (1075 players)\nAug 05 05:28:01 vmi3454985 python[723052]: 2026-08-05 05:28:01 [INFO] rank_history: stamped 821 rows with history series\nAug 05 05:28:04 vmi3454985 python[723052]: 2026-08-05 05:28:04 [INFO] Dashboard ready with cached data\nAug 05 05:28:04 vmi3454985 python[723052]: 2026-08-05 05:28:04 [INFO] session_store: hydrated 17 sessions from disk\nAug 05 05:28:04 vmi3454985 python[723052]: 2026-08-05 05:28:04 [INFO] public_league_event=background_refresh_started trigger=\"startup-warmup\" league_id=\"1312006700437352448\"\nAug 05 05:28:04 vmi3454985 python[723052]: 2026-08-05 05:28:04 [INFO] Server started \u2014 scraping every 2h\nAug 05 05:28:04 vmi3454985 python[723052]: 2026-08-05 05:28:04 [INFO] Dashboard: http://localhost:8000\nAug 05 05:28:04 vmi3454985 python[723052]: 2026-08-05 05:28:04 [INFO] Uptime watchdog enabled \u2014 url=http://127.0.0.1:8000/api/health interval=300s threshold=2\nAug 05 05:28:04 vmi3454985 python[723052]: INFO:     Application startup complete.\nAug 05 05:28:04 vmi3454985 python[723052]: 2026-08-05 05:28:04 [WARNING] Uptime check failed (1/2): URLError: <urlopen error [Errno 111] Connection refused>\nAug 05 05:28:04 vmi3454985 python[723052]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)\nAug 05 05:28:05 vmi3454985 python[723052]: INFO:     52.154.130.214:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 05 05:28:05 vmi3454985 python[723052]: INFO:     52.154.130.214:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 05 05:28:06 vmi3454985 python[723052]: INFO:     52.154.130.214:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 05 05:28:07 vmi3454985 python[723052]: INFO:     52.154.130.214:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 05 05:28:07 vmi3454985 python[723052]: INFO:     127.0.0.1:41566 - \"GET /api/sharp/cohort HTTP/1.1\" 401 Unauthorized\nAug 05 05:28:07 vmi3454985 python[723052]: INFO:     127.0.0.1:41578 - \"GET /api/sharp/market?window=30d&platform=all&qualification=all&limit=10 HTTP/1.1\" 401 Unauthorized\nAug 05 05:28:07 vmi3454985 python[723052]: INFO:     127.0.0.1:41588 - \"GET /api/sharp/market?window=90d&platform=ffpc&qualification=provisional&limit=10 HTTP/1.1\" 401 Unauthorized"
+  },
+  "market": {
+    "body": {
+      "error": "auth_required",
+      "message": "Sign-in required."
+    },
+    "status": 401
+  },
+  "records": {
+    "code": 3,
+    "stderr": "",
+    "stdout": "activating"
+  }
+}

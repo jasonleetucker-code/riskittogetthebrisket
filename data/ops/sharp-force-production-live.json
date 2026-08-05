@@ -1,0 +1,214 @@
+{
+  "bootstrapExitCode": 1,
+  "checkedAt": "2026-08-01T00:42:47.519153+00:00",
+  "endpoints": {
+    "cohort": {
+      "body": {
+        "error": "auth_required",
+        "message": "Sign-in required."
+      },
+      "status": 401
+    },
+    "health": {
+      "body": {
+        "anyBreakerOpen": false,
+        "backup_health": {
+          "backupDirUsed": "fallback",
+          "dbCount": 3,
+          "newestBackupAgeHours": 22.71,
+          "newestBackupPath": "/home/dynasty/backups/riskit/daily/guest_passes.2026-07-31.sqlite.gz"
+        },
+        "circuitBreakers": [
+          {
+            "counters": {
+              "closes": 0,
+              "failure": 0,
+              "fastFail": 0,
+              "opens": 0,
+              "success": 199
+            },
+            "failureThreshold": 5,
+            "failureWindowSec": 60.0,
+            "lastError": "",
+            "name": "sleeper_api",
+            "openDurationSec": 60.0,
+            "recentFailuresInWindow": 0,
+            "state": "closed",
+            "stateAgeSec": null
+          }
+        ],
+        "contract_ok": true,
+        "contract_version": "2026-03-10.v2",
+        "current_source": null,
+        "current_step": "complete",
+        "data_age_hours": 0.3,
+        "data_stale": false,
+        "has_data": true,
+        "last_scrape": "2026-08-01T00:23:03.634048+00:00",
+        "memberInMemorySessions": 16,
+        "scrape_interrupted": false,
+        "scrape_running": false,
+        "scrape_stalled": false,
+        "service": "dynasty-server",
+        "session_cookies": {
+          "dlf_session.json": {
+            "ageDays": 10.1,
+            "autoRefresh": true,
+            "daysRemaining": 3.9,
+            "expired": false,
+            "lifetimeDays": 14,
+            "present": true,
+            "warnSoon": false
+          },
+          "draftsharks_session.json": {
+            "autoRefresh": true,
+            "present": false
+          },
+          "idpshow_session.json": {
+            "ageDays": 2.0,
+            "autoRefresh": false,
+            "daysRemaining": 88.0,
+            "expired": false,
+            "lifetimeDays": 90,
+            "present": true,
+            "warnSoon": false
+          }
+        },
+        "sessions": {
+          "persistedCount": 16
+        },
+        "startupChecks": {
+          "checks": [
+            {
+              "context": {},
+              "fatal": false,
+              "message": "writable",
+              "name": "dir:/home/dynasty/trade-calculator/data",
+              "ok": true
+            },
+            {
+              "context": {},
+              "fatal": false,
+              "message": "writable",
+              "name": "dir:/home/dynasty/trade-calculator/data/nfl_data_cache",
+              "ok": true
+            },
+            {
+              "context": {},
+              "fatal": false,
+              "message": "writable",
+              "name": "dir:/home/dynasty/trade-calculator/data/nfl_data/actuals",
+              "ok": true
+            },
+            {
+              "context": {},
+              "fatal": false,
+              "message": "ok",
+              "name": "sqlite:user_kv.sqlite",
+              "ok": true
+            },
+            {
+              "context": {},
+              "fatal": false,
+              "message": "ok",
+              "name": "sqlite:session_store.sqlite",
+              "ok": true
+            },
+            {
+              "context": {
+                "keys": [
+                  "dynasty_main",
+                  "dynasty_new"
+                ]
+              },
+              "fatal": false,
+              "message": "2 active",
+              "name": "league_registry",
+              "ok": true
+            },
+            {
+              "context": {},
+              "fatal": false,
+              "message": "missing (optional)",
+              "name": "env:PRIVATE_APP_ALLOWED_USERNAMES",
+              "ok": true
+            },
+            {
+              "context": {},
+              "fatal": false,
+              "message": "set",
+              "name": "env:SLEEPER_LEAGUE_ID",
+              "ok": true
+            }
+          ],
+          "failed": 0,
+          "fatal": 0,
+          "ok": 8,
+          "total": 8
+        },
+        "status": "ok",
+        "time_utc": "2026-08-01T00:42:47.698047+00:00",
+        "uptime_watchdog": {
+          "enabled": true,
+          "target_url": "http://127.0.0.1:8000/api/health"
+        }
+      },
+      "status": 200
+    },
+    "marketAll": {
+      "body": {
+        "error": "auth_required",
+        "message": "Sign-in required."
+      },
+      "status": 401
+    },
+    "marketFfpc": {
+      "body": {
+        "error": "auth_required",
+        "message": "Sign-in required."
+      },
+      "status": 401
+    }
+  },
+  "ffpcExitCode": 1,
+  "journals": {
+    "backend": {
+      "code": 0,
+      "stderr": "",
+      "stdout": "00 OK\nAug 01 02:41:07 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:07 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:08 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:08 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:09 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:09 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:10 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:10 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:11 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:11 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:12 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:12 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:13 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:13 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:14 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:14 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:15 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:15 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:16 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:16 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:17 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:17 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:17 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:18 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:19 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:22 vmi3454985 python[93844]: INFO:     52.190.138.35:0 - \"GET /api/sharp/cohort HTTP/1.1\" 401 Unauthorized\nAug 01 02:41:33 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:34 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:34 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:34 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:35 vmi3454985 python[93844]: INFO:     68.220.60.1:0 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:41:52 vmi3454985 python[93844]: INFO:     52.190.138.35:0 - \"GET /api/sharp/cohort HTTP/1.1\" 401 Unauthorized\nAug 01 02:42:23 vmi3454985 python[93844]: INFO:     52.190.138.35:0 - \"GET /api/sharp/cohort HTTP/1.1\" 401 Unauthorized\nAug 01 02:42:47 vmi3454985 python[93844]: INFO:     127.0.0.1:43936 - \"GET /api/health HTTP/1.1\" 200 OK\nAug 01 02:42:47 vmi3454985 python[93844]: INFO:     127.0.0.1:43946 - \"GET /api/sharp/cohort HTTP/1.1\" 401 Unauthorized\nAug 01 02:42:47 vmi3454985 python[93844]: INFO:     127.0.0.1:43952 - \"GET /api/sharp/market?window=30d&platform=all&qualification=all&limit=10 HTTP/1.1\" 401 Unauthorized\nAug 01 02:42:47 vmi3454985 python[93844]: INFO:     127.0.0.1:43958 - \"GET /api/sharp/market?window=90d&platform=ffpc&qualification=provisional&limit=10 HTTP/1.1\" 401 Unauthorized"
+    },
+    "ffpc": {
+      "code": 0,
+      "stderr": "",
+      "stdout": "ug 01 02:42:24 vmi3454985 python[112926]:     platform_ledger.record_ingestion_run(\nAug 01 02:42:24 vmi3454985 python[112926]:   File \"/home/dynasty/trade-calculator/src/intel/platform_ledger.py\", line 1862, in record_ingestion_run\nAug 01 02:42:24 vmi3454985 python[112926]:     conn.execute(\nAug 01 02:42:24 vmi3454985 python[112926]: sqlite3.OperationalError: database is locked\nAug 01 02:42:24 vmi3454985 systemd[1]: dynasty-ffpc-sharp.service: Main process exited, code=exited, status=1/FAILURE\nAug 01 02:42:24 vmi3454985 systemd[1]: dynasty-ffpc-sharp.service: Failed with result 'exit-code'.\nAug 01 02:42:24 vmi3454985 systemd[1]: Failed to start dynasty-ffpc-sharp.service - Chase Upside FFPC public Sharp ingestion (dynasty).\nAug 01 02:42:24 vmi3454985 systemd[1]: dynasty-ffpc-sharp.service: Consumed 14.474s CPU time, 127.8M memory peak, 0B memory swap peak.\nAug 01 02:42:26 vmi3454985 systemd[1]: Starting dynasty-ffpc-sharp.service - Chase Upside FFPC public Sharp ingestion (dynasty)...\nAug 01 02:42:37 vmi3454985 python[113816]: WARNING src.intel.ledger: intel.ledger: /home/dynasty/trade-calculator/data/intel/ledger.sqlite3 is not a valid SQLite database \u2014 rebuilding\nAug 01 02:42:47 vmi3454985 python[113816]: ERROR crawl_ffpc_sharp: FFPC public ingestion failed\nAug 01 02:42:47 vmi3454985 python[113816]: Traceback (most recent call last):\nAug 01 02:42:47 vmi3454985 python[113816]:   File \"/home/dynasty/trade-calculator/src/intel/ledger.py\", line 254, in _open_or_reset\nAug 01 02:42:47 vmi3454985 python[113816]:     _apply_schema(conn)\nAug 01 02:42:47 vmi3454985 python[113816]:   File \"/home/dynasty/trade-calculator/src/intel/ledger.py\", line 238, in _apply_schema\nAug 01 02:42:47 vmi3454985 python[113816]:     conn.execute(\nAug 01 02:42:47 vmi3454985 python[113816]: sqlite3.OperationalError: database is locked\nAug 01 02:42:47 vmi3454985 python[113816]: During handling of the above exception, another exception occurred:\nAug 01 02:42:47 vmi3454985 python[113816]: Traceback (most recent call last):\nAug 01 02:42:47 vmi3454985 python[113816]:   File \"/home/dynasty/trade-calculator/scripts/crawl_ffpc_sharp.py\", line 110, in main\nAug 01 02:42:47 vmi3454985 python[113816]:     platform_ledger.ensure_platform_schema().close()\nAug 01 02:42:47 vmi3454985 python[113816]:     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAug 01 02:42:47 vmi3454985 python[113816]:   File \"/home/dynasty/trade-calculator/src/intel/platform_ledger.py\", line 840, in ensure_platform_schema\nAug 01 02:42:47 vmi3454985 python[113816]:     connection = conn or ledger.connect(path)\nAug 01 02:42:47 vmi3454985 python[113816]:                          ^^^^^^^^^^^^^^^^^^^^\nAug 01 02:42:47 vmi3454985 python[113816]:   File \"/home/dynasty/trade-calculator/src/intel/ledger.py\", line 291, in connect\nAug 01 02:42:47 vmi3454985 python[113816]:     _ensure_schema(target)\nAug 01 02:42:47 vmi3454985 python[113816]:   File \"/home/dynasty/trade-calculator/src/intel/ledger.py\", line 285, in _ensure_schema\nAug 01 02:42:47 vmi3454985 python[113816]:     _open_or_reset(path)\nAug 01 02:42:47 vmi3454985 python[113816]:   File \"/home/dynasty/trade-calculator/src/intel/ledger.py\", line 266, in _open_or_reset\nAug 01 02:42:47 vmi3454985 python[113816]:     _apply_schema(conn)\nAug 01 02:42:47 vmi3454985 python[113816]:   File \"/home/dynasty/trade-calculator/src/intel/ledger.py\", line 237, in _apply_schema\nAug 01 02:42:47 vmi3454985 python[113816]:     conn.executescript(_SCHEMA)\nAug 01 02:42:47 vmi3454985 python[113816]: sqlite3.OperationalError: database is locked\nAug 01 02:42:47 vmi3454985 systemd[1]: dynasty-ffpc-sharp.service: Main process exited, code=exited, status=1/FAILURE\nAug 01 02:42:47 vmi3454985 systemd[1]: dynasty-ffpc-sharp.service: Failed with result 'exit-code'.\nAug 01 02:42:47 vmi3454985 systemd[1]: Failed to start dynasty-ffpc-sharp.service - Chase Upside FFPC public Sharp ingestion (dynasty).\nAug 01 02:42:47 vmi3454985 systemd[1]: dynasty-ffpc-sharp.service: Consumed 1.122s CPU time."
+    },
+    "sleeperRecords": {
+      "code": 0,
+      "stderr": "",
+      "stdout": "gues\": 1096,\nAug 01 02:17:49 vmi3454985 python[70368]:     \"crawledLeagues\": 0,\nAug 01 02:17:49 vmi3454985 python[70368]:     \"oldestCrawlMs\": null,\nAug 01 02:17:49 vmi3454985 python[70368]:     \"newestCrawlMs\": null\nAug 01 02:17:49 vmi3454985 python[70368]:   },\nAug 01 02:17:49 vmi3454985 python[70368]:   \"sharpEligibleLeagues\": 1096\nAug 01 02:17:49 vmi3454985 python[70368]: }\nAug 01 02:17:49 vmi3454985 systemd[1]: dynasty-sharp-records.service: Deactivated successfully.\nAug 01 02:17:49 vmi3454985 systemd[1]: Finished dynasty-sharp-records.service - Dynasty Trade Calculator Sharp Tracker season-records crawl (dynasty).\nAug 01 02:17:49 vmi3454985 systemd[1]: dynasty-sharp-records.service: Consumed 1min 27.554s CPU time, 41.0M memory peak, 0B memory swap peak.\nAug 01 02:17:51 vmi3454985 systemd[1]: Starting dynasty-sharp-records.service - Dynasty Trade Calculator Sharp Tracker season-records crawl (dynasty)...\nAug 01 02:28:48 vmi3454985 python[92625]: WARNING src.api.sleeper_overlay: sleeper_overlay: fetch https://api.sleeper.app/v1/league/1048298330012418048/rosters failed: The read operation timed out\nAug 01 02:33:47 vmi3454985 python[92625]: WARNING src.api.sleeper_overlay: sleeper_overlay: fetch https://api.sleeper.app/v1/league/797847624832090112/rosters failed: The read operation timed out\nAug 01 02:41:41 vmi3454985 python[92625]: INFO src.sharp.records: sharp.records: {'leaguesExamined': 1872, 'seasonsRecorded': 1870, 'completedSeasons': 1253, 'managersTouched': 7056, 'callsUsed': 4997, 'budgetExhausted': True, 'errors': ['rosters_fetch_failed:1048298330012418048', 'rosters_fetch_failed:797847624832090112']}\nAug 01 02:41:41 vmi3454985 python[92625]: {\nAug 01 02:41:41 vmi3454985 python[92625]:   \"leaguesExamined\": 1872,\nAug 01 02:41:41 vmi3454985 python[92625]:   \"seasonsRecorded\": 1870,\nAug 01 02:41:41 vmi3454985 python[92625]:   \"completedSeasons\": 1253,\nAug 01 02:41:41 vmi3454985 python[92625]:   \"managersTouched\": 7056,\nAug 01 02:41:41 vmi3454985 python[92625]:   \"callsUsed\": 4997,\nAug 01 02:41:41 vmi3454985 python[92625]:   \"budgetExhausted\": true,\nAug 01 02:41:41 vmi3454985 python[92625]:   \"errors\": [\nAug 01 02:41:41 vmi3454985 python[92625]:     \"rosters_fetch_failed:1048298330012418048\",\nAug 01 02:41:41 vmi3454985 python[92625]:     \"rosters_fetch_failed:797847624832090112\"\nAug 01 02:41:41 vmi3454985 python[92625]:   ],\nAug 01 02:41:41 vmi3454985 python[92625]:   \"coverage\": {\nAug 01 02:41:41 vmi3454985 python[92625]:     \"seasonRows\": 22553,\nAug 01 02:41:41 vmi3454985 python[92625]:     \"completedSeasonRows\": 15055,\nAug 01 02:41:41 vmi3454985 python[92625]:     \"managersWithRecords\": 7164,\nAug 01 02:41:41 vmi3454985 python[92625]:     \"leaguesWithRecords\": 1879,\nAug 01 02:41:41 vmi3454985 python[92625]:     \"earliestSeason\": \"2021\",\nAug 01 02:41:41 vmi3454985 python[92625]:     \"latestSeason\": \"2026\"\nAug 01 02:41:41 vmi3454985 python[92625]:   },\nAug 01 02:41:41 vmi3454985 python[92625]:   \"queue\": {\nAug 01 02:41:41 vmi3454985 python[92625]:     \"eligibleLeagues\": 1096,\nAug 01 02:41:41 vmi3454985 python[92625]:     \"uncrawledLeagues\": 480,\nAug 01 02:41:41 vmi3454985 python[92625]:     \"crawledLeagues\": 616,\nAug 01 02:41:41 vmi3454985 python[92625]:     \"oldestCrawlMs\": 1785543474377,\nAug 01 02:41:41 vmi3454985 python[92625]:     \"newestCrawlMs\": 1785544901716\nAug 01 02:41:41 vmi3454985 python[92625]:   },\nAug 01 02:41:41 vmi3454985 python[92625]:   \"sharpEligibleLeagues\": 1096\nAug 01 02:41:41 vmi3454985 python[92625]: }\nAug 01 02:41:42 vmi3454985 systemd[1]: dynasty-sharp-records.service: Deactivated successfully.\nAug 01 02:41:42 vmi3454985 systemd[1]: Finished dynasty-sharp-records.service - Dynasty Trade Calculator Sharp Tracker season-records crawl (dynasty).\nAug 01 02:41:42 vmi3454985 systemd[1]: dynasty-sharp-records.service: Consumed 1min 23.303s CPU time.\nAug 01 02:42:01 vmi3454985 systemd[1]: Starting dynasty-sharp-records.service - Dynasty Trade Calculator Sharp Tracker season-records crawl (dynasty)..."
+    }
+  },
+  "services": {
+    "backend": {
+      "code": 0,
+      "stderr": "",
+      "stdout": "active"
+    },
+    "ffpcTimer": {
+      "code": 0,
+      "stderr": "",
+      "stdout": "active"
+    },
+    "sleeperDiscoveryTimer": {
+      "code": 0,
+      "stderr": "",
+      "stdout": "active"
+    },
+    "sleeperRecordsTimer": {
+      "code": 0,
+      "stderr": "",
+      "stdout": "active"
+    }
+  },
+  "targetSha": "a1afce18898d41c075ca28ab6c54faeba91e0d34"
+}

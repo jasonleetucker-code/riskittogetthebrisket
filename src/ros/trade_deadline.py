@@ -20,31 +20,9 @@ from typing import Any
 from src.ros import ROS_DATA_DIR
 from src.ros.direction import build_roster_age_profile, classify_team
 from src.ros.team_strength import load_team_strength_snapshot
+from src.utils.unknown import Unknown, stamp
 
 LOG = logging.getLogger("ros.trade_deadline")
-
-# Where a row's odds came from.  Borrowed verbatim from the vocabulary
-# ``src/api/gameplan.py`` already stamps as ``oddsSource`` so the two
-# surfaces describe the same state with the same word.
-ODDS_SOURCE_SIMULATED = "simulated"
-ODDS_SOURCE_NOT_SIMULATED = "owner_not_in_simulation"
-
-# The direction payload for a manager the simulator never saw.  Shaped
-# like ``classify_team``'s return so consumers spread it identically, but
-# it deliberately carries no buy/sell verb: there is nothing to base one
-# on, and the previous behaviour — coercing absence to 0.0 odds — is what
-# told the league's strongest roster to sell.
-DIRECTION_NOT_SIMULATED: dict[str, Any] = {
-    "label": "Not simulated",
-    "summary": "This manager was not in the simulated season, so there are no odds to read.",
-    "recommendation": (
-        "No direction call. This team joined after the most recent simulated "
-        "season, so the playoff and championship sims never included it — that "
-        "is missing input, not a 0% forecast. It will get a call once a season "
-        "it played in is simulated."
-    ),
-    "ageProfile": {},
-}
 
 
 def _load_playoff_odds_map() -> dict[str, dict[str, float]]:
@@ -81,13 +59,9 @@ def build_team_directions(
 ) -> list[dict[str, Any]]:
     """Compose direction labels for every team that has any input data.
 
-    All maps are keyed by ownerId.  A team the simulator never saw gets a
-    ``"Not simulated"`` row with ``None`` odds and no buy/sell verb — NOT
-    a 0% forecast.  This docstring used to promise the opposite ("the
-    missing dimension defaults to 0 — the classifier degrades cleanly"),
-    and that default is exactly what told the strongest roster in the
-    league to sell.  Degrading cleanly means declining to answer, not
-    answering from a fabricated zero.
+    All maps are keyed by ownerId.  When a map is empty (e.g. no
+    cached sim yet), the missing dimension defaults to 0 — the
+    classifier degrades cleanly.
     """
     playoffs = playoff_odds_map or _load_playoff_odds_map()
     champs = championship_map or _load_championship_map()
@@ -102,48 +76,41 @@ def build_team_directions(
 
     out: list[dict[str, Any]] = []
     for owner in owner_ids:
-        # ── "absent from the sim" is not "0% chance" ──────────────────
-        # ``owner_ids`` is the UNION of the two sim maps and the
-        # team-strength snapshot, so an owner can arrive here with a
-        # roster and no simulated season at all — four of this league's
-        # twelve managers joined after the most recent simulated year.
-        # Coercing that absence to 0.0 handed ``classify_team`` a
-        # confident zero and it duly returned "Seller — sell aging
-        # win-now players" to the strongest roster in the league.
-        # Say "not simulated" instead of inventing a number.
-        # Read the FIELDS, not just the rows: a row present with the odds
-        # missing is equally unmeasured, and reading it as 0.0 would be the
-        # same defect one level down.
+        # AUDIT N-2 — the worst single finding in the 2026-08-04 audit.
+        #
+        # ``owner_ids`` unions three maps, so an owner present in only
+        # ONE of them still gets a row. The odds were then read with
+        # ``or 0.0``, and 0% playoff odds routes straight to "Seller":
+        # "Sell aging win-now players. Prioritize 2026/2027 picks."
+        #
+        # Measured on the live file: data/ros/sims/latest_playoff.json
+        # carries 8 rows for a 12-team league, so FOUR managers were
+        # told to sell for no reason other than absence from an input —
+        # and one of them was ranked #1 in the league on ROS strength
+        # (percentile 1.000). Missing data did not merely degrade the
+        # answer; it produced a confident, inverted instruction about
+        # the best team in the league, on two surfaces.
+        #
+        # An owner we cannot measure now gets NO direction rather than
+        # a fabricated one. The row is still emitted — the manager
+        # exists and hiding them would be its own lie — but it carries
+        # nulls, a machine-readable reason, and a label that says so.
         po_raw = (playoffs.get(owner) or {}).get("playoffOdds")
         co_raw = (champs.get(owner) or {}).get("championshipOdds")
-        strength_row = strengths.get(owner) or {}
-        if po_raw is None and co_raw is None:
+        missing_inputs = [
+            name
+            for name, value in (("playoffOdds", po_raw), ("championshipOdds", co_raw))
+            if not isinstance(value, (int, float))
+        ]
+        if missing_inputs:
             out.append(
-                {
-                    "ownerId": owner,
-                    "displayName": strength_row.get("teamName") or owner,
-                    "playoffOdds": None,
-                    "championshipOdds": None,
-                    "oddsSource": ODDS_SOURCE_NOT_SIMULATED,
-                    "rosStrengthPercentile": None,
-                    # None, not 0.0 — consistent with the rest of this row.
-                    # A rank of 0 would read as "ranked, at the top".
-                    "rank": (
-                        float(strength_row["rank"])
-                        if strength_row.get("rank") is not None
-                        else None
-                    ),
-                    **DIRECTION_NOT_SIMULATED,
-                }
+                _unmeasurable_team(owner, strengths.get(owner) or {}, champs, missing_inputs)
             )
             continue
 
-        # In the sim on at least one axis.  A missing value on the OTHER
-        # axis is a genuine zero for that axis only — written out rather
-        # than reached with ``or``, so the intent is legible and the
-        # coercion gate can tell this apart from the defect above.
-        po = float(po_raw) if po_raw is not None else 0.0
-        co = float(co_raw) if co_raw is not None else 0.0
+        po = float(po_raw)
+        co = float(co_raw)
+        strength_row = strengths.get(owner) or {}
         # team_strength snapshot doesn't carry a percentile by itself;
         # rank/length is the cheapest proxy.
         rank = float(strength_row.get("rank") or 0.0)
@@ -165,25 +132,78 @@ def build_team_directions(
                 or owner,
                 "playoffOdds": po,
                 "championshipOdds": co,
-                # Stamped on BOTH branches: "these odds are simulated" and
-                # "this field is missing" must not read the same.
-                "oddsSource": ODDS_SOURCE_SIMULATED,
                 "rosStrengthPercentile": round(strength_pct, 4),
                 "rank": rank,
                 **direction,
             }
         )
 
-    # Unsimulated teams have no odds to rank by, so they sort last rather
-    # than sorting as if they were the worst team in the league.
-    def _rank_key(row: dict[str, Any]) -> tuple[bool, float]:
-        odds = row["championshipOdds"]
-        if odds is None:
-            return (True, 0.0)
-        return (False, -float(odds))
+    # Unmeasurable teams sort last in every direction rather than
+    # sorting as if they were the worst — a null championship chance is
+    # not a zero one, and the audit's whole point is that the two must
+    # not render alike.
+    def _sort_key(row: dict[str, Any]) -> tuple[int, float]:
+        odds = row.get("championshipOdds")
+        if not isinstance(odds, (int, float)):
+            # Sorted by the leading 1, never by this number — but it is
+            # written as the best possible odds rather than ``or 0.0``
+            # so that if the leading term is ever dropped, unmeasurable
+            # teams surface at the top where someone notices, instead of
+            # sinking to the bottom where they read as the worst.
+            return (1, -1.0)
+        return (0, -float(odds))
 
-    out.sort(key=_rank_key)
+    out.sort(key=_sort_key)
     return out
+
+
+def _unmeasurable_team(
+    owner: str,
+    strength_row: dict[str, Any],
+    champs: dict[str, Any],
+    missing_inputs: list[str],
+) -> dict[str, Any]:
+    """A row for a manager the sim did not cover.
+
+    Emitted rather than dropped: the manager is real, and silently
+    omitting them would replace one wrong answer with a different one
+    (the league would appear to have fewer teams than it does). What is
+    withheld is the *recommendation*, which is the part that was
+    fabricated.
+
+    ``label`` deliberately does not reuse any of the seven buy/sell
+    verbs. "Insufficient evidence" is not a position on the spectrum
+    between buying and selling; it is a refusal to place the team on
+    that spectrum at all, and a consumer switching on the label must
+    not be able to mistake it for a mild one.
+    """
+    reason = Unknown(
+        reason="team_absent_from_sim",
+        detail=(
+            "no rest-of-season simulation covers this manager, so buy/sell "
+            "direction cannot be derived. Missing: " + ", ".join(missing_inputs)
+        ),
+        field="playoffOdds",
+        context={"ownerId": owner, "missingInputs": missing_inputs},
+    )
+    row: dict[str, Any] = {
+        "ownerId": owner,
+        "displayName": strength_row.get("teamName")
+        or (champs.get(owner) or {}).get("displayName")
+        or owner,
+        "rosStrengthPercentile": None,
+        "rank": strength_row.get("rank"),
+        "label": "Insufficient evidence",
+        "recommendation": (
+            "No rest-of-season simulation covers this team, so there is no "
+            "basis for a buy or sell call. This is not a neutral rating."
+        ),
+        "summary": "Not covered by the current rest-of-season simulation.",
+        "measurable": False,
+    }
+    stamp(row, "playoffOdds", reason)
+    stamp(row, "championshipOdds", reason)
+    return row
 
 
 def build_section(snapshot: Any) -> dict[str, Any]:

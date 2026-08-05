@@ -3,9 +3,9 @@
  "severity": "Critical",
  "total": 43,
  "tally": {
-  "open": 34,
-  "needs_review": 1,
-  "closed": 7,
+  "open": 25,
+  "needs_review": 2,
+  "closed": 15,
   "deferred": 1
  },
  "findings": [
@@ -76,8 +76,8 @@
    "auditId": "V-3",
    "path": "frontend/lib/dynasty-data.js",
    "signature": "full: Math.round(backendValue || rawValues.full)",
-   "status": "open",
-   "verifiedBy": "Live at two materializer sites, plus four coercions of the same shape in frontend/app/rankings/page.jsx (row.rankDerivedValue || row.values?.full || 0), including the sort comparators at :596-597.",
+   "status": "needs_review",
+   "verifiedBy": "PARTLY CLOSED, and the headline half is gone \u2014 re-measured in batch C3 by running buildRows over the real contract. The audit reported 260 rows promoting the raw scraper composite into the Value column, 158 of them above the deepest genuinely-priced player. Measured now: 261 rows the board declines to price, and ZERO render a non-zero number. The math audit's H1 fix made inferValueBundle return the board value only, so both sides of the `backendValue || rawValues.full` expression now derive from rankDerivedValue and the composite can no longer reach the column. The expression survives and looks like the defect, which is why this stays flagged rather than closed.\n\nWHAT REMAINS is the same defect class one step milder: those 261 rows render 0, which asserts 'worth nothing' rather than 'not priced', and 0 sorts and aggregates as a real value. That is the Unknown render rule (em-dash, sorts last, excluded from aggregates with the exclusion counted) and it is frontend-wide work \u2014 the type landed in C3 with the two ROS sites; this is scoped to its own batch rather than half-done here.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
@@ -251,16 +251,14 @@
    "auditEvidence": "`.gitignore:45: data/`. verify-sharp-production.yml:163 `git add data/ops/sharp-production-smoke.json`; force-sharp-production-now.yml:257 `git add data/ops/sharp-force-production-live.json`; trigger-sharp-no-environment.yml:136 `git add data/ops/sharp-no-environment-result.json`; trigger-sharp-now-via-merge.yml:130 `git add data/ops/sharp-merge-trigger-result.json`. `git check-ignore -v data/ops/",
    "auditId": "O-4",
    "path": ".github/workflows/verify-sharp-production.yml",
-   "signature": "git add data/ops/sharp-production-smoke.json",
-   "status": "open",
-   "verifiedBy": "data/ is gitignored (.gitignore:45), so the step always fails before the enforce-healthy-population gate.",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C2. All FOUR workflows force-add now \u2014 the audit named the pattern and a sweep found the other three (force-sharp-production-now, trigger-sharp-no-environment, trigger-sharp-now-via-merge). Verified with git check-ignore: no unguarded `git add data/` remains. The commit step also stops failing on an unchanged artifact, so the enforce gate below it can execute for the first time.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": ".github/workflows/verify-sharp-production.yml",
-    "needle": "git add data/ops/sharp-production-smoke.json"
+    "result": "no_mechanical_probe"
    }
   },
   {
@@ -271,16 +269,14 @@
    "auditEvidence": "verify-sharp-production.yml:55-64 `fetch_json` sends only `User-Agent` and `Cache-Control`. server.py:2801-2809 `_is_public_api_path` returns False for `/api/sharp/cohort`. Actions job 91858761506 result JSON: `\"attempts\": 80`, ten recorded errors all `{\"message\": \"HTTP Error 401: Unauthorized\", \"type\": \"HTTPError\"}` for attempts 71-80, `\"status\": \"degraded_timeout\"`, `\"cohort\": {}`, `\"ffpcMarket\"",
    "auditId": "O-4b",
    "path": ".github/workflows/verify-sharp-production.yml",
-   "signature": "\"User-Agent\": \"ChaseUpside-Production-Smoke/1.0\"",
-   "status": "open",
-   "verifiedBy": "fetch_json sends no Authorization header while polling auth-gated endpoints.",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C2, though NOT by adding auth \u2014 there is no credential to add. /api/sharp/* sits behind _private_api_gate and the workflow declares no secrets at all, so it structurally cannot authenticate. A 401 is now terminal rather than retryable: it means the service is up and correctly refusing an anonymous caller, which is a definitive answer, not a blip. The loop breaks with status unverifiable_unauthenticated instead of spending 80 attempts x 30s = 40 MINUTES on every push to main. The enforce gate reports that as insufficient evidence \u2014 loud, not fatal \u2014 and names the bearer pattern that would make it enforcing.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": ".github/workflows/verify-sharp-production.yml",
-    "needle": "\"User-Agent\": \"ChaseUpside-Production-Smoke/1.0\""
+    "result": "no_mechanical_probe"
    }
   },
   {
@@ -291,16 +287,14 @@
    "auditEvidence": "server.py:2362 `if total_sites > 0 and site_count < total_sites / 2:`. Live payload exports/latest/dynasty_data_2026-08-04.json `sites` = `[{\"key\":\"ktc\",\"label\":\"KTC\",\"max\":9999,\"playerCount\":500},{\"key\":\"idpTradeCalc\",\"label\":\"IDPTradeCalc\",\"max\":9999.0,\"playerCount\":900}]` \u2014 len 2. Reproduced numerically: total_sites=2 \u2192 threshold 1.0 \u2192 blocks only when site_count == 0; site_count=1 \u2192 `1 < 1.0` ",
    "auditId": "O-3",
    "path": "server.py",
-   "signature": "if total_sites > 0 and site_count < total_sites / 2:",
-   "status": "open",
-   "verifiedBy": "Denominator is the legacy in-scraper SITES dict, so the guard blocks only on total loss.",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C2. Confirmed on the pinned export first: result['sites'] carries exactly 2 entries against a 21-source registry, so the ratio test blocked only on total loss. The guard now also requires every anchor the payload declares in coverageAudit.expectedSites \u2014 no invented threshold, no hardcoded source name. The ratio test is KEPT alongside it because a malformed payload yields 'no anchors known missing', which is not 'all present'. Pinned by tests/api/test_scrape_promotion_guard.py including the exact 1-of-2 case the old guard published.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": "server.py",
-    "needle": "if total_sites > 0 and site_count < total_sites / 2:"
+    "result": "no_mechanical_probe"
    }
   },
   {
@@ -311,16 +305,14 @@
    "auditEvidence": "src/api/ops_alerts.py:45-50 `rate = status_payload.get('scrape_success_rate_24h'); if rate is None: return None; try: r = float(rate) except (TypeError, ValueError): return None`. server.py:11588 `status_payload = _scrape_status_payload()`. server.py:1266-1304 `_scrape_status_payload` returns `dict(scrape_status)` + stall_threshold_sec + run_timeout_sec + status_summary \u2014 no rate key; the scrape_s",
    "auditId": "O-1",
    "path": "src/api/ops_alerts.py",
-   "signature": "status_payload.get(\"scrape_success_rate_24h\")",
-   "status": "open",
-   "verifiedBy": "Worse than the audit recorded. The key is attached at server.py:4352 inside the /api/status route only; _scrape_status_payload \u2014 what check_and_alert is actually called with \u2014 never sets it. And _scrape_success_rate_24h() returns a DICT, so float(rate) would raise even if it arrived. Two independent reasons the alert cannot fire.",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C2. Was worse than the audit recorded: the key was attached at server.py:4352 inside the /api/status route only; _scrape_status_payload \u2014 what check_and_alert is actually called with \u2014 never sets it. And _scrape_success_rate_24h() returns a DICT, so float(rate) would raise even if it arrived. Two independent reasons the alert cannot fire.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": "src/api/ops_alerts.py",
-    "needle": "status_payload.get(\"scrape_success_rate_24h\")"
+    "result": "no_mechanical_probe"
    }
   },
   {
@@ -683,16 +675,14 @@
    "auditEvidence": "`src/ros/playoff_sim.py:704` `schedule = _remaining_schedule(snapshot)` returns [] when the last loaded season is complete (offseason). The sim loop at `:721` then adds nothing to `sim_wins`, which was seeded from realized wins at `:719`, so every one of the 2,000 draws produces the identical ranking. Live output `data/ros/sims/latest_playoff.json`: `{'n_simulations': 2000, 'converged': True, 'wor",
    "auditId": "N-1",
    "path": "src/ros/playoff_sim.py",
-   "signature": "schedule = _remaining_schedule(snapshot)",
-   "status": "open",
-   "verifiedBy": "An empty remaining schedule still yields degenerate 100%/0% odds stamped converged: true.",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C3. With no remaining schedule the simulation loop drew no games, so all 2000 'simulations' replayed the standings and every team landed on exactly 1.0 or 0.0 \u2014 stamped converged: true, in August, before a 2026 game was played. The fix does NOT refuse every empty schedule, because a FINISHED season is the same shape and there 1.0/0.0 is a fact: it separates the two on whether any games have been played, and returns an empty board with an explicit unsimulable reason only when nothing has been played AND nothing is scheduled. simulate_playoff_odds therefore emits no odds rather than certain ones, which is what lets C36's classifier report 'Insufficient evidence' instead of reading a 0.0.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": "src/ros/playoff_sim.py",
-    "needle": "schedule = _remaining_schedule(snapshot)"
+    "result": "no_mechanical_probe"
    }
   },
   {
@@ -703,16 +693,14 @@
    "auditEvidence": "`src/ros/trade_deadline.py:82` `po = float((playoffs.get(owner) or {}).get(\"playoffOdds\") or 0.0)` \u2014 an owner absent from `latest_playoff.json` gets a confident 0.0, not None. The sim covers 8 owners; `data/ros/team_strength/latest.json` has 12. Executing `build_team_directions()` against the committed data on disk returns: `Brent | po 0.0 | co 0.0 | pct 1.0 | Seller` \u2014 Brent is ranked #1 of 12 on",
    "auditId": "N-2",
    "path": "src/ros/trade_deadline.py",
-   "signature": "float((playoffs.get(owner) or {}).get(\"playoffOdds\") or 0.0)",
-   "status": "open",
-   "verifiedBy": "A missing owner is still coerced to 0.0 and labelled Seller.",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C3, and MEASURED on the live cache rather than asserted: build_team_directions over data/ros/ moved FOUR managers (Brent, Kich, Blaine, jstuedle) from 'Seller' to 'Insufficient evidence' \u2014 Brent being rank #1 in the league on ROS strength, told to sell his roster for no reason but absence from an 8-row sim file in a 12-team league. The two genuinely measured 0% teams (Ed, Collin) still read Seller, which is the control: the fix withholds fabricated answers without silencing real ones. Absent owners are still LISTED (dropping them would trade one wrong answer for another) with null odds, a machine-readable reason, measurable: false, and a label that reuses none of the seven buy/sell verbs. They sort last rather than as the worst team. Pinned by tests/ros/test_trade_deadline_unknown.py, including a live-data case that fails if any unmeasurable row ever regains a sell verb.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": "src/ros/trade_deadline.py",
-    "needle": "float((playoffs.get(owner) or {}).get(\"playoffOdds\") or 0.0)"
+    "result": "no_mechanical_probe"
    }
   },
   {
@@ -743,16 +731,14 @@
    "auditEvidence": "src/ros/trade_deadline.py:71 `owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))` unions 12 team-strength owners with 8 sim owners; :79-80 `po = float((playoffs.get(owner) or {}).get(\"playoffOdds\") or 0.0)` / `co = float((champs.get(owner) or {}).get(\"championshipOdds\") or 0.0)` silently substitute 0.0 for absent owners. Reproduced against the live on-disk caches (data/ros/sims/lates",
    "auditId": "N-2b",
    "path": "src/ros/trade_deadline.py",
-   "signature": "owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))",
-   "status": "open",
-   "verifiedBy": "The union still admits owners present in only one input, which is how a missing team reaches the BUY/SELL ladder at all. Closed together with C36.",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed with C36, but note the union at this line was deliberately KEPT. Narrowing it to the intersection would have hidden four real managers to avoid mislabelling them \u2014 a league that appears to have 8 teams is its own wrong answer. What changed is what the union's extra rows are allowed to say: they reach the classifier no longer, and carry an explicit refusal instead of a coerced 0.0.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": "src/ros/trade_deadline.py",
-    "needle": "owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))"
+    "result": "no_mechanical_probe"
    }
   },
   {
@@ -838,17 +824,15 @@
    "complexity": "Small",
    "auditEvidence": "`Dynasty Scraper.py:7452-7462` restores the prior CSV when a source produced no/insufficient data this run: `if not os.path.exists(dest): ... f.write(content); _preserved_site_raw.add(fname_sr); print(f\"  [site_raw] Preserved previous {fname_sr}\")`. That write gives the file a fresh mtime. `.github/workflows/scheduled-refresh.yml:224-236` then stamps it: `stamp_if_present() { if [[ -f \"$csv\" && \"$",
    "auditId": "Z-2",
-   "path": "Dynasty Scraper.py",
-   "signature": "preserving \"\n                    f\"last-good (not overwriting).",
-   "status": "open",
-   "verifiedBy": "A preserved last-known-good CSV still mints a fresh success stamp, so the freshness watchdog cannot see a dead vendor.",
+   "path": null,
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Fixed in batch C2, at the STAMPING layer rather than the preserve layer \u2014 preserving last-good is correct and desirable; claiming it was fetched is not. stamp_if_present already required the CSV to be newer than a pre-scraper marker, and that guard was DEFEATED because the scraper's restore pass rewrites the preserved board with open(dest,'wb') during the run, giving it a current mtime and a full row count. The scraper already records the answer \u2014 manifest.json carries siteRawPreserved \u2014 and nothing consulted it. stamp_if_present now skips any board listed there. Exercised in a real shell across four paths (preserved / fresh / corrupt manifest / missing manifest); the last two fall back to the mtime gate so one bad manifest cannot suppress stamping everywhere.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": "Dynasty Scraper.py",
-    "needle": "preserving \"\n                    f\"last-good (not overwriting)."
+    "result": "no_mechanical_probe"
    }
   }
  ]

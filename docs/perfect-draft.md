@@ -427,9 +427,19 @@ structurally prevents one team's results reaching another.
   `dynasty_new` has 5. Nothing in this codebase ingests Sleeper's per-player
   taxi assignment; the payload carries `taxiSlotsAvailable` (default 0) and
   says so in `notes` rather than guessing.
-- **Second league unsupported.** The Sleeper-derived draft-capital fallback
-  emits no rookie fields, so `/draft` there falls back to a hardcoded rookie
-  list. The panel vanishes rather than optimizing against placeholders.
+- **Second league gets the board but not the panel**, and the reason changed.
+  This entry used to say the Sleeper-derived draft-capital fallback "emits no
+  rookie fields, so `/draft` there falls back to a hardcoded rookie list". That
+  is no longer true: `_serialize_pick` staples the real rookie board onto the
+  current season's slots (`src/api/draft_capital_fallback.py`), so `dynasty_new`
+  sees genuine rookie names and values on `/draft`.
+
+  The panel still vanishes there, for a different and unchanged reason: the
+  optimizer needs that league's **rosters**, not its rookie fields.
+  `GET /api/draft/roster-context` gates on whether the loaded contract's
+  `leagueKey` matches the request, and the server holds one league's rosters at
+  a time. So this unblocks when the second league's rosters are loaded — not
+  when the fallback improves.
 - **RESOLVED (2026-08-04), and the fix did not do what this entry predicted.**
   The flat per-addition waiver charge is gone, replaced by the `R(k)` ladder in
   §5, and the auction's own rookies no longer count as free agents. But this

@@ -111,11 +111,25 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
         "V-3",
         "frontend/lib/dynasty-data.js",
         "full: Math.round(backendValue || rawValues.full)",
-        OPEN,
-        "Live at two materializer sites, plus four coercions of the same "
-        "shape in frontend/app/rankings/page.jsx "
-        "(row.rankDerivedValue || row.values?.full || 0), including the "
-        "sort comparators at :596-597.",
+        REVIEW,
+        "PARTLY CLOSED, and the headline half is gone — re-measured in "
+        "batch C3 by running buildRows over the real contract. The audit "
+        "reported 260 rows promoting the raw scraper composite into the "
+        "Value column, 158 of them above the deepest genuinely-priced "
+        "player. Measured now: 261 rows the board declines to price, and "
+        "ZERO render a non-zero number. The math audit's H1 fix made "
+        "inferValueBundle return the board value only, so both sides of "
+        "the `backendValue || rawValues.full` expression now derive from "
+        "rankDerivedValue and the composite can no longer reach the "
+        "column. The expression survives and looks like the defect, "
+        "which is why this stays flagged rather than closed.\n\n"
+        "WHAT REMAINS is the same defect class one step milder: those "
+        "261 rows render 0, which asserts 'worth nothing' rather than "
+        "'not priced', and 0 sorts and aggregates as a real value. That "
+        "is the Unknown render rule (em-dash, sorts last, excluded from "
+        "aggregates with the exclusion counted) and it is frontend-wide "
+        "work — the type landed in C3 with the two ROS sites; this is "
+        "scoped to its own batch rather than half-done here.",
     ),
     "C05": (
         "T-1",
@@ -193,32 +207,53 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C13": (
         "O-4",
         ".github/workflows/verify-sharp-production.yml",
-        "git add data/ops/sharp-production-smoke.json",
-        OPEN,
-        "data/ is gitignored (.gitignore:45), so the step always fails "
-        "before the enforce-healthy-population gate.",
+        None,
+        CLOSED,
+        "Fixed in batch C2. All FOUR workflows force-add now — the audit "
+        "named the pattern and a sweep found the other three "
+        "(force-sharp-production-now, trigger-sharp-no-environment, "
+        "trigger-sharp-now-via-merge). Verified with git check-ignore: no "
+        "unguarded `git add data/` remains. The commit step also stops "
+        "failing on an unchanged artifact, so the enforce gate below it "
+        "can execute for the first time.",
     ),
     "C14": (
         "O-4b",
         ".github/workflows/verify-sharp-production.yml",
-        '"User-Agent": "ChaseUpside-Production-Smoke/1.0"',
-        OPEN,
-        "fetch_json sends no Authorization header while polling " "auth-gated endpoints.",
+        None,
+        CLOSED,
+        "Fixed in batch C2, though NOT by adding auth — there is no "
+        "credential to add. /api/sharp/* sits behind _private_api_gate and "
+        "the workflow declares no secrets at all, so it structurally "
+        "cannot authenticate. A 401 is now terminal rather than retryable: "
+        "it means the service is up and correctly refusing an anonymous "
+        "caller, which is a definitive answer, not a blip. The loop breaks "
+        "with status unverifiable_unauthenticated instead of spending 80 "
+        "attempts x 30s = 40 MINUTES on every push to main. The enforce "
+        "gate reports that as insufficient evidence — loud, not fatal — "
+        "and names the bearer pattern that would make it enforcing.",
     ),
     "C15": (
         "O-3",
         "server.py",
-        "if total_sites > 0 and site_count < total_sites / 2:",
-        OPEN,
-        "Denominator is the legacy in-scraper SITES dict, so the guard "
-        "blocks only on total loss.",
+        None,
+        CLOSED,
+        "Fixed in batch C2. Confirmed on the pinned export first: "
+        "result['sites'] carries exactly 2 entries against a 21-source "
+        "registry, so the ratio test blocked only on total loss. The guard "
+        "now also requires every anchor the payload declares in "
+        "coverageAudit.expectedSites — no invented threshold, no hardcoded "
+        "source name. The ratio test is KEPT alongside it because a "
+        "malformed payload yields 'no anchors known missing', which is not "
+        "'all present'. Pinned by tests/api/test_scrape_promotion_guard.py "
+        "including the exact 1-of-2 case the old guard published.",
     ),
     "C16": (
         "O-1",
         "src/api/ops_alerts.py",
-        'status_payload.get("scrape_success_rate_24h")',
-        OPEN,
-        "Worse than the audit recorded. The key is attached at "
+        None,
+        CLOSED,
+        "Fixed in batch C2. Was worse than the audit recorded: the key was attached at "
         "server.py:4352 inside the /api/status route only; "
         "_scrape_status_payload — what check_and_alert is actually "
         "called with — never sets it. And _scrape_success_rate_24h() "
@@ -383,17 +418,42 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C35": (
         "N-1",
         "src/ros/playoff_sim.py",
-        "schedule = _remaining_schedule(snapshot)",
-        OPEN,
-        "An empty remaining schedule still yields degenerate 100%/0% odds "
-        "stamped converged: true.",
+        None,
+        CLOSED,
+        "Fixed in batch C3. With no remaining schedule the simulation "
+        "loop drew no games, so all 2000 'simulations' replayed the "
+        "standings and every team landed on exactly 1.0 or 0.0 — stamped "
+        "converged: true, in August, before a 2026 game was played. The "
+        "fix does NOT refuse every empty schedule, because a FINISHED "
+        "season is the same shape and there 1.0/0.0 is a fact: it "
+        "separates the two on whether any games have been played, and "
+        "returns an empty board with an explicit unsimulable reason only "
+        "when nothing has been played AND nothing is scheduled. "
+        "simulate_playoff_odds therefore emits no odds rather than "
+        "certain ones, which is what lets C36's classifier report "
+        "'Insufficient evidence' instead of reading a 0.0.",
     ),
     "C36": (
         "N-2",
         "src/ros/trade_deadline.py",
-        'float((playoffs.get(owner) or {}).get("playoffOdds") or 0.0)',
-        OPEN,
-        "A missing owner is still coerced to 0.0 and labelled Seller.",
+        None,
+        CLOSED,
+        "Fixed in batch C3, and MEASURED on the live cache rather than "
+        "asserted: build_team_directions over data/ros/ moved FOUR "
+        "managers (Brent, Kich, Blaine, jstuedle) from 'Seller' to "
+        "'Insufficient evidence' — Brent being rank #1 in the league on "
+        "ROS strength, told to sell his roster for no reason but absence "
+        "from an 8-row sim file in a 12-team league. The two genuinely "
+        "measured 0% teams (Ed, Collin) still read Seller, which is the "
+        "control: the fix withholds fabricated answers without silencing "
+        "real ones. Absent owners are still LISTED (dropping them would "
+        "trade one wrong answer for another) with null odds, a "
+        "machine-readable reason, measurable: false, and a label that "
+        "reuses none of the seven buy/sell verbs. They sort last rather "
+        "than as the worst team. Pinned by "
+        "tests/ros/test_trade_deadline_unknown.py, including a live-data "
+        "case that fails if any unmeasurable row ever regains a sell "
+        "verb.",
     ),
     "C37": (
         "L-1",
@@ -406,11 +466,15 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C38": (
         "N-2b",
         "src/ros/trade_deadline.py",
-        "owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))",
-        OPEN,
-        "The union still admits owners present in only one input, which "
-        "is how a missing team reaches the BUY/SELL ladder at all. Closed "
-        "together with C36.",
+        None,
+        CLOSED,
+        "Closed with C36, but note the union at this line was deliberately "
+        "KEPT. Narrowing it to the intersection would have hidden four "
+        "real managers to avoid mislabelling them — a league that appears "
+        "to have 8 teams is its own wrong answer. What changed is what "
+        "the union's extra rows are allowed to say: they reach the "
+        "classifier no longer, and carry an explicit refusal instead of a "
+        "coerced 0.0.",
     ),
     "C39": (
         "E-1",
@@ -445,11 +509,22 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     ),
     "C43": (
         "Z-2",
-        "Dynasty Scraper.py",
-        'preserving "\n                    f"last-good (not overwriting).',
-        OPEN,
-        "A preserved last-known-good CSV still mints a fresh success "
-        "stamp, so the freshness watchdog cannot see a dead vendor.",
+        None,
+        None,
+        CLOSED,
+        "Fixed in batch C2, at the STAMPING layer rather than the preserve "
+        "layer — preserving last-good is correct and desirable; claiming "
+        "it was fetched is not. stamp_if_present already required the CSV "
+        "to be newer than a pre-scraper marker, and that guard was "
+        "DEFEATED because the scraper's restore pass rewrites the "
+        "preserved board with open(dest,'wb') during the run, giving it a "
+        "current mtime and a full row count. The scraper already records "
+        "the answer — manifest.json carries siteRawPreserved — and nothing "
+        "consulted it. stamp_if_present now skips any board listed there. "
+        "Exercised in a real shell across four paths (preserved / fresh / "
+        "corrupt manifest / missing manifest); the last two fall back to "
+        "the mtime gate so one bad manifest cannot suppress stamping "
+        "everywhere.",
     ),
 }
 

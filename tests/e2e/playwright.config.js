@@ -116,6 +116,51 @@ module.exports = defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // Retries stay at 1 so `trace: "on-first-retry"` below still captures a
+  // failing attempt — that trace is what makes a flake debuggable at all.
+  // What changes here is what a retried pass MEANS.
+  //
+  // Playwright's run status for "failed attempt 0, passed attempt 1" is
+  // `passed`, exit 0: the test is filed as FLAKY and the run is green.
+  // Measured 2026-08-05 by grepping every workflow and all of tests/e2e/:
+  // NOTHING read that flaky count.  So `e2e.yml`'s close step — gated on
+  // `success() && github.ref == 'refs/heads/main'` — would CLOSE the
+  // `e2e-failures` tracker on a run that watched a critical journey fail
+  // and then pass, and it iterates `.[]`, so it drains every open one.
+  // Its stated premise is "a green run of THIS workflow is the all-clear
+  // by construction".  A silent retry in front of it broke that premise.
+  //
+  // #718 scoped that close step to mainline runs — it fixed WHO may speak
+  // for main.  This is the half it explicitly left open: HOW MUCH one
+  // green run proves.
+  //
+  // There IS a live intermittent defect for a retry to launder: React
+  // streaming leaves its `<div id="S:1">` staging copy in the DOM, so a
+  // page's markup exists twice and any non-`.first()` locator throws a
+  // strict-mode violation.  The suite's only two windows onto it are
+  // journey-trade.spec.js (/arbitrage) and waivers-smoke.spec.js
+  // (/waivers) — one retry hides both.
+  //
+  // THIS LIVES IN THE CONFIG, NOT IN stack-death-reporter.js, AND THAT
+  // PLACEMENT IS THE WHOLE POINT.  A `--reporter=…` on the command line
+  // REPLACES the reporter array below and unloads every guard in that
+  // file — see its header, and what prod-e2e-smoke.yml did for its entire
+  // history.  A CLI flag cannot unload a config key, and
+  // `--fail-on-flaky-tests` can only set it TRUE: program.js emits
+  // `true` or `undefined`, never `false`, and common/config.js resolves
+  // `takeFirst(cliOverride, userConfig, false)`.  Putting the predicate
+  // in the reporter would have rebuilt the exact defect this PR removes.
+  //
+  // The predicate is Playwright's own `TestCase.outcome() === "flaky"`
+  // (runner/failureTracker.js), evaluated BEFORE onEnd — the same word
+  // the HTML report prints.  stack-death-reporter.js adds a banner
+  // explaining the red; it deliberately returns no status.
+  //
+  // E2E_ALLOW_FLAKY=1 is the hatch for a human chasing something else
+  // locally.  tests/e2e/test_e2e_harness_guards.py fails the PR if a
+  // workflow sets it, or if `retries` keeps a non-zero CI branch while
+  // this key goes missing.
+  failOnFlakyTests: !!process.env.CI && !process.env.E2E_ALLOW_FLAKY,
   workers: process.env.CI ? 1 : undefined,
   outputDir: "test-results",
   reporter: [
