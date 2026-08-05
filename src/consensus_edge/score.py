@@ -92,18 +92,28 @@ COMPONENT_VALIDATION: dict[str, dict[str, Any]] = {
         "validated": False,
         "measured": True,
         "outcome": "null",
-        "evidence": "docs/measurements/consensus-edge-composite-2026-08-04-h7.json",
+        "evidence": "docs/measurements/consensus-edge-composite-2026-08-05-h7.json",
         "note": (
-            "measured and rejected: adding the board-momentum axis lowered mean "
-            "rho (7d -0.010 over 11 folds, 14d -0.009 over 5) and beat mispricing "
-            "alone in only 3/11 and 2/5 folds. Weight is zero; the axis is "
-            "displayed as evidence but does not move the score. The snapTrend "
-            "axis is replayable since 2026-08-04 (nflverse publishes snap "
-            "counts per game; src/playerctx/asof.py bounds the read to the "
-            "weeks completed before each origin) but is not yet MEASURED: "
-            "every date in the current all-offseason panel resolves to the "
-            "same completed season, so the axis is one frozen cross-section "
-            "rather than a signal varying across folds."
+            "measured and rejected. The board-momentum axis scored on its own "
+            "carries mean rho -0.123 over 8 non-overlapping 7d folds, negative "
+            "in 7 of 8, and beat the cheap-players benchmark in 0 of 8 "
+            "(-0.154 over 4 folds at 14d). Weight is zero; the axis is still "
+            "computed and displayed as evidence but does not move the score. "
+            "NOTE the composite-vs-mispricing arm can no longer demonstrate "
+            "this: with the weight at zero the composite IS mispricing, and "
+            "the two series are identical by construction (foldsBeaten 0/11, "
+            "equal rho). The original comparison that justified zeroing the "
+            "weight was run at weight 0.2 and is NOT in the committed record — "
+            "every committed composite run carries opportunity 0.0. The "
+            "momentum-alone arm is the evidence that survives, and it is "
+            "decisive on its own. "
+            "The snapTrend axis is replayable since 2026-08-04 (nflverse "
+            "publishes snap counts per game; src/playerctx/asof.py bounds the "
+            "read to the weeks completed before each origin) but is not yet "
+            "MEASURED: every date in the current all-offseason panel resolves "
+            "to the same completed season, so it is one frozen cross-section "
+            "rather than a signal varying across folds (+0.019 over 11 folds "
+            "at 7d, effectiveSignalObservations 1)."
         ),
     },
 }

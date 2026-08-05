@@ -261,9 +261,25 @@ opportunity**, and each has a different provenance, recorded in
 
 | component | weight | provenance |
 |---|---|---|
-| mispricing | 0.50 | measured, positive |
+| mispricing | 0.50 | measured, **null** — see below |
 | sharpFlow | 0.30 | declared prior — unvalidatable, and moot while the ledger is empty |
 | opportunity | 0.00 | measured, **null** — see ADR-013 |
+
+This table said "measured, positive" for mispricing until 2026-08-05,
+and that was the single most misleading line in these docs: it was the
+headline claim about the only component carrying real weight, and it
+was backwards. `score.py::COMPONENT_VALIDATION` has said
+`validated: False, outcome: "null"` since the scale repair, and
+`params_v1.json` has said "measured NULL" beside the weight itself.
+The measured result is rho **+0.031** over 6 non-overlapping 14-day
+folds (+0.040 over 12 at 7d), with the market-value benchmark — a plain
+"buy whatever is cheap" rule — beating it in **5 of 6** and 9 of 12.
+
+The earlier +0.126 that justified the word "positive" was measured on a
+board that priced every IDP row on a scale that does not exist (ADR-021).
+The 0.50 is a prior like the others; mispricing carries the most weight
+because it is the only component that computes at all in a reachable
+environment, not because it is validated.
 
 Five behaviours matter more than the arithmetic:
 
@@ -292,17 +308,33 @@ Labels: Strong Buy / Buy / Neutral / Sell / Strong Sell, plus
 Strong labels additionally require high confidence, and the ceiling is a
 function of how many **weighted** components are live:
 
-| live weighted components | ceiling | Strong reachable |
-|---|---|---|
-| 1 (today) | 69.3 | no |
-| 2 | 87.4 | yes |
-| 3 | 100.0 | yes |
+`ceiling = 100 × ((live / weighted) × freshness) ^ ⅓`, and Strong needs
+**70**. The denominator is the number of components carrying a non-zero
+weight, which is **2** today — mispricing at 0.50 and sharpFlow at 0.30.
+Opportunity is at 0.00 and is excluded from the denominator, not counted
+as a missing third.
 
-So today no player can earn a Strong Buy. That is the design working,
-not a gap to be tuned away — and note it is now a *runtime* fact the
-board computes and publishes as `confidenceCeiling` /
-`strongLabelsReachable`, not a constant. Opportunity briefly made it two
-before its weight went to zero.
+| live / weighted | freshness | ceiling | Strong reachable |
+|---|---|---|---|
+| 1 / 2 (today) | 1.00 (fresh) | 79.4 | yes |
+| 1 / 2 (today) | 0.89 (8h stale) | 76.4 | yes |
+| 1 / 2 (today) | 0.50 (staleness unknown) | 63.0 | **no** |
+| 2 / 2 | 1.00 | 100.0 | yes |
+
+**Strong labels are reachable today**, and whether they are depends on
+freshness rather than on component count alone.
+
+This section previously published a table with a denominator of 3
+(1 → 69.3, 2 → 87.4, 3 → 100.0) and asserted "today no player can earn a
+Strong Buy". Both were wrong, and the same file disproved them two
+sections up: the measured-board table reports a **Strong Buy bucket with
+30 rows**. The measurement was taken at `hoursStale: 8.0`, giving a
+ceiling of 76.4 — comfortably over the threshold.
+
+It is a *runtime* fact the board computes and publishes as
+`confidenceCeiling` / `strongLabelsReachable`, so the payload was right
+throughout; only this table was stale. That is exactly why the fields
+exist, and why a reader should trust them over any table here.
 
 ## Opportunity — measured, and rejected
 
