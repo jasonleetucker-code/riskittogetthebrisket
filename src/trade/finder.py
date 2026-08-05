@@ -144,6 +144,24 @@ ELITE_THRESHOLD = 6600  # was 7500 on the composite scale; see the F-6 note abov
 ELITE_MULTI_MIN_RATIO = 0.65  # Tighter ratio for elite targets in multi-for-one
 PACKAGE_ANCHOR_MIN_PCT = 0.35  # Best give piece must be ≥35% of best receive piece
 CONFIDENCE_SOURCE_BASELINE = 5  # Expected source count for full confidence
+
+# Max returned trades any single give-side asset may appear in.
+#
+# The sibling engine already learned this: ``suggestions.py`` carries
+# ``MAX_GIVE_PLAYER_APPEARANCES = 2`` ("Breece Hall fatigue — seeing the
+# same outgoing player 7 times"), lowered from 3 after an audit found
+# 52.5% of its suggestions repetitive.  This engine had no such cap and
+# no dominance test, so 40 returned trades for one team were built from
+# 4 distinct give-side assets, one of which appeared in 20 of them
+# (W09-F012).  That is 40 variations of 4 ideas, not 40 ideas.
+#
+# 3 rather than suggestions.py's 2 because this list is longer (40 in
+# one bucket against 8 per category over 4 categories) and because a
+# genuinely mispriced asset SHOULD show up more than once — the cap
+# exists to stop a single asset owning the list, not to hide it.  It is
+# a soft cap: if honouring it would return a short list, the skipped
+# trades are appended in rank order rather than withheld.
+MAX_GIVE_ASSET_APPEARANCES = 3
 ROSTER_SURPLUS_THRESHOLD = 4  # ≥4 at a position = surplus (light fit bonus)
 ROSTER_WEAK_THRESHOLD = 1  # ≤1 at a position = weakness (light fit bonus)
 
@@ -1145,9 +1163,47 @@ def _generate_1for2(
     return results
 
 
+def _prune_dominated(trades: list[TradeCandidate]) -> list[TradeCandidate]:
+    """Drop packages another package strictly beats.
+
+    A trade is dominated when some OTHER trade offers the same give side
+    for a receive side that contains everything this one receives and
+    more, and scores better.  Accepting the dominated one is strictly
+    worse by the engine's own arithmetic, so listing it consumes a slot
+    to show the reader a trade they should never take.
+
+    ``_deduplicate`` collapses only exact repeats — same assets, different
+    enumeration order — which is a different thing and stays.
+
+    Input order is irrelevant; the comparison is on score, so this is
+    safe to run before or after ranking.
+    """
+    by_give: dict[tuple[str, ...], list[TradeCandidate]] = {}
+    for tc in trades:
+        by_give.setdefault(tuple(sorted(a.name for a in tc.give)), []).append(tc)
+
+    dominated: set[int] = set()
+    for group in by_give.values():
+        if len(group) < 2:
+            continue
+        recv_sets = [frozenset(a.name for a in tc.receive) for tc in group]
+        for i, tc in enumerate(group):
+            for j, other in enumerate(group):
+                if i == j:
+                    continue
+                if other.arbitrage_score <= tc.arbitrage_score:
+                    continue
+                if recv_sets[i] < recv_sets[j]:
+                    dominated.add(id(tc))
+                    break
+    return [tc for tc in trades if id(tc) not in dominated]
+
+
 def _fill_by_shape(
     ranked: list[TradeCandidate],
     max_results: int,
+    *,
+    max_give_appearances: int = MAX_GIVE_ASSET_APPEARANCES,
 ) -> list[TradeCandidate]:
     """Fill the returned list round-robin over package shapes.
 
@@ -1170,6 +1226,13 @@ def _fill_by_shape(
     ``metadata.qualifiedByShape`` / ``returnedByShape`` publish both
     sides of this, the same "say what was there and what you served"
     posture as ``marketCoverage``.
+
+    The same walk enforces ``MAX_GIVE_ASSET_APPEARANCES``: a trade whose
+    give side is already at the cap is set aside, not dropped.  If the
+    cap would leave the list short, the set-aside trades are appended in
+    rank order — a short list of diverse ideas is worse than a full one,
+    and withholding a real trade to satisfy a diversity rule would be
+    the engine lying about what it found.
     """
     if max_results <= 0:
         return []
@@ -1181,18 +1244,41 @@ def _fill_by_shape(
     order = sorted(by_shape, key=lambda k: (-len(by_shape[k]), k))
     cursors = dict.fromkeys(by_shape, 0)
     out: list[TradeCandidate] = []
+    deferred: list[TradeCandidate] = []
+    appearances: dict[str, int] = {}
+
+    def _at_cap(tc: TradeCandidate) -> bool:
+        if max_give_appearances <= 0:
+            return False
+        return any(appearances.get(a.name, 0) >= max_give_appearances for a in tc.give)
+
     while len(out) < max_results:
         progressed = False
         for shape in order:
             if len(out) >= max_results:
                 break
+            candidates = by_shape[shape]
             i = cursors[shape]
-            if i < len(by_shape[shape]):
-                out.append(by_shape[shape][i])
+            # Advance past anything this shape can no longer contribute,
+            # so one over-used asset does not stall its whole shape.
+            while i < len(candidates) and _at_cap(candidates[i]):
+                deferred.append(candidates[i])
+                i += 1
+            cursors[shape] = i
+            if i < len(candidates):
+                tc = candidates[i]
+                out.append(tc)
+                for a in tc.give:
+                    appearances[a.name] = appearances.get(a.name, 0) + 1
                 cursors[shape] = i + 1
                 progressed = True
         if not progressed:
             break
+
+    for tc in deferred:
+        if len(out) >= max_results:
+            break
+        out.append(tc)
     return out
 
 
@@ -1395,6 +1481,11 @@ def find_trades(
 
     # Deduplicate
     all_trades = _deduplicate(all_trades)
+    # Same give side, a receive side another package strictly contains,
+    # and a worse score: nothing a reader should ever choose (W09-F012).
+    pre_dominance = len(all_trades)
+    all_trades = _prune_dominated(all_trades)
+    dominated_pruned = pre_dominance - len(all_trades)
 
     # ── Light roster-fit adjustment ──────────────────────────────────
     # Slightly reward trades that shed surplus positions or fill weak ones.
@@ -1476,6 +1567,13 @@ def find_trades(
             # is a slot-allocation fact, not an absence of candidates.
             "qualifiedByShape": qualified_by_shape,
             "returnedByShape": returned_by_shape,
+            # Diversity controls, stated so a reader can tell a thin
+            # list from a capped one.
+            "dominatedPruned": dominated_pruned,
+            "maxGiveAssetAppearances": MAX_GIVE_ASSET_APPEARANCES,
+            "distinctGiveAssetsReturned": len(
+                {a.name for t in capped for a in t.give}
+            ),
             # The gain each trade's ``boardEdge`` is a fraction OF.
             # Named because it changed: it was the give side alone,
             # which is a lopsidedness score rather than a rate of gain
