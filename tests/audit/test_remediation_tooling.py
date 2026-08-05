@@ -170,18 +170,38 @@ class TestGoldenBoardInputIsFrozen(unittest.TestCase):
         # Under tests/fixtures, not under exports/ where the refresh writes.
         self.assertIn("fixtures", gb.DEFAULT_INPUT.parts)
 
-    def test_baseline_records_the_input_it_was_built_from(self) -> None:
+    def test_baseline_records_BOTH_inputs_it_was_built_from(self) -> None:
+        """The contract has two inputs on disk, and both move.
+
+        The export was frozen first and the capture called itself
+        pinned, which was worse than not claiming it: the build also
+        reads the per-source boards from ``CSVs/site_raw/``, tracked
+        files the 2-hourly refresh rewrites (nine times in one day).
+        A rebase onto a main that had not touched ``data_contract.py``
+        at all produced a diff of 290 moved values, 266 ranks and 664
+        tier flips — pure CSV churn, reported as though the code did it.
+        """
         baseline = json.loads(
             (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
                 encoding="utf-8"
             )
         )
         self.assertEqual(len(baseline.get("inputSha256") or ""), 64)
+        self.assertEqual(len(baseline.get("sourceCsvSha256") or ""), 64)
+        self.assertGreater(baseline.get("sourceCsvCount") or 0, 0)
 
-    def test_baseline_matches_the_frozen_input(self) -> None:
-        """The committed baseline must be a capture OF the committed input."""
+    def test_baseline_matches_the_current_tree_state(self) -> None:
+        """The committed baseline must be a capture of THIS tree.
+
+        Both inputs are checked. The export is frozen so it can only
+        drift by an edit; the source CSVs drift on their own every two
+        hours, which is what makes this the assertion that will fail
+        most often — and that failure is the point. It means "re-capture
+        before you diff", not "something is broken".
+        """
         import scripts.golden_board as gb
 
+        csv_digest, csv_count = gb._source_csv_digest()  # noqa: SLF001
         _, digest = gb._read_export(gb.DEFAULT_INPUT)  # noqa: SLF001
         baseline = json.loads(
             (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
@@ -191,9 +211,17 @@ class TestGoldenBoardInputIsFrozen(unittest.TestCase):
         self.assertEqual(
             baseline["inputSha256"],
             digest,
-            "the committed baseline was built from a different input than the "
+            "the committed baseline was built from a different export than the "
             "committed fixture — re-run scripts/golden_board.py",
         )
+        self.assertEqual(
+            baseline["sourceCsvSha256"],
+            csv_digest,
+            "CSVs/site_raw has changed since the baseline was captured (the "
+            "2-hourly refresh rewrites it) — re-run scripts/golden_board.py so "
+            "the next batch diffs against this tree, not a past one",
+        )
+        self.assertEqual(baseline["sourceCsvCount"], csv_count)
 
 
 class TestSurfaceHarness(unittest.TestCase):

@@ -81,22 +81,39 @@ Both captures are pure and byte-deterministic across runs — verified, and load
 builds the real contract through `build_api_data_contract` in ~1.5s; the surfaces are pure calls
 over fixed input grids.
 
-### The input is frozen, not merely named
+### The contract has TWO inputs on disk, and both move
 
 `golden_board.py` originally defaulted to `exports/latest/dynasty_data_2026-08-04.json` and called
 that pinned. It is not: the filename carries only the **date**, and `scheduled-refresh.yml` runs
 every two hours, so same-day refreshes overwrite it in place. That file was rewritten **six times in
 two days**, and rebasing batch C0 onto main silently moved the capture's input from the 18:20 scrape
-to the 20:14 one — two players in, one out — with no signal.
+to the 20:14 one — two players in, one out — with no signal. It is now a committed gzipped fixture
+(`tests/fixtures/golden/input_export.json.gz`, 92 KB), immutable by construction.
 
-The input is now a committed gzipped fixture (`tests/fixtures/golden/input_export.json.gz`, 92 KB),
-immutable by construction. Every capture stamps the SHA-256 of the input's **content**, and
-`board_diff.py` **refuses** (exit 2) to compare captures built from different inputs unless
-`--allow-input-change` is passed. It was a stderr warning; a warning next to a plausible-looking
-diff is not a control.
+**That was only half of it, and the half-fix was worse than none**, because it shipped with a claim
+of pinning. `build_api_data_contract` also reads the per-source boards from `CSVs/site_raw/*.csv` at
+build time — **tracked** files the same refresh rewrites, nine times in one day. Rebasing onto a
+main that had not touched `data_contract.py` or `src/canonical/` at all produced a diff of **290
+moved values, 266 changed ranks, 664 tier flips and 11 rows voting differently**, all of it CSV
+churn, reported as though the code had done it.
 
-Hash the content, not the file — the fixture is gzipped and a live export is not, and a check that
-cries wolf on two byte-identical inputs teaches people to pass the override without reading it.
+Both inputs are now hashed into every capture, and `board_diff.py` **refuses** (exit 2) rather than
+comparing across a difference in either, unless `--allow-input-change` is passed.
+
+Three details that are load-bearing:
+
+- **Hash content, not the file.** The export fixture is gzipped and a live export is not; a
+  file-level hash flags two byte-identical inputs as different, and a check that cries wolf teaches
+  people to pass the override unread.
+- **A capture that records no hashes is refused, not waved through.** "Cannot verify" must not read
+  as "verified equal" — that is the audit's own central defect class, and it bit here first: the
+  stale baseline predated the CSV hash, so the guard skipped it and the bogus 290-row diff went
+  through.
+- **The committed baseline is a reference for the last merged tree state, not a timeless constant.**
+  When the refresh lands it goes stale by design, and
+  `test_baseline_matches_the_current_tree_state` fails to say so. That failure means "re-capture
+  before you diff", not "something is broken". Within a batch — capture, change, capture — both
+  inputs are identical and the diff is a pure code effect, which is the comparison that matters.
 
 ### Why the surface capture exists
 
@@ -130,6 +147,11 @@ Use the repo's pinned toolchain: `requirements-dev.txt` pins `ruff~=0.6.0`. A ne
 `scripts/check_decision_coercions.py` enforces the audit's largest cross-cutting pattern — missing
 data resolving to a fabricated number — as a gate rather than a review convention. It found **631**
 existing violations across the decision paths, recorded in `config/coercion_baseline.json`.
+
+That number is now **702**: #723 consolidated six PRs onto main and brought 71 net new decision-path
+coercions with them. Worth stating plainly — the debt is currently accumulating faster than this
+pass is burning it down, and the gate only stops *new* ones in files a change touches. Re-baseline
+after a large merge, or the next batch gets blamed for the merge's code.
 
 Blocking from introduction: only **new** coercions and **stale** allowances fail, so the existing
 debt does not block unrelated PRs. Each batch deletes its findings' entries as it fixes them. A

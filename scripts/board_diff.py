@@ -128,13 +128,45 @@ def main() -> int:
     # warning goes to stderr and reads like noise next to a diff that
     # looks plausible.  Refuse instead.
     if not args.surfaces:
+        mismatched = []
+        # A capture that never recorded its inputs cannot be shown
+        # comparable, and "cannot verify" must not read the same as
+        # "verified equal" — that is the audit's own central defect
+        # class, and it bit here first: the stale baseline predated the
+        # source-CSV hash, so the guard skipped it and the comparison
+        # went through reporting 290 moved values as though the code
+        # had moved them.
+        for label, cap in (("before", b), ("after", a)):
+            if not cap.get("inputSha256") or not cap.get("sourceCsvSha256"):
+                mismatched.append(
+                    f"the {label} capture does not record its inputs "
+                    "(built by an older harness) — re-capture it"
+                )
         sb, sa = b.get("inputSha256"), a.get("inputSha256")
         if sb and sa and sb != sa:
+            mismatched.append(
+                f"export {sb[:12]} vs {sa[:12]} "
+                f"(scrapes {b.get('scrapeTimestamp')} vs {a.get('scrapeTimestamp')})"
+            )
+        # The SECOND input. build_api_data_contract reads the per-source
+        # boards from CSVs/site_raw/ at build time, and the 2-hourly
+        # refresh rewrites those tracked files — nine times in one day,
+        # measured. Guarding only the export produced a diff reporting
+        # 290 moved values against a main that had not touched the
+        # pipeline at all.
+        cb, ca = b.get("sourceCsvSha256"), a.get("sourceCsvSha256")
+        if cb and ca and cb != ca:
+            mismatched.append(
+                f"source CSVs {cb[:12]} vs {ca[:12]} "
+                f"({b.get('sourceCsvCount')} vs {a.get('sourceCsvCount')} files)"
+            )
+        if mismatched:
             print(
-                f"ERROR: captures were built from different inputs ({sb[:12]} vs "
-                f"{sa[:12]}; scrapes {b.get('scrapeTimestamp')} vs "
-                f"{a.get('scrapeTimestamp')}). Re-capture both against the same "
-                "input, or pass --allow-input-change if the change is the point.",
+                "ERROR: captures were built from different inputs — "
+                + "; ".join(mismatched)
+                + ". Differences below are data churn, code change, or both, and "
+                "nothing here separates them. Re-capture both on one tree state, "
+                "or pass --allow-input-change if the change is the point.",
                 file=sys.stderr,
             )
             if not args.allow_input_change:
