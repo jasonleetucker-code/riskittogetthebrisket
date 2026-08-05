@@ -654,14 +654,31 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # ~75% of live baseline so a scrape regression trips a warning.
     "fantasyProsIdp": 75,
     "dynastyDaddySf": 250,
-    # ``fantasyCalc``: floor intentionally NOT set here yet.  The
-    # fetcher in scripts/fetch_fantasycalc.py was added 2026-05-13;
-    # floors per the comment policy above are pinned at ~80% of the
-    # *current live baseline*, and the source has no live baseline
-    # until the next scheduled-refresh cycle generates the first CSV.
-    # Add an entry here (target ~340 — ~75% of the 2026-03-25
-    # historical 458-row snapshot) once a stable baseline is observed
-    # in production.
+    # Floors pinned 2026-08-05 from the live board (counts are non-zero
+    # ``canonicalSiteValues`` per source on the served contract, which
+    # is exactly what this check counts).  Nine registry sources had no
+    # floor at all until then — including ``ktcSfTep``, the retail
+    # anchor the whole TE++ basis is anchored on — so deleting any of
+    # them from the board left ``contractHealth`` "healthy" with zero
+    # errors (W05-F004).  Measured 501 rows / floor 400, etc.
+    "ktcSfTep": 400,
+    # 474 live.
+    "fantasyProsSf": 375,
+    # 394 live.  (The "no live baseline yet" note this replaces was
+    # written 2026-05-13, before the fetcher's first scheduled run.)
+    "fantasyCalc": 315,
+    # 343 live.
+    "otcffbSf": 275,
+    # 455 live.
+    "fantasyNavigatorSf": 360,
+    # 476 live.
+    "pfkDynasty": 380,
+    # Rookie boards are class-sized, so their counts are an order of
+    # magnitude smaller than a vet board's and the floors move at
+    # class rollover: 110 / 29 / 76 live.
+    "dlfRookieSf": 85,
+    "dlfRookieIdp": 23,
+    "flockFantasySfRookies": 60,
     "flockFantasySf": 250,
     # Yahoo / Justin Boone charts: a complete QB+RB+WR+TE board is
     # ~450 raw rows that canonicalize to ~425 matches against the
@@ -698,15 +715,36 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # counts so scraper regressions trip a warning.
     "draftSharks": 190,
     "draftSharksIdp": 85,
-    # ``fantasyNavigatorSf`` / ``pfkDynasty``: floors intentionally NOT
-    # set yet — same policy as the ``fantasyCalc`` note above.  Floors
-    # pin at ~75-80% of the live canonical-match baseline, which does
-    # not exist until a few scheduled-refresh cycles have run.  Raw-row
-    # baselines at integration (2026-07-25): FN ~799 sf-dynasty rows,
-    # PFK ~496 offense rows (fetcher-level floors 200 / 120 guard the
-    # raw side in the meantime).  Add entries here once live canonical
-    # match counts are observed.
+    # ``fantasyNavigatorSf`` / ``pfkDynasty`` were carried here as
+    # "floor intentionally NOT set yet — no live baseline" from their
+    # 2026-07-25 integration.  Both have had a live baseline for weeks
+    # (455 / 476 canonical matches); their floors are pinned with the
+    # rest above.  A source waiting for a baseline is a source nothing
+    # is watching, so the completeness check below refuses to let that
+    # state be silent again.
 }
+
+
+def missing_row_floor_sources(floors: dict[str, int] | None = None) -> list[str]:
+    """Registered blend sources that have no row-count floor.
+
+    A source with no floor is a source whose disappearance from the
+    board raises nothing: ``validate_api_data_contract`` only ever
+    counted the keys that HAD floors, so nine of the 21 registered
+    sources — ``ktcSfTep`` among them — could be deleted from the whole
+    board and ``contractHealth`` stayed "healthy" with zero errors
+    (W05-F004).
+
+    Exposed as a function so the contract validator can WARN at
+    runtime and ``tests/api/test_source_row_floors.py`` can fail the
+    build, rather than the gap living only in a comment.
+    """
+    active = floors if isinstance(floors, dict) else _load_source_row_floors()
+    return sorted(
+        str(s.get("key"))
+        for s in _RANKING_SOURCES
+        if s.get("key") and str(s.get("key")) not in active
+    )
 
 
 _SOURCE_ROW_FLOORS_CACHE: dict[str, Any] = {"mtime": None, "value": None}
@@ -10402,28 +10440,43 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     # A source at zero is a hard error (source_missing); below floor is a
     # warning (source_below_floor).  If 2+ sources fall below floor OR any
     # source is missing, we flip the overall status to degraded.
+    #
+    # The counted set is the union of "has a floor" and "is a registered
+    # blend source".  It used to be the floor keys alone, which made the
+    # check self-limiting: nine registered sources had no floor, were
+    # therefore never counted, and could be deleted from the entire
+    # board without raising anything (W05-F004).  Presence is now
+    # checked for every registered source whether or not a floor has
+    # been pinned for it, and an unfloored source warns
+    # (``source_floor_missing``) so the gap can't go quiet again.
     if len(players_array) >= 250:
         row_floors = _load_source_row_floors()
-        source_nonzero_counts: dict[str, int] = {k: 0 for k in row_floors}
+        unfloored = missing_row_floor_sources(row_floors)
+        counted_keys = list(dict.fromkeys([*row_floors.keys(), *unfloored]))
+        source_nonzero_counts: dict[str, int] = {k: 0 for k in counted_keys}
         for row in players_array:
             if not isinstance(row, dict):
                 continue
             sites_map = row.get("canonicalSiteValues")
             if not isinstance(sites_map, dict):
                 continue
-            for src_key in row_floors:
+            for src_key in counted_keys:
                 val = _to_int_or_none(sites_map.get(src_key))
                 if val is not None and val > 0:
                     source_nonzero_counts[src_key] += 1
 
-        for src_key, threshold in row_floors.items():
+        for src_key in counted_keys:
             count = source_nonzero_counts.get(src_key, 0)
+            threshold = row_floors.get(src_key)
             if count == 0:
                 errors.append(f"source_missing:{src_key}")
                 any_source_missing = True
-            elif count < threshold:
+            elif threshold is not None and count < threshold:
                 warnings.append(f"source_below_floor:{src_key}:{count}:{threshold}")
                 below_floor_count += 1
+
+        for src_key in unfloored:
+            warnings.append(f"source_floor_missing:{src_key}")
 
         if any_source_missing or below_floor_count >= 2:
             degraded = True
