@@ -995,6 +995,100 @@ One known tail: `/draft` hits ~0.18 in roughly 1 run in 5, attributed
 to a `DIV.muted` block collapsing 361×166 → 0 at ~900ms.  Pre-existing,
 not round 6's doing, and not yet fixed.
 
+## 2026-08-05 — first-load JS, measured truthfully at last
+
+Planned item #1 ("the framework baseline every route pays") was blocked on
+not having an instrument that could be trusted. It has one now:
+`frontend/scripts/measure-first-load.mjs`. The numbers below are its
+output, and anyone can re-run it.
+
+### The measurement
+
+35 routes, `--webpack` production build, Next 16.2.12:
+
+| | raw | gzipped |
+|---|---|---|
+| **ALWAYS LOADED** (intersection of every route) | **641.7 KB** | **202.0 KB** |
+| — framework (Next runtime, react-dom, polyfills, webpack) | 528.6 KB | 162.7 KB |
+| — app-owned | 113.2 KB | 39.3 KB |
+
+Heaviest route-specific slices on top of that: `/draft` 142.7 KB raw
+(41.8 gz), `/rankings` 108.9 (37.7), `/` 93.5 (29.1), `/trade` 89.0 (30.9),
+`/waivers` 74.1 (26.5).
+
+**These supersede the ledger's earlier framework figures**, which were
+measured on Next 15.5.22 by the retracted instrument. Cite these instead.
+
+### Why this instrument can be trusted where the last two could not
+
+It reads the `<script src>` tags out of each route's **prerendered HTML**
+(`.next/server/app/**.html`) — Next's own statement of what the browser
+fetches before the page is interactive — and intersects across routes. A
+chunk appears there only if that route actually preloads it.
+
+That is exactly the property the retracted metrics lacked.
+`firstLoadChunks()` read a manifest Next 16 stopped emitting; its
+replacement treated everything in `static/chunks/` as always-loaded, which
+is how it scored round 6's refactor as +213 KB shared while `/league`'s
+slice actually fell 163.4 → 37.8 KB.
+
+**The control makes that concrete, and it can fail.** This build has
+513 KB of chunks on disk that NO route preloads —
+`ad2866b8.*` (193.4 KB, html2canvas behind `await import()` in
+ScreenshotFab), `framework-*` (185.2 KB) and `main-*` (134.4 KB), the
+latter two being pages-router artifacts the app router never loads. The
+old metric counted all three against every route. The instrument asserts
+at least one such chunk exists and exits non-zero if not.
+
+*A note on how that control was arrived at, because the first version was
+worthless:* it originally asserted no always-loaded chunk had
+`html2canvas` in its URL. Webpack content-hashes that chunk to
+`ad2866b8.<hash>.js`, so the string never appears in a filename and the
+check **could not fail**. It passed, and it meant nothing. Grepping for
+`html2canvas` finds only the import specifier inside the shell chunk. A
+control that cannot fail reads as verification and is worse than none.
+
+### Where the 641.7 KB actually goes, and what is worth cutting
+
+* **Framework is 528.6 KB raw / 162.7 KB gz of it, and it is not
+  app-shaped.** Next's client runtime (217.1 KB) + react-dom (195.2 KB) +
+  polyfills (110.0 KB, `noModule` so modern browsers skip it — call the
+  modern floor 531.7 KB raw). Nothing in this repo's control.
+* **App-owned is 113.2 KB raw / 39.3 KB gz**, and the single biggest piece
+  is chunk `5827` at 36.0 KB raw / 12.2 KB gz — the shell chrome: TopBar,
+  MobileChrome, NavMenu, both switchers, ScreenshotFab, StaleDataBanner
+  (identified by marker strings `shell-topbar`, `team-switcher`,
+  `screenshot-fab`, `stale-data-banner`).
+
+So **deferring shell components caps out at ~12 KB gz**. That is the
+honest ceiling on the ledger's "mount on interaction" idea — worth
+knowing before anyone spends a week on it.
+
+### The bigger finding: a runtime gate is not a bundling gate
+
+`PUBLIC_ONLY_ROUTE_PREFIXES` stops `/league` from *calling*
+`useDynastyData()`. It does not stop it from *downloading* it: the import
+in `AppShell.jsx` is static, so the player-data pipeline is in the graph
+unconditionally. Verified against this build — chunks `8805`
+(`lib/dynasty-data`, markers `playersArray`/`dynasty-data`), `6023`
+(`useSettings`/trade-logic), `2910` (`useDynastyData`/`useAuth`) and
+`2063` (`useUserState`/`useLeague`) all appear in `/league`'s route HTML.
+Together **57.7 KB raw / 19.4 KB gz shipped to a page forbidden to use
+them.**
+
+This also scopes what the `NO_PLAYER_DATA_ROUTE_PREFIXES` work (#759)
+achieved: it removes the multi-MB `/api/data` fetch and the ~1,100-row
+`buildRows` pass from six routes — the dominant cost, and real — but
+**zero bytes of JS**. Removing the bytes needs the import itself to become
+conditional, i.e. splitting `PrivateAppShell` behind the same imperative
+`await import()` idiom `useLazyComponent` (`AppShell.jsx:81`) already uses.
+That is the largest remaining app-owned win and it is bigger than the
+shell-deferral idea.
+
+**Do not reach for `dynamic()` to do it** — `AppShell.jsx:16-72` documents,
+with measurements, that `dynamic()` there puts `{children}` inside a
+Suspense boundary and permanently duplicates every page's DOM.
+
 ## Rejected (attempted, reverted)
 
 ### Browser revalidation via `If-None-Match`/`304` — **not safe as-is**
