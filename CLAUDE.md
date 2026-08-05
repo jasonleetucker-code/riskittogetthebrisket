@@ -438,7 +438,11 @@ finding K). It now reads the canonical board via
 for the new scale rather than ported, and `metadata.valueSource` stamps
 which scale produced a run. Assets the board declines to price leave
 its universe and are counted in `metadata.assetsUnpricedByBoard` —
-202 on a real payload — rather than vanishing silently.
+roughly 200 on a real payload — rather than vanishing silently. Read
+the field, not this sentence: it moves with every scrape (this doc said
+202; the 2026-08-04 payload returns 186), and a literal here that
+drifts from the live number is worse than no literal at all
+(W27-F011).
 
 What is still deliberately different is the **gate**, per the table
 above: the quality filter, not the value.
