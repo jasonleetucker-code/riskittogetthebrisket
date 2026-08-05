@@ -464,6 +464,49 @@ def positions_from_contract(contract: dict[str, Any]) -> dict[str, str]:
     return out
 
 
+def source_counts_from_contract(contract: dict[str, Any]) -> dict[str, int]:
+    """Map ``legacyRef``/``canonicalName``/``displayName`` → blend count.
+
+    How many sources actually voted on this asset, post-Hampel, read
+    from the contract's ``effectiveSourceRanks``.
+
+    ``build_asset_pool`` took this from the legacy dict's ``_sites``,
+    which is the SCRAPER's site count, not the board's blend count.  On
+    the live payload ``_sites`` takes only the values 1 (526 rows), 2
+    (110), 3 (438) and null (18) — a maximum of 3 — while
+    ``effectiveSourceRanks`` runs to 16.  Against
+    ``CONFIDENCE_SOURCE_BASELINE = 5`` that capped
+    ``source_confidence`` at ``3/5 = 0.60``, so the total confidence
+    score could never reach the 0.75 ``high`` tier: across 480 returned
+    trades over 12 teams the tier appeared zero times, and a tier that
+    is structurally unreachable is not a tier (W09-F008).
+
+    Baselining down to ``_sites``' actual range would have hidden it —
+    the number was wrong, not the threshold.
+
+    Keyed exactly like :func:`board_values_from_contract`, for the same
+    reason: an asset that resolves a board value must resolve its blend
+    count from the same row.
+    """
+    out: dict[str, int] = {}
+    for row in contract.get("playersArray") or []:
+        if not isinstance(row, dict):
+            continue
+        effective = row.get("effectiveSourceRanks")
+        if not isinstance(effective, dict):
+            continue
+        count = len(effective)
+        if count < 1:
+            # Zero voters is not "unknown" and not "one" — leave it
+            # unmapped so the caller's own absent-value path runs.
+            continue
+        for key in ("legacyRef", "canonicalName", "displayName"):
+            name = row.get(key)
+            if isinstance(name, str) and name:
+                out.setdefault(name, count)
+    return out
+
+
 def pick_market_keys_from_contract(contract: dict[str, Any] | None) -> set[str] | None:
     """Pick keys a retail market ACTUALLY published, from ``pickAnchors``.
 
@@ -506,6 +549,7 @@ def build_asset_pool(
     offense_only_values: dict[str, int] | None = None,
     positions: dict[str, str] | None = None,
     pick_market_keys: set[str] | None = None,
+    source_counts: dict[str, int] | None = None,
 ) -> list[Asset]:
     """Convert raw players dict into Asset objects with model + market values.
 
@@ -548,7 +592,17 @@ def build_asset_pool(
         if not isinstance(pdata, dict):
             continue
 
-        source_count = _int_or_none(pdata.get("_sites")) or 0
+        # The number of sources that voted on this asset's BOARD value,
+        # from the contract when we have it.  ``_sites`` is the
+        # scraper's site count and tops out at 3 — see
+        # ``source_counts_from_contract`` for why that made the ``high``
+        # confidence tier unreachable (W09-F008).  It stays as the
+        # fallback for callers holding only a raw payload.
+        source_count = 0
+        if source_counts is not None:
+            source_count = _int_or_none(source_counts.get(name)) or 0
+        if source_count < 1:
+            source_count = _int_or_none(pdata.get("_sites")) or 0
 
         if board_values is not None:
             # F-6: the canonical board.  No single-source haircut here —
@@ -957,6 +1011,7 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         source_confidence = min(1.0, avg_sources / CONFIDENCE_SOURCE_BASELINE)
     else:
         # Unknown source counts — assume reasonable
+        avg_sources = None
         source_confidence = 1.0
     ktc_confidence = 1.0 if coverage == "full" else 0.7
     confidence = source_confidence * ktc_confidence
@@ -999,6 +1054,16 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         "valueScale": round(f_value_scale, 2),
         "simplicityPenalty": round(f_simplicity, 2),
         "rosterFitBonus": 0.0,  # populated in find_trades if applicable
+        # The number the confidence tier is derived FROM, so a reader
+        # can see whether "high" means well-blended or merely
+        # saturated: once the count is the board's real blend count
+        # (W09-F008) most top-150 assets clear the baseline of 5
+        # comfortably, and a tier that is nearly always its top value
+        # discriminates about as poorly as one that could never reach
+        # it.  ``None`` when no asset carried a count — that is
+        # "unmeasured", and it is exactly the case where
+        # ``source_confidence`` falls back to 1.0.
+        "avgSourceCount": round(avg_sources, 2) if avg_sources is not None else None,
     }
 
     tc = TradeCandidate(
@@ -1193,12 +1258,15 @@ def find_trades(
     # this every IDP asset routes to the KTC board and is dropped.
     positions = positions_from_contract(contract) if contract else None
     pick_market_keys = pick_market_keys_from_contract(contract)
+    # The board's blend count, not the scraper's site count (W09-F008).
+    source_counts = source_counts_from_contract(contract) if contract else None
     pool = build_asset_pool(
         players,
         market_top_n=market_top_n,
         board_values=board_values,
         offense_only_values=offense_only_values,
         positions=positions,
+        source_counts=source_counts,
         pick_market_keys=pick_market_keys,
     )
     # Picks no retail market priced, so this engine cannot arbitrage
