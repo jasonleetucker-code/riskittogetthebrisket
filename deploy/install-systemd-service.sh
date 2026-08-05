@@ -137,6 +137,84 @@ escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[\\/&]/\\&/g'
 }
 
+# ── Generic timer installer ─────────────────────────────────────────────
+# Every timer below main()'s backend/frontend sections is a hand-written
+# block, and each new one is another chance to forget a block entirely.
+# Three had been forgotten by 2026-08-05: crowd-faab, sharp-activity and
+# board-snapshot all shipped BOTH templates while nothing installed them,
+# so their producers never ran on prod and every deploy still reported
+# success.  Same shape as the 2026-07-30 finding one screen down, where
+# nine timer pairs shipped and two were installed.
+#
+# Worse than "does not run": deploy.sh's missing-timer detector globs the
+# SAME directory to decide whether to invoke this script, so an unwired
+# template is reported missing on EVERY deploy, which runs this installer
+# to fix it, which does not install it.  A permanent loop, silent because
+# it only warns.
+#
+# This helper covers any timer whose install is just "render the two
+# templates, enable it".  Timers with real special cases — credential
+# gating, an initial kick, a /var/lib seed — keep their dedicated blocks.
+# `tests/deploy/test_all_timers_are_wired.py` asserts every shipped
+# template is reached by one route or the other, so the next timer added
+# cannot go missing quietly.
+install_simple_timer() {
+  local stem="$1" label="$2"
+  local service_template="${APP_DIR}/deploy/systemd/dynasty-${stem}.service.template"
+  local timer_template="${APP_DIR}/deploy/systemd/dynasty-${stem}.timer.template"
+  local unit_name="${SERVICE_NAME}-${stem}"
+  local service_path="/etc/systemd/system/${unit_name}.service"
+  local timer_path="/etc/systemd/system/${unit_name}.timer"
+
+  [[ -f "${service_template}" && -f "${timer_template}" ]] || return 0
+
+  local needs_install=false
+  if sudo -n "${SYSTEMCTL_BIN}" cat "${unit_name}.timer" >/dev/null 2>&1; then
+    if [[ "${force_install_on}" == "true" ]]; then
+      log "FORCE_SERVICE_INSTALL enabled; rewriting ${service_path} + timer."
+      needs_install=true
+    fi
+  else
+    log "Installing ${label} service + timer."
+    needs_install=true
+  fi
+
+  if [[ "${needs_install}" == "true" ]]; then
+    local tmp_service tmp_timer
+    tmp_service="$(mktemp)"
+    tmp_timer="$(mktemp)"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+      -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+      -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+      "${service_template}" > "${tmp_service}"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      "${timer_template}" > "${tmp_timer}"
+    sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_service}" "${service_path}"
+    sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_timer}" "${timer_path}"
+    rm -f "${tmp_service}" "${tmp_timer}"
+    # Reload here rather than joining the shared reload below: enabling a
+    # unit systemd has not re-read is the ce_needs_install failure — the
+    # fix deployed, reported as deployed, and not running.
+    sudo -n "${SYSTEMCTL_BIN}" daemon-reload
+    log "Installed ${unit_name}.service + .timer"
+  fi
+
+  # Enablement is checked SEPARATELY, and not only when we just wrote the
+  # files.  deploy.sh's detector treats installed-but-disabled as missing,
+  # so a unit that reached disk without being enabled produces the same
+  # permanent loop as one that never reached disk at all.
+  if ! sudo -n "${SYSTEMCTL_BIN}" is-enabled "${unit_name}.timer" >/dev/null 2>&1; then
+    if sudo -n "${SYSTEMCTL_BIN}" enable --now "${unit_name}.timer" >/dev/null 2>&1; then
+      log "Enabled ${unit_name}.timer"
+    else
+      log "Note: could not enable ${unit_name}.timer."
+    fi
+  fi
+}
+
 main() {
   local force_install force_install_on unit_path tmp_unit
   local frontend_template frontend_name frontend_unit_path tmp_frontend
@@ -355,12 +433,38 @@ main() {
   local playerctx_needs_install=false
 
   if [[ -f "${playerctx_service_template}" && -f "${playerctx_timer_template}" ]]; then
+    # Render FIRST, then decide.  Every sibling block here gates on
+    # "does the timer exist" alone, which means a template edit is
+    # silently ignored on an already-provisioned box until someone
+    # remembers FORCE_SERVICE_INSTALL — the same class of failure the
+    # reload-and-enable block below documents, one step earlier: the
+    # change is deployed, reported as deployed, and not running.  That
+    # bit for real when --retain-history was added to the ExecStart, so
+    # this block compares CONTENT the way the backup-unit loop at the
+    # bottom of this function already does.
+    local tmp_playerctx_service tmp_playerctx_timer
+    tmp_playerctx_service="$(mktemp)"
+    tmp_playerctx_timer="$(mktemp)"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+      -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+      -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+      "${playerctx_service_template}" > "${tmp_playerctx_service}"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      "${playerctx_timer_template}" > "${tmp_playerctx_timer}"
+
     if sudo -n "${SYSTEMCTL_BIN}" cat "${playerctx_service_name}.timer" >/dev/null 2>&1; then
       if [[ "${force_install_on}" == "true" ]]; then
         log "FORCE_SERVICE_INSTALL enabled; rewriting ${playerctx_service_path} + timer."
         playerctx_needs_install=true
+      elif ! sudo -n cmp -s "${tmp_playerctx_service}" "${playerctx_service_path}" 2>/dev/null \
+        || ! sudo -n cmp -s "${tmp_playerctx_timer}" "${playerctx_timer_path}" 2>/dev/null; then
+        log "Player-context unit files changed; rewriting ${playerctx_service_path} + timer."
+        playerctx_needs_install=true
       else
-        log "Player-context timer already installed; skipping."
+        log "Player-context timer already installed and current; skipping."
       fi
     else
       log "Installing player-context refresh service + timer."
@@ -368,23 +472,75 @@ main() {
     fi
 
     if [[ "${playerctx_needs_install}" == "true" ]]; then
-      local tmp_playerctx_service tmp_playerctx_timer
-      tmp_playerctx_service="$(mktemp)"
-      tmp_playerctx_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${playerctx_service_template}" > "${tmp_playerctx_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${playerctx_timer_template}" > "${tmp_playerctx_timer}"
       sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_playerctx_service}" "${playerctx_service_path}"
       sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_playerctx_timer}" "${playerctx_timer_path}"
-      rm -f "${tmp_playerctx_service}" "${tmp_playerctx_timer}"
       log "Installed ${playerctx_service_name}.service + .timer"
     fi
+    rm -f "${tmp_playerctx_service}" "${tmp_playerctx_timer}"
+  fi
+
+  # ── Player-context retention push timer (dated snapshots -> main) ──────
+  # The refresh above writes data/playerctx/history/snapshot_<date>.json
+  # into the LIVE deploy dir; this pushes those dated files to main from
+  # a dedicated clone.  Split into two units on purpose: deploy.sh does
+  # `git checkout --force` + `git reset --hard` on the live tree, so
+  # anything committed there is destroyed on the next deploy.  See the
+  # header of deploy/playerctx_history_push.sh.
+  #
+  # Gated on the deploy SSH key, exactly like the DLF / IDP Show
+  # pushers — without it the script can only fail at the push, and a
+  # timer that fails weekly is worse than one that was never installed.
+  local pchist_service_template="${APP_DIR}/deploy/systemd/dynasty-playerctx-history.service.template"
+  local pchist_timer_template="${APP_DIR}/deploy/systemd/dynasty-playerctx-history.timer.template"
+  local pchist_service_name="${SERVICE_NAME}-playerctx-history"
+  local pchist_service_path="/etc/systemd/system/${pchist_service_name}.service"
+  local pchist_timer_path="/etc/systemd/system/${pchist_service_name}.timer"
+  local pchist_needs_install=false
+  local pchist_ssh_key="${PLAYERCTX_HISTORY_SSH_KEY:-/home/${APP_USER}/.ssh/github_deploy_key}"
+  local has_pchist_key=false
+
+  if sudo -n test -f "${pchist_ssh_key}" 2>/dev/null || [[ -f "${pchist_ssh_key}" ]]; then
+    has_pchist_key=true
+  fi
+
+  if [[ -f "${pchist_service_template}" && -f "${pchist_timer_template}" && "${has_pchist_key}" == "true" ]]; then
+    local tmp_pchist_service tmp_pchist_timer
+    tmp_pchist_service="$(mktemp)"
+    tmp_pchist_timer="$(mktemp)"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+      -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+      "${pchist_service_template}" > "${tmp_pchist_service}"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      "${pchist_timer_template}" > "${tmp_pchist_timer}"
+
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${pchist_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${pchist_service_path} + timer."
+        pchist_needs_install=true
+      elif ! sudo -n cmp -s "${tmp_pchist_service}" "${pchist_service_path}" 2>/dev/null \
+        || ! sudo -n cmp -s "${tmp_pchist_timer}" "${pchist_timer_path}" 2>/dev/null; then
+        log "Player-context retention unit files changed; rewriting."
+        pchist_needs_install=true
+      else
+        log "Player-context retention timer already installed and current; skipping."
+      fi
+    else
+      log "Installing player-context retention push service + timer."
+      pchist_needs_install=true
+    fi
+
+    if [[ "${pchist_needs_install}" == "true" ]]; then
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_pchist_service}" "${pchist_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_pchist_timer}" "${pchist_timer_path}"
+      log "Installed ${pchist_service_name}.service + .timer"
+      sudo -n "${INSTALL_BIN}" -d -m 0755 -o "${APP_USER}" -g "${APP_USER}" /var/lib/playerctx-history
+    fi
+    rm -f "${tmp_pchist_service}" "${tmp_pchist_timer}"
+  elif [[ -f "${pchist_service_template}" && "${has_pchist_key}" != "true" ]]; then
+    log "Player-context retention timer skipped: ${pchist_ssh_key} missing - no deploy key to push with."
   fi
 
   # ── BDVM projection refresh timer (weekly snapshots for /api/bdvm/*) ──
@@ -906,6 +1062,15 @@ main() {
     log "IDP Show fetch timer skipped: ${APP_DIR}/idpshow_session.json missing - operator must mint it via browser first."
   fi
 
+  # ── Timers with no special install requirements ─────────────────────────
+  # These need nothing but "render both templates and enable", so they go
+  # through the shared helper instead of another 40-line copy.  All three
+  # shipped templates that NOTHING installed until 2026-08-05; see the
+  # helper's comment for why that was worse than simply not running.
+  install_simple_timer "crowd-faab" "cross-league FAAB crowd accumulation"
+  install_simple_timer "sharp-activity" "qualified-manager Sleeper activity crawl"
+  install_simple_timer "board-snapshot" "canonical board as-of snapshot"
+
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's
   # flag is here, so a FORCE_SERVICE_INSTALL rewrite of the Consensus
@@ -913,7 +1078,16 @@ main() {
   # one, because nothing had told systemd to re-read it — the failure
   # mode where the fix is deployed, reported as deployed, and not
   # running.
-  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${playerctx_needs_install}" == "true" || "${bdvm_needs_install}" == "true" || "${ce_needs_install}" == "true" || "${sharp_needs_install}" == "true" || "${sharprec_needs_install}" == "true" || "${ffpc_needs_install}" == "true" || "${rd_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
+  #
+  # Fixing it for `ce` alone left the same hole open twice more:
+  # `sharpros_needs_install` and `sharptx_needs_install` both gate an
+  # `enable --now` below while being absent from this chain, so a run
+  # that installed ONLY the sharp-rosters or sharp-transactions unit
+  # enabled it against a systemd that had never read it.  Both added,
+  # and `tests/deploy/test_all_timers_are_wired.py` now derives the
+  # expected set from the declarations rather than trusting this line to
+  # be maintained by hand.
+  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${playerctx_needs_install}" == "true" || "${pchist_needs_install}" == "true" || "${bdvm_needs_install}" == "true" || "${ce_needs_install}" == "true" || "${sharp_needs_install}" == "true" || "${sharprec_needs_install}" == "true" || "${sharpros_needs_install}" == "true" || "${sharptx_needs_install}" == "true" || "${ffpc_needs_install}" == "true" || "${rd_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Reloaded systemd unit files."
   fi
@@ -946,6 +1120,14 @@ main() {
       sudo -n "${SYSTEMCTL_BIN}" start --no-block "${playerctx_service_name}.service" || \
         log "Note: initial player-context build could not be started; the timer will cover it."
     fi
+  fi
+  if [[ "${pchist_needs_install}" == "true" ]]; then
+    # --now arms the weekly timer.  NO initial kick: the first run would
+    # clone the repo during a deploy for a file the refresh has not
+    # written yet (retention only starts producing on the next Tuesday),
+    # and the script would correctly exit clean having done nothing.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${pchist_service_name}.timer"
+    log "Enabled ${pchist_service_name}.timer"
   fi
   if [[ "${ce_needs_install}" == "true" ]]; then
     # --now arms the daily timer, plus one immediate kick so the history

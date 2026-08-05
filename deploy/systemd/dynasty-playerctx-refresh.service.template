@@ -30,7 +30,14 @@ User=__APP_USER__
 Group=__APP_USER__
 WorkingDirectory=__APP_DIR__
 EnvironmentFile=-__APP_DIR__/.env
-ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/refresh_playerctx.py
+# --retain-history additionally writes a dated, snaps-only projection to
+# data/playerctx/history/snapshot_YYYY-MM-DD.json (~320 KB) after the
+# live snapshot lands.  It is best-effort by construction: a retention
+# failure never fails the refresh, because the live file the API reads
+# is already written by then.  A separate unit
+# (__SERVICE_NAME__-playerctx-history) is what pushes those dated files
+# to main; this one only produces them locally.
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/refresh_playerctx.py --retain-history
 StandardOutput=journal
 StandardError=journal
 # A full run is ~3 min (dominated by the ~35 MB depth-chart download and

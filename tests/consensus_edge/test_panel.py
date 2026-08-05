@@ -185,3 +185,42 @@ class TestShallowCloneRefusal(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@_deep_only
+class TestRetainedPlayerctx(unittest.TestCase):
+    """Dated playerctx snapshots, replayed by the same git primitives.
+
+    ADR-026 deferred retention partly on my own claim that it would need
+    "zero new replay code". That was wrong — `available_dates` intersects
+    two hardcoded pathspecs and `PanelDay` had no field for it — and
+    these pin the design that replaced the claim.
+    """
+
+    def test_a_date_before_retention_is_none_not_an_error(self):
+        """Absence must not take a fold down with it.
+
+        Retention started 2026-08-05. Every existing panel date predates
+        it, so if a missing snapshot raised — the way a missing payload
+        correctly does — the whole panel would stop reconstructing.
+        """
+        target = panel.available_dates()[0]
+        with panel.panel_day(target) as day:
+            self.assertIsNone(day.playerctx)
+            self.assertIsNone(day.playerctx_commit)
+            # And the day is otherwise fully usable.
+            self.assertTrue(day.payload)
+
+    def test_retention_does_not_narrow_the_panel(self):
+        """The trap that would have traded 111 dates for zero.
+
+        If playerctx joined `available_dates`' intersection, the panel
+        would collapse to dates on or after retention started and grow
+        back one per week — every existing measurement lost to a feature
+        with no data yet.
+        """
+        self.assertGreater(len(panel.available_dates()), 30)
+        self.assertNotIn(panel.PLAYERCTX_REL, (panel.LATEST_REL, panel.SITE_RAW_REL))
+
+    def test_the_lookup_is_absent_rather_than_raising_for_an_unretained_date(self):
+        self.assertIsNone(panel.playerctx_asof(panel.available_dates()[0]))

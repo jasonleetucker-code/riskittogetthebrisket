@@ -2,8 +2,11 @@
 
 Pins:
   * persist + hydrate round-trips a session.
-  * TTL expiry drops old rows on hydrate.
-  * Allowlist rotation invalidates all sessions.
+  * Sliding TTL: idle time (last_seen_at) drives expiry, and touch()
+    keeps an active session alive.
+  * Allowlist removal invalidates only the removed user's sessions;
+    adding a user leaves existing sessions intact; an empty allowlist
+    imposes no restriction.
   * Corrupted / missing DB returns empty, never raises.
   * evict removes a single session.
   * force_clear_all removes everything.
@@ -51,7 +54,7 @@ def test_hydrate_empty_db_returns_empty_dict(tmp_path):
     assert got == {}
 
 
-def test_allowlist_rotation_invalidates_sessions(tmp_path):
+def test_allowlist_removal_invalidates_removed_user(tmp_path):
     db = tmp_path / "s.sqlite"
     session_store.persist(
         "sid-1",
@@ -59,10 +62,40 @@ def test_allowlist_rotation_invalidates_sessions(tmp_path):
         allowlist=["old_user"],
         db_path=db,
     )
-    # Rotate — old_user removed, new_user added.
+    # old_user is dropped from the allowlist entirely.
     session_store._setup_done.clear()  # noqa: SLF001
     hydrated = session_store.hydrate(allowlist=["new_user"], db_path=db)
-    assert hydrated == {}, "session outlived its allowlist"
+    assert hydrated == {}, "removed user's session outlived its allowlist"
+
+
+def test_adding_a_user_keeps_existing_sessions(tmp_path):
+    """Regression: adding a NEW user to the allowlist must not sign
+    out everyone else (the old global-version-hash behavior did)."""
+    db = tmp_path / "s.sqlite"
+    session_store.persist(
+        "sid-existing",
+        {"username": "jasonleetucker"},
+        allowlist=["jasonleetucker"],
+        db_path=db,
+    )
+    # A second operator is added; the allowlist set changes.
+    session_store._setup_done.clear()  # noqa: SLF001
+    hydrated = session_store.hydrate(
+        allowlist=["jasonleetucker", "new_teammate"],
+        db_path=db,
+    )
+    assert "sid-existing" in hydrated
+    assert hydrated["sid-existing"]["username"] == "jasonleetucker"
+
+
+def test_empty_allowlist_imposes_no_restriction(tmp_path):
+    """A blank / unset allowlist must not invalidate every session."""
+    db = tmp_path / "s.sqlite"
+    session_store.persist("sid-1", {"username": "u"}, allowlist=["u"], db_path=db)
+    session_store._setup_done.clear()  # noqa: SLF001
+    assert "sid-1" in session_store.hydrate(allowlist=[], db_path=db)
+    session_store._setup_done.clear()  # noqa: SLF001
+    assert "sid-1" in session_store.hydrate(allowlist=None, db_path=db)
 
 
 def test_ttl_expiry_drops_old_sessions(tmp_path, monkeypatch):
@@ -79,6 +112,42 @@ def test_ttl_expiry_drops_old_sessions(tmp_path, monkeypatch):
     session_store._setup_done.clear()  # noqa: SLF001
     hydrated = session_store.hydrate(allowlist=["u"], db_path=db)
     assert hydrated == {}
+
+
+def test_sliding_ttl_uses_last_seen_not_created(tmp_path, monkeypatch):
+    """An old session that was recently active must survive: expiry
+    keys off last_seen_at, not created_at."""
+    db = tmp_path / "s.sqlite"
+    monkeypatch.setattr(session_store, "_SESSION_TTL_SECONDS", 100.0)
+    # created long ago, but persist stamps last_seen_at = now.
+    session_store.persist(
+        "sid-active",
+        {"username": "u", "created_at_epoch": time.time() - 10_000},
+        allowlist=["u"],
+        db_path=db,
+    )
+    session_store._setup_done.clear()  # noqa: SLF001
+    hydrated = session_store.hydrate(allowlist=["u"], db_path=db)
+    assert "sid-active" in hydrated
+    assert hydrated["sid-active"]["last_seen_epoch"] > time.time() - 100
+
+
+def test_touch_keeps_idle_session_alive(tmp_path, monkeypatch):
+    db = tmp_path / "s.sqlite"
+    monkeypatch.setattr(session_store, "_SESSION_TTL_SECONDS", 1.0)
+    session_store.persist("sid-1", {"username": "u"}, allowlist=["u"], db_path=db)
+    time.sleep(1.2)  # would expire on its own
+    session_store.touch("sid-1", db_path=db)  # heartbeat bumps last_seen
+    session_store._setup_done.clear()  # noqa: SLF001
+    hydrated = session_store.hydrate(allowlist=["u"], db_path=db)
+    assert "sid-1" in hydrated, "touch() should have refreshed the sliding TTL"
+
+
+def test_touch_unknown_session_is_noop(tmp_path):
+    db = tmp_path / "s.sqlite"
+    session_store.persist("sid-real", {"username": "u"}, allowlist=["u"], db_path=db)
+    session_store.touch("sid-does-not-exist", db_path=db)  # must not raise
+    assert session_store.count_active(db_path=db) == 1
 
 
 def test_evict_removes_single_session(tmp_path):

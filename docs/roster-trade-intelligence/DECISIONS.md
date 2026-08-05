@@ -509,6 +509,29 @@ already used here for *droppability*, but using it for *value* breaks the
 cardinality decomposition this ADR rests on. Left open and stated
 plainly in `docs/perfect-draft.md` §9 rather than half-fixed.
 
+**Amendment 3 (2026-08-05): the gap is measured, and it is large — but
+the fix is not the obvious one.** `scripts/measure_lineup_value_gap.py`
+walks rookies onto four real rosters and scores each step against the
+league's own 21 starting slots with the real solver. The naive objective
+credits **8.7%–25.3%** of what the lineup can field over `k = 1..40`, and
+past roughly `k = 20` every further rookie adds **exactly zero** startable
+value on every roster tested. So the diagnosis in the amendment above is
+confirmed with numbers rather than asserted.
+
+What the measurement also shows is that **swapping in lineup value would
+be its own error.** It scores *today's* lineup, and dynasty rookies are
+precisely the asset class that does not start today; bench depth is also
+injury insurance and trade currency. Zero is as wrong as full market
+value. A straight swap would tell a dynasty manager to stop buying at 20.
+
+So Phase B is re-scoped: the open problem is not "use the lineup solver
+for value", it is "discount a bench player against a starter at a rate
+with a defensible source". That is the same objection this file's
+positional-balance decision raises against folding a starting-slot
+minimum into the objective, and it gets the same answer — surface it,
+do not invent the rate. **Still open**; the measurement narrows it rather
+than closing it.
+
 **The consumption order is one decision, not four.** Introducing
 `releaseCost` created a second ordering of the cut ladder, and three
 separate consumers kept walking the backend's ECC order against it:

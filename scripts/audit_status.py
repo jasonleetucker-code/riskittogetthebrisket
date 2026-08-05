@@ -446,10 +446,23 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C30": (
         "P-1",
         "src/sharp/score.py",
-        'float(weights.get("rosterQuality", 0.22)) * roster',
-        OPEN,
-        "Weighted at 0.22 and structurally zero, with no renormalization "
-        "of the remaining weights.",
+        None,
+        CLOSED,
+        "Closed on main by #734 while batch C4 was open — NOT by this "
+        "pass, and picked up here rather than reverted. Batch C12 no "
+        "longer needs to fix P-1.\n\n"
+        "_roster_quality_component now returns None (not 0.0) when it "
+        "has no evidence, and the scoring sum renormalizes over the "
+        "components that do; the unconditional "
+        '`float(weights.get("rosterQuality", 0.22)) * roster` term is '
+        "gone and components.weightsApplied is stamped per manager so "
+        "the renormalization is auditable rather than assumed.\n\n"
+        "Found by diffing main's generated status.json against this "
+        "table during the C4 merge — the file is generated, so resolving "
+        "the conflict by regenerating would have silently reverted the "
+        "closure. Worth knowing for every future merge: the generated "
+        "artifact is not the authority, but it IS the only place another "
+        "PR's closure shows up.",
     ),
     "C31": (
         "P-2",

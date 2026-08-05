@@ -5,6 +5,13 @@ touches no existing output. It is empty until
 `scripts/crawl_sharp_rosters.py` has run, and says so rather than
 erroring.
 
+> **Not yet activated in production.** The roster store is local and
+> gitignored, so the crawl has to run on the box serving the API before
+> the board shows anything. The remaining steps — and the two optional
+> features that stay inert until you supply an input (FFPC roster URLs,
+> a market-ownership feed) — are in
+> **`docs/runbooks/sharp-roster-percentage-activation.md`**.
+
 ```
 Sharp Roster Percentage
   = unique ELIGIBLE sharp rosters containing the player

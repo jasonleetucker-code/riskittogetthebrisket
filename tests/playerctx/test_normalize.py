@@ -164,6 +164,98 @@ class TestSnapCounts:
         with pytest.raises(SchemaRegressionError, match="offense_pct"):
             norm.parse_snap_counts(p)
 
+
+class TestSnapCountsAsOf:
+    """Reading the file as it stood at a past week.
+
+    The `snapTrend` axis in `consensus_edge.opportunity` was described in
+    four places as "production-only and unmeasurable", attributed to the
+    playerctx snapshot being overwritten weekly with no history. That
+    attribution was incomplete: nflverse publishes `snap_counts_{season}.csv`
+    as one row per player PER GAME with a `week` column, so the history
+    was always in the file — `parse_snap_counts` was the thing discarding
+    it, with a newest-season filter and no week cutoff.
+
+    These pin the two properties that make an as-of read trustworthy: the
+    cutoff actually moves the derived signal, and supplying nothing at all
+    leaves the live path exactly as it was.
+    """
+
+    def _four_weeks(self, tmp_path):
+        return write_csv(
+            tmp_path / "snaps.csv",
+            SNAPS_HEADER,
+            [
+                _snap_row("Rising Back", 1, 0.20),
+                _snap_row("Rising Back", 2, 0.40),
+                _snap_row("Rising Back", 3, 0.60),
+                _snap_row("Rising Back", 4, 0.80),
+            ],
+        )
+
+    def test_a_week_cutoff_drops_later_games(self, tmp_path):
+        p = self._four_weeks(tmp_path)
+        assert [r["week"] for r in norm.parse_snap_counts(p, through_week=2)] == [1, 2]
+
+    def test_the_cutoff_is_inclusive(self, tmp_path):
+        p = self._four_weeks(tmp_path)
+        assert max(r["week"] for r in norm.parse_snap_counts(p, through_week=3)) == 3
+
+    def test_the_derived_trend_actually_moves_with_the_cutoff(self, tmp_path):
+        """The test that would have caught the frozen-constant problem.
+
+        A cutoff that filters rows but leaves `trend` unchanged would be
+        useless for a backtest — every fold would resample one
+        observation, which is exactly what the offseason panel does to
+        this axis. Usage climbing 20/40/60/80 must read differently at
+        week 3 than at week 4.
+        """
+        p = self._four_weeks(tmp_path)
+        trends = {}
+        for cutoff in (3, 4):
+            rows = norm.parse_snap_counts(p, through_week=cutoff)
+            agg = norm.aggregate_snaps(rows, recent_games=2)
+            trends[cutoff] = agg[0]["trend"]
+        assert trends[3] != trends[4], f"trend frozen across cutoffs: {trends}"
+        # Climbing usage: the later view is further above its own mean.
+        assert trends[4] > trends[3]
+
+    def test_an_explicit_season_overrides_newest(self, tmp_path):
+        p = write_csv(
+            tmp_path / "snaps.csv",
+            SNAPS_HEADER,
+            [
+                _snap_row("Old Season", 1, 0.9, season=2024),
+                _snap_row("New Season", 1, 0.8, season=2025),
+            ],
+        )
+        assert [r["name"] for r in norm.parse_snap_counts(p, season=2024)] == ["Old Season"]
+
+    def test_defaults_are_byte_identical_to_the_unparameterised_read(self, tmp_path):
+        # The parameters must be inert until used, or adding them would
+        # have silently repriced the live board.
+        p = write_csv(
+            tmp_path / "snaps.csv",
+            SNAPS_HEADER,
+            [
+                _snap_row("Old Season", 1, 0.9, season=2024),
+                _snap_row("A", 1, 0.5),
+                _snap_row("A", 2, 0.6),
+                _snap_row("B", 3, 0.7, def_pct=0.4),
+            ],
+        )
+        assert norm.parse_snap_counts(p) == norm.parse_snap_counts(
+            p, season=None, through_week=None
+        )
+        # And the season filter still bites by default.
+        assert "Old Season" not in {r["name"] for r in norm.parse_snap_counts(p)}
+
+    def test_a_cutoff_before_any_game_yields_nothing_rather_than_everything(self, tmp_path):
+        # An empty result is a legible "no data yet at that week"; falling
+        # back to the full season would be a silent look-ahead.
+        p = self._four_weeks(tmp_path)
+        assert norm.parse_snap_counts(p, through_week=0) == []
+
     def test_missing_st_column_is_schema_regression(self, tmp_path):
         broken = SNAPS_HEADER.replace("st_pct", "st_pct_renamed")
         p = write_csv(tmp_path / "snaps.csv", broken, [_snap_row("X", 1, 0.5)])
@@ -318,6 +410,69 @@ class TestDepthCharts:
         )
         assert {r["name"] for r in norm.parse_depth_charts(p)} == {"Niner Guy", "Cowboy Guy"}
 
+
+class TestDepthChartsAsOf:
+    """The same as-of read for the other playerctx parser.
+
+    The seasonal file appends a full dated snapshot per upstream scrape,
+    so the history is in the file here too; `parse_depth_charts` was
+    discarding it by keeping only the newest `dt` per team.
+    """
+
+    def _three_snapshots(self, tmp_path):
+        return write_csv(
+            tmp_path / "depth.csv",
+            DEPTH_HEADER,
+            [
+                _depth_row("September Starter", dt="2025-09-03T08:00:00Z"),
+                _depth_row("November Starter", dt="2025-11-09T12:30:00Z"),
+                _depth_row("January Starter", dt="2026-01-04T09:00:00Z"),
+            ],
+        )
+
+    def test_the_bound_selects_the_snapshot_live_at_that_date(self, tmp_path):
+        p = self._three_snapshots(tmp_path)
+        rows = norm.parse_depth_charts(p, as_of="2025-11-20T00:00:00Z")
+        assert {r["name"] for r in rows} == {"November Starter"}
+
+    def test_a_date_only_bound_includes_that_whole_day(self, tmp_path):
+        """`dt` carries a time, so a naive `dt > as_of` drops its own day.
+
+        With `as_of="2025-11-09"` and `dt="2025-11-09T12:30:00Z"`, a
+        whole-string compare says the snapshot is in the future and falls
+        back to September — an off-by-one-day that reads as working code
+        because it still returns a plausible depth chart.
+        """
+        p = self._three_snapshots(tmp_path)
+        rows = norm.parse_depth_charts(p, as_of="2025-11-09")
+        assert {r["name"] for r in rows} == {"November Starter"}
+
+    def test_the_bound_is_per_team_like_the_unbounded_read(self, tmp_path):
+        p = write_csv(
+            tmp_path / "depth.csv",
+            DEPTH_HEADER,
+            [
+                _depth_row("Niner Old", team="SF", dt="2025-09-03T08:00:00Z"),
+                _depth_row("Niner New", team="SF", dt="2025-11-09T08:00:00Z"),
+                _depth_row("Cowboy Old", team="DAL", dt="2025-09-03T08:00:00Z"),
+            ],
+        )
+        rows = norm.parse_depth_charts(p, as_of="2025-11-09")
+        # DAL's newest AT THAT DATE is September; it must not be dropped
+        # for being older than SF's.
+        assert {r["name"] for r in rows} == {"Niner New", "Cowboy Old"}
+
+    def test_a_bound_before_everything_yields_nothing(self, tmp_path):
+        p = self._three_snapshots(tmp_path)
+        assert norm.parse_depth_charts(p, as_of="2025-01-01") == []
+
+    def test_default_is_byte_identical_to_the_unparameterised_read(self, tmp_path):
+        p = self._three_snapshots(tmp_path)
+        assert norm.parse_depth_charts(p) == norm.parse_depth_charts(p, as_of=None)
+        assert {r["name"] for r in norm.parse_depth_charts(p)} == {"January Starter"}
+
+
+class TestDepthRanks:
     def test_compute_depth_ranks_orders_slots_then_backups(self):
         rows = [
             {

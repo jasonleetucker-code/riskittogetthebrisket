@@ -3,9 +3,9 @@
  "severity": "Critical",
  "total": 43,
  "tally": {
-  "open": 21,
+  "open": 20,
   "needs_review": 2,
-  "closed": 19,
+  "closed": 20,
   "deferred": 1
  },
  "findings": [
@@ -567,16 +567,14 @@
    "auditEvidence": "src/sharp/score.py:588-596 weights rosterQuality at 0.22. src/sharp/score.py:322-359 returns 0.0 when no ratio inputs are present: `if not parts: return 0.0, notes` (:356-358). Neither production builder ever supplies those inputs \u2014 src/sharp/platform_records.py:158-176 and src/sharp/records.py:418-437 both construct `ManagerRecord(...)` with no `roster_value_ratios`, `age_adjusted_value_ratio`, `",
    "auditId": "P-1",
    "path": "src/sharp/score.py",
-   "signature": "float(weights.get(\"rosterQuality\", 0.22)) * roster",
-   "status": "open",
-   "verifiedBy": "Weighted at 0.22 and structurally zero, with no renormalization of the remaining weights.",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed on main by #734 while batch C4 was open \u2014 NOT by this pass, and picked up here rather than reverted. Batch C12 no longer needs to fix P-1.\n\n_roster_quality_component now returns None (not 0.0) when it has no evidence, and the scoring sum renormalizes over the components that do; the unconditional `float(weights.get(\"rosterQuality\", 0.22)) * roster` term is gone and components.weightsApplied is stamped per manager so the renormalization is auditable rather than assumed.\n\nFound by diffing main's generated status.json against this table during the C4 merge \u2014 the file is generated, so resolving the conflict by regenerating would have silently reverted the closure. Worth knowing for every future merge: the generated artifact is not the authority, but it IS the only place another PR's closure shows up.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": "src/sharp/score.py",
-    "needle": "float(weights.get(\"rosterQuality\", 0.22)) * roster"
+    "result": "no_mechanical_probe"
    }
   },
   {

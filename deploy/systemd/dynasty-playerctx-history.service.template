@@ -1,0 +1,53 @@
+[Unit]
+Description=Risk It playerctx dated-snapshot retention push to main (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+# Ordering only, not a dependency: if the refresh did not run this week
+# there is simply nothing new to copy and the script exits clean.  A
+# `Requires=` here would drag a refresh run along with every push.
+After=__SERVICE_NAME__-playerctx-refresh.service
+
+# Copies data/playerctx/history/snapshot_YYYY-MM-DD.json out of the live
+# deploy directory into a DEDICATED clone and pushes from there.
+#
+# WHY A SEPARATE UNIT FROM THE REFRESH: the refresh has to run in the
+# live app dir, because the API reads data/playerctx/snapshot.json from
+# there — and deploy.sh does an unconditional `git checkout --force` +
+# `git reset --hard` on that tree, so anything committed in it is
+# destroyed on the next deploy.  Splitting the write from the push is
+# what makes retention survive a deploy.  Full rationale at the top of
+# deploy/playerctx_history_push.sh.
+#
+# WHY RETAIN AT ALL: the snap-share block is reconstructed as-of from
+# per-game upstream rows, so the INPUTS are replayable — but the join
+# production actually served is not.  Retention is what takes the
+# panel's playerctx join rate from 80.7% to 100%.  See ADR-026 in
+# docs/consensus-edge/DECISIONS.md, which deferred this and records
+# that it was later overturned by direction.
+#
+# WHAT IT COMMITS: dated snapshots only, named one file at a time via
+# `git add -f -- <explicit path list>`.  data/ is gitignored repo-wide
+# and no negation can re-include under it, so the force-add is the only
+# path — and naming each file is what makes it impossible to sweep in
+# the 38 MB depth-chart CSV or the 14 MB Sleeper dump sitting one
+# directory up.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=/var/lib/playerctx-history
+# Optional: only PLAYERCTX_HISTORY_* overrides are read, and every one
+# has a default, so a missing .env is not a failure.
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__APP_DIR__/deploy/playerctx_history_push.sh
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+# A copy of a ~320 KB file plus a git push.  The first run also clones
+# the repo, which is the only slow case.
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

@@ -137,6 +137,12 @@ def _protected_paths(base_dir: Path) -> list[Path]:
         (base / "data" / "identity").resolve(),
         (base / "data" / "ros").resolve(),
         (base / "data" / "rank_history.jsonl").resolve(),
+        # Dated playerctx snapshots are git-tracked evidence, not a
+        # cache: a study replays them, and pruning one silently removes
+        # a fold from a future measurement. Note the SIBLING raw cache
+        # (data/playerctx/*.csv, the 38 MB depth chart) is deliberately
+        # NOT protected — that IS a cache and should be reclaimable.
+        (base / "data" / "playerctx" / "history").resolve(),
     ]
 
 

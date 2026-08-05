@@ -52,10 +52,20 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Iterable, Sequence
 
+from src.utils.share_cap import apply_share_cap
+
 # Statuses a Sharp Flow computation can report.
 STATUS_OK = "ok"
 STATUS_NO_LEDGER = "no_ledger"
 STATUS_NO_COHORT = "no_qualified_cohort"
+
+# Quality for a movement whose manager could not be priced. The FLOOR,
+# not 1.0: a cohort member's quality is `score / 100` and is therefore
+# always below 1.0, so the old 1.0 default gave an unrecognised manager
+# more weight than every genuine sharp. Mirrors
+# `src.sharp.market.UNMATCHED_MANAGER_QUALITY`; kept as its own constant
+# because this module deliberately imports nothing from `src/sharp`.
+UNMATCHED_MANAGER_QUALITY = 0.0
 
 # Per-row reasons.
 UNSCORED_NO_OBSERVATIONS = "no_observations_in_window"
@@ -86,42 +96,13 @@ def _recency_weight(age_days: float, half_life_days: float) -> float:
     return math.exp(-math.log(2.0) * max(0.0, age_days) / half_life_days)
 
 
-def _apply_share_cap(
-    weights_by_group: dict[str, float],
-    max_share: float,
-) -> dict[str, float]:
-    """Scale groups down until none exceeds ``max_share`` of the total.
-
-    Iterative because capping one group lowers the total, which can push
-    a second group over the line.  Converges quickly (each pass either
-    caps something or stops) and is bounded so a pathological input
-    cannot spin.
-
-    Capping SHARES rather than counts is what makes this scale-free: ten
-    managers each contributing 10% are untouched, while one manager
-    contributing 80% is cut to the cap no matter how many observations
-    that represents.
-    """
-    if max_share <= 0 or max_share >= 1 or not weights_by_group:
-        return dict(weights_by_group)
-
-    capped = dict(weights_by_group)
-    for _ in range(32):
-        total = sum(capped.values())
-        if total <= 0:
-            return capped
-        over = {k: v for k, v in capped.items() if v / total > max_share + 1e-12}
-        if not over:
-            return capped
-        # Cap the single largest offender per pass, then re-evaluate: the
-        # total moves, so capping them all at once would over-correct.
-        worst = max(over, key=lambda k: capped[k])
-        others = total - capped[worst]
-        if others <= 0:
-            return capped
-        # Solve capped[worst] / (capped[worst] + others) == max_share
-        capped[worst] = others * max_share / (1.0 - max_share)
-    return capped
+# Concentration capping moved to ``src.utils.share_cap`` so ``src/sharp``
+# — which had no cap at all — could use the same implementation instead
+# of growing a second one. Re-exported under the old private name because
+# this module's tests and reviewers know it by that name, and because the
+# import direction has to stay one-way: ``src/sharp`` must not import a
+# feature package.
+_apply_share_cap = apply_share_cap
 
 
 def aggregate_asset(
@@ -238,27 +219,51 @@ def aggregate_asset(
     return result
 
 
+_UNAVAILABLE_MESSAGES: dict[str, str] = {
+    STATUS_NO_LEDGER: (
+        "No qualified-manager ledger available. Sharp Flow is omitted from "
+        "the composite rather than contributing a neutral zero, which would "
+        "read as 'no lean detected'."
+    ),
+    STATUS_NO_COHORT: (
+        "A ledger exists but no manager currently qualifies, so no movement "
+        "in it can be attributed to the cohort this component is about. "
+        "Reported separately from 'no ledger' because the two have "
+        "different fixes."
+    ),
+    "ledger_unreadable": (
+        "The ledger could not be read. Sharp Flow is omitted rather than "
+        "reported as empty, which would claim the ledger was consulted."
+    ),
+}
+
+
 def sharp_flow_index(
     movements_by_asset: dict[str, Sequence[Movement]] | None,
     params: dict[str, Any],
     *,
     now_ms: int | None = None,
+    unavailable_reason: str | None = None,
 ) -> dict[str, Any]:
     """Sharp Flow for every asset with movements.
 
-    ``movements_by_asset`` of ``None`` means "no ledger available", which
-    is reported as an explicit status rather than as an empty result.
-    The distinction matters: an empty dict means the ledger was read and
-    nobody traded, and that IS a finding.
+    ``movements_by_asset`` of ``None`` means "no movements available",
+    which is reported as an explicit status rather than as an empty
+    result. The distinction matters: an empty dict means the ledger was
+    read and nobody traded, and that IS a finding.
+
+    ``unavailable_reason`` says WHICH kind of unavailable. Absent it,
+    everything collapses to ``no_ledger`` — including the case where a
+    ledger exists but nobody qualifies, which has a different fix.
+    ``STATUS_NO_COHORT`` was declared for exactly that case and, until
+    the cohort filter was actually applied in ``inputs.sharp_movements``,
+    was unreachable dead code.
     """
     if movements_by_asset is None:
+        status = unavailable_reason or STATUS_NO_LEDGER
         return {
-            "status": STATUS_NO_LEDGER,
-            "message": (
-                "No qualified-manager ledger available. Sharp Flow is "
-                "omitted from the composite rather than contributing a "
-                "neutral zero, which would read as 'no lean detected'."
-            ),
+            "status": status,
+            "message": _UNAVAILABLE_MESSAGES.get(status, _UNAVAILABLE_MESSAGES[STATUS_NO_LEDGER]),
             "assets": {},
             "priceAware": False,
         }
@@ -305,6 +310,20 @@ def movements_from_ledger_rows(rows: Iterable[dict[str, Any]]) -> dict[str, list
 
     Kept at the boundary so the ledger's column names live in exactly one
     place here, and so the rest of the module needs no database to test.
+
+    ``manager_key`` prefers ``canonicalManagerKey``, and that preference
+    is load-bearing rather than cosmetic: it is the key
+    :func:`_apply_share_cap` groups by, so one human with a linked
+    Sleeper and FFPC account must arrive as ONE group or they get two
+    cap buckets and evade the per-manager bound entirely. The caller is
+    responsible for supplying it — see ``inputs.sharp_movements``, which
+    did not, so the cap was grouping by platform account for the whole
+    time the field existed here.
+
+    ``managerQuality`` defaults to :data:`UNMATCHED_MANAGER_QUALITY`, the
+    floor. It defaulted to 1.0, which is above every real cohort member
+    (their quality is ``score / 100``), so a movement whose manager could
+    not be priced outweighed every movement whose manager could.
     """
     out: dict[str, list[Movement]] = {}
     for row in rows:
@@ -323,7 +342,11 @@ def movements_from_ledger_rows(rows: Iterable[dict[str, Any]]) -> dict[str, list
                 league_key=str(row.get("league_key") or row.get("league_id") or ""),
                 is_buy=(action == "add"),
                 timestamp_ms=int(row.get("timestamp_ms") or row.get("ts") or 0),
-                manager_quality=float(row.get("managerQuality") or 1.0),
+                manager_quality=float(
+                    row.get("managerQuality")
+                    if row.get("managerQuality") is not None
+                    else UNMATCHED_MANAGER_QUALITY
+                ),
             )
         )
     return out

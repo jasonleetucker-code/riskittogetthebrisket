@@ -661,16 +661,23 @@ def main(argv: list[str] | None = None) -> int:
                 name: _pool(usable, ["byAssetClass", name]) for name in ("offense", "idp", "pick")
             },
         },
-        # Two remain impossible, for reasons coverage cannot fix. Strong
-        # Buy / Strong Sell were here too until the coverage denominator
-        # stopped counting zero-weight components; they are now reachable
-        # and are measured above like any other label.
+        # ONE remains impossible, for a reason coverage cannot fix.
+        #
+        # Strong Buy / Strong Sell left this list when the coverage
+        # denominator stopped counting zero-weight components. `Withheld`
+        # left it on 2026-08-05: it claimed "classify's quarantined
+        # kwarg is never passed by build_board", which stopped being
+        # true when the quarantine was wired (`service.py`, and the
+        # AUDIT records it as PASS). Worse, it was baked into every
+        # committed measurement and re-emitted on each gate run, so a
+        # fixed defect kept publishing itself as open. Measured on the
+        # live board: one row is quarantined, so the label is reachable
+        # and is now counted like any other.
         "unreachableLabels": {
             "Conflicted": (
                 "needs two opposing components with weight > 0; opportunity is weight 0 "
                 "and sharpFlow is absent wherever the ledger is empty"
             ),
-            "Withheld": "classify's quarantined kwarg is never passed by build_board",
         },
         "panelBuilds": cache.builds,
         "elapsedSeconds": round(time.time() - started, 1),
