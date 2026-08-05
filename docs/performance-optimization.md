@@ -957,6 +957,75 @@ One known tail: `/draft` hits ~0.18 in roughly 1 run in 5, attributed
 to a `DIV.muted` block collapsing 361×166 → 0 at ~900ms.  Pre-existing,
 not round 6's doing, and not yet fixed.
 
+## 2026-08-05 — the duplication race, re-measured: it does not reproduce
+
+The race recorded above (1/15 loads on `/arbitrage`, 1/45 on `/waivers`)
+**does not reproduce on Next 16.2.12**. Measured across **2,400 loads**
+with a purpose-built harness, `frontend/scripts/measure-duplication.mjs`.
+
+| route | own `loading.jsx` | staging seen mid-load | **duplicated after settle** |
+|---|---|---|---|
+| `/arbitrage` | yes | 25.0% | **0/200** |
+| `/waivers` | yes | 15.5% | **0/200** |
+| `/rankings` | yes | 12.5% | **0/200** |
+| `/bdvm` | no | 20.0% | **0/200** |
+| `/trending` | no | 0.0% | **0/200** |
+| `/finder` | no | 0.0% | **0/200** |
+
+Two passes of 1,200 loads each: one with a structural oracle (duplicate
+element ids, `<main>`/`<h1>` counts, surviving staging containers), then a
+second adding the **specs' own locators** —
+`getByLabel(/Include rookies/i, {exact:false})`, lifted from
+`waivers-smoke.spec.js:38`. That second pass exists because the original
+detector was a Playwright strict-mode violation, and retiring a measured
+number with a differently-shaped instrument is exactly how
+`firstLoadChunks()` earned its retraction. Both passes: zero.
+
+### Three corrections to what this doc said
+
+**1. A staging container mid-load is NORMAL, and this doc invited the
+opposite reading.** The `#S:1 present` row in the round-6 diagnostic table
+is true of the `dynamic()` regression but is not a defect signal on its
+own: `div[id^="S:"]` appears on 12–25% of loads on the heavier routes with
+**zero survivors after settle**. It is how streamed content arrives.
+Anyone taking that row as the oracle would grade a healthy app as ~25%
+broken. The defect is a staging container that *persists*.
+
+**2. The `<main>` count is route-dependent.** The round-6 table's "2" is
+`/waivers`; the shell renders one `<main>` and only some pages render
+their own. `/arbitrage` baselines at **1**. A flat assertion of 2 would be
+wrong on half the routes measured.
+
+**3. `loading.jsx` is not the cause of streaming, and was worth ruling
+out.** An App Router `loading.jsx` implicitly wraps its segment's children
+in `<Suspense>` — the same shape as the `dynamic()` bug — and both
+originally-measured routes have one. The data kills it: `/bdvm` has **no**
+`loading.jsx` and stages on 20% of loads, while `/arbitrage` has one and
+stages on 25%. No correlation. Streaming frequency tracks page weight and
+timing, not segment loading files.
+
+### What is NOT claimed
+
+Not "the race was found and fixed". Nothing was changed to make this
+number zero — the likely cause is round 6's `dynamic()` removal, the
+Next 15.5.22 → 16.2.12 upgrade, or both, and no evidence here separates
+them. The honest statement is that it is **not observable at 2,400 loads**
+where it was previously observable at 15.
+
+### What now detects it
+
+- `tests/e2e/specs/ssr-duplication.spec.js` — names the invariant
+  directly. The previous detector was *incidental*: a spec about a rookie
+  toggle that failed because its locator resolved to two elements.
+- `frontend/scripts/measure-duplication.mjs --loads 200` — the instrument
+  for a *rate*, when a tripwire is not enough.
+
+Local-run trap worth knowing: `/api/test/create-session` is in the public
+API set (`server.py:3021`) and rate-limited at 60/min, so running the
+harness against the same backend as the E2E suite starves the auth fixture
+and tests **skip** — which reads as a non-failure. Use
+`RATE_LIMIT_BYPASS_IPS=127.0.0.1`, or don't run both at once.
+
 ## Rejected (attempted, reverted)
 
 ### Browser revalidation via `If-None-Match`/`304` — **not safe as-is**

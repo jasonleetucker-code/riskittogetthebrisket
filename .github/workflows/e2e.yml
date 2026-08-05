@@ -42,16 +42,31 @@ name: E2E Safety Net
 # the bundler config, run the browser BEFORE merge.  The paths below are
 # deliberately narrow — see the note beside them.
 #
-# EXPECT INTERMITTENT REDS, and read them carefully before blaming the
-# PR.  The app has a pre-existing SSR-streaming race in which the same
-# `#S:1` staging copy is occasionally left behind, measured at 1/15
-# loads on /arbitrage and 1/45 on /waivers — IDENTICAL rates on a build
-# of main and on the #709 branch, so it is main's defect, not any one
-# PR's.  Tracked separately.  Before attributing a red run here to the
-# PR under review, reproduce the rate against a build of the base
-# branch.  Do NOT "fix" it by loosening those locators: they are the
-# only detector this repo has for a bug class every performance metric
-# is blind to.
+# The SSR-streaming race this section used to warn about NO LONGER
+# REPRODUCES.  It was measured at 1/15 loads on /arbitrage and 1/45 on
+# /waivers — identical on main and on the #709 branch — and this comment
+# told you to expect intermittent reds because of it.  Re-measured
+# 2026-08-05 on Next 16.2.12 across 2,400 loads (six routes, two oracles,
+# one of them the specs' own locators): ZERO duplicates.  Full write-up
+# in docs/performance-optimization.md.
+#
+# So a red run here is now, by default, THE PR'S OWN.  Do not reach for
+# "it's the known flake" — that explanation has expired.  What was never
+# a defect, and is easy to misread as one, is a `div[id^="S:"]` seen
+# mid-load: that is React streaming normally, on 12-25% of loads, with
+# zero survivors after settle.
+#
+# Nothing was changed to make the race go away; the likely cause is
+# #709's dynamic() removal, the Next 15.5.22 -> 16.2.12 upgrade, or both.
+# So it could return.  tests/e2e/specs/ssr-duplication.spec.js now
+# asserts the invariant directly instead of leaving detection to an
+# incidental strict-mode violation in a spec about a rookie toggle, and
+# frontend/scripts/measure-duplication.mjs --loads 200 measures a rate
+# when a tripwire is not enough.
+#
+# Do NOT "fix" a duplication red by loosening locators: they are the
+# detector for a bug class every performance metric in this repo is
+# blind to.
 #
 # Failure handling mirrors scheduled-refresh.yml: an idempotent
 # tracking issue labelled ``e2e-failures`` is opened (or commented
