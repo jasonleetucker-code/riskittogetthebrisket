@@ -644,3 +644,73 @@ describe("live-bid target is reconciled with the board", () => {
     expect(await screen.findByText(/Sold — pick the next player/i)).toBeInTheDocument();
   });
 });
+
+describe("the team it asks about", () => {
+  it("follows the workspace when a placeholder team is replaced by the real one", async () => {
+    // The cold-boot sequence on /draft, which is what took this panel off the
+    // page entirely on `main`.
+    //
+    // `useLeague()` reports no league until /api/leagues answers, so the page
+    // hydrates from the unsuffixed legacy storage key, misses, and falls back
+    // to `createDefaultWorkspace()` — whose first team is a placeholder that
+    // is not in the league. The panel used to LATCH that name in
+    // `useState(myTeamName)`, ask the backend for a team that does not exist,
+    // take the 400 as a failure and vanish — permanently, because the latched
+    // name never changed, so the roster-context hook never refetched even
+    // after the real workspace arrived. It took its own team <Select> with
+    // it, so the user could not correct it without a reload.
+    const placeholder = {
+      settings: { myTeamIdx: 0 },
+      teams: [{ name: "Russini Panini" }, { name: "Beta" }],
+    };
+
+    // URLSearchParams encodes the space as "+", so match on the bare token
+    // rather than encodeURIComponent — getting this wrong makes the mock
+    // answer 200 to everything and the test proves nothing.
+    fetch.mockImplementation((url) =>
+      Promise.resolve(
+        String(url).includes("Russini")
+          ? jsonResponse(400, { error: "unknown_team", leagueKey: "pd_main" })
+          : jsonResponse(200, okPayload()),
+      ),
+    );
+
+    const { container, rerender } = render(
+      <PerfectDraftPanel stats={STATS} workspace={placeholder} />,
+    );
+    // Wait for the 400 to be CLASSIFIED, not merely requested: asserting on
+    // the initial loading render would pass no matter what the server said.
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining("teamName=Russini"),
+        expect.anything(),
+      ),
+    );
+    await waitFor(() =>
+      expect(container.querySelector(".perfect-draft-panel")).toBeNull(),
+    );
+
+    // The league resolves and the real league-scoped workspace hydrates.
+    rerender(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+  });
+
+  it("keeps an explicit pick instead of snapping back to the workspace team", async () => {
+    // The flip side: following the workspace must not undo a deliberate
+    // choice, or the team selector would be unusable.
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+
+    const teamSelect = screen.getByRole("combobox", { name: /team to optimize/i });
+    fireEvent.change(teamSelect, { target: { value: "Beta" } });
+
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining("teamName=Beta"),
+        expect.anything(),
+      ),
+    );
+    expect(teamSelect).toHaveValue("Beta");
+  });
+});

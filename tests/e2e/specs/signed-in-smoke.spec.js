@@ -81,14 +81,34 @@ test.describe("signed-in: basic navigation + UI render", () => {
     // its listbox is populated from that same list.  Opening it and
     // matching against the contract proves the roster pipeline reached
     // the UI — not merely that some chrome rendered.
-    const switcher = authedPage.locator('button[aria-haspopup="listbox"]').first();
+    //
+    // Target the TEAM switcher by class, not `button[aria-haspopup="listbox"]`
+    // .first(). The shell renders two listbox buttons — LeagueSwitcher and
+    // TeamSwitcher — and the league one comes first in DOM order, so `.first()`
+    // opened the LEAGUE menu and counted 2 leagues against 12 teams.
+    //
+    // That was latent, not new: the E2E stack had no Next bridge for
+    // /api/leagues, so `useLeague()` never resolved and LeagueSwitcher rendered
+    // nothing. `.first()` therefore hit the team switcher by accident. Adding
+    // the missing bridge made the league switcher appear and the ambiguity
+    // real.
+    // `.first()` is kept from the original and is doing a DIFFERENT job than
+    // the class: it absorbs the pre-existing SSR-streaming duplicate (#716),
+    // under which the shell can render two of everything. Dropping it turns
+    // this test into a second #716 detector and makes it intermittently red
+    // for a reason unrelated to what it asserts — the dedicated detectors in
+    // waivers-smoke/arbitrage already cover that bug, deliberately.
+    const switcher = authedPage.locator("button.team-switcher-toggle").first();
     await expect(
       switcher,
       "team switcher only renders when rosters loaded — absent means the contract served none",
     ).toBeVisible({ timeout: 60_000 });
     await switcher.click();
 
-    const options = authedPage.locator('[role="option"]');
+    // Scoped to the team menu, and to ONE of them, for both reasons above:
+    // an unscoped [role="option"] counts the league menu's entries too, and a
+    // streaming duplicate would double the count.
+    const options = authedPage.locator(".team-switcher-menu").first().locator('[role="option"]');
     await expect
       .poll(() => options.count(), {
         message: `team switcher should offer all ${teamNames.length} contract teams`,

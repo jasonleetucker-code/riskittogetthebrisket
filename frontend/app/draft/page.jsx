@@ -3584,10 +3584,27 @@ export default function DraftDashboardPage() {
   // are matched by name-derived id).  Runs once after hydration; the
   // manual "Sync from contract" button is still available for
   // mid-session refreshes.
-  const autoSyncRanRef = useRef(false);
+  // Keyed on the STORAGE KEY, not a bare "have I run" boolean.
+  //
+  // `hydrated` flips true after the FIRST hydration, and on a cold load that
+  // one runs against the unsuffixed legacy key — `useLeague()` reports no
+  // league until /api/leagues answers, so `draftStorageKey` has not become
+  // `..._<leagueKey>` yet. A once-ever guard therefore spent its single run
+  // populating the throwaway placeholder workspace: the 72-rookie pool landed
+  // on the DEFAULT board (and got persisted to the legacy key), then the
+  // league resolved, the real league-scoped workspace hydrated with no pool,
+  // and the sync refused to run again. Every rookie was left without a
+  // `boardValue`, so Perfect Draft priced nothing and reported that no rookie
+  // was worth buying — on a board showing 72 rookies.
+  //
+  // It is a race, so it presented as an intermittent empty plan rather than a
+  // reliable one. Re-running per storage key also covers league switching,
+  // and re-running is cheap: the merge below already no-ops when the incoming
+  // pool matches what the workspace holds.
+  const autoSyncKeyRef = useRef("");
   useEffect(() => {
-    if (!hydrated || autoSyncRanRef.current) return;
-    autoSyncRanRef.current = true;
+    if (!hydrated || autoSyncKeyRef.current === draftStorageKey) return;
+    autoSyncKeyRef.current = draftStorageKey;
     let cancelled = false;
     (async () => {
       try {
@@ -3681,7 +3698,7 @@ export default function DraftDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [hydrated]);
+  }, [hydrated, draftStorageKey]);
 
   const stats = useMemo(() => computeDraftStats(workspace), [workspace]);
   // Retrospective inflation trajectory — O(N²) in pick count, but

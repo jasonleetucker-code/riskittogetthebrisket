@@ -42,9 +42,29 @@ const LIVE_SYNC_KEY = `next_draft_live_sync__${LEAGUE}`;
  * did and what let the bug ship.
  */
 async function seedWorkspace(page, teamNames, { myRemaining = 400 } = {}) {
+  // `feedBudget` is seeded DELIBERATELY different from `initialBudget`, and
+  // the spec does not work without it.
+  //
+  // /draft auto-syncs team budgets from /api/draft-capital on mount
+  // (page.jsx:3872 → mergeDraftCapitalTeams, mode "sync"). That feed keys
+  // teams by their SLEEPER TEAM NAME ("Russini Panini", "CollinFoz"), while
+  // `teamNames` here comes from the contract's `sleeper.teams[].name` — the
+  // MANAGER names ("Jason", "Ed") that /api/draft/roster-context matches on.
+  // The two namespaces barely overlap, so every seeded row misses the feed
+  // and takes the unmatched branch, which ZEROES it (draft-logic.js:1441).
+  // The panel then correctly reports that nothing is worth buying with $0,
+  // and the row assertion below fails for a reason that has nothing to do
+  // with the optimizer.
+  //
+  // Seeding `feedBudget !== initialBudget` marks the row as user-edited,
+  // which is a first-class state the sync preserves by design
+  // (draft-logic.js:1400-1414) — the same thing that happens when a manager
+  // types their own carry-over balance. The manager name is kept because
+  // that is the one roster-context can resolve.
   const teams = teamNames.slice(0, 12).map((name, i) => ({
     name,
     initialBudget: i === 0 ? myRemaining : 400,
+    feedBudget: 0,
   }));
   await page.addInitScript(
     ([wsKey, syncKey, leagueKey, wsTeams]) => {
@@ -90,6 +110,19 @@ test.describe("journey: perfect draft", () => {
       "the panel returns null on any non-ok response, so invisible means broken",
     ).toBeVisible({ timeout: 90_000 });
 
+    // Assert the BUDGET survived before asserting rows. A zeroed budget makes
+    // "no rookie is worth his price" the correct answer, so the row assertion
+    // below would fail on a 60s timeout that says nothing about why. This
+    // turns the fixture's own precondition into a named failure.
+    const budgetText = await panel.innerText();
+    const seededBudget = budgetText.match(/BUDGET\s*\$([\d,]+)/i);
+    expect(seededBudget, "the panel must render a Budget tile").not.toBeNull();
+    expect(
+      Number(seededBudget[1].replace(/,/g, "")),
+      "budget is $0 — the seeded team budget was zeroed (see seedWorkspace), " +
+        "so an empty plan is correct and proves nothing about the optimizer",
+    ).toBeGreaterThan(0);
+
     const rows = page.locator(SEL.perfectDraftRow);
     await expect(rows.first()).toBeVisible({ timeout: 60_000 });
     const rowCount = await rows.count();
@@ -101,7 +134,11 @@ test.describe("journey: perfect draft", () => {
     expect(firstName).not.toMatch(/^Rookie #/);
 
     // No NaN / undefined / $NaN leaking into the rendered numbers.
-    await expectNoBadValueTokens(panel);
+    // (page, selector) — NOT (locator). Passing the Locator made
+    // `querySelectorAll` receive an HTMLElement and throw a SyntaxError. It
+    // never surfaced because the assertions above this line had never once
+    // passed, so this call had never executed.
+    await expectNoBadValueTokens(page, SEL.perfectDraftPanel);
 
     guard.assertClean();
   });
