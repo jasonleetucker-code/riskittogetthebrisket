@@ -66,9 +66,22 @@ line of defence — the scraper's first network action is a browser launch).
 scraping-target hostname. Readiness is `/api/status` reporting `has_data: true` — deliberately
 not `/api/health`, which stays 503 "degraded" precisely because the scrape never ran.
 
-**Proof the audit wrote nothing**: `evidence/source-corpus-mtimes-BEFORE.txt` records 2,686
-file mtimes and sizes across `exports/`, `CSVs/`, `data/raw` and `data/raw_sources`, re-checked
-at the end. `git status` carries nothing but `docs/master-site-audit/`.
+**Proof the audit wrote nothing** — `evidence/source-corpus-mtimes-BEFORE.txt` records 2,686 file
+mtimes and sizes across `exports/`, `CSVs/`, `data/raw` and `data/raw_sources`. Re-checked at the
+end of the audit:
+
+```
+$ find exports CSVs data/raw data/raw_sources -type f -printf "%T@ %s %p\n" | sort > /tmp/mtimes-AFTER.txt
+$ diff evidence/source-corpus-mtimes-BEFORE.txt /tmp/mtimes-AFTER.txt
+(no output — identical)
+
+$ git status --porcelain | grep -v docs/master-site-audit
+(no output — no tracked production file modified)
+```
+
+Every one of the 2,686 files is byte-identical in size and untouched in mtime, and the only
+paths git sees are under `docs/master-site-audit/`. The audit ran 31 investigation workstreams,
+14 refuters and 13 document authors against this repository and changed nothing in it.
 
 ### The topology correction
 
