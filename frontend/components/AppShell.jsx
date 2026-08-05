@@ -44,7 +44,22 @@ import { buildTeamByPlayer } from "@/lib/waiver-logic";
 // 1/45 loads on /waivers and 1/15 on /arbitrage — identical rates on a
 // build of main and a build of this branch. What `dynamic()` did was turn
 // that occasional race into a certainty on every load of every route.
-// Fixing it here does not fix the ambient one, which is its own defect.
+// Fixing it here does not fix the ambient one.
+//
+// AMENDED 2026-08-05: the ambient one is NOT "its own defect", which is
+// what this comment used to say. It is React 19.2's deferred Suspense
+// reveal, read from the pinned react-dom source: `$RC` stages the content
+// in `<div hidden id="S:n">`, sets the boundary comment to "$~", and only
+// `$RV` — scheduled on rAF, then throttled up to 300ms — moves it and
+// deletes the container. A duplicate is SUPPOSED to exist for that window
+// and no app change removes it; a user never sees it (no client rects,
+// never in the accessibility tree). Reproduced locally at 2/25 loads on
+// /waivers under CPU throttling. The E2E suite handles it with
+// `waitForStreamSettled()` (tests/e2e/helpers/journey.js).
+//
+// The distinction is the point: what `dynamic()` produced here was a
+// PERMANENT duplicate, which React never cleans up. That is a real defect
+// and is what the two strict locators exist to catch. Do not conflate them.
 //
 // So the boundary must not exist. Loading the module imperatively is the
 // idiom this repo already uses for exactly this (components/ScreenshotFab.jsx

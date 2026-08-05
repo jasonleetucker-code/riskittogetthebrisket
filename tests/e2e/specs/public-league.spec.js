@@ -1,5 +1,5 @@
 const { test, expect } = require("@playwright/test");
-const { pageUrl } = require("../helpers/journey");
+const { pageUrl, waitForStreamSettled } = require("../helpers/journey");
 
 // End-to-end coverage for the PUBLIC /league page.  Exercises the
 // real Sleeper-backed data flow through the FastAPI backend at
@@ -103,10 +103,33 @@ test.describe("public /league page", () => {
     });
 
     // On mobile (≤768px) the tab row is hidden and sections are selected
-    // via a <select> dropdown; on desktop, each tab is a <button>.  Detect
-    // which control is currently visible and drive it accordingly.
+    // via a <select> dropdown; on desktop, each tab is a <button>.
+    //
+    // This used to probe which control was live:
+    //
+    //     const useMobile = await mobileSelect.isVisible().catch(() => false);
+    //
+    // and that `.catch` turned "I could not tell" into "desktop".  When
+    // React 19.2's deferred Suspense reveal left a staged copy of the page
+    // in the DOM, `getByLabel("Select league section")` resolved to TWO
+    // elements, `isVisible()` threw a strict-mode violation, the catch
+    // swallowed it, and the test walked the DESKTOP branch on a 390px
+    // viewport — where `.desktop-only` is `display:none` (globals.css).
+    // Every one of the twelve buttons was then legitimately absent, and
+    // the failure reported "league sub-nav is missing tabs: <all 12>",
+    // which reads like the nav was deleted.  That is the nightly's
+    // mobile-chromium flake, and the message sent every reader after the
+    // wrong defect.
+    //
+    // Two changes.  Settle the stream first, so the duplicate that caused
+    // it cannot exist.  Then decide from the VIEWPORT, which is a fact
+    // about the run rather than a probe that can throw: the breakpoint is
+    // 768px and `isMobileProject` already encodes the same split for the
+    // project matrix.
+    await waitForStreamSettled(page);
+    const width = page.viewportSize()?.width ?? 1366;
+    const useMobile = width <= 768;
     const mobileSelect = page.getByLabel("Select league section");
-    const useMobile = await mobileSelect.isVisible().catch(() => false);
 
     // ── What this test does and does NOT prove ────────────────────
     // The old loop clicked every tab, slept `waitForTimeout(150)`, and

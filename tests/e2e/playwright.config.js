@@ -134,12 +134,19 @@ module.exports = defineConfig({
   // for main.  This is the half it explicitly left open: HOW MUCH one
   // green run proves.
   //
-  // There IS a live intermittent defect for a retry to launder: React
-  // streaming leaves its `<div id="S:1">` staging copy in the DOM, so a
-  // page's markup exists twice and any non-`.first()` locator throws a
-  // strict-mode violation.  The suite's only two windows onto it are
-  // journey-trade.spec.js (/arbitrage) and waivers-smoke.spec.js
-  // (/waivers) — one retry hides both.
+  // There IS a live intermittent failure for a retry to launder: React
+  // 19.2 defers its Suspense reveal, so a staged copy of a boundary sits
+  // in `<div hidden id="S:n">` until `$RV` runs, and any non-`.first()`
+  // locator inside it throws a strict-mode violation.  The suite's only
+  // two windows onto that shape are journey-trade.spec.js (/arbitrage)
+  // and waivers-smoke.spec.js (/waivers) — one retry hides both.
+  //
+  // Those specs now call `waitForStreamSettled()`, so the TRANSIENT case
+  // no longer reaches an assertion.  This key still matters: what remains
+  // behind a retry is a PERMANENT duplicate, which is a genuine defect,
+  // and every other flake the suite has yet to meet.  (An earlier version
+  // of this comment called the transient case a product defect; it is
+  // React's documented behaviour — see helpers/journey.js.)
   //
   // THIS LIVES IN THE CONFIG, NOT IN stack-death-reporter.js, AND THAT
   // PLACEMENT IS THE WHOLE POINT.  A `--reporter=…` on the command line

@@ -398,6 +398,66 @@ function attachConsoleGuards(page, { allow = [] } = {}) {
   };
 }
 
+/**
+ * Wait until React has finished revealing its streamed Suspense
+ * boundaries, so a strict locator sees one copy of the page instead of
+ * two.
+ *
+ * WHY THIS EXISTS, and why it is not `.first()` in disguise
+ * --------------------------------------------------------
+ * React 19.2 (this repo pins react-dom 19.2.8) made the Suspense reveal
+ * DEFERRED.  Read `$RC` in
+ * `frontend/node_modules/react-dom/cjs/react-dom-server.node.production.js`:
+ * it no longer moves the staged content and deletes the container in the
+ * same tick.  It sets the boundary comment to `"$~"`, pushes
+ * `(template, stagingDiv)` onto a global `$RB` queue, and schedules
+ * `$RV` — via `requestAnimationFrame` for the first reveal, thereafter a
+ * `setTimeout` throttled to `$RT + 300 - now` (and up to 2300ms if the
+ * reveal lands in the 2000-2300ms window).  `$RV` is the ONLY thing that
+ * removes `<div hidden id="S:n">`.
+ *
+ * So between the parser writing that container and `$RV` running, a full
+ * copy of the boundary's subtree is legitimately in the DOM.  That is
+ * React's design, not a defect in this app — a user never sees it (no
+ * client rects, never in the accessibility tree), but Playwright's strict
+ * mode does, as "resolved to 2 elements".
+ *
+ * Measured locally 2026-08-05 against the E2E stack, chromium under
+ * `Emulation.setCPUThrottlingRate` (a loaded CI runner by other means):
+ *
+ *   /waivers, 25 loads, 8x throttle
+ *     boundary marker "$~" observed        30/30 loads (unthrottled)
+ *     staging container present            20/25
+ *     <main> == 3 and the rookie toggle
+ *       resolving to 2 elements             2/25   <- the CI symptom
+ *
+ * The 2/25 is the same failure the nightly reports on
+ * waivers-smoke.spec.js, reproduced.
+ *
+ * WHY NOT `.first()`
+ * ------------------
+ * Because a PERMANENT duplicate is a real bug — that is what #709's
+ * `dynamic()` regression produced, and what a service worker replaying a
+ * frozen mid-stream document would produce.  `.first()` silences both.
+ * This waits for a state React itself is about to leave, then asserts
+ * strictly: a transient copy is waited out, a permanent one still trips
+ * strict mode (the wait times out and the duplicate is still there).
+ * Strictly more sensitive than `.first()`, not less.
+ *
+ * Predicate is the staging CONTAINER, not the `"$~"` marker: `$RV` clears
+ * the marker as it removes the container, and a boundary still at `"$?"`
+ * is merely pending — it renders a fallback and has no staged copy, so it
+ * cannot duplicate anything.  Waiting on `"$?"` would hang on any
+ * legitimately-pending boundary.
+ */
+async function waitForStreamSettled(page, { timeout = 15_000 } = {}) {
+  await page.waitForFunction(
+    () => document.querySelectorAll('[id^="S:"]').length === 0,
+    undefined,
+    { timeout },
+  );
+}
+
 module.exports = {
   SEL,
   NAME,
@@ -405,6 +465,7 @@ module.exports = {
   titleFor,
   isMobileProject,
   pageUrl,
+  waitForStreamSettled,
   desktopOnly,
   mobileOnly,
   gotoRankingsBoard,

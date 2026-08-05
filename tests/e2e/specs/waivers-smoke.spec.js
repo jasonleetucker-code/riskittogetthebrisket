@@ -15,11 +15,21 @@ const { test, expect } = require("../helpers/auth-fixture");
 // page-route list, so the backend origin 404s it — production works
 // because nginx routes page traffic straight to Next.  pageUrl()
 // (E2E_PAGE_ORIGIN) reproduces that topology for local/CI runs.
-const { pageUrl, NAME } = require("../helpers/journey");
+// `waitForStreamSettled` after every navigation, and it is load-bearing
+// here specifically: this spec's `getByLabel(/Include rookies/i)` is one of
+// only two strict locators in the repo that can see React 19.2's deferred
+// Suspense reveal, which leaves a full staged copy of the page in the DOM
+// for a scheduler-dependent window.  Reproduced 2026-08-05 at 2/25 loads
+// under CPU throttling (<main> == 3, the toggle resolving to 2 elements —
+// the nightly's exact failure), and 0/25 with the wait.  See the helper for
+// the mechanism and for why this is NOT `.first()`: a PERMANENT duplicate
+// still fails, verified by injecting one.
+const { pageUrl, NAME, waitForStreamSettled } = require("../helpers/journey");
 
 test.describe("signed-in: /waivers page", () => {
   test("renders header + sections", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
+    await waitForStreamSettled(authedPage);
     // Assert the page's OWN <h1>, not body text: the R1 shell puts a
     // "Waivers" nav link in the sidebar on every page, so a body-level
     // /Waivers/i match passed even when the page itself failed to
@@ -35,6 +45,7 @@ test.describe("signed-in: /waivers page", () => {
 
   test("rookie toggle is present and toggleable", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
+    await waitForStreamSettled(authedPage);
     const toggle = authedPage.getByLabel(NAME.waiverRookieToggle, {
       exact: false,
     });
@@ -46,6 +57,7 @@ test.describe("signed-in: /waivers page", () => {
 
   test("position filter dropdown is present", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
+    await waitForStreamSettled(authedPage);
     const select = authedPage.getByLabel(NAME.waiverPositionFilter);
     await expect(select).toBeVisible({ timeout: 30000 });
   });
@@ -54,6 +66,7 @@ test.describe("signed-in: /waivers page", () => {
 
   test("manual add/drop calculator section renders", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
+    await waitForStreamSettled(authedPage);
     // The calculator's heading is unique — distinguishes from the
     // existing Best Add/Drop Moves recommendation table.
     await expect(authedPage.locator("body")).toContainText(

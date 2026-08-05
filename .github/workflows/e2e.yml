@@ -42,16 +42,23 @@ name: E2E Safety Net
 # the bundler config, run the browser BEFORE merge.  The paths below are
 # deliberately narrow — see the note beside them.
 #
-# EXPECT INTERMITTENT REDS, and read them carefully before blaming the
-# PR.  The app has a pre-existing SSR-streaming race in which the same
-# `#S:1` staging copy is occasionally left behind, measured at 1/15
-# loads on /arbitrage and 1/45 on /waivers — IDENTICAL rates on a build
-# of main and on the #709 branch, so it is main's defect, not any one
-# PR's.  Tracked separately.  Before attributing a red run here to the
-# PR under review, reproduce the rate against a build of the base
-# branch.  Do NOT "fix" it by loosening those locators: they are the
-# only detector this repo has for a bug class every performance metric
-# is blind to.
+# Read an intermittent red carefully before blaming the PR.  There is a
+# streaming duplicate in which React's `#S:n` staging copy is briefly in
+# the DOM, and it was measured at 1/15 loads on /arbitrage and 1/45 on
+# /waivers — IDENTICAL rates on a build of main and on the #709 branch.
+#
+# CORRECTED 2026-08-05: that is not "main's defect".  It is React 19.2's
+# DEFERRED Suspense reveal, read from the pinned react-dom source — `$RC`
+# stages content in `<div hidden id="S:n">` and only `$RV` (rAF, then a
+# throttle of up to 300ms) moves it and removes the container, so a copy
+# is supposed to exist for that window.  The suite now waits it out with
+# `waitForStreamSettled()`; a spec that still sees two after calling it
+# has found a PERMANENT duplicate, which is a real defect (that is what
+# #709's `dynamic()` produced).
+#
+# Either way, do NOT "fix" a red by loosening those locators: they are
+# the only detector this repo has for a bug class every performance
+# metric is blind to.
 #
 # Failure handling mirrors scheduled-refresh.yml: an idempotent
 # tracking issue labelled ``e2e-failures`` is opened (or commented
