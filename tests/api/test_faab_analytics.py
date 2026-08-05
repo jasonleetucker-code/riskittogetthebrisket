@@ -127,9 +127,21 @@ def test_avg_and_median_are_computed_correctly():
     assert out["leagueMedianWinningBid"] == 20.0
 
 
-def test_zero_bid_free_agents_excluded_from_avg():
-    """Zero-bid FA pickups don't pull the average down — they
-    represent free pickups, not bids the league competed on."""
+def test_zero_bid_free_agents_are_counted():
+    """A $0 claim IS a winning bid, and excluding it lied about the median.
+
+    This test previously asserted the opposite, on the reasoning that a
+    free pickup is "not a bid the league competed on". That reasoning is
+    wrong in the way that matters: `leagueMedianWinningBid` is published
+    and rendered as *the median winning bid*, and 41-77% of adds cost
+    nothing in a given season. Computing it over nonzero bids only
+    overstated it by roughly 200x — a larger error than the budget mixing
+    this module was also carrying, and one that reached the user directly
+    through the waivers panel.
+
+    src/trade/faab_history.py already kept zero bids for exactly this
+    reason and documents the 200x figure; the two modules now agree.
+    """
     snap = _snap(
         [
             _season(
@@ -144,8 +156,12 @@ def test_zero_bid_free_agents_excluded_from_avg():
         ]
     )
     out = faab_analytics.summarize_league_faab(snap)
-    assert out["totalBidsAnalyzed"] == 1
-    assert out["leagueAvgWinningBid"] == 20.0
+    # Three adds, three bids — two of them free.
+    assert out["totalBidsAnalyzed"] == 3
+    # Mean of (20, 0, 0), not of (20).
+    assert out["leagueAvgWinningBid"] == round(20 / 3, 2)
+    # And the median an honest reading gives: most claims cost nothing.
+    assert out["leagueMedianWinningBid"] == 0.0
 
 
 # ── Tier bucketing ─────────────────────────────────────────────
@@ -382,3 +398,144 @@ def test_build_section_returns_summarize_output():
     via_section = faab_analytics.build_section(snap)
     via_summary = faab_analytics.summarize_league_faab(snap)
     assert via_section == via_summary
+
+
+# ── Budget regimes ─────────────────────────────────────────────
+#
+# This league did not run the same waiver budget every year. Flattening
+# every season's transactions into one bid list with no per-season
+# divisor averaged bids denominated in different currencies, which is how
+# `positionBids` could report a max physically larger than the entire
+# current budget. `_walk_waivers` now carries each bid's own season
+# budget and the aggregates work in "what this would cost today".
+
+
+def test_identical_shares_across_budget_regimes_collapse_to_one_value():
+    """THE regression, stated as arithmetic.
+
+    Three seasons, three budgets, one bid each at exactly 20% of its own
+    budget. Those are the same claim three times over, so every aggregate
+    must report one number with zero spread. Before the fix `max` was 10x
+    `min` on this input, purely from the budget mixing.
+    """
+    snap = _snap(
+        [
+            _season(
+                "2026",
+                settings={"waiver_budget": 100},
+                txs_by_week={1: [_waiver_tx(bid=20, adds={"P1": 1})]},
+            ),
+            _season(
+                "2025",
+                settings={"waiver_budget": 200},
+                txs_by_week={1: [_waiver_tx(bid=40, adds={"P2": 1})]},
+            ),
+            _season(
+                "2024",
+                settings={"waiver_budget": 1000},
+                txs_by_week={1: [_waiver_tx(bid=200, adds={"P3": 1})]},
+            ),
+        ]
+    )
+    out = faab_analytics.summarize_league_faab(snap)
+    assert out["leagueBudget"] == 100
+    assert out["leagueAvgWinningBid"] == 20.0
+    assert out["leagueMedianWinningBid"] == 20.0
+    tier = out["tierBids"]
+    spans = [b for b in tier.values() if b["count"]]
+    assert len(spans) == 1, "one claim repeated should not straddle tiers"
+    assert spans[0]["min"] == spans[0]["max"] == 20
+
+
+def test_no_aggregate_can_exceed_the_current_budget():
+    """The invariant whose absence let '$340 max in a $100 league' ship.
+
+    Nothing normalised can cost more than the budget it is expressed in.
+    Asserted over every position and tier rather than a sampled one,
+    because the defect surfaced in whichever position happened to carry
+    the oldest history.
+    """
+    snap = _snap(
+        [
+            _season(
+                "2026",
+                settings={"waiver_budget": 100},
+                txs_by_week={1: [_waiver_tx(bid=90, adds={"P1": 1})]},
+            ),
+            _season(
+                "2024",
+                settings={"waiver_budget": 1000},
+                txs_by_week={1: [_waiver_tx(bid=1000, adds={"P2": 1})]},
+            ),
+        ]
+    )
+    out = faab_analytics.summarize_league_faab(snap)
+    budget = out["leagueBudget"]
+    for pos, block in out["positionBids"].items():
+        assert block["max"] <= budget, f"{pos} max {block['max']} exceeds budget {budget}"
+    for label, block in out["tierBids"].items():
+        assert block["max"] <= budget, f"{label} max {block['max']} exceeds budget {budget}"
+
+
+def test_a_season_with_no_recorded_budget_is_a_no_op_not_a_rescale():
+    """The live snapshot's state, and the one that could go silently wrong.
+
+    Sleeper's persisted `settings` block does not always carry
+    `waiver_budget` — the committed snapshot's has two keys and none of
+    them is it. A season we cannot normalise must pass through untouched
+    rather than being divided by a guessed denominator, which would move
+    every historical figure by an invented factor.
+    """
+    snap = _snap(
+        [
+            _season(
+                "2026",
+                settings={"playoff_week_start": 15},
+                txs_by_week={1: [_waiver_tx(bid=25, adds={"P1": 1})]},
+            ),
+        ]
+    )
+    out = faab_analytics.summarize_league_faab(snap)
+    assert out["leagueBudget"] == 100  # Sleeper's default, as before
+    assert out["leagueAvgWinningBid"] == 25.0  # untouched, not rescaled
+    assert out["budgetsBySeason"] == {"2026": None}
+
+
+def test_budgets_by_season_discloses_the_regimes():
+    """The panel cannot honestly render a normalised dollar without it.
+
+    "$34" means "34% of that season's budget, in today's dollars". If the
+    UI cannot say which budgets are in play, the number reads as a literal
+    historical price, which is a different claim.
+    """
+    snap = _snap(
+        [
+            _season("2026", settings={"waiver_budget": 100}),
+            _season("2024", settings={"waiver_budget": 1000}),
+        ]
+    )
+    out = faab_analytics.summarize_league_faab(snap)
+    assert out["budgetsBySeason"] == {"2026": 100, "2024": 1000}
+
+
+def test_raw_history_keeps_the_dollar_that_was_actually_spent():
+    """A 2024 bid really was $200; rewriting it would be a second lie.
+
+    The aggregates normalise because they are comparisons. Per-claim
+    history does not, because it is a record. Both `seasonBudget` and
+    `bidPct` ride along so the UI can express one in terms of the other.
+    """
+    snap = _snap(
+        [
+            _season(
+                "2024",
+                settings={"waiver_budget": 1000},
+                txs_by_week={1: [_waiver_tx(bid=200, adds={"P1": 1})]},
+            ),
+        ]
+    )
+    rows = faab_analytics._walk_waivers(snap)
+    assert len(rows) == 1
+    assert rows[0]["bid"] == 200
+    assert rows[0]["seasonBudget"] == 1000
+    assert rows[0]["bidPct"] == 0.2
