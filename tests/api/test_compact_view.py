@@ -15,6 +15,7 @@ def _sample_contract():
                 "sourceRankMeta": {
                     "ktcSfTep": {
                         "valueContribution": 9100,
+                        "appliedWeight": 1.0,
                         "effectiveWeight": 1.0,
                         "method": "value_direct",
                         "percentile": 0.0001,
@@ -25,6 +26,7 @@ def _sample_contract():
                     },
                     "dlfSf": {
                         "valueContribution": 8800,
+                        "appliedWeight": 1.0,
                         "effectiveWeight": 1.0,
                         "method": "rank_hill",
                         "percentile": 0.002,
@@ -59,6 +61,7 @@ def _sample_contract():
                 "sourceRankMeta": {
                     "ktcSfTep": {
                         "valueContribution": 9100,
+                        "appliedWeight": 1.0,
                         "effectiveWeight": 1.0,
                         "method": "value_direct",
                         "percentile": 0.0001,
@@ -117,12 +120,14 @@ def test_source_rank_meta_is_slimmed():
     """``sourceRankMeta`` survives the compact pass but each per-source
     entry is reduced to the fields the mobile UI actually consumes —
     valueContribution (drives the trade per-source winner row),
-    effectiveWeight, method.  Audit-only stamps are dropped."""
+    appliedWeight + effectiveWeight (the audit popover renders both), and
+    method.  Audit-only stamps are dropped."""
     out = cv.compact_contract(_sample_contract())
     player = out["players"]["Josh Allen"]
     ktc_meta = player["sourceRankMeta"]["ktcSfTep"]
     # Kept fields.
     assert ktc_meta["valueContribution"] == 9100
+    assert ktc_meta["appliedWeight"] == 1.0
     assert ktc_meta["effectiveWeight"] == 1.0
     assert ktc_meta["method"] == "value_direct"
     # Dropped audit-only fields.
@@ -164,3 +169,25 @@ def test_byte_savings_reports_positive_number():
 def test_compact_player_on_non_dict_is_passthrough():
     assert cv.compact_player(None) is None
     assert cv.compact_player("string") == "string"
+
+
+def test_the_applied_weight_survives_the_slim():
+    """The number that does the work must reach the smaller screen.
+
+    ``appliedWeight`` is the weight the count-aware blend multiplies by;
+    ``effectiveWeight`` is a coverage diagnostic that is never applied.
+    The rankings audit popover renders them as "Weight (applied)" and
+    "Coverage wt (diagnostic)" for exactly that reason.
+
+    ``appliedWeight`` was absent from the slim set, so on the compact view
+    — which ``device-profile.js`` selects for mobile and slow networks —
+    the applied row did not render and only the diagnostic showed,
+    reinstating the mislabelling the popover was rewritten to fix.
+    Keeping BOTH is the point; asserting only that one is present would
+    not catch the inversion coming back.
+    """
+    out = cv.compact_contract(_sample_contract())
+    for player in out["players"].values():
+        for meta in (player.get("sourceRankMeta") or {}).values():
+            assert "appliedWeight" in meta, "the applied weight was slimmed away"
+            assert "effectiveWeight" in meta, "the coverage diagnostic was slimmed away"

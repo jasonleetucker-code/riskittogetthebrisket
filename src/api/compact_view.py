@@ -72,13 +72,24 @@ _PRUNED_PLAYER_FIELDS = frozenset(
 
 # Per-source meta fields kept on the compact view.  Drives the trade
 # per-source winner card (``valueContribution``), the rankings audit
-# popover (``valueContribution`` + ``effectiveWeight`` + ``method``),
-# and the PlayerPopup source-contribution graphs (``valueContribution``).
-# Audit-only stamps (percentile, isAnchor, TEP correction flags, etc.)
-# are dropped on mobile to keep the payload small.
+# popover (``valueContribution`` + ``appliedWeight`` + ``effectiveWeight``
+# + ``method``), and the PlayerPopup source-contribution graphs
+# (``valueContribution``).  Audit-only stamps (percentile, isAnchor, TEP
+# correction flags, etc.) are dropped on mobile to keep the payload small.
+#
+# ``appliedWeight`` is NOT optional here even though it is one more field.
+# It is the weight the count-aware blend actually multiplies by;
+# ``effectiveWeight`` is a coverage diagnostic that is never applied.  The
+# audit popover renders them as "Weight (applied)" and "Coverage wt
+# (diagnostic)" precisely because labelling the diagnostic "Weight" told
+# the reader it was the number doing the work.  Dropping ``appliedWeight``
+# here left the compact view — which ``device-profile.js`` selects for
+# mobile and slow networks — showing only the diagnostic, reinstating that
+# exact inversion on the smaller screen.
 _SLIM_SOURCE_RANK_META_FIELDS = frozenset(
     {
         "valueContribution",
+        "appliedWeight",
         "effectiveWeight",
         "method",
     }

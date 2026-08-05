@@ -81,9 +81,13 @@ def build_team_directions(
 ) -> list[dict[str, Any]]:
     """Compose direction labels for every team that has any input data.
 
-    All maps are keyed by ownerId.  When a map is empty (e.g. no
-    cached sim yet), the missing dimension defaults to 0 — the
-    classifier degrades cleanly.
+    All maps are keyed by ownerId.  A team the simulator never saw gets a
+    ``"Not simulated"`` row with ``None`` odds and no buy/sell verb — NOT
+    a 0% forecast.  This docstring used to promise the opposite ("the
+    missing dimension defaults to 0 — the classifier degrades cleanly"),
+    and that default is exactly what told the strongest roster in the
+    league to sell.  Degrading cleanly means declining to answer, not
+    answering from a fabricated zero.
     """
     playoffs = playoff_odds_map or _load_playoff_odds_map()
     champs = championship_map or _load_championship_map()
@@ -107,10 +111,13 @@ def build_team_directions(
         # confident zero and it duly returned "Seller — sell aging
         # win-now players" to the strongest roster in the league.
         # Say "not simulated" instead of inventing a number.
-        po_row = playoffs.get(owner)
-        co_row = champs.get(owner)
+        # Read the FIELDS, not just the rows: a row present with the odds
+        # missing is equally unmeasured, and reading it as 0.0 would be the
+        # same defect one level down.
+        po_raw = (playoffs.get(owner) or {}).get("playoffOdds")
+        co_raw = (champs.get(owner) or {}).get("championshipOdds")
         strength_row = strengths.get(owner) or {}
-        if po_row is None and co_row is None:
+        if po_raw is None and co_raw is None:
             out.append(
                 {
                     "ownerId": owner,
@@ -119,15 +126,24 @@ def build_team_directions(
                     "championshipOdds": None,
                     "oddsSource": ODDS_SOURCE_NOT_SIMULATED,
                     "rosStrengthPercentile": None,
-                    "rank": float(strength_row.get("rank") or 0.0),
+                    # None, not 0.0 — consistent with the rest of this row.
+                    # A rank of 0 would read as "ranked, at the top".
+                    "rank": (
+                        float(strength_row["rank"])
+                        if strength_row.get("rank") is not None
+                        else None
+                    ),
                     **DIRECTION_NOT_SIMULATED,
                 }
             )
             continue
 
-        # Present in the sim: a missing field here really is zero.
-        po = float((po_row or {}).get("playoffOdds") or 0.0)
-        co = float((co_row or {}).get("championshipOdds") or 0.0)
+        # In the sim on at least one axis.  A missing value on the OTHER
+        # axis is a genuine zero for that axis only — written out rather
+        # than reached with ``or``, so the intent is legible and the
+        # coercion gate can tell this apart from the defect above.
+        po = float(po_raw) if po_raw is not None else 0.0
+        co = float(co_raw) if co_raw is not None else 0.0
         # team_strength snapshot doesn't carry a percentile by itself;
         # rank/length is the cheapest proxy.
         rank = float(strength_row.get("rank") or 0.0)
@@ -160,7 +176,13 @@ def build_team_directions(
 
     # Unsimulated teams have no odds to rank by, so they sort last rather
     # than sorting as if they were the worst team in the league.
-    out.sort(key=lambda r: (r["championshipOdds"] is None, -(r["championshipOdds"] or 0.0)))
+    def _rank_key(row: dict[str, Any]) -> tuple[bool, float]:
+        odds = row["championshipOdds"]
+        if odds is None:
+            return (True, 0.0)
+        return (False, -float(odds))
+
+    out.sort(key=_rank_key)
     return out
 
 
