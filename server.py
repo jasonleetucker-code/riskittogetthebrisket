@@ -736,16 +736,54 @@ def _check_disk_space(path: Path | None = None) -> tuple[bool, int]:
 
 
 def _sanitize_next_path(raw: str | None, default: str = "/") -> str:
+    """Return ``raw`` only if it is a same-origin path, else ``default``.
+
+    Allowlist, not blocklist. The previous version rejected ``http://``,
+    ``https://``, ``//`` and newlines, and a backslash walked straight
+    through: ``/login?next=/\\attacker.tld`` passed every check, and
+    browsers normalise ``\\`` to ``/``, so the post-login redirect landed on
+    ``//attacker.tld`` — a protocol-relative URL to another origin.
+
+    That is a working credential-phishing amplifier on the real domain: the
+    victim sees the genuine site, types a real password, and is handed to the
+    attacker with no domain cue that anything happened. Audit finding
+    W22-F001. Driven end to end in Chromium before this fix.
+
+    A blocklist is the wrong shape here — it has to anticipate every
+    encoding a browser will accept, and it only takes one miss. This parses
+    instead and requires the result to carry no scheme, no netloc and no
+    stray leading separator, so anything it does not positively understand
+    becomes ``default``.
+    """
     value = str(raw or "").strip()
     if not value:
         return default
-    if value.startswith("http://") or value.startswith("https://"):
+
+    # Browsers treat a backslash as a path separator in URLs, so normalise
+    # before parsing rather than trusting urlsplit to agree with them.
+    normalized = value.replace("\\", "/")
+
+    # Control characters (NUL, newline, tab, ...) are stripped by some
+    # clients before the URL is resolved, which can reveal a different URL
+    # than the one validated here.
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in normalized):
         return default
-    if not value.startswith("/") or value.startswith("//"):
+
+    if not normalized.startswith("/") or normalized.startswith("//"):
         return default
-    if "\n" in value or "\r" in value:
+
+    try:
+        parts = urllib.parse.urlsplit(normalized)
+    except ValueError:
         return default
-    return value
+    if parts.scheme or parts.netloc:
+        return default
+    if not parts.path.startswith("/") or parts.path.startswith("//"):
+        return default
+
+    # Return the normalized form — never the raw input, or the caller would
+    # redirect to a string this function never actually validated.
+    return urllib.parse.urlunsplit(("", "", parts.path, parts.query, parts.fragment))
 
 
 def _get_auth_session(request: Request) -> dict | None:

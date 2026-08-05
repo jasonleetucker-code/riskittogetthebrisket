@@ -175,7 +175,20 @@ def get_bdvm_values(
     # cache and enrich one season while valuing another.
     season = nfl_projection_season()
     snapshot = latest_snapshot_path(season)
-    actuals = _actuals_for(contract)
+    # With no projection snapshot ``run_valuation`` returns
+    # ``no_projection_snapshot`` before it looks at any of this, so fetching
+    # it first is pure waste — and it is not cheap waste: the nflverse
+    # weekly pull behind ``_actuals_for`` measured 48 SECONDS on
+    # GET /api/bdvm/roster, to produce a 310-byte "no snapshot" response.
+    # Audit finding W26-F004.
+    #
+    # The empty inputs are handed to ``run_valuation`` rather than
+    # short-circuiting with a locally-built payload, so the refusal message
+    # keeps exactly one definition (src/bdvm/service.py).
+    if snapshot is None:
+        actuals: tuple[int | None, Mapping[str, Any]] = (None, {})
+    else:
+        actuals = _actuals_for(contract)
     key = (
         id(contract),
         contract.get("generatedAt"),
@@ -197,8 +210,10 @@ def get_bdvm_values(
             return cached
 
     roster_settings, idp_enabled, scoring_profile = _registry_settings_for(league_key)
-    context = _context_for(season)
-    schedule_weeks = _schedule_for(season)
+    # Same reasoning as the actuals guard above: both of these are read only
+    # after the snapshot check inside ``run_valuation``.
+    context = _context_for(season) if snapshot is not None else None
+    schedule_weeks = _schedule_for(season) if snapshot is not None else None
     payload = run_valuation(
         contract,
         league_key=league_key,
