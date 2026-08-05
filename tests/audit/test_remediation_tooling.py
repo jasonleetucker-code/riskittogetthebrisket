@@ -99,25 +99,39 @@ class TestCoercionGate(unittest.TestCase):
     def test_gate_actually_detects_the_audits_own_sites(self) -> None:
         """A gate that fires on nothing real would pass silently forever.
 
-        Both sites named here are findings still recorded OPEN.  A third
-        one lived here — ``waiver.py``'s ``top_value_in_pool or 0``, the
-        latent half of W-2 — and #707 deleted it along with the rest of
-        the pool-relative bid.  It was removed from this test rather
-        than kept passing against something that no longer exists,
-        which is the same rule the baseline's stale-entry check
-        enforces.
+        The site named here is a finding still recorded OPEN.  Two
+        others lived here and were removed as the code they pointed at
+        was fixed: ``waiver.py``'s ``top_value_in_pool or 0`` (the
+        latent half of W-2, deleted by #707 with the rest of the
+        pool-relative bid) and ``trade_deadline.py``'s
+        ``playoffOdds or 0.0`` (N-2, fixed in batch C3).  Each was
+        removed rather than kept passing against something that no
+        longer exists, which is the same rule the baseline's stale-entry
+        check enforces — and the removals are the burn-down this gate
+        was built to make visible.
         """
         accepted = set(json.loads(BASELINE.read_text(encoding="utf-8"))["violations"])
-        # N-2: a team missing from the sim is coerced to 0% and told to sell.
-        self.assertTrue(
-            any("trade_deadline.py" in k and "playoffOdds" in k for k in accepted),
-            "the coercion gate no longer sees the N-2 site",
-        )
         # U-1: an unresolvable asset is priced at zero, then graded publicly.
         self.assertTrue(
             any("activity.py" in k and "valuation(asset)" in k for k in accepted),
             "the coercion gate no longer sees the U-1 site",
         )
+
+    def test_the_n2_coercion_is_gone_from_the_tree_and_the_baseline(self) -> None:
+        """Burn-down, asserted in both directions.
+
+        Deleting a baseline entry is only honest if the code went with
+        it; deleting the code is only durable if the allowance goes too,
+        or the defect can quietly return under its own blessing.
+        """
+        accepted = set(json.loads(BASELINE.read_text(encoding="utf-8"))["violations"])
+        self.assertFalse(
+            any("trade_deadline.py" in k and "Odds" in k for k in accepted),
+            "the N-2 allowance is back in the baseline",
+        )
+        source = (REPO_ROOT / "src" / "ros" / "trade_deadline.py").read_text(encoding="utf-8")
+        self.assertNotIn('playoffOdds") or 0.0', source)
+        self.assertNotIn('championshipOdds") or 0.0', source)
 
     def test_baseline_is_internally_consistent(self) -> None:
         """The recorded count must match the recorded entries.
@@ -239,9 +253,61 @@ class TestSurfaceHarness(unittest.TestCase):
         path = REPO_ROOT / "tests" / "fixtures" / "golden" / "surfaces.json"
         cls.rows = json.loads(path.read_text(encoding="utf-8"))["rows"]
 
-    def test_captures_all_four_surfaces(self) -> None:
+    def test_captures_every_declared_surface(self) -> None:
+        """Each batch adds the surfaces it needs before claiming an effect.
+
+        Asserted as an exact set rather than a subset: a surface that
+        silently stops capturing would leave the diff green while
+        observing nothing, which is the one failure mode a measurement
+        harness cannot have.
+        """
         prefixes = {k.split("/", 1)[0] for k in self.rows}
-        self.assertEqual(prefixes, {"ros_direction", "faab_bid", "news_polarity", "trade_verdict"})
+        self.assertEqual(
+            prefixes,
+            {
+                "ros_direction",  # C0 — the ladder itself (R-2)
+                "ros_deadline",  # C3 — its caller (N-2), where absence became "Seller"
+                "faab_bid",
+                "news_polarity",
+                "trade_verdict",
+            },
+        )
+
+    def test_an_absent_manager_gets_no_direction(self) -> None:
+        """N-2, pinned at the harness level.
+
+        The four ``absent`` rows are managers no simulation covers. The
+        fixture puts the league's best roster (rank 1) among them,
+        because that is what the live data did.
+        """
+        absent = {
+            k: v for k, v in self.rows.items() if k.startswith("ros_deadline/") and "absent" in k
+        }
+        self.assertEqual(len(absent), 4)
+        for key, row in absent.items():
+            with self.subTest(row=key):
+                self.assertIsNone(row["value"])
+                self.assertFalse(row["measurable"])
+                self.assertEqual(row["label"], "Insufficient evidence")
+        # And they sort after every measured team rather than as the
+        # worst ones.
+        covered = [
+            v["sortPosition"]
+            for k, v in self.rows.items()
+            if k.startswith("ros_deadline/") and "covered" in k
+        ]
+        self.assertTrue(min(r["sortPosition"] for r in absent.values()) > max(covered))
+
+    def test_a_measured_zero_still_sells(self) -> None:
+        """The control on the batch above: real signal is not silenced."""
+        zeros = [
+            v
+            for k, v in self.rows.items()
+            if k.startswith("ros_deadline/") and "covered" in k and v["value"] == 0.0
+        ]
+        self.assertEqual(len(zeros), 2)
+        for row in zeros:
+            self.assertEqual(row["label"], "Seller")
 
     def test_exposes_the_ros_dead_band(self) -> None:
         """R-2 / C36: 0.40 playoff odds falls through to the catch-all.
