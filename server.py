@@ -410,6 +410,19 @@ contract_health: dict = {
 served_source_coverage: dict = {}
 
 
+# Per-source INGESTION counts of the currently-served contract:
+# ``{sourceKey: playerCount}`` counted from non-zero
+# ``playersArray[*].canonicalSiteValues`` — how many players carry a
+# value from each source at all, whether or not that value ended up
+# voting in the blend.  Distinct from ``served_source_coverage``
+# above on purpose: a source can land on the board (ingest count > 0)
+# and still cast no vote, and collapsing the two would hide exactly
+# that failure.  This is the count the contract's row-count floors
+# gate on, so the health surfaces and the validator report the same
+# number.  Recomputed once per prime.
+served_source_ingest_counts: dict = {}
+
+
 def _compute_served_source_coverage(contract: dict | None) -> dict:
     """Count, per source, how many served players carry it in
     ``sourceRankMeta`` (== "contributed to the blend").  Defensive:
@@ -425,6 +438,33 @@ def _compute_served_source_coverage(contract: dict | None) -> dict:
     except Exception:  # noqa: BLE001
         return {}
     return cov
+
+
+def _compute_source_ingest_counts(contract: dict | None) -> dict:
+    """Count, per source, how many served players carry a NON-ZERO
+    ``canonicalSiteValues`` entry for it (== "this source landed on
+    the board").
+
+    Same arithmetic as the per-source row-count floors in
+    ``validate_api_data_contract``, so ``/api/status.source_health``
+    and ``contractHealth`` can never disagree about whether a source
+    produced.  Defensive: any shape surprise yields ``{}``.
+    """
+    counts: dict[str, int] = {}
+    try:
+        for row in (contract or {}).get("playersArray") or []:
+            vals = row.get("canonicalSiteValues") if isinstance(row, dict) else None
+            if not isinstance(vals, dict):
+                continue
+            for k, v in vals.items():
+                try:
+                    if v is not None and float(v) > 0:
+                        counts[str(k)] = counts.get(str(k), 0) + 1
+                except (TypeError, ValueError):
+                    continue
+    except Exception:  # noqa: BLE001
+        return {}
+    return counts
 
 
 # ── NEWS SERVICE ───────────────────────────────────────────────────────
@@ -1391,14 +1431,167 @@ def _live_by_name_from_contract(contract: dict | None) -> dict[str, int]:
     return built
 
 
+# ── The scrape runtime's vocabulary → the source registry's ────────────
+# The legacy browser scraper names the things IT runs ("KTC",
+# "IDPTradeCalc", "KTC_TradeDB", "KTC_WaiverDB").  Those are run plans,
+# not registry keys, and one KTC run produces TWO registry sources
+# (``ktc`` base SF + ``ktcSfTep`` TE++).  Every previous attempt to
+# join the two vocabularies did it by case-folding at the call site,
+# which silently mapped "IDPTradeCalc" → "idptradecalc" → no match and
+# rendered a 900-row source as 0 rows.  The mapping is explicit here so
+# a name that has no registry counterpart stays visible AS a runtime
+# name instead of resolving to a wrong or empty registry row.
+_RUNTIME_NAME_TO_REGISTRY_KEYS: dict[str, tuple[str, ...]] = {
+    "KTC": ("ktc", "ktcSfTep"),
+    "IDPTradeCalc": ("idpTradeCalc",),
+}
+
+
+def _source_health_rows(
+    *,
+    ingest_counts: dict | None = None,
+    blend_counts: dict | None = None,
+    freshness: dict | None = None,
+    parse_errors: list | None = None,
+    runtime: dict | None = None,
+) -> list[dict]:
+    """One row per source the pipeline INGESTS, registry-keyed.
+
+    This is the single normalising helper every source-health surface
+    reads (``/api/status.source_health``, ``/tools/source-health``).
+    It exists because each surface used to build its own row set out of
+    whatever it could reach — the scrape runtime's four-name internal
+    vocabulary — so a board blending 21 sources reported "2 of 2
+    sources, nothing missing" and a 19-source outage moved no number.
+
+    Per row:
+
+    * ``rows`` — players carrying a non-zero value from this source
+      (the same count the contract's row-count floors gate on).
+    * ``blendRows`` — players whose blend actually counted this
+      source's vote.  ``None`` for a source that is ingested but not a
+      blend member (``ktc``, superseded by ``ktcSfTep``): unknown is
+      not zero.
+    * ``lastFetched`` / ``ageHours`` / ``maxAgeHours`` / ``staleness``
+      — from :func:`_per_source_freshness`.
+    * ``status`` — ``failed`` (a parse error or a failed/timed-out
+      scrape run) > ``empty`` (parsed, zero rows on the board) >
+      ``stale`` > ``ok``, and ``unknown`` when no contract is loaded
+      yet.  A count we do not have is reported as ``None`` with
+      ``status: unknown``, never as 0.
+
+    Runtime names with no registry counterpart (``KTC_TradeDB``,
+    ``KTC_WaiverDB``) are appended with ``inRegistry: False`` so their
+    failures stay visible without being counted as board sources.
+    """
+    ingest = ingest_counts if isinstance(ingest_counts, dict) else {}
+    blend = blend_counts if isinstance(blend_counts, dict) else {}
+    fresh = freshness if isinstance(freshness, dict) else {}
+    runtime = runtime if isinstance(runtime, dict) else {}
+
+    try:
+        from src.api.data_contract import _RANKING_SOURCES, _SOURCE_CSV_PATHS
+    except Exception:  # pragma: no cover - registry import is load-bearing
+        return []
+
+    blend_meta = {
+        str(s.get("key")): s for s in _RANKING_SOURCES if isinstance(s, dict) and s.get("key")
+    }
+
+    # Per-source parse failures from the contract build (file_not_found,
+    # schema_mismatch, source_empty, ...).  Joined by registry key.
+    errors_by_key: dict[str, str] = {}
+    for perr in parse_errors or []:
+        if not isinstance(perr, dict):
+            continue
+        key = str(perr.get("source") or "").strip()
+        if key and key not in errors_by_key:
+            errors_by_key[key] = str(perr.get("error") or "parse_error")
+
+    # Scrape-run outcomes, translated out of the runtime vocabulary.
+    run_state_by_key: dict[str, str] = {}
+    unmapped_runtime: dict[str, str] = {}
+    for state in ("failed_sources", "timed_out_sources", "partial_sources"):
+        for name in runtime.get(state) or []:
+            label = state[: -len("_sources")].replace("_", " ").strip()
+            mapped = _RUNTIME_NAME_TO_REGISTRY_KEYS.get(str(name))
+            if mapped:
+                for key in mapped:
+                    run_state_by_key.setdefault(key, label)
+            else:
+                unmapped_runtime.setdefault(str(name), label)
+    for name in runtime.get("enabled_sources") or []:
+        if str(name) not in _RUNTIME_NAME_TO_REGISTRY_KEYS:
+            unmapped_runtime.setdefault(str(name), "")
+
+    # No contract primed yet → counts are unknown, not zero.
+    counts_known = bool(ingest)
+
+    rows: list[dict] = []
+    for key in _SOURCE_CSV_PATHS:
+        meta = blend_meta.get(key)
+        fmeta = fresh.get(key) if isinstance(fresh.get(key), dict) else {}
+        row_count = int(ingest.get(key, 0)) if counts_known else None
+        blend_count = None
+        if meta is not None and counts_known:
+            blend_count = int(blend.get(key, 0))
+        staleness = str(fmeta.get("staleness") or "unknown")
+        reason = errors_by_key.get(key) or run_state_by_key.get(key)
+        if reason:
+            status = "failed"
+        elif row_count is None:
+            status = "unknown"
+        elif row_count == 0:
+            status = "empty"
+            reason = "no rows on the served board"
+        elif staleness == "stale":
+            status = "stale"
+            reason = f"last fetched {fmeta.get('ageHours')}h ago"
+        else:
+            status = "ok"
+        rows.append(
+            {
+                "key": key,
+                "displayName": str((meta or {}).get("display_name") or key),
+                "inRegistry": True,
+                "inBlend": meta is not None,
+                "rows": row_count,
+                "blendRows": blend_count,
+                "lastFetched": fmeta.get("lastFetched"),
+                "ageHours": fmeta.get("ageHours"),
+                "maxAgeHours": fmeta.get("maxAgeHours"),
+                "staleness": staleness,
+                "status": status,
+                "reason": reason,
+            }
+        )
+
+    for name, label in sorted(unmapped_runtime.items()):
+        rows.append(
+            {
+                "key": name,
+                "displayName": name,
+                "inRegistry": False,
+                "inBlend": False,
+                "rows": None,
+                "blendRows": None,
+                "lastFetched": None,
+                "ageHours": None,
+                "maxAgeHours": None,
+                "staleness": "unknown",
+                "status": "failed" if label else "unknown",
+                "reason": label or None,
+            }
+        )
+    return rows
+
+
 def _build_source_health_snapshot(data: dict | None) -> dict:
     payload = data or {}
     sites = payload.get("sites")
     if not isinstance(sites, list):
         sites = []
-    source_counts: dict[str, int] = {}
-    missing: list[str] = []
-    available = 0
+    legacy_site_counts: dict[str, int] = {}
     for row in sites:
         if not isinstance(row, dict):
             continue
@@ -1406,11 +1599,7 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
         if not key:
             continue
         count = int(row.get("playerCount") or 0)
-        source_counts[key] = count
-        if count > 0:
-            available += 1
-        else:
-            missing.append(key)
+        legacy_site_counts[key] = count
 
     failures: list[dict] = []
     seen_failures: set[tuple[str, str, str]] = set()
@@ -1533,9 +1722,6 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
             "failed_sources": sorted([str(s) for s in failed_sources]),
         }
 
-    if not partial_run:
-        partial_run = len(failures) > 0
-
     # Per-source freshness — the CSV mtime tells us when each source
     # was last successfully refreshed, independent of the most recent
     # *full-pipeline* scrape time.  Stamp this here so the staleness
@@ -1544,8 +1730,41 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
     # health page can render per-source ages.
     sources_meta = _per_source_freshness()
 
+    # ── The board's own numbers, not the scrape runtime's ────────────
+    # ``total_sources`` / ``sources_with_data`` / ``source_counts`` /
+    # ``missing_sources`` used to be derived from ``payload['sites']``,
+    # which the legacy scraper writes for the two sources it scrapes
+    # itself.  On a board blending 21 sources that reported "2 of 2,
+    # nothing missing" — a 19-source outage could not move it, and
+    # ``missing_sources`` was empty by construction because the
+    # denominator was whatever ran.  They are now registry-keyed and
+    # counted off the served contract.  The legacy per-site counts stay
+    # available under ``legacy_site_counts`` for anything that wants
+    # the scraper's own view; nothing derives health from them.
+    parse_errors = (latest_contract_data or {}).get("sourceParseErrors")
+    rows = _source_health_rows(
+        ingest_counts=served_source_ingest_counts,
+        blend_counts=served_source_coverage,
+        freshness=sources_meta,
+        parse_errors=parse_errors if isinstance(parse_errors, list) else [],
+        runtime=source_runtime,
+    )
+    registry_rows = [r for r in rows if r.get("inRegistry")]
+    source_counts = {r["key"]: r["rows"] for r in registry_rows if r["rows"] is not None}
+    missing = [r["key"] for r in registry_rows if r["status"] == "empty"]
+    available = sum(1 for r in registry_rows if isinstance(r["rows"], int) and r["rows"] > 0)
+
+    for row in registry_rows:
+        if row["status"] == "empty":
+            _push_failure(row["key"], "no_rows", {"message": row["reason"]})
+        elif row["status"] == "stale" and row["reason"]:
+            _push_failure(row["key"], "stale", {"message": row["reason"]})
+
+    if not partial_run:
+        partial_run = len(failures) > 0
+
     return {
-        "total_sources": len(source_counts),
+        "total_sources": len(registry_rows),
         "sources_with_data": available,
         "source_counts": source_counts,
         "missing_sources": sorted(missing),
@@ -1553,6 +1772,10 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
         "source_runtime": source_runtime,
         "source_failures": failures,
         "sources": sources_meta,
+        # Registry-keyed per-source rows — what /tools/source-health
+        # renders.  See ``_source_health_rows``.
+        "sources_detail": rows,
+        "legacy_site_counts": legacy_site_counts,
     }
 
 
@@ -1610,7 +1833,7 @@ def _per_source_freshness() -> dict[str, dict]:
 
     def _build() -> dict[str, dict]:
         try:
-            from src.api.data_contract import _SOURCE_CSV_PATHS
+            from src.api.data_contract import _SOURCE_CSV_PATHS, _SOURCE_MAX_AGE_HOURS
         except Exception:  # pragma: no cover
             return {}
         repo_root = Path(__file__).resolve().parent
@@ -1643,11 +1866,22 @@ def _per_source_freshness() -> dict[str, dict]:
                     continue
 
             age_hours = max(0.0, (now_epoch - last_epoch) / 3600.0)
+            # ``maxAgeHours`` is the SAME per-source budget the contract
+            # stamps into ``dataFreshness.sourceTimestamps`` — imported
+            # rather than re-tabulated here so the health page and the
+            # payload can't drift into two answers for one source.
+            max_age = _SOURCE_MAX_AGE_HOURS.get(src_key)
             out[src_key] = {
                 "lastFetched": datetime.fromtimestamp(last_epoch, tz=timezone.utc).isoformat(
                     timespec="seconds"
                 ),
                 "ageHours": round(age_hours, 2),
+                "maxAgeHours": max_age,
+                "staleness": (
+                    "unknown"
+                    if max_age is None
+                    else ("stale" if age_hours > float(max_age) else "fresh")
+                ),
             }
         return out
 
@@ -1816,6 +2050,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_compact_data_etag
     global contract_health
     global served_source_coverage
+    global served_source_ingest_counts
 
     def _swap_to_empty() -> None:
         """Publish the 'no payload' generation (falsy data / failed
@@ -1842,7 +2077,9 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             latest_compact_data_gzip_bytes, \
             latest_compact_data_etag
         global served_source_coverage
+        global served_source_ingest_counts
         served_source_coverage = {}
+        served_source_ingest_counts = {}
         latest_data_bytes = None
         latest_data_gzip_bytes = None
         latest_data_etag = None
@@ -1949,6 +2186,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         except Exception:  # noqa: BLE001
             pass
         new_coverage = _compute_served_source_coverage(contract_payload)
+        new_ingest_counts = _compute_source_ingest_counts(contract_payload)
 
         # Post-scrape overlay warm — for every ACTIVE league
         # (including the default league the scraper just built for),
@@ -2076,6 +2314,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     latest_contract_data = contract_payload
     contract_health = contract_report
     served_source_coverage = new_coverage
+    served_source_ingest_counts = new_ingest_counts
     latest_data_bytes = raw
     latest_data_gzip_bytes = full_gzip
     latest_data_etag = full_etag
@@ -11328,14 +11567,34 @@ async def get_player_realized(sleeper_id: str, request: Request):
     # Find this player's GSIS via the unified mapper, then filter.
     from src.identity import unified_mapper as _um
 
-    players_dir = sleeper_block.get("players") or sleeper_block.get("playerDict")
-    resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
+    # The directory this route used to read — ``sleeper.players`` /
+    # ``sleeper.playerDict`` — is a key NO writer in this repo has ever
+    # produced, so ``resolve_player`` indexed ``None`` and returned
+    # ``unmapped_player`` for 100% of players (audit W06-F003).  The
+    # contract's Sleeper block carries ``idToPlayer`` + ``positions``;
+    # ``gsis_directory`` turns those into a real directory, preferring
+    # the cached Sleeper dump (id → id, no name involved) and attaching
+    # GSIS from the nflverse rows already fetched above otherwise.  Its
+    # refusals are counted and stamped so an empty panel is
+    # distinguishable from an absent one.
+    from src.consensus_edge import identity_join as _ij
+    from src.identity import gsis_directory as _gd
+
+    build = _gd.build_directory(
+        sleeper_block,
+        weekly_rows=weekly,
+        cached_directory=_ij.load_player_directory(),
+    )
+    resolved = _um.resolve_player(build.directory, sleeper_id=str(sleeper_id))
     if resolved is None or not resolved.gsis_id:
+        identity_meta = build.as_meta()
+        identity_meta["detail"] = build.status_for(str(sleeper_id))
         return JSONResponse(
             content={
                 "sleeperId": sleeper_id,
                 "leagueKey": league_cfg.key,
                 "reason": "unmapped_player",
+                "identity": identity_meta,
                 "weeks": [],
             }
         )
@@ -11376,6 +11635,7 @@ async def get_player_realized(sleeper_id: str, request: Request):
             "fullName": resolved.full_name,
             "position": resolved.position,
             "leagueKey": league_cfg.key,
+            "identity": {**build.as_meta(), "matchMethod": resolved.match_method},
             **cumulative,
         }
     )
