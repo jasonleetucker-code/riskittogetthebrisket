@@ -14,12 +14,19 @@ Design
   layer — written on session create/clear, read once on startup
   to hydrate the in-memory dict.
 * TTL: sessions expire after ``SESSION_TTL_DAYS`` days (default
-  30) — matches the cookie ``max_age``.
-* Invalidation on allowlist change: every session row stores
-  ``allowlist_version`` (a hash of PRIVATE_APP_ALLOWED_USERNAMES).
-  On hydrate, sessions whose stored version doesn't match the
-  current are treated as invalid — prevents a session outliving
-  its allowlist entry.
+  30) of *inactivity* — the window slides off ``last_seen_at``,
+  which every authenticated request bumps (throttled) via
+  ``touch``.  An actively-used session never expires; only an
+  idle one does.  Matches the cookie ``max_age`` for a fresh
+  login.
+* Invalidation on allowlist removal: every session row stores the
+  session's ``username``.  On hydrate, a session is dropped only
+  when *its own* username is no longer in the current allowlist —
+  so removing one user signs out only that user, while adding a
+  user leaves every existing session intact.  An empty / unset
+  allowlist is treated as "no restriction" and never invalidates
+  (prevents a mis-deployed empty env var from logging everyone
+  out).  ``allowlist_version`` is still recorded for audit.
 * Corruption fallback: every call is wrapped in broad try/except;
   any SQLite error → in-memory dict continues working (existing
   behavior, no regression).
@@ -93,11 +100,22 @@ def _setup(path: Path) -> None:
 
 
 def _allowlist_version(allowlist: Iterable[str] | None) -> str:
-    """Stable hash of the allowlist — used to invalidate sessions
-    on roster change without manually rotating them."""
+    """Stable hash of the allowlist — recorded per row for audit."""
     items = sorted({s.strip().lower() for s in (allowlist or []) if s})
     raw = ",".join(items).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()[:16]
+
+
+def _allowlist_set(allowlist: Iterable[str] | None) -> set[str] | None:
+    """Normalised set of allowed usernames, or ``None`` when the
+    allowlist is empty / unset.
+
+    ``None`` means "no restriction" — hydrate keeps every session.
+    A non-empty set means "keep only sessions whose username is a
+    member", so removing a user invalidates only that user.
+    """
+    items = {s.strip().lower() for s in (allowlist or []) if s and s.strip()}
+    return items or None
 
 
 def persist(
@@ -148,6 +166,31 @@ def persist(
         _LOGGER.warning("session_store persist failed: %s", exc)
 
 
+def touch(session_id: str, *, db_path: Path | None = None) -> None:
+    """Bump ``last_seen_at`` to now so an active session's sliding
+    TTL keeps sliding.  A no-op for unknown session ids.  Best-effort:
+    any SQLite error is swallowed (auth still works in-memory)."""
+    path = db_path or _DEFAULT_DB_PATH
+    if not _setup_done.is_set():
+        try:
+            _setup(path)
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("session_store touch setup failed: %s", exc)
+            return
+    try:
+        with _db_lock:
+            conn = _connect(path)
+            try:
+                conn.execute(
+                    f"UPDATE {_TABLE} SET last_seen_at = ? WHERE session_id = ?",
+                    (time.time(), str(session_id)),
+                )
+            finally:
+                conn.close()
+    except Exception as exc:  # noqa: BLE001
+        _LOGGER.warning("session_store touch failed: %s", exc)
+
+
 def evict(session_id: str, *, db_path: Path | None = None) -> None:
     """Remove a session (user logged out)."""
     path = db_path or _DEFAULT_DB_PATH
@@ -176,12 +219,16 @@ def hydrate(
     allowlist: Iterable[str] | None = None,
     db_path: Path | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Load every non-expired, allowlist-current session into an
+    """Load every non-expired, still-allowed session into an
     in-memory dict — call once at startup.
 
-    Sessions whose stored ``allowlist_version`` doesn't match the
-    CURRENT allowlist are dropped (and removed from disk) so a
-    rotation invalidates every session instantly.
+    A session is dropped (and removed from disk) when either:
+      * it has been idle longer than the TTL (``last_seen_at``
+        older than the cutoff — a sliding window), or
+      * its ``username`` is no longer in the current allowlist.
+
+    An empty / unset allowlist imposes no membership restriction,
+    so a mis-deployed blank env var can't sign everyone out.
     """
     path = db_path or _DEFAULT_DB_PATH
     if not _setup_done.is_set():
@@ -191,7 +238,7 @@ def hydrate(
             _LOGGER.warning("session_store setup on hydrate failed: %s", exc)
             return {}
 
-    current_ver = _allowlist_version(allowlist)
+    allowed = _allowlist_set(allowlist)
     cutoff = time.time() - _SESSION_TTL_SECONDS
     out: dict[str, dict[str, Any]] = {}
     expired_ids: list[str] = []
@@ -207,10 +254,13 @@ def hydrate(
             finally:
                 conn.close()
         for sid, user, sluid, dn, av, am, ver, created, last in rows:
-            if created < cutoff:
+            # Sliding TTL — expire on idle time, not age.  Fall back
+            # to created_at for legacy rows written before touch().
+            last_active = last if last and last > 0 else created
+            if last_active < cutoff:
                 expired_ids.append(sid)
                 continue
-            if ver != current_ver:
+            if allowed is not None and str(user or "").strip().lower() not in allowed:
                 expired_ids.append(sid)
                 continue
             out[sid] = {
@@ -224,6 +274,7 @@ def hydrate(
                     time.gmtime(created),
                 ),
                 "created_at_epoch": created,
+                "last_seen_epoch": last_active,
             }
         if expired_ids:
             with _db_lock:
