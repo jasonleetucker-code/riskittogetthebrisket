@@ -142,7 +142,18 @@ def build_team_directions(
     # sorting as if they were the worst — a null championship chance is
     # not a zero one, and the audit's whole point is that the two must
     # not render alike.
-    out.sort(key=lambda r: (r["championshipOdds"] is None, -(r["championshipOdds"] or 0.0)))
+    def _sort_key(row: dict[str, Any]) -> tuple[int, float]:
+        odds = row.get("championshipOdds")
+        if not isinstance(odds, (int, float)):
+            # Sorted by the leading 1, never by this number — but it is
+            # written as the best possible odds rather than ``or 0.0``
+            # so that if the leading term is ever dropped, unmeasurable
+            # teams surface at the top where someone notices, instead of
+            # sinking to the bottom where they read as the worst.
+            return (1, -1.0)
+        return (0, -float(odds))
+
+    out.sort(key=_sort_key)
     return out
 
 
