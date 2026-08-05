@@ -447,6 +447,33 @@ drifts from the live number is worse than no literal at all
 What is still deliberately different is the **gate**, per the table
 above: the quality filter, not the value.
 
+**The offense-only board is a companion, never a substitute.**
+`offenseOnlyRankDerivedValue` is a real second concept — the whole
+pipeline re-run with every IDP-scoped source disabled — and until
+2026-08-05 the three trade engines *swapped it in* whenever a trade
+happened to contain no DL/LB/DB, under the field name the consensus
+board owns. One player then rendered two numbers: Travis Hunter 5,637
+on `/trade` against 4,401 on `/rankings` (+28.08%), because the
+offense-only board never saw the two-way-player boost; 19 of 51 served
+legs disagreed with the board; and `/arbitrage` printed the offense-only
+number under the literal label "board". Now:
+
+| surface | the board | the companion |
+|---|---|---|
+| `/api/trade/suggestions` leg | `displayValue` | `offenseOnlyValue` |
+| `/api/trade/simulate` asset | `value` | `offenseOnlyValue` |
+| `/api/trade/finder` asset | `modelValue` | `offenseOnlyModelValue` |
+
+Each response names its board — `metadata.valueBasis` on suggestions,
+`valueBasis` on simulate, the pre-existing `metadata.valueSource` on the
+finder. Whether IDP calibration *should* be excluded from an all-offense
+trade is an open design question; if it is ever reopened, the answer is a
+selectable basis with its own label, not a silent swap. `finder.py` reads
+the companion from `playersArray` via `offense_only_values_from_contract`,
+not from the legacy dict's `_offenseOnlyFinalAdjusted` mirror — the
+league-adjusted overlay rewrites rows, never the dict, so the mirror is
+always market-priced no matter what `valuationMode` says.
+
 Three traps this documentation previously set:
 
 * **`finder.py` was offense-only.** It ranked every asset against KTC,
@@ -803,8 +830,23 @@ league's factors and hands the engine a contract whose `playersArray` rows are
 already repriced (`src/league_intel/overlay.py`). No engine knows the feature
 exists, because every engine reads exactly one value — `rankDerivedValue`.
 
-Four rules that are load-bearing:
+Five rules that are load-bearing:
 
+- **The lens moves EVERY board-scale field, and the list is
+  `overlay.BOARD_SCALE_ROW_FIELDS`.** The sentence above — "every engine reads
+  exactly one value" — was false for a year and nothing noticed, because
+  `offenseOnlyRankDerivedValue` (the IDP-disabled re-run of the pipeline,
+  `data_contract.py` phase 13, 606 rows) is a SECOND board on the SAME 0-9999
+  scale, and `suggestions.py`, `trade_simulator.py` and `finder.py` all read
+  it. Scaling `rankDerivedValue` alone made the lens a measurable no-op on
+  every all-offense trade while the response still stamped
+  `valuationMode: leagueAdjusted` with `valuationNote: null` — `/api/trade/simulate`
+  returned byte-identical equity 4004 under both modes, and 21 of 51 suggestion
+  legs came back unadjusted (W09-F006, W29-F002). Anything added to a contract
+  row on the board scale belongs in that tuple; `values.rawComposite` and the
+  legacy `_finalAdjusted`/`_composite` do NOT (composite scale, median 1.0855×
+  the board). `frontend/lib/dynasty-data.js::applyValuationOverlay` mirrors the
+  same list — the two appliers must scale the same set.
 - **`overlay.adjusted_rows` returns EVERY row, not the ranked ones.**
   `compact_ranks_and_tiers` returns only rows it ranked, dropping unranked rows
   and clearing current-year slot picks. Serving that subset measured 740 of
