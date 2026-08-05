@@ -300,3 +300,101 @@ def test_audit_payload_preserves_source_trace(tmp_path, monkeypatch):
     assert movement["manager"] == "sleeper:u1"
     assert movement["direction"] == "add"
     assert movement["qualificationMethod"] == "automated_qualified"
+
+
+def test_one_manager_cannot_dominate_an_asset(tmp_path, monkeypatch):
+    """The defect: `src/sharp` capped concentration nowhere.
+
+    Consensus Edge has bounded per-manager and per-league share since
+    ADR-011. This path did not, so a manager with eight observations
+    against two other managers' one each drove the signal almost
+    entirely, and `breadth_factor = m/(m+3)` saturated far too fast to
+    push back — the board read "three sharps are buying" on what was
+    effectively one person's opinion.
+
+    Raw counts stay raw: `volume` describes the record. The capped
+    weights are what `strength` is computed from.
+
+    NOTE what a share cap can and cannot do. It bounds one contributor's
+    share OF A TOTAL, so with a single contributor there is nothing to
+    scale against — a lone manager's share is 100% by construction and
+    capping it is meaningless. That case is bounded by `breadth_factor`
+    (one manager gives 1/(1+3) = 0.25) and not by this. The cap is for
+    concentration among several, which is what this asserts.
+    """
+    path = tmp_path / "ledger.sqlite3"
+    cohort_list = []
+    for i in range(8):
+        platform_ledger.ingest_batch(batch("sleeper", "u1", f"L{i}", f"T{i}", f"M{i}"), path=path)
+    for idx, other in enumerate(("u2", "u3")):
+        platform_ledger.ingest_batch(
+            batch("sleeper", other, f"LO{idx}", f"TO{idx}", f"MO{idx}"), path=path
+        )
+    for key in ("u1", "u2", "u3"):
+        cohort_list.append(
+            market.CohortMember(f"sleeper:{key}", "sleeper", "automated_qualified", 0.9)
+        )
+    monkeypatch.setattr(
+        market,
+        "cohort_members",
+        lambda **kwargs: (cohort_list, {"automatedQualifiedManagers": 3}),
+    )
+    payload = market.market_payload(
+        window="30d", now_ms=NOW, ledger_path=path, ffpc_config={"enabled": False}
+    )
+    win = payload["assets"][0]["windows"]["30d"]
+
+    # The record is unchanged: ten movements happened.
+    assert win["buys"] == 10
+    assert win["volume"] == 10
+    assert win["uniqueManagers"] == 3
+
+    # The evidence is bounded: u1 held 80% and is cut toward the 34% cap.
+    assert win["concentrationCapped"] is True
+    assert win["weightedVolume"] < 10, "one manager still contributes eight observations"
+    assert win["weightedVolume"] > 2, "the two independent managers were erased"
+
+
+def test_a_broad_asset_is_not_capped(tmp_path, monkeypatch):
+    # The cap must bind on concentration, not on volume — ten different
+    # managers are exactly the evidence the board is for.
+    path = tmp_path / "ledger.sqlite3"
+    cohort_members_list = []
+    for i in range(10):
+        platform_ledger.ingest_batch(
+            batch("sleeper", f"u{i}", f"L{i}", f"T{i}", f"M{i}"), path=path
+        )
+        cohort_members_list.append(
+            market.CohortMember(f"sleeper:u{i}", "sleeper", "automated_qualified", 0.9)
+        )
+    monkeypatch.setattr(
+        market,
+        "cohort_members",
+        lambda **kwargs: (cohort_members_list, {"automatedQualifiedManagers": 10}),
+    )
+    payload = market.market_payload(
+        window="30d", now_ms=NOW, ledger_path=path, ffpc_config={"enabled": False}
+    )
+    win = payload["assets"][0]["windows"]["30d"]
+    assert win["uniqueManagers"] == 10
+    assert win["concentrationCapped"] is False
+    assert win["weightedVolume"] == 10.0
+
+
+def test_capping_shrinks_a_lean_but_never_flips_it(tmp_path, monkeypatch):
+    # Buys and sells scale by the same per-contributor factor, so a cap
+    # can reduce confidence in a direction but cannot reverse it.
+    path = tmp_path / "ledger.sqlite3"
+    for i in range(6):
+        platform_ledger.ingest_batch(
+            batch("sleeper", "u1", f"L{i}", f"T{i}", f"M{i}", action="add"), path=path
+        )
+    platform_ledger.ingest_batch(batch("sleeper", "u1", "LX", "TX", "MX", action="drop"), path=path)
+    monkeypatch.setattr(market, "cohort_members", lambda **kwargs: members())
+    payload = market.market_payload(
+        window="30d", now_ms=NOW, ledger_path=path, ffpc_config={"enabled": False}
+    )
+    win = payload["assets"][0]["windows"]["30d"]
+    assert win["net"] > 0
+    assert win["weightedNet"] > 0, "the cap reversed the direction of the lean"
+    assert win["weightedNet"] <= win["net"]

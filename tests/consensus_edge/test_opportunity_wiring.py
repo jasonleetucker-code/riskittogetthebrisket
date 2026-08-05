@@ -517,6 +517,80 @@ class TestSharpMovementsAppliesTheFilterItClaims(unittest.TestCase):
         self.assertEqual(movements["canon-4046"][0].manager_key, "ffpc:sharpguy")
         self.assertEqual(movements["canon-4046"][0].timestamp_ms, 42)
 
+    def test_one_human_with_two_linked_accounts_is_one_cap_bucket(self):
+        """The real cross-platform leak — in the cap, not the quality.
+
+        The docs named a quality-lookup default of 1.0 for cross-platform
+        managers. That default is unreachable. What IS reachable: the
+        per-manager share cap groups by `Movement.manager_key`, and this
+        function never emitted `canonicalManagerKey`, so one human's
+        linked Sleeper and FFPC accounts arrived as two groups and each
+        got its own 0.34 bucket — the bound they were supposed to share.
+        """
+        import sqlite3
+
+        from src.consensus_edge import inputs as inputs_mod
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._ledger(
+                tmp,
+                [
+                    ("m1", "t1", "L1", "trade", "4046", "player", "add", "acct_a", 1, 0),
+                    ("m2", "t2", "L2", "trade", "4046", "player", "add", "acct_b", 2, 0),
+                ],
+            )
+            conn = sqlite3.connect(path)
+            for col in ("canonical_asset_id", "manager_key", "league_key"):
+                conn.execute(f"ALTER TABLE asset_movements ADD COLUMN {col} TEXT")
+            conn.execute("ALTER TABLE asset_movements ADD COLUMN timestamp_ms INTEGER")
+            conn.execute(
+                "UPDATE asset_movements SET canonical_asset_id='canon', "
+                "manager_key='sleeper:acct_a', league_key='sleeper:L1', timestamp_ms=1 "
+                "WHERE movement_id='m1'"
+            )
+            conn.execute(
+                "UPDATE asset_movements SET canonical_asset_id='canon', "
+                "manager_key='ffpc:acct_b', league_key='ffpc:L2', timestamp_ms=2 "
+                "WHERE movement_id='m2'"
+            )
+            # Both accounts resolve to one person.
+            conn.execute(
+                "CREATE TABLE platform_managers (manager_key TEXT PRIMARY KEY, "
+                "canonical_manager_id TEXT)"
+            )
+            conn.executemany(
+                "INSERT INTO platform_managers VALUES (?,?)",
+                [("sleeper:acct_a", "person:1"), ("ffpc:acct_b", "person:1")],
+            )
+            conn.commit()
+            conn.close()
+
+            p1, p2 = self._patched(path, {"sleeper:acct_a": 0.6, "ffpc:acct_b": 0.7})
+            with p1, p2:
+                movements, reason = inputs_mod.sharp_movements()
+
+        self.assertIsNone(reason)
+        keys = {m.manager_key for m in movements["canon"]}
+        self.assertEqual(
+            keys,
+            {"person:1"},
+            "linked accounts still arrive as separate cap groups",
+        )
+
+    def test_an_unpriced_manager_counts_least_rather_than_most(self):
+        # The default was 1.0, above every real cohort member (whose
+        # quality is score/100), so an unrecognised manager outweighed
+        # every genuine sharp. Unreachable via `sharp_movements`, which
+        # filters to the cohort, so asserted at the adapter boundary
+        # where a caller could still hand one in.
+        from src.consensus_edge import sharp_flow
+
+        out = sharp_flow.movements_from_ledger_rows(
+            [{"asset_id": "a", "action": "add", "user_id": "u", "ts": 1}]
+        )
+        self.assertEqual(out["a"][0].manager_quality, sharp_flow.UNMATCHED_MANAGER_QUALITY)
+        self.assertLess(sharp_flow.UNMATCHED_MANAGER_QUALITY, 1.0)
+
     def test_a_missing_ledger_file_is_no_ledger(self):
         from src.consensus_edge import inputs as inputs_mod
         from src.consensus_edge import sharp_flow

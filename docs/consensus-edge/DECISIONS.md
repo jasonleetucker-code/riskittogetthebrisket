@@ -815,7 +815,68 @@ once in-season folds exist, the measurement will say so — the join rate
 is stamped on every replay — and that is a better trigger for a prod
 deployment change than a prior.
 
-**Status:** accepted 2026-08-04.
+**Status:** accepted 2026-08-04. **Overturned 2026-08-05 — see below.**
+
+### Amendment (2026-08-05): retention is built, by direction
+
+The deferral above was overturned by an explicit instruction to build
+it. Recording that plainly rather than retrofitting a technical
+justification, because **the evidence has not changed**: the week-22
+replay is still byte-identical to the live read, retention still buys
+only the 80.7% → 100% join rate, and the ~16 byte-identical blocks a
+weekly cadence would have captured across this offseason are still
+byte-identical. Nothing above became wrong; it was outvoted.
+
+Two things in the deferral WERE wrong, and both were mine:
+
+- **"Replayed by `panel._commit_before` with zero new replay code."**
+  False. `available_dates` intersects two hardcoded pathspecs and
+  `PanelDay` had no field for a snapshot. The real cost was
+  `PLAYERCTX_REL`, a `playerctx_asof` mirroring `payload_asof`, three
+  `PanelDay` fields and their tests.
+- **"The mechanism is a production push per `dlf_fetch_and_push.sh`."**
+  That pattern does not transfer. Both existing pushers work inside a
+  dedicated clone because nothing reads their output locally; playerctx
+  cannot, since the API reads the snapshot out of the live deploy
+  directory that `deploy.sh` force-resets. `deploy/playerctx_history_push.sh`
+  splits it: the refresh writes the live path, the push copies the dated
+  file into a dedicated clone.
+
+Four decisions worth knowing:
+
+1. **Retention does NOT join `available_dates`' intersection.** If it
+   did, the panel would collapse from 111 dates to zero and grow back
+   one per week — trading every existing measurement for a feature with
+   no data yet. A day without a snapshot yields `PanelDay.playerctx =
+   None`, which is the normal case today and must stay legible as "not
+   retained" rather than "nobody played". Pinned.
+2. **Snaps-only projection**, ~320 KB against ~1.1 MB. `snapTrend` is
+   the axis retention exists for; the contract block is the largest and
+   its upstream churns weekly.
+3. **No `.gitignore` negation**, and that is the safe choice rather than
+   an omission. A negation cannot work under the bare `data/` — git does
+   not descend into an excluded directory — which I verified in a clean
+   repo, and which also means the `!data/ros/…` block above rescues
+   nothing (those 4,600 files are tracked purely because a workflow
+   force-added them). Retention uses `git add -f` with an explicit file
+   list, which is strictly stronger: with everything ignored by default,
+   committing the 38 MB depth-chart CSV sitting in the same directory
+   takes naming it, and no directory-level add can reach it.
+4. **`retain_history` defaults off** and production opts in via
+   `--retain-history`. Retention runs after the live write and cannot
+   fail it — losing a refresh to a full disk in the history directory
+   would trade the artifact the API serves for the optional one.
+
+`data/playerctx/history` is added to `retention._protected_paths`; the
+sibling raw cache deliberately is not, because that one IS a cache.
+Coverage mirrors `rank_history.coverage` (`missingDays` / `staleDays`)
+so a stalled timer is visible before a study needs the data.
+
+**Not yet enabled in production.** The push installs a new timer and
+starts committing generated data on a schedule; that step is flagged for
+explicit sign-off rather than taken here.
+
+**Status:** superseded by the amendment; retention accepted 2026-08-05.
 
 ---
 
@@ -901,3 +962,121 @@ consecutive daily origins overlap and are therefore a count of
 cross-sections, not of independent observations.
 
 **Status:** accepted 2026-08-04.
+
+---
+
+## ADR-028: the three Sharp Score defects — two real, one overstated
+
+**Context.** `METHODOLOGY.md` carried a line naming three known-and-unfixed
+defects in the Sharp scoring stack. They were inherited from an audit and
+never verified against the code. Verified 2026-08-05: **two are real and
+are now fixed; the third is overstated and its claim was the thing that
+needed correcting.**
+
+### 1. No per-manager or per-league contribution cap — CONFIRMED
+
+`src/sharp/market.py::_aggregate_window` counted one movement as one
+unit with no bound, and the only pushback was
+`breadth_factor = m/(m+3)` (`src/intel/signals.py`), which saturates
+fast. `src/sharp/roster_percentage.py` calls the same function and
+inherited it. Consensus Edge has capped this since ADR-011, so the two
+boards aggregated the same movements from the same cohort under
+different rules — "the sharps are buying him" meant two different things
+on two pages.
+
+Fixed by promoting `_apply_share_cap` to `src/utils/share_cap.py` and
+calling it from both. Neutral home because the dependency has to point
+somewhere neither package owns: `consensus_edge` is a feature package
+and must not be imported by `src/sharp`, and `sharp_flow` deliberately
+imports nothing from `src/sharp`.
+
+**Raw counts stay raw.** Capping produces fractional weights, and
+`volume` / `tradeCount` / `uniqueManagers` are descriptions of what
+happened — a capped number in those fields would misreport the record.
+The weights are reported beside them as `weightedBuys` / `weightedSells`
+/ `weightedNet` / `weightedVolume`, plus a `concentrationCapped` flag,
+and `signal_strength` reads the weighted pair. Buys and sells scale by
+the same per-contributor factor, so a cap can shrink a lean and can
+never flip it — pinned.
+
+**What a share cap cannot do**, stated because the obvious test asserts
+it wrongly: it bounds one contributor's share OF A TOTAL, so a single
+contributor's share is 100% by construction and capping it is
+meaningless. One manager with ten observations and no peers is bounded
+by `breadth_factor` (0.25), not by this. Measured on the case the cap is
+actually for — 8 observations against two managers' 1 each — the
+dominant manager goes from 80% of the evidence to 34%, and weighted
+volume from 10.0 to 3.03.
+
+### 2. A dead `rosterQuality` term carrying 0.22 — CONFIRMED, and reproduced
+
+`_roster_quality_component` reads four `ManagerRecord` fields that **no
+builder populates** (`platform_records.py`, `records.py`), returned
+`0.0` for that, and the total applied the declared 0.22 weight
+unconditionally with no renormalization. 22 points of a 0-100 scale were
+unreachable: a production-shaped record scored **64.9** against a real
+maximum of 78. `docs/intel/SHARP_SCORE.md` documented the term as live.
+
+It stayed invisible because every test fixture sets
+`roster_value_ratios` — the suite exercised the one branch production
+never reaches. The new tests use the production shape.
+
+Fixed by returning `None` for absent evidence and renormalizing over the
+components that have any, the same posture
+`consensus_edge.score.composite` takes. `components.weightsApplied` is
+stamped per manager so the renormalization is auditable rather than
+assumed. Same record now scores **78.0**.
+
+**Why this is safe for the cohort, asserted rather than argued.**
+Qualification is `minScorePercentile` — a percentile of the evaluable
+population, not an absolute bar — and the absent set is identical for
+every manager, so every score scales by the same factor and the ranking
+is unchanged. `tests/sharp/test_sharp_gates.py` computes the old
+arithmetic inline and asserts both the full ordering and the qualified
+set are identical.
+
+**The impact could not be measured here.** The ledger file exists but
+`cohort_members()` returns 0 members in this checkout, so there is no
+live cohort to take a before/after against. The invariance is proved on
+synthetic records; the prod-side observation is a separate step and is
+not claimed as done.
+
+`methodologyVersion` moves to `sharp-v2.1`, per the rule
+`scoring_v2.json` states about itself. That rule was previously
+unenforced — the test asserted the literal `"sharp-v2"`, so a weight edit
+without a version bump PASSED and a version bump without a weight edit
+FAILED, exactly backwards. It now pins a content hash of the
+scoring-relevant config against the version that produced it, the same
+way `paramSetId` works for `consensus_edge` and `bdvm`.
+
+### 3. A quality-lookup key mismatch giving cross-platform managers 1.0 — OVERSTATED
+
+The two-key divergence is real in the source: `market.py` dedups breadth
+on `canonicalManagerKey` and looked up quality by the raw `managerKey`.
+But the `1.0` default **cannot fire**. `market_payload` passes the same
+`manager_keys` list into `platform_ledger.query_movements`, whose
+`WHERE m.manager_key IN (...)` guarantees every returned row's key is
+present in the quality map, and both are derived from one deduped
+`members` list. The repo's own audit had already filed it under "minor
+items not raised as findings" as unreachable-but-latent; `METHODOLOGY.md`
+asserted it as an active defect anyway.
+
+Three things done instead of "fixing" a bug that cannot occur:
+
+- **The claim is corrected** to latent/unreachable, matching the audit.
+- **The default is inverted.** `1.0` is *higher* than any real cohort
+  member (automated members are `score/100`), so an unmatched manager
+  outranked every genuine sharp. Now `UNMATCHED_MANAGER_QUALITY = 0.0`,
+  the floor, in both `market.py` and `sharp_flow.py`. The lookup also
+  tries the canonical key first, so the two keys stop disagreeing.
+- **The real cross-platform leak is fixed, and it is in the CAP, not the
+  quality.** `sharp_flow._apply_share_cap` groups by
+  `Movement.manager_key`, and `inputs.sharp_movements` never emitted
+  `canonicalManagerKey` — so one human's linked Sleeper and FFPC
+  accounts arrived as two groups and each got its own 0.34 bucket,
+  evading the bound they were supposed to share. The query now resolves
+  the canonical key through `platform_managers` exactly as
+  `query_movements` does, and degrades to per-account grouping rather
+  than raising when the identity table is absent.
+
+**Status:** accepted 2026-08-05.

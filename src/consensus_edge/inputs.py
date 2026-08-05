@@ -54,25 +54,56 @@ def _ledger_movement_rows(conn: Any) -> list[tuple]:
     no cohort key. Which shape is present is read off ``PRAGMA
     table_info`` rather than by attempting the query and catching — a
     caught error here would look identical to an empty ledger.
+
+    Six columns, and the sixth is the point of this docstring: the
+    **canonical manager key**, resolved through ``platform_managers``
+    exactly as ``platform_ledger.query_movements`` resolves it. It is
+    what ``sharp_flow._apply_share_cap`` groups by, so one human with a
+    linked Sleeper and FFPC account must arrive as ONE group. Without it
+    the per-manager cap buckets that person twice and they evade the
+    0.34 bound — the real cross-platform leak, as opposed to the
+    quality-default one the docs used to name.
     """
     columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(asset_movements)")}
+    has_identity_table = bool(
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='platform_managers'"
+        ).fetchone()
+    )
     if {"canonical_asset_id", "manager_key", "league_key"} <= columns:
-        sql = """
-            SELECT COALESCE(canonical_asset_id, asset_id),
-                   action,
-                   COALESCE(manager_key, 'sleeper:' || user_id),
-                   COALESCE(league_key, 'sleeper:' || league_id),
-                   COALESCE(timestamp_ms, ts)
-              FROM asset_movements
-             WHERE tx_type = 'trade'
-        """
+        # The LEFT JOIN is skipped when the identity table is absent — a
+        # half-migrated ledger should degrade to per-account grouping,
+        # not raise and look like an empty ledger.
+        canonical = (
+            "COALESCE(pm.canonical_manager_id, m.manager_key, 'sleeper:' || m.user_id)"
+            if has_identity_table
+            else "COALESCE(m.manager_key, 'sleeper:' || m.user_id)"
+        )
+        join = (
+            " LEFT JOIN platform_managers pm ON pm.manager_key = m.manager_key"
+            if has_identity_table
+            else ""
+        )
+        sql = f"""
+            SELECT COALESCE(m.canonical_asset_id, m.asset_id),
+                   m.action,
+                   COALESCE(m.manager_key, 'sleeper:' || m.user_id),
+                   COALESCE(m.league_key, 'sleeper:' || m.league_id),
+                   COALESCE(m.timestamp_ms, m.ts),
+                   {canonical}
+              FROM asset_movements m{join}
+             WHERE m.tx_type = 'trade'
+        """  # noqa: S608 — no user input; both branches are literals above
     else:
+        # Legacy Sleeper-only ledger: one platform, so the account key
+        # IS the person key.
         sql = """
             SELECT asset_id,
                    action,
                    'sleeper:' || user_id,
                    'sleeper:' || league_id,
-                   ts
+                   ts,
+                   'sleeper:' || user_id
               FROM asset_movements
              WHERE tx_type = 'trade'
         """
@@ -198,6 +229,10 @@ def sharp_movements() -> tuple[dict[str, Any] | None, str | None]:
                 "user_id": r[2],
                 "league_id": r[3],
                 "ts": r[4],
+                # The key the per-manager share cap groups by. Absent it,
+                # one human's linked platform accounts are two groups and
+                # neither hits the bound.
+                "canonicalManagerKey": r[5],
                 "managerQuality": quality[r[2]],
             }
             for r in scoped

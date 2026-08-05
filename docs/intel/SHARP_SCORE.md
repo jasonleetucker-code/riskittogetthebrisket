@@ -87,6 +87,14 @@ score = 0.36·performance
   population base rate, `priorN = 6`), median finish, points-for.
 - **rosterQuality** — value **relative to each league's own average**, so a manager in a shallow
   league cannot look sharp on raw value; plus age-, depth-, and pick-capital-adjusted variants.
+  **Not populated today** (2026-08-05). The four `ManagerRecord` fields it reads are set by no
+  builder in the repo, so it reports `None` and the sum renormalizes over the components that do
+  have evidence — `components.weightsApplied` on every score says what was actually used. Until
+  2026-08-05 it returned `0.0` instead and the 0.22 weight was applied regardless, which made
+  22 points of the 0-100 scale unreachable: a production-shaped record topped out at 64.9 against
+  a real maximum of 78. Scores rose when that was fixed; the *ranking* did not, because the term
+  was absent for everyone and qualification is a percentile rather than an absolute bar.
+  `src/sharp/roster_store.py` holds the data that could feed this for real — see ADR-028.
 - **multiLeagueConsistency** — the anti-luck term. Scored as the **share** of leagues finishing
   above median, so adding mediocre leagues *cannot raise it*, then penalized for cross-league
   variance.

@@ -412,10 +412,32 @@ The evidence is real; only its authority is withdrawn. Reproduce:
   filter became real — now reaches the payload, so "a ledger exists but
   nobody qualifies" stops reading as "no ledger".
 
-  Other known defects on `main` documented in the audit: no per-manager
-  or per-league contribution cap, a dead `rosterQuality` term carrying
-  0.22 of the Sharp Score, and a quality-lookup key mismatch that
-  silently gives cross-platform managers quality 1.0.
+  Three further defects were listed here as known-and-unfixed. Verified
+  against the code on 2026-08-05: **two were real and are now fixed; the
+  third was overstated.**
+
+  - **No per-manager or per-league contribution cap** — real, and fixed.
+    `src/sharp/market.py::_aggregate_window` counted one movement as one
+    unit, so a manager active in ten leagues contributed ten
+    observations and `breadth_factor = m/(m+3)` saturated too fast to
+    push back. It now applies the same share cap Consensus Edge already
+    used, from one shared implementation.
+  - **A dead `rosterQuality` term carrying 0.22 of the Sharp Score** —
+    real, and fixed. Four `ManagerRecord` fields feed it and no builder
+    populates any of them, so it was always exactly 0.0 and the total was
+    never renormalized: 22 points of a 0-100 scale were unreachable and a
+    production-shaped record scored 64.9 against a real maximum of 78.
+  - **A quality-lookup key mismatch giving cross-platform managers
+    quality 1.0** — **overstated.** The two-key divergence is real in the
+    source (`market.py` dedups on `canonicalManagerKey` and looks up
+    quality by raw `managerKey`), but the 1.0 default cannot fire:
+    `query_movements` filters on the very key list the quality map is
+    built from, so every returned row's key is present. The repo's own
+    audit had already filed it as unreachable-but-latent; this text
+    asserted it as an active defect. What WAS real next to it — an
+    inverted default (1.0 is higher than any true cohort member) and a
+    genuine cross-platform leak in the *cap* rather than the quality —
+    is fixed; see ADR-028.
 - **`snapTrend`** (the Opportunity axis above) — replayable since
   2026-08-04, and **not measured for a different reason than the one
   documented here until then**.

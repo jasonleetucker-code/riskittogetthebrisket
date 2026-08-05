@@ -246,5 +246,151 @@ class TestCohortSize:
                 assert entry.evaluable is True
                 assert not entry.ineligible_reasons
 
-    def test_methodology_version_moved_with_the_criteria_change(self):
-        assert S.methodology_version() == "sharp-v2"
+    def test_the_version_moves_whenever_a_scoring_parameter_moves(self):
+        """Enforces the rule the config states about itself.
+
+        `scoring_v2.json` says "methodologyVersion must move with any
+        change", and until now nothing checked it — the test asserted the
+        literal "sharp-v2", so a weight edit without a version bump
+        passed and a version bump without a weight edit failed. Exactly
+        backwards.
+
+        This pins a content hash of the scoring-relevant config against
+        the version that produced it, the same way `consensus_edge` and
+        `bdvm` pin `paramSetId`. `_`-prefixed keys are excluded, so
+        rewriting a rationale block does not churn the hash.
+
+        **If this fails**, a scoring parameter changed. That is allowed —
+        bump `methodologyVersion` and update the pin below in the same
+        commit, which is precisely the discipline being enforced.
+        """
+        import hashlib
+        import json
+
+        def strip(node):
+            if isinstance(node, dict):
+                return {k: strip(v) for k, v in node.items() if not k.startswith("_")}
+            if isinstance(node, list):
+                return [strip(v) for v in node]
+            return node
+
+        cfg = strip(S.load_config())
+        digest = hashlib.sha256(
+            json.dumps(cfg, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()[:16]
+
+        pinned = {"sharp-v2.1": "0b703f05bf4ef12e"}
+        version = S.methodology_version()
+        assert version in pinned, (
+            f"methodologyVersion is {version!r}, which this test does not know. "
+            "Add it to `pinned` with the digest below in the same commit as the "
+            "parameter change."
+        )
+        assert digest == pinned[version], (
+            f"scoring parameters changed under version {version!r} "
+            f"(digest {digest}, expected {pinned[version]}). Bump "
+            "methodologyVersion and update the pin."
+        )
+
+
+class TestRosterQualityWasDeadWeight:
+    """22 points of a 0-100 scale were unreachable, for every manager.
+
+    `_roster_quality_component` reads four `ManagerRecord` fields, and no
+    builder in the repo populates any of them (`platform_records.py`,
+    `records.py`). It returned 0.0 for that, the total applied the
+    declared 0.22 weight unconditionally, and nothing renormalized — so a
+    production-shaped record could not score above 78.
+
+    The test population here DOES set `roster_value_ratios`, which is
+    precisely why this stayed invisible: every fixture exercised the
+    branch production never reaches. These use the production shape.
+    """
+
+    def _production_shaped(self, n=40):
+        # Same population, minus the field no builder populates.
+        out = []
+        for entry in population(n):
+            entry.roster_value_ratios = []
+            entry.age_adjusted_value_ratio = None
+            entry.depth_adjusted_value_ratio = None
+            entry.draft_pick_capital_ratio = None
+            out.append(entry)
+        return out
+
+    def test_absent_roster_evidence_reports_none_not_zero(self):
+        scored = S.score_managers(self._production_shaped())
+        evaluable = [s for s in scored if s.evaluable]
+        assert evaluable
+        for entry in evaluable:
+            assert (
+                entry.components["rosterQuality"] is None
+            ), "absent evidence must not be reported as a measured zero"
+
+    def test_the_unreachable_ceiling_is_gone(self):
+        # The concrete symptom: the best production-shaped manager used
+        # to top out around 78 because 0.22 of the weight was dead.
+        scored = S.score_managers(self._production_shaped())
+        best = max(s.score for s in scored if s.evaluable)
+        assert best > 80.0, f"top score {best} still capped by dead weight"
+
+    def test_weights_applied_is_stamped_and_sums_to_the_declared_total(self):
+        scored = S.score_managers(self._production_shaped())
+        entry = next(s for s in scored if s.evaluable)
+        applied = entry.components["weightsApplied"]
+        assert "rosterQuality" not in applied, "an absent component must carry no weight"
+        declared = sum(
+            float(S.load_config()["weights"][k])
+            for k in (
+                "performance",
+                "rosterQuality",
+                "multiLeagueConsistency",
+                "longevity",
+                "activity",
+            )
+        )
+        assert sum(applied.values()) == pytest.approx(declared, abs=1e-6)
+
+    def test_the_ranking_and_therefore_the_cohort_are_unchanged(self):
+        """The safety argument, asserted rather than assumed.
+
+        Renormalizing raises every score. It is safe for the COHORT only
+        because qualification is `minScorePercentile` — a percentile of
+        the evaluable population, not an absolute bar — and because the
+        absent set is identical for every manager, so each score scales
+        by the same factor.
+
+        Compared against the OLD arithmetic computed inline: a plain
+        weighted sum with rosterQuality contributing 0.0 at its full
+        declared weight.
+        """
+        pop = self._production_shaped()
+        scored = S.score_managers(pop)
+        new_order = [s.user_id for s in sorted(scored, key=lambda s: (-(s.score or 0), s.user_id))]
+
+        cfg = S.load_config()
+        w = cfg["weights"]
+        old_scores = {}
+        for entry in scored:
+            if not entry.evaluable:
+                continue
+            c = entry.components
+            old = (
+                float(w["performance"]) * c["performance"]
+                + float(w["rosterQuality"]) * 0.0
+                + float(w["multiLeagueConsistency"]) * c["multiLeagueConsistency"]
+                + float(w["longevity"]) * c["longevity"]
+                + float(w["activity"]) * c["activity"]
+                + c["championshipBonus"]
+            ) + c["uncertaintyPenalty"]
+            old_scores[entry.user_id] = max(0.0, min(1.0, old)) * 100.0
+
+        old_order = [u for u, _ in sorted(old_scores.items(), key=lambda kv: (-kv[1], kv[0]))]
+        new_evaluable = [u for u in new_order if u in old_scores]
+        assert new_evaluable == old_order, "renormalizing reordered the population"
+
+        # And the cohort itself.
+        qualified_now = {s.user_id for s in scored if s.qualified}
+        assert qualified_now, "no cohort to compare"
+        ranked_old = old_order[: len(qualified_now)]
+        assert set(ranked_old) == qualified_now, "the qualified set changed"
