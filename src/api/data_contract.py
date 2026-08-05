@@ -4891,6 +4891,34 @@ def _apply_market_corridor_clamp(
     if not overall:
         return
 
+    # ── The per-bucket empirical band vs the cap ──────────────────
+    #
+    # This computes a P90 drift band per confidence bucket; the cap
+    # below (``_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS``) then reduces
+    # it.  On the live board the cap wins EVERY time — measured on the
+    # pinned 2026-07-30 contract, all 128 clamped rows carry
+    # ``bandPct: 0.15`` and ``cappedByMaxBand: True``, because the
+    # empirical bands run ~3.3x the cap (high 0.523 n=29, low 0.513
+    # n=174, medium 0.481 n=91, overall 0.510).
+    #
+    # That is NOT the same as the arithmetic being dead, and the
+    # difference is worth stating because the first pass of this audit
+    # got it wrong.  The percentile block is live machinery that the
+    # current board's unusually wide IDP drift happens to dominate — on
+    # a tighter board it binds immediately.  Verified rather than
+    # assumed: a synthetic fixture with narrower disagreement produces
+    # ``bandPct: 0.0217, cappedByMaxBand: False``.
+    #
+    # So the dominance is a property of today's market data, not of
+    # this code, and it is deliberately NOT pinned by a test — such a
+    # test would assert a fact about IDP drift and go red the first
+    # time the sources agree more closely, which is noise rather than
+    # signal.
+    #
+    # Whether 0.15 is the right cap is a live calibration question
+    # (it decides every clamp today) and belongs in
+    # ``docs/open-modeling-decisions.md``, not in a silent re-tune here:
+    # moving it moves real IDP values.
     overall_sorted = sorted(overall)
     overall_p90 = _percentile(overall_sorted, _MARKET_CORRIDOR_PERCENTILE)
     bucket_bands: dict[str, float] = {}

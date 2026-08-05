@@ -5,6 +5,20 @@ what actually runs in production, not a design document.  When the
 pipeline changes, update this doc.  When this doc drifts from the
 code, trust the code.
 
+**Verified against the tree on 2026-08-05.**  "Trust the code" was the
+only defence this file had, and it is not one — the doc had drifted far
+enough to describe a removed pipeline stage as live and to advertise an
+auto-commit path ADR-008 deleted, and nothing measured the gap.
+`tests/docs/test_pipeline_trace_matches_tree.py` now does: it diffs the
+source table against `_RANKING_SOURCES` and fails on any repo path this
+file cites that does not exist.
+
+One thing it deliberately does **not** check: the `Lnnnn` line
+references throughout.  They were accurate on 2026-04-20 and `main`
+has moved several hundred commits since, so treat them as approximate
+pointers to a section, never as addresses.  Pinning them would fail on
+every unrelated edit and teach people to re-baseline the guard.
+
 ## Live path
 
 ```
@@ -53,24 +67,37 @@ Declared in `_RANKING_SOURCES` at `src/api/data_contract.py:674`.
 Each source stamps `sourceRanks[source_key]` and
 `canonicalSiteValues[source_key]` on every matched player row.
 
-| Key | Scope | Weight | Depth | Special flags |
+Regenerated from the registry on 2026-08-05.  The table this replaced
+listed 16 sources against a registry of 21: it invented three
+(`ktc`, `footballGuysSf`, `footballGuysIdp` — none are registry keys),
+omitted eight including the **anchor** `ktcSfTep`, and gave
+`idpTradeCalc` a weight of **2.0** when every registry weight is 1.0 by
+policy.  Pinned against the registry by
+`tests/docs/test_pipeline_trace_matches_tree.py`.
+
+| Key | Scope | Weight | Depth | Flags |
 |---|---|---|---|---|
-| `ktc` | overall_offense | 1.0 | — | `is_retail` |
-| `idpTradeCalc` | overall_idp (+ offense extra_scope) | **2.0** | — | `is_backbone`, dual-scope |
-| `dlfIdp` | overall_idp | 1.0 | 185 | `shared_market_translation`, `excludes_rookies` |
-| `dlfSf` | overall_offense | 1.0 | 280 | |
-| `dynastyNerdsSfTep` | overall_offense | 1.0 | 300 | `is_tep_premium` |
-| `fantasyProsSf` | overall_offense | 1.0 | 250 | |
-| `dynastyDaddySf` | overall_offense | 1.0 | 320 | |
-| `fantasyProsIdp` | overall_idp | 1.0 | 100 | `shared_market_translation`, `excludes_rookies` |
-| `flockFantasySf` | overall_offense | 1.0 | 370 | |
-| `footballGuysSf` | overall_offense | 1.0 | 500 | |
-| `footballGuysIdp` | overall_idp | 1.0 | 400 | `shared_market_translation` |
-| `yahooBoone` | overall_offense | 1.0 | 500 | `is_tep_premium` |
-| `dlfRookieSf` | overall_offense | 1.0 | 50 | `rookie_translation` (KTC anchor) |
-| `dlfRookieIdp` | overall_idp | 1.0 | 50 | `rookie_translation` (IDPTC anchor) |
-| `draftSharks` | overall_offense | 1.0 | 500 | |
-| `draftSharksIdp` | overall_idp | 1.0 | 400 | |
+| `dlfIdp` | overall_idp | 1.0 | 185 | `rank_signal`, `shared_market_translation`, `excludes_rookies` |
+| `dlfRookieIdp` | overall_idp | 1.0 | 50 | `rank_signal` |
+| `draftSharksIdp` | overall_idp | 1.0 | 400 | — |
+| `fantasyProsIdp` | overall_idp | 1.0 | 100 | `rank_signal`, `shared_market_translation`, `excludes_rookies` |
+| `idpShow` | overall_idp | 1.0 | 420 | `rank_signal`, `shared_market_translation` |
+| `idpTradeCalc` | overall_idp (+ overall_offense) | 1.0 | — | `backbone`, `tep_premium` |
+| `dlfRookieSf` | overall_offense | 1.0 | 50 | `rank_signal` |
+| `dlfSf` | overall_offense | 1.0 | 280 | `rank_signal` |
+| `draftSharks` | overall_offense | 1.0 | 500 | `tep_premium` |
+| `dynastyDaddySf` | overall_offense | 1.0 | 320 | `rank_signal` |
+| `dynastyNerdsSfTep` | overall_offense | 1.0 | 300 | `tep_premium`, `rank_signal` |
+| `fantasyCalc` | overall_offense | 1.0 | 450 | `rank_signal` |
+| `fantasyNavigatorSf` | overall_offense | 1.0 | 460 | `rank_signal` |
+| `fantasyProsFitzmaurice` | overall_offense | 1.0 | 350 | `tep_premium`, `rank_signal` |
+| `fantasyProsSf` | overall_offense | 1.0 | 250 | `rank_signal` |
+| `flockFantasySf` | overall_offense | 1.0 | 370 | `rank_signal` |
+| `flockFantasySfRookies` | overall_offense | 1.0 | 50 | `rank_signal` |
+| `ktcSfTep` | overall_offense | 1.0 | — | `retail`, `tep_premium` |
+| `otcffbSf` | overall_offense | 1.0 | 460 | `rank_signal` |
+| `pfkDynasty` | overall_offense | 1.0 | 460 | `rank_signal` |
+| `yahooBoone` | overall_offense | 1.0 | 500 | `tep_premium`, `rank_signal` |
 
 ## Ingestion
 
@@ -182,14 +209,21 @@ cross-market ratio and cleanly handles the negative-value tail.
 | IDP | non-anchor, non-rookie, ``scope=overall_idp`` | `IDP_HILL_PERCENTILE_C / _S` |
 | OFFENSE | everything else | `HILL_PERCENTILE_C / _S` |
 
-Constants auto-refit monthly by `.github/workflows/refit-hill-curves.yml`
-— see `scripts/auto_refit_hill_curves.py` for the drift threshold
-(50 RMSE points on the 0-9999 scale).
+Constants are refit **weekly** (Tue 06:17 UTC) by
+`.github/workflows/refit-hill-curves.yml`, which produces a CHALLENGER
+and stops — see "Re-tuning the constants" below.  It does not write
+`src/canonical/player_valuation.py`.
 
-TEP application on TE rows only:
-- ``is_tep_premium=False`` (most sources): ``value *= 1.15`` fixed boost
-- ``is_tep_premium=True`` (Dynasty Nerds SF-TEP, Yahoo Boone's TE-Prem
-  column): pass-through unchanged.
+TEP application on TE rows only.  The flat ``value *= 1.15`` this
+section used to describe was replaced on 2026-07-27 by ADR-015
+(`docs/league-intelligence/DECISIONS.md`): non-TEP TE rows are lifted
+onto the board's basis through
+``src/league_intel/te_premium.convert_te_value``, KTC's own measured
+uplift (1.209 at the top of the board, rising toward 2.05 down it).
+- ``isTepPremium=False``: measured base -> tepp conversion.
+- ``isTepPremium=True``: TEP-native, keeps the flat 1.10 nudge.
+- ``ktc`` / ``ktcSfTep``: exempt — the anchor IS the TE++ board.
+Rollback: ``RISKIT_FEATURE_TE_BASIS_CONVERSION=0``.
 
 **Step 3 — Soft-fallback coverage diagnostic (framework step 9,
 post-override).**  For each active source whose scope admits this
@@ -241,7 +275,8 @@ enters Phase 3a (pick year discount) and Phase 4 (global sort).
 ### Phase 3a — Pick year discount (L4739)
 
 Multiplicative future-year discount applied to pick rows only.  Config
-at `config/promotion/pick_year_discount.json`.
+at `config/weights/pick_year_discount.json` — this doc said
+`config/promotion/...`, a directory that does not exist.
 
 ### Phase 4 — Global sort + stamp (L4744-4983)
 
@@ -254,22 +289,22 @@ audit fields.
 Snapshot `rankDerivedValue` into `rankDerivedValueUncalibrated` and
 `canonicalConsensusRank` into `canonicalConsensusRankUncalibrated`.
 
-### Phase 4c — IDP calibration (L5014)
+### Phase 4c — IDP calibration (REMOVED)
 
-`_apply_idp_calibration_post_pass`:
-- Strict no-op when `config/idp_calibration.json` absent.
-- When active, multiplies IDP `rankDerivedValue` by
-  `get_idp_bucket_multiplier(pos, position_rank, mode)` which already
-  folds `family_scale` into its return value.
-- `idpCalibrationMultiplier` stamped = pure bucket component.
-- `idpFamilyScale` stamped = family scalar.
-- Combined factor applied **once** (see load-bearing comment at
-  `src/api/data_contract.py:3186-3195`; regression test at
-  `tests/idp_calibration/test_family_scale_once_only.py`).
+**This stage does not exist.**  `_apply_idp_calibration_post_pass` is
+not in the tree, nor is `config/idp_calibration.json`,
+`src/idp_calibration/`, or `tests/idp_calibration/`.  CLAUDE.md records
+the removal ("the Phase 4c: removed note in `data_contract.py`");
+this doc kept describing the stage as live, with line numbers, stamped
+fields and a regression test — the most convincing possible account of
+a thing that isn't there.
 
-Offense calibration is **commented out** at L5021.  Regression test
-at `tests/api/test_single_curve_live.py` asserts no offense row
-carries `offenseCalibrationMultiplier`.
+`rankDerivedValue` is the canonical-pipeline output with **no
+post-blend IDP adjustment**.
+
+Phase 4b's `rankDerivedValueUncalibrated` /
+`canonicalConsensusRankUncalibrated` snapshot is therefore a copy of
+values nothing subsequently calibrates.
 
 ### Phase 4d — Volatility compression (REMOVED)
 
@@ -337,22 +372,33 @@ rankDerivedValueUncalibrated = center − λ·MAD          ← players only
   single-pass invariant + double-calibration guard.
 - `tests/api/test_single_curve_live.py` — live chain identity
   (calibration × volatility) and no offense calibration leakage.
-- `tests/idp_calibration/test_family_scale_once_only.py` — family_scale
-  folded exactly once.
 - `tests/api/test_pick_refinement.py::TestPlayerRankingsUnchanged` —
   invariant bands on 10 offense + 6 IDP anchor players.
 
 ## Re-tuning the constants
 
-Auto-refit is wired up for the four scope-level master Hill curves
-(GLOBAL / OFFENSE / IDP / ROOKIE).  The workflow
-`.github/workflows/refit-hill-curves.yml` runs on the 1st of every
-month via cron (plus manual dispatch); the driver at
-`scripts/auto_refit_hill_curves.py` re-fits the masters, computes
-per-scope RMSE drift on a percentile grid, rewrites the constants in
-`src/canonical/player_valuation.py`, and rebaselines the KTC
-reconciliation test pins when max drift exceeds 50 RMSE points on
-the 0-9999 scale.
+The four scope-level master Hill curves (GLOBAL / OFFENSE / IDP /
+ROOKIE) are refit weekly by `.github/workflows/refit-hill-curves.yml`
+(cron `17 6 * * 2`, plus manual dispatch).
+
+**The refit does not ship anything.**  `scripts/auto_refit_hill_curves.py`
+fits a CHALLENGER, scores champion and challenger on dynasty boards the
+fit never reads (`src/model_registry/holdout.py`), records the verdict
+in `config/model_registry/`, and exits — 0 champion stands, 1
+challenger is promotable, 3 regression alarm.  Production constants
+move only via `scripts/model_registry.py promote` + `apply`, run by a
+human.
+
+This section previously described the opposite: that the workflow
+"rewrites the constants in `src/canonical/player_valuation.py`, and
+rebaselines the KTC reconciliation test pins when max drift exceeds 50
+RMSE points".  That is precisely the auto-commit path **ADR-008
+(`docs/roster-trade-intelligence/DECISIONS.md`) removed** — an
+automation that edits production constants *and* re-baselines its own
+guard has no adversary left.  A reader trusting this paragraph would
+have concluded the promotion gate they are about to bypass does not
+exist.  (Cite ADR-008 with its file: the numbering collides with a
+different ADR-008 in `docs/league-intelligence/DECISIONS.md`.)
 
 Retired / archived backtest scripts:
 
@@ -367,6 +413,6 @@ Live constants that are NOT auto-tuned:
 - `_PERCENTILE_REFERENCE_N = 500` — aligned with KTC's pool size.
   Re-tune via `scripts/backtest_percentile_reference_n.py` if the
   retail market's natural depth ever shifts.
-- IDP calibration `family_scale` clamp `[0.85, 1.15]` — controlled by
-  the IDP calibration lab in `src/idp_calibration/` and promoted via
-  `config/idp_calibration.json`.
+(An entry for the IDP calibration `family_scale` clamp used to sit
+here, pointing at `src/idp_calibration/` and `config/idp_calibration.json`.
+Neither path exists — see Phase 4c above.)
