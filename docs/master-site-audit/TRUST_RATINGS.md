@@ -209,10 +209,21 @@ upheld) — mobile users download more, not less.
 ### Security — Mostly trustworthy
 Auth and the admin allowlist hold up; the API 401s correctly across the board and admin routes
 403 for a non-allowlisted session. Four P1s concern the public/private boundary rather than
-authentication — chiefly that `/api/draft-capital` returns real pick dollar values to an
-anonymous caller, and that the rate limiter trusts a client-supplied `X-Forwarded-For`. Rate
-limiting itself could only be tested on a separate un-bypassed backend, since the audit harness
-bypasses it on the shared stack.
+authentication — chiefly that `/api/draft-capital` returns **72 per-pick dollar values from the
+operator's private workbook curve** to an anonymous caller (W00-F001), and that the rate limiter
+trusts a client-supplied `X-Forwarded-For` with no trusted-proxy check, so any per-IP limit is
+bypassed by rotating one header (W22-F002).
+
+The draft-capital exposure is partial, not wholesale, and the distinction is worth keeping: the
+rookie *board* genuinely is redacted — `rookieName`, `rookiePos`, `rookieKtcValue` and the dollar
+columns are stripped and `rookieBoardRedacted: true` is stamped, 17,400 anonymous bytes against
+25,472 authenticated. What survives the redaction is the pick-value curve itself. So the
+mechanism works and its coverage is drawn in the wrong place.
+
+Rate limiting could only be tested on a separate un-bypassed backend, since the harness sets
+`RATE_LIMIT_BYPASS_IPS` on the shared stack. Separately, `_sanitize_next_path` does not reject a
+backslash, giving a working post-authentication open redirect on the real domain (W22-F001) —
+size XS and worth doing immediately.
 
 ---
 
