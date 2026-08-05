@@ -84,11 +84,27 @@ _EVENT_VOL_PRIOR = {
 _PICK_SLOT_RE = re.compile(
     r"(?P<year>20\d{2})\s+(?:pick\s+)?(?P<round>\d)\.(?P<slot>\d{1,2})", re.IGNORECASE
 )
-_PICK_TIER_RE = re.compile(
-    r"(?P<year>20\d{2})\s+(?P<tier>Early|Mid|Late)\s+(?P<round>1st|2nd|3rd|4th)", re.IGNORECASE
-)
 _TIER_FRACTION = {"early": 0.21, "mid": 0.50, "late": 0.83}
-_ROUND_WORD = {"1st": 1, "2nd": 2, "3rd": 3, "4th": 4}
+# Rounds 1-6, the same span every other round-word map in the tree
+# carries (``frontend/lib/trade-logic.js::ROUND_NUM``,
+# ``src/canonical/normalization_validator``).  This map used to stop at
+# 4th, so in a 6-round rookie draft every ``YYYY {Early|Mid|Late}
+# {5th|6th}`` row fell through to ``unparseable_pick_name`` — 24 of the
+# live board's 144 pick rows, all of rounds 5-6 across 2026-2029 —
+# while the slot form of the SAME asset ("2026 Pick 5.03") priced fine.
+# The outcome model was never the limit: ``pick_values_all_strategies``
+# extrapolates past its last table anchor and returns real EV for those
+# slots.  Audit finding W13-F004.
+_ROUND_WORD = {"1st": 1, "2nd": 2, "3rd": 3, "4th": 4, "5th": 5, "6th": 6}
+# Derived from ``_ROUND_WORD`` so the pattern and the lookup cannot
+# drift apart again; ``_parse_pick_slot`` indexes the map with whatever
+# this matched.
+_PICK_TIER_RE = re.compile(
+    r"(?P<year>20\d{2})\s+(?P<tier>Early|Mid|Late)\s+(?P<round>"
+    + "|".join(_ROUND_WORD)
+    + r")",
+    re.IGNORECASE,
+)
 
 
 def _utc_now_iso() -> str:

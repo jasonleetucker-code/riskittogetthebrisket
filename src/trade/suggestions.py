@@ -26,6 +26,7 @@ from typing import Any
 from src.canonical.calibration import to_display_value
 from src.trade.ktc_va import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
+from src.utils.pick_labels import resolve_pick_name
 
 
 # ── Configuration ────────────────────────────────────────────────────
@@ -717,8 +718,17 @@ def analyze_roster(
     by_position: dict[str, list[PlayerAsset]] = {}
     matched = 0
     for rn in roster_names:
-        key = rn.lower().strip()
+        key = str(rn).lower().strip()
         a = pool_by_name.get(key)
+        if a is None:
+            # Pick labels arrive in the SOURCE's spelling — Sleeper says
+            # "2026 1st" / "2026 1.04 (own)" where the board row is
+            # "2026 Pick 1.04" — so an exact-name lookup drops every
+            # pick a roster holds and the analysis silently becomes
+            # player-only.  Route through the shared resolver, the same
+            # one the finder and the frontend use.  W09-F003.
+            resolved = resolve_pick_name(rn, pool_by_name.keys())
+            a = pool_by_name.get(resolved) if resolved else None
         if a is None:
             continue
         matched += 1
@@ -979,7 +989,13 @@ def _analyze_opponent_rosters(
         players = roster_entry.get("players", [])
         if not isinstance(players, list) or not players:
             continue
-        analysis = analyze_roster(players, asset_pool)
+        # An opponent's draft picks are part of what they can trade, so
+        # they belong in the opponent's roster analysis exactly as they
+        # do in ours.  ``analyze_roster`` resolves pick labels itself;
+        # entries that carry no ``picks`` key behave as before.
+        picks = roster_entry.get("picks")
+        roster = list(players) + ([str(p) for p in picks] if isinstance(picks, list) else [])
+        analysis = analyze_roster(roster, asset_pool)
         result[team_name] = analysis
     return result
 

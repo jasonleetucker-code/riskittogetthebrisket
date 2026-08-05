@@ -61,6 +61,75 @@ def rosters_from_contract(contract: Mapping[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+def _pick_index(valuation_payload: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    """Board pick name -> the valuation payload's priced pick entry."""
+    out: dict[str, Mapping[str, Any]] = {}
+    for entry in valuation_payload.get("picks") or []:
+        name = str(entry.get("name") or "").strip()
+        if name:
+            out[name] = entry
+    return out
+
+
+def _pick_assets(
+    roster_picks: list[Any],
+    pick_index: Mapping[str, Mapping[str, Any]],
+    pick_aliases: Any,
+    strategies: list[str],
+) -> tuple[list[dict[str, Any]], int]:
+    """Roster pick labels -> priced BDVM assets, plus the unpriced count.
+
+    Sleeper spells a pick "2026 1.04 (own)" or "2027 1st"; the board
+    names it "2026 Pick 1.04" or "2027 Mid 1st".  The join goes through
+    the shared ``src/utils/pick_labels`` resolver — the Python port of
+    the frontend's ``resolvePickRow`` — so this surface joins picks the
+    same way every other one does.
+
+    A pick the fundamental board could not price (``distribution:
+    None``) is COUNTED and skipped, never valued at zero: a zero inside
+    a capital reads as "worth nothing" rather than "not priced".
+    """
+    from src.utils.pick_labels import resolve_pick_name  # noqa: PLC0415
+
+    assets: list[dict[str, Any]] = []
+    unpriced = 0
+    for raw in roster_picks or []:
+        label = raw.get("label") if isinstance(raw, Mapping) else raw
+        name = resolve_pick_name(label, pick_index.keys(), pick_aliases)
+        entry = pick_index.get(name) if name else None
+        distribution = (entry or {}).get("distribution")
+        if not isinstance(distribution, Mapping):
+            unpriced += 1
+            continue
+        trade_value = {}
+        for strategy in strategies:
+            leg = distribution.get(strategy)
+            if isinstance(leg, Mapping) and leg.get("ev") is not None:
+                trade_value[strategy] = float(leg["ev"])
+        if not trade_value:
+            unpriced += 1
+            continue
+        assets.append(
+            {
+                # Picks have no Sleeper id.  The board can only tell
+                # tiers apart, so the board row name IS the pick's
+                # identity here — enough for the scan's dedup key, and
+                # honest about what is and is not distinguishable.
+                "playerId": f"pick::{name}",
+                "name": name,
+                "position": "PICK",
+                "group": "PICK",
+                "fpg": None,
+                "age": None,
+                "isPick": True,
+                "tradeValue": trade_value,
+                "marketValue": (entry.get("market") or {}).get("marketValue"),
+                "tradeClearing": (entry.get("market") or {}).get("tradeClearing"),
+            }
+        )
+    return assets, unpriced
+
+
 def _directions_relative(ratios: list[float]) -> list[str]:
     """League-relative contend/retool/rebuild classification.
 
@@ -148,6 +217,9 @@ def analyze_rosters(
     flex = meta_cfg.get("flex") or {}
     strategies = params.strategy_names()
 
+    pick_index = _pick_index(valuation_payload)
+    pick_aliases = contract.get("pickAliases")
+
     rosters_out = []
     ratios: list[float] = []
     for roster in rosters_from_contract(contract):
@@ -169,9 +241,32 @@ def analyze_rosters(
                     "tradeClearing": (p.get("market") or {}).get("tradeClearing"),
                 }
             )
-        capitals = {s: sum(a["tradeValue"].get(s, 0.0) for a in assets) for s in strategies}
+        # Draft picks are roster capital.  ``roster["picks"]`` used to be
+        # consumed by ``len()`` alone, so every capital, the now/future
+        # ratio and every asset the trade scan could propose were
+        # player-only: a rebuilder holding 62 picks reported 59,693 of
+        # rebuilder capital against 114,477 with picks included — 47.9%
+        # omitted — and two of twelve direction labels flipped.  Audit
+        # finding W13-F002.
+        pick_assets, picks_unpriced = _pick_assets(
+            roster["picks"], pick_index, pick_aliases, strategies
+        )
+        # Everything that is a CAPITAL sums both asset classes.  The
+        # lineup-shaped aggregates below (starter FPG, positional
+        # surplus) stay player-only because a pick fills no lineup slot.
+        capital_assets = assets + pick_assets
+
+        capitals = {
+            s: sum(a["tradeValue"].get(s, 0.0) for a in capital_assets) for s in strategies
+        }
+        pick_capital = {s: sum(a["tradeValue"].get(s, 0.0) for a in pick_assets) for s in strategies}
         now = capitals.get("contender", 0.0)
         future = capitals.get("rebuilder", 0.0)
+        # Value-weighted age stays PLAYER-only on purpose.  A pick has
+        # no age, and weighting it in at zero would drag every roster's
+        # mean toward a number nothing measured — the exact substitution
+        # of a confident value for a missing one this codebase keeps
+        # having to undo.
         total_bal = sum(a["tradeValue"].get("balanced", 0.0) for a in assets)
         weighted_age = (
             sum(a["age"] * a["tradeValue"].get("balanced", 0.0) for a in assets) / total_bal
@@ -189,15 +284,25 @@ def analyze_rosters(
                 "name": roster["name"],
                 "ownerId": roster["ownerId"],
                 "rosterId": roster["rosterId"],
-                "assetCount": len(assets),
+                "assetCount": len(capital_assets),
+                "playerAssetCount": len(assets),
                 "unmatchedPlayerIds": len(roster["playerIds"]) - len(assets),
                 "capitals": {k: round(v, 1) for k, v in capitals.items()},
+                "pickCapital": {k: round(v, 1) for k, v in pick_capital.items()},
                 "nowFutureRatio": round(now / max(1.0, future), 3),
+                # Player-only, and named so — see the note above.
                 "valueWeightedAge": round(weighted_age, 2),
+                "valueWeightedAgeScope": "players",
                 "starterFpg": round(_quick_starter_fpg(assets, starters, flex), 1),
                 "positionalSurplus": surplus,
                 "pickCount": len(roster["picks"]),
-                "assets": sorted(assets, key=lambda a: -a["tradeValue"].get("balanced", 0.0)),
+                "pickCountPriced": len(pick_assets),
+                # Picks the fundamental board declines to price are
+                # reported, never valued at zero inside a capital.
+                "pickCountUnpriced": picks_unpriced,
+                "assets": sorted(
+                    capital_assets, key=lambda a: -a["tradeValue"].get("balanced", 0.0)
+                ),
             }
         )
     for roster_entry, direction in zip(rosters_out, _directions_relative(ratios)):

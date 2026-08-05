@@ -8813,6 +8813,116 @@ def _canonical_site_values(
     return out
 
 
+def _pick_year_round(display_name: str) -> tuple[int, int] | None:
+    """``(year, round)`` for a canonical pick row name, else ``None``.
+
+    Reuses the two pick-name patterns the pick refinement passes
+    already own (``_PICK_SLOT_RE`` / ``_PICK_TIER_RE``) rather than
+    adding a tenth pick regex to the tree.
+    """
+    name = str(display_name or "").strip()
+    m = _PICK_SLOT_RE.match(name)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    m = _PICK_TIER_RE.match(name)
+    if m:
+        return int(m.group(1)), int(m.group(3))
+    return None
+
+
+def _mirror_ktc_pick_anchors(
+    players_array: list[dict[str, Any]],
+    pick_anchors: Any,
+) -> int:
+    """Publish KTC's pick values under the VOTING ``ktcSfTep`` key.
+
+    KTC and KTC-SF-TE++ are one scrape of one site.  On 2026-04-28 the
+    plain ``ktc`` key was demoted to a non-voting display key and
+    ``ktcSfTep`` was promoted to the canonical retail source — but the
+    scraper's pick model writes KTC's pick values under ``ktc`` only,
+    and nothing re-routed them.  Measured on the 2026-08-04 payload:
+    all 72 current-year SLOT picks carried ``sourceCount == 1`` with
+    ``anchorValue`` equal to IDPTradeCalc's number alone, and the UI
+    presents a single-source row as speculative — while a second real
+    market's number for the same asset sat unread one key away.  Audit
+    finding W05-F006.
+
+    This is a RE-KEYING, not a new number.  A draft pick carries no TE
+    premium, so KTC's TE++ board publishes exactly the base value for
+    it, and the data says so: on the 36 pick rows where the
+    ``ktcSfTep`` CSV covers the asset, ``ktc`` and ``ktcSfTep`` agree
+    on all 36 with zero mismatches.
+
+    THE COVERAGE GUARD IS THE WHOLE POINT.  KTC publishes exactly 36
+    pick rows — 2026/2027/2028 x Early/Mid/Late x rounds 1-4 — and the
+    scraper interpolates those tier values onto the current year's
+    slots.  For rounds 5-6 it has nothing to interpolate from, so
+    ``_put_pick`` stamps its OWN modelled composite under ``ktc`` as a
+    fallback (``Dynasty Scraper.py``: ``if "ktc" not in e``) and
+    publishes that number in ``pickAnchors["ktc"]`` too.  Mirroring
+    THAT would turn the pipeline's own output into a source vote for
+    itself — a fabricated second opinion, which is worse than the
+    single-source flag it would clear.
+
+    So a row is mirrored only when KTC's board demonstrably covers its
+    (year, round): some row already carries a real ``ktcSfTep`` value
+    for that same year and round, loaded from the source CSV before
+    this pass runs.  Rounds 5-6, and every 2029 pick, are therefore
+    left alone — correctly, because KTC prices neither.
+
+    An existing ``ktcSfTep`` value is never overwritten.
+
+    Returns the number of rows mirrored.
+    """
+    from src.utils.pick_labels import pick_anchor_key  # noqa: PLC0415
+
+    anchors = pick_anchors.get("ktc") if isinstance(pick_anchors, dict) else None
+    if not isinstance(anchors, dict) or not anchors:
+        return 0
+    anchor_keys = {str(k).strip().lower() for k in anchors}
+
+    # (year, round) pairs KTC's own board actually covers, taken from
+    # the rows that already carry a CSV-loaded ktcSfTep value.
+    covered: set[tuple[int, int]] = set()
+    for row in players_array:
+        if not isinstance(row, dict) or row.get("assetClass") != "pick":
+            continue
+        sites = row.get("canonicalSiteValues")
+        if not isinstance(sites, dict):
+            continue
+        if _to_int_or_none(sites.get("ktcSfTep")) is None:
+            continue
+        yr = _pick_year_round(str(row.get("displayName") or row.get("canonicalName") or ""))
+        if yr is not None:
+            covered.add(yr)
+    if not covered:
+        return 0
+
+    mirrored = 0
+    for row in players_array:
+        if not isinstance(row, dict) or row.get("assetClass") != "pick":
+            continue
+        sites = row.get("canonicalSiteValues")
+        if not isinstance(sites, dict):
+            continue
+        if _to_int_or_none(sites.get("ktcSfTep")) is not None:
+            continue
+        value = _to_int_or_none(sites.get("ktc"))
+        if value is None or value <= 0:
+            continue
+        name = str(row.get("displayName") or row.get("canonicalName") or "")
+        if _pick_year_round(name) not in covered:
+            continue
+        if pick_anchor_key(name).lower() not in anchor_keys:
+            continue
+        sites["ktcSfTep"] = value
+        # Provenance: this row's ktcSfTep value was re-keyed from the
+        # KTC pick anchor, not read from the ktcSfTep board export.
+        row["ktcSfTepFromPickAnchor"] = True
+        mirrored += 1
+    return mirrored
+
+
 def _source_count(p_data: dict[str, Any], canonical_sites: dict[str, int | None]) -> int:
     explicit_sites = _to_int_or_none(p_data.get("_sites"))
     if explicit_sites is not None and explicit_sites >= 0:
@@ -9322,6 +9432,10 @@ def build_api_data_contract(
     csv_index = _enrich_from_source_csvs(
         players_array, parse_errors=source_parse_errors, csv_root=csv_root
     )
+
+    # Route KTC's pick board to the voting source key.  Runs AFTER CSV
+    # enrichment so a genuine ``ktcSfTep`` CSV value always wins.
+    _mirror_ktc_pick_anchors(players_array, base.get("pickAnchors"))
 
     # Post-enrichment position guardrail: CSV enrichment happens AFTER
     # _derive_player_row, so the in-row guardrail there runs against an

@@ -5,7 +5,7 @@ import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
 import { useTerminal } from "@/components/useTerminal";
-import { computePortfolio } from "@/lib/portfolio-insights";
+import { composePortfolio, computePortfolio } from "@/lib/portfolio-insights";
 import { Panel, SkeletonTable } from "@/components/ds";
 
 const POS_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF", "IDP", "PICK"];
@@ -86,24 +86,18 @@ export default function PortfolioSummary() {
     [rows, selectedTeam, rawData, history, rosterSettings],
   );
 
-  // Merge: prefer server-computed sub-sections when present; fall
-  // back to the local computation for starter/bench split and pick
-  // totals, which the server doesn't compute.  Every field the UI
-  // below reads (byPosition, byAge, volExposure, totalValue, etc.)
-  // comes from whichever source provided it first.
-  const portfolio = useMemo(() => {
-    if (!localPortfolio) return null;
-    if (!serverPortfolio) return localPortfolio;
-    return {
-      ...localPortfolio,
-      // Server fields override locals where both exist.
-      totalValue: serverPortfolio.totalValue ?? localPortfolio.totalValue,
-      byPosition: serverPortfolio.byPosition || localPortfolio.byPosition,
-      byAge: serverPortfolio.byAge || localPortfolio.byAge,
-      volExposure: serverPortfolio.volExposure || localPortfolio.volExposure,
-      medianAge: serverPortfolio.medianAge ?? localPortfolio.medianAge,
-    };
-  }, [serverPortfolio, localPortfolio]);
+  // Merge the two computations WITHOUT mixing asset scopes.  The server
+  // computes over players only; the local pass includes picks.  This
+  // used to override totalValue and byPosition with the server's
+  // player-scope numbers while leaving starter/bench/pick local, which
+  // rendered a Total Value of 171,495 above a legend summing to
+  // 314,562 and skipped the PICK row of the positional stack entirely.
+  // ``composePortfolio`` adds the pick scope back and renormalises
+  // every percentage against the composed total.  Audit W20-F004.
+  const portfolio = useMemo(
+    () => composePortfolio(serverPortfolio, localPortfolio),
+    [serverPortfolio, localPortfolio],
+  );
 
   if (!selectedTeam) {
     return (

@@ -15,6 +15,8 @@ import {
   findBalancers,
   parsePickToken,
   resolvePickRow,
+  isTradeableBoardRow,
+  searchTradeAssets,
   createSide,
   serializeWorkspaceMulti,
   tradeWorkspaceToCSV,
@@ -83,6 +85,26 @@ import styles from "./trade.module.css";
 
 const ROSTER_KEY = "next_trade_roster_v1";
 const TEAM_KEY = "next_trade_team_v1";
+
+/**
+ * A Sleeper team's picks as roster lines ("2026 1st"), one per pick.
+ *
+ * Sleeper spells them "2026 1.04 (own)" or "2026 1st"; the backend's
+ * roster analysis resolves either shape through the shared pick
+ * resolver, so this exists only to keep the roster textarea readable.
+ * It is used for BOTH the selected team and every opponent — sending
+ * opponents' players alone is what made their roster analysis
+ * player-only.
+ */
+function rosterPickLabels(team) {
+  return (team?.picks || []).map((p) => {
+    const parsed = parsePickToken(String(p).replace(/\s*\(.*\)/, "").trim());
+    if (parsed) return `${parsed.year} ${parsed.round}`;
+    return String(p)
+      .replace(/\s*\(.*\)/, "")
+      .trim();
+  });
+}
 
 // TradeMeter + TradeSourceBreakdown live as shared components under
 // frontend/components/trade/ so /waivers can reuse the same fairness bar
@@ -737,11 +759,11 @@ export default function TradePage() {
     const behindTeam = inferTeamForSide(behindSide);
     let pool;
     let teamName = null;
-    const is2026Pick = (r) => r.assetClass === "pick" && /^2026\b/.test(r.name);
+    const excluded = (r) => !isTradeableBoardRow(r);
     if (behindTeam) {
       const roster = teamRosterNames(behindTeam);
       pool = rows.filter(
-        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !is2026Pick(r),
+        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !excluded(r),
       );
       teamName = behindTeam.name || null;
     }
@@ -750,7 +772,7 @@ export default function TradePage() {
     // trade).  Preserves existing behaviour when Sleeper data is
     // unavailable.
     if (!pool || pool.length === 0) {
-      pool = rows.filter((r) => !allInTrade.has(r.name) && !is2026Pick(r));
+      pool = rows.filter((r) => !allInTrade.has(r.name) && !excluded(r));
       teamName = null;
     }
     const list = findBalancers(pwGap, pool, valueMode);
@@ -782,16 +804,16 @@ export default function TradePage() {
     const underpayingTeam = inferTeamForSide(underpayingSide);
     let pool;
     let teamName = null;
-    const is2026Pick = (r) => r.assetClass === "pick" && /^2026\b/.test(r.name);
+    const excluded = (r) => !isTradeableBoardRow(r);
     if (underpayingTeam) {
       const roster = teamRosterNames(underpayingTeam);
       pool = rows.filter(
-        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !is2026Pick(r),
+        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !excluded(r),
       );
       teamName = underpayingTeam.name || null;
     }
     if (!pool || pool.length === 0) {
-      pool = rows.filter((r) => !allInTrade.has(r.name) && !is2026Pick(r));
+      pool = rows.filter((r) => !allInTrade.has(r.name) && !excluded(r));
       teamName = null;
     }
     const suggestions = findBalancers(gap, pool, valueMode);
@@ -815,19 +837,14 @@ export default function TradePage() {
   // dynasty assets first — matches the KTC trade-calculator UX.
   const searchAssets = useCallback(
     (query) => {
-      const q = (query || "").trim().toLowerCase();
-      if (!q) return [];
-      const list = rows.filter(
-        (r) =>
-          !allTradeNames.has(r.name) &&
-          !(r.assetClass === "pick" && /^2026\b/.test(r.name)) &&
-          r.name.toLowerCase().includes(q),
-      );
-      list.sort(
-        (a, b) =>
-          (a.blendedSourceRank ?? Infinity) - (b.blendedSourceRank ?? Infinity),
-      );
-      return list.slice(0, 5);
+      // The eligibility rule lives in ``lib/trade-logic`` so the four
+      // call sites on this page cannot drift apart again.  What it
+      // excludes is the suppressed generic-tier pick ALIASES (rows the
+      // backend cleared because a slot-specific sibling exists), not a
+      // hardcoded year: the old ``/^2026\b/`` also removed the 72 slot
+      // rows the current-year board is priced on, so searching "2026"
+      // returned nothing at all (W08-F004).
+      return searchTradeAssets(rows, query, allTradeNames, 5);
     },
     [rows, allTradeNames],
   );
@@ -1364,23 +1381,23 @@ export default function TradePage() {
     }
 
     const team = sleeperTeams[i];
-    const picks = (team.picks || []).map((p) => {
-      const m = p.match(/^(\d{4})\s+(\d)\./);
-      if (m) {
-        const round =
-          { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th" }[m[2]] || `${m[2]}th`;
-        return `${m[1]} ${round}`;
-      }
-      return p.replace(/\s*\(.*\)/, "").trim();
-    });
+    const picks = rosterPickLabels(team);
     const rosterNames = [...(team.players || []), ...picks];
     const newInput = rosterNames.join("\n");
     setRosterInput(newInput);
     localStorage.setItem(ROSTER_KEY, newInput);
 
+    // Opponents carry their picks too. Sending players alone made every
+    // opponent's roster analysis player-only, so the suggestion engine
+    // could never propose a pick coming BACK — the other half of the
+    // shape W09-F003 describes.
     const opponents = sleeperTeams
       .filter((_, oi) => oi !== i)
-      .map((t) => ({ team_name: t.name, players: t.players || [] }));
+      .map((t) => ({
+        team_name: t.name,
+        players: t.players || [],
+        picks: rosterPickLabels(t),
+      }));
     setLeagueRosters(opponents);
   }
 

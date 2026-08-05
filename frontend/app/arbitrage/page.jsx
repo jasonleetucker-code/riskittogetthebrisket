@@ -271,6 +271,17 @@ export default function ArbitragePage() {
               universe entirely. Surfaced because "not shown" and
               "not priced" are different states — 202 on a real payload. */}
           <StatTile label="Unpriced by board" value={fmt(meta.assetsUnpricedByBoard)} />
+          {/* Picks no retail market published a price for. They keep
+              their board value everywhere else — this engine just has
+              nothing to arbitrage them against. Shown for the same
+              reason as the tile above: an asset that left the universe
+              must say so. */}
+          {meta.picksWithoutMarketAnchor ? (
+            <StatTile
+              label="Picks with no market"
+              value={fmt(meta.picksWithoutMarketAnchor)}
+            />
+          ) : null}
           <StatTile label="Mixed-market" value={fmt(meta.mixedMarketTrades)} />
         </div>
       ) : null}

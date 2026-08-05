@@ -380,6 +380,84 @@ export function computePortfolio({ rows, selectedTeam, rawData, history, rosterS
 }
 
 /**
+ * Merge the server's portfolio aggregates with the local ones WITHOUT
+ * mixing asset scopes.
+ *
+ * `/api/terminal`'s `_compute_portfolio_insights` computes over PLAYERS
+ * only — picks are deliberately excluded there and the exclusion is
+ * documented at `src/api/terminal.py`. `computePortfolio` above
+ * includes picks in `totalValue` and in the PICK bucket. Taking
+ * `totalValue` and `byPosition` from the server while leaving
+ * `starterValue` / `benchValue` / `pickValue` local rendered a panel
+ * that contradicted itself: Total Value 171,495 above a legend reading
+ * Starters 97,497 + Bench 73,998 + Picks 143,067 = 314,562, 1.83x the
+ * stated total, with the PICK row of the positional stack skipped
+ * entirely because the server reports count 0. Audit finding W20-F004.
+ *
+ * Compose instead of override. The server's total is exactly the
+ * lineup-eligible scope — measured on the live league, serverTotal ==
+ * starterValue + benchValue to the unit — so adding the local pick
+ * scope back reconstitutes the total the legend sums to, and every
+ * percentage is renormalised against it.
+ *
+ * The server keeps authority over every PLAYER number; the client only
+ * contributes the scope the server declines to compute.
+ */
+export function composePortfolio(serverPortfolio, localPortfolio) {
+  if (!localPortfolio) return null;
+  if (!serverPortfolio) return localPortfolio;
+
+  // `null` means the server could not resolve the roster — a different
+  // answer from 0, and `Number(null)` is 0, so test for it explicitly.
+  if (serverPortfolio.totalValue == null) return localPortfolio;
+  const serverTotal = Number(serverPortfolio.totalValue);
+  if (!Number.isFinite(serverTotal)) return localPortfolio;
+
+  const pickValue = Number(localPortfolio.pickValue) || 0;
+  const pickCount = Number(localPortfolio.pickCount) || 0;
+  const totalValue = serverTotal + pickValue;
+
+  // Add the pick scope into the bucket each breakdown puts it in, then
+  // renormalise every percentage against the composed total.  A pick
+  // has no age and no volatility history, so it lands in "unknown" —
+  // the same bucket `computePortfolio` assigns it.
+  const withPicks = (groups, bucket) => {
+    if (!groups) return null;
+    const out = {};
+    for (const [k, v] of Object.entries(groups)) {
+      out[k] = { ...v };
+    }
+    if (pickCount > 0) {
+      const target = out[bucket] || { count: 0, value: 0, pct: 0 };
+      out[bucket] = {
+        ...target,
+        count: (Number(target.count) || 0) + pickCount,
+        value: (Number(target.value) || 0) + pickValue,
+      };
+    }
+    for (const k of Object.keys(out)) {
+      out[k].pct = totalValue
+        ? Math.round(((Number(out[k].value) || 0) / totalValue) * 1000) / 10
+        : 0;
+    }
+    return out;
+  };
+
+  return {
+    ...localPortfolio,
+    totalValue,
+    // Named so a reader of the payload can tell which scope produced
+    // the number, rather than having to sum the legend to find out.
+    totalValueScope: "playersAndPicks",
+    byPosition: withPicks(serverPortfolio.byPosition, "PICK") || localPortfolio.byPosition,
+    byAge: withPicks(serverPortfolio.byAge, "unknown") || localPortfolio.byAge,
+    volExposure:
+      withPicks(serverPortfolio.volExposure, "unknown") || localPortfolio.volExposure,
+    medianAge: serverPortfolio.medianAge ?? localPortfolio.medianAge,
+  };
+}
+
+/**
  * Four named insights driven by explicit rules.  Each returns
  * { player, reason, metric } — never prose with no anchor.
  */

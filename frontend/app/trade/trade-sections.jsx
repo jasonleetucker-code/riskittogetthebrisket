@@ -32,6 +32,7 @@ import {
   displayValue,
   effectiveValue,
   getPlayerEdge,
+  isUnpricedBoardRow,
 } from "@/lib/trade-logic";
 import styles from "./trade.module.css";
 
@@ -592,6 +593,21 @@ function AssetRow({
             {edge.signal ? (
               <Badge tone={edge.signal === "BUY" ? "positive" : "negative"}>
                 {edge.signal} {edge.edgePct}%
+              </Badge>
+            ) : null}
+            {/* The board declined to price this asset.  Without the
+                badge the chip is identical to a priced one and simply
+                contributes 0 to the side total, the gap, the verdict
+                and the CSV export — so "not priced" reads as "worth
+                nothing".  48 of the league's 216 roster picks land here
+                (every 2027/2028 5th and 6th).  The override input below
+                is how a user puts a number on it.  W08-F006. */}
+            {isUnpricedBoardRow(row) && valueOverrides[row.name] == null ? (
+              <Badge
+                tone="warning"
+                title="The board publishes no value for this asset, so it contributes 0 to every total here. That is 'not priced', not 'worthless' — type a value beside it to include one."
+              >
+                Not priced
               </Badge>
             ) : null}
           </span>

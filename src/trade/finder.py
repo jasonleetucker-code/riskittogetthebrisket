@@ -18,6 +18,7 @@ from itertools import combinations
 from typing import Any
 
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — re-exported via _norm_pos shim below for back-compat
+from src.utils.pick_labels import pick_anchor_key, resolve_pick_name
 
 # ── Thresholds ──────────────────────────────────────────────────────────
 #
@@ -450,6 +451,39 @@ def positions_from_contract(contract: dict[str, Any]) -> dict[str, str]:
     return out
 
 
+def pick_market_keys_from_contract(contract: dict[str, Any] | None) -> set[str] | None:
+    """Pick keys a retail market ACTUALLY published, from ``pickAnchors``.
+
+    ``pickAnchors`` is the contract's per-market pick board — the only
+    published evidence for "did KTC / IDPTradeCalc price this pick?".
+    Returns lowercased keys across every market, or ``None`` when the
+    contract carries no anchors at all (older fixtures), which leaves
+    the guard in :func:`build_asset_pool` disabled.
+
+    Why this exists: the scraper's pick ingestion extrapolates a
+    source's values into years the source never published — a 2029
+    first's ``ktc`` and ``idpTradeCalc`` numbers on the 2026-08-04
+    payload are byte-identical copies of the 2028 first's (4578 /
+    4551).  Our board correctly applies another year of discount, so
+    every 2029 pick shows a board/market ratio of 0.527 against ~1.00
+    for 2026-2028 and 0.946 for players.  That is not an arbitrage
+    signal, it is one fabricated number being compared with one real
+    one — and it swamped this engine: once picks became resolvable on a
+    roster at all, 478 of the 480 trades returned across 12 teams
+    contained a 2029 pick, every one of them scored off that gap.
+    ``pickAnchors`` covers 2026-2028 only, so it says plainly which
+    pick prices are observations.
+    """
+    anchors = (contract or {}).get("pickAnchors")
+    if not isinstance(anchors, dict) or not anchors:
+        return None
+    keys: set[str] = set()
+    for market_map in anchors.values():
+        if isinstance(market_map, dict):
+            keys.update(str(k).strip().lower() for k in market_map)
+    return keys or None
+
+
 def build_asset_pool(
     players: dict[str, Any],
     *,
@@ -458,6 +492,7 @@ def build_asset_pool(
     board_values: dict[str, int] | None = None,
     offense_only_values: dict[str, int] | None = None,
     positions: dict[str, str] | None = None,
+    pick_market_keys: set[str] | None = None,
 ) -> list[Asset]:
     """Convert raw players dict into Asset objects with model + market values.
 
@@ -605,6 +640,21 @@ def build_asset_pool(
         )
         if is_pick:
             pos = "PICK"
+            # A pick whose "market value" is not a market OBSERVATION
+            # cannot be arbitraged against.  See
+            # ``pick_market_keys_from_contract`` — the ingestion path
+            # copies a source's nearest published year onto years it
+            # never priced, and this engine's whole premise is the gap
+            # between our board and a real retail number.  Withdraw the
+            # market value rather than invent an edge from it; the pick
+            # keeps its board value everywhere else.
+            if (
+                pick_market_keys is not None
+                and market_value is not None
+                and pick_anchor_key(name).lower() not in pick_market_keys
+            ):
+                market_value = None
+                market_source = None
 
         # Exclude positions without meaningful KTC support
         if pos in EXCLUDED_POSITIONS:
@@ -670,14 +720,48 @@ def _resolve_roster(
     team_name: str,
     sleeper_teams: list[dict[str, Any]],
     pool_by_name: dict[str, Asset],
+    pick_aliases: Any = None,
 ) -> list[Asset]:
-    """Resolve a Sleeper team name to a list of Asset objects."""
+    """Resolve a Sleeper team name to a list of Asset objects.
+
+    A Sleeper team dict carries its roster in TWO sibling keys:
+    ``players`` (display names) and ``picks`` (pick labels such as
+    "2026 1st" / "2026 1.04 (own)").  This function read only
+    ``players``, so every pick a team owned was invisible to the
+    engine — 25 picks sat in the gated asset pool and 0 appeared in
+    any of the 480 trades returned across all 12 teams, even though
+    player-plus-pick and pick-for-player are the two most common
+    dynasty trade shapes.  Audit finding W09-F003.
+
+    Pick labels are resolved through the shared
+    ``src/utils/pick_labels`` resolver — the Python port of the
+    frontend's ``resolvePickRow`` — so this engine joins picks the
+    same way every other surface does instead of inventing a tenth
+    regex.  A label the board cannot price simply does not resolve;
+    nothing is substituted for it.
+
+    Duplicates collapse.  A team holding eight 2027 firsts holds eight
+    picks that resolve to ONE board row ("2027 Mid 1st"), because the
+    board prices a tier, not an owner.  Emitting the same Asset eight
+    times would let the generators build "2027 Mid 1st + 2027 Mid 1st"
+    packages out of a single priced row, so the roster is de-duplicated
+    by asset name.  Distinguishing those eight picks by their original
+    owner needs a per-owner price the board does not publish (see the
+    R8 note in docs/master-site-audit/REPAIR_ROADMAP.md).
+    """
     for t in sleeper_teams:
         if t.get("name") == team_name:
-            players = t.get("players") or []
-            result = []
-            for pname in players:
-                key = pname.strip()
+            result: list[Asset] = []
+            seen: set[str] = set()
+
+            def _append(asset: Asset | None) -> None:
+                if asset is None or asset.name in seen:
+                    return
+                seen.add(asset.name)
+                result.append(asset)
+
+            for pname in t.get("players") or []:
+                key = str(pname).strip()
                 asset = pool_by_name.get(key)
                 if asset is None:
                     # Try case-insensitive
@@ -685,8 +769,13 @@ def _resolve_roster(
                         if k.lower() == key.lower():
                             asset = v
                             break
-                if asset is not None:
-                    result.append(asset)
+                _append(asset)
+
+            for label in t.get("picks") or []:
+                resolved = resolve_pick_name(label, pool_by_name.keys(), pick_aliases)
+                if resolved is not None:
+                    _append(pool_by_name.get(resolved))
+
             return result
     return []
 
@@ -1023,13 +1112,29 @@ def find_trades(
     # The legacy ``players`` dict has no ``position`` key, so without
     # this every IDP asset routes to the KTC board and is dropped.
     positions = positions_from_contract(contract) if contract else None
+    pick_market_keys = pick_market_keys_from_contract(contract)
     pool = build_asset_pool(
         players,
         market_top_n=market_top_n,
         board_values=board_values,
         offense_only_values=offense_only_values,
         positions=positions,
+        pick_market_keys=pick_market_keys,
     )
+    # Picks no retail market priced, so this engine cannot arbitrage
+    # them.  Counted and named rather than silently missing, same
+    # posture as ``assetsUnpricedByBoard``.
+    picks_without_market: list[str] = []
+    if pick_market_keys is not None:
+        picks_without_market = sorted(
+            {
+                str(name)
+                for name, pdata in players.items()
+                if isinstance(pdata, dict)
+                and _norm_pos((positions or {}).get(name) or "") == "PICK"
+                and pick_anchor_key(name).lower() not in pick_market_keys
+            }
+        )
 
     # How many assets the board declined to price.  Surfaced rather than
     # left to be inferred from a smaller pool: migrating to the canonical
@@ -1056,7 +1161,12 @@ def find_trades(
     for a in pool:
         pool_by_name[a.name] = a
 
-    my_roster = _resolve_roster(my_team, sleeper_teams, pool_by_name)
+    # ``pickAliases`` redirects a generic tier label onto the
+    # slot-specific row the current-year board actually prices; without
+    # it every current-class pick resolves to an unpriced generic.
+    pick_aliases = (contract or {}).get("pickAliases")
+
+    my_roster = _resolve_roster(my_team, sleeper_teams, pool_by_name, pick_aliases)
     if not my_roster:
         return {
             "error": f"Could not resolve team '{my_team}' or roster is empty.",
@@ -1119,7 +1229,7 @@ def find_trades(
     for opp_name in opponent_teams:
         if opp_name == my_team:
             continue
-        opp_roster = _resolve_roster(opp_name, sleeper_teams, pool_by_name)
+        opp_roster = _resolve_roster(opp_name, sleeper_teams, pool_by_name, pick_aliases)
         if not opp_roster:
             warnings.append(f"Could not resolve opponent team '{opp_name}'.")
             continue
@@ -1197,6 +1307,12 @@ def find_trades(
             # F-6: which value scale this run used, and what it cost.
             "valueSource": "rankDerivedValue" if board_values is not None else "rawComposite",
             "assetsUnpricedByBoard": unpriced_by_board,
+            # Picks no retail market published a price for.  They keep
+            # their board value everywhere else; they are simply not
+            # arbitrageable, because there is no market number to
+            # arbitrage against.
+            "picksWithoutMarketAnchor": len(picks_without_market),
+            "picksWithoutMarketAnchorNames": picks_without_market,
             "marketTopNFilter": market_top_n,
             "marketCoverage": market_coverage,
             "marketCoveragePercent": round(market_coverage_pct * 100, 1),
