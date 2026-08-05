@@ -342,28 +342,28 @@ class TestSharpMovementsAppliesTheFilterItClaims(unittest.TestCase):
     """
 
     def _ledger(self, tmpdir, rows):
-        import sqlite3
+        """A ledger built by the ledger module, not a hand-rolled table.
+
+        This used to `sqlite3.connect` and `CREATE TABLE asset_movements`
+        by hand. That table carries no schema version, so `ledger.connect`
+        treats it as pre-v2 and **migrates it by recreating the table** —
+        silently dropping every fixture row, after which the assertions
+        failed for a reason that had nothing to do with the code under
+        test. Same class of error as the one this file was written about:
+        a fixture built from an idea of the schema rather than from the
+        thing that produces it.
+        """
+        from src.intel import ledger
 
         path = Path(tmpdir) / "intel.db"
-        conn = sqlite3.connect(path)
-        conn.execute(
-            """
-            CREATE TABLE asset_movements (
-              movement_id TEXT PRIMARY KEY, tx_id TEXT, league_id TEXT,
-              tx_type TEXT, asset_id TEXT, asset_type TEXT, action TEXT,
-              user_id TEXT, roster_id TEXT, counterparty_user_id TEXT,
-              ts INTEGER, week INTEGER, faab_bid INTEGER, ingested_ms INTEGER
+        with ledger.connect(path) as conn:
+            conn.executemany(
+                "INSERT INTO asset_movements (movement_id, tx_id, league_id, tx_type, "
+                "asset_id, asset_type, action, user_id, ts, ingested_ms) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                rows,
             )
-            """
-        )
-        conn.executemany(
-            "INSERT INTO asset_movements (movement_id, tx_id, league_id, tx_type, "
-            "asset_id, asset_type, action, user_id, ts, ingested_ms) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?)",
-            rows,
-        )
-        conn.commit()
-        conn.close()
+            conn.commit()
         return path
 
     def _patched(self, path, cohort):

@@ -82,17 +82,23 @@ def _ledger_movement_rows(conn: Any) -> list[tuple]:
 def _qualified_cohort() -> dict[str, float] | None:
     """``{manager_key: quality}`` for the qualified cohort, or None.
 
-    Delegates to ``src.sharp.market.cohort_members`` — the one definition
+    Delegates to ``src.sharp.cohort.cohort_members`` — the one definition
     of who is qualified — rather than reimplementing the criteria. A
     second, subtly different cohort is how a repo ends up with two
     answers to "is this manager sharp", and the failure is silent.
+
+    Imported from ``cohort`` rather than ``market``: the selection moved
+    into its own module and ``market`` only re-exports it for callers and
+    tests that predate the split. Importing the re-export would work
+    today and would quietly become a second hop the day the alias is
+    dropped, so this points at the definition.
 
     Note this may trigger the additive platform-schema migration on
     first use, exactly as a Sharp Tracker request does; the migration
     takes its own backup.
     """
     try:
-        from src.sharp.market import cohort_members  # noqa: PLC0415
+        from src.sharp.cohort import cohort_members  # noqa: PLC0415
 
         members, _coverage = cohort_members()
     except Exception:  # noqa: BLE001 — a dark component must never 500 the board
