@@ -70,7 +70,7 @@ DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "fantasy
 # half board.  Re-pin to ~75-80% of the live baseline once a few
 # scheduled cycles have established one (same policy as
 # _DEFAULT_SOURCE_ROW_FLOORS).
-_FN_ROW_COUNT_FLOOR: int = 200
+_FN_ROW_COUNT_FLOOR: int = 360
 
 # Second, DYNAMIC guard (Codex review on PR #532, round 4): because
 # the parser keeps only the newest global ``_insert_date`` snapshot, a

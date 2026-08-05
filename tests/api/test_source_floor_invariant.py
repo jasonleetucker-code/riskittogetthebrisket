@@ -134,6 +134,29 @@ _SCRAPER_FLOOR_RESOLVERS = {
     # the existing restore-previous pass preserves last-good.
     "ktc": lambda: _module_int_const("Dynasty Scraper.py", "_KTC_SITE_RAW_FLOOR"),
     "idpTradeCalc": lambda: _module_int_const("Dynasty Scraper.py", "_IDPTC_SITE_RAW_FLOOR"),
+    # A4 (2026-08-05, W05-F004) — the nine sources that had no CONTRACT
+    # floor at all.  Adding the contract floors without wiring the
+    # fetcher side would have recreated the yahooBoone class this file
+    # exists to prevent: a degraded CSV written, committed, and then
+    # hard-failing CI on a clean checkout.  Each fetcher floor was
+    # raised to at least its new contract floor (raw rows are always
+    # >= canonical matches, so a raw floor at the contract floor is the
+    # conservative alignment).
+    "ktcSfTep": lambda: _module_int_const("Dynasty Scraper.py", "_KTC_SFTEP_SITE_RAW_FLOOR"),
+    "fantasyProsSf": lambda: _module_int_const(
+        "fetch_fantasypros_offense.py", "_FP_ROW_COUNT_FLOOR"
+    ),
+    "fantasyCalc": lambda: _module_int_const("fetch_fantasycalc.py", "_FC_ROW_COUNT_FLOOR"),
+    "otcffbSf": lambda: _module_int_const("fetch_otcffb.py", "_OTC_ROW_COUNT_FLOOR"),
+    "fantasyNavigatorSf": lambda: _module_int_const(
+        "fetch_fantasynavigator.py", "_FN_ROW_COUNT_FLOOR"
+    ),
+    "pfkDynasty": lambda: _module_int_const("fetch_pfk.py", "_PFK_ROW_COUNT_FLOOR"),
+    "dlfRookieSf": lambda: _dlf_board_min_rows("dlfRookieSf"),
+    "dlfRookieIdp": lambda: _dlf_board_min_rows("dlfRookieIdp"),
+    "flockFantasySfRookies": lambda: _module_int_const(
+        "fetch_flock_fantasy_rookies.py", "_FF_ROOKIE_ROW_COUNT_FLOOR"
+    ),
 }
 
 # Sources whose scraper has NO aligned internal floor yet.  Each entry:

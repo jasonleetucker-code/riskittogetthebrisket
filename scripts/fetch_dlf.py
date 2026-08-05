@@ -103,7 +103,9 @@ BOARDS: dict[str, dict[str, str]] = {
         "url": "https://dynastyleaguefootball.com/dynasty-rookie-idp-rankings/",
         "out": "CSVs/site_raw/dlfRookieIdp.csv",
         "label": "Rookie IDP",
-        "min_rows": 20,  # smallest board; pre-NFL-draft class ~29 rows
+        # Aligned with ``_DEFAULT_SOURCE_ROW_FLOORS["dlfRookieIdp"]``
+        # (23).  Smallest board; pre-NFL-draft class ~29 rows.
+        "min_rows": 23,
     },
 }
 

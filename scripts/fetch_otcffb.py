@@ -78,7 +78,7 @@ DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "otcffbS
 # across all positions; after offense-only filtering ~350-400 remain.
 # Floor set at 250 leaves ~30% headroom over the typical post-filter
 # count so a regression trips exit 2 rather than silently publishing.
-_OTC_ROW_COUNT_FLOOR: int = 250
+_OTC_ROW_COUNT_FLOOR: int = 275
 
 _OFFENSE_POSITIONS: frozenset[str] = frozenset({"QB", "RB", "WR", "TE"})
 

@@ -81,7 +81,7 @@ DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "pfkDyna
 # PFK's master board is a curated ranking (hundreds of rows, players +
 # picks).  Floor at 120 players — conservative until a live baseline
 # establishes over a few scheduled cycles; then re-pin at ~75-80%.
-_PFK_ROW_COUNT_FLOOR: int = 120
+_PFK_ROW_COUNT_FLOOR: int = 380
 
 # Second, DYNAMIC guard (Codex review on PR #532, round 6 — same
 # rationale as fetch_fantasynavigator's): a transiently-partial

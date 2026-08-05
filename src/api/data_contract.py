@@ -690,7 +690,16 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # Rookie boards are class-sized, so their counts are an order of
     # magnitude smaller than a vet board's and the floors move at
     # class rollover: 110 / 29 / 76 live.
-    "dlfRookieSf": 85,
+    #
+    # ``dlfRookieSf`` is the exception to the ~80%-of-live rule, and
+    # deliberately so: its 110 contract-side rows are 55 real rookie
+    # rows PLUS the synthetic pick-slot stamps ``_enrich_from_source_csvs``
+    # derives from them, so a collapse in the source barely moves this
+    # count (20 rookies would still leave ~92 rows).  The load-bearing
+    # guard for this source is the fetcher floor — fetch_dlf.py's
+    # ``min_rows`` for the board — and this floor is pinned to match it
+    # so the two can never contradict each other.
+    "dlfRookieSf": 40,
     "dlfRookieIdp": 23,
     "flockFantasySfRookies": 60,
     "flockFantasySf": 250,

@@ -835,6 +835,12 @@ FULL_DATA = {}
 # on a clean checkout.  Below its floor we SKIP the write so the
 # "restore previous site_raw" pass keeps the prior good CSV.
 _KTC_SITE_RAW_FLOOR: int = 400
+# The TE++ sub-board is written by the SAME KTC scrape from the same
+# per-player API response, so it degrades with ``ktc`` and needs the
+# same guard.  It had none, and it also had no downstream contract
+# floor until 2026-08-05 (W05-F004) — the retail anchor was the one
+# source nothing was watching at either end.
+_KTC_SFTEP_SITE_RAW_FLOOR: int = 400
 _IDPTC_SITE_RAW_FLOOR: int = 700
 DLF_IMPORT_DEBUG = {}
 
@@ -7547,6 +7553,7 @@ async def run(progress_callback=None):
         _fresh_site_raw: set[str] = set()
         _site_raw_floors = {
             "ktc": _KTC_SITE_RAW_FLOOR,
+            "ktcSfTep": _KTC_SFTEP_SITE_RAW_FLOOR,
             "idpTradeCalc": _IDPTC_SITE_RAW_FLOOR,
         }
         for scraper_name, full_map in FULL_DATA.items():

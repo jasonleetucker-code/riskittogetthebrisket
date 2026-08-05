@@ -73,7 +73,7 @@ DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "fantasy
 # Minimum row count.  The dynasty superflex board currently carries
 # ~250+ players.  Floor set at ~70% of live baseline so a scrape
 # regression trips exit 2 rather than silently publishing a degraded CSV.
-_FP_ROW_COUNT_FLOOR: int = 150
+_FP_ROW_COUNT_FLOOR: int = 375
 
 # Offensive positions we accept from FantasyPros.  IDP positions
 # appearing on the superflex board are silently dropped.
