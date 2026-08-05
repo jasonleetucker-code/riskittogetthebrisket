@@ -149,6 +149,27 @@ def _roster_id_for_owner(registry: ManagerRegistry, league_id: str, owner_id: st
 
 
 def _season_sort_key(season: str) -> int:
+    """Sort key for a season LABEL — ``"2026"``, not a season object.
+
+    Raises on a non-scalar rather than returning 0. Four ROS call sites
+    passed the season OBJECT here (``key=luck._season_sort_key`` instead of
+    ``key=lambda s: luck._season_sort_key(s.season)``); the object hit the
+    old blanket ``except (TypeError, ValueError)``, every key came back 0,
+    Python's stable sort left the input order untouched, and
+    ``seasons_sorted[-1]`` — "the current season" — silently returned the
+    OLDEST loaded season. Every playoff and championship number on /league
+    was a replay of 2024. Audit finding W17-F001.
+
+    An unparseable *string* still sorts to 0: that is data, and a label like
+    ``""`` is a real thing a snapshot can carry. Being handed a
+    non-string is a programming error and now says so, because the failure
+    it caused was invisible for as long as it was tolerated.
+    """
+    if isinstance(season, bool) or not isinstance(season, (str, int)):
+        raise TypeError(
+            f"_season_sort_key expects a season label (str), got "
+            f"{type(season).__name__} — pass `s.season`, not the season object"
+        )
     try:
         return int(season)
     except (TypeError, ValueError):
