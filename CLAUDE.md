@@ -407,6 +407,69 @@ Blend weights live in the ``_RANKING_SOURCES`` registry (all 1.0 by
 policy).  ``config/weights/default_weights.json`` is historical
 documentation only — nothing loads it.
 
+### Team direction — one definition, and one deliberate second
+
+"Which way is this team pointing?" had FOUR answers shipping at once,
+three reachable by a user, none referencing the others. On the same 12
+live rosters they agreed on 3: Brent was simultaneously "Contender",
+"#1 Contender", "championship_contender" and "Seller".
+
+`src/roster_intel/window.py` is **the** definition. Five states
+(`championship_contender`, `playoff_contender`, `retool`,
+`productive_struggle`, `rebuild`) as a softmax over two measured axes —
+lineup competitiveness × value-weighted starter age — reported as a
+distribution rather than a threshold verdict.
+
+`frontend/lib/team-phase.js` is a **port** of it, not a second model:
+same state names, anchors, axis weights, temperature and age bounds.
+Parity is enforced by one shared fixture,
+`tests/fixtures/competitive_window_cases.json`, read by BOTH
+`tests/roster_intel/test_window_parity.py` and
+`frontend/__tests__/team-phase.test.js`. Neither half may hardcode
+expectations of its own; move an anchor on one side and the other side
+goes red. `/phases` and `/rosters` both render it.
+
+Deleted, and named here so they are not reintroduced:
+
+- `team-phase.js`'s old 2×2 median split (top-25 value × median age).
+  Strict `<` against a median of integer-valued medians made **Rebuild
+  unreachable** — 0 of 12 teams on live data, so `/phases`' headline
+  trade-partner feature rendered nothing. Both axes were median splits,
+  so it was scale-blind above the median and non-local (halving one
+  team's value relabelled a team that did not trade).
+- `league-analysis.js::scoreTeamTiers` — `starters*0.7 + depth*0.2 −
+  picks*0.1` cut into forced thirds. A tercile guarantees four
+  contenders and four rebuilders whatever the rosters look like. Its
+  starter/depth/pick split survives inside `analyzeLeaguePhases`.
+
+`src/ros/direction.py` **stays**, and that is deliberate: it answers a
+different question from a different input family — buyer/seller from
+SIMULATED in-season playoff + championship odds, not roster shape. Both
+engines stamp `directionEngine` (`ros.direction` /
+`roster_intel.window`) on every row so the two claims can never be read
+as one. Do not add a third.
+
+Related nouns that also have exactly one definition now:
+
+- **Percentile rank** — `src/utils/percentile.py`, self-inclusive
+  midrank, `None` on an empty population and the empty policy explicit
+  at each call site. Four implementations disagreed on both the edges
+  (0.0/1.0 vs 0.0417/0.9583) and on what an empty pool meant (0.5 vs
+  0.0 — "unmeasurable" reading as "worst in league").
+- **Team total value** — still two numbers, now two labelled facts.
+  `/api/terminal`'s `teamAggregates.totalValue` is players-only and
+  says so in `valueBasis`; the Portfolio panel composes picks back in
+  (22.5% of a portfolio). Picks stay out of the terminal number because
+  its delta series is computed over the same player set.
+- **"Is a slot empty"** — the lineup solver's own `slot_assignment`
+  (`solve_summary`), never a base-position entry count. The two differ
+  wherever slot eligibility is multi-position.
+
+`GET /api/gameplan` + the rest of `src/roster_intel/` are marked
+**internal-only, no frontend consumer** (`tests/api/test_gameplan_internal_only.py`
+fails if that marker and reality disagree in either direction).
+`window.py` is the explicit exception — it is live product.
+
 ### Trade Engines
 Two independent trade suggestion systems in `src/trade/`:
 - **suggestions.py** — roster-aware trade suggestions (sell-high, buy-low, consolidation, upgrades)
