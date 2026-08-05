@@ -7,15 +7,21 @@ user, and queues a delivery via whatever transport is configured
 
 State model
 -----------
-For each (username, leagueKey, signalKey) triple we persist two
+For each (username, leagueKey, PLAYER) triple we persist two
 facts:
 
 * ``last_seen_signal`` — the most recent signal the user saw for
-  this player+tag IN THIS LEAGUE.  Compared against the current
-  signal to decide whether to alert.
+  this player IN THIS LEAGUE.  Compared against the current signal
+  to decide whether to alert.
 * ``last_notified_at`` — when we last fired an alert for this
   triple, so we don't spam the user if they ignore two evaluations
   in a row.
+
+The third element is the PLAYER (``sid:<sleeperId>``), not the
+``signalKey``.  The signal keys embed the firing rule's tag, which the
+dismissal lifecycle wants and the cooldown must not have: a flip is
+precisely when the tag changes, so a tag-keyed cooldown could never
+engage on the case it was written for (W12-F005).
 
 Stored in user_kv under ``signalAlertStateByLeague[leagueKey]``.
 Legacy ``signalAlertState`` (un-nested) is read as a fallback for
@@ -53,11 +59,13 @@ _LOGGER = logging.getLogger(__name__)
 # Signals we actually fire notifications for.  HOLD / STRONG_HOLD
 # are omitted because "stable" isn't actionable; MONITOR is borderline
 # — include it so a user's first-time-flipped-to-MONITOR is surfaced,
-# but skip if the user is already MONITORing that player.
+# but skip if the user is already MONITORing that player.  NO_DATA is
+# absent by construction: it is the ENGINE saying it could not measure,
+# which is never news about a player.
 ACTIONABLE_SIGNALS = frozenset({"RISK", "SELL", "BUY", "MONITOR"})
 
-# Minimum hours between alerts for the same (user, signalKey).  Stops
-# a rapid-fire RISK → SELL → RISK flicker from spamming.
+# Minimum hours between alerts for the same (user, PLAYER).  Stops a
+# rapid-fire RISK → SELL → RISK flicker from spamming.
 _MIN_NOTIFY_INTERVAL_HOURS: float = 12.0
 
 
@@ -65,6 +73,62 @@ def _utc_now_ms() -> int:
     import time
 
     return int(time.time() * 1000)
+
+
+def _cooldown_key(entry: dict[str, Any]) -> str:
+    """Per-PLAYER key for the notification cooldown.
+
+    Deliberately NOT ``signalKey`` / ``aliasSignalKey``.  Both of those
+    embed the firing rule's tag (``sid:<id>::<tag>``), which is correct
+    for the DISMISSAL lifecycle — a new reason should re-surface a
+    player the user dismissed — but fatal for a cooldown: a different
+    rule is a different state row, so ``prev_signal`` came back empty,
+    the 12-hour branch was skipped entirely, and the alert fired
+    immediately.  A flip is exactly when the tag changes, so the
+    cooldown never engaged on the case it exists for, and the email
+    rendered the reversal as "— → SELL", a first-ever signal (W12-F005).
+
+    Falls back to the display name when Sleeper has no id for the row,
+    which is the same identity ladder ``_signal_alias_key`` walks.
+    """
+    sid = str(entry.get("sleeperId") or "").strip()
+    if sid:
+        return f"sid:{sid}"
+    name = str(entry.get("name") or "").strip().lower()
+    return f"name:{name}" if name else ""
+
+
+def _prev_for_player(
+    alert_state: dict[str, Any],
+    state_key: str,
+    entry: dict[str, Any],
+) -> dict[str, Any]:
+    """Prior cooldown record for a player, migrating tag-keyed rows.
+
+    Every row written before this key change is ``<player>::<tag>``.
+    Ignoring them would drop every stored cooldown on deploy and flood
+    the first sweep — the exact failure mode this key change exists to
+    prevent — so a player with no player-keyed row inherits the most
+    recently notified of their legacy tag rows.  The merged row is
+    written back under the player key, so the migration happens once.
+    """
+    direct = alert_state.get(state_key)
+    if isinstance(direct, dict):
+        return direct
+
+    prefixes = [f"{state_key}::"]
+    name = str(entry.get("name") or "").strip()
+    if name:
+        prefixes.append(f"{name}::")  # pre-alias display-name keys
+    best: dict[str, Any] | None = None
+    for key, value in alert_state.items():
+        if not isinstance(key, str) or not isinstance(value, dict):
+            continue
+        if not any(key.startswith(p) for p in prefixes):
+            continue
+        if best is None or int(value.get("notifiedAt") or 0) > int(best.get("notifiedAt") or 0):
+            best = value
+    return best or {}
 
 
 def _load_alert_state(
@@ -125,7 +189,8 @@ def detect_signal_transitions(
       * AND either no prior signal exists OR the prior signal was
         different
       * AND we haven't already notified on this same
-        (leagueKey, key, signal) within _MIN_NOTIFY_INTERVAL_HOURS
+        (leagueKey, player) within _MIN_NOTIFY_INTERVAL_HOURS —
+        keyed on the player, never on the firing rule
 
     ``league_key`` scopes the cooldown state.  Omitted / empty →
     treated as the legacy single-league path (reads + writes the
@@ -148,6 +213,7 @@ def detect_signal_transitions(
 
     transitions: list[dict[str, Any]] = []
     new_state: dict[str, dict[str, Any]] = dict(alert_state)
+    fired_this_run: set[str] = set()
 
     for entry in signals:
         if not isinstance(entry, dict):
@@ -159,12 +225,19 @@ def detect_signal_transitions(
             continue
         key = str(entry.get("signalKey") or "").strip()
         alias_key = str(entry.get("aliasSignalKey") or "").strip()
-        # Use the alias-first key for state tracking so a rename
-        # doesn't re-fire the alert.
-        state_key = alias_key or key
+        # The tag-bearing keys still travel with the transition (the UI
+        # dismissal lifecycle is keyed on them), but the cooldown is
+        # keyed on the PLAYER — see ``_cooldown_key``.
+        dismissal_key = alias_key or key
+        state_key = _cooldown_key(entry) or dismissal_key
         if not state_key:
             continue
-        prev = alert_state.get(state_key) or {}
+        if state_key in fired_this_run:
+            # The same player can appear twice in one payload (an
+            # offense row and an IDP row for a two-way player).  One
+            # player, one alert, one line in the digest.
+            continue
+        prev = _prev_for_player(alert_state, state_key, entry)
         prev_signal = str(prev.get("signal") or "")
         prev_notified_at = int(prev.get("notifiedAt") or 0)
         # Skip when the signal hasn't changed.
@@ -184,9 +257,11 @@ def detect_signal_transitions(
             }
             continue
         # Emit a transition.
+        fired_this_run.add(state_key)
         transitions.append(
             {
-                "signalKey": state_key,
+                "signalKey": dismissal_key or state_key,
+                "cooldownKey": state_key,
                 "name": entry.get("name"),
                 "pos": entry.get("pos"),
                 "signal": signal,
@@ -239,7 +314,14 @@ def format_alert_email(
     """Format the digest email body + subject.  Plain text for
     simplicity and spam-filter friendliness.
     """
-    count = len(transitions)
+    # Count PLAYERS, not rows.  One player can hold two rows in a
+    # payload (offense + IDP for a two-way player), and the digest used
+    # to report "2 of your players had a signal change" for one player.
+    seen: set[str] = set()
+    for t in transitions:
+        ident = str(t.get("cooldownKey") or t.get("sleeperId") or t.get("name") or "").strip()
+        seen.add(ident.lower())
+    count = len(seen) or len(transitions)
     subject = f"[Brisket] {count} signal update{'' if count == 1 else 's'}" f" for your roster"
     lines: list[str] = []
     lines.append(f"Hi {display_name},")
