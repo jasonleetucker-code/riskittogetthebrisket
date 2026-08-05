@@ -42,8 +42,51 @@ export const LENS_INEFFICIENCY_RANK = 200;
 
 // ── Market gap ──────────────────────────────────────────────────────────────
 
-/** Minimum rank difference for a market gap label to display. */
+/**
+ * Minimum ordinal-rank difference between the retail market and the expert
+ * consensus before ANY surface puts a directional verb on a row.
+ *
+ * ONE constant because it is ONE quantity. `marketEdge` / `marketAction`
+ * (display-helpers.js) compute |consensusMean − retailMean| from the
+ * per-source ranks; the backend stamps the same number as
+ * `marketGapMagnitude`, which `getPlayerEdge` (trade-logic.js) reads —
+ * Brock Bowers: 5 either way. Until 2026-08-05 those two files applied 10
+ * and a private `MIN_EDGE_RANK_GAP = 3` to it with no shared import, so 83
+ * of 1,072 rows — Brock Bowers (#2), Bijan Robinson (#3), Drake Maye (#5),
+ * Jahmyr Gibbs (#6), Trey McBride (#8), Lamar Jackson (#11) — rendered
+ * HOLD in the /rankings Edge column and a full "Sell High" card in the
+ * popup opened from that very row (W12-F001).
+ *
+ * The HIGHER floor won the merge: a mean-of-means over source ranks
+ * flickers by several ranks between scrapes, so a verb resting on a
+ * sub-10-rank gap is noise on either surface — and this cluster's rule is
+ * to abstain on thin evidence rather than to widen who gets a verb.
+ */
 export const MARKET_GAP_MIN_DIFF = 10;
+
+/**
+ * Minimum number of NON-RETAIL sources that must have ranked a player
+ * before the retail-vs-consensus gap may be called a consensus and carry a
+ * directional verb.
+ *
+ * Two, because one source is not a consensus — it is a disagreement
+ * between two numbers wearing the word. On the 2026-08-04 contract, 34 of
+ * the 281 rows that cleared MARKET_GAP_MIN_DIFF had exactly ONE non-retail
+ * source on the far side, and the UI framed that as "retail versus expert
+ * consensus" (W12-F007). The count comes from the backend
+ * (``marketGapConsensusSources``, stamped where the two sides are formed),
+ * so both emitters gate on the same number.
+ *
+ * NOT gated on ``confidenceBucket``, and that is deliberate. Confidence is
+ * source-rank AGREEMENT; the gap is source DISAGREEMENT — the same
+ * dispersion, read twice. Measured on that contract, rows carrying a verb
+ * had a median gap of 24.4 ranks at "low" confidence against 5.2 at
+ * "high", so suppressing low-confidence verbs would delete the strongest
+ * signals and keep the weakest, which inverts the feature rather than
+ * gating it. Evidence sufficiency here means "how many independent voices",
+ * not "how much did they agree".
+ */
+export const MIN_CONSENSUS_SOURCES_FOR_VERB = 2;
 
 // ── Rank cutoffs ────────────────────────────────────────────────────────────
 

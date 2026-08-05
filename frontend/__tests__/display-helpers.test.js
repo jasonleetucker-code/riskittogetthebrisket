@@ -26,10 +26,13 @@ const UNPRICED_ROW = {
   sourceRanks: { ktcSfTep: 400, dlf: 100 },
   effectiveSourceRanks: { ktcSfTep: 400, dlf: 100 },
 };
+// Two consensus sources, because one is not a consensus and the helpers
+// now abstain on that (W12-F007).
 const PRICED_ROW = {
   rankDerivedValue: 4200,
-  sourceRanks: { ktcSfTep: 400, dlf: 100 },
-  effectiveSourceRanks: { ktcSfTep: 400, dlf: 100 },
+  sourceRanks: { ktcSfTep: 400, dlf: 100, fantasycalc: 100 },
+  effectiveSourceRanks: { ktcSfTep: 400, dlf: 100, fantasycalc: 100 },
+  marketGapConsensusSources: 2,
 };
 
 describe("isUnpricedRow", () => {
@@ -68,6 +71,75 @@ describe("directional verbs abstain on an unpriced row", () => {
     };
     expect(idpMarketEdge(idpUnpriced).kind).toBe("unpriced");
     expect(idpMarketAction(idpUnpriced).label).toBe("—");
+  });
+});
+
+describe("a verb needs a consensus to disagree with (W12-F007)", () => {
+  // KTC 400 vs one expert at 100 is a 300-rank "market gap" framed as
+  // "retail versus expert consensus".  It is two numbers.  34 of the 281
+  // directional verbs on the 2026-08-04 contract looked exactly like this.
+  const ONE_EXPERT = {
+    rankDerivedValue: 4200,
+    effectiveSourceRanks: { ktcSfTep: 400, dlf: 100 },
+    marketGapConsensusSources: 1,
+    marketGapDirection: "consensus_premium",
+    marketGapMagnitude: 300,
+  };
+  const TWO_EXPERTS = {
+    ...ONE_EXPERT,
+    effectiveSourceRanks: { ktcSfTep: 400, dlf: 100, fantasycalc: 100 },
+    marketGapConsensusSources: 2,
+  };
+
+  it("marketEdge names the thin evidence instead of a direction", () => {
+    expect(marketEdge(ONE_EXPERT).kind).toBe("thin_consensus");
+    expect(marketEdge(ONE_EXPERT).label).toBe("1 expert source");
+    expect(marketEdge(TWO_EXPERTS).kind).toBe("consensus_higher");
+  });
+
+  it("marketAction renders THIN, not a verb and not an ambiguous dash", () => {
+    expect(marketAction(ONE_EXPERT).label).toBe("THIN");
+    expect(marketAction(TWO_EXPERTS).label).toBe("BUY");
+  });
+
+  it("marketGapLabel has no gap to report", () => {
+    expect(marketGapLabel(ONE_EXPERT)).toBeNull();
+    expect(marketGapLabel(TWO_EXPERTS)).toBe("Consensus +300");
+  });
+
+  it("the backend count is the only gate — ranks in hand do not override it", () => {
+    // Three ranks present, but the backend only formed one usable
+    // consensus side (a source with no pool depth never entered the mean).
+    // The stamp is what ``getPlayerEdge`` sees, so the stamp is what both
+    // emitters gate on.
+    const stampedThin = {
+      rankDerivedValue: 4200,
+      effectiveSourceRanks: { ktcSfTep: 400, dlf: 100, fantasycalc: 100 },
+      marketGapConsensusSources: 1,
+    };
+    expect(marketEdge(stampedThin).kind).toBe("thin_consensus");
+  });
+
+  it("an unstamped payload is unknown, not thin", () => {
+    const legacy = {
+      rankDerivedValue: 4200,
+      effectiveSourceRanks: { ktcSfTep: 400, dlf: 100, fantasycalc: 100 },
+    };
+    expect(marketEdge(legacy).kind).toBe("consensus_higher");
+  });
+
+  it("the IDP twin applies the same rule to its own split", () => {
+    const oneIdpExpert = {
+      rankDerivedValue: 3000,
+      effectiveSourceRanks: { idpTradeCalc: 200, dlfIdp: 20 },
+    };
+    const twoIdpExperts = {
+      rankDerivedValue: 3000,
+      effectiveSourceRanks: { idpTradeCalc: 200, dlfIdp: 20, idpShow: 20 },
+    };
+    expect(idpMarketEdge(oneIdpExpert).kind).toBe("thin_consensus");
+    expect(idpMarketAction(oneIdpExpert).label).toBe("THIN");
+    expect(idpMarketEdge(twoIdpExperts).kind).toBe("consensus_higher");
   });
 });
 
@@ -131,11 +203,15 @@ describe("confBadgeLabel", () => {
 describe("marketGapLabel", () => {
   it("returns KTC label when KTC ranks higher than consensus mean", () => {
     // KTC 5 vs mean(IDPTC 50) = 50 → KTC premium 45
-    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50 } })).toBe("KTC +45");
+    expect(
+      marketGapLabel({ sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50, dlf: 50 } })
+    ).toBe("KTC +45");
   });
   it("returns Consensus label when consensus mean ranks higher than KTC", () => {
     // KTC 80 vs mean(IDPTC 10) = 10 → Consensus premium 70
-    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 80, idpTradeCalc: 10 } })).toBe("Consensus +70");
+    expect(
+      marketGapLabel({ sourceRanks: { ktcSfTep: 80, idpTradeCalc: 10, dlf: 10 } })
+    ).toBe("Consensus +70");
   });
   it("averages multiple consensus sources", () => {
     // KTC 10 vs mean(IDPTC 50, DLF 70) = 60 → KTC premium 50
@@ -144,7 +220,9 @@ describe("marketGapLabel", () => {
     ).toBe("KTC +50");
   });
   it("returns null for small differences", () => {
-    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 10, idpTradeCalc: 15 } })).toBeNull();
+    expect(
+      marketGapLabel({ sourceRanks: { ktcSfTep: 10, idpTradeCalc: 15, dlf: 15 } })
+    ).toBeNull();
   });
   it("returns null when KTC is missing", () => {
     expect(marketGapLabel({ sourceRanks: { idpTradeCalc: 20, dlfIdp: 30 } })).toBeNull();
@@ -174,7 +252,7 @@ describe("marketGapLabel", () => {
     // Legacy / pre-Hampel payloads stamp effectiveSourceRanks as {}.
     // Display helpers must still work off sourceRanks in that case.
     const row = {
-      sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50 },
+      sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50, dlf: 50 },
       effectiveSourceRanks: {},
     };
     expect(marketGapLabel(row)).toBe("KTC +45");

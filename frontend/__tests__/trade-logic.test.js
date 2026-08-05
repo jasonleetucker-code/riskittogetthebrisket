@@ -49,6 +49,7 @@ import {
   MAX_SIDES,
   MIN_SIDES,
 } from "@/lib/trade-logic";
+import { MARKET_GAP_MIN_DIFF } from "@/lib/thresholds";
 
 // ── Test fixtures ────────────────────────────────────────────────────
 
@@ -866,14 +867,30 @@ describe("getPlayerEdge", () => {
     expect(result.signal).toBeNull();
   });
 
-  it("returns no signal when the market-gap magnitude is below 3 ranks", () => {
+  it("returns no signal below the shared market-gap floor", () => {
     const row = {
       values: { full: 5000 },
       canonicalSites: { ktc: 5200 },
       marketGapDirection: "retail_premium",
-      marketGapMagnitude: 2,
+      marketGapMagnitude: MARKET_GAP_MIN_DIFF - 1,
     };
     expect(getPlayerEdge(row).signal).toBeNull();
+  });
+
+  // W12-F001: this file used to pin magnitudes 5-8, which are verbs here
+  // and HOLD in the /rankings Edge column — the contradiction itself,
+  // encoded as the contract.  The floor is now ONE constant and these
+  // cases are expressed in terms of it, so a future private threshold in
+  // either file fails here instead of shipping.
+  it("agrees with the /rankings Edge column at the floor", () => {
+    const atFloor = {
+      values: { full: 5000 },
+      marketGapDirection: "retail_premium",
+      marketGapMagnitude: MARKET_GAP_MIN_DIFF,
+    };
+    const justUnder = { ...atFloor, marketGapMagnitude: MARKET_GAP_MIN_DIFF - 0.01 };
+    expect(getPlayerEdge(atFloor).signal).toBe("SELL");
+    expect(getPlayerEdge(justUnder).signal).toBeNull();
   });
 
   it("returns BUY when consensus_premium (market undervalues vs consensus)", () => {
@@ -884,11 +901,11 @@ describe("getPlayerEdge", () => {
       values: { full: 9000 },
       canonicalSites: { ktc: 7000 },
       marketGapDirection: "consensus_premium",
-      marketGapMagnitude: 6,
+      marketGapMagnitude: 16,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("BUY");
-    expect(result.rankGap).toBe(6);
+    expect(result.rankGap).toBe(16);
     expect(result.edgePct).toBeGreaterThan(0);
   });
 
@@ -899,21 +916,21 @@ describe("getPlayerEdge", () => {
       values: { full: 5000 },
       canonicalSites: { ktc: 6800 },
       marketGapDirection: "retail_premium",
-      marketGapMagnitude: 8,
+      marketGapMagnitude: 18,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("SELL");
-    expect(result.rankGap).toBe(8);
+    expect(result.rankGap).toBe(18);
   });
 
   it("falls back to rank-gap for edgePct when per-source values are missing", () => {
     const row = {
       marketGapDirection: "consensus_premium",
-      marketGapMagnitude: 5,
+      marketGapMagnitude: 15,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("BUY");
-    expect(result.edgePct).toBe(5);
+    expect(result.edgePct).toBe(15);
   });
 });
 

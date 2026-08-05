@@ -3032,6 +3032,35 @@ def _raw_market_gap_percentile(
 
     Returns ``None`` when either side has no usable rank on this row.
     """
+    retail_pcts, consensus_pcts = _market_gap_sides(
+        source_ranks, source_meta, source_pool_sizes, retail_keys
+    )
+    if not retail_pcts or not consensus_pcts:
+        return None
+    # Percentiles are "fraction of the way down the board", so a SMALLER
+    # percentile is a better rank. consensus - retail > 0 means retail has
+    # the player higher up.
+    return (sum(consensus_pcts) / len(consensus_pcts)) - (sum(retail_pcts) / len(retail_pcts))
+
+
+def _market_gap_sides(
+    source_ranks: dict[str, int],
+    source_meta: dict[str, dict] | None = None,
+    source_pool_sizes: dict[str, int] | None = None,
+    retail_keys: set[str] | frozenset[str] | None = None,
+) -> tuple[list[float], list[float]]:
+    """The two percentile lists the retail-vs-consensus gap is a difference of.
+
+    Split out so the number of sources ON EACH SIDE can be stamped on the
+    row.  The gap is framed to users as "retail versus expert consensus",
+    but nothing recorded how many voices were on the consensus side: on the
+    live contract 34 of 281 directional verbs rested on exactly ONE
+    non-retail source, which is a disagreement between two numbers, not a
+    consensus to disagree with (W12-F007).  A count the surfaces can gate
+    on has to come from here, where the sides are actually formed —
+    sources whose pool depth is unknown never enter the mean, so counting
+    ``source_ranks`` keys at the call site would over-report.
+    """
     if retail_keys is None:
         retail_keys = _retail_source_keys()
     source_meta = source_meta or {}
@@ -3058,13 +3087,7 @@ def _raw_market_gap_percentile(
         if pct is None:
             continue
         (retail_pcts if key in retail_keys else consensus_pcts).append(pct)
-
-    if not retail_pcts or not consensus_pcts:
-        return None
-    # Percentiles are "fraction of the way down the board", so a SMALLER
-    # percentile is a better rank. consensus - retail > 0 means retail has
-    # the player higher up.
-    return (sum(consensus_pcts) / len(consensus_pcts)) - (sum(retail_pcts) / len(retail_pcts))
+    return retail_pcts, consensus_pcts
 
 
 def _center_market_gaps_by_position(rows: list[dict]) -> None:
@@ -3485,6 +3508,8 @@ _TRUST_MIRROR_FIELDS = (
     "sourceRankPercentileSpread",
     "marketGapDirection",
     "marketGapMagnitude",
+    "marketGapRetailSources",
+    "marketGapConsensusSources",
     "identityConfidence",
     "identityMethod",
     "quarantined",
@@ -8337,6 +8362,17 @@ def _compute_unified_rankings(
             effective_source_meta,
             source_pool_sizes,
         )
+        # How many voices are actually on each side of that gap.  The label
+        # says "retail vs expert consensus"; these say whether a consensus
+        # existed (W12-F007).  Stamped even when the gap is None so a
+        # surface can tell "one side empty" from "field missing".
+        _gap_retail, _gap_consensus = _market_gap_sides(
+            effective_source_ranks,
+            effective_source_meta,
+            source_pool_sizes,
+        )
+        row["marketGapRetailSources"] = len(_gap_retail)
+        row["marketGapConsensusSources"] = len(_gap_consensus)
 
         # Picks get their own confidence logic (CV-based on raw values),
         # because rank-spread is dominated by flat-value regions in
@@ -8998,6 +9034,8 @@ def _derive_player_row(
         "effectiveSourceRanks": {},
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
+        "marketGapRetailSources": 0,
+        "marketGapConsensusSources": 0,
         "sourceAudit": {
             "canonicalName": "",
             "positionGroup": "",
@@ -9689,6 +9727,8 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "confidenceLabel",
     "marketGapDirection",
     "marketGapMagnitude",
+    "marketGapRetailSources",
+    "marketGapConsensusSources",
     "anomalyFlags",
     "canonicalTierId",
     "marketConfidence",

@@ -11,6 +11,7 @@
 // missing extension silently broke the entire trade-logic test suite
 // (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
 import { effectiveAuctionPower } from "./auction-power.js";
+import { MARKET_GAP_MIN_DIFF, MIN_CONSENSUS_SOURCES_FOR_VERB } from "./thresholds.js";
 
 // ── Value Modes ──────────────────────────────────────────────────────────
 export const VALUE_MODES = [
@@ -943,10 +944,14 @@ export function verdictBarPosition(gap, maxGap = 4000) {
 //   the MARKET is cheap, which is BUY.  See PR for the walkthrough.
 //
 // Magnitude threshold (in ranks):
-//   3 ranks is the floor.  Below that we treat it as noise — the mean-
-//   of-means comparison can flicker by a rank from scrape to scrape.
-//   Anything 3+ is a real, actionable disagreement.
-const MIN_EDGE_RANK_GAP = 3;
+//   ONE shared constant, ``MARKET_GAP_MIN_DIFF`` in lib/thresholds.js —
+//   the same floor the /rankings Edge column applies via
+//   ``marketAction``.  This file used to carry a private
+//   ``MIN_EDGE_RANK_GAP = 3`` against the identical quantity, so every
+//   row whose gap fell in [3, 10) showed HOLD in the table and a full
+//   Buy Low / Sell High card in the popup opened from that row —
+//   83 of 1,072 rows including 7 of the top 15 (W12-F001).  Do not
+//   re-introduce a local floor here; change the shared constant.
 
 /**
  * Compute the retail-vs-consensus edge signal for a player row.
@@ -963,9 +968,25 @@ export function getPlayerEdge(row) {
 
   const direction = String(row.marketGapDirection || "none");
   const magnitude = Number(row.marketGapMagnitude);
+  // Evidence gate — the same one the /rankings Edge column applies via
+  // ``marketEdge``, off the same backend count.  "Retail vs expert
+  // consensus" needs a consensus: 34 of 281 live verbs rested on ONE
+  // non-retail source (W12-F007).  An unstamped payload (null) is
+  // "unknown", not "thin", so it does not suppress.
+  const consensusSources = Number(row.marketGapConsensusSources);
+  if (Number.isFinite(consensusSources) && consensusSources < MIN_CONSENSUS_SOURCES_FOR_VERB) {
+    return {
+      signal: null,
+      edgePct: 0,
+      rankGap: 0,
+      sources: ["ktc"],
+      thinConsensus: true,
+      consensusSources,
+    };
+  }
   // ``marketGapMagnitude`` is the absolute rank gap between retail
   // mean and consensus mean — float because both sides are mean-of-N.
-  if (!Number.isFinite(magnitude) || magnitude < MIN_EDGE_RANK_GAP) {
+  if (!Number.isFinite(magnitude) || magnitude < MARKET_GAP_MIN_DIFF) {
     return { signal: null, edgePct: 0, rankGap: 0, sources: ["ktc"] };
   }
   if (direction !== "retail_premium" && direction !== "consensus_premium") {

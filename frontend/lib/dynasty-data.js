@@ -1128,6 +1128,11 @@ function _materializePlayerArrayRow(player) {
     sourceRankSpread: player.sourceRankSpread ?? null,
     marketGapDirection: String(player.marketGapDirection || "none"),
     marketGapMagnitude: player.marketGapMagnitude ?? null,
+    // How many voices formed each side of that gap.  ``null`` (not 0)
+    // when the backend did not stamp it, so a pre-#W12-F007 payload
+    // reads as "unknown" rather than as "no consensus".
+    marketGapRetailSources: player.marketGapRetailSources ?? null,
+    marketGapConsensusSources: player.marketGapConsensusSources ?? null,
     sourceOriginalRanks:
       player.sourceOriginalRanks &&
       typeof player.sourceOriginalRanks === "object"
@@ -1272,6 +1277,11 @@ function _materializeLegacyDictRow(name, player, posMap) {
         : null,
     marketGapDirection: String(player.marketGapDirection || "none"),
     marketGapMagnitude: player.marketGapMagnitude ?? null,
+    // How many voices formed each side of that gap.  ``null`` (not 0)
+    // when the backend did not stamp it, so a pre-#W12-F007 payload
+    // reads as "unknown" rather than as "no consensus".
+    marketGapRetailSources: player.marketGapRetailSources ?? null,
+    marketGapConsensusSources: player.marketGapConsensusSources ?? null,
     sourceOriginalRanks:
       player.sourceOriginalRanks &&
       typeof player.sourceOriginalRanks === "object"

@@ -5,7 +5,7 @@
 // Tests: frontend/__tests__/display-helpers.test.js
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { MARKET_GAP_MIN_DIFF } from "./thresholds.js";
+import { MARKET_GAP_MIN_DIFF, MIN_CONSENSUS_SOURCES_FOR_VERB } from "./thresholds.js";
 import { getRetailSourceKeys, getRetailLabel } from "./dynasty-data.js";
 
 /**
@@ -204,6 +204,27 @@ export function marketEdge(row) {
     };
   }
 
+  // Evidence gate BEFORE the arithmetic: "retail versus expert consensus"
+  // needs a consensus to exist.  Gates on the BACKEND's count of the
+  // sources that actually formed each side, and only on that, because
+  // ``getPlayerEdge`` has nothing else to gate on — counting the ranks in
+  // hand here would make the two emitters disagree on any payload without
+  // the stamp, which is the failure W12-F001 just closed.  No stamp =
+  // unknown = no suppression.
+  const consensusSources = Number(row?.marketGapConsensusSources);
+  if (Number.isFinite(consensusSources) && consensusSources < MIN_CONSENSUS_SOURCES_FOR_VERB) {
+    return {
+      label: `${consensusSources} expert source${consensusSources === 1 ? "" : "s"}`,
+      css: "edge-none",
+      kind: "thin_consensus",
+      consensusSources,
+      title:
+        `Only ${consensusSources} source besides ${retailLabel} ranked this player, ` +
+        `so there is no expert consensus for the market to disagree with ` +
+        `(a directional call needs ${MIN_CONSENSUS_SOURCES_FOR_VERB}).`,
+    };
+  }
+
   const retailMean = retailRanks.reduce((s, v) => s + v, 0) / retailRanks.length;
   const consensusMean =
     consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length;
@@ -276,6 +297,17 @@ export function marketAction(row) {
       title: edge.title,
     };
   }
+  if (edge.kind === "thin_consensus") {
+    // An explicit thin-evidence state, not the ambiguous dash: the row was
+    // priced and the market was compared, there just was not enough on the
+    // consensus side to call a direction.
+    return {
+      label: "THIN",
+      css: "edge-none",
+      kind: "thin_consensus",
+      title: edge.title,
+    };
+  }
   return {
     label: "—",
     css: "edge-none",
@@ -315,6 +347,14 @@ export function marketGapLabel(row) {
     .map(([, rank]) => Number(rank))
     .filter((n) => Number.isFinite(n));
   if (consensusRanks.length === 0) return null;
+
+  // Same evidence gate as ``marketEdge``, off the same backend stamp: one
+  // expert source is not a consensus, so there is no gap to report
+  // (W12-F007).
+  const consensusSources = Number(row?.marketGapConsensusSources);
+  if (Number.isFinite(consensusSources) && consensusSources < MIN_CONSENSUS_SOURCES_FOR_VERB) {
+    return null;
+  }
 
   const retailMean = retailRanks.reduce((s, v) => s + v, 0) / retailRanks.length;
   const consensusMean =
@@ -426,6 +466,22 @@ export function idpMarketEdge(row) {
     };
   }
 
+  // Evidence gate, same rule as the offense twin.  The backend's
+  // ``marketGapConsensusSources`` counts the KTC-anchored split, which is
+  // a different partition of the sources, so this side is counted here.
+  if (consensusRanks.length < MIN_CONSENSUS_SOURCES_FOR_VERB) {
+    return {
+      label: `${consensusRanks.length} IDP expert source${consensusRanks.length === 1 ? "" : "s"}`,
+      css: "edge-none",
+      kind: "thin_consensus",
+      consensusSources: consensusRanks.length,
+      title:
+        `Only ${consensusRanks.length} IDP-expert source ranked this player, so ` +
+        `there is no consensus for IDPTC to disagree with (a directional ` +
+        `call needs ${MIN_CONSENSUS_SOURCES_FOR_VERB}).`,
+    };
+  }
+
   const consensusMean =
     consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length;
   const diff = Math.round(Math.abs(consensusMean - retailRank));
@@ -482,6 +538,14 @@ export function idpMarketAction(row) {
       label: "HOLD",
       css: "edge-hold",
       kind: "hold",
+      title: edge.title,
+    };
+  }
+  if (edge.kind === "thin_consensus") {
+    return {
+      label: "THIN",
+      css: "edge-none",
+      kind: "thin_consensus",
       title: edge.title,
     };
   }
