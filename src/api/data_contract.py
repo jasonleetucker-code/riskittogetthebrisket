@@ -3003,11 +3003,140 @@ def _active_sources(
     return out
 
 
+# Minimum rows at a position before its median gap is trusted as a
+# baseline. Below this, centering would fit noise and could invent a signal
+# rather than remove one, so those rows stay uncentered.
+_MARKET_GAP_MIN_POSITION_N = 8
+
+
+def _raw_market_gap_percentile(
+    source_ranks: dict[str, int],
+    source_meta: dict[str, dict] | None = None,
+    source_pool_sizes: dict[str, int] | None = None,
+    retail_keys: set[str] | frozenset[str] | None = None,
+) -> float | None:
+    """Retail-vs-consensus gap in PERCENTILE space, uncentered.
+
+    Positive → retail ranks the player better than consensus does.
+
+    This replaces an average of RAW ORDINALS.  Source pools on this board
+    run from 169 to 903 rows, so rank 50 on a 169-deep board and rank 50 on
+    a 903-deep board were treated as the same number when they sit at very
+    different percentiles.  47% of offense rows and 97% of pick rows flipped
+    sign once pool depth was accounted for (audit finding W03-F006).
+
+    Uses the RAW ordinal and the source's own pool depth, exactly as
+    ``_percentile_rank_spread`` does — the shared-market ladder inflates
+    some effective ranks into a combined offense+IDP space, so effective
+    ranks are not comparable across sources even after normalization.
+
+    Returns ``None`` when either side has no usable rank on this row.
+    """
+    if retail_keys is None:
+        retail_keys = _retail_source_keys()
+    source_meta = source_meta or {}
+    source_pool_sizes = source_pool_sizes or {}
+
+    def _pct(key: str, eff_rank: int) -> float | None:
+        meta = source_meta.get(key) or {}
+        raw_rank = meta.get("rawRank") or meta.get("effectiveRank") or eff_rank
+        depth = source_pool_sizes.get(key) or meta.get("depth") or 0
+        try:
+            depth_f = float(depth)
+        except (TypeError, ValueError):
+            return None
+        if depth_f <= 0:
+            return None
+        return float(raw_rank) / depth_f
+
+    retail_pcts: list[float] = []
+    consensus_pcts: list[float] = []
+    for key, rank in source_ranks.items():
+        if rank is None:
+            continue
+        pct = _pct(key, rank)
+        if pct is None:
+            continue
+        (retail_pcts if key in retail_keys else consensus_pcts).append(pct)
+
+    if not retail_pcts or not consensus_pcts:
+        return None
+    # Percentiles are "fraction of the way down the board", so a SMALLER
+    # percentile is a better rank. consensus - retail > 0 means retail has
+    # the player higher up.
+    return (sum(consensus_pcts) / len(consensus_pcts)) - (sum(retail_pcts) / len(retail_pcts))
+
+
+def _center_market_gaps_by_position(rows: list[dict]) -> None:
+    """Recentre each row's market gap against its own position's median.
+
+    The retail side of this comparison is a single source, ``ktcSfTep``,
+    and it is a TE-PREMIUM board.  The consensus it is differenced against
+    is dominated by base-TE boards.  So every tight end carried a large
+    positive gap that says nothing about that player — it is a property of
+    the two BOARDS' scoring formats.  Measured mean rank gap by position:
+    TE +41.60, WR -6.83, RB -8.50, QB -24.69.
+
+    The result was that the /rankings Edge column labelled 32 of 35 top-250
+    tight ends SELL, and every single SELL in the top 250 was a tight end.
+    A user was being told to sell every tight end he owned. Audit finding
+    W12-F002 (P0, upheld) and its other half W27-F005.
+
+    Note this is NOT fixed by correcting the TE basis on the value side
+    (ADR-015): that conversion operates on VALUES inside the blend, and
+    this comparison never sees a value. Verified by reproducing the same
+    32-of-35 against a clean ``GET /api/data`` with no override in play.
+
+    Centering per position keeps the real signal — a tight end priced well
+    above what the board-to-board offset explains is still a genuine retail
+    premium — while removing the offset every player at that position
+    shares. Positions with too few rows to estimate a median are left
+    uncentered rather than centered on noise.
+    """
+    by_pos: dict[str, list[float]] = {}
+    for row in rows:
+        gap = row.get("_rawMarketGapPct")
+        if gap is None:
+            continue
+        pos = str(row.get("position") or "").upper() or "UNKNOWN"
+        by_pos.setdefault(pos, []).append(float(gap))
+
+    medians: dict[str, float] = {}
+    for pos, gaps in by_pos.items():
+        if len(gaps) < _MARKET_GAP_MIN_POSITION_N:
+            continue
+        medians[pos] = statistics.median(gaps)
+
+    for row in rows:
+        gap = row.pop("_rawMarketGapPct", None)
+        if gap is None:
+            row["marketGapDirection"] = "none"
+            row["marketGapMagnitude"] = None
+            continue
+        pos = str(row.get("position") or "").upper() or "UNKNOWN"
+        centered = float(gap) - medians.get(pos, 0.0)
+        row["marketGapPositionBaseline"] = round(medians.get(pos, 0.0), 6)
+        if centered > 0:
+            row["marketGapDirection"] = "retail_premium"
+        elif centered < 0:
+            row["marketGapDirection"] = "consensus_premium"
+        else:
+            row["marketGapDirection"] = "none"
+        row["marketGapMagnitude"] = round(abs(centered), 6)
+
+
 def _compute_market_gap(
     source_ranks: dict[str, int],
     retail_keys: set[str] | frozenset[str] | None = None,
 ) -> tuple[str, float | None]:
     """Quantify the disagreement between retail and expert consensus.
+
+    DEPRECATED for board use — kept because it is the ordinal-space
+    definition several tests and callers still describe. The live contract
+    now uses ``_raw_market_gap_percentile`` +
+    ``_center_market_gaps_by_position``, which fix pool-depth
+    incomparability (W03-F006) and the positional basis offset (W12-F002)
+    respectively.
 
     "Market gap" frames the retail market (sources flagged `is_retail`
     in the registry — today just KTC) against every other registered
@@ -8199,9 +8328,15 @@ def _compute_unified_rankings(
             and percentile_spread > _DISAGREEMENT_BASE_THRESHOLD + depth_allowance
         )
 
-        gap_dir, gap_mag = _compute_market_gap(effective_source_ranks)
-        row["marketGapDirection"] = gap_dir
-        row["marketGapMagnitude"] = gap_mag
+        # Stashed, not finalized: the direction depends on this position's
+        # median gap across the whole board, so it cannot be decided one row
+        # at a time. `_center_market_gaps_by_position` resolves every row
+        # after this loop and pops the temporary key.
+        row["_rawMarketGapPct"] = _raw_market_gap_percentile(
+            effective_source_ranks,
+            effective_source_meta,
+            source_pool_sizes,
+        )
 
         # Picks get their own confidence logic (CV-based on raw values),
         # because rank-spread is dominated by flat-value regions in
@@ -8277,6 +8412,13 @@ def _compute_unified_rankings(
                     pdata["ktcRank"] = source_ranks["ktcSfTep"]
                 if "idpTradeCalc" in source_ranks:
                     pdata["idpRank"] = source_ranks["idpTradeCalc"]
+
+    # ── Phase 4b.5: market gap, resolved board-wide ──
+    # Direction depends on this position's median gap across every ranked
+    # row, so it cannot be decided inside the per-row loop above. See
+    # ``_center_market_gaps_by_position`` for why the raw gap is a property
+    # of the two BOARDS' scoring formats and not of the player.
+    _center_market_gaps_by_position(players_array)
 
     # ── Phase 4c: removed ──
     # The IDP calibration post-pass (a Lab-configured per-bucket
