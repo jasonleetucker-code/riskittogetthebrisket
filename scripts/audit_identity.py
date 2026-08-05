@@ -119,19 +119,36 @@ def main() -> None:
             classes = ", ".join(c.get("assetClasses", []))
             print(f"  norm='{c.get('normalizedName', '?')}' → [{classes}]  names: {names}")
 
-    # ── 3. Near-name mismatches ──
-    _section("NEAR-NAME VALUE MISMATCHES (same last name, cross-universe)")
+    # ── 3. Near-name identity splits ──
+    # This section used to advertise the retired "value mismatch" rule
+    # and print "(none)" forever, because the producer hardcoded the
+    # count to 0.  It now renders the real split-identity pairs: one
+    # human across a resolved row and an unresolved ghost, with the
+    # vendor votes that are stranded on the ghost.
+    _section("NEAR-NAME IDENTITY SPLITS (one player, two rows)")
     near = validation.get("nearNameMismatches", [])
     if not near:
         print("  (none)")
     else:
         for n in near[:30]:
+            stranded = ", ".join(n.get("sourcesOnlyOnUnresolved") or []) or "none"
             print(
-                f"  {n.get('lastName', '?'):15s}  "
-                f"off={n.get('offenseName', '?'):25s} val={n.get('offenseValue', 0):>5d}  "
-                f"idp={n.get('idpName', '?'):25s} val={n.get('idpValue', 0):>5d}  "
-                f"ratio={n.get('ratio', 0):.1f}x"
+                f"  {str(n.get('resolvedName', '?')):25s} "
+                f"(id {str(n.get('resolvedPlayerId', '?')):>7s})  ↔  "
+                f"{str(n.get('unresolvedName', '?')):25s} (no id)  "
+                f"sim={n.get('similarity', 0):.2f}"
             )
+            print(f"      sources stranded on the unresolved row: {stranded}")
+
+    # ── 3b. Duplicate stable identity ──
+    _section("DUPLICATE SLEEPER IDS (same stable id on two rows)")
+    dupes = validation.get("duplicateSleeperIdPairs", [])
+    if not dupes:
+        print("  (none)")
+    else:
+        for d in dupes[:30]:
+            print(f"  id {d.get('playerId', '?')}  rows={d.get('rowCount', 0)}  "
+                  f"names: {', '.join(d.get('names') or [])}")
 
     # ── 4. High source disagreement ──
     _section("HIGH SOURCE DISAGREEMENT (sourceRankSpread > 80)")

@@ -561,7 +561,33 @@ class TestRebuildOutputSanity(unittest.TestCase):
         vs = self.contract.get("validationSummary") or {}
         self.assertIn("duplicateCanonicalIdentityCount", vs)
         self.assertIn("duplicateCanonicalIdentityPairs", vs)
-        self.assertEqual(vs.get("nearNameMismatchCount"), 0)
+        # No two rows may share one stable Sleeper id — same id, same
+        # human, and the board must carry him once.
+        self.assertEqual(vs.get("duplicateSleeperIdCount"), 0)
+
+    def test_reported_near_name_splits_are_structurally_valid(self):
+        """This used to assert ``nearNameMismatchCount == 0``.
+
+        That number was a hardcoded literal, not a measurement — the
+        detector had been retired and replaced with a ``0`` — so the
+        assertion pinned the DEFECT as the contract on a board that
+        carries two real splits (Matt/Matthew Hibner, Jam/Jamarion
+        Miller).  What is worth pinning is the predicate: every reported
+        pair shares a surname and has exactly one unresolved side.
+        """
+        vs = self.contract.get("validationSummary") or {}
+        pairs = vs.get("nearNameMismatches") or []
+        self.assertEqual(vs.get("nearNameMismatchCount"), len(pairs))
+        for pair in pairs:
+            resolved = str(pair.get("resolvedName") or "")
+            unresolved = str(pair.get("unresolvedName") or "")
+            self.assertTrue(pair.get("resolvedPlayerId"))
+            self.assertTrue(resolved and unresolved)
+            self.assertEqual(
+                resolved.split()[-1].lower().strip("."),
+                unresolved.split()[-1].lower().strip("."),
+                f"{resolved} / {unresolved} do not share a surname",
+            )
 
     def test_methodology_lists_new_anomaly_flags(self):
         methodology = self.contract.get("methodology") or {}

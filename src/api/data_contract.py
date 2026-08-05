@@ -246,10 +246,23 @@ _SUPPORTED_BOARD_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS | {"PICK"}
 # entity-resolution confusion (e.g. "James Williams" WR ≠ "James Williams" LB).
 _NEAR_NAME_VALUE_RATIO_THRESHOLD = 3.0  # flag if max/min value ratio > 3x
 
+# Near-name identity SPLIT: one human across two rows because two
+# sources spell him differently.  Similarity floor on the normalized
+# name; see ``_detect_near_name_identity_splits`` for the full predicate
+# and the 2-hit / 0-false-positive measurement on the live board.
+_NEAR_NAME_SPLIT_SIMILARITY = 0.85
+
 # Quarantine flags added by the identity validation pass.  These are appended
 # to anomalyFlags[] and also cause confidenceBucket degradation.
 #   "duplicate_canonical_identity"  — two rows resolved to the same
 #                                     position-aware canonical key
+#   "duplicate_sleeper_id"          — two rows carrying one stable
+#                                     Sleeper id: the same human twice
+#   "near_name_identity_split"      — one human split across a resolved
+#                                     row and an unresolved ghost
+#                                     (surfaced for visibility; the
+#                                     repair is a human alias entry, so
+#                                     this is NOT auto-quarantined)
 #   "name_collision_cross_universe" — same normalized name in offense + IDP
 #                                     (usually distinct people; surfaced
 #                                     for visibility, not auto-quarantined)
@@ -262,6 +275,7 @@ _NEAR_NAME_VALUE_RATIO_THRESHOLD = 3.0  # flag if max/min value ratio > 3x
 # fire here but the underlying rule produced only false positives.
 _QUARANTINE_FLAGS = {
     "duplicate_canonical_identity",
+    "duplicate_sleeper_id",
     "position_source_contradiction",
     "unsupported_position",
     "no_valid_source_values",
@@ -3263,6 +3277,150 @@ def _extract_last_name(name: str) -> str:
     return parts[-1].lower() if parts else ""
 
 
+def _detect_near_name_identity_splits(
+    players_array: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Find one human split across a resolved row and an unresolved ghost.
+
+    The board's merge key is a canonical NAME.  When two sources spell a
+    player differently and the alias table knows neither spelling, the
+    pipeline mints TWO rows: one that resolved to a Sleeper id and one
+    that did not — and each vendor's values land on whichever spelling
+    that vendor used.  The priced row then blends a SUBSET of the votes
+    the pipeline actually loaded for that player, and nothing says so
+    (audit W06-F001).
+
+    Check 0 cannot see this: it indexes on exact
+    ``<normalized_name>::<position_group>`` equality, and a split exists
+    precisely because the two keys differ.  The rule that could have
+    seen it — "same surname, cross-universe, value ratio > 3x" — was
+    retired for producing 40+ false positives a build, and replaced with
+    a literal ``0``.
+
+    The predicate here is the tight one, and each clause earns its place:
+
+    * **same surname** — the split is a first-name variant, never a
+      surname one;
+    * **similarity >= 0.85 on the normalized name, OR one first name is
+      a strict prefix of the other** — "Matt"/"Matthew" clears the
+      similarity bar, "Jam"/"Jamarion" clears only the prefix one;
+    * **exactly one side lacks a ``playerId``** — two resolved rows are
+      two different humans (the Sleeper directory said so), and two
+      unresolved rows are not evidence of anything.
+
+    Measured on the live 1,092-row board: **2 hits, 0 false positives** —
+    Matt/Matthew Hibner and Jam/Jamarion Miller, both confirmed in the
+    audit as one player each.  The retired rule scored 40+ on the same
+    class of input.
+
+    This DETECTS, it does not merge.  Merging would mean deciding on a
+    name similarity that two rows are one player, which is exactly the
+    fuzzy-merge failure mode the rest of this pipeline refuses.  The
+    repair for a reported split is an alias entry, made by a human.
+    """
+    import difflib  # noqa: PLC0415
+
+    by_surname: dict[str, list[tuple[int, str, dict[str, Any]]]] = {}
+    for idx, row in enumerate(players_array):
+        if row.get("assetClass") == "pick":
+            continue
+        norm = _normalize_for_collision(row.get("canonicalName") or row.get("displayName") or "")
+        if not norm or len(norm.split()) < 2:
+            continue
+        by_surname.setdefault(_extract_last_name(norm), []).append((idx, norm, row))
+
+    pairs: list[dict[str, Any]] = []
+    for _surname, members in by_surname.items():
+        if len(members) < 2:
+            continue
+        for a in range(len(members)):
+            for b in range(a + 1, len(members)):
+                _, norm_a, row_a = members[a]
+                _, norm_b, row_b = members[b]
+                has_a = bool(row_a.get("playerId"))
+                has_b = bool(row_b.get("playerId"))
+                if has_a == has_b:
+                    continue
+                first_a, first_b = norm_a.split()[0], norm_b.split()[0]
+                prefix = first_a != first_b and (
+                    first_a.startswith(first_b) or first_b.startswith(first_a)
+                )
+                similarity = difflib.SequenceMatcher(None, norm_a, norm_b).ratio()
+                if similarity < _NEAR_NAME_SPLIT_SIMILARITY and not prefix:
+                    continue
+                resolved, unresolved = (row_a, row_b) if has_a else (row_b, row_a)
+                # The votes that landed on the ghost and never reached
+                # the priced row — this is the actual harm, and it is
+                # what makes the report actionable.
+                resolved_sources = {
+                    k for k, v in (resolved.get("canonicalSiteValues") or {}).items() if v
+                }
+                ghost_sources = {
+                    k for k, v in (unresolved.get("canonicalSiteValues") or {}).items() if v
+                }
+                pairs.append(
+                    {
+                        "lastName": _extract_last_name(norm_a),
+                        "resolvedName": resolved.get("canonicalName")
+                        or resolved.get("displayName"),
+                        "resolvedPlayerId": resolved.get("playerId"),
+                        "unresolvedName": unresolved.get("canonicalName")
+                        or unresolved.get("displayName"),
+                        "similarity": round(float(similarity), 3),
+                        "firstNamePrefix": bool(prefix),
+                        "sourcesOnlyOnUnresolved": sorted(ghost_sources - resolved_sources),
+                    }
+                )
+                for row in (resolved, unresolved):
+                    flags = row.get("anomalyFlags") or []
+                    if "near_name_identity_split" not in flags:
+                        flags.append("near_name_identity_split")
+                        row["anomalyFlags"] = flags
+    return pairs
+
+
+def _detect_duplicate_sleeper_ids(
+    players_array: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Rows sharing one ``playerId`` — the same human, twice, by stable id.
+
+    Zero on today's board, which is the point of pinning it: the name
+    key is what splits players (see above), and nothing was watching the
+    ID key for the inverse failure.  Unlike a name match this is not a
+    judgement call — Sleeper's directory says these two rows are one
+    player — so it is quarantine-level.
+    """
+    by_id: dict[str, list[int]] = {}
+    for idx, row in enumerate(players_array):
+        pid = str(row.get("playerId") or "").strip()
+        if pid:
+            by_id.setdefault(pid, []).append(idx)
+    out: list[dict[str, Any]] = []
+    for pid, indices in by_id.items():
+        if len(indices) < 2:
+            continue
+        out.append(
+            {
+                "playerId": pid,
+                "names": sorted(
+                    {
+                        str(players_array[i].get("canonicalName") or "")
+                        or str(players_array[i].get("displayName") or "")
+                        for i in indices
+                    }
+                ),
+                "rowCount": len(indices),
+            }
+        )
+        for i in indices:
+            row = players_array[i]
+            flags = row.get("anomalyFlags") or []
+            if "duplicate_sleeper_id" not in flags:
+                flags.append("duplicate_sleeper_id")
+                row["anomalyFlags"] = flags
+    return out
+
+
 def _compute_identity_confidence(
     row: dict[str, Any],
 ) -> tuple[float, str]:
@@ -3463,12 +3621,17 @@ def _validate_and_quarantine_rows(
                     flags.append("position_source_contradiction")
                     row["anomalyFlags"] = flags
 
-    # ── Check 3: Near-name value mismatch across universes ──
-    # REMOVED: the historical "same surname + cross universe + value
-    # ratio > 3" rule produced 40+ false positives per build for
-    # legitimate distinct people.  Real entity collisions are now
-    # caught by the position-aware duplicate-identity check above.
-    near_name_pairs: list[dict[str, Any]] = []
+    # ── Check 0b: duplicate stable identity ──
+    duplicate_sleeper_id_pairs = _detect_duplicate_sleeper_ids(players_array)
+
+    # ── Check 3: near-name identity SPLIT ──
+    # The historical "same surname + cross universe + value ratio > 3"
+    # rule produced 40+ false positives per build and was replaced by a
+    # literal 0 — which made the split class (W06-F001) invisible to the
+    # repo's own identity audit.  The rule below is the tight one; see
+    # ``_detect_near_name_identity_splits`` for why each clause is there
+    # and for the 2-hit / 0-false-positive measurement.
+    near_name_pairs = _detect_near_name_identity_splits(players_array)
 
     # ── Check 4: Unsupported position ──
     for idx, row in enumerate(players_array):
@@ -3514,12 +3677,15 @@ def _validate_and_quarantine_rows(
         "quarantineCount": quarantine_count,
         "crossUniverseCollisions": collision_pairs,
         "crossUniverseCollisionCount": len(collision_pairs),
-        # near-name pairs intentionally always-empty: legacy field kept
-        # for backwards-compat with any consumer that grabs the count.
+        # No longer a hardcoded 0: these are real split-identity pairs
+        # (same surname, near-identical first name, exactly one side
+        # unresolved).  See ``_detect_near_name_identity_splits``.
         "nearNameMismatches": near_name_pairs,
-        "nearNameMismatchCount": 0,
+        "nearNameMismatchCount": len(near_name_pairs),
         "duplicateCanonicalIdentityPairs": duplicate_identity_pairs,
         "duplicateCanonicalIdentityCount": len(duplicate_identity_pairs),
+        "duplicateSleeperIdPairs": duplicate_sleeper_id_pairs,
+        "duplicateSleeperIdCount": len(duplicate_sleeper_id_pairs),
     }
 
 
@@ -9821,6 +9987,8 @@ def build_api_data_contract(
             "suspicious_disagreement",
             "impossible_value",
             "duplicate_canonical_identity",
+            "duplicate_sleeper_id",
+            "near_name_identity_split",
             "name_collision_cross_universe",
             "position_source_contradiction",
             "unsupported_position",
