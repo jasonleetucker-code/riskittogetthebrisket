@@ -56,7 +56,13 @@ name: E2E Safety Net
 # Failure handling mirrors scheduled-refresh.yml: an idempotent
 # tracking issue labelled ``e2e-failures`` is opened (or commented
 # on) so a broken journey can't sit unnoticed between manual runs.
-# Both issue steps are scoped to NON-PR runs — see the guards on them.
+#
+# That tracker is about MAIN, and only main writes to it.  Both issue
+# steps require `github.ref == 'refs/heads/main'` AND a non-PR event —
+# the ref clause keeps a branch DISPATCH from speaking for main (#716),
+# the event clause keeps a PR run from doing the same.  Neither clause
+# subsumes the other in intent, so both are stated; see the notes on the
+# steps themselves.
 
 on:
   schedule:
@@ -309,13 +315,27 @@ jobs:
         # on the open ``e2e-failures`` issue if there is one, else
         # open a single labelled issue and keep reusing it.
         #
-        # NON-PR RUNS ONLY.  This issue tracks "is main's safety net
-        # broken".  A PR run failing says something about the PR, not
-        # about main, and the failure is already visible on the PR's own
-        # checks — commenting here would bury the real signal under one
-        # comment per red PR run, which is exactly the "permanently red"
-        # noise the close-step below was added to end.
-        if: failure() && github.event_name != 'pull_request'
+        # MAIN ONLY, and the two clauses below guard DIFFERENT things —
+        # do not collapse them into one.
+        #
+        # The ref clause is about BRANCH DISPATCH, not about PRs.
+        # Dispatching this workflow on a branch is a first-class use (it
+        # is how a branch gets arbitrated against the green baseline),
+        # and its result is reported in the run itself.  It just does not
+        # get to speak for main.  See #716, and see the close step below
+        # for why that one is the dangerous direction.
+        #
+        # The event clause states the PR-run intent at the point of use.
+        # A PR run failing says something about the PR, not about main,
+        # and the failure is already visible on the PR's own checks —
+        # commenting here would bury the real signal under one comment
+        # per red PR run, which is exactly the "permanently red" noise
+        # the close step below was added to end.  It is redundant with
+        # the ref clause TODAY (a `pull_request` run's ref is
+        # `refs/pull/<n>/merge`, never `refs/heads/main`), and it is kept
+        # so that adding a `push:` trigger later cannot silently make PR
+        # runs eligible.
+        if: failure() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -323,7 +343,7 @@ jobs:
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           BODY=$(cat <<EOF
-          Nightly E2E safety-net run failed.
+          E2E safety-net run failed on \`main\` (trigger: ${GITHUB_EVENT_NAME}).
 
           - Workflow run: ${RUN_URL}
           - Commit: ${GITHUB_SHA}
@@ -376,13 +396,17 @@ jobs:
         # the suite is the gate, so there is no per-step outcome to
         # re-derive.
         #
-        # NON-PR RUNS ONLY, and this guard is the more important of the
-        # two.  A PR run is green for the PR's HEAD — a merge commit of
-        # a branch that is not main.  Letting it close the issue would
-        # declare main healthy on evidence from code that was never on
-        # main, and any PR touching the shell could silently clear a
-        # genuine nightly failure.
-        if: success() && github.event_name != 'pull_request'
+        # MAIN ONLY — same two clauses as the alert step, and this is
+        # the stronger of the two requirements, because a false all-clear
+        # CLOSES a real open failure while a false alarm merely files a
+        # wrong one.  Both ways of not being main are live here:
+        #
+        # - a green DISPATCH on a branch would issue main's all-clear
+        #   from code that was never on main (#716);
+        # - a green PR run is green for a merge commit of a branch that
+        #   is not main, so any shell-touching PR could silently clear a
+        #   genuine nightly failure.
+        if: success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -402,7 +426,7 @@ jobs:
           for N in $OPEN; do
             echo "closing #${N}"
             gh issue close "$N" --reason completed --comment \
-              "Nightly E2E safety net is green again — every critical journey passed.
+              "E2E safety net is green again on \`main\` — every critical journey passed.
 
           - Workflow run: ${RUN_URL}
           - Commit: ${GITHUB_SHA}
