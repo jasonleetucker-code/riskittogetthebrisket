@@ -25,7 +25,7 @@ const {
   SEL,
   pageHeading,
   titleFor,
-  waitForStreamSettled,
+  awaitStreamSettled,
 } = require("../helpers/journey");
 
 test.describe("journey: trade surfaces", () => {
@@ -148,12 +148,9 @@ test.describe("journey: trade surfaces", () => {
   }) => {
     const guard = attachConsoleGuards(page);
     await page.goto(pageUrl("/arbitrage"), { waitUntil: "domcontentloaded" });
-    // React 19.2 defers its Suspense reveal, leaving a staged copy of the
-    // boundary in the DOM until $RV runs (rAF, then a throttle of up to
-    // 300ms).  Every strict locator below would see two of everything for
-    // that window.  See waitForStreamSettled — this waits the transient
-    // out and still fails on a permanent duplicate.
-    await waitForStreamSettled(page);
+    // /arbitrage has a loading.jsx, so the App Router streams it. Let the swap
+    // finish before any strict locator runs — see awaitStreamSettled (#716).
+    await awaitStreamSettled(page);
 
     await expect(pageHeading(page, titleFor("/arbitrage"))).toBeVisible({
       timeout: 30_000,

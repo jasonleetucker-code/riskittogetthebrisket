@@ -1,5 +1,5 @@
 const { test, expect } = require("@playwright/test");
-const { pageUrl, waitForStreamSettled } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
 
 // End-to-end coverage for the PUBLIC /league page.  Exercises the
 // real Sleeper-backed data flow through the FastAPI backend at
@@ -126,7 +126,7 @@ test.describe("public /league page", () => {
     // about the run rather than a probe that can throw: the breakpoint is
     // 768px and `isMobileProject` already encodes the same split for the
     // project matrix.
-    await waitForStreamSettled(page);
+    await awaitStreamSettled(page);
     const width = page.viewportSize()?.width ?? 1366;
     const useMobile = width <= 768;
     const mobileSelect = page.getByLabel("Select league section");

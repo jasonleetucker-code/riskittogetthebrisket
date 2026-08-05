@@ -141,7 +141,7 @@ module.exports = defineConfig({
   // two windows onto that shape are journey-trade.spec.js (/arbitrage)
   // and waivers-smoke.spec.js (/waivers) — one retry hides both.
   //
-  // Those specs now call `waitForStreamSettled()`, so the TRANSIENT case
+  // Those specs now call `awaitStreamSettled()`, so the TRANSIENT case
   // no longer reaches an assertion.  This key still matters: what remains
   // behind a retry is a PERMANENT duplicate, which is a genuine defect,
   // and every other flake the suite has yet to meet.  (An earlier version

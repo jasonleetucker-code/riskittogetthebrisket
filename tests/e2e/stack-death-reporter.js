@@ -293,7 +293,7 @@ class StackDeathReporter {
         `a full copy of the boundary legitimately exists for a window.\n` +
         `That is REACT'S BEHAVIOUR, not a defect in this app — an earlier\n` +
         `version of this banner called it a product defect and was wrong.\n\n` +
-        `The fix for a spec that trips on it is waitForStreamSettled()\n` +
+        `The fix for a spec that trips on it is awaitStreamSettled()\n` +
         `from helpers/journey.js, which waits the transient out.  If a\n` +
         `spec already calls it and STILL sees two, that is the real bug:\n` +
         `a duplicate React is never going to clean up.\n\n` +

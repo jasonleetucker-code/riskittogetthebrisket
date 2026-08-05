@@ -99,6 +99,26 @@ def _tier_for_bid(bid: int, league_budget: int) -> str:
     return "tier4"
 
 
+def _budget_for_season(season: Any) -> int | None:
+    """That season's own waiver_budget, or None when it isn't recorded.
+
+    None is a distinct answer from 100: a season whose budget we do not
+    know cannot be normalised against, and the caller has to decide what
+    to do about that rather than silently rescaling by a guess.
+    """
+    league = getattr(season, "league", None)
+    if not isinstance(league, dict):
+        return None
+    settings = league.get("settings") or {}
+    if not isinstance(settings, dict):
+        return None
+    try:
+        v = int(settings.get("waiver_budget"))
+    except (TypeError, ValueError):
+        return None
+    return v if v > 0 else None
+
+
 def _league_budget(snapshot: PublicLeagueSnapshot) -> int:
     """Read the current season's waiver_budget setting.  Falls back
     to 100 (Sleeper's default) when unset so our tier breakpoints
@@ -106,19 +126,11 @@ def _league_budget(snapshot: PublicLeagueSnapshot) -> int:
     season = snapshot.current_season
     if season is None:
         return 100
-    league = getattr(season, "league", None)
-    if not isinstance(league, dict):
-        return 100
-    settings = league.get("settings") or {}
-    if not isinstance(settings, dict):
-        return 100
-    try:
-        v = int(settings.get("waiver_budget"))
-        if v > 0:
-            return v
-    except (TypeError, ValueError):
-        pass
-    return 100
+    budget = _budget_for_season(season)
+    # Sleeper's documented default when the league never set one.  Written
+    # out rather than reached with ``or`` so the fallback is a stated
+    # decision the coercion gate can read, not an idiom.
+    return budget if budget is not None else 100
 
 
 def _stats_block(values: list[float]) -> dict[str, Any]:
@@ -148,6 +160,7 @@ def _walk_waivers(
     winning-bid amount."""
     out: list[dict[str, Any]] = []
     for season in snapshot.seasons:
+        season_budget = _budget_for_season(season)
         for tx in season.waivers():
             settings = tx.get("settings") or {}
             try:
@@ -162,7 +175,15 @@ def _walk_waivers(
                     "season": season.season,
                     "leagueId": season.league_id,
                     "type": str(tx.get("type") or ""),
+                    # The RAW dollar, kept verbatim: a 2024 bid really
+                    # was $340 and history must not be rewritten.
                     "bid": bid,
+                    # ...and the same bid as a share of the budget it was
+                    # actually spent from, which is the only comparable
+                    # quantity across seasons.  None when that season's
+                    # budget isn't recorded — see ``_budget_for_season``.
+                    "seasonBudget": season_budget,
+                    "bidPct": (bid / season_budget) if season_budget else None,
                     "adds": adds if isinstance(adds, dict) else {},
                     "rosterId": roster_id,
                     "ownerId": _owner_for_roster(season, roster_id),
@@ -196,6 +217,20 @@ def summarize_league_faab(
 
         {
             "leagueBudget":          int,       # current-season setting
+            "budgetsBySeason":       {"<season>": int | None},
+
+        EVERY BID FIGURE BELOW IS BUDGET-NORMALISED: expressed as its own
+        season's share of budget, re-multiplied by the CURRENT budget.
+        "$34" therefore means "34% of that season's budget, in today's
+        dollars", not a literal historical price.  ``recentWins`` and
+        ``playerHistory`` are the exception and keep the raw dollar,
+        because a 2024 bid really was $340 and rewriting history would be
+        a second falsehood; both carry ``seasonBudget``/``bidPct`` so the
+        UI can show one in terms of the other.
+
+        Zero bids are INCLUDED.  Excluding them overstated the median by
+        ~200x (see src/trade/faab_history.py, which keeps them for the
+        same reason) because 41-77% of adds cost nothing in a season.
             "leagueAvgWinningBid":   float,
             "leagueMedianWinningBid": float,
             "totalBidsAnalyzed":     int,
@@ -222,11 +257,36 @@ def summarize_league_faab(
     waivers_recent_first = sorted(waivers, key=lambda tx: -int(tx.get("createdAt") or 0))
 
     for tx in waivers:
-        bid = int(tx.get("bid") or 0)
+        raw_value = tx.get("bid")
+        raw_bid = int(raw_value) if isinstance(raw_value, (int, float)) else 0
+        # ── budget-normalised dollars ─────────────────────────────────
+        # Every aggregate below answers "what would this bid cost in
+        # today's league", not "how many dollars changed hands in 2024".
+        # This league ran different budgets in different seasons, and
+        # averaging raw dollars across them mixed currencies: a $340 bid
+        # from a $1000 season is a 34% claim, not a $340 one, and reading
+        # it as $340 in a $100 league is how positionBids reported a max
+        # physically larger than the whole budget.
+        #
+        # A season with no recorded budget normalises by 1.0 — a no-op —
+        # rather than being rescaled by a guess.  That is the honest
+        # degradation, and it is the state the committed snapshot is
+        # actually in.
+        season_budget = tx.get("seasonBudget")
+        if season_budget:
+            bid = round(raw_bid / float(season_budget) * league_budget)
+        else:
+            bid = raw_bid
         owner_id = tx.get("ownerId")
-        if bid > 0:
-            all_bids.append(bid)
-            tier_bids[_tier_for_bid(bid, league_budget)].append(bid)
+        # $0 bids are KEPT.  Excluding them overstated the median by
+        # roughly 200x (src/trade/faab_history.py:11-20 measured it):
+        # 41-77% of adds cost nothing in a given season, so "the median
+        # winning bid" computed over nonzero bids only is not the median
+        # winning bid at all.  That is a LARGER error than the budget
+        # mixing above, and it silently inflated every figure the waivers
+        # panel prints.
+        all_bids.append(bid)
+        tier_bids[_tier_for_bid(bid, league_budget)].append(bid)
 
         # Per-position bid attribution.  Multi-add transactions split
         # the bid evenly across each added player's position so a
@@ -239,10 +299,10 @@ def summarize_league_faab(
         # the FAAB recommender calibrates against.
         adds = tx.get("adds") or {}
         n_added = max(1, len(adds))
-        per_player_bid = bid / n_added if bid > 0 else 0.0
+        per_player_bid = bid / n_added
         for pid in adds.keys():
             pos = _player_position(snapshot, str(pid))
-            if pos and bid > 0:
+            if pos:
                 position_bids.setdefault(pos, []).append(per_player_bid)
             # Player history: every add (including FA pickups @ 0)
             # gets a row so the UI can show "this player has been
@@ -308,8 +368,50 @@ def summarize_league_faab(
         if len(recent) >= recent_limit:
             break
 
+    # What budgets the history actually spans.  Published so the panel can
+    # disclose that a "$34" figure means "34% of that season's budget,
+    # expressed in today's dollars" rather than a literal historical price.
+    budgets_by_season = {str(s.season): _budget_for_season(s) for s in (snapshot.seasons or [])}
+
+    # Whether the normalisation above actually did anything, stated rather
+    # than left to be inferred.
+    #
+    # Sleeper's persisted ``settings`` does not always carry
+    # ``waiver_budget`` — the committed dev snapshot's has two keys and
+    # none of them is it.  When no season records a budget every bid
+    # normalises by 1.0, which is the correct degradation but is
+    # INDISTINGUISHABLE from the fix working, because both leave the
+    # numbers unchanged.  That is the same "cannot verify reads as
+    # verified" failure this module was repaired for, one level up.
+    #
+    # So the payload says which it is.  A production call answers "is the
+    # budget fix live on this host?" without shell access, and a UI
+    # rendering these dollars can decline to call them normalised when
+    # they are not.
+    seasons_with_budget = sum(1 for v in budgets_by_season.values() if v)
+    mixed_regimes = len({v for v in budgets_by_season.values() if v}) > 1
+
     return {
         "leagueBudget": league_budget,
+        "budgetsBySeason": budgets_by_season,
+        "budgetNormalization": {
+            # True only when there is something to normalise AND the
+            # divisors are known: more than one distinct budget on record.
+            "applied": bool(mixed_regimes),
+            "seasonsWithRecordedBudget": seasons_with_budget,
+            "seasonsTotal": len(budgets_by_season),
+            "reason": (
+                "multiple budget regimes normalised to the current budget"
+                if mixed_regimes
+                else (
+                    "no season records a waiver_budget, so every bid passed "
+                    "through unscaled — these are raw dollars, not normalised"
+                    if seasons_with_budget == 0
+                    else "every season on record ran the same budget; a no-op "
+                    "by arithmetic, not by omission"
+                )
+            ),
+        },
         "leagueAvgWinningBid": (round(statistics.fmean(all_bids), 2) if all_bids else 0.0),
         "leagueMedianWinningBid": (
             round(float(statistics.median(all_bids)), 2) if all_bids else 0.0

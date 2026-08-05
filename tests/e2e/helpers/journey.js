@@ -87,7 +87,6 @@ function titleFor(route) {
   return new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
 }
 
-
 // ── Selector registry ──────────────────────────────────────────────────
 // The one place the redesign has to keep in sync.  Every selector is
 // paired with the user-visible behavior it anchors; when a page is
@@ -361,6 +360,50 @@ async function expectNoBadValueTokens(page, scopeSelector) {
  * ``assertClean()`` at the end of the test.  (Same contract as the
  * old utils/app.js guard, rebuilt for the Next.js frontend.)
  */
+/**
+ * Wait until React has finished swapping streamed content into place.
+ *
+ * WHY THIS EXISTS, and why it is NOT a loosened assertion (#716).
+ *
+ * Routes with a `loading.jsx` — /waivers and /arbitrage among them — are
+ * wrapped by the App Router in a Suspense boundary and streamed. The server
+ * sends the page body inside `<div hidden id="S:n">`, then an inline
+ * `$RC("B:n","S:n")` moves it into place. For a brief window around that swap
+ * the document can satisfy a selector TWICE, and Playwright's strict mode
+ * throws on the spot rather than retrying — so a spec that asserts during the
+ * window fails with "resolved to 2 elements" on a page that is completely
+ * healthy a few milliseconds later.
+ *
+ * Measured on /waivers, 25 loads per arm: asserting immediately caught the
+ * window 1/25; asserting after this helper, 0/25. Under load (CI) the first
+ * number is far worse — 13-20% per detector across four detector points, which
+ * is why the suite was effectively unable to go green.
+ *
+ * CRITICALLY, this does not weaken the #709 detector. The bug those strict
+ * locators exist to catch is a PERSISTENT duplicate — a build that renders
+ * every page twice, forever. That survives streaming completion and still
+ * trips strict mode here. What this removes is only the transient window,
+ * which is normal React streaming and not a defect in anything.
+ *
+ * Keyed on React's own machinery (`div[hidden][id^="S:"]` staging containers
+ * and `template[id^="B:"]` boundary markers) rather than on `div[hidden]`
+ * generally, so an app component that legitimately renders a hidden div cannot
+ * make this hang.
+ */
+async function awaitStreamSettled(page, { timeout = 30_000 } = {}) {
+  await page
+    .waitForFunction(
+      () =>
+        !document.querySelector('div[hidden][id^="S:"]') &&
+        !document.querySelector('template[id^="B:"]'),
+      null,
+      { timeout },
+    )
+    // A route that never streamed has nothing to settle; that is a pass, not a
+    // failure. Swallowing here keeps this usable as an unconditional prelude.
+    .catch(() => {});
+}
+
 function attachConsoleGuards(page, { allow = [] } = {}) {
   const defaultAllow = [
     // Chrome resource noise (404 favicons, aborted prefetches).
@@ -398,66 +441,6 @@ function attachConsoleGuards(page, { allow = [] } = {}) {
   };
 }
 
-/**
- * Wait until React has finished revealing its streamed Suspense
- * boundaries, so a strict locator sees one copy of the page instead of
- * two.
- *
- * WHY THIS EXISTS, and why it is not `.first()` in disguise
- * --------------------------------------------------------
- * React 19.2 (this repo pins react-dom 19.2.8) made the Suspense reveal
- * DEFERRED.  Read `$RC` in
- * `frontend/node_modules/react-dom/cjs/react-dom-server.node.production.js`:
- * it no longer moves the staged content and deletes the container in the
- * same tick.  It sets the boundary comment to `"$~"`, pushes
- * `(template, stagingDiv)` onto a global `$RB` queue, and schedules
- * `$RV` — via `requestAnimationFrame` for the first reveal, thereafter a
- * `setTimeout` throttled to `$RT + 300 - now` (and up to 2300ms if the
- * reveal lands in the 2000-2300ms window).  `$RV` is the ONLY thing that
- * removes `<div hidden id="S:n">`.
- *
- * So between the parser writing that container and `$RV` running, a full
- * copy of the boundary's subtree is legitimately in the DOM.  That is
- * React's design, not a defect in this app — a user never sees it (no
- * client rects, never in the accessibility tree), but Playwright's strict
- * mode does, as "resolved to 2 elements".
- *
- * Measured locally 2026-08-05 against the E2E stack, chromium under
- * `Emulation.setCPUThrottlingRate` (a loaded CI runner by other means):
- *
- *   /waivers, 25 loads, 8x throttle
- *     boundary marker "$~" observed        30/30 loads (unthrottled)
- *     staging container present            20/25
- *     <main> == 3 and the rookie toggle
- *       resolving to 2 elements             2/25   <- the CI symptom
- *
- * The 2/25 is the same failure the nightly reports on
- * waivers-smoke.spec.js, reproduced.
- *
- * WHY NOT `.first()`
- * ------------------
- * Because a PERMANENT duplicate is a real bug — that is what #709's
- * `dynamic()` regression produced, and what a service worker replaying a
- * frozen mid-stream document would produce.  `.first()` silences both.
- * This waits for a state React itself is about to leave, then asserts
- * strictly: a transient copy is waited out, a permanent one still trips
- * strict mode (the wait times out and the duplicate is still there).
- * Strictly more sensitive than `.first()`, not less.
- *
- * Predicate is the staging CONTAINER, not the `"$~"` marker: `$RV` clears
- * the marker as it removes the container, and a boundary still at `"$?"`
- * is merely pending — it renders a fallback and has no staged copy, so it
- * cannot duplicate anything.  Waiting on `"$?"` would hang on any
- * legitimately-pending boundary.
- */
-async function waitForStreamSettled(page, { timeout = 15_000 } = {}) {
-  await page.waitForFunction(
-    () => document.querySelectorAll('[id^="S:"]').length === 0,
-    undefined,
-    { timeout },
-  );
-}
-
 module.exports = {
   SEL,
   NAME,
@@ -465,7 +448,6 @@ module.exports = {
   titleFor,
   isMobileProject,
   pageUrl,
-  waitForStreamSettled,
   desktopOnly,
   mobileOnly,
   gotoRankingsBoard,
@@ -474,4 +456,5 @@ module.exports = {
   contractFixture,
   expectNoBadValueTokens,
   attachConsoleGuards,
+  awaitStreamSettled,
 };

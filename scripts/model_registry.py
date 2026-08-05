@@ -38,6 +38,7 @@ from src.model_registry.hill_masters import (  # noqa: E402
     CONSTANT_NAMES,
     MODEL_ID,
     PLAYER_VALUATION,
+    VALIDATED_PARAMS,
     git_sha as _git_sha,
     load_or_seed_registry as _load_or_seed,
     read_committed_constants,
@@ -187,15 +188,65 @@ def cmd_validate(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
-    champ_crit = (champ.holdout or {}).get("criterion")
-    chal_crit = (challenger.holdout or {}).get("criterion")
-    if chal_crit is None:
-        print(f"ERROR: challenger v{challenger.version} has no held-out score", file=sys.stderr)
+    # SCORE BOTH CURVES FRESH, ON ONE SNAPSHOT.
+    #
+    # This used to read the two STORED criteria and hand them straight to
+    # ``decide_promotion``.  ``promotion.py``'s module docstring says the
+    # comparison must be made on ONE snapshot with both curves scored
+    # against it, because the criterion's absolute level drifts with the
+    # market while the paired delta does not.  Stored scores are stamped
+    # whenever someone last ran ``evaluate --record``; a challenger's is
+    # stamped at ``register`` time.  Those dates coincide only by luck.
+    #
+    # Measured 2026-08-05 on the live registry, margin 25.0:
+    #
+    #   stored vs stored (what this did)   +12.79  REJECT (right, by luck)
+    #   both scored fresh (correct)        +22.44  REJECT
+    #   champion re-recorded only          +31.91  PROMOTE  <- WRONG
+    #
+    # That third row is the trap: "just re-record the champion" looks
+    # like a data fix and is the one action that produces a false
+    # PROMOTE, because refreshing only the staler side inflates the gap
+    # by exactly the drift removed.  The champion's stored score was 7
+    # days old, the challenger's 1.
+    #
+    # This matters more than an advisory CLI normally would:
+    # ``cmd_promote`` has NO holdout gate, so this verdict is the only
+    # thing between a human and ``promote`` + ``apply``.
+    #
+    # ``auto_refit_hill_curves.py`` already did it correctly
+    # (both fresh, then decide) — two code paths, one contract, one of
+    # them wrong.  This is now the same path.
+    try:
+        champ_eval = evaluate_offense_master(*(champ.params[k] for k in VALIDATED_PARAMS))
+        chal_eval = evaluate_offense_master(*(challenger.params[k] for k in VALIDATED_PARAMS))
+    except (HoldoutError, KeyError) as exc:
+        print(f"ERROR: the gate could not be evaluated: {exc}", file=sys.stderr)
+        print("Refusing to treat an unevaluable gate as a pass.", file=sys.stderr)
         return 2
 
+    champ_crit = champ_eval.criterion
+    chal_crit = chal_eval.criterion
+
     decision = decide_promotion(champ_crit, chal_crit)
-    print(f"champion   v{champ.version}: {champ_crit if champ_crit is not None else 'unmeasured'}")
-    print(f"challenger v{challenger.version}: {chal_crit:.1f}")
+    print(f"champion   v{champ.version}: {champ_crit:.4f}  (scored now)")
+    print(f"challenger v{challenger.version}: {chal_crit:.4f}  (scored now)")
+
+    # Show the stored figures alongside rather than silently correcting
+    # them, so a stale registry is visible instead of merely bypassed.
+    for label, ver, fresh in (
+        ("champion", champ, champ_crit),
+        ("challenger", challenger, chal_crit),
+    ):
+        stored = (ver.holdout or {}).get("criterion")
+        if isinstance(stored, (int, float)) and abs(stored - fresh) > 0.05:
+            when = (ver.holdout or {}).get("measuredAt") or "date not recorded"
+            print(
+                f"  note: {label} v{ver.version} has a STORED criterion of {stored:.4f} "
+                f"({when}), {fresh - stored:+.4f} from today's. The verdict above uses "
+                f"today's; run `evaluate --champion --record` to refresh the file."
+            )
+
     print(f"verdict: {'PROMOTE' if decision.promote else 'REJECT'} — {decision.reason}")
     if decision.alarm:
         print("ALARM: regression large enough to suspect the fit or its inputs.")

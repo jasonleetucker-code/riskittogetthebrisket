@@ -743,16 +743,57 @@ def _check_disk_space(path: Path | None = None) -> tuple[bool, int]:
 
 
 def _sanitize_next_path(raw: str | None, default: str = "/") -> str:
+    """Reduce a ``?next=`` value to a same-origin path, or refuse it.
+
+    PARSE AND COMPARE, not blocklist.  The previous implementation was a
+    list of string tests — reject ``http://``, ``https://``, anything not
+    starting with ``/``, anything starting with ``//``, CR and LF — and it
+    was bypassed by a character it did not name: **the backslash**.
+
+    ``/\\attacker.tld`` starts with ``/``, does not start with ``//``, has
+    no scheme prefix and contains no newline, so every guard passed and the
+    value was returned verbatim.  Browsers then normalise ``\\`` to ``/``
+    when resolving a URL, turning it into the protocol-relative
+    ``//attacker.tld`` — a working post-login open redirect to an arbitrary
+    host, on the real domain.  The same trick works with a tab or a raw
+    control character, which browsers strip *before* resolving
+    (``/\\tattacker.tld``).
+
+    So: normalise the input the way a browser would, then judge the result
+    structurally.  Anything that parses with a scheme or a netloc is not a
+    path on this origin, whatever it looked like as a string.
+    """
     value = str(raw or "").strip()
     if not value:
         return default
-    if value.startswith("http://") or value.startswith("https://"):
+
+    # Refuse rather than repair.  Browsers strip TAB/LF/CR from a URL and
+    # treat a backslash as a path separator, so both are load-bearing to the
+    # attack — but no path this application mints contains either, so the
+    # honest answer to one appearing is "no", not a normalised guess at what
+    # was meant.  Rejecting also keeps this function's output a subset of its
+    # input, which is what makes it auditable.
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
         return default
-    if not value.startswith("/") or value.startswith("//"):
+    if "\\" in value:
         return default
-    if "\n" in value or "\r" in value:
+
+    try:
+        parts = urllib.parse.urlsplit(value)
+    except ValueError:
         return default
-    return value
+
+    # A scheme or a netloc means it addresses some other origin.  This is
+    # the check the string tests were approximating; it does not care
+    # whether the author remembered a particular character.
+    if parts.scheme or parts.netloc:
+        return default
+    if not parts.path.startswith("/") or parts.path.startswith("//"):
+        return default
+
+    # Re-emit from the parsed parts so the caller receives the normalised
+    # form that was actually judged, never the raw string.
+    return urllib.parse.urlunsplit(("", "", parts.path, parts.query, parts.fragment))
 
 
 def _get_auth_session(request: Request) -> dict | None:
@@ -4549,6 +4590,15 @@ async def get_status():
             # silent; surfacing coverage here is what makes it visible
             # before a study needs the history and finds it absent.
             "rankHistoryCoverage": _rank_history_coverage_safe(),
+            # The same argument one directory over, and the same defect
+            # the line above exists to prevent.  `store.history_coverage`
+            # was written so a halted retention timer is "visible before
+            # a study needs the data rather than after it produces a
+            # wrong answer" — and was then wired to nothing.  That is
+            # what let the 2026-08-05 deploy install the producer, skip
+            # the pusher, and leave the only symptom in a deploy log
+            # nobody re-reads.
+            "playerctxHistoryCoverage": _playerctx_history_coverage_safe(),
             "idMappingCoverage": _id_mapping_coverage_safe(),
             "nflDataProvider": _nfl_data_provider_status_safe(),
             "normalizationHealth": _normalization_health_safe(),
@@ -4592,6 +4642,76 @@ def _rank_history_coverage_safe() -> dict:
         return _rank_history.coverage()
     except Exception as exc:  # noqa: BLE001
         log.warning("rank_history coverage failed: %s", exc)
+        return {}
+
+
+def _playerctx_pending_push(history_dir) -> dict:
+    """Dated snapshots written locally but never committed.
+
+    THE PRODUCER AND THE PUSHER FAIL INDEPENDENTLY, and only one of the
+    two is visible in ``history_coverage``:
+
+    * the producer stalls  → the directory goes stale → ``staleDays`` grows.
+    * the pusher stalls    → the directory looks perfect and ``main`` gets
+      nothing.
+
+    The second is the one that actually happened on 2026-08-05, and
+    coverage alone cannot see it — which is precisely why it went
+    unnoticed until someone read a deploy log.  ``data/`` is gitignored
+    repo-wide and retained snapshots reach the tree only by an explicit
+    ``git add -f``, so "on disk but not tracked" is exactly "written but
+    not pushed".
+
+    Degrades to ``{}`` rather than raising or guessing: outside a git
+    checkout there is no answer, and a fabricated zero would read as
+    "nothing pending".
+    """
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", "ls-files", "--", "data/playerctx/history"],
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if proc.returncode != 0:
+            return {}
+        tracked = {
+            line.rsplit("/", 1)[-1].strip() for line in proc.stdout.splitlines() if line.strip()
+        }
+        pending = sorted(
+            p.name for p in history_dir.glob("snapshot_*.json") if p.name not in tracked
+        )
+        out: dict = {"pendingPush": len(pending)}
+        if pending:
+            # Filename carries the date and sorts chronologically, which
+            # is why store.history_path writes snapshot_YYYY-MM-DD.json.
+            out["oldestPendingDate"] = pending[0].replace("snapshot_", "", 1).replace(".json", "")
+        return out
+    except Exception as exc:  # noqa: BLE001
+        log.warning("playerctx pending-push probe failed: %s", exc)
+        return {}
+
+
+def _playerctx_history_coverage_safe() -> dict:
+    """Retained playerctx snapshot coverage, tolerant of read errors.
+
+    Same contract as ``_rank_history_coverage_safe`` — never raises —
+    plus the pending-push augmentation, which lives here rather than in
+    ``store`` so the store stays a pure filesystem module with no git
+    dependency.
+    """
+    try:
+        from src.playerctx import store as _pcx_store
+
+        coverage = _pcx_store.history_coverage()
+        if coverage.get("exists"):
+            coverage.update(_playerctx_pending_push(_pcx_store.HISTORY_DIR))
+        return coverage
+    except Exception as exc:  # noqa: BLE001
+        log.warning("playerctx history coverage failed: %s", exc)
         return {}
 
 

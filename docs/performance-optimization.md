@@ -971,7 +971,7 @@ Measured locally against the E2E stack, chromium under
 | boundary marker `"$~"` seen | 30/30 loads (unthrottled) |
 | staging container present | 20/25 loads (8× throttle) |
 | `<main>` == 3 **and** toggle resolving to 2 | **2/25** — the CI symptom |
-| same loop after `waitForStreamSettled()` | **0/25** |
+| same loop after `awaitStreamSettled()` | **0/25** |
 
 So the suite waits it out (`tests/e2e/helpers/journey.js`) rather than
 treating it as a bug to fix in the app.  The locators stay strict, and

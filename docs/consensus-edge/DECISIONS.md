@@ -1169,3 +1169,78 @@ Three things done instead of "fixing" a bug that cannot occur:
   than raising when the identity table is absent.
 
 **Status:** accepted 2026-08-05.
+
+---
+
+## ADR-029: the v2.1 cohort before/after is unrecoverable, so verify the invariant instead
+
+**Context.** ADR-028 shipped `sharp-v2.1` with a safety claim: the
+renormalization raises every score, but the ORDER and therefore the
+percentile-selected cohort are unchanged. It was asserted on synthetic
+records in `tests/sharp/test_score.py` and explicitly **not** measured
+against the live population, because the dev ledger yields zero cohort
+members. It was recorded as "owed, not done", and
+`scripts/sharp_cohort_snapshot.py` was added to make paying it a single
+command on prod.
+
+That debt cannot be paid in the form it was written. **v2.1 is already
+live**, and nobody captured the pre-v2.1 cohort — the "before" does not
+exist anywhere, on any box, in any commit. A before/after is not
+pending; it is impossible. Carrying it on the owed list indefinitely
+would be carrying a measurement that will never be taken, which is the
+same dishonesty as claiming it was.
+
+**Decision.** Verify the invariant the claim rests on, which needs no
+baseline at all.
+
+The argument is:
+
+> the absent component set is identical for every manager
+> → every score scales by the same factor
+> → the order cannot move
+> → and qualification is a percentile of the population, so the cohort
+>   cannot change.
+
+Every clause after the first *follows from* the first, and the first is
+a property of ONE population at ONE instant. If every evaluable
+manager's `components.weightsApplied` map is identical, the
+renormalization multiplied every score by the same constant. That is
+checkable on prod today.
+
+`scripts/sharp_cohort_snapshot.py --verify-invariant` does exactly that:
+it groups the population by `weightsApplied` and reports the distinct
+maps found. One map and no unstamped managers → the claim holds, and it
+holds as a proof rather than an argument. More than one → renormalization
+scaled managers by DIFFERENT factors, could have reordered them, and the
+shipped claim is false on that population.
+
+Three details that decide whether the check is worth trusting:
+
+- **An empty population exits 2, not 0.** "Every manager in an empty set
+  shares one weight map" is vacuously true and proves nothing, so a dev
+  box must not be able to report a pass. Same posture as
+  `scripts/backtest_perfect_draft.py`.
+- **An unstamped manager fails the check** rather than being skipped.
+  Treating "no `weightsApplied`" as "same as everyone else" would let the
+  check pass by ignoring precisely the rows it cannot see.
+- **Weights are compared at the precision they are stamped at** (6dp,
+  rounded at the source). Comparing raw floats would report a spurious
+  violation from representation noise instead of a real difference in
+  the absent set.
+
+**And a baseline now accumulates**, so the next scoring change does not
+repeat this. `dynasty-sharp-cohort-snapshot` writes
+`data/sharp/cohort/snapshot_<date>.json` daily at 05:10 UTC — after the
+04:50 records crawl that makes managers scoreable and before the 05:50
+roster pass. Snapshotting before records would capture a cohort built
+from yesterday's evidence and quietly date every baseline by a day.
+
+The script owns its own filename via `--daily` rather than taking a
+date-stamped path in the unit's `ExecStart`: that avoids a `/bin/sh -c`
+wrapper and systemd `%` escaping, and keeps every path in an ExecStart
+resolving to a file that exists — the rule
+`tests/deploy/test_all_timers_are_wired.py` enforces across all units,
+which caught the first attempt.
+
+**Status:** accepted 2026-08-05. Supersedes the "live cohort before/after"
+item owed by ADR-028; that item is closed as unrecoverable, not done.

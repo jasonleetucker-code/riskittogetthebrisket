@@ -175,7 +175,11 @@ def get_bdvm_values(
     # cache and enrich one season while valuing another.
     season = nfl_projection_season()
     snapshot = latest_snapshot_path(season)
-    actuals = _actuals_for(contract)
+    # Without a projection snapshot ``run_valuation`` can price nothing and
+    # returns its "no snapshot" status, so the nflverse actuals fetch below
+    # — the better part of a minute on a cold cache — buys nothing at all.
+    # Ask whether the answer is reachable before paying for an input to it.
+    actuals = _actuals_for(contract) if snapshot else (None, {})
     key = (
         id(contract),
         contract.get("generatedAt"),

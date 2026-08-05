@@ -172,8 +172,12 @@ function PlayerColumn({ row, settings, valueMode = "full" }) {
           <span style={{ color: row.marketGapDirection === "buy" ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
             {row.marketGapDirection.toUpperCase()}
           </span>
-          {row.marketGapMagnitude != null && (
-            <span> · magnitude {fmtPoints(row.marketGapMagnitude)}</span>
+          {/* Value-space relative gap.  ``marketGapMagnitude`` was an
+              ordinal rank difference and is retired; rendering the new
+              ratio through fmtPoints would have printed "0.25" as if it
+              were still a rank count. */}
+          {row.marketGapValueRatio != null && (
+            <span> · {Math.round(Math.abs(row.marketGapValueRatio) * 100)}% gap</span>
           )}
         </div>
       )}

@@ -1,0 +1,67 @@
+{
+  "measurement": "monte-carlo-band-width",
+  "question": "The simulator draws every asset from a flat +-15% band. How far does the board actually move over the same kind of interval?",
+  "flatBandUnderTest": 0.15,
+  "horizonDays": 30,
+  "panelDays": 112,
+  "panelStart": "2026-04-16",
+  "panelEnd": "2026-08-05",
+  "foldsAttempted": 3,
+  "foldsUsable": 3,
+  "byFold": [
+    {
+      "n": 353,
+      "p10": -0.23966,
+      "p50": -0.00177,
+      "p90": 0.31735,
+      "impliedHalfWidth": 0.27851,
+      "medianAbsReturn": 0.14198,
+      "flatBandCoverage": 0.5184,
+      "origin": "2026-04-16",
+      "horizon": "2026-05-16"
+    },
+    {
+      "n": 787,
+      "p10": -0.04667,
+      "p50": -0.00103,
+      "p90": 0.02068,
+      "impliedHalfWidth": 0.03367,
+      "medianAbsReturn": 0.01122,
+      "flatBandCoverage": 0.9911,
+      "origin": "2026-05-16",
+      "horizon": "2026-06-15"
+    },
+    {
+      "n": 779,
+      "p10": -0.04411,
+      "p50": 0.00222,
+      "p90": 0.06632,
+      "impliedHalfWidth": 0.05522,
+      "medianAbsReturn": 0.0169,
+      "flatBandCoverage": 0.8947,
+      "origin": "2026-06-15",
+      "horizon": "2026-07-15"
+    }
+  ],
+  "attrition": {
+    "noOrigin": 517,
+    "noHorizon": 200
+  },
+  "caveats": {
+    "modelIsCurrent": "The replay runs TODAY's Hill curves over past inputs, so measured movement is input-driven only; real board movement also came from constant promotions. This UNDERSTATES true movement, and the direction of that bias is easy to invert: understated movement makes the flat band look MORE excessive than it is, so a 'too wide' verdict is an UPPER BOUND on the excess, not a conservative floor. A 'too narrow' verdict would be the emphatic one.",
+    "panelHeterogeneity": "CSVs/site_raw held 9 sources on 2026-04-16 and 24 from 2026-06-01. Source count drives both band width and movement; read byFold, not just the pooled figure.",
+    "offseasonOnly": "The whole reconstructable window is the offseason. April-August volatility is not September volatility.",
+    "measuresSelfConsistency": "This is how much OUR board moves, not how wrong it is. It cannot capture common-mode error, so decision #4's 'too narrow, and for the right reason' argument survives this measurement intact.",
+    "simulatorHasNoHorizon": "monte_carlo.py's band is horizonless, so this yields a family of numbers (h7/h14/h30) rather than one. Choosing among them remains a judgement \u2014 an anchored one."
+  },
+  "pooled": {
+    "n": 1919,
+    "p10": -0.07083,
+    "p50": -0.00039,
+    "p90": 0.09533,
+    "impliedHalfWidth": 0.08308,
+    "medianAbsReturn": 0.01935,
+    "flatBandCoverage": 0.865
+  },
+  "verdict": "Over 3 disjoint 30-day folds (1919 player-pairs), the board's own p10-p90 half-width is 0.0831 (8.31%), against the simulator's flat 15%. The flat band is 1.81x that, and covers 86.5% of observed moves. Read the caveats before quoting: the replay understates movement (so this ratio is an UPPER bound on the excess), this is offseason data, and the per-fold spread in byFold is wide."
+}

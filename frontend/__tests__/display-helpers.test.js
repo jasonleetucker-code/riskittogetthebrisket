@@ -59,23 +59,48 @@ describe("confBadgeLabel", () => {
   });
 });
 
+// Rank -> per-source value stamp.  The market gap is measured in VALUE
+// space now (sourceRankMeta[key].valueContribution), because differencing
+// raw ordinals across pools of unequal depth measured pool depth and TE
+// format basis rather than opinion.  These fixtures were written in ranks,
+// so this keeps each case's INTENT — "source A rates him well above B" —
+// while expressing it in the units the helper actually reads.  Monotone
+// decreasing, so a better (lower) rank is a higher value.
+function _valueFor(rank) {
+  return 10000 - Number(rank) * 100;
+}
+function _metaFrom(sourceRanks) {
+  const meta = {};
+  for (const [key, rank] of Object.entries(sourceRanks)) {
+    if (rank != null) meta[key] = { valueContribution: _valueFor(rank) };
+  }
+  return meta;
+}
+
 describe("marketGapLabel", () => {
   it("returns KTC label when KTC ranks higher than consensus mean", () => {
-    // KTC 5 vs mean(IDPTC 50) = 50 → KTC premium 45
-    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50 } })).toBe("KTC +45");
+    // KTC 9500 vs IDPTC 5000 → mean 7250, gap +62%.
+    const row = { sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50 } };
+    row.sourceRankMeta = _metaFrom(row.sourceRanks);
+    expect(marketGapLabel(row)).toBe("KTC +62%");
   });
   it("returns Consensus label when consensus mean ranks higher than KTC", () => {
-    // KTC 80 vs mean(IDPTC 10) = 10 → Consensus premium 70
-    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 80, idpTradeCalc: 10 } })).toBe("Consensus +70");
+    // KTC 2000 vs IDPTC 9000 → mean 5500, gap -127%.
+    const row = { sourceRanks: { ktcSfTep: 80, idpTradeCalc: 10 } };
+    row.sourceRankMeta = _metaFrom(row.sourceRanks);
+    expect(marketGapLabel(row)).toBe("Consensus +127%");
   });
   it("averages multiple consensus sources", () => {
-    // KTC 10 vs mean(IDPTC 50, DLF 70) = 60 → KTC premium 50
-    expect(
-      marketGapLabel({ sourceRanks: { ktcSfTep: 10, idpTradeCalc: 50, dlfIdp: 70 } })
-    ).toBe("KTC +50");
+    // KTC 9000 vs mean(IDPTC 5000, DLF 3000) = 4000 → mean 6500, gap +77%.
+    const row = { sourceRanks: { ktcSfTep: 10, idpTradeCalc: 50, dlfIdp: 70 } };
+    row.sourceRankMeta = _metaFrom(row.sourceRanks);
+    expect(marketGapLabel(row)).toBe("KTC +77%");
   });
   it("returns null for small differences", () => {
-    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 10, idpTradeCalc: 15 } })).toBeNull();
+    // 9000 vs 8800 → 2.2% apart, inside the 5% gate.
+    const row = { sourceRanks: { ktcSfTep: 10, idpTradeCalc: 12 } };
+    row.sourceRankMeta = _metaFrom(row.sourceRanks);
+    expect(marketGapLabel(row)).toBeNull();
   });
   it("returns null when KTC is missing", () => {
     expect(marketGapLabel({ sourceRanks: { idpTradeCalc: 20, dlfIdp: 30 } })).toBeNull();
@@ -108,7 +133,8 @@ describe("marketGapLabel", () => {
       sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50 },
       effectiveSourceRanks: {},
     };
-    expect(marketGapLabel(row)).toBe("KTC +45");
+    row.sourceRankMeta = _metaFrom(row.sourceRanks);
+    expect(marketGapLabel(row)).toBe("KTC +62%");
   });
 });
 
@@ -166,7 +192,7 @@ describe("marketAction", () => {
     if (ktc != null) sourceRanks.ktcSfTep = ktc;
     if (dlf != null) sourceRanks.dlf = dlf;
     if (fc != null) sourceRanks.fc = fc;
-    return { sourceRanks };
+    return { sourceRanks, sourceRankMeta: _metaFrom(sourceRanks) };
   }
 
   it("BUY when experts rank well above retail (consensus_higher)", () => {
@@ -232,7 +258,12 @@ describe("idpMarketAction", () => {
     if (ipd != null) sourceRanks.idpShow = ipd;
     if (fp != null) sourceRanks.fantasyProsIdp = fp;
     if (ds != null) sourceRanks.draftSharksIdp = ds;
-    return { assetClass: "idp", pos: "LB", sourceRanks };
+    return {
+      assetClass: "idp",
+      pos: "LB",
+      sourceRanks,
+      sourceRankMeta: _metaFrom(sourceRanks),
+    };
   }
 
   it("BUY when IDP experts rank well above IDPTC", () => {
@@ -281,20 +312,28 @@ describe("idpMarketAction", () => {
     const row = {
       assetClass: "idp",
       sourceRanks: { idpTradeCalc: 200, dlfIdp: 50, fantasyProsIdp: 55 },
-      effectiveSourceRanks: { idpTradeCalc: 50, dlfIdp: 50, fantasyProsIdp: 55 },
+      effectiveSourceRanks: { idpTradeCalc: 50, dlfIdp: 50, fantasyProsIdp: 51 },
     };
+    row.sourceRankMeta = _metaFrom(row.effectiveSourceRanks);
     const a = idpMarketAction(row);
-    // With effective ranks, IDPTC=50 vs experts mean ~52 → aligned →
-    // idpMarketAction translates "aligned" → label "HOLD" / kind "hold"
+    // What this pins is that the EFFECTIVE set is what gets read — the
+    // sourceRanks outlier (IDPTC 200) must not reach the comparison.
+    // The expert rank was 55 when the gap was measured in ordinals;
+    // under _valueFor that is 5000 vs 4750, a 5.1% gap that clears the
+    // 5% gate, so the fixture would have been testing the threshold
+    // rather than the source selection. 51 keeps the two sides genuinely
+    // aligned in the units the helper now reads.
     expect(a.kind).toBe("hold");
     expect(a.label).toBe("HOLD");
   });
 
   it("ignores non-IDP sources (e.g. KTC) in the consensus calculation", () => {
     // KTC's offense rank should NOT count toward IDP consensus.
+    const nonIdpRanks = { idpTradeCalc: 50, ktcSfTep: 1, dlfIdp: 12, fantasyProsIdp: 14 };
     const a = idpMarketAction({
       assetClass: "idp",
-      sourceRanks: { idpTradeCalc: 50, ktcSfTep: 1, dlfIdp: 12, fantasyProsIdp: 14 },
+      sourceRanks: nonIdpRanks,
+      sourceRankMeta: _metaFrom(nonIdpRanks),
     });
     // Experts mean = (12+14)/2 = 13 vs IDPTC 50 → BUY (consensus_higher)
     expect(a.label).toBe("BUY");
@@ -411,20 +450,24 @@ describe("idpMarketEdge", () => {
   });
 
   it("returns retail_higher with diff in label when IDPTC > experts", () => {
+    const ranks = { idpTradeCalc: 10, dlfIdp: 50, fantasyProsIdp: 60 };
     const e = idpMarketEdge({
       assetClass: "idp",
-      sourceRanks: { idpTradeCalc: 10, dlfIdp: 50, fantasyProsIdp: 60 },
+      sourceRanks: ranks,
+      sourceRankMeta: _metaFrom(ranks),
     });
     expect(e.kind).toBe("retail_higher");
-    expect(e.label).toMatch(/^IDPTC higher by \d+$/);
+    expect(e.label).toMatch(/^IDPTC higher by \d+%$/);
   });
 
   it("returns consensus_higher with diff in label when experts > IDPTC", () => {
+    const ranks = { idpTradeCalc: 50, dlfIdp: 10, fantasyProsIdp: 12 };
     const e = idpMarketEdge({
       assetClass: "idp",
-      sourceRanks: { idpTradeCalc: 50, dlfIdp: 10, fantasyProsIdp: 12 },
+      sourceRanks: ranks,
+      sourceRankMeta: _metaFrom(ranks),
     });
     expect(e.kind).toBe("consensus_higher");
-    expect(e.label).toMatch(/^Experts higher by \d+$/);
+    expect(e.label).toMatch(/^Experts higher by \d+%$/);
   });
 });

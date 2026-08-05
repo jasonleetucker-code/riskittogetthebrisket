@@ -322,7 +322,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     into that data instead.
     """
     registry = snapshot.managers
-    seasons_sorted = sorted(snapshot.seasons, key=luck._season_sort_key)
+    seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
     team_strength_rows = _load_team_strength_rows()
     preseason = _is_preseason(snapshot)
     if (
