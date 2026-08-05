@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useUserState } from "@/components/useUserState";
-import { analyzeLeaguePhases } from "@/lib/team-phase";
+import { analyzeLeaguePhases, ORDERING_CAVEAT } from "@/lib/team-phase";
 
 const TONE_COLOR = {
   up: "var(--green)",
@@ -12,14 +12,9 @@ const TONE_COLOR = {
   down: "var(--red)",
 };
 
-function fmtAge(a) {
-  if (a == null || !Number.isFinite(a)) return "—";
-  return a.toFixed(1);
-}
-
-function fmtValue(v) {
-  if (!Number.isFinite(v)) return "—";
-  return Math.round(v).toLocaleString();
+function fmtPct(x) {
+  if (x == null || !Number.isFinite(x)) return "—";
+  return `${Math.round(x * 100)}`;
 }
 
 export default function TeamPhasePanel() {
@@ -77,13 +72,46 @@ export default function TeamPhasePanel() {
       )
     : [];
 
+  // The page's headline feature is the partner list, and it used to
+  // render literally nothing when there was no pairing to show — on
+  // live data that was ALWAYS, because the old classifier could not
+  // produce a Rebuild team at all (audit W20-F008). Never render
+  // nothing: say which of the three reasons applies.
+  let partnerEmptyReason = null;
+  if (!myPartnerships.length) {
+    if (!myOwnerId) {
+      partnerEmptyReason =
+        "Pick your team on the league page to see natural trade partners.";
+    } else if (!myRow) {
+      partnerEmptyReason =
+        "Your team isn't in this league's roster snapshot, so it has no direction to pair off.";
+    } else if (["retool", "productive_struggle"].includes(myRow.mostLikely)) {
+      partnerEmptyReason =
+        `Your roster reads ${myRow.phase.label} — between the buying and selling ends of the league, so no lopsided pairing stands out. The complementary trades are with the teams at either end of the table.`;
+    } else {
+      const wanted = ["championship_contender", "playoff_contender"].includes(
+        myRow.mostLikely,
+      )
+        ? "rebuilding"
+        : "contending";
+      partnerEmptyReason = `No ${wanted} team in this league is far enough from you on both axes to pair off right now.`;
+    }
+  }
+
   return (
     <div className="card" style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
       <div>
         <h3 style={{ margin: 0, fontSize: "0.92rem" }}>Win-now vs Rebuild</h3>
         <p className="muted" style={{ fontSize: "0.7rem", margin: "4px 0 0" }}>
-          Each team classified by top-25 roster value × median age, against the league medians
-          ({fmtValue(analysis.leagueMedians.value)} value · {fmtAge(analysis.leagueMedians.age)} age).
+          Two measured axes:{" "}
+          <strong>competitiveness</strong> (
+          {analysis.axes.competitivenessSource === "lineupScoreRank"
+            ? "league percentile of the optimal starting lineup"
+            : "league percentile of total player value — this league's lineup slots aren't in the current data, so no lineup could be solved"}
+          ) and <strong>trajectory</strong> (value-weighted age of the players who
+          enter that lineup). Placed against five anchored states, probabilities
+          from a softmax — the same classifier /rosters and{" "}
+          <code>/api/gameplan</code> use. {ORDERING_CAVEAT}
         </p>
       </div>
 
@@ -95,7 +123,9 @@ export default function TeamPhasePanel() {
               {myRow.phase.label}
             </strong>
             <span className="muted" style={{ fontSize: "0.74rem" }}>
-              · top-25 value {fmtValue(myRow.totalValue)} · median age {fmtAge(myRow.medianAge)}
+              · {Math.round(myRow.confidence * 100)}% · competitiveness{" "}
+              {fmtPct(myRow.competitiveness)}/100 · trajectory{" "}
+              {myRow.trajectorySample > 0 ? `${fmtPct(myRow.trajectory)}/100` : "unmeasured"}
             </span>
           </div>
         </div>
@@ -106,9 +136,9 @@ export default function TeamPhasePanel() {
           <thead>
             <tr>
               <th style={{ textAlign: "left" }}>Team</th>
-              <th style={{ textAlign: "left" }}>Phase</th>
-              <th style={{ textAlign: "right" }}>Top-25 value</th>
-              <th style={{ textAlign: "right" }}>Median age</th>
+              <th style={{ textAlign: "left" }}>Direction</th>
+              <th style={{ textAlign: "right" }}>Competitiveness</th>
+              <th style={{ textAlign: "right" }}>Trajectory</th>
             </tr>
           </thead>
           <tbody>
@@ -143,13 +173,18 @@ export default function TeamPhasePanel() {
                       }}
                     >
                       {t.phase.label}
+                      {t.ambiguous && (
+                        <span className="muted" style={{ marginLeft: 4, fontWeight: 400 }}>
+                          ?
+                        </span>
+                      )}
                     </span>
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
-                    {fmtValue(t.totalValue)}
+                    {fmtPct(t.competitiveness)}
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
-                    {fmtAge(t.medianAge)}
+                    {t.trajectorySample > 0 ? fmtPct(t.trajectory) : "—"}
                   </td>
                 </tr>
               );
@@ -157,6 +192,15 @@ export default function TeamPhasePanel() {
           </tbody>
         </table>
       </div>
+
+      {partnerEmptyReason && (
+        <div>
+          <strong style={{ fontSize: "0.84rem" }}>Natural trade partners for you</strong>
+          <p className="muted" style={{ fontSize: "0.72rem", margin: "4px 0 0" }}>
+            {partnerEmptyReason}
+          </p>
+        </div>
+      )}
 
       {myPartnerships.length > 0 && (
         <div>

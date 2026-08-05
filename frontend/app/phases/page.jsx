@@ -28,7 +28,7 @@ export default function PhasesPage() {
     <section>
       <PageHeader
         title="Win-now vs Rebuild"
-        subtitle="Each team classified by top-25 roster value × median age, with natural trade-partner suggestions for your franchise."
+        subtitle="Each team placed on two measured axes — competitiveness (optimal-lineup percentile) and trajectory (value-weighted starter age) — with natural trade-partner suggestions for your franchise."
       />
       <TeamPhasePanel />
     </section>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
@@ -16,9 +17,9 @@ import {
   computeGroupAverages,
   findWaiverWireGems,
   buildLeagueEdgeMap,
-  scoreTeamTiers,
   ordinal,
 } from "@/lib/league-analysis";
+import { analyzeLeaguePhases, ORDERING_CAVEAT } from "@/lib/team-phase";
 import AgeCurveOverlay from "@/components/graphs/AgeCurveOverlay";
 
 /**
@@ -109,9 +110,15 @@ export default function RostersPage() {
     [rows, sleeperTeams, myTeam],
   );
 
-  const teamTiers = useMemo(
-    () => scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases, rosterPositions),
-    [sleeperTeams, playerMeta, rows, pickAliases, rosterPositions],
+  // ONE team-direction classifier for the whole app — see
+  // `lib/team-phase.js`. This page used to call `scoreTeamTiers`, a
+  // second engine that ordered the same 12 teams differently from the
+  // power table above (10 of 12 disagreed on the live snapshot) and cut
+  // them into forced thirds. That function is gone; this returns the
+  // same starter / depth / pick split alongside the direction.
+  const directions = useMemo(
+    () => analyzeLeaguePhases(rawData, rows, { rosterPositions, pickAliases }),
+    [rawData, rows, rosterPositions, pickAliases],
   );
 
   function toggleGroup(g) {
@@ -239,7 +246,16 @@ export default function RostersPage() {
           ))}
         </div>
 
-        {/* Team rankings table */}
+        {/* Team rankings table — THE page's one ordering of the 12 teams.
+            Says its formula out loud: the block below used to carry a
+            second, differently-ordered ranking with no label on either
+            (audit W20-F007). */}
+        <p className="muted" style={{ fontSize: "0.66rem", margin: "0 0 6px" }}>
+          Ranked by the summed board value of the selected assets (
+          {ASSET_SCOPES.find((m) => m.key === assetScope)?.label}) across the
+          positions toggled above. Not lineup-weighted — see Team Direction below
+          for the starting-lineup view.
+        </p>
         <div className="table-wrap">
           <table>
             <thead>
@@ -302,8 +318,14 @@ export default function RostersPage() {
         </div>
       </div>
 
-      {/* Contender / Rebuilder Tiers */}
-      {teamTiers.length > 0 && <TeamTiersCard tiers={teamTiers} myTeam={myTeam} />}
+      {/* Team direction — classification, NOT a second power ranking */}
+      {directions.teams.length > 0 && (
+        <TeamDirectionCard
+          rows={directions.teams}
+          axes={directions.axes}
+          myTeam={myTeam}
+        />
+      )}
 
       {/* League Edge Map */}
       {leagueEdge.length > 0 && <LeagueEdgeCard edges={leagueEdge} />}
@@ -510,43 +532,91 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
   );
 }
 
-function TeamTiersCard({ tiers, myTeam }) {
-  const TIER_COLORS = { contender: "var(--green)", middle: "var(--amber)", rebuilder: "var(--red)" };
-  const TIER_BG = { contender: "rgba(39,174,96,0.08)", middle: "transparent", rebuilder: "rgba(231,76,60,0.06)" };
+const DIRECTION_COLORS = {
+  championship_contender: "var(--green)",
+  playoff_contender: "var(--green)",
+  retool: "var(--amber)",
+  productive_struggle: "var(--amber)",
+  rebuild: "var(--red)",
+};
+const DIRECTION_BG = {
+  championship_contender: "rgba(39,174,96,0.08)",
+  playoff_contender: "rgba(39,174,96,0.05)",
+  retool: "transparent",
+  productive_struggle: "transparent",
+  rebuild: "rgba(231,76,60,0.06)",
+};
+
+/**
+ * Team direction — a CLASSIFICATION, deliberately not a ranking.
+ *
+ * The block this replaced carried its own `#1..#12` ordinal off its own
+ * score, 400px below the power table above, which ordered the same 12
+ * teams differently (audit W20-F007). There is one ranking on this page
+ * now — the table — and this says which way each roster is pointing.
+ * The `#` ordinal is gone on purpose: restoring it recreates the second
+ * leaderboard.
+ */
+function TeamDirectionCard({ rows, axes, myTeam }) {
+  const sourceNote =
+    axes?.competitivenessSource === "lineupScoreRank"
+      ? "league percentile of each team's optimal STARTING lineup"
+      : "league percentile of total player value — this league's lineup slots aren't in the current data, so no lineup could be solved";
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
-        Contender / Rebuilder Tiers
-        <InfoTip label="contender and rebuilder tiers">
+      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 4 }}>
+        Team Direction
+        <InfoTip label="team direction">
           <p>
-            Teams are scored on starter quality (70%), roster depth (20%), and a
-            pick-surplus penalty (-10%).
+            Two measured axes: <strong>competitiveness</strong> ({sourceNote}) and{" "}
+            <strong>trajectory</strong> (value-weighted age of the players who
+            actually enter that lineup, mapped onto 22–32). Each roster is placed
+            against five anchored states and the probabilities come from a softmax,
+            so a team near a boundary reads as near a boundary instead of flipping
+            category.
+          </p>
+          <p>
+            This is a classification, not a ranking — the power table above is the
+            page&rsquo;s one ordering of the 12 teams. {ORDERING_CAVEAT}
           </p>
         </InfoTip>
       </div>
+      <p className="muted" style={{ fontSize: "0.66rem", margin: "0 0 10px" }}>
+        Grouped by direction, then by competitiveness. Same classifier as{" "}
+        <Link href="/phases" style={{ color: "var(--cyan)" }}>Win-now vs Rebuild</Link>.
+      </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-        {tiers.map((t) => {
+        {rows.map((t) => {
           const isMe = t.name === myTeam;
           return (
             <div
-              key={t.name}
+              key={t.ownerId || t.name}
               style={{
                 border: "1px solid var(--border)",
-                borderLeft: `3px solid ${TIER_COLORS[t.tier]}`,
+                borderLeft: `3px solid ${DIRECTION_COLORS[t.mostLikely]}`,
                 borderRadius: 6,
                 padding: "10px 14px",
-                background: isMe ? "rgba(200,56,3,0.06)" : TIER_BG[t.tier],
+                background: isMe ? "rgba(200,56,3,0.06)" : DIRECTION_BG[t.mostLikely],
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontWeight: 700, fontSize: "0.78rem" }}>
                   {isMe ? <span style={{ color: "var(--cyan)" }}>{t.name}</span> : t.name}
                 </span>
-                <span style={{ fontFamily: "var(--mono)", fontSize: "0.62rem", color: "var(--subtext)" }}>#{t.rank}</span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: "0.62rem", color: "var(--subtext)" }}>
+                  {Math.round(t.competitiveness * 100)}th
+                </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: TIER_COLORS[t.tier] }}>{t.tierLabel}</span>
+                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: DIRECTION_COLORS[t.mostLikely] }}>
+                  {t.phase.label}
+                  {t.ambiguous && (
+                    <span className="muted" style={{ fontWeight: 500, marginLeft: 4 }}>
+                      (between windows)
+                    </span>
+                  )}
+                </span>
                 <span style={{ fontFamily: "var(--mono)", fontSize: "0.66rem", color: "var(--subtext)" }}>
                   {Math.round(t.totalValue).toLocaleString()} total
                 </span>
@@ -555,6 +625,11 @@ function TeamTiersCard({ tiers, myTeam }) {
                 <span>Starters: {Math.round(t.starterValue).toLocaleString()}</span>
                 <span>Depth: {Math.round(t.depthValue).toLocaleString()}</span>
                 {t.pickValue > 0 && <span>Picks: {Math.round(t.pickValue).toLocaleString()}</span>}
+              </div>
+              <div style={{ marginTop: 3, fontSize: "0.58rem", color: "var(--subtext)" }}>
+                {t.trajectorySample > 0
+                  ? `Trajectory ${Math.round(t.trajectory * 100)}/100 over ${t.trajectorySample} starters`
+                  : "Trajectory unmeasured — no ages on the starting lineup"}
               </div>
             </div>
           );

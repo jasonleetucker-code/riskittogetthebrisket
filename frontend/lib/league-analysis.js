@@ -1050,105 +1050,27 @@ export function analyzeTradeTendencies(rawData, rows) {
     .sort((a, b) => b.trades - a.trades);
 }
 
-// ── Contender / Rebuilder Tiers ─────────────────────────────────────────
-/**
- * Score and tier all teams: contender / mid-tier / rebuilder.
- *
- *   score = 0.7 × starterValue + 0.2 × depthValue − 0.1 × pickValue
- *
- * Starter value = the players who fill the league's real lineup.
- * Depth        = every other player the team owns — picks excluded.
- * Picks        = pick capital, penalized at −10% (rebuild signal).
- *
- * Two separate defects were fixed here, and both corrections are live.
- *
- * Starter value was the top 10 OFFENSIVE players, flat, until
- * 2026-07-30.  In a league that starts 9 IDP alongside 12 offensive
- * slots that read a defense-heavy contender as a rebuilder, and it was
- * a second single-league constant on a page that serves two leagues
- * with different lineups.  It now fills the real lineup via the shared
- * `fillLineup`, across every group.
- *
- * Picks sit OUTSIDE depthValue deliberately (math audit 2026-08-04,
- * H5).  Depth was `totalValue − starterValue`, and totalValue includes
- * pick capital, so every pick dollar earned +0.2 as depth and paid
- * −0.1 as pick surplus for a NET +0.1: the "penalty" REWARDED hoarding
- * picks, the opposite of the documented intent, and a pick-rich
- * rebuilder could out-score a contender.  Each dollar of a roster now
- * feeds exactly one term.
- *
- * The three coefficients do not sum to 1 and don't need to — the score
- * is an ordinal ranking key (the sorted list is cut into thirds), so
- * only the RATIOS between the terms move a team's tier.
- *
- * @param {string[]} [rosterPositions] - the league's Sleeper lineup-slot
- *   array.  Without it there is no lineup to fill and every team scores
- *   as pure depth, so callers should pass it; `/rosters` does.
- */
-export function scoreTeamTiers(
-  sleeperTeams,
-  playerMeta,
-  rows,
-  pickAliases = null,
-  rosterPositions = null,
-) {
-  const rowLookup = buildRowLookup(rows);
-
-  const scored = (sleeperTeams || []).map((team) => {
-    let totalValue = 0;
-    const lineupPool = [];
-    let pickValue = 0;
-
-    for (const pName of team.players || []) {
-      if (parsePickToken(pName)) continue;
-      const pm = playerMeta[(pName || "").toLowerCase()];
-      if (!pm) continue;
-      totalValue += pm.meta;
-      if (PLAYER_GROUPS.includes(pm.group)) {
-        lineupPool.push(pm);
-      }
-    }
-
-    // Picks — use multi-candidate lookup so Sleeper labels resolve
-    // against canonical rankings rows.
-    for (const pickName of team.picks || []) {
-      const row = resolvePickRow(pickName, rowLookup, pickAliases);
-      const val = row ? (row.values?.full || 0) : 0;
-      totalValue += val;
-      pickValue += val;
-    }
-
-    const { starters } = fillLineup({
-      assets: lineupPool,
-      rosterPositions,
-      positionOf: (p) => p.group,
-      valueFor: (p) => p.meta,
-    });
-    const starterValue = starters.reduce((s, p) => s + p.meta, 0);
-    // Players only: totalValue carries pick capital too, and picks are
-    // scored by their own term below.
-    const depthValue = totalValue - starterValue - pickValue;
-    const score = starterValue * 0.7 + depthValue * 0.2 + (pickValue > 0 ? -pickValue * 0.1 : 0);
-
-    return {
-      name: team.name,
-      score,
-      totalValue,
-      starterValue,
-      depthValue,
-      pickValue,
-    };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  const n = scored.length;
-  const top = Math.ceil(n / 3);
-  const bot = n - top;
-
-  return scored.map((t, i) => ({
-    ...t,
-    tier: i < top ? "contender" : i >= bot ? "rebuilder" : "middle",
-    tierLabel: i < top ? "Contender" : i >= bot ? "Rebuilder" : "Mid-Tier",
-    rank: i + 1,
-  }));
-}
+// ── Contender / Rebuilder Tiers — REMOVED ───────────────────────────────
+//
+// `scoreTeamTiers` lived here: `0.7*starterValue + 0.2*depthValue −
+// 0.1*pickValue`, sorted and cut into forced thirds
+// (Contender / Mid-Tier / Rebuilder). It was the second of four
+// team-direction classifiers in the tree and it was rendered 400px
+// below a power table that ordered the same 12 teams differently — on
+// the live snapshot the two orders disagreed for 10 of 12 teams, with
+// Jason #1 at 328,504 in the table and #5 "Mid-Tier" in the cards. The
+// divergence was entirely the −0.1 pick term: 158,400 of pick capital
+// cost him 15,840 score points, which is exactly what moved him from
+// 2nd to 5th (audit W20-F007).
+//
+// Deleted rather than relabelled, because the forced tercile was the
+// deeper problem: it guarantees 4 contenders and 4 rebuilders in every
+// league whatever the rosters look like, and no amount of labelling
+// makes a quota a measurement.
+//
+// The one classifier is now `lib/team-phase.js::analyzeLeaguePhases`,
+// which /rosters and /phases both call. It returns the same
+// starterValue / depthValue / pickValue split this function produced
+// (same shared `fillLineup` solve, same pick resolution through
+// `resolvePickRow` + `pickAliases`) alongside the direction, so nothing
+// that used those numbers lost them.

@@ -1,0 +1,215 @@
+{
+  "why": "Parity fixture for THE team-direction classifier. src/roster_intel/window.py is the nominated definition (audit W20-F006); frontend/lib/team-phase.js is a port of it. Neither half may hardcode expectations of its own \u2014 this file is the single source of truth, regenerated only when the model itself changes.",
+  "model": {
+    "stateAnchors": {
+      "championship_contender": [
+        0.95,
+        0.45
+      ],
+      "playoff_contender": [
+        0.7,
+        0.5
+      ],
+      "retool": [
+        0.45,
+        0.7
+      ],
+      "productive_struggle": [
+        0.25,
+        0.8
+      ],
+      "rebuild": [
+        0.05,
+        0.6
+      ]
+    },
+    "competitivenessWeight": 2.0,
+    "trajectoryWeight": 1.0,
+    "temperature": 0.18,
+    "ageYoung": 22.0,
+    "ageOld": 32.0
+  },
+  "cases": [
+    {
+      "id": "top-of-league-mid-age",
+      "why": "the best roster in a 12-team league, average starter age",
+      "competitiveness": 0.9583,
+      "trajectory": 0.45,
+      "probabilities": {
+        "championship_contender": 0.6612213816,
+        "playoff_contender": 0.3109537722,
+        "retool": 0.0264926273,
+        "productive_struggle": 0.0012712207,
+        "rebuild": 6.09982e-05
+      },
+      "mostLikely": "championship_contender"
+    },
+    {
+      "id": "bottom-of-league",
+      "why": "the worst roster in a 12-team league \u2014 Rebuild must be reachable",
+      "competitiveness": 0.0417,
+      "trajectory": 0.6,
+      "probabilities": {
+        "championship_contender": 5.58724e-05,
+        "playoff_contender": 0.004647948,
+        "retool": 0.0899454709,
+        "productive_struggle": 0.2996931637,
+        "rebuild": 0.605657545
+      },
+      "mostLikely": "rebuild"
+    },
+    {
+      "id": "dead-centre",
+      "why": "median competitiveness, median age",
+      "competitiveness": 0.5,
+      "trajectory": 0.5,
+      "probabilities": {
+        "championship_contender": 0.0539555394,
+        "playoff_contender": 0.3328209997,
+        "retool": 0.4042563682,
+        "productive_struggle": 0.1572135083,
+        "rebuild": 0.0517535845
+      },
+      "mostLikely": "retool"
+    },
+    {
+      "id": "young-and-losing",
+      "why": "the productive_struggle anchor itself",
+      "competitiveness": 0.25,
+      "trajectory": 0.8,
+      "probabilities": {
+        "championship_contender": 0.0010006532,
+        "playoff_contender": 0.0292433738,
+        "retool": 0.2774534052,
+        "productive_struggle": 0.4574433308,
+        "rebuild": 0.234859237
+      },
+      "mostLikely": "productive_struggle"
+    },
+    {
+      "id": "playoff-anchor",
+      "why": "the playoff_contender anchor itself",
+      "competitiveness": 0.7,
+      "trajectory": 0.5,
+      "probabilities": {
+        "championship_contender": 0.2506315422,
+        "playoff_contender": 0.5089334362,
+        "retool": 0.2034968586,
+        "productive_struggle": 0.0325350261,
+        "rebuild": 0.004403137
+      },
+      "mostLikely": "playoff_contender"
+    },
+    {
+      "id": "retool-anchor",
+      "why": "the retool anchor itself",
+      "competitiveness": 0.45,
+      "trajectory": 0.7,
+      "probabilities": {
+        "championship_contender": 0.0198791935,
+        "playoff_contender": 0.1809113194,
+        "retool": 0.4524483577,
+        "productive_struggle": 0.2744238009,
+        "rebuild": 0.0723373285
+      },
+      "mostLikely": "retool"
+    },
+    {
+      "id": "old-and-losing",
+      "why": "bottom of the league with an ageing lineup",
+      "competitiveness": 0.0417,
+      "trajectory": 0.3,
+      "probabilities": {
+        "championship_contender": 0.0001109116,
+        "playoff_contender": 0.0078101409,
+        "retool": 0.0775974153,
+        "productive_struggle": 0.1852592768,
+        "rebuild": 0.7292222553
+      },
+      "mostLikely": "rebuild"
+    },
+    {
+      "id": "young-and-winning",
+      "why": "top of the league with the youngest lineup",
+      "competitiveness": 0.9583,
+      "trajectory": 0.9,
+      "probabilities": {
+        "championship_contender": 0.5698186095,
+        "playoff_contender": 0.3440798101,
+        "retool": 0.0796861552,
+        "productive_struggle": 0.0063041426,
+        "rebuild": 0.0001112826
+      },
+      "mostLikely": "championship_contender"
+    }
+  ],
+  "trajectoryCases": [
+    {
+      "id": "no-ages",
+      "why": "no ages supplied \u2014 neutral, sample 0, never a measurement",
+      "entrants": [],
+      "expectedScore": 0.5,
+      "expectedSample": 0
+    },
+    {
+      "id": "value-weighted",
+      "why": "one 33-year-old anchor is not hidden by six rookies",
+      "entrants": [
+        {
+          "age": 33,
+          "value": 9000
+        },
+        {
+          "age": 22,
+          "value": 300
+        },
+        {
+          "age": 22,
+          "value": 300
+        },
+        {
+          "age": 22,
+          "value": 300
+        },
+        {
+          "age": 22,
+          "value": 300
+        },
+        {
+          "age": 22,
+          "value": 300
+        },
+        {
+          "age": 22,
+          "value": 300
+        }
+      ],
+      "expectedScore": 0.0833333333,
+      "expectedSample": 7
+    },
+    {
+      "id": "clamps-young",
+      "why": "younger than the 22 bound clamps at 1.0",
+      "entrants": [
+        {
+          "age": 20,
+          "value": 1000
+        }
+      ],
+      "expectedScore": 1.0,
+      "expectedSample": 1
+    },
+    {
+      "id": "clamps-old",
+      "why": "older than the 32 bound clamps at 0.0",
+      "entrants": [
+        {
+          "age": 36,
+          "value": 1000
+        }
+      ],
+      "expectedScore": 0.0,
+      "expectedSample": 1
+    }
+  ]
+}
