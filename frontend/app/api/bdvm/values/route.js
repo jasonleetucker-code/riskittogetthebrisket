@@ -12,6 +12,7 @@ export async function GET(request) {
       if (value) searchParams[key] = value;
     }
     const { data, status } = await proxyGet("/api/bdvm/values", {
+      cookie: request.headers.get("cookie") || "",
       searchParams,
       timeoutMs: 30000,
     });

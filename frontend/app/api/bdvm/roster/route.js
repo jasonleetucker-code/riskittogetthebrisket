@@ -10,6 +10,7 @@ export async function GET(request) {
     const leagueKey = request?.nextUrl?.searchParams?.get("leagueKey");
     if (leagueKey) searchParams.leagueKey = leagueKey;
     const { data, status } = await proxyGet("/api/bdvm/roster", {
+      cookie: request.headers.get("cookie") || "",
       searchParams,
       timeoutMs: 30000,
     });

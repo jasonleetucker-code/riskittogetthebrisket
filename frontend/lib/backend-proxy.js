@@ -47,18 +47,24 @@ export async function proxyGet(path, { timeoutMs = 5000, searchParams, cookie } 
 
 /**
  * Proxy a POST request to the backend.
+ *
+ * `cookie` carries the same requirement as `proxyGet` — see the note there.
+ *
  * @param {string} path — backend path
  * @param {object} body — JSON body
- * @param {object} opts — { timeoutMs }
+ * @param {object} opts — { timeoutMs, cookie }
  */
-export async function proxyPost(path, body, { timeoutMs = 8000 } = {}) {
+export async function proxyPost(path, body, { timeoutMs = 8000, cookie } = {}) {
   const url = new URL(path, BACKEND_BASE);
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     const res = await fetch(url.toString(), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(cookie ? { Cookie: cookie } : {}),
+      },
       body: JSON.stringify(body),
       signal: ctl.signal,
       cache: "no-store",

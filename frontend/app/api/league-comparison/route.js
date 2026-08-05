@@ -18,6 +18,7 @@ export async function GET(request) {
     const refresh = url.searchParams.get("refresh");
     const searchParams = refresh ? { refresh } : undefined;
     const { data, status } = await proxyGet("/api/league-comparison", {
+      cookie: request.headers.get("cookie") || "",
       timeoutMs: 60000,
       searchParams,
     });

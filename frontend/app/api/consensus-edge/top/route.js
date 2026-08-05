@@ -16,6 +16,7 @@ export async function GET(request) {
       if (value) searchParams[key] = value;
     }
     const { data, status } = await proxyGet("/api/consensus-edge/top", {
+      cookie: request.headers.get("cookie") || "",
       searchParams,
       timeoutMs: 30000,
     });

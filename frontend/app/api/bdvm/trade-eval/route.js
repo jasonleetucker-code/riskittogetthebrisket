@@ -13,6 +13,7 @@ export async function POST(request) {
   }
   try {
     const { data, status } = await proxyPost("/api/bdvm/trade-eval", body, {
+      cookie: request.headers.get("cookie") || "",
       timeoutMs: 30000,
     });
     return NextResponse.json(data, { status });

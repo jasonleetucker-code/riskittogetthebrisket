@@ -7,6 +7,7 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   try {
     const { data, status } = await proxyPost("/api/sharp/curated/refresh", body, {
+      cookie: request.headers.get("cookie") || "",
       timeoutMs: 120000,
     });
     return NextResponse.json(data, { status });
