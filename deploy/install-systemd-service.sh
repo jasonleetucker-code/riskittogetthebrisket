@@ -487,23 +487,43 @@ main() {
   # anything committed there is destroyed on the next deploy.  See the
   # header of deploy/playerctx_history_push.sh.
   #
-  # Gated on the deploy SSH key, exactly like the DLF / IDP Show
-  # pushers — without it the script can only fail at the push, and a
-  # timer that fails weekly is worse than one that was never installed.
+  # INSTALLED UNCONDITIONALLY, and the deploy-key check lives in the
+  # script rather than here.  It was gated on the key at first, by
+  # analogy with the DLF / IDP Show pushers, and that was wrong twice
+  # over — measured on the 2026-08-05 deploy, which logged
+  # "retention timer skipped: /home/…/.ssh/github_deploy_key missing"
+  # and installed nothing:
+  #
+  #   1. THE TEST RAN AS THE WRONG USER.  The unit runs as __APP_USER__
+  #      and reads that user's key; this installer runs as the deploy
+  #      user, whose sudo is scoped to specific commands, so
+  #      `sudo -n test -f` is not reliably permitted and a plain `[[ -f ]]`
+  #      cannot stat another user's ~/.ssh.  The check could report
+  #      "missing" for a key that is present and working — and the DLF
+  #      pusher committing to main every two hours is evidence one IS
+  #      present.  Only the service user can answer this, so the service
+  #      user asks it.
+  #   2. A CONDITIONALLY-INSTALLED TIMER BREAKS deploy.sh.  Its presence
+  #      check globs *.timer.template and warns for anything not
+  #      installed AND enabled, then runs this installer to fill the gap
+  #      — so a permanently-skipped timer means a warning plus a pointless
+  #      installer run on EVERY deploy, forever.  That is the exact loop
+  #      #729 closed for three other timers.  deploy.sh carries a `case`
+  #      exempting the alert timers; adding a fourth exemption would have
+  #      spread the problem rather than fixed it.
+  #
+  # The unit is cheap and safe when unusable: the script names the
+  # missing key and exits 0 without touching anything, and because it
+  # copies EVERY dated snapshot rather than the newest, fixing the key
+  # later backfills the whole backlog on the next run.
   local pchist_service_template="${APP_DIR}/deploy/systemd/dynasty-playerctx-history.service.template"
   local pchist_timer_template="${APP_DIR}/deploy/systemd/dynasty-playerctx-history.timer.template"
   local pchist_service_name="${SERVICE_NAME}-playerctx-history"
   local pchist_service_path="/etc/systemd/system/${pchist_service_name}.service"
   local pchist_timer_path="/etc/systemd/system/${pchist_service_name}.timer"
   local pchist_needs_install=false
-  local pchist_ssh_key="${PLAYERCTX_HISTORY_SSH_KEY:-/home/${APP_USER}/.ssh/github_deploy_key}"
-  local has_pchist_key=false
 
-  if sudo -n test -f "${pchist_ssh_key}" 2>/dev/null || [[ -f "${pchist_ssh_key}" ]]; then
-    has_pchist_key=true
-  fi
-
-  if [[ -f "${pchist_service_template}" && -f "${pchist_timer_template}" && "${has_pchist_key}" == "true" ]]; then
+  if [[ -f "${pchist_service_template}" && -f "${pchist_timer_template}" ]]; then
     local tmp_pchist_service tmp_pchist_timer
     tmp_pchist_service="$(mktemp)"
     tmp_pchist_timer="$(mktemp)"
@@ -539,8 +559,6 @@ main() {
       sudo -n "${INSTALL_BIN}" -d -m 0755 -o "${APP_USER}" -g "${APP_USER}" /var/lib/playerctx-history
     fi
     rm -f "${tmp_pchist_service}" "${tmp_pchist_timer}"
-  elif [[ -f "${pchist_service_template}" && "${has_pchist_key}" != "true" ]]; then
-    log "Player-context retention timer skipped: ${pchist_ssh_key} missing - no deploy key to push with."
   fi
 
   # ── BDVM projection refresh timer (weekly snapshots for /api/bdvm/*) ──

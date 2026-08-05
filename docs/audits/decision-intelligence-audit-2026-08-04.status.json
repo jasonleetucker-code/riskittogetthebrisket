@@ -3,9 +3,9 @@
  "severity": "Critical",
  "total": 43,
  "tally": {
-  "open": 20,
+  "open": 19,
   "needs_review": 2,
-  "closed": 20,
+  "closed": 21,
   "deferred": 1
  },
  "findings": [
@@ -153,7 +153,7 @@
    "path": "src/api/data_contract.py",
    "signature": null,
    "status": "closed",
-   "verifiedBy": "Fixed in batch C4 \u2014 but NOT by the mechanism the audit proposed, and the measurement is the reason. The brief said the tight ends read SELL because the sole retail anchor is a TE-premium board and the consensus is not, implying that normalizing or splitting the bases would fix it. Measured on the live board, neither does: 68 of 72 TEs read retail_premium, percentile normalization moved that to 66, restricting the consensus side to TEP-native peers moved it to 63. Reading the rows explains why \u2014 KTC ranks AJ Barner 121 and EVERY other source ranks him 139-248. The TE reading was arithmetically CORRECT all along; it is the TE++ basis the whole board is anchored on (ADR-015) showing through, and no normalization can remove a true fact.\n\nThe actual defect is that a definitional constant was being presented as a tradeable signal. Median gap in rank space by position: TE +121, PICK -109, against WR +20 / RB +16 / QB -7 per-mille \u2014 a 6x separation. Subtracting each position's median leaves the per-player disagreement, which survives rather than being annihilated (within TEs the de-meaned gap still spans Jack Endries -281 to Elijah Arroyo +145). Measured effect: TE 68/72 -> 36/72 retail_premium, PICK 35/36 -> 18/36, every position balanced. marketGapAbsoluteMagnitude keeps the pre-de-meaning number, because that is what a trade with a KTC-anchored partner actually turns on. The basis is stamped at methodology.marketGap so the correction is falsifiable.",
+   "verifiedBy": "Closed by #740 with S-1 (C19) \u2014 same site, same fix. The audit framed this as 'the sole retail anchor is a TE-premium board and the consensus is not', implying a basis split would fix it. Measured in batch C4, neither percentile normalization (68 of 72 TEs SELL -> 66) nor restricting the consensus side to TEP-native peers (-> 63) moved it, because the reading was CORRECT: KTC ranks AJ Barner 121 and every other source ranks him 139-248. Value space dissolves it instead \u2014 valueContribution is already on the TE++ basis, so the artifact never forms. Pinned by the market_gap harness surface's 'tight_end_rank_gap_but_value_agreement' case: a TE with a huge ordinal gap (40 vs 180/200) and a 0.025 value ratio, correctly below the label floor.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
@@ -171,7 +171,7 @@
    "path": "frontend/app/edge/page.jsx",
    "signature": null,
    "status": "closed",
-   "verifiedBy": "Fixed in batch C4, and it was worse than recorded. The premium panels did not merely take magnitude and sign from different quantities \u2014 they FILTERED and SORTED on sourceRankSpread, how much the sources disagree with each other, while displaying marketGapDirection's sign. So a clean large gap on a player every source agreed about was EXCLUDED, and a negligible gap on a player the sources were arguing over sorted FIRST: the panel structurally surfaced its least reliable rows and hid its most reliable. The gate also barely gated \u2014 measured, it admitted 376 of the 414 rows carrying a gap (91%). marketGapMagnitude, the magnitude OF the direction being filtered on, was stamped by the backend all along and read by nothing here.\n\nTwo more instances found beyond the recorded one: edge-helpers.py's topRetailPremium/topConsensusPremium did the same thing AND rendered it, printing 'Sell +45 ranks' where 45 was the disagreement width described to the user as the gap. All four now gate, sort and label on marketGapMagnitude. PREMIUM_SUMMARY_SPREAD is retained but narrowed to the disagreements panel and the disagreement stat, which are genuinely about sources disagreeing.",
+   "verifiedBy": "Closed by THIS pass (C4-R) \u2014 the only one of the four S findings #740 left open, and the one with live user impact. Worse than recorded: both /edge premium panels FILTERED and SORTED on sourceRankSpread \u2014 how much the sources disagree with each other \u2014 while displaying marketGapDirection's sign. A clean, large gap on a player every source agreed about was EXCLUDED; a negligible gap on a player they were arguing over sorted FIRST. Measured: the spread gate passed 148 of the 414 two-sided rows, and on the wrong axis entirely.\n\nTwo further instances beyond the recorded one: edge-helpers' topRetailPremium / topConsensusPremium did the same AND rendered it, printing 'Sell +45 ranks' where 45 was the disagreement width described to the user as the gap. All four now gate, sort and label on marketGapValueRatio at PREMIUM_SUMMARY_VALUE_RATIO (0.15, p70 of the live distribution). PREMIUM_SUMMARY_SPREAD survives, narrowed to the disagreements panel where it belongs.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
@@ -189,7 +189,7 @@
    "path": "frontend/lib/display-helpers.js",
    "signature": null,
    "status": "closed",
-   "verifiedBy": "Fixed in batch C4. The recorded finding was 'a second, different threshold', which undersold it: display-helpers.js was not just thresholding the backend field differently, it was RECOMPUTING the whole retail-vs-consensus comparison client-side from raw ordinals (marketEdge, marketAction, marketGapLabel all rebuilt the two means locally). That is a second authority for a number the contract already stamps \u2014 the same shape as the computeUnifiedRanks fallback removed from buildRows, and it carried S-1 independently.\n\nAll three now read the stamps verbatim. The reason they had grown a local copy is itself fixed: the contract used to collapse 'only retail ranked him', 'only the experts did' and 'nobody did' into one bare \"none\", so the helper recomputed to recover the distinction \u2014 the backend now stamps marketGapUnknown.reason (C3's vocabulary). Four thresholds gating one concept are now one entry each in config/thresholds.json, with the JSON as the source, Python LOADING it so it cannot drift, and tests/api/test_threshold_parity.py enforcing the JS mirror \u2014 replacing a hand-written 'mirror these Python constants' comment. idpMarketEdge is deliberately LEFT on the ordinal path and documented as such: the backend emits no IDP gap at all, so deleting it would remove a working surface to satisfy a rule. Tracked as the IDP-anchor follow-up.",
+   "verifiedBy": "Closed by #740. display-helpers no longer thresholds a rank difference: marketEdge / marketAction / marketGapLabel all read valueContribution through the same relative-gap formula the backend uses, gated on the single shared MARKET_GAP_MIN_VALUE_RATIO. The four competing thresholds that gated this one concept are down to two, and config/thresholds.json + tests/api/test_threshold_parity.py (landed here) make a third impossible to add silently.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
@@ -225,16 +225,14 @@
    "auditEvidence": "frontend/components/useSettings.js:35 `tepMultiplier: 1.15,               // 1.15 default; 1.0..1.5 = explicit operator override`\nfrontend/components/useSettings.js:184-188 `if (merged.tepMultiplier == null || merged.tepMultiplier === 1.0 || merged.tepMultiplier === 1.25) { merged.tepMultiplier = 1.15; }`\nfrontend/lib/dynasty-data.js:893-897 `export function tepMultiplierIsCustomized(tepMultiplier",
    "auditId": "V-4",
    "path": "frontend/components/useSettings.js",
-   "signature": "tepMultiplier: 1.15",
-   "status": "open",
-   "verifiedBy": "Default is still a finite number, so every session posts an explicit operator override and the ADR-015 curve never runs.",
+   "signature": null,
+   "status": "closed",
+   "verifiedBy": "Closed on MAIN, not by this pass \u2014 picked up during the C4-R merge. SETTINGS_DEFAULTS.tepMultiplier is now the null auto sentinel, so a default session posts no tep_multiplier and the backend applies the measured ADR-015 curve; tepMultiplierIsCustomized is deliberately unchanged so an explicit operator number still overrides, and a one-shot tepAutoRestored migration moves installs the previous migration had pinned to a flat 1.15. Batch C6 step 6.4 no longer needs it.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": "frontend/components/useSettings.js",
-    "needle": "tepMultiplier: 1.15"
+    "result": "no_mechanical_probe"
    }
   },
   {
@@ -359,7 +357,7 @@
    "path": "src/api/data_contract.py",
    "signature": null,
    "status": "closed",
-   "verifiedBy": "Fixed in batch C4 by src/api/rank_space.py: every cross-source rank comparison now happens in RANK SPACE (a rank divided by the observed depth of its own board) instead of on raw ordinals. Confirmed and quantified on the live board first \u2014 the registered sources publish between 278 and 900 rows, a 3.2x spread, and normalizing flips the sign of the gap on 42% of offense rows and 35 of 36 picks (the audit said 47%/97%; the pick figure matches exactly). The concrete case: draftSharks rank 143 of 683 is a BETTER placement than ktcSfTep rank 121 of 469, and ordinal arithmetic said the reverse.\n\nDepths are OBSERVED per build rather than read from the registry's declared depth field, which is None for most sources and describes intent rather than what arrived. Board effect measured through the harness: 0 values, 0 ranks, 0 tiers moved; 177 marketGapDirection flips. A market_gap surface was added to golden_surfaces.py BEFORE the claim, per the plan's trap 7.",
+   "verifiedBy": "Closed by #740, NOT by this pass, and the difference is worth recording so nobody re-does the inferior version.\n\nBoth fixes agreed on the diagnosis: differencing mean ORDINAL ranks across sources drawn from pools of very unequal depth (ktcSfTep 473 rows, idpTradeCalc 901, dlfSf 278) measures pool depth and format basis rather than opinion. Batch C4 fixed it by normalizing into rank space (rank / observed board depth) and then SUBTRACTING a measured per-position basis \u2014 TE +121, PICK -109 per-mille \u2014 because the tight-end reading is arithmetically correct and only looks like a signal.\n\n#740 instead compares ``sourceRankMeta[key].valueContribution``: post-ladder, common-scaled 0-9999, and already past ADR-015's convert_te_value. That removes the CAUSE. Their medians \u2014 QB +0.008, TE +0.084, WR +0.110, RB +0.112 \u2014 show TE sitting between the others instead of outside them, where C4's approach had to measure the offset and subtract it. Removing a cause beats correcting for it, so src/api/rank_space.py and the de-meaning were deleted in the C4-R rework rather than merged alongside.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
@@ -570,8 +568,8 @@
    "signature": null,
    "status": "closed",
    "verifiedBy": "Closed on main by #734 while batch C4 was open \u2014 NOT by this pass, and picked up here rather than reverted. Batch C12 no longer needs to fix P-1.\n\n_roster_quality_component now returns None (not 0.0) when it has no evidence, and the scoring sum renormalizes over the components that do; the unconditional `float(weights.get(\"rosterQuality\", 0.22)) * roster` term is gone and components.weightsApplied is stamped per manager so the renormalization is auditable rather than assumed.\n\nFound by diffing main's generated status.json against this table during the C4 merge \u2014 the file is generated, so resolving the conflict by regenerating would have silently reverted the closure. Worth knowing for every future merge: the generated artifact is not the authority, but it IS the only place another PR's closure shows up.",
-   "closedBy": null,
-   "measuredEffect": null,
+   "closedBy": "PR #734 (claude/consensus-edge-recovery), ADR-028",
+   "measuredEffect": "A production-shaped record (6 seasons / 6 leagues / 58-26 / 5 playoffs / 2 titles) scored 64.9 against a real maximum of 78 because 0.22 of the weight was applied to a term that is 0.0 for every manager. It now scores 78.0 and the applied weights sum to 1.0. Ranking and cohort are UNCHANGED: the absent set is identical for every manager so all scores scale by the same factor, and qualification is minScorePercentile (a percentile, not an absolute bar). Asserted in tests/sharp/test_sharp_gates.py, which computes the old arithmetic inline and compares the full ordering and the qualified set. NOT measured against the live cohort: the ledger exists locally but cohort_members() returns 0 members, so a prod observation is still owed. methodologyVersion moved sharp-v2 -> sharp-v2.1.",
    "batch": null,
    "probe": {
     "result": "no_mechanical_probe"

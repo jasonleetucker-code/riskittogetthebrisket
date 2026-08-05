@@ -1,48 +1,22 @@
 {
-  "_comment": "Single source of truth for the numeric thresholds that gate decision surfaces. src/api/thresholds.py LOADS this file, so the Python side cannot drift from it. frontend/lib/thresholds.js mirrors it statically and tests/api/test_threshold_parity.py enforces the match - the same mirror+parity mechanism as the ranking-source registry, which is the one that demonstrably works in this repo. Every entry records how its value was derived; an entry without a derivation is a number someone invented.",
-  "version": "2026-08-05.v1",
+  "_comment": "Single source of truth for the numeric thresholds that gate decision surfaces. src/api/thresholds.py LOADS this file, so the Python side cannot drift. frontend/lib/thresholds.js mirrors it and tests/api/test_threshold_parity.py enforces the match - the same mirror+parity mechanism as the ranking-source registry. Every entry records how its value was derived; an entry without a derivation is a number someone invented.",
+  "version": "2026-08-05.v2",
+  "_removed": {
+    "MARKET_GAP_MIN_DIFF / MARKET_GAP_MIN_MAGNITUDE": "Both retired with the rank-space market gap. The gap is now a relative ratio in blended-value space (marketGapValueRatio); a rank threshold has nothing left to gate. Listing one here would make the parity test demand the JS export it back.",
+    "CONFIDENCE_SPREAD_HIGH / CONFIDENCE_SPREAD_MEDIUM": "Removed by #725: they claimed to mirror the backend's confidence buckets and did not, and their one consumer re-applied the retired ordinal rule on top of the backend's verdict, suppressing 'Consensus asset' on 54 of 111 qualifying rows."
+  },
   "thresholds": {
-    "MARKET_GAP_MIN_MAGNITUDE": {
-      "value": 25,
-      "unit": "rankSpacePerMille",
-      "appliesTo": "marketGapMagnitude",
-      "derivedFrom": "p50 of |de-meaned market gap| across the 414 rows carrying one on the 2026-08-05 board (25.8). Replaces MARKET_GAP_MIN_DIFF=10, which was 10 ORDINAL RANKS - about 21 per-mille on the 469-deep retail board, so this floor sits within 20% of the old one while being expressed in a unit that means the same thing on every source."
-    },
-    "MARKET_PREMIUM_MAGNITUDE": {
-      "value": 50,
-      "unit": "rankSpacePerMille",
-      "appliesTo": "marketGapMagnitude",
-      "derivedFrom": "p70 of the same distribution (51.8) - the cut above which a gap is worth an action label rather than a note. Replaces MARKET_PREMIUM_SPREAD=30 ranks (~64 per-mille), so slightly more inclusive, chosen on a measured landmark rather than the old round number."
-    },
-    "PREMIUM_SUMMARY_MAGNITUDE": {
-      "value": 50,
-      "unit": "rankSpacePerMille",
-      "appliesTo": "marketGapMagnitude",
-      "derivedFrom": "Same p70 cut; yields 127 candidate rows before the top-250 filter and the 10-row slice. The gate it replaces for these panels (PREMIUM_SUMMARY_SPREAD>=20) admitted 376 of 414 rows - 91%, effectively inert - AND measured source disagreement rather than the gap whose sign the panel displays."
-    },
-    "MIN_EDGE_MAGNITUDE": {
-      "value": 25,
-      "unit": "rankSpacePerMille",
-      "appliesTo": "marketGapMagnitude",
-      "derivedFrom": "Deliberately equal to MARKET_GAP_MIN_MAGNITUDE: if the board will not label a gap, a trade surface must not signal on it. Replaces MIN_EDGE_RANK_GAP=3 ranks (~6 per-mille), which admitted essentially every row and was therefore never a decision - porting it forward would have preserved a non-choice as if it were one."
-    },
-    "MARKET_GAP_MIN_POSITION_N": {
-      "value": 8,
-      "unit": "rows",
-      "appliesTo": "position basis sample size",
-      "derivedFrom": "Floor below which a position's median gap is noise rather than a basis. Every position on the live board clears it comfortably (WR 146, RB 103, TE 72, QB 57, PICK 36), so it binds only on a coverage collapse - which is exactly when de-meaning off a tiny sample would invent a constant out of the noise it exists to remove."
+    "MARKET_PREMIUM_SPREAD": {
+      "value": 30,
+      "unit": "ordinalRanks",
+      "appliesTo": "sourceRankSpread",
+      "derivedFrom": "Pre-existing source-disagreement gate. Unchanged - it measures how much sources disagree with each other, which is a different quantity from the market gap."
     },
     "PREMIUM_SUMMARY_SPREAD": {
       "value": 20,
       "unit": "ordinalRanks",
       "appliesTo": "sourceRankSpread",
-      "derivedFrom": "Pre-existing. RETAINED but NARROWED: it now gates only the /edge disagreements panel and the disagreement stat, which are genuinely about sources disagreeing with each other. The premium panels moved to PREMIUM_SUMMARY_MAGNITUDE."
-    },
-    "MARKET_PREMIUM_SPREAD": {
-      "value": 30,
-      "unit": "ordinalRanks",
-      "appliesTo": "sourceRankSpread",
-      "derivedFrom": "Pre-existing spread gate, unchanged. Distinct from MARKET_PREMIUM_MAGNITUDE despite the similar name - this one is about disagreement width, that one about the retail-vs-consensus gap."
+      "derivedFrom": "Pre-existing. RETAINED but NARROWED to the /edge disagreements panel and the disagreement stat; the premium panels moved to PREMIUM_SUMMARY_VALUE_RATIO (audit S-3)."
     },
     "LENS_DISAGREEMENT_SPREAD": {
       "value": 40,
@@ -62,6 +36,18 @@
       "appliesTo": "canonicalConsensusRank",
       "derivedFrom": "Pre-existing rankings-page lens eligibility cap. Unchanged."
     },
+    "MARKET_GAP_MIN_VALUE_RATIO": {
+      "value": 0.05,
+      "unit": "relativeValueRatio",
+      "appliesTo": "marketGapValueRatio",
+      "derivedFrom": "Set by #740 and CALIBRATED, not chosen: on the live board it labels 68.8% of two-sided rows non-HOLD against 69.2% under the retired rank gate, so it re-aims the signal instead of quietly silencing it. Also reused by trade-logic getPlayerEdge - if the board will not label a gap, a trade surface must not signal on it."
+    },
+    "PREMIUM_SUMMARY_VALUE_RATIO": {
+      "value": 0.15,
+      "unit": "relativeValueRatio",
+      "appliesTo": "marketGapValueRatio",
+      "derivedFrom": "p70 of |marketGapValueRatio| across the 414 two-sided rows on the 2026-08-05 board (0.1565). Yields 127 candidates before the top-250 filter, the same order as the 148 the retired sourceRankSpread>=20 gate passed - so the /edge premium panels are re-aimed onto the right axis rather than emptied or flooded."
+    },
     "EDGE_CAUTION_RANK_LIMIT": {
       "value": 300,
       "unit": "rank",
@@ -72,40 +58,31 @@
       "value": 250,
       "unit": "rank",
       "appliesTo": "canonicalConsensusRank",
-      "derivedFrom": "Pre-existing. Raised 150 -> 250 on 2026-04-29 to surface mid-board WR/RB disagreements; see the note in frontend/lib/thresholds.js. Unchanged by this batch."
+      "derivedFrom": "Pre-existing; raised 150 -> 250 on 2026-04-29 to surface mid-board WR/RB disagreements. Unchanged."
     },
     "RANKINGS_DEFAULT_ROW_LIMIT": {
       "value": 200,
       "unit": "rows",
       "appliesTo": "display",
-      "derivedFrom": "Page-level UX choice, not a data threshold: how many rows /rankings paints before 'show more'. Listed here so this file is the COMPLETE inventory of the frontend's numeric constants - the parity test allows no exemptions, because an exemption list is where an unreviewed threshold would hide."
+      "derivedFrom": "Page-level UX choice, not a data threshold. Listed so this file is the COMPLETE inventory of the frontend's numeric constants - the parity test allows no exemptions, because an exemption list is where an unreviewed threshold would hide."
     },
     "FINDER_ROW_LIMIT": {
       "value": 100,
       "unit": "rows",
       "appliesTo": "display",
-      "derivedFrom": "Page-level UX choice: maximum rows per workflow on /finder. Not a data threshold."
+      "derivedFrom": "Page-level UX choice: maximum rows per workflow on /finder."
     },
     "EDGE_SECTION_LIMIT": {
       "value": 15,
       "unit": "rows",
       "appliesTo": "display",
-      "derivedFrom": "Page-level UX choice: items per /edge section. Not a data threshold."
+      "derivedFrom": "Page-level UX choice: items per /edge section."
     },
     "EDGE_PREMIUM_LIMIT": {
       "value": 10,
       "unit": "rows",
       "appliesTo": "display",
-      "derivedFrom": "Page-level UX choice: items per /edge premium panel, applied AFTER the magnitude gate and the top-250 filter. Not a data threshold."
-    },
-    "MARKET_GAP_MIN_DIFF": {
-      "value": 10,
-      "unit": "ordinalRanks",
-      "appliesTo": "IDP market gap (client-side)",
-      "derivedFrom": "Pre-existing, and DELIBERATELY still in ordinal ranks. It gates only frontend/lib/display-helpers.js::idpMarketEdge, the one surviving client-side gap computation. That path exists because the backend emits NO market gap for IDP at all - the sole is_retail source publishes no defenders, so all 386 IDP rows abstain with reason 'consensus_only' - and deleting it would remove a working surface to satisfy a rule. It carries audit finding S-1 (raw ordinals across boards of different depth) exactly as the offense path did before C4. Tracked as the IDP-anchor follow-up: give the backend an IDP retail anchor, stamp the gap, then delete this and its threshold together."
+      "derivedFrom": "Page-level UX choice: items per /edge premium panel, applied AFTER the ratio gate and the top-250 filter."
     }
-  },
-  "_removed": {
-    "CONFIDENCE_SPREAD_HIGH / CONFIDENCE_SPREAD_MEDIUM": "Removed 2026-08-05 by #725, and this file follows rather than resurrecting them. They claimed to mirror the backend's confidence buckets and did not: _confidence_bucket decides off the PERCENTILE spread on the live path, and their one consumer re-applied the retired ordinal rule on top of the backend's verdict, suppressing 'Consensus asset' on 54 of 111 qualifying rows. A threshold with no reader does not belong in an inventory of live thresholds - and listing one here would make test_threshold_parity.py demand the JS export it back."
   }
 }

@@ -1,6 +1,6 @@
 {
+ "count": 692,
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 693,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -275,7 +275,6 @@
   "src/api/draft_capital_fallback.py::team_totals[p.current_owner] = team_totals.get(p.current_owner, 0) + (p.dollar_value or 0)",
   "src/api/faab_analytics.py::\"createdAt\": int(tx.get(\"status_updated\") or tx.get(\"created\") or 0),",
   "src/api/faab_analytics.py::bid = int(settings.get(\"waiver_bid\") or 0)",
-  "src/api/faab_analytics.py::bid = int(tx.get(\"bid\") or 0)",
   "src/api/faab_analytics.py::if r.get(\"roster_id\") == roster_id or r.get(\"roster_id\") == int(roster_id or 0):",
   "src/api/faab_analytics.py::waivers_recent_first = sorted(waivers, key=lambda tx: -int(tx.get(\"createdAt\") or 0))",
   "src/api/guest_passes.py::id=int(new_id or 0),",

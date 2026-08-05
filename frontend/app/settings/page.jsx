@@ -243,13 +243,14 @@ export default function SettingsPage() {
     const n = Number(raw);
     return Number.isFinite(n) ? n : tepDefault;
   })();
-  // 1.15 is the platform default (see SETTINGS_DEFAULTS.tepMultiplier).
-  // Treat the explicit default value — or a legacy null — as "default"
-  // so the UI doesn't render the default as a Custom override.
-  const tepIsDefault =
-    settings?.tepMultiplier === null ||
-    settings?.tepMultiplier === undefined ||
-    Number(settings?.tepMultiplier) === 1.15;
+  // AUTO is nullish and ONLY nullish.  This used to also count an
+  // explicit 1.15 as "default", which made the two states render
+  // identically — the caption said "Default 1.15×" whether the backend
+  // was measuring the TE basis or being overridden by a flat number, and
+  // the reset link was hidden in both.  They do materially different
+  // things, so the UI has to be able to tell you which one you are on.
+  const tepIsAuto =
+    settings?.tepMultiplier === null || settings?.tepMultiplier === undefined;
 
   // Parallel "TEP-native" multiplier — the per-bucket boost applied
   // to TEP-native sources (DN SF-TEP, Yahoo Boone, FP Fitzmaurice)
@@ -405,12 +406,12 @@ export default function SettingsPage() {
             }}
           />
           <span className="muted" style={{ fontSize: "0.66rem" }}>
-            {tepIsDefault
-              ? `Default ${tepDefault.toFixed(2)}× — applied to non-TEP sources on TE rows`
-              : `Custom ${Number(tepSliderValue).toFixed(2)}× — non-TEP sources on TE rows`}
+            {tepIsAuto
+              ? `Auto — the measured TE-basis curve, ~${tepDefault.toFixed(2)}× and up, on non-TEP sources`
+              : `Custom ${Number(tepSliderValue).toFixed(2)}× flat — overrides the measured curve`}
           </span>
         </div>
-        {!tepIsDefault && (
+        {!tepIsAuto && (
           <div style={{ marginTop: 4, marginBottom: 6 }}>
             <button
               type="button"
@@ -422,9 +423,9 @@ export default function SettingsPage() {
                 cursor: "pointer",
                 padding: 0,
               }}
-              onClick={() => update("tepMultiplier", 1.15)}
+              onClick={() => update("tepMultiplier", null)}
             >
-              Reset to default ({tepDefault.toFixed(2)}×)
+              Reset to auto (measured curve)
             </button>
           </div>
         )}

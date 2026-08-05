@@ -283,182 +283,126 @@ class TestAnomalyFlags(unittest.TestCase):
 
 
 class TestMarketGap(unittest.TestCase):
-    """Retail vs consensus, in rank space, with the positional basis removed.
+    """The gap is measured in VALUE space, not ordinal rank space.
 
-    REVERSAL RECORDED IN PLACE (audit S-1/C19 + S-2/C08, batch C4).
-    Every test in this class used to assert raw-ordinal arithmetic as
-    correct — ``_compute_market_gap({"ktcSfTep": 10, "idpTradeCalc": 50})``
-    was expected to return a magnitude of exactly ``40.0``.
+    It was ranks until 2026-08-05. The two sides are drawn from pools of
+    very unequal depth (ktcSfTep 473 rows, idpTradeCalc 901, dlfSf 278),
+    so differencing their mean ordinals measured pool depth and TE format
+    basis rather than opinion — on the live board the median signed gap
+    was TE +40.7 ranks against QB -18.3, RB -9.3, WR -6.0.
 
-    That expectation encodes the defect. It is only true if the two
-    boards are the same depth, and measured on the live board they are
-    not: the registered sources publish between 278 and 900 rows, so
-    "rank 50" is a bottom-third placement on one board and a top-tenth
-    placement on another. Comparing the ordinals flipped the sign of the
-    gap on 42% of offense rows and 35 of 36 picks.
-
-    The tests are rewritten rather than deleted so a future reader can
-    see that the old numbers were reversed deliberately.
+    Note the SIGN INVERTS versus the old tests: retail ranking a player
+    "higher" meant a LOWER rank number, but valuing him higher means a
+    LARGER value. And the magnitude is now relative — 0.25 is "one side
+    prices him 25% above the other" — so it no longer scales with how
+    deep in the board the player sits.
     """
 
-    # Two boards of deliberately different depth. Sized so the classic
-    # "rank 10 vs rank 50" case can be shown to invert.
-    DEPTHS = {"ktcSfTep": 100, "idpTradeCalc": 1000, "dlfIdp": 1000, "sleeperTrade": 100}
-    # No basis for the position under test unless a case supplies one,
-    # so most cases isolate the rank-space change from the de-meaning.
-    NO_BASIS: dict[str, float] = {"WR": 0.0}
+    @staticmethod
+    def _meta(**values):
+        """Per-source value stamps, the shape ``sourceRankMeta`` carries."""
+        return {key: {"valueContribution": float(v)} for key, v in values.items()}
 
-    def gap(self, ranks, *, depths=None, position="WR", basis=None, retail_keys=None):
-        return _compute_market_gap(
-            ranks,
-            depths if depths is not None else self.DEPTHS,
-            position,
-            basis if basis is not None else self.NO_BASIS,
-            retail_keys=retail_keys,
-        )
-
-    # ── the defect itself ────────────────────────────────────────────
-    def test_identical_ordinals_invert_when_the_boards_differ_in_depth(self):
-        """The single case this batch exists for.
-
-        Retail rank 10 of 100 is one tenth of the way down its board.
-        Consensus rank 50 of 1000 is one twentieth of the way down
-        theirs — a BETTER placement. Ordinal arithmetic called this a
-        40-rank retail premium; in the only space where the two boards
-        can be compared it is a consensus premium.
-        """
-        direction, magnitude, absolute, unknown = self.gap({"ktcSfTep": 10, "idpTradeCalc": 50})
-        self.assertEqual(direction, "consensus_premium")
-        # 0.05 - 0.10 = -0.05 → 50 per-mille.
-        self.assertAlmostEqual(magnitude, 50.0, places=6)
-        self.assertAlmostEqual(absolute, -50.0, places=6)
-        self.assertIsNone(unknown)
-
-    def test_equal_depth_reproduces_the_ordinal_intuition(self):
-        """Rank space is not a different answer, it is the same answer
-        measured properly: when the boards ARE the same depth the old
-        ordinal reading is recovered exactly."""
-        direction, magnitude, _absolute, _unknown = self.gap(
+    def test_retail_premium_vs_single_consensus_source(self):
+        # KTC values him 9000, IDPTC 7000 → mean 8000 → retail 25% above.
+        direction, magnitude = _compute_market_gap(
             {"ktcSfTep": 10, "idpTradeCalc": 50},
-            depths={"ktcSfTep": 100, "idpTradeCalc": 100},
+            source_meta=self._meta(ktcSfTep=9000, idpTradeCalc=7000),
         )
         self.assertEqual(direction, "retail_premium")
-        # 40 ranks of a 100-row board = 400 per-mille.
-        self.assertAlmostEqual(magnitude, 400.0, places=6)
+        self.assertAlmostEqual(magnitude, 0.25)
 
-    # ── direction, in rank space ─────────────────────────────────────
-    def test_retail_premium(self):
-        direction, magnitude, _a, _u = self.gap(
-            {"ktcSfTep": 10, "idpTradeCalc": 500},
-        )
-        self.assertEqual(direction, "retail_premium")
-        self.assertAlmostEqual(magnitude, 400.0, places=6)
-
-    def test_consensus_premium(self):
-        direction, magnitude, _a, _u = self.gap(
-            {"ktcSfTep": 80, "idpTradeCalc": 200},
+    def test_consensus_premium_vs_single_consensus_source(self):
+        direction, magnitude = _compute_market_gap(
+            {"ktcSfTep": 80, "idpTradeCalc": 20},
+            source_meta=self._meta(ktcSfTep=7000, idpTradeCalc=9000),
         )
         self.assertEqual(direction, "consensus_premium")
-        self.assertAlmostEqual(magnitude, 600.0, places=6)
+        self.assertAlmostEqual(magnitude, 0.25)
 
-    def test_equal_positions_are_a_measured_tie(self):
-        """0.0 is a real answer here and must not read as absent."""
-        direction, magnitude, _a, unknown = self.gap(
-            {"ktcSfTep": 30, "idpTradeCalc": 300},
+    def test_equal_values(self):
+        direction, magnitude = _compute_market_gap(
+            {"ktcSfTep": 30, "idpTradeCalc": 30},
+            source_meta=self._meta(ktcSfTep=8000, idpTradeCalc=8000),
         )
         self.assertEqual(direction, "none")
         self.assertEqual(magnitude, 0.0)
-        self.assertIsNone(unknown)
 
-    def test_consensus_side_is_averaged_across_sources(self):
-        direction, magnitude, _a, _u = self.gap(
-            {"ktcSfTep": 10, "idpTradeCalc": 400, "dlfIdp": 600},
+    def test_equal_values_at_different_ranks(self):
+        """The point of the change, stated directly.
+
+        Two sources can price a player identically while ranking him 40
+        places apart, because their pools are different depths. Rank space
+        called that a large disagreement; value space calls it agreement.
+        """
+        direction, magnitude = _compute_market_gap(
+            {"ktcSfTep": 10, "idpTradeCalc": 50},
+            source_meta=self._meta(ktcSfTep=8000, idpTradeCalc=8000),
+        )
+        self.assertEqual(direction, "none")
+        self.assertEqual(magnitude, 0.0)
+
+    def test_no_value_stamps_cannot_be_compared(self):
+        """No silent fallback to the ordinal arithmetic this replaced."""
+        direction, magnitude = _compute_market_gap({"ktcSfTep": 10, "idpTradeCalc": 50})
+        self.assertEqual(direction, "none")
+        self.assertIsNone(magnitude)
+
+    def test_retail_alone_returns_none(self):
+        # Retail side has a rank, consensus side is empty → no gap.
+        direction, magnitude = _compute_market_gap({"ktcSfTep": 10})
+        self.assertEqual(direction, "none")
+        self.assertIsNone(magnitude)
+
+    def test_no_retail_returns_none(self):
+        # IDP-only players have no retail rank (KTC is offense-only) →
+        # retail side is empty → no gap.
+        direction, magnitude = _compute_market_gap({"idpTradeCalc": 10, "dlfIdp": 20})
+        self.assertEqual(direction, "none")
+        self.assertIsNone(magnitude)
+
+    def test_retail_vs_averaged_multi_source_consensus(self):
+        # KTC 9000 vs mean(IDPTC 7000, DLF 5000) = 6000 → mean 7500 → +40%.
+        direction, magnitude = _compute_market_gap(
+            {"ktcSfTep": 10, "idpTradeCalc": 50, "dlfIdp": 70},
+            source_meta=self._meta(ktcSfTep=9000, idpTradeCalc=7000, dlfIdp=5000),
         )
         self.assertEqual(direction, "retail_premium")
-        # mean(0.40, 0.60) - 0.10 = 0.40
-        self.assertAlmostEqual(magnitude, 400.0, places=6)
+        self.assertAlmostEqual(magnitude, 0.40)
+
+    def test_consensus_premium_with_multi_source_consensus(self):
+        direction, magnitude = _compute_market_gap(
+            {"ktcSfTep": 100, "idpTradeCalc": 30, "dlfIdp": 40},
+            source_meta=self._meta(ktcSfTep=5000, idpTradeCalc=9000, dlfIdp=7000),
+        )
+        # KTC 5000 vs mean(9000, 7000) = 8000 → scale 6500 → 3000/6500.
+        self.assertEqual(direction, "consensus_premium")
+        self.assertAlmostEqual(magnitude, 3000 / 6500)
 
     def test_multi_retail_sources_are_averaged(self):
-        """Hypothetical two-retail world, via the retail_keys override so
-        the real registry is not mutated."""
-        direction, magnitude, _a, _u = self.gap(
-            {"ktcSfTep": 10, "sleeperTrade": 30, "idpTradeCalc": 500, "dlfIdp": 700},
+        # Hypothetical two-retail world, via the retail_keys override so
+        # the real registry is not mutated.  Retail mean 8500, consensus
+        # mean 6000 → mean 7250 → +34.5%.
+        direction, magnitude = _compute_market_gap(
+            {"ktcSfTep": 10, "sleeperTrade": 30, "idpTradeCalc": 50, "dlfIdp": 70},
+            source_meta=self._meta(
+                ktcSfTep=9000, sleeperTrade=8000, idpTradeCalc=7000, dlfIdp=5000
+            ),
             retail_keys=frozenset({"ktcSfTep", "sleeperTrade"}),
         )
         self.assertEqual(direction, "retail_premium")
-        # retail mean(0.10, 0.30) = 0.20; consensus mean(0.50, 0.70) = 0.60
-        self.assertAlmostEqual(magnitude, 400.0, places=6)
+        self.assertAlmostEqual(magnitude, 2500 / 7250)
 
-    # ── abstention, which used to be one undifferentiated "none" ─────
-    def test_retail_only_says_so(self):
-        direction, magnitude, absolute, unknown = self.gap({"ktcSfTep": 10})
-        self.assertEqual(direction, "none")
-        self.assertIsNone(magnitude)
-        self.assertIsNone(absolute)
-        self.assertEqual(unknown["reason"], "retail_only")
-
-    def test_no_retail_says_so_and_this_is_every_defender(self):
-        """The retail anchor publishes no IDP at all.
-
-        Measured on the live board: 386 rows abstain with exactly this
-        reason. Before C4 they were indistinguishable from a genuine
-        tie, which is why the market gap being unavailable for the whole
-        IDP half of the board was invisible.
-        """
-        direction, magnitude, _a, unknown = self.gap({"idpTradeCalc": 10, "dlfIdp": 20})
-        self.assertEqual(direction, "none")
-        self.assertIsNone(magnitude)
-        self.assertEqual(unknown["reason"], "consensus_only")
-
-    def test_unranked_says_so(self):
-        direction, _m, _a, unknown = self.gap({})
-        self.assertEqual(direction, "none")
-        self.assertEqual(unknown["reason"], "unranked")
-
-    def test_a_source_with_no_known_depth_cannot_be_placed(self):
-        """Depth is observed, so a source nothing ranked has none. That
-        must abstain rather than divide by a guess."""
-        direction, _m, _a, unknown = self.gap(
-            {"ktcSfTep": 10, "idpTradeCalc": 50}, depths={"ktcSfTep": 100}
+    def test_multi_retail_consensus_premium(self):
+        direction, magnitude = _compute_market_gap(
+            {"ktcSfTep": 80, "sleeperTrade": 90, "idpTradeCalc": 20, "dlfIdp": 40},
+            source_meta=self._meta(
+                ktcSfTep=5000, sleeperTrade=4000, idpTradeCalc=9000, dlfIdp=7000
+            ),
+            retail_keys=frozenset({"ktcSfTep", "sleeperTrade"}),
         )
-        self.assertEqual(direction, "none")
-        self.assertEqual(unknown["reason"], "consensus_depth_unknown")
-
-    # ── the positional basis ─────────────────────────────────────────
-    def test_the_position_basis_is_subtracted(self):
-        """A gap exactly equal to its position's basis is NOT a signal.
-
-        This is the tight-end case in miniature: measured on the live
-        board the median TE gap is +121 per-mille, so a tight end at
-        +121 is simply an ordinary tight end on a TE-premium retail
-        board — not a sell candidate.
-        """
-        ranks = {"ktcSfTep": 10, "idpTradeCalc": 200}  # absolute gap = +100
-        direction, magnitude, absolute, _u = self.gap(ranks, position="TE", basis={"TE": 0.100})
-        self.assertEqual(direction, "none")
-        self.assertAlmostEqual(magnitude, 0.0, places=6)
-        # The raw number survives: it is what a trade with a
-        # retail-anchored partner actually turns on.
-        self.assertAlmostEqual(absolute, 100.0, places=6)
-
-    def test_deviation_from_the_basis_is_the_signal(self):
-        ranks = {"ktcSfTep": 10, "idpTradeCalc": 200}  # absolute gap = +100
-        direction, magnitude, absolute, _u = self.gap(ranks, position="TE", basis={"TE": 0.040})
-        self.assertEqual(direction, "retail_premium")
-        self.assertAlmostEqual(magnitude, 60.0, places=6)
-        self.assertAlmostEqual(absolute, 100.0, places=6)
-
-    def test_a_position_with_no_basis_abstains_rather_than_guessing(self):
-        """De-meaning off too small a sample invents a constant out of
-        the noise it exists to remove, so there is no direction — but
-        the absolute number is still published."""
-        direction, magnitude, absolute, unknown = self.gap(
-            {"ktcSfTep": 10, "idpTradeCalc": 200}, position="K", basis={"WR": 0.0}
-        )
-        self.assertEqual(direction, "none")
-        self.assertIsNone(magnitude)
-        self.assertAlmostEqual(absolute, 100.0, places=6)
-        self.assertEqual(unknown["reason"], "position_sample_too_small")
+        self.assertEqual(direction, "consensus_premium")
+        self.assertAlmostEqual(magnitude, 3500 / 6250)
 
 
 # ── Integration: single-source player row ────────────────────────────────────

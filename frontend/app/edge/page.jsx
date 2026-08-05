@@ -16,7 +16,7 @@ import {
   EDGE_CAUTION_RANK_LIMIT,
   EDGE_PREMIUM_RANK_LIMIT,
   PREMIUM_SUMMARY_SPREAD,
-  PREMIUM_SUMMARY_MAGNITUDE,
+  PREMIUM_SUMMARY_VALUE_RATIO,
 } from "@/lib/thresholds";
 import { getRetailLabel } from "@/lib/dynasty-data";
 import {
@@ -144,18 +144,18 @@ export default function EdgePage() {
   // barely filtered — measured on the live board it admitted 376 of the
   // 414 rows carrying a gap.
   //
-  // ``marketGapMagnitude`` — the magnitude OF the direction being filtered
+  // ``marketGapValueRatio`` — the magnitude OF the direction being filtered
   // on — was stamped by the backend all along and read by nothing here.
   const premiumBy = (direction) =>
     eligible
       .filter(
         (r) =>
           r.marketGapDirection === direction &&
-          marketGapAtLeast(r, PREMIUM_SUMMARY_MAGNITUDE) &&
+          marketGapAtLeast(r, PREMIUM_SUMMARY_VALUE_RATIO) &&
           !r.quarantined &&
           isTopRankedForEdgePremium(r),
       )
-      .sort((a, b) => (marketGapMagnitudeOf(b) ?? -Infinity) - (marketGapMagnitudeOf(a) ?? -Infinity))
+      .sort((a, b) => (marketGapRatioOf(b) ?? -Infinity) - (marketGapRatioOf(a) ?? -Infinity))
       .slice(0, EDGE_PREMIUM_LIMIT);
 
   const retailPremium = useMemo(() => premiumBy("retail_premium"), [eligible]);

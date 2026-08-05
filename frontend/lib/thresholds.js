@@ -63,37 +63,61 @@ export const LENS_INEFFICIENCY_SPREAD = 30;
 export const LENS_INEFFICIENCY_RANK = 200;
 
 // ── Market gap ──────────────────────────────────────────────────────────────
-// UNIT: rank-space per-mille.  A source's rank divided by the depth of its
-// own board, times 1000, with the position's median gap subtracted.  These
-// are NOT ordinal ranks — the sources publish boards 278 to 900 rows deep, so
-// ordinals were never comparable across them.  The backend stamps
-// `marketGapUnit` on every row so a stale consumer can detect the change.
+// UNIT: a RELATIVE gap in blended-value space.  0.25 means one side prices the
+// player 25% above the other.  These are not ranks and not points on the
+// 0-9999 scale.  The backend publishes it as `marketGapValueRatio`; the old
+// `marketGapMagnitude` is stamped None on every row precisely so a consumer
+// still reading it fails visibly instead of gating on a stale unit.
 
-/** Minimum magnitude for a market-gap label to display at all. */
-export const MARKET_GAP_MIN_MAGNITUDE = 25;
+/** Minimum rank difference for a market gap label to display. */
+// RETIRED: MARKET_GAP_MIN_DIFF (was 10 ordinal ranks).  The market gap is
+// no longer measured in rank space at all, so a rank threshold has nothing
+// to gate.  Removed rather than left at its old value, where it would read
+// as a live knob nobody is turning.
 
-/** Minimum magnitude for an actionable buy/sell label. */
-export const MARKET_PREMIUM_MAGNITUDE = 50;
-
-/** Minimum magnitude for a row to appear in the /edge premium panels. */
-export const PREMIUM_SUMMARY_MAGNITUDE = 50;
-
-/** Minimum magnitude for the trade-page edge signal. */
-export const MIN_EDGE_MAGNITUDE = 25;
+// Minimum RELATIVE gap, in blended-value space, for a market-gap label to
+// fire.  Replaces MARKET_GAP_MIN_DIFF for that purpose.
+//
+// The gap used to be a difference of raw ordinal RANKS averaged across
+// sources drawn from pools of very unequal depth (ktcSfTep 473 rows,
+// idpTradeCalc 901, dlfSf 278).  Differencing ordinals across those pools
+// measures pool depth and format basis, not opinion — measured on the
+// 2026-08-05 board the median signed gap was TE +40.7 ranks while QB was
+// -18.3, RB -9.3 and WR -6.0, i.e. every position negative and TE alone
+// hugely positive.  That is not 15 independent boards agreeing about
+// tight ends; it is a basis offset.
+//
+// In value space the same medians are QB +0.008, TE +0.084, WR +0.110,
+// RB +0.112 — TE sits between the others instead of outside them.
+//
+// A relative gate, not an absolute one: 300 points of a 0-9999 scale is
+// noise at the top of the board and a whole tier at rank 400.
+//
+// 0.05 is CALIBRATED, not chosen: on the live board it labels 68.8% of
+// two-sided rows non-HOLD, against 69.2% under the old rank gate.  The
+// point is to re-aim the signal, not to quietly silence it.
+export const MARKET_GAP_MIN_VALUE_RATIO = 0.05;
 
 /**
- * Minimum ORDINAL rank difference for the IDP market-gap label.
+ * Minimum relative gap for a row to appear in the /edge premium panels.
  *
- * Still ordinal on purpose: it gates the one surviving client-side gap
- * computation (display-helpers.js::idpMarketEdge), which exists because the
- * backend emits no market gap for IDP — the sole retail source publishes no
- * defenders.  It carries audit finding S-1 the way the offense path did
- * before C4, and is tracked as the IDP-anchor follow-up.
+ * Those panels used to gate and sort on `sourceRankSpread` — how much the
+ * SOURCES disagree with each other — while displaying the market gap's sign
+ * (audit S-3).  Two different quantities: a clean, large gap on a player every
+ * source agrees about was excluded outright, while a negligible gap on a
+ * player they were arguing over sorted first.
+ *
+ * 0.15 is p70 of |marketGapValueRatio| across the 414 two-sided rows on the
+ * 2026-08-05 board (0.1565), giving 127 candidates before the top-250 filter
+ * — the same order as the 148 the spread gate passed, so this re-aims the
+ * panel rather than silently emptying or flooding it.
+ *
+ * Deliberately NOT a separate constant for the trade page: `getPlayerEdge`
+ * reuses MARKET_GAP_MIN_VALUE_RATIO, because if the board will not label a
+ * gap, a trade surface must not signal on it.  Four thresholds gated this one
+ * concept before; there are now two.
  */
-export const MARKET_GAP_MIN_DIFF = 10;
-
-/** Rows a position needs before its basis is trusted (backend-enforced). */
-export const MARKET_GAP_MIN_POSITION_N = 8;
+export const PREMIUM_SUMMARY_VALUE_RATIO = 0.15;
 
 // ── Rank cutoffs ────────────────────────────────────────────────────────────
 

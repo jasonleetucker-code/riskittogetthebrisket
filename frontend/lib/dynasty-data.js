@@ -1127,6 +1127,11 @@ function _materializePlayerArrayRow(player) {
     hasSourceDisagreement: Boolean(player.hasSourceDisagreement),
     sourceRankSpread: player.sourceRankSpread ?? null,
     marketGapDirection: String(player.marketGapDirection || "none"),
+    // ``marketGapValueRatio`` is the live number (relative gap in value
+    // space).  ``marketGapMagnitude`` is the retired rank-space field, which
+    // the backend now stamps None on every row; it is forwarded only so a
+    // consumer reading it sees the explicit null rather than an absent key.
+    marketGapValueRatio: player.marketGapValueRatio ?? null,
     marketGapMagnitude: player.marketGapMagnitude ?? null,
     sourceOriginalRanks:
       player.sourceOriginalRanks &&
@@ -1271,6 +1276,11 @@ function _materializeLegacyDictRow(name, player, posMap) {
         ? player.sourceAudit
         : null,
     marketGapDirection: String(player.marketGapDirection || "none"),
+    // ``marketGapValueRatio`` is the live number (relative gap in value
+    // space).  ``marketGapMagnitude`` is the retired rank-space field, which
+    // the backend now stamps None on every row; it is forwarded only so a
+    // consumer reading it sees the explicit null rather than an absent key.
+    marketGapValueRatio: player.marketGapValueRatio ?? null,
     marketGapMagnitude: player.marketGapMagnitude ?? null,
     sourceOriginalRanks:
       player.sourceOriginalRanks &&

@@ -119,22 +119,42 @@ class TestThresholdParity(unittest.TestCase):
             "constants' comment that config/thresholds.json replaced",
         )
 
-    def test_market_gap_thresholds_are_in_rank_space(self) -> None:
-        """Unit guard.
+    def test_market_gap_thresholds_carry_the_live_unit(self) -> None:
+        """Unit guard, and the reason this file exists.
 
-        The gap magnitude changed from ordinal ranks to rank-space
-        per-mille in C4. A threshold left in the old unit would still be
-        a plausible number and would silently mis-gate, so the unit is
-        asserted rather than assumed.
+        The gap's unit has changed TWICE now — ordinal ranks, then briefly
+        rank-space per-mille, now a relative ratio in blended-value space.
+        Each change left a threshold behind that was still a plausible
+        number and therefore still gated something, silently and wrongly:
+        `MIN_EDGE_RANK_GAP = 3` survived into value space and killed the
+        trade page's BUY/SELL signal for every player while its tests
+        stayed green.
+
+        A threshold whose declared unit does not match the field it gates
+        is the whole failure mode. Assert it rather than assume it.
         """
+        for name in ("MARKET_GAP_MIN_VALUE_RATIO", "PREMIUM_SUMMARY_VALUE_RATIO"):
+            with self.subTest(threshold=name):
+                entry = self.json_entries[name]
+                self.assertEqual(entry["unit"], "relativeValueRatio")
+                self.assertEqual(entry["appliesTo"], "marketGapValueRatio")
+                # A ratio, not a count: anything >= 1 means someone pasted
+                # a rank-space number back in.
+                self.assertLess(entry["value"], 1.0)
+                self.assertGreater(entry["value"], 0.0)
+
+    def test_no_retired_rank_space_threshold_came_back(self) -> None:
+        """The retired names must not reappear in either half."""
         for name in (
+            "MARKET_GAP_MIN_DIFF",
             "MARKET_GAP_MIN_MAGNITUDE",
             "MARKET_PREMIUM_MAGNITUDE",
             "PREMIUM_SUMMARY_MAGNITUDE",
             "MIN_EDGE_MAGNITUDE",
         ):
             with self.subTest(threshold=name):
-                self.assertEqual(self.json_entries[name]["unit"], "rankSpacePerMille")
+                self.assertNotIn(name, self.json_entries)
+                self.assertNotIn(name, self.js)
 
 
 if __name__ == "__main__":

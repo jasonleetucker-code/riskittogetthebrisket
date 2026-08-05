@@ -334,23 +334,23 @@ describe("topRetailPremium", () => {
   // magnitude of the direction being filtered on.
   it("returns rows sorted by market-gap magnitude where retail ranks higher", () => {
     const rows = [
-      makeRow({ name: "A", marketGapDirection: "retail_premium", marketGapMagnitude: 60, rank: 10 }),
-      makeRow({ name: "B", marketGapDirection: "retail_premium", marketGapMagnitude: 90, rank: 20 }),
-      makeRow({ name: "C", marketGapDirection: "consensus_premium", marketGapMagnitude: 95, rank: 5 }),
-      makeRow({ name: "D", marketGapDirection: "retail_premium", marketGapMagnitude: 10, rank: 30 }), // below threshold
+      makeRow({ name: "A", marketGapDirection: "retail_premium", marketGapValueRatio: 0.20, rank: 10 }),
+      makeRow({ name: "B", marketGapDirection: "retail_premium", marketGapValueRatio: 0.30, rank: 20 }),
+      makeRow({ name: "C", marketGapDirection: "consensus_premium", marketGapValueRatio: 0.32, rank: 5 }),
+      makeRow({ name: "D", marketGapDirection: "retail_premium", marketGapValueRatio: 0.02, rank: 30 }), // below threshold
     ];
     const result = topRetailPremium(rows, 3);
     expect(result).toHaveLength(2); // A and B (D is below threshold)
-    expect(result[0].name).toBe("B"); // 90 > 60
-    expect(result[0].detail).toBe("Sell — retail by 90 higher");
+    expect(result[0].name).toBe("B"); // 0.30 > 0.20
+    expect(result[0].detail).toBe("Sell — retail by 30% higher");
   });
 
   it("ignores source disagreement entirely", () => {
     // The guard on S-3: a huge spread with no market gap is not a sell
     // signal, and a clean gap on a player every source agrees about is.
     const rows = [
-      makeRow({ name: "NoisyButAligned", marketGapDirection: "retail_premium", marketGapMagnitude: 5, sourceRankSpread: 300 }),
-      makeRow({ name: "QuietButMispriced", marketGapDirection: "retail_premium", marketGapMagnitude: 90, sourceRankSpread: 1 }),
+      makeRow({ name: "NoisyButAligned", marketGapDirection: "retail_premium", marketGapValueRatio: 0.02, sourceRankSpread: 300 }),
+      makeRow({ name: "QuietButMispriced", marketGapDirection: "retail_premium", marketGapValueRatio: 0.30, sourceRankSpread: 1 }),
     ];
     const result = topRetailPremium(rows, 5);
     expect(result).toHaveLength(1);
@@ -359,7 +359,7 @@ describe("topRetailPremium", () => {
 
   it("excludes quarantined rows", () => {
     const rows = [
-      makeRow({ name: "Q", marketGapDirection: "retail_premium", marketGapMagnitude: 60, quarantined: true }),
+      makeRow({ name: "Q", marketGapDirection: "retail_premium", marketGapValueRatio: 0.20, quarantined: true }),
     ];
     expect(topRetailPremium(rows)).toHaveLength(0);
   });
@@ -368,11 +368,11 @@ describe("topRetailPremium", () => {
 describe("topConsensusPremium", () => {
   it("returns rows where consensus ranks higher than KTC", () => {
     const rows = [
-      makeRow({ name: "X", marketGapDirection: "consensus_premium", marketGapMagnitude: 70, rank: 15 }),
+      makeRow({ name: "X", marketGapDirection: "consensus_premium", marketGapValueRatio: 0.25, rank: 15 }),
     ];
     const result = topConsensusPremium(rows);
     expect(result).toHaveLength(1);
-    expect(result[0].detail).toBe("Buy — experts by 70 higher");
+    expect(result[0].detail).toBe("Buy — experts by 25% higher");
   });
 });
 

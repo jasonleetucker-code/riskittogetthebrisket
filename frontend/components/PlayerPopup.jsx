@@ -1062,8 +1062,8 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
               </span>
               <span className={styles.signalBody}>
                 {edge.signal === "BUY"
-                  ? `Consensus ranks ${edge.rankGap} spots higher than KTC — market is cheap`
-                  : `KTC ranks ${edge.rankGap} spots higher than consensus — market overvalues`}
+                  ? `Consensus values this player ${edge.valueGapPct}% above KTC — market is cheap`
+                  : `KTC values this player ${edge.valueGapPct}% above consensus — market overvalues`}
                 {edge.edgePct > 0 && <> · ~{edge.edgePct}% value gap</>}
               </span>
             </div>

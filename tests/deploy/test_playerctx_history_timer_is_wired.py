@@ -115,6 +115,62 @@ def test_the_push_runs_after_the_refresh_that_writes_the_file():
     assert _minutes(push) >= _minutes(refresh) + 45, (refresh, push)
 
 
+def test_the_installer_does_not_gate_the_unit_on_a_key_it_cannot_read():
+    """The install must be UNCONDITIONAL, and the key check must live in
+    the script.
+
+    Gating the unit on the deploy key failed on the 2026-08-05 deploy for
+    two independent reasons.  The installer runs as the deploy user,
+    whose sudo is scoped to specific commands, so it can neither
+    `sudo test -f` nor stat another user's `~/.ssh` — it reported a key
+    missing while the DLF pusher was committing to main with one every
+    two hours.  And `deploy.sh` globs `*.timer.template` and warns for
+    anything not installed AND enabled, then runs this installer to close
+    the gap, so a permanently-skipped timer warns and re-runs the
+    installer on every deploy forever — the loop #729 closed for three
+    other timers.
+    """
+    # Scan DIRECTIVES, not the raw file.  The installer's comment quotes
+    # the old skip message verbatim to explain why it is gone, and a
+    # naive substring scan reads that prose as the code — the same false
+    # positive `test_reception_depth_timer_is_wired` documents.
+    body = "\n".join(ln for ln in _installer().split("\n") if not ln.lstrip().startswith("#"))
+    assert (
+        "has_pchist_key" not in body
+    ), "the retention install is gated on a key the installer cannot reliably read"
+    assert (
+        "retention timer skipped" not in body
+    ), "a skipped timer re-triggers deploy.sh's presence check on every deploy"
+    # Line-anchored, not split-on-substring: an earlier version split the
+    # script on "fi" and matched the "fi" inside `log "fix: …"`, so the
+    # block it checked ended two lines early.
+    lines = _SCRIPT.read_text(encoding="utf-8").split("\n")
+    guard = next(
+        (i for i, ln in enumerate(lines) if '-r "${SSH_KEY}"' in ln),
+        None,
+    )
+    assert guard is not None, "the key check must run as the service user"
+    block = lines[guard : guard + 8]
+    end = next((i for i, ln in enumerate(block) if ln.strip() == "fi"), len(block))
+    assert any(
+        ln.strip() == "exit 0" for ln in block[:end]
+    ), "a missing key must not make the weekly unit go red — nothing is lost yet"
+
+
+def test_a_missing_key_does_not_lose_the_backlog():
+    """Exit-0-on-missing-key is only safe because the push takes EVERY
+    dated snapshot, not the newest.
+
+    If it copied one file per run, every week spent without a key would
+    be a week permanently unretained — and an unretained day cannot be
+    recovered afterwards.  Globbing the whole directory is what makes
+    supplying the key later backfill the backlog.
+    """
+    script = _SCRIPT.read_text(encoding="utf-8")
+    assert 'SNAPSHOTS=("${SRC_DIR}"/snapshot_' in script
+    assert 'for src in "${SNAPSHOTS[@]}"' in script
+
+
 def test_the_installer_reinstalls_on_a_template_change():
     """Gating on "does the timer exist" alone means a template edit is
     silently ignored on an already-provisioned box.  That bit for real

@@ -15,7 +15,7 @@
 
 import {
   MARKET_PREMIUM_SPREAD,
-  PREMIUM_SUMMARY_MAGNITUDE,
+  PREMIUM_SUMMARY_VALUE_RATIO,
   LENS_DISAGREEMENT_SPREAD,
   LENS_INEFFICIENCY_SPREAD,
   LENS_INEFFICIENCY_RANK,
@@ -25,7 +25,7 @@ import {
 import {
   formatMarketGap,
   marketGapAtLeast,
-  marketGapMagnitudeOf,
+  marketGapRatioOf,
 } from "./display-helpers.js";
 import { isEligibleForAnalysis } from "./display-helpers.js";
 import { getRetailLabel } from "./dynasty-data.js";
@@ -354,10 +354,10 @@ export function topRetailPremium(rows, limit = 5) {
   // magnitude of the direction actually being filtered on.
   return rows
     .filter((r) => r.marketGapDirection === "retail_premium"
-      && marketGapAtLeast(r, PREMIUM_SUMMARY_MAGNITUDE)
+      && marketGapAtLeast(r, PREMIUM_SUMMARY_VALUE_RATIO)
       && !r.quarantined
       && isTopRankedForEdgePremium(r))
-    .sort((a, b) => (marketGapMagnitudeOf(b) ?? -Infinity) - (marketGapMagnitudeOf(a) ?? -Infinity))
+    .sort((a, b) => (marketGapRatioOf(b) ?? -Infinity) - (marketGapRatioOf(a) ?? -Infinity))
     .slice(0, limit)
     .map((r) => ({
       name: r.name,
@@ -376,10 +376,10 @@ export function topRetailPremium(rows, limit = 5) {
 export function topConsensusPremium(rows, limit = 5) {
   return rows
     .filter((r) => r.marketGapDirection === "consensus_premium"
-      && marketGapAtLeast(r, PREMIUM_SUMMARY_MAGNITUDE)
+      && marketGapAtLeast(r, PREMIUM_SUMMARY_VALUE_RATIO)
       && !r.quarantined
       && isTopRankedForEdgePremium(r))
-    .sort((a, b) => (marketGapMagnitudeOf(b) ?? -Infinity) - (marketGapMagnitudeOf(a) ?? -Infinity))
+    .sort((a, b) => (marketGapRatioOf(b) ?? -Infinity) - (marketGapRatioOf(a) ?? -Infinity))
     .slice(0, limit)
     .map((r) => ({
       name: r.name,

@@ -861,69 +861,74 @@ describe("verdictBarPosition", () => {
 });
 
 describe("getPlayerEdge", () => {
+  // REVERSAL RECORDED IN PLACE. These fixtures fed rank-space magnitudes
+  // (2, 5, 6) against a rank-space threshold (3), so they stayed green while
+  // the feature was dead: #740 moved the gap into value space, published it
+  // as `marketGapValueRatio`, and stamped `marketGapMagnitude = None` on
+  // every row — and `Number(null) === 0`, which is finite and below 3, so
+  // getPlayerEdge returned no signal for EVERY player. Nothing here
+  // exercised it against a contract-shaped row, which is why green tests
+  // and a dead feature coexisted.
   it("returns no signal when the row has no market-gap data", () => {
-    const result = getPlayerEdge({ values: { full: 5000 } });
-    expect(result.signal).toBeNull();
+    expect(getPlayerEdge({}).signal).toBeNull();
+    expect(getPlayerEdge(null).signal).toBeNull();
   });
 
-  it("returns no signal when the market-gap magnitude is below the shared floor", () => {
-    // Batch C4: the unit changed from ordinal ranks to rank-space
-    // per-mille net of positional basis, and the floor moved from a
-    // local MIN_EDGE_RANK_GAP=3 (which admitted essentially every
-    // row) to the shared MIN_EDGE_MAGNITUDE. Fixture magnitudes below
-    // were scaled to match the new unit; this one stays under the
-    // floor on purpose.
+  it("returns no signal on a row shaped like a real contract row", () => {
+    // The regression, pinned: marketGapMagnitude is stamped None by the
+    // backend and must not be what this function reads.
     const row = {
-      values: { full: 5000 },
-      canonicalSites: { ktc: 5200 },
       marketGapDirection: "retail_premium",
-      marketGapMagnitude: 2,
+      marketGapMagnitude: null,
+      marketGapValueRatio: 0.18,
+    };
+    expect(getPlayerEdge(row).signal).toBe("SELL");
+  });
+
+  it("returns no signal below the shared ratio floor", () => {
+    const row = {
+      marketGapDirection: "retail_premium",
+      marketGapValueRatio: 0.02,
     };
     expect(getPlayerEdge(row).signal).toBeNull();
   });
 
   it("returns BUY when consensus_premium (market undervalues vs consensus)", () => {
-    // Consensus mean rank is lower (better) than retail/KTC — market
-    // is pricing the player cheap.  We should BUY from a KTC-anchored
-    // partner before the market catches up.
     const row = {
-      values: { full: 9000 },
-      canonicalSites: { ktc: 7000 },
+      values: { full: 5000 },
+      rawSourceValues: { ktcSfTep: 4000 },
       marketGapDirection: "consensus_premium",
-      marketGapMagnitude: 60,
+      marketGapValueRatio: 0.11,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("BUY");
-    expect(result.rankGap).toBe(60);
-    expect(result.edgePct).toBeGreaterThan(0);
+    expect(result.edgePct).toBe(25);
   });
 
   it("returns SELL when retail_premium (market overvalues vs consensus)", () => {
-    // KTC ranks the player higher than the rest of the board — the
-    // retail market is overpaying.  SELL HIGH to that market.
     const row = {
-      values: { full: 5000 },
-      canonicalSites: { ktc: 6800 },
+      values: { full: 4000 },
+      rawSourceValues: { ktcSfTep: 5000 },
       marketGapDirection: "retail_premium",
-      marketGapMagnitude: 80,
+      marketGapValueRatio: 0.22,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("SELL");
-    expect(result.rankGap).toBe(80);
+    expect(result.valueGapPct).toBe(22);
   });
 
-  it("falls back to rank-gap for edgePct when per-source values are missing", () => {
+  it("renders the ratio as an honest percentage when values are missing", () => {
+    // The ratio IS a relative difference, so x100 is a real percentage —
+    // unlike the ordinal version, which printed a rank count as "%".
     const row = {
       marketGapDirection: "consensus_premium",
-      marketGapMagnitude: 50,
+      marketGapValueRatio: 0.15,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("BUY");
-    expect(result.edgePct).toBe(5);
+    expect(result.edgePct).toBe(15);
   });
-});
 
-describe("parsePickToken", () => {
   it("parses slot format", () => {
     const p = parsePickToken("2026 1.06");
     expect(p.year).toBe("2026");
