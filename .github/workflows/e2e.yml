@@ -387,13 +387,32 @@ jobs:
             --color B60205 \
             --description "Auto-opened when the nightly E2E safety net fails" \
             2>/dev/null || true
+          # The label alone does NOT identify this step's own tracker.
+          # `e2e-failures` is a plain label and a human (or another
+          # agent) can apply it to a hand-written defect issue — #753 is
+          # exactly that.  Selecting `.[0]` off the label was therefore
+          # picking whichever issue sorted first, and since `gh issue
+          # list` sorts newest-first, #753 displaced the real tracker
+          # (#732) the moment it was filed: run failures started
+          # commenting on somebody's bug report.
+          #
+          # Identify the tracker by what this step actually creates —
+          # author AND title.  Author alone would still match a
+          # different bot-filed issue; title alone would match a human
+          # who reused the string.  TRACKER_TITLE is used for BOTH the
+          # lookup and the create below so the two cannot drift, and the
+          # close step carries the same constant.
+          TRACKER_TITLE="E2E safety net failing"
           EXISTING=$(gh issue list --state open --label e2e-failures \
-                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+                       --json number,title,author \
+                       --jq "[.[] | select(.author.login==\"github-actions\")
+                                  | select(.title==\"${TRACKER_TITLE}\")] | .[0].number" \
+                       2>/dev/null || echo "")
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
             gh issue comment "$EXISTING" --body "$BODY"
           else
             gh issue create \
-              --title "E2E safety net failing" \
+              --title "$TRACKER_TITLE" \
               --body "$BODY" \
               --label e2e-failures
           fi
@@ -433,11 +452,34 @@ jobs:
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           # Close EVERY open one, not just the first.  The alert step above
-          # reads `.[0].number`, so if duplicates ever exist it comments on
+          # reads the first match, so if duplicates ever exist it comments on
           # one and leaves the rest orphaned forever; closing `.[]` drains
           # them.  Same reasoning as scheduled-refresh.yml.
+          #
+          # But drain only THIS STEP'S OWN TRACKERS.  `e2e-failures` is a
+          # plain label, and a human or another agent can apply it to a
+          # hand-written defect issue — #753 is exactly that: a real,
+          # open, reproducible defect that happens to wear this label.
+          # Selecting on the label alone, the first green run would have
+          # closed it with a "green again" comment and buried it.
+          #
+          # That is this step's own stated fear — "a false all-clear
+          # CLOSES a real open failure" — reached through a door the
+          # note above did not anticipate.  Not a FALSE green: a TRUE
+          # green closing an issue that was never a run tracker.
+          #
+          # So match what the alert step creates: author AND title.
+          # Author alone would still close a different bot-filed issue;
+          # title alone would close a human's issue that reused the
+          # string.  TRACKER_TITLE must stay identical to the alert
+          # step's — tests/deploy/test_e2e_workflow_triggers.py fails if
+          # the two drift, or if either clause is dropped.
+          TRACKER_TITLE="E2E safety net failing"
           OPEN=$(gh issue list --state open --label e2e-failures \
-                   --json number --jq '.[].number' 2>/dev/null || echo "")
+                   --json number,title,author \
+                   --jq ".[] | select(.author.login==\"github-actions\")
+                             | select(.title==\"${TRACKER_TITLE}\") | .number" \
+                   2>/dev/null || echo "")
           if [[ -z "$OPEN" ]]; then
             echo "no open e2e-failures issue; nothing to close"
             exit 0
