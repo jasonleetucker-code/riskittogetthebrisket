@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -126,14 +127,28 @@ def refresh_playerctx(
     snapshot_path: Path | None = None,
     fetcher: Callable[..., fetch_mod.FetchBundle] | None = None,
     players_dir: dict[str, dict[str, Any]] | None = None,
+    retain_history: bool = False,
+    history_dir: Path | None = None,
+    history_as_of: str | None = None,
 ) -> dict[str, Any]:
     """Fetch, normalize, join, and persist the player-context snapshot.
 
     ``fetcher`` and ``players_dir`` are injectable for tests (no live
     network in the suite).  Returns a summary dict::
 
-        {"snapshotPath": str, "counts": {...}, "sources": {...},
-         "warnings": [...]}
+        {"snapshotPath": str, "historyPath": str|None, "counts": {...},
+         "sources": {...}, "warnings": [...]}
+
+    ``retain_history`` additionally writes a dated snaps-only projection
+    for later replay, and defaults **off**: it commits generated data on
+    a schedule and that should be an explicit operational choice, not
+    something a caller gets by accident. Production turns it on via
+    ``scripts/refresh_playerctx.py --retain-history``.
+
+    Retention runs after the live write and cannot fail it — the live
+    snapshot is what the API serves, and losing a refresh to a full disk
+    in the history directory would trade the important artifact for the
+    optional one.
     """
     do_fetch = fetcher or fetch_mod.fetch_all
     bundle = do_fetch(cache_dir=cache_dir, max_age_hours=max_age_hours, force=force)
@@ -212,8 +227,28 @@ def refresh_playerctx(
     }
     written = store.write_snapshot(records, counts=stats, sources=sources, path=target)
     log.info("playerctx: wrote %d players -> %s", len(records), written)
+
+    # Retention is best-effort and deliberately AFTER the live write.
+    # The live snapshot is what the API serves; a retention failure must
+    # never cost production its refresh, so this cannot raise past here.
+    history_written: str | None = None
+    if retain_history:
+        stamp = (history_as_of or datetime.now(timezone.utc).date().isoformat())[:10]
+        try:
+            path = store.write_history_snapshot(
+                records,
+                as_of=stamp,
+                counts=stats,
+                sources=sources,
+                directory=history_dir,
+            )
+            history_written = str(path) if path else None
+        except OSError as exc:  # noqa: BLE001 — retention must not break the refresh
+            log.warning("playerctx: history retention failed for %s: %s", stamp, exc)
+
     return {
         "snapshotPath": str(written),
+        "historyPath": history_written,
         "counts": stats,
         "sources": sources,
         "warnings": list(bundle.warnings),

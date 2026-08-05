@@ -47,6 +47,16 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[2]
 SITE_RAW_REL = "CSVs/site_raw"
 LATEST_REL = "exports/latest"
+# Dated playerctx snapshots, retained so a study can replay the joined
+# artifact production served rather than only reconstructing its inputs.
+#
+# Deliberately NOT part of `available_dates`' intersection. Retention
+# started 2026-08-05, so joining it would collapse the panel from 111
+# usable dates to zero and grow it back one per week — trading every
+# existing measurement for a feature that has no data yet. A day without
+# a retained snapshot is a normal day; `PanelDay.playerctx` is None and
+# the caller decides.
+PLAYERCTX_REL = "data/playerctx/history"
 
 
 class PanelUnavailable(RuntimeError):
@@ -67,6 +77,14 @@ class PanelDay:
     # ``panel_day`` block that produced it — the tree is deleted on exit.
     csv_root: Path | None = None
     csv_sources: tuple[str, ...] = ()
+    # The retained playerctx snapshot for this date, or None when the
+    # date predates retention. None is the normal case for every date in
+    # the current panel and must stay legible as "not retained" rather
+    # than being mistaken for "nobody played" — `playerctx_commit` is
+    # set iff `playerctx` is.
+    playerctx: dict[str, Any] | None = None
+    playerctx_commit: str | None = None
+    playerctx_path: str | None = None
     # Always True for a git replay.  Stated as data, not prose, because
     # every metric computed from this panel inherits the caveat.
     model_is_current: bool = True
@@ -169,6 +187,44 @@ def payload_asof(when: date) -> tuple[dict[str, Any], str, str]:
     return payload, commit, path
 
 
+def playerctx_asof(when: date) -> tuple[dict[str, Any], str, str] | None:
+    """The retained playerctx snapshot as of ``when``, or None.
+
+    Mirrors :func:`payload_asof`, with one deliberate difference: absence
+    is a **return value, not an exception**. A missing payload means the
+    panel cannot reconstruct that date at all; a missing playerctx
+    snapshot means only that the date predates retention, which is true
+    of every date before 2026-08-05 and must not take a fold down with
+    it.
+
+    Newest-filename-wins, same as ``payload_asof`` — which is why
+    ``store.history_path`` writes ``snapshot_YYYY-MM-DD.json``: a name
+    that does not sort chronologically would silently replay the wrong
+    day.
+    """
+    _assert_deep()
+    commit = _commit_before(when, PLAYERCTX_REL)
+    if not commit:
+        return None
+    listing = _git("ls-tree", "-r", "--name-only", commit, "--", PLAYERCTX_REL)
+    candidates = [
+        p for p in listing.splitlines() if p.strip().endswith(".json") and "snapshot_" in p
+    ]
+    if not candidates:
+        return None
+    path = sorted(candidates)[-1]
+    try:
+        blob = _git_bytes("show", f"{commit}:{path}")
+        snapshot = json.loads(blob.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError, PanelUnavailable):
+        # A corrupt retained file must not take down a replay that has a
+        # perfectly good board — the axis it feeds simply goes absent.
+        return None
+    if not isinstance(snapshot, dict) or not isinstance(snapshot.get("players"), dict):
+        return None
+    return snapshot, commit, path
+
+
 def materialize_csvs_asof(when: date, dest_root: Path) -> tuple[str, tuple[str, ...]]:
     """Write ``CSVs/site_raw`` as of ``when`` under ``dest_root``.
 
@@ -228,6 +284,10 @@ class panel_day:  # noqa: N801 — context manager, reads as a noun at call site
             # than silently accepted so a study can exclude stale days.
             warnings.append(f"payload carried forward from {payload_date}")
 
+        # Absence is normal and is not a warning: every date before
+        # retention started has none, and emitting a warning per fold
+        # would drown the ones that mean something.
+        retained = playerctx_asof(self.when)
         return PanelDay(
             as_of=self.when,
             payload=payload,
@@ -236,6 +296,9 @@ class panel_day:  # noqa: N801 — context manager, reads as a noun at call site
             csv_commit=csv_commit,
             csv_root=self.csv_root,
             csv_sources=stems,
+            playerctx=retained[0] if retained else None,
+            playerctx_commit=retained[1] if retained else None,
+            playerctx_path=retained[2] if retained else None,
             warnings=tuple(warnings),
         )
 

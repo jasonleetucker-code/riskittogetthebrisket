@@ -4,6 +4,8 @@ mapping.  No network."""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from scripts import refresh_playerctx as cli
@@ -365,3 +367,159 @@ class TestCliExitCodes:
 
         monkeypatch.setattr(cli, "refresh_playerctx", boom)
         assert cli.main([]) == 1
+
+
+class TestDatedRetention:
+    """The joined artifact, kept so a study can replay what was served.
+
+    ADR-026 deferred this on the grounds that reconstruction from
+    upstream already reproduces the artifact byte-for-byte given the same
+    Sleeper pool — so retention buys only the join rate. It is built
+    anyway, by direction; these pin that it cannot cost production its
+    refresh and cannot quietly grow into a full-snapshot dump.
+    """
+
+    def test_retention_is_off_unless_asked_for(
+        self, tmp_path, fixture_bundle, players_dir, small_floors
+    ):
+        # It commits generated data on a schedule. That should be an
+        # explicit operational choice, never something a caller gets by
+        # forgetting a flag.
+        summary = service.refresh_playerctx(
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+            snapshot_path=tmp_path / "snapshot.json",
+        )
+        assert summary["historyPath"] is None
+        assert not (tmp_path / "history").exists()
+
+    def test_a_dated_file_is_written_when_asked(
+        self, tmp_path, fixture_bundle, players_dir, small_floors
+    ):
+        history = tmp_path / "history"
+        summary = service.refresh_playerctx(
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+            snapshot_path=tmp_path / "snapshot.json",
+            retain_history=True,
+            history_dir=history,
+            history_as_of="2026-08-05",
+        )
+        written = history / "snapshot_2026-08-05.json"
+        assert written.exists()
+        assert summary["historyPath"] == str(written)
+
+    def test_the_filename_sorts_chronologically(self, tmp_path):
+        # `panel.playerctx_asof` takes the lexically-greatest filename in
+        # a commit, so a name that does not sort by date silently replays
+        # the wrong day.
+        names = [
+            store.history_path(d, tmp_path).name
+            for d in ("2026-08-05", "2026-09-01", "2026-12-31", "2027-01-01")
+        ]
+        assert names == sorted(names)
+
+    def test_it_is_a_snaps_only_projection_not_the_whole_snapshot(
+        self, tmp_path, fixture_bundle, players_dir, small_floors
+    ):
+        # The axis retention exists for is snapTrend. Keeping the
+        # contract block would roughly triple the size for data whose
+        # upstream churns weekly and which no study reads.
+        history = tmp_path / "history"
+        service.refresh_playerctx(
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+            snapshot_path=tmp_path / "snapshot.json",
+            retain_history=True,
+            history_dir=history,
+            history_as_of="2026-08-05",
+        )
+        payload = json.loads((history / "snapshot_2026-08-05.json").read_text())
+        assert payload["projection"] == "snapsOnly"
+        for record in payload["players"].values():
+            assert "snaps" in record
+            assert "contract" not in record
+            assert "depth" not in record
+
+    def test_only_players_with_snaps_are_retained(
+        self, tmp_path, fixture_bundle, players_dir, small_floors
+    ):
+        history = tmp_path / "history"
+        service.refresh_playerctx(
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+            snapshot_path=tmp_path / "snapshot.json",
+            retain_history=True,
+            history_dir=history,
+            history_as_of="2026-08-05",
+        )
+        payload = json.loads((history / "snapshot_2026-08-05.json").read_text())
+        # Micah Parsons has a contract and a depth row but no snaps.
+        assert "00-0036933" not in payload["players"]
+        assert "00-0033280" in payload["players"]
+
+    def test_nothing_to_retain_writes_no_file_rather_than_an_empty_one(self, tmp_path):
+        # A zero-player file cannot be told apart from a refresh that did
+        # not run. An absent file at least says the second honestly.
+        assert store.write_history_snapshot({}, as_of="2026-08-05", directory=tmp_path) is None
+        assert not list(tmp_path.glob("snapshot_*.json"))
+
+    def test_a_retention_failure_never_costs_production_its_refresh(
+        self, tmp_path, fixture_bundle, players_dir, small_floors, monkeypatch
+    ):
+        """The live snapshot is what the API serves.
+
+        Trading a working refresh for the optional artifact would be
+        exactly backwards, so retention is best-effort and runs last.
+        """
+
+        def boom(*a, **kw):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(store, "write_history_snapshot", boom)
+        target = tmp_path / "snapshot.json"
+        summary = service.refresh_playerctx(
+            fetcher=_fetcher(fixture_bundle),
+            players_dir=players_dir,
+            snapshot_path=target,
+            retain_history=True,
+            history_dir=tmp_path / "history",
+        )
+        assert target.exists(), "the live snapshot was lost to a retention failure"
+        assert summary["historyPath"] is None
+
+
+class TestHistoryCoverage:
+    """A stalled timer must be visible before a study needs the data."""
+
+    def test_a_missing_directory_says_so(self, tmp_path):
+        cov = store.history_coverage(tmp_path / "nope")
+        assert cov["exists"] is False
+        assert cov["snapshots"] == 0
+
+    def test_an_empty_directory_is_distinguished_from_a_missing_one(self, tmp_path):
+        cov = store.history_coverage(tmp_path)
+        assert cov["exists"] is True
+        assert cov["snapshots"] == 0
+        assert "no dated snapshots" in cov["reason"]
+
+    def test_gaps_inside_the_span_are_reported(self, tmp_path):
+        # The reason missingDays exists: a raw count cannot tell 3
+        # consecutive days from 3 days spread over a fortnight.
+        for day in ("2026-08-01", "2026-08-02", "2026-08-10"):
+            (tmp_path / f"snapshot_{day}.json").write_text("{}")
+        cov = store.history_coverage(tmp_path)
+        assert cov["snapshots"] == 3
+        assert cov["spanDays"] == 10
+        assert cov["missingDays"] == 7
+
+    def test_staleness_is_measured_from_the_newest_file(self, tmp_path):
+        (tmp_path / "snapshot_2026-01-01.json").write_text("{}")
+        cov = store.history_coverage(tmp_path)
+        assert cov["staleDays"] > 100
+
+    def test_undated_files_are_ignored_rather_than_crashing(self, tmp_path):
+        (tmp_path / "snapshot_2026-08-01.json").write_text("{}")
+        (tmp_path / "snapshot_notadate.json").write_text("{}")
+        (tmp_path / "README.md").write_text("x")
+        assert store.history_coverage(tmp_path)["snapshots"] == 1
