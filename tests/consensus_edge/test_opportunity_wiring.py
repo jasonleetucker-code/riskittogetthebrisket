@@ -404,9 +404,29 @@ class TestSharpMovementsAppliesTheFilterItClaims(unittest.TestCase):
                 movements, _ = inputs_mod.sharp_movements()
         self.assertEqual(movements["4046"][0].manager_quality, 0.8)
 
-    def test_a_ledger_with_no_qualifying_trades_is_no_ledger_not_empty(self):
-        # An empty dict would mean "read it, nobody traded" — a finding.
-        # Nobody in the cohort trading is not that finding.
+    def test_a_read_ledger_with_no_cohort_trades_is_a_finding_not_an_absence(self):
+        """The state `sharp_flow_index` documents and could not reach.
+
+        This asserted `(None, no_ledger)` — which rendered as "No
+        qualified-manager ledger available" for a ledger that was present
+        and readable. Three distinct situations were collapsing into one
+        message true of only the first. An empty dict is the documented
+        "read it, nobody traded" finding, and it manufactures nothing:
+        aggregating over no assets scores no players.
+        """
+        from src.consensus_edge import inputs as inputs_mod
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._ledger(tmp, self.ROWS)
+            p1, p2 = self._patched(path, {"sleeper:nobody-here": 0.9})
+            with p1, p2:
+                movements, reason = inputs_mod.sharp_movements()
+        self.assertEqual(movements, {})
+        self.assertIsNone(reason)
+
+    def test_that_finding_reaches_the_payload_as_ok_with_nothing_scored(self):
+        # The end-to-end consequence: status "ok" and zero assets, not a
+        # claim that no ledger exists.
         from src.consensus_edge import inputs as inputs_mod
         from src.consensus_edge import sharp_flow
 
@@ -414,6 +434,22 @@ class TestSharpMovementsAppliesTheFilterItClaims(unittest.TestCase):
             path = self._ledger(tmp, self.ROWS)
             p1, p2 = self._patched(path, {"sleeper:nobody-here": 0.9})
             with p1, p2:
+                movements, reason = inputs_mod.sharp_movements()
+        result = sharp_flow.sharp_flow_index(movements, {}, unavailable_reason=reason)
+        self.assertEqual(result["status"], sharp_flow.STATUS_OK)
+        self.assertEqual(result["assetsTotal"], 0)
+        self.assertEqual(result["assetsScored"], 0)
+
+    def test_a_missing_file_is_still_no_ledger(self):
+        # The distinction only holds if the genuine absence still reports
+        # absence — otherwise this trades one conflation for another.
+        from src.consensus_edge import inputs as inputs_mod
+        from src.consensus_edge import sharp_flow
+        from src.intel import ledger
+
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "nope.db"
+            with mock.patch.object(ledger, "default_path", lambda: missing):
                 movements, reason = inputs_mod.sharp_movements()
         self.assertIsNone(movements)
         self.assertEqual(reason, sharp_flow.STATUS_NO_LEDGER)

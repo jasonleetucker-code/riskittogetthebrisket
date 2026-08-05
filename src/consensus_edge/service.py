@@ -459,6 +459,9 @@ def build_board(
             "anchorKey": entry.get("anchorKey"),
             "excludedSources": entry.get("excludedSources"),
             "unpricedReason": entry.get("unpricedReason"),
+            # Every cause, not just the headline one — a row can lose two
+            # dependencies at once and `asset_class_coverage` counts this.
+            "unpricedReasons": entry.get("unpricedReasons") or [],
             # How many sources priced this row. Already feeds confidence;
             # stamped so a reader (and the snapshot store) can see the
             # evidence depth behind a call rather than only its effect.
@@ -590,7 +593,12 @@ def build_board(
 def asset_class_coverage(players: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Per asset class: rows present, rows scored, and why the rest are not.
 
-    ``{assetClass: {"rows": n, "scored": n, "unpricedReasons": {reason: n}}}``
+    ``{assetClass: {"rows": n, "scored": n, "unscored": n,
+    "unpricedReasons": {reason: n}}}``
+
+    ``rows == scored + unscored`` is exact. ``unpricedReasons`` is a
+    separate tally that can sum ABOVE ``unscored``, because a row can
+    lose two dependencies and is counted under both.
 
     An asset class that is present but wholly unscored is a real state
     and has to be a legible one. Today ``idp`` is exactly that: the
@@ -599,17 +607,27 @@ def asset_class_coverage(players: list[dict[str, Any]]) -> dict[str, dict[str, A
     than priced in units the rest of the board does not share. A consumer
     reading only ``players`` sees an offense-only list and cannot tell
     that from a broken identity join.
+
+    Counts every reason a row carries, so the per-class reason counts can
+    sum above that class's unscored row count. Counting only the singular
+    ``unpricedReason`` meant a row that lost both the IDP backbone and
+    the rookie ladder was recorded under the backbone alone, and the
+    caveat prose then named one dependency when two had failed.
     """
     out: dict[str, dict[str, Any]] = {}
     for row in players:
         cls = str(row.get("assetClass") or "unknown")
-        bucket = out.setdefault(cls, {"rows": 0, "scored": 0, "unpricedReasons": {}})
+        bucket = out.setdefault(cls, {"rows": 0, "scored": 0, "unscored": 0, "unpricedReasons": {}})
         bucket["rows"] += 1
         if row.get("score") is not None:
             bucket["scored"] += 1
             continue
-        reason = str(row.get("unpricedReason") or "unscored")
-        bucket["unpricedReasons"][reason] = bucket["unpricedReasons"].get(reason, 0) + 1
+        bucket["unscored"] += 1
+        reasons = [str(r) for r in (row.get("unpricedReasons") or []) if r]
+        if not reasons:
+            reasons = [str(row.get("unpricedReason") or "unscored")]
+        for reason in reasons:
+            bucket["unpricedReasons"][reason] = bucket["unpricedReasons"].get(reason, 0) + 1
     return dict(sorted(out.items()))
 
 

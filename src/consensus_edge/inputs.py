@@ -137,6 +137,19 @@ def sharp_movements() -> tuple[dict[str, Any] | None, str | None]:
     upstream of this function, and no filter applied here can undo it.
     It is why Sharp Flow stays unvalidated even with a populated ledger —
     see ``docs/consensus-edge/METHODOLOGY.md``.
+
+    **Three unavailable states, kept distinct**, because they have three
+    different fixes and collapsing them tells the reader the wrong one:
+
+    ===========================  ==============================
+    ``(None, no_ledger)``        no ledger file on disk
+    ``(None, no_qualified_..)``  a ledger, but nobody qualifies
+    ``({}, None)``               a ledger, a cohort, no trades
+    ===========================  ==============================
+
+    The third is a *result*, not an absence — the ledger was read and the
+    answer was "nothing" — which is why it returns an empty mapping and
+    no reason at all.
     """
     try:
         from src.consensus_edge import sharp_flow  # noqa: PLC0415
@@ -159,13 +172,23 @@ def sharp_movements() -> tuple[dict[str, Any] | None, str | None]:
 
     scoped = [r for r in rows if r[2] in quality]
     if not scoped:
-        # The ledger exists but holds no trades by the cohort. Still
-        # None: with zero observations every posterior is the prior, and
-        # reporting that as a measured neutral would be a finding we
-        # have not earned.
-        from src.consensus_edge import sharp_flow  # noqa: PLC0415
-
-        return None, sharp_flow.STATUS_NO_LEDGER
+        # The ledger was READ and the cohort traded nothing. That is a
+        # finding, and `sharp_flow.sharp_flow_index` documents the empty
+        # dict as exactly that finding — so return one.
+        #
+        # This used to return `(None, STATUS_NO_LEDGER)`, which rendered
+        # as "No qualified-manager ledger available" for a ledger that
+        # was present and readable. False, and the same conflation
+        # ADR-027 fixed one branch over for STATUS_NO_COHORT: three
+        # different situations were collapsing into one message that was
+        # only true of the first.
+        #
+        # An empty dict does not manufacture a signal. `sharp_flow_index`
+        # aggregates over no assets, so no player receives a Sharp Flow
+        # score and every posterior stays the prior — the property the
+        # previous comment here was protecting. It just says so with the
+        # right status.
+        return {}, None
 
     return (
         sharp_flow.movements_from_ledger_rows(
