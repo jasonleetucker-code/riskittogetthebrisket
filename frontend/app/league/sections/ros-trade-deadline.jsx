@@ -44,6 +44,11 @@ const LABEL_COLORS = {
   "Selective Seller": "var(--amber)",
   "Seller": "var(--red)",
   "Strong Seller / Rebuilder": "var(--red)",
+  // Not a verb on the buy/sell axis — a manager the simulator never saw.
+  // Explicit rather than relying on the fallback below, so that removing
+  // a colour is a deliberate act and this state reads as neutral by
+  // design rather than by accident.
+  "Not simulated": "var(--subtext)",
 };
 
 function fmtPct(v) {

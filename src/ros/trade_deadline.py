@@ -23,6 +23,29 @@ from src.ros.team_strength import load_team_strength_snapshot
 
 LOG = logging.getLogger("ros.trade_deadline")
 
+# Where a row's odds came from.  Borrowed verbatim from the vocabulary
+# ``src/api/gameplan.py`` already stamps as ``oddsSource`` so the two
+# surfaces describe the same state with the same word.
+ODDS_SOURCE_SIMULATED = "simulated"
+ODDS_SOURCE_NOT_SIMULATED = "owner_not_in_simulation"
+
+# The direction payload for a manager the simulator never saw.  Shaped
+# like ``classify_team``'s return so consumers spread it identically, but
+# it deliberately carries no buy/sell verb: there is nothing to base one
+# on, and the previous behaviour — coercing absence to 0.0 odds — is what
+# told the league's strongest roster to sell.
+DIRECTION_NOT_SIMULATED: dict[str, Any] = {
+    "label": "Not simulated",
+    "summary": "This manager was not in the simulated season, so there are no odds to read.",
+    "recommendation": (
+        "No direction call. This team joined after the most recent simulated "
+        "season, so the playoff and championship sims never included it — that "
+        "is missing input, not a 0% forecast. It will get a call once a season "
+        "it played in is simulated."
+    ),
+    "ageProfile": {},
+}
+
 
 def _load_playoff_odds_map() -> dict[str, dict[str, float]]:
     """Read the latest cached ROS playoff-odds output, keyed by ownerId."""
@@ -75,9 +98,36 @@ def build_team_directions(
 
     out: list[dict[str, Any]] = []
     for owner in owner_ids:
-        po = float((playoffs.get(owner) or {}).get("playoffOdds") or 0.0)
-        co = float((champs.get(owner) or {}).get("championshipOdds") or 0.0)
+        # ── "absent from the sim" is not "0% chance" ──────────────────
+        # ``owner_ids`` is the UNION of the two sim maps and the
+        # team-strength snapshot, so an owner can arrive here with a
+        # roster and no simulated season at all — four of this league's
+        # twelve managers joined after the most recent simulated year.
+        # Coercing that absence to 0.0 handed ``classify_team`` a
+        # confident zero and it duly returned "Seller — sell aging
+        # win-now players" to the strongest roster in the league.
+        # Say "not simulated" instead of inventing a number.
+        po_row = playoffs.get(owner)
+        co_row = champs.get(owner)
         strength_row = strengths.get(owner) or {}
+        if po_row is None and co_row is None:
+            out.append(
+                {
+                    "ownerId": owner,
+                    "displayName": strength_row.get("teamName") or owner,
+                    "playoffOdds": None,
+                    "championshipOdds": None,
+                    "oddsSource": ODDS_SOURCE_NOT_SIMULATED,
+                    "rosStrengthPercentile": None,
+                    "rank": float(strength_row.get("rank") or 0.0),
+                    **DIRECTION_NOT_SIMULATED,
+                }
+            )
+            continue
+
+        # Present in the sim: a missing field here really is zero.
+        po = float((po_row or {}).get("playoffOdds") or 0.0)
+        co = float((co_row or {}).get("championshipOdds") or 0.0)
         # team_strength snapshot doesn't carry a percentile by itself;
         # rank/length is the cheapest proxy.
         rank = float(strength_row.get("rank") or 0.0)
@@ -99,13 +149,18 @@ def build_team_directions(
                 or owner,
                 "playoffOdds": po,
                 "championshipOdds": co,
+                # Stamped on BOTH branches: "these odds are simulated" and
+                # "this field is missing" must not read the same.
+                "oddsSource": ODDS_SOURCE_SIMULATED,
                 "rosStrengthPercentile": round(strength_pct, 4),
                 "rank": rank,
                 **direction,
             }
         )
 
-    out.sort(key=lambda r: -r["championshipOdds"])
+    # Unsimulated teams have no odds to rank by, so they sort last rather
+    # than sorting as if they were the worst team in the league.
+    out.sort(key=lambda r: (r["championshipOdds"] is None, -(r["championshipOdds"] or 0.0)))
     return out
 
 

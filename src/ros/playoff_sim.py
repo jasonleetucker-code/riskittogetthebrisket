@@ -461,7 +461,7 @@ def _build_team_distributions(
     ratio.  In start/sit leagues the bench doesn't feed weekly
     scoring, so the bump is 1.0 (no lift).
     """
-    seasons_sorted = sorted(snapshot.seasons, key=luck._season_sort_key)
+    seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
     if not seasons_sorted:
         return {}, {}
     current_season = seasons_sorted[-1]
@@ -543,7 +543,7 @@ def _remaining_schedule(snapshot: PublicLeagueSnapshot) -> list[tuple[int, str, 
     The v1 helper returns ``{week: [(ownerA, ownerB), ...]}``; flatten
     to the triple form the simulator iterates.
     """
-    seasons_sorted = sorted(snapshot.seasons, key=luck._season_sort_key)
+    seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
     if not seasons_sorted:
         return []
     season = seasons_sorted[-1]
@@ -559,7 +559,7 @@ def _current_record(
     snapshot: PublicLeagueSnapshot,
 ) -> dict[str, dict[str, float]]:
     """Wins/losses to date per owner."""
-    seasons_sorted = sorted(snapshot.seasons, key=luck._season_sort_key)
+    seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
     if not seasons_sorted:
         return {}
     current = seasons_sorted[-1]
