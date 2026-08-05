@@ -21,6 +21,27 @@ import { render, screen, waitFor } from "@testing-library/react";
 
 import SourceHealthStrip from "@/components/SourceHealthStrip";
 
+// Row set comes from `source_health.sources_detail` (registry-keyed,
+// built by server._source_health_rows) — NOT from
+// `source_runtime.enabled_sources`, which is the legacy scraper's own
+// four-name run plan.  See source-health-registry.test.jsx.
+function detailRow(key, rows) {
+  return {
+    key,
+    displayName: key,
+    inRegistry: true,
+    inBlend: true,
+    rows,
+    blendRows: rows,
+    lastFetched: new Date().toISOString(),
+    ageHours: 0.1,
+    maxAgeHours: 6,
+    staleness: "fresh",
+    status: "ok",
+    reason: null,
+  };
+}
+
 const HEALTHY = {
   source_health: {
     source_runtime: {
@@ -34,6 +55,7 @@ const HEALTHY = {
     sources: {},
     source_failures: [],
     missing_sources: [],
+    sources_detail: [detailRow("ktc", 500), detailRow("idpTradeCalc", 900)],
   },
 };
 
@@ -44,6 +66,7 @@ const NO_SOURCES = {
     sources: {},
     source_failures: [],
     missing_sources: [],
+    sources_detail: [],
   },
 };
 

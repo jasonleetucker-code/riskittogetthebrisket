@@ -46,15 +46,23 @@ function ageLabel(iso) {
   return `${Math.round(days)}d`;
 }
 
-function toneFor(source, runtime, ageHours) {
-  // Hard signals first.
-  if (runtime?.failed_sources?.includes(source)) return "down";
-  if (runtime?.partial_sources?.includes(source)) return "warn";
-  // Age-based fallback.
-  if (ageHours == null) return "flat";
-  if (ageHours >= 12) return "down";
-  if (ageHours >= 4) return "warn";
-  return "up";
+// Tone for one registry-keyed row from ``source_health.sources_detail``.
+// The backend already decided the status (see server._source_health_rows);
+// this only picks a colour, so the page and the API can't disagree about
+// whether a source is healthy.
+function toneForRow(row) {
+  switch (row?.status) {
+    case "failed":
+      return "down";
+    case "empty":
+      return "down";
+    case "stale":
+      return "warn";
+    case "ok":
+      return "up";
+    default:
+      return "flat";
+  }
 }
 
 export default function SourceHealthStrip({ variant = "inline" }) {
@@ -97,35 +105,28 @@ export default function SourceHealthStrip({ variant = "inline" }) {
       Number.isFinite(finishedMs) && finishedMs > 0
         ? (Date.now() - finishedMs) / (60 * 60 * 1000)
         : null;
-    const enabled = Array.isArray(runtime.enabled_sources) ? runtime.enabled_sources : [];
-    const counts = health.source_counts || {};
-    // Per-source freshness map: stamped by ``server._per_source_freshness``,
-    // shape ``{src: {lastFetched, ageHours}}``.  Lets us render a per-source
-    // age next to each row instead of one aggregate "last scrape" age.
-    const perSource = (health.sources && typeof health.sources === "object")
-      ? health.sources
-      : {};
-    const entries = enabled.map((src) => {
-      const meta = perSource[src] || {};
-      const srcAgeHours = Number.isFinite(meta.ageHours)
-        ? Number(meta.ageHours)
-        : ageHours;
-      // Per-source age trumps the aggregate when available — gives a
-      // truer per-source health signal.
-      const tone = toneFor(src, runtime, srcAgeHours);
-      const ageLbl = meta.lastFetched ? ageLabel(meta.lastFetched) : null;
-      return {
-        source: src,
-        count: Number(counts[src] || counts[src.toLowerCase()] || 0),
-        tone,
-        ageLabel: ageLbl,
-        ageHours: srcAgeHours,
-        failedReason:
-          (health.source_failures || []).find(
-            (f) => f.source === src,
-          )?.details?.message || null,
-      };
-    });
+    // Row set = ``source_health.sources_detail``: one entry per source
+    // the pipeline INGESTS, registry-keyed, built by the backend's
+    // single normalising helper.  It used to be
+    // ``source_runtime.enabled_sources`` — the legacy scraper's own
+    // four-name run plan — so this page, whose subtitle promises
+    // "every ranking source in the pipeline", listed 4 of 21 and looked
+    // healthy through a 17-source outage.  Counts came from a
+    // ``counts[src] || counts[src.toLowerCase()]`` lookup across the two
+    // vocabularies, which rendered IDPTradeCalc's 911 rows as an
+    // em-dash.  Both are gone: no name is case-folded on the client and
+    // no row set is invented here.
+    const detail = Array.isArray(health.sources_detail) ? health.sources_detail : [];
+    const entries = detail.map((row) => ({
+      source: row.key,
+      label: row.displayName || row.key,
+      count: Number.isFinite(row.rows) ? Number(row.rows) : null,
+      tone: toneForRow(row),
+      status: row.status,
+      ageLabel: row.lastFetched ? ageLabel(row.lastFetched) : null,
+      ageHours: Number.isFinite(row.ageHours) ? Number(row.ageHours) : null,
+      failedReason: row.reason || null,
+    }));
     return {
       entries,
       ageLabel: ageLabel(finishedAt),
@@ -151,7 +152,7 @@ export default function SourceHealthStrip({ variant = "inline" }) {
     if (!isPage) return null;
     const detail = !summary
       ? `Couldn't reach /api/status${fetchError ? ` (${fetchError})` : ""}.`
-      : "The scrape runtime reports no enabled sources.";
+      : "/api/status carries no per-source rows (source_health.sources_detail is empty).";
     return (
       <div
         className={`source-health-strip source-health-strip--${variant} source-health-strip--down`}
@@ -204,12 +205,15 @@ export default function SourceHealthStrip({ variant = "inline" }) {
           {summary.entries.map((e) => (
             <div key={e.source} className={`source-health-row source-health-row--${e.tone}`}>
               <span className={`source-health-dot source-health-dot--${e.tone}`} aria-hidden="true" />
-              <span className="source-health-name">{e.source}</span>
+              <span className="source-health-name" title={e.label}>{e.source}</span>
+              {/* 0 rows is a source that has DIED; a null count is a
+                  count we do not have (no contract primed yet).  They
+                  must not render the same em-dash. */}
               <span className="source-health-count">
-                {e.count > 0 ? `${e.count.toLocaleString()} rows` : "—"}
+                {e.count == null ? "—" : `${e.count.toLocaleString()} rows`}
               </span>
               {e.ageLabel && (
-                <span className="source-health-age" title="CSV file mtime — when this source last refreshed">
+                <span className="source-health-age" title="Last successful fetch for this source">
                   {e.ageLabel} ago
                 </span>
               )}

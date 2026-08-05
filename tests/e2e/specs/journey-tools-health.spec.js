@@ -31,19 +31,36 @@ test.describe("journey: /tools health pages", () => {
   test("/tools/source-health lists real scraper sources from /api/status", async ({
     authedPage: page,
   }) => {
-    // Authoritative source list straight from the backend.  NOTE the
-    // path: `source_runtime.enabled_sources` is what the strip renders
-    // from, and it uses display casing ("KTC", "IDPTradeCalc") that
-    // differs from the lowercase keys in `source_health.sources`.
-    // Comparing against the wrong one silently never matches.
+    // Authoritative source list straight from the backend:
+    // `source_health.sources_detail`, one registry-keyed row per source
+    // the pipeline ingests.
+    //
+    // This assertion used to read `source_runtime.enabled_sources` and
+    // require the rendered rows to EQUAL it — i.e. it pinned the defect
+    // as the contract.  That list is the legacy browser scraper's own
+    // run plan (4 names) while the board blends 21 registered sources,
+    // so the spec passed while the page hid a 17-source outage
+    // (W05-F001 / W23-F007).
     const statusRes = await page.request.get("/api/status");
     expect(statusRes.status()).toBe(200);
     const status = await statusRes.json();
-    const enabled = status?.source_health?.source_runtime?.enabled_sources || [];
+    const detail = status?.source_health?.sources_detail || [];
+    const enabled = detail.map((r) => r.key);
     expect(
-      Array.isArray(enabled),
-      "/api/status must report source_runtime.enabled_sources",
+      Array.isArray(detail),
+      "/api/status must report source_health.sources_detail",
     ).toBeTruthy();
+
+    // Every source the board actually serves has to appear on the page
+    // dedicated to source health — that is the whole claim its subtitle
+    // makes.
+    const served = Object.keys(status?.served_source_coverage || {});
+    for (const key of served) {
+      expect(
+        enabled,
+        `${key} votes on the served board but /api/status.source_health does not list it`,
+      ).toContain(key);
+    }
 
     await page.goto(pageUrl("/tools/source-health"), {
       waitUntil: "domcontentloaded",
