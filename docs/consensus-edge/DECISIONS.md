@@ -884,10 +884,11 @@ taken unilaterally; approval was then given. Repo-side wiring:
   minutes after the refresh's worst-case finish (05:40 + 600s randomized
   delay + 900s timeout ≈ 06:05), and off the three minutes already
   spoken for by prod→main pushers (`:27` DLF, `:32` IDP Show, `:42` CI).
-- Installed by `deploy/install-systemd-service.sh`, gated on the deploy
-  SSH key exactly like its two siblings: without a key the script could
-  only ever fail at the push, and a timer that fails weekly is worse
-  than one that was never installed.
+- Installed **unconditionally** by `deploy/install-systemd-service.sh`,
+  with the deploy-key check inside the script. It was first gated on the
+  key here, by analogy with the DLF / IDP Show pushers, and the
+  2026-08-05 deploy measured that as wrong twice over — see the
+  correction below.
 - The timer carries **no `Requires=`** (diverging from the sibling
   refresh timer, following `dynasty-reception-depth`): `Requires=` in a
   timer's `[Unit]` pulls the service in whenever the timer starts, which
@@ -908,7 +909,63 @@ including the one that makes the rest pointless if it regresses:
 `--retain-history` must be on the refresh `ExecStart`, or the push runs
 weekly, exits clean, and retains nothing.
 
+### Correction (2026-08-05, same day): "enabled in production" was half true
+
+The first deploy carrying this work (run 2158, `8252379e0`) settled it,
+and only one of the two halves landed:
+
+```
+[deploy][WARN] Timer units missing from this host: …-playerctx-history.timer. Running installer to add them.
+[systemd-bootstrap] Player-context unit files changed; rewriting …-playerctx-refresh.service + timer.
+[systemd-bootstrap] Player-context retention timer skipped: /home/…/.ssh/github_deploy_key missing - no deploy key to push with.
+```
+
+**The producer is on.** `--retain-history` reached the box, and only
+because of the content-compare fix above — the old "does the timer
+exist" gate would have left prod running the previous `ExecStart` while
+this document claimed retention was live. That is the failure this ADR
+predicted, caught in the act, one line up.
+
+**The pusher was not installed**, so the paragraph above overstated
+what shipped. Two distinct causes, both now fixed:
+
+1. **The key test ran as the wrong user.** The installer runs as the
+   *deploy* user, whose sudo is scoped to specific commands, so it can
+   neither `sudo test -f` nor stat another user's `~/.ssh`. It reported
+   the key missing while the DLF pusher was committing to `main` with
+   one every two hours — so this was very likely a false negative about
+   a working key, not a real absence. Only the service user can answer
+   the question, so the check moved into
+   `deploy/playerctx_history_push.sh`, which runs under
+   `User=__APP_USER__`.
+2. **A conditionally-installed timer breaks `deploy.sh`.** Its presence
+   check globs `*.timer.template` and warns for anything not installed
+   AND enabled, then runs the installer to close the gap — so a
+   permanently-skipped timer means a warning plus a pointless installer
+   run on **every deploy, forever**. That is precisely the loop #729
+   closed for three other timers, reintroduced here hours later.
+   `deploy.sh` carries a `case` exempting the alert timers; adding a
+   fourth exemption would have spread the pattern instead of fixing it.
+   The unit is now installed unconditionally.
+
+The original rationale — *"a timer that fails weekly is worse than one
+never installed"* — was answering a real concern with the wrong
+mechanism. It is answered instead by the script exiting **0** with the
+missing path named: nothing is half-done at that point, and the push
+globs EVERY dated snapshot rather than the newest, so supplying the key
+later backfills every missed week on the next run. A stalled retention
+is meant to surface through `store.history_coverage()`'s `missingDays`,
+the same way `rank_history` reports its own gaps — not through a red
+timer nobody reads.
+
+**Still unobserved:** no snapshot has been retained yet. The first
+evidence is a `chore(playerctx): retain snapshot …` commit on `main`
+after a Tuesday 06:45 UTC run, and that cannot happen before a deploy
+carries this correction.
+
 **Status:** superseded by the amendment; retention accepted 2026-08-05.
+Producer enabled in production 2026-08-05; pusher pending the deploy
+carrying this correction.
 
 ---
 
