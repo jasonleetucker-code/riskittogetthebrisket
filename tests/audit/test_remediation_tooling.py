@@ -343,3 +343,60 @@ class TestSurfaceHarness(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCoercionScannerAccuracy(unittest.TestCase):
+    """The scanner must skip prose WITHOUT going blind to code.
+
+    Both failure directions are live risks and both happened during
+    batch C2:
+
+    * too loose — a sentence explaining ``or 0`` inside a docstring was
+      reported as a violation, and a gate that cries wolf is a gate
+      somebody switches off;
+    * too strict — the obvious fix (treat any line containing a string
+      token as prose) silences ``x = data.get("k") or 0``, a real
+      coercion on a line that merely contains a string. That would
+      disable the gate almost everywhere while still reporting success,
+      which is the exact defect class it exists to catch.
+    """
+
+    def _scanner(self):
+        import importlib.util  # noqa: PLC0415
+
+        spec = importlib.util.spec_from_file_location(
+            "cdc", REPO_ROOT / "scripts" / "check_decision_coercions.py"
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_prose_skipped_and_code_still_caught(self) -> None:
+        m = self._scanner()
+        src = (
+            '"""Docstring mentioning or 0 and or 1.0 in prose."""\n'
+            "# comment with or 0\n"
+            'x = data.get("k") or 0\n'
+            'y = "a string with or 0 inside"\n'
+            "z = other or 0.0\n"
+            'w = cfg["a"] or 100\n'
+        )
+        masked = m._masked_spans(src)  # noqa: SLF001
+        hits = []
+        for n, line in enumerate(src.splitlines(), 1):
+            if line.strip().startswith("#"):
+                continue
+            for match in m._PY_PATTERN.finditer(line):  # noqa: SLF001
+                if not m._is_masked(masked, n, match.start()):  # noqa: SLF001
+                    hits.append(n)
+        self.assertEqual(
+            hits,
+            [3, 5, 6],
+            "lines 3/5/6 are real coercions (3 and 6 sit on lines that also "
+            "contain string literals); 1, 2 and 4 are prose",
+        )
+
+    def test_unparseable_source_is_scanned_not_exempted(self) -> None:
+        """Over-reporting is recoverable; quietly not looking is not."""
+        m = self._scanner()
+        self.assertEqual(m._masked_spans("def broken(:\n  x = 1 or 0\n"), {})  # noqa: SLF001

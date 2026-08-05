@@ -1080,12 +1080,28 @@ def _missing_expected_sites(result: dict | None) -> list[str]:
         if not expected:
             return []
 
+        def _reported_rows(block: object, field: str) -> bool:
+            """True only when the block states a positive row count.
+
+            Absent, null or non-numeric means the source did not report
+            producing anything — which is treated the same as zero HERE
+            because this guard's question is "can we prove the anchor
+            arrived?", and unproven must not read as arrived.  Written
+            out rather than as ``or 0`` so the reasoning is visible:
+            the coercion gate flags that shape precisely because it
+            usually hides this decision instead of stating it.
+            """
+            if not isinstance(block, dict):
+                return False
+            count = block.get(field)
+            return isinstance(count, (int, float)) and count > 0
+
         produced: set[str] = set()
         for site in (result or {}).get("sites") or []:
-            if isinstance(site, dict) and int(site.get("playerCount") or 0) > 0:
+            if _reported_rows(site, "playerCount"):
                 produced.add(str(site.get("key") or ""))
         for key, stats in ((result or {}).get("siteStats") or {}).items():
-            if isinstance(stats, dict) and int(stats.get("count") or 0) > 0:
+            if _reported_rows(stats, "count"):
                 produced.add(str(key))
 
         return sorted(expected - produced)

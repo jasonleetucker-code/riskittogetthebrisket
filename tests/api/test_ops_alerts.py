@@ -232,3 +232,20 @@ def test_status_payload_actually_carries_the_key_the_alert_reads():
     )
     # And the shape it carries must be one the reader accepts.
     assert oa._check_scrape_rate(payload) is None or True  # noqa: SLF001 — must not raise
+
+
+def test_missing_sample_total_does_not_suppress_a_real_rate():
+    """Absent ``total`` means unknown sample size, not zero samples.
+
+    Caught by the repo's own coercion gate during batch C2: the first
+    cut wrote ``int(raw.get("total") or 0)``, and because a zero sample
+    size suppresses the alert, a payload with a valid rate but no
+    ``total`` would have silently stopped alerting — the exact
+    missing-data-becomes-a-number substitution that batch was fixing,
+    reintroduced inside the fix.
+    """
+    a = oa._check_scrape_rate({"scrape_success_rate_24h": {"rate": 0.1}})  # noqa: SLF001
+    assert a is not None, "a valid rate must still alert when the sample size is unknown"
+    assert a.severity == "critical"
+    # No sample size claimed in the title, because none is known.
+    assert "run(s)" not in a.title

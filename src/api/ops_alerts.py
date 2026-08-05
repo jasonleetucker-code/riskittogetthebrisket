@@ -69,10 +69,15 @@ def _check_scrape_rate(status_payload: dict[str, Any]) -> OpsAlert | None:
     sample_total: int | None = None
     if isinstance(raw, dict):
         rate = raw.get("rate")
-        try:
-            sample_total = int(raw.get("total") or 0)
-        except (TypeError, ValueError):
-            sample_total = None
+        # ABSENT total means unknown sample size, NOT zero samples.  The
+        # first cut of this wrote ``int(raw.get("total") or 0)``, which
+        # collapsed the two — and since a zero sample size suppresses
+        # the alert below, a payload carrying a valid rate but no
+        # ``total`` would have silently stopped alerting. The repo's own
+        # coercion gate caught it in review, in the batch whose subject
+        # is exactly this substitution.
+        total = raw.get("total")
+        sample_total = int(total) if isinstance(total, (int, float)) else None
     else:
         rate = raw
 
