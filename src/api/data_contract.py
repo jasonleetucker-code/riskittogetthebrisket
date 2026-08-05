@@ -3933,9 +3933,29 @@ def _parse_source_csv_cached(
     _SLEEPER_ID_ALIASES = ("sleeper_id", "sleeperId", "sleeper_player_id")
 
     def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
+        """First alias present on this row, exact match then case-folded.
+
+        The exact pass runs first and unchanged, so alias ORDER still
+        decides between two columns a source really does ship.  The
+        folded pass only sees rows where every alias missed — which is
+        where ``dynastyNerdsSfTep.csv``'s ``SleeperId`` column lived:
+        294 rows carrying a stable Sleeper id that the ID join could
+        not see, so the whole source joined by name only (W06-F009).
+        A vendor capitalising a header is not a reason to drop back to
+        name matching.
+        """
         for k in aliases:
             if k in csvrow and csvrow[k] not in (None, ""):
                 return str(csvrow[k])
+        folded: dict[str, Any] = {}
+        for key, value in csvrow.items():
+            if key is None:
+                continue
+            folded.setdefault(str(key).strip().lower(), value)
+        for k in aliases:
+            value = folded.get(k.strip().lower())
+            if value not in (None, ""):
+                return str(value)
         return ""
 
     # ── Universal schema probe ───────────────────────────────────────
