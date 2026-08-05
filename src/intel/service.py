@@ -370,7 +370,36 @@ def _refresh_locked(
 # ── Read-side payload builders ──────────────────────────────────────
 #
 # NOTE: none of these expose raw Sleeper league IDs — the UI gets
-# counts and league NAMES only.
+# counts and league NAMES only.  ``_public_movement`` below is what
+# enforces that for the one builder that returns raw ledger rows.
+
+
+# The ledger is GLOBAL: one store holding movements from every league
+# this platform has crawled, and ``asset_movements_for`` filters by
+# pool membership, not by league.  Handing its rows straight to the
+# client therefore published the raw Sleeper ``league_id`` of a
+# league-mate's OTHER leagues — ones the requester is not in.
+#
+# An ALLOW-list, not a deny-list: a new identifying column added to the
+# ledger later must not reach the wire just because nobody remembered
+# to exclude it here.
+_PUBLIC_MOVEMENT_FIELDS = (
+    "movementId",
+    "txId",
+    "txType",
+    "assetId",
+    "assetType",
+    "action",
+    "userId",
+    "ts",
+    "week",
+    "faabBid",
+)
+
+
+def _public_movement(movement: dict[str, Any]) -> dict[str, Any]:
+    """One ledger movement row, reduced to the fields the UI renders."""
+    return {k: movement[k] for k in _PUBLIC_MOVEMENT_FIELDS if k in movement}
 
 
 def _pick_label(asset_id: str) -> str:
@@ -635,9 +664,20 @@ def build_player_payload(
     league_key: str,
     asset_id: str,
     id_to_player: dict[str, str] | None = None,
+    *,
+    window: str = signals.INSIDER_DEFAULT_WINDOW,
 ) -> dict[str, Any] | None:
     """Per-asset intel: window aggregates + member exposure.  Returns
-    None when the snapshot has no trace of the asset at all."""
+    None when the snapshot has no trace of the asset at all.
+
+    ``window`` MUST match the window the board row was rendered from.
+    It used to be hard-wired to ``INSIDER_DEFAULT_WINDOW`` while the
+    board offered 7d/30d/90d, so expanding a row whose only movement
+    was older than 30 days produced empty exposure and empty movements
+    under a row reading "Buys 1" — the drill-down contradicted the
+    number it was drilling into, which is exactly the auditability this
+    payload exists to provide.
+    """
     state = load_state_cached(league_key)
     ensure_ledger_synced(league_key, state)
     asset_id = str(asset_id)
@@ -645,6 +685,8 @@ def build_player_payload(
     holdings = holdings_from_state(state)
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     window_names = list(signals.INSIDER_WINDOWS)
+    if window not in window_names:
+        window_names.append(window)
 
     per_window: dict[str, list[dict[str, Any]]] = {}
     per_member: list[dict[str, Any]] = []
@@ -662,7 +704,7 @@ def build_player_payload(
                 )
                 per_window[name] = [r for r in rows if r["assetId"] == asset_id]
 
-            since, until = signals.window_bounds(signals.INSIDER_DEFAULT_WINDOW, now_ms)
+            since, until = signals.window_bounds(window, now_ms)
             per_member = ledger.manager_asset_activity(
                 user_ids=pool,
                 asset_id=asset_id,
@@ -672,6 +714,8 @@ def build_player_payload(
             )
             # The receipts: every movement behind the numbers above, so
             # any count on screen can be audited back to its trades.
+            # Scoped to the CALLER's window, not the default one — see
+            # the docstring.
             movements = ledger.asset_movements_for(
                 asset_id, since_ms=since, until_ms=until, user_ids=pool, limit=100, conn=conn
             )
@@ -681,7 +725,7 @@ def build_player_payload(
     built = signals.build_asset_signals(
         per_window,
         now_ms=now_ms,
-        primary_window=signals.INSIDER_DEFAULT_WINDOW,
+        primary_window=window,
         windows=window_names,
     )
     sig = next((s for s in built if s.asset_id == asset_id), None)
@@ -748,14 +792,14 @@ def build_player_payload(
         else None
     )
     payload["leagueKey"] = league_key
-    payload["window"] = signals.INSIDER_DEFAULT_WINDOW
+    payload["window"] = window
     payload["memberExposure"] = exposure_out
     payload["holderCount"] = sum(1 for m in exposure_out if m["heldLeagueCount"] > 0)
     payload["heldLeagueTotal"] = sum(m["heldLeagueCount"] for m in exposure_out)
     # Held and traded stay SEPARATE — the predecessor unioned them, so a
     # widely-rostered player was indistinguishable from a traded one.
     payload["heldLeagueCount"] = len({lid for lids in held_by_owner.values() for lid in lids})
-    payload["movements"] = movements
+    payload["movements"] = [_public_movement(mv) for mv in movements]
     payload["generatedAt"] = state.get("generatedAt")
     payload["staleHours"] = snapshot_stale_hours(state)
     return payload

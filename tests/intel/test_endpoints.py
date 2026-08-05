@@ -403,6 +403,103 @@ class TestPlayerAndMember:
         assert exposure[0]["heldLeagueCount"] == 1
         assert "L1" not in json.dumps(body)
 
+    def test_player_movements_carry_no_league_identifiers(
+        self, intel_data_dir, authed, league_stub
+    ):
+        """The league-ID assertion above is VACUOUS on asset "1234".
+
+        That asset's only event is a waiver add, and ``asset_movements_for``
+        defaults to trades-only, so ``movements`` comes back empty and
+        ``"L1" not in json.dumps(body)`` passes without ever inspecting a
+        movement row.  That is how raw Sleeper ``league_id`` values shipped
+        to production in the first place.  This test queries the TRADED
+        asset, asserts the list is non-empty FIRST so it can never silently
+        go vacuous the same way, and only then checks the invariant.
+        """
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.get("/api/intel/player", params={"playerId": "tr1234"})
+        assert res.status_code == 200
+        body = res.json()
+
+        movements = body["movements"]
+        assert movements, "fixture must produce a trade movement or this test proves nothing"
+
+        # The ledger is global and filtered by pool membership, not by
+        # league, so these rows can describe leagues the caller is not in.
+        for mv in movements:
+            assert "leagueId" not in mv
+            assert "counterpartyUserId" not in mv
+        # The fields the UI actually renders must survive the projection.
+        assert movements[0]["movementId"]
+        assert movements[0]["userId"] == "A"
+        assert movements[0]["action"] == "add"
+        assert "L1" not in json.dumps(body)
+        assert "L2" not in json.dumps(body)
+
+    def test_player_drilldown_honours_the_requested_window(
+        self, intel_data_dir, authed, league_stub
+    ):
+        """A 90d board row must not expand to an empty 30d drill-down.
+
+        The drill-down used to be hard-wired to INSIDER_DEFAULT_WINDOW
+        while the board offered 7d/30d/90d, so a row reading "Buys 1" on
+        the 90d board expanded to "no league-mate holds or traded this
+        asset" — the receipts contradicted the count they were receipts for.
+        """
+        # 40 days back: outside the 30d window, inside both the 90d window
+        # and the snapshot's 45-day event retention.
+        _seed_snapshot(now_ms=int(time.time() * 1000) - 40 * DAY_MS)
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            wide = c.get("/api/intel/player", params={"playerId": "tr1234", "window": "90d"})
+            narrow = c.get("/api/intel/player", params={"playerId": "tr1234", "window": "30d"})
+
+        assert wide.status_code == 200
+        wide_body = wide.json()
+        assert wide_body["window"] == "90d"
+        # The whole point: the receipts are present at the window the row
+        # was rendered from.
+        assert wide_body["movements"], "90d drill-down must surface the 40-day-old trade"
+        assert wide_body["memberExposure"]
+
+        # And the 30d view is legitimately empty — the trade really is
+        # outside it. This half pins that the window is being APPLIED
+        # rather than ignored in the permissive direction.
+        assert narrow.status_code == 200
+        narrow_body = narrow.json()
+        assert narrow_body["window"] == "30d"
+        assert narrow_body["movements"] == []
+
+    def test_player_drilldown_rejects_unknown_window(self, intel_data_dir, authed, league_stub):
+        """Unknown windows fall back to the default, never reach SQL."""
+        _seed_snapshot()
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.get(
+                "/api/intel/player",
+                params={"playerId": "1234", "window": "1) OR 1=1 --"},
+            )
+        assert res.status_code == 200
+        assert res.json()["window"] == "30d"
+
+    def test_player_drilldown_accepts_the_all_window(self, intel_data_dir, authed, league_stub):
+        """``all`` is in the endpoint allow-list but NOT in INSIDER_WINDOWS.
+
+        Before the window was threaded through, the param was ignored, so
+        this value never reached ``build_player_payload`` and the mismatch
+        was invisible.  It reaches it now: ``window_bounds`` special-cases
+        ``all`` to an open-ended range, and the builder has to add it to
+        ``window_names`` or ``primary_window`` would select a window that
+        was never aggregated.
+        """
+        _seed_snapshot(now_ms=int(time.time() * 1000) - 40 * DAY_MS)
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.get("/api/intel/player", params={"playerId": "tr1234", "window": "all"})
+        assert res.status_code == 200
+        body = res.json()
+        assert body["window"] == "all"
+        assert body["windows"]["all"]["volume"] == 1
+        assert body["movements"], "an unbounded window must surface the 40-day-old trade"
+
     def test_player_intel_unknown_asset_404(self, intel_data_dir, authed, league_stub):
         _seed_snapshot()
         with TestClient(server.app, raise_server_exceptions=True) as c:

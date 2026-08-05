@@ -13212,7 +13212,10 @@ async def get_intel_waiver_interest(request: Request):
 async def get_intel_player(request: Request):
     """Per-asset intel drill-down.  ``?playerId=`` (Sleeper id or
     ``pick:<season>:<round>``) preferred; ``?name=`` resolves through
-    the loaded contract's id map.  League-scoped like the summary."""
+    the loaded contract's id map.  League-scoped like the summary.
+
+    ``?window=`` takes the same allow-list as the board and MUST be
+    passed the window the row was rendered from."""
     try:
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
@@ -13235,11 +13238,19 @@ async def get_intel_player(request: Request):
                 content={"error": "unknown_player", "message": f"No Sleeper id for {name!r}"},
                 headers={"Cache-Control": "no-store"},
             )
+    # Same allow-list as the board.  The drill-down MUST be scoped to
+    # the window the row was rendered from, or a 90d-only asset expands
+    # to "no league-mate holds or traded this asset" under a row that
+    # just reported a buy.
+    window = (request.query_params.get("window") or "").strip() or _INTEL_DEFAULT_WINDOW
+    if window not in _INTEL_ALLOWED_WINDOWS:
+        window = _INTEL_DEFAULT_WINDOW
     payload = await run_in_threadpool(
         _intel_service.build_player_payload,
         league_cfg.key,
         asset_id,
         id_to_player=_intel_id_to_player(),
+        window=window,
     )
     if payload is None:
         return JSONResponse(

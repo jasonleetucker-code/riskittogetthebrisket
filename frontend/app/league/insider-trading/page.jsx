@@ -132,7 +132,7 @@ function StalenessBanner({ staleHours, generatedAt }) {
   );
 }
 
-function MemberExposure({ assetId, leagueKey }) {
+function MemberExposure({ assetId, leagueKey, window: windowName }) {
   const [detail, setDetail] = useState(null);
   const [failed, setFailed] = useState(false);
 
@@ -141,6 +141,10 @@ function MemberExposure({ assetId, leagueKey }) {
     setDetail(null);
     setFailed(false);
     const params = new URLSearchParams({ playerId: assetId });
+    // Scope the drill-down to the SAME window the board row came from.
+    // Without this the request fell back to the server default (30d)
+    // while the row above it could have been rendered from 90d.
+    if (windowName) params.set("window", windowName);
     if (leagueKey) params.set("leagueKey", leagueKey);
     fetch(`/api/intel/player?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -155,7 +159,7 @@ function MemberExposure({ assetId, leagueKey }) {
     return () => {
       active = false;
     };
-  }, [assetId, leagueKey]);
+  }, [assetId, leagueKey, windowName]);
 
   if (failed) {
     return (
@@ -175,9 +179,13 @@ function MemberExposure({ assetId, leagueKey }) {
   const movements = detail.movements || [];
   const win = detail.windows?.[detail.window || "30d"] || {};
   if (exposure.length === 0 && movements.length === 0) {
+    // Name the window. An unqualified "nobody traded this" reads as a
+    // statement about all of history when it is only ever a statement
+    // about one lookback.
     return (
       <div className="muted" style={{ fontSize: "0.72rem", padding: "6px 0" }}>
-        No league-mate holds or traded this asset in the tracked pool.
+        No league-mate holds or traded this asset in the tracked pool in the last{" "}
+        {detail.window || "30d"}.
       </div>
     );
   }
@@ -289,7 +297,7 @@ function MemberExposure({ assetId, leagueKey }) {
 // actually happened" (raw movements, verifiable), LEADS is "who to call
 // about it" (a ranking derived from that evidence plus roster shape).
 // Keeping them separate keeps the observation/inference line visible.
-function AssetDetail({ assetId, displayName, leagueKey }) {
+function AssetDetail({ assetId, displayName, leagueKey, window: windowName }) {
   const [tab, setTab] = useState("evidence");
   return (
     <div>
@@ -310,7 +318,7 @@ function AssetDetail({ assetId, displayName, leagueKey }) {
         ))}
       </div>
       {tab === "evidence" ? (
-        <MemberExposure assetId={assetId} leagueKey={leagueKey} />
+        <MemberExposure assetId={assetId} leagueKey={leagueKey} window={windowName} />
       ) : (
         <InsiderLeads assetId={assetId} assetName={displayName} leagueKey={leagueKey} />
       )}
@@ -648,6 +656,10 @@ export default function IntelPage() {
                             assetId={asset.assetId}
                             displayName={asset.displayName}
                             leagueKey={selectedLeagueKey}
+                            // The window the board ACTUALLY served, not
+                            // the one requested — they differ while a
+                            // window change is still in flight.
+                            window={data?.window || window_}
                           />
                         </td>
                       </tr>
