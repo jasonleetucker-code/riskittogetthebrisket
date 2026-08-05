@@ -99,11 +99,12 @@ def _tier_for_bid(bid: int, league_budget: int) -> str:
     return "tier4"
 
 
-def _league_budget(snapshot: PublicLeagueSnapshot) -> int:
-    """Read the current season's waiver_budget setting.  Falls back
-    to 100 (Sleeper's default) when unset so our tier breakpoints
-    still produce meaningful buckets."""
-    season = snapshot.current_season
+def _season_budget(season: Any) -> int:
+    """Waiver budget for ONE season.  Falls back to 100 (Sleeper's default).
+
+    Per-season, because this league's budget has changed across seasons and
+    a bid is only interpretable against the budget it was placed under.
+    """
     if season is None:
         return 100
     league = getattr(season, "league", None)
@@ -119,6 +120,35 @@ def _league_budget(snapshot: PublicLeagueSnapshot) -> int:
     except (TypeError, ValueError):
         pass
     return 100
+
+
+def _league_budget(snapshot: PublicLeagueSnapshot) -> int:
+    """The CURRENT season's waiver budget — the unit every output is in."""
+    return _season_budget(snapshot.current_season)
+
+
+def _normalize_bid(bid: float, season_budget: int, current_budget: int) -> float:
+    """Express a historical bid in CURRENT-season dollars.
+
+    A bid only means something as a share of the budget it was placed
+    under. This league's budget has been $1000, $200 and $100 across
+    seasons, and every aggregate here pooled the raw dollar figures: a $200
+    bid from a $1000-budget season (20% of it) was averaged against $100
+    budgets as though it were 200% of one.
+
+    Measured effect: positionBids reported an RB average of 43.0 with a max
+    of 340 in a $100 league, against a budget-normalized 8.58 — a 5.0x
+    inflation. `faab_recommender` blends that average 50/50 into every
+    recommendation for any position with 3+ historical bids, which is all
+    eight, so replacement-level running backs drew $22-$32 bids on a $100
+    budget. Audit finding W11-F001 (P0, upheld under adversarial review).
+
+    Output stays in DOLLARS so no consumer's units change — the recommender
+    blends these against its own dollar figures.
+    """
+    if season_budget <= 0:
+        return float(bid)
+    return float(bid) / float(season_budget) * float(current_budget)
 
 
 def _stats_block(values: list[float]) -> dict[str, Any]:
@@ -163,6 +193,10 @@ def _walk_waivers(
                     "leagueId": season.league_id,
                     "type": str(tx.get("type") or ""),
                     "bid": bid,
+                    # The budget this bid was actually placed under. Without
+                    # it the raw dollar figure is uninterpretable across
+                    # seasons — see ``_normalize_bid``.
+                    "seasonBudget": _season_budget(season),
                     "adds": adds if isinstance(adds, dict) else {},
                     "rosterId": roster_id,
                     "ownerId": _owner_for_roster(season, roster_id),
@@ -222,9 +256,17 @@ def summarize_league_faab(
     waivers_recent_first = sorted(waivers, key=lambda tx: -int(tx.get("createdAt") or 0))
 
     for tx in waivers:
-        bid = int(tx.get("bid") or 0)
+        raw_bid = int(tx.get("bid") or 0)
+        season_budget = int(tx.get("seasonBudget") or league_budget)
+        # Every AGGREGATE below is budget-normalized, because pooling raw
+        # dollars across seasons with different budgets compares fractions
+        # of different wholes (W11-F001). The RAW figure is preserved for
+        # ``recentWins`` and ``playerHistory``, which are records of what
+        # actually happened in a given season and would be falsified by
+        # rescaling.
+        bid = _normalize_bid(raw_bid, season_budget, league_budget)
         owner_id = tx.get("ownerId")
-        if bid > 0:
+        if raw_bid > 0:
             all_bids.append(bid)
             tier_bids[_tier_for_bid(bid, league_budget)].append(bid)
 
@@ -250,7 +292,13 @@ def summarize_league_faab(
             player_history.setdefault(str(pid), []).append(
                 {
                     "season": tx.get("season"),
-                    "bid": bid,
+                    # RAW, with the budget it was placed under. "$223 in
+                    # 2023" is a true statement about that season; rescaling
+                    # it would falsify a record the UI presents as history.
+                    # The aggregates above are the normalized ones.
+                    "bid": raw_bid,
+                    "seasonBudget": season_budget,
+                    "normalizedBid": round(bid, 2),
                     "ownerId": owner_id,
                     "type": tx.get("type"),
                 }
@@ -276,7 +324,7 @@ def summarize_league_faab(
     for oid, e in team_totals.items():
         win_count = e["winningCount"]
         team_aggression[oid] = {
-            "totalSpent": e["totalSpent"],
+            "totalSpent": round(e["totalSpent"], 2),
             "avgBid": (round(e["totalSpent"] / win_count, 2) if win_count > 0 else 0.0),
             "winningCount": win_count,
             "totalCount": e["totalCount"],
@@ -310,6 +358,16 @@ def summarize_league_faab(
 
     return {
         "leagueBudget": league_budget,
+        # Every aggregate below (leagueAvg/Median, positionBids, tierBids,
+        # teamAggression) is expressed in CURRENT-season dollars after
+        # normalizing each historical bid by the budget it was placed
+        # under. ``recentWins`` and ``playerHistory`` keep the raw figures,
+        # each carrying its own ``seasonBudget``. Stamped so a consumer can
+        # tell which it is holding rather than having to know.
+        "budgetNormalized": True,
+        "seasonBudgets": {
+            str(s.season): _season_budget(s) for s in getattr(snapshot, "seasons", []) or []
+        },
         "leagueAvgWinningBid": (round(statistics.fmean(all_bids), 2) if all_bids else 0.0),
         "leagueMedianWinningBid": (
             round(float(statistics.median(all_bids)), 2) if all_bids else 0.0

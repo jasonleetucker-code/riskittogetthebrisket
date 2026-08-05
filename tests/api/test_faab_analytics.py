@@ -382,3 +382,102 @@ def test_build_section_returns_summarize_output():
     via_section = faab_analytics.build_section(snap)
     via_summary = faab_analytics.summarize_league_faab(snap)
     assert via_section == via_summary
+
+
+# ── Cross-season budget normalization (W11-F001) ───────────────
+#
+# The league's waiver budget has been $1000, $200 and $100 across seasons.
+# Every aggregate here pooled RAW dollars, so a $200 bid from a $1000-budget
+# season (20% of it) was averaged against $100 budgets as though it were 200%
+# of one.  Live capture: positionBids RB avg 43.0 with a max of 340, in a
+# league whose leagueBudget reads 100.  faab_recommender blends that average
+# 50/50 into every recommendation for any position with 3+ bids — all eight —
+# which is the FAAB over-aggression the owner reported.
+
+
+def _mixed_budget_snapshot():
+    """Three seasons, three budgets, one bid each worth 20% of its budget."""
+    seasons = [
+        _season(
+            "2026",
+            settings={"waiver_budget": 100},
+            txs_by_week={1: [_waiver_tx(bid=20, adds={"p1": 1})]},
+        ),
+        _season(
+            "2025",
+            settings={"waiver_budget": 200},
+            txs_by_week={1: [_waiver_tx(bid=40, adds={"p1": 1})]},
+        ),
+        _season(
+            "2024",
+            settings={"waiver_budget": 1000},
+            txs_by_week={1: [_waiver_tx(bid=200, adds={"p1": 1})]},
+        ),
+    ]
+    return _snap(seasons, nfl_players={"p1": {"position": "RB", "full_name": "A Back"}})
+
+
+def test_position_bids_are_normalized_to_the_current_budget():
+    out = faab_analytics.summarize_league_faab(_mixed_budget_snapshot())
+    rb = out["positionBids"]["RB"]
+    # Each bid is 20% of its own season's budget -> $20 of the current $100.
+    assert rb["avg"] == 20.0
+    assert rb["max"] == 20
+    assert rb["count"] == 3
+
+
+def test_raw_pooling_would_have_produced_a_bid_larger_than_the_budget():
+    """Characterises the defect so the fix cannot be silently reverted."""
+    out = faab_analytics.summarize_league_faab(_mixed_budget_snapshot())
+    raw_avg = (20 + 40 + 200) / 3  # what the old code averaged
+    assert raw_avg > out["leagueBudget"] * 0.85
+    assert out["positionBids"]["RB"]["avg"] < raw_avg / 4
+
+
+def test_league_average_is_normalized_too():
+    out = faab_analytics.summarize_league_faab(_mixed_budget_snapshot())
+    assert out["leagueAvgWinningBid"] == 20.0
+    assert out["leagueMedianWinningBid"] == 20.0
+
+
+def test_no_normalized_aggregate_exceeds_the_current_budget():
+    out = faab_analytics.summarize_league_faab(_mixed_budget_snapshot())
+    budget = out["leagueBudget"]
+    for pos, block in out["positionBids"].items():
+        assert block["max"] <= budget, f"{pos} max {block['max']} exceeds budget {budget}"
+
+
+def test_player_history_keeps_the_raw_bid_and_its_budget():
+    """History is a record of what happened; rescaling it would falsify it."""
+    out = faab_analytics.summarize_league_faab(_mixed_budget_snapshot())
+    rows = {r["season"]: r for r in out["playerHistory"]["p1"]}
+    assert rows["2024"]["bid"] == 200
+    assert rows["2024"]["seasonBudget"] == 1000
+    assert rows["2024"]["normalizedBid"] == 20.0
+
+
+def test_payload_states_that_aggregates_are_normalized():
+    out = faab_analytics.summarize_league_faab(_mixed_budget_snapshot())
+    assert out["budgetNormalized"] is True
+    assert out["seasonBudgets"] == {"2026": 100, "2025": 200, "2024": 1000}
+
+
+def test_single_budget_history_is_unchanged():
+    """The fix must be a no-op when every season shares one budget."""
+    seasons = [
+        _season(
+            "2026",
+            settings={"waiver_budget": 100},
+            txs_by_week={1: [_waiver_tx(bid=30, adds={"p1": 1})]},
+        ),
+        _season(
+            "2025",
+            settings={"waiver_budget": 100},
+            txs_by_week={1: [_waiver_tx(bid=10, adds={"p1": 1})]},
+        ),
+    ]
+    out = faab_analytics.summarize_league_faab(
+        _snap(seasons, nfl_players={"p1": {"position": "RB", "full_name": "A Back"}})
+    )
+    assert out["positionBids"]["RB"]["avg"] == 20.0
+    assert out["positionBids"]["RB"]["max"] == 30
