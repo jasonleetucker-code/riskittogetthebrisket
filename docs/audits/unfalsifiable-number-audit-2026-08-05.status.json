@@ -1,0 +1,112 @@
+{
+  "source": "unfalsifiable-number-audit-2026-08-05.registry.json",
+  "note": "GENERATED. Status authority is the registry, not this file.",
+  "total": 6,
+  "tally": {
+    "open": 6
+  },
+  "findings": [
+    {
+      "id": "U01",
+      "title": "terminal._row_value returns 0.0, and both documented fallbacks are unreachable",
+      "path": "src/api/terminal.py",
+      "signature": "vf = values.get(\"full\")",
+      "status": "open",
+      "consequence": "engine_advice",
+      "measured": "values['full'] is present on 0 of 1069 rows of the built snapshot; rows with a rank but no value: 0 of 1069. 'full' is minted CLIENT-SIDE at frontend/lib/dynasty-data.js:983, so this backend function reads a frontend-only key. 97 of 665 rostered players evaluate to exactly 0.0, almost all IDP.",
+      "userSurface": "/trade Impact panel \u2014 an unpriced player resolves as an ordinary asset with value 0 and empty unresolvedIn/unresolvedOut, so nothing distinguishes 'worth nothing' from 'we have no price'. Also /terminal watchlist, movers and signals.",
+      "verifiedBy": "Read the three branches and measured the key population on audit/baseline/players_array.json. The comment's own justification ('0 of 740 ranked rows lack both value fields') counts only rows where branch 1 already returned.",
+      "notes": "The 2026-07-29 scope-aware fix recorded as cutting IDP reconstruction RMSE 826 -> 79 was applied to branch 3, which cannot execute.",
+      "probe": {
+        "result": "signature_present",
+        "path": "src/api/terminal.py",
+        "needle": "vf = values.get(\"full\")"
+      }
+    },
+    {
+      "id": "U02",
+      "title": "/api/trade/simulate resolves zero of a team's 288 draft picks",
+      "path": "src/api/trade_simulator.py",
+      "signature": "row = row_index.get(key)",
+      "status": "open",
+      "consequence": "engine_advice",
+      "measured": "0 of 288 owned pick labels resolve. sleeper_overlay.py::_format_pick_label emits '2027 1st' (_build_pick_ownership always passes slot=None); board rows are '2026 Pick 1.01' / '2026 Early 1st'. team_impact.py:247 therefore computes pick_value over an asset list with no picks, so pick_share is structurally 0.",
+      "userSurface": "/trade 'Impact on <team>' \u2014 recomputing _classify_window with picks restored flips 10 of 12 posture labels. The same roster prices at 90,092 in simulate and 135,917 on /rosters.",
+      "verifiedBy": "Read _resolve_asset: a bare lowercased dict get with no alias resolution, against terminal.py:263's one-name-per-row index.",
+      "notes": "The frontend already solves this via frontend/lib/trade-logic.js:1184 resolvePickRow(..., pickAliases). trade_simulator.py:162-165 claims 'picks resolve the same way through row_index', which is what made it invisible. Signature anchors on the bare lookup in _resolve_asset; it vanishes when that call routes through an alias resolver.",
+      "probe": {
+        "result": "signature_present",
+        "path": "src/api/trade_simulator.py",
+        "needle": "row = row_index.get(key)"
+      }
+    },
+    {
+      "id": "U03",
+      "title": "FAAB recommends $0 for every player when every rival is unpriceable",
+      "path": "src/trade/faab_engine.py",
+      "signature": "continue  # unverifiable",
+      "status": "open",
+      "consequence": "engine_advice",
+      "measured": "With all rivals skipped, rival_bid_cdf(0) = 1.0, so EV(b) = rawCeiling - b is maximised at b = 0 and the optimiser returns the lowest grid point by construction \u2014 beside an objective ceiling the same engine may price at $100 of $100.",
+      "userSurface": "/waivers FaabRecommendation 'What you should bid' tiles.",
+      "verifiedBy": "Read the rival loop and the argmax. Reachable in production: data/sleeper_last_good.json carries faabRemaining: null for all 12 teams whenever the live overlay fetch fails.",
+      "notes": "INVERTS a recorded Low in the 08-04 registry, which describes the pre-#707 failure mode (reverting to full budget, i.e. bid too HIGH). faab_engine.py appears nowhere in that registry.",
+      "probe": {
+        "result": "signature_present",
+        "path": "src/trade/faab_engine.py",
+        "needle": "continue  # unverifiable"
+      }
+    },
+    {
+      "id": "U04",
+      "title": "Board-health floors key on ktc, retired from the blend; the live anchor ktcSfTep has no floor",
+      "path": "config/weights/source_row_floors.json",
+      "signature": "\"ktc\"",
+      "status": "open",
+      "consequence": "board_value",
+      "measured": "Four separate floor sets (_DEFAULT_SOURCE_ROW_FLOORS, _DEFAULT_TOP50_COVERAGE_FLOORS, and the two config JSONs). 'ktc' is keyed in all four and is in none of the 21 registered sources; 'ktcSfTep' is registered and in none of the four. Sources with no row floor: 9 of 21 inline, 16 of 21 in config. Stripping ktcSfTep to 3 rows and re-running validate_api_data_contract returns ok=True, status=healthy, 0 new errors. The same treatment of ktc or idpTradeCalc returns degraded (~190-200 warnings).",
+      "userSurface": "contractHealth is stamped on every /api/data payload (server.py) and shown on /status. It would report healthy through a collapse of the market anchor. A detection gap, not a live wrong number.",
+      "verifiedBy": "Compared both floor dicts and both config files against get_ranking_source_registry(); config/sources/dlf_sources.template.json:33 records ktc's retirement from the blend on 2026-04-28.",
+      "notes": "src/api/source_health_alerts.py::resolve_threshold handles the vendor-prefix case correctly, so the floor configs are the outlier. tests/api/test_source_floor_invariant.py iterates _DEFAULT_SOURCE_ROW_FLOORS.items() rather than the registry, so its headline claim is true only of a set that has drifted off the live source list.",
+      "probe": {
+        "result": "signature_present",
+        "path": "config/weights/source_row_floors.json",
+        "needle": "\"ktc\""
+      }
+    },
+    {
+      "id": "U05",
+      "title": "The coercion gate never scans src/draft or scripts",
+      "path": "scripts/check_decision_coercions.py",
+      "signature": "\"src/scoring\", \"frontend/lib\", )",
+      "status": "open",
+      "consequence": "engine_advice",
+      "measured": "_DECISION_ROOTS omits src/draft/, scripts/, src/model_registry/, frontend/app/ and frontend/components/. The model_registry validate defect (08-04 registry, High) sat in a tree the gate does not look at.",
+      "userSurface": "None directly \u2014 this is a guard that cannot fire for whole subtrees, so it is the reason other findings survive.",
+      "verifiedBy": "Read the tuple.",
+      "notes": "Deliberately NOT fixed by this audit. Widening the roots surfaces new violations across two trees, and config/coercion_baseline.json says 'Do not add to this file to make a build pass.' Absorbing a widened scope is the batch owner's call mid-pass.",
+      "probe": {
+        "result": "signature_present",
+        "path": "scripts/check_decision_coercions.py",
+        "needle": "\"src/scoring\", \"frontend/lib\", )"
+      }
+    },
+    {
+      "id": "U06",
+      "title": "The coercion gate's regexes cannot see a return-shaped fallback",
+      "path": "scripts/check_decision_coercions.py",
+      "signature": "_PY_PATTERN = re.compile(r\"\\bor\\s+(?:0\\.0|0|1\\.0|1|100|100\\.0)\\b(?!\\s*[.\\w])\")",
+      "status": "open",
+      "consequence": "engine_advice",
+      "measured": "Both regexes require an infix `or 0` / `?? 0` / `|| 0` between two expressions. Verified directly: 'return 0.0' -> no match, 'return None' -> no match, 'x = a or 0' -> match.",
+      "userSurface": "None directly \u2014 same shape as U05.",
+      "verifiedBy": "Ran both compiled patterns against the three literals.",
+      "notes": "This is why U01 escapes: src/api/terminal.py is a scanned file carrying 18 baselined entries, and its terminating `return 0.0` is invisible to the gate.",
+      "probe": {
+        "result": "signature_present",
+        "path": "scripts/check_decision_coercions.py",
+        "needle": "_PY_PATTERN = re.compile(r\"\\bor\\s+(?:0\\.0|0|1\\.0|1|100|100\\.0)\\b(?!\\s*[.\\w])\")"
+      }
+    }
+  ]
+}

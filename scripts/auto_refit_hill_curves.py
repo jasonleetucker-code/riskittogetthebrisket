@@ -311,6 +311,7 @@ def main() -> int:
         target = recorded if recorded is not None else "<version>"
         print(
             "\nA human must promote it — this script cannot. To land it:\n"
+            "  python3 scripts/model_registry.py evaluate --champion --record\n"
             f"  python3 scripts/model_registry.py validate {target}\n"
             f'  python3 scripts/model_registry.py promote {target} --reason "held-out win"\n'
             "  python3 scripts/model_registry.py apply\n"
