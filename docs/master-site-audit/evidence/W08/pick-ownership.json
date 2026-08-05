@@ -1,0 +1,486 @@
+{
+ "perTeam": {
+  "Jason": {
+   "rawPicks": 62,
+   "resolved": 62,
+   "distinctRows": 18,
+   "unresolved": []
+  },
+  "Ed": {
+   "rawPicks": 8,
+   "resolved": 8,
+   "distinctRows": 8,
+   "unresolved": []
+  },
+  "Ty": {
+   "rawPicks": 15,
+   "resolved": 15,
+   "distinctRows": 14,
+   "unresolved": []
+  },
+  "Collin": {
+   "rawPicks": 18,
+   "resolved": 18,
+   "distinctRows": 17,
+   "unresolved": []
+  },
+  "MaKayla": {
+   "rawPicks": 16,
+   "resolved": 16,
+   "distinctRows": 15,
+   "unresolved": []
+  },
+  "Eric": {
+   "rawPicks": 12,
+   "resolved": 12,
+   "distinctRows": 11,
+   "unresolved": []
+  },
+  "Roy": {
+   "rawPicks": 20,
+   "resolved": 20,
+   "distinctRows": 16,
+   "unresolved": []
+  },
+  "Joey": {
+   "rawPicks": 14,
+   "resolved": 14,
+   "distinctRows": 14,
+   "unresolved": []
+  },
+  "Brent": {
+   "rawPicks": 6,
+   "resolved": 6,
+   "distinctRows": 6,
+   "unresolved": []
+  },
+  "Kich": {
+   "rawPicks": 14,
+   "resolved": 14,
+   "distinctRows": 13,
+   "unresolved": []
+  },
+  "jstuedle": {
+   "rawPicks": 18,
+   "resolved": 18,
+   "distinctRows": 18,
+   "unresolved": []
+  },
+  "Blaine": {
+   "rawPicks": 13,
+   "resolved": 13,
+   "distinctRows": 13,
+   "unresolved": []
+  }
+ },
+ "jasonDetail": {
+  "2026 1st": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2026 Mid 1st",
+    "value": 0
+   }
+  ],
+  "2026 2nd": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2026 Mid 2nd",
+    "value": 0
+   }
+  ],
+  "2026 3rd": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2026 Mid 3rd",
+    "value": 0
+   }
+  ],
+  "2026 4th": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2026 Mid 4th",
+    "value": 0
+   }
+  ],
+  "2026 5th": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2026 Mid 5th",
+    "value": 0
+   }
+  ],
+  "2026 6th": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2026 Mid 6th",
+    "value": 0
+   }
+  ],
+  "2027 1st": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2027 Mid 1st",
+    "value": 5606
+   },
+   {
+    "orig": 2,
+    "owner": 1,
+    "row": "2027 Mid 1st",
+    "value": 5606
+   },
+   {
+    "orig": 3,
+    "owner": 1,
+    "row": "2027 Mid 1st",
+    "value": 5606
+   },
+   {
+    "orig": 6,
+    "owner": 1,
+    "row": "2027 Mid 1st",
+    "value": 5606
+   },
+   {
+    "orig": 8,
+    "owner": 1,
+    "row": "2027 Mid 1st",
+    "value": 5606
+   },
+   {
+    "orig": 9,
+    "owner": 1,
+    "row": "2027 Mid 1st",
+    "value": 5606
+   },
+   {
+    "orig": 10,
+    "owner": 1,
+    "row": "2027 Mid 1st",
+    "value": 5606
+   },
+   {
+    "orig": 12,
+    "owner": 1,
+    "row": "2027 Mid 1st",
+    "value": 5606
+   }
+  ],
+  "2027 2nd": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2027 Mid 2nd",
+    "value": 3415
+   },
+   {
+    "orig": 2,
+    "owner": 1,
+    "row": "2027 Mid 2nd",
+    "value": 3415
+   },
+   {
+    "orig": 3,
+    "owner": 1,
+    "row": "2027 Mid 2nd",
+    "value": 3415
+   },
+   {
+    "orig": 6,
+    "owner": 1,
+    "row": "2027 Mid 2nd",
+    "value": 3415
+   },
+   {
+    "orig": 7,
+    "owner": 1,
+    "row": "2027 Mid 2nd",
+    "value": 3415
+   },
+   {
+    "orig": 8,
+    "owner": 1,
+    "row": "2027 Mid 2nd",
+    "value": 3415
+   },
+   {
+    "orig": 9,
+    "owner": 1,
+    "row": "2027 Mid 2nd",
+    "value": 3415
+   },
+   {
+    "orig": 10,
+    "owner": 1,
+    "row": "2027 Mid 2nd",
+    "value": 3415
+   }
+  ],
+  "2027 3rd": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2027 Mid 3rd",
+    "value": 2512
+   },
+   {
+    "orig": 2,
+    "owner": 1,
+    "row": "2027 Mid 3rd",
+    "value": 2512
+   },
+   {
+    "orig": 6,
+    "owner": 1,
+    "row": "2027 Mid 3rd",
+    "value": 2512
+   },
+   {
+    "orig": 9,
+    "owner": 1,
+    "row": "2027 Mid 3rd",
+    "value": 2512
+   },
+   {
+    "orig": 10,
+    "owner": 1,
+    "row": "2027 Mid 3rd",
+    "value": 2512
+   },
+   {
+    "orig": 12,
+    "owner": 1,
+    "row": "2027 Mid 3rd",
+    "value": 2512
+   }
+  ],
+  "2027 4th": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2027 Mid 4th",
+    "value": 1760
+   },
+   {
+    "orig": 2,
+    "owner": 1,
+    "row": "2027 Mid 4th",
+    "value": 1760
+   },
+   {
+    "orig": 6,
+    "owner": 1,
+    "row": "2027 Mid 4th",
+    "value": 1760
+   },
+   {
+    "orig": 7,
+    "owner": 1,
+    "row": "2027 Mid 4th",
+    "value": 1760
+   },
+   {
+    "orig": 10,
+    "owner": 1,
+    "row": "2027 Mid 4th",
+    "value": 1760
+   }
+  ],
+  "2027 5th": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2027 Mid 5th",
+    "value": 0
+   },
+   {
+    "orig": 2,
+    "owner": 1,
+    "row": "2027 Mid 5th",
+    "value": 0
+   },
+   {
+    "orig": 9,
+    "owner": 1,
+    "row": "2027 Mid 5th",
+    "value": 0
+   }
+  ],
+  "2027 6th": [
+   {
+    "orig": 9,
+    "owner": 1,
+    "row": "2027 Mid 6th",
+    "value": 0
+   }
+  ],
+  "2028 1st": [
+   {
+    "orig": 2,
+    "owner": 1,
+    "row": "2028 Mid 1st",
+    "value": 4564
+   },
+   {
+    "orig": 5,
+    "owner": 1,
+    "row": "2028 Mid 1st",
+    "value": 4564
+   },
+   {
+    "orig": 6,
+    "owner": 1,
+    "row": "2028 Mid 1st",
+    "value": 4564
+   }
+  ],
+  "2028 2nd": [
+   {
+    "orig": 2,
+    "owner": 1,
+    "row": "2028 Mid 2nd",
+    "value": 2987
+   },
+   {
+    "orig": 6,
+    "owner": 1,
+    "row": "2028 Mid 2nd",
+    "value": 2987
+   },
+   {
+    "orig": 8,
+    "owner": 1,
+    "row": "2028 Mid 2nd",
+    "value": 2987
+   },
+   {
+    "orig": 9,
+    "owner": 1,
+    "row": "2028 Mid 2nd",
+    "value": 2987
+   },
+   {
+    "orig": 12,
+    "owner": 1,
+    "row": "2028 Mid 2nd",
+    "value": 2987
+   }
+  ],
+  "2028 3rd": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2028 Mid 3rd",
+    "value": 2097
+   },
+   {
+    "orig": 2,
+    "owner": 1,
+    "row": "2028 Mid 3rd",
+    "value": 2097
+   },
+   {
+    "orig": 7,
+    "owner": 1,
+    "row": "2028 Mid 3rd",
+    "value": 2097
+   },
+   {
+    "orig": 9,
+    "owner": 1,
+    "row": "2028 Mid 3rd",
+    "value": 2097
+   },
+   {
+    "orig": 10,
+    "owner": 1,
+    "row": "2028 Mid 3rd",
+    "value": 2097
+   }
+  ],
+  "2028 4th": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2028 Mid 4th",
+    "value": 1583
+   },
+   {
+    "orig": 2,
+    "owner": 1,
+    "row": "2028 Mid 4th",
+    "value": 1583
+   },
+   {
+    "orig": 3,
+    "owner": 1,
+    "row": "2028 Mid 4th",
+    "value": 1583
+   },
+   {
+    "orig": 6,
+    "owner": 1,
+    "row": "2028 Mid 4th",
+    "value": 1583
+   },
+   {
+    "orig": 9,
+    "owner": 1,
+    "row": "2028 Mid 4th",
+    "value": 1583
+   }
+  ],
+  "2028 5th": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2028 Mid 5th",
+    "value": 0
+   },
+   {
+    "orig": 2,
+    "owner": 1,
+    "row": "2028 Mid 5th",
+    "value": 0
+   },
+   {
+    "orig": 5,
+    "owner": 1,
+    "row": "2028 Mid 5th",
+    "value": 0
+   },
+   {
+    "orig": 9,
+    "owner": 1,
+    "row": "2028 Mid 5th",
+    "value": 0
+   }
+  ],
+  "2028 6th": [
+   {
+    "orig": 1,
+    "owner": 1,
+    "row": "2028 Mid 6th",
+    "value": 0
+   },
+   {
+    "orig": 4,
+    "owner": 1,
+    "row": "2028 Mid 6th",
+    "value": 0
+   },
+   {
+    "orig": 9,
+    "owner": 1,
+    "row": "2028 Mid 6th",
+    "value": 0
+   }
+  ]
+ }
+}

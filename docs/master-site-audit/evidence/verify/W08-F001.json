@@ -1,0 +1,87 @@
+{
+ "id": "W08-F001",
+ "workstream": "W08",
+ "promptSections": [
+  12
+ ],
+ "title": "The /trade calculator never sums the canonical board: the frontend posts an explicit tep_multiplier=1.15 on every load, which disables the ADR-015 TE basis conversion and reprices 129 of 809 players by up to -21.2%",
+ "status": "Implemented but disconnected",
+ "priority": "P0",
+ "size": "S",
+ "subsystem": "Trade calculator value source",
+ "surface": {
+  "routes": [
+   "/api/dynasty-data",
+   "/api/rankings/overrides?view=delta"
+  ],
+  "pages": [
+   "/trade",
+   "/rankings"
+  ],
+  "flags": [
+   "te_basis_conversion"
+  ]
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/components/useSettings.js",
+   "lines": "35"
+  },
+  {
+   "path": "frontend/components/useSettings.js",
+   "lines": "176-192"
+  },
+  {
+   "path": "frontend/lib/dynasty-data.js",
+   "lines": "919-923"
+  },
+  {
+   "path": "frontend/lib/dynasty-data.js",
+   "lines": "2018-2036"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "6937-6966"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "7674-7690"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md ADR-015: TE rows from non-TEP sources are lifted via te_premium.convert_te_value using KTC's measured uplift (1.209 at the top rising toward 2.05), replacing 'a flat 1.15 that sat below the entire observed range'; the feature ships flag-ON. CLAUDE.md also states 'an explicit operator slider value bypasses the curve regardless' \u2014 but does not note that the frontend always sends one. useSettings.js additionally claims tepMultiplier=null means 'auto from league / inherit from backend'.",
+ "observed": "data_contract.py gates the whole basis conversion behind `if not tep_multiplier_is_override:`. `useSettings.js` SETTINGS_DEFAULTS sets tepMultiplier: 1.15 (a finite number), and readSettings() actively coerces null/1.0/1.25 back to 1.15 on first read. tepMultiplierIsCustomized() returns true for any finite number, so fetchDynastyData takes the override path and POSTs {\"tep_multiplier\":1.15} on EVERY page load. Captured live from the browser on /trade: `POST /api/rankings/overrides?view=delta {\"tep_multiplier\":1.15}`. The response reports tepMultiplier 1.15, tepMultiplierDefault 1.15, tepMultiplierDerived 1.15, isCustomized false \u2014 identical declared parameters to the base contract \u2014 but tepMultiplierSource flips 'default' -> 'override' and 129 of 809 players get different values. The ADR-015 curve is therefore unreachable from the product: no user-facing path produces the board the backend calls canonical.",
+ "reproduction": {
+  "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/audit-cookies-w08.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\" >/dev/null; .venv/bin/python docs/master-site-audit/evidence/W08/tep_override_divergence.py",
+  "expected": "Posting the exact value the server reports as tepMultiplierDerived/tepMultiplierDefault must be a no-op: 0 of 809 players differ (which is what an empty body {} does).",
+  "actual": "129 of 809 differ. Tyler Conklin 1450 -> 1142 (-21.2%), Josh Cuevas 1541 -> 1215 (-21.2%), Sam LaPorta 5222 -> 5021 (-3.8%). 89 players >5%, 54 >10%. Confirmed in the DOM: /trade renders Sam LaPorta at 5,021, /api/dynasty-data says 5,222.",
+  "artifact": "docs/master-site-audit/evidence/W08/tep_override_divergence.py"
+ },
+ "numericProof": {
+  "inputs": {
+   "body_empty": "{}",
+   "body_frontend_default": "{\"tep_multiplier\":1.15}",
+   "tepMultiplierDerived_reported_by_server": 1.15,
+   "players_compared": 809
+  },
+  "formula": "diff_i = |rankDerivedValue_override(i) - rankDerivedValue_base(i)| / rankDerivedValue_base(i); count(diff_i > 0)",
+  "expected": 0,
+  "actual": 129,
+  "tolerance": 0
+ },
+ "userImpact": "Every TE priced on the trade calculator, the rankings board and every client-side sum is up to 21% below the value the backend's own canonical pipeline produces, with no indication on screen. A user trading a TE gives one away ~20% too cheap (or overpays to acquire one) on a board the app cannot be configured to leave \u2014 clearing the setting is undone by the readSettings() migration. The measured TE-basis feature the repo shipped and flagged ON is dead in production.",
+ "blastRadius": {
+  "playersAffected": 129,
+  "routesAffected": 2,
+  "pagesAffected": 6
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "No area-2 prior finding covers the TEP override path or the base-vs-override board divergence. Adjacent but distinct from PRIOR-A02-F11 (which is about KTC constants being fed our blended values, not about which blend)."
+ },
+ "whatWorks": "POST /api/rankings/overrides?view=delta with an empty body {} reproduces the base contract exactly (0 of 812 rows differ) \u2014 the delta merge itself is sound. The response honestly stamps tepMultiplierSource so the divergence is diagnosable from the payload.",
+ "rootCause": "src/api/data_contract.py:6939 gates te_basis_conversion on `not tep_multiplier_is_override`, and the frontend's default settings make every request an override. The gate was written for 'the operator moved the slider'; nothing checks whether the posted value equals the derived default, and the frontend has no 'unset' state because readSettings() rewrites null back to 1.15.",
+ "requiredRepair": "Either (a) make tepMultiplier default to null and stop the readSettings() coercion so fetchDynastyData takes the no-override path, or (b) treat a posted value equal to tepMultiplierDerived as 'default' rather than 'override' in data_contract.py's source resolution. (a) is smaller and matches the documented sentinel. Add a regression test asserting POST {tep_multiplier: <derived>} is byte-identical to POST {}.",
+ "dependencies": "Interacts with W08-F012 (backend engines read the un-overridden board) \u2014 fixing this closes that divergence too."
+}

@@ -1,0 +1,72 @@
+{
+ "id": "W29-F002",
+ "workstream": "W29",
+ "promptSections": [
+  7
+ ],
+ "title": "valuationMode=leagueAdjusted is stamped on responses where 41% of asset legs are still priced on the unadjusted market board",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "S",
+ "subsystem": "League-adjusted valuation lens",
+ "surface": {
+  "routes": [
+   "/api/trade/suggestions",
+   "/api/valuation/league-adjusted"
+  ],
+  "pages": [
+   "/trade"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/league_intel/overlay.py",
+   "lines": "86-95"
+  },
+  {
+   "path": "src/trade/suggestions.py",
+   "lines": "1737-1741"
+  },
+  {
+   "path": "frontend/lib/dynasty-data.js",
+   "lines": "1941-1952"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md: 'Mechanism, in one place: server.py::_valuation_scoped_contract fetches the league's factors and hands the engine a contract whose playersArray rows are already repriced. No engine knows the feature exists, because every engine reads exactly one value.' And: 'Every response stamps valuationMode - including \"market\". \"This is the market board\" and \"this field is missing\" must not read the same.'",
+ "observed": "overlay.adjusted_rows multiplies exactly one field: copy['rankDerivedValue'] = round(base*factor) (overlay.py:90-93). offenseOnlyRankDerivedValue is copied through unchanged. Because suggestions.py serializes all-offense trades from that field (W29-F001), 21 of 51 legs (41.2%) across all 12 teams come back at the unadjusted market value while the response header says valuationMode: leagueAdjusted. For the 'Jason' roster it is 12 of 12 - the entire suggestion set. The same response's rosterAnalysis block IS adjusted, so one screen mixes both boards. The client-side applier is inconsistent with the server one: dynasty-data.js:1946-1948 additionally scales values.overall/finalAdjusted/displayValue and :1980 _finalAdjusted.",
+ "reproduction": {
+  "command": "OUT=/tmp/w29 bash docs/master-site-audit/evidence/W29/repro.sh",
+  "expected": "0 legs at the unadjusted value when valuationMode=leagueAdjusted",
+  "actual": "adjusted : 21/51 legs still at the UNADJUSTED offense-only market value",
+  "artifact": "docs/master-site-audit/evidence/W29/lens-blast.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "player": "Kenneth Walker",
+   "rankDerivedValue": 5813,
+   "positionFactor": 1.041554,
+   "offenseOnlyRankDerivedValue": 5831
+  },
+  "formula": "expected_adjusted = round(rankDerivedValue * factor) = round(5813*1.041554)",
+  "expected": 6055,
+  "actual": 5831,
+  "tolerance": 0
+ },
+ "userImpact": "A user who switches to the league-adjusted board gets trade suggestions priced on the market board, labelled adjusted, sitting on the same screen as a roster analysis that IS adjusted. The stated purpose of the lens - 'adjusted rankings, market-priced trades, in the same session, with nothing on screen saying so' - is the exact condition still present, now with a label asserting otherwise.",
+ "blastRadius": {
+  "playersAffected": 606,
+  "routesAffected": 6,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A20-F06",
+  "relation": "confirmed",
+  "note": "Prior identified the mechanism by code reading. Reproduced here at runtime across all 12 rosters with per-leg arithmetic: 21/51 legs, and 12/12 for one roster. Prior did not measure blast radius or note that the response stamps the mode it is not honouring."
+ },
+ "whatWorks": "The lens itself is real and correct where it applies: 709/1092 rows carry a factor, monotonicityViolations is empty, and Jayden Daniels moves 8898 -> 9061 exactly as factor 1.018366 predicts. adjusted_rows correctly returns ALL rows rather than compact_ranks_and_tiers' ranked subset.",
+ "rootCause": "The overlay was written against the invariant 'every engine reads exactly one value'. That invariant is false for suggestions.py, and nothing enforces it - tests/api/test_valuation_mode_threading.py checks that handlers STAMP the mode, not that the served numbers moved.",
+ "requiredRepair": "Scale offenseOnlyRankDerivedValue by the same factor in overlay.adjusted_rows (and mirror _offenseOnlyFinalAdjusted), OR remove the offense-only serialization per W29-F001. Add an assertion to the threading test that at least one served value differs between modes for a roster with known non-unit factors.",
+ "dependencies": "W29-F001"
+}

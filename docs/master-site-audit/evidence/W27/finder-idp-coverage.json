@@ -1,0 +1,257 @@
+{
+ "metadata": {
+  "myTeam": "Jason",
+  "opponentTeams": [
+   "Blaine",
+   "Brent",
+   "Collin",
+   "Ed",
+   "Eric",
+   "Joey",
+   "Kich",
+   "MaKayla",
+   "Roy",
+   "Ty",
+   "jstuedle"
+  ],
+  "opponentsAnalyzed": 11,
+  "myRosterSize": 34,
+  "totalCandidatesEvaluated": 7045,
+  "totalQualified": 6073,
+  "returned": 40,
+  "assetPoolSize": 300,
+  "valueSource": "rankDerivedValue",
+  "assetsUnpricedByBoard": 186,
+  "marketTopNFilter": 150,
+  "marketCoverage": {
+   "ktcSfTep": 132,
+   "ktc": 18,
+   "idpTradeCalc": 150
+  },
+  "marketCoveragePercent": 100.0,
+  "mixedMarketTrades": 0,
+  "ktcTopNFilter": 150,
+  "ktcCoveragePercent": 100.0
+ },
+ "warnings": [
+  "186 assets carry a scraper value above 800 but no canonical board value, so they are not tradeable here. They are unpriced, not worthless."
+ ],
+ "firstTrades": [
+  {
+   "give": [
+    {
+     "name": "Andrew Van Ginkel",
+     "position": "DL",
+     "team": "MIN",
+     "modelValue": 1709,
+     "ktcValue": 2011,
+     "ktcRank": 74
+    }
+   ],
+   "receive": [
+    {
+     "name": "Chamarri Conner",
+     "position": "DB",
+     "team": "KC",
+     "modelValue": 1502,
+     "ktcValue": 1329,
+     "ktcRank": 129
+    },
+    {
+     "name": "Xavier McKinney",
+     "position": "DB",
+     "team": "GB",
+     "modelValue": 1441,
+     "ktcValue": 1334,
+     "ktcRank": 128
+    }
+   ],
+   "giveModelTotal": 1709,
+   "receiveModelTotal": 2943,
+   "giveKtcTotal": 2703,
+   "receiveKtcTotal": 2663,
+   "boardDelta": 1234,
+   "ktcDelta": 40,
+   "opponentKtcAppeal": 0.015,
+   "arbitrageScore": 35.09,
+   "ktcCoverage": "full",
+   "marketsUsed": [
+    "idpTradeCalc"
+   ],
+   "mixedMarket": false,
+   "confidenceScore": 0.2,
+   "confidenceTier": "low",
+   "edgeLabel": "Strong Edge",
+   "summary": "Strong Edge: you gain 1,234 board value (+72%). opponent gains 2% on KTC. low confidence. (1-for-2) Market package adjustment: +692 to your give side. Roster fit: sheds DL surplus.",
+   "rankingFactors": {
+    "boardEdge": 36.1,
+    "ktcAppeal": 0.45,
+    "positiveBonus": 10.0,
+    "confidenceMultiplier": 0.76,
+    "valueScale": 1.71,
+    "simplicityPenalty": -3,
+    "rosterFitBonus": 1.0,
+    "marketValueAdjustment": 692
+   },
+   "flags": [
+    "full_market",
+    "low_confidence",
+    "market_value_adjustment_give",
+    "roster_fit"
+   ],
+   "packageSize": "1-for-2",
+   "rawGiveKtcTotal": 2011,
+   "rawReceiveKtcTotal": 2663,
+   "adjustedGiveKtcTotal": 2703,
+   "adjustedReceiveKtcTotal": 2663,
+   "marketValueAdjustment": 692,
+   "marketValueAdjustmentSide": "give",
+   "marketValueAdjustmentApplied": true
+  },
+  {
+   "give": [
+    {
+     "name": "Andrew Van Ginkel",
+     "position": "DL",
+     "team": "MIN",
+     "modelValue": 1709,
+     "ktcValue": 2011,
+     "ktcRank": 74
+    }
+   ],
+   "receive": [
+    {
+     "name": "Chamarri Conner",
+     "position": "DB",
+     "team": "KC",
+     "modelValue": 1502,
+     "ktcValue": 1329,
+     "ktcRank": 129
+    },
+    {
+     "name": "Jordan Davis",
+     "position": "DL",
+     "team": "PHI",
+     "modelValue": 1403,
+     "ktcValue": 1288,
+     "ktcRank": 139
+    }
+   ],
+   "giveModelTotal": 1709,
+   "receiveModelTotal": 2905,
+   "giveKtcTotal": 2714,
+   "receiveKtcTotal": 2617,
+   "boardDelta": 1196,
+   "ktcDelta": 97,
+   "opponentKtcAppeal": 0.037,
+   "arbitrageScore": 34.75,
+   "ktcCoverage": "full",
+   "marketsUsed": [
+    "idpTradeCalc"
+   ],
+   "mixedMarket": false,
+   "confidenceScore": 0.2,
+   "confidenceTier": "low",
+   "edgeLabel": "Strong Edge",
+   "summary": "Strong Edge: you gain 1,196 board value (+70%). opponent gains 4% on KTC. low confidence. (1-for-2) Market package adjustment: +703 to your give side. Roster fit: sheds DL surplus.",
+   "rankingFactors": {
+    "boardEdge": 34.99,
+    "ktcAppeal": 1.11,
+    "positiveBonus": 10.0,
+    "confidenceMultiplier": 0.76,
+    "valueScale": 1.71,
+    "simplicityPenalty": -3,
+    "rosterFitBonus": 1.0,
+    "marketValueAdjustment": 703
+   },
+   "flags": [
+    "full_market",
+    "low_confidence",
+    "market_value_adjustment_give",
+    "roster_fit"
+   ],
+   "packageSize": "1-for-2",
+   "rawGiveKtcTotal": 2011,
+   "rawReceiveKtcTotal": 2617,
+   "adjustedGiveKtcTotal": 2714,
+   "adjustedReceiveKtcTotal": 2617,
+   "marketValueAdjustment": 703,
+   "marketValueAdjustmentSide": "give",
+   "marketValueAdjustmentApplied": true
+  },
+  {
+   "give": [
+    {
+     "name": "Brock Bowers",
+     "position": "TE",
+     "team": "LV",
+     "modelValue": 9950,
+     "ktcValue": 9924,
+     "ktcRank": 5,
+     "modelValueFull": 9947
+    }
+   ],
+   "receive": [
+    {
+     "name": "Jonathan Taylor",
+     "position": "RB",
+     "team": "IND",
+     "modelValue": 6472,
+     "ktcValue": 6203,
+     "ktcRank": 33,
+     "modelValueFull": 6431
+    },
+    {
+     "name": "Patrick Mahomes",
+     "position": "QB",
+     "team": "KC",
+     "modelValue": 7482,
+     "ktcValue": 6298,
+     "ktcRank": 29,
+     "modelValueFull": 7461
+    }
+   ],
+   "giveModelTotal": 9950,
+   "receiveModelTotal": 13954,
+   "giveKtcTotal": 14678,
+   "receiveKtcTotal": 12501,
+   "boardDelta": 4004,
+   "ktcDelta": 2177,
+   "opponentKtcAppeal": 0.174,
+   "arbitrageScore": 34.6,
+   "ktcCoverage": "full",
+   "marketsUsed": [
+    "ktc"
+   ],
+   "mixedMarket": false,
+   "confidenceScore": 0.6,
+   "confidenceTier": "moderate",
+   "edgeLabel": "Strong Edge",
+   "summary": "Strong Edge: you gain 4,004 board value (+40%). opponent gains 17% on KTC. moderate confidence. (1-for-2) Market package adjustment: +4,754 to your give side. Roster fit: fills RB need.",
+   "rankingFactors": {
+    "boardEdge": 20.12,
+    "ktcAppeal": 5.22,
+    "positiveBonus": 10.0,
+    "confidenceMultiplier": 0.88,
+    "valueScale": 5.0,
+    "simplicityPenalty": -3,
+    "rosterFitBonus": 1.5,
+    "marketValueAdjustment": 4754
+   },
+   "flags": [
+    "full_market",
+    "moderate_confidence",
+    "market_value_adjustment_give",
+    "roster_fit"
+   ],
+   "packageSize": "1-for-2",
+   "rawGiveKtcTotal": 9924,
+   "rawReceiveKtcTotal": 12501,
+   "adjustedGiveKtcTotal": 14678,
+   "adjustedReceiveKtcTotal": 12501,
+   "marketValueAdjustment": 4754,
+   "marketValueAdjustmentSide": "give",
+   "marketValueAdjustmentApplied": true
+  }
+ ]
+}

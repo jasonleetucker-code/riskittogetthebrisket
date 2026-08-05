@@ -1,0 +1,41 @@
+{
+ "dlfSf": {
+  "entriesAfterHeaderRename": null,
+  "parseErrors": [
+   {
+    "source": "dlfSf",
+    "path": "CSVs/site_raw/dlfSf.csv",
+    "error": "schema_mismatch",
+    "header": "colA,colB,colC,colD,colE,colF,colG,colH"
+   }
+  ]
+ },
+ "otcffbSf": {
+  "entriesAfterHeaderRename": null,
+  "parseErrors": []
+ },
+ "fantasyCalc": {
+  "entriesAfterHeaderRename": null,
+  "parseErrors": []
+ },
+ "pfkDynasty": {
+  "entriesAfterHeaderRename": null,
+  "parseErrors": []
+ },
+ "draftSharks": {
+  "entriesAfterHeaderRename": null,
+  "parseErrors": []
+ },
+ "yahooBoone": {
+  "entriesAfterHeaderRename": null,
+  "parseErrors": []
+ },
+ "ktcSfTep": {
+  "entriesAfterHeaderRename": null,
+  "parseErrors": []
+ },
+ "idpShow": {
+  "entriesAfterHeaderRename": null,
+  "parseErrors": []
+ }
+}

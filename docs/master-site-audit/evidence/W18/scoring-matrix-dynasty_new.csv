@@ -1,0 +1,165 @@
+setting,host API value (league 1320092771247222784),repo registry value,value SERVED by /api/data?leagueKey=dynasty_new,status
+roster_positions.BN,17,14,37,MISMATCH
+roster_positions.DB,0,0,3,MISMATCH
+roster_positions.DL,0,0,3,MISMATCH
+roster_positions.FLEX,1,2,2,MISMATCH
+roster_positions.K,0,0,1,MISMATCH
+roster_positions.LB,0,0,3,MISMATCH
+roster_positions.QB,1,1,1,MATCH
+roster_positions.RB,2,2,2,MATCH
+roster_positions.SUPER_FLEX,1,1,1,MATCH
+roster_positions.TE,1,1,2,MISMATCH
+roster_positions.WR,3,3,3,MATCH
+roster_positions.WRRB_FLEX,1,0,0,MISMATCH
+roster_positions.TOTAL,27,24,58,MISMATCH
+settings.num_teams,10,10,12,MISMATCH
+settings.taxi_slots,3,5,0,MISMATCH
+settings.reserve_slots,3,<not in registry>,0,MISMATCH
+settings.best_ball,0,<not in registry>,1,MISMATCH
+settings.playoff_teams,6,<not in registry>,7,MISMATCH
+settings.playoff_week_start,15,<not in registry>,15,MATCH
+settings.waiver_type,2,<not in registry>,2,MATCH
+settings.waiver_budget,100,<not in registry>,100,MATCH
+settings.league_average_match,0,<not in registry>,1,MISMATCH
+settings.draft_rounds,4,<not in registry>,6,MISMATCH
+scoring.blk_kick,2.0,<registry stores no scoring>,1.0,MISMATCH
+scoring.bonus_def_fum_td_50p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_def_int_td_50p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_fd_qb,<absent>,<registry stores no scoring>,0.67,MISMATCH
+scoring.bonus_fd_rb,<absent>,<registry stores no scoring>,1.0,MISMATCH
+scoring.bonus_fd_te,<absent>,<registry stores no scoring>,1.0,MISMATCH
+scoring.bonus_fd_wr,<absent>,<registry stores no scoring>,1.0,MISMATCH
+scoring.bonus_pass_cmp_25,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_pass_yd_300,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_pass_yd_400,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_rec_rb,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_rec_te,0.5,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_rec_wr,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_rec_yd_100,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_rec_yd_200,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_rush_att_20,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_rush_rec_yd_100,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_rush_rec_yd_200,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_rush_yd_100,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_rush_yd_200,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_sack_2p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.bonus_tkl_10p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.def_2pt,<absent>,<registry stores no scoring>,4.0,MISMATCH
+scoring.def_3_and_out,<absent>,<registry stores no scoring>,1.0,MISMATCH
+scoring.def_4_and_stop,<absent>,<registry stores no scoring>,1.0,MISMATCH
+scoring.def_forced_punts,<absent>,<registry stores no scoring>,1.0,MISMATCH
+scoring.def_kr_yd,<absent>,<registry stores no scoring>,0.01,MISMATCH
+scoring.def_pass_def,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.def_pr_yd,<absent>,<registry stores no scoring>,0.01,MISMATCH
+scoring.def_st_ff,1.0,<registry stores no scoring>,0.5,MISMATCH
+scoring.def_st_fum_rec,1.0,<registry stores no scoring>,0.5,MISMATCH
+scoring.def_st_td,6.0,<registry stores no scoring>,6.0,MATCH
+scoring.def_st_tkl_solo,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.def_td,6.0,<registry stores no scoring>,6.0,MATCH
+scoring.ff,1.0,<registry stores no scoring>,0.0,MISMATCH
+scoring.fg_ret_yd,<absent>,<registry stores no scoring>,0.01,MISMATCH
+scoring.fgm,0.0,<registry stores no scoring>,0.0,MATCH
+scoring.fgm_0_19,1.0,<registry stores no scoring>,0.0,MISMATCH
+scoring.fgm_20_29,2.0,<registry stores no scoring>,0.0,MISMATCH
+scoring.fgm_30_39,3.0,<registry stores no scoring>,0.0,MISMATCH
+scoring.fgm_40_49,4.0,<registry stores no scoring>,0.0,MISMATCH
+scoring.fgm_50p,5.0,<registry stores no scoring>,0.0,MISMATCH
+scoring.fgm_60p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.fgm_yds,<absent>,<registry stores no scoring>,0.07,MISMATCH
+scoring.fgm_yds_over_30,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.fgmiss,-1.0,<registry stores no scoring>,0.0,MISMATCH
+scoring.fgmiss_0_19,<absent>,<registry stores no scoring>,-4.55,MISMATCH
+scoring.fgmiss_20_29,<absent>,<registry stores no scoring>,-3.85,MISMATCH
+scoring.fgmiss_30_39,<absent>,<registry stores no scoring>,-3.15,MISMATCH
+scoring.fgmiss_40_49,<absent>,<registry stores no scoring>,-2.45,MISMATCH
+scoring.fgmiss_50_59,<absent>,<registry stores no scoring>,-1.75,MISMATCH
+scoring.fgmiss_50p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.fgmiss_60p,<absent>,<registry stores no scoring>,-1.05,MISMATCH
+scoring.fum,0.0,<registry stores no scoring>,0.0,MATCH
+scoring.fum_lost,-2.0,<registry stores no scoring>,-4.0,MISMATCH
+scoring.fum_rec,2.0,<registry stores no scoring>,1.0,MISMATCH
+scoring.fum_rec_td,6.0,<registry stores no scoring>,6.0,MATCH
+scoring.fum_ret_yd,<absent>,<registry stores no scoring>,0.01,MISMATCH
+scoring.idp_blk_kick,<absent>,<registry stores no scoring>,5.32,MISMATCH
+scoring.idp_def_td,<absent>,<registry stores no scoring>,6.38,MISMATCH
+scoring.idp_ff,<absent>,<registry stores no scoring>,4.25,MISMATCH
+scoring.idp_fum_rec,<absent>,<registry stores no scoring>,3.19,MISMATCH
+scoring.idp_fum_ret_yd,<absent>,<registry stores no scoring>,0.1111111111111111,MISMATCH
+scoring.idp_int,<absent>,<registry stores no scoring>,5.32,MISMATCH
+scoring.idp_int_ret_yd,<absent>,<registry stores no scoring>,0.1111111111111111,MISMATCH
+scoring.idp_pass_def,<absent>,<registry stores no scoring>,5.32,MISMATCH
+scoring.idp_pass_def_3p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.idp_qb_hit,<absent>,<registry stores no scoring>,2.13,MISMATCH
+scoring.idp_sack,<absent>,<registry stores no scoring>,2.92,MISMATCH
+scoring.idp_sack_yd,<absent>,<registry stores no scoring>,0.1111111111111111,MISMATCH
+scoring.idp_safe,<absent>,<registry stores no scoring>,5.32,MISMATCH
+scoring.idp_tkl_ast,<absent>,<registry stores no scoring>,0.8,MISMATCH
+scoring.idp_tkl_loss,<absent>,<registry stores no scoring>,4.25,MISMATCH
+scoring.idp_tkl_solo,<absent>,<registry stores no scoring>,1.33,MISMATCH
+scoring.int,2.0,<registry stores no scoring>,1.0,MISMATCH
+scoring.int_ret_yd,<absent>,<registry stores no scoring>,0.01,MISMATCH
+scoring.kr_yd,<absent>,<registry stores no scoring>,0.03333333333333333,MISMATCH
+scoring.pass_2pt,2.0,<registry stores no scoring>,2.0,MATCH
+scoring.pass_att,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.pass_cmp,<absent>,<registry stores no scoring>,0.15,MISMATCH
+scoring.pass_cmp_40p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.pass_fd,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.pass_inc,<absent>,<registry stores no scoring>,-0.22,MISMATCH
+scoring.pass_int,-1.0,<registry stores no scoring>,-4.0,MISMATCH
+scoring.pass_int_td,<absent>,<registry stores no scoring>,-2.0,MISMATCH
+scoring.pass_sack,<absent>,<registry stores no scoring>,-1.0,MISMATCH
+scoring.pass_td,4.0,<registry stores no scoring>,6.0,MISMATCH
+scoring.pass_td_40p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.pass_yd,0.04,<registry stores no scoring>,0.03333333333333333,MISMATCH
+scoring.pr_yd,<absent>,<registry stores no scoring>,0.03333333333333333,MISMATCH
+scoring.pts_allow,<absent>,<registry stores no scoring>,-1.0,MISMATCH
+scoring.pts_allow_0,10.0,<registry stores no scoring>,45.0,MISMATCH
+scoring.pts_allow_14_20,1.0,<registry stores no scoring>,35.0,MISMATCH
+scoring.pts_allow_1_6,7.0,<registry stores no scoring>,35.0,MISMATCH
+scoring.pts_allow_21_27,0.0,<registry stores no scoring>,35.0,MISMATCH
+scoring.pts_allow_28_34,-1.0,<registry stores no scoring>,35.0,MISMATCH
+scoring.pts_allow_35p,-4.0,<registry stores no scoring>,35.0,MISMATCH
+scoring.pts_allow_7_13,4.0,<registry stores no scoring>,35.0,MISMATCH
+scoring.qb_hit,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.rec,1.0,<registry stores no scoring>,0.08,MISMATCH
+scoring.rec_0_4,<absent>,<registry stores no scoring>,0.17,MISMATCH
+scoring.rec_10_19,0.0,<registry stores no scoring>,0.67,MISMATCH
+scoring.rec_20_29,0.0,<registry stores no scoring>,0.92,MISMATCH
+scoring.rec_2pt,2.0,<registry stores no scoring>,2.0,MATCH
+scoring.rec_30_39,0.0,<registry stores no scoring>,1.17,MISMATCH
+scoring.rec_40p,<absent>,<registry stores no scoring>,1.92,MISMATCH
+scoring.rec_5_9,0.0,<registry stores no scoring>,0.42,MISMATCH
+scoring.rec_fd,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.rec_td,6.0,<registry stores no scoring>,6.0,MATCH
+scoring.rec_td_40p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.rec_yd,0.1,<registry stores no scoring>,0.1,MATCH
+scoring.rush_2pt,2.0,<registry stores no scoring>,2.0,MATCH
+scoring.rush_40p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.rush_att,<absent>,<registry stores no scoring>,0.08,MISMATCH
+scoring.rush_fd,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.rush_td,6.0,<registry stores no scoring>,6.0,MATCH
+scoring.rush_td_40p,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.rush_yd,0.1,<registry stores no scoring>,0.1,MATCH
+scoring.sack,1.0,<registry stores no scoring>,0.0,MISMATCH
+scoring.sack_yd,<absent>,<registry stores no scoring>,0.01,MISMATCH
+scoring.safe,2.0,<registry stores no scoring>,4.0,MISMATCH
+scoring.st_ff,1.0,<registry stores no scoring>,4.25,MISMATCH
+scoring.st_fum_rec,1.0,<registry stores no scoring>,3.19,MISMATCH
+scoring.st_td,6.0,<registry stores no scoring>,6.0,MATCH
+scoring.st_tkl_solo,<absent>,<registry stores no scoring>,1.33,MISMATCH
+scoring.tkl,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.tkl_ast,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.tkl_loss,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.tkl_solo,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.xpm,1.0,<registry stores no scoring>,2.31,MISMATCH
+scoring.xpmiss,-1.0,<registry stores no scoring>,-3.15,MISMATCH
+scoring.yds_allow,<absent>,<registry stores no scoring>,-0.05,MISMATCH
+scoring.yds_allow_0_100,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.yds_allow_100_199,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.yds_allow_200_299,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.yds_allow_300_349,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.yds_allow_350_399,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.yds_allow_400_449,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.yds_allow_450_499,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.yds_allow_500_549,<absent>,<registry stores no scoring>,0.0,MISMATCH
+scoring.yds_allow_550p,<absent>,<registry stores no scoring>,0.0,MISMATCH

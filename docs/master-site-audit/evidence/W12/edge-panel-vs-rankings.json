@@ -1,0 +1,202 @@
+[
+ {
+  "name": "Eli Raridon",
+  "pos": "TE",
+  "rank": 206,
+  "edgePanel": "SELL",
+  "rankingsEdgeCol": "SELL",
+  "sortKey_sourceRankSpread": 332,
+  "actualGap_marketGapMagnitude": 44.3,
+  "ratio": 7.5
+ },
+ {
+  "name": "De'Zhaun Stribling",
+  "pos": "WR",
+  "rank": 205,
+  "edgePanel": "SELL",
+  "rankingsEdgeCol": "HOLD",
+  "sortKey_sourceRankSpread": 181,
+  "actualGap_marketGapMagnitude": 5.9,
+  "ratio": 30.5
+ },
+ {
+  "name": "Mason Taylor",
+  "pos": "TE",
+  "rank": 246,
+  "edgePanel": "SELL",
+  "rankingsEdgeCol": "SELL",
+  "sortKey_sourceRankSpread": 177,
+  "actualGap_marketGapMagnitude": 66.8,
+  "ratio": 2.7
+ },
+ {
+  "name": "Greg Dulcich",
+  "pos": "TE",
+  "rank": 232,
+  "edgePanel": "SELL",
+  "rankingsEdgeCol": "SELL",
+  "sortKey_sourceRankSpread": 175,
+  "actualGap_marketGapMagnitude": 55.8,
+  "ratio": 3.1
+ },
+ {
+  "name": "Hunter Henry",
+  "pos": "TE",
+  "rank": 191,
+  "edgePanel": "SELL",
+  "rankingsEdgeCol": "SELL",
+  "sortKey_sourceRankSpread": 155,
+  "actualGap_marketGapMagnitude": 27.9,
+  "ratio": 5.6
+ },
+ {
+  "name": "Pat Freiermuth",
+  "pos": "TE",
+  "rank": 245,
+  "edgePanel": "SELL",
+  "rankingsEdgeCol": "SELL",
+  "sortKey_sourceRankSpread": 132,
+  "actualGap_marketGapMagnitude": 42.9,
+  "ratio": 3.1
+ },
+ {
+  "name": "Dalton Schultz",
+  "pos": "TE",
+  "rank": 212,
+  "edgePanel": "SELL",
+  "rankingsEdgeCol": "SELL",
+  "sortKey_sourceRankSpread": 131,
+  "actualGap_marketGapMagnitude": 20.2,
+  "ratio": 6.5
+ },
+ {
+  "name": "Max Klare",
+  "pos": "TE",
+  "rank": 214,
+  "edgePanel": "SELL",
+  "rankingsEdgeCol": "SELL",
+  "sortKey_sourceRankSpread": 128,
+  "actualGap_marketGapMagnitude": 34.7,
+  "ratio": 3.7
+ },
+ {
+  "name": "Travis Kelce",
+  "pos": "TE",
+  "rank": 145,
+  "edgePanel": "SELL",
+  "rankingsEdgeCol": "SELL",
+  "sortKey_sourceRankSpread": 127,
+  "actualGap_marketGapMagnitude": 22,
+  "ratio": 5.8
+ },
+ {
+  "name": "AJ Barner",
+  "pos": "TE",
+  "rank": 147,
+  "edgePanel": "SELL",
+  "rankingsEdgeCol": "SELL",
+  "sortKey_sourceRankSpread": 126,
+  "actualGap_marketGapMagnitude": 43.5,
+  "ratio": 2.9
+ },
+ {
+  "name": "J.J. McCarthy",
+  "pos": "QB",
+  "rank": 222,
+  "edgePanel": "BUY",
+  "rankingsEdgeCol": "BUY",
+  "sortKey_sourceRankSpread": 171,
+  "actualGap_marketGapMagnitude": 30.9,
+  "ratio": 5.5
+ },
+ {
+  "name": "Tua Tagovailoa",
+  "pos": "QB",
+  "rank": 211,
+  "edgePanel": "BUY",
+  "rankingsEdgeCol": "BUY",
+  "sortKey_sourceRankSpread": 167,
+  "actualGap_marketGapMagnitude": 47.6,
+  "ratio": 3.5
+ },
+ {
+  "name": "Chris Godwin",
+  "pos": "WR",
+  "rank": 186,
+  "edgePanel": "BUY",
+  "rankingsEdgeCol": "BUY",
+  "sortKey_sourceRankSpread": 163,
+  "actualGap_marketGapMagnitude": 30.7,
+  "ratio": 5.3
+ },
+ {
+  "name": "Shedeur Sanders",
+  "pos": "QB",
+  "rank": 231,
+  "edgePanel": "BUY",
+  "rankingsEdgeCol": "BUY",
+  "sortKey_sourceRankSpread": 156,
+  "actualGap_marketGapMagnitude": 38.5,
+  "ratio": 4
+ },
+ {
+  "name": "Jacoby Brissett",
+  "pos": "QB",
+  "rank": 247,
+  "edgePanel": "BUY",
+  "rankingsEdgeCol": "BUY",
+  "sortKey_sourceRankSpread": 152,
+  "actualGap_marketGapMagnitude": 11.8,
+  "ratio": 12.8
+ },
+ {
+  "name": "Tre' Harris",
+  "pos": "WR",
+  "rank": 250,
+  "edgePanel": "BUY",
+  "rankingsEdgeCol": "BUY",
+  "sortKey_sourceRankSpread": 137,
+  "actualGap_marketGapMagnitude": 16.7,
+  "ratio": 8.2
+ },
+ {
+  "name": "Rachaad White",
+  "pos": "RB",
+  "rank": 236,
+  "edgePanel": "BUY",
+  "rankingsEdgeCol": "BUY",
+  "sortKey_sourceRankSpread": 134,
+  "actualGap_marketGapMagnitude": 15.1,
+  "ratio": 8.9
+ },
+ {
+  "name": "Tony Pollard",
+  "pos": "RB",
+  "rank": 215,
+  "edgePanel": "BUY",
+  "rankingsEdgeCol": "BUY",
+  "sortKey_sourceRankSpread": 132,
+  "actualGap_marketGapMagnitude": 32,
+  "ratio": 4.1
+ },
+ {
+  "name": "Rhamondre Stevenson",
+  "pos": "RB",
+  "rank": 198,
+  "edgePanel": "BUY",
+  "rankingsEdgeCol": "BUY",
+  "sortKey_sourceRankSpread": 129,
+  "actualGap_marketGapMagnitude": 10.9,
+  "ratio": 11.8
+ },
+ {
+  "name": "Kenny Gainwell",
+  "pos": "RB",
+  "rank": 219,
+  "edgePanel": "BUY",
+  "rankingsEdgeCol": "BUY",
+  "sortKey_sourceRankSpread": 124,
+  "actualGap_marketGapMagnitude": 10.5,
+  "ratio": 11.8
+ }
+]

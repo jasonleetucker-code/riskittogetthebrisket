@@ -1,0 +1,86 @@
+{
+ "id": "W02-F001",
+ "title": "IDP-only sources are handed a combined-pool percentile but scored on the IDP-slice Hill master, so they vote ~48% of the anchor's value at the identical effective rank",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "M",
+ "subsystem": "Core value blend \u2014 scope curve routing",
+ "surface": {
+  "routes": [
+   "/api/data",
+   "/api/rankings/overrides",
+   "/api/terminal",
+   "/api/trade/suggestions",
+   "/api/trade/finder",
+   "/api/trade/simulate",
+   "/api/angle/find",
+   "/api/waiver/faab-recommend"
+  ],
+  "pages": [
+   "/rankings",
+   "/trade",
+   "/waivers",
+   "/terminal"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "6888-6899"
+  },
+  {
+   "path": "src/canonical/player_valuation.py",
+   "lines": "126-134"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "1159-1171"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md step 3/5: 'Scope-appropriate curve routing (cross-market -> GLOBAL, overall IDP -> IDP, everything else -> OFFENSE)'; the dlfIdp registry entry says shared-market ladder translation 'correctly calibrates DLF against the retail offense market'. Both together assert every source's contribution lands in one 0-9999 coordinate system.",
+ "observed": "`needs_shared_market_translation` rewrites an IDP-only source's rank into COMBINED-pool coordinates (dlfIdp/idpShow/fantasyProsIdp raw rank 1 -> effective rank 34 for Aidan Hutchinson, the same slot idpTradeCalc gives him). `_percentile_denom_for_source` then divides by 500 (combined-pool N) and `_curve_for_source` routes by SCOPE to the IDP master (c=0.0830) which was fit on IDPTradeCalc's IDP-only slice. The two coordinate systems are inconsistent: at percentile 0.0661 the IDP master pays 5627 while the value-direct anchor on the same row pays 6444. Measured over the whole board the four IDP-scope rank-signal sources contribute a median 0.461/0.474/0.481/0.485 of idpTradeCalc's contribution on the same row. On offense \u2014 where source rank space and curve space agree \u2014 every source clusters at 0.87-1.08 of the anchor. Re-scoring the SAME percentiles through the GLOBAL master (the curve fit on the combined pool the ladder maps into) returns median ratios 0.92/1.32/1.29/0.95.",
+ "reproduction": {
+  "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python3 docs/master-site-audit/evidence/W02/repro_blend.py  # then see docs/master-site-audit/evidence/W02/w02-measurements.json .idpCurveScaleMismatch",
+  "expected": "IDP-scope source contribution / idpTradeCalc contribution ~= 1.0 on the same row (as offense achieves)",
+  "actual": "median 0.4612 (dlfIdp), 0.4737 (dlfRookieIdp), 0.4806 (idpShow), 0.4845 (fantasyProsIdp)",
+  "artifact": "docs/master-site-audit/evidence/W02/w02-measurements.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "player": "Aidan Hutchinson",
+   "effectiveRank_all_four_sources": 34,
+   "percentile": 0.066132,
+   "idpTradeCalc_valueContribution": 6444,
+   "IDP_HILL_PERCENTILE_C": 0.083,
+   "IDP_HILL_PERCENTILE_S": 1.11,
+   "HILL_GLOBAL_PERCENTILE_C": 0.112,
+   "HILL_GLOBAL_PERCENTILE_S": 0.725
+  },
+  "formula": "V(p) = 9999 / (1 + (p/c)^s) evaluated at the SAME p for the IDP master vs the GLOBAL master",
+  "expected": 6444,
+  "actual": 5627,
+  "tolerance": 200
+ },
+ "userImpact": "Every IDP row's 'multi-source consensus' is dragged down by a units error rather than by disagreement: three sources that rank Aidan Hutchinson their #1 IDP are shown, in the /rankings value-chain panel, as valuing him 13% below the one source that ranks him 34th. A user reads real disagreement where the sources actually agree exactly, and sells IDP assets into a board biased low.",
+ "blastRadius": {
+  "playersAffected": 398,
+  "routesAffected": 8,
+  "pagesAffected": 4
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A11-F00",
+  "relation": "confirmed",
+  "note": "Prior said '~48% of the IDP market at the same rank'. Independently measured 46.1-48.5% median over 605 source votes on the 2026-08-04 board, plus the GLOBAL-curve counterfactual that isolates the mechanism."
+ },
+ "whatWorks": "The shared-market ladder translation itself is correct \u2014 it lands IDP rank 1 on exactly the combined-pool rank the anchor gives. Only the curve chosen afterwards is wrong.",
+ "rootCause": "`_curve_for_source` routes on `scope`, while `_percentile_denom_for_source` and the ladder both operate in combined-pool space. Scope is the wrong key: what determines the right curve is which POOL the effective rank lives in, and after `needs_shared_market_translation` that pool is the combined one.",
+ "requiredRepair": "Route any source whose effective rank has been ladder-translated into combined-pool space through the GLOBAL master (or, equivalently, key `_curve_for_source` on `sharedMarketTranslated`/`needs_rookie_translation` rather than on `scope`). Re-fit is not required \u2014 the GLOBAL master is already the combined-pool curve.",
+ "dependencies": "Fixing this changes 52 anchor ejections (W02-F002) and most of the 127 corridor clamps (W02-F003); those two findings should be re-measured after, not fixed independently.",
+ "workstream": "W02",
+ "promptSections": [
+  7,
+  9
+ ]
+}

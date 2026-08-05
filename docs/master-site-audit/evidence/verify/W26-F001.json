@@ -1,0 +1,92 @@
+{
+ "id": "W26-F001",
+ "workstream": "W26",
+ "promptSections": [
+  35
+ ],
+ "title": "The mobile \"compact\" /api/data view is 13.0% LARGER than the desktop \"array\" view, so phones and low-memory devices are deliberately routed to the heavier payload",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "S",
+ "subsystem": "API payload shaping / device profile",
+ "surface": {
+  "routes": [
+   "/api/data?view=compact",
+   "/api/data?view=array",
+   "/api/dynasty-data"
+  ],
+  "pages": [
+   "/rankings",
+   "/trade",
+   "/draft",
+   "/rosters",
+   "/finder",
+   "/news",
+   "/settings",
+   "/bdvm",
+   "/waivers",
+   "/market/sharp-roster-percentage",
+   "/league-comparison"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/lib/device-profile.js",
+   "lines": "82-108"
+  },
+  {
+   "path": "server.py",
+   "lines": "3125-3145"
+  },
+  {
+   "path": "src/api/compact_view.py",
+   "lines": "1-40"
+  },
+  {
+   "path": "frontend/app/api/dynasty-data/route.js",
+   "lines": "41-51"
+  }
+ ],
+ "claimUnderTest": "server.py:3126-3128 \u2014 'Mobile / slow-network view \u2014 prune ~20 audit + trust fields. ~90% byte reduction.'  frontend/lib/device-profile.js:84 \u2014 'Mobile / slow network -> \"compact\"'.  frontend/app/api/dynasty-data/route.js:45 \u2014 'mobile / slow-network callers ask for the compact (~90% smaller) view'.",
+ "observed": "compact serves 7,363,760 raw bytes; array serves 6,514,536; app serves 5,818,304; full serves 11,953,535.  compact is 849,224 bytes (+13.04%) LARGER than the view desktop asks for, and only 38.4% smaller than full \u2014 not 90%.  Mechanism, byte-accounted: view=array drops the legacy `players` dict entirely and ships playersArray only (6,132,969 b, 55 fields/row).  view=compact prunes 14 audit fields per row (55->41, playersArray 6,132,969 -> 3,659,280 b) but then ALSO ships the legacy `players` dict (3,336,826 b) \u2014 the same 1,092 rows encoded twice.  The per-row pruning is real and works; shipping both encodings more than cancels it.  Confirmed end-to-end in a real browser: desktop /rankings transferred 1,040,158 b / decoded 11,767,159 b; the same page at 390px transferred 1,135,662 b / decoded 12,553,077 b \u2014 mobile pays 95,504 more compressed bytes and 785,918 more decoded bytes.  isMobileProfile() also returns true for any device reporting navigator.deviceMemory <= 4, so budget laptops take the heavy path too.",
+ "reproduction": {
+  "command": "for v in '' '?view=app' '?view=array' '?view=compact'; do printf '%-16s raw=%s\\n' \"${v:-full}\" $(curl -s -b /tmp/audit-cookies.txt -o /dev/null -w '%{size_download}' \"http://127.0.0.1:8000/api/data$v\"); done",
+  "expected": "compact <= array (a view named 'compact' and routed to the weakest devices should be the smallest non-degenerate view)",
+  "actual": "compact=7363760 > array=6514536 > app=5818304",
+  "artifact": "docs/master-site-audit/evidence/W26/compact-vs-array-bytes.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "compactTotalBytes": 7363760,
+   "arrayTotalBytes": 6514536,
+   "compactPlayersArrayBytes": 3659280,
+   "compactPlayersDictBytes": 3336826,
+   "arrayPlayersArrayBytes": 6132969,
+   "rowCount": 1092,
+   "compactPerRowFields": 41,
+   "arrayPerRowFields": 55,
+   "fullTotalBytes": 11953535
+  },
+  "formula": "delta = compactTotalBytes - arrayTotalBytes ; pctLarger = 100*delta/arrayTotalBytes ; claimedReduction = 1 - compactTotalBytes/fullTotalBytes",
+  "expected": 0,
+  "actual": 849224,
+  "tolerance": 1024
+ },
+ "userImpact": "A user on a phone or a 4 GB laptop downloads 95 KB more over the wire and parses 785 KB more JSON on every page load than the same user on a desktop, on a product whose stated design goal is 'mobile-friendly'. On a 3G connection the extra compressed bytes alone add roughly 0.5-1 s to first usable board.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 2,
+  "pagesAffected": 13
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A01-F17",
+  "relation": "partial",
+  "note": "PRIOR-A01-F17 established that desktop requests view=array and therefore has no legacy `players` dict, contradicting CLAUDE.md. This finding is the byte consequence on the OTHER side of that split: compact still carries the dict, which is exactly why it is bigger. PRIOR-A01-F08 is the correctness side of the same view (compact prunes four fields the rankings UI reads); the two are independent and both stand."
+ },
+ "whatWorks": "The per-row compaction itself is correct and effective \u2014 55 fields to 41, playersArray 6.13 MB to 3.66 MB. view=array's decision to drop the legacy dict is the right one. ETag + If-None-Match revalidation works on all views (304 in 3 ms, 0 bytes).",
+ "rootCause": "src/api/compact_view.py applies field pruning to BOTH `playersArray` and the legacy `players` dict, and the compact builder retains the dict, whereas the array builder deletes it. The compact view therefore ships two pruned encodings of the same 1,092 rows where array ships one unpruned encoding of one.",
+ "requiredRepair": "Delete the legacy `players` dict from the compact payload (it is what array already does) \u2014 that alone takes compact to ~4.03 MB, 38% below array and 66% below full, which is closer to the '~90%' the comments claim than anything shipping today. Then correct the three '~90% byte reduction' / '~90% smaller' comments to the measured figure.",
+ "dependencies": "Requires confirming no compact-view consumer reads the legacy dict; frontend/lib/dynasty-data.js::buildRows prefers playersArray when present, and view=array already proves the dict-free shape renders."
+}

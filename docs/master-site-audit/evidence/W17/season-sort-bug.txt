@@ -1,0 +1,17 @@
+order AFTER sorted(snapshot.seasons, key=luck._season_sort_key): ['2026', '2025', '2024']
+sort key applied to a SeasonSnapshot returns: 0
+correct key would be luck._season_sort_key(s.season) -> [2026, 2025, 2024]
+current_season the ROS sims use: 2024 status: complete
+2026 league settings playoff_teams: 7
+owners in that season: 8
+final records: {
+ "468418790212759552": "7-6",
+ "711452264774041600": "5-8",
+ "473973924808355840": "9-4",
+ "714912789268865024": "8-5",
+ "831633191830933504": "4-9",
+ "472206636534984704": "7-6",
+ "609821340567941120": "5-8",
+ "1012114412049731584": "6-7"
+}
+posted future matchups in that season: 0

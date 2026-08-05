@@ -1,0 +1,49 @@
+_MIN_NOTIFY_INTERVAL_HOURS = 12.0
+ACTIONABLE_SIGNALS = ['BUY', 'MONITOR', 'RISK', 'SELL']
+
+--- A: same verb RISK, two different rule tags, seconds apart ---
+  A1 RISK/alert_with_drop          -> fired=1  [(None, 'RISK', 'sid:4984::alert_with_drop')]
+  A2 RISK/high_vol_drop            -> fired=1  [(None, 'RISK', 'sid:4984::high_vol_drop')]
+  A3 RISK/alert_with_drop again    -> fired=0  []
+
+--- B: BUY then SELL under different tags, seconds apart (opposite verbs) ---
+  B1 BUY/uptrend_controlled        -> fired=1  [(None, 'BUY', 'sid:4984::uptrend_controlled')]
+  B2 SELL/sustained_downtrend      -> fired=1  [(None, 'SELL', 'sid:4984::sustained_downtrend')]
+
+stored cooldown state: {
+ "dynasty_main": {
+  "sid:4984::alert_with_drop": {
+   "signal": "RISK",
+   "notifiedAt": 1785879353473
+  },
+  "sid:4984::high_vol_drop": {
+   "signal": "RISK",
+   "notifiedAt": 1785879353488
+  },
+  "sid:4984::uptrend_controlled": {
+   "signal": "BUY",
+   "notifiedAt": 1785879353492
+  },
+  "sid:4984::sustained_downtrend": {
+   "signal": "SELL",
+   "notifiedAt": 1785879353494
+  }
+ }
+}
+
+--- Email delivered for B1+B2 (one player, opposite verbs) ---
+Hi w12user,
+
+2 of your players had a signal change since your last check:
+
+  • Josh Allen (QB)  — → BUY
+    reason=uptrend_controlled
+  • Josh Allen (QB)  — → SELL
+    reason=sustained_downtrend
+
+See the terminal:  https://chaseupside.com/
+
+To stop receiving these, sign in and dismiss the signal — it'll be
+suppressed for 7 days.  You can change the alert cadence on /settings.
+
+— Risk It

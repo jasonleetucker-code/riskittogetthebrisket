@@ -1,0 +1,73 @@
+{
+ "id": "W10-F002",
+ "workstream": "W10",
+ "promptSections": [
+  26,
+  27
+ ],
+ "title": "mergeDraftCapitalTeams hard-caps every team's slot count at 6, so the user's team \u2014 which owns 31 of the 72 live picks \u2014 renders as \"0/6 slots\" with a 5.2x-wrong $/slot",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "S",
+ "subsystem": "Draft slot accounting",
+ "surface": {
+  "routes": [
+   "/api/draft-capital"
+  ],
+  "pages": [
+   "/draft"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "frontend/lib/draft-logic.js",
+   "lines": "1427-1431"
+  },
+  {
+   "path": "frontend/lib/draft-logic.js",
+   "lines": "53"
+  },
+  {
+   "path": "frontend/lib/draft-logic.js",
+   "lines": "467-473"
+  }
+ ],
+ "claimUnderTest": "The user's stated requirement is that the rookie auction optimizer has NO FIXED PLAYER SLOTS, no minimum and no maximum player count. draft-logic.js's own docstring says DEFAULT_INITIAL_SLOTS 'only applies to a pristine workspace before the fetch completes' and that 'the actual per-team count is pulled from /api/draft-capital's picks array'.",
+ "observed": "buildTeam() computes initialSlots = Math.min(feedSlots, DEFAULT_INITIAL_SLOTS) \u2014 DEFAULT_INITIAL_SLOTS = 6 is a hard MAXIMUM applied to the live feed, not a pre-fetch default. Live /api/draft-capital reports Russini Panini owning 31 picks and CollinFoz 7; both are clamped to 6. Total board slots collapse from 72 to 46. Everything downstream is wrong: slotPressure saturates at 1.0 after 6 picks (true 6/31 = 0.19), phaseMultiplier locks at its 1.5x maximum for the remaining 25 picks, effectiveBudget reserves $5 instead of $30, and mdv ($/slot) reads $114 instead of $22. Confirmed in the rendered DOM: the Teams panel prints '0/6' and 'MDV $114' for a $685 / 31-pick team, and the header phase card prints '6 of 6 slots'.",
+ "reproduction": {
+  "command": "node docs/master-site-audit/evidence/W10/probe-slot-cap.mjs   # then: .venv/bin/python docs/master-site-audit/evidence/W10/probe-draft-page.py",
+  "expected": "initialSlots 31 for Russini Panini, totalInitialSlots 72, mdv 685/31 = $22",
+  "actual": "initialSlots 6, totalInitialSlots 46, mdv $114, DOM shows '0/6' and '6 of 6 slots'",
+  "artifact": "docs/master-site-audit/evidence/W10/draft-page-rendered.txt"
+ },
+ "numericProof": {
+  "inputs": {
+   "livePicksOwnedByRussiniPanini": 31,
+   "livePicksOwnedByCollinFoz": 7,
+   "totalLivePicks": 72,
+   "DEFAULT_INITIAL_SLOTS": 6,
+   "auctionDollars": 685
+  },
+  "formula": "initialSlots = min(feedSlots, 6); mdv = remaining / slotsRemaining; slotPressure = 1 - slotsRemaining/initialSlots; phaseMultiplier = 1 + slotPressure*0.5",
+  "expected": 22.1,
+  "actual": 114.17,
+  "tolerance": 0.5
+ },
+ "userImpact": "The user's own team is modelled as having 6 roster spots when it has 31. After 6 picks the app declares the draft over for them \u2014 slots 0, effective budget $0, phase multiplier pinned at 1.5x, and the 'Spend up \u2014 don't let $ go unused' recommendation fires \u2014 while $679 and 25 picks are still live. Every MaxBid for the remaining 25 picks is inflated by 1.5/1.097 = 1.37x by the saturated phase multiplier.",
+ "blastRadius": {
+  "playersAffected": 72,
+  "routesAffected": 1,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A00-F07",
+  "relation": "confirmed",
+  "note": "Reproduced against the live feed and the rendered DOM, and quantified the four downstream consequences (slotPressure, phaseMultiplier, effectiveBudget, mdv) the prior finding named but did not measure."
+ },
+ "whatWorks": "slotsByTeamFromPicks() itself is correct \u2014 it returns the true 31/7/6/... counts from the live picks array. The corruption is introduced one function later.",
+ "rootCause": "A single Math.min against a constant named 'DEFAULT_INITIAL_SLOTS' that is being used as a maximum. In a league with pick trading the number of picks a team owns is unbounded above.",
+ "requiredRepair": "Delete both Math.min(..., DEFAULT_INITIAL_SLOTS) clamps in buildTeam(). Keep DEFAULT_INITIAL_SLOTS strictly as the pre-fetch fallback its docstring describes.",
+ "dependencies": "W10-F001's proposed budget clamp must land after this, or it will clamp against the wrong slot count."
+}

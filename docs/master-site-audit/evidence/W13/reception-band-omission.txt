@@ -1,0 +1,13 @@
+League pays per-reception YARDAGE BAND bonuses: {'rec_0_4': 0.17, 'rec_5_9': 0.42, 'rec_10_19': 0.67, 'rec_20_29': 0.92, 'rec_30_39': 1.17, 'rec_40p': 1.92}
+base 'rec': 0.08  bonus_rec_te: 0.0
+src/nfl_data/realized_points.py references none of these keys, and emits no
+diagnostic for unread scoring rules. BDVM's projections are built on it.
+
+Expected omitted bonus per reception under a league-typical band mix = 0.600 pts
+
+2025 REG, players with >=8 games (n=376):
+pos     n  median scored PPG  median omitted PPG median understatement
+QB     37              26.89                0.00                  0.0%
+RB     95               8.23                0.75                  8.1%
+WR    158               5.22                1.30                 19.7%
+TE     86               4.25                1.24                 22.0%

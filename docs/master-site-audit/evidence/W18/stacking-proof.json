@@ -1,0 +1,133 @@
+{
+ "method": "real Sleeper host stat lines from GET /v1/stats/nfl/regular/2025/{5,9,14}; scored under the LIVE 2026 dynasty_main scoring_settings",
+ "cases": [
+  {
+   "case": "PICK-SIX: does pass_int stack with pass_int_td?",
+   "sleeperPlayerId": "4046",
+   "week": 5,
+   "hostEmittedStats": {
+    "pass_int": 1.0,
+    "pass_int_td": 1.0
+   },
+   "scoredComponents2026": {
+    "pass_int": {
+     "stat": 1.0,
+     "rate": -4.0,
+     "points": -4.0
+    },
+    "pass_int_td": {
+     "stat": 1.0,
+     "rate": -2.0,
+     "points": -2.0
+    }
+   },
+   "stackedSubtotal": -6.0,
+   "note": "YES. The host emits BOTH keys on the same line. Under 2026 rates a pick-six costs pass_int -4.00 AND pass_int_td -2.00 = -6.00 total."
+  },
+  {
+   "case": "RECEPTION: does a distance bucket stack with the base reception?",
+   "sleeperPlayerId": "5045",
+   "week": 5,
+   "hostEmittedStats": {
+    "rec": 8.0,
+    "rec_0_4": 1.0,
+    "rec_5_9": 3.0,
+    "rec_10_19": 3.0,
+    "rec_20_29": null,
+    "rec_30_39": 1.0,
+    "rec_40p": null
+   },
+   "scoredComponents2026": {
+    "rec": {
+     "stat": 8.0,
+     "rate": 0.08,
+     "points": 0.64
+    },
+    "rec_0_4": {
+     "stat": 1.0,
+     "rate": 0.17,
+     "points": 0.17
+    },
+    "rec_10_19": {
+     "stat": 3.0,
+     "rate": 0.67,
+     "points": 2.01
+    },
+    "rec_30_39": {
+     "stat": 1.0,
+     "rate": 1.17,
+     "points": 1.17
+    },
+    "rec_5_9": {
+     "stat": 3.0,
+     "rate": 0.42,
+     "points": 1.26
+    }
+   },
+   "stackedSubtotal": 5.25,
+   "note": "YES. Buckets PARTITION the receptions (they sum to rec) and are scored IN ADDITION to the 0.08 base."
+  },
+  {
+   "case": "IDP SACK: which events stack on one sack?",
+   "sleeperPlayerId": "4967",
+   "week": 5,
+   "hostEmittedStats": {
+    "idp_sack": 1.0,
+    "idp_sack_yd": 10.0,
+    "idp_tkl_solo": 1.0,
+    "idp_tkl_ast": 1.0,
+    "idp_tkl": 2.0,
+    "idp_tkl_loss": 1.0,
+    "idp_qb_hit": 1.0,
+    "idp_ff": 1.0,
+    "idp_fum_rec": 1.0,
+    "idp_def_td": null,
+    "idp_pass_def": null
+   },
+   "scoredComponents2026": {
+    "idp_ff": {
+     "stat": 1.0,
+     "rate": 4.25,
+     "points": 4.25
+    },
+    "idp_fum_rec": {
+     "stat": 1.0,
+     "rate": 3.19,
+     "points": 3.19
+    },
+    "idp_qb_hit": {
+     "stat": 1.0,
+     "rate": 2.13,
+     "points": 2.13
+    },
+    "idp_sack": {
+     "stat": 1.0,
+     "rate": 2.92,
+     "points": 2.92
+    },
+    "idp_sack_yd": {
+     "stat": 10.0,
+     "rate": 0.1111111111111111,
+     "points": 1.1111
+    },
+    "idp_tkl_ast": {
+     "stat": 1.0,
+     "rate": 0.8,
+     "points": 0.8
+    },
+    "idp_tkl_loss": {
+     "stat": 1.0,
+     "rate": 4.25,
+     "points": 4.25
+    },
+    "idp_tkl_solo": {
+     "stat": 1.0,
+     "rate": 1.33,
+     "points": 1.33
+    }
+   },
+   "stackedSubtotal": 19.9811,
+   "note": "ALL of them stack. The host emits every applicable key independently; scoring is a pure dot product. idp_tkl (combined) is emitted but carries NO rate in this league, so solo+assist are not double counted."
+  }
+ ]
+}

@@ -1,0 +1,51 @@
+{
+  "idpMasterFitFrom": [
+    "IDPTradeCalc IDP slice (via snapshot position filter)",
+    "DraftSharks-IDP (CSVs/site_raw/draftSharksIdp.csv)"
+  ],
+  "curveRoutingOfLiveSources": {
+    "VALUE-DIRECT": [
+      "ktcSfTep",
+      "idpTradeCalc"
+    ],
+    "OFFENSE": [
+      "dlfSf",
+      "dlfRookieSf",
+      "dynastyNerdsSfTep",
+      "fantasyCalc",
+      "otcffbSf",
+      "fantasyNavigatorSf",
+      "pfkDynasty",
+      "dynastyDaddySf",
+      "fantasyProsSf",
+      "fantasyProsFitzmaurice",
+      "flockFantasySf",
+      "flockFantasySfRookies",
+      "yahooBoone"
+    ],
+    "IDP": [
+      "dlfIdp",
+      "dlfRookieIdp",
+      "idpShow",
+      "fantasyProsIdp"
+    ],
+    "GLOBAL": [
+      "draftSharks",
+      "draftSharksIdp"
+    ]
+  },
+  "idpMasterAppliedTo": [
+    "dlfIdp",
+    "dlfRookieIdp",
+    "fantasyProsIdp",
+    "idpShow"
+  ],
+  "doesIDPTradeCalcUseTheIDPCurve": false,
+  "idpTradeCalcRoutedAs": [
+    "VALUE-DIRECT"
+  ],
+  "draftSharksIdpRoutedAs": [
+    "GLOBAL"
+  ],
+  "overlapFitAndApply": []
+}

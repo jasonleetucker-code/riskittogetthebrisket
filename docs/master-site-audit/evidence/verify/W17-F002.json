@@ -1,0 +1,70 @@
+{
+ "id": "W17-F002",
+ "promptSections": [
+  23
+ ],
+ "title": "The #1 ROS-strength team is told 'Seller \u2014 sell aging win-now players' on /league -> Trade Deadline because he is absent from the 2024 sim and absence is coerced to 0.0 playoff odds",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "S",
+ "subsystem": "ROS buyer/seller direction",
+ "surface": {
+  "routes": [
+   "/api/public/league/rosTradeDeadline"
+  ],
+  "pages": [
+   "/league?tab=rosTradeDeadline"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/ros/trade_deadline.py",
+   "lines": "78-79"
+  },
+  {
+   "path": "src/ros/direction.py",
+   "lines": "80-95"
+  }
+ ],
+ "claimUnderTest": "trade_deadline.py:61-63 \u2014 'When a map is empty (e.g. no cached sim yet), the missing dimension defaults to 0 \u2014 the classifier degrades cleanly.'",
+ "observed": "`po = float((playoffs.get(owner) or {}).get('playoffOdds') or 0.0)` cannot distinguish 'this owner missed the playoffs' from 'this owner was not in the simulated season'. Four of the league's 12 managers (Brent, Blaine, Kich, jstuedle) joined after 2024 and are absent from the sim; they receive a confident 0.0. `classify_team` reads only playoff odds, championship odds and roster age \u2014 it NEVER reads `team_ros_strength_percentile` for the label \u2014 so Brent, ranked 1 of 12 with the strongest roster in the league (teamRosStrength 645.12, strength percentile 100%), is rendered as 'Seller'. Collin (percentile 75%, 3rd strongest) is also 'Seller'. Roy (percentile 25%, 3rd weakest) is 'Hold / Evaluate' because he made the 2024 playoffs. Confirmed in the rendered DOM, not just the payload.",
+ "reproduction": {
+  "command": "timeout 400 .venv/bin/python docs/master-site-audit/evidence/W17/page-render-probe.py  # loads /league?tab=rosTradeDeadline through Playwright request interception per AUDIT_PROTOCOL",
+  "expected": "the strongest roster in the league is not told to sell",
+  "actual": "rendered row: 'Brent  0.0%  0.0%  100.0%  Seller  Sell aging win-now players. Prioritize 2026/2027 picks and 23-or-younger upside.'",
+  "artifact": "docs/master-site-audit/evidence/W17/page-render.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "Brent.rosStrengthPercentile": 1.0,
+   "Brent.rank": 1,
+   "Brent.teamRosStrength": 645.12,
+   "Brent.playoffOdds": 0.0,
+   "Brent.championshipOdds": 0.0,
+   "owners_in_sim": 8,
+   "owners_in_league": 12
+  },
+  "formula": "label = classify_team(playoff_odds_pct=0.0, championship_odds_pct=0.0, strength_pct=1.0) -> falls through every buyer band to 'Seller'; strength_pct is accepted as an argument and never consulted for the label",
+  "expected": 1,
+  "actual": 0,
+  "tolerance": 0
+ },
+ "userImpact": "A manager holding the best rest-of-season roster in the league is instructed, on a page he can reach in two clicks, to trade away his win-now players for picks. Four of twelve managers get an inverted recommendation with no warning that the underlying sim does not know they exist.",
+ "blastRadius": {
+  "playersAffected": 0,
+  "routesAffected": 1,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A19-F01",
+  "relation": "confirmed",
+  "note": "Independently reproduced against live data AND in the rendered DOM (the prior finding executed build_team_directions() only). Adds: classify_team accepts team_ros_strength_percentile and never uses it for the label, which is why a 100th-percentile roster cannot rescue itself from a 0.0 odds input."
+ },
+ "whatWorks": "The 8 owners who DO appear in the sim get labels that are internally consistent with the (wrong-season) odds they were fed.",
+ "rootCause": "`or 0.0` collapses None/absent to a confident zero, and the classifier's band ladder has no branch that consults roster strength.",
+ "requiredRepair": "Distinguish absent from zero: return None and render 'no read' for owners the sim did not cover. Separately, make strength percentile a real term in classify_team or stop accepting it.",
+ "dependencies": "W17-F001",
+ "workstream": "W17"
+}

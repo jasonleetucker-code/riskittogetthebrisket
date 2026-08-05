@@ -1,0 +1,286 @@
+[
+ {
+  "idpTradeCalc": 1500,
+  "preClamp": 1730.0,
+  "final": 1725.0,
+  "dropped": [
+   "fantasyProsIdp"
+  ]
+ },
+ {
+  "idpTradeCalc": 1600,
+  "preClamp": 1775.0,
+  "final": 1775.0,
+  "dropped": [
+   "fantasyProsIdp"
+  ]
+ },
+ {
+  "idpTradeCalc": 1700,
+  "preClamp": 1820.0,
+  "final": 1820.0,
+  "dropped": [
+   "fantasyProsIdp"
+  ]
+ },
+ {
+  "idpTradeCalc": 1800,
+  "preClamp": 1865.0,
+  "final": 1865.0,
+  "dropped": [
+   "fantasyProsIdp"
+  ]
+ },
+ {
+  "idpTradeCalc": 1900,
+  "preClamp": 1910.0,
+  "final": 1910.0,
+  "dropped": [
+   "fantasyProsIdp"
+  ]
+ },
+ {
+  "idpTradeCalc": 2000,
+  "preClamp": 1955.0,
+  "final": 1955.0,
+  "dropped": [
+   "fantasyProsIdp"
+  ]
+ },
+ {
+  "idpTradeCalc": 2100,
+  "preClamp": 2000.0,
+  "final": 2000.0,
+  "dropped": [
+   "fantasyProsIdp"
+  ]
+ },
+ {
+  "idpTradeCalc": 2200,
+  "preClamp": 2045.0,
+  "final": 2045.0,
+  "dropped": [
+   "fantasyProsIdp"
+  ]
+ },
+ {
+  "idpTradeCalc": 2300,
+  "preClamp": 2090.1,
+  "final": 2090.1,
+  "dropped": [
+   "fantasyProsIdp"
+  ]
+ },
+ {
+  "idpTradeCalc": 2400,
+  "preClamp": 2097.3,
+  "final": 2097.3,
+  "dropped": []
+ },
+ {
+  "idpTradeCalc": 2500,
+  "preClamp": 2142.3,
+  "final": 2142.3,
+  "dropped": []
+ },
+ {
+  "idpTradeCalc": 2600,
+  "preClamp": 2187.3,
+  "final": 2210.0,
+  "dropped": []
+ },
+ {
+  "idpTradeCalc": 2700,
+  "preClamp": 2232.3,
+  "final": 2295.0,
+  "dropped": []
+ },
+ {
+  "idpTradeCalc": 2800,
+  "preClamp": 2277.3,
+  "final": 2380.0,
+  "dropped": []
+ },
+ {
+  "idpTradeCalc": 2900,
+  "preClamp": 2322.3,
+  "final": 2465.0,
+  "dropped": []
+ },
+ {
+  "idpTradeCalc": 3000,
+  "preClamp": 2367.3,
+  "final": 2550.0,
+  "dropped": []
+ },
+ {
+  "idpTradeCalc": 3100,
+  "preClamp": 2412.3,
+  "final": 2635.0,
+  "dropped": []
+ },
+ {
+  "idpTradeCalc": 3200,
+  "preClamp": 2457.3,
+  "final": 2720.0,
+  "dropped": []
+ },
+ {
+  "idpTradeCalc": 3300,
+  "preClamp": 2502.3,
+  "final": 2805.0,
+  "dropped": []
+ },
+ {
+  "idpTradeCalc": 3400,
+  "preClamp": 1856.6,
+  "final": 2890.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 3500,
+  "preClamp": 1856.6,
+  "final": 2975.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 3600,
+  "preClamp": 1856.6,
+  "final": 3060.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 3700,
+  "preClamp": 1856.6,
+  "final": 3145.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 3800,
+  "preClamp": 1856.6,
+  "final": 3230.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 3900,
+  "preClamp": 1856.6,
+  "final": 3315.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 4000,
+  "preClamp": 1856.6,
+  "final": 3400.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 4100,
+  "preClamp": 1856.6,
+  "final": 3485.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 4200,
+  "preClamp": 1856.6,
+  "final": 3570.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 4300,
+  "preClamp": 1856.6,
+  "final": 3655.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 4400,
+  "preClamp": 1856.6,
+  "final": 3740.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 4500,
+  "preClamp": 1856.6,
+  "final": 3825.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 4600,
+  "preClamp": 1856.6,
+  "final": 3910.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 4700,
+  "preClamp": 1856.6,
+  "final": 3995.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 4800,
+  "preClamp": 1856.6,
+  "final": 4080.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 4900,
+  "preClamp": 1856.6,
+  "final": 4165.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 5000,
+  "preClamp": 1856.6,
+  "final": 4250.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 5100,
+  "preClamp": 1856.6,
+  "final": 4335.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ },
+ {
+  "idpTradeCalc": 5200,
+  "preClamp": 1856.6,
+  "final": 4420.0,
+  "dropped": [
+   "idpTradeCalc"
+  ]
+ }
+]

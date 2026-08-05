@@ -1,0 +1,31 @@
+{
+ "dynasty_main": {
+  "derivedNeeds": {
+   "QB": 2,
+   "RB": 3,
+   "WR": 4,
+   "TE": 2,
+   "DL": 3,
+   "LB": 3,
+   "DB": 3
+  },
+  "surplus": [],
+  "TE_slice_index_used_by_generate_sell_high": 2,
+  "TE_slice_index_league_correct": 2,
+  "sell_high": []
+ },
+ "dynasty_new": {
+  "derivedNeeds": {
+   "QB": 2,
+   "RB": 3,
+   "WR": 4,
+   "TE": 1
+  },
+  "surplus": [
+   "TE"
+  ],
+  "TE_slice_index_used_by_generate_sell_high": 2,
+  "TE_slice_index_league_correct": 1,
+  "sell_high": []
+ }
+}

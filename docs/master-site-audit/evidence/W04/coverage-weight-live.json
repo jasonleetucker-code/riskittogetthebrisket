@@ -1,0 +1,176 @@
+{
+  "MIN_FULL_COVERAGE_DEPTH": 60,
+  "sourcesWithNonUnityFactor": [
+    {
+      "key": "dlfRookieSf",
+      "depth": 50,
+      "declared": 1.0,
+      "effective": 0.8333,
+      "inert": false
+    },
+    {
+      "key": "dlfRookieIdp",
+      "depth": 50,
+      "declared": 1.0,
+      "effective": 0.8333,
+      "inert": false
+    },
+    {
+      "key": "flockFantasySfRookies",
+      "depth": 50,
+      "declared": 1.0,
+      "effective": 0.8333,
+      "inert": false
+    }
+  ],
+  "docstringClaim": "every currently-registered source declares depth >= 62, so this factor is 1.0 across the board - the mechanism is presently inert",
+  "all": [
+    {
+      "key": "ktcSfTep",
+      "depth": null,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "idpTradeCalc",
+      "depth": null,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "dlfSf",
+      "depth": 280,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "dlfRookieSf",
+      "depth": 50,
+      "declared": 1.0,
+      "effective": 0.8333,
+      "inert": false
+    },
+    {
+      "key": "dlfIdp",
+      "depth": 185,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "dlfRookieIdp",
+      "depth": 50,
+      "declared": 1.0,
+      "effective": 0.8333,
+      "inert": false
+    },
+    {
+      "key": "idpShow",
+      "depth": 420,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "dynastyNerdsSfTep",
+      "depth": 300,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "fantasyCalc",
+      "depth": 450,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "otcffbSf",
+      "depth": 460,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "fantasyNavigatorSf",
+      "depth": 460,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "pfkDynasty",
+      "depth": 460,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "dynastyDaddySf",
+      "depth": 320,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "fantasyProsSf",
+      "depth": 250,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "fantasyProsIdp",
+      "depth": 100,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "fantasyProsFitzmaurice",
+      "depth": 350,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "flockFantasySf",
+      "depth": 370,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "flockFantasySfRookies",
+      "depth": 50,
+      "declared": 1.0,
+      "effective": 0.8333,
+      "inert": false
+    },
+    {
+      "key": "yahooBoone",
+      "depth": 500,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "draftSharks",
+      "depth": 500,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    },
+    {
+      "key": "draftSharksIdp",
+      "depth": 400,
+      "declared": 1.0,
+      "effective": 1.0,
+      "inert": true
+    }
+  ]
+}

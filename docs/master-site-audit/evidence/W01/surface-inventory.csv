@@ -1,0 +1,178 @@
+surface,kind,auth,live status,has bridge?,called by which page/component,reachable from nav?,verdict
+/api/admin/guest-pass,backend route (POST),admin,non-GET (not probed),no,frontend/app/settings/page.jsx; frontend/components/admin/GuestPassPanel.jsx,n/a,Reachable from UI
+/api/admin/guest-pass/{pass_id}/revoke,backend route (POST),admin,non-GET (not probed),no,frontend/components/admin/GuestPassPanel.jsx,n/a,Reachable from UI
+/api/admin/guest-passes,backend route (GET),admin,anon 401 / auth 403,no,frontend/app/settings/page.jsx; frontend/components/admin/GuestPassPanel.jsx,n/a,Reachable from UI
+/api/admin/nfl-data/flush,backend route (POST),admin,non-GET (not probed),no,frontend/app/admin/page.jsx,n/a,Reachable from UI
+/api/admin/sessions/force-logout-all,backend route (POST),admin,non-GET (not probed),no,frontend/app/admin/page.jsx,n/a,Reachable from UI
+/api/admin/signal-state/migrate,backend route (POST),admin,non-GET (not probed),no,frontend/app/admin/page.jsx,n/a,Reachable from UI
+/api/angle/find,backend route (POST),session,non-GET (not probed),no,-,n/a,"DEAD - bridge exists, no UI caller (/angle uses /api/angle/packages only)"
+/api/angle/packages,backend route (POST),session,non-GET (not probed),yes,frontend/app/angle/page.jsx,n/a,Reachable from UI
+/api/auth/login,backend route (POST),public,non-GET (not probed),no,frontend/app/login/page.jsx,n/a,Reachable from UI
+/api/auth/logout,backend route (POST),public,non-GET (not probed),yes,frontend/components/useAuth.js,n/a,Reachable from UI
+/api/auth/status,backend route (GET),public,anon 200 / auth 200,yes,frontend/components/useAuth.js,n/a,Reachable from UI
+/api/bdvm/roster,backend route (GET),session,anon 401 / auth 200,yes,frontend/app/bdvm/page.jsx; frontend/lib/bdvm.js,n/a,Reachable from UI
+/api/bdvm/trade-eval,backend route (POST),session,non-GET (not probed),yes,frontend/components/BdvmTradePanel.jsx,n/a,Reachable from UI
+/api/bdvm/trades,backend route (GET),session,anon 401 / auth 200,yes,frontend/app/bdvm/page.jsx; frontend/lib/bdvm.js,n/a,Reachable from UI
+/api/bdvm/values,backend route (GET),session,anon 401 / auth 200,yes,frontend/app/bdvm/page.jsx; frontend/app/draft/page.jsx; frontend/app/rankings/page.jsx; frontend/components/useBdvm.js,n/a,Reachable from UI
+/api/consensus-edge/health,backend route (GET),session,anon 401 / auth 503,yes,-,n/a,"DEAD - bridge exists, no UI caller"
+/api/consensus-edge/methodology,backend route (GET),session,anon 401 / auth 200,yes,frontend/app/consensus-edge/page.jsx,n/a,Reachable from UI
+/api/consensus-edge/player/{player_key},backend route (GET),session,anon 401 / auth 503,no,-,n/a,DEAD - tests only
+/api/consensus-edge/players,backend route (GET),session,anon 401 / auth 503,yes,frontend/app/consensus-edge/page.jsx,n/a,Reachable from UI
+/api/consensus-edge/top,backend route (GET),session,anon 401 / auth 503,yes,frontend/components/useConsensusEdge.js,n/a,Reachable from UI
+/api/custom-alerts,backend route (GET),session,not probed,no,frontend/components/CustomAlertsConfigurator.jsx,n/a,Reachable from UI
+/api/custom-alerts,backend route (PUT),session,non-GET (not probed),no,frontend/components/CustomAlertsConfigurator.jsx,n/a,Reachable from UI
+/api/custom-alerts/run,backend route (POST),self-authed (bearer),non-GET (not probed),no,-,n/a,"Ops/cron only (bearer-authed, systemd timer)"
+/api/data,backend route (GET),session,anon 401 / auth 200,no,frontend/app/draft/page.jsx; frontend/app/league/page.jsx; frontend/components/AppShell.jsx; frontend/components/StaleDataBanner.jsx,n/a,Reachable from UI
+/api/data/player-source-history,backend route (GET),session,anon 401 / auth 400,no,frontend/components/PlayerRankHistoryChart.jsx,n/a,Reachable from UI
+/api/data/rank-history,backend route (GET),session,anon 401 / auth 200,no,frontend/lib/signal-engine.js; frontend/lib/value-history.js,n/a,Reachable from UI
+/api/draft-capital,backend route (GET),public,anon 200 / auth 200,yes,frontend/app/draft/page.jsx; frontend/app/league/sections/draft-capital.jsx; frontend/components/useSleeperDraftSync.js; frontend/lib/backend-proxy.js,n/a,Reachable from UI
+/api/dynasty-data,backend route (GET),session,anon 401 / auth 200,yes,frontend/lib/dynasty-data.js; frontend/public/sw.js,n/a,Reachable from UI
+/api/gameplan,backend route (GET),session,anon 401 / auth 400,no,-,n/a,DEAD - no UI caller anywhere (roster-intel engine unexposed)
+/api/health,backend route (GET),public,anon 200 / auth 200,no,frontend/components/StaleDataBanner.jsx,n/a,Reachable from UI
+/api/intel/leads,backend route (POST),session,non-GET (not probed),no,frontend/app/league/insider-trading/page.jsx; frontend/components/InsiderLeads.jsx,n/a,Reachable from UI
+/api/intel/member/{owner_id},backend route (GET),session,anon 401 / auth 503,no,-,n/a,DEAD - tests only
+/api/intel/player,backend route (GET),session,anon 401 / auth 503,no,frontend/app/league/insider-trading/page.jsx; frontend/components/PlayerPopup.jsx; frontend/lib/public-routes.js,n/a,Reachable from UI
+/api/intel/refresh,backend route (POST),session,non-GET (not probed),no,-,n/a,Ops/cron only
+/api/intel/refresh/status,backend route (GET),session,anon 401 / auth 200,no,-,n/a,Ops/cron only
+/api/intel/summary,backend route (GET),session,anon 401 / auth 503,no,frontend/app/league/insider-trading/page.jsx; frontend/lib/public-routes.js,n/a,Reachable from UI
+/api/intel/waiver-interest,backend route (GET),session,anon 401 / auth 503,no,-,n/a,DEAD - tests only
+/api/league-comparison,backend route (GET),session,anon 401 / auth 200,yes,frontend/app/league-comparison/page.jsx,n/a,Reachable from UI
+/api/league/articles,backend route (GET),session,anon 200 / auth 200,yes,frontend/app/league/articles/[season]/[week]/page.jsx; frontend/app/league/sections/articles.jsx,n/a,Reachable from UI
+/api/league/articles/generate,backend route (POST),session,non-GET (not probed),no,-,n/a,Ops/manual only - tests only in repo
+/api/league/articles/{season}/{week}/{matchup_id}/{mode},backend route (GET),session,anon 400 / auth 400,yes,frontend/app/league/articles/[season]/[week]/[matchupId]/[mode]/page.jsx,n/a,Reachable from UI (server-rendered)
+/api/leagues,backend route (GET),public,anon 200 / auth 200,no,frontend/components/LeagueSwitcher.jsx; frontend/components/useLeague.js; frontend/components/useTeam.js; frontend/lib/portfolio-insights.js,n/a,Reachable from UI
+/api/metrics,backend route (GET),public,anon 200 / auth 200,no,-,n/a,Ops/monitoring only - no in-repo caller
+/api/movers,backend route (GET),session,anon 401 / auth 200,no,frontend/components/terminal/MoversPanel.jsx,n/a,Reachable from UI
+/api/news,backend route (GET),public,anon 200 / auth 200,yes,frontend/app/league/player/[playerId]/page.jsx; frontend/components/terminal/MarketTicker.jsx; frontend/lib/news-service.js; frontend/lib/player-name-match.js,n/a,Reachable from UI
+/api/player/{sleeper_id}/realized,backend route (GET),session,anon 401 / auth 200,no,frontend/components/PlayerPopup.jsx,n/a,Reachable from UI
+/api/playerctx/player,backend route (GET),session,anon 401 / auth 400,no,frontend/components/PlayerPopup.jsx,n/a,Reachable from UI
+/api/public/league,backend route (GET),public,anon 200 / auth 200,yes,frontend/app/league/LeagueClient.jsx; frontend/app/league/page.jsx; frontend/app/sitemap.js; frontend/components/AppShell.jsx,n/a,Reachable from UI
+/api/public/league/matchup/{season}/{week}/{matchup_id},backend route (GET),public,anon 200 / auth 200,yes,frontend/app/league/weekly/[season]/[week]/[matchup]/page.jsx; frontend/lib/public-league-data.js,n/a,Reachable from UI
+/api/public/league/matchups,backend route (GET),public,anon 200 / auth 200,no,frontend/app/sitemap.js,n/a,Reachable from UI
+/api/public/league/metrics,backend route (GET),public,anon 200 / auth 200,no,-,n/a,Ops/cron only
+/api/public/league/player/{player_id},backend route (GET),public,anon 200 / auth 200,yes,frontend/app/league/player/[playerId]/opengraph-image.js; frontend/app/league/player/[playerId]/page.jsx; frontend/lib/public-league-data.js,n/a,Reachable from UI
+/api/public/league/players,backend route (GET),public,anon 200 / auth 200,no,frontend/app/sitemap.js,n/a,Reachable from UI
+/api/public/league/{section},backend route (GET),public,anon 200 / auth 200,yes,frontend/app/league/franchise/[owner]/opengraph-image.js; frontend/app/league/franchise/[owner]/page.jsx; frontend/app/league/page.jsx; frontend/app/league/rivalry/[pair]/opengraph-image.js,n/a,Reachable from UI
+/api/public/league/{section}.csv,backend route (GET),public,anon 200 / auth 200,no,-,n/a,DEAD - no UI export link
+/api/push/public-key,backend route (GET),self-authed (bearer),anon 503 / auth 503,no,frontend/lib/push-subscription.js,n/a,Reachable from UI
+/api/push/subscribe,backend route (POST),session,non-GET (not probed),no,frontend/lib/push-subscription.js,n/a,Reachable from UI
+/api/push/unsubscribe,backend route (POST),session,non-GET (not probed),no,frontend/lib/push-subscription.js,n/a,Reachable from UI
+/api/rankings/overrides,backend route (POST),session,non-GET (not probed),yes,frontend/app/rankings/page.jsx; frontend/components/useDynastyData.js; frontend/lib/dynasty-data.js; frontend/public/sw.js,n/a,Reachable from UI
+/api/rankings/sources,backend route (GET),public,anon 200 / auth 200,yes,-,n/a,"DEAD - bridge exists, no UI caller; parity test parses JS statically"
+/api/ros/health,backend route (GET),session,anon 401 / auth 200,no,frontend/app/tools/ros-data-health/page.jsx; frontend/lib/ros-data.js,n/a,Reachable from UI
+/api/ros/pick-projections,backend route (GET),session,anon 401 / auth 200,yes,frontend/app/league/sections/_pick-projector.jsx,n/a,Reachable from UI
+/api/ros/player-values,backend route (GET),session,anon 401 / auth 200,no,frontend/components/PlayerPopup.jsx; frontend/components/RosTradeFitPanel.jsx; frontend/lib/ros-data.js; frontend/lib/ros-index.js,n/a,Reachable from UI
+/api/ros/refresh,backend route (POST),session,non-GET (not probed),no,frontend/app/settings/page.jsx; frontend/app/tools/ros-data-health/page.jsx,n/a,Reachable from UI
+/api/ros/sources,backend route (GET),session,anon 401 / auth 200,no,frontend/app/tools/ros-data-health/page.jsx; frontend/lib/ros-data.js,n/a,Reachable from UI
+/api/ros/status,backend route (GET),session,anon 401 / auth 200,no,frontend/lib/ros-data.js,n/a,Reachable from UI
+/api/ros/team-strength,backend route (GET),session,anon 401 / auth 200,no,frontend/app/league/sections/ros-team-strength.jsx; frontend/lib/ros-data.js,n/a,Reachable from UI
+/api/scaffold/identity,backend route (GET),session,anon 401 / auth 200,no,-,n/a,DEAD - tests only
+/api/scaffold/league,backend route (GET),session,anon 401 / auth 404,no,-,n/a,DEAD - tests only
+/api/scaffold/raw,backend route (GET),session,anon 401 / auth 200,no,-,n/a,DEAD - tests only
+/api/scaffold/report,backend route (GET),session,anon 401 / auth 404,no,-,n/a,DEAD - tests only
+/api/scaffold/status,backend route (GET),public,anon 200 / auth 200,no,-,n/a,DEAD - no caller; PUBLIC (unauthenticated) and leaks absolute server paths
+/api/scaffold/validation,backend route (GET),session,anon 401 / auth 200,no,-,n/a,DEAD - tests only
+/api/scrape,backend route (POST),session,non-GET (not probed),yes,frontend/components/admin/ServerStatusPanel.jsx,n/a,Reachable from UI
+/api/sharp/cohort,backend route (GET),session,anon 401 / auth 200,yes,frontend/app/market/sharp-tracker/page.jsx; frontend/lib/nav-model.js,n/a,Reachable from UI
+/api/sharp/market,backend route (GET),session,anon 401 / auth 200,yes,frontend/app/market/sharp-tracker/page.jsx,n/a,Reachable from UI
+/api/sharp/market/audit,backend route (GET),session,anon 401 / auth 400,no,-,n/a,"Operator-only - no bridge, no UI caller"
+/api/sharp/roster-percentage,backend route (GET),session,anon 401 / auth 200,yes,frontend/app/market/sharp-roster-percentage/page.jsx; frontend/lib/nav-model.js,n/a,Reachable from UI
+/api/sharp/roster-percentage/audit,backend route (GET),session,anon 401 / auth 400,yes,-,n/a,"Operator-only - bridge exists, no UI caller"
+/api/signal-alerts/run,backend route (POST),self-authed (bearer),non-GET (not probed),no,-,n/a,Ops/cron only
+/api/sleeper/draft/picks,backend route (GET),session,anon 401 / auth 200,yes,frontend/components/useSleeperDraftSync.js,n/a,Reachable from UI
+/api/status,backend route (GET),public,anon 200 / auth 200,yes,frontend/app/admin/page.jsx; frontend/app/tools/source-health/page.jsx; frontend/components/SourceHealthStrip.jsx; frontend/components/admin/ServerStatusPanel.jsx,n/a,Reachable from UI
+/api/terminal,backend route (GET),session,anon 401 / auth 200,no,frontend/app/tools/trade-coverage/page.jsx; frontend/components/terminal/PortfolioSummary.jsx; frontend/components/terminal/StaleBanner.jsx; frontend/components/useTeam.js,n/a,Reachable from UI
+/api/test-alert,backend route (POST),session,non-GET (not probed),no,-,n/a,DEAD - no caller anywhere
+/api/test/create-session,backend route (POST),self-authed (bearer),non-GET (not probed),no,-,n/a,Ops/cron only
+/api/trade/export-ktc,backend route (POST),session,non-GET (not probed),no,frontend/app/trade/page.jsx,n/a,Reachable from UI
+/api/trade/finder,backend route (POST),session,non-GET (not probed),yes,frontend/app/arbitrage/page.jsx,n/a,Reachable from UI
+/api/trade/import-ktc,backend route (POST),session,non-GET (not probed),yes,frontend/app/trade/page.jsx,n/a,Reachable from UI
+/api/trade/simulate,backend route (POST),session,non-GET (not probed),no,frontend/components/useTradeSimulator.js; frontend/public/sw.js,n/a,Reachable from UI
+/api/trade/simulate-mc,backend route (POST),session,non-GET (not probed),no,frontend/components/ui/MonteCarloButton.jsx,n/a,Reachable from UI
+/api/trade/suggestions,backend route (POST),session,non-GET (not probed),yes,frontend/app/trade/page.jsx,n/a,Reachable from UI
+/api/uptime,backend route (GET),public,anon 200 / auth 200,no,-,n/a,Ops/cron only
+/api/user/signals/dismiss,backend route (POST),session,non-GET (not probed),no,frontend/components/useUserState.js,n/a,Reachable from UI
+/api/user/signals/restore,backend route (POST),session,non-GET (not probed),no,frontend/components/useUserState.js,n/a,Reachable from UI
+/api/user/state,backend route (GET),session,not probed,no,frontend/components/useLeague.js; frontend/components/useUserState.js,n/a,Reachable from UI
+/api/user/state,backend route (PUT),session,non-GET (not probed),no,frontend/components/useLeague.js; frontend/components/useUserState.js,n/a,Reachable from UI
+/api/valuation/league-adjusted,backend route (GET),session,anon 401 / auth 200,yes,frontend/components/useSettings.js,n/a,Reachable from UI
+/api/waiver/faab-recommend,backend route (POST),session,non-GET (not probed),no,frontend/components/waivers/FaabRecommendation.jsx,n/a,Reachable from UI
+/api/waiver/suggestions,backend route (POST),session,non-GET (not probed),no,-,n/a,DEAD - no UI caller (documented in CLAUDE.md)
+/,Next page,public,anon 200| / auth 200|,n/a,n/a,yes,Reachable from nav
+/login,Next page,public,anon 200| / auth 200|,n/a,n/a,yes,Reachable from nav
+/rankings,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/rankings/qb,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,no,Deep-link shim only (/rankings/[position] -> /rankings?pos=); no in-app link
+/trending,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/idptc-rookies,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/players/compare,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/bdvm,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/news,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/trade,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/angle,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/arbitrage,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/trades,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/rosters,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/waivers,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/draft,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/phases,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/edge,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/consensus-edge,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/market/sharp-tracker,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/market/sharp-roster-percentage,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/league,Next page,public,anon 200| / auth 200|,n/a,n/a,yes,Reachable from nav
+/league/activity,Next page,public,anon 200| / auth 200|,n/a,n/a,yes,Reachable from nav
+/league/insider-trading,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/league-comparison,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/settings,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/more,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/tools/source-health,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/tools/ros-data-health,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/tools/trade-coverage,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/admin,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,yes,Reachable from nav
+/finder,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,no,"UNLISTED - legacy redirect shim into /rankings?screen=; in no nav, no in-app link"
+/design,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,no,"UNLISTED - dev-only design-system gallery, noindexed, in no nav, shipped in the production build"
+/intel,Next page,redirect to /login,anon 307|http://127.0.0.1:30 / auth 200|,n/a,n/a,no,"UNLISTED - retired route, server redirect() to /league/insider-trading; in no nav"
+/draft-capital,Next page,redirect to /login,anon 308|http://127.0.0.1:30 / auth 308|http://127.0.0.1:30,n/a,n/a,no,Legacy 308 -> /league?tab=draft-capital; in pageTitleFor but in no menu
+/league/franchise/1,Next page,public,anon 200| / auth 200|,n/a,n/a,no,Contextual deep link (public-league subtree)
+/league/player/4046,Next page,public,anon 200| / auth 200|,n/a,n/a,no,Contextual deep link (public-league subtree)
+/league/rivalry/a-vs-b,Next page,public,anon 200| / auth 200|,n/a,n/a,no,Contextual deep link (public-league subtree)
+/league/week/2025/1,Next page,public,anon 200| / auth 200|,n/a,n/a,no,Contextual deep link (public-league subtree)
+/league/weekly/2025/1/1,Next page,public,anon 200| / auth 200|,n/a,n/a,no,Contextual deep link (public-league subtree)
+/league/articles/2025/1,Next page,public,anon 200| / auth 200|,n/a,n/a,no,Contextual deep link (public-league subtree)
+/league/articles/2025/1/1/recap,Next page,public,anon 200| / auth 200|,n/a,n/a,no,Contextual deep link (public-league subtree)
+/api/angle/find,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/angle/packages,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/auth/logout,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/auth/status,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/bdvm/roster,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/bdvm/trade-eval,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/bdvm/trades,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/bdvm/values,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/consensus-edge/health,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/consensus-edge/methodology,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/consensus-edge/players,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/consensus-edge/top,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/draft-capital,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/dynasty-data,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/league-comparison,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/league/articles,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/league/articles/[season]/[week]/[matchupId]/[mode],Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/news,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/public/league,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/public/league/[section],Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/public/league/matchup/[season]/[week]/[matchup_id],Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/public/league/player/[player_id],Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/rankings/overrides,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/rankings/sources,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/ros/pick-projections,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/scrape,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/sharp/cohort,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/sharp/market,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/sharp/roster-percentage,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/sharp/roster-percentage/audit,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/sleeper/draft/picks,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/status,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/trade/finder,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/trade/import-ktc,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/trade/suggestions,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)
+/api/valuation/league-adjusted,Next bridge route,(inherits backend),dev-only: nginx sends /api/ to backend in prod,self,n/a,n/a,Dev-only proxy - unreachable in production (deploy/nginx/chaseupside-proxy.conf location /api/)

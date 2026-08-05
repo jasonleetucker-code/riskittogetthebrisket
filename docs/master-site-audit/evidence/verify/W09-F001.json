@@ -1,0 +1,94 @@
+{
+ "id": "W09-F001",
+ "workstream": "W09",
+ "promptSections": [
+  14,
+  15
+ ],
+ "title": "Trade suggestions returns zero suggestions for 8 of 12 live teams, with no diagnosis in the payload",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "M",
+ "subsystem": "Trade suggestions",
+ "surface": {
+  "routes": [
+   "/api/trade/suggestions"
+  ],
+  "pages": [
+   "/trade"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/trade/suggestions.py",
+   "lines": "239,646-653"
+  },
+  {
+   "path": "src/trade/suggestions.py",
+   "lines": "1027-1108"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md: suggestions.py produces 'roster-aware trade suggestions (sell-high, buy-low, consolidation, upgrades)' gated on BOARD_TOP_N_FILTER=150.",
+ "observed": "Posting each of the 12 real Sleeper rosters (plus all 12 as league_rosters) returns totalSuggestions=0 for Ed, Ty, Collin, Roy, Joey, Kich, jstuedle and Blaine. Of the 4 that return anything, 3 return sellHigh only. positionalUpgrades is 0 for all 12 teams. Cause: the single-population top-150 board gate leaves rosterMatched at 3-21 of the 44-58 players actually rostered (jstuedle 3/44, Blaine 5/53), so the engine analyses 5-36% of the roster it was handed. metadata reports rosterMatched/rosterProvided but the payload carries no error, warning or 'insufficient coverage' note.",
+ "reproduction": {
+  "command": "SECRET=$(cat /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/e2e_secret.txt); curl -s -c /tmp/c.txt -X POST http://127.0.0.1:8000/api/test/create-session -H \"Authorization: Bearer $SECRET\"; curl -s -b /tmp/c.txt http://127.0.0.1:8000/api/data -o /tmp/full.json; python - <<'EOF'\nimport json,subprocess\nd=json.load(open('/tmp/full.json')); T=d['sleeper']['teams']\nlr=[{'team_name':t['name'],'players':t['players']} for t in T]\nfor t in T:\n    p=subprocess.run(['curl','-s','-b','/tmp/c.txt','-X','POST','http://127.0.0.1:8000/api/trade/suggestions','-H','Content-Type: application/json','-d',json.dumps({'roster':t['players'],'league_rosters':lr})],capture_output=True)\n    r=json.loads(p.stdout); print(t['name'], r['totalSuggestions'], r['metadata']['rosterMatched'],'/',r['metadata']['rosterProvided'])\nEOF",
+  "expected": "every team receives at least one actionable suggestion, or an explicit reason why not",
+  "actual": "8/12 return {sellHigh:[],buyLow:[],consolidation:[],positionalUpgrades:[],totalSuggestions:0} with HTTP 200 and no warning field",
+  "artifact": "docs/master-site-audit/evidence/W09/per-team-tabulation.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "teams": 12,
+   "boardTopNFilter": 150,
+   "rosterMatchedByTeam": {
+    "Jason": 16,
+    "Ed": 10,
+    "Ty": 7,
+    "Collin": 10,
+    "MaKayla": 14,
+    "Eric": 15,
+    "Roy": 7,
+    "Joey": 10,
+    "Brent": 21,
+    "Kich": 9,
+    "jstuedle": 3,
+    "Blaine": 5
+   },
+   "rosterProvidedByTeam": {
+    "Jason": 57,
+    "Ed": 58,
+    "Ty": 56,
+    "Collin": 58,
+    "MaKayla": 58,
+    "Eric": 58,
+    "Roy": 51,
+    "Joey": 58,
+    "Brent": 57,
+    "Kich": 58,
+    "jstuedle": 44,
+    "Blaine": 53
+   }
+  },
+  "formula": "teamsWithZeroSuggestions = count(totalSuggestions == 0)",
+  "expected": 0,
+  "actual": 8,
+  "tolerance": 0
+ },
+ "userImpact": "A user on /trade asking for trade ideas is told, silently, that there are none. Two thirds of the league concludes the feature is broken or that their roster has no trades available; neither is true \u2014 the engine simply never looked at 79-93% of their roster.",
+ "blastRadius": {
+  "playersAffected": 0,
+  "routesAffected": 1,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A14-F04",
+  "relation": "confirmed",
+  "note": "Prior said 7 of 12; I measure 8 of 12 with league_rosters supplied. PRIOR-A14-F19 ('no refuses-to-answer path') is also confirmed by the same run \u2014 the empty payload carries no diagnosis."
+ },
+ "whatWorks": "metadata.rosterMatched / rosterProvided are honestly stamped, so the shortfall is at least measurable from the payload. starter_needs_for_league correctly derives per-league lineups (QB2/RB3/WR4/TE2/DL3/LB3/DB3 for dynasty_main).",
+ "rootCause": "build_asset_pool_from_contract ranks ALL asset classes in one population and cuts at 150 (suggestions.py:646-651). Offense dominates the top of a 0-9999 board, so a 58-man roster in a 58-slot IDP league resolves to a handful of eligible assets.",
+ "requiredRepair": "Gate per asset class / per position family (as finder.py already does per market), or make the gate roster-relative. Failing that, emit an explicit 'coverage insufficient' warning naming rosterMatched/rosterProvided so an empty feed reads as 'not measured', never 'nothing available'.",
+ "dependencies": "W09-F004 (DB exclusion) is the same root cause seen from the position axis."
+}

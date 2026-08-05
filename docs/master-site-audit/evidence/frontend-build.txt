@@ -1,0 +1,204 @@
+
+> dynasty-trade-calculator-frontend@1.0.0 build
+> next build --webpack && node scripts/check-bundle-sizes.mjs
+
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+▲ Next.js 16.2.12 (webpack)
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 38.7s
+  Running TypeScript ...
+  Finished TypeScript in 119ms ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/67) ...
+⚠ Unsupported metadata themeColor is configured in metadata export in /arbitrage. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /bdvm. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /consensus-edge. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /design. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /draft. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /edge. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /_not-found. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /admin. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /angle. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /login. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /market/sharp-roster-percentage. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /market/sharp-tracker. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /more. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /news. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+  Generating static pages using 3 workers (16/67) 
+  Generating static pages using 3 workers (33/67) 
+⚠ Unsupported metadata themeColor is configured in metadata export in /. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /phases. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /finder. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /idptc-rookies. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /intel. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /league-comparison. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /league/activity. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /league/insider-trading. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /players/compare. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /rankings. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /rosters. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+  Generating static pages using 3 workers (50/67) 
+⚠ Unsupported metadata themeColor is configured in metadata export in /settings. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /tools/ros-data-health. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /tools/source-health. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+Failed to set Next.js data cache for http://127.0.0.1:8000/api/public/league, items over 2MB can not be cached (2776333 bytes)
+⚠ Unsupported metadata themeColor is configured in metadata export in /tools/trade-coverage. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /trade. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /trades. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /trending. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /waivers. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+⚠ Unsupported metadata themeColor is configured in metadata export in /league. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+✓ Generating static pages using 3 workers (67/67) in 2.7s
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)                                                  Revalidate  Expire
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /angle
+├ ƒ /api/angle/find
+├ ƒ /api/angle/packages
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/status
+├ ƒ /api/bdvm/roster
+├ ƒ /api/bdvm/trade-eval
+├ ƒ /api/bdvm/trades
+├ ƒ /api/bdvm/values
+├ ƒ /api/consensus-edge/health
+├ ƒ /api/consensus-edge/methodology
+├ ƒ /api/consensus-edge/players
+├ ƒ /api/consensus-edge/top
+├ ƒ /api/draft-capital
+├ ƒ /api/dynasty-data
+├ ƒ /api/league-comparison
+├ ƒ /api/league/articles
+├ ƒ /api/league/articles/[season]/[week]/[matchupId]/[mode]
+├ ƒ /api/news
+├ ƒ /api/public/league
+├ ƒ /api/public/league/[section]
+├ ƒ /api/public/league/matchup/[season]/[week]/[matchup_id]
+├ ƒ /api/public/league/player/[player_id]
+├ ƒ /api/rankings/overrides
+├ ƒ /api/rankings/sources
+├ ƒ /api/ros/pick-projections
+├ ƒ /api/scrape
+├ ƒ /api/sharp/cohort
+├ ƒ /api/sharp/market
+├ ƒ /api/sharp/roster-percentage
+├ ƒ /api/sharp/roster-percentage/audit
+├ ƒ /api/sleeper/draft/picks
+├ ƒ /api/status
+├ ƒ /api/trade/finder
+├ ƒ /api/trade/import-ktc
+├ ƒ /api/trade/suggestions
+├ ƒ /api/valuation/league-adjusted
+├ ○ /arbitrage
+├ ○ /bdvm
+├ ○ /consensus-edge
+├ ○ /design
+├ ○ /draft
+├ ○ /edge
+├ ○ /finder
+├ ○ /idptc-rookies
+├ ○ /intel
+├ ƒ /league
+├ ○ /league-comparison
+├ ○ /league/activity
+├ ƒ /league/articles/[season]/[week]
+├ ƒ /league/articles/[season]/[week]/[matchupId]/[mode]
+├ ƒ /league/franchise/[owner]
+├ ƒ /league/franchise/-/opengraph-image
+├ ○ /league/insider-trading
+├ ƒ /league/player/[playerId]
+├ ƒ /league/player/-/opengraph-image
+├ ƒ /league/rivalry/[pair]
+├ ƒ /league/rivalry/-/opengraph-image
+├ ƒ /league/week/[season]/[week]
+├ ƒ /league/weekly/[season]/[week]/[matchup]
+├ ƒ /league/weekly/-/-/-/opengraph-image
+├ ○ /login
+├ ○ /manifest.webmanifest
+├ ○ /market/sharp-roster-percentage
+├ ○ /market/sharp-tracker
+├ ○ /more
+├ ○ /news
+├ ○ /phases
+├ ○ /players/compare
+├ ○ /rankings
+├ ƒ /rankings/[position]
+├ ○ /robots.txt
+├ ○ /rosters
+├ ○ /settings
+├ ○ /sitemap.xml                                                    10m      1y
+├ ○ /tools/ros-data-health
+├ ○ /tools/source-health
+├ ○ /tools/trade-coverage
+├ ○ /trade
+├ ○ /trades
+├ ○ /trending
+└ ○ /waivers
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[check-bundle-sizes] per-page chunk sizes:
+  /page                     68.0 KB / 90 KB budget   ok    (22.0 KB headroom)
+  /rankings/page            62.0 KB / 65 KB budget   ok    (3.0 KB headroom)
+  /trade/page               71.8 KB / 82 KB budget   ok    (10.2 KB headroom)
+  /draft/page              125.6 KB / 128 KB budget   ok    (2.4 KB headroom)
+  /edge/page                14.0 KB / 30 KB budget   ok    (16.0 KB headroom)
+  /finder/page               1.0 KB / 20 KB budget   ok    (19.0 KB headroom)
+  /angle/page               12.3 KB / 30 KB budget   ok    (17.7 KB headroom)
+  /league/page             163.4 KB / 170 KB budget   ok    (6.6 KB headroom)
+  /rosters/page             20.1 KB / 30 KB budget   ok    (9.9 KB headroom)
+  /trades/page              13.6 KB / 20 KB budget   ok    (6.4 KB headroom)
+  /waivers/page             28.5 KB / 36 KB budget   ok    (7.5 KB headroom)
+  /settings/page            42.3 KB / 60 KB budget   ok    (17.7 KB headroom)
+  /login/page                2.4 KB / 15 KB budget   ok    (12.6 KB headroom)
+  /more/page                 1.1 KB / 10 KB budget   ok    (8.9 KB headroom)
+[check-bundle-sizes] all pages under budget ✓
+BUILD_EXIT=0

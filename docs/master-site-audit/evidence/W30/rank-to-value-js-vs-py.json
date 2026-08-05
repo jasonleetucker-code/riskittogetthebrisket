@@ -1,0 +1,122 @@
+[
+ {
+  "rank": 1,
+  "js_valueFromRank": 9999,
+  "py_rank_to_value": 9999,
+  "py_OFFENSE": 9999,
+  "py_GLOBAL": 9999,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 2,
+  "js_valueFromRank": 9781,
+  "py_rank_to_value": 9781,
+  "py_OFFENSE": 9781,
+  "py_GLOBAL": 9781,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 3,
+  "js_valueFromRank": 9597,
+  "py_rank_to_value": 9597,
+  "py_OFFENSE": 9597,
+  "py_GLOBAL": 9597,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 5,
+  "js_valueFromRank": 9270,
+  "py_rank_to_value": 9270,
+  "py_OFFENSE": 9270,
+  "py_GLOBAL": 9270,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 10,
+  "js_valueFromRank": 8587,
+  "py_rank_to_value": 8587,
+  "py_OFFENSE": 8587,
+  "py_GLOBAL": 8587,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 20,
+  "js_valueFromRank": 7548,
+  "py_rank_to_value": 7548,
+  "py_OFFENSE": 7548,
+  "py_GLOBAL": 7548,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 50,
+  "js_valueFromRank": 5653,
+  "py_rank_to_value": 5653,
+  "py_OFFENSE": 5653,
+  "py_GLOBAL": 5653,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 100,
+  "js_valueFromRank": 4068,
+  "py_rank_to_value": 4068,
+  "py_OFFENSE": 4068,
+  "py_GLOBAL": 4068,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 150,
+  "js_valueFromRank": 3210,
+  "py_rank_to_value": 3210,
+  "py_OFFENSE": 3210,
+  "py_GLOBAL": 3210,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 200,
+  "js_valueFromRank": 2665,
+  "py_rank_to_value": 2665,
+  "py_OFFENSE": 2665,
+  "py_GLOBAL": 2665,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 300,
+  "js_valueFromRank": 2006,
+  "py_rank_to_value": 2006,
+  "py_OFFENSE": 2006,
+  "py_GLOBAL": 2006,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 400,
+  "js_valueFromRank": 1618,
+  "py_rank_to_value": 1618,
+  "py_OFFENSE": 1618,
+  "py_GLOBAL": 1618,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 500,
+  "js_valueFromRank": 1360,
+  "py_rank_to_value": 1360,
+  "py_OFFENSE": 1360,
+  "py_GLOBAL": 1360,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 600,
+  "js_valueFromRank": 1177,
+  "py_rank_to_value": 1177,
+  "py_OFFENSE": 1177,
+  "py_GLOBAL": 1177,
+  "js_minus_OFFENSE": 0
+ },
+ {
+  "rank": 800,
+  "js_valueFromRank": 931,
+  "py_rank_to_value": 931,
+  "py_OFFENSE": 931,
+  "py_GLOBAL": 931,
+  "js_minus_OFFENSE": 0
+ }
+]

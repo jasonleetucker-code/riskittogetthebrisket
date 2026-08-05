@@ -1,0 +1,181 @@
+{
+  "qualification": {
+    "sleeper:avg1": {
+      "evaluable": false,
+      "score": null,
+      "pct": null,
+      "conf": 0.0,
+      "qualified": false,
+      "reasons": [
+        "win rate 50.0% below the 52.0% floor"
+      ]
+    },
+    "sleeper:avg2": {
+      "evaluable": false,
+      "score": null,
+      "pct": null,
+      "conf": 0.0,
+      "qualified": false,
+      "reasons": [
+        "win rate 50.0% below the 52.0% floor"
+      ]
+    },
+    "sleeper:bad1": {
+      "evaluable": false,
+      "score": null,
+      "pct": null,
+      "conf": 0.0,
+      "qualified": false,
+      "reasons": [
+        "win rate 42.9% below the 52.0% floor"
+      ]
+    },
+    "sleeper:elite1": {
+      "evaluable": true,
+      "score": 68.1,
+      "pct": 1.0,
+      "conf": 0.6,
+      "qualified": true,
+      "reasons": []
+    },
+    "sleeper:elite2": {
+      "evaluable": true,
+      "score": 59.2,
+      "pct": 0.8,
+      "conf": 0.575,
+      "qualified": true,
+      "reasons": []
+    },
+    "sleeper:elite3": {
+      "evaluable": true,
+      "score": 58.6,
+      "pct": 0.4,
+      "conf": 0.575,
+      "qualified": false,
+      "reasons": []
+    },
+    "sleeper:good1": {
+      "evaluable": true,
+      "score": 40.7,
+      "pct": 0.4,
+      "conf": 0.543,
+      "qualified": false,
+      "reasons": []
+    },
+    "sleeper:good2": {
+      "evaluable": true,
+      "score": 40.2,
+      "pct": 0.2,
+      "conf": 0.543,
+      "qualified": false,
+      "reasons": []
+    },
+    "sleeper:onelg": {
+      "evaluable": false,
+      "score": null,
+      "pct": null,
+      "conf": 0.0,
+      "qualified": false,
+      "reasons": [
+        "only 1 qualifying dynasty league(s); 2 required (dynasty only, >= 2 seasons old)"
+      ]
+    },
+    "sleeper:thin": {
+      "evaluable": false,
+      "score": null,
+      "pct": null,
+      "conf": 0.0,
+      "qualified": false,
+      "reasons": [
+        "only 1 completed season(s); 2 required",
+        "only 1 qualifying dynasty league(s); 2 required (dynasty only, >= 2 seasons old)",
+        "only 14 completed games; 24 required"
+      ]
+    }
+  },
+  "excluded_managers_with_no_record": [
+    "sleeper:noteligible"
+  ],
+  "cohort_members": [
+    "sleeper:elite1",
+    "sleeper:elite2"
+  ],
+  "cohort_coverage": {
+    "automatedQualifiedManagers": 2,
+    "curatedManagers": 0,
+    "curatedContributionEnabled": false,
+    "provisionalManagers": 0,
+    "provisionalContributionEnabled": true,
+    "evidenceManagers": 11,
+    "methodologyVersion": "sharp-v2"
+  },
+  "ffpc_identity": {
+    "same_name_diff_league_keys_differ": true,
+    "same_name_same_league_keys_match": true,
+    "identity_type": "name_only",
+    "confidence": 0.25,
+    "keys": [
+      "ffpc:league:L1:name:3ebe26c17572a8e9",
+      "ffpc:league:L2:name:f96f6a4edc691721",
+      "ffpc:league:L1:name:3ebe26c17572a8e9"
+    ]
+  },
+  "ffpc_name_only_automated_qualified": false,
+  "ffpc_name_only_evidence_reasons": [
+    "league_scoped_identity",
+    "missing_recent_activity"
+  ],
+  "board": {
+    "status": "ok",
+    "players": [
+      {
+        "assetId": "9999",
+        "displayName": "IDP Guy",
+        "positionFamily": "idp",
+        "sharpRosters": 1,
+        "eligibleRosters": 1,
+        "sharpRosterPct": 1.0
+      },
+      {
+        "assetId": "4046",
+        "displayName": "Offense Guy",
+        "positionFamily": "offense",
+        "sharpRosters": 5,
+        "eligibleRosters": 6,
+        "sharpRosterPct": 0.833333
+      }
+    ],
+    "transparency": {
+      "uniqueSharpManagers": 2,
+      "sharpManagerAccounts": 2,
+      "eligibleRosters": 6,
+      "sleeperRosters": 6,
+      "ffpcRosters": 0,
+      "otherPlatformRosters": 0,
+      "cohortManagers": 2,
+      "cohortManagersRepresented": 2,
+      "cohortCoveragePct": 1.0,
+      "lastRefreshedMs": 1785883465379,
+      "rostersPerManager": 3.0,
+      "formatUnknownRosters": {
+        "offense": 0,
+        "idp": 0,
+        "kicker": 0,
+        "teamDefense": 0,
+        "unknown": 0
+      }
+    },
+    "sample": {
+      "eligibleRosters": 6,
+      "minimumForRanking": 8,
+      "directionalBelow": 40,
+      "warning": {
+        "level": "insufficient",
+        "message": "Based on 6 eligible sharp rosters. That is below the 8-roster minimum, so these percentages are not ranked as meaningful results."
+      },
+      "rankable": false
+    },
+    "cohortSelectedManagers": 2
+  },
+  "dedup_check_asset_count": 5
+}

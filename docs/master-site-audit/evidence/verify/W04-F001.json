@@ -1,0 +1,71 @@
+{
+ "id": "W04-F001",
+ "workstream": "W04",
+ "promptSections": [
+  39,
+  40,
+  42
+ ],
+ "title": "All four 'held-out' boards in the Hill promotion gate are registered live blend sources, so the benchmark is not independent of the board it grades",
+ "status": "Implemented but defective",
+ "priority": "P1",
+ "size": "L",
+ "subsystem": "Model registry / Hill curve promotion gate",
+ "surface": {
+  "routes": [
+   "/api/data"
+  ],
+  "pages": [
+   "/rankings",
+   "/trade"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/model_registry/holdout.py",
+   "lines": "67-79"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "1005-1726"
+  }
+ ],
+ "claimUnderTest": "holdout.py: 'this module evaluates the curve against value-publishing markets that the fit never sees' and CLAUDE.md: the refit 'scores it against dynasty boards the fit never reads'. The word held-out is used throughout to mean independent.",
+ "observed": "OFFENSE_HOLDOUT_SOURCES = {FantasyCalc, OTCFFB, PFKDynasty, FantasyNavigator}. All four resolve to _SOURCE_CSV_PATHS keys fantasyCalc / otcffbSf / pfkDynasty / fantasyNavigatorSf, and all four are entries in _RANKING_SOURCES with weight 1.0 and scope overall_offense \u2014 i.e. voting members of the live blend the curve produces. Five of the six TRAINING sources are also live blend sources. There is not one board on either side of the split that sits outside the pipeline. holdout.py's own guard reasons about this exact failure mode (it excludes ktcSfTep because it 'would smuggle a training source back in under a different filename') but only guards label/path collisions between train and holdout, never membership in the blend. Worse: fantasyNavigatorSf carries correlation_group='ktc' with the registry comment 'republishes KTC-derived numbers, so the two are not independent votes' \u2014 KTC is a TRAINING source, so a documented KTC derivative sits in the holdout set.",
+ "reproduction": {
+  "command": "cd /home/user/riskittogetthebrisket && .venv/bin/python -c \"import sys;sys.path.insert(0,'.');import src.api.data_contract as dc;from src.model_registry import holdout;reg={s['key'] for s in dc._RANKING_SOURCES};cfg=dc._SOURCE_CSV_PATHS;f=lambda p:[k for k,v in cfg.items() if isinstance(v,dict) and v.get('path')==p];print([(l,f(p)[0] in reg) for l,(p,_c) in holdout.OFFENSE_HOLDOUT_SOURCES.items()])\"",
+  "expected": "holdout boards absent from the live blend registry",
+  "actual": "[('FantasyCalc', True), ('OTCFFB', True), ('PFKDynasty', True), ('FantasyNavigator', True)]",
+  "artifact": "docs/master-site-audit/evidence/W04/holdout-independence.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "holdoutBoards": 4,
+   "holdoutBoardsThatAreLiveBlendSources": 4,
+   "trainingBoards": 6,
+   "trainingBoardsThatAreLiveBlendSources": 5,
+   "boardsOutsideThePipeline": 0
+  },
+  "formula": "|OFFENSE_HOLDOUT_SOURCES \u2229 live _RANKING_SOURCES| / |OFFENSE_HOLDOUT_SOURCES|",
+  "expected": 0,
+  "actual": 1.0,
+  "tolerance": 0
+ },
+ "userImpact": "Nothing a user sees changes today, but every future curve promotion is decided by a criterion that measures agreement with markets already averaged into the answer. A curve that drifts toward the crowd scores better on the gate and simultaneously becomes more redundant with the blend's own inputs \u2014 the gate cannot detect the failure it exists to catch.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 100,
+  "pagesAffected": 38
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A13-F00",
+  "relation": "confirmed",
+  "note": "Independently reproduced at runtime against the live _RANKING_SOURCES registry. Adds the fantasyNavigatorSf/KTC correlation-group leg, which the prior finding did not name."
+ },
+ "whatWorks": "holdout.py DOES refuse to score when train and holdout overlap by label or by CSV path, and raises rather than degrading to a passing score when no board can be scored. Its _semantics block states plainly that it does not measure accuracy.",
+ "rootCause": "'Held out' was defined relative to the FIT, not relative to the SYSTEM. Every value-publishing dynasty board the repo can reach was already recruited into the blend, so no genuinely external benchmark was left to hold out.",
+ "requiredRepair": "Either (a) remove the four boards from _RANKING_SOURCES and reserve them permanently as the benchmark, accepting a 17-source blend, or (b) keep them in the blend and rename the criterion to what it measures \u2014 cross-market shape agreement \u2014 and stop describing promotion as validation.",
+ "dependencies": "W04-F002, W04-F003"
+}

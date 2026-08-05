@@ -1,0 +1,1426 @@
+[
+ {
+  "path": "/api/admin/guest-pass",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/admin/guest-pass/{pass_id}/revoke",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/admin/guest-passes",
+  "concrete": "/api/admin/guest-passes",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 403,
+   "ms": 4,
+   "bytes": 62,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"admin_required\", \"message\": \"Allowlisted users only.\"}"
+  }
+ },
+ {
+  "path": "/api/admin/nfl-data/flush",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/admin/sessions/force-logout-all",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/admin/signal-state/migrate",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/angle/find",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/angle/packages",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/auth/login",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/auth/logout",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/auth/status",
+  "concrete": "/api/auth/status",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 23,
+   "contentType": "application/json",
+   "snippet": "{\"authenticated\": false}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 3,
+   "bytes": 154,
+   "contentType": "application/json",
+   "snippet": "{\"authenticated\": true, \"username\": \"e2e-test-user\", \"displayName\": \"e2e-test-user\", \"sleeperUserId\": null, \"avatar\": null, \"authMethod\": \"e2e_test\", \"isAdmin\": false}"
+  }
+ },
+ {
+  "path": "/api/bdvm/roster",
+  "concrete": "/api/bdvm/roster",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 47994,
+   "bytes": 310,
+   "contentType": "application/json",
+   "snippet": "{\"status\": \"no_projection_snapshot\", \"rosters\": \"<list len=0>\", \"message\": \"BDVM has no projection snapshot for season 2026. Drop projection CSVs under data/bdvm/projections/manual/ and build a snapshot, or generate the reconstructed baseline. The fundamental engine does not fabricate projections.\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/bdvm/trade-eval",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/bdvm/trades",
+  "concrete": "/api/bdvm/trades",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 5,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 5,
+   "bytes": 309,
+   "contentType": "application/json",
+   "snippet": "{\"status\": \"no_projection_snapshot\", \"trades\": \"<list len=0>\", \"message\": \"BDVM has no projection snapshot for season 2026. Drop projection CSVs under data/bdvm/projections/manual/ and build a snapshot, or generate the reconstructed baseline. The fundamental engine does not fabricate projections.\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/bdvm/values",
+  "concrete": "/api/bdvm/values",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 6,
+   "bytes": 792,
+   "contentType": "application/json",
+   "snippet": "{\"status\": \"no_projection_snapshot\", \"meta\": \"<dict len=14>\", \"message\": \"BDVM has no projection snapshot for season 2026. Drop projection CSVs under data/bdvm/projections/manual/ and build a snapshot, or generate the reconstructed baseline. The fundamental engine does not fabricate projections.\", \"players\": \"<list len=0>\", \"picks\": \"<list len=0>\", \"unpriced\": \"<list len=0>\", \"replacement\": \"<dict len=0>\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/consensus-edge/health",
+  "concrete": "/api/consensus-edge/health",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 503,
+   "ms": 5,
+   "bytes": 279,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"feature_disabled\", \"flag\": \"consensus_edge\", \"message\": \"Consensus Edge is switched off. Its top-20 buy list did not beat a random draw from the same priced universe in any measured fold, so it ships behind a flag defaulting off until a re-run of the gate says otherwise.\"}"
+  }
+ },
+ {
+  "path": "/api/consensus-edge/methodology",
+  "concrete": "/api/consensus-edge/methodology",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 3,
+   "bytes": 1965,
+   "contentType": "application/json",
+   "snippet": "{\"modelVersion\": \"ce.2026-08-04.v0-shadow\", \"paramSetId\": \"b90ef7db61a10905\", \"experimental\": true, \"components\": \"<dict len=3>\", \"compositeWeights\": \"<dict len=3>\", \"weightsAreFitted\": false, \"classification\": \"<dict len=9>\", \"docs\": \"<list len=2>\", \"validationTarget\": \"market movement, not fantasy production\", \"enabled\": false}"
+  }
+ },
+ {
+  "path": "/api/consensus-edge/player/{player_key}",
+  "concrete": "/api/consensus-edge/player/josh-allen",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 503,
+   "ms": 3,
+   "bytes": 279,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"feature_disabled\", \"flag\": \"consensus_edge\", \"message\": \"Consensus Edge is switched off. Its top-20 buy list did not beat a random draw from the same priced universe in any measured fold, so it ships behind a flag defaulting off until a re-run of the gate says otherwise.\"}"
+  }
+ },
+ {
+  "path": "/api/consensus-edge/players",
+  "concrete": "/api/consensus-edge/players",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 503,
+   "ms": 3,
+   "bytes": 279,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"feature_disabled\", \"flag\": \"consensus_edge\", \"message\": \"Consensus Edge is switched off. Its top-20 buy list did not beat a random draw from the same priced universe in any measured fold, so it ships behind a flag defaulting off until a re-run of the gate says otherwise.\"}"
+  }
+ },
+ {
+  "path": "/api/consensus-edge/top",
+  "concrete": "/api/consensus-edge/top",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 503,
+   "ms": 3,
+   "bytes": 279,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"feature_disabled\", \"flag\": \"consensus_edge\", \"message\": \"Consensus Edge is switched off. Its top-20 buy list did not beat a random draw from the same priced universe in any measured fold, so it ships behind a flag defaulting off until a re-run of the gate says otherwise.\"}"
+  }
+ },
+ {
+  "path": "/api/custom-alerts",
+  "concrete": "/api/custom-alerts",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 12,
+   "contentType": "application/json",
+   "snippet": "{\"rules\": \"<list len=0>\"}"
+  }
+ },
+ {
+  "path": "/api/custom-alerts",
+  "method": "PUT",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/custom-alerts/run",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/data",
+  "concrete": "/api/data",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 574,
+   "bytes": 11953535,
+   "contentType": "application/json",
+   "snippet": "{\"version\": 4, \"date\": \"2026-08-04\", \"scrapeTimestamp\": \"2026-08-04T18:20:36.115095\", \"settings\": \"<dict len=9>\", \"sites\": \"<list len=2>\", \"maxValues\": \"<dict len=3>\", \"siteStats\": \"<dict len=3>\", \"pickAnchors\": \"<dict len=2>\", \"pickAnchorsRaw\": \"<dict len=2>\", \"coverageAudit\": \"<dict len=5>\", \"poolAudit\": \"<dict len=14>\", \"players\": \"<dict len=1092>\", \"sleeper\": \"<dict len=16>\", \"contractVersion\": \"2026-03-10.v2\"}"
+  }
+ },
+ {
+  "path": "/api/data/player-source-history",
+  "concrete": "/api/data/player-source-history",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 400,
+   "ms": 5,
+   "bytes": 48,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"Missing required 'name' query param.\"}"
+  }
+ },
+ {
+  "path": "/api/data/rank-history",
+  "concrete": "/api/data/rank-history",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 24,
+   "contentType": "application/json",
+   "snippet": "{\"days\": 30, \"history\": \"<dict len=0>\"}"
+  }
+ },
+ {
+  "path": "/api/draft-capital",
+  "concrete": "/api/draft-capital",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 13188,
+   "bytes": 15989,
+   "contentType": "application/json",
+   "snippet": "{\"picks\": \"<list len=72>\", \"teamTotals\": \"<list len=12>\", \"totalBudget\": 1200, \"numTeams\": 12, \"draftRounds\": 6, \"season\": 2026, \"ktcSource\": \"csv\", \"ktcRookieCount\": 72, \"ktcTotalFilled\": 72, \"rookieSource\": \"ours_filtered\", \"leagueKey\": \"dynasty_main\", \"rookieBoardRedacted\": true}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 6,
+   "bytes": 24061,
+   "contentType": "application/json",
+   "snippet": "{\"picks\": \"<list len=72>\", \"teamTotals\": \"<list len=12>\", \"totalBudget\": 1200, \"numTeams\": 12, \"draftRounds\": 6, \"season\": 2026, \"ktcSource\": \"csv\", \"ktcRookieCount\": 72, \"ktcTotalFilled\": 72, \"rookieSource\": \"ours_filtered\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/dynasty-data",
+  "concrete": "/api/dynasty-data",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 95,
+   "bytes": 11953535,
+   "contentType": "application/json",
+   "snippet": "{\"version\": 4, \"date\": \"2026-08-04\", \"scrapeTimestamp\": \"2026-08-04T18:20:36.115095\", \"settings\": \"<dict len=9>\", \"sites\": \"<list len=2>\", \"maxValues\": \"<dict len=3>\", \"siteStats\": \"<dict len=3>\", \"pickAnchors\": \"<dict len=2>\", \"pickAnchorsRaw\": \"<dict len=2>\", \"coverageAudit\": \"<dict len=5>\", \"poolAudit\": \"<dict len=14>\", \"players\": \"<dict len=1092>\", \"sleeper\": \"<dict len=16>\", \"contractVersion\": \"2026-03-10.v2\"}"
+  }
+ },
+ {
+  "path": "/api/gameplan",
+  "concrete": "/api/gameplan",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 400,
+   "ms": 9,
+   "bytes": 203,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"team_required\", \"message\": \"Pass ?team=<ownerId>. It could not be inferred: this session carries no Sleeper user id and the league has no default team mapping for it.\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/health",
+  "concrete": "/api/health",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 11,
+   "bytes": 2259,
+   "contentType": "application/json",
+   "snippet": "{\"status\": \"ok\", \"service\": \"dynasty-server\", \"time_utc\": \"2026-08-04T20:13:59.722362+00:00\", \"has_data\": true, \"data_stale\": false, \"data_age_hours\": 0.0, \"last_scrape\": null, \"scrape_running\": false, \"scrape_stalled\": false, \"scrape_interrupted\": false, \"current_step\": null, \"current_source\": null, \"contract_version\": \"2026-03-10.v2\", \"contract_ok\": true}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 5,
+   "bytes": 2259,
+   "contentType": "application/json",
+   "snippet": "{\"status\": \"ok\", \"service\": \"dynasty-server\", \"time_utc\": \"2026-08-04T20:13:59.728493+00:00\", \"has_data\": true, \"data_stale\": false, \"data_age_hours\": 0.0, \"last_scrape\": null, \"scrape_running\": false, \"scrape_stalled\": false, \"scrape_interrupted\": false, \"current_step\": null, \"current_source\": null, \"contract_version\": \"2026-03-10.v2\", \"contract_ok\": true}"
+  }
+ },
+ {
+  "path": "/api/health",
+  "concrete": "/api/health",
+  "method": "HEAD",
+  "anon": {
+   "status": 200,
+   "ms": 5,
+   "bytes": 0,
+   "contentType": "application/json",
+   "snippet": ""
+  },
+  "auth": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 0,
+   "contentType": "application/json",
+   "snippet": ""
+  }
+ },
+ {
+  "path": "/api/intel/leads",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/intel/member/{owner_id}",
+  "concrete": "/api/intel/member/468418790212759552",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 503,
+   "ms": 6,
+   "bytes": 177,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"data_not_ready\", \"message\": \"No intel snapshot for league 'dynasty_main' yet \\u2014 trigger POST /api/intel/refresh or wait for the daily cron.\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/intel/player",
+  "concrete": "/api/intel/player",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 503,
+   "ms": 6,
+   "bytes": 177,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"data_not_ready\", \"message\": \"No intel snapshot for league 'dynasty_main' yet \\u2014 trigger POST /api/intel/refresh or wait for the daily cron.\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/intel/refresh",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/intel/refresh/status",
+  "concrete": "/api/intel/refresh/status",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 4,
+   "bytes": 71,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in or bearer token required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 194,
+   "contentType": "application/json",
+   "snippet": "{\"isRunning\": false, \"startedAt\": null, \"finishedAt\": null, \"lastError\": null, \"lastResult\": null, \"leagueKey\": null, \"snapshotLeagueKey\": \"dynasty_main\", \"snapshotGeneratedAt\": null, \"snapshotStaleHours\": null}"
+  }
+ },
+ {
+  "path": "/api/intel/summary",
+  "concrete": "/api/intel/summary",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 503,
+   "ms": 5,
+   "bytes": 177,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"data_not_ready\", \"message\": \"No intel snapshot for league 'dynasty_main' yet \\u2014 trigger POST /api/intel/refresh or wait for the daily cron.\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/intel/waiver-interest",
+  "concrete": "/api/intel/waiver-interest",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 503,
+   "ms": 6,
+   "bytes": 177,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"data_not_ready\", \"message\": \"No intel snapshot for league 'dynasty_main' yet \\u2014 trigger POST /api/intel/refresh or wait for the daily cron.\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/league-comparison",
+  "concrete": "/api/league-comparison",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 26577,
+   "bytes": 48464,
+   "contentType": "application/json",
+   "snippet": "{\"meta\": \"<dict len=11>\", \"summary\": \"<dict len=12>\", \"similarity\": \"<dict len=5>\", \"positions\": \"<dict len=4>\", \"flex\": \"<dict len=6>\", \"bySeason\": \"<dict len=4>\", \"idp\": \"<dict len=5>\", \"warnings\": \"<list len=2>\"}"
+  }
+ },
+ {
+  "path": "/api/league/articles",
+  "concrete": "/api/league/articles",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 10,
+   "bytes": 1383,
+   "contentType": "application/json",
+   "snippet": "{\"articles\": \"<list len=2>\", \"total\": 2, \"season\": null, \"week\": null}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 6,
+   "bytes": 1383,
+   "contentType": "application/json",
+   "snippet": "{\"articles\": \"<list len=2>\", \"total\": 2, \"season\": null, \"week\": null}"
+  }
+ },
+ {
+  "path": "/api/league/articles/generate",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/league/articles/{season}/{week}/{matchup_id}/{mode}",
+  "concrete": "/api/league/articles/2025/1/1/{mode}",
+  "method": "GET",
+  "anon": {
+   "status": 400,
+   "ms": 7,
+   "bytes": 62,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"bad_request\", \"message\": \"mode must be preview|recap\"}"
+  },
+  "auth": {
+   "status": 400,
+   "ms": 5,
+   "bytes": 62,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"bad_request\", \"message\": \"mode must be preview|recap\"}"
+  }
+ },
+ {
+  "path": "/api/leagues",
+  "concrete": "/api/leagues",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 934,
+   "bytes": 808,
+   "contentType": "application/json",
+   "snippet": "{\"leagues\": \"<list len=2>\", \"defaultKey\": \"dynasty_main\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 5,
+   "bytes": 840,
+   "contentType": "application/json",
+   "snippet": "{\"leagues\": \"<list len=2>\", \"defaultKey\": \"dynasty_main\", \"userDefaultKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/metrics",
+  "concrete": "/api/metrics",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 5,
+   "bytes": 309,
+   "contentType": "application/json",
+   "snippet": "{\"server_start_time\": \"2026-08-04T20:11:59.774433+00:00\", \"uptime_seconds\": 148.0, \"request_count\": 44, \"scrape_total\": 0, \"scrape_failures\": 0, \"scrape_duration_seconds_last\": 0.0, \"data_age_seconds\": 148.0, \"data_stale\": false, \"has_data\": true, \"player_count\": 1092, \"disk_free_mb\": 26069, \"disk_ok\": true, \"scrape_running\": false}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 3,
+   "bytes": 309,
+   "contentType": "application/json",
+   "snippet": "{\"server_start_time\": \"2026-08-04T20:11:59.774433+00:00\", \"uptime_seconds\": 148.0, \"request_count\": 45, \"scrape_total\": 0, \"scrape_failures\": 0, \"scrape_duration_seconds_last\": 0.0, \"data_age_seconds\": 148.0, \"data_stale\": false, \"has_data\": true, \"player_count\": 1092, \"disk_free_mb\": 26069, \"disk_ok\": true, \"scrape_running\": false}"
+  }
+ },
+ {
+  "path": "/api/movers",
+  "concrete": "/api/movers",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 9,
+   "bytes": 106,
+   "contentType": "application/json",
+   "snippet": "{\"window\": 0, \"windowRequested\": 14, \"historyDepthDays\": 0, \"threshold\": 15, \"asOf\": null, \"risers\": \"<list len=0>\", \"fallers\": \"<list len=0>\"}"
+  }
+ },
+ {
+  "path": "/api/news",
+  "concrete": "/api/news",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 1236,
+   "bytes": 46474,
+   "contentType": "application/json",
+   "snippet": "{\"items\": \"<list len=50>\", \"providersUsed\": \"<list len=4>\", \"providerRuns\": \"<list len=6>\", \"generatedAt\": \"2026-08-04T20:14:28.580162+00:00\", \"cacheHit\": false, \"count\": 50, \"playerDigests\": \"<list len=11>\", \"source\": \"backend\", \"limit\": 50}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 10,
+   "bytes": 46473,
+   "contentType": "application/json",
+   "snippet": "{\"items\": \"<list len=50>\", \"providersUsed\": \"<list len=4>\", \"providerRuns\": \"<list len=6>\", \"generatedAt\": \"2026-08-04T20:14:28.580162+00:00\", \"cacheHit\": true, \"count\": 50, \"playerDigests\": \"<list len=11>\", \"source\": \"backend\", \"limit\": 50}"
+  }
+ },
+ {
+  "path": "/api/player/{sleeper_id}/realized",
+  "concrete": "/api/player/4046/realized",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 5362,
+   "bytes": 85,
+   "contentType": "application/json",
+   "snippet": "{\"sleeperId\": \"4046\", \"leagueKey\": \"dynasty_main\", \"reason\": \"unmapped_player\", \"weeks\": \"<list len=0>\"}"
+  }
+ },
+ {
+  "path": "/api/playerctx/player",
+  "concrete": "/api/playerctx/player",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 400,
+   "ms": 4,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"missing_param\", \"message\": \"playerId required\"}"
+  }
+ },
+ {
+  "path": "/api/public/league",
+  "concrete": "/api/public/league",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 93,
+   "bytes": 2081957,
+   "contentType": "application/json",
+   "snippet": "{\"contractVersion\": \"public-league/2026-04-18.v1\", \"league\": \"<dict len=7>\", \"sections\": \"<dict len=17>\", \"sectionKeys\": \"<list len=24>\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 94,
+   "bytes": 2081957,
+   "contentType": "application/json",
+   "snippet": "{\"contractVersion\": \"public-league/2026-04-18.v1\", \"league\": \"<dict len=7>\", \"sections\": \"<dict len=17>\", \"sectionKeys\": \"<list len=24>\"}"
+  }
+ },
+ {
+  "path": "/api/public/league/matchup/{season}/{week}/{matchup_id}",
+  "concrete": "/api/public/league/matchup/2025/1/1",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 10,
+   "bytes": 17006,
+   "contentType": "application/json",
+   "snippet": "{\"contractVersion\": \"public-league-matchup/2026-04-17.v1\", \"league\": \"<dict len=6>\", \"matchup\": \"<dict len=12>\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 9,
+   "bytes": 17006,
+   "contentType": "application/json",
+   "snippet": "{\"contractVersion\": \"public-league-matchup/2026-04-17.v1\", \"league\": \"<dict len=6>\", \"matchup\": \"<dict len=12>\"}"
+  }
+ },
+ {
+  "path": "/api/public/league/matchups",
+  "concrete": "/api/public/league/matchups",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 7,
+   "bytes": 14672,
+   "contentType": "application/json",
+   "snippet": "{\"seasonsCovered\": \"<list len=3>\", \"matchups\": \"<list len=158>\", \"generatedAt\": \"2026-08-04T20:12:05+00:00\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 7,
+   "bytes": 14672,
+   "contentType": "application/json",
+   "snippet": "{\"seasonsCovered\": \"<list len=3>\", \"matchups\": \"<list len=158>\", \"generatedAt\": \"2026-08-04T20:12:05+00:00\"}"
+  }
+ },
+ {
+  "path": "/api/public/league/metrics",
+  "concrete": "/api/public/league/metrics",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 6,
+   "bytes": 795,
+   "contentType": "application/json",
+   "snippet": "{\"leagueId\": \"1312006700437352448\", \"cacheTtlSeconds\": 300, \"warmupEnabled\": true, \"persistEnabled\": true, \"tradeGrading\": \"<dict len=3>\", \"metrics\": \"<dict len=21>\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 795,
+   "contentType": "application/json",
+   "snippet": "{\"leagueId\": \"1312006700437352448\", \"cacheTtlSeconds\": 300, \"warmupEnabled\": true, \"persistEnabled\": true, \"tradeGrading\": \"<dict len=3>\", \"metrics\": \"<dict len=21>\"}"
+  }
+ },
+ {
+  "path": "/api/public/league/player/{player_id}",
+  "concrete": "/api/public/league/player/4046",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 26,
+   "bytes": 19176,
+   "contentType": "application/json",
+   "snippet": "{\"contractVersion\": \"public-league-player/2026-04-17.v1\", \"league\": \"<dict len=5>\", \"player\": \"<dict len=9>\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 20,
+   "bytes": 19176,
+   "contentType": "application/json",
+   "snippet": "{\"contractVersion\": \"public-league-player/2026-04-17.v1\", \"league\": \"<dict len=5>\", \"player\": \"<dict len=9>\"}"
+  }
+ },
+ {
+  "path": "/api/public/league/players",
+  "concrete": "/api/public/league/players",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 20,
+   "bytes": 63323,
+   "contentType": "application/json",
+   "snippet": "{\"seasonsCovered\": \"<list len=3>\", \"players\": \"<list len=968>\", \"generatedAt\": \"2026-08-04T20:12:05+00:00\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 20,
+   "bytes": 63323,
+   "contentType": "application/json",
+   "snippet": "{\"seasonsCovered\": \"<list len=3>\", \"players\": \"<list len=968>\", \"generatedAt\": \"2026-08-04T20:12:05+00:00\"}"
+  }
+ },
+ {
+  "path": "/api/public/league/{section}",
+  "concrete": "/api/public/league/overview",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 1857,
+   "bytes": 15229,
+   "contentType": "application/json",
+   "snippet": "{\"contractVersion\": \"public-league/2026-04-18.v1\", \"league\": \"<dict len=7>\", \"section\": \"overview\", \"data\": \"<dict len=17>\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 1569,
+   "bytes": 15229,
+   "contentType": "application/json",
+   "snippet": "{\"contractVersion\": \"public-league/2026-04-18.v1\", \"league\": \"<dict len=7>\", \"section\": \"overview\", \"data\": \"<dict len=17>\"}"
+  }
+ },
+ {
+  "path": "/api/public/league/{section}.csv",
+  "concrete": "/api/public/league/overview.csv",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 1500,
+   "bytes": 192,
+   "contentType": "text/csv; charset=utf-8",
+   "snippet": "field,value\r\nseasonRangeLabel,2024\u20132026\r\nseasonsCovered,3\r\nmanagers,12\r\ntotalTrades,191\r\ntotalWaivers,1092\r\ntotalScoredWeeks,34\r\ncurrentChampion.displayName,Ed\r\ncurrentChampion.season,2025\r\n"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 1515,
+   "bytes": 192,
+   "contentType": "text/csv; charset=utf-8",
+   "snippet": "field,value\r\nseasonRangeLabel,2024\u20132026\r\nseasonsCovered,3\r\nmanagers,12\r\ntotalTrades,191\r\ntotalWaivers,1092\r\ntotalScoredWeeks,34\r\ncurrentChampion.displayName,Ed\r\ncurrentChampion.season,2025\r\n"
+  }
+ },
+ {
+  "path": "/api/push/public-key",
+  "concrete": "/api/push/public-key",
+  "method": "GET",
+  "anon": {
+   "status": 503,
+   "ms": 5,
+   "bytes": 31,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"push_not_configured\"}"
+  },
+  "auth": {
+   "status": 503,
+   "ms": 3,
+   "bytes": 31,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"push_not_configured\"}"
+  }
+ },
+ {
+  "path": "/api/push/subscribe",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/push/unsubscribe",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/rankings/overrides",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/rankings/sources",
+  "concrete": "/api/rankings/sources",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 7709,
+   "contentType": "application/json",
+   "snippet": "{\"sources\": \"<list len=21>\", \"contractVersion\": \"2026-03-10.v2\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 3,
+   "bytes": 7709,
+   "contentType": "application/json",
+   "snippet": "{\"sources\": \"<list len=21>\", \"contractVersion\": \"2026-03-10.v2\"}"
+  }
+ },
+ {
+  "path": "/api/ros/health",
+  "concrete": "/api/ros/health",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 293,
+   "bytes": 2640,
+   "contentType": "application/json",
+   "snippet": "{\"rebuiltAt\": \"2026-08-04T18:21:21.426844+00:00\", \"freshness\": \"fresh\", \"sources\": \"<dict len=5>\", \"aggregate\": \"<dict len=4>\", \"teamStrength\": \"<dict len=3>\", \"sims\": \"<dict len=4>\"}"
+  }
+ },
+ {
+  "path": "/api/ros/pick-projections",
+  "concrete": "/api/ros/pick-projections",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 9,
+   "bytes": 35100,
+   "contentType": "application/json",
+   "snippet": "{\"projectedOrder\": \"<list len=12>\", \"picks\": \"<list len=144>\", \"meta\": \"<dict len=4>\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/ros/player-values",
+  "concrete": "/api/ros/player-values",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 35,
+   "bytes": 289483,
+   "contentType": "application/json",
+   "snippet": "{\"aggregatedAt\": \"2026-08-04T18:21:21.459597+00:00\", \"league\": \"<dict len=4>\", \"playerCount\": 1085, \"sourceCount\": 5, \"players\": \"<list len=500>\"}"
+  }
+ },
+ {
+  "path": "/api/ros/refresh",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/ros/sources",
+  "concrete": "/api/ros/sources",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 2069,
+   "contentType": "application/json",
+   "snippet": "{\"sources\": \"<list len=5>\"}"
+  }
+ },
+ {
+  "path": "/api/ros/status",
+  "concrete": "/api/ros/status",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 1368,
+   "contentType": "application/json",
+   "snippet": "{\"rebuiltAt\": \"2026-08-04T18:21:21.426844+00:00\", \"sources\": \"<dict len=5>\", \"freshness\": \"fresh\"}"
+  }
+ },
+ {
+  "path": "/api/ros/team-strength",
+  "concrete": "/api/ros/team-strength",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 11,
+   "bytes": 56010,
+   "contentType": "application/json",
+   "snippet": "{\"teams\": \"<list len=12>\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/scaffold/identity",
+  "concrete": "/api/scaffold/identity",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 177,
+   "bytes": 2522120,
+   "contentType": "application/json",
+   "snippet": "{\"generated_at\": \"2026-04-20T19:48:28.214890+00:00\", \"quarantine_threshold\": 0.9, \"record_count\": 3494, \"master_player_count\": 1788, \"player_alias_count\": 3494, \"pick_count\": 0, \"pick_alias_count\": 0, \"conflict_count\": 0, \"conflicts\": \"<list len=0>\", \"duplicate_alias_count\": 0, \"duplicate_aliases\": \"<list len=0>\", \"unresolved_count\": 0, \"unresolved_records\": \"<list len=0>\", \"low_confidence_count\": 1906}"
+  }
+ },
+ {
+  "path": "/api/scaffold/league",
+  "concrete": "/api/scaffold/league",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 404,
+   "ms": 4,
+   "bytes": 45,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"No league scaffold snapshot found\"}"
+  }
+ },
+ {
+  "path": "/api/scaffold/raw",
+  "concrete": "/api/scaffold/raw",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 153,
+   "bytes": 2767269,
+   "contentType": "application/json",
+   "snippet": "{\"run_id\": \"20260420T194828Z\", \"created_at\": \"2026-04-20T19:48:28.024800+00:00\", \"config_file\": \"/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/config/sources/dlf_sources.template.json\", \"snapshots\": \"<list len=9>\", \"warnings\": \"<list len=0>\"}"
+  }
+ },
+ {
+  "path": "/api/scaffold/report",
+  "concrete": "/api/scaffold/report",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 404,
+   "ms": 4,
+   "bytes": 36,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"No scaffold report found\"}"
+  }
+ },
+ {
+  "path": "/api/scaffold/status",
+  "concrete": "/api/scaffold/status",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 67,
+   "bytes": 756,
+   "contentType": "application/json",
+   "snippet": "{\"raw_sources\": \"<dict len=3>\", \"ingest_validation\": \"<dict len=4>\", \"league\": \"<dict len=2>\", \"identity\": \"<dict len=4>\", \"report\": \"<dict len=1>\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 64,
+   "bytes": 756,
+   "contentType": "application/json",
+   "snippet": "{\"raw_sources\": \"<dict len=3>\", \"ingest_validation\": \"<dict len=4>\", \"league\": \"<dict len=2>\", \"identity\": \"<dict len=4>\", \"report\": \"<dict len=1>\"}"
+  }
+ },
+ {
+  "path": "/api/scaffold/validation",
+  "concrete": "/api/scaffold/validation",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 91,
+   "contentType": "application/json",
+   "snippet": "{\"ingest_validation_file\": null, \"canonical_validation_file\": null, \"ingest\": \"<dict len=0>\", \"canonical\": \"<dict len=0>\"}"
+  }
+ },
+ {
+  "path": "/api/scrape",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/sharp/cohort",
+  "concrete": "/api/sharp/cohort",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 36,
+   "bytes": 1848,
+   "contentType": "application/json",
+   "snippet": "{\"status\": \"cohort_building\", \"methodologyVersion\": \"sharp-v2\", \"generatedAt\": \"2026-08-04T20:14:41.806389+00:00\", \"cohort\": \"<dict len=10>\", \"graph\": \"<dict len=8>\", \"records\": \"<dict len=10>\", \"coverage\": \"<dict len=2>\", \"ffpc\": \"<dict len=4>\", \"note\": \"Coverage is an observable subset. Sleeper grows through its public graph; FFPC includes only explicitly configured public pages. Curated and provisional FFPC members are never represented as Sharp Score v2 qualifiers.\"}"
+  }
+ },
+ {
+  "path": "/api/sharp/market",
+  "concrete": "/api/sharp/market",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 14,
+   "bytes": 1356,
+   "contentType": "application/json",
+   "snippet": "{\"status\": \"cohort_building\", \"generatedAt\": 1785874481817, \"methodologyVersion\": \"sharp-v2\", \"query\": \"<dict len=6>\", \"assets\": \"<list len=0>\", \"cohort\": \"<dict len=9>\", \"coverage\": \"<dict len=2>\", \"formula\": \"<dict len=3>\"}"
+  }
+ },
+ {
+  "path": "/api/sharp/market/audit",
+  "concrete": "/api/sharp/market/audit",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 400,
+   "ms": 4,
+   "bytes": 54,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"missing_param\", \"message\": \"assetId required\"}"
+  }
+ },
+ {
+  "path": "/api/sharp/roster-percentage",
+  "concrete": "/api/sharp/roster-percentage",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 25,
+   "bytes": 2163,
+   "contentType": "application/json",
+   "snippet": "{\"status\": \"cohort_building\", \"generatedAt\": 1785874481845, \"lastUpdated\": null, \"methodologyVersion\": \"sharp-v2\", \"query\": \"<dict len=9>\", \"players\": \"<list len=0>\", \"totalQualifyingPlayers\": 0, \"transparency\": \"<dict len=12>\", \"cohort\": \"<dict len=8>\", \"sample\": \"<dict len=5>\", \"marketComparison\": \"<dict len=3>\", \"exclusions\": \"<dict len=4>\", \"dataQuality\": \"<dict len=2>\", \"formula\": \"<dict len=3>\"}"
+  }
+ },
+ {
+  "path": "/api/sharp/roster-percentage/audit",
+  "concrete": "/api/sharp/roster-percentage/audit",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 3,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 400,
+   "ms": 4,
+   "bytes": 54,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"missing_param\", \"message\": \"assetId required\"}"
+  }
+ },
+ {
+  "path": "/api/signal-alerts/run",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/sleeper/draft/picks",
+  "concrete": "/api/sleeper/draft/picks",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 1525,
+   "bytes": 155,
+   "contentType": "application/json",
+   "snippet": "{\"draftId\": \"1372568026150338560\", \"status\": \"complete\", \"latestPickNo\": 0, \"picks\": \"<list len=0>\", \"fetchedAt\": \"2026-08-04T20:14:43.394900+00:00\", \"leagueKey\": \"dynasty_main\"}"
+  }
+ },
+ {
+  "path": "/api/status",
+  "concrete": "/api/status",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 8,
+   "bytes": 7477,
+   "contentType": "application/json",
+   "snippet": "{\"running\": false, \"is_running\": false, \"hung\": false, \"stalled\": false, \"interrupted\": false, \"interrupted_at\": null, \"started_at\": null, \"finished_at\": null, \"last_heartbeat\": null, \"last_scrape\": null, \"last_success_at\": null, \"last_failure_at\": null, \"last_duration_sec\": null, \"next_scrape\": \"2026-08-04T22:12:05.550335+00:00\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 7,
+   "bytes": 7477,
+   "contentType": "application/json",
+   "snippet": "{\"running\": false, \"is_running\": false, \"hung\": false, \"stalled\": false, \"interrupted\": false, \"interrupted_at\": null, \"started_at\": null, \"finished_at\": null, \"last_heartbeat\": null, \"last_scrape\": null, \"last_success_at\": null, \"last_failure_at\": null, \"last_duration_sec\": null, \"next_scrape\": \"2026-08-04T22:12:05.550335+00:00\"}"
+  }
+ },
+ {
+  "path": "/api/terminal",
+  "concrete": "/api/terminal",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 27,
+   "bytes": 18845,
+   "contentType": "application/json",
+   "snippet": "{\"generatedAt\": \"2026-08-04T20:14:43Z\", \"contract\": \"<dict len=4>\", \"team\": null, \"availableTeams\": \"<list len=12>\", \"windowDays\": 30, \"trendWindows\": \"<list len=4>\", \"teamAggregates\": \"<dict len=9>\", \"movers\": \"<dict len=3>\", \"signals\": \"<list len=0>\", \"portfolio\": null, \"news\": \"<dict len=2>\", \"watchlist\": \"<list len=0>\", \"meta\": \"<dict len=3>\", \"stale\": false}"
+  }
+ },
+ {
+  "path": "/api/test-alert",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/test/create-session",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/trade/export-ktc",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/trade/finder",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/trade/import-ktc",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/trade/simulate",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/trade/simulate-mc",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/trade/suggestions",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/uptime",
+  "concrete": "/api/uptime",
+  "method": "GET",
+  "anon": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 167,
+   "contentType": "application/json",
+   "snippet": "{\"enabled\": false, \"target_url\": \"https://chaseupside.com/api/health\", \"last_check\": null, \"last_ok\": null, \"last_error\": null, \"last_http_status\": null, \"consecutive_failures\": 0}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 3,
+   "bytes": 167,
+   "contentType": "application/json",
+   "snippet": "{\"enabled\": false, \"target_url\": \"https://chaseupside.com/api/health\", \"last_check\": null, \"last_ok\": null, \"last_error\": null, \"last_http_status\": null, \"consecutive_failures\": 0}"
+  }
+ },
+ {
+  "path": "/api/user/signals/dismiss",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/user/signals/restore",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/user/state",
+  "concrete": "/api/user/state",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 4,
+   "bytes": 39,
+   "contentType": "application/json",
+   "snippet": "{\"username\": \"e2e-test-user\", \"state\": \"<dict len=0>\"}"
+  }
+ },
+ {
+  "path": "/api/user/state",
+  "method": "PUT",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/valuation/league-adjusted",
+  "concrete": "/api/valuation/league-adjusted",
+  "method": "GET",
+  "anon": {
+   "status": 401,
+   "ms": 2,
+   "bytes": 55,
+   "contentType": "application/json",
+   "snippet": "{\"error\": \"auth_required\", \"message\": \"Sign-in required.\"}"
+  },
+  "auth": {
+   "status": 200,
+   "ms": 7267,
+   "bytes": 48555,
+   "contentType": "application/json",
+   "snippet": "{\"leagueKey\": \"dynasty_main\", \"schemaVersion\": 1, \"modelVersion\": \"li.values.2026-07-26.v1\", \"adjustmentModelVersion\": \"li.adjustment.2026-07-26.v1\", \"configVersion\": 1, \"dataThrough\": \"2026-08-04\", \"contractVersion\": \"2026-03-10.v2\", \"scrapeTimestamp\": \"2026-08-04T18:20:36.115095\", \"isNoop\": false, \"adjustedCount\": 709, \"playerCount\": 1092, \"rankedCount\": 740, \"monotonicityViolations\": \"<list len=0>\", \"scarcity\": \"<dict len=8>\"}"
+  }
+ },
+ {
+  "path": "/api/waiver/faab-recommend",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ },
+ {
+  "path": "/api/waiver/suggestions",
+  "method": "POST",
+  "skipped": "non-GET \u2014 probed separately"
+ }
+]

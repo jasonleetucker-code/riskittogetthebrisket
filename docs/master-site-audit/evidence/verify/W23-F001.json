@@ -1,0 +1,80 @@
+{
+ "id": "W23-F001",
+ "workstream": "W23",
+ "promptSections": [
+  38,
+  41
+ ],
+ "title": "The ops \"scrape success rate < 50%\" alert can never fire: the payload it is handed never carries the key, and /api/status carries it as a dict the float() cast rejects",
+ "status": "Implemented but disconnected",
+ "priority": "P1",
+ "size": "XS",
+ "subsystem": "Operator alerting",
+ "surface": {
+  "routes": [
+   "/api/signal-alerts/run",
+   "/api/status"
+  ],
+  "pages": [],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/api/ops_alerts.py",
+   "lines": "45-64"
+  },
+  {
+   "path": "server.py",
+   "lines": "1266-1305"
+  },
+  {
+   "path": "server.py",
+   "lines": "1104-1123"
+  },
+  {
+   "path": "server.py",
+   "lines": "4352"
+  },
+  {
+   "path": "server.py",
+   "lines": "11745-11766"
+  }
+ ],
+ "claimUnderTest": "src/api/ops_alerts.py's module docstring: \"Fires SMTP emails ... when any of these conditions hold: * Scrape success rate over the last 24h drops below 50%\".",
+ "observed": "server.py:11748 calls _scrape_status_payload() and passes it as status_payload. _scrape_status_payload() returns dict(scrape_status) plus exactly three keys (stall_threshold_sec, run_timeout_sec, status_summary). An AST scan of every write into the scrape_status global finds 23 keys; scrape_success_rate_24h is not one of them. _check_scrape_rate therefore gets None from .get() and returns None on line 48 on every sweep. Separately, the key DOES exist on /api/status (added at server.py:4352 inside get_status, a different function) but its value is the DICT {\"total\",\"success\",\"failure\",\"rate\"} returned by _scrape_success_rate_24h(), so even if the payloads were swapped, float(dict) raises TypeError which line 51-52 swallows into another None. Both routes to the alert are closed. Nothing else in the repo reads scrape_success_rate_24h except tests/api/test_ops_alerts.py, which feeds a bare float that no production caller produces \u2014 the test passes and the alert is still dead.",
+ "reproduction": {
+  "command": ".venv/bin/python -c \"import sys; sys.path.insert(0,'.'); from src.api.ops_alerts import _check_scrape_rate; print('status_payload shape:', _check_scrape_rate({'running':False,'stalled':False})); print('/api/status shape:', _check_scrape_rate({'scrape_success_rate_24h':{'total':10,'success':1,'failure':9,'rate':0.1}})); print('test-only shape:', _check_scrape_rate({'scrape_success_rate_24h':0.1}))\"",
+  "expected": "An OpsAlert for the 10%-success case in at least one of the two production shapes",
+  "actual": "status_payload shape: None / /api/status shape: None / test-only shape: OpsAlert(severity='critical', ...) \u2014 only the shape no caller produces alerts",
+  "artifact": "docs/master-site-audit/evidence/W23/api-status.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "scrape_status_keys_written": 23,
+   "key_present_in_scrape_status": 0,
+   "api_status_value_type": "dict",
+   "threshold": 0.5,
+   "simulated_rate": 0.1
+  },
+  "formula": "fire iff float(status_payload['scrape_success_rate_24h']) < 0.5; both production shapes short-circuit to None before the comparison",
+  "expected": 1,
+  "actual": 0,
+  "tolerance": 0
+ },
+ "userImpact": "No user-facing wrong number, but the operator is not told when more than half the scheduled scrapes fail. The board silently ages while every alert channel stays quiet, so the first signal is a user noticing stale values.",
+ "blastRadius": {
+  "playersAffected": 1092,
+  "routesAffected": 2,
+  "pagesAffected": 0
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A07-F03",
+  "relation": "confirmed",
+  "note": "Independently reproduced and extended: the prior finding named only the missing key. The second, independent kill \u2014 /api/status carries the key as a dict, so float() raises and the except swallows it \u2014 means fixing the wiring alone would not revive the alert."
+ },
+ "whatWorks": "The other three ops checks (_check_circuit_breakers, _check_contract_health, _check_data_freshness) receive real inputs from server.py:11755-11762 and can fire. The 4h cooldown and recovery-alert machinery are exercised by tests and are sound.",
+ "rootCause": "Two functions named similarly: _scrape_status_payload() (the alert's input, built from the scrape_status global) and get_status() (the HTTP handler, which decorates that payload with derived fields). The alert was written against the HTTP response shape and wired to the internal one, and the derived field is a dict rather than the scalar the checker expects.",
+ "requiredRepair": "In server.py:11748 pass {**_scrape_status_payload(), 'scrape_success_rate_24h': _scrape_success_rate_24h().get('rate')} (or have _check_scrape_rate accept the dict and read ['rate']). Add a test that feeds the actual production payload, not a hand-built float.",
+ "dependencies": "None"
+}

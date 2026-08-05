@@ -1,0 +1,1975 @@
+[
+ {
+  "ratio": 0.929,
+  "a": "Bijan Robinson",
+  "b": "Brian Robinson",
+  "aPid": "9509",
+  "bPid": "8154",
+  "aRdv": 9706,
+  "bRdv": 1967,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.903,
+  "a": "Malik Washington",
+  "b": "Mike Washington",
+  "aPid": "11610",
+  "bPid": "13305",
+  "aRdv": 1881,
+  "bRdv": 1965,
+  "sharedIdenticalSourceValues": [
+   "yahooBoone",
+   "draftSharks"
+  ]
+ },
+ {
+  "ratio": 0.889,
+  "a": "Kyle Williams",
+  "b": "Kyren Williams",
+  "aPid": "12547",
+  "bPid": "8150",
+  "aRdv": 1766,
+  "bRdv": 4607,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.88,
+  "a": "Keon Coleman",
+  "b": "Kevin Coleman",
+  "aPid": "11637",
+  "bPid": "13338",
+  "aRdv": 1902,
+  "bRdv": 1579,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.88,
+  "a": "Matt Hibner",
+  "b": "Matthew Hibner",
+  "aPid": "13324",
+  "bPid": null,
+  "aRdv": 1737,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": [
+   "ktc",
+   "idpTradeCalc",
+   "ktcSfTep"
+  ]
+ },
+ {
+  "ratio": 0.875,
+  "a": "Darius Robinson",
+  "b": "Demarcus Robinson",
+  "aPid": "11658",
+  "bPid": "3286",
+  "aRdv": null,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.87,
+  "a": "Tez Johnson",
+  "b": "Theo Johnson",
+  "aPid": "12485",
+  "bPid": "11597",
+  "aRdv": 1553,
+  "bRdv": 2322,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.87,
+  "a": "Ty Johnson",
+  "b": "Tyler Johnson",
+  "aPid": "6039",
+  "bPid": "6960",
+  "aRdv": 1177,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.857,
+  "a": "Mac Jones",
+  "b": "Marcus Jones",
+  "aPid": "7527",
+  "bPid": "8359",
+  "aRdv": 2092,
+  "bRdv": 1382,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.857,
+  "a": "Kameron Johnson",
+  "b": "Taron Johnson",
+  "aPid": "11994",
+  "bPid": "5341",
+  "aRdv": 1174,
+  "bRdv": 1002,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.857,
+  "a": "Tez Johnson",
+  "b": "Ty Johnson",
+  "aPid": "12485",
+  "bPid": "6039",
+  "aRdv": 1553,
+  "bRdv": 1177,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.842,
+  "a": "Jack Jones",
+  "b": "Mac Jones",
+  "aPid": "8261",
+  "bPid": "7527",
+  "aRdv": null,
+  "bRdv": 2092,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.839,
+  "a": "Javonte Williams",
+  "b": "Savion Williams",
+  "aPid": "7588",
+  "bPid": "12482",
+  "aRdv": 4224,
+  "bRdv": 1382,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.839,
+  "a": "Quincy Williams",
+  "b": "Quinnen Williams",
+  "aPid": "6214",
+  "bPid": "6118",
+  "aRdv": 1815,
+  "bRdv": 1743,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.833,
+  "a": "Alex Wright",
+  "b": "Jaylen Wright",
+  "aPid": "8376",
+  "bPid": "11643",
+  "aRdv": 982,
+  "bRdv": 1718,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.833,
+  "a": "Tez Johnson",
+  "b": "Tyler Johnson",
+  "aPid": "12485",
+  "bPid": "6960",
+  "aRdv": 1553,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.828,
+  "a": "Brenen Thompson",
+  "b": "Bryan Thompson",
+  "aPid": "13380",
+  "bPid": "11495",
+  "aRdv": 1538,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.824,
+  "a": "DJ Moore",
+  "b": "Rod Moore",
+  "aPid": "4983",
+  "bPid": null,
+  "aRdv": 3616,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.824,
+  "a": "Jordan Whittington",
+  "b": "Noah Whittington",
+  "aPid": "11623",
+  "bPid": "13437",
+  "aRdv": 1225,
+  "bRdv": 1354,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.818,
+  "a": "Theo Johnson",
+  "b": "Ty Johnson",
+  "aPid": "11597",
+  "bPid": "6039",
+  "aRdv": 2322,
+  "bRdv": 1177,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.818,
+  "a": "Dan Bailey",
+  "b": "David Bailey",
+  "aPid": "899",
+  "bPid": "13363",
+  "aRdv": null,
+  "bRdv": 3059,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.818,
+  "a": "Devin White",
+  "b": "Keion White",
+  "aPid": "6119",
+  "bPid": "10904",
+  "aRdv": null,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.818,
+  "a": "Mack Wilson",
+  "b": "Zach Wilson",
+  "aPid": "6131",
+  "bPid": "7538",
+  "aRdv": 1460,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.815,
+  "a": "Caleb Williams",
+  "b": "Kyle Williams",
+  "aPid": "11560",
+  "bPid": "12547",
+  "aRdv": 8753,
+  "bRdv": 1766,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.815,
+  "a": "Evan Williams",
+  "b": "Kyren Williams",
+  "aPid": "11739",
+  "bPid": "8150",
+  "aRdv": 1094,
+  "bRdv": 4607,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.815,
+  "a": "Kyle Williams",
+  "b": "Mykel Williams",
+  "aPid": "12547",
+  "bPid": "12602",
+  "aRdv": 1766,
+  "bRdv": 1215,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.812,
+  "a": "Jameson Williams",
+  "b": "Javonte Williams",
+  "aPid": "8148",
+  "bPid": "7588",
+  "aRdv": 4308,
+  "bRdv": 4224,
+  "sharedIdenticalSourceValues": [
+   "yahooBoone"
+  ]
+ },
+ {
+  "ratio": 0.812,
+  "a": "Mike Washington",
+  "b": "Parker Washington",
+  "aPid": "13305",
+  "bPid": "9487",
+  "aRdv": 1965,
+  "bRdv": 3501,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Adonai Mitchell",
+  "b": "Keaton Mitchell",
+  "aPid": "11625",
+  "bPid": "9511",
+  "aRdv": 2126,
+  "bRdv": 1985,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Isaiah Williams",
+  "b": "Savion Williams",
+  "aPid": "11608",
+  "bPid": "12482",
+  "aRdv": null,
+  "bRdv": 1382,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Milton Williams",
+  "b": "Savion Williams",
+  "aPid": "7696",
+  "bPid": "12482",
+  "aRdv": null,
+  "bRdv": 1382,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Drake Thomas",
+  "b": "Jakobe Thomas",
+  "aPid": "11470",
+  "bPid": "13462",
+  "aRdv": null,
+  "bRdv": 1379,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Taron Johnson",
+  "b": "Theo Johnson",
+  "aPid": "5341",
+  "bPid": "11597",
+  "aRdv": 1002,
+  "bRdv": 2322,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Theo Johnson",
+  "b": "Tyler Johnson",
+  "aPid": "11597",
+  "bPid": "6960",
+  "aRdv": 2322,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Jam Miller",
+  "b": "Jamarion Miller",
+  "aPid": "13403",
+  "bPid": null,
+  "aRdv": 1175,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Darnell Washington",
+  "b": "Parker Washington",
+  "aPid": "9479",
+  "bPid": "9487",
+  "aRdv": 2033,
+  "bRdv": 3501,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Jalon Walker",
+  "b": "Travon Walker",
+  "aPid": "12568",
+  "bPid": "8265",
+  "aRdv": 2755,
+  "bRdv": 1754,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Demario Davis",
+  "b": "Derius Davis",
+  "aPid": "1052",
+  "bPid": "10234",
+  "aRdv": 1390,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "DeShon Elliott",
+  "b": "Keyshaun Elliott",
+  "aPid": "5071",
+  "bPid": "13512",
+  "aRdv": 1382,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Jaylen Warren",
+  "b": "Tyler Warren",
+  "aPid": "8228",
+  "bPid": "12518",
+  "aRdv": 2937,
+  "bRdv": 7210,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Jeremiah Trotter",
+  "b": "Josiah Trotter",
+  "aPid": "11752",
+  "bPid": "13379",
+  "aRdv": null,
+  "bRdv": 1776,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.8,
+  "a": "Jonah Coleman",
+  "b": "Keon Coleman",
+  "aPid": "13345",
+  "bPid": "11637",
+  "aRdv": 2846,
+  "bRdv": 1902,
+  "sharedIdenticalSourceValues": [
+   "draftSharks"
+  ]
+ },
+ {
+  "ratio": 0.788,
+  "a": "Aidan Hutchinson",
+  "b": "Xavier Hutchinson",
+  "aPid": "8289",
+  "bPid": "10218",
+  "aRdv": 6362,
+  "bRdv": 1233,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.788,
+  "a": "Chase McLaughlin",
+  "b": "Jaleel McLaughlin",
+  "aPid": "6650",
+  "bPid": "11439",
+  "aRdv": null,
+  "bRdv": 1135,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.788,
+  "a": "Malik Washington",
+  "b": "Parker Washington",
+  "aPid": "11610",
+  "bPid": "9487",
+  "aRdv": 1881,
+  "bRdv": 3501,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.786,
+  "a": "Dorian Williams",
+  "b": "Evan Williams",
+  "aPid": "10923",
+  "bPid": "11739",
+  "aRdv": 1161,
+  "bRdv": 1094,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.786,
+  "a": "Evan Williams",
+  "b": "Savion Williams",
+  "aPid": "11739",
+  "bPid": "12482",
+  "aRdv": 1094,
+  "bRdv": 1382,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.786,
+  "a": "Kyren Williams",
+  "b": "Mykel Williams",
+  "aPid": "8150",
+  "bPid": "12602",
+  "aRdv": 4607,
+  "bRdv": 1215,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.786,
+  "a": "Bryan Thompson",
+  "b": "Jalen Thompson",
+  "aPid": "11495",
+  "bPid": "6711",
+  "aRdv": null,
+  "bRdv": 1163,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.786,
+  "a": "Kaleb Johnson",
+  "b": "Kameron Johnson",
+  "aPid": "12504",
+  "bPid": "11994",
+  "aRdv": 1964,
+  "bRdv": 1174,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.786,
+  "a": "Roschon Johnson",
+  "b": "Taron Johnson",
+  "aPid": "10235",
+  "bPid": "5341",
+  "aRdv": 1319,
+  "bRdv": 1002,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.786,
+  "a": "Kendre Miller",
+  "b": "Ventrell Miller",
+  "aPid": "9757",
+  "bPid": "10947",
+  "aRdv": 1440,
+  "bRdv": 1227,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.786,
+  "a": "Emanuel Wilson",
+  "b": "Michael Wilson",
+  "aPid": "11435",
+  "bPid": "10232",
+  "aRdv": 1567,
+  "bRdv": 3407,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.786,
+  "a": "Germie Bernard",
+  "b": "Terrel Bernard",
+  "aPid": "13274",
+  "bPid": "8311",
+  "aRdv": 2521,
+  "bRdv": 1957,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.786,
+  "a": "Jack Campbell",
+  "b": "Jihaad Campbell",
+  "aPid": "10880",
+  "bPid": "12566",
+  "aRdv": 4803,
+  "bRdv": 2968,
+  "sharedIdenticalSourceValues": [
+   "draftSharksIdp"
+  ]
+ },
+ {
+  "ratio": 0.786,
+  "a": "Travis Etienne",
+  "b": "Trevor Etienne",
+  "aPid": "7543",
+  "bPid": "12531",
+  "aRdv": 4081,
+  "bRdv": 1466,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.783,
+  "a": "Chris Jones",
+  "b": "Travis Jones",
+  "aPid": "3558",
+  "bPid": "8400",
+  "aRdv": 1204,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.783,
+  "a": "Ainias Smith",
+  "b": "Arian Smith",
+  "aPid": "11615",
+  "bPid": "12539",
+  "aRdv": null,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.783,
+  "a": "Arian Smith",
+  "b": "Roquan Smith",
+  "aPid": "12539",
+  "bPid": "4960",
+  "aRdv": null,
+  "bRdv": 3067,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.783,
+  "a": "Genesis Smith",
+  "b": "Geno Smith",
+  "aPid": "13399",
+  "bPid": "1373",
+  "aRdv": 934,
+  "bRdv": 2137,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.783,
+  "a": "Nolan Smith",
+  "b": "Roquan Smith",
+  "aPid": "10873",
+  "bPid": "4960",
+  "aRdv": 1655,
+  "bRdv": 3067,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.783,
+  "a": "Taron Johnson",
+  "b": "Ty Johnson",
+  "aPid": "5341",
+  "bPid": "6039",
+  "aRdv": 1002,
+  "bRdv": 1177,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.783,
+  "a": "Mack Wilson",
+  "b": "Roman Wilson",
+  "aPid": "6131",
+  "bPid": "11630",
+  "aRdv": 1460,
+  "bRdv": 1321,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.778,
+  "a": "Mac Jones",
+  "b": "Zay Jones",
+  "aPid": "7527",
+  "bPid": "4080",
+  "aRdv": 2092,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.778,
+  "a": "CJ Allen",
+  "b": "Josh Allen",
+  "aPid": "13388",
+  "bPid": "4984",
+  "aRdv": 3184,
+  "bRdv": 9988,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.778,
+  "a": "CJ Allen",
+  "b": "Zach Allen",
+  "aPid": "13388",
+  "bPid": "5871",
+  "aRdv": 3184,
+  "bRdv": 1863,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.774,
+  "a": "Antonio Williams",
+  "b": "Milton Williams",
+  "aPid": "13301",
+  "bPid": "7696",
+  "aRdv": 2663,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.774,
+  "a": "Antonio Williams",
+  "b": "Savion Williams",
+  "aPid": "13301",
+  "bPid": "12482",
+  "aRdv": 2663,
+  "bRdv": 1382,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.774,
+  "a": "Jameson Williams",
+  "b": "Milton Williams",
+  "aPid": "8148",
+  "bPid": "7696",
+  "aRdv": 4308,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.774,
+  "a": "Jameson Williams",
+  "b": "Savion Williams",
+  "aPid": "8148",
+  "bPid": "12482",
+  "aRdv": 4308,
+  "bRdv": 1382,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.774,
+  "a": "Leonard Williams",
+  "b": "Milton Williams",
+  "aPid": "2311",
+  "bPid": "7696",
+  "aRdv": null,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.774,
+  "a": "Malik Washington",
+  "b": "Tahj Washington",
+  "aPid": "11610",
+  "bPid": "11821",
+  "aRdv": 1881,
+  "bRdv": 1197,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.769,
+  "a": "Alontae Taylor",
+  "b": "Mason Taylor",
+  "aPid": "8333",
+  "bPid": "12498",
+  "aRdv": 1412,
+  "bRdv": 2438,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.769,
+  "a": "Evan Williams",
+  "b": "Kyle Williams",
+  "aPid": "11739",
+  "bPid": "12547",
+  "aRdv": 1094,
+  "bRdv": 1766,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.769,
+  "a": "Brian Thomas",
+  "b": "R Mason Thomas",
+  "aPid": "11631",
+  "bPid": "13372",
+  "aRdv": 4466,
+  "bRdv": 1687,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.769,
+  "a": "Juwan Johnson",
+  "b": "Taron Johnson",
+  "aPid": "7002",
+  "bPid": "5341",
+  "aRdv": 2897,
+  "bRdv": 1002,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.769,
+  "a": "Kaleb Johnson",
+  "b": "Tyler Johnson",
+  "aPid": "12504",
+  "bPid": "6960",
+  "aRdv": 1964,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.769,
+  "a": "Taron Johnson",
+  "b": "Tyler Johnson",
+  "aPid": "5341",
+  "bPid": "6960",
+  "aRdv": 1002,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.769,
+  "a": "Emanuel Wilson",
+  "b": "Roman Wilson",
+  "aPid": "11435",
+  "bPid": "11630",
+  "aRdv": 1567,
+  "bRdv": 1321,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.765,
+  "a": "Darnell Washington",
+  "b": "Malik Washington",
+  "aPid": "9479",
+  "bPid": "11610",
+  "aRdv": 2033,
+  "bRdv": 1881,
+  "sharedIdenticalSourceValues": [
+   "fantasyProsFitzmaurice"
+  ]
+ },
+ {
+  "ratio": 0.762,
+  "a": "Geno Smith",
+  "b": "Nolan Smith",
+  "aPid": "1373",
+  "bPid": "10873",
+  "aRdv": 2137,
+  "bRdv": 1655,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.762,
+  "a": "Bryce Lance",
+  "b": "Trey Lance",
+  "aPid": "13420",
+  "bPid": "7610",
+  "aRdv": 1581,
+  "bRdv": 1123,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.762,
+  "a": "Byron Young",
+  "b": "Zion Young",
+  "aPid": "10917",
+  "bPid": "13460",
+  "aRdv": 2644,
+  "bRdv": 1447,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.762,
+  "a": "Jordan Davis",
+  "b": "Ray Davis",
+  "aPid": "8269",
+  "bPid": "11575",
+  "aRdv": 1403,
+  "bRdv": 1693,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.762,
+  "a": "Kenny Moore",
+  "b": "Skyy Moore",
+  "aPid": "4427",
+  "bPid": "8168",
+  "aRdv": 959,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.762,
+  "a": "Sean Tucker",
+  "b": "Tre Tucker",
+  "aPid": "9506",
+  "bPid": "10213",
+  "aRdv": 1665,
+  "bRdv": 1905,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Alontae Taylor",
+  "b": "Jonathan Taylor",
+  "aPid": "8333",
+  "bPid": "6813",
+  "aRdv": 1412,
+  "bRdv": 6431,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Antonio Williams",
+  "b": "Evan Williams",
+  "aPid": "13301",
+  "bPid": "11739",
+  "aRdv": 2663,
+  "bRdv": 1094,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Dorian Williams",
+  "b": "Kyren Williams",
+  "aPid": "10923",
+  "bPid": "8150",
+  "aRdv": 1161,
+  "bRdv": 4607,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Evan Williams",
+  "b": "Jameson Williams",
+  "aPid": "11739",
+  "bPid": "8148",
+  "aRdv": 1094,
+  "bRdv": 4308,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Evan Williams",
+  "b": "Leonard Williams",
+  "aPid": "11739",
+  "bPid": "2311",
+  "aRdv": 1094,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Evan Williams",
+  "b": "Quinnen Williams",
+  "aPid": "11739",
+  "bPid": "6118",
+  "aRdv": 1094,
+  "bRdv": 1743,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Kyle Williams",
+  "b": "Leonard Williams",
+  "aPid": "12547",
+  "bPid": "2311",
+  "aRdv": 1766,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Milton Williams",
+  "b": "Mykel Williams",
+  "aPid": "7696",
+  "bPid": "12602",
+  "aRdv": null,
+  "bRdv": 1215,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Brian Robinson",
+  "b": "Darius Robinson",
+  "aPid": "8154",
+  "bPid": "11658",
+  "aRdv": 1967,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Brenen Thompson",
+  "b": "Jalen Thompson",
+  "aPid": "13380",
+  "bPid": "6711",
+  "aRdv": 1538,
+  "bRdv": 1163,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.759,
+  "a": "Jermaine Johnson",
+  "b": "Juwan Johnson",
+  "aPid": "8398",
+  "bPid": "7002",
+  "aRdv": 1444,
+  "bRdv": 2897,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Aaron Jones",
+  "b": "Brandon Jones",
+  "aPid": "4199",
+  "bPid": "6911",
+  "aRdv": 2144,
+  "bRdv": 1398,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Abdul Carter",
+  "b": "Jalen Carter",
+  "aPid": "12574",
+  "bPid": "10888",
+  "aRdv": 4598,
+  "bRdv": 2519,
+  "sharedIdenticalSourceValues": [
+   "draftSharksIdp"
+  ]
+ },
+ {
+  "ratio": 0.75,
+  "a": "Alec Pierce",
+  "b": "Dameon Pierce",
+  "aPid": "8142",
+  "bPid": "8129",
+  "aRdv": 3726,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "J'Mari Taylor",
+  "b": "Mason Taylor",
+  "aPid": "13348",
+  "bPid": "12498",
+  "aRdv": 1136,
+  "bRdv": 2438,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Antonio Williams",
+  "b": "Jameson Williams",
+  "aPid": "13301",
+  "bPid": "8148",
+  "aRdv": 2663,
+  "bRdv": 4308,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Antonio Williams",
+  "b": "Javonte Williams",
+  "aPid": "13301",
+  "bPid": "7588",
+  "aRdv": 2663,
+  "bRdv": 4224,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Jameson Williams",
+  "b": "Leonard Williams",
+  "aPid": "8148",
+  "bPid": "2311",
+  "aRdv": 4308,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Jonathan Allen",
+  "b": "Josh Allen",
+  "aPid": "4032",
+  "bPid": "4984",
+  "aRdv": 896,
+  "bRdv": 9988,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Brian Thomas",
+  "b": "Drake Thomas",
+  "aPid": "11631",
+  "bPid": "11470",
+  "aRdv": 4466,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Emmett Johnson",
+  "b": "Ty Johnson",
+  "aPid": "13337",
+  "bPid": "6039",
+  "aRdv": 2136,
+  "bRdv": 1177,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Kaleb Johnson",
+  "b": "Tez Johnson",
+  "aPid": "12504",
+  "bPid": "12485",
+  "aRdv": 1964,
+  "bRdv": 1553,
+  "sharedIdenticalSourceValues": [
+   "draftSharks"
+  ]
+ },
+ {
+  "ratio": 0.75,
+  "a": "Taron Johnson",
+  "b": "Tez Johnson",
+  "aPid": "5341",
+  "bPid": "12485",
+  "aRdv": 1002,
+  "bRdv": 1553,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "CJ Daniels",
+  "b": "Jayden Daniels",
+  "aPid": "13270",
+  "bPid": "11566",
+  "aRdv": 1160,
+  "bRdv": 8898,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Parker Washington",
+  "b": "Tahj Washington",
+  "aPid": "9487",
+  "bPid": "11821",
+  "aRdv": 3501,
+  "bRdv": 1197,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Deion Burks",
+  "b": "Treylon Burks",
+  "aPid": "13333",
+  "bPid": "8135",
+  "aRdv": 1259,
+  "bRdv": 1277,
+  "sharedIdenticalSourceValues": [
+   "draftSharks"
+  ]
+ },
+ {
+  "ratio": 0.75,
+  "a": "DeMarcus Lawrence",
+  "b": "Dexter Lawrence",
+  "aPid": "2064",
+  "bPid": "5847",
+  "aRdv": 1038,
+  "bRdv": 1714,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Demario Davis",
+  "b": "Malik Davis",
+  "aPid": "1052",
+  "bPid": "8800",
+  "aRdv": 1390,
+  "bRdv": 1255,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Kyler Gordon",
+  "b": "Ollie Gordon",
+  "aPid": "8365",
+  "bPid": "12495",
+  "aRdv": 1374,
+  "bRdv": 1723,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Mike Jackson",
+  "b": "Theo Jackson",
+  "aPid": "6025",
+  "bPid": "8496",
+  "aRdv": null,
+  "bRdv": 871,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.75,
+  "a": "Mike Evans",
+  "b": "Mitchell Evans",
+  "aPid": "2216",
+  "bPid": "12473",
+  "aRdv": 3210,
+  "bRdv": 1766,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.741,
+  "a": "Caleb Williams",
+  "b": "Evan Williams",
+  "aPid": "11560",
+  "bPid": "11739",
+  "aRdv": 8753,
+  "bRdv": 1094,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.741,
+  "a": "Evan Williams",
+  "b": "Mykel Williams",
+  "aPid": "11739",
+  "bPid": "12602",
+  "aRdv": 1094,
+  "bRdv": 1215,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.741,
+  "a": "Baron Browning",
+  "b": "Jake Browning",
+  "aPid": "7681",
+  "bPid": "6111",
+  "aRdv": null,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.741,
+  "a": "R Mason Thomas",
+  "b": "Zavion Thomas",
+  "aPid": "13372",
+  "bPid": "13411",
+  "aRdv": 1687,
+  "bRdv": 1376,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.741,
+  "a": "Kameron Johnson",
+  "b": "Theo Johnson",
+  "aPid": "11994",
+  "bPid": "11597",
+  "aRdv": 1174,
+  "bRdv": 2322,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.741,
+  "a": "Jameis Winston",
+  "b": "Kevin Winston",
+  "aPid": "2306",
+  "bPid": "12588",
+  "aRdv": 1288,
+  "bRdv": 2763,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.741,
+  "a": "Lamar Jackson",
+  "b": "Landon Jackson",
+  "aPid": "4881",
+  "bPid": "12580",
+  "aRdv": 8784,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.741,
+  "a": "Troy Franklin",
+  "b": "Zaire Franklin",
+  "aPid": "11627",
+  "bPid": "5346",
+  "aRdv": 1996,
+  "bRdv": 1939,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.737,
+  "a": "A.J. Brown",
+  "b": "Chase Brown",
+  "aPid": "5859",
+  "bPid": "9224",
+  "aRdv": 4925,
+  "bRdv": 5419,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.737,
+  "a": "A.J. Brown",
+  "b": "Dyami Brown",
+  "aPid": "5859",
+  "bPid": "7587",
+  "aRdv": 4925,
+  "bRdv": 1190,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.737,
+  "a": "Jack Jones",
+  "b": "Zay Jones",
+  "aPid": "8261",
+  "bPid": "4080",
+  "aRdv": null,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.737,
+  "a": "CJ Allen",
+  "b": "Cyrus Allen",
+  "aPid": "13388",
+  "bPid": "13413",
+  "aRdv": 3184,
+  "bRdv": 1511,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.737,
+  "a": "Gabe Davis",
+  "b": "Ray Davis",
+  "aPid": "6943",
+  "bPid": "11575",
+  "aRdv": null,
+  "bRdv": 1693,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Elijah Mitchell",
+  "b": "Keaton Mitchell",
+  "aPid": "7561",
+  "bPid": "9511",
+  "aRdv": null,
+  "bRdv": 1985,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Caleb Williams",
+  "b": "Jameson Williams",
+  "aPid": "11560",
+  "bPid": "8148",
+  "aRdv": 8753,
+  "bRdv": 4308,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Caleb Williams",
+  "b": "Javonte Williams",
+  "aPid": "11560",
+  "bPid": "7588",
+  "aRdv": 8753,
+  "bRdv": 4224,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Caleb Williams",
+  "b": "Leonard Williams",
+  "aPid": "11560",
+  "bPid": "2311",
+  "aRdv": 8753,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Dorian Williams",
+  "b": "Isaiah Williams",
+  "aPid": "10923",
+  "bPid": "11608",
+  "aRdv": 1161,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Dorian Williams",
+  "b": "Milton Williams",
+  "aPid": "10923",
+  "bPid": "7696",
+  "aRdv": 1161,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Dorian Williams",
+  "b": "Quincy Williams",
+  "aPid": "10923",
+  "bPid": "6214",
+  "aRdv": 1161,
+  "bRdv": 1815,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Dorian Williams",
+  "b": "Savion Williams",
+  "aPid": "10923",
+  "bPid": "12482",
+  "aRdv": 1161,
+  "bRdv": 1382,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Jameson Williams",
+  "b": "Kyren Williams",
+  "aPid": "8148",
+  "bPid": "8150",
+  "aRdv": 4308,
+  "bRdv": 4607,
+  "sharedIdenticalSourceValues": [
+   "draftSharks"
+  ]
+ },
+ {
+  "ratio": 0.733,
+  "a": "Jameson Williams",
+  "b": "Mykel Williams",
+  "aPid": "8148",
+  "bPid": "12602",
+  "aRdv": 4308,
+  "bRdv": 1215,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Kyren Williams",
+  "b": "Quinnen Williams",
+  "aPid": "8150",
+  "bPid": "6118",
+  "aRdv": 4607,
+  "bRdv": 1743,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Milton Williams",
+  "b": "Quincy Williams",
+  "aPid": "7696",
+  "bPid": "6214",
+  "aRdv": null,
+  "bRdv": 1815,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Quincy Williams",
+  "b": "Savion Williams",
+  "aPid": "6214",
+  "bPid": "12482",
+  "aRdv": 1815,
+  "bRdv": 1382,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Bijan Robinson",
+  "b": "Wan'Dale Robinson",
+  "aPid": "9509",
+  "bPid": "8126",
+  "aRdv": 9706,
+  "bRdv": 3206,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Brian Robinson",
+  "b": "Wan'Dale Robinson",
+  "aPid": "8154",
+  "bPid": "8126",
+  "aRdv": 1967,
+  "bRdv": 3206,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Emmett Johnson",
+  "b": "Jermaine Johnson",
+  "aPid": "13337",
+  "bPid": "8398",
+  "aRdv": 2136,
+  "bRdv": 1444,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Kameron Johnson",
+  "b": "Roschon Johnson",
+  "aPid": "11994",
+  "bPid": "10235",
+  "aRdv": 1174,
+  "bRdv": 1319,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Chris Rodriguez",
+  "b": "Jacob Rodriguez",
+  "aPid": "10219",
+  "bPid": "13453",
+  "aRdv": 2207,
+  "bRdv": 3544,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Mike Washington",
+  "b": "Tahj Washington",
+  "aPid": "13305",
+  "bPid": "11821",
+  "aRdv": 1965,
+  "bRdv": 1197,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Dexter Lawrence",
+  "b": "Trevor Lawrence",
+  "aPid": "5847",
+  "bPid": "7523",
+  "aRdv": 1714,
+  "bRdv": 6886,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Harrison Wallace",
+  "b": "Trevin Wallace",
+  "aPid": "13670",
+  "bPid": "11724",
+  "aRdv": 1311,
+  "bRdv": 1342,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.733,
+  "a": "Jake Ferguson",
+  "b": "Terrance Ferguson",
+  "aPid": "8110",
+  "bPid": "12487",
+  "aRdv": 3867,
+  "bRdv": 3054,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Jack Jones",
+  "b": "Marcus Jones",
+  "aPid": "8261",
+  "bPid": "8359",
+  "aRdv": null,
+  "bRdv": 1382,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Arian Smith",
+  "b": "Nolan Smith",
+  "aPid": "12539",
+  "bPid": "10873",
+  "aRdv": null,
+  "bRdv": 1655,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Jonnu Smith",
+  "b": "Nolan Smith",
+  "aPid": "4144",
+  "bPid": "10873",
+  "aRdv": 1627,
+  "bRdv": 1655,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Bryce Young",
+  "b": "Byron Young",
+  "aPid": "9228",
+  "bPid": "10917",
+  "aRdv": 3803,
+  "bRdv": 2644,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Bryce Young",
+  "b": "Chase Young",
+  "aPid": "9228",
+  "bPid": "6782",
+  "aRdv": 3803,
+  "bRdv": 2506,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Ty Johnson",
+  "b": "Will Johnson",
+  "aPid": "6039",
+  "bPid": "12565",
+  "aRdv": 1177,
+  "bRdv": 873,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Najee Harris",
+  "b": "Tre' Harris",
+  "aPid": "7528",
+  "bPid": "12509",
+  "aRdv": 1456,
+  "bRdv": 2397,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Dallas Turner",
+  "b": "DJ Turner",
+  "aPid": "11667",
+  "bPid": "10894",
+  "aRdv": 3539,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Darnell Washington",
+  "b": "Mike Washington",
+  "aPid": "9479",
+  "bPid": "13305",
+  "aRdv": 2033,
+  "bRdv": 1965,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Darnell Washington",
+  "b": "Tahj Washington",
+  "aPid": "9479",
+  "bPid": "11821",
+  "aRdv": 2033,
+  "bRdv": 1197,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "DeMarcus Lawrence",
+  "b": "Malachi Lawrence",
+  "aPid": "2064",
+  "bPid": "13359",
+  "aRdv": 1038,
+  "bRdv": 1711,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Eric Wilson",
+  "b": "Mack Wilson",
+  "aPid": "4413",
+  "bPid": "6131",
+  "aRdv": 1164,
+  "bRdv": 1460,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Eric Wilson",
+  "b": "Zach Wilson",
+  "aPid": "4413",
+  "bPid": "7538",
+  "aRdv": 1164,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Ja'Kobi Lane",
+  "b": "Jaylin Lane",
+  "aPid": "13293",
+  "bPid": "12641",
+  "aRdv": 1921,
+  "bRdv": 1346,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Jake Bates",
+  "b": "Jessie Bates",
+  "aPid": "11539",
+  "bPid": "5017",
+  "aRdv": null,
+  "bRdv": 1707,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Jordan Love",
+  "b": "Julian Love",
+  "aPid": "6804",
+  "bPid": "5876",
+  "aRdv": 6038,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Lil'Jordan Humphrey",
+  "b": "Marlon Humphrey",
+  "aPid": "5938",
+  "bPid": "4071",
+  "aRdv": null,
+  "bRdv": 930,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.727,
+  "a": "Nick Martin",
+  "b": "Quan Martin",
+  "aPid": "12630",
+  "bPid": "10903",
+  "aRdv": 1169,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Chase Brown",
+  "b": "Marquise Brown",
+  "aPid": "9224",
+  "bPid": "5848",
+  "aRdv": 5419,
+  "bRdv": 1447,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Alvin Kamara",
+  "b": "Mikail Kamara",
+  "aPid": "4035",
+  "bPid": "13596",
+  "aRdv": 1899,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Kaytron Allen",
+  "b": "Keenan Allen",
+  "aPid": "13405",
+  "bPid": "1479",
+  "aRdv": 2074,
+  "bRdv": 1300,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Brian Thomas",
+  "b": "Zavion Thomas",
+  "aPid": "11631",
+  "bPid": "13411",
+  "aRdv": 4466,
+  "bRdv": 1376,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Chris Johnson",
+  "b": "Theo Johnson",
+  "aPid": "13370",
+  "bPid": "11597",
+  "aRdv": null,
+  "bRdv": 2322,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Chris Johnson",
+  "b": "Will Johnson",
+  "aPid": "13370",
+  "bPid": "12565",
+  "aRdv": null,
+  "bRdv": 873,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Emmett Johnson",
+  "b": "Tez Johnson",
+  "aPid": "13337",
+  "bPid": "12485",
+  "aRdv": 2136,
+  "bRdv": 1553,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Juwan Johnson",
+  "b": "Will Johnson",
+  "aPid": "7002",
+  "bPid": "12565",
+  "aRdv": 2897,
+  "bRdv": 873,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Kaleb Johnson",
+  "b": "Theo Johnson",
+  "aPid": "12504",
+  "bPid": "11597",
+  "aRdv": 1964,
+  "bRdv": 2322,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Kaleb Johnson",
+  "b": "Will Johnson",
+  "aPid": "12504",
+  "bPid": "12565",
+  "aRdv": 1964,
+  "bRdv": 873,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Tyler Johnson",
+  "b": "Will Johnson",
+  "aPid": "6960",
+  "bPid": "12565",
+  "aRdv": null,
+  "bRdv": 873,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Danielle Hunter",
+  "b": "Lee Hunter",
+  "aPid": "2393",
+  "bPid": "13362",
+  "aRdv": 2558,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "David Walker",
+  "b": "Travon Walker",
+  "aPid": "12645",
+  "bPid": "8265",
+  "aRdv": 872,
+  "bRdv": 1754,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Elijah Higgins",
+  "b": "Tee Higgins",
+  "aPid": "10231",
+  "bPid": "6801",
+  "aRdv": 1727,
+  "bRdv": 4726,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Jayden Higgins",
+  "b": "Tee Higgins",
+  "aPid": "12484",
+  "bPid": "6801",
+  "aRdv": 3155,
+  "bRdv": 4726,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Emanuel Wilson",
+  "b": "Mack Wilson",
+  "aPid": "11435",
+  "bPid": "6131",
+  "aRdv": 1567,
+  "bRdv": 1460,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Eric Wilson",
+  "b": "Michael Wilson",
+  "aPid": "4413",
+  "bPid": "10232",
+  "aRdv": 1164,
+  "bRdv": 3407,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Johnny Wilson",
+  "b": "Roman Wilson",
+  "aPid": "11636",
+  "bPid": "11630",
+  "aRdv": null,
+  "bRdv": 1321,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Mack Wilson",
+  "b": "Michael Wilson",
+  "aPid": "6131",
+  "bPid": "10232",
+  "aRdv": 1460,
+  "bRdv": 3407,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Michael Wilson",
+  "b": "Zach Wilson",
+  "aPid": "10232",
+  "bPid": "7538",
+  "aRdv": 3407,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Payton Wilson",
+  "b": "Roman Wilson",
+  "aPid": "11727",
+  "bPid": "11630",
+  "aRdv": 1962,
+  "bRdv": 1321,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Montez Sweat",
+  "b": "T'Vondre Sweat",
+  "aPid": "6124",
+  "bPid": "11691",
+  "aRdv": 1690,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Lamar Jackson",
+  "b": "Mike Jackson",
+  "aPid": "4881",
+  "bPid": "6025",
+  "aRdv": 8784,
+  "bRdv": null,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Nico Collins",
+  "b": "Zaven Collins",
+  "aPid": "7569",
+  "bPid": "7637",
+  "aRdv": 6080,
+  "bRdv": 1375,
+  "sharedIdenticalSourceValues": []
+ },
+ {
+  "ratio": 0.72,
+  "a": "Trenton Simpson",
+  "b": "Ty Simpson",
+  "aPid": "10935",
+  "bPid": "13275",
+  "aRdv": null,
+  "bRdv": 3400,
+  "sharedIdenticalSourceValues": []
+ }
+]

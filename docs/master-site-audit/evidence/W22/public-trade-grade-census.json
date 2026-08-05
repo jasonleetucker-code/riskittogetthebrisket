@@ -1,0 +1,5651 @@
+{
+ "note": "Every entry is a bracketed constraint on package_value(received)/package_value(sent) computed from the PRIVATE board (rankDerivedValue -> displayValue) and served anonymously. Band edges: 3/8/15/25/40 pct (src/public_league/trade_grading.py:48-52).",
+ "gradedTrades": 191,
+ "gradedSides": 393,
+ "distribution": {
+  "D": 53,
+  "A+": 114,
+  "B": 25,
+  "A-": 23,
+  "A": 55,
+  "B+": 41,
+  "F": 60,
+  "C": 22
+ },
+ "sides": [
+  {
+   "transactionId": "1388782397222293506",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Brian Thomas",
+    "Antonio Williams",
+    "2028 R5",
+    "2029 R4",
+    "2029 R4"
+   ],
+   "sent": [
+    "DeVonta Smith",
+    "Wan'Dale Robinson"
+   ]
+  },
+  {
+   "transactionId": "1388782397222293506",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "DeVonta Smith",
+    "Wan'Dale Robinson"
+   ],
+   "sent": [
+    "Brian Thomas",
+    "Antonio Williams",
+    "2028 R5",
+    "2029 R4",
+    "2029 R4"
+   ]
+  },
+  {
+   "transactionId": "1362569916510658560",
+   "ownerId": "711452264774041600",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Brian Thomas",
+    "Colby Parkinson",
+    "Trevor Lawrence",
+    "2029 R4"
+   ],
+   "sent": [
+    "Dak Prescott",
+    "Mark Andrews",
+    "George Pickens"
+   ]
+  },
+  {
+   "transactionId": "1362569916510658560",
+   "ownerId": "1002085133723299840",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Dak Prescott",
+    "Mark Andrews",
+    "George Pickens"
+   ],
+   "sent": [
+    "Brian Thomas",
+    "Colby Parkinson",
+    "Trevor Lawrence",
+    "2029 R4"
+   ]
+  },
+  {
+   "transactionId": "1360095530142666752",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Brock Bowers"
+   ],
+   "sent": [
+    "Sam LaPorta",
+    "Jeremiyah Love"
+   ]
+  },
+  {
+   "transactionId": "1360095530142666752",
+   "ownerId": "609821340567941120",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Sam LaPorta",
+    "Jeremiyah Love"
+   ],
+   "sent": [
+    "Brock Bowers"
+   ]
+  },
+  {
+   "transactionId": "1360027337906753536",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "J.J. McCarthy",
+    "2027 R3"
+   ],
+   "sent": [
+    "Tory Horton",
+    "Chris Brazzell"
+   ]
+  },
+  {
+   "transactionId": "1360027337906753536",
+   "ownerId": "1303549304882892800",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Tory Horton",
+    "Chris Brazzell"
+   ],
+   "sent": [
+    "J.J. McCarthy",
+    "2027 R3"
+   ]
+  },
+  {
+   "transactionId": "1360024547495006208",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2029 R2",
+    "2029 R3"
+   ],
+   "sent": [
+    "Dylan Sampson",
+    "Zach Charbonnet"
+   ]
+  },
+  {
+   "transactionId": "1360024547495006208",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Dylan Sampson",
+    "Zach Charbonnet"
+   ],
+   "sent": [
+    "2029 R2",
+    "2029 R3"
+   ]
+  },
+  {
+   "transactionId": "1360018578035732480",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Chris Rodriguez",
+    "Chris Olave"
+   ],
+   "sent": [
+    "Jameis Winston",
+    "Christian Watson",
+    "Josh Downs",
+    "2027 R3"
+   ]
+  },
+  {
+   "transactionId": "1360018578035732480",
+   "ownerId": "714912789268865024",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Jameis Winston",
+    "Christian Watson",
+    "Josh Downs",
+    "2027 R3"
+   ],
+   "sent": [
+    "Chris Rodriguez",
+    "Chris Olave"
+   ]
+  },
+  {
+   "transactionId": "1360015530047594496",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Jameis Winston",
+    "Marcus Mariota"
+   ],
+   "sent": [
+    "Jalen Milroe"
+   ]
+  },
+  {
+   "transactionId": "1360015530047594496",
+   "ownerId": "473973924808355840",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Jalen Milroe"
+   ],
+   "sent": [
+    "Jameis Winston",
+    "Marcus Mariota"
+   ]
+  },
+  {
+   "transactionId": "1360000119939805184",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Bhayshul Tuten",
+    "Josh Downs",
+    "2028 R4"
+   ],
+   "sent": [
+    "Fernando Mendoza"
+   ]
+  },
+  {
+   "transactionId": "1360000119939805184",
+   "ownerId": "711452264774041600",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Fernando Mendoza"
+   ],
+   "sent": [
+    "Bhayshul Tuten",
+    "Josh Downs",
+    "2028 R4"
+   ]
+  },
+  {
+   "transactionId": "1358575778052194304",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2027 R5"
+   ],
+   "sent": [
+    "Anthony Richardson"
+   ]
+  },
+  {
+   "transactionId": "1358575778052194304",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Anthony Richardson"
+   ],
+   "sent": [
+    "2027 R5"
+   ]
+  },
+  {
+   "transactionId": "1358242071688810496",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Aaron Jones",
+    "Jordan Mason"
+   ],
+   "sent": [
+    "Chris Rodriguez",
+    "Adonai Mitchell"
+   ]
+  },
+  {
+   "transactionId": "1358242071688810496",
+   "ownerId": "714912789268865024",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Chris Rodriguez",
+    "Adonai Mitchell"
+   ],
+   "sent": [
+    "Aaron Jones",
+    "Jordan Mason"
+   ]
+  },
+  {
+   "transactionId": "1355226035993448448",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Tyler Allgeier",
+    "Christian Watson",
+    "Jordan Addison"
+   ],
+   "sent": [
+    "Saquon Barkley",
+    "Cole Kmet",
+    "Tank Bigsby",
+    "Tanner McKee"
+   ]
+  },
+  {
+   "transactionId": "1355226035993448448",
+   "ownerId": "1303549304882892800",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Saquon Barkley",
+    "Cole Kmet",
+    "Tank Bigsby",
+    "Tanner McKee"
+   ],
+   "sent": [
+    "Tyler Allgeier",
+    "Christian Watson",
+    "Jordan Addison"
+   ]
+  },
+  {
+   "transactionId": "1355222183340687360",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Sam LaPorta",
+    "Saquon Barkley"
+   ],
+   "sent": [
+    "2026 R3",
+    "2026 R1",
+    "2026 R1",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1355222183340687360",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R3",
+    "2026 R1",
+    "2026 R1",
+    "2026 R2"
+   ],
+   "sent": [
+    "Sam LaPorta",
+    "Saquon Barkley"
+   ]
+  },
+  {
+   "transactionId": "1354904952501207040",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Jauan Jennings"
+   ],
+   "sent": [
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1354904952501207040",
+   "ownerId": "473973924808355840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R2"
+   ],
+   "sent": [
+    "Jauan Jennings"
+   ]
+  },
+  {
+   "transactionId": "1353693853902716928",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "T.J. Hockenson",
+    "2026 R1",
+    "2026 R1"
+   ],
+   "sent": [
+    "Oronde Gadsden",
+    "Sam Darnold",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1353693853902716928",
+   "ownerId": "472206636534984704",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Oronde Gadsden",
+    "Sam Darnold",
+    "2026 R3"
+   ],
+   "sent": [
+    "T.J. Hockenson",
+    "2026 R1",
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1353589444229222400",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Chris Rodriguez",
+    "Oronde Gadsden",
+    "Andrew Van Ginkel",
+    "Justin Jefferson"
+   ],
+   "sent": [
+    "Brian Thomas",
+    "Harold Fannin",
+    "Tetairoa McMillan"
+   ]
+  },
+  {
+   "transactionId": "1353589444229222400",
+   "ownerId": "1002085133723299840",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Brian Thomas",
+    "Harold Fannin",
+    "Tetairoa McMillan"
+   ],
+   "sent": [
+    "Chris Rodriguez",
+    "Oronde Gadsden",
+    "Andrew Van Ginkel",
+    "Justin Jefferson"
+   ]
+  },
+  {
+   "transactionId": "1349811318554652672",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Emeka Egbuka",
+    "Kyler Murray",
+    "2028 R4"
+   ],
+   "sent": [
+    "Cam Ward",
+    "A.J. Brown",
+    "David Montgomery"
+   ]
+  },
+  {
+   "transactionId": "1349811318554652672",
+   "ownerId": "609821340567941120",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Cam Ward",
+    "A.J. Brown",
+    "David Montgomery"
+   ],
+   "sent": [
+    "Emeka Egbuka",
+    "Kyler Murray",
+    "2028 R4"
+   ]
+  },
+  {
+   "transactionId": "1346965976364617728",
+   "ownerId": "609821340567941120",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Ben Sinnott",
+    "Brashard Smith",
+    "2027 R5"
+   ],
+   "sent": [
+    "Ja'Lynn Polk",
+    "Isaac TeSlaa",
+    "2026 R6"
+   ]
+  },
+  {
+   "transactionId": "1346965976364617728",
+   "ownerId": "1012114412049731584",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Ja'Lynn Polk",
+    "Isaac TeSlaa",
+    "2026 R6"
+   ],
+   "sent": [
+    "Ben Sinnott",
+    "Brashard Smith",
+    "2027 R5"
+   ]
+  },
+  {
+   "transactionId": "1346964736645828608",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Sam Darnold",
+    "David Montgomery"
+   ],
+   "sent": [
+    "Jacory Croskey-Merritt",
+    "Jameson Williams"
+   ]
+  },
+  {
+   "transactionId": "1346964736645828608",
+   "ownerId": "714912789268865024",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Jacory Croskey-Merritt",
+    "Jameson Williams",
+    "2026 R1"
+   ],
+   "sent": [
+    "Jalen Hurts",
+    "Tyler Allgeier",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1346964736645828608",
+   "ownerId": "1303549304882892800",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Jalen Hurts",
+    "Tyler Allgeier",
+    "2026 R3"
+   ],
+   "sent": [
+    "Sam Darnold",
+    "David Montgomery",
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1337518812416729088",
+   "ownerId": "711452264774041600",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Jalen McMillan",
+    "Bhayshul Tuten",
+    "Kayshon Boutte"
+   ],
+   "sent": [
+    "Travis Hunter",
+    "Kyle Pitts"
+   ]
+  },
+  {
+   "transactionId": "1337518812416729088",
+   "ownerId": "1002085133723299840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Travis Hunter",
+    "Kyle Pitts"
+   ],
+   "sent": [
+    "Jalen McMillan",
+    "Bhayshul Tuten",
+    "Kayshon Boutte"
+   ]
+  },
+  {
+   "transactionId": "1337514007577268224",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Harold Fannin",
+    "Cam Ward"
+   ],
+   "sent": [
+    "Sam LaPorta",
+    "Saquon Barkley"
+   ]
+  },
+  {
+   "transactionId": "1337514007577268224",
+   "ownerId": "711452264774041600",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Sam LaPorta",
+    "Saquon Barkley"
+   ],
+   "sent": [
+    "Harold Fannin",
+    "Cam Ward"
+   ]
+  },
+  {
+   "transactionId": "1337468593205424128",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Sam LaPorta"
+   ],
+   "sent": [
+    "2027 R2",
+    "2028 R1",
+    "2027 R3"
+   ]
+  },
+  {
+   "transactionId": "1337468593205424128",
+   "ownerId": "472206636534984704",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2027 R2",
+    "2028 R1",
+    "2027 R3"
+   ],
+   "sent": [
+    "Sam LaPorta"
+   ]
+  },
+  {
+   "transactionId": "1337401042928676864",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Tetairoa McMillan",
+    "2027 R6",
+    "2028 R4",
+    "2028 R5",
+    "2028 R6"
+   ],
+   "sent": [
+    "Bhayshul Tuten",
+    "Quinshon Judkins"
+   ]
+  },
+  {
+   "transactionId": "1337401042928676864",
+   "ownerId": "1002085133723299840",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Bhayshul Tuten",
+    "Quinshon Judkins"
+   ],
+   "sent": [
+    "Tetairoa McMillan",
+    "2027 R6",
+    "2028 R4",
+    "2028 R5",
+    "2028 R6"
+   ]
+  },
+  {
+   "transactionId": "1336903787469619200",
+   "ownerId": "468418790212759552",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Tua Tagovailoa",
+    "Wan'Dale Robinson",
+    "Garrett Wilson"
+   ],
+   "sent": [
+    "Jack Bech",
+    "Efton Chism",
+    "Jalen Hurts",
+    "Keaton Mitchell"
+   ]
+  },
+  {
+   "transactionId": "1336903787469619200",
+   "ownerId": "714912789268865024",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Jack Bech",
+    "Efton Chism",
+    "Jalen Hurts",
+    "Keaton Mitchell"
+   ],
+   "sent": [
+    "Tua Tagovailoa",
+    "Wan'Dale Robinson",
+    "Garrett Wilson"
+   ]
+  },
+  {
+   "transactionId": "1336801586600509440",
+   "ownerId": "472206636534984704",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "2026 R1"
+   ],
+   "sent": [
+    "Travis Etienne"
+   ]
+  },
+  {
+   "transactionId": "1336801586600509440",
+   "ownerId": "1002085133723299840",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Travis Etienne"
+   ],
+   "sent": [
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1328101920702738432",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Raheim Sanders",
+    "Carson Schwesinger",
+    "Zach Charbonnet"
+   ],
+   "sent": [
+    "Drake Thomas",
+    "Gunnar Helm",
+    "Fred Warner",
+    "Nick Bosa"
+   ]
+  },
+  {
+   "transactionId": "1328101920702738432",
+   "ownerId": "711452264774041600",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Drake Thomas",
+    "Gunnar Helm",
+    "Fred Warner",
+    "Nick Bosa"
+   ],
+   "sent": [
+    "Raheim Sanders",
+    "Carson Schwesinger",
+    "Zach Charbonnet"
+   ]
+  },
+  {
+   "transactionId": "1328100053088227328",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Cooper DeJean",
+    "Andrew Mukuba"
+   ],
+   "sent": [
+    "Kyle Hamilton"
+   ]
+  },
+  {
+   "transactionId": "1328100053088227328",
+   "ownerId": "472206636534984704",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Kyle Hamilton"
+   ],
+   "sent": [
+    "Cooper DeJean",
+    "Andrew Mukuba"
+   ]
+  },
+  {
+   "transactionId": "1327867438372495360",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R5"
+   ],
+   "sent": [
+    "Calen Bullock"
+   ]
+  },
+  {
+   "transactionId": "1327867438372495360",
+   "ownerId": "609821340567941120",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Calen Bullock"
+   ],
+   "sent": [
+    "2026 R5"
+   ]
+  },
+  {
+   "transactionId": "1327836922269159424",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "J.K. Dobbins",
+    "Josh Downs",
+    "2026 R5",
+    "2026 R6"
+   ],
+   "sent": [
+    "Josh Jacobs"
+   ]
+  },
+  {
+   "transactionId": "1327836922269159424",
+   "ownerId": "1002085133723299840",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Josh Jacobs"
+   ],
+   "sent": [
+    "J.K. Dobbins",
+    "Josh Downs",
+    "2026 R5",
+    "2026 R6"
+   ]
+  },
+  {
+   "transactionId": "1327833468616339456",
+   "ownerId": "468418790212759552",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Michael Penix",
+    "Jameson Williams",
+    "2028 R3",
+    "2026 R3"
+   ],
+   "sent": [
+    "Harold Fannin",
+    "Daniel Jones"
+   ]
+  },
+  {
+   "transactionId": "1327833468616339456",
+   "ownerId": "711452264774041600",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Harold Fannin",
+    "Daniel Jones"
+   ],
+   "sent": [
+    "Michael Penix",
+    "Jameson Williams",
+    "2028 R3",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1327821769066684416",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Harold Fannin",
+    "Quinshon Judkins",
+    "DeVonta Smith",
+    "Tanner McKee"
+   ],
+   "sent": [
+    "Tetairoa McMillan",
+    "Drake London"
+   ]
+  },
+  {
+   "transactionId": "1327821769066684416",
+   "ownerId": "1002085133723299840",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Tetairoa McMillan",
+    "Drake London"
+   ],
+   "sent": [
+    "Harold Fannin",
+    "Quinshon Judkins",
+    "DeVonta Smith",
+    "Tanner McKee"
+   ]
+  },
+  {
+   "transactionId": "1327820887285592064",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Saquon Barkley",
+    "Jalen Hurts",
+    "2026 R2"
+   ],
+   "sent": [
+    "TreVeyon Henderson",
+    "Brock Purdy"
+   ]
+  },
+  {
+   "transactionId": "1327820887285592064",
+   "ownerId": "473973924808355840",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "TreVeyon Henderson",
+    "Brock Purdy"
+   ],
+   "sent": [
+    "Saquon Barkley",
+    "Jalen Hurts",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1327816455504269312",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "A.J. Brown",
+    "Brock Purdy"
+   ],
+   "sent": [
+    "Cam Ward",
+    "Travis Hunter"
+   ]
+  },
+  {
+   "transactionId": "1327816455504269312",
+   "ownerId": "711452264774041600",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Cam Ward",
+    "Travis Hunter"
+   ],
+   "sent": [
+    "A.J. Brown",
+    "Brock Purdy"
+   ]
+  },
+  {
+   "transactionId": "1326419416757329920",
+   "ownerId": "609821340567941120",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Kenneth Walker"
+   ],
+   "sent": [
+    "2026 R1",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1326419416757329920",
+   "ownerId": "472206636534984704",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2026 R1",
+    "2026 R3"
+   ],
+   "sent": [
+    "Kenneth Walker"
+   ]
+  },
+  {
+   "transactionId": "1317477445061844992",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "TreVeyon Henderson"
+   ],
+   "sent": [
+    "James Conner",
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1317477445061844992",
+   "ownerId": "1303549304882892800",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "James Conner",
+    "2026 R1"
+   ],
+   "sent": [
+    "TreVeyon Henderson"
+   ]
+  },
+  {
+   "transactionId": "1316278057073401856",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "2026 R1",
+    "2026 R2",
+    "2027 R1",
+    "2027 R2",
+    "2028 R1",
+    "2028 R2"
+   ],
+   "sent": [
+    "Josh Allen"
+   ]
+  },
+  {
+   "transactionId": "1316278057073401856",
+   "ownerId": "1303549304882892800",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Josh Allen"
+   ],
+   "sent": [
+    "2026 R1",
+    "2026 R2",
+    "2027 R1",
+    "2027 R2",
+    "2028 R1",
+    "2028 R2"
+   ]
+  },
+  {
+   "transactionId": "1315086372989571072",
+   "ownerId": "468418790212759552",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Brian Thomas"
+   ],
+   "sent": [
+    "Tucker Kraft"
+   ]
+  },
+  {
+   "transactionId": "1315086372989571072",
+   "ownerId": "831633191830933504",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Tucker Kraft"
+   ],
+   "sent": [
+    "Brian Thomas"
+   ]
+  },
+  {
+   "transactionId": "1315063574141362176",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Josh Allen"
+   ],
+   "sent": [
+    "Malik Nabers",
+    "Garrett Wilson"
+   ]
+  },
+  {
+   "transactionId": "1315063574141362176",
+   "ownerId": "714912789268865024",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Malik Nabers",
+    "Garrett Wilson"
+   ],
+   "sent": [
+    "Josh Allen"
+   ]
+  },
+  {
+   "transactionId": "1314374949447680000",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Dylan Sampson",
+    "Drake London"
+   ],
+   "sent": [
+    "Ladd McConkey",
+    "2027 R1"
+   ]
+  },
+  {
+   "transactionId": "1314374949447680000",
+   "ownerId": "472206636534984704",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Ladd McConkey",
+    "2027 R1"
+   ],
+   "sent": [
+    "Dylan Sampson",
+    "Drake London"
+   ]
+  },
+  {
+   "transactionId": "1300179185372778496",
+   "ownerId": "711452264774041600",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Jonnu Smith",
+    "A.J. Brown"
+   ],
+   "sent": [
+    "Isaiah Likely",
+    "Kenneth Walker"
+   ]
+  },
+  {
+   "transactionId": "1300179185372778496",
+   "ownerId": "472206636534984704",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Isaiah Likely",
+    "Kenneth Walker"
+   ],
+   "sent": [
+    "Jonnu Smith",
+    "A.J. Brown"
+   ]
+  },
+  {
+   "transactionId": "1299582385259560960",
+   "ownerId": "472206636534984704",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "T.J. Hockenson",
+    "Derrick Barnes",
+    "Drake London"
+   ],
+   "sent": [
+    "Rashee Rice",
+    "Travis Kelce",
+    "Derwin James",
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1299582385259560960",
+   "ownerId": "1002085133723299840",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Rashee Rice",
+    "Travis Kelce",
+    "Derwin James",
+    "2026 R1"
+   ],
+   "sent": [
+    "T.J. Hockenson",
+    "Derrick Barnes",
+    "Drake London"
+   ]
+  },
+  {
+   "transactionId": "1299491206950027264",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Tetairoa McMillan",
+    "2026 R2",
+    "2026 R4",
+    "2028 R1",
+    "2026 R4",
+    "2026 R3",
+    "2026 R2",
+    "2027 R2"
+   ],
+   "sent": [
+    "Josh Allen"
+   ]
+  },
+  {
+   "transactionId": "1299491206950027264",
+   "ownerId": "714912789268865024",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Josh Allen"
+   ],
+   "sent": [
+    "Tetairoa McMillan",
+    "2026 R2",
+    "2026 R4",
+    "2028 R1",
+    "2026 R4",
+    "2026 R3",
+    "2026 R2",
+    "2027 R2"
+   ]
+  },
+  {
+   "transactionId": "1299472878588162048",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Josh Allen"
+   ],
+   "sent": [
+    "Ja'Marr Chase"
+   ]
+  },
+  {
+   "transactionId": "1299472878588162048",
+   "ownerId": "831633191830933504",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Ja'Marr Chase"
+   ],
+   "sent": [
+    "Josh Allen"
+   ]
+  },
+  {
+   "transactionId": "1299220110594052096",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Chase Brown",
+    "2026 R2"
+   ],
+   "sent": [
+    "Sam LaPorta"
+   ]
+  },
+  {
+   "transactionId": "1299220110594052096",
+   "ownerId": "472206636534984704",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Sam LaPorta"
+   ],
+   "sent": [
+    "Chase Brown",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1296953307897532416",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Ladd McConkey",
+    "Jeffery Simmons",
+    "2026 R2"
+   ],
+   "sent": [
+    "Omarion Hampton",
+    "Alex Highsmith"
+   ]
+  },
+  {
+   "transactionId": "1296953307897532416",
+   "ownerId": "472206636534984704",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Omarion Hampton",
+    "Alex Highsmith"
+   ],
+   "sent": [
+    "Ladd McConkey",
+    "Jeffery Simmons",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1296859901980606464",
+   "ownerId": "711452264774041600",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Baker Mayfield",
+    "Jameson Williams"
+   ],
+   "sent": [
+    "CeeDee Lamb"
+   ]
+  },
+  {
+   "transactionId": "1296859901980606464",
+   "ownerId": "609821340567941120",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "CeeDee Lamb"
+   ],
+   "sent": [
+    "Baker Mayfield",
+    "Jameson Williams"
+   ]
+  },
+  {
+   "transactionId": "1296610864962482176",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Ja'Marr Chase"
+   ],
+   "sent": [
+    "Tetairoa McMillan",
+    "2026 R2",
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1296610864962482176",
+   "ownerId": "714912789268865024",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Tetairoa McMillan",
+    "2026 R2",
+    "2026 R1"
+   ],
+   "sent": [
+    "Ja'Marr Chase"
+   ]
+  },
+  {
+   "transactionId": "1296303085886382080",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Omarion Hampton",
+    "Travis Hunter",
+    "Tucker Kraft",
+    "2026 R4",
+    "2027 R4",
+    "2028 R1"
+   ],
+   "sent": [
+    "Brock Bowers",
+    "Ricky Pearsall",
+    "Luther Burden",
+    "Dont'e Thornton",
+    "Donovan Ezeiruaku",
+    "Shemar James"
+   ]
+  },
+  {
+   "transactionId": "1296303085886382080",
+   "ownerId": "609821340567941120",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Brock Bowers",
+    "Ricky Pearsall",
+    "Luther Burden",
+    "Dont'e Thornton",
+    "Donovan Ezeiruaku",
+    "Shemar James"
+   ],
+   "sent": [
+    "Omarion Hampton",
+    "Travis Hunter",
+    "Tucker Kraft",
+    "2026 R4",
+    "2027 R4",
+    "2028 R1"
+   ]
+  },
+  {
+   "transactionId": "1296216020003848192",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2028 R5"
+   ],
+   "sent": []
+  },
+  {
+   "transactionId": "1296216020003848192",
+   "ownerId": "714912789268865024",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [],
+   "sent": [
+    "2028 R5"
+   ]
+  },
+  {
+   "transactionId": "1295153465529483264",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Carson Schwesinger",
+    "David Njoku",
+    "Brock Purdy"
+   ],
+   "sent": [
+    "Oronde Gadsden",
+    "Joe Flacco",
+    "Myles Garrett"
+   ]
+  },
+  {
+   "transactionId": "1295153465529483264",
+   "ownerId": "1002085133723299840",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Oronde Gadsden",
+    "Joe Flacco",
+    "Myles Garrett"
+   ],
+   "sent": [
+    "Carson Schwesinger",
+    "David Njoku",
+    "Brock Purdy"
+   ]
+  },
+  {
+   "transactionId": "1294839549716856832",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Jayden Daniels",
+    "Ricky Pearsall",
+    "Garrett Wilson"
+   ],
+   "sent": [
+    "Bo Nix",
+    "Jaxon Smith-Njigba"
+   ]
+  },
+  {
+   "transactionId": "1294839549716856832",
+   "ownerId": "1012114412049731584",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Bo Nix",
+    "Jaxon Smith-Njigba"
+   ],
+   "sent": [
+    "Jayden Daniels",
+    "Ricky Pearsall",
+    "Garrett Wilson"
+   ]
+  },
+  {
+   "transactionId": "1294755235050299392",
+   "ownerId": "831633191830933504",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2027 R7"
+   ],
+   "sent": [
+    "Jalen Tolbert"
+   ]
+  },
+  {
+   "transactionId": "1294755235050299392",
+   "ownerId": "1208452010173538304",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Jalen Tolbert"
+   ],
+   "sent": [
+    "2027 R7"
+   ]
+  },
+  {
+   "transactionId": "1293335151543074816",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Bo Nix"
+   ],
+   "sent": [
+    "J.J. McCarthy",
+    "2027 R2"
+   ]
+  },
+  {
+   "transactionId": "1293335151543074816",
+   "ownerId": "714912789268865024",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "J.J. McCarthy",
+    "2027 R2"
+   ],
+   "sent": [
+    "Bo Nix"
+   ]
+  },
+  {
+   "transactionId": "1292322399219351552",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R2"
+   ],
+   "sent": [
+    "Emari Demercado"
+   ]
+  },
+  {
+   "transactionId": "1292322399219351552",
+   "ownerId": "1208452010173538304",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Emari Demercado"
+   ],
+   "sent": [
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1291888878730362880",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "J.J. McCarthy",
+    "2026 R4"
+   ],
+   "sent": [
+    "AJ Barner",
+    "Isaiah Likely"
+   ]
+  },
+  {
+   "transactionId": "1291888878730362880",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "AJ Barner",
+    "Isaiah Likely"
+   ],
+   "sent": [
+    "J.J. McCarthy",
+    "2026 R4"
+   ]
+  },
+  {
+   "transactionId": "1291542483443933184",
+   "ownerId": "711452264774041600",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Quinnen Williams",
+    "Logan Wilson",
+    "2026 R3"
+   ],
+   "sent": [
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1291542483443933184",
+   "ownerId": "473973924808355840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R1"
+   ],
+   "sent": [
+    "Quinnen Williams",
+    "Logan Wilson",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1291070399366316032",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Tetairoa McMillan",
+    "2027 R1"
+   ],
+   "sent": [
+    "Emeka Egbuka",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1291070399366316032",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R4",
+    "2026 R2"
+   ],
+   "sent": [
+    "Dallas Goedert"
+   ]
+  },
+  {
+   "transactionId": "1291070399366316032",
+   "ownerId": "609821340567941120",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Emeka Egbuka",
+    "Dallas Goedert"
+   ],
+   "sent": [
+    "Tetairoa McMillan",
+    "2026 R4",
+    "2027 R1"
+   ]
+  },
+  {
+   "transactionId": "1289029101956382721",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Emeka Egbuka",
+    "2027 R3"
+   ],
+   "sent": [
+    "Tre Tucker",
+    "SirVocea Dennis",
+    "Tykee Smith",
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1289029101956382721",
+   "ownerId": "711452264774041600",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Tre Tucker",
+    "SirVocea Dennis",
+    "Tykee Smith",
+    "2026 R1"
+   ],
+   "sent": [
+    "Emeka Egbuka",
+    "2027 R3"
+   ]
+  },
+  {
+   "transactionId": "1289024366784290816",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Jourdan Lewis",
+    "Christian Watson"
+   ],
+   "sent": [
+    "T.J. Watt"
+   ]
+  },
+  {
+   "transactionId": "1289024366784290816",
+   "ownerId": "1002085133723299840",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "T.J. Watt"
+   ],
+   "sent": [
+    "Jourdan Lewis",
+    "Christian Watson"
+   ]
+  },
+  {
+   "transactionId": "1288418742383964160",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Julian Love"
+   ],
+   "sent": [
+    "Jaden Hicks",
+    "Daron Payne"
+   ]
+  },
+  {
+   "transactionId": "1288418742383964160",
+   "ownerId": "714912789268865024",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Jaden Hicks",
+    "Daron Payne"
+   ],
+   "sent": [
+    "Julian Love"
+   ]
+  },
+  {
+   "transactionId": "1288312166339870720",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Luther Burden"
+   ],
+   "sent": [
+    "Tyjae Spears"
+   ]
+  },
+  {
+   "transactionId": "1288312166339870720",
+   "ownerId": "473973924808355840",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Tyjae Spears"
+   ],
+   "sent": [
+    "Luther Burden"
+   ]
+  },
+  {
+   "transactionId": "1288073020140707840",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2028 R3"
+   ],
+   "sent": [
+    "Tyler Huntley"
+   ]
+  },
+  {
+   "transactionId": "1288073020140707840",
+   "ownerId": "1208452010173538304",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Tyler Huntley"
+   ],
+   "sent": [
+    "2028 R3"
+   ]
+  },
+  {
+   "transactionId": "1287950594157326336",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Laiatu Latu"
+   ],
+   "sent": [
+    "Marcus Jones"
+   ]
+  },
+  {
+   "transactionId": "1287950594157326336",
+   "ownerId": "1208452010173538304",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Marcus Jones"
+   ],
+   "sent": [
+    "Laiatu Latu"
+   ]
+  },
+  {
+   "transactionId": "1287431774464413696",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "2027 R4",
+    "2028 R3"
+   ],
+   "sent": [
+    "Dillon Gabriel",
+    "Geno Smith"
+   ]
+  },
+  {
+   "transactionId": "1287431774464413696",
+   "ownerId": "472206636534984704",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Dillon Gabriel",
+    "Geno Smith"
+   ],
+   "sent": [
+    "2027 R4",
+    "2028 R3"
+   ]
+  },
+  {
+   "transactionId": "1287106674171052032",
+   "ownerId": "468418790212759552",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "2026 R1",
+    "2028 R2"
+   ],
+   "sent": [
+    "Tetairoa McMillan"
+   ]
+  },
+  {
+   "transactionId": "1287106674171052032",
+   "ownerId": "609821340567941120",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Tetairoa McMillan"
+   ],
+   "sent": [
+    "2026 R1",
+    "2028 R2"
+   ]
+  },
+  {
+   "transactionId": "1287086092675223552",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Elijah Arroyo",
+    "2027 R1",
+    "2027 R2",
+    "2028 R2"
+   ],
+   "sent": [
+    "Mason Taylor",
+    "Ashton Jeanty"
+   ]
+  },
+  {
+   "transactionId": "1287086092675223552",
+   "ownerId": "1012114412049731584",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Mason Taylor",
+    "Ashton Jeanty"
+   ],
+   "sent": [
+    "Elijah Arroyo",
+    "2027 R1",
+    "2027 R2",
+    "2028 R2"
+   ]
+  },
+  {
+   "transactionId": "1286638752491397120",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Nick Bosa"
+   ],
+   "sent": [
+    "Jonathan Greenard"
+   ]
+  },
+  {
+   "transactionId": "1286638752491397120",
+   "ownerId": "714912789268865024",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Jonathan Greenard"
+   ],
+   "sent": [
+    "Nick Bosa"
+   ]
+  },
+  {
+   "transactionId": "1285977277032566784",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "AJ Barner",
+    "Jaxon Smith-Njigba",
+    "2026 R3",
+    "2027 R1",
+    "2027 R2",
+    "2028 R1",
+    "2028 R2"
+   ],
+   "sent": [
+    "Michael Penix",
+    "J.J. McCarthy",
+    "Emeka Egbuka",
+    "Jakobi Meyers",
+    "Kyle Pitts",
+    "Zach Charbonnet"
+   ]
+  },
+  {
+   "transactionId": "1285977277032566784",
+   "ownerId": "711452264774041600",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Michael Penix",
+    "J.J. McCarthy",
+    "Emeka Egbuka",
+    "Jakobi Meyers",
+    "Kyle Pitts",
+    "Zach Charbonnet"
+   ],
+   "sent": [
+    "AJ Barner",
+    "Jaxon Smith-Njigba",
+    "2026 R3",
+    "2027 R1",
+    "2027 R2",
+    "2028 R1",
+    "2028 R2"
+   ]
+  },
+  {
+   "transactionId": "1285955415149940736",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Fred Warner",
+    "2026 R3",
+    "2026 R4",
+    "2026 R4",
+    "2028 R2",
+    "2028 R3"
+   ],
+   "sent": [
+    "TreVeyon Henderson",
+    "Maxx Crosby"
+   ]
+  },
+  {
+   "transactionId": "1285955415149940736",
+   "ownerId": "1002085133723299840",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "TreVeyon Henderson",
+    "Maxx Crosby"
+   ],
+   "sent": [
+    "Fred Warner",
+    "2026 R3",
+    "2026 R4",
+    "2026 R4",
+    "2028 R2",
+    "2028 R3"
+   ]
+  },
+  {
+   "transactionId": "1284885666273964032",
+   "ownerId": "472206636534984704",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Rashee Rice",
+    "Bryce Young",
+    "2028 R1"
+   ],
+   "sent": [
+    "Patrick Mahomes",
+    "DeVonta Smith"
+   ]
+  },
+  {
+   "transactionId": "1284885666273964032",
+   "ownerId": "1002085133723299840",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Patrick Mahomes",
+    "DeVonta Smith"
+   ],
+   "sent": [
+    "Rashee Rice",
+    "Bryce Young",
+    "2028 R1"
+   ]
+  },
+  {
+   "transactionId": "1283897289626107904",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Michael Penix",
+    "Mason Taylor",
+    "Emeka Egbuka",
+    "2027 R4"
+   ],
+   "sent": [
+    "Justice Hill",
+    "Justin Fields",
+    "Jaxon Smith-Njigba"
+   ]
+  },
+  {
+   "transactionId": "1283897289626107904",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Justice Hill",
+    "Justin Fields",
+    "Jaxon Smith-Njigba"
+   ],
+   "sent": [
+    "Michael Penix",
+    "Mason Taylor",
+    "Emeka Egbuka",
+    "2027 R4"
+   ]
+  },
+  {
+   "transactionId": "1283598968227364864",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Kyle Pitts"
+   ],
+   "sent": [
+    "Elic Ayomanor",
+    "DeMario Douglas"
+   ]
+  },
+  {
+   "transactionId": "1283598968227364864",
+   "ownerId": "473973924808355840",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Elic Ayomanor",
+    "DeMario Douglas"
+   ],
+   "sent": [
+    "Kyle Pitts"
+   ]
+  },
+  {
+   "transactionId": "1283596909772017664",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Justin Fields"
+   ],
+   "sent": [
+    "2028 R2",
+    "2027 R6"
+   ]
+  },
+  {
+   "transactionId": "1283596909772017664",
+   "ownerId": "472206636534984704",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2028 R2",
+    "2027 R6"
+   ],
+   "sent": [
+    "Justin Fields"
+   ]
+  },
+  {
+   "transactionId": "1282828993761939456",
+   "ownerId": "711452264774041600",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Dak Prescott"
+   ],
+   "sent": [
+    "Patrick Mahomes"
+   ]
+  },
+  {
+   "transactionId": "1282828993761939456",
+   "ownerId": "472206636534984704",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Patrick Mahomes"
+   ],
+   "sent": [
+    "Dak Prescott"
+   ]
+  },
+  {
+   "transactionId": "1282097442354888704",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Jakobi Meyers"
+   ],
+   "sent": [
+    "Josh Downs"
+   ]
+  },
+  {
+   "transactionId": "1282097442354888704",
+   "ownerId": "1002085133723299840",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Josh Downs"
+   ],
+   "sent": [
+    "Jakobi Meyers"
+   ]
+  },
+  {
+   "transactionId": "1282097096299651072",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Jack Bech"
+   ],
+   "sent": [
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1282097096299651072",
+   "ownerId": "714912789268865024",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "2026 R3"
+   ],
+   "sent": [
+    "Jack Bech"
+   ]
+  },
+  {
+   "transactionId": "1282090530280321024",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Maxx Crosby",
+    "2026 R3"
+   ],
+   "sent": [
+    "AJ Barner",
+    "Kenneth Walker"
+   ]
+  },
+  {
+   "transactionId": "1282090530280321024",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "AJ Barner",
+    "Kenneth Walker"
+   ],
+   "sent": [
+    "Maxx Crosby",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1281687065762742272",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Ashton Jeanty",
+    "Geno Smith",
+    "Michael Mayer",
+    "2026 R3"
+   ],
+   "sent": [
+    "Drake Maye",
+    "Jordan Addison",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1281687065762742272",
+   "ownerId": "831633191830933504",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Drake Maye",
+    "Jordan Addison",
+    "2026 R2"
+   ],
+   "sent": [
+    "Ashton Jeanty",
+    "Geno Smith",
+    "Michael Mayer",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1281667171793010688",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Brock Bowers",
+    "Dillon Gabriel"
+   ],
+   "sent": [
+    "Harold Fannin",
+    "Justin Jefferson",
+    "2026 R4"
+   ]
+  },
+  {
+   "transactionId": "1281667171793010688",
+   "ownerId": "1002085133723299840",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Harold Fannin",
+    "Justin Jefferson",
+    "2026 R4"
+   ],
+   "sent": [
+    "Brock Bowers",
+    "Dillon Gabriel"
+   ]
+  },
+  {
+   "transactionId": "1281647045282631680",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Kenneth Walker"
+   ],
+   "sent": [
+    "Mason Taylor",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1281647045282631680",
+   "ownerId": "711452264774041600",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Mason Taylor",
+    "2026 R3"
+   ],
+   "sent": [
+    "Kenneth Walker"
+   ]
+  },
+  {
+   "transactionId": "1280582406402756608",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Malik Nabers",
+    "Bhayshul Tuten",
+    "2027 R3"
+   ],
+   "sent": [
+    "Travis Hunter",
+    "Jameson Williams",
+    "Chig Okonkwo"
+   ]
+  },
+  {
+   "transactionId": "1280582406402756608",
+   "ownerId": "609821340567941120",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Travis Hunter",
+    "Jameson Williams",
+    "Chig Okonkwo"
+   ],
+   "sent": [
+    "Malik Nabers",
+    "Bhayshul Tuten",
+    "2027 R3"
+   ]
+  },
+  {
+   "transactionId": "1280001461727563776",
+   "ownerId": "472206636534984704",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "DeAndre Hopkins",
+    "Derwin James",
+    "Brian Robinson"
+   ],
+   "sent": [
+    "Micah Parsons"
+   ]
+  },
+  {
+   "transactionId": "1280001461727563776",
+   "ownerId": "1002085133723299840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Micah Parsons"
+   ],
+   "sent": [
+    "DeAndre Hopkins",
+    "Derwin James",
+    "Brian Robinson"
+   ]
+  },
+  {
+   "transactionId": "1279582184771948544",
+   "ownerId": "473973924808355840",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Nick Chubb"
+   ],
+   "sent": [
+    "Evan Engram"
+   ]
+  },
+  {
+   "transactionId": "1279582184771948544",
+   "ownerId": "609821340567941120",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Evan Engram"
+   ],
+   "sent": [
+    "Nick Chubb"
+   ]
+  },
+  {
+   "transactionId": "1279273704127225856",
+   "ownerId": "1002085133723299840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R3"
+   ],
+   "sent": [
+    "Cooper Rush"
+   ]
+  },
+  {
+   "transactionId": "1279273704127225856",
+   "ownerId": "1208452010173538304",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Cooper Rush"
+   ],
+   "sent": [
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1279253309785407488",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Drake Maye",
+    "Elic Ayomanor",
+    "Isaiah Likely"
+   ],
+   "sent": [
+    "Michael Penix",
+    "Carson Wentz",
+    "Maxx Crosby",
+    "Kenneth Walker"
+   ]
+  },
+  {
+   "transactionId": "1279253309785407488",
+   "ownerId": "711452264774041600",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Michael Penix",
+    "Carson Wentz",
+    "Maxx Crosby",
+    "Kenneth Walker"
+   ],
+   "sent": [
+    "Drake Maye",
+    "Elic Ayomanor",
+    "Isaiah Likely"
+   ]
+  },
+  {
+   "transactionId": "1279084508636774400",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Chris Godwin",
+    "Wan'Dale Robinson",
+    "Chris Olave"
+   ],
+   "sent": [
+    "Derrick Henry",
+    "KaVontae Turpin"
+   ]
+  },
+  {
+   "transactionId": "1279084508636774400",
+   "ownerId": "1208452010173538304",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Derrick Henry",
+    "KaVontae Turpin"
+   ],
+   "sent": [
+    "Chris Godwin",
+    "Wan'Dale Robinson",
+    "Chris Olave"
+   ]
+  },
+  {
+   "transactionId": "1278942209839730688",
+   "ownerId": "714912789268865024",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Derrick Henry",
+    "Ja'Marr Chase"
+   ],
+   "sent": [
+    "DeVonta Smith",
+    "Travis Etienne",
+    "Justin Fields",
+    "2026 R1",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1278942209839730688",
+   "ownerId": "472206636534984704",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "DeVonta Smith",
+    "Travis Etienne",
+    "Justin Fields",
+    "2026 R1",
+    "2026 R2"
+   ],
+   "sent": [
+    "Derrick Henry",
+    "Ja'Marr Chase"
+   ]
+  },
+  {
+   "transactionId": "1278433954872987648",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Mason Taylor"
+   ],
+   "sent": [
+    "Cooper Kupp"
+   ]
+  },
+  {
+   "transactionId": "1278433954872987648",
+   "ownerId": "473973924808355840",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Cooper Kupp"
+   ],
+   "sent": [
+    "Mason Taylor"
+   ]
+  },
+  {
+   "transactionId": "1278412636819558400",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "TreVeyon Henderson",
+    "Josh Downs",
+    "2027 R1"
+   ],
+   "sent": [
+    "T.J. Hockenson",
+    "Jake Browning",
+    "Joe Burrow"
+   ]
+  },
+  {
+   "transactionId": "1278412636819558400",
+   "ownerId": "1002085133723299840",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "T.J. Hockenson",
+    "Jake Browning",
+    "Joe Burrow"
+   ],
+   "sent": [
+    "TreVeyon Henderson",
+    "Josh Downs",
+    "2027 R1"
+   ]
+  },
+  {
+   "transactionId": "1278363196113039360",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Dont'e Thornton",
+    "2026 R4",
+    "2026 R2"
+   ],
+   "sent": [
+    "Aaron Jones",
+    "Jordan Mason"
+   ]
+  },
+  {
+   "transactionId": "1278363196113039360",
+   "ownerId": "714912789268865024",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Aaron Jones",
+    "Jordan Mason"
+   ],
+   "sent": [
+    "Dont'e Thornton",
+    "2026 R4",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1278320406016561152",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Cam Ward"
+   ],
+   "sent": [
+    "Sam Darnold",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1278320406016561152",
+   "ownerId": "473973924808355840",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Sam Darnold",
+    "2026 R3"
+   ],
+   "sent": [
+    "Cam Ward"
+   ]
+  },
+  {
+   "transactionId": "1277090371783913472",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Jameson Williams"
+   ],
+   "sent": [
+    "Troy Franklin",
+    "2026 R4",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1277090371783913472",
+   "ownerId": "714912789268865024",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Troy Franklin",
+    "2026 R4",
+    "2026 R2"
+   ],
+   "sent": [
+    "Jameson Williams"
+   ]
+  },
+  {
+   "transactionId": "1276971659282108416",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "2026 R2"
+   ],
+   "sent": [
+    "T.J. Watt"
+   ]
+  },
+  {
+   "transactionId": "1276971659282108416",
+   "ownerId": "711452264774041600",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "T.J. Watt"
+   ],
+   "sent": [
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1276737380740509696",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Tetairoa McMillan",
+    "2028 R4"
+   ],
+   "sent": [
+    "Saquon Barkley"
+   ]
+  },
+  {
+   "transactionId": "1276737380740509696",
+   "ownerId": "473973924808355840",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Saquon Barkley"
+   ],
+   "sent": [
+    "Tetairoa McMillan",
+    "2028 R4"
+   ]
+  },
+  {
+   "transactionId": "1276556178385539072",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Michael Penix",
+    "Jalen Milroe",
+    "Saquon Barkley"
+   ],
+   "sent": [
+    "Drake Maye",
+    "Elic Ayomanor",
+    "Anthony Richardson"
+   ]
+  },
+  {
+   "transactionId": "1276556178385539072",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Drake Maye",
+    "Elic Ayomanor",
+    "Anthony Richardson"
+   ],
+   "sent": [
+    "Michael Penix",
+    "Jalen Milroe",
+    "Saquon Barkley"
+   ]
+  },
+  {
+   "transactionId": "1276092274987499520",
+   "ownerId": "473973924808355840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Tetairoa McMillan"
+   ],
+   "sent": [
+    "Brian Thomas"
+   ]
+  },
+  {
+   "transactionId": "1276092274987499520",
+   "ownerId": "831633191830933504",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Brian Thomas"
+   ],
+   "sent": [
+    "Tetairoa McMillan"
+   ]
+  },
+  {
+   "transactionId": "1274949891197517824",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Jalen Royals"
+   ],
+   "sent": [
+    "Mac Jones"
+   ]
+  },
+  {
+   "transactionId": "1274949891197517824",
+   "ownerId": "1002085133723299840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Mac Jones"
+   ],
+   "sent": [
+    "Jalen Royals"
+   ]
+  },
+  {
+   "transactionId": "1274856031045816320",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Joe Burrow",
+    "Kenneth Walker",
+    "Zach Charbonnet"
+   ],
+   "sent": [
+    "Dylan Sampson",
+    "A.J. Brown",
+    "Chase Brown",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1274856031045816320",
+   "ownerId": "472206636534984704",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Dylan Sampson",
+    "A.J. Brown",
+    "Chase Brown",
+    "2026 R2"
+   ],
+   "sent": [
+    "Joe Burrow",
+    "Kenneth Walker",
+    "Zach Charbonnet"
+   ]
+  },
+  {
+   "transactionId": "1272329225956786176",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Mac Jones",
+    "2026 R2",
+    "2026 R4"
+   ],
+   "sent": [
+    "2028 R1"
+   ]
+  },
+  {
+   "transactionId": "1272329225956786176",
+   "ownerId": "472206636534984704",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "2028 R1"
+   ],
+   "sent": [
+    "Mac Jones",
+    "2026 R2",
+    "2026 R4"
+   ]
+  },
+  {
+   "transactionId": "1271285701836550144",
+   "ownerId": "468418790212759552",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Travis Hunter",
+    "Chase Brown"
+   ],
+   "sent": [
+    "Emeka Egbuka",
+    "Isaiah Likely"
+   ]
+  },
+  {
+   "transactionId": "1271285701836550144",
+   "ownerId": "711452264774041600",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Emeka Egbuka",
+    "Isaiah Likely"
+   ],
+   "sent": [
+    "Travis Hunter",
+    "Chase Brown"
+   ]
+  },
+  {
+   "transactionId": "1268956539150934016",
+   "ownerId": "472206636534984704",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Dak Prescott",
+    "Micah Parsons"
+   ],
+   "sent": [
+    "Quinshon Judkins",
+    "J.K. Dobbins",
+    "Trevor Lawrence"
+   ]
+  },
+  {
+   "transactionId": "1268956539150934016",
+   "ownerId": "1002085133723299840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Quinshon Judkins",
+    "J.K. Dobbins",
+    "Trevor Lawrence"
+   ],
+   "sent": [
+    "Dak Prescott",
+    "Micah Parsons"
+   ]
+  },
+  {
+   "transactionId": "1268919182234226688",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "A.J. Brown"
+   ],
+   "sent": [
+    "James Cook",
+    "2027 R4"
+   ]
+  },
+  {
+   "transactionId": "1268919182234226688",
+   "ownerId": "473973924808355840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "James Cook",
+    "2027 R4"
+   ],
+   "sent": [
+    "A.J. Brown"
+   ]
+  },
+  {
+   "transactionId": "1267233223499325440",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "James Cook"
+   ],
+   "sent": [
+    "Jameson Williams"
+   ]
+  },
+  {
+   "transactionId": "1267233223499325440",
+   "ownerId": "714912789268865024",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Jameson Williams"
+   ],
+   "sent": [
+    "James Cook"
+   ]
+  },
+  {
+   "transactionId": "1267202971247054848",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Emeka Egbuka",
+    "Adam Thielen"
+   ],
+   "sent": [
+    "Kenneth Walker",
+    "Zach Charbonnet"
+   ]
+  },
+  {
+   "transactionId": "1267202971247054848",
+   "ownerId": "472206636534984704",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Kenneth Walker",
+    "Zach Charbonnet"
+   ],
+   "sent": [
+    "Emeka Egbuka",
+    "Adam Thielen"
+   ]
+  },
+  {
+   "transactionId": "1266570192096333824",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Leonard Williams",
+    "Sam Darnold",
+    "2027 R2"
+   ],
+   "sent": [
+    "Baker Mayfield"
+   ]
+  },
+  {
+   "transactionId": "1266570192096333824",
+   "ownerId": "609821340567941120",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Baker Mayfield"
+   ],
+   "sent": [
+    "Leonard Williams",
+    "Sam Darnold",
+    "2027 R2"
+   ]
+  },
+  {
+   "transactionId": "1266187500846583808",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Cooper Kupp",
+    "Isaiah Likely",
+    "2027 R3"
+   ],
+   "sent": [
+    "Quinshon Judkins",
+    "Jonnu Smith"
+   ]
+  },
+  {
+   "transactionId": "1266187500846583808",
+   "ownerId": "472206636534984704",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Quinshon Judkins",
+    "Jonnu Smith"
+   ],
+   "sent": [
+    "Cooper Kupp",
+    "Isaiah Likely",
+    "2027 R3"
+   ]
+  },
+  {
+   "transactionId": "1266173712688758784",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Devon Witherspoon",
+    "Tyrice Knight",
+    "Jaxon Smith-Njigba"
+   ],
+   "sent": [
+    "Amon-Ra St. Brown"
+   ]
+  },
+  {
+   "transactionId": "1266173712688758784",
+   "ownerId": "1002085133723299840",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Amon-Ra St. Brown"
+   ],
+   "sent": [
+    "Devon Witherspoon",
+    "Tyrice Knight",
+    "Jaxon Smith-Njigba"
+   ]
+  },
+  {
+   "transactionId": "1266163724427735040",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Tory Horton",
+    "Baker Mayfield",
+    "Jameson Williams",
+    "Kenneth Walker",
+    "Zach Charbonnet"
+   ],
+   "sent": [
+    "Matthew Golden",
+    "Ashton Jeanty",
+    "Geno Smith",
+    "Jaylen Warren"
+   ]
+  },
+  {
+   "transactionId": "1266163724427735040",
+   "ownerId": "831633191830933504",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Matthew Golden",
+    "Ashton Jeanty",
+    "Geno Smith",
+    "Jaylen Warren"
+   ],
+   "sent": [
+    "Tory Horton",
+    "Baker Mayfield",
+    "Jameson Williams",
+    "Kenneth Walker",
+    "Zach Charbonnet"
+   ]
+  },
+  {
+   "transactionId": "1266157125441171456",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Ashton Jeanty",
+    "Geno Smith",
+    "Amon-Ra St. Brown"
+   ],
+   "sent": [
+    "Malik Nabers",
+    "Kaleb Johnson",
+    "Kyler Murray",
+    "Calvin Austin"
+   ]
+  },
+  {
+   "transactionId": "1266157125441171456",
+   "ownerId": "609821340567941120",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Malik Nabers",
+    "Kaleb Johnson",
+    "Kyler Murray",
+    "Calvin Austin"
+   ],
+   "sent": [
+    "Ashton Jeanty",
+    "Geno Smith",
+    "Amon-Ra St. Brown"
+   ]
+  },
+  {
+   "transactionId": "1266150092063125504",
+   "ownerId": "609821340567941120",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Trey Benson",
+    "Brandin Cooks",
+    "Matthew Judon",
+    "James Conner",
+    "Sam Darnold",
+    "Tutu Atwell",
+    "Jalen Pitre"
+   ],
+   "sent": [
+    "TreVeyon Henderson",
+    "Bryce Young"
+   ]
+  },
+  {
+   "transactionId": "1266150092063125504",
+   "ownerId": "1002085133723299840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "TreVeyon Henderson",
+    "Bryce Young"
+   ],
+   "sent": [
+    "Trey Benson",
+    "Brandin Cooks",
+    "Matthew Judon",
+    "James Conner",
+    "Sam Darnold",
+    "Tutu Atwell",
+    "Jalen Pitre"
+   ]
+  },
+  {
+   "transactionId": "1258551429468016640",
+   "ownerId": "472206636534984704",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Adam Thielen",
+    "Joe Burrow",
+    "Sauce Gardner"
+   ],
+   "sent": [
+    "Fred Warner",
+    "Brock Purdy",
+    "Jaxon Smith-Njigba"
+   ]
+  },
+  {
+   "transactionId": "1258551429468016640",
+   "ownerId": "1002085133723299840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Fred Warner",
+    "Brock Purdy",
+    "Jaxon Smith-Njigba"
+   ],
+   "sent": [
+    "Adam Thielen",
+    "Joe Burrow",
+    "Sauce Gardner"
+   ]
+  },
+  {
+   "transactionId": "1254643947242803200",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Payton Wilson",
+    "Alex Highsmith",
+    "Anthony Richardson"
+   ],
+   "sent": [
+    "Jaylen Wright",
+    "Russell Wilson",
+    "Jaxson Dart"
+   ]
+  },
+  {
+   "transactionId": "1254643947242803200",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Jaylen Wright",
+    "Russell Wilson",
+    "Jaxson Dart"
+   ],
+   "sent": [
+    "Payton Wilson",
+    "Alex Highsmith",
+    "Anthony Richardson"
+   ]
+  },
+  {
+   "transactionId": "1254638395506823168",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Jonnu Smith",
+    "Patrick Queen",
+    "2027 R2"
+   ],
+   "sent": [
+    "Emeka Egbuka"
+   ]
+  },
+  {
+   "transactionId": "1254638395506823168",
+   "ownerId": "472206636534984704",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Emeka Egbuka"
+   ],
+   "sent": [
+    "Jonnu Smith",
+    "Patrick Queen",
+    "2027 R2"
+   ]
+  },
+  {
+   "transactionId": "1253772780332130304",
+   "ownerId": "468418790212759552",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "T.J. Watt",
+    "Calvin Austin",
+    "2027 R2",
+    "2027 R3"
+   ],
+   "sent": [
+    "Will Anderson",
+    "Chimere Dike"
+   ]
+  },
+  {
+   "transactionId": "1253772780332130304",
+   "ownerId": "473973924808355840",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Will Anderson",
+    "Chimere Dike"
+   ],
+   "sent": [
+    "T.J. Watt",
+    "Calvin Austin",
+    "2027 R2",
+    "2027 R3"
+   ]
+  },
+  {
+   "transactionId": "1253717540450865152",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Kaleb Johnson",
+    "Jaylen Warren",
+    "2026 R6",
+    "2028 R6"
+   ],
+   "sent": [
+    "Kenneth Walker",
+    "Zach Charbonnet"
+   ]
+  },
+  {
+   "transactionId": "1253717540450865152",
+   "ownerId": "831633191830933504",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Kenneth Walker",
+    "Zach Charbonnet"
+   ],
+   "sent": [
+    "Kaleb Johnson",
+    "Jaylen Warren",
+    "2026 R6",
+    "2028 R6"
+   ]
+  },
+  {
+   "transactionId": "1252501506549088256",
+   "ownerId": "472206636534984704",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Cooper Kupp"
+   ],
+   "sent": [
+    "Carson Schwesinger",
+    "Derwin James"
+   ]
+  },
+  {
+   "transactionId": "1252501506549088256",
+   "ownerId": "1002085133723299840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Carson Schwesinger",
+    "Derwin James"
+   ],
+   "sent": [
+    "Cooper Kupp"
+   ]
+  },
+  {
+   "transactionId": "1247596273029107712",
+   "ownerId": "468418790212759552",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Malik Nabers",
+    "Dylan Sampson"
+   ],
+   "sent": [
+    "Roschon Johnson",
+    "DeVonta Smith",
+    "Zay Flowers",
+    "2027 R1"
+   ]
+  },
+  {
+   "transactionId": "1247596273029107712",
+   "ownerId": "714912789268865024",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Roschon Johnson",
+    "DeVonta Smith",
+    "Zay Flowers",
+    "2027 R1"
+   ],
+   "sent": [
+    "Dylan Sampson",
+    "Puka Nacua",
+    "Josh Downs"
+   ]
+  },
+  {
+   "transactionId": "1247596273029107712",
+   "ownerId": "1002085133723299840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Puka Nacua",
+    "Josh Downs"
+   ],
+   "sent": [
+    "Malik Nabers"
+   ]
+  },
+  {
+   "transactionId": "1245492577923235840",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Drake Maye",
+    "Emeka Egbuka"
+   ],
+   "sent": [
+    "Cam Ward",
+    "A.J. Brown"
+   ]
+  },
+  {
+   "transactionId": "1245492577923235840",
+   "ownerId": "473973924808355840",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Cam Ward",
+    "A.J. Brown"
+   ],
+   "sent": [
+    "Drake Maye",
+    "Emeka Egbuka"
+   ]
+  },
+  {
+   "transactionId": "1244698391523373056",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Russell Wilson"
+   ],
+   "sent": [
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1244698391523373056",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R3"
+   ],
+   "sent": [
+    "Russell Wilson"
+   ]
+  },
+  {
+   "transactionId": "1244325877437714432",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Jaxson Dart",
+    "Kyler Murray",
+    "A.J. Brown"
+   ],
+   "sent": [
+    "Jalen Milroe",
+    "CeeDee Lamb"
+   ]
+  },
+  {
+   "transactionId": "1244325877437714432",
+   "ownerId": "711452264774041600",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Jalen Milroe",
+    "CeeDee Lamb"
+   ],
+   "sent": [
+    "Jaxson Dart",
+    "Kyler Murray",
+    "A.J. Brown"
+   ]
+  },
+  {
+   "transactionId": "1244172645474250752",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "CeeDee Lamb",
+    "2026 R3"
+   ],
+   "sent": [
+    "Malik Nabers"
+   ]
+  },
+  {
+   "transactionId": "1244172645474250752",
+   "ownerId": "1002085133723299840",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Malik Nabers"
+   ],
+   "sent": [
+    "CeeDee Lamb",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1239918541390487552",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Harold Fannin"
+   ],
+   "sent": [
+    "Sam Darnold"
+   ]
+  },
+  {
+   "transactionId": "1239918541390487552",
+   "ownerId": "1002085133723299840",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Sam Darnold"
+   ],
+   "sent": [
+    "Harold Fannin"
+   ]
+  },
+  {
+   "transactionId": "1239386099059535872",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Will Anderson",
+    "2026 R2"
+   ],
+   "sent": [
+    "Rashee Rice",
+    "Jakobi Meyers"
+   ]
+  },
+  {
+   "transactionId": "1239386099059535872",
+   "ownerId": "1002085133723299840",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Rashee Rice",
+    "Jakobi Meyers"
+   ],
+   "sent": [
+    "Will Anderson",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1238296046791049216",
+   "ownerId": "472206636534984704",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Jaxon Smith-Njigba",
+    "Kendre Miller"
+   ],
+   "sent": [
+    "James Conner",
+    "Drake London"
+   ]
+  },
+  {
+   "transactionId": "1238296046791049216",
+   "ownerId": "1002085133723299840",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "James Conner",
+    "Drake London"
+   ],
+   "sent": [
+    "Jaxon Smith-Njigba",
+    "Kendre Miller"
+   ]
+  },
+  {
+   "transactionId": "1237533222867304448",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "2027 R1",
+    "2027 R2",
+    "2027 R3",
+    "2027 R4"
+   ],
+   "sent": [
+    "2026 R1",
+    "2026 R2",
+    "2026 R3",
+    "2026 R4"
+   ]
+  },
+  {
+   "transactionId": "1237533222867304448",
+   "ownerId": "1208452010173538304",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "2026 R1",
+    "2026 R2",
+    "2026 R3",
+    "2026 R4"
+   ],
+   "sent": [
+    "2027 R1",
+    "2027 R2",
+    "2027 R3",
+    "2027 R4"
+   ]
+  },
+  {
+   "transactionId": "1237530930399158272",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Jalen Milroe",
+    "Sam Darnold",
+    "Kyle Hamilton",
+    "2026 R1",
+    "2026 R2",
+    "2026 R3",
+    "2026 R4"
+   ],
+   "sent": [
+    "Lamar Jackson",
+    "Calvin Ridley"
+   ]
+  },
+  {
+   "transactionId": "1237530930399158272",
+   "ownerId": "1208452010173538304",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Lamar Jackson",
+    "Calvin Ridley"
+   ],
+   "sent": [
+    "Jalen Milroe",
+    "Sam Darnold",
+    "Kyle Hamilton",
+    "2026 R1",
+    "2026 R2",
+    "2026 R3",
+    "2026 R4"
+   ]
+  },
+  {
+   "transactionId": "1237530045497475072",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Malik Nabers",
+    "2027 R2",
+    "2027 R4",
+    "2027 R5"
+   ],
+   "sent": [
+    "Brock Bowers"
+   ]
+  },
+  {
+   "transactionId": "1237530045497475072",
+   "ownerId": "1002085133723299840",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Brock Bowers"
+   ],
+   "sent": [
+    "Malik Nabers",
+    "2027 R2",
+    "2027 R4",
+    "2027 R5"
+   ]
+  },
+  {
+   "transactionId": "1236789120051720192",
+   "ownerId": "831633191830933504",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Xavier Worthy",
+    "Pat Freiermuth",
+    "2026 R2"
+   ],
+   "sent": [
+    "Rome Odunze",
+    "Tucker Kraft",
+    "2026 R4"
+   ]
+  },
+  {
+   "transactionId": "1236789120051720192",
+   "ownerId": "609821340567941120",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Rome Odunze",
+    "Tucker Kraft",
+    "2026 R4"
+   ],
+   "sent": [
+    "Xavier Worthy",
+    "Pat Freiermuth",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1235742048145911808",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Aaron Jones"
+   ],
+   "sent": [
+    "Jack Bech"
+   ]
+  },
+  {
+   "transactionId": "1235742048145911808",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "D'Andre Swift"
+   ],
+   "sent": [
+    "Aaron Jones"
+   ]
+  },
+  {
+   "transactionId": "1235742048145911808",
+   "ownerId": "714912789268865024",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Jack Bech"
+   ],
+   "sent": [
+    "D'Andre Swift"
+   ]
+  },
+  {
+   "transactionId": "1235418799017050112",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "DeVonta Smith",
+    "Kenneth Walker"
+   ],
+   "sent": [
+    "DK Metcalf",
+    "Tony Pollard"
+   ]
+  },
+  {
+   "transactionId": "1235418799017050112",
+   "ownerId": "1208452010173538304",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "DK Metcalf",
+    "Tony Pollard"
+   ],
+   "sent": [
+    "DeVonta Smith",
+    "Kenneth Walker"
+   ]
+  },
+  {
+   "transactionId": "1235082943509045248",
+   "ownerId": "609821340567941120",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Brandon Aiyuk"
+   ],
+   "sent": [
+    "Wan'Dale Robinson",
+    "Rachaad White",
+    "DaRon Bland"
+   ]
+  },
+  {
+   "transactionId": "1235082943509045248",
+   "ownerId": "1208452010173538304",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Wan'Dale Robinson",
+    "Rachaad White",
+    "DaRon Bland"
+   ],
+   "sent": [
+    "Brandon Aiyuk"
+   ]
+  },
+  {
+   "transactionId": "1234514843826929664",
+   "ownerId": "1002085133723299840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Dak Prescott",
+    "Jaxon Smith-Njigba"
+   ],
+   "sent": [
+    "Tre' Harris",
+    "Matthew Stafford",
+    "Chris Olave"
+   ]
+  },
+  {
+   "transactionId": "1234514843826929664",
+   "ownerId": "1208452010173538304",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Tre' Harris",
+    "Matthew Stafford",
+    "Chris Olave"
+   ],
+   "sent": [
+    "Dak Prescott",
+    "Jaxon Smith-Njigba"
+   ]
+  },
+  {
+   "transactionId": "1234348715863453696",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Ivan Pace",
+    "Andrew Van Ginkel"
+   ],
+   "sent": [
+    "Alex Highsmith",
+    "Quay Walker"
+   ]
+  },
+  {
+   "transactionId": "1234348715863453696",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Alex Highsmith",
+    "Quay Walker"
+   ],
+   "sent": [
+    "Ivan Pace",
+    "Andrew Van Ginkel"
+   ]
+  },
+  {
+   "transactionId": "1234348053381525504",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Lamar Jackson",
+    "Jordan Mason"
+   ],
+   "sent": [
+    "Bucky Irving",
+    "Joe Burrow"
+   ]
+  },
+  {
+   "transactionId": "1234348053381525504",
+   "ownerId": "1002085133723299840",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Bucky Irving",
+    "Joe Burrow"
+   ],
+   "sent": [
+    "Lamar Jackson",
+    "Jordan Mason"
+   ]
+  },
+  {
+   "transactionId": "1234345368712392704",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Tai Felton"
+   ],
+   "sent": [
+    "Xavier Restrepo"
+   ]
+  },
+  {
+   "transactionId": "1234345368712392704",
+   "ownerId": "831633191830933504",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Xavier Restrepo"
+   ],
+   "sent": [
+    "Tai Felton"
+   ]
+  },
+  {
+   "transactionId": "1234332634016927744",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "T.J. Hockenson",
+    "Joe Burrow",
+    "Justin Jefferson",
+    "2027 R6"
+   ],
+   "sent": [
+    "Caleb Williams",
+    "Ashton Jeanty",
+    "Amon-Ra St. Brown",
+    "Pat Freiermuth",
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1234332634016927744",
+   "ownerId": "609821340567941120",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Caleb Williams",
+    "Ashton Jeanty",
+    "Amon-Ra St. Brown",
+    "Pat Freiermuth",
+    "2026 R1"
+   ],
+   "sent": [
+    "T.J. Hockenson",
+    "Joe Burrow",
+    "Ja'Marr Chase"
+   ]
+  },
+  {
+   "transactionId": "1234332634016927744",
+   "ownerId": "472206636534984704",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Ja'Marr Chase"
+   ],
+   "sent": [
+    "Justin Jefferson",
+    "2027 R6"
+   ]
+  },
+  {
+   "transactionId": "1233922674376331264",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2027 R6"
+   ],
+   "sent": [
+    "Quinn Ewers"
+   ]
+  },
+  {
+   "transactionId": "1233922674376331264",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Quinn Ewers"
+   ],
+   "sent": [
+    "2027 R6"
+   ]
+  },
+  {
+   "transactionId": "1233921040279678976",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Quinn Ewers",
+    "Ashton Jeanty",
+    "DK Metcalf",
+    "Chig Okonkwo",
+    "2026 R1",
+    "2027 R3"
+   ],
+   "sent": [
+    "Trey Benson",
+    "Adonai Mitchell",
+    "Lamar Jackson",
+    "Chris Olave"
+   ]
+  },
+  {
+   "transactionId": "1233921040279678976",
+   "ownerId": "1002085133723299840",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Trey Benson",
+    "Adonai Mitchell",
+    "Lamar Jackson",
+    "Chris Olave"
+   ],
+   "sent": [
+    "Quinn Ewers",
+    "Ashton Jeanty",
+    "DK Metcalf",
+    "Chig Okonkwo",
+    "2026 R1",
+    "2027 R3"
+   ]
+  },
+  {
+   "transactionId": "1228805944415092736",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Gunnar Helm"
+   ],
+   "sent": [
+    "Dylan Sampson"
+   ]
+  },
+  {
+   "transactionId": "1228805944415092736",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Javonte Williams"
+   ],
+   "sent": [
+    "Gunnar Helm"
+   ]
+  },
+  {
+   "transactionId": "1228805944415092736",
+   "ownerId": "714912789268865024",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Dylan Sampson"
+   ],
+   "sent": [
+    "Javonte Williams"
+   ]
+  },
+  {
+   "transactionId": "1228196734815973376",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R6",
+    "2025 R7"
+   ],
+   "sent": [
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1228196734815973376",
+   "ownerId": "831633191830933504",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R3"
+   ],
+   "sent": [
+    "2025 R6",
+    "2025 R7"
+   ]
+  },
+  {
+   "transactionId": "1228121744523395072",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2025 R6",
+    "2025 R7"
+   ],
+   "sent": [
+    "2026 R7",
+    "2027 R6",
+    "2027 R7"
+   ]
+  },
+  {
+   "transactionId": "1228121744523395072",
+   "ownerId": "1208452010173538304",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2026 R7",
+    "2027 R6",
+    "2027 R7"
+   ],
+   "sent": [
+    "2025 R6",
+    "2025 R7"
+   ]
+  },
+  {
+   "transactionId": "1227795512371986433",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R5"
+   ],
+   "sent": [
+    "2026 R5",
+    "2026 R6"
+   ]
+  },
+  {
+   "transactionId": "1227795512371986433",
+   "ownerId": "473973924808355840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R5",
+    "2026 R6"
+   ],
+   "sent": [
+    "2025 R5"
+   ]
+  },
+  {
+   "transactionId": "1227780469093847040",
+   "ownerId": "831633191830933504",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R4",
+    "2026 R5"
+   ],
+   "sent": [
+    "2025 R5"
+   ]
+  },
+  {
+   "transactionId": "1227780469093847040",
+   "ownerId": "1012114412049731584",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R5"
+   ],
+   "sent": [
+    "2026 R4",
+    "2026 R5"
+   ]
+  },
+  {
+   "transactionId": "1227383666997481472",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R3",
+    "2025 R5"
+   ],
+   "sent": [
+    "Anthony Richardson"
+   ]
+  },
+  {
+   "transactionId": "1227383666997481472",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Anthony Richardson"
+   ],
+   "sent": [
+    "2025 R3",
+    "2025 R5"
+   ]
+  },
+  {
+   "transactionId": "1227281883453210624",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Calvin Ridley"
+   ],
+   "sent": [
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1227281883453210624",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R2"
+   ],
+   "sent": [
+    "Najee Harris"
+   ]
+  },
+  {
+   "transactionId": "1227281883453210624",
+   "ownerId": "472206636534984704",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Najee Harris"
+   ],
+   "sent": [
+    "Calvin Ridley"
+   ]
+  },
+  {
+   "transactionId": "1226207834820055040",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Bucky Irving",
+    "Tony Pollard",
+    "Chris Olave",
+    "2026 R1"
+   ],
+   "sent": [
+    "Drake Maye",
+    "Ray Davis",
+    "Brandon Aiyuk",
+    "Tank Bigsby"
+   ]
+  },
+  {
+   "transactionId": "1226207834820055040",
+   "ownerId": "473973924808355840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Drake Maye",
+    "Ray Davis",
+    "Kyle Pitts",
+    "Tank Bigsby"
+   ],
+   "sent": [
+    "Chris Godwin",
+    "Sam Darnold",
+    "Deebo Samuel",
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1226207834820055040",
+   "ownerId": "1208452010173538304",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Chris Godwin",
+    "Sam Darnold",
+    "Deebo Samuel",
+    "Brandon Aiyuk"
+   ],
+   "sent": [
+    "Bucky Irving",
+    "Tony Pollard",
+    "Kyle Pitts",
+    "Chris Olave"
+   ]
+  },
+  {
+   "transactionId": "1225859028605739008",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Tyjae Spears",
+    "2026 R2"
+   ],
+   "sent": [
+    "Geno Smith",
+    "2025 R3"
+   ]
+  },
+  {
+   "transactionId": "1225859028605739008",
+   "ownerId": "609821340567941120",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Geno Smith",
+    "2025 R3"
+   ],
+   "sent": [
+    "Tyjae Spears",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1225854303894241280",
+   "ownerId": "468418790212759552",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "2026 R1"
+   ],
+   "sent": [
+    "George Pickens"
+   ]
+  },
+  {
+   "transactionId": "1225854303894241280",
+   "ownerId": "711452264774041600",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "George Pickens"
+   ],
+   "sent": [
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1225843450079891456",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R2"
+   ],
+   "sent": [
+    "2025 R3"
+   ]
+  },
+  {
+   "transactionId": "1225843450079891456",
+   "ownerId": "1012114412049731584",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R3"
+   ],
+   "sent": [
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1223807068905951232",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Lamar Jackson",
+    "2025 R1"
+   ],
+   "sent": [
+    "Christian McCaffrey",
+    "Jaxon Smith-Njigba",
+    "2025 R2",
+    "2025 R2"
+   ]
+  },
+  {
+   "transactionId": "1223807068905951232",
+   "ownerId": "1208452010173538304",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Christian McCaffrey",
+    "Jaxon Smith-Njigba",
+    "2025 R2",
+    "2025 R2"
+   ],
+   "sent": [
+    "Lamar Jackson",
+    "2025 R1"
+   ]
+  },
+  {
+   "transactionId": "1205544964801445888",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Brock Bowers"
+   ],
+   "sent": [
+    "Sam LaPorta",
+    "2025 R1"
+   ]
+  },
+  {
+   "transactionId": "1205544964801445888",
+   "ownerId": "711452264774041600",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Saquon Barkley"
+   ],
+   "sent": [
+    "De'Von Achane"
+   ]
+  },
+  {
+   "transactionId": "1205544964801445888",
+   "ownerId": "473973924808355840",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Nico Collins"
+   ],
+   "sent": [
+    "Saquon Barkley"
+   ]
+  },
+  {
+   "transactionId": "1205544964801445888",
+   "ownerId": "714912789268865024",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Sam LaPorta",
+    "De'Von Achane",
+    "2025 R1"
+   ],
+   "sent": [
+    "Brock Bowers",
+    "Nico Collins"
+   ]
+  },
+  {
+   "transactionId": "1205464643124862976",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Maxx Crosby"
+   ],
+   "sent": [
+    "T.J. Watt"
+   ]
+  },
+  {
+   "transactionId": "1205464643124862976",
+   "ownerId": "473973924808355840",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "T.J. Watt",
+    "C.J. Stroud",
+    "2025 R3"
+   ],
+   "sent": [
+    "Derrick Henry",
+    "Maxx Crosby",
+    "Trevor Lawrence"
+   ]
+  },
+  {
+   "transactionId": "1205464643124862976",
+   "ownerId": "472206636534984704",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Derrick Henry",
+    "Trevor Lawrence"
+   ],
+   "sent": [
+    "C.J. Stroud",
+    "2025 R3"
+   ]
+  },
+  {
+   "transactionId": "1204994914195079168",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Sam LaPorta",
+    "2025 R2"
+   ],
+   "sent": [
+    "T.J. Hockenson",
+    "2025 R1"
+   ]
+  },
+  {
+   "transactionId": "1204994914195079168",
+   "ownerId": "609821340567941120",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "T.J. Hockenson",
+    "2025 R1"
+   ],
+   "sent": [
+    "Sam LaPorta",
+    "2025 R2"
+   ]
+  },
+  {
+   "transactionId": "1204967760208080896",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Geno Smith",
+    "Amon-Ra St. Brown",
+    "2026 R3"
+   ],
+   "sent": [
+    "Ladd McConkey",
+    "Justin Herbert"
+   ]
+  },
+  {
+   "transactionId": "1204967760208080896",
+   "ownerId": "472206636534984704",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Ladd McConkey",
+    "Justin Herbert"
+   ],
+   "sent": [
+    "Geno Smith",
+    "Amon-Ra St. Brown",
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1198603971447504896",
+   "ownerId": "468418790212759552",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Ladd McConkey",
+    "Justin Herbert",
+    "2025 R1"
+   ],
+   "sent": [
+    "Justin Jefferson",
+    "Brock Purdy"
+   ]
+  },
+  {
+   "transactionId": "1198603971447504896",
+   "ownerId": "472206636534984704",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Justin Jefferson",
+    "Brock Purdy"
+   ],
+   "sent": [
+    "Ladd McConkey",
+    "Justin Herbert",
+    "2025 R1"
+   ]
+  },
+  {
+   "transactionId": "1198347772202319872",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Chris Boswell",
+    "Pat Freiermuth"
+   ],
+   "sent": [
+    "Will Reichard",
+    "2025 R2"
+   ]
+  },
+  {
+   "transactionId": "1198347772202319872",
+   "ownerId": "609821340567941120",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Will Reichard",
+    "2025 R2"
+   ],
+   "sent": [
+    "Chris Boswell",
+    "Pat Freiermuth"
+   ]
+  },
+  {
+   "transactionId": "1196993516555747328",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "T.J. Watt",
+    "Alex Highsmith"
+   ],
+   "sent": [
+    "Maxx Crosby",
+    "Cam Bynum"
+   ]
+  },
+  {
+   "transactionId": "1196993516555747328",
+   "ownerId": "473973924808355840",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Maxx Crosby",
+    "Cam Bynum"
+   ],
+   "sent": [
+    "T.J. Watt",
+    "Alex Highsmith"
+   ]
+  },
+  {
+   "transactionId": "1186824554051158016",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "T.J. Hockenson",
+    "Justin Jefferson"
+   ],
+   "sent": [
+    "Brock Bowers",
+    "Josh Downs"
+   ]
+  },
+  {
+   "transactionId": "1186824554051158016",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Brock Bowers",
+    "Josh Downs"
+   ],
+   "sent": [
+    "T.J. Hockenson",
+    "Justin Jefferson"
+   ]
+  },
+  {
+   "transactionId": "1186800373754789888",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R2"
+   ],
+   "sent": [
+    "Calvin Ridley"
+   ]
+  },
+  {
+   "transactionId": "1186800373754789888",
+   "ownerId": "472206636534984704",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Calvin Ridley"
+   ],
+   "sent": [
+    "2025 R2"
+   ]
+  },
+  {
+   "transactionId": "1185314563189329920",
+   "ownerId": "468418790212759552",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "2027 R1"
+   ],
+   "sent": [
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1185314563189329920",
+   "ownerId": "714912789268865024",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "2026 R1"
+   ],
+   "sent": [
+    "2027 R1"
+   ]
+  },
+  {
+   "transactionId": "1185304078020005888",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2027 R1"
+   ],
+   "sent": [
+    "2025 R1"
+   ]
+  },
+  {
+   "transactionId": "1185304078020005888",
+   "ownerId": "472206636534984704",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R1"
+   ],
+   "sent": [
+    "2027 R1"
+   ]
+  },
+  {
+   "transactionId": "1183553757682536448",
+   "ownerId": "468418790212759552",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Brandon Aiyuk"
+   ],
+   "sent": [
+    "Xavier Worthy"
+   ]
+  },
+  {
+   "transactionId": "1183553757682536448",
+   "ownerId": "609821340567941120",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Xavier Worthy"
+   ],
+   "sent": [
+    "Brandon Aiyuk"
+   ]
+  },
+  {
+   "transactionId": "1182172814990049280",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Christian McCaffrey",
+    "Brock Purdy",
+    "Josh Downs"
+   ],
+   "sent": [
+    "Aidan O'Connell",
+    "CeeDee Lamb",
+    "2025 R3"
+   ]
+  },
+  {
+   "transactionId": "1182172814990049280",
+   "ownerId": "1002085133723299840",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Aidan O'Connell",
+    "CeeDee Lamb",
+    "2025 R3"
+   ],
+   "sent": [
+    "Christian McCaffrey",
+    "Brock Purdy",
+    "Josh Downs"
+   ]
+  },
+  {
+   "transactionId": "1180007727153352704",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Calvin Ridley"
+   ],
+   "sent": [
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1180007727153352704",
+   "ownerId": "609821340567941120",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R2"
+   ],
+   "sent": [
+    "Calvin Ridley"
+   ]
+  },
+  {
+   "transactionId": "1168996401704546304",
+   "ownerId": "473973924808355840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Courtland Sutton"
+   ],
+   "sent": [
+    "Tyreek Hill"
+   ]
+  },
+  {
+   "transactionId": "1168996401704546304",
+   "ownerId": "714912789268865024",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Tyreek Hill"
+   ],
+   "sent": [
+    "Courtland Sutton"
+   ]
+  },
+  {
+   "transactionId": "1167991045516390400",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R3"
+   ],
+   "sent": [
+    "Andrew Van Ginkel",
+    "2025 R6",
+    "2025 R7",
+    "2025 R4"
+   ]
+  },
+  {
+   "transactionId": "1167991045516390400",
+   "ownerId": "714912789268865024",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Andrew Van Ginkel",
+    "2025 R6",
+    "2025 R7",
+    "2025 R4"
+   ],
+   "sent": [
+    "2026 R3"
+   ]
+  },
+  {
+   "transactionId": "1167986086061649920",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Zamir White"
+   ],
+   "sent": [
+    "2026 R4"
+   ]
+  },
+  {
+   "transactionId": "1167986086061649920",
+   "ownerId": "1012114412049731584",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2026 R4"
+   ],
+   "sent": [
+    "Zamir White"
+   ]
+  },
+  {
+   "transactionId": "1167165277570940928",
+   "ownerId": "468418790212759552",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Aidan O'Connell",
+    "Audric Estime",
+    "Xavier Worthy",
+    "Zay Flowers",
+    "2026 R1"
+   ],
+   "sent": [
+    "Ameer Abdullah",
+    "Justin Jefferson",
+    "Tyrod Taylor"
+   ]
+  },
+  {
+   "transactionId": "1167165277570940928",
+   "ownerId": "714912789268865024",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Ameer Abdullah",
+    "Justin Jefferson",
+    "Tyrod Taylor"
+   ],
+   "sent": [
+    "Aidan O'Connell",
+    "Audric Estime",
+    "Xavier Worthy",
+    "Zay Flowers",
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1165117163838230528",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "CeeDee Lamb"
+   ],
+   "sent": [
+    "Patrick Mahomes"
+   ]
+  },
+  {
+   "transactionId": "1165117163838230528",
+   "ownerId": "711452264774041600",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Patrick Mahomes"
+   ],
+   "sent": [
+    "CeeDee Lamb"
+   ]
+  },
+  {
+   "transactionId": "1164998996444745728",
+   "ownerId": "468418790212759552",
+   "grade": "C",
+   "label": "Bad deal",
+   "received": [
+    "Tre Tucker",
+    "Patrick Mahomes",
+    "Jakobi Meyers",
+    "Maxx Crosby",
+    "George Pickens",
+    "2026 R2"
+   ],
+   "sent": [
+    "Bo Nix",
+    "Malik Washington",
+    "Nick Bosa",
+    "T.J. Hockenson",
+    "Puka Nacua"
+   ]
+  },
+  {
+   "transactionId": "1164998996444745728",
+   "ownerId": "714912789268865024",
+   "grade": "B+",
+   "label": "Clear win",
+   "received": [
+    "Bo Nix",
+    "Malik Washington",
+    "Nick Bosa",
+    "T.J. Hockenson",
+    "Puka Nacua"
+   ],
+   "sent": [
+    "Tre Tucker",
+    "Patrick Mahomes",
+    "Jakobi Meyers",
+    "Maxx Crosby",
+    "George Pickens",
+    "2026 R2"
+   ]
+  },
+  {
+   "transactionId": "1164044472780349440",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Slight win",
+   "received": [
+    "Bo Nix",
+    "2025 R1",
+    "2026 R1"
+   ],
+   "sent": [
+    "Amon-Ra St. Brown"
+   ]
+  },
+  {
+   "transactionId": "1164044472780349440",
+   "ownerId": "472206636534984704",
+   "grade": "B+",
+   "label": "Slight overpay",
+   "received": [
+    "Amon-Ra St. Brown"
+   ],
+   "sent": [
+    "Bo Nix",
+    "2025 R1",
+    "2026 R1"
+   ]
+  },
+  {
+   "transactionId": "1161652173156012032",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "2027 R1"
+   ],
+   "sent": [
+    "Sam Darnold"
+   ]
+  },
+  {
+   "transactionId": "1161652173156012032",
+   "ownerId": "473973924808355840",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Sam Darnold"
+   ],
+   "sent": [
+    "2027 R1"
+   ]
+  },
+  {
+   "transactionId": "1161510704374620160",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "DeMario Douglas"
+   ],
+   "sent": [
+    "2025 R3"
+   ]
+  },
+  {
+   "transactionId": "1161510704374620160",
+   "ownerId": "609821340567941120",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R3"
+   ],
+   "sent": [
+    "DeMario Douglas"
+   ]
+  },
+  {
+   "transactionId": "1156762476958048256",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Brock Bowers",
+    "Raheem Mostert",
+    "Amon-Ra St. Brown"
+   ],
+   "sent": [
+    "DeVonta Smith",
+    "Kyle Pitts",
+    "Chris Olave"
+   ]
+  },
+  {
+   "transactionId": "1156762476958048256",
+   "ownerId": "",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "DeVonta Smith",
+    "Kyle Pitts",
+    "Chris Olave"
+   ],
+   "sent": [
+    "Brock Bowers",
+    "Raheem Mostert",
+    "Amon-Ra St. Brown"
+   ]
+  },
+  {
+   "transactionId": "1154926121885265920",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R3"
+   ],
+   "sent": [
+    "Bryce Young"
+   ]
+  },
+  {
+   "transactionId": "1154926121885265920",
+   "ownerId": "609821340567941120",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Bryce Young"
+   ],
+   "sent": [
+    "2025 R3"
+   ]
+  },
+  {
+   "transactionId": "1149787065131921408",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Jonathan Greenard",
+    "Cam Bynum",
+    "2025 R1",
+    "2025 R2",
+    "2025 R4"
+   ],
+   "sent": [
+    "Joe Flacco",
+    "Brian Burns",
+    "Julian Love",
+    "Najee Harris",
+    "Travis Etienne"
+   ]
+  },
+  {
+   "transactionId": "1149787065131921408",
+   "ownerId": "714912789268865024",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Joe Flacco",
+    "Brian Burns",
+    "Julian Love",
+    "Najee Harris",
+    "Travis Etienne"
+   ],
+   "sent": [
+    "Jonathan Greenard",
+    "Cam Bynum",
+    "2025 R1",
+    "2025 R2",
+    "2025 R4"
+   ]
+  },
+  {
+   "transactionId": "1147713449192615936",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R3"
+   ],
+   "sent": [
+    "Tyler Huntley"
+   ]
+  },
+  {
+   "transactionId": "1147713449192615936",
+   "ownerId": "473973924808355840",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Tyler Huntley"
+   ],
+   "sent": [
+    "2025 R3"
+   ]
+  },
+  {
+   "transactionId": "1144740480279027712",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "J.J. McCarthy",
+    "Najee Harris"
+   ],
+   "sent": [
+    "Aaron Jones",
+    "Alec Pierce"
+   ]
+  },
+  {
+   "transactionId": "1144740480279027712",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Aaron Jones",
+    "Alec Pierce"
+   ],
+   "sent": [
+    "J.J. McCarthy",
+    "Najee Harris"
+   ]
+  },
+  {
+   "transactionId": "1144097269277712384",
+   "ownerId": "468418790212759552",
+   "grade": "B",
+   "label": "Overpay",
+   "received": [
+    "Jordan Addison"
+   ],
+   "sent": [
+    "Jameson Williams"
+   ]
+  },
+  {
+   "transactionId": "1144097269277712384",
+   "ownerId": "831633191830933504",
+   "grade": "A-",
+   "label": "Good win",
+   "received": [
+    "Jameson Williams"
+   ],
+   "sent": [
+    "Jordan Addison"
+   ]
+  },
+  {
+   "transactionId": "1141563469129957376",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Trey Benson",
+    "Sam Darnold",
+    "Joshua Metellus",
+    "Puka Nacua"
+   ],
+   "sent": [
+    "Devon Witherspoon",
+    "Jacoby Brissett",
+    "DK Metcalf",
+    "Brian Robinson"
+   ]
+  },
+  {
+   "transactionId": "1141563469129957376",
+   "ownerId": "",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Devon Witherspoon",
+    "Jacoby Brissett",
+    "DK Metcalf",
+    "Brian Robinson"
+   ],
+   "sent": [
+    "Trey Benson",
+    "Sam Darnold",
+    "Joshua Metellus",
+    "Puka Nacua"
+   ]
+  },
+  {
+   "transactionId": "1141085363508195328",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Drake Maye",
+    "T.J. Hockenson"
+   ],
+   "sent": [
+    "Michael Wilson",
+    "George Pickens"
+   ]
+  },
+  {
+   "transactionId": "1141085363508195328",
+   "ownerId": "714912789268865024",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Michael Wilson",
+    "George Pickens"
+   ],
+   "sent": [
+    "Drake Maye",
+    "T.J. Hockenson"
+   ]
+  },
+  {
+   "transactionId": "1139006991966773248",
+   "ownerId": "468418790212759552",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2025 R3"
+   ],
+   "sent": [
+    "Jordan Mason"
+   ]
+  },
+  {
+   "transactionId": "1139006991966773248",
+   "ownerId": "",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Jordan Mason"
+   ],
+   "sent": [
+    "2025 R3"
+   ]
+  },
+  {
+   "transactionId": "1137182276384825344",
+   "ownerId": "711452264774041600",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Josh Jacobs",
+    "Will Levis"
+   ],
+   "sent": [
+    "Isiah Pacheco",
+    "Aaron Rodgers"
+   ]
+  },
+  {
+   "transactionId": "1137182276384825344",
+   "ownerId": "609821340567941120",
+   "grade": "D",
+   "label": "Robbery",
+   "received": [
+    "Isiah Pacheco",
+    "Aaron Rodgers"
+   ],
+   "sent": [
+    "Josh Jacobs",
+    "Will Levis"
+   ]
+  },
+  {
+   "transactionId": "1102041778091327488",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R10"
+   ],
+   "sent": [
+    "2024 R10"
+   ]
+  },
+  {
+   "transactionId": "1102041778091327488",
+   "ownerId": "609821340567941120",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R10"
+   ],
+   "sent": [
+    "2024 R10"
+   ]
+  },
+  {
+   "transactionId": "1101968461498019840",
+   "ownerId": "473973924808355840",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R9"
+   ],
+   "sent": [
+    "2024 R9"
+   ]
+  },
+  {
+   "transactionId": "1101968461498019840",
+   "ownerId": "609821340567941120",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R9"
+   ],
+   "sent": [
+    "2024 R9"
+   ]
+  },
+  {
+   "transactionId": "1100178578630746112",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R10",
+    "2024 R4",
+    "2024 R7",
+    "2024 R9"
+   ],
+   "sent": [
+    "2024 R7",
+    "2024 R8",
+    "2024 R9",
+    "2024 R5"
+   ]
+  },
+  {
+   "transactionId": "1100178578630746112",
+   "ownerId": "473973924808355840",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R7",
+    "2024 R8",
+    "2024 R9",
+    "2024 R5"
+   ],
+   "sent": [
+    "2024 R10",
+    "2024 R4",
+    "2024 R7",
+    "2024 R9"
+   ]
+  },
+  {
+   "transactionId": "1099857246898536448",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R4",
+    "2024 R5"
+   ],
+   "sent": [
+    "2024 R4",
+    "2024 R5"
+   ]
+  },
+  {
+   "transactionId": "1099857246898536448",
+   "ownerId": "",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R4",
+    "2024 R5"
+   ],
+   "sent": [
+    "2024 R4",
+    "2024 R5"
+   ]
+  },
+  {
+   "transactionId": "1099424296356708352",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Devon Witherspoon"
+   ],
+   "sent": [
+    "Jalen Pitre"
+   ]
+  },
+  {
+   "transactionId": "1099424296356708352",
+   "ownerId": "",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "Jalen Pitre"
+   ],
+   "sent": [
+    "Devon Witherspoon"
+   ]
+  },
+  {
+   "transactionId": "1099193466308894720",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "George Pickens"
+   ],
+   "sent": [
+    "2024 R1"
+   ]
+  },
+  {
+   "transactionId": "1099193466308894720",
+   "ownerId": "609821340567941120",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "2024 R1"
+   ],
+   "sent": [
+    "George Pickens"
+   ]
+  },
+  {
+   "transactionId": "1099158211510337536",
+   "ownerId": "468418790212759552",
+   "grade": "A+",
+   "label": "Big win",
+   "received": [
+    "Rashee Rice",
+    "Travis Etienne",
+    "Zach Charbonnet",
+    "2024 R1",
+    "2024 R3"
+   ],
+   "sent": [
+    "Derek Carr",
+    "Javonte Williams",
+    "Kendre Miller",
+    "2024 R2",
+    "2024 R1"
+   ]
+  },
+  {
+   "transactionId": "1099158211510337536",
+   "ownerId": "714912789268865024",
+   "grade": "F",
+   "label": "Fleeced",
+   "received": [
+    "Derek Carr",
+    "Javonte Williams",
+    "Kendre Miller",
+    "2024 R2",
+    "2024 R1"
+   ],
+   "sent": [
+    "Rashee Rice",
+    "Travis Etienne",
+    "Zach Charbonnet",
+    "2024 R1",
+    "2024 R3"
+   ]
+  },
+  {
+   "transactionId": "1093610254857842688",
+   "ownerId": "609821340567941120",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R10",
+    "2024 R9"
+   ],
+   "sent": [
+    "2024 R10",
+    "2024 R9"
+   ]
+  },
+  {
+   "transactionId": "1093610254857842688",
+   "ownerId": "472206636534984704",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R10",
+    "2024 R9"
+   ],
+   "sent": [
+    "2024 R10",
+    "2024 R9"
+   ]
+  },
+  {
+   "transactionId": "1092133138819543040",
+   "ownerId": "468418790212759552",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [],
+   "sent": [
+    "2024 R3"
+   ]
+  },
+  {
+   "transactionId": "1092133138819543040",
+   "ownerId": "473973924808355840",
+   "grade": "A",
+   "label": "Fair trade",
+   "received": [
+    "2024 R3"
+   ],
+   "sent": []
+  }
+ ]
+}

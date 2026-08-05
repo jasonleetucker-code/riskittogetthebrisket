@@ -1,0 +1,94 @@
+{
+ "asShipped": {
+  "longestWinStreaks": [
+   {
+    "displayName": "Joey",
+    "length": 10
+   },
+   {
+    "displayName": "Brent",
+    "length": 6
+   },
+   {
+    "displayName": "Jason",
+    "length": 4
+   },
+   {
+    "displayName": "MaKayla",
+    "length": 4
+   },
+   {
+    "displayName": "Ed",
+    "length": 3
+   }
+  ],
+  "longestLossStreaks": [
+   {
+    "displayName": "Eric",
+    "length": 6
+   },
+   {
+    "displayName": "Roy",
+    "length": 6
+   },
+   {
+    "displayName": "Jason",
+    "length": 5
+   },
+   {
+    "displayName": "Collin",
+    "length": 5
+   },
+   {
+    "displayName": "MaKayla",
+    "length": 5
+   }
+  ]
+ },
+ "withRetiredOwnersIncluded": {
+  "longestWinStreaks": [
+   {
+    "displayName": "Joey",
+    "length": 10
+   },
+   {
+    "displayName": "Brent",
+    "length": 6
+   },
+   {
+    "displayName": "SheriffB",
+    "length": 6
+   },
+   {
+    "displayName": "Jason",
+    "length": 4
+   },
+   {
+    "displayName": "MaKayla",
+    "length": 4
+   }
+  ],
+  "longestLossStreaks": [
+   {
+    "displayName": "Eric",
+    "length": 6
+   },
+   {
+    "displayName": "Roy",
+    "length": 6
+   },
+   {
+    "displayName": "Jason",
+    "length": 5
+   },
+   {
+    "displayName": "Collin",
+    "length": 5
+   },
+   {
+    "displayName": "MaKayla",
+    "length": 5
+   }
+  ]
+ }
+}
