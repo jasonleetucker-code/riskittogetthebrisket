@@ -736,16 +736,57 @@ def _check_disk_space(path: Path | None = None) -> tuple[bool, int]:
 
 
 def _sanitize_next_path(raw: str | None, default: str = "/") -> str:
+    """Reduce a ``?next=`` value to a same-origin path, or refuse it.
+
+    PARSE AND COMPARE, not blocklist.  The previous implementation was a
+    list of string tests — reject ``http://``, ``https://``, anything not
+    starting with ``/``, anything starting with ``//``, CR and LF — and it
+    was bypassed by a character it did not name: **the backslash**.
+
+    ``/\\attacker.tld`` starts with ``/``, does not start with ``//``, has
+    no scheme prefix and contains no newline, so every guard passed and the
+    value was returned verbatim.  Browsers then normalise ``\\`` to ``/``
+    when resolving a URL, turning it into the protocol-relative
+    ``//attacker.tld`` — a working post-login open redirect to an arbitrary
+    host, on the real domain.  The same trick works with a tab or a raw
+    control character, which browsers strip *before* resolving
+    (``/\\tattacker.tld``).
+
+    So: normalise the input the way a browser would, then judge the result
+    structurally.  Anything that parses with a scheme or a netloc is not a
+    path on this origin, whatever it looked like as a string.
+    """
     value = str(raw or "").strip()
     if not value:
         return default
-    if value.startswith("http://") or value.startswith("https://"):
+
+    # Refuse rather than repair.  Browsers strip TAB/LF/CR from a URL and
+    # treat a backslash as a path separator, so both are load-bearing to the
+    # attack — but no path this application mints contains either, so the
+    # honest answer to one appearing is "no", not a normalised guess at what
+    # was meant.  Rejecting also keeps this function's output a subset of its
+    # input, which is what makes it auditable.
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
         return default
-    if not value.startswith("/") or value.startswith("//"):
+    if "\\" in value:
         return default
-    if "\n" in value or "\r" in value:
+
+    try:
+        parts = urllib.parse.urlsplit(value)
+    except ValueError:
         return default
-    return value
+
+    # A scheme or a netloc means it addresses some other origin.  This is
+    # the check the string tests were approximating; it does not care
+    # whether the author remembered a particular character.
+    if parts.scheme or parts.netloc:
+        return default
+    if not parts.path.startswith("/") or parts.path.startswith("//"):
+        return default
+
+    # Re-emit from the parsed parts so the caller receives the normalised
+    # form that was actually judged, never the raw string.
+    return urllib.parse.urlunsplit(("", "", parts.path, parts.query, parts.fragment))
 
 
 def _get_auth_session(request: Request) -> dict | None:
