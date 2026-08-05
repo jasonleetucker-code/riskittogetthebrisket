@@ -1,0 +1,199 @@
+{
+  "measurement": "monte-carlo-band-width",
+  "question": "The simulator draws every asset from a flat +-15% band. How far does the board actually move over the same kind of interval?",
+  "flatBandUnderTest": 0.15,
+  "horizonDays": 7,
+  "panelDays": 112,
+  "panelStart": "2026-04-16",
+  "panelEnd": "2026-08-05",
+  "foldsAttempted": 15,
+  "foldsUsable": 15,
+  "byFold": [
+    {
+      "n": 494,
+      "p10": -0.01771,
+      "p50": 0.15524,
+      "p90": 1.9981,
+      "impliedHalfWidth": 1.0079,
+      "medianAbsReturn": 0.15654,
+      "flatBandCoverage": 0.4818,
+      "origin": "2026-04-16",
+      "horizon": "2026-04-23"
+    },
+    {
+      "n": 393,
+      "p10": -0.66388,
+      "p50": -0.07742,
+      "p90": 0.09232,
+      "impliedHalfWidth": 0.3781,
+      "medianAbsReturn": 0.12652,
+      "flatBandCoverage": 0.5445,
+      "origin": "2026-04-23",
+      "horizon": "2026-04-30"
+    },
+    {
+      "n": 795,
+      "p10": -0.03145,
+      "p50": 0.0,
+      "p90": 0.02623,
+      "impliedHalfWidth": 0.02884,
+      "medianAbsReturn": 0.0076,
+      "flatBandCoverage": 0.9874,
+      "origin": "2026-04-30",
+      "horizon": "2026-05-07"
+    },
+    {
+      "n": 797,
+      "p10": -0.02346,
+      "p50": 0.0,
+      "p90": 0.01965,
+      "impliedHalfWidth": 0.02156,
+      "medianAbsReturn": 0.00521,
+      "flatBandCoverage": 0.9925,
+      "origin": "2026-05-07",
+      "horizon": "2026-05-14"
+    },
+    {
+      "n": 792,
+      "p10": -0.02995,
+      "p50": 0.0,
+      "p90": 0.01119,
+      "impliedHalfWidth": 0.02057,
+      "medianAbsReturn": 0.00456,
+      "flatBandCoverage": 0.9912,
+      "origin": "2026-05-14",
+      "horizon": "2026-05-21"
+    },
+    {
+      "n": 799,
+      "p10": -0.00851,
+      "p50": 0.0,
+      "p90": 0.01068,
+      "impliedHalfWidth": 0.00959,
+      "medianAbsReturn": 0.00143,
+      "flatBandCoverage": 0.9987,
+      "origin": "2026-05-21",
+      "horizon": "2026-05-28"
+    },
+    {
+      "n": 426,
+      "p10": -0.03994,
+      "p50": 0.0584,
+      "p90": 1.76616,
+      "impliedHalfWidth": 0.90305,
+      "medianAbsReturn": 0.10089,
+      "flatBandCoverage": 0.5704,
+      "origin": "2026-05-28",
+      "horizon": "2026-06-04"
+    },
+    {
+      "n": 426,
+      "p10": -0.642,
+      "p50": -0.05851,
+      "p90": 0.03897,
+      "impliedHalfWidth": 0.34048,
+      "medianAbsReturn": 0.10652,
+      "flatBandCoverage": 0.5845,
+      "origin": "2026-06-04",
+      "horizon": "2026-06-11"
+    },
+    {
+      "n": 796,
+      "p10": -0.0116,
+      "p50": 0.0,
+      "p90": 0.0118,
+      "impliedHalfWidth": 0.0117,
+      "medianAbsReturn": 0.00246,
+      "flatBandCoverage": 0.9987,
+      "origin": "2026-06-11",
+      "horizon": "2026-06-18"
+    },
+    {
+      "n": 807,
+      "p10": -0.00931,
+      "p50": 0.0,
+      "p90": 0.01003,
+      "impliedHalfWidth": 0.00967,
+      "medianAbsReturn": 0.00134,
+      "flatBandCoverage": 1.0,
+      "origin": "2026-06-18",
+      "horizon": "2026-06-25"
+    },
+    {
+      "n": 806,
+      "p10": -0.01212,
+      "p50": 0.0,
+      "p90": 0.01173,
+      "impliedHalfWidth": 0.01193,
+      "medianAbsReturn": 0.00201,
+      "flatBandCoverage": 1.0,
+      "origin": "2026-06-25",
+      "horizon": "2026-07-02"
+    },
+    {
+      "n": 786,
+      "p10": -0.03098,
+      "p50": 0.00099,
+      "p90": 0.05601,
+      "impliedHalfWidth": 0.0435,
+      "medianAbsReturn": 0.00958,
+      "flatBandCoverage": 0.8969,
+      "origin": "2026-07-02",
+      "horizon": "2026-07-09"
+    },
+    {
+      "n": 804,
+      "p10": -0.01415,
+      "p50": 0.0,
+      "p90": 0.01388,
+      "impliedHalfWidth": 0.01402,
+      "medianAbsReturn": 0.00417,
+      "flatBandCoverage": 0.99,
+      "origin": "2026-07-09",
+      "horizon": "2026-07-16"
+    },
+    {
+      "n": 803,
+      "p10": -0.01814,
+      "p50": 0.0,
+      "p90": 0.01147,
+      "impliedHalfWidth": 0.0148,
+      "medianAbsReturn": 0.00465,
+      "flatBandCoverage": 0.9813,
+      "origin": "2026-07-16",
+      "horizon": "2026-07-23"
+    },
+    {
+      "n": 776,
+      "p10": -0.0747,
+      "p50": -0.00329,
+      "p90": 0.02499,
+      "impliedHalfWidth": 0.04985,
+      "medianAbsReturn": 0.01435,
+      "flatBandCoverage": 0.9704,
+      "origin": "2026-07-23",
+      "horizon": "2026-07-30"
+    }
+  ],
+  "attrition": {
+    "noOrigin": 1154,
+    "noHorizon": 837
+  },
+  "caveats": {
+    "modelIsCurrent": "The replay runs TODAY's Hill curves over past inputs, so measured movement is input-driven only; real board movement also came from constant promotions. This UNDERSTATES true movement, and the direction of that bias is easy to invert: understated movement makes the flat band look MORE excessive than it is, so a 'too wide' verdict is an UPPER BOUND on the excess, not a conservative floor. A 'too narrow' verdict would be the emphatic one.",
+    "panelHeterogeneity": "CSVs/site_raw held 9 sources on 2026-04-16 and 24 from 2026-06-01. Source count drives both band width and movement; read byFold, not just the pooled figure.",
+    "offseasonOnly": "The whole reconstructable window is the offseason. April-August volatility is not September volatility.",
+    "measuresSelfConsistency": "This is how much OUR board moves, not how wrong it is. It cannot capture common-mode error, so decision #4's 'too narrow, and for the right reason' argument survives this measurement intact.",
+    "simulatorHasNoHorizon": "monte_carlo.py's band is horizonless, so this yields a family of numbers (h7/h14/h30) rather than one. Choosing among them remains a judgement \u2014 an anchored one."
+  },
+  "pooled": {
+    "n": 10500,
+    "p10": -0.03613,
+    "p50": 0.0,
+    "p90": 0.03525,
+    "impliedHalfWidth": 0.03569,
+    "medianAbsReturn": 0.00619,
+    "flatBandCoverage": 0.9098
+  },
+  "verdict": "Over 15 disjoint 7-day folds (10500 player-pairs), the board's own p10-p90 half-width is 0.0357 (3.57%), against the simulator's flat 15%. The flat band is 4.20x that, and covers 91.0% of observed moves. Read the caveats before quoting: the replay understates movement (so this ratio is an UPPER bound on the excess), this is offseason data, and the per-fold spread in byFold is wide."
+}

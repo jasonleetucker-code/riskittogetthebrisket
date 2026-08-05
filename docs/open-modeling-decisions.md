@@ -15,7 +15,7 @@ them. This document closes that gap. Decision #4 was added by the
 | 1 | apply `coverageWeight`? | **No.** Measured: 297 rows / 221 ranks move for a 3-source input change, with no accuracy evidence either way. Stays DIAGNOSTIC ONLY. |
 | 2 | retire the legacy rank-form curves? | **No — re-tuned and kept**, with a tested drift alarm. Migration turned out not to be a live option; the old constants were fit to the wrong target. |
 | 3 | re-threshold `low_conf_unstable`? | **No — rule retired.** The metric is structurally capped; no threshold makes it sound. |
-| 4 | what width should the Monte Carlo band be? | **Open — deliberately.** The flat ±15% is 4.8× the median measured source disagreement but 0.4× the maximum. Made *visible* (`bandSources` + disclaimer) rather than silently re-tuned. |
+| 4 | what width should the Monte Carlo band be? | **Measured 2026-08-05; constant unchanged.** The board's own weekly movement is a 3.57% half-width over 15 disjoint folds, so ±15% is ≤4.2× wider — but the band is horizonless, the data is offseason, and the replay understates movement. Made *visible* (`bandSources` + disclaimer) rather than re-tuned. |
 
 #1 and #4 remain reversible-on-new-evidence; #2 and #3 are closed.
 
@@ -404,14 +404,78 @@ Pinned by `tests/trade/test_monte_carlo_band_integrity.py`, including
 the asymmetry (a fully-measured run gets a clean disclaimer), so the
 qualification cannot be hardcoded into the string.
 
-### What would settle the width
+### MEASURED 2026-08-05 — and the answer is still "do not retune"
 
-Stamping the real Phase 4 interval — `src/canonical/confidence_intervals.py`
-exists and nothing calls it on the live contract — and then scoring
-band-implied win probabilities against realized trade outcomes, the
-same shape as `scripts/backtest_adjusted_board.py`. Until one of those
-exists, the honest state is a documented assumption that says so on
-every response.
+**Reproduce:** `python3 scripts/backtest_mc_band_width.py --horizon {7,14,30}`
+(requires `git fetch --unshallow`).
+**Results:** `docs/measurements/mc-band-width-2026-08-05-h{7,14,30}.json`
+
+The measurement decision #4 asked for now exists. It replays the real
+contract at two dates via `src/consensus_edge/panel.py` and measures how
+far the board's own `rankDerivedValue` actually moved — a strictly better
+quantity than `marketDispersionCV`, because it captures the board
+changing its mind rather than only the sources differing on one day.
+
+| horizon | folds | pairs | board p10-p90 half-width | flat ±15% is | coverage |
+|---|---|---|---|---|---|
+| 7d | 15 | 10,500 | **3.57%** | 4.20× wider | 91.0% |
+| 14d | 7 | 5,123 | **3.35%** | 4.47× wider | 94.4% |
+| 30d | 3 | 1,919 | **8.31%** | 1.81× wider | 86.5% |
+
+**The pooled number is not the finding. The distribution is.** Per-fold
+half-widths at h7 are bimodal — eleven folds between **0.96% and 4.98%**,
+then four at **34%, 38%, 90% and 101%**:
+
+| fold | half-width | sources | pairs |
+|---|---|---|---|
+| 2026-04-16 → 04-23 | 1.0079 | 13 → 19 | 494 |
+| 2026-05-28 → 06-04 | 0.9031 | 24 → 24 | 426 |
+| 2026-04-23 → 04-30 | 0.3781 | 19 → 22 | 393 |
+| 2026-06-04 → 06-11 | 0.3405 | 24 → 24 | 426 |
+| *(eleven others)* | 0.0096–0.0498 | 22–24 stable | 776–807 |
+
+Two of the four are explained by the panel growing its source count. The
+other two are **not** — their source count is stable at 24, but their
+join population halves (426 vs ~800). A week where only half the board
+can be matched is a coverage artifact, not a repricing. So all four
+outliers are properties of the replay, and none is evidence about how
+much value genuinely moves.
+
+**Decision: leave `FLAT_BAND = 0.15` alone.** Stated in advance of the
+run, and the result did not change it:
+
+* The simulator's band is **horizonless**, so the measurement yields a
+  family (3.57% / 3.35% / 8.31%), not a number. Picking one is still a
+  judgement.
+* The replay **understates** movement — it runs today's Hill curves over
+  past inputs, so it misses movement that came from constant promotions.
+  Note the direction carefully, because it inverts easily: understated
+  movement makes the flat band look *more* excessive than it is, so
+  "4.2× too wide" is an **upper bound on the excess**, not a floor.
+* It is entirely **offseason** data.
+* It measures board **self-consistency**, not correctness. The "too
+  narrow, and for the right reason" argument in the section above —
+  common-mode error, where every source is wrong together — survives
+  this measurement untouched.
+
+Replacing an unjustified constant with a differently-unjustified one is
+the failure mode this audit exists to prevent. What has changed is that
+the assumption is now bounded by evidence instead of resting on nothing.
+
+**What would settle it properly**, and what will not:
+
+* **Not** stamping the Phase 4 interval. `src/canonical/confidence_intervals.py`
+  looks like the answer and is not: two of its three branches return
+  hardcoded flat bands — one of them the identical ±15%, justified by an
+  unsourced docstring claim — and the module explicitly disclaims being
+  predictive ("a transparency metric, not a probability of realized
+  outcome"). Wiring it would flip `bandSources` to `stamped_value_band`
+  on most rows while changing nothing that is known.
+* **In-season data.** Re-run this after the season starts; the h30 result
+  (8.31%, 1.81×) already hints that the gap narrows as the horizon and
+  the volatility grow.
+* **A horizon for the simulator.** Until a trade band means "over N
+  days", no single width can be correct.
 
 ### Also fixed alongside (not a modeling question)
 
