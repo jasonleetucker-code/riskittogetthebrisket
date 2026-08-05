@@ -3734,52 +3734,60 @@ def _parse_source_csv_cached(
                 return str(csvrow[k])
         return ""
 
-    # ── Schema probe for DLF / FantasyPros sources ───────────────────
-    if source_key in ("dlfSf", "dlfIdp", "fantasyProsIdp", "fantasyProsSf"):
-        try:
-            with csv_path.open("r", encoding="utf-8-sig") as f_probe:
-                header_line = f_probe.readline().strip()
-        except Exception as exc:  # noqa: BLE001
-            header_line = ""
-            _LOGGER.warning(
-                "Schema probe: failed to read header for %s: %s",
-                source_key,
-                exc,
-            )
-        if source_key == "dlfSf":
-            # Historical schema (manual DLF export): capitalized
-            # ``Rank,Avg,Pos,Name,Team,Age,<expert cols>,Value,Follow``.
-            # New schema (``scripts/fetch_dlf.py``): lowercase
-            # ``name,rank`` — already preferred-Avg-over-Rank at the
-            # fetcher, so the loader just reads the two columns.
-            # Accept either shape via the token set so we don't need a
-            # migration window where one side is stale.
-            expected_tokens = ("Rank", "Avg", "Name", "Player", "name", "rank")
-        elif source_key == "fantasyProsIdp":
-            expected_tokens = (
-                "effectiveRank",
-                "derivationMethod",
-                "family",
-                "name",
-            )
-        elif source_key == "fantasyProsSf":
-            expected_tokens = ("Rank", "name", "position")
-        else:  # dlfIdp
-            expected_tokens = ("name", "Name", "Player", "rank", "Rank")
-        if not any(tok in header_line for tok in expected_tokens):
-            schema_err = {
-                "source": source_key,
-                "path": str(csv_rel),
-                "error": "schema_mismatch",
-                "header": header_line[:200],
-            }
-            _LOGGER.warning(
-                "Schema probe: %s header mismatch (%s); skipping rows",
-                source_key,
-                header_line[:120],
-            )
-            _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
-            return csv_lookup, schema_err
+    # ── Universal schema probe ───────────────────────────────────────
+    # Every source, not four of them.  This probe used to run only for
+    # dlfSf / dlfIdp / fantasyProsIdp / fantasyProsSf, so a vendor
+    # column rename on any of the other 18 — including the retail
+    # anchor ``ktcSfTep`` and the IDP backbone ``idpTradeCalc`` — fell
+    # through the alias lookup, produced an empty ``csv_lookup``, and
+    # dropped the source off the board with ``sourceParseErrors == []``
+    # (W05-F003).
+    #
+    # The assertion is exactly what the reader below needs and nothing
+    # more: ONE name-alias column, and ONE column carrying this
+    # source's signal (rank aliases for rank-signal sources, value
+    # aliases for value-signal ones).  Matching is on parsed header
+    # FIELDS, not a substring of the header line, because that is what
+    # ``_pick`` does — a substring probe passes on a header that
+    # ``DictReader`` will not key.  This is strictly stricter than the
+    # four per-source token lists it replaces (each was an "any of"
+    # check that a name column alone satisfied), so no source loses
+    # coverage.
+    try:
+        with csv_path.open("r", encoding="utf-8-sig") as f_probe:
+            header_line = f_probe.readline().strip()
+        header_fields = next(_csv.reader([header_line])) if header_line else []
+    except Exception as exc:  # noqa: BLE001
+        header_line = ""
+        header_fields = []
+        _LOGGER.warning(
+            "Schema probe: failed to read header for %s: %s",
+            source_key,
+            exc,
+        )
+    header_set = {str(h).strip() for h in header_fields}
+    signal_aliases = _RANK_ALIASES if signal == "rank" else _VALUE_ALIASES
+    missing_cols: list[str] = []
+    if not header_set & set(_NAME_ALIASES):
+        missing_cols.append("name")
+    if not header_set & set(signal_aliases):
+        missing_cols.append(signal)
+    if missing_cols:
+        schema_err = {
+            "source": source_key,
+            "path": str(csv_rel),
+            "error": "schema_mismatch",
+            "header": header_line[:200],
+            "missing": ",".join(missing_cols),
+        }
+        _LOGGER.warning(
+            "Schema probe: %s header mismatch — no %s column (%s); skipping rows",
+            source_key,
+            "/".join(missing_cols),
+            header_line[:120],
+        )
+        _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
+        return csv_lookup, schema_err
 
     try:
         with csv_path.open("r", encoding="utf-8-sig") as f:
@@ -4037,6 +4045,23 @@ def _enrich_from_source_csvs(
             continue
 
         if not csv_lookup:
+            # A clean parse that produced zero usable rows — the shape a
+            # fetcher leaves behind when it ran and scraped nothing
+            # (header-only CSV).  This used to be a silent ``continue``:
+            # the source vanished from the board with an EMPTY
+            # ``sourceParseErrors``, indistinguishable from a source
+            # that was never registered (W05-F003).
+            if parse_errors is not None:
+                parse_errors.append(
+                    {
+                        "source": source_key,
+                        "path": str(csv_rel),
+                        "error": "source_empty",
+                    }
+                )
+                _LOGGER.warning(
+                    "Source CSV parsed to zero rows for %s: %s", source_key, csv_rel
+                )
             continue
 
         # ── Rookie source → synthetic pick-slot stamps ──
