@@ -6568,8 +6568,24 @@ async def post_angle_packages(request: Request):
         positions_req = []
     positions_req = [str(p).strip() for p in positions_req if str(p).strip()]
 
-    include_idp_raw = body.get("includeIdp", False)
-    include_idp = bool(include_idp_raw) and include_idp_raw not in ("false", "0", "")
+    # The IDP gate's DEFAULT is a league property, not a constant.
+    # ``find_angle_packages`` drops every IDP row from the CANDIDATE
+    # pool unless this is true, and it defaulted to False on the
+    # reasoning that "most leaguemates don't gravitate toward them".
+    # Nothing reachable ever set it — ``includeIdp`` appears nowhere in
+    # ``frontend/`` — so on the live UI path the exclusion was total and
+    # one-directional: in a league that starts nine IDP you could give a
+    # defender and could never be offered one (W27-F003).  Roster
+    # settings are leagueKey-scoped per CLAUDE.md and the two live
+    # leagues disagree (``dynasty_main`` starts DL 3 / LB 3 / DB 3,
+    # ``dynasty_new`` starts none), so the registry answers it — same
+    # ``idp_enabled`` read ``src/api/bdvm_api.py`` already makes.  An
+    # explicit request value still wins in both directions.
+    include_idp_raw = body.get("includeIdp")
+    if include_idp_raw is None:
+        include_idp = bool(getattr(league_cfg, "idp_enabled", False))
+    else:
+        include_idp = bool(include_idp_raw) and include_idp_raw not in ("false", "0", "")
     # Back-compat: if the caller explicitly requested an IDP position
     # via ``positions`` but didn't set ``includeIdp`` (e.g. legacy
     # scripts predating the toggle), treat that as an implicit opt-in.

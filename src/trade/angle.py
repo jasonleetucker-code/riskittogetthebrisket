@@ -550,14 +550,21 @@ def find_angle_packages(
         considered in the candidate pool. Caller uses this to say
         "don't suggest filler-depth guys in my counter-package."
     include_idp
-        When ``False`` (default) IDP positions (DL/LB/DB and their
+        When ``False`` IDP positions (DL/LB/DB and their
         sub-positions) are filtered OUT of the candidate pool entirely.
-        Most managers don't value IDP the way KTC/our-board scores
-        them, so the default keeps counter-packages offense+picks
-        only. Set ``True`` (or explicitly include an IDP player in
-        the offer / seeds) to allow IDP candidates. Offer-side and
-        user-selected seeds are never filtered — the user's explicit
-        choices always win.
+        Offer-side and user-selected seeds are never filtered — the
+        user's explicit choices always win.
+
+        The signature default stays ``False`` for direct callers, but
+        the ROUTE no longer passes a constant: ``/api/angle/packages``
+        derives it from the requesting league's ``idpEnabled``
+        (server.py), because the parameter's old justification — "most
+        managers don't value IDP" — is a claim about a league, and the
+        two live leagues on this scoring profile disagree about it.
+        Under the constant the exclusion was total on the live UI path
+        (no caller anywhere set the flag) and one-directional: you
+        could give a defender and could never be offered one, in a
+        league that starts nine (W27-F003).
 
     Returns
     -------
