@@ -213,3 +213,77 @@ describe("buildRows with an overlay applied", () => {
     expect(deep.rank).toBeNull();
   });
 });
+
+// ── The lens must reach EVERY board-scale field, and only those ────────
+//
+// R28 / W29-F002. The client applier scaled ``rankDerivedValue`` and the
+// three ``values`` aliases, and additionally scaled ``_finalAdjusted``.
+// Two things were wrong with that list:
+//
+//   * ``offenseOnlyRankDerivedValue`` — a SECOND board on the same
+//     0-9999 scale, read by the trade simulator, the arbitrage finder
+//     and the suggestion engine — was left at its market value, so the
+//     lens was a silent no-op on every all-offense trade while the
+//     response still stamped ``valuationMode: leagueAdjusted``.
+//   * ``_finalAdjusted`` is the PRE-CANONICAL scraper composite, which
+//     runs at a median 1.0855x the board. Multiplying it by a
+//     board-derived factor produces a number on neither scale. The
+//     server-side applier never did this.
+//
+// The two appliers now scale the same set — see BOARD_SCALE_ROW_FIELDS
+// in src/league_intel/overlay.py.
+
+describe("applyValuationOverlay — which fields the lens is allowed to move", () => {
+  function contractWithBothBoards() {
+    return {
+      ok: true,
+      source: "backend",
+      data: {
+        scrapeTimestamp: STAMP,
+        playersArray: [
+          {
+            displayName: "Rise",
+            canonicalName: "rise",
+            position: "RB",
+            rankDerivedValue: 5000,
+            offenseOnlyRankDerivedValue: 4800,
+            canonicalConsensusRank: 2,
+            values: {
+              overall: 5000,
+              finalAdjusted: 5000,
+              displayValue: 5000,
+              rawComposite: 5400,
+            },
+          },
+        ],
+        players: {
+          Rise: {
+            rankDerivedValue: 5000,
+            _offenseOnlyFinalAdjusted: 4800,
+            _finalAdjusted: 5400,
+            _canonicalConsensusRank: 2,
+          },
+        },
+      },
+    };
+  }
+
+  it("scales the offense-only board too — it is the same 0-9999 scale", () => {
+    const out = applyValuationOverlay(contractWithBothBoards(), OVERLAY);
+    const rise = out.data.playersArray.find((r) => r.displayName === "Rise");
+    expect(rise.rankDerivedValue).toBe(5300);
+    expect(rise.offenseOnlyRankDerivedValue).toBe(5088);
+  });
+
+  it("scales the legacy offense-only mirror too", () => {
+    const out = applyValuationOverlay(contractWithBothBoards(), OVERLAY);
+    expect(out.data.players.Rise._offenseOnlyFinalAdjusted).toBe(5088);
+  });
+
+  it("never scales the scraper composite — it is a different scale", () => {
+    const out = applyValuationOverlay(contractWithBothBoards(), OVERLAY);
+    const rise = out.data.playersArray.find((r) => r.displayName === "Rise");
+    expect(rise.values.rawComposite).toBe(5400);
+    expect(out.data.players.Rise._finalAdjusted).toBe(5400);
+  });
+});

@@ -14,11 +14,19 @@ saw adjusted rankings and then got trade advice priced on the market
 board.  Two boards, one session, no indication which was which.  That is
 the inconsistency this closes.
 
-The whole trick is that every engine reads exactly one value —
-``rankDerivedValue`` on ``playersArray`` rows.  So none of them need to
-know this feature exists: hand them a contract whose rows are already
-adjusted and they inherit it.  No per-engine plumbing, no second value
-concept to keep in sync.
+The trick is that no engine needs to know this feature exists: hand
+them a contract whose rows are already adjusted and they inherit it.
+No per-engine plumbing.
+
+That works only if EVERY board-scale field a caller might read moves
+together.  This module used to scale ``rankDerivedValue`` alone, on the
+claim that "every engine reads exactly one value".  It was false —
+``offenseOnlyRankDerivedValue`` is a second board on the same scale and
+three engines read it — and the cost of the false claim was a lens that
+was a silent no-op on all-offense trades while the response still
+stamped ``valuationMode: leagueAdjusted`` (W09-F006, W29-F002).  The
+authoritative list is :data:`BOARD_SCALE_ROW_FIELDS`; anything added to
+the contract on the 0-9999 scale belongs in it.
 
 What this is NOT
 ────────────────
@@ -44,7 +52,47 @@ from typing import Any, Mapping, Sequence
 
 _LOGGER = logging.getLogger(__name__)
 
-__all__ = ["adjusted_contract", "adjusted_rows", "row_factor_key"]
+__all__ = [
+    "BOARD_SCALE_ROW_FIELDS",
+    "BOARD_SCALE_VALUES_KEYS",
+    "adjusted_contract",
+    "adjusted_rows",
+    "row_factor_key",
+]
+
+
+# Every top-level row field that carries a BOARD-scale (0-9999) value and
+# therefore has to move when the lens moves.
+#
+# This list is the fix for W09-F006 / W29-F002.  The overlay used to
+# scale ``rankDerivedValue`` alone on the reasoning quoted in this
+# module's docstring — "every engine reads exactly one value".  That was
+# not true: ``offenseOnlyRankDerivedValue`` (the IDP-disabled re-run of
+# the same pipeline, ``data_contract.py`` phase 13) is a SECOND board on
+# the SAME scale, and the trade simulator, the arbitrage finder and the
+# suggestion engine all read it.  So an all-offense trade came back
+# byte-identical under ``valuationMode=leagueAdjusted`` while the
+# response stamped the adjusted label.
+#
+# The factor is a function of POSITION alone — it never reads a
+# consensus value (see ``src/league_intel/adjustment.py``) — which is
+# exactly why it composes against any board on this scale, including
+# this one.  That property is what makes scaling both fields correct
+# rather than an approximation.
+#
+# ``values.rawComposite`` and the legacy ``_finalAdjusted`` /
+# ``_composite`` / ``_rawComposite`` are deliberately ABSENT: they run
+# on the pre-canonical scraper composite scale (median 1.0855× the
+# board), so multiplying them by a board-derived factor mixes scales.
+BOARD_SCALE_ROW_FIELDS: tuple[str, ...] = (
+    "rankDerivedValue",
+    "offenseOnlyRankDerivedValue",
+)
+
+# The ``values`` bundle keys that mirror ``rankDerivedValue`` verbatim
+# (``data_contract.py`` writes all three in one branch).  They must move
+# with it or one row carries an adjusted value and an unadjusted alias.
+BOARD_SCALE_VALUES_KEYS: tuple[str, ...] = ("overall", "finalAdjusted", "displayValue")
 
 
 def row_factor_key(row: Mapping[str, Any]) -> str:
@@ -87,11 +135,24 @@ def adjusted_rows(
     moved = 0
     for row in rows:
         copy = dict(row)
-        base = copy.get("rankDerivedValue")
         factor = factors.get(row_factor_key(row))
-        if factor and isinstance(base, (int, float)) and base > 0:
-            copy["rankDerivedValue"] = int(round(float(base) * float(factor)))
-            moved += 1
+        if factor:
+            for field in BOARD_SCALE_ROW_FIELDS:
+                base = copy.get(field)
+                if isinstance(base, (int, float)) and base > 0:
+                    copy[field] = int(round(float(base) * float(factor)))
+                    if field == "rankDerivedValue":
+                        moved += 1
+            values = copy.get("values")
+            if isinstance(values, dict):
+                # Copy before writing: ``dict(row)`` above is shallow and
+                # ``latest_contract_data`` is a shared mutable global.
+                values = dict(values)
+                for key in BOARD_SCALE_VALUES_KEYS:
+                    base = values.get(key)
+                    if isinstance(base, (int, float)) and base > 0:
+                        values[key] = int(round(float(base) * float(factor)))
+                copy["values"] = values
         copies.append(copy)
 
     if not moved:

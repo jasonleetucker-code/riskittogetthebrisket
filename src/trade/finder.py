@@ -234,9 +234,15 @@ class TradeCandidate:
         return sorted(seen)
 
     def to_dict(self) -> dict[str, Any]:
-        trade_has_idp = any(a.position in IDP_POSITIONS for a in [*self.give, *self.receive])
-
         def _asset_dict(a: Asset) -> dict[str, Any]:
+            # ONE CONCEPT, ONE NAME (W29-F001).  ``modelValue`` is always
+            # the canonical board value — ``/arbitrage`` renders it under
+            # the literal label "board", and ``boardDelta`` is summed
+            # from it.  It used to be silently replaced by
+            # ``offense_only_model_value`` (a different board) on any
+            # trade with no IDP leg, with the real board value shunted
+            # into ``modelValueFull`` — so the number labelled "board"
+            # was not the board, and the lens could not move it.
             d: dict[str, Any] = {
                 "name": a.name,
                 "position": a.position,
@@ -245,9 +251,9 @@ class TradeCandidate:
                 "ktcValue": a.ktc_value,
                 "ktcRank": a.ktc_rank,
             }
-            if not trade_has_idp and a.offense_only_model_value is not None:
-                d["modelValue"] = a.offense_only_model_value
-                d["modelValueFull"] = a.model_value
+            if a.offense_only_model_value is not None:
+                # The IDP-disabled board, for comparison only.
+                d["offenseOnlyModelValue"] = a.offense_only_model_value
             return d
 
         return {
@@ -368,6 +374,36 @@ def board_values_from_contract(contract: dict[str, Any]) -> dict[str, int]:
     return out
 
 
+def offense_only_values_from_contract(contract: dict[str, Any]) -> dict[str, int]:
+    """Map ``legacyRef``/``canonicalName`` → ``offenseOnlyRankDerivedValue``.
+
+    A SECOND board on the same 0-9999 scale — the IDP-disabled re-run of
+    ``_compute_unified_rankings``.  Published for comparison; never
+    substituted for the canonical value.
+
+    Read from ``playersArray`` rather than from the legacy ``players``
+    dict's ``_offenseOnlyFinalAdjusted`` mirror, and that is the whole
+    point of this function.  ``src/league_intel/overlay.py`` applies the
+    league-adjusted lens to ``playersArray`` rows only — it deliberately
+    leaves the legacy dict alone — so a value read from the mirror is
+    always the UNADJUSTED market number, whatever the response says its
+    ``valuationMode`` is (W29-F002).  Keyed exactly like
+    :func:`board_values_from_contract`.
+    """
+    out: dict[str, int] = {}
+    for row in contract.get("playersArray") or []:
+        if not isinstance(row, dict):
+            continue
+        value = _int_or_none(row.get("offenseOnlyRankDerivedValue"))
+        if value is None or value < 1:
+            continue
+        for key in ("legacyRef", "canonicalName", "displayName"):
+            name = row.get(key)
+            if isinstance(name, str) and name:
+                out.setdefault(name, value)
+    return out
+
+
 def positions_from_contract(contract: dict[str, Any]) -> dict[str, str]:
     """Map ``legacyRef``/``canonicalName``/``displayName`` → ``position``.
 
@@ -420,6 +456,7 @@ def build_asset_pool(
     market_top_n: int | None = None,
     ktc_top_n: int | None = None,
     board_values: dict[str, int] | None = None,
+    offense_only_values: dict[str, int] | None = None,
     positions: dict[str, str] | None = None,
 ) -> list[Asset]:
     """Convert raw players dict into Asset objects with model + market values.
@@ -492,7 +529,18 @@ def build_asset_pool(
             # board.  So the two branches had their scales exactly
             # backwards: the offense-only feature was dead on the live
             # path, and the fallback below was the one mixing scales.
-            oo_raw = _int_or_none(pdata.get("_offenseOnlyFinalAdjusted"))
+            #
+            # Read from the CONTRACT when the caller supplied it.  The
+            # legacy dict's ``_offenseOnlyFinalAdjusted`` mirror is
+            # never touched by the league-adjusted overlay, which
+            # rewrites ``playersArray`` rows only — so reading the
+            # mirror under ``valuationMode: leagueAdjusted`` returns the
+            # unadjusted market number (W29-F002).  The mirror stays as
+            # the fallback for callers holding a raw payload.
+            if offense_only_values is not None:
+                oo_raw = offense_only_values.get(name)
+            else:
+                oo_raw = _int_or_none(pdata.get("_offenseOnlyFinalAdjusted"))
         else:
             # Legacy path: raw scraper composite.
             model = _int_or_none(pdata.get("_finalAdjusted"))
@@ -680,18 +728,14 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     # documenting a world the filter had deleted.  Removed rather than
     # left as dead code.
 
-    # Use offense-only model values when neither side has IDP players.
-    # This excludes IDP source calibration from trade scoring so that
-    # an all-offense trade isn't influenced by IDP-relative rankings.
-    trade_has_idp = any(a.position in IDP_POSITIONS for a in [*give, *receive])
-
-    def _mv(a: Asset) -> int:
-        if not trade_has_idp and a.offense_only_model_value is not None:
-            return a.offense_only_model_value
-        return a.model_value
-
-    give_model = sum(_mv(a) for a in give)
-    recv_model = sum(_mv(a) for a in receive)
+    # Every leg is scored on ONE board: the canonical one, the same one
+    # ``metadata.valueSource`` names and ``/arbitrage`` labels "board".
+    # This used to swap the whole subtraction onto the offense-only
+    # board whenever neither side carried an IDP asset — a different
+    # board for the arithmetic than for the label, and one the
+    # league-adjusted lens never reached (W29-F002, W09-F006).
+    give_model = sum(a.model_value for a in give)
+    recv_model = sum(a.model_value for a in receive)
     board_delta = recv_model - give_model
 
     # NOT "must be positive" — this admits a band of small BOARD LOSSES
@@ -718,7 +762,7 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
             return None
         # ── Elite target protection (tighter ratio) ──────────────────
-        max_recv = max(_mv(a) for a in receive)
+        max_recv = max(a.model_value for a in receive)
         if max_recv >= ELITE_THRESHOLD:
             if give_model < recv_model * ELITE_MULTI_MIN_RATIO:
                 return None
@@ -726,7 +770,7 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         # ── Package anchor quality ───────────────────────────────────
         # At least one give piece must be a real starter-quality asset,
         # not just two bench stashes that happen to sum high enough.
-        max_give = max(_mv(a) for a in give)
+        max_give = max(a.model_value for a in give)
         if max_give < max_recv * PACKAGE_ANCHOR_MIN_PCT:
             return None
         flags.append("anchor_verified")
@@ -765,9 +809,9 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         return None
 
     # Filter out junk trades: at least one meaningful asset on each side
-    if all(_mv(a) < JUNK_THRESHOLD for a in give):
+    if all(a.model_value < JUNK_THRESHOLD for a in give):
         return None
-    if all(_mv(a) < JUNK_THRESHOLD for a in receive):
+    if all(a.model_value < JUNK_THRESHOLD for a in receive):
         return None
 
     # Arbitrage score: how much we gain on our board while the opponent
@@ -975,6 +1019,7 @@ def find_trades(
     # ``players`` dict came from — ``/api/data`` carries both — so a
     # caller holding the live contract can pass it for both arguments.
     board_values = board_values_from_contract(contract) if contract else None
+    offense_only_values = offense_only_values_from_contract(contract) if contract else None
     # The legacy ``players`` dict has no ``position`` key, so without
     # this every IDP asset routes to the KTC board and is dropped.
     positions = positions_from_contract(contract) if contract else None
@@ -982,6 +1027,7 @@ def find_trades(
         players,
         market_top_n=market_top_n,
         board_values=board_values,
+        offense_only_values=offense_only_values,
         positions=positions,
     )
 

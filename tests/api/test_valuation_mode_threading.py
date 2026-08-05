@@ -45,6 +45,7 @@ from src.league_intel import overlay as _overlay
 from src.league_intel import publish as _publish
 from tests.api.test_gameplan_endpoint import league  # noqa: F401 — pytest fixture
 from tests.api.test_league_adjusted_endpoint import _install_contract
+from tests.api.test_league_adjusted_endpoint import _players_array as _endpoint_rows
 
 _SERVER_PY = Path(__file__).resolve().parents[2] / "server.py"
 
@@ -399,3 +400,85 @@ def test_the_stamp_appends_to_existing_warnings_rather_than_replacing_them():
     result = {"warnings": ["something else"]}
     server._stamp_valuation_mode(result, "market", "league_adjusted_unavailable: no_op")
     assert result["warnings"] == ["something else", "league_adjusted_unavailable: no_op"]
+
+
+# ── 4. The label must be true of the NUMBERS, not just of the response ──
+#
+# Everything above pins that a handler STAMPS the mode it served. None of
+# it pins that the served numbers moved — and for a year they did not, on
+# every all-offense trade. ``overlay.adjusted_rows`` scaled
+# ``rankDerivedValue`` alone while three engines read
+# ``offenseOnlyRankDerivedValue``, so the lens was a measurable no-op with
+# ``valuationMode: leagueAdjusted`` and ``valuationNote: null`` on the
+# response (W09-F006: identical equity 4004 and identical per-player
+# values under both modes; W29-F002: 21 of 51 suggestion legs still at
+# the unadjusted value).
+
+
+def _rows_carrying_both_boards():
+    """The endpoint fixture's rows plus the second board.
+
+    ``offenseOnlyRankDerivedValue`` is deliberately NOT equal to
+    ``rankDerivedValue``: an engine reading the wrong one has to produce
+    a visibly different number, or this test cannot tell the two apart.
+    """
+    rows = _endpoint_rows()
+    for row in rows:
+        row["offenseOnlyRankDerivedValue"] = int(round(row["rankDerivedValue"] * 0.92))
+    return rows
+
+
+def test_a_served_engine_value_actually_moves_between_the_two_lenses(
+    league,  # noqa: F811
+    monkeypatch,
+):
+    """The acceptance test for R28. An all-offense trade — the shape the
+    dropped branch fired on — simulated against both boards."""
+    from src.api.trade_simulator import simulate_trade
+
+    with TestClient(server.app, raise_server_exceptions=True):
+        stub = _install_contract(monkeypatch, rows=_rows_carrying_both_boards())
+        overlay = gameplan.get_league_adjusted_values("main", "prof_a", stub)
+    factors = overlay["factors"]
+    assert factors, "fixture produced no factors; the comparison would be vacuous"
+    assert any(abs(f - 1.0) > 1e-9 for f in factors.values()), "every factor is unity"
+
+    adjusted = _overlay.adjusted_contract(stub, factors)
+    assert adjusted is not None
+
+    offense = [
+        r["displayName"]
+        for r in stub["playersArray"]
+        if r.get("position") in ("QB", "RB", "WR", "TE") and factors.get(r["displayName"])
+    ]
+    assert len(offense) >= 3, "need an all-offense trade to exercise the dropped branch"
+    out_name, in_a, in_b = offense[0], offense[1], offense[2]
+
+    def _sim(contract):
+        return simulate_trade(
+            contract,
+            resolved_team={"name": "Me", "players": [out_name]},
+            players_out=[out_name],
+            players_in=[in_a, in_b],
+        )
+
+    market, lens = _sim(stub), _sim(adjusted)
+    served = lambda payload: {  # noqa: E731
+        a["name"]: a["value"] for a in payload["sending"] + payload["receiving"]
+    }
+    assert served(market) != served(lens), (
+        "the lens changed no served value — every valuationMode stamp above is "
+        "decoration on the market board"
+    )
+    assert market["equity"] != lens["equity"]
+
+
+def test_every_board_scale_field_is_in_the_list_the_overlay_scales():
+    """The list is the contract. A new 0-9999 field added to a contract
+    row and forgotten here is the same defect again, and it fails
+    silently — the response still says ``leagueAdjusted``."""
+    rows = _rows_carrying_both_boards()
+    out = _overlay.adjusted_rows(rows, {rows[0]["displayName"]: 1.5})
+    moved = out[[r["displayName"] for r in out].index(rows[0]["displayName"])]
+    for field in _overlay.BOARD_SCALE_ROW_FIELDS:
+        assert moved[field] == int(round(rows[0][field] * 1.5)), field

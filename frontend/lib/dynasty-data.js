@@ -1972,9 +1972,22 @@ export function applyValuationOverlay(baseContract, overlay) {
       if (!f && !hasRank) return row;
       const next = { ...row };
       if (f) {
+        // Board-scale (0-9999) fields only, and ALL of them — mirrors
+        // BOARD_SCALE_ROW_FIELDS / BOARD_SCALE_VALUES_KEYS in
+        // src/league_intel/overlay.py. ``offenseOnlyRankDerivedValue``
+        // is a second board on the same scale; leaving it unscaled is
+        // what made the lens a no-op on all-offense trades server-side
+        // (W09-F006).
         next.rankDerivedValue = scale(row.rankDerivedValue, f);
+        if (row.offenseOnlyRankDerivedValue != null)
+          next.offenseOnlyRankDerivedValue = scale(
+            row.offenseOnlyRankDerivedValue,
+            f,
+          );
         if (row.values && typeof row.values === "object") {
           // All four aliases are identical on live rows; keep them so.
+          // ``rawComposite`` is deliberately absent — it is the
+          // pre-canonical scraper composite, a different scale.
           next.values = { ...row.values };
           for (const k of ["overall", "finalAdjusted", "displayValue"]) {
             if (row.values[k] != null) next.values[k] = scale(row.values[k], f);
@@ -2009,8 +2022,19 @@ export function applyValuationOverlay(baseContract, overlay) {
       const next = { ...row };
       if (f) {
         next.rankDerivedValue = scale(row.rankDerivedValue, f);
-        if (row._finalAdjusted != null)
-          next._finalAdjusted = scale(row._finalAdjusted, f);
+        // ``_offenseOnlyFinalAdjusted`` mirrors the BOARD-scale
+        // offense-only value, so it moves with the lens.
+        if (row._offenseOnlyFinalAdjusted != null)
+          next._offenseOnlyFinalAdjusted = scale(
+            row._offenseOnlyFinalAdjusted,
+            f,
+          );
+        // ``_finalAdjusted`` / ``_composite`` / ``_rawComposite`` are
+        // NOT scaled: they carry the pre-canonical scraper composite,
+        // which runs at a median 1.0855x the board. Multiplying a
+        // composite by a board-derived factor mixes two scales and
+        // produces a number that is on neither. The server-side applier
+        // never scaled it; this is the client catching up (W29-F002).
       }
       if (hasRank) {
         next._canonicalConsensusRank = ranks[name];

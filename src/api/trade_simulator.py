@@ -36,23 +36,28 @@ from src.api.terminal import (
 )
 
 
-_IDP_BASE_POSITIONS = frozenset({"DL", "LB", "DB"})
-
-
 def _resolve_asset(
     name: str,
     *,
     row_index: dict[str, dict[str, Any]],
-    offense_only: bool = False,
 ) -> dict[str, Any] | None:
     """Resolve a single display name to a summary dict for the
     simulator output.  Matches ``terminal.py``'s rowValue semantics.
 
-    When ``offense_only`` is True and the row carries a pre-computed
-    ``offenseOnlyRankDerivedValue`` (set by the IDP-disabled pipeline
-    pre-pass), that value is used instead of the full-source
-    ``rankDerivedValue``.  This ensures trades involving only offense
-    players and picks aren't influenced by IDP source calibration.
+    ONE CONCEPT, ONE NAME (W29-F001 / W09-F006).  ``value`` is always
+    the canonical board value — the number ``/rankings`` renders and the
+    number ``totalValue`` / ``equity`` are summed from.  This used to
+    take an ``offense_only`` flag and silently return
+    ``offenseOnlyRankDerivedValue`` (the IDP-disabled re-run of the
+    pipeline) whenever a trade happened to contain no DL/LB/DB, which is
+    every all-offense trade — a different board under the same key, with
+    nothing on the response saying so.  It also made
+    ``valuationMode: leagueAdjusted`` a no-op on exactly those trades,
+    because the lens only ever scaled the board field.
+
+    The offense-only board is still published, per asset, under its own
+    name (``offenseOnlyValue``), so the second concept survives without
+    being confusable with the first.
     """
     if not name:
         return None
@@ -60,11 +65,9 @@ def _resolve_asset(
     row = row_index.get(key)
     if not row:
         return None
-    if offense_only:
-        oo = row.get("offenseOnlyRankDerivedValue")
-        value = int(oo) if isinstance(oo, (int, float)) and oo > 0 else int(_row_value(row))
-    else:
-        value = int(_row_value(row))
+    value = int(_row_value(row))
+    oo = row.get("offenseOnlyRankDerivedValue")
+    offense_only_value = int(oo) if isinstance(oo, (int, float)) and oo > 0 else None
     pos = _normalize_pos(row.get("pos") or row.get("position"))
     age = row.get("age")
     # ``pos`` collapses DL/LB/DB to "IDP" for terminal aggregation;
@@ -74,7 +77,7 @@ def _resolve_asset(
     from src.utils.name_clean import normalize_position
 
     base_pos = normalize_position(row.get("pos") or row.get("position"))
-    return {
+    out: dict[str, Any] = {
         "name": row.get("displayName") or row.get("canonicalName") or name,
         "pos": pos,
         "basePos": base_pos or pos,
@@ -84,6 +87,11 @@ def _resolve_asset(
         "age": int(age) if isinstance(age, (int, float)) and age else None,
         "assetClass": row.get("assetClass") or ("pick" if pos == "PICK" else "player"),
     }
+    if offense_only_value is not None:
+        # A DIFFERENT board, published for comparison only — never
+        # substituted for ``value``.
+        out["offenseOnlyValue"] = offense_only_value
+    return out
 
 
 def _aggregate(assets: list[dict[str, Any]]) -> dict[str, Any]:
@@ -182,37 +190,21 @@ def simulate_trade(
         }
         current_players = [str(p) for p in (resolved_team.get("players") or [])]
 
-    # Determine whether any asset in the trade is an IDP player.
-    # When the entire trade is offense + picks, use offense-only values
-    # that exclude IDP source calibration from the blend.
-    # Only applies when at least one asset is being traded — empty
-    # requests must resolve before/after with the same full-board values
-    # as the terminal panel (parity requirement).
-    all_trade_names = [*players_in, *players_out, *picks_in, *picks_out]
-    # Only activate offense-only mode when at least one name resolves to
-    # a known row.  A request where every name is unresolvable (e.g. all
-    # typos) should still return full-board before/after totals that match
-    # the terminal panel, not offense-only baselines.
-    trade_has_resolved = any(
-        row_index.get(n.strip().lower()) is not None for n in all_trade_names if n.strip()
-    )
-    trade_has_idp = trade_has_resolved and any(
-        _normalize_pos(
-            (row_index.get(n.strip().lower()) or {}).get("pos")
-            or (row_index.get(n.strip().lower()) or {}).get("position")
-            or ""
-        )
-        == "IDP"
-        for n in all_trade_names
-        if n.strip()
-    )
-    offense_only = trade_has_resolved and not trade_has_idp
+    # Every asset resolves on ONE board — the canonical one, the same
+    # one the terminal panel and ``/rankings`` show.  There used to be a
+    # branch here that switched the whole simulation onto
+    # ``offenseOnlyRankDerivedValue`` whenever the trade contained no
+    # DL/LB/DB.  It shipped two boards under one ``value`` key and made
+    # the league-adjusted lens a measurable no-op on all-offense trades
+    # (W09-F006: identical equity 4004 under both modes).  The
+    # offense-only number is still returned per asset as
+    # ``offenseOnlyValue``.
 
     def _resolve_many(names: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
         resolved: list[dict[str, Any]] = []
         missing: list[str] = []
         for n in names:
-            hit = _resolve_asset(n, row_index=row_index, offense_only=offense_only)
+            hit = _resolve_asset(n, row_index=row_index)
             if hit is None:
                 missing.append(n)
             else:
@@ -222,7 +214,7 @@ def simulate_trade(
     # BEFORE state: the team's current roster + picks, resolved.
     before_assets: list[dict[str, Any]] = []
     for name in current_players:
-        hit = _resolve_asset(name, row_index=row_index, offense_only=offense_only)
+        hit = _resolve_asset(name, row_index=row_index)
         if hit is not None:
             before_assets.append(hit)
     current_picks = (
@@ -231,7 +223,7 @@ def simulate_trade(
         else []
     )
     for pick in current_picks:
-        hit = _resolve_asset(pick, row_index=row_index, offense_only=offense_only)
+        hit = _resolve_asset(pick, row_index=row_index)
         if hit is not None:
             before_assets.append(hit)
 
@@ -265,6 +257,9 @@ def simulate_trade(
         "unresolvedIn": unresolved_in,
         "unresolvedOut": unresolved_out,
         "equity": int(equity),
+        # Which board every number above is on.  Same vocabulary as
+        # ``src/trade/finder.py::metadata.valueSource``.
+        "valueBasis": "rankDerivedValue",
     }
 
     # Roster-shape-aware fit verdict.  Only computed when we have both
