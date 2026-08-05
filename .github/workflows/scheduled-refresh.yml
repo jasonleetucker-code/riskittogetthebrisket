@@ -221,10 +221,53 @@ jobs:
           # successes still stamp only what was actually written), and
           # it must have reasonable content (>= min lines) so a
           # corrupted scrape doesn't fake freshness.
+          # AUDIT Z-2 — the mtime gate above is necessary and NOT
+          # sufficient, and this is the gap that made the whole
+          # freshness class unobservable.
+          #
+          # When a source fetch fails or lands under its row floor, the
+          # scraper skips the write and a later pass RESTORES the prior
+          # good copy with ``open(dest, "wb")`` — a fresh write, so the
+          # file gets a CURRENT mtime and sails past ``-nt marker``.
+          # The row count passes too, because the restored board is the
+          # full last-good one. So a dead vendor minted a fresh
+          # ``*_last_success`` on every run and the staleness watchdog
+          # printed "ok: 22 sources" forever. IDPTradeCalc is the IDP
+          # backbone, the sole cross-market IDP anchor and ~90% of every
+          # IDP value under alpha-shrinkage — it going quiet is exactly
+          # what this stamp exists to reveal.
+          #
+          # The scraper already knows the answer and writes it down:
+          # ``exports/latest/manifest.json`` carries ``siteRawFresh``
+          # and ``siteRawPreserved``. Nothing consulted it. Preferring
+          # the manifest makes the stamp mean "the vendor answered this
+          # run" instead of "a file exists", with the mtime gate kept as
+          # the fallback for when no manifest was produced.
+          # Kept to a SINGLE line on purpose. Every line of this step is
+          # inside a YAML block scalar, so any line at column 0 — a
+          # heredoc terminator, or the body of a multi-line `python3 -c`
+          # — is less-indented than the block and silently ends it,
+          # breaking the whole workflow file. Both forms were tried.
+          #
+          # Exit 0 == "this CSV was restored, not fetched". Any error
+          # (missing/corrupt manifest, absent key) exits non-zero, which
+          # falls back to the mtime gate below — the pre-existing
+          # behaviour, so a manifest problem cannot suppress stamping
+          # for every source at once.
+          MANIFEST="exports/latest/manifest.json"
+          was_preserved() {
+            [[ -f "$MANIFEST" ]] || return 1
+            python3 -c "import json,sys;sys.exit(0 if sys.argv[2] in (json.load(open(sys.argv[1],encoding='utf-8')).get('siteRawPreserved') or []) else 1)" "$MANIFEST" "$1" 2>/dev/null
+          }
+
           stamp_if_present() {
             local key="$1"
             local csv="$2"
             local min_lines="${3:-10}"
+            if was_preserved "$(basename "$csv")"; then
+              echo "::warning title=${key} not refreshed::Restored last-good board; NOT stamping ${key}_last_success (the vendor did not answer this run)"
+              return
+            fi
             if [[ -f "$csv" && "$csv" -nt "$SCRAPE_START_MARKER" ]]; then
               local lines
               lines=$(wc -l < "$csv" 2>/dev/null || echo 0)

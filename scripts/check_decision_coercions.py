@@ -69,9 +69,11 @@ Exit codes: 0 clean, 1 violations, 2 error.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
+import tokenize
 import subprocess
 import sys
 from pathlib import Path
@@ -120,6 +122,46 @@ def _iter_files() -> list[Path]:
     return sorted(set(out))
 
 
+def _masked_spans(source: str) -> dict[int, list[tuple[int, int]]]:
+    """Column ranges per line that are comment or string literal.
+
+    Prose about a coercion is not a coercion.  This began as a check on
+    how a line STARTS (hash, slash-slash, a triple-quote), which cannot
+    see a CONTINUATION line inside a multi-line docstring — and this
+    codebase documents these defects at length, so a sentence
+    explaining the pattern inside a docstring was reported as a live
+    violation.  A false positive is not a harmless nuisance for a gate:
+    it is the pressure that gets the gate weakened or switched off.
+
+    Masking by SPAN and not by line, because the obvious version of this
+    fix is wrong in the opposite and far more dangerous direction:
+    marking any line containing a string token as prose silences
+    ``x = data.get("k") or 0`` — a real coercion on a line that merely
+    contains a string. That turns the gate off almost everywhere while
+    still reporting success. Its own unit test caught it.
+    """
+    masked: dict[int, list[tuple[int, int]]] = {}
+    try:
+        for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+            if tok.type not in (tokenize.COMMENT, tokenize.STRING):
+                continue
+            (srow, scol), (erow, ecol) = tok.start, tok.end
+            for row in range(srow, erow + 1):
+                start = scol if row == srow else 0
+                end = ecol if row == erow else 10**9
+                masked.setdefault(row, []).append((start, end))
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        # Unparseable file: scan all of it rather than silently
+        # exempting it. Over-reporting is recoverable; a gate that
+        # quietly stops looking is the defect it exists to prevent.
+        return {}
+    return masked
+
+
+def _is_masked(masked: dict[int, list[tuple[int, int]]], line_no: int, col: int) -> bool:
+    return any(start <= col < end for start, end in masked.get(line_no, ()))
+
+
 def _scan() -> list[dict]:
     found: list[dict] = []
     for path in _iter_files():
@@ -127,18 +169,21 @@ def _scan() -> list[dict]:
         if pattern is None:
             continue
         try:
-            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            source = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
+        lines = source.splitlines()
+        masked = _masked_spans(source) if path.suffix == ".py" else {}
         rel = path.relative_to(REPO_ROOT).as_posix()
         for n, line in enumerate(lines, 1):
             stripped = line.strip()
-            # Prose about a coercion is not a coercion.  The repo
-            # documents these defects extensively in comments, and this
-            # file's own docstring would otherwise trip it.
+            # JS/JSX keeps the line-prefix heuristic — no tokenizer to
+            # hand, and its block comments are rarer in these files.
             if stripped.startswith(("#", "//", "*", '"""', "'''")):
                 continue
             for m in pattern.finditer(line):
+                if _is_masked(masked, n, m.start()):
+                    continue
                 found.append(
                     {
                         "file": rel,
