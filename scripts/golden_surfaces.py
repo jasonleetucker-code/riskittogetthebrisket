@@ -99,6 +99,65 @@ def _ros_direction_rows() -> dict[str, dict]:
     return rows
 
 
+# ── ROS deadline board (the ladder's CALLER) ──────────────────────────
+# ``_ros_direction_rows`` above captures ``classify_team``, which is a
+# pure function of odds it is handed.  N-2 is not in that function — it
+# is in who gets handed WHAT.  ``build_team_directions`` unions three
+# maps, so a manager present in only one still gets a row, and the odds
+# were read with ``or 0.0``; 0% playoff odds routes to "Seller".
+#
+# The fixture is the live league's actual shape: 12 managers, 8 covered
+# by the sim, and the strongest roster among the uncovered four.  Fixed
+# maps rather than data/ros/ so the capture stays deterministic — the
+# live file is rewritten by the refresh cadence, and a fixture that
+# moves under you is the failure the frozen board input already taught
+# this harness once.
+_ROS_DEADLINE_COVERED = {
+    "o01": (1.00, 0.30),
+    "o02": (1.00, 0.22),
+    "o03": (1.00, 0.18),
+    "o04": (1.00, 0.09),
+    "o05": (1.00, 0.05),
+    "o06": (1.00, 0.02),
+    "o07": (0.00, 0.00),
+    "o08": (0.00, 0.00),
+}
+_ROS_DEADLINE_UNCOVERED = ["o09", "o10", "o11", "o12"]
+
+
+def _ros_deadline_rows() -> dict[str, dict]:
+    from src.ros.trade_deadline import build_team_directions
+
+    playoffs = {o: {"playoffOdds": p} for o, (p, _) in _ROS_DEADLINE_COVERED.items()}
+    champs = {o: {"championshipOdds": c} for o, (_, c) in _ROS_DEADLINE_COVERED.items()}
+    # Ranks put the best roster in the league among the UNCOVERED set,
+    # which is the live situation the audit found and the reason this
+    # finding was rated Critical rather than cosmetic.
+    order = ["o09", "o01", "o02", "o03", "o08", "o04", "o05", "o10", "o07", "o06", "o11", "o12"]
+    strengths = {
+        owner: {"teamName": f"Team {owner}", "rank": i + 1} for i, owner in enumerate(order)
+    }
+
+    rows: dict[str, dict] = {}
+    out = build_team_directions(
+        playoff_odds_map=playoffs, championship_map=champs, team_strength_map=strengths
+    )
+    for position, row in enumerate(out):
+        owner = row.get("ownerId")
+        covered = "covered" if owner not in _ROS_DEADLINE_UNCOVERED else "absent"
+        rows[f"ros_deadline/{owner},{covered}"] = {
+            "value": _num(row.get("playoffOdds")),
+            "label": row.get("label"),
+            "measurable": row.get("measurable", True),
+            "rank": _num(row.get("rank")),
+            # Sort position is part of the answer: a null championship
+            # chance must not sort as the worst one.
+            "sortPosition": position,
+            "recommendation": (row.get("recommendation") or "")[:60],
+        }
+    return rows
+
+
 # ── FAAB bid desk ─────────────────────────────────────────────────────
 # The grid varies the two quantities W-2 says the bid should NOT be a
 # pure function of (the candidate's value and the best asset on the
@@ -173,6 +232,7 @@ def _news_polarity_rows() -> dict[str, dict]:
 
 _SURFACES = {
     "ros_direction": _ros_direction_rows,
+    "ros_deadline": _ros_deadline_rows,
     "faab_bid": _faab_rows,
     "news_polarity": _news_polarity_rows,
 }

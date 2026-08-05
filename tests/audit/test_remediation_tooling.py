@@ -99,25 +99,39 @@ class TestCoercionGate(unittest.TestCase):
     def test_gate_actually_detects_the_audits_own_sites(self) -> None:
         """A gate that fires on nothing real would pass silently forever.
 
-        Both sites named here are findings still recorded OPEN.  A third
-        one lived here — ``waiver.py``'s ``top_value_in_pool or 0``, the
-        latent half of W-2 — and #707 deleted it along with the rest of
-        the pool-relative bid.  It was removed from this test rather
-        than kept passing against something that no longer exists,
-        which is the same rule the baseline's stale-entry check
-        enforces.
+        The site named here is a finding still recorded OPEN.  Two
+        others lived here and were removed as the code they pointed at
+        was fixed: ``waiver.py``'s ``top_value_in_pool or 0`` (the
+        latent half of W-2, deleted by #707 with the rest of the
+        pool-relative bid) and ``trade_deadline.py``'s
+        ``playoffOdds or 0.0`` (N-2, fixed in batch C3).  Each was
+        removed rather than kept passing against something that no
+        longer exists, which is the same rule the baseline's stale-entry
+        check enforces — and the removals are the burn-down this gate
+        was built to make visible.
         """
         accepted = set(json.loads(BASELINE.read_text(encoding="utf-8"))["violations"])
-        # N-2: a team missing from the sim is coerced to 0% and told to sell.
-        self.assertTrue(
-            any("trade_deadline.py" in k and "playoffOdds" in k for k in accepted),
-            "the coercion gate no longer sees the N-2 site",
-        )
         # U-1: an unresolvable asset is priced at zero, then graded publicly.
         self.assertTrue(
             any("activity.py" in k and "valuation(asset)" in k for k in accepted),
             "the coercion gate no longer sees the U-1 site",
         )
+
+    def test_the_n2_coercion_is_gone_from_the_tree_and_the_baseline(self) -> None:
+        """Burn-down, asserted in both directions.
+
+        Deleting a baseline entry is only honest if the code went with
+        it; deleting the code is only durable if the allowance goes too,
+        or the defect can quietly return under its own blessing.
+        """
+        accepted = set(json.loads(BASELINE.read_text(encoding="utf-8"))["violations"])
+        self.assertFalse(
+            any("trade_deadline.py" in k and "Odds" in k for k in accepted),
+            "the N-2 allowance is back in the baseline",
+        )
+        source = (REPO_ROOT / "src" / "ros" / "trade_deadline.py").read_text(encoding="utf-8")
+        self.assertNotIn('playoffOdds") or 0.0', source)
+        self.assertNotIn('championshipOdds") or 0.0', source)
 
     def test_baseline_is_internally_consistent(self) -> None:
         """The recorded count must match the recorded entries.
@@ -190,18 +204,14 @@ class TestGoldenBoardInputIsFrozen(unittest.TestCase):
         self.assertEqual(len(baseline.get("sourceCsvSha256") or ""), 64)
         self.assertGreater(baseline.get("sourceCsvCount") or 0, 0)
 
-    def test_baseline_matches_the_current_tree_state(self) -> None:
-        """The committed baseline must be a capture of THIS tree.
+    def test_the_frozen_export_has_not_been_edited(self) -> None:
+        """The export is immutable, so a mismatch here is a real edit.
 
-        Both inputs are checked. The export is frozen so it can only
-        drift by an edit; the source CSVs drift on their own every two
-        hours, which is what makes this the assertion that will fail
-        most often — and that failure is the point. It means "re-capture
-        before you diff", not "something is broken".
+        This half stays a hard assertion precisely because the fixture
+        cannot move on its own: nothing writes to ``tests/fixtures/``.
         """
         import scripts.golden_board as gb
 
-        csv_digest, csv_count = gb._source_csv_digest()  # noqa: SLF001
         _, digest = gb._read_export(gb.DEFAULT_INPUT)  # noqa: SLF001
         baseline = json.loads(
             (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
@@ -214,14 +224,98 @@ class TestGoldenBoardInputIsFrozen(unittest.TestCase):
             "the committed baseline was built from a different export than the "
             "committed fixture — re-run scripts/golden_board.py",
         )
-        self.assertEqual(
-            baseline["sourceCsvSha256"],
-            csv_digest,
-            "CSVs/site_raw has changed since the baseline was captured (the "
-            "2-hourly refresh rewrites it) — re-run scripts/golden_board.py so "
-            "the next batch diffs against this tree, not a past one",
+
+    def test_baseline_freshness_is_enforced_AT_USE_not_here(self) -> None:
+        """Why there is no "baseline matches the tree" assertion.
+
+        There was one, and it was wrong — not in what it wanted but in
+        where it stood.  ``CSVs/site_raw`` is TRACKED and the scheduled
+        refresh rewrites it roughly eight times a day (16 commits in the
+        two days this was measured).  CI builds ``refs/pull/N/merge``,
+        so the tree under test carries main's newest refresh: the
+        assertion went red on every PR older than one refresh cycle, for
+        a reason no PR caused.  Batches C0 and C2 passed it by luck —
+        captured, pushed, and merged inside the window — and C3 lost the
+        same coin flip.
+
+        Clearing it by re-capturing is worse than the noise.  A baseline
+        regenerated eight times a day absorbs data-driven board movement
+        into itself, so the diff between two consecutive baselines is
+        churn, and a genuine code regression landing in that window is
+        indistinguishable from it.  The instrument meant to make code
+        movement visible would have been erased by the routine that kept
+        it green.
+
+        The freshness requirement is real, so it is enforced where it
+        BITES: ``board_diff`` refuses (exit 2) to compare captures built
+        from different trees.  A batch therefore cannot measure against
+        a stale baseline even if one is committed — it gets a refusal
+        instead of a plausible-looking diff.  That fires exactly when it
+        matters and never otherwise, which a repo-wide test cannot do.
+        The two tests below pin that refusal, which nothing tested
+        before.
+        """
+        # Non-vacuous: the claim above is only true while the guard it
+        # points at exists, so assert that it does.  If someone deletes
+        # the refusal, this reads as "the reasoning for removing the CI
+        # assertion no longer holds" rather than going quietly green.
+        diff_src = (REPO_ROOT / "scripts" / "board_diff.py").read_text(encoding="utf-8")
+        self.assertIn("sourceCsvSha256", diff_src)
+        self.assertIn("allow_input_change", diff_src)
+
+    def _run_diff(self, before: dict, after: dict) -> subprocess.CompletedProcess:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            bp, ap_ = Path(tmp) / "before.json", Path(tmp) / "after.json"
+            bp.write_text(json.dumps(before), encoding="utf-8")
+            ap_.write_text(json.dumps(after), encoding="utf-8")
+            return subprocess.run(
+                [sys.executable, "scripts/board_diff.py", str(bp), str(ap_)],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+    def test_diff_refuses_captures_built_from_different_source_csvs(self) -> None:
+        """The CSV churn case, which is the one that actually happens.
+
+        A rebase onto a main that had not touched ``data_contract.py``
+        at all once produced a diff of 290 moved values, 266 ranks and
+        664 tier flips — pure refresh churn, presented as though the
+        code had done it.
+        """
+        base = json.loads(
+            (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
+                encoding="utf-8"
+            )
         )
-        self.assertEqual(baseline["sourceCsvCount"], csv_count)
+        stale = dict(base)
+        stale["sourceCsvSha256"] = "0" * 64
+        proc = self._run_diff(stale, base)
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("different inputs", proc.stderr)
+        self.assertIn("source CSVs", proc.stderr)
+
+    def test_diff_refuses_a_capture_that_records_no_inputs_at_all(self) -> None:
+        """The guard's own blind spot, found and closed in C0.
+
+        The refusal was written as ``if before and after and before !=
+        after``, so a capture predating the field — exactly the stale
+        baseline that motivated the guard — skipped it silently. Absence
+        is now refused by name, which is the same lesson as N-2 one
+        layer up.
+        """
+        base = json.loads(
+            (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        old = {k: v for k, v in base.items() if k not in ("inputSha256", "sourceCsvSha256")}
+        proc = self._run_diff(old, base)
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("does not record its inputs", proc.stderr)
 
 
 class TestSurfaceHarness(unittest.TestCase):
@@ -239,9 +333,61 @@ class TestSurfaceHarness(unittest.TestCase):
         path = REPO_ROOT / "tests" / "fixtures" / "golden" / "surfaces.json"
         cls.rows = json.loads(path.read_text(encoding="utf-8"))["rows"]
 
-    def test_captures_all_four_surfaces(self) -> None:
+    def test_captures_every_declared_surface(self) -> None:
+        """Each batch adds the surfaces it needs before claiming an effect.
+
+        Asserted as an exact set rather than a subset: a surface that
+        silently stops capturing would leave the diff green while
+        observing nothing, which is the one failure mode a measurement
+        harness cannot have.
+        """
         prefixes = {k.split("/", 1)[0] for k in self.rows}
-        self.assertEqual(prefixes, {"ros_direction", "faab_bid", "news_polarity", "trade_verdict"})
+        self.assertEqual(
+            prefixes,
+            {
+                "ros_direction",  # C0 — the ladder itself (R-2)
+                "ros_deadline",  # C3 — its caller (N-2), where absence became "Seller"
+                "faab_bid",
+                "news_polarity",
+                "trade_verdict",
+            },
+        )
+
+    def test_an_absent_manager_gets_no_direction(self) -> None:
+        """N-2, pinned at the harness level.
+
+        The four ``absent`` rows are managers no simulation covers. The
+        fixture puts the league's best roster (rank 1) among them,
+        because that is what the live data did.
+        """
+        absent = {
+            k: v for k, v in self.rows.items() if k.startswith("ros_deadline/") and "absent" in k
+        }
+        self.assertEqual(len(absent), 4)
+        for key, row in absent.items():
+            with self.subTest(row=key):
+                self.assertIsNone(row["value"])
+                self.assertFalse(row["measurable"])
+                self.assertEqual(row["label"], "Insufficient evidence")
+        # And they sort after every measured team rather than as the
+        # worst ones.
+        covered = [
+            v["sortPosition"]
+            for k, v in self.rows.items()
+            if k.startswith("ros_deadline/") and "covered" in k
+        ]
+        self.assertTrue(min(r["sortPosition"] for r in absent.values()) > max(covered))
+
+    def test_a_measured_zero_still_sells(self) -> None:
+        """The control on the batch above: real signal is not silenced."""
+        zeros = [
+            v
+            for k, v in self.rows.items()
+            if k.startswith("ros_deadline/") and "covered" in k and v["value"] == 0.0
+        ]
+        self.assertEqual(len(zeros), 2)
+        for row in zeros:
+            self.assertEqual(row["label"], "Seller")
 
     def test_exposes_the_ros_dead_band(self) -> None:
         """R-2 / C36: 0.40 playoff odds falls through to the catch-all.
