@@ -15,11 +15,14 @@ const { test, expect } = require("../helpers/auth-fixture");
 // page-route list, so the backend origin 404s it — production works
 // because nginx routes page traffic straight to Next.  pageUrl()
 // (E2E_PAGE_ORIGIN) reproduces that topology for local/CI runs.
-const { pageUrl, NAME } = require("../helpers/journey");
+const { pageUrl, NAME, awaitStreamSettled } = require("../helpers/journey");
 
 test.describe("signed-in: /waivers page", () => {
   test("renders header + sections", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
+    // /waivers has a loading.jsx, so the App Router streams it. Let the swap
+    // finish before any strict locator runs — see awaitStreamSettled (#716).
+    await awaitStreamSettled(authedPage);
     // Assert the page's OWN <h1>, not body text: the R1 shell puts a
     // "Waivers" nav link in the sidebar on every page, so a body-level
     // /Waivers/i match passed even when the page itself failed to
@@ -35,6 +38,9 @@ test.describe("signed-in: /waivers page", () => {
 
   test("rookie toggle is present and toggleable", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
+    // /waivers has a loading.jsx, so the App Router streams it. Let the swap
+    // finish before any strict locator runs — see awaitStreamSettled (#716).
+    await awaitStreamSettled(authedPage);
     const toggle = authedPage.getByLabel(NAME.waiverRookieToggle, {
       exact: false,
     });
@@ -46,6 +52,9 @@ test.describe("signed-in: /waivers page", () => {
 
   test("position filter dropdown is present", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
+    // /waivers has a loading.jsx, so the App Router streams it. Let the swap
+    // finish before any strict locator runs — see awaitStreamSettled (#716).
+    await awaitStreamSettled(authedPage);
     const select = authedPage.getByLabel(NAME.waiverPositionFilter);
     await expect(select).toBeVisible({ timeout: 30000 });
   });
@@ -54,6 +63,9 @@ test.describe("signed-in: /waivers page", () => {
 
   test("manual add/drop calculator section renders", async ({ authedPage }) => {
     await authedPage.goto(pageUrl("/waivers"));
+    // /waivers has a loading.jsx, so the App Router streams it. Let the swap
+    // finish before any strict locator runs — see awaitStreamSettled (#716).
+    await awaitStreamSettled(authedPage);
     // The calculator's heading is unique — distinguishes from the
     // existing Best Add/Drop Moves recommendation table.
     await expect(authedPage.locator("body")).toContainText(

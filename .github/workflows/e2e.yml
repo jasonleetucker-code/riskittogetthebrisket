@@ -42,16 +42,35 @@ name: E2E Safety Net
 # the bundler config, run the browser BEFORE merge.  The paths below are
 # deliberately narrow — see the note beside them.
 #
-# EXPECT INTERMITTENT REDS, and read them carefully before blaming the
-# PR.  The app has a pre-existing SSR-streaming race in which the same
-# `#S:1` staging copy is occasionally left behind, measured at 1/15
-# loads on /arbitrage and 1/45 on /waivers — IDENTICAL rates on a build
-# of main and on the #709 branch, so it is main's defect, not any one
-# PR's.  Tracked separately.  Before attributing a red run here to the
-# PR under review, reproduce the rate against a build of the base
-# branch.  Do NOT "fix" it by loosening those locators: they are the
-# only detector this repo has for a bug class every performance metric
-# is blind to.
+# The "#S:1 streaming race" (#716) is FIXED — and it was never an app
+# defect.  This paragraph used to say the staging copy was "occasionally
+# left behind" at 1/15 on /arbitrage and 1/45 on /waivers.  Both the
+# diagnosis and the numbers were wrong.
+#
+# Routes with a `loading.jsx` (/waivers, /arbitrage, ~8 others) are
+# wrapped by the App Router in a Suspense boundary and STREAMED: the
+# body arrives inside `<div hidden id="S:n">` and an inline
+# `$RC("B:n","S:n")` moves it into place.  For a few milliseconds around
+# that swap the document can satisfy a selector twice, and Playwright's
+# strict mode throws ON THE SPOT rather than retrying.  Nothing is left
+# behind and nothing is broken — a spec was simply asserting mid-stream.
+# The server HTML was verified to contain exactly ONE copy on 20/20
+# samples, so the duplicate never existed server-side at all.
+#
+# The real rate was ~13-20% per detector, not 1/45 — an order of
+# magnitude worse than documented, across four detector points, which is
+# why a fully green run had become close to a coin flip.
+#
+# Fixed by `awaitStreamSettled()` in tests/e2e/helpers/journey.js: wait
+# for React's streaming machinery to finish, THEN assert.  Measured
+# 25/25 and 12/12 clean afterward, from 13-20% failing.
+#
+# The locators themselves were NOT loosened, and must not be.  They are
+# the only detector this repo has for the #709 class — a build that
+# renders every page twice, which every performance metric is blind to.
+# That bug is a PERSISTENT duplicate: it survives streaming completion
+# and still trips strict mode.  Verified by injecting one after
+# `awaitStreamSettled` and confirming the count still goes 1 -> 2.
 #
 # Failure handling mirrors scheduled-refresh.yml: an idempotent
 # tracking issue labelled ``e2e-failures`` is opened (or commented
