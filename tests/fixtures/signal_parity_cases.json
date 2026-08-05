@@ -1,10 +1,15 @@
 {
-  "_comment": "Shared Buy/Sell/Hold parity fixture. SINGLE SOURCE OF TRUTH for both tests/api/test_signal_engine_parity.py (drives src/api/terminal.py::_evaluate_signal) and frontend/__tests__/signal-engine-parity.test.js (drives frontend/lib/signal-engine.js::evaluate). Neither test may hardcode an expectation of its own \u2014 if the two engines disagree, exactly one of them fails against this file. See the module docstrings in both tests for what is deliberately NOT asserted (reason prose, fired-entry shape, context-builder inputs).",
+  "_comment": "Shared Buy/Sell/Hold parity fixture. SINGLE SOURCE OF TRUTH for both tests/api/test_signal_engine_parity.py (drives src/api/terminal.py::_evaluate_signal) and frontend/__tests__/signal-engine-parity.test.js (drives frontend/lib/signal-engine.js::evaluate). Neither test may hardcode an expectation of its own — if the two engines disagree, exactly one of them fails against this file. See the module docstrings in both tests for what is deliberately NOT asserted (reason prose, fired-entry shape, context-builder inputs).",
   "schemaVersion": 1,
   "generatedFor": "debt item D3 (Buy/Sell/Hold engine parity)",
   "defaultVerdict": {
     "signal": "HOLD",
     "tag": "default_hold"
+  },
+  "absentVerdict": {
+    "signal": "NO_DATA",
+    "tag": "no_history",
+    "_comment": "Returned instead of defaultVerdict when NO movement input was measurable (trend7, trend30, volatility.label and rankChange all absent). 'We measured and it is quiet' and 'we have no history' are different claims and must not share a verdict."
   },
   "rules": [
     {
@@ -56,7 +61,7 @@
   "cases": [
     {
       "id": "baseline_no_rule_fires",
-      "why": "Empty context: no trend, no volatility, no news, no confidence.",
+      "why": "Empty context: no trend, no volatility, no rank change, no news. Nothing was measured, so the verdict is the absence of one.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -73,14 +78,14 @@
         "newsCount": 0
       },
       "expected": {
-        "signal": "HOLD",
-        "tag": "default_hold",
+        "signal": "NO_DATA",
+        "tag": "no_history",
         "firedTags": []
       }
     },
     {
       "id": "all_fields_null",
-      "why": "Every numeric field explicitly null (the shape a player with no rank history and no news produces).",
+      "why": "Every numeric field explicitly null (the shape a player with no rank history and no news produces) — unmeasured, not stable.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -97,20 +102,20 @@
         "newsCount": null
       },
       "expected": {
-        "signal": "HOLD",
-        "tag": "default_hold",
+        "signal": "NO_DATA",
+        "tag": "no_history",
         "firedTags": []
       }
     },
     {
       "id": "only_name_present",
-      "why": "Keys missing entirely rather than null \u2014 Python .get() vs JS undefined must both read as absent.",
+      "why": "Keys missing entirely rather than null — Python .get() vs JS undefined must both read as absent, and absent movement is NO_DATA.",
       "ctx": {
         "name": "Sparse Row"
       },
       "expected": {
-        "signal": "HOLD",
-        "tag": "default_hold",
+        "signal": "NO_DATA",
+        "tag": "no_history",
         "firedTags": []
       }
     },
@@ -604,7 +609,7 @@
     },
     {
       "id": "r7_conf_at_threshold",
-      "why": "confidence exactly 0.35 \u2014 the gate is strict `<`, so it must NOT fire.",
+      "why": "confidence exactly 0.35 — the gate is strict `<`, so it must NOT fire.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -631,7 +636,7 @@
     },
     {
       "id": "r7_conf_just_below_threshold",
-      "why": "RETIRED RULE \u2014 low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: confidence 0.34 with medium volatility.",
+      "why": "RETIRED RULE — low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: confidence 0.34 with medium volatility.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -658,7 +663,7 @@
     },
     {
       "id": "r7_conf_zero_is_not_missing",
-      "why": "RETIRED RULE \u2014 low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: confidence 0.0 is a measurement, not an absence \u2014 both engines must null-check explicitly rather than testing truthiness.",
+      "why": "RETIRED RULE — low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: confidence 0.0 is a measurement, not an absence — both engines must null-check explicitly rather than testing truthiness.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -712,7 +717,7 @@
     },
     {
       "id": "r7_trend7_abs_at_2_positive",
-      "why": "RETIRED RULE \u2014 low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: |trend7| exactly 2 on the rise satisfies the movement clause.",
+      "why": "RETIRED RULE — low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: |trend7| exactly 2 on the rise satisfies the movement clause.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -739,7 +744,7 @@
     },
     {
       "id": "r7_trend7_abs_at_2_negative",
-      "why": "RETIRED RULE \u2014 low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: |trend7| exactly 2 on the fall satisfies it too.",
+      "why": "RETIRED RULE — low_conf_unstable was removed 2026-07-30 (marketConfidence is structurally capped at 0.59375, so the 0.35 threshold could not be calibrated). This case is kept inverted: the inputs that USED to fire it must now fire nothing, in both engines. Original: |trend7| exactly 2 on the fall satisfies it too.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -1124,7 +1129,7 @@
     },
     {
       "id": "r9_vol_null_qualifies",
-      "why": "`!= high` is a negative test, so absent volatility PASSES it on both sides \u2014 deliberately the opposite of r8_vol_null_disqualifies.",
+      "why": "`!= high` is a negative test, so absent volatility PASSES it on both sides — deliberately the opposite of r8_vol_null_disqualifies.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -1176,7 +1181,7 @@
     },
     {
       "id": "r10_rank_change_zero",
-      "why": "rankChange exactly 0 \u2014 the gate is strict `>`.",
+      "why": "rankChange exactly 0 — the gate is strict `>`.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -1200,7 +1205,7 @@
     },
     {
       "id": "r10_rank_change_null",
-      "why": "No rank-change measurement must not read as a rise.",
+      "why": "No rank-change measurement must not read as a rise — and with no trend either, nothing about this player was measured.",
       "ctx": {
         "name": "Parity Player",
         "pos": "RB",
@@ -1217,8 +1222,8 @@
         "newsCount": 1
       },
       "expected": {
-        "signal": "HOLD",
-        "tag": "default_hold",
+        "signal": "NO_DATA",
+        "tag": "no_history",
         "firedTags": []
       }
     },
@@ -1454,6 +1459,105 @@
           "uptrend_controlled",
           "pos_news_rising"
         ]
+      }
+    },
+    {
+      "id": "no_history_rank_change_measured_is_stable",
+      "why": "No trend window, but rankChange is 0 — the board WAS measured and did not move. That is evidence of stability, so HOLD, not NO_DATA.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": 0,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "no_history_trend30_measured_is_stable",
+      "why": "trend7 absent but trend30 measured at 0 — one measured movement input is enough for the stability claim.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": 0,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "no_history_news_alone_is_not_movement",
+      "why": "News was measured but no movement input was. News says nothing about price movement, which is what 'stable' asserts — so NO_DATA.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": null,
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 3
+      },
+      "expected": {
+        "signal": "NO_DATA",
+        "tag": "no_history",
+        "firedTags": []
+      }
+    },
+    {
+      "id": "no_history_volatility_label_measured_is_stable",
+      "why": "Volatility measured as low with no trend windows — measured and quiet.",
+      "ctx": {
+        "name": "Parity Player",
+        "pos": "RB",
+        "value": 0,
+        "rank": 50,
+        "rankChange": null,
+        "confidence": null,
+        "trend7": null,
+        "trend30": null,
+        "volatility": {
+          "mad": 1.0,
+          "label": "low"
+        },
+        "alertCount": 0,
+        "negativeImpactCount": 0,
+        "positiveImpactCount": 0,
+        "newsCount": 0
+      },
+      "expected": {
+        "signal": "HOLD",
+        "tag": "default_hold",
+        "firedTags": []
       }
     }
   ]

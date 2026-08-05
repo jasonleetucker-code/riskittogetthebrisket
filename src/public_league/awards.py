@@ -270,11 +270,58 @@ def _player_points_in_week_for_roster(
 
 
 def _season_has_player_scoring(season: SeasonSnapshot) -> bool:
-    """True when at least one matchup entry carries players_points."""
+    """True when at least one matchup entry carries a NON-ZERO player score.
+
+    The presence of a ``players_points`` dict is not evidence of scoring:
+    Sleeper publishes the map for the upcoming season with every value at
+    0.0, which made this return True for a season that had not played a
+    snap and told the UI it could trust per-player awards.
+    """
     for entries in season.matchups_by_week.values():
         for m in entries:
-            if isinstance(m.get("players_points"), dict) and m["players_points"]:
-                return True
+            pp = m.get("players_points")
+            if not isinstance(pp, dict):
+                continue
+            for v in pp.values():
+                if isinstance(v, (int, float)) and not isinstance(v, bool) and v != 0:
+                    return True
+    return False
+
+
+# ── evidence gate: a season with no scored play supports no award ─────────
+#
+# Every season-scoped award ranks managers on a quantity that is zero for
+# everyone until games are scored — points for, VORP, waiver points gained,
+# trade points gained — so the "winner" is whatever the all-zero sort puts
+# first.  Sleeper flips dynasty leagues to ``in_season`` months before NFL
+# week 1, so league status cannot be the gate; only actually-scored play can.
+# One week is the minimum that can separate any two managers.
+_MIN_SCORED_WEEKS_FOR_AWARDS = 1
+
+
+def _weeks_scored(season: SeasonSnapshot) -> int:
+    """Number of weeks in which at least one matchup actually scored."""
+    weeks = 0
+    for entries in season.matchups_by_week.values():
+        if any(metrics.matchup_points(m) > 0 for m in entries):
+            weeks += 1
+    return weeks
+
+
+def _season_has_scored_play(season: SeasonSnapshot) -> bool:
+    """True when the season has real scored play behind it.
+
+    Two independent pieces of evidence, because they go missing separately:
+    a scored matchup row, and the Sleeper roster settings record (games
+    played / points for), which archived seasons keep even when their
+    per-week matchup rows were never fetched.
+    """
+    if _weeks_scored(season) >= _MIN_SCORED_WEEKS_FOR_AWARDS:
+        return True
+    for roster in season.rosters:
+        rec = metrics.regular_season_settings_record(roster)
+        if rec["wins"] or rec["losses"] or rec["ties"] or rec["pointsFor"] > 0:
+            return True
     return False
 
 
@@ -2265,12 +2312,19 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     races_by_season: dict[str, list[dict[str, Any]]] = {}
     for idx, season in enumerate(snapshot.seasons):
         prev = snapshot.seasons[idx + 1] if idx + 1 < len(snapshot.seasons) else None
-        canonical = _season_canonical_awards(snapshot, season)
-        activity_based = _activity_awards_for_season(snapshot, season, prev)
-        # Per-season races double as that year's "finalists" board so the
-        # award-history modal can show the ranked runner-ups, not just the
-        # winner.  Reused below for the featured season's live awardRaces.
-        season_races = _current_season_races(snapshot, season)
+        # Evidence gate FIRST: with no scored play every award value is 0 and
+        # the winner is decided by sort order, not by anything a manager did.
+        has_scored_play = _season_has_scored_play(season)
+        canonical: list[dict[str, Any]] = []
+        activity_based: list[dict[str, Any]] = []
+        season_races: list[dict[str, Any]] = []
+        if has_scored_play:
+            canonical = _season_canonical_awards(snapshot, season)
+            activity_based = _activity_awards_for_season(snapshot, season, prev)
+            # Per-season races double as that year's "finalists" board so the
+            # award-history modal can show the ranked runner-ups, not just the
+            # winner.  Reused below for the featured season's live awardRaces.
+            season_races = _current_season_races(snapshot, season)
         races_by_season[season.season] = season_races
         by_season.append(
             {
@@ -2279,6 +2333,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 "seasonStatus": str(season.league.get("status") or ""),
                 "isComplete": season.is_complete,
                 "hasPlayerScoring": _season_has_player_scoring(season),
+                "weeksScored": _weeks_scored(season),
+                "hasScoredPlay": has_scored_play,
+                "awardsSuppressedReason": None if has_scored_play else "no_scored_games",
                 "awards": _order_awards(canonical + activity_based),
                 "finalists": {r["key"]: r["leaders"] for r in season_races},
             }
@@ -2291,15 +2348,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     # status alone is NOT a reliable "started" signal: last season's
     # full award board must stay featured until the new season actually
     # plays games.
-    def _has_played_games(s: SeasonSnapshot) -> bool:
-        for entries in s.matchups_by_week.values():
-            for m in entries:
-                if metrics.matchup_points(m) > 0:
-                    return True
-        return False
-
     def _has_begun(s: SeasonSnapshot) -> bool:
-        return s.is_complete or _has_played_games(s)
+        return s.is_complete or _weeks_scored(s) > 0
 
     featured = next(
         (s for s in snapshot.seasons if _has_begun(s)),
@@ -2308,7 +2358,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
     races: list[dict[str, Any]] = []
     current = featured
-    if current is not None and not current.is_complete:
+    if current is not None and not current.is_complete and _season_has_scored_play(current):
         races = races_by_season.get(current.season) or _current_season_races(snapshot, current)
 
     hottest = None

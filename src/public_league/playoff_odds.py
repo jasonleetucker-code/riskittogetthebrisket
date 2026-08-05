@@ -73,6 +73,47 @@ MIN_SAMPLED_WEEKS: int = 2
 # explicit ``playoff_teams`` field.
 DEFAULT_PLAYOFF_SPOTS: int = 6
 
+# Minimum scored weeks anywhere in the league before odds may be published.
+# One is enough to give the sampler a real distribution; zero leaves it with
+# nothing but the flat placeholder, which is a point mass rather than a
+# prior and produces certainty (1.0 / 0.0) out of no evidence at all.
+MIN_SCORED_WEEKS_FOR_ODDS: int = 1
+
+
+def _preseason_payload(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    owners_in_league: list[str],
+    spots: int,
+    *,
+    weeks_remaining: int,
+) -> dict[str, Any]:
+    """The "no games scored yet" answer: a shape, not a number.
+
+    ``playoffProbability: None`` + ``scheduleCertainty: "preseason"`` is the
+    pair ``PlayoffOddsChart.jsx`` already renders as an explicit preseason
+    panel instead of a bar chart of zeros.
+    """
+    return {
+        "season": season.season,
+        "numSims": 0,
+        "playoffSpots": spots,
+        "weeksPlayed": 0,
+        "weeksRemaining": weeks_remaining,
+        "scheduleCertainty": "preseason",
+        "unsimulatedReason": "no_scored_weeks",
+        "owners": [
+            {
+                "ownerId": o,
+                "displayName": metrics.display_name_for(snapshot, o),
+                "currentWins": 0,
+                "currentPointsFor": 0.0,
+                "playoffProbability": None,
+            }
+            for o in owners_in_league
+        ],
+    }
+
 
 def _season_weekly_scores(
     season: SeasonSnapshot,
@@ -542,42 +583,39 @@ def compute_playoff_odds(
     played_weeks = [wk for wk in season.regular_season_weeks if _week_is_complete(wk)]
     remaining_weeks = [wk for wk in season.regular_season_weeks if wk not in played_weeks]
 
-    # Early exit: both played and remaining are empty.  Two very
-    # different states collapse to this shape and must be handled
-    # distinctly (per Codex PR #215 round 4):
+    # Preseason — no week in the season has scored a point, so there is no
+    # distribution to sample and no odds to publish (per Codex PR #215
+    # round 4, which handled the empty-schedule half of this state:
+    # ``regular_season_weeks`` empty because the snapshot only stores weeks
+    # with real matchup rows.  Before that fix the payload reported
+    # ``scheduleCertainty: "final"`` and handed out arbitrary 0/1
+    # probabilities from whatever owner order the loop produced).
     #
-    #   * Preseason — ``regular_season_weeks`` is empty because the
-    #     snapshot only stores weeks with real matchup rows and no
-    #     week has been published yet.  Before: reported
-    #     ``scheduleCertainty: "final"`` and handed out arbitrary 0/1
-    #     probabilities from whatever owner order the loop produced.
-    #     Now: emits a ``preseason`` state with all probabilities
-    #     null so the frontend can render "season hasn't started".
-    #
-    #   * Finished — at least one week has been played AND nothing
-    #     remains.  Everyone either made the playoffs (1.0) or didn't
-    #     (0.0) based on their actual current record.
+    # The preseason state is NOT only reachable through an empty schedule.
+    # Sleeper publishes every regular-season matchup row before week 1 with
+    # ``points: 0``, so ``remaining_weeks`` is the full 14 and the branch
+    # below is skipped — yet ``league_pool`` is empty, every owner pool
+    # falls back to the flat ``[100.0]`` placeholder, and ``rng.choice``
+    # over a one-element list is a point mass.  All 10,000 simulations then
+    # return the identical standings, so every probability comes out
+    # exactly 1.0 or 0.0 and the v2 convergence check certifies it
+    # (standard error 0.0 because nothing varied).  Gate on the evidence,
+    # not on the shape of the schedule.
+    scored_weeks = sum(
+        1
+        for wk in season.regular_season_weeks
+        if any(metrics.is_scored(e) for e in (season.matchups_by_week.get(wk) or []))
+    )
+    if scored_weeks < MIN_SCORED_WEEKS_FOR_ODDS or not league_pool:
+        return _preseason_payload(
+            snapshot,
+            season,
+            owners_in_league,
+            spots,
+            weeks_remaining=len(remaining_weeks),
+        )
+
     if not remaining_weeks:
-        is_preseason = len(played_weeks) == 0 and latest_played is None
-        if is_preseason:
-            return {
-                "season": season.season,
-                "numSims": 0,
-                "playoffSpots": spots,
-                "weeksPlayed": 0,
-                "weeksRemaining": 0,
-                "scheduleCertainty": "preseason",
-                "owners": [
-                    {
-                        "ownerId": o,
-                        "displayName": metrics.display_name_for(snapshot, o),
-                        "currentWins": 0,
-                        "currentPointsFor": 0.0,
-                        "playoffProbability": None,
-                    }
-                    for o in owners_in_league
-                ],
-            }
         wins_snapshot = {o: int(current_record.get(o, {}).get("wins", 0)) for o in owners_in_league}
         ties_snapshot = {o: int(current_record.get(o, {}).get("ties", 0)) for o in owners_in_league}
         pf_snapshot = {

@@ -154,13 +154,34 @@ export default function MoversPanel() {
   const risers = data?.risers || [];
   const fallers = data?.fallers || [];
 
+  // The backend reports how deep the rank-history log actually is.  With
+  // zero days there is no delta over any window, so "no qualifying movers"
+  // would state a fact about the MARKET when the true fact is about our
+  // DATA.  Gate the empty copy and the subtitle's delta claim on it.
+  const historyDepthDays = data?.historyDepthDays;
+  const measuredWindow = data?.window;
+  const noHistory =
+    !loading && !error && data != null && (historyDepthDays === 0 || data?.asOf == null);
+  const shortWindow =
+    !noHistory &&
+    Number.isFinite(measuredWindow) &&
+    measuredWindow > 0 &&
+    measuredWindow < windowDays;
+  const emptyCopy = noHistory
+    ? "No rank history yet — we hold a single snapshot, so no movement can be measured."
+    : "No qualifying movers in this window.";
+
   return (
     <Panel
       title="Top movers"
       subtitle={
-        marketOnlyNotice
-          ? `Market rank deltas vs. ${windowDays}d ago · not adjusted for your league — no adjusted rank history exists`
-          : `Rank deltas vs. ${windowDays}d ago · click a row for source breakdown`
+        noHistory
+          ? "No rank history yet — movement needs at least one earlier snapshot to compare against"
+          : shortWindow
+            ? `Rank deltas measured over ${measuredWindow}d, not ${windowDays}d — that is all the history we hold`
+            : marketOnlyNotice
+              ? `Market rank deltas vs. ${windowDays}d ago · not adjusted for your league — no adjusted rank history exists`
+              : `Rank deltas vs. ${windowDays}d ago · click a row for source breakdown`
       }
       actions={
         <SegmentedControl
@@ -198,7 +219,7 @@ export default function MoversPanel() {
               Risers — sell-high candidates
             </h3>
             {risers.length === 0 ? (
-              <p className={styles.moverEmpty}>No qualifying movers in this window.</p>
+              <p className={styles.moverEmpty}>{emptyCopy}</p>
             ) : (
               risers.map((r) => (
                 <MoverRow
@@ -214,7 +235,7 @@ export default function MoversPanel() {
               Fallers — buy-low candidates
             </h3>
             {fallers.length === 0 ? (
-              <p className={styles.moverEmpty}>No qualifying movers in this window.</p>
+              <p className={styles.moverEmpty}>{emptyCopy}</p>
             ) : (
               fallers.map((r) => (
                 <MoverRow

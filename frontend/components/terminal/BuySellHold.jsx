@@ -33,6 +33,9 @@ const FILTER_ORDER = [
   SIGNALS.STRONG_HOLD,
   SIGNALS.BUY,
   SIGNALS.HOLD,
+  // "No data" is a distinct bucket from "Hold": Hold claims the player was
+  // measured and did not move, NO_DATA says nothing was measurable.
+  SIGNALS.NO_DATA,
 ];
 
 const DEFAULT_FILTERS = new Set([SIGNALS.RISK, SIGNALS.SELL, SIGNALS.MONITOR, SIGNALS.BUY]);
@@ -204,6 +207,11 @@ export default function BuySellHold() {
     if (!selectedTeam) return "Pick a team to see roster signals.";
     if (historyLoading && news.loading) return "Loading signals…";
     if (verdicts.length === 0) return "No rows resolved for this roster.";
+    // Every player unmeasured is a property of OUR DATA, not of the roster.
+    // Saying "no signals match your filters" would hide that.
+    if (verdicts.every((v) => v.verdict.signal === SIGNALS.NO_DATA)) {
+      return "No rank history yet — signals compare each player against earlier snapshots, and we only hold one.";
+    }
     if (visible.length === 0) return "No signals match the active filters.";
     return null;
   })();

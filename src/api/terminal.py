@@ -984,6 +984,32 @@ def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
 
     fired.sort(key=lambda r: -r["priority"])
     if not fired:
+        # Evidence gate on the fallback.  Every rule above reads a movement
+        # or volatility input; when NONE of them was measurable, the absence
+        # of a firing rule says nothing about the player, and "we looked and
+        # it is quiet" must not render identically to "we have no history".
+        # The live board returned HOLD / "Stable — no movement, volatility,
+        # or news triggers." for 665 of 665 rostered players because
+        # data/rank_history.jsonl did not exist.
+        #
+        # ``rankChange`` counts as a measurement on purpose: a player whose
+        # rank genuinely did not move IS stable, which is a different claim
+        # from having nothing to look at.  News counts do not — they say
+        # nothing about price movement, which is what "stable" asserts.
+        movement_measured = (
+            trend7 is not None
+            or trend30 is not None
+            or vol_label is not None
+            or rank_change is not None
+        )
+        if not movement_measured:
+            return {
+                "signal": "NO_DATA",
+                "reason": "No rank history for this player yet — movement and "
+                "volatility are unmeasured, not flat.",
+                "tag": "no_history",
+                "fired": [],
+            }
         return {
             "signal": "HOLD",
             "reason": "Stable — no movement, volatility, or news triggers.",
@@ -1682,7 +1708,17 @@ def build_terminal_payload(
             signals_list.append(entry)
         # Sort like the frontend: RISK/SELL/MONITOR first, HOLD last,
         # value desc within bucket, then dismissed items to the tail.
-        priority = {"RISK": 0, "SELL": 1, "MONITOR": 2, "STRONG_HOLD": 3, "BUY": 4, "HOLD": 5}
+        priority = {
+            "RISK": 0,
+            "SELL": 1,
+            "MONITOR": 2,
+            "STRONG_HOLD": 3,
+            "BUY": 4,
+            "HOLD": 5,
+            # Unmeasured sorts behind measured-and-quiet: it is the weakest
+            # statement the engine can make about a player.
+            "NO_DATA": 6,
+        }
         signals_list.sort(
             key=lambda s: (
                 1 if s["dismissed"] else 0,

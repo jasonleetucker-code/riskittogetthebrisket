@@ -6,6 +6,7 @@ import { useTeam } from "@/components/useTeam";
 import { useNews } from "@/components/useNews";
 import {
   computeMovers,
+  countMeasuredRankChanges,
   formatChange,
 } from "@/lib/market-movers";
 import { selectTickerAlerts } from "@/lib/news-service";
@@ -102,6 +103,16 @@ export default function MarketTicker() {
   const scopeLabel =
     SCOPE_OPTIONS.find((o) => o.key === scope)?.label || "Roster";
 
+  // "Market quiet" is a claim about the MARKET.  When not one row in the
+  // scope carries a measured rankChange, the true claim is about our data
+  // — the contract stamps null on every row while the platform holds a
+  // single snapshot.  Distinguish them.
+  const measuredChanges = useMemo(
+    () => countMeasuredRankChanges({ rows, selectedTeam, sleeperTeams, scope }),
+    [rows, selectedTeam, sleeperTeams, scope],
+  );
+  const noMovementData = measuredChanges === 0;
+
   if (items.length < MIN_RENDERABLE) {
     return (
       <div className="ticker ticker--quiet" role="region" aria-label="Market ticker">
@@ -123,7 +134,9 @@ export default function MarketTicker() {
           </div>
         </div>
         <div className="ticker-quiet-msg">
-          Market quiet in {scopeLabel.toLowerCase()} — fewer than {MIN_RENDERABLE} moves since last update.
+          {noMovementData
+            ? "No rank-change data yet — movement needs an earlier snapshot to compare against."
+            : `Market quiet in ${scopeLabel.toLowerCase()} — fewer than ${MIN_RENDERABLE} moves since last update.`}
         </div>
       </div>
     );

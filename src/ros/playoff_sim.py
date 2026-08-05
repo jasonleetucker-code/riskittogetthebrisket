@@ -690,9 +690,15 @@ def simulate_playoff_odds(
             snapshot, ros_map, best_ball=best_ball, points_model=model
         )
     if not distributions:
+        # Reachable in exactly one way: no owner has a scored week in the
+        # current season, so there is no weekly-score distribution to draw
+        # from.  Say so on the payload rather than letting an empty list
+        # read as "simulated, nobody qualifies" (the v1 engine stamps the
+        # same reason on its preseason payload).
         return {
             "playoffOdds": [],
             "n_simulations": 0,
+            "unsimulatedReason": "no_scored_weeks",
             "playoffSeeds": playoff_seeds,
             "byeSeeds": bye_seeds,
             "rosStrengthAvailable": bool(ros_map),

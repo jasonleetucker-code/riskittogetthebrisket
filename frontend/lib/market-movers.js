@@ -42,6 +42,43 @@ function toLeagueSet(sleeperTeams) {
   return set;
 }
 
+function selectScopePool({ rows, selectedTeam, sleeperTeams, scope }) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  if (scope === "roster") {
+    const rosterSet = toRosterSet(selectedTeam);
+    return rows.filter((r) => rosterSet.has(String(r.name).toLowerCase()));
+  }
+  if (scope === "league") {
+    const leagueSet = toLeagueSet(sleeperTeams);
+    return rows.filter((r) => leagueSet.has(String(r.name).toLowerCase()));
+  }
+  // top150: use canonicalConsensusRank
+  return rows.filter(
+    (r) =>
+      typeof r.canonicalConsensusRank === "number" &&
+      r.canonicalConsensusRank > 0 &&
+      r.canonicalConsensusRank <= 150,
+  );
+}
+
+/**
+ * How many rows in a scope carry a MEASURED rank change (including an
+ * explicit 0, which is a real "did not move" observation).
+ *
+ * "Nothing moved" and "we never measured movement" are different facts
+ * and the ticker must not render them with the same sentence: the live
+ * contract stamps ``rankChange: null`` on every row when the platform
+ * holds a single snapshot, which made the strip announce "Market quiet"
+ * — a claim about the market, from an absence in our data.
+ *
+ * @returns {number} rows with a finite ``rankChange``
+ */
+export function countMeasuredRankChanges({ rows, selectedTeam, sleeperTeams, scope = "roster" }) {
+  const pool = selectScopePool({ rows, selectedTeam, sleeperTeams, scope });
+  return pool.filter((r) => typeof r.rankChange === "number" && Number.isFinite(r.rankChange))
+    .length;
+}
+
 /**
  * Compute ranked ticker items.
  * @param {object} args
@@ -62,22 +99,7 @@ export function computeMovers({
   if (!Array.isArray(rows) || rows.length === 0) return [];
 
   const rosterSet = toRosterSet(selectedTeam);
-  const leagueSet = toLeagueSet(sleeperTeams);
-
-  let pool;
-  if (scope === "roster") {
-    pool = rows.filter((r) => rosterSet.has(String(r.name).toLowerCase()));
-  } else if (scope === "league") {
-    pool = rows.filter((r) => leagueSet.has(String(r.name).toLowerCase()));
-  } else {
-    // top150: use canonicalConsensusRank
-    pool = rows.filter(
-      (r) =>
-        typeof r.canonicalConsensusRank === "number" &&
-        r.canonicalConsensusRank > 0 &&
-        r.canonicalConsensusRank <= 150,
-    );
-  }
+  const pool = selectScopePool({ rows, selectedTeam, sleeperTeams, scope });
 
   const moved = pool
     .filter((r) => isMeaningfulChange(r.rankChange))

@@ -33,6 +33,8 @@ export const SIGNALS = Object.freeze({
   STRONG_HOLD: "STRONG_HOLD",
   BUY: "BUY",
   HOLD: "HOLD",
+  // Not a verdict — the absence of one.  See the fallback in ``evaluate``.
+  NO_DATA: "NO_DATA",
 });
 
 export const SIGNAL_META = Object.freeze({
@@ -42,6 +44,7 @@ export const SIGNAL_META = Object.freeze({
   STRONG_HOLD: { label: "Strong Hold", tone: "up",    order: 3 },
   BUY:         { label: "Buy",         tone: "up",    order: 4 },
   HOLD:        { label: "Hold",        tone: "flat",  order: 5 },
+  NO_DATA:     { label: "No data",     tone: "flat",  order: 6 },
 });
 
 const RULES = [
@@ -193,6 +196,31 @@ export function evaluate(context) {
     .sort((a, b) => b.priority - a.priority);
 
   if (fired.length === 0) {
+    // Evidence gate on the fallback — mirrors
+    // ``src/api/terminal.py::_evaluate_signal``, which is the authority,
+    // and is pinned to it by tests/fixtures/signal_parity_cases.json.
+    // Every rule reads a movement or volatility input; with none of them
+    // measurable, "nothing fired" is not evidence of stability. Live, that
+    // produced HOLD/"Stable" for 665 of 665 rostered players purely because
+    // no rank history existed. ``rankChange`` counts as a measurement (a
+    // rank that genuinely did not move IS stable); news counts do not, as
+    // they say nothing about the price movement "stable" asserts.
+    const c = context || {};
+    const movementMeasured =
+      c.trend7 != null ||
+      c.trend30 != null ||
+      c.volatility?.label != null ||
+      c.rankChange != null;
+    if (!movementMeasured) {
+      return {
+        signal: SIGNALS.NO_DATA,
+        primary: null,
+        reason:
+          "No rank history for this player yet — movement and volatility are unmeasured, not flat.",
+        tag: "no_history",
+        fired: [],
+      };
+    }
     return {
       signal: SIGNALS.HOLD,
       primary: null,
