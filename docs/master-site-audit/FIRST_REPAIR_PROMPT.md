@@ -3,10 +3,14 @@
 Deliverable section 19 of the audit brief: a copy-paste prompt for the single highest-value
 repair workstream. **This was not executed during the audit.**
 
-Why this one first: it closes three P0 findings, materially changes a fourth, and moves both
-Rankings and the Trade Calculator off *Not trustworthy*. Everything downstream of the board —
-trade advice, FAAB, arbitrage, signals — is being computed from a different number than the one
-the user reads, so no other repair can be trusted until this is fixed. Estimated size: **S**.
+Why this one first: it closes three P0 findings and moves both Rankings and the Trade Calculator
+off *Not trustworthy*. Everything downstream of the board — trade advice, FAAB, arbitrage,
+signals — is being computed from a different number than the one the user reads, so no other
+repair can be trusted until this is fixed. Estimated size: **S**.
+
+It does **not** fix the TE SELL-label defect (W12-F002). The audit initially assumed it would;
+that assumption was tested and disproved — see step 4 below, which now states the measured answer
+rather than asking for one.
 
 ---
 
@@ -66,9 +70,14 @@ WHAT TO DO
 
 3. Verify the /trade path too. Confirm the calculator sums the same board /api/data serves.
 
-4. Re-check the Edge column after the fix. If TE SELL labels persist at anything like 32/35, the
-   column has a second, independent basis problem and needs its own investigation — do not
-   assume this fix resolves it, measure it.
+4. Do NOT expect the Edge column's TE SELL labels to change. They will not, and that is already
+   measured: running the real materializer against a clean GET /api/data with no override in
+   play still returns 32 of 35 top-250 TEs as SELL. marketGapDirection is computed from ordinal
+   ranks (src/api/data_contract.py:3039-3056) while the ADR-015 basis conversion operates on
+   values inside the blend (:7674-7695), so the gap never sees it. That is a separate defect
+   (W12-F002 / W27-F005) at a separate code site and it needs its own fix. Confirm the count is
+   unchanged after your fix — if it moved, something about this description is wrong and I want
+   to know.
 
 CONSTRAINTS
 

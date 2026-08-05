@@ -129,6 +129,13 @@ W12-F002 (upheld): the `/rankings` Edge column labels **32 of 35 top-250 tight e
 every single SELL in the top 250 is a tight end** — the column is measuring TE-premium basis
 mismatch, not mispricing. A user is being told to sell every tight end he owns.
 
+This is **not** fixed by repairing the TEP override that afflicts Rankings and the Trade
+Calculator, and the distinction matters for sequencing. `marketGapDirection` is computed from
+ordinal ranks (`data_contract.py:3039-3056`) while the ADR-015 basis conversion operates on
+values inside the blend (`:7674-7695`), so the gap never sees the correction. The verifier
+reproduced the same 32-of-35 against a clean `GET /api/data` with no override in play. Two
+defects, same family, two code sites.
+
 ### Consensus Edge — Mostly trustworthy, and switched off
 The best-evidenced subsystem in the audit: 4 of its 10 findings are `Implemented and verified`,
 no P0s, no P1s. Its own decision record concluded the composite had not earned its place and
@@ -217,7 +224,11 @@ green at 6,278 Python tests and 1,754 frontend tests; the production build passe
 budgets. This is not a codebase in disarray. It is a well-built engine with a small number of
 defects sitting exactly where the user reads the output.
 
-**Four of the nine surviving P0s are two bugs.** The TEP default (size S) closes W03-F001,
-W07-F001, W08-F001 and materially changes W12-F002. The ROS sort key (size XS) closes W17-F001,
-W17-F002 and W20-F002. Two small diffs move Rankings, Trade Calculator, ROS and the odds board
-off *Not trustworthy*. That is the single most important sentence in this audit.
+**Six of the nine surviving P0s are two bugs.** The TEP default (size S) closes W03-F001,
+W07-F001 and W08-F001. The ROS sort key plus its absence-as-zero coercion (size XS) closes
+W17-F001, W17-F002 and W20-F002. Two small diffs move Rankings, Trade Calculator, ROS, the odds
+board and the Roster Analyzer off *Not trustworthy*. That is the single most important sentence
+in this audit.
+
+The remaining three P0s each need their own work: the rank-space market gap (M), the FAAB
+cross-season budget blend (M), and the draft slot cap (S).

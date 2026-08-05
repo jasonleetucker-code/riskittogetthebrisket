@@ -12,14 +12,15 @@ spine is deterministic, monotonic and largely correct; the test suite runs green
 and 1,754 frontend tests; the production build passes its own bundle budgets. But **the board
 `/rankings` renders is not the board `GET /api/data` serves**, because every page load silently
 posts a TE-premium override that bypasses the backend's own measured curve — and that single
-two-line defect accounts for four of the nine surviving P0 findings. A second one-line defect
+two-line defect accounts for three of the nine surviving P0 findings. A second one-line defect
 makes every rest-of-season number a replay of a season that ended twenty months ago, and tells
-the strongest roster in the league to sell. Both fixes are small. Most of what looks like a
-broken platform is two bugs sitting exactly where the user reads the output.
+the strongest roster in the league to sell. Both fixes are small: two diffs, sizes S and XS,
+close six of the nine P0s. Most of what looks like a broken platform is a handful of bugs sitting
+exactly where the user reads the output.
 
 ## Can the site be trusted for real decisions today?
 
-**Not for the four decisions it exists to support, until two small fixes land.**
+**Not for the decisions it exists to support, until a small number of fixes land.**
 
 | Decision | Verdict today |
 |---|---|
@@ -43,9 +44,9 @@ broken platform is two bugs sitting exactly where the user reads the output.
 | Prior-audit findings: confirmed / refuted / not reproducible | **140 / 13 / 9** |
 | Findings that are new | **174** |
 
-## The nine surviving P0s — which are really four causes
+## The nine surviving P0s — which are really five causes
 
-**Cause 1 — the TE-premium override (four P0s, one fix, size S).**
+**Cause 1 — the TE-premium override (three P0s, one fix, size S).**
 `useSettings.js:35` defaults `tepMultiplier` to `1.15`, a concrete number.
 `dynasty-data.js:919-923` treats *any* finite number as a deliberate operator override. So every
 page load, for every user, posts `tep_multiplier=1.15`, flipping the request onto the override
@@ -54,11 +55,22 @@ rising toward 2.05 down it). Measured: 627 of 740 ranks and 654 tiers differ fro
 contract, tight ends under-priced by up to 21.2%, and the response stamps `isCustomized: false`
 while it happens. A migration at `useSettings.js:182-190` rewrites a genuine `null` ("auto") to
 `1.15`, so users who *were* on the correct path were migrated off it permanently.
-→ W03-F001, W07-F001, W08-F001, and it is why W12-F002 labels **32 of 35 top-250 tight ends
-SELL, with every SELL in the top 250 being a tight end**. That column is measuring basis
-mismatch, not mispricing.
+→ W03-F001, W07-F001, W08-F001.
 
-**Cause 2 — the ROS season sort key (three P0s, one fix, size XS).**
+**Cause 2 — the market gap is computed in rank space (one P0, size M).**
+The `/rankings` Edge column labels **32 of 35 top-250 tight ends SELL, and every single SELL in
+the top 250 is a tight end.** I initially assumed this was downstream of Cause 1 and said so; it
+is not, and the correction is worth stating because it changes what fixing Cause 1 buys you. The
+verifier re-ran the real materializer against a clean `GET /api/data` — no override in play — and
+got the same distribution: TE {SELL 65, BUY 4, HOLD 4}. The reason is structural:
+`marketGapDirection` is computed from **ordinal ranks** (`data_contract.py:3039-3056`) while the
+ADR-015 basis conversion operates on **values** inside the blend (`:7674-7695`), so the gap never
+sees it. `ktcSfTep` is the only source flagged retail and it is a TE++ board; the consensus it is
+differenced against is dominated by base-TE boards. The column is measuring a positional level
+offset between boards and calling it mispricing.
+→ W12-F002, with W27-F005 as the same defect measured from the other side.
+
+**Cause 3 — the ROS season sort key (three P0s, one fix, size XS).**
 `sorted(snapshot.seasons, key=luck._season_sort_key)` passes objects to a function typed for
 strings, so every season sorts equal and the simulator runs on the **oldest** loaded season,
 2024. Every number on `/league → Championship` and `/league → Trade Deadline` describes a season
@@ -67,7 +79,7 @@ Brent — 100th-percentile ROS strength, the best roster in the league — is to
 aging win-now players, prioritize picks."*
 → W17-F001, W17-F002, W20-F002.
 
-**Cause 3 — FAAB cross-season budget blending (one P0, size M).**
+**Cause 4 — FAAB cross-season budget blending (one P0, size M).**
 Position calibration blends raw dollar bids from three seasons whose budgets were **$1000, $200
 and $100**, with no normalization. The RB anchor reads 43.0 against a budget-normalized 8.58 —
 inflated ~5x — and is blended 50/50 into every recommendation for any position with 3+ historical
@@ -75,7 +87,7 @@ bids, which is all eight. Replacement-level running backs draw $22–$32 bids on
 This is the specific cause of the over-aggression you reported.
 → W11-F001.
 
-**Cause 4 — the draft slot cap (one P0, size S).**
+**Cause 5 — the draft slot cap (one P0, size S).**
 `mergeDraftCapitalTeams` hard-caps every team's slot count at 6. A team owning 31 of the 72 live
 picks renders as "0/6 slots" with a 5.2x-wrong $/slot, and after six picks the app declares the
 draft over for them. Your stated requirement — the rookie-auction optimizer has **no fixed slot
@@ -98,6 +110,13 @@ Worth stating, because a list of only defects is not an audit:
 - **Auth** holds: the API 401s correctly across the board, admin routes 403 for a non-allowlisted
   session.
 - **The test and build gates work** — and the audit ran them rather than taking their word for it.
+
+One security item does not fit that list and should not wait for a roadmap: `_sanitize_next_path`
+(`server.py:738-748`) does not reject a backslash, so `https://chaseupside.com/login?next=/\attacker.tld`
+is a **working post-authentication open redirect on the real domain** — driven end to end in
+Chromium. It shows the genuine login page, takes the real password, then hands the browser to the
+attacker. Rated P1 on blast radius, but it is size XS and there is no reason to schedule it
+behind anything (W22-F001).
 
 ## What is absent, not broken
 
@@ -153,12 +172,20 @@ workstream could report them as defects.
 ## Highest-value next action
 
 **Fix the TEP default.** One line in `useSettings.js` plus the customization predicate in
-`dynasty-data.js`. It closes three P0s, materially changes a fourth, and moves Rankings and the
-Trade Calculator off *Not trustworthy* — which is prerequisite to trusting anything downstream of
-them. Then the ROS sort key (size XS) closes three more.
+`dynasty-data.js`. It closes three P0s and moves Rankings and the Trade Calculator off *Not
+trustworthy* — which is prerequisite to trusting anything downstream of them. Then the ROS sort
+key (size XS) closes three more.
 
 Two small diffs take six of the nine P0s off the board. `FIRST_REPAIR_PROMPT.md` is the
 copy-paste brief for the first one. Nothing was repaired during this audit.
+
+One correction to my own analysis, recorded because the audit's rule applies to the audit: I
+originally grouped the TE SELL-label defect (W12-F002) under the TEP override and wrote that
+fixing one would fix both. The roadmap workstream tested that claim rather than inheriting it,
+re-ran the labels against a clean `GET /api/data` with no override in play, and got the same 32
+of 35. They are two defects in the same TE-basis family at two code sites, and the Edge column
+needs its own fix. The first-repair prompt already carried an instruction to re-measure the Edge
+column rather than assume — that instruction is now answered, and the answer is no.
 
 ---
 
