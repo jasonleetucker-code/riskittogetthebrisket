@@ -11,23 +11,52 @@ name: E2E Safety Net
 # trade surfaces respond, settings overrides round-trip — so each
 # redesign phase can rewrite markup and prove nothing functional broke.
 #
-# Triggers: manual dispatch + nightly cron ONLY — deliberately NOT on
-# every PR.  The suite boots the whole stack, builds the frontend,
-# and drives a real browser through dozens of journeys; it runs for
-# many minutes, which is too slow for the PR feedback loop.
-# pr-validation.yml keeps the fast checks on PRs; this workflow
-# catches cross-page functional regressions within a day.
+# Triggers: nightly cron, manual dispatch, and PRs that touch the app
+# SHELL — still deliberately NOT every PR.  The suite boots the whole
+# stack, builds the frontend, and drives a real browser through dozens
+# of journeys; it runs for many minutes, which is too slow to put in
+# front of every change.  pr-validation.yml keeps the fast checks on
+# every PR; this one is the slow, targeted second gate.
+#
+# Why the path-filtered PR trigger exists (added after #709):
+#
+# A `dynamic()` import added to `components/AppShell.jsx` put a React
+# lazy boundary around `{children}` — the entire page.  Every route's
+# content became deferred streaming content, so React staged it in a
+# hidden `<div id="S:1">`, moved it into place, and left the staged
+# copy behind.  /waivers served THREE <main> elements: the shell's,
+# the page's, and a hidden second full copy of the page.
+#
+# Nothing else in the repo saw it.  The duplicate has no client rects
+# and never reaches the accessibility tree, so it is invisible in a
+# screenshot and to a human clicking around.  Six rounds of performance
+# instrumentation — CLS, LCP, INP, long-task/TBT, scroll FPS, per-route
+# bundle size — ALL reported unchanged numbers for a build that rendered
+# every page twice.  pr-validation.yml runs pytest, vitest and lint; it
+# never opens a browser.  The only detector was a Playwright strict-mode
+# violation ("resolved to 2 elements") in waivers-smoke.spec.js, in this
+# workflow, which at the time ran nightly and so caught it a day late
+# and on a branch nobody was watching.
+#
+# Hence: when a change touches the shell, the layout, the auth gate or
+# the bundler config, run the browser BEFORE merge.  The paths below are
+# deliberately narrow — see the note beside them.
+#
+# EXPECT INTERMITTENT REDS, and read them carefully before blaming the
+# PR.  The app has a pre-existing SSR-streaming race in which the same
+# `#S:1` staging copy is occasionally left behind, measured at 1/15
+# loads on /arbitrage and 1/45 on /waivers — IDENTICAL rates on a build
+# of main and on the #709 branch, so it is main's defect, not any one
+# PR's.  Tracked separately.  Before attributing a red run here to the
+# PR under review, reproduce the rate against a build of the base
+# branch.  Do NOT "fix" it by loosening those locators: they are the
+# only detector this repo has for a bug class every performance metric
+# is blind to.
 #
 # Failure handling mirrors scheduled-refresh.yml: an idempotent
 # tracking issue labelled ``e2e-failures`` is opened (or commented
 # on) so a broken journey can't sit unnoticed between manual runs.
-#
-# That tracker is about MAIN, and only main writes to it — both the
-# open and the close step require ``github.ref == 'refs/heads/main'``.
-# Dispatching this on a branch is a first-class use (it is how a branch
-# gets arbitrated against the green baseline), and its result is
-# reported in the run itself.  It just does not get to speak for main.
-# See the note on the alert step for the incident, #716.
+# Both issue steps are scoped to NON-PR runs — see the guards on them.
 
 on:
   schedule:
@@ -35,9 +64,37 @@ on:
     # from scheduled-refresh's :42 cadence.
     - cron: "23 6 * * *"
   workflow_dispatch: {}
+  pull_request:
+    # The SSR/module-graph surface: anything here can change how the
+    # app streams and hydrates, which is the bug class above.
+    #
+    # `frontend/components/ds/**` is deliberately ABSENT despite being
+    # the widest-blast-radius candidate.  The design system is touched
+    # by a large share of frontend PRs, so including it would quietly
+    # turn this into the every-PR gate the header rules out.  Dispatch
+    # the workflow by hand for a risky `ds` change instead.
+    paths:
+      - "frontend/app/layout.jsx"
+      - "frontend/app/AppShellWrapper.jsx"
+      - "frontend/components/AppShell.jsx"
+      - "frontend/components/shell/**"
+      - "frontend/middleware.js"
+      - "frontend/lib/public-routes.js"
+      # Bundler + framework config: `sideEffects`, dependency bumps and
+      # next.config changes all move chunk boundaries, and chunk
+      # boundaries are what decide when React defers a boundary.
+      - "frontend/package.json"
+      - "frontend/next.config.*"
+      # The suite and its harness — a change here should prove itself.
+      - "tests/e2e/**"
+      - ".github/workflows/e2e.yml"
 
 concurrency:
-  group: e2e-safety-net
+  # Per-ref, NOT one global group.  With a single `e2e-safety-net` group
+  # and `cancel-in-progress`, the first PR run would cancel the nightly
+  # (and every other PR's run) — and a cancelled run reports the same
+  # "not green" as a failed one while having tested nothing.
+  group: e2e-safety-net-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 # ``issues: write`` for the idempotent failure-tracking issue below.
@@ -252,31 +309,13 @@ jobs:
         # on the open ``e2e-failures`` issue if there is one, else
         # open a single labelled issue and keep reusing it.
         #
-        # MAINLINE RUNS ONLY, and the `github.ref` half is the load-bearing
-        # part of that condition.  The tracker answers one question — "is a
-        # critical journey broken on main right now?" — and a
-        # `workflow_dispatch` on a feature branch cannot contribute an
-        # answer to it either way.
-        #
-        # It contributed wrong ones in both directions.  #716 was opened
-        # 2026-08-04T18:59Z reading "Nightly E2E safety-net run failed"; it
-        # was a manual dispatch on `claude/sitewide-performance-audit-nubuz8`
-        # (PR #709), deliberately fired by the session working that branch to
-        # let CI arbitrate its own in-progress change.  Working as intended
-        # for them, filed as a mainline regression for everyone else.
-        #
-        # The close step below is the worse direction and the reason this is
-        # a guard rather than a wording fix: it is gated only on `success()`,
-        # so a green dispatch from ANY branch closes a genuine open mainline
-        # failure with "safety net is green again". A branch that never ran
-        # main's code would have issued main's all-clear.
-        #
-        # schedule and a dispatch on main both give `refs/heads/main`, so the
-        # legitimate paths are untouched. `branches: [main]` is already
-        # hardcoded across these workflows; matching that is deliberate over
-        # deriving the default branch from an event payload that varies by
-        # trigger.
-        if: failure() && github.ref == 'refs/heads/main'
+        # NON-PR RUNS ONLY.  This issue tracks "is main's safety net
+        # broken".  A PR run failing says something about the PR, not
+        # about main, and the failure is already visible on the PR's own
+        # checks — commenting here would bury the real signal under one
+        # comment per red PR run, which is exactly the "permanently red"
+        # noise the close-step below was added to end.
+        if: failure() && github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -284,7 +323,7 @@ jobs:
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           BODY=$(cat <<EOF
-          E2E safety-net run failed on \`main\` (trigger: ${GITHUB_EVENT_NAME}).
+          Nightly E2E safety-net run failed.
 
           - Workflow run: ${RUN_URL}
           - Commit: ${GITHUB_SHA}
@@ -335,11 +374,15 @@ jobs:
         #
         # A green run of THIS workflow is the all-clear by construction:
         # the suite is the gate, so there is no per-step outcome to
-        # re-derive.  On MAIN.  The ref guard is not symmetry with the
-        # alert step above — it is the stronger of the two requirements,
-        # because a false all-clear closes a real open failure and a false
-        # alarm merely files a wrong one.  See that step for the full note.
-        if: success() && github.ref == 'refs/heads/main'
+        # re-derive.
+        #
+        # NON-PR RUNS ONLY, and this guard is the more important of the
+        # two.  A PR run is green for the PR's HEAD — a merge commit of
+        # a branch that is not main.  Letting it close the issue would
+        # declare main healthy on evidence from code that was never on
+        # main, and any PR touching the shell could silently clear a
+        # genuine nightly failure.
+        if: success() && github.event_name != 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -359,7 +402,7 @@ jobs:
           for N in $OPEN; do
             echo "closing #${N}"
             gh issue close "$N" --reason completed --comment \
-              "E2E safety net is green again on \`main\` — every critical journey passed.
+              "Nightly E2E safety net is green again — every critical journey passed.
 
           - Workflow run: ${RUN_URL}
           - Commit: ${GITHUB_SHA}
