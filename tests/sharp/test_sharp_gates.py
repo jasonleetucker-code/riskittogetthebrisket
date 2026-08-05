@@ -349,7 +349,14 @@ class TestRosterQualityWasDeadWeight:
                 "activity",
             )
         )
-        assert sum(applied.values()) == pytest.approx(declared, abs=1e-6)
+        # `weightsApplied` is rounded to 6dp for legibility; the SCORE is
+        # computed from the unrounded values (`score.py`, `w * scale *
+        # value`), so this stamp reconciles only to within its own
+        # rounding — bounded by 5e-7 per stamped component.  With the
+        # four present today that is 0.999999 against a declared 1.0, and
+        # asserting tighter than the stamp's precision would be asserting
+        # about float formatting rather than about the renormalization.
+        assert sum(applied.values()) == pytest.approx(declared, abs=5e-7 * len(applied))
 
     def test_the_ranking_and_therefore_the_cohort_are_unchanged(self):
         """The safety argument, asserted rather than assumed.
