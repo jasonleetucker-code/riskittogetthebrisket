@@ -52,12 +52,22 @@ def _is_veteran(position: str | None, age: int | float | None) -> bool:
 
 def classify_team(
     *,
-    playoff_odds_pct: float,
-    championship_odds_pct: float,
+    playoff_odds_pct: float | None,
+    championship_odds_pct: float | None,
     team_ros_strength_percentile: float | None,
     roster_age_profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return ``{label, summary, recommendation}`` for one team.
+
+    ``playoff_odds_pct`` / ``championship_odds_pct`` are ``None`` when the
+    owner was not in the simulation at all — which is NOT the same as
+    having been simulated and come out at 0%. Callers used to collapse the
+    two with ``or 0.0``, and since the lowest band is
+    ``playoff < 0.25 and championship < 0.02``, "we did not simulate you"
+    rendered as "Seller — sell aging win-now players" over a summary line
+    reading "Playoff odds 0%". On the live board that hit four of twelve
+    managers, including the one with the strongest roster in the league.
+    Audit findings W17-F002 / W20-F002.
 
     Spec mapping (slightly adjusted for clarity):
       - Strong Buyer:        playoff >= 0.75 AND championship >= 0.10
@@ -76,6 +86,23 @@ def classify_team(
     """
     age_heavy = bool((roster_age_profile or {}).get("vetCount", 0) >= 4)
     strength_pct = team_ros_strength_percentile or 0.0
+
+    # Abstain rather than classify. Every band below is a statement about
+    # simulated odds; with no odds there is nothing to say, and saying
+    # "Seller" anyway is the failure this guard exists to prevent.
+    if playoff_odds_pct is None or championship_odds_pct is None:
+        return {
+            "label": "Not simulated",
+            "summary": (
+                "This team was not in the latest playoff simulation, so it has "
+                "no buy/sell direction. This is missing input, not a 0% chance."
+            ),
+            "recommendation": (
+                "No direction available. Re-run the ROS playoff simulation to " "get one."
+            ),
+            "ageProfile": roster_age_profile or {},
+            "oddsSource": "owner_not_in_simulation",
+        }
 
     if playoff_odds_pct >= 0.75 and championship_odds_pct >= 0.10:
         label = "Strong Buyer"

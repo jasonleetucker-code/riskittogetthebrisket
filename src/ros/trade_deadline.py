@@ -62,6 +62,24 @@ def build_team_directions(
     cached sim yet), the missing dimension defaults to 0 — the
     classifier degrades cleanly.
     """
+
+    def _odds_or_none(row: dict[str, Any] | None, key: str) -> float | None:
+        """Odds for one owner, or ``None`` when they were not simulated.
+
+        Distinguishes three states the old ``or 0.0`` collapsed into one:
+        the owner is missing from the map, the key is missing, and the
+        value really is 0.0. Only the last is a fact about the team.
+        """
+        if not isinstance(row, dict) or key not in row:
+            return None
+        raw = row.get(key)
+        if raw is None:
+            return None
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return None
+
     playoffs = playoff_odds_map or _load_playoff_odds_map()
     champs = championship_map or _load_championship_map()
     strengths = team_strength_map or {}
@@ -75,8 +93,13 @@ def build_team_directions(
 
     out: list[dict[str, Any]] = []
     for owner in owner_ids:
-        po = float((playoffs.get(owner) or {}).get("playoffOdds") or 0.0)
-        co = float((champs.get(owner) or {}).get("championshipOdds") or 0.0)
+        # ``None`` when this owner is absent from the simulation, so the
+        # classifier can abstain. ``or 0.0`` used to turn "not simulated"
+        # into a confident 0% and therefore into "Seller" — see
+        # ``classify_team`` (W17-F002 / W20-F002). A genuine simulated 0.0
+        # still reads as 0.0 and still classifies.
+        po = _odds_or_none(playoffs.get(owner), "playoffOdds")
+        co = _odds_or_none(champs.get(owner), "championshipOdds")
         strength_row = strengths.get(owner) or {}
         # team_strength snapshot doesn't carry a percentile by itself;
         # rank/length is the cheapest proxy.
@@ -105,7 +128,9 @@ def build_team_directions(
             }
         )
 
-    out.sort(key=lambda r: -r["championshipOdds"])
+    # Unsimulated teams sort last rather than crashing the sort or
+    # masquerading as 0.0 contenders at the bottom of the board.
+    out.sort(key=lambda r: (r["championshipOdds"] is None, -(r["championshipOdds"] or 0.0)))
     return out
 
 
