@@ -920,7 +920,51 @@ def fetch_sleeper_rosters(league_id):
     Returns (player_names_list, roster_data_for_json)."""
     _req = requests
 
-    VALID_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF", "LB", "DL", "DE", "DT", "CB", "S", "DB"}
+    # Every token ``_POS_FAMILY_MAP`` knows how to normalize, plus DEF.
+    #
+    # This gate decides whether a rostered player enters ``all_names``,
+    # ``player_id_map``, ``id_to_player`` and ``position_map`` at all —
+    # his id is appended to ``team_player_ids`` BEFORE the check, so a
+    # rejected token leaves an owned asset with an id on his team and no
+    # entry in any identity map.  It was missing SS, FS, OLB, ILB, MLB,
+    # NT and EDGE — seven position strings Sleeper really publishes.
+    # Live consequence (audit W06-F011): Jaylinn Hawkins (7058, SS/BAL)
+    # sat on team "Ed"'s roster with no name, no position and no
+    # id→name resolution on any surface, and ``sleeper_overlay``'s
+    # dump fallback existed to paper over exactly that one id.
+    #
+    # Note the audit's stated root cause — "the maps are rebuilt from
+    # board rows after the blend, erasing rostered players who never
+    # reach the board" — is not what happens: ``_player_id_map`` /
+    # ``_id_to_player`` are SEEDED from this pass
+    # (``dict(SLEEPER_ROSTER_DATA.get("playerIds", {}))``) and added to,
+    # never replaced.  The player was never in them to be erased.
+    #
+    # Keep this list in step with ``_POS_FAMILY_MAP``:
+    # ``tests/scripts/test_scraper_position_gate.py`` fails if a token
+    # the scraper can normalize is not a token it will accept.
+    VALID_POSITIONS = {
+        "QB",
+        "RB",
+        "WR",
+        "TE",
+        "K",
+        "DEF",
+        "LB",
+        "OLB",
+        "ILB",
+        "MLB",
+        "DL",
+        "DE",
+        "DT",
+        "NT",
+        "EDGE",
+        "DB",
+        "CB",
+        "S",
+        "SS",
+        "FS",
+    }
 
     print("Fetching Sleeper player database...")
     try:
