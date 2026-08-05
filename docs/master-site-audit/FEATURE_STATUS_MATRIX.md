@@ -5,7 +5,7 @@ regenerate instead, so this table can never drift from the registry it summarise
 
 - Findings published: **431**
 - Refuted under verification and withdrawn: **1**
-- Commit: `fb4a15a0` · generated 2026-08-05T01:05:56.023778+00:00
+- Commit: `c2eb29c6` · generated 2026-08-05T01:49:08.922711+00:00
 
 Priority shown is the **verified** priority where a verifier corrected the author;
 `authored` records what the workstream originally claimed. `V` is the verification

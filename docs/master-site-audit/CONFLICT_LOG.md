@@ -17,12 +17,12 @@ filesWithContradictoryVerdicts` (46 files). Findings registry generated at commi
 `fb4a15a0`; repository HEAD at writing is `29589255`; all runtime measurements taken
 2026-08-04 against the local stack (API `:8000`, pages `:3000`).
 
-| Part | Conflicts | Wrong side identified | Both right, unmarked | Left open |
-|---|---|---|---|---|
-| 1. Docs vs code | 24 of 73 CLAUDE.md claims + 3 other-doc | 21 | 3 | 3 (untestable here) |
-| 2. Doc vs doc | 10 | 8 | 2 | 0 |
-| 3. Audit-internal | 46 files | 45 adjudicated compatible | — | 1 |
-| 4. Brief vs repo | 5 | 4 | 1 | 0 |
+| Part | Examined | Result |
+|---|---|---|
+| 1. Docs vs code | 73 falsifiable CLAUDE.md claims, plus 3 claims in other documents | 49 hold; 21 are false or partially false (the doc loses every one); 3 untestable in this container |
+| 2. Doc vs doc | 10 | 8 have a wrong side; 2 are "both right, and nothing in the tree says so" |
+| 3. Audit-internal | 46 files with contradictory verdicts | 45 adjudicated compatible; **1 left open**; separately, 1 authored finding overturned and 23 severities corrected downward |
+| 4. Brief vs repo | 5 | 4 are brief errors; 1 is the brief asking for something the repo has already decided better |
 
 ---
 
@@ -349,16 +349,16 @@ any two findings cite the same file with different verdict classes — it cannot
 default for a contradiction detector (better to over-report), but it means the raw count
 of 46 is an upper bound, not a result.
 
-Adjudicated: **45 of 46 are compatible**, in four distinct ways. One genuine
-disagreement survives and is left open (§3.4).
+Adjudicated: **45 of 46 are compatible.** One genuine disagreement survives and is left
+open (§3.4). Four compatibility classes, assigned per file in §3.2 and §3.3 (some files
+carry two):
 
-| class | meaning | count |
-|---|---|---|
-| **A — different behaviour** | the verified claim and the defect concern different behaviours of the same file | 27 |
-| **B — co-citation** | the file is cited as *context* by the defect; the defect lives elsewhere | 6 |
-| **C — granularity** | file large enough (`server.py` 99 routes, `data_contract.py` 69 findings) that both verdicts are trivially compatible | 2 |
-| **D — axis split** | verified on one request path, league or layer; defective on another. The interesting ones | 10 |
-| **E — open** | genuine surviving disagreement | 1 |
+| class | meaning |
+|---|---|
+| **A — different behaviour** | the verified claim and the defect concern different behaviours of the same file |
+| **B — co-citation** | the file is cited as *context* by the defect; the defect lives elsewhere |
+| **C — granularity** | file large enough (`server.py`, 99 routes; `data_contract.py`, 69 findings) that both verdicts are trivially compatible |
+| **D — axis split** | verified on one request path, league or layer; defective on another. The interesting ones — §3.2 |
 
 ### 3.2 The ten axis splits — where the same file is right and wrong at once
 
@@ -506,7 +506,7 @@ findings ship.
 
 ### 3.5 Internal corrections — never quote an authored severity as fact
 
-45 of 431 published findings went through adversarial verification. The results:
+45 findings went through adversarial verification. The results:
 
 | verdict | count |
 |---|---|
