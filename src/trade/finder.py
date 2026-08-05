@@ -221,6 +221,14 @@ class TradeCandidate:
     ranking_factors: dict = field(default_factory=dict)  # Score component breakdown
     flags: list[str] = field(default_factory=list)  # Active guards/bonuses
 
+    def package_shape(self) -> str:
+        """"1-for-2", "1-for-1", … — the shape a manager actually proposes.
+
+        One definition, used by ``to_dict``'s ``packageSize`` and by the
+        shape-balanced fill in :func:`find_trades`.
+        """
+        return f"{len(self.give)}-for-{len(self.receive)}"
+
     def markets_used(self) -> list[str]:
         """Which retail markets priced the assets in this trade.
 
@@ -294,7 +302,7 @@ class TradeCandidate:
             "summary": self.summary,
             "rankingFactors": self.ranking_factors,
             "flags": list(self.flags),
-            "packageSize": f"{len(self.give)}-for-{len(self.receive)}",
+            "packageSize": self.package_shape(),
         }
 
 
@@ -336,8 +344,13 @@ def _build_summary(
     # "you gain {delta} (+{pct})" unconditionally, so a -100 delta
     # rendered as "you gain -100 board value (+-2%)".
     verb = "you gain" if board_delta >= 0 else "you give up"
+    # The percentage names its own denominator.  It is the delta over
+    # the LARGER side (W09-F002); an unlabelled percentage next to an
+    # absolute delta reads as "of what you gave up", which is what it
+    # used to be and no longer is.
     parts = [
-        f"{edge_label}: {verb} {abs(board_delta):,} board value " f"({board_gain_pct:+.0%})",
+        f"{edge_label}: {verb} {abs(board_delta):,} board value "
+        f"({board_gain_pct:+.0%} of the larger side)",
     ]
     # Only claim KTC opponent appeal when coverage is full
     if coverage == "full":
@@ -906,7 +919,23 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     # Arbitrage score: how much we gain on our board while the opponent
     # sees a fair/favorable deal on KTC.
     # Higher = better arbitrage.
-    board_gain_norm = board_delta / max(give_model, 1)
+    # Normalized against the LARGER side, not the give side.  Dividing
+    # a difference by one of its two operands is not a rate of gain — it
+    # is a lopsidedness score, and it is unbounded: shrink the give side
+    # and ``f_board_edge = board_gain_norm * 50`` grows without limit
+    # against a flat ``-(pkg_size - 2) * 3`` counterweight.  Measured on
+    # the live payload that produced 480 returned trades across 12
+    # teams of which 480 were 1-for-2; the first 1-for-1 sat at rank 43
+    # of 5,733 qualified candidates (W09-F002).
+    #
+    # ``board_delta / max(give, recv)`` is bounded by 1.0 — "you gained
+    # the entire receive side" — which is what the 0.25 / 0.10
+    # ``_edge_label`` thresholds were always read as meaning.  For an
+    # accepted trade (delta > 0) the larger side IS the receive side, so
+    # this reads "the gain as a fraction of what came back".  The
+    # ``max`` is written out rather than assumed because ``_score_trade``
+    # also scores the small-loss band above.
+    board_gain_norm = board_delta / max(give_model, recv_model, 1)
     ktc_delta = give_ktc - recv_ktc  # positive = opponent gets more KTC than they give
 
     # Core arbitrage: we win on model, opponent wins on KTC
@@ -1049,6 +1078,57 @@ def _generate_1for2(
             if tc is not None:
                 results.append(tc)
     return results
+
+
+def _fill_by_shape(
+    ranked: list[TradeCandidate],
+    max_results: int,
+) -> list[TradeCandidate]:
+    """Fill the returned list round-robin over package shapes.
+
+    A straight ``ranked[:max_results]`` returns the arg-max over a
+    candidate space the generators build in wildly unequal sizes:
+    ``_generate_1for2`` enumerates my assets × opponent PAIRS, so on the
+    live payload one team qualified 5,540 1-for-2 packages against 178
+    1-for-1 and 15 2-for-1.  The maximum of a 31×-larger sample is
+    higher almost by construction, so every one of the 480 trades
+    returned across 12 teams was a 1-for-2 and the other two shapes — the
+    two most common shapes in real dynasty trading — were unreachable
+    from the UI (W09-F002).
+
+    Rank order is preserved exactly WITHIN each shape; what changes is
+    only how many slots each shape gets.  Shapes are visited
+    most-populous first so the dominant shape still leads the list, and
+    a shape that runs out simply stops contributing — the list is never
+    padded and never short while candidates remain.
+
+    ``metadata.qualifiedByShape`` / ``returnedByShape`` publish both
+    sides of this, the same "say what was there and what you served"
+    posture as ``marketCoverage``.
+    """
+    if max_results <= 0:
+        return []
+    by_shape: dict[str, list[TradeCandidate]] = {}
+    for t in ranked:
+        by_shape.setdefault(t.package_shape(), []).append(t)
+    # Most-populous shape first, name as the tiebreak so the order is
+    # deterministic for equal populations.
+    order = sorted(by_shape, key=lambda k: (-len(by_shape[k]), k))
+    cursors = dict.fromkeys(by_shape, 0)
+    out: list[TradeCandidate] = []
+    while len(out) < max_results:
+        progressed = False
+        for shape in order:
+            if len(out) >= max_results:
+                break
+            i = cursors[shape]
+            if i < len(by_shape[shape]):
+                out.append(by_shape[shape][i])
+                cursors[shape] = i + 1
+                progressed = True
+        if not progressed:
+            break
+    return out
 
 
 def _deduplicate(trades: list[TradeCandidate]) -> list[TradeCandidate]:
@@ -1291,7 +1371,16 @@ def find_trades(
     partial_cov = [t for t in ranked if t.ktc_coverage != "full"]
     ranked = full_cov + partial_cov
 
-    capped = ranked[:max_results]
+    qualified_by_shape: dict[str, int] = {}
+    for t in ranked:
+        shape = t.package_shape()
+        qualified_by_shape[shape] = qualified_by_shape.get(shape, 0) + 1
+
+    capped = _fill_by_shape(ranked, max_results)
+    returned_by_shape: dict[str, int] = {}
+    for t in capped:
+        shape = t.package_shape()
+        returned_by_shape[shape] = returned_by_shape.get(shape, 0) + 1
 
     return {
         "trades": [t.to_dict() for t in capped],
@@ -1313,6 +1402,17 @@ def find_trades(
             # arbitrage against.
             "picksWithoutMarketAnchor": len(picks_without_market),
             "picksWithoutMarketAnchorNames": picks_without_market,
+            # What the candidate space held, and what was served from
+            # it, per package shape.  A shape missing from
+            # ``returnedByShape`` while present in ``qualifiedByShape``
+            # is a slot-allocation fact, not an absence of candidates.
+            "qualifiedByShape": qualified_by_shape,
+            "returnedByShape": returned_by_shape,
+            # The gain each trade's ``boardEdge`` is a fraction OF.
+            # Named because it changed: it was the give side alone,
+            # which is a lopsidedness score rather than a rate of gain
+            # (W09-F002).
+            "boardGainBasis": "largerSide",
             "marketTopNFilter": market_top_n,
             "marketCoverage": market_coverage,
             "marketCoveragePercent": round(market_coverage_pct * 100, 1),
