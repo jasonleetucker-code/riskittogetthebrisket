@@ -18,24 +18,33 @@ branches are evidence.
 
 | Claim | Paths | Defect ids | Branch | Status |
 |---|---|---|---|---|
-| Work-claim protocol | docs/WORK_CLAIMS.md, scripts/check_work_claims.py, ASSISTANT_COORDINATION.md | — | claude/work-claim-protocol | open |
+| Work-claim protocol | docs/WORK_CLAIMS.md, scripts/check_work_claims.py, ASSISTANT_COORDINATION.md | — | claude/work-claim-protocol | done |
 
 ---
 
 ## Why this file exists
 
-On 2026-08-05, two sessions independently fixed the **same six defects**
-inside one working window, and neither noticed until one branch had already
-merged:
+On 2026-08-05, five sessions independently solved the **same eight defects**
+inside one working window, and in no case did anyone notice until a branch had
+already merged:
 
-| Defect | Fixed in | Also fixed in |
+| Defect | Solved in | And independently in |
 |---|---|---|
+| Market gap computed in rank space | #740 | #722 **and** #742 — three times |
 | `tepMultiplier` default forces the override path | #740 | #722 |
-| Market gap computed in rank space | #740 | #722 |
 | `_sanitize_next_path` accepts a backslash | #740 | #722 |
 | FAAB budget-regime mixing | #740 | #707 |
 | ROS absence coerced to 0.0 odds | #740 | #736 |
 | Compact view drops `appliedWeight` | #740 | main |
+| SSR streaming "duplicate" (#716) | #741 | #747 |
+
+**Eight duplicated repairs across five sessions**, and the market-gap defect was
+solved three separate times.
+
+**#742 was pushed AFTER #740 merged.** Its branch does not contain `cef17703`, and
+it touches the same three files the merged fix landed in. So this is not a tidy
+retrospective about a bad afternoon — the collisions were still happening while
+this document was being written.
 
 Every individual collision was resolved sensibly — the better-documented
 version was kept each time. The aggregate was not sensible: roughly a third

@@ -3,17 +3,19 @@
 
 WHY THIS EXISTS
 ---------------
-On 2026-08-05 two sessions independently fixed the SAME defects inside one
-window, and neither noticed until one branch was already merged:
+On 2026-08-05 five sessions independently solved the SAME defects inside one
+window, and nobody noticed until a branch had already merged:
 
+    market gap in value space              #740, #722 AND #742
     tepMultiplier default -> null          #740 and #722
-    market gap in value space              #740 and #722
     _sanitize_next_path backslash          #740 and #722
     FAAB budget normalisation              #740 and #707
     ROS absence as 0.0 odds                #740 and #736
     compact-view appliedWeight             #740 and main
+    SSR streaming duplicate (#716)         #741 and #747
 
-Six repairs, done twice. Every individual collision was resolved sensibly —
+Eight repairs, done twice or three times.  #742 was pushed AFTER #740 merged
+and does not contain it, so this is not a closed incident. Every individual collision was resolved sensibly —
 the better-documented version was kept each time — but roughly a third of a
 session's output was thrown away, and which version survived came down to
 which branch happened to be mergeable first rather than which was better.
