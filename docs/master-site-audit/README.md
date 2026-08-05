@@ -22,6 +22,7 @@ sizes S and XS — close six of them.
 |---|---|
 | What did you find, and can I trust the site? | **[EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md)** |
 | Can I trust subsystem X specifically? | [TRUST_RATINGS.md](TRUST_RATINGS.md) — all 24 named subsystems |
+| **What still needs doing?** | **[NEXT_STEPS.md](NEXT_STEPS.md)** — start here if you are picking this up |
 | What should I fix, in what order? | [REPAIR_ROADMAP.md](REPAIR_ROADMAP.md) |
 | What do I do first? | [FIRST_REPAIR_PROMPT.md](FIRST_REPAIR_PROMPT.md) — copy-paste |
 | Show me the full finding list | [FEATURE_STATUS_MATRIX.md](FEATURE_STATUS_MATRIX.md) · [`findings.json`](findings.json) |
