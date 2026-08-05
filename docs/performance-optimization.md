@@ -995,6 +995,92 @@ One known tail: `/draft` hits ~0.18 in roughly 1 run in 5, attributed
 to a `DIV.muted` block collapsing 361×166 → 0 at ~900ms.  Pre-existing,
 not round 6's doing, and not yet fixed.
 
+## 2026-08-05 — row windowing: BUILT, MEASURED, REVERTED
+
+Planned item #2 ("the rankings board past the row cap") was implemented
+in full and then backed out, because the measurement says its premise is
+wrong. **Row count is not what makes the board scroll slowly.**
+
+This section exists so nobody builds it a second time. The instrument
+that produced the numbers is committed —
+`frontend/scripts/measure-board-fps.mjs` — so every line below is
+re-runnable rather than remembered.
+
+### The premise, and the measurement that refutes it
+
+This doc said: "Getting 500+ rows to 30 FPS is the windowing work",
+i.e. only rendering fewer rows reaches the target. Measured on one
+machine, one session, same harness, 3 runs each (median):
+
+| board | rows | DOM nodes | FPS @1× |
+|---|---|---|---|
+| capped | 65 | 2,305 | **32.1** |
+| "Show all", no window | 964 | 30,553 | **28.6** |
+| "Show all", windowed | 964 | **3,763** | **30.9** |
+| *control: trivial page* | — | 204 | **59.5** |
+
+Read the first two rows together: a **15× increase in rows and a 13×
+increase in DOM nodes costs about 11% of the frame rate.** Then read the
+control: this machine renders a bare scrolling page at 59.5 FPS, so the
+~30 the board sits at is not a hardware ceiling.
+
+The board is ~30 FPS at *any* size. Whatever costs the other half of the
+frame budget is **page-level, not row-level** — so windowing, which is
+purely a row-count intervention, cannot fix it. It did exactly what it
+promised (30,553 → 3,763 nodes, an 8× cut) and bought ~2 FPS.
+
+### What was ruled out
+
+Injected `!important` overrides on the live board, same scroll loop:
+
+| suspect disabled | FPS |
+|---|---|
+| nothing (baseline) | 38.1 |
+| `backdrop-filter` | 39.5 |
+| `position: sticky` | 40.0 |
+| `box-shadow` | 38.7 |
+
+None of them. Note also the spread — this baseline read 38.1 where the
+same board read 32.1 minutes earlier. **These FPS numbers carry roughly
+20% run-to-run variance**, which is wide enough that the 28.6 / 30.9 /
+32.1 trio should be treated as one number, not three. The 59.5 control
+sits well outside that band, which is why the page-level conclusion
+holds while finer distinctions do not.
+
+### The second, independent reason it was reverted
+
+Windowing makes the mounted row count stop tracking the board size, and
+a journey spec legitimately depends on that. `journey-rankings.spec.js:81`
+("position filter narrows the board to one position") counts rows before
+and after filtering and asserts the count drops. Under windowing both
+counts pin to the window size and the assertion fails — not because
+filtering broke, but because a real user-visible behaviour stopped being
+observable through the DOM.
+
+That test could have been rewritten against `aria-rowcount`. It was not,
+because doing so trades away a working detector to accommodate a change
+that does not deliver its goal — and this doc has a standing rule against
+loosening board assertions to make a change fit.
+
+### If someone picks this up again
+
+* **Do not start from row count.** Start by profiling what the page does
+  per frame during a scroll — the answer is not in this table's size.
+* The windowing implementation worked and is recoverable from this
+  branch's history if the profile ever justifies it: opt-in `windowRows`
+  prop, document-scroll, spacer rows, data-driven zebra parity,
+  absolute-index callbacks, full-render fallback when geometry is
+  unmeasurable (jsdom reports 0 and all 28 DataTable tests depend on it).
+* One trap it hit, worth keeping: measure row height from a row the table
+  itself renders (`data-ds-row`), never `tbody tr`. The first `tr` can be
+  a caller-authored tier separator, and measuring one collapses the window
+  to its floor.
+
+### Also corrected here
+
+The row counts in this doc are stale: "Show all" is **964 rows** today,
+not the ~632 or ~1,095 quoted elsewhere, at ~32 DOM nodes per row.
+
 ## Rejected (attempted, reverted)
 
 ### Browser revalidation via `If-None-Match`/`304` — **not safe as-is**
