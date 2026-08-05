@@ -236,6 +236,26 @@ export function marketAction(row) {
 }
 
 /**
+ * The row's market-gap magnitude, or null when it has none.
+ *
+ * Written as an explicit accessor rather than `?? 0` at each call site.
+ * A row the backend declined to stamp has NO gap; folding that into a
+ * magnitude of zero is a coercion of exactly the kind batch C3 removed,
+ * and while zero happens to fall below every gate today, that is the
+ * gate saving the expression rather than the expression being right.
+ */
+export function marketGapMagnitudeOf(row) {
+  const magnitude = Number(row?.marketGapMagnitude);
+  return Number.isFinite(magnitude) ? magnitude : null;
+}
+
+/** True when the row carries a gap at or above `floor`. */
+export function marketGapAtLeast(row, floor) {
+  const magnitude = marketGapMagnitudeOf(row);
+  return magnitude !== null && magnitude >= floor;
+}
+
+/**
  * Render the market gap as a short human string, e.g. "84 (rank-space)".
  *
  * The single formatter for the gap.  It exists because the /edge rails

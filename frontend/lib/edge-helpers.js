@@ -23,7 +23,11 @@ import {
   EDGE_CAUTION_RANK_LIMIT,
   EDGE_PREMIUM_RANK_LIMIT,
 } from "./thresholds.js";
-import { formatMarketGap } from "./display-helpers.js";
+import {
+  formatMarketGap,
+  marketGapAtLeast,
+  marketGapMagnitudeOf,
+} from "./display-helpers.js";
 import { isEligibleForAnalysis } from "./display-helpers.js";
 import { getRetailLabel } from "./dynasty-data.js";
 
@@ -331,10 +335,10 @@ export function topRetailPremium(rows, limit = 5) {
   // magnitude of the direction actually being filtered on.
   return rows
     .filter((r) => r.marketGapDirection === "retail_premium"
-      && (r.marketGapMagnitude ?? 0) >= PREMIUM_SUMMARY_MAGNITUDE
+      && marketGapAtLeast(r, PREMIUM_SUMMARY_MAGNITUDE)
       && !r.quarantined
       && isTopRankedForEdgePremium(r))
-    .sort((a, b) => (b.marketGapMagnitude ?? 0) - (a.marketGapMagnitude ?? 0))
+    .sort((a, b) => (marketGapMagnitudeOf(b) ?? -Infinity) - (marketGapMagnitudeOf(a) ?? -Infinity))
     .slice(0, limit)
     .map((r) => ({
       name: r.name,
@@ -353,10 +357,10 @@ export function topRetailPremium(rows, limit = 5) {
 export function topConsensusPremium(rows, limit = 5) {
   return rows
     .filter((r) => r.marketGapDirection === "consensus_premium"
-      && (r.marketGapMagnitude ?? 0) >= PREMIUM_SUMMARY_MAGNITUDE
+      && marketGapAtLeast(r, PREMIUM_SUMMARY_MAGNITUDE)
       && !r.quarantined
       && isTopRankedForEdgePremium(r))
-    .sort((a, b) => (b.marketGapMagnitude ?? 0) - (a.marketGapMagnitude ?? 0))
+    .sort((a, b) => (marketGapMagnitudeOf(b) ?? -Infinity) - (marketGapMagnitudeOf(a) ?? -Infinity))
     .slice(0, limit)
     .map((r) => ({
       name: r.name,

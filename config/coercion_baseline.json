@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 695,
+ "count": 693,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -89,13 +89,11 @@
   "frontend/lib/dynasty-data.js::raw: Number(player?.values?.rawComposite ?? 0) || 0,",
   "frontend/lib/dynasty-data.js::siteCount: Number(player.sourceCount || player._sites || 0),",
   "frontend/lib/dynasty-data.js::sourceCount: Number(player.sourceCount || 0),",
-  "frontend/lib/edge-helpers.js::&& (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD",
   "frontend/lib/edge-helpers.js::(r.sourceCount ?? 0) >= 2 &&",
   "frontend/lib/edge-helpers.js::(r.sourceRankSpread ?? 0) > 10 &&",
   "frontend/lib/edge-helpers.js::(r.sourceRankSpread ?? 0) > 15 &&",
   "frontend/lib/edge-helpers.js::(row.sourceCount || 0) >= 2 &&",
   "frontend/lib/edge-helpers.js::.filter((r) => r.confidenceBucket === \"high\" && (r.sourceCount ?? 0) >= 2 && !r.quarantined)",
-  "frontend/lib/edge-helpers.js::.sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))",
   "frontend/lib/edge-helpers.js::detail: `spread ${r.sourceRankSpread ?? 0}`,",
   "frontend/lib/edge-helpers.js::filter: (row) => (row.rank ?? Infinity) <= LENS_INEFFICIENCY_RANK && (row.sourceRankSpread ?? 0) > LENS_INEFFICIENCY_SPR",
   "frontend/lib/edge-helpers.js::filter: (row) => (row.sourceRankSpread ?? 0) > LENS_DISAGREEMENT_SPREAD,",

@@ -151,11 +151,11 @@ export default function EdgePage() {
       .filter(
         (r) =>
           r.marketGapDirection === direction &&
-          (r.marketGapMagnitude ?? 0) >= PREMIUM_SUMMARY_MAGNITUDE &&
+          marketGapAtLeast(r, PREMIUM_SUMMARY_MAGNITUDE) &&
           !r.quarantined &&
           isTopRankedForEdgePremium(r),
       )
-      .sort((a, b) => (b.marketGapMagnitude ?? 0) - (a.marketGapMagnitude ?? 0))
+      .sort((a, b) => (marketGapMagnitudeOf(b) ?? -Infinity) - (marketGapMagnitudeOf(a) ?? -Infinity))
       .slice(0, EDGE_PREMIUM_LIMIT);
 
   const retailPremium = useMemo(() => premiumBy("retail_premium"), [eligible]);
