@@ -286,6 +286,49 @@ class TestValueRollups:
         assert v.priced_players == 1
         assert v.unpriced_players == 1
 
+    def test_no_player_values_reports_null_not_zero(self):
+        """W20-F010 — a sum over nothing is unknown, not zero.
+
+        ``/api/gameplan`` reported market/consensus/leagueAdjusted as
+        0.0 for all 12 teams because its assembler never passed
+        ``player_values``.  A caller could not tell that apart from a
+        roster of genuinely worthless players.
+        """
+        pool = to_roster_players([_p("a", "QB", 50), _p("b", "RB", 40)])
+        intel = analyze_roster("me", pool, ["QB", "RB"])
+        v = intel.values
+        assert v.market is None
+        assert v.consensus is None
+        assert v.league_adjusted is None
+        assert v.to_dict()["market"] is None
+        # …and says so, rather than leaving a reader to infer it.
+        assert any("player_values" in n for n in intel.notes)
+
+    def test_a_player_the_value_map_cannot_price_is_counted_not_summed_as_zero(self):
+        """The same defect one level down: a missing row contributed 0.0
+        to the total, which understates the portfolio silently."""
+        pool = to_roster_players([_p("a", "QB", 50), _p("b", "RB", 40)])
+        pv = {"a": {"marketValue": 5000, "consensusValue": 4800}}
+        v = analyze_roster("me", pool, ["QB", "RB"], player_values=pv).values
+        assert v.market == pytest.approx(5000)
+        assert v.market_priced_players == 1
+        assert v.market_unpriced_players == 1
+
+    def test_a_value_map_that_prices_nobody_is_null_not_zero(self):
+        pool = to_roster_players([_p("a", "QB", 50)])
+        v = analyze_roster("me", pool, ["QB"], player_values={"zz": {}}).values
+        assert v.market is None
+        assert v.consensus is None
+        assert v.market_unpriced_players == 1
+
+    def test_pick_value_is_null_until_a_caller_supplies_pick_capital(self):
+        pool = to_roster_players([_p("a", "QB", 50)])
+        intel = analyze_roster("me", pool, ["QB"])
+        assert intel.values.pick_value is None
+        assert any("pick" in n.lower() for n in intel.notes)
+        supplied = analyze_roster("me", pool, ["QB"], pick_value=1200.0)
+        assert supplied.values.pick_value == pytest.approx(1200.0)
+
 
 # ── Shape / degradation ────────────────────────────────────────────
 

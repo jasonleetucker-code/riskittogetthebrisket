@@ -126,6 +126,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from src.league_intel.cross_market import DEFAULT_GATE_PCT
+from src.league_intel.values import build_player_values
 from src.league_intel.replacement import (
     PositionReplacement,
     ScarcityComponents,
@@ -243,6 +244,11 @@ class LeagueInputs:
     #: ``{sleeper_player_id: {site: value}}`` on the 0-9999 dynasty
     #: market — scoring-profile scoped, and NEVER mixed with rosValue.
     site_values: Mapping[str, Mapping[str, float]]
+    #: ``{sleeper_player_id: PlayerValues.to_dict()}`` — the LI-4
+    #: parallel scales (market / consensus / leagueAdjusted) for the
+    #: roster rollups.  Distinct from ``site_values``, which is the
+    #: raw per-source map the package generator prices against.
+    player_values: Mapping[str, Mapping[str, Any]]
     #: ``simulate_playoff_odds(...)["playoffOdds"]`` rows, or None.
     playoff_odds: tuple[Mapping[str, Any], ...] | None
     source_stamp: str
@@ -307,21 +313,35 @@ def _contract_stamp(contract: Mapping[str, Any] | None) -> str:
 
 def _index_contract_players(
     contract: Mapping[str, Any] | None,
-) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]:
-    """``playersArray`` → ages and market site values, by Sleeper id.
+) -> tuple[
+    dict[str, dict[str, float]],
+    dict[str, dict[str, float]],
+    dict[str, dict[str, Any]],
+]:
+    """``playersArray`` → ages, market site values and LI-4 value
+    bundles, by Sleeper id.
 
     Keyed by Sleeper id rather than name because the roster snapshot is
     id-keyed and the identity layer already owns id-grade joins; a
     second name-normalisation here would be a competing source of
     truth.
+
+    The third return is what ``analyze_roster`` wants for its portfolio
+    rollups, and it is built by ``league_intel.values.build_player_values``
+    rather than reshaped here — that function IS the definition of the
+    parallel scales, and the roster rollup reads exactly the keys it
+    emits.  Rows it prices on no scale are omitted, so an unpriced
+    player stays absent instead of entering the map as a zero
+    (W20-F010).
     """
     ages: dict[str, dict[str, float]] = {}
     sites: dict[str, dict[str, float]] = {}
+    values: dict[str, dict[str, Any]] = {}
     if not isinstance(contract, Mapping):
-        return ages, sites
+        return ages, sites, values
     rows = contract.get("playersArray")
     if not isinstance(rows, list):
-        return ages, sites
+        return ages, sites, values
     for row in rows:
         if not isinstance(row, Mapping):
             continue
@@ -340,7 +360,14 @@ def _index_contract_players(
             }
             if priced:
                 sites[pid] = priced
-    return ages, sites
+        bundle = build_player_values(row)
+        if (
+            bundle.market_value is not None
+            or bundle.consensus_value is not None
+            or bundle.league_adjusted_dynasty_value is not None
+        ):
+            values[pid] = bundle.to_dict()
+    return ages, sites, values
 
 
 def load_league_inputs(
@@ -407,7 +434,12 @@ def load_league_inputs(
             f"Team-strength snapshot for {league_key!r} contains no rosters.",
         )
 
-    ages, sites = _index_contract_players(contract)
+    ages, sites, values = _index_contract_players(contract)
+    if not values:
+        notes.append(
+            "no player values reached this build; the roster portfolio totals "
+            "(market / consensus / leagueAdjusted) report null rather than 0.0"
+        )
     if not ages:
         notes.append(
             "no player ages reached this build; the competitive window's "
@@ -446,6 +478,7 @@ def load_league_inputs(
         teams=tuple(teams),
         player_meta=ages,
         site_values=sites,
+        player_values=values,
         playoff_odds=playoff_odds,
         source_stamp=stamp,
         notes=tuple(notes),
@@ -498,6 +531,16 @@ def build_league_bundle(inputs: LeagueInputs) -> LeagueBundle:
             slots,
             replacement=replacement,
             player_meta=inputs.player_meta,
+            # W20-F010: this argument was the wiring gap.  Omitting it
+            # made ``_rollup_values`` sum an empty mapping, so market /
+            # consensus / leagueAdjusted came back 0.0 for every team
+            # while ``marketPriceCoverage`` on the same payload said
+            # 627 of 666 were priced.  ``player_values`` is None only
+            # when the contract priced nobody, which is a note above.
+            player_values=inputs.player_values or None,
+            # ``pick_value`` stays unsupplied: this surface has no pick
+            # ownership input, and 0.0 would claim the roster owns no
+            # picks.  The engine reports null + a note instead.
             playoff_odds=odds_rows,
             lineup_scores=lineup_scores,
         )
@@ -827,6 +870,7 @@ def _coverage(
     rostered = [p for t in inputs.teams for p in t.pool]
     aged = sum(1 for p in rostered if p.player_id in inputs.player_meta)
     priced = sum(1 for p in rostered if p.player_id in inputs.site_values)
+    anchor_priced = sum(1 for p in rostered if p.player_id in inputs.player_values)
     odds_rows = inputs.playoff_odds or ()
     covered = {str(r.get("ownerId")) for r in odds_rows}
     recommended = sum(1 for t in target_players if t.recommended)
@@ -844,6 +888,24 @@ def _coverage(
             "priced": priced,
             "total": len(rostered),
             "scale": "canonicalSiteValues, 0-9999 dynasty market",
+            "note": (
+                "counts players carrying ANY positive source value. The roster "
+                "value rollups need the asset class's MARKET ANCHOR specifically "
+                "(ktcSfTep for offense, idpTradeCalc for IDP), which is a strictly "
+                "narrower set — see marketAnchorCoverage. The two differing is "
+                "expected; this one being full while roster.values.market is null "
+                "or zero is not."
+            ),
+        },
+        "marketAnchorCoverage": {
+            "priced": anchor_priced,
+            "total": len(rostered),
+            "scale": "league_intel.values.build_player_values, per-asset-class anchor",
+            "note": (
+                "what roster.values.market / .consensus / .leagueAdjusted actually "
+                "sum over. Players outside it are excluded from those totals and "
+                "counted in roster.values.marketUnpricedPlayers, never summed as 0."
+            ),
         },
         "playoffSimCoverage": {
             "owners": len(covered & {t.owner_id for t in inputs.teams}),

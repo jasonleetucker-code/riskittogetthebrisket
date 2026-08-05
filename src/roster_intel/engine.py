@@ -66,30 +66,55 @@ class RosterValues:
     point of the LI-4 schema is that market, consensus and
     league-adjusted can disagree, and a blend hides the disagreement
     that makes a trade findable.
+
+    ``market`` / ``consensus`` / ``league_adjusted`` / ``pick_value``
+    are ``None`` when nothing priced them, NOT ``0.0``.  They defaulted
+    to ``0.0`` and ``/api/gameplan`` never supplied ``player_values``,
+    so all four came back 0.0 for all 12 teams while the same payload
+    reported ``marketPriceCoverage 627 of 666 priced`` — a portfolio
+    total of zero sitting beside a full-coverage claim (W20-F010).  A
+    sum over zero priced contributors is unknown; only a sum over
+    contributors that are each genuinely worth nothing is 0.0.
+
+    ``ros`` and its starter/bench split keep their 0.0 defaults: they
+    are summed from ``RosterPlayer.ros_value``, which every pool
+    member carries, and ``priced_players`` / ``unpriced_players``
+    already report that scale's coverage.
     """
 
-    market: float = 0.0
-    consensus: float = 0.0
-    league_adjusted: float = 0.0
+    market: float | None = None
+    consensus: float | None = None
+    league_adjusted: float | None = None
     ros: float = 0.0
     # Starting-lineup ROS value vs everything else.
     starters_ros: float = 0.0
     bench_ros: float = 0.0
-    pick_value: float = 0.0
+    pick_value: float | None = None
     priced_players: int = 0
     unpriced_players: int = 0
+    # Coverage of the market/consensus scales specifically — how many
+    # pool members the supplied ``player_values`` map could price.
+    # Both stay 0 when no map was supplied at all: that is "not
+    # measured", and it is reported as a note rather than as a count.
+    market_priced_players: int = 0
+    market_unpriced_players: int = 0
 
     def to_dict(self) -> dict[str, Any]:
+        def _r(v: float | None) -> float | None:
+            return None if v is None else round(v, 3)
+
         return {
-            "market": round(self.market, 3),
-            "consensus": round(self.consensus, 3),
-            "leagueAdjusted": round(self.league_adjusted, 3),
+            "market": _r(self.market),
+            "consensus": _r(self.consensus),
+            "leagueAdjusted": _r(self.league_adjusted),
             "ros": round(self.ros, 3),
             "startersRos": round(self.starters_ros, 3),
             "benchRos": round(self.bench_ros, 3),
-            "pickValue": round(self.pick_value, 3),
+            "pickValue": _r(self.pick_value),
             "pricedPlayers": self.priced_players,
             "unpricedPlayers": self.unpriced_players,
+            "marketPricedPlayers": self.market_priced_players,
+            "marketUnpricedPlayers": self.market_unpriced_players,
         }
 
 
@@ -218,21 +243,54 @@ class RosterIntel:
         }
 
 
+def _positive(raw: Any) -> float | None:
+    """``raw`` as a positive float, else ``None``.
+
+    Mirrors ``src.league_intel.values._positive_float`` — the producer
+    of the mappings this function consumes — so "priced" means the same
+    thing on both ends of the hand-off.
+    """
+    if raw is None:
+        return None
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return v if v > 0 else None
+
+
 def _rollup_values(
     pool: Sequence[RosterPlayer],
     entered_ids: frozenset[str],
     player_values: Mapping[str, Mapping[str, Any]] | None,
-    pick_value: float,
+    pick_value: float | None,
 ) -> RosterValues:
     """Sum the parallel value scales over the roster.
 
     NOTE: these are portfolio totals, deliberately NOT a strength
     signal.  Strength is marginal (see ``marginal.py``); a summed
     portfolio is what you would trade, not what you would score.
+
+    Every market-scale total abstains rather than rounds down to zero
+    (W20-F010).  Two distinct cases produced a confident 0.0 here:
+
+    * no ``player_values`` map at all — the caller never wired it up;
+    * a map that does not carry this player — ``.get(...) or {}``
+      followed by ``float(row.get(...) or 0.0)`` added a silent zero
+      per miss, understating the portfolio by exactly the assets it
+      could not price, with nothing on the result recording it.
+
+    Both now leave the scale ``None`` (or, for a partial map, sum only
+    what was priced and report the misses in
+    ``market_unpriced_players``).
     """
-    pv = player_values or {}
-    market = consensus = adjusted = ros = starters = bench = 0.0
+    ros = starters = bench = 0.0
     priced = unpriced = 0
+    market_vals: list[float] = []
+    consensus_vals: list[float] = []
+    adjusted_vals: list[float] = []
+    market_priced = market_unpriced = 0
+
     for p in pool:
         ros += max(0.0, p.ros_value)
         if p.ros_value > 0:
@@ -243,20 +301,40 @@ def _rollup_values(
             starters += max(0.0, p.ros_value)
         else:
             bench += max(0.0, p.ros_value)
-        row = pv.get(p.player_id) or pv.get(p.canonical_name) or {}
-        market += float(row.get("marketValue") or 0.0)
-        consensus += float(row.get("consensusValue") or 0.0)
-        adjusted += float(row.get("leagueAdjustedDynastyValue") or row.get("consensusValue") or 0.0)
+
+        if player_values is None:
+            continue
+        row = player_values.get(p.player_id) or player_values.get(p.canonical_name)
+        row = row if isinstance(row, Mapping) else {}
+        market = _positive(row.get("marketValue"))
+        consensus = _positive(row.get("consensusValue"))
+        # Documented LI-7 behavior: omitting the adjusted value yields
+        # consensus, because the adjustment is a board-level measurement
+        # one row cannot produce on its own.  That is a real fallback,
+        # not a manufactured number.
+        adjusted = _positive(row.get("leagueAdjustedDynastyValue")) or consensus
+        if market is None:
+            market_unpriced += 1
+        else:
+            market_priced += 1
+            market_vals.append(market)
+        if consensus is not None:
+            consensus_vals.append(consensus)
+        if adjusted is not None:
+            adjusted_vals.append(adjusted)
+
     return RosterValues(
-        market=market,
-        consensus=consensus,
-        league_adjusted=adjusted,
+        market=sum(market_vals) if market_vals else None,
+        consensus=sum(consensus_vals) if consensus_vals else None,
+        league_adjusted=sum(adjusted_vals) if adjusted_vals else None,
         ros=ros,
         starters_ros=starters,
         bench_ros=bench,
         pick_value=pick_value,
         priced_players=priced,
         unpriced_players=unpriced,
+        market_priced_players=market_priced,
+        market_unpriced_players=market_unpriced,
     )
 
 
@@ -355,7 +433,7 @@ def analyze_roster(
     replacement: Mapping[str, PositionReplacement] | None = None,
     player_meta: Mapping[str, Mapping[str, Any]] | None = None,
     player_values: Mapping[str, Mapping[str, Any]] | None = None,
-    pick_value: float = 0.0,
+    pick_value: float | None = None,
     playoff_odds: Sequence[Mapping[str, Any]] | None = None,
     lineup_scores: Mapping[str, float] | None = None,
     override_state: str | None = None,
@@ -393,6 +471,7 @@ def analyze_roster(
         override_reason=override_reason,
     )
     odds = _odds_for(owner_id, playoff_odds)
+    values = _rollup_values(pool_list, entered, player_values, pick_value)
 
     notes: list[str] = []
     if odds.source == "unavailable":
@@ -429,10 +508,29 @@ def analyze_roster(
         )
     if unpriced_note := _unpriced_note(pool_list):
         notes.append(unpriced_note)
+    # W20-F010: an absent input and a genuinely empty portfolio must not
+    # read the same.  The values are null either way; these say which.
+    if player_values is None:
+        notes.append(
+            "no player_values supplied; market / consensus / leagueAdjusted are "
+            "null (not measured) rather than 0.0 — supply the contract's "
+            "league_intel.values.build_player_values bundles keyed by Sleeper id"
+        )
+    elif values.market_unpriced_players:
+        notes.append(
+            f"{values.market_unpriced_players} of {len(pool_list)} pool members "
+            "carry no market value in the supplied player_values map; they are "
+            "excluded from the totals rather than summed as zero"
+        )
+    if pick_value is None:
+        notes.append(
+            "no pick capital supplied; pickValue is null (not measured) rather "
+            "than 0.0 — a zero would claim the roster owns no picks"
+        )
 
     return RosterIntel(
         owner_id=owner_id,
-        values=_rollup_values(pool_list, entered, player_values, pick_value),
+        values=values,
         lineup_score=marg.lineup_score,
         filled_slots=marg.filled_slots,
         total_slots=marg.total_slots,

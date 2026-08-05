@@ -117,13 +117,26 @@ def _players_array() -> list[dict]:
                     "playerId": row["playerId"],
                     "displayName": row["canonicalName"],
                     "position": row["position"],
+                    # ``assetClass`` + ``rankDerivedValue`` are on every
+                    # live contract row and are what
+                    # ``league_intel.values.build_player_values`` reads
+                    # for the market anchor and the consensus scale.  A
+                    # fixture without them exercises the roster value
+                    # rollup vacuously (W20-F010).
+                    "assetClass": "offense",
                     "age": 22 + (n % 11),
+                    "rankDerivedValue": 180.0 + row["rosValue"] * 38.0,
                     "canonicalSiteValues": {
                         "ktcSfTep": 200.0 + row["rosValue"] * 40.0,
                     },
                 }
             )
     return out
+
+
+def _expected_market_total(owner_index: int) -> float:
+    """Sum of the ktcSfTep anchors for one fixture roster."""
+    return sum(200.0 + row["rosValue"] * 40.0 for row in _roster(owner_index))
 
 
 def _sim_rows() -> list[dict]:
@@ -633,6 +646,43 @@ def test_the_roster_payload_carries_real_engine_output(league, monkeypatch):
         body["partners"], key=lambda p: (-p["tradePartnerFitScore"], p["ownerId"])
     )
     assert len(body["league"]) == 4
+
+
+def test_roster_market_values_are_computed_not_left_at_zero(league, monkeypatch):
+    """W20-F010 — the assembler must hand the engine the values it built.
+
+    ``build_league_bundle`` called ``analyze_roster`` without
+    ``player_values``, so ``_rollup_values`` summed an empty mapping and
+    the ``RosterValues`` 0.0 defaults survived.  All four parallel
+    scales came back 0.0 for all 12 real teams while the SAME payload
+    reported ``marketPriceCoverage 627 of 666 priced`` — a payload that
+    reads "everything is priced, and the total is zero".
+    """
+    body = _payload(monkeypatch)
+    values = body["roster"]["values"]
+
+    assert values["market"] == pytest.approx(_expected_market_total(0))
+    assert values["consensus"] > 0
+    assert values["leagueAdjusted"] > 0
+    # The rollup counts what it priced, so a zero total can never again
+    # sit next to a full-coverage claim without contradicting itself.
+    assert values["marketPricedPlayers"] == len(_roster(0))
+    assert values["marketUnpricedPlayers"] == 0
+
+    coverage = body["coverage"]["marketPriceCoverage"]
+    assert coverage["priced"] == coverage["total"]
+
+
+def test_unsupplied_pick_capital_is_null_rather_than_zero(league, monkeypatch):
+    """A roster's pick capital is not an input to this surface.
+
+    Reporting it as ``0.0`` says "this team owns no picks", which is a
+    claim.  ``null`` plus a note says "not measured", which is the
+    truth (W20-F010).
+    """
+    body = _payload(monkeypatch)
+    assert body["roster"]["values"]["pickValue"] is None
+    assert any("pick" in n.lower() for n in body["roster"]["notes"])
 
 
 def test_target_positions_report_non_viability_instead_of_omitting_it(league, monkeypatch):
