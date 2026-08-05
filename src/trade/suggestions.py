@@ -1709,6 +1709,44 @@ def _apply_quality_filters(
                 filtered.append(s)
             categories[cat_name] = filtered
 
+    # ── 8. Cross-category duplicate collapse ─────────────────────────
+    # sell-high and buy-low search the same surplus/need axes from
+    # opposite directions, so the SAME (give, receive) pair can be
+    # emitted by both with different rationale text.  Measured live,
+    # one team's feed reported 9 suggestions containing 7 distinct
+    # pairs — ``totalSuggestions`` counted framings, not ideas
+    # (W09-F013).
+    #
+    # The duplicate is not noise: "you have surplus here" and "they are
+    # cheap there" are both true of that trade, and both are worth
+    # reading.  So the pair survives once, in the first category that
+    # produced it, carrying the other framings on
+    # ``also_categories`` / ``alternate_rationales`` — the information
+    # is merged rather than discarded, and the count becomes a count of
+    # distinct ideas.
+    seen_pairs: dict[tuple[tuple[str, ...], tuple[str, ...]], TradeSuggestion] = {}
+    for cat_name in ("sell_high", "buy_low", "consolidation", "positional_upgrade"):
+        if cat_name not in categories:
+            continue
+        kept: list[TradeSuggestion] = []
+        for s in categories[cat_name]:
+            key = (
+                tuple(sorted(p.name for p in s.give)),
+                tuple(sorted(p.name for p in s.receive)),
+            )
+            prior = seen_pairs.get(key)
+            if prior is not None:
+                also = prior.__dict__.setdefault("also_categories", [])
+                if cat_name not in also:
+                    also.append(cat_name)
+                alts = prior.__dict__.setdefault("alternate_rationales", [])
+                if s.rationale and s.rationale != prior.rationale and s.rationale not in alts:
+                    alts.append(s.rationale)
+                continue
+            seen_pairs[key] = s
+            kept.append(s)
+        categories[cat_name] = kept
+
     return categories
 
 
@@ -1992,6 +2030,15 @@ def _serialize_suggestion(
     opponent_fit = s.__dict__.get("opponent_fit")
     if opponent_fit:
         result["opponentFit"] = opponent_fit
+    # The other categories that produced this same (give, receive) pair,
+    # and what they called it.  Present only when there were any, so a
+    # single-framing suggestion is unchanged (W09-F013).
+    also = s.__dict__.get("also_categories")
+    if also:
+        result["alsoAppearsAs"] = list(also)
+    alts = s.__dict__.get("alternate_rationales")
+    if alts:
+        result["alternateRationales"] = list(alts)
     return result
 
 

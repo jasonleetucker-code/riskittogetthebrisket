@@ -1163,6 +1163,22 @@ def _generate_1for2(
     return results
 
 
+def _roster_entry_count(team_name: str, sleeper_teams: list[dict[str, Any]]) -> int:
+    """How many assets the team actually holds, before any gate.
+
+    Counted from the Sleeper roster rather than from the resolved pool,
+    so it is the denominator of the engine's coverage rather than its
+    numerator (W09-F010).  Players + picks, matching what
+    :func:`_resolve_roster` reads.
+    """
+    for t in sleeper_teams:
+        if t.get("name") == team_name:
+            players = t.get("players") or []
+            picks = t.get("picks") or []
+            return len(players) + len(picks)
+    return 0
+
+
 def _prune_dominated(trades: list[TradeCandidate]) -> list[TradeCandidate]:
     """Drop packages another package strictly beats.
 
@@ -1547,7 +1563,16 @@ def find_trades(
             "myTeam": my_team,
             "opponentTeams": opponent_teams,
             "opponentsAnalyzed": opponents_analyzed,
-            "myRosterSize": len(my_roster),
+            # Two different numbers that were published as one.
+            # ``_resolve_roster`` runs against the ALREADY gated pool, so
+            # its length is the count of assets this engine may trade —
+            # measured live, 34 for a 57-man roster and 12 for a 44-man
+            # one.  Reporting that as "myRosterSize" made the coverage
+            # ratio unrecoverable from the payload, which is the same
+            # information gap that makes an empty feed undiagnosable
+            # (W09-F010).
+            "myRosterSize": _roster_entry_count(my_team, sleeper_teams),
+            "myEligibleAssets": len(my_roster),
             "totalCandidatesEvaluated": len(all_trades),
             "totalQualified": len(ranked),
             "returned": len(capped),

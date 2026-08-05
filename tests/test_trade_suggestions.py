@@ -2651,11 +2651,27 @@ class TestEffectiveSourceRanks:
             roster_names=roster,
             pool=pool,
         )
-        buy_low = result["buyLow"]
-        # If any buy-low targets "WR Buy Low", its confidence should be
-        # "low" (min(give=high, target=2) = 2 → low).
-        matching = [s for s in buy_low if any(r["name"] == "WR Buy Low" for r in s["receive"])]
-        assert matching, "expected a buy_low suggestion for WR Buy Low"
+        # Any suggestion targeting "WR Buy Low" must read "low"
+        # (min(give=high, target=2) = 2 → low).
+        #
+        # W09-F013: this searched ``result["buyLow"]`` alone.  The same
+        # (give, receive) pair is now emitted once, in the first
+        # category that produced it, carrying the others on
+        # ``alsoAppearsAs`` — so this fixture's idea lives in sellHigh
+        # tagged ``["buy_low"]``.  The property under test is the
+        # CONFIDENCE, which is unchanged; only the bucket it is read
+        # from moved.
+        matching = [
+            s
+            for bucket in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades")
+            for s in result[bucket]
+            if any(r["name"] == "WR Buy Low" for r in s["receive"])
+        ]
+        assert matching, "expected a suggestion targeting WR Buy Low"
+        assert any(
+            s["type"] == "buy_low" or "buy_low" in (s.get("alsoAppearsAs") or [])
+            for s in matching
+        ), "the buy-low framing was dropped rather than merged"
         for s in matching:
             assert s["confidence"] == "low"
 
