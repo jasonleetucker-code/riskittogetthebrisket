@@ -108,6 +108,67 @@ def test_uniform_scaling_shows_a_zero_spread():
     assert "spread 0.0000" in spread_line
 
 
+def _with_weights(users, weights_by_user):
+    snap = _snap(users, [users[0]])
+    for u in users:
+        snap["scores"][u]["weightsApplied"] = weights_by_user[u]
+    return snap
+
+
+_UNIFORM = {"performance": 0.4615, "multiLeagueConsistency": 0.2821, "longevity": 0.1538}
+
+
+def test_a_uniform_absent_set_proves_the_ordering_claim():
+    """One distinct weightsApplied map across the population is the whole
+    sharp-v2.1 safety argument: same factor for everyone, so the order —
+    and therefore the percentile-selected cohort — cannot have moved."""
+    mod = _load()
+    users = ["a", "b", "c"]
+    snap = _with_weights(users, {u: dict(_UNIFORM) for u in users})
+    code, lines = mod.verify_invariant(snap)
+    assert code == 0
+    assert any("INVARIANT HOLDS" in ln for ln in lines)
+
+
+def test_a_split_absent_set_fails_loudly():
+    """If managers do NOT share one absent set, renormalization scaled
+    them by different factors and could have reordered them — which is
+    exactly the case the shipped claim assumed away."""
+    mod = _load()
+    users = ["a", "b", "c"]
+    other = {"performance": 0.36, "rosterQuality": 0.22, "multiLeagueConsistency": 0.22}
+    snap = _with_weights(users, {"a": dict(_UNIFORM), "b": dict(_UNIFORM), "c": other})
+    code, lines = mod.verify_invariant(snap)
+    assert code == 1
+    assert any("INVARIANT VIOLATED" in ln for ln in lines)
+    assert any("distinct weightsApplied maps" in ln and ": 2" in ln for ln in lines)
+
+
+def test_an_unstamped_manager_is_not_silently_counted_as_agreeing():
+    """A missing stamp means the renormalization is unauditable for that
+    manager. Treating "no stamp" as "same as everyone else" would let the
+    check pass by ignoring the rows it cannot see."""
+    mod = _load()
+    users = ["a", "b"]
+    snap = _with_weights(users, {u: dict(_UNIFORM) for u in users})
+    snap["scores"]["b"]["weightsApplied"] = None
+    code, lines = mod.verify_invariant(snap)
+    assert code == 1
+    assert any("no weightsApplied stamp" in ln for ln in lines)
+
+
+def test_float_noise_does_not_split_an_otherwise_uniform_set():
+    """weightsApplied is rounded to 6dp at the source; comparing raw
+    floats would report a spurious violation from representation noise
+    rather than a real difference in the absent set."""
+    mod = _load()
+    users = ["a", "b"]
+    jittered = {k: v + 1e-12 for k, v in _UNIFORM.items()}
+    snap = _with_weights(users, {"a": dict(_UNIFORM), "b": jittered})
+    code, _ = mod.verify_invariant(snap)
+    assert code == 0
+
+
 def test_the_no_data_path_is_not_success():
     """`main()` must exit 2, never 0, on an empty population.
 

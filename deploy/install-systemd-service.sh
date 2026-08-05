@@ -1088,6 +1088,7 @@ main() {
   install_simple_timer "crowd-faab" "cross-league FAAB crowd accumulation"
   install_simple_timer "sharp-activity" "qualified-manager Sleeper activity crawl"
   install_simple_timer "board-snapshot" "canonical board as-of snapshot"
+  install_simple_timer "sharp-cohort-snapshot" "daily sharp-cohort baseline"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's
