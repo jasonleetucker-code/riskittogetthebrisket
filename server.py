@@ -547,8 +547,14 @@ def _get_auth_session(request: Request) -> dict | None:
     now = time.time()
     last_touch = session.get("_last_touch_epoch")
     if not isinstance(last_touch, (int, float)):
-        last_touch = session.get("last_seen_epoch") or 0
-    if now - float(last_touch) >= SESSION_TOUCH_INTERVAL_SECONDS:
+        last_touch = session.get("last_seen_epoch")
+    # A session with no recorded heartbeat is touched immediately;
+    # otherwise the write is throttled to once per interval.  Missing
+    # data drives an explicit branch rather than a fabricated epoch.
+    if (
+        not isinstance(last_touch, (int, float))
+        or now - float(last_touch) >= SESSION_TOUCH_INTERVAL_SECONDS
+    ):
         session["_last_touch_epoch"] = now
         try:
             from src.api import session_store as _ss
