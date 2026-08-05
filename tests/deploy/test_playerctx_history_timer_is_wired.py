@@ -100,8 +100,9 @@ def test_the_push_runs_after_the_refresh_that_writes_the_file():
     ~06:05.  A push scheduled before that races the writer."""
     refresh = next(
         ln
-        for ln in _directives(_REPO / "deploy" / "systemd" / "dynasty-playerctx-refresh.timer.template")
-        .splitlines()
+        for ln in _directives(
+            _REPO / "deploy" / "systemd" / "dynasty-playerctx-refresh.timer.template"
+        ).splitlines()
         if ln.startswith("OnCalendar=")
     )
     push = next(ln for ln in _directives(_TIMER).splitlines() if ln.startswith("OnCalendar="))
