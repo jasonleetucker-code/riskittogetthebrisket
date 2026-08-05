@@ -235,6 +235,8 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git pull --rebase origin main
-          git add data/ops/sharp-force-production-live.json
+          # -f: `.gitignore` excludes `data/`, and git refuses an
+          # explicitly-named ignored pathspec with exit 1 (W23-F004).
+          git add -f data/ops/sharp-force-production-live.json
           git commit -m "chore(ops): record forced Sharp production result" || exit 0
           git push origin HEAD:main

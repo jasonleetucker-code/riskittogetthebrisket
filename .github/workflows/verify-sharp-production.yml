@@ -114,8 +114,14 @@ jobs:
                           "provisionalManagers": market_cohort.get("provisionalManagers", 0),
                           "transactions": ffpc_coverage.get("transactions", 0),
                           "movements": ffpc_coverage.get("movements", 0),
-                          "unmappedAssets": (market.get("dataQuality") or {}).get(
-                              "unmappedAssets", 0
+                          # ``coverage``, not ``dataQuality`` — the
+                          # latter is a key /api/sharp/market has never
+                          # emitted, and with a ``, 0`` default the miss
+                          # read as a clean bill of health forever
+                          # (W23-F005).  No default: an absent key is
+                          # null, which is not a health claim.
+                          "unmappedAssets": (market.get("coverage") or {}).get(
+                              "unmappedAssets"
                           ),
                           "sampleAssets": [
                               {
@@ -155,14 +161,23 @@ jobs:
           print(json.dumps(result, indent=2, sort_keys=True))
           PY
 
-      - name: Commit production smoke result
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git pull --rebase origin main
-          git add data/ops/sharp-production-smoke.json
-          git commit -m "chore(ops): record Sharp production smoke"
-          git push origin HEAD:main
+      # The smoke result is an ARTIFACT, not repo state.  It used to be
+      # committed, and that step could never succeed: `.gitignore:45` is
+      # a bare `data/` (only `data/ros/` is re-included), git refuses an
+      # explicitly-named ignored pathspec with exit 1, and Actions runs
+      # steps under `bash -e`, so the job died here on every push — and
+      # the verdict step below, with its default `if: success()`, was
+      # skipped every single time (W23-F004).  `git log --all --
+      # data/ops/` is empty, which is what that looks like from the
+      # outside.  Uploading it keeps the evidence without needing the
+      # repo to be writable from a verification job.
+      - name: Upload production smoke result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sharp-production-smoke
+          path: data/ops/sharp-production-smoke.json
+          if-no-files-found: warn
 
       - name: Enforce healthy population
         run: |
