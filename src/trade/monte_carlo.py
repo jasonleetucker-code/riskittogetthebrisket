@@ -5,9 +5,9 @@ Depends on: Phase 4 confidence intervals (``src.canonical.confidence_intervals``
 Semantics
 ---------
 Given side-A and side-B as lists of players, each with a
-``valueBand`` from Phase 4 (p10, p50, p90), we draw ``n_sims``
-samples of total side value and compute the fraction of draws
-where side A's sum exceeds side B's sum.
+``valueBand`` (p10, p50, p90), we draw ``n_sims`` samples of total
+side value and compute the fraction of draws where side A's sum
+exceeds side B's sum.
 
 Output: ``{winProbA, mean, spread, percentileBand, method}``.
 
@@ -15,6 +15,16 @@ Labeled strictly as ``consensus_based_win_rate`` — this is NOT
 "there's a 62% chance side A wins the trade in real life."  It's
 "across the sources' consensus distribution, side A ends up
 ahead 62% of the time."  The UI MUST reflect this.
+
+...with one honest qualification the label used to hide.  Nothing
+stamps the Phase 4 ``valueBand`` on live rows — **0 of 1093** on the
+pinned 2026-07-30 contract — and the UI synthesizes a flat ±15% band
+under that same key, so on the live path the "consensus distribution"
+is a constant.  ``bandSources`` in the output reports which it was and
+the disclaimer says so when the band is synthetic.  The width itself
+is an open modeling question, recorded with measurements as decision
+#4 in ``docs/open-modeling-decisions.md`` rather than silently
+re-tuned here.
 
 Correlation model
 -----------------
@@ -47,6 +57,25 @@ from typing import Any
 
 _DEFAULT_SIMS = 50_000
 
+# Band provenance.  The output of this module is labelled
+# ``consensus_based_win_rate`` and its disclaimer says the number comes
+# from "the sources' consensus distribution".  On the live path that
+# claim is FALSE and nothing could tell you: ``MonteCarloButton.jsx``
+# synthesizes a flat +-15% band and posts it under the same
+# ``valueBand`` key a real Phase-4 confidence interval would use, so
+# the backend cannot distinguish measured source disagreement from a
+# constant.  Measured on the pinned 2026-07-30 contract: **0 of 1093**
+# rows carry a stamped ``valueBand``, so 100% of live simulations run
+# on the synthetic one.
+#
+# Callers stamp which it was; ``SimResult.to_dict`` reports the tally
+# as ``bandSources``.  That is the whole point — it gives the
+# "consensus" label something capable of disagreeing with it.
+BAND_SOURCE_STAMPED = "stamped_value_band"  # a real Phase-4 CI
+BAND_SOURCE_SYNTHETIC = "synthetic_flat_15pct"  # a constant wearing its name
+BAND_SOURCE_UNKNOWN = "unknown"  # caller did not say
+_BAND_SOURCES = frozenset({BAND_SOURCE_STAMPED, BAND_SOURCE_SYNTHETIC, BAND_SOURCE_UNKNOWN})
+
 
 @dataclass(frozen=True)
 class TradePlayer:
@@ -58,6 +87,10 @@ class TradePlayer:
     p10: float
     p50: float
     p90: float
+    # Where the band came from.  See ``BAND_SOURCE_*`` below — this is
+    # what makes the "consensus_based_win_rate" label checkable instead
+    # of merely asserted.
+    band_source: str = BAND_SOURCE_UNKNOWN
 
 
 @dataclass(frozen=True)
@@ -73,8 +106,13 @@ class SimResult:
     n_sims: int
     method: str  # "consensus_based_win_rate"
     va_adjustment: dict[str, Any] | None = field(default=None)
+    # {band_source: count} across both sides — see the BAND_SOURCE_*
+    # constants.
+    band_sources: dict[str, int] | None = field(default=None)
 
     def to_dict(self) -> dict[str, Any]:
+        sources = dict(self.band_sources or {})
+        synthetic = sources.get(BAND_SOURCE_SYNTHETIC, 0)
         return {
             "winProbA": round(self.win_prob_a, 4),
             "winProbB": round(1.0 - self.win_prob_a, 4),
@@ -95,7 +133,21 @@ class SimResult:
                 "This is the fraction of consensus-band samples "
                 "where side A's total exceeds side B's — NOT a "
                 "real-world win probability."
+            )
+            + (
+                # Say so when "consensus" is not what happened.  The
+                # label above is a contract field the UI is required to
+                # render; without this, it asserts a measured
+                # distribution on every run while 100% of live runs use
+                # a constant.
+                f"  {synthetic} of {sum(sources.values())} assets used a "
+                "synthesized ±15% band rather than measured source "
+                "disagreement, so the spread is an assumption, not a "
+                "measurement."
+                if synthetic
+                else ""
             ),
+            "bandSources": sources,
             "vaAdjustment": self.va_adjustment
             or {"side": 0, "value": 0, "effectiveValue": 0, "applied": False},
         }
@@ -181,16 +233,33 @@ def _apply_consolidation_adjustment(
         effective_total = 0.0
         for p, pv in zip(players, p50s):
             shift = result.value * (pv / total)
+            # The 9999 cap stays on p50 — it is a VALUE, on the board's
+            # scale, and holding the premium to that scale is the
+            # deliberate behaviour ``effectiveValue`` exists to report.
             new_p50 = max(0.0, min(9999.0, p.p50 + shift))
-            effective_total += new_p50 - p.p50
+            # ...but the band moves by whatever the p50 clamp ALLOWED,
+            # not by the requested shift, and the endpoints take no
+            # ceiling of their own.  Clamping each endpoint separately
+            # contradicted this function's own docstring — "p10/p50/p90
+            # all move up by the same amount per player, preserving the
+            # absolute spread" — and not marginally.  Worked example: a
+            # 9950-valued asset receiving a 5,324 premium had all THREE
+            # endpoints clamp to 9999, collapsing a 2,985-wide band to
+            # ZERO.  The simulator then treated the single most valuable
+            # asset in the trade as a point mass with no uncertainty at
+            # all, and ``effectiveValue`` reported the p50 shortfall (49
+            # of 5,324) without any hint that the band had vanished.
+            applied = new_p50 - p.p50
+            effective_total += applied
             out.append(
                 TradePlayer(
                     name=p.name,
                     team=p.team,
                     position_group=p.position_group,
-                    p10=max(0.0, min(9999.0, p.p10 + shift)),
+                    p10=max(0.0, p.p10 + applied),
                     p50=new_p50,
-                    p90=max(0.0, min(9999.0, p.p90 + shift)),
+                    p90=max(0.0, p.p90 + applied),
+                    band_source=p.band_source,
                 )
             )
         return out, int(round(effective_total))
@@ -247,7 +316,12 @@ def simulate_trade(
             n_sims=0,
             method="consensus_based_win_rate",
             va_adjustment={"side": 0, "value": 0, "effectiveValue": 0, "applied": False},
+            band_sources={},
         )
+
+    band_sources: dict[str, int] = {}
+    for _p in players:
+        band_sources[_p.band_source] = band_sources.get(_p.band_source, 0) + 1
 
     # Sanity clamp on correlation params.
     rho_t = max(0.0, min(0.5, same_team_rho))
@@ -309,6 +383,7 @@ def simulate_trade(
         n_sims=n_sims,
         method="consensus_based_win_rate",
         va_adjustment=va_info,
+        band_sources=band_sources,
     )
 
 
@@ -329,8 +404,16 @@ def build_trade_player(
 ) -> TradePlayer | None:
     """Construct a TradePlayer from a canonical-contract player row.
 
-    Prefers the Phase 4 ``valueBand`` dict; falls back to ±15% band
-    centered on ``rankDerivedValue`` when CIs haven't been stamped.
+    Prefers the ``valueBand`` dict; falls back to a ±15% band centered
+    on ``rankDerivedValue`` when no band is supplied.
+
+    Note which branch actually runs in production: the caller
+    (``MonteCarloButton.jsx``) always supplies a ``valueBand``, and
+    since no live row carries a stamped one, that band is itself the
+    synthesized ±15%.  The fallback below is therefore the *shape* of
+    the live behaviour without being the live *code path* — which is
+    why ``band_source`` is carried explicitly rather than inferred
+    from which branch was taken.
 
     When ``apply_scoring_fit`` is True and the row carries an
     ``idpScoringFitDelta``, the entire band shifts by
@@ -363,10 +446,40 @@ def build_trade_player(
             fit_shift = float(delta) * w
 
     def _shifted(v: float) -> float:
-        return max(0.0, min(9999.0, float(v) + fit_shift))
+        # Floor at 0 only.  9999 is where the BOARD's normalization
+        # tops out — it is not a ceiling on a quantile, and clamping a
+        # band endpoint to it truncates the upper tail of exactly the
+        # assets whose value the simulator most needs to get right.
+        #
+        # Measured on the pinned 2026-07-30 contract, with the UI's
+        # own +-15% band: 12 of 812 priced rows had p90 clamped, and
+        # because ``_triangular_draw`` is otherwise unbiased
+        # (E[X] == p50 for a symmetric band, exactly), the clamp was
+        # the ONLY source of bias:
+        #
+        #     Josh Allen     board 9988 -> E[draw] 9468   (-520, -5.2%)
+        #     Brock Bowers   board 9961 -> E[draw] 9451   (-510, -5.1%)
+        #     Bijan Robinson board 9699 -> E[draw] 9295   (-404, -4.2%)
+        #     ... 9 more, down to -23
+        #
+        # i.e. every trade involving an elite asset was simulated
+        # against the side holding it, and only that side.  The clamp
+        # was not enforcing an invariant the module respects anyway:
+        # ``_triangular_draw`` extrapolates ABOVE p90 without any
+        # ceiling, so draws past 9999 were always reachable.  Clamping
+        # the endpoint but not the draw only distorted the shape.
+        return max(0.0, float(v) + fit_shift)
 
     band = row.get("valueBand") or {}
     if isinstance(band, dict) and band.get("p50") is not None:
+        # The caller may declare where the band came from.  It matters:
+        # ``MonteCarloButton.jsx`` posts a synthesized ±15% band under
+        # this exact key, so the presence of ``valueBand`` says nothing
+        # about whether any source disagreement was measured.  Absent a
+        # declaration we say UNKNOWN rather than assuming the flattering
+        # answer.
+        declared = row.get("bandSource")
+        source = declared if declared in _BAND_SOURCES else BAND_SOURCE_UNKNOWN
         return TradePlayer(
             name=name,
             team=team,
@@ -374,6 +487,7 @@ def build_trade_player(
             p10=_shifted(band.get("p10") or 0),
             p50=_shifted(band.get("p50") or 0),
             p90=_shifted(band.get("p90") or 0),
+            band_source=source,
         )
     # Fallback: synthesize a 15% band around the canonical value.
     cv = float(row.get("rankDerivedValue") or row.get("values", {}).get("full") or 0)
@@ -384,4 +498,5 @@ def build_trade_player(
         p10=_shifted(cv * 0.85),
         p50=_shifted(cv),
         p90=_shifted(cv * 1.15),
+        band_source=BAND_SOURCE_SYNTHETIC,
     )

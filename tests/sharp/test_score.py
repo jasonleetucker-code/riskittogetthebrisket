@@ -219,8 +219,16 @@ class TestExplainability:
             assert "not from a manager's complete" in entry.coverage["note"]
 
     def test_methodology_version_is_stamped(self):
+        # Asserted against the config, not a literal. Hardcoding
+        # "sharp-v2" made every legitimate version bump fail here, which
+        # turns the config's own "methodologyVersion must move with any
+        # change" rule into an obstacle instead of a guard. What a
+        # consumer needs is that the stamp matches the config that
+        # produced the score.
+        expected = S.methodology_version()
+        assert expected
         scored = S.score_managers(population())
-        assert all(s.methodology_version == "sharp-v2" for s in scored)
+        assert all(s.methodology_version == expected for s in scored)
 
 
 class TestCohortTiers:

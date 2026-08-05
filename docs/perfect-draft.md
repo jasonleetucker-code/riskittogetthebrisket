@@ -466,6 +466,38 @@ structurally prevents one team's results reaching another.
   breaks the `k`-decomposition, so it is genuinely harder than this entry
   previously implied.
 
+  **MEASURED (2026-08-05).** `scripts/measure_lineup_value_gap.py` walks
+  `k = 0..40` rookies onto a real roster and compares what the naive objective
+  credits against what the league's own 21 starting slots can actually field,
+  scored by the real solver. The distortion is not marginal — on the
+  2026-08-05 board, over `k = 1..40`:
+
+  | team | roster | naive credits | startable credits | share | first rookie adding 0 |
+  |---|---|---|---|---|---|
+  | Blaine | 53 | 132,172 | 33,411 | **25.3%** | k=3 (26 of 40 add nothing) |
+  | Eric | 58 | 132,172 | 15,995 | **12.1%** | k=6 (29 of 40) |
+  | MaKayla | 58 | 132,172 | 14,355 | **10.9%** | k=6 (30 of 40) |
+  | Jason | 57 | 132,172 | 11,478 | **8.7%** | k=3 (32 of 40) |
+
+  Past roughly `k = 20` every additional rookie adds **exactly zero** startable
+  value on every roster tested. So the objective is crediting four to eleven
+  times the value the lineup can realize, and the high-`k` preference follows
+  directly.
+
+  **But pure lineup value is not the answer either, and that is the real
+  finding.** This measurement scores *today's* lineup, and these are dynasty
+  rookies — a player who cannot crack the lineup now is exactly the asset
+  class this league is built to accumulate. Bench depth is also injury
+  insurance and trade currency. Zero is as wrong as full market value; the
+  truth is bounded between them.
+
+  That reframes Phase B. It is **not** "swap Σ market value for lineup value" —
+  that would trade one wrong number for another and would tell a dynasty
+  manager to stop buying at 20. It is "value a bench player below a starter at
+  a rate that is derived rather than invented", which is the same objection
+  §9's positional-balance entry raises. Until that rate has a defensible
+  source, shipping either extreme would be a regression dressed as a fix.
+
 - **Opponent modelling is a price cap, not a bidding model.** `bayesianTopCompetitor`
   (nomination-decayed tier interest) now reaches the optimizer through the
   **Prices** control: `"fair"` is the board's inflation-adjusted price and the

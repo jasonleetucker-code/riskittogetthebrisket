@@ -1,6 +1,8 @@
 {
   "_comment": "Sharp Score v2 — see src/sharp/score.py and docs/intel/SHARP_SCORE.md. Weights are PRIORS chosen for defensibility, not values validated against an outcome dataset. Change them here, never in code; methodologyVersion must move with any change.",
-  "methodologyVersion": "sharp-v2",
+  "methodologyVersion": "sharp-v2.1",
+
+  "_v2_1Changes": "v2 -> v2.1 (2026-08-05): NO weight changed. The scoring SUM now renormalizes over components that have evidence, and `rosterQuality` reports None instead of 0.0 when it has none. Its four ManagerRecord inputs are populated by no builder in the repo, so it was a hard 0.0 for every manager against an unconditionally-applied 0.22 weight — 22 points of the 0-100 scale were unreachable and a production-shaped record topped out at 64.9 of a real maximum 78. Scores rise; the ORDER does not, because the absent set is identical for every manager and each score scales by the same factor. Qualification is `minScorePercentile`, a percentile of the evaluable population rather than an absolute bar, so the cohort is unchanged — pinned by tests/sharp/test_score.py. `components.weightsApplied` is stamped per manager so the renormalization is auditable rather than assumed. Version moved because published scores move, per the rule above.",
 
   "_v2Changes": "v1 -> v2: dynasty-only evidence (keeper no longer counts toward sharp qualification); source leagues must be >= 2 seasons old; hard win-percentage floor added; >= 2 dynasty leagues required; championships promoted to an explicit preference with a bounded bonus; qualification bar loosened from top 15% to top 25% of evaluable managers. No cohort was ever published under v1, so nothing is being restated.",
 

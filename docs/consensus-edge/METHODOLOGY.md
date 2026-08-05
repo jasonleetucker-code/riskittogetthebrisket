@@ -261,9 +261,25 @@ opportunity**, and each has a different provenance, recorded in
 
 | component | weight | provenance |
 |---|---|---|
-| mispricing | 0.50 | measured, positive |
+| mispricing | 0.50 | measured, **null** — see below |
 | sharpFlow | 0.30 | declared prior — unvalidatable, and moot while the ledger is empty |
 | opportunity | 0.00 | measured, **null** — see ADR-013 |
+
+This table said "measured, positive" for mispricing until 2026-08-05,
+and that was the single most misleading line in these docs: it was the
+headline claim about the only component carrying real weight, and it
+was backwards. `score.py::COMPONENT_VALIDATION` has said
+`validated: False, outcome: "null"` since the scale repair, and
+`params_v1.json` has said "measured NULL" beside the weight itself.
+The measured result is rho **+0.031** over 6 non-overlapping 14-day
+folds (+0.040 over 12 at 7d), with the market-value benchmark — a plain
+"buy whatever is cheap" rule — beating it in **5 of 6** and 9 of 12.
+
+The earlier +0.126 that justified the word "positive" was measured on a
+board that priced every IDP row on a scale that does not exist (ADR-021).
+The 0.50 is a prior like the others; mispricing carries the most weight
+because it is the only component that computes at all in a reachable
+environment, not because it is validated.
 
 Five behaviours matter more than the arithmetic:
 
@@ -292,17 +308,33 @@ Labels: Strong Buy / Buy / Neutral / Sell / Strong Sell, plus
 Strong labels additionally require high confidence, and the ceiling is a
 function of how many **weighted** components are live:
 
-| live weighted components | ceiling | Strong reachable |
-|---|---|---|
-| 1 (today) | 69.3 | no |
-| 2 | 87.4 | yes |
-| 3 | 100.0 | yes |
+`ceiling = 100 × ((live / weighted) × freshness) ^ ⅓`, and Strong needs
+**70**. The denominator is the number of components carrying a non-zero
+weight, which is **2** today — mispricing at 0.50 and sharpFlow at 0.30.
+Opportunity is at 0.00 and is excluded from the denominator, not counted
+as a missing third.
 
-So today no player can earn a Strong Buy. That is the design working,
-not a gap to be tuned away — and note it is now a *runtime* fact the
-board computes and publishes as `confidenceCeiling` /
-`strongLabelsReachable`, not a constant. Opportunity briefly made it two
-before its weight went to zero.
+| live / weighted | freshness | ceiling | Strong reachable |
+|---|---|---|---|
+| 1 / 2 (today) | 1.00 (fresh) | 79.4 | yes |
+| 1 / 2 (today) | 0.89 (8h stale) | 76.4 | yes |
+| 1 / 2 (today) | 0.50 (staleness unknown) | 63.0 | **no** |
+| 2 / 2 | 1.00 | 100.0 | yes |
+
+**Strong labels are reachable today**, and whether they are depends on
+freshness rather than on component count alone.
+
+This section previously published a table with a denominator of 3
+(1 → 69.3, 2 → 87.4, 3 → 100.0) and asserted "today no player can earn a
+Strong Buy". Both were wrong, and the same file disproved them two
+sections up: the measured-board table reports a **Strong Buy bucket with
+30 rows**. The measurement was taken at `hoursStale: 8.0`, giving a
+ceiling of 76.4 — comfortably over the threshold.
+
+It is a *runtime* fact the board computes and publishes as
+`confidenceCeiling` / `strongLabelsReachable`, so the payload was right
+throughout; only this table was stale. That is exactly why the fields
+exist, and why a reader should trust them over any table here.
 
 ## Opportunity — measured, and rejected
 
@@ -313,8 +345,9 @@ Two axes, both real, neither carrying weight:
   can temper a buy, never create one. (It previously scored a rising
   price *positively*, which is momentum-chasing; see ADR-013.)
 - **`snapTrend`** — recent snap share against the season average, from
-  `data/playerctx/snapshot.json`. Production-only, so unreplayable and
-  unmeasured.
+  `data/playerctx/snapshot.json`. Replayable but not yet measured; see
+  "Components not yet validated" below for the distinction, which is
+  not the one this section used to draw.
 
 The momentum axis turned out to be backtestable after all. Board history
 was assumed unrecoverable because `data/rank_history.jsonl` is untracked
@@ -342,17 +375,107 @@ The evidence is real; only its authority is withdrawn. Reproduce:
 - **Sharp Flow** — the qualified-manager ledger lives in prod-only
   gitignored `data/intel/`, so it is unit-testable here and not
   empirically checkable. It is also not merely unmeasured but
-  **unmeasurable** as the code stands: the qualified cohort is
-  recomputed live per request and `src/sharp/` has no as-of concept at
-  all, so a historical value cannot be reconstructed however much ledger
-  data accumulates. Other known defects on `main` documented in the
-  audit: no per-manager or per-league contribution cap, a dead
-  `rosterQuality` term carrying 0.22 of the Sharp Score, and a
-  quality-lookup key mismatch that silently gives cross-platform
-  managers quality 1.0.
-- **`snapTrend`** (the Opportunity axis above) — the playerctx snapshot
-  is refreshed weekly and never committed, so there is no history to
-  replay. Unmeasurable until snapshots accrue.
+  **unmeasurable by any historical route**, and for two reasons rather
+  than the one recorded here until 2026-08-04.
+
+  The recorded reason: the qualified cohort is recomputed live per
+  request and `src/sharp/` has no as-of concept, so a historical value
+  cannot be reconstructed however much ledger data accumulates. True,
+  and a blocker.
+
+  The reason that makes it terminal: **the movement corpus is itself
+  conditioned on today's cohort.** `scripts/crawl_sharp_activity.py`
+  crawls only managers who qualify *at crawl time* (the first 250,
+  sorted by user-id string). A manager who qualified at date D but does
+  not now had their movements **never collected**; one who qualified
+  later carries only a ~30-day backfill stub. So the corpus is
+  survivorship-biased on a proxy for the outcome, the bias is upstream
+  of every filter, and an as-of cohort cannot recover data that was
+  never gathered. `MOVEMENT_RETENTION_DAYS = 400` caps the rest.
+
+  A historical Sharp Flow backtest is therefore unsound at any budget,
+  and deliberately not attempted — a number produced that way would be
+  plausible and wrong. The only sound route is forward-only:
+  `component_sharp_flow` is snapshotted daily with forward-return
+  labelling (`src/consensus_edge/snapshot.py`), which accrues one
+  genuine observation per day and needs no reconstruction.
+
+  Two defects that WERE fixable are fixed (2026-08-04). The cohort
+  filter is now applied rather than claimed: `inputs.sharp_movements`
+  queried `WHERE tx_type = 'trade'` and nothing else while its docstring
+  said "qualified-manager", so the filtering was incidental — a property
+  of what the crawler happened to collect, not of this code. And
+  `managerQuality` is now supplied from the same `CohortMember` records
+  the Sharp Tracker weights by; it was never passed, so every manager
+  defaulted to 1.0 and the quality term in `aggregate_asset` was a
+  constant. `STATUS_NO_COHORT` — declared and unreachable until the
+  filter became real — now reaches the payload, so "a ledger exists but
+  nobody qualifies" stops reading as "no ledger".
+
+  Three further defects were listed here as known-and-unfixed. Verified
+  against the code on 2026-08-05: **two were real and are now fixed; the
+  third was overstated.**
+
+  - **No per-manager or per-league contribution cap** — real, and fixed.
+    `src/sharp/market.py::_aggregate_window` counted one movement as one
+    unit, so a manager active in ten leagues contributed ten
+    observations and `breadth_factor = m/(m+3)` saturated too fast to
+    push back. It now applies the same share cap Consensus Edge already
+    used, from one shared implementation.
+  - **A dead `rosterQuality` term carrying 0.22 of the Sharp Score** —
+    real, and fixed. Four `ManagerRecord` fields feed it and no builder
+    populates any of them, so it was always exactly 0.0 and the total was
+    never renormalized: 22 points of a 0-100 scale were unreachable and a
+    production-shaped record scored 64.9 against a real maximum of 78.
+  - **A quality-lookup key mismatch giving cross-platform managers
+    quality 1.0** — **overstated.** The two-key divergence is real in the
+    source (`market.py` dedups on `canonicalManagerKey` and looks up
+    quality by raw `managerKey`), but the 1.0 default cannot fire:
+    `query_movements` filters on the very key list the quality map is
+    built from, so every returned row's key is present. The repo's own
+    audit had already filed it as unreachable-but-latent; this text
+    asserted it as an active defect. What WAS real next to it — an
+    inverted default (1.0 is higher than any true cohort member) and a
+    genuine cross-platform leak in the *cap* rather than the quality —
+    is fixed; see ADR-028.
+- **`snapTrend`** (the Opportunity axis above) — replayable since
+  2026-08-04, and **not measured for a different reason than the one
+  documented here until then**.
+
+  The old reason: the playerctx snapshot is refreshed weekly and never
+  committed, so there is no history to replay; unmeasurable until
+  snapshots accrue. That was wrong, and wrong in a way that turned a
+  missing function argument into a data-collection project. nflverse
+  publishes `snap_counts_{season}.csv` as one row per player **per
+  game** with a `week` column, and appends a dated snapshot to
+  `depth_charts_{season}.csv` on every upstream scrape. The history was
+  always upstream; `parse_snap_counts` was the thing discarding it.
+  `src/playerctx/asof.py` now resolves a date to the weeks whose games
+  had all finished before it (from the nflverse schedule), and
+  `service.reconstruct_playerctx` replays the snapshot for that window.
+  Verified: the week-22 replay of 2025 is byte-identical to the live
+  unbounded read.
+
+  The real reason it is still unmeasured: **the panel is entirely
+  offseason.** It spans 2026-04-16 → 2026-08-04, and every one of those
+  111 dates resolves to the same completed season and the same final
+  week — so `snapTrend` is the identical per-player number on 16 April
+  and on 3 August. Each fold yields a valid cross-sectional rho, but the
+  folds share one signal snapshot, so averaging them would report N
+  folds' confidence for one observation. The backtest's `snapTrend` arm
+  measures it anyway and stamps `snapWindows` and
+  `effectiveSignalObservations: 1` so the number cannot be read as more
+  than it is.
+
+  Retention would not have helped: weekly snapshots across this window
+  would have captured ~16 byte-identical blocks. What resolves it is
+  in-season dates entering the panel, which happens on its own.
+
+  One residual bias, reported rather than assumed away: the replay joins
+  through the **live** Sleeper directory — there is no historical
+  edition — so a player out of the league by run time cannot join. The
+  arm reports per-source join rates (80.7% for snap counts on the 2025
+  season as of 2026-08-04).
 
 ## League scoring fit
 

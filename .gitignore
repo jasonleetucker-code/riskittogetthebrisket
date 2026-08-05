@@ -70,6 +70,22 @@ data/ros/team_strength/*
 data/ros/sims/*
 !data/ros/sims/.gitkeep
 !data/ros/mapping_overrides.json
+# playerctx retention (ADR-026, revisited) deliberately adds NO negation
+# here, and that is the safe choice rather than an omission.
+#
+# A negation cannot work under the bare `data/` above: git does not
+# descend into an excluded directory, so "it is not possible to
+# re-include a file if a parent directory of that file is excluded".
+# Verified in a clean repo — the `!data/ros/...` form above does not
+# actually rescue anything either; those 4,600 files are tracked purely
+# because a workflow force-added them.
+#
+# So retention uses the same mechanism everything else under `data/`
+# uses: `git add -f` with an EXPLICIT file list, from
+# `deploy/playerctx_history_push.sh`. That is stronger than a negation
+# would be. `data/playerctx/` also holds a 38 MB depth-chart CSV and a
+# 14 MB Sleeper dump; with everything ignored by default, committing one
+# takes naming it, and no directory-level add can sweep it in.
 
 # Temporary sync artifacts (created by sync.bat or manual operations)
 tmp_sync_*/

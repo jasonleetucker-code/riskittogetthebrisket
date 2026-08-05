@@ -5,23 +5,29 @@
 //
 // When changing a threshold here, check whether the backend equivalent needs
 // to match:
-//   Python: _CONFIDENCE_SPREAD_HIGH (30), _CONFIDENCE_SPREAD_MEDIUM (80)
 //   Python: _SUSPICIOUS_DISAGREEMENT_THRESHOLD (150)
 //
 // Tests: frontend/__tests__/thresholds.test.js
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Confidence spread cutoffs ───────────────────────────────────────────────
-// These mirror the backend confidence bucket thresholds exactly.
-// High:   2+ sources AND spread <= CONFIDENCE_SPREAD_HIGH
-// Medium: 2+ sources AND spread <= CONFIDENCE_SPREAD_MEDIUM
-// Low:    single source OR spread > CONFIDENCE_SPREAD_MEDIUM
-
-/** Max source-rank spread for "high" confidence bucket. */
-export const CONFIDENCE_SPREAD_HIGH = 30;
-
-/** Max source-rank spread for "medium" confidence bucket. */
-export const CONFIDENCE_SPREAD_MEDIUM = 80;
+// ── Confidence spread cutoffs — REMOVED 2026-08-05 ──────────────────────────
+// `CONFIDENCE_SPREAD_HIGH` (30) and `CONFIDENCE_SPREAD_MEDIUM` (80) used to
+// live here, described as mirroring "the backend confidence bucket thresholds
+// exactly".  They did not.  `_confidence_bucket` in data_contract.py decides
+// off the PERCENTILE spread on the normal `_compute_unified_rankings` path and
+// only falls back to the absolute ordinal for callers that have nothing else —
+// the percentile signal exists precisely so an IDP player ranked by 4 sources
+// is judged on the same agreement scale as an offense player ranked by 14.
+//
+// Their one live consumer re-applied the ordinal rule ON TOP of the backend's
+// own verdict.  Measured on the pinned 2026-07-30 contract, that suppressed
+// "Consensus asset" on 54 of the 111 rows the backend calls high-confidence,
+// multi-source and undisputed.
+//
+// Deleted rather than relabelled: a mirrored constant of a retired rule, with
+// no remaining reader, is the exact shape that produced this bug.  The board's
+// answer is `row.confidenceBucket`, stamped by the backend.
+// See frontend/__tests__/consensus-label-reads-backend-bucket.test.js.
 
 // ── Market premium / disagreement thresholds ────────────────────────────────
 

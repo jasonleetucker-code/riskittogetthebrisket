@@ -1,8 +1,19 @@
 """Compact `/api/data?view=compact` response builder (upgrade item #17).
 
-Prunes fields that mobile / fast-first-paint views don't need
-so the payload drops from ~4MB to ~500KB uncompressed.  Opt-in
-via query param; defaults unchanged.
+Prunes fields that mobile / fast-first-paint views don't need.
+Opt-in via query param; defaults unchanged.
+
+Measured on the pinned 2026-07-30 contract (1,093 rows), serialised
+the way FastAPI's ``JSONResponse`` does:
+
+    full view        11.80 MB raw   1,057 KB gzipped
+    compact view      7.19 MB raw     698 KB gzipped   (-34% / -34%)
+
+The docstring used to claim "~4MB to ~500KB uncompressed".  Neither
+number survives contact with today's contract, which has roughly
+tripled in size since; the ratio is about right, the magnitudes are
+not.  Quoting a stale absolute is how a payload budget silently stops
+being a budget, so the figures above carry the date they were taken.
 
 Fields we prune (listed in ``_PRUNED_CONTRACT_FIELDS``):
     poolAudit, methodology, siteStats (verbose per-scrape stats)
@@ -18,7 +29,8 @@ Fields slimmed per-player (listed in ``_SLIM_SOURCE_RANK_META_FIELDS``):
     / ``ladderDepth`` / TEP audit stamps, but keeps the
     ``valueContribution`` (drives the trade per-source winner row,
     PlayerPopup, source-contribution graphs, rankings audit cell),
-    ``effectiveWeight``, and ``method`` fields.
+    both weights (``appliedWeight`` + ``effectiveWeight`` — see the
+    comment on the constant), and ``method``.
 
 Fields KEPT (mobile UI needs them):
     name / canonicalName / displayName / position / team / age /
@@ -72,20 +84,25 @@ _PRUNED_PLAYER_FIELDS = frozenset(
 
 # Per-source meta fields kept on the compact view.  Drives the trade
 # per-source winner card (``valueContribution``), the rankings audit
-# popover (``valueContribution`` + ``appliedWeight`` + ``effectiveWeight``
-# + ``method``), and the PlayerPopup source-contribution graphs
-# (``valueContribution``).  Audit-only stamps (percentile, isAnchor, TEP
-# correction flags, etc.) are dropped on mobile to keep the payload small.
+# popover (``valueContribution`` + both weights + ``method``), and the
+# PlayerPopup source-contribution graphs (``valueContribution``).
+# Audit-only stamps (percentile, isAnchor, TEP correction flags, etc.)
+# are dropped on mobile to keep the payload small.
 #
-# ``appliedWeight`` is NOT optional here even though it is one more field.
-# It is the weight the count-aware blend actually multiplies by;
-# ``effectiveWeight`` is a coverage diagnostic that is never applied.  The
-# audit popover renders them as "Weight (applied)" and "Coverage wt
-# (diagnostic)" precisely because labelling the diagnostic "Weight" told
-# the reader it was the number doing the work.  Dropping ``appliedWeight``
-# here left the compact view — which ``device-profile.js`` selects for
-# mobile and slow networks — showing only the diagnostic, reinstating that
-# exact inversion on the smaller screen.
+# BOTH WEIGHTS, DELIBERATELY.  ``data_contract.py`` stamps them side by
+# side and they mean different things: ``appliedWeight`` is what the
+# count-aware blend multiplies the source's vote by, and
+# ``effectiveWeight`` is the depth-scaled coverage DIAGNOSTIC that
+# ``docs/open-modeling-decisions.md`` decision #1 is the measured call
+# NOT to apply.  This set used to carry the diagnostic alone, so the
+# compact view rendered the inert number on all 6,461 sourceRankMeta
+# entries of the pinned contract, and on the 147 where the two differ
+# it was a different number from the one that did the work — with the
+# honest "Weight (applied)" row unable to render because the field
+# never arrived.  Cost of carrying both, measured on that contract:
+# +258,440 B raw but only **+5,105 B gzipped** on a 697 KB compact
+# payload (+0.73%), and production runs GZipMiddleware.  Shipping only
+# the wrong number to save 0.73% is not a trade worth making.
 _SLIM_SOURCE_RANK_META_FIELDS = frozenset(
     {
         "valueContribution",

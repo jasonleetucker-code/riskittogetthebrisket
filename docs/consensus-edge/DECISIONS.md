@@ -704,3 +704,411 @@ for a narrower and harder reason than ADR-021 stated. IDP returns to the
 board when a source publishes offense and IDP in one value pool under
 one registry key — not when a flag is set.
 **Status:** accepted 2026-08-04.
+
+---
+
+## ADR-026: `snapTrend` was never unmeasurable — the panel was the wrong season
+
+**Context.** Four places in this repo attributed the `snapTrend` axis's
+lack of validation to the same cause: `data/playerctx/snapshot.json` is
+refreshed weekly and overwritten in place, so "there is no history to
+replay" and the axis is "unmeasurable until snapshots accrue"
+(`score.py`, `backtest_consensus_edge_composite.py`, `METHODOLOGY.md`
+twice). The implied fix was a retention project — start committing
+snapshots and wait.
+
+**The attribution was wrong.** nflverse publishes
+`snap_counts_{season}.csv` as one row per player **per game**, carrying
+`season`, `game_type` and `week`; `depth_charts_{season}.csv` appends a
+full dated snapshot on every upstream scrape. The history was always in
+the files. `parse_snap_counts` was the thing discarding it — a
+newest-season filter with no week cutoff — and `parse_depth_charts` kept
+only the newest `dt`. As-of reconstruction was a missing function
+argument, not a missing dataset.
+
+**But retention would not have helped either**, and this is the part
+that decides the work. The panel runs 2026-04-16 → 2026-08-04, entirely
+between the draft and kickoff. Every one of those 111 dates resolves to
+the same completed season and the same final week, so `snapTrend` is the
+identical per-player number on 16 April and on 3 August. Weekly
+retention across that window would have captured ~16 byte-identical
+blocks. Every "fold" would be a resampling of one observation.
+
+Both halves were verified, not reasoned about:
+
+```
+2026-04-16 → AsOf(season=2025, through_week=22)
+2026-06-01 → AsOf(season=2025, through_week=22)
+2026-08-04 → AsOf(season=2025, through_week=22)
+
+week-22 replay of 2025 == unbounded live read:  True  (1,766 players)
+week-10 replay:  1,592 players with snaps, mean trend +0.39
+week-4  replay:  1,400 players with snaps, mean trend +0.21
+```
+
+The first block is the finding; the second confirms the replay path is
+faithful to what production reads; the third confirms the signal
+actually moves with the cutoff, which is the property a backtest needs
+and the one an offseason panel cannot supply.
+
+**Decision.**
+
+1. `parse_snap_counts` takes `season` / `through_week`;
+   `parse_depth_charts` takes `as_of`. Both default to the previous
+   unbounded behaviour, test-pinned as byte-identical.
+2. `src/playerctx/asof.py` resolves a date to the window observable on
+   it, from the nflverse schedule already fetched for BDVM's ROS. A week
+   counts only when all its games are done, and same-day games do not
+   count — snaps publish after the game.
+3. `service.reconstruct_playerctx` replays the snapshot in memory. It is
+   **not** a parameter on `refresh_playerctx`: that would leave a
+   historical replay one default argument away from overwriting the file
+   production serves live.
+4. The composite backtest grows a `snapTrend` arm that measures the axis
+   anyway and stamps `snapWindows` + `effectiveSignalObservations: 1`,
+   so the number cannot be read as more than one cross-section. First
+   run: mean rho +0.037 over 5 folds, 4/5 positive, beating the
+   market-value benchmark in 0/5 — "no effect detected", from one frozen
+   observation.
+
+**Two bugs the new parameters exposed**, both of the class this audit
+keeps finding — code that works until you use it:
+
+- The parse loop bound its row-season local to the name `season`,
+  shadowing the new parameter. The caller's argument was destroyed on
+  the first row and the filter silently used the newest season.
+- `parse_depth_charts` compared `dt > as_of` on whole strings. `dt` is a
+  full timestamp, so the natural bound `"2025-11-09"` dropped that
+  entire day and fell back to the previous snapshot — an off-by-one-day
+  that still returns a plausible depth chart. Fixed with a same-length
+  prefix compare; verified the two covering tests fail without it.
+
+**Residual bias, reported not assumed away.** The join anchor is the
+live-only Sleeper directory, so a player out of the league by run time
+cannot join. `reconstruct_playerctx` returns per-source join rates
+(80.7% for the 2025 snap counts as of 2026-08-04) rather than an
+unqualified player list.
+
+**What this does not claim.** The axis is measurable, not measured. It
+becomes a real multi-fold measurement when in-season dates enter the
+panel — automatically, with no further work.
+
+**Deferred, and the reason changed: retaining the joined snapshot as
+dated git-tracked files.** This was planned alongside the as-of
+parameters, on the argument that reconstruction recovers the *inputs*
+while retention preserves the *artifact production actually served*.
+That argument is now much weaker than when it was made. The week-22
+replay of 2025 is byte-identical to the live unbounded read, so the
+joined artifact IS reproducible from upstream given the same Sleeper
+pool — and the pool is the only thing retention would add, worth the
+80.7% → 100% join rate and nothing else.
+
+Against that: the mechanism is a production push (dedicated clone,
+`git add -f`, push retry, per `deploy/dlf_fetch_and_push.sh`), and it
+commits generated data by design. This session produced a live
+demonstration of the hazard — a `git add -A` swept two scheduled-refresh
+timestamp files into a commit and that alone put the PR into merge
+conflict with `main`.
+
+So it is not built here. If the survivorship term turns out to matter
+once in-season folds exist, the measurement will say so — the join rate
+is stamped on every replay — and that is a better trigger for a prod
+deployment change than a prior.
+
+**Status:** accepted 2026-08-04. **Overturned 2026-08-05 — see below.**
+
+### Amendment (2026-08-05): retention is built, by direction
+
+The deferral above was overturned by an explicit instruction to build
+it. Recording that plainly rather than retrofitting a technical
+justification, because **the evidence has not changed**: the week-22
+replay is still byte-identical to the live read, retention still buys
+only the 80.7% → 100% join rate, and the ~16 byte-identical blocks a
+weekly cadence would have captured across this offseason are still
+byte-identical. Nothing above became wrong; it was outvoted.
+
+Two things in the deferral WERE wrong, and both were mine:
+
+- **"Replayed by `panel._commit_before` with zero new replay code."**
+  False. `available_dates` intersects two hardcoded pathspecs and
+  `PanelDay` had no field for a snapshot. The real cost was
+  `PLAYERCTX_REL`, a `playerctx_asof` mirroring `payload_asof`, three
+  `PanelDay` fields and their tests.
+- **"The mechanism is a production push per `dlf_fetch_and_push.sh`."**
+  That pattern does not transfer. Both existing pushers work inside a
+  dedicated clone because nothing reads their output locally; playerctx
+  cannot, since the API reads the snapshot out of the live deploy
+  directory that `deploy.sh` force-resets. `deploy/playerctx_history_push.sh`
+  splits it: the refresh writes the live path, the push copies the dated
+  file into a dedicated clone.
+
+Four decisions worth knowing:
+
+1. **Retention does NOT join `available_dates`' intersection.** If it
+   did, the panel would collapse from 111 dates to zero and grow back
+   one per week — trading every existing measurement for a feature with
+   no data yet. A day without a snapshot yields `PanelDay.playerctx =
+   None`, which is the normal case today and must stay legible as "not
+   retained" rather than "nobody played". Pinned.
+2. **Snaps-only projection**, ~320 KB against ~1.1 MB. `snapTrend` is
+   the axis retention exists for; the contract block is the largest and
+   its upstream churns weekly.
+3. **No `.gitignore` negation**, and that is the safe choice rather than
+   an omission. A negation cannot work under the bare `data/` — git does
+   not descend into an excluded directory — which I verified in a clean
+   repo, and which also means the `!data/ros/…` block above rescues
+   nothing (those 4,600 files are tracked purely because a workflow
+   force-added them). Retention uses `git add -f` with an explicit file
+   list, which is strictly stronger: with everything ignored by default,
+   committing the 38 MB depth-chart CSV sitting in the same directory
+   takes naming it, and no directory-level add can reach it.
+4. **`retain_history` defaults off** and production opts in via
+   `--retain-history`. Retention runs after the live write and cannot
+   fail it — losing a refresh to a full disk in the history directory
+   would trade the artifact the API serves for the optional one.
+
+`data/playerctx/history` is added to `retention._protected_paths`; the
+sibling raw cache deliberately is not, because that one IS a cache.
+Coverage mirrors `rank_history.coverage` (`missingDays` / `staleDays`)
+so a stalled timer is visible before a study needs the data.
+
+**Enabled in production 2026-08-05, on explicit sign-off.** The push
+installs a new timer and starts committing generated data on a schedule,
+so it was built and tested first and held for approval rather than
+taken unilaterally; approval was then given. Repo-side wiring:
+
+- `dynasty-playerctx-refresh.service.template` gains `--retain-history`,
+  so the producer writes the dated file at all.
+- `dynasty-playerctx-history.{service,timer}.template` run
+  `deploy/playerctx_history_push.sh` weekly at **Tue 06:45 UTC** — 40
+  minutes after the refresh's worst-case finish (05:40 + 600s randomized
+  delay + 900s timeout ≈ 06:05), and off the three minutes already
+  spoken for by prod→main pushers (`:27` DLF, `:32` IDP Show, `:42` CI).
+- Installed by `deploy/install-systemd-service.sh`, gated on the deploy
+  SSH key exactly like its two siblings: without a key the script could
+  only ever fail at the push, and a timer that fails weekly is worse
+  than one that was never installed.
+- The timer carries **no `Requires=`** (diverging from the sibling
+  refresh timer, following `dynasty-reception-depth`): `Requires=` in a
+  timer's `[Unit]` pulls the service in whenever the timer starts, which
+  would fire a push on deploy day for a file that does not exist yet,
+  and again on every reboot.
+
+One thing this exposed, fixed rather than worked around: the installer
+gated reinstallation on *"does the timer already exist"*, so a template
+edit on an already-provisioned box was silently ignored until someone
+remembered `FORCE_SERVICE_INSTALL`. Adding `--retain-history` to an
+existing unit is exactly that case — the repo would say retention is on
+and the box would keep running the old `ExecStart`. Both playerctx
+blocks now render the unit first and compare content, the way the
+backup-unit loop at the bottom of the same function already did.
+
+Wiring is pinned by `tests/deploy/test_playerctx_history_timer_is_wired.py`,
+including the one that makes the rest pointless if it regresses:
+`--retain-history` must be on the refresh `ExecStart`, or the push runs
+weekly, exits clean, and retains nothing.
+
+**Status:** superseded by the amendment; retention accepted 2026-08-05.
+
+---
+
+## ADR-027: Sharp Flow's filter is now applied, and it still cannot be backtested
+
+**Context.** `inputs.sharp_movements` documented itself as
+"Qualified-manager trade movements" and `sharp_flow.py`'s module
+docstring opens with "Qualified-manager acquisition direction". The
+query was:
+
+```sql
+SELECT asset_id, action, user_id, league_id, ts
+  FROM asset_movements
+ WHERE tx_type = 'trade'
+```
+
+No cohort filter. The claim was nevertheless *true* in production,
+because `scripts/crawl_sharp_activity.py` only visits managers who
+qualify at crawl time — so the corpus arrived pre-conditioned and the
+component behaved as advertised. The filtering was incidental, a
+property of what the crawler happened to collect rather than of this
+code, and it would fail silently and flatteringly the day anything else
+wrote to the ledger.
+
+Two more of the same shape, found alongside it:
+
+- **`managerQuality` was never supplied.** `movements_from_ledger_rows`
+  reads it off the row and defaults to 1.0, so every manager weighed the
+  same and the quality term in `aggregate_asset` was a constant.
+  `src/sharp/market.py` computes a real one per `CohortMember` and
+  Consensus Edge simply never received it.
+- **`STATUS_NO_COHORT` was declared and unreachable.** A status naming a
+  check no code performed. Everything collapsed to `no_ledger`,
+  including "a ledger exists but nobody qualifies" — a different
+  situation with a different fix.
+- **The query read the per-platform raw columns.** After the additive
+  platform migration, `asset_id` / `user_id` keep the SOURCE ids while
+  `canonical_asset_id` / `manager_key` carry canonical identity. On a
+  multi-platform ledger the same player would arrive under two asset
+  keys and no manager would match a cohort key.
+
+**Decision.** Apply the filter rather than restate the docstring. The
+cohort comes from `src.sharp.market.cohort_members` — the one definition
+of who qualifies — rather than a second set of criteria; quality is
+stamped per movement from the same records; the canonical columns are
+preferred with a `PRAGMA table_info` check rather than a try/except that
+would make a schema mismatch look like an empty ledger; and
+`STATUS_NO_COHORT` reaches the payload.
+
+**What none of that fixes, and it is the larger problem.** The corpus is
+conditioned on TODAY's cohort, not the cohort at the time of each trade.
+`crawl_sharp_activity.py` crawls the first 250 currently-qualified
+managers sorted by user-id string, so a manager qualified at date D but
+not now had their movements **never collected**, and one who qualified
+later carries only a ~30-day backfill stub. That is survivorship on a
+proxy for the outcome, it is upstream of every filter, and no as-of
+cohort can recover data that was never gathered.
+`MOVEMENT_RETENTION_DAYS = 400` caps the rest.
+
+So the reason recorded in `METHODOLOGY.md` and `params_v1.json` —
+"unvalidatable until `src/sharp/` gains an as-of cohort" — was necessary
+but **not sufficient**, and stating it alone implied a fix that would
+not have worked. Both files now say so.
+
+**Explicitly rejected: a historical Sharp Flow backtest.** It is unsound
+at any budget, and a number produced that way would be exactly the
+plausible-but-wrong result this audit spent its time removing.
+
+**Adopted instead: the forward-only path that already existed.**
+`snapshot.write_board` has been storing `component_sharp_flow` per
+player per day, and `label_outcomes` fills cohort-excess forward returns
+once the horizon has elapsed. Signal and outcome are written weeks apart
+by two different code paths, so there is no window to leak through and
+nothing to reconstruct. `scripts/validate_components_forward.py` reads
+it — for every stored component and the served ranking key, so a Sharp
+Flow number has something to be judged against.
+
+It accrues one observation per day from the day the board runs, and it
+reports `labelledRows` per series so an empty component column reads as
+"no ledger" rather than "no signal". Origins are correlated separately
+and averaged, never pooled, and the output states plainly that
+consecutive daily origins overlap and are therefore a count of
+cross-sections, not of independent observations.
+
+**Status:** accepted 2026-08-04.
+
+---
+
+## ADR-028: the three Sharp Score defects — two real, one overstated
+
+**Context.** `METHODOLOGY.md` carried a line naming three known-and-unfixed
+defects in the Sharp scoring stack. They were inherited from an audit and
+never verified against the code. Verified 2026-08-05: **two are real and
+are now fixed; the third is overstated and its claim was the thing that
+needed correcting.**
+
+### 1. No per-manager or per-league contribution cap — CONFIRMED
+
+`src/sharp/market.py::_aggregate_window` counted one movement as one
+unit with no bound, and the only pushback was
+`breadth_factor = m/(m+3)` (`src/intel/signals.py`), which saturates
+fast. `src/sharp/roster_percentage.py` calls the same function and
+inherited it. Consensus Edge has capped this since ADR-011, so the two
+boards aggregated the same movements from the same cohort under
+different rules — "the sharps are buying him" meant two different things
+on two pages.
+
+Fixed by promoting `_apply_share_cap` to `src/utils/share_cap.py` and
+calling it from both. Neutral home because the dependency has to point
+somewhere neither package owns: `consensus_edge` is a feature package
+and must not be imported by `src/sharp`, and `sharp_flow` deliberately
+imports nothing from `src/sharp`.
+
+**Raw counts stay raw.** Capping produces fractional weights, and
+`volume` / `tradeCount` / `uniqueManagers` are descriptions of what
+happened — a capped number in those fields would misreport the record.
+The weights are reported beside them as `weightedBuys` / `weightedSells`
+/ `weightedNet` / `weightedVolume`, plus a `concentrationCapped` flag,
+and `signal_strength` reads the weighted pair. Buys and sells scale by
+the same per-contributor factor, so a cap can shrink a lean and can
+never flip it — pinned.
+
+**What a share cap cannot do**, stated because the obvious test asserts
+it wrongly: it bounds one contributor's share OF A TOTAL, so a single
+contributor's share is 100% by construction and capping it is
+meaningless. One manager with ten observations and no peers is bounded
+by `breadth_factor` (0.25), not by this. Measured on the case the cap is
+actually for — 8 observations against two managers' 1 each — the
+dominant manager goes from 80% of the evidence to 34%, and weighted
+volume from 10.0 to 3.03.
+
+### 2. A dead `rosterQuality` term carrying 0.22 — CONFIRMED, and reproduced
+
+`_roster_quality_component` reads four `ManagerRecord` fields that **no
+builder populates** (`platform_records.py`, `records.py`), returned
+`0.0` for that, and the total applied the declared 0.22 weight
+unconditionally with no renormalization. 22 points of a 0-100 scale were
+unreachable: a production-shaped record scored **64.9** against a real
+maximum of 78. `docs/intel/SHARP_SCORE.md` documented the term as live.
+
+It stayed invisible because every test fixture sets
+`roster_value_ratios` — the suite exercised the one branch production
+never reaches. The new tests use the production shape.
+
+Fixed by returning `None` for absent evidence and renormalizing over the
+components that have any, the same posture
+`consensus_edge.score.composite` takes. `components.weightsApplied` is
+stamped per manager so the renormalization is auditable rather than
+assumed. Same record now scores **78.0**.
+
+**Why this is safe for the cohort, asserted rather than argued.**
+Qualification is `minScorePercentile` — a percentile of the evaluable
+population, not an absolute bar — and the absent set is identical for
+every manager, so every score scales by the same factor and the ranking
+is unchanged. `tests/sharp/test_sharp_gates.py` computes the old
+arithmetic inline and asserts both the full ordering and the qualified
+set are identical.
+
+**The impact could not be measured here.** The ledger file exists but
+`cohort_members()` returns 0 members in this checkout, so there is no
+live cohort to take a before/after against. The invariance is proved on
+synthetic records; the prod-side observation is a separate step and is
+not claimed as done.
+
+`methodologyVersion` moves to `sharp-v2.1`, per the rule
+`scoring_v2.json` states about itself. That rule was previously
+unenforced — the test asserted the literal `"sharp-v2"`, so a weight edit
+without a version bump PASSED and a version bump without a weight edit
+FAILED, exactly backwards. It now pins a content hash of the
+scoring-relevant config against the version that produced it, the same
+way `paramSetId` works for `consensus_edge` and `bdvm`.
+
+### 3. A quality-lookup key mismatch giving cross-platform managers 1.0 — OVERSTATED
+
+The two-key divergence is real in the source: `market.py` dedups breadth
+on `canonicalManagerKey` and looked up quality by the raw `managerKey`.
+But the `1.0` default **cannot fire**. `market_payload` passes the same
+`manager_keys` list into `platform_ledger.query_movements`, whose
+`WHERE m.manager_key IN (...)` guarantees every returned row's key is
+present in the quality map, and both are derived from one deduped
+`members` list. The repo's own audit had already filed it under "minor
+items not raised as findings" as unreachable-but-latent; `METHODOLOGY.md`
+asserted it as an active defect anyway.
+
+Three things done instead of "fixing" a bug that cannot occur:
+
+- **The claim is corrected** to latent/unreachable, matching the audit.
+- **The default is inverted.** `1.0` is *higher* than any real cohort
+  member (automated members are `score/100`), so an unmatched manager
+  outranked every genuine sharp. Now `UNMATCHED_MANAGER_QUALITY = 0.0`,
+  the floor, in both `market.py` and `sharp_flow.py`. The lookup also
+  tries the canonical key first, so the two keys stop disagreeing.
+- **The real cross-platform leak is fixed, and it is in the CAP, not the
+  quality.** `sharp_flow._apply_share_cap` groups by
+  `Movement.manager_key`, and `inputs.sharp_movements` never emitted
+  `canonicalManagerKey` — so one human's linked Sleeper and FFPC
+  accounts arrived as two groups and each got its own 0.34 bucket,
+  evading the bound they were supposed to share. The query now resolves
+  the canonical key through `platform_managers` exactly as
+  `query_movements` does, and degrades to per-account grouping rather
+  than raising when the identity table is absent.
+
+**Status:** accepted 2026-08-05.

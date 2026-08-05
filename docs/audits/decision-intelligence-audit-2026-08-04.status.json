@@ -3,10 +3,10 @@
   "severity": "Critical",
   "total": 43,
   "tally": {
-    "closed": 19,
+    "closed": 20,
     "deferred": 1,
     "needs_review": 2,
-    "open": 21
+    "open": 20
   },
   "findings": [
     {
@@ -153,7 +153,7 @@
       "path": "src/api/data_contract.py",
       "signature": "retail_mean = sum(retail_ranks) / len(retail_ranks)",
       "status": "closed",
-      "verifiedBy": "CLOSED alongside C19 — same defect on the frontend label. marketEdge, marketGapLabel and idpMarketEdge all diff valueContribution rather than raw ordinals, gated by MARKET_GAP_MIN_VALUE_RATIO (0.05, calibrated so the non-HOLD share lands at 68.8% against the old gate's 69.2% — the signal is re-aimed, not silenced).",
+      "verifiedBy": "CLOSED alongside C19 — same defect on the frontend label. marketEdge, marketGapLabel and idpMarketEdge all diff valueContribution, gated by MARKET_GAP_MIN_VALUE_RATIO (0.05, calibrated to 68.8% non-HOLD against the old gate's 69.2%).",
       "closedBy": null,
       "measuredEffect": null,
       "batch": null,
@@ -233,7 +233,7 @@
       "path": "frontend/components/useSettings.js",
       "signature": "tepMultiplier: 1.15",
       "status": "closed",
-      "verifiedBy": "CLOSED. SETTINGS_DEFAULTS.tepMultiplier is now the null auto sentinel, so a default session posts no tep_multiplier and the backend applies the measured ADR-015 curve. tepMultiplierIsCustomized is deliberately unchanged — an explicit operator number still overrides. A one-shot tepAutoRestored migration moves installs the previous migration had pinned to a flat 1.15. Read the blend gate at data_contract.py's tep_multiplier_is_override branch to confirm the curve is reached. Pinned by frontend/__tests__/tep-auto-default.test.js and useSettings.tep-auto-restore.test.jsx.",
+      "verifiedBy": "CLOSED. SETTINGS_DEFAULTS.tepMultiplier is the null auto sentinel, so a default session posts no tep_multiplier and the backend applies the measured ADR-015 curve. tepMultiplierIsCustomized is deliberately unchanged — an explicit operator number still overrides. A one-shot tepAutoRestored migration moves installs the previous migration had pinned to a flat 1.15.",
       "closedBy": null,
       "measuredEffect": null,
       "batch": null,
@@ -365,7 +365,7 @@
       "path": "src/api/data_contract.py",
       "signature": "retail_mean = sum(retail_ranks) / len(retail_ranks)",
       "status": "closed",
-      "verifiedBy": "CLOSED. _compute_market_gap averages sourceRankMeta[*].valueContribution and returns a RELATIVE gap, so pool depth no longer enters the comparison. Measured on the 2026-08-05 board: top-250 SELL went from 35 labels of which 32 were TE (100% of top-250 SELLs were tight ends) to 130 spread WR 47 / RB 34 / TE 32 / QB 13, largest single-position share 36%. Pinned by tests/api/test_trust_confidence.py::TestMarketGap, including a case where two sources price a player identically 40 ranks apart and the gap reads none.",
+      "verifiedBy": "CLOSED. _compute_market_gap averages sourceRankMeta[*].valueContribution and returns a RELATIVE gap, so pool depth no longer enters the comparison. Top-250 SELL went from 35 labels of which 32 were TE to 130 spread WR 47 / RB 34 / TE 32 / QB 13.",
       "closedBy": null,
       "measuredEffect": null,
       "batch": null,
@@ -576,13 +576,13 @@
       "auditId": "P-1",
       "path": "src/sharp/score.py",
       "signature": "float(weights.get(\"rosterQuality\", 0.22)) * roster",
-      "status": "open",
-      "verifiedBy": "Weighted at 0.22 and structurally zero, with no renormalization of the remaining weights.",
-      "closedBy": null,
-      "measuredEffect": null,
+      "status": "closed",
+      "verifiedBy": "_roster_quality_component now returns None (not 0.0) when it has no evidence, and the scoring sum renormalizes over the components that do — src/sharp/score.py. The unconditional `float(weights.get(\"rosterQuality\", 0.22)) * roster` term is gone; components.weightsApplied is stamped per manager so the renormalization is auditable rather than assumed.",
+      "closedBy": "PR #734 (claude/consensus-edge-recovery), ADR-028",
+      "measuredEffect": "A production-shaped record (6 seasons / 6 leagues / 58-26 / 5 playoffs / 2 titles) scored 64.9 against a real maximum of 78 because 0.22 of the weight was applied to a term that is 0.0 for every manager. It now scores 78.0 and the applied weights sum to 1.0. Ranking and cohort are UNCHANGED: the absent set is identical for every manager so all scores scale by the same factor, and qualification is minScorePercentile (a percentile, not an absolute bar). Asserted in tests/sharp/test_sharp_gates.py, which computes the old arithmetic inline and compares the full ordering and the qualified set. NOT measured against the live cohort: the ledger exists locally but cohort_members() returns 0 members, so a prod observation is still owed. methodologyVersion moved sharp-v2 -> sharp-v2.1.",
       "batch": null,
       "probe": {
-        "result": "signature_present",
+        "result": "signature_absent",
         "path": "src/sharp/score.py",
         "needle": "float(weights.get(\"rosterQuality\", 0.22)) * roster"
       }

@@ -271,12 +271,53 @@ class TestFairValueIndex(unittest.TestCase):
 
     @_needs_payload
     def test_coverage_accounts_for_every_row(self):
+        """Rows reconcile exactly; reason counts may exceed them.
+
+        This asserted `pricedRows + sum(unpricedByReason) == totalRows`,
+        which silently required every unpriced row to carry exactly ONE
+        reason — and that requirement is what hid rows losing two
+        dependencies at once. The row identity is `pricedRows +
+        unpricedRows`; the reason counts are a separate tally that
+        over-counts by design.
+        """
         index = fv.fair_value_index(_RAW)
         cov = fv.coverage(index)
         self.assertEqual(cov["totalRows"], len(index))
-        self.assertEqual(cov["pricedRows"] + sum(cov["unpricedByReason"].values()), len(index))
+        self.assertEqual(cov["pricedRows"] + cov["unpricedRows"], len(index))
+        self.assertGreaterEqual(sum(cov["unpricedByReason"].values()), cov["unpricedRows"])
         self.assertGreater(cov["pricedRows"], 0)
         self.assertGreater(cov["pricedByAssetClass"].get("offense", 0), 0)
+
+    @_needs_payload
+    def test_rows_that_lost_two_dependencies_are_counted_under_both(self):
+        # The defect: `coverage` counted the singular headline reason, so
+        # every row that lost the rookie ladder AND the IDP backbone was
+        # invisible under the rookie one.
+        index = fv.fair_value_index(_RAW)
+        both = [e for e in index.values() if len(e.get("unpricedReasons") or []) > 1]
+        self.assertTrue(both, "expected rookie-IDP rows carrying two causes")
+        cov = fv.coverage(index)
+        self.assertGreaterEqual(
+            cov["unpricedByReason"].get(fv.UNPRICED_SCALE_ROOKIE_LADDER, 0),
+            len(both),
+            "rows losing both dependencies are missing from the rookie-ladder count",
+        )
+        # And the over-count is exactly the double-counted rows.
+        self.assertEqual(
+            sum(cov["unpricedByReason"].values()) - cov["unpricedRows"],
+            sum(len(e["unpricedReasons"]) - 1 for e in both),
+        )
+
+    @_needs_payload
+    def test_the_plural_always_contains_the_singular(self):
+        index = fv.fair_value_index(_RAW)
+        for entry in index.values():
+            single = entry.get("unpricedReason")
+            plural = entry.get("unpricedReasons") or []
+            if single:
+                self.assertIn(single, plural, entry["playerKey"])
+            else:
+                self.assertEqual(plural, [], entry["playerKey"])
 
     def test_idp_is_refused_out_loud_rather_than_priced_wrong(self):
         # This assertion used to read ``pricedByAssetClass["idp"] > 0``,

@@ -104,5 +104,7 @@
     "Measures market movement, not fantasy production \u2014 the panel covers an offseason.",
     "Folds are non-overlapping; the fold count is the honest sample size.",
     "Fewer folds than the mispricing-only backtest, because the lookback window reserves the first 30 days of the panel as history. The head-to-head is still like-for-like: every series in a run is scored on the same folds and the same player intersection."
-  ]
+  ],
+  "supersededBy": "docs/measurements/consensus-edge-composite-2026-08-05-h30.json",
+  "correction": "The caveat below stating that the snapTrend axis 'cannot be replayed' was WRONG, and is corrected in the superseding run. nflverse publishes snap counts per player per game, so the history was always upstream and the playerctx parsers were discarding it; src/playerctx/asof.py bounds the read to the weeks completed before each origin. The axis IS replayable. What it is not, on this panel, is measurable across folds \u2014 every offseason date resolves to the same completed season, so it is one frozen cross-section. See ADR-026. Every measured number in this file is unchanged and remains attributable to the run that produced it."
 }

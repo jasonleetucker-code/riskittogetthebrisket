@@ -76,6 +76,22 @@ def main(argv: list[str] | None = None) -> int:
         help="snapshot output path (default data/playerctx/snapshot.json)",
     )
     parser.add_argument(
+        "--retain-history",
+        action="store_true",
+        help=(
+            "also write a dated snaps-only projection under "
+            "data/playerctx/history/ for later replay. Off by default: it "
+            "commits generated data on a schedule, which should be an "
+            "explicit operational choice."
+        ),
+    )
+    parser.add_argument(
+        "--history-dir",
+        type=Path,
+        default=None,
+        help="retention output dir (default data/playerctx/history/)",
+    )
+    parser.add_argument(
         "--max-age-hours",
         type=float,
         default=fetch_mod.DEFAULT_MAX_AGE_HOURS,
@@ -91,6 +107,8 @@ def main(argv: list[str] | None = None) -> int:
             max_age_hours=args.max_age_hours,
             cache_dir=args.cache_dir,
             snapshot_path=args.snapshot,
+            retain_history=args.retain_history,
+            history_dir=args.history_dir,
         )
     except SchemaRegressionError as exc:
         print(f"[refresh_playerctx] schema regression: {exc}", file=sys.stderr)

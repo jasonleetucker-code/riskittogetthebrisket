@@ -1,0 +1,37 @@
+[Unit]
+Description=Weekly playerctx dated-snapshot retention push for __SERVICE_NAME__
+# Deliberately NO `Requires=` here, which diverges from the sibling
+# playerctx-refresh timer and follows dynasty-reception-depth instead.
+# `Requires=` in a timer's [Unit] pulls the service in whenever the
+# TIMER starts — so `enable --now` on deploy day would fire a push for a
+# file the refresh has not written yet, and every reboot would fire
+# another.  `Unit=` below is what actually names the service to run on
+# the calendar event, and it is the only binding this needs.
+
+[Timer]
+# Weekly, Tuesday 06:45 UTC — deliberately AFTER the refresh that
+# produces the file.  The refresh fires 05:40 with RandomizedDelaySec
+# 600 and TimeoutStartSec 900, so its worst case ends ~06:05; 40 minutes
+# of margin means the push never races the writer.
+#
+# Slot rationale, same discipline as the sibling pushers: the two other
+# prod->main committers hold :27 (DLF) and :32 (IDP Show), and
+# scheduled-refresh.yml's CI push holds :42, all every two hours.  06:30
+# is the daily sharp-activity crawl and 06:10/06:17 are BDVM + the
+# Hill-curve refit.  :45 is free of all of them, so no two pushes to
+# main land on the same minute.
+#
+# No RandomizedDelaySec: unlike the nflverse consumers this hits GitHub,
+# not a release CDN with a herd problem, and staying on an exact minute
+# is what keeps the slot separation above meaningful.
+#
+# Persistent=true backfills one missed run after a reboot.  Missing a
+# week costs exactly one retained date and nothing else — the file is
+# rewritten by the next refresh either way.
+OnCalendar=Tue *-*-* 06:45:00 UTC
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-playerctx-history.service
+
+[Install]
+WantedBy=timers.target

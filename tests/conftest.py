@@ -117,7 +117,27 @@ _LIVEDATA_MODULES = frozenset(
         # it simply rejoins the blocking tier.  Verified: 33 passed in
         # 1.37s with no data files present.
         "test_dlf_source.py",
-        "test_dlf_scraper.py",
+        # ``test_dlf_scraper.py`` was listed here and is WHOLLY PURE.
+        # Its own docstring says so — "these tests exercise the
+        # offline-safe pure functions: HTML table parsing, paywall
+        # detection, and CSV write" — and it reads only inline HTML
+        # fixtures and ``tmp_path``.  Its single mention of
+        # ``CSVs/site_raw/`` asserts that a CONFIG STRING starts with
+        # that prefix; it never touches the tree.
+        #
+        # Removed 2026-08-04.  Same shape as the ``test_data_contract.py``
+        # case above and no split needed: 13 tests, 0.28s, no data files
+        # present.  They guard DLF's HTML parse and paywall detection —
+        # the ingestion path for four registry sources — and a real
+        # regression there could not fail a PR while they sat in the
+        # advisory tier.
+        #
+        # STILL OPEN: ``test_dlf_source.py`` (above) carries
+        # ``TestDlfCsvEnrichment``, whose own comment says it builds a
+        # temporary CSV "without touching the real CSVs/site_raw tree".
+        # That one needs the pick-anchor treatment — a split, not a
+        # removal, because the rest of the module genuinely reads live
+        # data.  ``test_livedata_policy.py`` records it as open.
         "test_fantasypros_idp_integration.py",
         "test_ktc_reconciliation.py",
         "test_fetch_flock_fantasy_rookies.py",

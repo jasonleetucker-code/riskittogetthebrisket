@@ -126,7 +126,11 @@ def _league_budget(snapshot: PublicLeagueSnapshot) -> int:
     season = snapshot.current_season
     if season is None:
         return 100
-    return _budget_for_season(season) or 100
+    budget = _budget_for_season(season)
+    # Sleeper's documented default when the league never set one.  Written
+    # out rather than reached with ``or`` so the fallback is a stated
+    # decision the coercion gate can read, not an idiom.
+    return budget if budget is not None else 100
 
 
 def _stats_block(values: list[float]) -> dict[str, Any]:
@@ -253,7 +257,8 @@ def summarize_league_faab(
     waivers_recent_first = sorted(waivers, key=lambda tx: -int(tx.get("createdAt") or 0))
 
     for tx in waivers:
-        raw_bid = int(tx.get("bid") or 0)
+        raw_value = tx.get("bid")
+        raw_bid = int(raw_value) if isinstance(raw_value, (int, float)) else 0
         # ── budget-normalised dollars ─────────────────────────────────
         # Every aggregate below answers "what would this bid cost in
         # today's league", not "how many dollars changed hands in 2024".

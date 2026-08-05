@@ -328,10 +328,17 @@ def fair_value_index(
             "fairValue": None,
             "marketValue": None,
             "unpricedReason": None,
+            # EVERY reason this row is unpriced, not just the first.
+            # ``unpricedReason`` stays as the single headline cause for
+            # existing consumers; ``unpricedReasons`` is what coverage
+            # counts, because a row can lose two dependencies at once and
+            # reporting one of them hides the other entirely.
+            "unpricedReasons": [],
         }
 
         if not anchor_key:
             entry["unpricedReason"] = UNPRICED_NO_ANCHOR
+            entry["unpricedReasons"] = [UNPRICED_NO_ANCHOR]
             out[key] = entry
             continue
 
@@ -404,10 +411,18 @@ def fair_value_index(
 
         if scale_reason:
             entry["unpricedReason"] = scale_reason
+            # Both causes, not just the headline one. Caleb Banks loses
+            # the IDP backbone AND the rookie ladder; counting only the
+            # first made every such row invisible under the second, so
+            # `anchor_free_board_lost_rookie_ladder` undercounted by the
+            # whole set of rows that lost both.
+            entry["unpricedReasons"] = list(scale_reasons)
         elif fair is None:
             entry["unpricedReason"] = UNPRICED_NOT_ON_BOARD
+            entry["unpricedReasons"] = [UNPRICED_NOT_ON_BOARD]
         elif entry["marketValue"] is None:
             entry["unpricedReason"] = UNPRICED_NO_MARKET_VALUE
+            entry["unpricedReasons"] = [UNPRICED_NO_MARKET_VALUE]
 
         out[key] = entry
 
@@ -420,13 +435,28 @@ def coverage(index: dict[str, dict[str, Any]]) -> dict[str, Any]:
     Exists so a caller never has to infer coverage from the absence of
     rows.  ``unpricedByReason`` is the field that turns "no signal" from
     a silence into a statement.
+
+    Counts EVERY reason a row carries, so the totals can exceed the row
+    count — a row that lost two dependencies is counted under both.  It
+    previously counted the singular ``unpricedReason``, which is the
+    first cause only, so rows that lost both the IDP backbone and the
+    rookie ladder never appeared under the rookie one at all.
+    ``unpricedRows`` is reported alongside so the two numbers can never
+    be confused for each other.
     """
     total = len(index)
     priced = sum(1 for e in index.values() if e.get("fairValue") and e.get("marketValue"))
     by_reason: dict[str, int] = {}
+    unpriced_rows = 0
     for entry in index.values():
-        reason = entry.get("unpricedReason")
-        if reason:
+        reasons = entry.get("unpricedReasons")
+        if not reasons:
+            # Older/hand-built entries carry only the singular field.
+            single = entry.get("unpricedReason")
+            reasons = [single] if single else []
+        if reasons:
+            unpriced_rows += 1
+        for reason in reasons:
             by_reason[str(reason)] = by_reason.get(str(reason), 0) + 1
     by_class: dict[str, int] = {}
     for entry in index.values():
@@ -436,6 +466,7 @@ def coverage(index: dict[str, dict[str, Any]]) -> dict[str, Any]:
     return {
         "totalRows": total,
         "pricedRows": priced,
+        "unpricedRows": unpriced_rows,
         "pricedByAssetClass": by_class,
         "unpricedByReason": by_reason,
     }

@@ -213,6 +213,13 @@ def _session_ttl_days_seconds(default_days: float = 30.0) -> int:
 
 JASON_AUTH_COOKIE_MAX_AGE = _session_ttl_days_seconds()
 
+# How often an active session's ``last_seen_at`` is refreshed on disk.
+# The sliding TTL only needs a coarse heartbeat, so we throttle the
+# write to at most once per interval per session — keeping ``/api/data``
+# reads off the SQLite write path while still keeping active users
+# signed in indefinitely.
+SESSION_TOUCH_INTERVAL_SECONDS = 6 * 3600
+
 # Private-app allowlist.  Gates admin-only endpoints to operator
 # usernames.  Env var is comma-separated, lowercase-normalised at
 # load time.
@@ -816,6 +823,28 @@ def _get_auth_session(request: Request) -> dict | None:
                     exc,
                 )
             return None
+    # Sliding TTL heartbeat.  Bump ``last_seen_at`` at most once per
+    # SESSION_TOUCH_INTERVAL_SECONDS so an actively-used session never
+    # expires, without writing to SQLite on every request.  Best-effort:
+    # a failed touch just means the session ages toward its idle TTL.
+    now = time.time()
+    last_touch = session.get("_last_touch_epoch")
+    if not isinstance(last_touch, (int, float)):
+        last_touch = session.get("last_seen_epoch")
+    # A session with no recorded heartbeat is touched immediately;
+    # otherwise the write is throttled to once per interval.  Missing
+    # data drives an explicit branch rather than a fabricated epoch.
+    if (
+        not isinstance(last_touch, (int, float))
+        or now - float(last_touch) >= SESSION_TOUCH_INTERVAL_SECONDS
+    ):
+        session["_last_touch_epoch"] = now
+        try:
+            from src.api import session_store as _ss
+
+            _ss.touch(session_id)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("session_store touch failed: %s", exc)
     return session
 
 
@@ -5140,10 +5169,15 @@ async def post_waiver_suggestions(request: Request):
     )
     sleeper = (latest_contract_data or {}).get("sleeper") or {}
     sleeper_teams = sleeper.get("teams") or []
+    # Import the constant rather than re-typing its value: this endpoint
+    # hardcoded 500 twice, so changing MIN_WAIVER_VALUE would have moved
+    # the engine default while leaving the API's default behind it.
+    from src.trade.waiver import MIN_WAIVER_VALUE as _MIN_WAIVER_VALUE  # noqa: PLC0415
+
     try:
-        min_value = int(body.get("minValue", 500))
+        min_value = int(body.get("minValue", _MIN_WAIVER_VALUE))
     except (TypeError, ValueError):
-        min_value = 500
+        min_value = _MIN_WAIVER_VALUE
     include_kicker = bool(body.get("includeKicker"))
     try:
         faab_remaining = int(body.get("faabRemaining", 100))

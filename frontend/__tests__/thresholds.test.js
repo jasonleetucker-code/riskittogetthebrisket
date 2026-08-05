@@ -5,8 +5,6 @@
 import { describe, expect, it } from "vitest";
 import * as thresholds from "@/lib/thresholds";
 import {
-  CONFIDENCE_SPREAD_HIGH,
-  CONFIDENCE_SPREAD_MEDIUM,
   MARKET_PREMIUM_SPREAD,
   PREMIUM_SUMMARY_SPREAD,
   LENS_DISAGREEMENT_SPREAD,
@@ -21,10 +19,16 @@ import {
 } from "@/lib/thresholds";
 
 describe("threshold constants exist and are sane", () => {
-  it("confidence spread thresholds are ordered correctly", () => {
-    expect(CONFIDENCE_SPREAD_HIGH).toBeLessThan(CONFIDENCE_SPREAD_MEDIUM);
-    expect(CONFIDENCE_SPREAD_HIGH).toBe(30);
-    expect(CONFIDENCE_SPREAD_MEDIUM).toBe(80);
+  it("does not re-export the retired confidence spread mirrors", () => {
+    // CONFIDENCE_SPREAD_HIGH (30) / CONFIDENCE_SPREAD_MEDIUM (80) were
+    // described here as mirroring the backend "exactly". They mirrored
+    // a rule `_confidence_bucket` retired in favour of the percentile
+    // spread, and their one consumer re-applied it on top of the
+    // backend's own verdict — suppressing "Consensus asset" on 54 of
+    // 111 rows. Same posture as OVERALL_RANK_LIMIT below: the constant
+    // is gone so it cannot drift back.
+    expect(thresholds).not.toHaveProperty("CONFIDENCE_SPREAD_HIGH");
+    expect(thresholds).not.toHaveProperty("CONFIDENCE_SPREAD_MEDIUM");
   });
 
   it("market premium requires higher spread than summary", () => {
@@ -70,35 +74,13 @@ describe("threshold constants exist and are sane", () => {
 // ── Cross-file consistency ──────────────────────────────────────────────
 
 describe("threshold consistency with helpers", () => {
-  it("CONFIDENCE_SPREAD_HIGH matches actionLabel consensus threshold", async () => {
-    const { actionLabel } = await import("@/lib/edge-helpers");
-    // A row with high confidence, 2 sources, and spread exactly at CONFIDENCE_SPREAD_HIGH
-    // should get "Consensus asset"
-    const row = {
-      confidenceBucket: "high",
-      sourceCount: 2,
-      sourceRankSpread: CONFIDENCE_SPREAD_HIGH,
-      quarantined: false,
-      marketGapDirection: "none",
-    };
-    const result = actionLabel(row);
-    expect(result).not.toBeNull();
-    expect(result.label).toBe("Consensus asset");
-  });
-
-  it("spread above CONFIDENCE_SPREAD_HIGH loses consensus label", async () => {
-    const { actionLabel } = await import("@/lib/edge-helpers");
-    const row = {
-      confidenceBucket: "high",
-      sourceCount: 2,
-      sourceRankSpread: CONFIDENCE_SPREAD_HIGH + 1,
-      quarantined: false,
-      marketGapDirection: "none",
-    };
-    const result = actionLabel(row);
-    // Should NOT get consensus label (spread too wide)
-    if (result) expect(result.label).not.toBe("Consensus asset");
-  });
+  // The two tests that lived here — "CONFIDENCE_SPREAD_HIGH matches
+  // actionLabel consensus threshold" and "spread above
+  // CONFIDENCE_SPREAD_HIGH loses consensus label" — pinned a frontend
+  // recompute of a retired backend rule, so they were green precisely
+  // while the bug was present. Replaced by
+  // __tests__/consensus-label-reads-backend-bucket.test.js, which
+  // asserts the label follows `row.confidenceBucket` instead.
 
   // Note: "Market premium" is no longer an action label — the
   // Market/Edge column in the main table shows the retail-vs-consensus

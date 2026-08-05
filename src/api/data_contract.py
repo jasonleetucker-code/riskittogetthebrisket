@@ -941,10 +941,16 @@ def _build_source_timestamps() -> dict[str, dict[str, Any]]:
 
 # ── Ranking source registry ──────────────────────────────────────────────
 # Declarative metadata describing each source that feeds the unified
-# ranking.  Keeping this in one list makes it trivial to add a new
-# position-only IDP source (e.g. a scouted "DL top 20"): append an entry
-# with scope="position_idp", position_group="DL", depth=20 and the
-# translation pipeline picks it up automatically.
+# ranking.  Keeping this in one list is meant to make it trivial to add
+# a new position-only IDP source (e.g. a scouted "DL top 20"): append an
+# entry with scope="position_idp", position_group="DL", depth=20 and the
+# translation pipeline picks it up.
+#
+# UNEXERCISED, and worth knowing before relying on it: no source has
+# ever carried scope="position_idp", so that path has never run against
+# real data.  "Picks it up automatically" describes code that exists,
+# not a route anything has travelled — treat the first such registration
+# as a change to be measured, not a config edit.
 #
 # Fields:
 #   key           — the contract-side source key used in canonicalSiteValues
@@ -4916,6 +4922,34 @@ def _apply_market_corridor_clamp(
     if not overall:
         return
 
+    # ── The per-bucket empirical band vs the cap ──────────────────
+    #
+    # This computes a P90 drift band per confidence bucket; the cap
+    # below (``_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS``) then reduces
+    # it.  On the live board the cap wins EVERY time — measured on the
+    # pinned 2026-07-30 contract, all 128 clamped rows carry
+    # ``bandPct: 0.15`` and ``cappedByMaxBand: True``, because the
+    # empirical bands run ~3.3x the cap (high 0.523 n=29, low 0.513
+    # n=174, medium 0.481 n=91, overall 0.510).
+    #
+    # That is NOT the same as the arithmetic being dead, and the
+    # difference is worth stating because the first pass of this audit
+    # got it wrong.  The percentile block is live machinery that the
+    # current board's unusually wide IDP drift happens to dominate — on
+    # a tighter board it binds immediately.  Verified rather than
+    # assumed: a synthetic fixture with narrower disagreement produces
+    # ``bandPct: 0.0217, cappedByMaxBand: False``.
+    #
+    # So the dominance is a property of today's market data, not of
+    # this code, and it is deliberately NOT pinned by a test — such a
+    # test would assert a fact about IDP drift and go red the first
+    # time the sources agree more closely, which is noise rather than
+    # signal.
+    #
+    # Whether 0.15 is the right cap is a live calibration question
+    # (it decides every clamp today) and belongs in
+    # ``docs/open-modeling-decisions.md``, not in a silent re-tune here:
+    # moving it moves real IDP values.
     overall_sorted = sorted(overall)
     overall_p90 = _percentile(overall_sorted, _MARKET_CORRIDOR_PERCENTILE)
     bucket_bands: dict[str, float] = {}
@@ -6820,12 +6854,23 @@ def _compute_unified_rankings(
       * overall_offense — ranks across QB/RB/WR/TE + picks
       * overall_idp     — ranks across DL/LB/DB together
       * position_idp    — ranks within a single IDP family (DL, LB, or DB)
+                          — **scaffolding; no registered source uses it**
 
-    For ``position_idp`` sources, the raw positional rank is translated
-    through an IDP backbone (built from the best available overall_idp
-    source) into a synthetic overall-IDP rank.  That synthetic rank is
-    what actually feeds the shared Hill curve, so shallow top-20 lists
-    cannot pretend to be top-20 overall.
+    ``position_idp`` is machinery that has never run.  No entry in
+    ``_RANKING_SOURCES`` declares the scope, and a census of every
+    ``sourceRankMeta`` stamp across the live board returns
+    ``overall_offense: 5772, overall_idp: 965`` and **zero**
+    ``position_idp``.  The per-position ladders below are still built and
+    never read.  It is described here in the present tense because it
+    would work if a source were registered — but "would work" and "does"
+    are different claims, and this docstring made the second one.
+
+    Were such a source registered, the raw positional rank would be
+    translated through an IDP backbone (built from the best available
+    overall_idp source) into a synthetic overall-IDP rank, so shallow
+    top-20 lists could not pretend to be top-20 overall.  Note the
+    branch is backbone-dependent, which is the same dependency
+    ``consensus_edge.fair_value`` refuses on — see ADR-025.
 
     Per-source blending uses a coverage-aware weighted mean: shallow
     sources with small declared depth contribute less than deep full-board

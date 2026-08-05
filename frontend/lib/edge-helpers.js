@@ -15,7 +15,6 @@
 
 import {
   MARKET_PREMIUM_SPREAD,
-  CONFIDENCE_SPREAD_HIGH,
   PREMIUM_SUMMARY_SPREAD,
   LENS_DISAGREEMENT_SPREAD,
   LENS_INEFFICIENCY_SPREAD,
@@ -61,8 +60,9 @@ export function isTopRankedForEdgePremium(row) {
  * Returns { label, css, title } or null.
  *
  * Priority:
- *   1. Market premium (source gap >= 30 ranks in a meaningful direction)
- *   2. Consensus asset (multi-source, high confidence, spread <= 30)
+ *   1. Market premium — REMOVED, see the note in the body
+ *   2. Consensus asset (multi-source, backend high-confidence bucket,
+ *      no backend disagreement stamp)
  *   3. null (no primary label — row is ordinary)
  */
 export function actionLabel(row) {
@@ -78,14 +78,33 @@ export function actionLabel(row) {
   // retail-vs-expert gap, look at the Edge column.
 
   // Consensus asset: tight multi-source agreement.
-  // Requires BOTH the ordinal-spread check AND the absence of the
-  // percentile-spread disagreement flag, so we never render
-  // "Consensus asset" and "Caution: wide disagreement" together.
-  const spread = row.sourceRankSpread;
+  //
+  // `confidenceBucket` is the BACKEND's answer to exactly this
+  // question, and it is the only agreement test applied here. There
+  // used to be a second one — `sourceRankSpread <= 30`, a frontend copy
+  // of `_CONFIDENCE_SPREAD_HIGH` — layered on top of it. That constant
+  // mirrors a rule the backend RETIRED: `_confidence_bucket` decides
+  // off the PERCENTILE spread on the normal `_compute_unified_rankings`
+  // path, and falls back to the absolute ordinal only for callers that
+  // have nothing else. The percentile signal exists so an IDP player
+  // ranked by 4 sources is judged on the same agreement scale as an
+  // offense player ranked by 14; re-imposing an absolute ordinal cap
+  // undoes precisely that.
+  //
+  // Measured on the pinned 2026-07-30 contract: of the 111 rows the
+  // backend calls high-confidence, multi-source and undisputed, the
+  // extra check suppressed "Consensus asset" on **54** — nearly half —
+  // with ordinal spreads running to 486 on rows the backend is
+  // confident about. Recomputing a backend verdict on the client is
+  // also the thing this codebase's "no frontend ranking engine, period"
+  // rule exists to prevent.
+  //
+  // `hasSourceDisagreement` stays: it is a backend stamp too, off the
+  // percentile signal, and it is what keeps "Consensus asset" and
+  // "Caution: wide disagreement" from rendering together.
   if (
     row.confidenceBucket === "high" &&
     (row.sourceCount || 0) >= 2 &&
-    (spread == null || spread <= CONFIDENCE_SPREAD_HIGH) &&
     !row.hasSourceDisagreement
   ) {
     return {
