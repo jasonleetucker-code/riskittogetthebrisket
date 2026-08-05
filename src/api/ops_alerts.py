@@ -42,23 +42,58 @@ class OpsAlert:
     detail: str
 
 
+# Below this many runs in the window, a low rate is noise: one failed
+# scrape out of one is 0% and says nothing.  Data-freshness owns the
+# "nothing has run at all" case.
+_MIN_SCRAPE_SAMPLE = 3
+
+
 def _check_scrape_rate(status_payload: dict[str, Any]) -> OpsAlert | None:
-    rate = status_payload.get("scrape_success_rate_24h")
-    if rate is None:
+    """Alert when under half of the last 24h of scrapes succeeded.
+
+    Accepts BOTH shapes the platform produces, because this check was
+    dead in production for reading only one of them (W23-F001):
+
+    * the dict returned by ``server._scrape_success_rate_24h()``
+      (``{total, success, failure, blocked, rate}``) — what
+      ``/api/status`` publishes.  ``float(dict)`` raised TypeError,
+      which the old ``except`` swallowed into ``None``.
+    * a bare float — the only shape the old code understood, and one
+      no production caller ever produced.
+
+    A ``rate`` of ``None`` (no runs in the window) is NOT an alert here;
+    absence of runs is a freshness condition and ``_check_data_freshness``
+    owns it.
+    """
+    raw = status_payload.get("scrape_success_rate_24h")
+    if raw is None:
         return None
+    total: int | None = None
+    if isinstance(raw, dict):
+        rate = raw.get("rate")
+        if rate is None:
+            return None
+        try:
+            total = int(raw.get("total") or 0)
+        except (TypeError, ValueError):
+            total = None
+        raw = rate
     try:
-        r = float(rate)
+        r = float(raw)
     except (TypeError, ValueError):
+        return None
+    if total is not None and total < _MIN_SCRAPE_SAMPLE:
         return None
     if r >= 0.5:
         return None
+    sample = f" ({total} runs)" if total is not None else ""
     return OpsAlert(
         severity="critical" if r < 0.25 else "warning",
         category="scrape_failure",
-        title=f"Scrape success rate 24h = {r:.0%}",
+        title=f"Scrape success rate 24h = {r:.0%}{sample}",
         detail=(
             "Fewer than half of the scheduled scrapes in the last 24 hours "
-            "succeeded.  Rankings may be stale.  Check "
+            "succeeded or published.  Rankings may be stale.  Check "
             "/api/status.last_n_scrapes for the failure pattern."
         ),
     )

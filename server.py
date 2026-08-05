@@ -681,6 +681,10 @@ _metrics: dict = {
     "request_count": 0,
     "scrape_total": 0,
     "scrape_failures": 0,
+    # Scrapes that RAN but were refused promotion by the partial-scrape
+    # guard.  Counted apart from failures: nothing raised, and apart
+    # from successes: nothing published.
+    "scrape_blocked": 0,
     "scrape_duration_seconds_last": 0.0,
     "data_age_seconds": 0.0,
 }
@@ -1130,6 +1134,107 @@ def _mark_scrape_success(
     _metrics["scrape_duration_seconds_last"] = round(elapsed, 1)
 
 
+def _partial_scrape_block_reason(result: dict | None) -> str | None:
+    """Why this scrape must NOT be promoted, or ``None`` to publish.
+
+    Two conditions, either one blocking:
+
+    * **any enabled site returned zero rows.**  The ratio rule below
+      degenerates to "block only on total loss" whenever ``sites``
+      carries two entries — which is what the live snapshot carries, so
+      the predicate was ``site_count < 1.0``.  Losing ONE of the two
+      anchor markets promoted silently, and both are load-bearing: KTC
+      is the TE++ basis anchor and one of the two pick markets,
+      IDPTradeCalc is the IDP backbone (W23-F003).
+    * **fewer than half the sites returned data** — the original rule,
+      kept for the case where the scraper is configured with enough
+      sites for a ratio to mean something.
+    """
+    sites = (result or {}).get("sites")
+    if not isinstance(sites, list) or not sites:
+        return None
+    counts: list[tuple[str, int]] = []
+    for entry in sites:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            counts.append((str(entry.get("key") or "?"), int(entry.get("playerCount") or 0)))
+        except (TypeError, ValueError):
+            counts.append((str(entry.get("key") or "?"), 0))
+    if not counts:
+        return None
+    dead = sorted(key for key, n in counts if n <= 0)
+    if dead:
+        return f"{', '.join(dead)} returned zero rows"
+    with_data = sum(1 for _, n in counts if n > 0)
+    if with_data < len(counts) / 2:
+        return f"only {with_data}/{len(counts)} sites returned data"
+    return None
+
+
+def _mark_scrape_blocked(
+    elapsed: float,
+    player_count: int,
+    site_count: int,
+    total_sites: int,
+    reason: str,
+) -> None:
+    """Record a scrape that RAN but was refused promotion.
+
+    A third outcome, deliberately not folded into either of the other
+    two.  The blocked branch used to call :func:`_mark_scrape_success`,
+    which stamped ``last_success_at``, cleared ``error``, set
+    ``current_step='complete'`` and emitted ``scrape_succeeded`` — so
+    the one outcome the promotion guard exists to prevent was filed as
+    a clean success, and ``_scrape_success_rate_24h()`` returned 1.0
+    through it (W23-F002).
+
+    ``last_scrape`` IS stamped (the run happened) and
+    ``last_success_at`` is NOT (nothing was published).  The error text
+    is set so ``/api/health`` degrades until a scrape actually
+    publishes; a later success clears it.
+    """
+    now_iso = _utc_now_iso()
+    error_text = f"partial scrape blocked: {reason}"
+    scrape_status.update(
+        {
+            "running": False,
+            "hung": False,
+            "stalled": False,
+            "finished_at": now_iso,
+            "last_scrape": now_iso,
+            "last_blocked_at": now_iso,
+            "last_duration_sec": round(elapsed, 1),
+            "error": error_text,
+            "current_step": "blocked",
+            "current_source": None,
+            "scrape_count": int(scrape_status.get("scrape_count", 0)) + 1,
+        }
+    )
+    _touch_scrape_heartbeat()
+    _sync_scrape_alias_fields()
+    _record_scrape_event(
+        "partial_scrape_blocked",
+        level="warning",
+        message=f"{reason} — data not promoted ({player_count} players, {elapsed:.1f}s)",
+        player_count=player_count,
+        site_count=site_count,
+        total_sites=total_sites,
+        duration_sec=round(elapsed, 1),
+    )
+    _record_scrape_history(
+        "blocked",
+        elapsed,
+        player_count=player_count,
+        site_count=site_count,
+        total_sites=total_sites,
+        reason=reason,
+    )
+    _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
+    _metrics["scrape_blocked"] = _metrics.get("scrape_blocked", 0) + 1
+    _metrics["scrape_duration_seconds_last"] = round(elapsed, 1)
+
+
 def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
     now_iso = _utc_now_iso()
     error_text = f"{type(exc).__name__}: {str(exc)[:400]}"
@@ -1192,12 +1297,17 @@ def _scrape_success_rate_24h() -> dict:
             continue
     total = len(recent)
     if total == 0:
-        return {"total": 0, "success": 0, "failure": 0, "rate": None}
+        return {"total": 0, "success": 0, "failure": 0, "blocked": 0, "rate": None}
     successes = sum(1 for e in recent if e.get("outcome") == "success")
+    # ``blocked`` runs are broken out of ``failure`` for the reader.
+    # They still count against the rate — a run that published nothing
+    # is not a success, which is the whole point of W23-F002.
+    blocked = sum(1 for e in recent if e.get("outcome") == "blocked")
     return {
         "total": total,
         "success": successes,
         "failure": total - successes,
+        "blocked": blocked,
         "rate": round(successes / total, 2),
     }
 
@@ -1383,14 +1493,100 @@ def _scrape_status_payload() -> dict:
     return payload
 
 
-def _set_latest_data_source(source_type: str, path: str | None = None) -> None:
+def _payload_produced_at(payload: dict | None) -> tuple[str | None, str]:
+    """When the DATA was produced, and which stamp said so.
+
+    ``loadedAt`` answers "when did this process read the file", which is
+    a different question and, on a disk-cache load at boot, is server
+    start time.  Preference order:
+
+    1. ``settings.sourceRunSummary.finishedAt`` — timezone-aware, written
+       when the scrape run finished.
+    2. ``scrapeTimestamp`` — the scraper writes a NAIVE local timestamp;
+       read as UTC, which is what the production host runs on.  Second
+       choice for exactly that reason.
+
+    Returns ``(iso_or_None, basis)`` where basis is one of
+    ``scrape_finished`` / ``scrape_timestamp`` / ``unknown``.  Never
+    guesses: a payload with neither stamp yields ``(None, "unknown")``
+    and the caller falls back to ``loadedAt`` and SAYS SO.
+    """
+    if not isinstance(payload, dict):
+        return None, "unknown"
+    settings = payload.get("settings")
+    run_summary = settings.get("sourceRunSummary") if isinstance(settings, dict) else None
+    if isinstance(run_summary, dict):
+        finished = str(run_summary.get("finishedAt") or "").strip()
+        if finished:
+            try:
+                dt = datetime.fromisoformat(finished.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt.astimezone(timezone.utc).isoformat(), "scrape_finished"
+            except (ValueError, TypeError):
+                pass
+    stamp = str(payload.get("scrapeTimestamp") or "").strip()
+    if stamp:
+        try:
+            dt = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc).isoformat(), "scrape_timestamp"
+        except (ValueError, TypeError):
+            pass
+    return None, "unknown"
+
+
+def _set_latest_data_source(
+    source_type: str, path: str | None = None, payload: dict | None = None
+) -> None:
+    produced_at, basis = _payload_produced_at(payload)
     latest_data_source.update(
         {
             "type": str(source_type or ""),
             "path": str(path or ""),
             "loadedAt": _utc_now_iso(),
+            # When the data was PRODUCED (vs. read).  See
+            # ``_payload_produced_at`` and ``_data_age()``.
+            "producedAt": produced_at,
+            "producedAtBasis": basis,
         }
     )
+
+
+def _data_age() -> tuple[float | None, str]:
+    """Age of the served data in seconds, plus the basis it was measured
+    from (``scrape_finished`` / ``scrape_timestamp`` / ``file_loaded`` /
+    ``unknown``).
+
+    ``/api/metrics.data_age_seconds`` and ``/api/health.data_age_hours``
+    used to be computed from ``latest_data_source['loadedAt']`` alone —
+    the wall-clock moment this process read the file.  On a disk-cache
+    load at boot that is server start time, so data age and uptime were
+    byte-identical (measured: uptime_seconds 7401, data_age_seconds
+    7401) while the snapshot's own ``sourceRunSummary.finishedAt`` made
+    the true age 14,117 s.  The staleness alarm was therefore silenced
+    by the very action an operator takes during a scrape outage — a
+    restart (W23-F006).
+
+    ``file_loaded`` is still the fallback for a payload carrying no
+    production stamp, but it is now NAMED, so "this is when we loaded
+    it" and "this is when it was scraped" cannot read the same.
+    """
+    now = datetime.now(timezone.utc)
+    for key, basis in (("producedAt", None), ("loadedAt", "file_loaded")):
+        raw = latest_data_source.get(key)
+        if not raw:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(raw))
+        except (ValueError, TypeError):
+            continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        resolved = basis or str(latest_data_source.get("producedAtBasis") or "unknown")
+        return max(0.0, (now - dt).total_seconds()), resolved
+    return None, "unknown"
 
 
 # Identity-keyed cache for live rankDerivedValue lookups used by the
@@ -2350,7 +2546,7 @@ def load_from_disk() -> dict | None:
             latest_path = json_files[0]
             with open(latest_path) as f:
                 data = json.load(f)
-            _set_latest_data_source("disk_cache", str(latest_path))
+            _set_latest_data_source("disk_cache", str(latest_path), payload=data)
             log.info(
                 f"Loaded cached data from {latest_path.name} "
                 f"({len(data.get('players', {}))} players)"
@@ -2637,31 +2833,51 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             total_sites = len(result.get("sites", []))
 
             # R-3: Block partial scrape promotion — don't overwrite good data
-            # with degraded data when fewer than half the sites returned results.
-            if total_sites > 0 and site_count < total_sites / 2:
+            # with degraded data.
+            #
+            # ``site_count < total_sites / 2`` alone degenerates to "block
+            # only on total loss" whenever ``sites`` carries two entries,
+            # which is what the live snapshot carries: the predicate
+            # becomes ``site_count < 1.0``.  Losing one of the two anchor
+            # markets promoted silently — and both are load-bearing.  KTC
+            # is the TE++ basis anchor and one of the two pick markets;
+            # IDPTradeCalc is the IDP backbone.  A source that returned
+            # NOTHING is therefore blocking on its own, whatever the
+            # ratio says (W23-F003).
+            reason = _partial_scrape_block_reason(result)
+            if reason:
+                dead_sites = sorted(
+                    str(s.get("key") or "?")
+                    for s in result.get("sites", [])
+                    if isinstance(s, dict) and int(s.get("playerCount") or 0) == 0
+                )
                 log.warning(
-                    f"PARTIAL SCRAPE NOT PROMOTED — {site_count}/{total_sites} sites, "
+                    f"PARTIAL SCRAPE NOT PROMOTED — {reason}; {site_count}/{total_sites} sites, "
                     f"{player_count} players, {elapsed:.1f}s. Keeping last-known-good data."
                 )
                 send_alert(
-                    f"PARTIAL SCRAPE NOT PROMOTED: only {site_count}/{total_sites} sites",
+                    f"PARTIAL SCRAPE NOT PROMOTED: {reason}",
                     (
                         f"Players: {player_count}\n"
                         f"Sites with data: {site_count}/{total_sites}\n"
+                        f"Sites with zero rows: {', '.join(dead_sites) or 'none'}\n"
                         f"Duration: {elapsed:.1f}s\n\n"
                         "Partial scrape data was NOT promoted to production.\n"
                         "The server continues serving last-known-good data.\n"
                         "Some sites may be down or blocking the scraper."
                     ),
                 )
-                _mark_scrape_success(elapsed, player_count, site_count, total_sites)
-                _record_scrape_event(
-                    "partial_scrape_blocked",
-                    level="warning",
-                    message=f"Only {site_count}/{total_sites} sites — data not promoted",
-                    site_count=site_count,
-                    total_sites=total_sites,
-                )
+                # NOT ``_mark_scrape_success``.  This run published
+                # nothing; recording it as a success set last_success_at
+                # and last_scrape to now, cleared the error, stamped
+                # current_step 'complete' and emitted ``scrape_succeeded``
+                # — so every aggregate built on scrape_history or
+                # last_success_at (the 24h success rate, /api/health's
+                # last_scrape, /api/metrics' scrape_total) counted the one
+                # outcome the guard exists to prevent as a clean success
+                # (W23-F002).  "Scrape ran" and "scrape published" are
+                # now separate facts.
+                _mark_scrape_blocked(elapsed, player_count, site_count, total_sites, reason)
                 return latest_data  # Return existing data, not the partial result
 
             # R-10: Disk space guard — skip disk write if space is critically low.
@@ -2688,7 +2904,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 candidate = DATA_DIR / f"dynasty_data_{result_date}.json"
                 if candidate.exists():
                     source_path = str(candidate)
-            _set_latest_data_source("scrape_run", source_path)
+            _set_latest_data_source("scrape_run", source_path, payload=result)
             # Fresh scrape promotion — rank-history log gets a new
             # "today" entry.  Startup priming from cached disk data
             # (``_prime_latest_payload`` called in the lifespan hook)
@@ -4782,19 +4998,13 @@ async def get_health():
     """Basic health endpoint for reverse proxy / uptime probes."""
     status_payload = _scrape_status_payload()
 
-    # R-1: Data freshness check — flag stale if no refresh in SCRAPE_INTERVAL_HOURS * 3
+    # R-1: Data freshness check — flag stale if the DATA (not this
+    # process's read of it) is older than SCRAPE_INTERVAL_HOURS * 3.
     data_stale = False
-    data_age_hours = None
-    loaded_at = latest_data_source.get("loadedAt")
-    if loaded_at:
-        try:
-            loaded_dt = datetime.fromisoformat(loaded_at)
-            data_age_hours = round(
-                (datetime.now(timezone.utc) - loaded_dt).total_seconds() / 3600, 1
-            )
-            data_stale = data_age_hours > SCRAPE_INTERVAL_HOURS * 3
-        except (ValueError, TypeError):
-            pass
+    data_age_seconds, data_age_basis = _data_age()
+    data_age_hours = None if data_age_seconds is None else round(data_age_seconds / 3600, 1)
+    if data_age_hours is not None:
+        data_stale = data_age_hours > SCRAPE_INTERVAL_HOURS * 3
 
     # Session-cookie age surface.  Distinguishes AUTO-refreshing
     # sessions (scraper re-logs-in via stored credentials when the
@@ -4905,6 +5115,10 @@ async def get_health():
             "has_data": latest_contract_data is not None,
             "data_stale": data_stale,
             "data_age_hours": data_age_hours,
+            # Which timestamp the age was measured from — "this is when
+            # the scrape finished" and "this is when we loaded the file"
+            # must not read the same number with no way to tell.
+            "data_age_basis": data_age_basis,
             "last_scrape": status_payload.get("last_scrape"),
             "scrape_running": status_payload.get("is_running"),
             "scrape_stalled": status_payload.get("stalled"),
@@ -4944,15 +5158,11 @@ async def get_uptime_status():
 async def get_metrics():
     """R-9: Lightweight metrics endpoint for dashboards and monitoring."""
     now = datetime.now(timezone.utc)
-    # Calculate data age
-    data_age_seconds = None
-    loaded_at = latest_data_source.get("loadedAt")
-    if loaded_at:
-        try:
-            loaded_dt = datetime.fromisoformat(loaded_at)
-            data_age_seconds = round((now - loaded_dt).total_seconds(), 0)
-        except (ValueError, TypeError):
-            pass
+    # Age of the DATA, from the timestamp the scrape stamped on it —
+    # not from when this process read the file, which made this field
+    # numerically identical to uptime (W23-F006).
+    data_age_seconds_raw, data_age_basis = _data_age()
+    data_age_seconds = None if data_age_seconds_raw is None else round(data_age_seconds_raw, 0)
 
     # Calculate uptime
     uptime_seconds = None
@@ -4972,8 +5182,10 @@ async def get_metrics():
             "request_count": _metrics.get("request_count", 0),
             "scrape_total": _metrics.get("scrape_total", 0),
             "scrape_failures": _metrics.get("scrape_failures", 0),
+            "scrape_blocked": _metrics.get("scrape_blocked", 0),
             "scrape_duration_seconds_last": _metrics.get("scrape_duration_seconds_last", 0),
             "data_age_seconds": data_age_seconds,
+            "data_age_basis": data_age_basis,
             "data_stale": (data_age_seconds or 0) > SCRAPE_INTERVAL_HOURS * 3 * 3600,
             "has_data": latest_contract_data is not None,
             "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
@@ -12073,15 +12285,20 @@ async def run_signal_alerts(request: Request):
         from src.api import ops_alerts as _ops
         from src.utils import circuit_breaker as _cb
 
-        status_payload = _scrape_status_payload()
-        data_age_hours = None
-        loaded_at = latest_data_source.get("loadedAt")
-        if loaded_at:
-            try:
-                loaded_dt = datetime.fromisoformat(loaded_at)
-                data_age_hours = (datetime.now(timezone.utc) - loaded_dt).total_seconds() / 3600.0
-            except (ValueError, TypeError):
-                pass
+        # ``_scrape_status_payload()`` is the scrape LIFECYCLE state and
+        # has never carried ``scrape_success_rate_24h``; the rate lives
+        # on ``/api/status``, built by a different function.  So
+        # ``_check_scrape_rate`` read a key its input could not contain
+        # and returned None on every sweep since it was written
+        # (W23-F001).  Merge the rate in here, at the one call site that
+        # feeds the check.
+        status_payload = {
+            **_scrape_status_payload(),
+            "scrape_success_rate_24h": _scrape_success_rate_24h(),
+        }
+        # Age of the DATA, not of this process's read of it (W23-F006).
+        age_seconds, _age_basis = _data_age()
+        data_age_hours = None if age_seconds is None else age_seconds / 3600.0
         ops_summary = _ops.check_and_alert(
             status_payload=status_payload,
             circuit_snapshots=_cb.snapshot_all(),
