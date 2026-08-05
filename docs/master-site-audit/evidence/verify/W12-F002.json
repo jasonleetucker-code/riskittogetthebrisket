@@ -1,0 +1,88 @@
+{
+ "id": "W12-F002",
+ "workstream": "W12",
+ "promptSections": [
+  16,
+  40
+ ],
+ "title": "The /rankings Edge column labels 32 of 35 top-250 tight ends SELL and every single SELL in the top 250 is a tight end \u2014 the 'retail vs expert' gap is measuring TE-premium basis, not mispricing",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "M",
+ "subsystem": "Directional labels / market-gap family",
+ "surface": {
+  "routes": [
+   "/api/data"
+  ],
+  "pages": [
+   "/rankings",
+   "/edge"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "3006-3055"
+  },
+  {
+   "path": "frontend/lib/display-helpers.js",
+   "lines": "104-237"
+  },
+  {
+   "path": "src/api/data_contract.py",
+   "lines": "1020-1035"
+  }
+ ],
+ "claimUnderTest": "_compute_market_gap's docstring: 'A retail premium means retail ranks the player higher ... i.e. the retail market is pricing the player above where the experts have them.' The /edge page prints 'KTC values these much higher than the expert consensus'. Both frame the gap as a per-player opinion difference.",
+ "observed": "ktcSfTep is the ONLY source flagged is_retail, and it is a SF-TE++ board. Of the 13 sources on the 'expert consensus' side, the median rank they assign a TE is 9 to 38 places WORSE than KTC's (idpTradeCalc: 115 worse), while for WR/RB/QB the same sources sit 6 to 47 places BETTER than KTC. The gap is therefore a positional level offset between boards. Result on the live board: 65 of 73 TEs with a verb are SELL and only 4 are BUY; inside the top 250 the split is 32 SELL / 3 HOLD / 0 BUY, and all 32 top-250 SELL labels in the entire board are tight ends. The /edge 'Sell signals' panel is 9 of 10 TEs. CLAUDE.md documents (ADR-015) that base-vs-TE++ is a measured 1.209-2.05 multiplier and applies a conversion to VALUES; no equivalent correction is applied to the RANKS this label is computed from, and no caveat appears anywhere on /rankings or /edge.",
+ "reproduction": {
+  "command": "node /tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/w12_te.mjs   # runs the real frontend buildRows + marketAction against curl -b cookies http://127.0.0.1:8000/api/data",
+  "expected": "SELL labels distributed across positions roughly in proportion to each position's share of the board (TEs are 73 of 911 analysed rows, ~8%)",
+  "actual": "TE verb distribution {SELL:65, BUY:4, HOLD:4, dash:12}; top-250 SELL labels: 32 of 32 are TE",
+  "artifact": "docs/master-site-audit/evidence/W12/label-matrix.csv + page-probe.json (rendered DOM: 29 SELL in the first 200 rows)"
+ },
+ "numericProof": {
+  "inputs": {
+   "median_rank_delta_vs_KTC_TE": {
+    "yahooBoone": 9,
+    "dynastyNerdsSfTep": 14,
+    "pfkDynasty": 15,
+    "fantasyProsFitzmaurice": 17,
+    "dlfSf": 33,
+    "flockFantasySf": 38,
+    "idpTradeCalc": 115
+   },
+   "median_rank_delta_vs_KTC_WR": {
+    "fantasyNavigatorSf": -30,
+    "dlfSf": -22,
+    "dynastyNerdsSfTep": -19,
+    "fantasyCalc": -13,
+    "idpTradeCalc": 78
+   },
+   "TEs_in_top250": 35,
+   "TEs_labelled_SELL_in_top250": 32,
+   "all_SELL_in_top250": 32
+  },
+  "formula": "P(SELL | TE, rank<=250) vs P(SELL | not TE, rank<=250)",
+  "expected": 0.137,
+  "actual": 0.914,
+  "tolerance": 0.05
+ },
+ "userImpact": "A user reading /rankings is told to sell essentially every tight end he owns \u2014 Travis Kelce, Mark Andrews, T.J. Hockenson, George Kittle, Kyle Pitts, Dallas Goedert all carry SELL \u2014 and to sell them into a league whose scoring is TE-premium, which is exactly the format where TEs are worth the most. The label is a position, wearing a player's name.",
+ "blastRadius": {
+  "playersAffected": 65,
+  "routesAffected": 1,
+  "pagesAffected": 2
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A05-F00",
+  "relation": "confirmed",
+  "note": "Prior said '36 of 36 eligible tight ends are labelled SELL, and zero are labelled BUY' on /edge. Reproduced on today's contract with a slightly different population (32/35 in top-250; 65/73 board-wide with 4 BUY) and extended: the same defect drives the /rankings Edge column, which the prior finding did not cover, and I have the per-source median rank deltas that show it is a basis+pool artifact rather than an opinion."
+ },
+ "whatWorks": "_compute_market_gap correctly EXCLUDES the retail source from the consensus mean, so there is no trivial self-comparison; and marketGapDirection/Magnitude are stamped honestly as 'none'/null when either side is empty.",
+ "rootCause": "The retail side is a single TE-premium board and the consensus side is mostly non-TE-premium boards drawn from pools of different depth (measured: ktcSfTep 473 rows, idpTradeCalc 901, dlfSf 278, fantasyProsFitzmaurice 298). Raw ordinal ranks from those boards are not commensurable, and no within-position or within-pool normalisation is applied \u2014 even though sourceRankMeta[*].percentile is already computed on every row for exactly this purpose.",
+ "requiredRepair": "Compute the gap as a per-position residual: subtract each source's median rank offset for that position (or compare in percentile space using the already-stamped sourceRankMeta[*].percentile) before differencing retail against consensus. Until then, suppress the verb for TEs or label it 'format basis, not opinion'.",
+ "dependencies": "Shares a root cause with W12-F008 (idpTradeCalc / fantasyNavigatorSf on the expert side)."
+}

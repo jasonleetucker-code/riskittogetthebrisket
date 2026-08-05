@@ -1,0 +1,24 @@
+{
+  "path": "/home/user/riskittogetthebrisket/data/intel/ledger.sqlite3",
+  "tables": {
+    "asset_aliases": 0,
+    "asset_movements": 0,
+    "canonical_assets": 0,
+    "ingestion_runs": 0,
+    "league_memberships": 0,
+    "leagues": 0,
+    "manager_identity_links": 0,
+    "manager_seasons": 0,
+    "meta": 3,
+    "platform_leagues": 0,
+    "platform_managers": 0,
+    "platform_memberships": 0,
+    "sharp_roster_asset_spans": 0,
+    "sharp_roster_assets": 0,
+    "sharp_roster_observations": 0,
+    "sharp_rosters": 0,
+    "sleeper_users": 0,
+    "transactions": 0,
+    "unmapped_assets": 0
+  }
+}

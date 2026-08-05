@@ -1,0 +1,134 @@
+{
+  "today": "2026-08-04 container",
+  "versions": [
+    {
+      "version": 1,
+      "status": "retired",
+      "recordedCriterion": 819.7335,
+      "recomputedCriterionToday": 791.6826,
+      "delta": -28.0509,
+      "recordedPerSource": {
+        "FantasyCalc": 803.4113,
+        "FantasyNavigator": 1185.153,
+        "OTCFFB": 1033.9634,
+        "PFKDynasty": 256.4063
+      },
+      "recomputedPerSource": {
+        "FantasyCalc": 818.971,
+        "FantasyNavigator": 1185.153,
+        "OTCFFB": 908.2621,
+        "PFKDynasty": 254.3444
+      },
+      "recordedRows": {
+        "FantasyCalc": 399,
+        "FantasyNavigator": 400,
+        "OTCFFB": 400,
+        "PFKDynasty": 400
+      },
+      "recomputedRows": {
+        "FantasyCalc": 399,
+        "FantasyNavigator": 400,
+        "OTCFFB": 347,
+        "PFKDynasty": 400
+      }
+    },
+    {
+      "version": 2,
+      "status": "champion",
+      "recordedCriterion": 787.8416,
+      "recomputedCriterionToday": 753.0495,
+      "delta": -34.7921,
+      "recordedPerSource": {
+        "FantasyCalc": 767.4625,
+        "FantasyNavigator": 1148.5308,
+        "OTCFFB": 991.6813,
+        "PFKDynasty": 243.692
+      },
+      "recomputedPerSource": {
+        "FantasyCalc": 768.5449,
+        "FantasyNavigator": 1148.5308,
+        "OTCFFB": 853.5235,
+        "PFKDynasty": 241.5989
+      },
+      "recordedRows": {
+        "FantasyCalc": 399,
+        "FantasyNavigator": 400,
+        "OTCFFB": 400,
+        "PFKDynasty": 400
+      },
+      "recomputedRows": {
+        "FantasyCalc": 399,
+        "FantasyNavigator": 400,
+        "OTCFFB": 347,
+        "PFKDynasty": 400
+      }
+    },
+    {
+      "version": 3,
+      "status": "rejected",
+      "recordedCriterion": 775.0471,
+      "recomputedCriterionToday": 730.8023,
+      "delta": -44.2448,
+      "recordedPerSource": {
+        "FantasyCalc": 739.8969,
+        "FantasyNavigator": 1119.4294,
+        "OTCFFB": 1000.0131,
+        "PFKDynasty": 240.849
+      },
+      "recomputedPerSource": {
+        "FantasyCalc": 739.8642,
+        "FantasyNavigator": 1119.4294,
+        "OTCFFB": 823.91,
+        "PFKDynasty": 240.0057
+      },
+      "recordedRows": {
+        "FantasyCalc": 399,
+        "FantasyNavigator": 400,
+        "OTCFFB": 400,
+        "PFKDynasty": 400
+      },
+      "recomputedRows": {
+        "FantasyCalc": 399,
+        "FantasyNavigator": 400,
+        "OTCFFB": 347,
+        "PFKDynasty": 400
+      }
+    }
+  ],
+  "trainingInputFingerprints": {
+    "recordedPerVersion": {
+      "1": {
+        "DraftSharks": "sha256:c37dc3fb4b127a2d",
+        "DynastyDaddy": "sha256:5b9d328ae8f51887",
+        "DynastyNerds": "sha256:f155042eb4257334",
+        "Fitzmaurice": "sha256:caf3ef4823ffcaf8",
+        "KTC": "sha256:4c4cabe5385d0822",
+        "YahooBoone": "sha256:8687353a0fcbb9ee"
+      },
+      "2": {
+        "DraftSharks": "sha256:d474c81d2f6ce808",
+        "DynastyDaddy": "sha256:4d2cd2d87560557f",
+        "DynastyNerds": "sha256:d8d10d6fddfbabd7",
+        "Fitzmaurice": "sha256:caf3ef4823ffcaf8",
+        "KTC": "sha256:e4ffc49a86dd22c1",
+        "YahooBoone": "sha256:8687353a0fcbb9ee"
+      },
+      "3": {
+        "DraftSharks": "sha256:cf033e2c094ee850",
+        "DynastyDaddy": "sha256:362d68d2ef8d8a5f",
+        "DynastyNerds": "sha256:6ff8a520015963e2",
+        "Fitzmaurice": "sha256:a834e5f371c49970",
+        "KTC": "sha256:0875abfec36739e0",
+        "YahooBoone": "sha256:8687353a0fcbb9ee"
+      }
+    },
+    "recomputedFromCurrentCSVs": {
+      "DraftSharks": "sha256:a140ab1cd2ac9348",
+      "DynastyDaddy": "sha256:81161afd08a7fca1",
+      "DynastyNerds": "sha256:6ff8a520015963e2",
+      "Fitzmaurice": "sha256:a834e5f371c49970",
+      "KTC": "sha256:fc3587eb4b337c71",
+      "YahooBoone": "sha256:8687353a0fcbb9ee"
+    }
+  }
+}

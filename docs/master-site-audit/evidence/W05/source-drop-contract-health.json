@@ -1,0 +1,87 @@
+{
+ "otcffbSf": {
+  "fieldsStripped": 2055,
+  "status": "healthy",
+  "ok": true,
+  "errors": [],
+  "newWarnings": [
+   "partial_run_tolerable:KTC_TradeDB",
+   "partial_run_tolerable:KTC_WaiverDB"
+  ]
+ },
+ "fantasyCalc": {
+  "fieldsStripped": 2327,
+  "status": "healthy",
+  "ok": true,
+  "errors": [],
+  "newWarnings": [
+   "partial_run_tolerable:KTC_TradeDB",
+   "partial_run_tolerable:KTC_WaiverDB"
+  ]
+ },
+ "pfkDynasty": {
+  "fieldsStripped": 2687,
+  "status": "healthy",
+  "ok": true,
+  "errors": [],
+  "newWarnings": [
+   "partial_run_tolerable:KTC_TradeDB",
+   "partial_run_tolerable:KTC_WaiverDB"
+  ]
+ },
+ "fantasyNavigatorSf": {
+  "fieldsStripped": 2552,
+  "status": "healthy",
+  "ok": true,
+  "errors": [],
+  "newWarnings": [
+   "partial_run_tolerable:KTC_TradeDB",
+   "partial_run_tolerable:KTC_WaiverDB"
+  ]
+ },
+ "ktcSfTep": {
+  "fieldsStripped": 2311,
+  "status": "healthy",
+  "ok": true,
+  "errors": [],
+  "newWarnings": [
+   "partial_run_tolerable:KTC_TradeDB",
+   "partial_run_tolerable:KTC_WaiverDB"
+  ]
+ },
+ "fantasyProsSf": {
+  "fieldsStripped": 2232,
+  "status": "healthy",
+  "ok": true,
+  "errors": [],
+  "newWarnings": [
+   "partial_run_tolerable:KTC_TradeDB",
+   "partial_run_tolerable:KTC_WaiverDB"
+  ]
+ },
+ "dlfSf": {
+  "fieldsStripped": 1385,
+  "status": "invalid",
+  "ok": false,
+  "errors": [
+   "source_missing:dlfSf"
+  ],
+  "newWarnings": [
+   "top50_coverage_below_floor:offense:dlfSf:0:42",
+   "partial_run_tolerable:KTC_TradeDB",
+   "partial_run_tolerable:KTC_WaiverDB"
+  ]
+ },
+ "yahooBoone": {
+  "fieldsStripped": 2221,
+  "status": "invalid",
+  "ok": false,
+  "errors": [
+   "source_missing:yahooBoone"
+  ],
+  "newWarnings": [
+   "partial_run_tolerable:KTC_TradeDB",
+   "partial_run_tolerable:KTC_WaiverDB"
+  ]
+ }
+}

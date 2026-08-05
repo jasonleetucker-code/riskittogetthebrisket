@@ -1,0 +1,11 @@
+import fs from "node:fs";
+import { buildRows } from "/home/user/riskittogetthebrisket/frontend/lib/dynasty-data.js";
+const data = JSON.parse(fs.readFileSync("/tmp/claude-0/-home-user-riskittogetthebrisket/0f0078ff-84f2-50d3-bce6-2bb1d1d8e920/scratchpad/contract.json", "utf8"));
+const rows = buildRows(data);
+console.log("rows:", rows.length);
+const zero = rows.filter(r => !(r.values.full > 0));
+console.log("zero-full rows:", zero.length);
+console.log("zero sample:", zero.slice(0,10).map(r=>`${r.name}(${r.pos})`).join(", "));
+const zeroRaw = rows.filter(r => !(r.values.raw > 0));
+console.log("zero-raw rows:", zeroRaw.length, zeroRaw.slice(0,10).map(r=>r.name).join(", "));
+fs.writeFileSync("rows.json", JSON.stringify(rows.map(r=>({name:r.name,pos:r.pos,assetClass:r.assetClass,full:r.values.full,raw:r.values.raw,rank:r.canonicalConsensusRank,conf:r.confidence,sourceCount:r.sourceCount,canonicalSites:r.canonicalSites,sourceRankMeta:r.sourceRankMeta})), null, 0));

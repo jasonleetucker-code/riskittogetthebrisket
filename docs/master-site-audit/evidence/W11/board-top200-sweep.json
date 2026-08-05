@@ -1,0 +1,2040 @@
+[
+ {
+  "name": "Josh Allen",
+  "pos": "QB",
+  "value": 9988.0,
+  "rank": 1,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Brock Bowers",
+  "pos": "TE",
+  "value": 9947.0,
+  "rank": 2,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Bijan Robinson",
+  "pos": "RB",
+  "value": 9706.0,
+  "rank": 3,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Ja'Marr Chase",
+  "pos": "WR",
+  "value": 9641.0,
+  "rank": 4,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Drake Maye",
+  "pos": "QB",
+  "value": 9577.0,
+  "rank": 5,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jahmyr Gibbs",
+  "pos": "RB",
+  "value": 9576.0,
+  "rank": 6,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jaxon Smith-Njigba",
+  "pos": "WR",
+  "value": 9337.0,
+  "rank": 7,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Trey McBride",
+  "pos": "TE",
+  "value": 9264.0,
+  "rank": 8,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Puka Nacua",
+  "pos": "WR",
+  "value": 9132.0,
+  "rank": 9,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jayden Daniels",
+  "pos": "QB",
+  "value": 8898.0,
+  "rank": 10,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Lamar Jackson",
+  "pos": "QB",
+  "value": 8784.0,
+  "rank": 11,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Caleb Williams",
+  "pos": "QB",
+  "value": 8753.0,
+  "rank": 12,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Joe Burrow",
+  "pos": "QB",
+  "value": 8383.0,
+  "rank": 13,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Amon-Ra St. Brown",
+  "pos": "WR",
+  "value": 8326.0,
+  "rank": 14,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Justin Jefferson",
+  "pos": "WR",
+  "value": 8054.0,
+  "rank": 15,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Ashton Jeanty",
+  "pos": "RB",
+  "value": 8039.0,
+  "rank": 16,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Malik Nabers",
+  "pos": "WR",
+  "value": 7924.0,
+  "rank": 17,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Colston Loveland",
+  "pos": "TE",
+  "value": 7842.0,
+  "rank": 18,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jeremiyah Love",
+  "pos": "RB",
+  "value": 7799.0,
+  "rank": 19,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "CeeDee Lamb",
+  "pos": "WR",
+  "value": 7767.0,
+  "rank": 20,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Justin Herbert",
+  "pos": "QB",
+  "value": 7684.0,
+  "rank": 21,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Patrick Mahomes",
+  "pos": "QB",
+  "value": 7461.0,
+  "rank": 22,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Drake London",
+  "pos": "WR",
+  "value": 7348.0,
+  "rank": 23,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Tyler Warren",
+  "pos": "TE",
+  "value": 7210.0,
+  "rank": 24,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jalen Hurts",
+  "pos": "QB",
+  "value": 7183.0,
+  "rank": 25,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jaxson Dart",
+  "pos": "QB",
+  "value": 7165.0,
+  "rank": 26,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Omarion Hampton",
+  "pos": "RB",
+  "value": 7126.0,
+  "rank": 27,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "De'Von Achane",
+  "pos": "RB",
+  "value": 6980.0,
+  "rank": 29,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Trevor Lawrence",
+  "pos": "QB",
+  "value": 6886.0,
+  "rank": 30,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Tetairoa McMillan",
+  "pos": "WR",
+  "value": 6766.0,
+  "rank": 31,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Bo Nix",
+  "pos": "QB",
+  "value": 6572.0,
+  "rank": 32,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jonathan Taylor",
+  "pos": "RB",
+  "value": 6431.0,
+  "rank": 33,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Emeka Egbuka",
+  "pos": "WR",
+  "value": 6388.0,
+  "rank": 34,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Brock Purdy",
+  "pos": "QB",
+  "value": 6376.0,
+  "rank": 35,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Aidan Hutchinson",
+  "pos": "DL",
+  "value": 6362.0,
+  "rank": 36,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "James Cook",
+  "pos": "RB",
+  "value": 6332.0,
+  "rank": 37,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "George Pickens",
+  "pos": "WR",
+  "value": 6271.0,
+  "rank": 38,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Carnell Tate",
+  "pos": "WR",
+  "value": 6160.0,
+  "rank": 39,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Nico Collins",
+  "pos": "WR",
+  "value": 6080.0,
+  "rank": 40,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jordan Love",
+  "pos": "QB",
+  "value": 6038.0,
+  "rank": 41,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Carson Schwesinger",
+  "pos": "LB",
+  "value": 5908.0,
+  "rank": 42,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Will Anderson",
+  "pos": "DL",
+  "value": 5876.0,
+  "rank": 43,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Tucker Kraft",
+  "pos": "TE",
+  "value": 5816.0,
+  "rank": 44,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Kenneth Walker",
+  "pos": "RB",
+  "value": 5813.0,
+  "rank": 45,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Garrett Wilson",
+  "pos": "WR",
+  "value": 5766.0,
+  "rank": 46,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Harold Fannin",
+  "pos": "TE",
+  "value": 5735.0,
+  "rank": 47,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Chris Olave",
+  "pos": "WR",
+  "value": 5617.0,
+  "rank": 48,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Ladd McConkey",
+  "pos": "WR",
+  "value": 5605.0,
+  "rank": 50,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Fernando Mendoza",
+  "pos": "QB",
+  "value": 5597.0,
+  "rank": 51,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Dak Prescott",
+  "pos": "QB",
+  "value": 5519.0,
+  "rank": 52,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Chase Brown",
+  "pos": "RB",
+  "value": 5419.0,
+  "rank": 53,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Breece Hall",
+  "pos": "RB",
+  "value": 5404.0,
+  "rank": 54,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Luther Burden",
+  "pos": "WR",
+  "value": 5353.0,
+  "rank": 55,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jordyn Tyson",
+  "pos": "WR",
+  "value": 5320.0,
+  "rank": 56,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Quinshon Judkins",
+  "pos": "RB",
+  "value": 5309.0,
+  "rank": 57,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "TreVeyon Henderson",
+  "pos": "RB",
+  "value": 5262.0,
+  "rank": 58,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Sam LaPorta",
+  "pos": "TE",
+  "value": 5222.0,
+  "rank": 59,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Sonny Styles",
+  "pos": "LB",
+  "value": 5222.0,
+  "rank": 60,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "DeVonta Smith",
+  "pos": "WR",
+  "value": 5215.0,
+  "rank": 61,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Christian McCaffrey",
+  "pos": "RB",
+  "value": 5140.0,
+  "rank": 62,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Kyle Pitts",
+  "pos": "TE",
+  "value": 5074.0,
+  "rank": 64,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Cam Ward",
+  "pos": "QB",
+  "value": 5049.0,
+  "rank": 65,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Saquon Barkley",
+  "pos": "RB",
+  "value": 5026.0,
+  "rank": 66,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Makai Lemon",
+  "pos": "WR",
+  "value": 4987.0,
+  "rank": 67,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Zay Flowers",
+  "pos": "WR",
+  "value": 4953.0,
+  "rank": 68,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Rome Odunze",
+  "pos": "WR",
+  "value": 4930.0,
+  "rank": 70,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "A.J. Brown",
+  "pos": "WR",
+  "value": 4925.0,
+  "rank": 71,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Rashee Rice",
+  "pos": "WR",
+  "value": 4887.0,
+  "rank": 72,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jared Goff",
+  "pos": "QB",
+  "value": 4881.0,
+  "rank": 73,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jack Campbell",
+  "pos": "LB",
+  "value": 4803.0,
+  "rank": 74,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Kenyon Sadiq",
+  "pos": "TE",
+  "value": 4796.0,
+  "rank": 75,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Tee Higgins",
+  "pos": "WR",
+  "value": 4726.0,
+  "rank": 76,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Baker Mayfield",
+  "pos": "QB",
+  "value": 4659.0,
+  "rank": 77,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Marvin Harrison",
+  "pos": "WR",
+  "value": 4619.0,
+  "rank": 78,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "C.J. Stroud",
+  "pos": "QB",
+  "value": 4608.0,
+  "rank": 79,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Kyren Williams",
+  "pos": "RB",
+  "value": 4607.0,
+  "rank": 80,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Micah Parsons",
+  "pos": "DL",
+  "value": 4606.0,
+  "rank": 81,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Myles Garrett",
+  "pos": "DL",
+  "value": 4602.0,
+  "rank": 82,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Abdul Carter",
+  "pos": "DL",
+  "value": 4598.0,
+  "rank": 83,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jaylen Waddle",
+  "pos": "WR",
+  "value": 4595.0,
+  "rank": 84,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jared Verse",
+  "pos": "DL",
+  "value": 4593.0,
+  "rank": 85,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Cam Skattebo",
+  "pos": "RB",
+  "value": 4488.0,
+  "rank": 87,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Brian Thomas",
+  "pos": "WR",
+  "value": 4466.0,
+  "rank": 88,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Travis Hunter",
+  "pos": "WR",
+  "value": 4401.0,
+  "rank": 89,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Bucky Irving",
+  "pos": "RB",
+  "value": 4369.0,
+  "rank": 90,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Tyler Shough",
+  "pos": "QB",
+  "value": 4321.0,
+  "rank": 91,
+  "standard": 39,
+  "aggressive": 55,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jameson Williams",
+  "pos": "WR",
+  "value": 4308.0,
+  "rank": 92,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jadarian Price",
+  "pos": "RB",
+  "value": 4286.0,
+  "rank": 93,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Javonte Williams",
+  "pos": "RB",
+  "value": 4224.0,
+  "rank": 94,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Eli Stowers",
+  "pos": "TE",
+  "value": 4214.0,
+  "rank": 95,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Oronde Gadsden",
+  "pos": "TE",
+  "value": 4213.0,
+  "rank": 96,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "George Kittle",
+  "pos": "TE",
+  "value": 4088.0,
+  "rank": 97,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Travis Etienne",
+  "pos": "RB",
+  "value": 4081.0,
+  "rank": 98,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Sam Darnold",
+  "pos": "QB",
+  "value": 4080.0,
+  "rank": 99,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Kyler Murray",
+  "pos": "QB",
+  "value": 4069.0,
+  "rank": 101,
+  "standard": 39,
+  "aggressive": 55,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Isaiah Likely",
+  "pos": "TE",
+  "value": 4025.0,
+  "rank": 102,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Dalton Kincaid",
+  "pos": "TE",
+  "value": 4008.0,
+  "rank": 103,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "KC Concepcion",
+  "pos": "WR",
+  "value": 4001.0,
+  "rank": 104,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Edgerrin Cooper",
+  "pos": "LB",
+  "value": 3919.0,
+  "rank": 105,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Derrick Henry",
+  "pos": "RB",
+  "value": 3884.0,
+  "rank": 106,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Christian Watson",
+  "pos": "WR",
+  "value": 3867.0,
+  "rank": 108,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jake Ferguson",
+  "pos": "TE",
+  "value": 3867.0,
+  "rank": 107,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Josh Jacobs",
+  "pos": "RB",
+  "value": 3859.0,
+  "rank": 109,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Arvell Reese",
+  "pos": "LB",
+  "value": 3841.0,
+  "rank": 110,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Bryce Young",
+  "pos": "QB",
+  "value": 3803.0,
+  "rank": 112,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Bhayshul Tuten",
+  "pos": "RB",
+  "value": 3798.0,
+  "rank": 113,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Nick Bolton",
+  "pos": "LB",
+  "value": 3778.0,
+  "rank": 114,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Jordan Addison",
+  "pos": "WR",
+  "value": 3732.0,
+  "rank": 115,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Alec Pierce",
+  "pos": "WR",
+  "value": 3726.0,
+  "rank": 116,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Daniel Jones",
+  "pos": "QB",
+  "value": 3717.0,
+  "rank": 117,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Matthew Stafford",
+  "pos": "QB",
+  "value": 3687.0,
+  "rank": 118,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Malik Willis",
+  "pos": "QB",
+  "value": 3684.0,
+  "rank": 119,
+  "standard": 40,
+  "aggressive": 56,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Omar Cooper",
+  "pos": "WR",
+  "value": 3637.0,
+  "rank": 120,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "DJ Moore",
+  "pos": "WR",
+  "value": 3616.0,
+  "rank": 121,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Terry McLaurin",
+  "pos": "WR",
+  "value": 3567.0,
+  "rank": 122,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jacob Rodriguez",
+  "pos": "LB",
+  "value": 3544.0,
+  "rank": 123,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Dallas Turner",
+  "pos": "DL",
+  "value": 3539.0,
+  "rank": 124,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "D'Andre Swift",
+  "pos": "RB",
+  "value": 3538.0,
+  "rank": 125,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Brenton Strange",
+  "pos": "TE",
+  "value": 3536.0,
+  "rank": 126,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Parker Washington",
+  "pos": "WR",
+  "value": 3501.0,
+  "rank": 127,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Michael Wilson",
+  "pos": "WR",
+  "value": 3407.0,
+  "rank": 129,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Ty Simpson",
+  "pos": "QB",
+  "value": 3400.0,
+  "rank": 130,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Mark Andrews",
+  "pos": "TE",
+  "value": 3392.0,
+  "rank": 131,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "David Montgomery",
+  "pos": "RB",
+  "value": 3371.0,
+  "rank": 132,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "DK Metcalf",
+  "pos": "WR",
+  "value": 3370.0,
+  "rank": 133,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Davante Adams",
+  "pos": "WR",
+  "value": 3316.0,
+  "rank": 134,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Chig Okonkwo",
+  "pos": "TE",
+  "value": 3311.0,
+  "rank": 135,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Denzel Boston",
+  "pos": "WR",
+  "value": 3259.0,
+  "rank": 136,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Josh Downs",
+  "pos": "WR",
+  "value": 3250.0,
+  "rank": 137,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jordyn Brooks",
+  "pos": "LB",
+  "value": 3224.0,
+  "rank": 138,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Mike Evans",
+  "pos": "WR",
+  "value": 3210.0,
+  "rank": 139,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Wan'Dale Robinson",
+  "pos": "WR",
+  "value": 3206.0,
+  "rank": 140,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Quentin Johnston",
+  "pos": "WR",
+  "value": 3195.0,
+  "rank": 141,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Dallas Goedert",
+  "pos": "TE",
+  "value": 3191.0,
+  "rank": 142,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "CJ Allen",
+  "pos": "LB",
+  "value": 3184.0,
+  "rank": 143,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Fred Warner",
+  "pos": "LB",
+  "value": 3180.0,
+  "rank": 144,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Travis Kelce",
+  "pos": "TE",
+  "value": 3179.0,
+  "rank": 145,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Matthew Golden",
+  "pos": "WR",
+  "value": 3177.0,
+  "rank": 146,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "AJ Barner",
+  "pos": "TE",
+  "value": 3174.0,
+  "rank": 147,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Caleb Downs",
+  "pos": "DB",
+  "value": 3159.0,
+  "rank": 150,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jayden Higgins",
+  "pos": "WR",
+  "value": 3155.0,
+  "rank": 151,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Michael Pittman",
+  "pos": "WR",
+  "value": 3135.0,
+  "rank": 152,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "RJ Harvey",
+  "pos": "RB",
+  "value": 3133.0,
+  "rank": 153,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Xavier Worthy",
+  "pos": "WR",
+  "value": 3126.0,
+  "rank": 154,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "T.J. Hockenson",
+  "pos": "TE",
+  "value": 3107.0,
+  "rank": 155,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Ricky Pearsall",
+  "pos": "WR",
+  "value": 3088.0,
+  "rank": 156,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Laiatu Latu",
+  "pos": "DL",
+  "value": 3068.0,
+  "rank": 157,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Roquan Smith",
+  "pos": "LB",
+  "value": 3067.0,
+  "rank": 158,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Nick Bosa",
+  "pos": "DL",
+  "value": 3065.0,
+  "rank": 159,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Maxx Crosby",
+  "pos": "DL",
+  "value": 3064.0,
+  "rank": 160,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Nick Emmanwori",
+  "pos": "DB",
+  "value": 3063.0,
+  "rank": 161,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Kyle Hamilton",
+  "pos": "DB",
+  "value": 3062.0,
+  "rank": 162,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Brian Burns",
+  "pos": "DL",
+  "value": 3060.0,
+  "rank": 163,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "David Bailey",
+  "pos": "DL",
+  "value": 3059.0,
+  "rank": 164,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jayden Reed",
+  "pos": "WR",
+  "value": 3058.0,
+  "rank": 165,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Josh Hines-Allen",
+  "pos": "DL",
+  "value": 3057.0,
+  "rank": 166,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Nik Bonitto",
+  "pos": "DL",
+  "value": 3054.0,
+  "rank": 168,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Terrance Ferguson",
+  "pos": "TE",
+  "value": 3054.0,
+  "rank": 167,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Kyle Monangai",
+  "pos": "RB",
+  "value": 3029.0,
+  "rank": 169,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jonathon Brooks",
+  "pos": "RB",
+  "value": 3005.0,
+  "rank": 170,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Blake Corum",
+  "pos": "RB",
+  "value": 2986.0,
+  "rank": 172,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jihaad Campbell",
+  "pos": "LB",
+  "value": 2968.0,
+  "rank": 173,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Courtland Sutton",
+  "pos": "WR",
+  "value": 2955.0,
+  "rank": 174,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Rueben Bain",
+  "pos": "DL",
+  "value": 2939.0,
+  "rank": 175,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jaylen Warren",
+  "pos": "RB",
+  "value": 2937.0,
+  "rank": 176,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Dillon Thieneman",
+  "pos": "DB",
+  "value": 2935.0,
+  "rank": 177,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Gunnar Helm",
+  "pos": "TE",
+  "value": 2931.0,
+  "rank": 178,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Devin Lloyd",
+  "pos": "LB",
+  "value": 2912.0,
+  "rank": 179,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Juwan Johnson",
+  "pos": "TE",
+  "value": 2897.0,
+  "rank": 180,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Cedric Gray",
+  "pos": "LB",
+  "value": 2887.0,
+  "rank": 181,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Chuba Hubbard",
+  "pos": "RB",
+  "value": 2887.0,
+  "rank": 182,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Zack Baun",
+  "pos": "LB",
+  "value": 2872.0,
+  "rank": 183,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Cooper DeJean",
+  "pos": "DB",
+  "value": 2868.0,
+  "rank": 184,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Nakobe Dean",
+  "pos": "LB",
+  "value": 2860.0,
+  "rank": 185,
+  "standard": 23,
+  "aggressive": 32,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $23."
+  ]
+ },
+ {
+  "name": "Chris Godwin",
+  "pos": "WR",
+  "value": 2853.0,
+  "rank": 186,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jonah Coleman",
+  "pos": "RB",
+  "value": 2846.0,
+  "rank": 187,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jakobi Meyers",
+  "pos": "WR",
+  "value": 2840.0,
+  "rank": 188,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "T.J. Watt",
+  "pos": "DL",
+  "value": 2838.0,
+  "rank": 189,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Zach Charbonnet",
+  "pos": "RB",
+  "value": 2826.0,
+  "rank": 190,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Hunter Henry",
+  "pos": "TE",
+  "value": 2797.0,
+  "rank": 191,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Ernest Jones",
+  "pos": "LB",
+  "value": 2795.0,
+  "rank": 192,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $22."
+  ]
+ },
+ {
+  "name": "Rico Dowdle",
+  "pos": "RB",
+  "value": 2775.0,
+  "rank": 194,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Quay Walker",
+  "pos": "LB",
+  "value": 2774.0,
+  "rank": 195,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $22."
+  ]
+ },
+ {
+  "name": "Kevin Winston",
+  "pos": "DB",
+  "value": 2763.0,
+  "rank": 196,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jalon Walker",
+  "pos": "DL",
+  "value": 2755.0,
+  "rank": 197,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Rhamondre Stevenson",
+  "pos": "RB",
+  "value": 2750.0,
+  "rank": 198,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Jalen Coker",
+  "pos": "WR",
+  "value": 2737.0,
+  "rank": 199,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Tuli Tuipulotu",
+  "pos": "DL",
+  "value": 2737.0,
+  "rank": 200,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Romeo Doubs",
+  "pos": "WR",
+  "value": 2732.0,
+  "rank": 201,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Brian Branch",
+  "pos": "DB",
+  "value": 2720.0,
+  "rank": 202,
+  "standard": 17,
+  "aggressive": 24,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Michael Penix",
+  "pos": "QB",
+  "value": 2690.0,
+  "rank": 203,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Alex Highsmith",
+  "pos": "DL",
+  "value": 2688.0,
+  "rank": 204,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "De'Zhaun Stribling",
+  "pos": "WR",
+  "value": 2683.0,
+  "rank": 205,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Eli Raridon",
+  "pos": "TE",
+  "value": 2675.0,
+  "rank": 206,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Antonio Williams",
+  "pos": "WR",
+  "value": 2663.0,
+  "rank": 208,
+  "standard": 21,
+  "aggressive": 29,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "J.K. Dobbins",
+  "pos": "RB",
+  "value": 2660.0,
+  "rank": 209,
+  "standard": 32,
+  "aggressive": 45,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Nate Landman",
+  "pos": "LB",
+  "value": 2658.0,
+  "rank": 210,
+  "standard": 22,
+  "aggressive": 31,
+  "max": 100,
+  "warnings": [
+   "Likely outbid \u2014 projected clearing price $31 exceeds this player's value ceiling $22."
+  ]
+ },
+ {
+  "name": "Tua Tagovailoa",
+  "pos": "QB",
+  "value": 2657.0,
+  "rank": 211,
+  "standard": 38,
+  "aggressive": 53,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Dalton Schultz",
+  "pos": "TE",
+  "value": 2656.0,
+  "rank": 212,
+  "standard": 20,
+  "aggressive": 28,
+  "max": 100,
+  "warnings": []
+ },
+ {
+  "name": "Byron Young",
+  "pos": "DL",
+  "value": 2644.0,
+  "rank": 213,
+  "standard": 12,
+  "aggressive": 17,
+  "max": 100,
+  "warnings": []
+ }
+]

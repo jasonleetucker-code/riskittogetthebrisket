@@ -1,0 +1,162 @@
+{
+ "sleeper2024RosterCount": 10,
+ "publicHistory2024": {
+  "numTeams": 10,
+  "standingsRows": 8
+ },
+ "streaks2024ByRoster": {
+  "1": {
+   "longestWin": 5,
+   "longestLoss": 3,
+   "retiredOwner": false
+  },
+  "2": {
+   "longestWin": 3,
+   "longestLoss": 4,
+   "retiredOwner": false
+  },
+  "3": {
+   "longestWin": 3,
+   "longestLoss": 2,
+   "retiredOwner": false
+  },
+  "4": {
+   "longestWin": 2,
+   "longestLoss": 4,
+   "retiredOwner": false
+  },
+  "5": {
+   "longestWin": 4,
+   "longestLoss": 2,
+   "retiredOwner": false
+  },
+  "6": {
+   "longestWin": 3,
+   "longestLoss": 4,
+   "retiredOwner": false
+  },
+  "7": {
+   "longestWin": 3,
+   "longestLoss": 4,
+   "retiredOwner": false
+  },
+  "8": {
+   "longestWin": 4,
+   "longestLoss": 2,
+   "retiredOwner": false
+  },
+  "9": {
+   "longestWin": 3,
+   "longestLoss": 2,
+   "retiredOwner": true
+  },
+  "10": {
+   "longestWin": 6,
+   "longestLoss": 8,
+   "retiredOwner": true
+  }
+ },
+ "publishedLongestLossStreak": {
+  "ownerId": "609821340567941120",
+  "displayName": "Eric",
+  "length": 6,
+  "start": {
+   "season": "2025",
+   "leagueId": "1180092661344120832",
+   "week": 4,
+   "result": "L",
+   "rosterId": 6,
+   "teamName": "Grillin n Chillin "
+  },
+  "end": {
+   "season": "2025",
+   "leagueId": "1180092661344120832",
+   "week": 9,
+   "result": "L",
+   "rosterId": 6,
+   "teamName": "Grillin n Chillin "
+  }
+ },
+ "publishedLongestWinStreaks": [
+  [
+   "Joey",
+   10
+  ],
+  [
+   "Brent",
+   6
+  ],
+  [
+   "Jason",
+   4
+  ]
+ ],
+ "tradeGradeZeroPricedAssets": {
+  "totalByKind": {
+   "player": 1238,
+   "pick": 470
+  },
+  "zeroByKind": {
+   "pick": 156,
+   "player": 68
+  },
+  "zeroPickLabels": {
+   "2024 R1": 6,
+   "2024 R10": 10,
+   "2024 R2": 2,
+   "2024 R3": 4,
+   "2024 R4": 6,
+   "2024 R5": 6,
+   "2024 R7": 4,
+   "2024 R8": 2,
+   "2024 R9": 12,
+   "2025 R1": 14,
+   "2025 R2": 12,
+   "2025 R3": 18,
+   "2025 R4": 4,
+   "2025 R5": 6,
+   "2025 R6": 6,
+   "2025 R7": 6,
+   "2026 R7": 2,
+   "2027 R5": 6,
+   "2027 R6": 10,
+   "2027 R7": 4,
+   "2028 R5": 6,
+   "2028 R6": 4,
+   "2029 R4": 6
+  },
+  "tradesAffected": 63,
+  "tradesTotal": 191,
+  "sidesAffected": 126,
+  "sidesTotal": 393
+ },
+ "awards2026": [
+  {
+   "key": "league_mvp",
+   "displayName": "Jason",
+   "value": {
+    "playerId": "6794",
+    "playerName": "Justin Jefferson",
+    "team": "MIN",
+    "position": "WR",
+    "vorp": 0.0,
+    "starterPoints": 0.0,
+    "gamesStarted": 13
+   }
+  },
+  {
+   "key": "regular_season_crown",
+   "displayName": "Jason",
+   "value": {
+    "record": "0-0"
+   }
+  },
+  {
+   "key": "points_king",
+   "displayName": "Jason",
+   "value": {
+    "pointsFor": 0.0
+   }
+  }
+ ]
+}

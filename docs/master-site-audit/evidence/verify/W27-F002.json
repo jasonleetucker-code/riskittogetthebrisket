@@ -1,0 +1,83 @@
+{
+ "id": "W27-F002",
+ "workstream": "W27",
+ "promptSections": [
+  34
+ ],
+ "title": "Trade suggestions cannot propose a defensive back to anyone \u2014 the top-150 board gate contains zero DBs \u2014 yet /trade tells all 12 teams to 'target DB' while every team already rosters 5-9 of them against a 3-DB requirement",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "M",
+ "subsystem": "Trade suggestions",
+ "surface": {
+  "routes": [
+   "/api/trade/suggestions"
+  ],
+  "pages": [
+   "/trade"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/trade/suggestions.py",
+   "lines": "209-242"
+  },
+  {
+   "path": "src/trade/suggestions.py",
+   "lines": "649-653"
+  },
+  {
+   "path": "src/trade/finder.py",
+   "lines": "578-600"
+  },
+  {
+   "path": "frontend/app/trade/trade-sections.jsx",
+   "lines": "1091-1104"
+  }
+ ],
+ "claimUnderTest": "CLAUDE.md and src/trade/suggestions.py:230-238 both assert the BOARD_TOP_N_FILTER gate ranks against 'our own blended board, which answers asset quality directly and for every asset class, including IDP and picks that no single retail board covers', and that sharing finder.py's gate 'would reintroduce the offense-only blind spot F-3 just removed'.",
+ "observed": "build_asset_pool_from_contract(contract) returns exactly 150 assets: WR 41, QB 28, RB 26, PICK 23, TE 18, DL 7, LB 7, DB 0. The first DB in the full 812-row pool is Caleb Downs at board rank 167 (display_value 3159 against a board maximum of 9988). A single global top-N on a board where offense tops out at 9999 and the best defender sits near 6400 is exactly the failure mode finder.py:578-583 documents and fixes with a per-market cut \u2014 suggestions.py never got that fix. Consequence measured across all 12 rosters: 51 suggestion assets total, of which DL 5 and LB 11 and DB 0, and rosterAnalysis.needPositions contains 'DB' for 12 of 12 teams. Actual DB depth per team from sleeper.positions: Jason 8, Ed 5, Ty 7, Collin 7, MaKayla 7, Eric 8, Roy 6, Joey 8, Brent 9, Kich 7, jstuedle 5, Blaine 8 \u2014 against 3 mandatory DB starters. The engine reports a shortage at the one position no team has a shortage at, because starterCounts only counts pool members and no DB is ever in the pool.",
+ "reproduction": {
+  "command": "python3 -c \"import json,sys,collections;sys.path.insert(0,'.');from src.trade.suggestions import build_asset_pool_from_contract as B;c=json.load(open('/tmp/w27.json'));print(collections.Counter(a.position for a in B(c)));full=B(c,board_top_n=0);print([(i,a.name,a.display_value) for i,a in enumerate(full,1) if a.position=='DB'][:1])\"",
+  "expected": "The pool contains DBs proportionate to a lineup that starts 3 of them (per-market cut, as finder.py does)",
+  "actual": "Counter({'WR':41,'QB':28,'RB':26,'PICK':23,'TE':18,'DL':7,'LB':7}) \u2014 DB absent; first DB at pool rank 167",
+  "artifact": "docs/master-site-audit/evidence/W27/trade-suggestions-12-teams.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "BOARD_TOP_N_FILTER": 150,
+   "poolSize": 150,
+   "poolDB": 0,
+   "poolDL": 7,
+   "poolLB": 7,
+   "firstDbPoolRank": 167,
+   "bestDbValue": 3159,
+   "boardMaxValue": 9988,
+   "startingSlots": 21,
+   "idpStartingSlots": 9,
+   "teamsToldToTargetDB": 12,
+   "teamsWithFewerThan3DB": 0
+  },
+  "formula": "idp_share_of_pool = (DL+LB+DB)/150 = 14/150 = 9.33% vs idp_share_of_starting_lineup = 9/21 = 42.86%",
+  "expected": 42.86,
+  "actual": 9.33,
+  "tolerance": 5.0
+ },
+ "userImpact": "On /trade, the Trade Suggestions panel renders a red 'Should target DB' badge (trade-sections.jsx:1099-1103) to every manager in the league. Acting on it means spending real trade capital acquiring a defensive back at a position where the manager already has 167%-300% of the starters needed \u2014 and the engine can never actually offer one, so the advice is unfollowable as well as wrong. No warning is shown that the candidate pool has no DBs in it.",
+ "blastRadius": {
+  "playersAffected": 139,
+  "routesAffected": 1,
+  "pagesAffected": 1
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "PRIOR-A14-F00/F01 describe the identical failure class in finder.py (offense-only pool) and are refuted at HEAD \u2014 see W27-F010. The twin defect in suggestions.py is unrecorded, and the code comment at suggestions.py:230-238 explicitly asserts the opposite."
+ },
+ "whatWorks": "DL and LB do reach the pool (7 each) and do appear in suggestions (16 of 51 assets across 12 teams). starter_needs_for_league correctly derives {DL:3, LB:3, DB:3} from the league's roster_positions. The failure is confined to the quality gate, not to IDP awareness in general.",
+ "rootCause": "BOARD_TOP_N_FILTER is a single global cut over a value scale that is not comparable across asset classes: offense peaks at 9999, IDP at ~6400 and DB at 3159. finder.py identified this and ranks each market's own population from 1; suggestions.py kept the global cut and documented it as safe on the untested premise that 'our own blended board covers every asset class'.",
+ "requiredRepair": "Apply the top-N cut per position family (or per asset class) in _apply_board_top_n_filter, mirroring finder.py's market_groups. Separately, rosterAnalysis.starterCounts must count the manager's WHOLE roster, not only pool members, or needPositions must be suppressed for any family with zero pool coverage and say so.",
+ "dependencies": "Requires no data change; purely an engine-side gate change. Interacts with W27-F007 (hybrid eligibility) for how DL/LB counts are attributed."
+}

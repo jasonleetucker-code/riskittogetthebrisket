@@ -1,0 +1,20 @@
+trajectory (rows, 1.0=young) x competitiveness (cols)
+       0.00 0.10 0.20 0.30 0.40 0.50 0.60 0.70 0.80 0.90 1.00
+  1.0    PS   PS   PS   PS   PS   RT   RT   RT   PC   CC   CC
+  0.9    RB   PS   PS   PS   RT   RT   RT   PC   PC   CC   CC
+  0.8    RB   PS   PS   PS   RT   RT   RT   PC   PC   CC   CC
+  0.7    RB   RB   PS   PS   RT   RT   RT   PC   PC   CC   CC
+  0.6    RB   RB   PS   PS   RT   RT   PC   PC   PC   CC   CC
+  0.5    RB   RB   RB   RT   RT   RT   PC   PC   PC   CC   CC
+  0.4    RB   RB   RB   RT   RT   PC   PC   PC   PC   CC   CC
+  0.3    RB   RB   RB   RT   RT   PC   PC   PC   PC   CC   CC
+  0.2    RB   RB   RB   RB   RT   PC   PC   PC   CC   CC   CC
+  0.1    RB   RB   RB   RB   PC   PC   PC   PC   CC   CC   CC
+  0.0    RB   RB   RB   RB   PC   PC   PC   PC   CC   CC   CC
+
+grid share of 101x101 (comp,traj) space:
+  championship_contender    17.6%
+  playoff_contender         29.0%
+  retool                    20.8%
+  productive_struggle       11.4%
+  rebuild                   21.3%

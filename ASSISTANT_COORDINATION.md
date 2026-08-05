@@ -25,6 +25,24 @@ git status --short --branch
 
 If the branch is not clean, inspect the existing changes before doing new work.
 
+**Then check whether someone else is already on it:**
+
+```bash
+python scripts/check_work_claims.py --files <paths you expect to change> --defect <ids>
+```
+
+This is not ceremony. On 2026-08-05 two sessions independently fixed the
+SAME six defects in one window — the TEP default, the rank-space market gap,
+the open redirect, FAAB budget mixing, ROS absence odds and the compact-view
+weights — and nobody noticed until one branch had already merged. Roughly a
+third of a session's output was discarded, and which version survived came
+down to which branch was mergeable first rather than which was better.
+
+The two rules above did not prevent it and could not have: they govern WHERE
+your work goes, not what someone else is already doing. See
+`docs/WORK_CLAIMS.md` for the full record and the claim format. Add your row
+in your first commit; set it `done` in your last.
+
 ## Branch Rules
 
 - Codex work goes on `codex/<task-name>`.

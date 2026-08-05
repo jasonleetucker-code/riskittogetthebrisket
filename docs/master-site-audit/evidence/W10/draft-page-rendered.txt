@@ -1,0 +1,708 @@
+Skip to content
+▪
+CHASE UPSIDE
+Rankings
+News
+Trades
+My Team
+Market
+League
+Risk It To Get The Brisket
+▾
+Pick your team
+▾
+Search
+/
+System
+
+MY TEAM
+
+Draft Board
+
+Live inflation-aware auction dashboard — every pick you record moves the per-player bid ceiling immediately.
+
+How this works
+Live sync: OFF
+Sync rookies
+Review
+Shortcuts
+Undo last
+Reset
+Pick 0 of 46
+0% through draft
+INFLATION
+1.00×
+(sparkline populates after first pick)
+MY REMAINING
+$685
+BUDGET ADVANTAGE
+14.63×
+TOP RIVAL CEILING
+$175
+PHASE
+6 of 6 slots
+LEAGUE $ LEFT
+$1,200
+Teams & budgets
+Budgets pre-fill from the live Draft Capital feed. Edit any row to match your carry-over balances; click Load from Draft Capital to re-pull.
+↻ Load from Draft Capital
+Source: 2027 Draft Capital · $1200 total
+MINE
+TEAM
+INITIAL
+SPENT
+REMAINING
+SLOTS
+EFF $
+MDV
+OVER%
+$0
+$685
+0/6
+$680
+$114
+—
+$0
+$180
+0/6
+$175
+$30
+—
+$0
+$119
+0/5
+$115
+$24
+—
+$0
+$111
+0/6
+$106
+$19
+—
+$0
+$74
+0/6
+$69
+$12
+—
+$0
+$8
+0/4
+$5
+$2
+—
+$0
+$7
+0/3
+$5
+$2
+—
+$0
+$6
+0/3
+$4
+$2
+—
+$0
+$5
+0/3
+$3
+$2
+—
+$0
+$4
+0/3
+$2
+$1
+—
+$0
+$1
+0/1
+$1
+$1
+—
+$0
+$0
+0/0
+$0
+—
+—
+Bid knobs
+Aggression — how much of the budget advantage to spend on stars
+Enforce % of fair — bid up to this fraction of fair to keep prices honest
+Par Sheet (0 rows · 0 open · 0 won · 0 lost)
+Pre-draft shopping list with your own fair value · surplus on bargains rolls into headroom you can spend elsewhere
+Type a player and your fair-value $ below to start your par sheet. As picks land, each row marks itself "Won" (with surplus vs your FV) or "Lost". Bottom-line headroom shows what you have left if you hit every open row at your FV.
+FV Σ (OPEN)
+$0
+FV Σ (WON)
+$0
+PAID Σ (WON)
+$0
+SURPLUS BANKED
+$0
+MY REMAINING
+$685
+− OPEN FV
+$0
+=
+$685
+HEADROOM
+Add players to your par sheet
+Add
+Target Board (0 of 6)
+Live fair + win bid · paid if won · buffer vs my budget
+Pick up to 6 rookies to track closely. The board will show what each costs now, what you paid (if won), and how the full portfolio fits your remaining budget.
+PREDRAFT Σ
+$0
+FAIR Σ
+$0
+WIN Σ (OPEN)
+$0
+PAID Σ (WON)
+$0
+MY REMAINING
+$685
+− BUYS AT WIN
+$0
+− OTHER SLOTS
+$6
+=
+$679
+Add targets to your board
+Next Best Targets
+Nothing to flag yet — tag a few players as ★ target to seed EV ranking.
+Good to nominate
+Top 10 rookies KTC / IDPTC overrates vs our board (% gap)
+#1
++
+S
+Jeremiyah Love
+ours $136
+ktc $139
++3%
+#2
++
+S
+Carnell Tate
+ours $105
+ktc $110
++4%
+#3
++
+S
+Fernando Mendoza
+ours $92
+ktc $95
++3%
+#4
++
+S
+Jordyn Tyson
+ours $82
+ktc $87
++6%
+#5
++
+S
+Makai Lemon
+ours $69
+ktc $78
++14%
+#6
++
+S
+Kenyon Sadiq
+ours $60
+ktc $72
++19%
+#7
++
+A
+Jadarian Price
+ours $53
+ktc $64
++22%
+#8
++
+A
+KC Concepcion
+ours $43
+ktc $56
++29%
+#9
++
+A
+Eli Stowers
+ours $48
+ktc $51
++5%
+#10
++
+A
+Arvell Reese
+ours $39
+idptc $44
++12%
+Best value on the board
+Top 10 rookies KTC / IDPTC underrates vs our board (% gap)
+#1
++
+B
+CJ Allen
+ours $23
+idptc $18
+−29%
+#2
++
+B
+Dillon Thieneman
+ours $16
+idptc $15
+−7%
+#3
++
+S
+Jeremiyah Love
+ours $136
+ktc $139
+−-3%
+#4
++
+S
+Carnell Tate
+ours $105
+ktc $110
+−-4%
+#5
++
+S
+Fernando Mendoza
+ours $92
+ktc $95
+−-3%
+#6
++
+S
+Jordyn Tyson
+ours $82
+ktc $87
+−-6%
+#7
++
+S
+Sonny Styles
+ours $76
+idptc $77
+−-1%
+#8
++
+S
+Makai Lemon
+ours $69
+ktc $78
+−-12%
+#9
++
+S
+Kenyon Sadiq
+ours $60
+ktc $72
+−-16%
+#10
++
+A
+Jadarian Price
+ours $53
+ktc $64
+−-18%
+Rookie board
+Show drafted
++
+All
+72
+Targets
+0
+Avoid
+0
+Untagged
+72
+#
+	TIER
+	TAG	REC	
+PLAYER
+	
+PREDRAFT
+	MARKET
+	
+FAIR
+	
+ENFORCE
+	
+WIN AT
+	
+MAX BID
+	
+FINAL
+	DRAFTED TO	
+1	SNEED	+	—	Jeremiyah Love		$139	$135	$108	$176✓	$301	—	—	
+Draft
+Q
+×
+
+2	SNEED	+	—	Carnell Tate		$110	$105	$84	$176✓	$233	—	—	
+Draft
+Q
+×
+
+3	SNEED	+	—	Fernando Mendoza		$95	$91	$72	$176✓	$203	—	—	
+Draft
+Q
+×
+
+4	SNEED	+	—	Jordyn Tyson		$87	$82	$65	$176✓	$182	—	—	
+Draft
+Q
+×
+
+5	SNEED	+	—	Sonny Styles		$77	$76	$60	$169	$169	—	—	
+Draft
+Q
+×
+
+6	SNEED	+	—	Makai Lemon		$78	$68	$54	$152	$152	—	—	
+Draft
+Q
+×
+
+7	SNEED	+	—	Kenyon Sadiq		$72	$60	$48	$133	$133	—	—	
+Draft
+Q
+×
+
+8	ANEED	+	—	Jadarian Price		$64	$52	$41	$116	$116	—	—	
+Draft
+Q
+×
+
+9	ANEED	+	—	Eli Stowers		$51	$48	$38	$106	$106	—	—	
+Draft
+Q
+×
+
+10	ANEED	+	—	KC Concepcion		$56	$43	$34	$95	$95	—	—	
+Draft
+Q
+×
+
+11	ANEED	+	—	Arvell Reese		$44	$39	$31	$86	$86	—	—	
+Draft
+Q
+×
+
+12	ANEED	+	—	Omar Cooper		$39	$34	$27	$76	$76	—	—	
+Draft
+Q
+×
+
+13	ANEED	+	—	Jacob Rodriguez		$41	$30	$24	$66	$66	—	—	
+Draft
+Q
+×
+
+14	ANEED	+	—	Ty Simpson		$35	$27	$21	$60	$60	—	—	
+Draft
+Q
+×
+
+15	BNEED	+	—	Denzel Boston		$42	$24	$19	$54	$54	—	—	
+Draft
+Q
+×
+
+16	BNEED	+	—	CJ Allen		$18	$22	$17	$50	$50	—	—	
+Draft
+Q
+×
+
+17	BNEED	+	—	Caleb Downs		$26	$20	$16	$44	$44	—	—	
+Draft
+Q
+×
+
+18	BNEED	+	—	David Bailey		$28	$18	$14	$41	$41	—	—	
+Draft
+Q
+×
+
+19	BNEED	+	—	Rueben Bain		$20	$16	$12	$36	$36	—	—	
+Draft
+Q
+×
+
+20	BNEED	+	—	Dillon Thieneman		$15	$15	$12	$34	$34	—	—	
+Draft
+Q
+×
+
+21	BNEED	+	—	Jonah Coleman		$28	$14	$11	$31	$31	—	—	
+Draft
+Q
+×
+
+22	BNEED	+	—	De'Zhaun Stribling		$30	$12	$9	$27	$27	—	—	
+Draft
+Q
+×
+
+23	BNEED	+	—	Eli Raridon		$19	$11	$8	$24	$24	—	—	
+Draft
+Q
+×
+
+24	BNEED	+	—	Antonio Williams		$25	$10	$8	$23	$23	—	—	
+Draft
+Q
+×
+
+25	BNEED	+	—	Max Klare		$23	$9	$7	$21	$21	—	—	
+Draft
+Q
+×
+
+26	BNEED	+	—	Chris Bell		$21	$9	$7	$20	$20	—	—	
+Draft
+Q
+×
+
+27	BNEED	+	—	Nicholas Singleton		$18	$8	$6	$17	$17	—	—	
+Draft
+Q
+×
+
+28	CNEED	+	—	Germie Bernard		$16	$7	$5	$16	$16	—	—	
+Draft
+Q
+×
+
+29	CNEED	+	—	Oscar Delp		$15	$7	$5	$15	$15	—	—	
+Draft
+Q
+×
+
+30	CNEED	+	—	Zachariah Branch		$14	$6	$4	$13	$13	—	—	
+Draft
+Q
+×
+
+31	CNEED	+	—	Ted Hurst		$11	$5	$4	$12	$12	—	—	
+Draft
+Q
+×
+
+32	CNEED	+	—	Justin Joly		$8	$5	$4	$11	$11	—	—	
+Draft
+Q
+×
+
+33	CNEED	+	—	Carson Beck		$10	$4	$3	$10	$10	—	—	
+Draft
+Q
+×
+
+34	CNEED	+	—	Elijah Sarratt		$12	$4	$3	$10	$10	—	—	
+Draft
+Q
+×
+
+35	CNEED	+	—	Emmett Johnson		$8	$4	$3	$8	$8	—	—	
+Draft
+Q
+×
+
+36	CNEED	+	—	Malachi Fields		$10	$4	$3	$8	$8	—	—	
+Draft
+Q
+×
+
+37	CNEED	+	—	Kaytron Allen		$9	$3	$2	$7	$7	—	—	
+Draft
+Q
+×
+
+38	CNEED	+	—	Chris Brazzell		$6	$3	$2	$7	$7	—	—	
+Draft
+Q
+×
+
+39	CNEED	+	—	Mike Washington		$5	$3	$2	$6	$6	—	—	
+Draft
+Q
+×
+
+40	CNEED	+	—	Ja'Kobi Lane		$7	$3	$2	$6	$6	—	—	
+Draft
+Q
+×
+
+41	CNEED	+	—	Skyler Bell		$6	$3	$2	$6	$6	—	—	
+Draft
+Q
+×
+
+42	DNEED	+	—	Marlin Klein		—	$2	$1	$5	$5	—	—	
+Draft
+Q
+×
+
+43	DNEED	+	—	Tanner Koziol		—	$2	$1	$5	$5	—	—	
+Draft
+Q
+×
+
+44	DNEED	+	—	Demond Claiborne		$5	$2	$1	$5	$5	—	—	
+Draft
+Q
+×
+
+45	DNEED	+	—	Drew Allar		$4	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+46	DNEED	+	—	Kaelon Black		$5	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+47	DNEED	+	—	Jake Golday		$4	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+48	DNEED	+	—	Nate Boerkircher		—	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+49	DNEED	+	—	Jack Endries		$2	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+50	DNEED	+	—	Sam Roush		$3	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+51	DNEED	+	—	Derrick Moore		$2	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+52	DNEED	+	—	Will Kacmarek		—	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+53	DNEED	+	—	Josiah Trotter		$3	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+54	DNEED	+	—	Michael Trigg		$3	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+55	DNEED	+	—	Akheem Mesidor		$3	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+56	DNEED	+	—	Matt Hibner		$3	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+57	DNEED	+	—	Malachi Lawrence		$3	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+58	DNEED	+	—	Keldric Faulk		$2	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+59	DNEED	+	—	Cashius Howell		$2	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+60	DNEED	+	—	TJ Parker		$2	$2	$1	$4	$4	—	—	
+Draft
+Q
+×
+
+61	DNEED	+	—	R Mason Thomas		$2	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+62	DNEED	+	—	RJ Maryland		—	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+63	DNEED	+	—	Emmanuel McNeil-Warren		$3	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+64	DNEED	+	—	Joe Royer		—	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+65	DNEED	+	—	Caleb Douglas		$4	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+66	DNEED	+	—	Riley Nowakowski		—	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+67	DNEED	+	—	Cade Klubnik		$3	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+68	DNEED	+	—	Bryce Lance		$3	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+69	DNEED	+	—	Kevin Coleman		$4	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+70	DNEED	+	—	John Michael Gyllenborg		—	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+71	DNEED	+	—	Adam Randall		$3	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+
+72	DNEED	+	—	Josh Cuevas		—	$1	$0	$2	$2	—	—	
+Draft
+Q
+×
+SAVE

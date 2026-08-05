@@ -1,0 +1,60 @@
+# W24 — skip-site census, measured 2026-08-04 on HEAD e96c06ef (.venv python 3.11.15)
+#
+# Reproduce:
+#   .venv/bin/python - <<'PY'
+#   import re, pathlib, collections
+#   pat = re.compile(r"pytest\.skip\(|self\.skipTest\(|pytest\.mark\.skipif"
+#                    r"|unittest\.skipIf|unittest\.skipUnless|skipIf\(")
+#   tot = 0; byfile = collections.Counter()
+#   for p in pathlib.Path("tests").rglob("*.py"):
+#       if "__pycache__" in str(p): continue
+#       for line in p.read_text(errors="replace").splitlines():
+#           if pat.search(line): tot += 1; byfile[str(p)] += 1
+#   print(tot, len(byfile))
+#   PY
+
+DECLARED in docs/master-site-audit/evidence/test-results-summary.txt : 27
+ACTUAL skip sites                                                    : 166 across 43 files
+  of which `pytest.skip(` / `pytest.mark.skipif`                     : 27   (what the census grep found)
+  of which `self.skipTest(` / `unittest.skipIf(`                     : 139  (invisible to the census grep)
+
+TOP FILES BY SKIP SITES
+ 26  tests/api/test_launch_readiness.py
+ 17  tests/api/test_single_curve_live.py
+ 17  tests/api/test_draft_capital.py
+ 15  tests/api/test_source_monitoring.py
+ 12  tests/api/test_picks_end_to_end.py
+  8  tests/api/test_pick_refinement.py
+  8  tests/api/test_fantasypros_idp_integration.py
+  6  tests/api/test_draftsharks_negative_values.py
+  5  tests/api/test_single_authority.py
+  5  tests/api/test_pick_rookie_anchor.py
+  4  tests/api/test_dynasty_nerds_integration.py
+  4  tests/roster_intel/test_real_rosters.py
+  3  tests/consensus_edge/test_wiring.py
+
+RUNTIME SKIPS ACTUALLY FIRED (all 43 skip-declaring files, one run):
+  .venv/bin/python -m pytest <the 43 files> -q -rs --tb=no
+  -> 807 passed, 35 skipped in 378.68s
+     22  tests/roster_intel/test_real_rosters.py   "nfl player dump not present in this checkout"
+     10  tests/consensus_edge/test_panel.py        "shallow clone: as-of reconstruction needs full history"
+      3  tests/api/test_fantasypros_idp_integration.py "No live API fixture present"
+
+CI DISPOSITION OF EACH
+  roster_intel/test_real_rosters.py (22)  PERMANENT.  data/public_league/nfl_players_full.json is
+                                          gitignored (.gitignore:45 `data/`; only data/ros/ is
+                                          re-included) and untracked.  Also `pytestmark =
+                                          pytest.mark.livedata`, so the blocking tier deselects it.
+                                          -> 0 executions in either CI tier.
+  consensus_edge/test_panel.py (10)       NOT a CI gap.  pr-validation.yml:65 and deploy.yml:43
+                                          both set `fetch-depth: 0`, so `panel.is_shallow()` is
+                                          False there.  These 10 skip only in this shallow
+                                          container and in smoke-test.yml (default depth).
+  fantasypros_idp_integration.py (3)      PERMANENT.  Gated on env `LIVE_API_FIXTURE`, which is
+                                          set in no workflow.
+
+WHY THE OTHER 139 SITES DO NOT FIRE IN CI
+  exports/latest/ (8 files) and CSVs/site_raw/ (24 files) are TRACKED IN GIT, so the
+  "No live data" / "CSV missing" / "KTC export not available" gates resolve true in a clean
+  checkout.  They are latent, not active: deleting or renaming any of those tracked artifacts
+  silently converts hundreds of assertions into passes-by-not-running with no CI signal.

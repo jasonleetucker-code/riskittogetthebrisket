@@ -13,9 +13,16 @@ export async function GET(request) {
     }
     // The cut ladder runs the lineup solver over a full roster; allow more
     // than the 5s default for a cold build.
+    //
+    // The session cookie has to be forwarded: this endpoint is behind auth,
+    // and without it the backend answers 401, which the panel classifies as
+    // a failure and silent-vanishes on. Production never noticed because
+    // nginx routes /api/* past this file entirely — it only bites where Next
+    // serves /api/* itself, which is dev and the E2E stack.
     const { data, status } = await proxyGet("/api/draft/roster-context", {
       searchParams,
       timeoutMs: 30000,
+      cookie: request.headers.get("cookie") || "",
     });
     // Upstream status passes through verbatim so the client's failure
     // classifier can tell "flag off" from "wrong league" from "broken".

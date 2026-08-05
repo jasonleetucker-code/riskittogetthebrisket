@@ -1,0 +1,36 @@
+Skip to content
+▪
+CHASE UPSIDE
+Rankings
+News
+Trades
+My Team
+Market
+League
+Risk It To Get The Brisket
+▾
+Pick your team
+▾
+Search
+/
+System
+Source Health
+
+Scraper status for every ranking source in the pipeline.
+
+Sources · 4 · 3h ago · 2 issues
+▴
+IDPTradeCalc
+—
+KTC
+500 rows
+KTC_TradeDB
+—
+KTC trade DB skipped — no playerID→name mapping available
+KTC_WaiverDB
+—
+KTC waiver DB skipped — no playerID→name mapping available
+
+Auto-refreshes every 60 seconds.
+
+SAVE

@@ -1,0 +1,9 @@
+strength 0.0 -> Seller
+strength 0.5 -> Seller
+strength 1.0 -> Seller
+
+live shape (age profile {}) po=0 co=0 -> Seller
+with vetCount=5           po=0 co=0 -> Strong Seller / Rebuilder
+
+labels reachable with binary playoffOdds + empty ageProfile: ['Buyer', 'Hold / Evaluate', 'Seller', 'Strong Buyer']
+labels reachable over full (po,co) grid, empty ageProfile: ['Buyer', 'Hold / Evaluate', 'Selective Buyer', 'Selective Seller', 'Seller', 'Strong Buyer']

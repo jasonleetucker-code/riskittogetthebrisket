@@ -1,0 +1,84 @@
+{
+ "id": "W19-F001",
+ "workstream": "W19",
+ "promptSections": [
+  29,
+  30,
+  31
+ ],
+ "title": "A hardcoded retired-owner list erases 2 of 10 2024 franchises from every public all-time aggregate, and 3 of the 10 all-time records on /league?tab=records name the wrong number and the wrong holder",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "M",
+ "subsystem": "Public league \u2014 records / history / streaks / luck",
+ "surface": {
+  "routes": [
+   "/api/public/league",
+   "/api/public/league/records",
+   "/api/public/league/history",
+   "/api/public/league/streaks",
+   "/api/public/league/luck"
+  ],
+  "pages": [
+   "/league?tab=records",
+   "/league?tab=history",
+   "/league?tab=streaks",
+   "/league?tab=luck"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/public_league/identity.py",
+   "lines": "27-46"
+  },
+  {
+   "path": "src/public_league/records.py",
+   "lines": "140-142"
+  },
+  {
+   "path": "src/public_league/metrics.py",
+   "lines": "62-71"
+  }
+ ],
+ "claimUnderTest": "src/public_league/identity.py:31-35 asserts that retiring an owner is cosmetic: 'Game-data references to their old roster slots (matchup results, trades) that exist in the Sleeper archives will simply attribute to \"\" and get filtered out by the same orphan-roster handling that skips un-assigned rosters, so no historical rewrite is required.' src/public_league/streaks.py:15-22 and records.py publish those aggregates as 'all-time'.",
+ "observed": "The two retired owner_ids (714976074907336704 'Bwalk903', 720849338183548928 'SheriffB') held rosters 9 and 10 of the 10-roster 2024 league. metrics.resolve_owner returns '' for them, and every section does `if not owner_id: continue`, so 34 of 170 scored 2024 roster-weeks (20%) never enter the aggregates. Running the repo's OWN records.build_section with _RETIRED_OWNER_IDS emptied changes 5 of 10 record categories; 3 of them change at rank #1. This is not cosmetic and it IS a historical rewrite.",
+ "reproduction": {
+  "command": ".venv/bin/python /tmp/w19_retired2.py   # source archived at docs/master-site-audit/evidence/W19/retired-owner-diff-full.json; rebuilds the live snapshot twice, once with src.public_league.identity._RETIRED_OWNER_IDS = frozenset()",
+  "expected": "Identical record boards \u2014 the retirement list is documented as display-only",
+  "actual": "changedCategories = [singleWeekLowest, narrowestVictory, fewestPointsInWin, longestWinStreaks, longestLossStreaks]; history 2024 standings rows 8 -> 10; hallOfFame 12 -> 14; luck.byOwnerCareer 10 -> 12; streaks.currentStreaksByOwner 12 -> 14",
+  "artifact": "docs/master-site-audit/evidence/W19/retired-owner-diff-full.json"
+ },
+ "numericProof": {
+  "inputs": {
+   "leagueId2024": "1090320428817592320",
+   "sleeperTotalRosters2024": 10,
+   "retiredRosterIds": [
+    9,
+    10
+   ],
+   "scored2024RosterWeeksTotal": 170,
+   "scored2024RosterWeeksErased": 34
+  },
+  "formula": "records.build_section(snapshot) with vs without identity._RETIRED_OWNER_IDS; compare rank-1 value per category",
+  "expected": 164.79,
+  "actual": 177.25,
+  "tolerance": 0.01
+ },
+ "userImpact": "A visitor reading the public Records board is told the all-time lowest single-week score is 177.25 (it is 164.79), the all-time fewest points in a win is 241.23 (it is 236.61), and that the 2nd-longest win streak in league history (6) is held by Brent alone (SheriffB is tied at 6). They will cite these as league facts and settle arguments with them. The History tab shows an 8-team standings table for a 10-team season with no note.",
+ "blastRadius": {
+  "playersAffected": 0,
+  "routesAffected": 5,
+  "pagesAffected": 4
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": null,
+  "relation": "new",
+  "note": "No prior finding in the A21 Public League set covers the retired-owner filter. PRIOR-A21-F04 is a different erasure mechanism (0.00-point weeks in luck.py)."
+ },
+ "whatWorks": "The values that ARE published verify exactly against Sleeper: records.singleWeekHighest[0] = 489.2 matches /league/1180092661344120832/matchups/15 roster 9 to 0.01. The defect is omission, not arithmetic.",
+ "rootCause": "identity._RETIRED_OWNER_IDS strips the owners from the ManagerRegistry, which is the roster_id -> owner_id map every section resolves through. Filtering identity and filtering game data were conflated.",
+ "requiredRepair": "Keep retired owners in roster_to_owner (so historical rows resolve) and filter them only at the display surfaces that need it (franchise dropdown, manager list). Alternatively stamp an explicit `excludedOwnerCount` / `historicalCoverageIncomplete` field on every section that drops rows and render it.",
+ "dependencies": "None"
+}

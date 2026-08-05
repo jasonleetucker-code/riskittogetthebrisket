@@ -1,0 +1,165 @@
+{
+ "note": "consensusMeanRank - retailMeanRank, per position, on effectiveSourceRanks. Positive => KTC ranks the player higher than the non-retail consensus => marketGapDirection=retail_premium => SELL.",
+ "retailKeys": [
+  "ktcSfTep"
+ ],
+ "byPosition": {
+  "PICK": {
+   "n": 36,
+   "meanDiff": 90.14,
+   "medianDiff": 86.0,
+   "pctRetailPremium": 97.2
+  },
+  "WR": {
+   "n": 193,
+   "meanDiff": -6.83,
+   "medianDiff": -6.11,
+   "pctRetailPremium": 35.8
+  },
+  "RB": {
+   "n": 128,
+   "meanDiff": -8.5,
+   "medianDiff": -9.08,
+   "pctRetailPremium": 25.8
+  },
+  "QB": {
+   "n": 66,
+   "meanDiff": -24.69,
+   "medianDiff": -16.95,
+   "pctRetailPremium": 6.1
+  },
+  "TE": {
+   "n": 73,
+   "meanDiff": 41.6,
+   "medianDiff": 40.86,
+   "pctRetailPremium": 94.5
+  }
+ },
+ "edgePanelEligible_rank<=250_spread>=20": {
+  "DB": {
+   "none": 9
+  },
+  "DL": {
+   "none": 29
+  },
+  "LB": {
+   "none": 20
+  },
+  "PICK": {
+   "retail_premium": 10
+  },
+  "QB": {
+   "consensus_premium": 21,
+   "none": 1
+  },
+  "RB": {
+   "retail_premium": 6,
+   "consensus_premium": 27,
+   "none": 1
+  },
+  "TE": {
+   "retail_premium": 33
+  },
+  "WR": {
+   "consensus_premium": 41,
+   "retail_premium": 9
+  }
+ },
+ "sellPanelTop10": [
+  [
+   "Eli Raridon",
+   "TE",
+   332.0
+  ],
+  [
+   "De'Zhaun Stribling",
+   "WR",
+   181.0
+  ],
+  [
+   "Mason Taylor",
+   "TE",
+   177.0
+  ],
+  [
+   "Greg Dulcich",
+   "TE",
+   175.0
+  ],
+  [
+   "Hunter Henry",
+   "TE",
+   155.0
+  ],
+  [
+   "Pat Freiermuth",
+   "TE",
+   132.0
+  ],
+  [
+   "Dalton Schultz",
+   "TE",
+   131.0
+  ],
+  [
+   "Max Klare",
+   "TE",
+   128.0
+  ],
+  [
+   "Travis Kelce",
+   "TE",
+   127.0
+  ],
+  [
+   "AJ Barner",
+   "TE",
+   126.0
+  ]
+ ],
+ "wholeBoardDirectionByPosition": {
+  "DB": {
+   "none": 139
+  },
+  "DL": {
+   "none": 145
+  },
+  "K": {
+   "none": 19
+  },
+  "LB": {
+   "none": 114
+  },
+  "PICK": {
+   "retail_premium": 35,
+   "none": 108,
+   "consensus_premium": 1
+  },
+  "QB": {
+   "consensus_premium": 56,
+   "retail_premium": 3,
+   "none": 12
+  },
+  "RB": {
+   "consensus_premium": 85,
+   "none": 37,
+   "retail_premium": 18
+  },
+  "T": {
+   "none": 1
+  },
+  "TE": {
+   "retail_premium": 69,
+   "none": 12,
+   "consensus_premium": 4
+  },
+  "WR": {
+   "consensus_premium": 109,
+   "none": 67,
+   "retail_premium": 41
+  },
+  "null": {
+   "none": 17
+  }
+ }
+}

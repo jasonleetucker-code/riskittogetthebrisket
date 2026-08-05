@@ -1,0 +1,542 @@
+[
+ {
+  "A": [
+   "Josh Allen=9988"
+  ],
+  "B": [
+   "Brock Bowers=9947",
+   "Bo Nix=6572"
+  ],
+  "fwd": {
+   "rawA": 9988,
+   "adjA": 0,
+   "rawB": 16519,
+   "adjB": 0,
+   "gap": -6531,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 9988,
+   "adjA": 0,
+   "rawB": 16519,
+   "adjB": 0,
+   "gap": -6531,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Brock Bowers=9947"
+  ],
+  "B": [
+   "Bijan Robinson=9706",
+   "Jonathan Taylor=6431"
+  ],
+  "fwd": {
+   "rawA": 9947,
+   "adjA": 0,
+   "rawB": 16137,
+   "adjB": 0,
+   "gap": -6190,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 9947,
+   "adjA": 0,
+   "rawB": 16137,
+   "adjB": 0,
+   "gap": -6190,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Bijan Robinson=9706"
+  ],
+  "B": [
+   "Ja'Marr Chase=9641",
+   "Emeka Egbuka=6388"
+  ],
+  "fwd": {
+   "rawA": 9706,
+   "adjA": 0,
+   "rawB": 16029,
+   "adjB": 0,
+   "gap": -6323,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 9706,
+   "adjA": 0,
+   "rawB": 16029,
+   "adjB": 0,
+   "gap": -6323,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Ja'Marr Chase=9641"
+  ],
+  "B": [
+   "Drake Maye=9577",
+   "Brock Purdy=6376"
+  ],
+  "fwd": {
+   "rawA": 9641,
+   "adjA": 0,
+   "rawB": 15953,
+   "adjB": 0,
+   "gap": -6312,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 9641,
+   "adjA": 0,
+   "rawB": 15953,
+   "adjB": 0,
+   "gap": -6312,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Drake Maye=9577"
+  ],
+  "B": [
+   "Jahmyr Gibbs=9576",
+   "James Cook=6332"
+  ],
+  "fwd": {
+   "rawA": 9577,
+   "adjA": 0,
+   "rawB": 15908,
+   "adjB": 0,
+   "gap": -6331,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 9577,
+   "adjA": 0,
+   "rawB": 15908,
+   "adjB": 0,
+   "gap": -6331,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Jahmyr Gibbs=9576"
+  ],
+  "B": [
+   "Jaxon Smith-Njigba=9337",
+   "George Pickens=6271"
+  ],
+  "fwd": {
+   "rawA": 9576,
+   "adjA": 0,
+   "rawB": 15608,
+   "adjB": 0,
+   "gap": -6032,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 9576,
+   "adjA": 0,
+   "rawB": 15608,
+   "adjB": 0,
+   "gap": -6032,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Jaxon Smith-Njigba=9337"
+  ],
+  "B": [
+   "Trey McBride=9264",
+   "Carnell Tate=6160"
+  ],
+  "fwd": {
+   "rawA": 9337,
+   "adjA": 0,
+   "rawB": 15424,
+   "adjB": 0,
+   "gap": -6087,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 9337,
+   "adjA": 0,
+   "rawB": 15424,
+   "adjB": 0,
+   "gap": -6087,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Trey McBride=9264"
+  ],
+  "B": [
+   "Puka Nacua=9132",
+   "Nico Collins=6080"
+  ],
+  "fwd": {
+   "rawA": 9264,
+   "adjA": 0,
+   "rawB": 15212,
+   "adjB": 0,
+   "gap": -5948,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 9264,
+   "adjA": 0,
+   "rawB": 15212,
+   "adjB": 0,
+   "gap": -5948,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Josh Allen=9988",
+   "2026 Pick 1.01=7799"
+  ],
+  "B": [
+   "Jahmyr Gibbs=9576",
+   "Aidan Hutchinson=6362"
+  ],
+  "fwd": {
+   "rawA": 17787,
+   "adjA": 2275,
+   "rawB": 15938,
+   "adjB": 0,
+   "gap": 4124,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 17787,
+   "adjA": 2275,
+   "rawB": 15938,
+   "adjB": 0,
+   "gap": 4124,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Ja'Marr Chase=9641",
+   "2027 Early 1st=7049"
+  ],
+  "B": [
+   "Puka Nacua=9132",
+   "Carson Schwesinger=5908"
+  ],
+  "fwd": {
+   "rawA": 16690,
+   "adjA": 2127,
+   "rawB": 15040,
+   "adjB": 0,
+   "gap": 3777,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 16690,
+   "adjA": 2127,
+   "rawB": 15040,
+   "adjB": 0,
+   "gap": 3777,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Jaxon Smith-Njigba=9337",
+   "2026 Pick 1.02=6160"
+  ],
+  "B": [
+   "Caleb Williams=8753",
+   "Will Anderson=5876"
+  ],
+  "fwd": {
+   "rawA": 15497,
+   "adjA": 1769,
+   "rawB": 14629,
+   "adjB": 0,
+   "gap": 2637,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 15497,
+   "adjA": 1769,
+   "rawB": 14629,
+   "adjB": 0,
+   "gap": 2637,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Jayden Daniels=8898",
+   "2027 Mid 1st=5606"
+  ],
+  "B": [
+   "Justin Jefferson=8054",
+   "Sonny Styles=5222"
+  ],
+  "fwd": {
+   "rawA": 14504,
+   "adjA": 2221,
+   "rawB": 13276,
+   "adjB": 0,
+   "gap": 3449,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 14504,
+   "adjA": 2221,
+   "rawB": 13276,
+   "adjB": 0,
+   "gap": 3449,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Aidan Hutchinson=6362"
+  ],
+  "B": [
+   "Carson Schwesinger=5908",
+   "2027 Mid 1st=5606"
+  ],
+  "fwd": {
+   "rawA": 6362,
+   "adjA": 0,
+   "rawB": 11514,
+   "adjB": 0,
+   "gap": -5152,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 6362,
+   "adjA": 0,
+   "rawB": 11514,
+   "adjB": 0,
+   "gap": -5152,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Carson Schwesinger=5908"
+  ],
+  "B": [
+   "Will Anderson=5876",
+   "2026 Pick 1.03=5597"
+  ],
+  "fwd": {
+   "rawA": 5908,
+   "adjA": 0,
+   "rawB": 11473,
+   "adjB": 0,
+   "gap": -5565,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 5908,
+   "adjA": 0,
+   "rawB": 11473,
+   "adjB": 0,
+   "gap": -5565,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Will Anderson=5876"
+  ],
+  "B": [
+   "Sonny Styles=5222",
+   "2026 Pick 1.04=5320"
+  ],
+  "fwd": {
+   "rawA": 5876,
+   "adjA": 0,
+   "rawB": 10542,
+   "adjB": 0,
+   "gap": -4666,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 5876,
+   "adjA": 0,
+   "rawB": 10542,
+   "adjB": 0,
+   "gap": -4666,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Sonny Styles=5222"
+  ],
+  "B": [
+   "Jack Campbell=4803",
+   "2026 Pick 1.05=5222"
+  ],
+  "fwd": {
+   "rawA": 5222,
+   "adjA": 0,
+   "rawB": 10025,
+   "adjB": 0,
+   "gap": -4803,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 5222,
+   "adjA": 0,
+   "rawB": 10025,
+   "adjB": 0,
+   "gap": -4803,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Josh Allen=9988",
+   "Lamar Jackson=8784",
+   "2026 Pick 1.01=7799"
+  ],
+  "B": [
+   "Bijan Robinson=9706",
+   "Will Anderson=5876",
+   "2026 Pick 1.05=5222",
+   "Zay Flowers=4953"
+  ],
+  "fwd": {
+   "rawA": 26571,
+   "adjA": 4579,
+   "rawB": 25757,
+   "adjB": 0,
+   "gap": 5393,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 26571,
+   "adjA": 4579,
+   "rawB": 25757,
+   "adjB": 0,
+   "gap": 5393,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Brock Bowers=9947",
+   "Caleb Williams=8753",
+   "2027 Early 1st=7049"
+  ],
+  "B": [
+   "Ja'Marr Chase=9641",
+   "Sonny Styles=5222",
+   "2028 Early 1st=5089",
+   "Rome Odunze=4930"
+  ],
+  "fwd": {
+   "rawA": 25749,
+   "adjA": 4350,
+   "rawB": 24882,
+   "adjB": 0,
+   "gap": 5217,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 25749,
+   "adjA": 4350,
+   "rawB": 24882,
+   "adjB": 0,
+   "gap": 5217,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Bijan Robinson=9706",
+   "Joe Burrow=8383",
+   "2026 Pick 1.02=6160"
+  ],
+  "B": [
+   "Drake Maye=9577",
+   "Jack Campbell=4803",
+   "2026 Pick 1.06=4987",
+   "A.J. Brown=4925"
+  ],
+  "fwd": {
+   "rawA": 24249,
+   "adjA": 3422,
+   "rawB": 24292,
+   "adjB": 0,
+   "gap": 3379,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 24249,
+   "adjA": 3422,
+   "rawB": 24292,
+   "adjB": 0,
+   "gap": 3379,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ },
+ {
+  "A": [
+   "Ja'Marr Chase=9641",
+   "Amon-Ra St. Brown=8326",
+   "2027 Mid 1st=5606"
+  ],
+  "B": [
+   "Jahmyr Gibbs=9576",
+   "Micah Parsons=4606",
+   "2027 Late 1st=4933",
+   "Rashee Rice=4887"
+  ],
+  "fwd": {
+   "rawA": 23573,
+   "adjA": 3051,
+   "rawB": 24002,
+   "adjB": 0,
+   "gap": 2622,
+   "verdict": "Major gap"
+  },
+  "rev": {
+   "rawA": 23573,
+   "adjA": 3051,
+   "rawB": 24002,
+   "adjB": 0,
+   "gap": 2622,
+   "verdict": "Major gap"
+  },
+  "symmetric": true
+ }
+]

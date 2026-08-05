@@ -1,0 +1,421 @@
+{
+ "publishedScoringClaims": [
+  {
+   "claim": "passing yards 1/30",
+   "key": "pass_yd",
+   "claimed": 0.03333333333333333,
+   "host": 0.03333333333333333,
+   "match": true
+  },
+  {
+   "claim": "pass TD 6",
+   "key": "pass_td",
+   "claimed": 6.0,
+   "host": 6.0,
+   "match": true
+  },
+  {
+   "claim": "INT -4",
+   "key": "pass_int",
+   "claimed": -4.0,
+   "host": -4.0,
+   "match": true
+  },
+  {
+   "claim": "pick-six -2",
+   "key": "pass_int_td",
+   "claimed": -2.0,
+   "host": -2.0,
+   "match": true
+  },
+  {
+   "claim": "completion +0.15",
+   "key": "pass_cmp",
+   "claimed": 0.15,
+   "host": 0.15,
+   "match": true
+  },
+  {
+   "claim": "incompletion -0.22",
+   "key": "pass_inc",
+   "claimed": -0.22,
+   "host": -0.22,
+   "match": true
+  },
+  {
+   "claim": "QB sack taken -1",
+   "key": "pass_sack",
+   "claimed": -1.0,
+   "host": -1.0,
+   "match": true
+  },
+  {
+   "claim": "rush yards 1/10",
+   "key": "rush_yd",
+   "claimed": 0.1,
+   "host": 0.1,
+   "match": true
+  },
+  {
+   "claim": "rush TD 6",
+   "key": "rush_td",
+   "claimed": 6.0,
+   "host": 6.0,
+   "match": true
+  },
+  {
+   "claim": "rush attempt +0.08",
+   "key": "rush_att",
+   "claimed": 0.08,
+   "host": 0.08,
+   "match": true
+  },
+  {
+   "claim": "reception +0.08",
+   "key": "rec",
+   "claimed": 0.08,
+   "host": 0.08,
+   "match": true
+  },
+  {
+   "claim": "rec yards 1/10",
+   "key": "rec_yd",
+   "claimed": 0.1,
+   "host": 0.1,
+   "match": true
+  },
+  {
+   "claim": "rec TD 6",
+   "key": "rec_td",
+   "claimed": 6.0,
+   "host": 6.0,
+   "match": true
+  },
+  {
+   "claim": "rec 0-4 +0.17",
+   "key": "rec_0_4",
+   "claimed": 0.17,
+   "host": 0.17,
+   "match": true
+  },
+  {
+   "claim": "rec 5-9 +0.42",
+   "key": "rec_5_9",
+   "claimed": 0.42,
+   "host": 0.42,
+   "match": true
+  },
+  {
+   "claim": "rec 10-19 +0.67",
+   "key": "rec_10_19",
+   "claimed": 0.67,
+   "host": 0.67,
+   "match": true
+  },
+  {
+   "claim": "rec 20-29 +0.92",
+   "key": "rec_20_29",
+   "claimed": 0.92,
+   "host": 0.92,
+   "match": true
+  },
+  {
+   "claim": "rec 30-39 +1.17",
+   "key": "rec_30_39",
+   "claimed": 1.17,
+   "host": 1.17,
+   "match": true
+  },
+  {
+   "claim": "rec 40+ +1.92",
+   "key": "rec_40p",
+   "claimed": 1.92,
+   "host": 1.92,
+   "match": true
+  },
+  {
+   "claim": "first down RB +1.00",
+   "key": "bonus_fd_rb",
+   "claimed": 1.0,
+   "host": 1.0,
+   "match": true
+  },
+  {
+   "claim": "first down WR +1.00",
+   "key": "bonus_fd_wr",
+   "claimed": 1.0,
+   "host": 1.0,
+   "match": true
+  },
+  {
+   "claim": "first down TE +1.00",
+   "key": "bonus_fd_te",
+   "claimed": 1.0,
+   "host": 1.0,
+   "match": true
+  },
+  {
+   "claim": "first down QB +0.67",
+   "key": "bonus_fd_qb",
+   "claimed": 0.67,
+   "host": 0.67,
+   "match": true
+  },
+  {
+   "claim": "IDP TD 6.38",
+   "key": "idp_def_td",
+   "claimed": 6.38,
+   "host": 6.38,
+   "match": true
+  },
+  {
+   "claim": "IDP sack 2.92",
+   "key": "idp_sack",
+   "claimed": 2.92,
+   "host": 2.92,
+   "match": true
+  },
+  {
+   "claim": "IDP sack yds 1/9",
+   "key": "idp_sack_yd",
+   "claimed": 0.1111111111111111,
+   "host": 0.1111111111111111,
+   "match": true
+  },
+  {
+   "claim": "IDP QB hit 2.13",
+   "key": "idp_qb_hit",
+   "claimed": 2.13,
+   "host": 2.13,
+   "match": true
+  },
+  {
+   "claim": "IDP TFL 4.25",
+   "key": "idp_tkl_loss",
+   "claimed": 4.25,
+   "host": 4.25,
+   "match": true
+  },
+  {
+   "claim": "IDP blocked kick 5.32",
+   "key": "idp_blk_kick",
+   "claimed": 5.32,
+   "host": 5.32,
+   "match": true
+  },
+  {
+   "claim": "IDP INT 5.32",
+   "key": "idp_int",
+   "claimed": 5.32,
+   "host": 5.32,
+   "match": true
+  },
+  {
+   "claim": "IDP INT ret yds 1/9",
+   "key": "idp_int_ret_yd",
+   "claimed": 0.1111111111111111,
+   "host": 0.1111111111111111,
+   "match": true
+  },
+  {
+   "claim": "IDP FR 3.19",
+   "key": "idp_fum_rec",
+   "claimed": 3.19,
+   "host": 3.19,
+   "match": true
+  },
+  {
+   "claim": "IDP FR yds 1/9",
+   "key": "idp_fum_ret_yd",
+   "claimed": 0.1111111111111111,
+   "host": 0.1111111111111111,
+   "match": true
+  },
+  {
+   "claim": "IDP FF 4.25",
+   "key": "idp_ff",
+   "claimed": 4.25,
+   "host": 4.25,
+   "match": true
+  },
+  {
+   "claim": "IDP safety 5.32",
+   "key": "idp_safe",
+   "claimed": 5.32,
+   "host": 5.32,
+   "match": true
+  },
+  {
+   "claim": "IDP assist 0.80",
+   "key": "idp_tkl_ast",
+   "claimed": 0.8,
+   "host": 0.8,
+   "match": true
+  },
+  {
+   "claim": "IDP solo 1.33",
+   "key": "idp_tkl_solo",
+   "claimed": 1.33,
+   "host": 1.33,
+   "match": true
+  },
+  {
+   "claim": "IDP PD 5.32",
+   "key": "idp_pass_def",
+   "claimed": 5.32,
+   "host": 5.32,
+   "match": true
+  }
+ ],
+ "facts": [
+  {
+   "fact": "12 teams",
+   "ok": true,
+   "host": 12
+  },
+  {
+   "fact": "superflex",
+   "ok": true,
+   "host": 1
+  },
+  {
+   "fact": "IDP",
+   "ok": true,
+   "host": [
+    3,
+    3,
+    3
+   ]
+  },
+  {
+   "fact": "best ball",
+   "ok": true,
+   "host": 1
+  },
+  {
+   "fact": "58 roster spots",
+   "ok": true,
+   "host": 58
+  },
+  {
+   "fact": "37 bench",
+   "ok": true,
+   "host": 37
+  },
+  {
+   "fact": "QB1",
+   "ok": true,
+   "host": 1
+  },
+  {
+   "fact": "RB2",
+   "ok": true,
+   "host": 2
+  },
+  {
+   "fact": "WR3",
+   "ok": true,
+   "host": 3
+  },
+  {
+   "fact": "TE2",
+   "ok": true,
+   "host": 2
+  },
+  {
+   "fact": "FLEX2",
+   "ok": true,
+   "host": 2
+  },
+  {
+   "fact": "SFLEX1",
+   "ok": true,
+   "host": 1
+  },
+  {
+   "fact": "K1",
+   "ok": true,
+   "host": 1
+  },
+  {
+   "fact": "IDP_FLEX0",
+   "ok": true,
+   "host": 0
+  },
+  {
+   "fact": "taxi size",
+   "ok": null,
+   "host": 0
+  },
+  {
+   "fact": "IR size",
+   "ok": null,
+   "host": 0
+  },
+  {
+   "fact": "playoff teams",
+   "ok": null,
+   "host": 7
+  },
+  {
+   "fact": "playoff week start",
+   "ok": null,
+   "host": 15
+  },
+  {
+   "fact": "playoff type (bracket)",
+   "ok": null,
+   "host": 1
+  },
+  {
+   "fact": "playoff round type",
+   "ok": null,
+   "host": 0
+  },
+  {
+   "fact": "median game (league_average_match)",
+   "ok": null,
+   "host": 1
+  },
+  {
+   "fact": "waiver type (2=FAAB)",
+   "ok": null,
+   "host": 2
+  },
+  {
+   "fact": "FAAB budget",
+   "ok": null,
+   "host": 100
+  },
+  {
+   "fact": "daily waivers",
+   "ok": null,
+   "host": 1
+  },
+  {
+   "fact": "waiver clear days",
+   "ok": null,
+   "host": 1
+  },
+  {
+   "fact": "trade deadline (week)",
+   "ok": null,
+   "host": 13
+  },
+  {
+   "fact": "divisions",
+   "ok": null,
+   "host": 3
+  },
+  {
+   "fact": "draft rounds",
+   "ok": null,
+   "host": 6
+  },
+  {
+   "fact": "adds disabled",
+   "ok": null,
+   "host": 1
+  }
+ ]
+}

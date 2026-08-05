@@ -1,0 +1,252 @@
+{
+ "payload": {
+  "Josh Allen": {
+   "fromArray": {
+    "r": 1,
+    "v": 9988,
+    "t": 1
+   },
+   "fromDict": {
+    "r": 1,
+    "v": 9988,
+    "t": null
+   }
+  },
+  "Drake London": {
+   "fromArray": {
+    "r": 23,
+    "v": 7348,
+    "t": 5
+   },
+   "fromDict": {
+    "r": 23,
+    "v": 7348,
+    "t": null
+   }
+  },
+  "Trey Lance": {
+   "fromArray": {
+    "r": 676,
+    "v": 1123,
+    "t": 117
+   },
+   "fromDict": {
+    "r": 676,
+    "v": 1123,
+    "t": null
+   }
+  },
+  "Brock Bowers": {
+   "fromArray": {
+    "r": 2,
+    "v": 9947,
+    "t": 1
+   },
+   "fromDict": {
+    "r": 2,
+    "v": 9947,
+    "t": null
+   }
+  },
+  "Bijan Robinson": {
+   "fromArray": {
+    "r": 3,
+    "v": 9706,
+    "t": 1
+   },
+   "fromDict": {
+    "r": 3,
+    "v": 9706,
+    "t": null
+   }
+  },
+  "Austin Ekeler": {
+   "fromArray": {
+    "r": null,
+    "v": null,
+    "t": null
+   },
+   "fromDict": {
+    "r": null,
+    "v": null,
+    "t": null
+   }
+  },
+  "AJ Dillon": {
+   "fromArray": {
+    "r": null,
+    "v": null,
+    "t": null
+   },
+   "fromDict": {
+    "r": null,
+    "v": null,
+    "t": null
+   }
+  },
+  "Jahmyr Gibbs": {
+   "fromArray": {
+    "r": 6,
+    "v": 9576,
+    "t": 1
+   },
+   "fromDict": {
+    "r": 6,
+    "v": 9576,
+    "t": null
+   }
+  },
+  "Puka Nacua": {
+   "fromArray": {
+    "r": 9,
+    "v": 9132,
+    "t": 2
+   },
+   "fromDict": {
+    "r": 9,
+    "v": 9132,
+    "t": null
+   }
+  },
+  "T.J. Watt": {
+   "fromArray": {
+    "r": 189,
+    "v": 2838,
+    "t": 33
+   },
+   "fromDict": {
+    "r": 189,
+    "v": 2838,
+    "t": null
+   }
+  },
+  "__meta": {
+   "hasArray": 1092,
+   "hasDict": 1092,
+   "url": "http://127.0.0.1:3000/api/dynasty-data",
+   "status": 200
+  }
+ },
+ "rendered": {
+  "Josh Allen": [
+   "1",
+   "Tier 1",
+   "Josh Allen\nBUF \u00b7 30",
+   "QB\n1",
+   "1.5",
+   "9,988\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  "Drake London": [
+   "23",
+   "Tier 4",
+   "Drake London\nATL \u00b7 25\nN",
+   "WR\n8",
+   "22.4",
+   "7,348\nS",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  "Trey Lance": [
+   "673",
+   "Tier 119",
+   "Trey Lance\nLAC \u00b7 26",
+   "QB\n62",
+   "416.6",
+   "1,123\nF",
+   "8/15",
+   "High",
+   "BUY",
+   "\u2014"
+  ],
+  "Brock Bowers": [
+   "2",
+   "Tier 1",
+   "Brock Bowers\nLV \u00b7 23",
+   "TE\n1",
+   "9.9",
+   "9,876\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  "Bijan Robinson": [
+   "3",
+   "Tier 1",
+   "Bijan Robinson\nATL \u00b7 24\nN",
+   "RB\n1",
+   "3.9",
+   "9,706\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  "Austin Ekeler": [
+   "865",
+   "Tier 10",
+   "Austin Ekeler\nFA \u00b7 31",
+   "RB\n115",
+   "\u2014",
+   "0\n\u2014",
+   "3/15",
+   "Low",
+   "\u2014",
+   "\u2014"
+  ],
+  "AJ Dillon": [
+   "858",
+   "Tier 10",
+   "AJ Dillon\nCAR \u00b7 28",
+   "RB\n113",
+   "\u2014",
+   "0\n\u2014",
+   "4/15",
+   "Low",
+   "BUY",
+   "\u2014"
+  ],
+  "Jahmyr Gibbs": [
+   "6",
+   "Tier 1",
+   "Jahmyr Gibbs\nDET \u00b7 24\nN",
+   "RB\n2",
+   "5.0",
+   "9,576\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  "Puka Nacua": [
+   "8",
+   "Tier 2",
+   "Puka Nacua\nLAR \u00b7 25",
+   "WR\n3",
+   "8.1",
+   "9,132\nS+",
+   "14/15",
+   "High",
+   "HOLD",
+   "Consensus asset"
+  ],
+  "T.J. Watt": [
+   "185",
+   "Tier 29",
+   "T.J. Watt\nPIT \u00b7 31\n!\n~",
+   "DL\n16",
+   "351.8",
+   "2,838\nD",
+   "5/6",
+   "Low",
+   "\u2014",
+   "Caution: flaggedCaution: wide disagreement"
+  ]
+ }
+}

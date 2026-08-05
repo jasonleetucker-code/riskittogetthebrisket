@@ -1,0 +1,34 @@
+{
+ "materializedRows": 1092,
+ "fabricatedRankRows": 222,
+ "range": [
+  854,
+  1092
+ ],
+ "predictedVsDom": {
+  "AJ Dillon": {
+   "predicted": 855,
+   "dom": 858
+  },
+  "Austin Ekeler": {
+   "predicted": 863,
+   "dom": 865
+  },
+  "Alexander Mattison": {
+   "predicted": 857,
+   "dom": 860
+  },
+  "Arian Smith": {
+   "predicted": 862,
+   "dom": 864
+  },
+  "Trey Lance": {
+   "predicted": 673,
+   "dom": 673
+  },
+  "T.J. Watt": {
+   "predicted": 185,
+   "dom": 185
+  }
+ }
+}

@@ -1,0 +1,306 @@
+{
+ "/rankings": {
+  "url": "http://127.0.0.1:3000/rankings",
+  "bytes": 593789,
+  "h1": "Rankings",
+  "edgeVerbCounts": {
+   "HOLD": 85,
+   "\u2014": 46,
+   "SELL": 29,
+   "BUY": 40
+  },
+  "firstRows": [
+   {
+    "cells": [
+     "1",
+     "Tier 1",
+     "Josh AllenBUF \u00b7 30",
+     "QB1"
+    ],
+    "edge": "HOLD"
+   },
+   {
+    "cells": [
+     "2",
+     "Tier 1",
+     "Brock BowersLV \u00b7 23",
+     "TE1"
+    ],
+    "edge": "HOLD"
+   },
+   {
+    "cells": [
+     "3",
+     "Tier 1",
+     "Bijan RobinsonATL \u00b7 24N",
+     "RB1"
+    ],
+    "edge": "HOLD"
+   },
+   {
+    "cells": [
+     "4",
+     "Tier 1",
+     "Ja'Marr ChaseCIN \u00b7 26",
+     "WR1"
+    ],
+    "edge": "HOLD"
+   },
+   {
+    "cells": [
+     "5",
+     "Tier 1",
+     "Drake MayeNE \u00b7 23",
+     "QB2"
+    ],
+    "edge": "HOLD"
+   },
+   {
+    "cells": [
+     "6",
+     "Tier 1",
+     "Jahmyr GibbsDET \u00b7 24N",
+     "RB2"
+    ],
+    "edge": "HOLD"
+   },
+   {
+    "cells": [
+     "Tier 2"
+    ],
+    "edge": null
+   },
+   {
+    "cells": [
+     "7",
+     "Tier 2",
+     "Jaxon Smith-NjigbaSEA \u00b7 24",
+     "WR2"
+    ],
+    "edge": "HOLD"
+   },
+   {
+    "cells": [
+     "8",
+     "Tier 2",
+     "Puka NacuaLAR \u00b7 25",
+     "WR3"
+    ],
+    "edge": "HOLD"
+   },
+   {
+    "cells": [
+     "9",
+     "Tier 2",
+     "Trey McBrideARI \u00b7 26",
+     "TE2"
+    ],
+    "edge": "HOLD"
+   },
+   {
+    "cells": [
+     "10",
+     "Tier 2",
+     "Jayden DanielsWAS \u00b7 25",
+     "QB3"
+    ],
+    "edge": "\u2014"
+   },
+   {
+    "cells": [
+     "11",
+     "Tier 2",
+     "Lamar JacksonBAL \u00b7 29N",
+     "QB4"
+    ],
+    "edge": "HOLD"
+   }
+  ],
+  "sellRows": [
+   {
+    "cells": [
+     "21",
+     "Tier 3",
+     "Colston LovelandCHI \u00b7 22",
+     "TE3"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "27",
+     "Tier 4",
+     "Tyler WarrenIND \u00b7 24",
+     "TE4"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "50",
+     "Tier 7",
+     "Tucker KraftGB \u00b7 25",
+     "TE5"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "52",
+     "Tier 8",
+     "Harold FanninCLE \u00b7 22",
+     "TE6"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "62",
+     "Tier 9",
+     "212028 Early 1st",
+     "PICK3"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "65",
+     "Tier 9",
+     "Sam LaPortaDET \u00b7 25",
+     "TE7"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "68",
+     "Tier 9",
+     "212027 Late 1st",
+     "PICK4"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "73",
+     "Tier 9",
+     "Kyle PittsATL \u00b7 25N",
+     "TE8"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "85",
+     "Tier 11",
+     "Kenyon SadiqNYJ \u00b7 21R!N",
+     "TE9"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "86",
+     "Tier 11",
+     "212028 Mid 1st",
+     "PICK5"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "97",
+     "Tier 13",
+     "212028 Late 1st",
+     "PICK6"
+    ],
+    "edge": "SELL"
+   },
+   {
+    "cells": [
+     "101",
+     "Tier 14",
+     "Oronde GadsdenLAC \u00b7 23",
+     "TE11"
+    ],
+    "edge": "SELL"
+   }
+  ],
+  "buyRows": [
+   {
+    "cells": [
+     "40",
+     "Tier 5",
+     "Nico CollinsHOU \u00b7 27",
+     "WR13"
+    ],
+    "edge": "BUY"
+   },
+   {
+    "cells": [
+     "41",
+     "Tier 5",
+     "Jordan LoveGB \u00b7 27",
+     "QB14"
+    ],
+    "edge": "BUY"
+   },
+   {
+    "cells": [
+     "49",
+     "Tier 7",
+     "Fernando MendozaLV \u00b7 22R",
+     "QB15"
+    ],
+    "edge": "BUY"
+   },
+   {
+    "cells": [
+     "51",
+     "Tier 8",
+     "Dak PrescottDAL \u00b7 33",
+     "QB16"
+    ],
+    "edge": "BUY"
+   },
+   {
+    "cells": [
+     "54",
+     "Tier 8",
+     "Breece HallNYJ \u00b7 25",
+     "RB11"
+    ],
+    "edge": "BUY"
+   },
+   {
+    "cells": [
+     "72",
+     "Tier 9",
+     "Jared GoffDET \u00b7 31",
+     "QB18"
+    ],
+    "edge": "BUY"
+   }
+  ]
+ },
+ "/edge": {
+  "url": "http://127.0.0.1:3000/edge",
+  "bytes": 142010,
+  "h1": "Source Disagreement",
+  "hasSellSignals": true,
+  "hasBuySignals": true,
+  "bodyExcerpt": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nMARKET\n\nSource Disagreement\n\nWhere the ranking sources agree and disagree.\n\nAll teams (league-wide)\nJason\nEd\nTy\nCollin\nMaKayla\nEric\nRoy\nJoey\nBrent\nKich\njstuedle\nBlaine\nANALYZED\n911\nleague-wide\nHIGH CONF\n86\nMULTI-SOURCE\n859\nDISAGREE\n649\nFLAGGED\n49\nSINGLE-SOURCE\n16\nValue vs. source spread\n\nTop-200 ranked rows \u2014 the upper-right quadrant is the edge zone\n\n0%\n19%\n39%\n58%\n78%\n0\n1,998\n3,995\n5,993\n7,990\n9,988\nrankDerivedValue\nsource spread (%)\nMarket gaps\nAgreement\nData caution\nSell signals\n\nKTC values these much higher than the expert consensus\n\n10 shown\nPlayers the retail market KTC values above consensus\n#\n\t\nPLAYER\n\t\nPOS\n\t\nSPREAD\n\t\nVALUE\n\n244\tEli Raridon\nNE\n\tTE\t\u00b1332\t2,372\n202\tDe'Zhaun Stribling\nSF\n\tWR\t\u00b1181\t2,683\n249\tGreg Dulcich\nMIA\n\tTE\t\u00b1175\t2,325\n238\tHunter Henry\nNE\n\tTE\t\u00b1141\t2,472\n250\tDalton Schultz\nHOU\n\tTE\t\u00b1131\t2,304\n243\tMax Klare\nLAR\n\tTE\t\u00b1128\t2,373\n180\tTravis Kelce\nKC\n\tTE\t\u00b1127\t2,854\n222\tJuwan Johnson\nNO\n\tTE\t\u00b1125\t2,563\n199\tTerrance Ferguson\nLAR\n\tTE\t\u00b1112\t2,715\n186\tDallas Goedert\nPHI\n\tTE\t\u00b1104\t2,833\nSorted by Spread, descending\nBuy signals\n\nThe expert consensus values these much higher than KTC\n\n10 shown\nPlayers the expert consensus values above KTC\n#\n\t\nPLAYER\n\t\nPOS\n\t\nSPREAD\n\t\nVALUE\n\n217\tJ.J. McCarthy\nMIN\n\tQB\t\u00b1171\t2,588\n207\tTua Tagovailoa\nATL\n\tQB\t\u00b1167\t2,657\n181\tChris Godwin\nTB\n\tWR\t\u00b1163\t2,853\n226\tShedeur Sanders\nCLE\n\tQB\t\u00b1156\t2,534\n239\tJacoby Brissett\nARI\n\tQB\t\u00b1152\t2,418\n247\tJordan Mason\nMIN\n\tRB\t\u00b1141\t2,349\n241\tTre' Harris\nLAC\n\tWR\t\u00b1137\t2,397\n246\tTyrone Tracy\nNYG\n\tRB\t\u00b1136\t2,350\n230\tRachaad White\nWAS\n\tRB\t\u00b1134\t2,520\n209\tTony Pollard\nTEN\n\tRB\t\u00b1132\t2,620\nSorted by Spread, descending\nIDP sell signals\n\nIDPTC ranks these defenders well above the IDP-expe"
+ },
+ "/consensus-edge": {
+  "url": "http://127.0.0.1:3000/consensus-edge",
+  "bytes": 28596,
+  "h1": "Consensus Edge",
+  "bodyExcerpt": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\nConsensus Edge\n\nWhere our anchor-free fair value disagrees with the market.\n\nConsensus Edge is switched off\n\nIts top-20 buy list did not beat a random draw from the same priced universe in any measured fold, so it ships behind a feature flag that defaults off. Enable consensus_edge to view the board anyway \u2014 everything works; what is missing is evidence that it helps.\n\nSAVE"
+ },
+ "/bdvm": {
+  "url": "http://127.0.0.1:3000/bdvm",
+  "bytes": 29814,
+  "h1": "Fundamental Values",
+  "bodyExcerpt": "Skip to content\n\u25aa\nCHASE UPSIDE\nRankings\nNews\nTrades\nMy Team\nMarket\nLeague\nRisk It To Get The Brisket\n\u25be\nPick your team\n\u25be\nSearch\n/\nSystem\n\nRANKINGS\n\nFundamental Values\n\nBDVM projection-driven dynasty values \u2014 fundamentals first, market strictly after. A second value concept beside the market board, never merged into it.\n\nValue Board\nRosters\nTrade Scan\nNo projection snapshot yet\n\nFundamental values are priced from a weekly projection snapshot, and this season's hasn't been built yet. It refreshes automatically \u2014 check back after the next run.\n\nSAVE"
+ }
+}

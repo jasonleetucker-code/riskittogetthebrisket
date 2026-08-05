@@ -1,0 +1,48 @@
+# W16 live route probe — 2026-08-04T23:08:16Z, HEAD ba9f348b
+## authenticated (e2e-test-user)
+GET /api/intel/summary                                 503
+{"error":"data_not_ready","message":"No intel snapshot for league 'dynasty_main' yet — trigger POST /api/intel/refresh or wait for the daily cron.","leagueKey":"dynasty_main"}
+GET /api/intel/waiver-interest                         503
+{"error":"data_not_ready","message":"No intel snapshot for league 'dynasty_main' yet — trigger POST /api/intel/refresh or wait for the daily cron.","leagueKey":"dynasty_main"}
+GET /api/intel/player?name=Bijan%20Robinson            503
+{"error":"data_not_ready","message":"No intel snapshot for league 'dynasty_main' yet — trigger POST /api/intel/refresh or wait for the daily cron.","leagueKey":"dynasty_main"}
+GET /api/intel/member/123                              503
+{"error":"data_not_ready","message":"No intel snapshot for league 'dynasty_main' yet — trigger POST /api/intel/refresh or wait for the daily cron.","leagueKey":"dynasty_main"}
+GET /api/intel/refresh/status                          200
+{"isRunning":false,"startedAt":null,"finishedAt":null,"lastError":null,"lastResult":null,"leagueKey":null,"snapshotLeagueKey":"dynasty_main","snapshotGeneratedAt":null,"snapshotStaleHours":null}
+GET /api/sharp/market                                  200
+{"status":"cohort_building","generatedAt":1785884896827,"methodologyVersion":"sharp-v2","query":{"window":"30d","sort":"strength","assetType":"all","platform":"all","qualification":"all","limit":100},"assets":[],"cohort":{"automatedQualifie
+GET /api/sharp/roster-percentage                       200
+{"status":"cohort_building","generatedAt":1785884897297,"lastUpdated":null,"methodologyVersion":"sharp-v2","query":{"position":"all","platform":"all","format":"all","contention":"all","experience":"all","qualification":"all","sort":"rostere
+POST /api/intel/leads (empty body)                     400
+{"error":"missing_asset","message":"Provide assetId (Sleeper id or pick:<season>:<round>) or name."}
+## anonymous
+GET /api/intel/summary                                 401
+{"error":"auth_required","message":"Sign-in required."}
+GET /api/intel/refresh/status                          401
+{"error":"auth_required","message":"Sign-in or bearer token required."}
+GET /api/intel/refresh/status (bogus bearer)           401
+{"error":"auth_required","message":"Sign-in or bearer token required."}
+## data state
+total 424
+drwxr-xr-x  3 root root   4096 Aug  4 23:08 .
+drwxr-xr-x 17 root root   4096 Aug  4 23:08 ..
+drwxr-xr-x  3 root root   4096 Aug  4 20:43 ffpc
+-rw-r--r--  1 root root 319488 Aug  4 20:14 ledger.sqlite3
+-rw-r--r--  1 root root 102400 Aug  4 20:14 ledger.sqlite3.pre-platform-v2-auto.bak
+ls: cannot access 'data/intel/snapshot_*.json': No such file or directory
+## grep checks
+trendScore in server.py: 0
+frontend consumers of waiver-interest/member: 0
+frontend/app/api/bdvm:
+roster
+trade-eval
+trades
+values
+
+frontend/app/api/sharp:
+cohort
+market
+roster-percentage
+ls: cannot access 'frontend/app/api/intel': No such file or directory
+836:`src/intel/league_filter.py` (dynasty only, ≥ 2 seasons). `cohort.py`

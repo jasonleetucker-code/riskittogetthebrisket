@@ -1,0 +1,145 @@
+path,bytes,latest_internal_date,self_marker,recommendation,rationale
+.agents/skills/blueprint-auditor/SKILL.md,1111,-,-,KEEP,Audit methodologies AUDIT_PROTOCOL.md instructs workstreams to read.
+.agents/skills/design-taste-director/SKILL.md,4555,-,-,KEEP,Audit methodologies AUDIT_PROTOCOL.md instructs workstreams to read.
+.agents/skills/performance-optimizer/SKILL.md,967,-,-,KEEP,Audit methodologies AUDIT_PROTOCOL.md instructs workstreams to read.
+.agents/skills/reality-check-review/SKILL.md,672,-,-,KEEP,Audit methodologies AUDIT_PROTOCOL.md instructs workstreams to read.
+.agents/skills/scraper-ops/SKILL.md,822,-,-,KEEP,Audit methodologies AUDIT_PROTOCOL.md instructs workstreams to read.
+.agents/skills/value-pipeline-auditor/SKILL.md,1100,-,-,KEEP,Audit methodologies AUDIT_PROTOCOL.md instructs workstreams to read.
+AGENTS.md,2583,-,-,KEEP,"Agent operating rules, current."
+ASSISTANT_COORDINATION.md,1230,-,-,KEEP,Referenced by CLAUDE.md L15; multi-assistant handoff protocol.
+CLAUDE.md,54855,2026-07-31,-,KEEP,"The authority per HANDOFF.md. 49/73 falsifiable claims TRUE. FIX IN PLACE, do not retire — see W25-F001..F009 for the 12 false ones."
+HANDOFF.md,7601,2026-07-29,-,KEEP,Names the doc hierarchy. Only file that does. Keep and make it the index the retire list below feeds.
+LOCKSTEP_SETUP.md,3525,-,-,KEEP,Setup instructions for the coordination model CLAUDE.md mandates.
+README.md,7374,2026-07-29,-,KEEP,Entry point. Fix the 'Next.js 15' line (C-16).
+SECURITY.md,3172,-,-,KEEP,"Policy doc, no drift surface."
+UNIMPLEMENTED_BACKLOG.md,41601,2026-07-29,superseded,RETIRE,"RETIRE. Its own header says 'much of this file is already superseded' and 'the remaining entries were not re-verified one by one'. Two entries were found actively misreporting risk and struck through in place. A backlog nobody can trust is worse than no backlog: it costs every reader the time to discover that. Delete it, or move the handful of still-open items into GitHub issues and delete the file. 41,601 b in the repo root next to CLAUDE.md."
+audit/AUDIT_REPORT_2026-04-28.md,15585,2026-04-28,-,ARCHIVE,"2026-04-28 audit round, fully superseded by docs/audits/."
+audit/OPEN_QUESTIONS_FOR_PRODUCT.md,5861,2026-04-29,-,ARCHIVE,"2026-04-28 audit round, fully superseded by docs/audits/."
+config/leagues/README.md,5388,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+data/comparison/founder_review_packet.md,4106,2026-03-22,-,ARCHIVE,"Latest internal date 2026-03-22 — at least three months before HEAD (2026-08-04) — and no staleness marker, so it reads as current."
+data/raw/README.md,1144,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+deploy/PRODUCTION_BOOTSTRAP.md,3208,-,-,KEEP,Deployment READMEs track live systemd/nginx units.
+deploy/backup/README.md,6075,-,-,KEEP,Deployment READMEs track live systemd/nginx units.
+deploy/grafana/README.md,1899,-,-,KEEP,Deployment READMEs track live systemd/nginx units.
+deploy/monitoring/README.md,3192,2026-07-26,-,KEEP,Deployment READMEs track live systemd/nginx units.
+deploy/systemd/README.md,4378,-,-,KEEP,Deployment READMEs track live systemd/nginx units.
+docs/ARCHITECTURE.md,7161,-,-,KEEP,"Useful shape doc, but fix C-14 (the /api/data?view=delta arrow is wrong and the route silently accepts it) before anyone follows it again."
+docs/BLUEPRINT_EXECUTION.md,10284,2026-03-09,STALE,RETIRE,"RETIRE. STALE-bannered, 2026-03-09, describes an execution plan for a pipeline that no longer exists."
+docs/BRANCH_DISPOSITION_2026-07-29.md,6168,2026-07-29,-,RETIRE,RETIRE. One-off branch triage from 2026-07-29; the branches are gone.
+docs/CHASE_UPSIDE_RUN_LOG.md,42644,2026-07-28,-,ARCHIVE,"ARCHIVE. 42,644 b run log through 2026-07-28. Forensic value only."
+docs/CLAUDE_SESSION_AUDIT_HANDOFF.md,142235,2026-07-31,-,RETIRE,"RETIRE. 142,235 b — the single largest doc in the repo — a session-scoped handoff from 2026-07-31. Session handoffs do not have a second reader."
+docs/DESIGN-SYSTEM.md,20366,-,-,KEEP,"Live design tokens, referenced by the frontend."
+docs/ONBOARDING.md,4303,-,-,KEEP,Only new-contributor path.
+docs/ORCHESTRATION.md,99572,2026-08-02,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/OWNER_ACTION_AUDIT_2026-07-29.md,107158,2026-07-29,superseded,ARCHIVE,"ARCHIVE. 107,158 b, self-marked 'superseded', same date as the 07-29 audit that supersedes it."
+docs/PROD-HARDENING.md,16987,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/REPO_INVENTORY.md,3881,2026-03-09,-,RETIRE,RETIRE. 2026-03-09 file inventory. Every count in it is wrong now; `git ls-files` is free and cannot drift.
+docs/ROADMAP-competitor-parity.md,26396,2026-07-27,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/adjusted-board-backtest.md,8965,2026-07-28,-,KEEP,"The measurement behind a live product decision (adjusted board is a toggle, not the default)."
+docs/architecture/final-framework-transition.md,8279,2026-04-20,superseded,ARCHIVE,"ARCHIVE. Self-marked 'superseded'. It is the tombstone for the transition the docs/status/ set predates, so archive it alongside them rather than deleting — it explains WHY they are stale."
+docs/architecture/live-value-pipeline-trace.md,16468,2026-07-29,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/architecture/optimization-target.md,6796,2026-04-20,-,ARCHIVE,"Latest internal date 2026-04-20 — at least three months before HEAD (2026-08-04) — and no staleness marker, so it reads as current."
+docs/audits/complete-codebase-audit-2026-07-29.md,42800,2026-07-30,-,KEEP,"The value-spine audit. Keep, and add the one-line scope note that makes C-21 unnecessary for the next reader."
+docs/audits/decision-intelligence-audit-2026-08-04.md,97537,2026-08-04,-,KEEP,"The decision-layer claim set. Keep, and stamp it with its commit SHA + the C-18 correction so no future reader inherits refuted findings."
+docs/audits/math-formula-audit-2026-07-30.md,42065,2026-08-04,-,KEEP,Live formula registry companion. Keep; rename to match its own 2026-08-04 title (C-25).
+docs/automation-audit.md,23794,2026-04-25,-,ARCHIVE,"Latest internal date 2026-04-25 — at least three months before HEAD (2026-08-04) — and no staleness marker, so it reads as current."
+docs/backtest_methodology.md,4256,2026-04-24,-,ARCHIVE,"Latest internal date 2026-04-24 — at least three months before HEAD (2026-08-04) — and no staleness marker, so it reads as current."
+docs/collaborative-model-audit/CLAIM_REGISTRY.md,15832,2026-07-27,-,ARCHIVE,Superseded by docs/audits/. The claim/formula registries were absorbed into docs/audits/formula-registry.json.
+docs/collaborative-model-audit/EXPERIMENT_LOG.md,13614,2026-07-27,-,ARCHIVE,Superseded by docs/audits/. The claim/formula registries were absorbed into docs/audits/formula-registry.json.
+docs/collaborative-model-audit/FORMULA_REGISTRY.md,9229,2026-07-27,-,ARCHIVE,Superseded by docs/audits/. The claim/formula registries were absorbed into docs/audits/formula-registry.json.
+docs/collaborative-model-audit/IMPLEMENTATION_STATUS.md,6627,2026-04-28,-,ARCHIVE,Superseded by docs/audits/. The claim/formula registries were absorbed into docs/audits/formula-registry.json.
+docs/collaborative-model-audit/MASTER_AUDIT.md,5259,2026-07-27,-,ARCHIVE,Superseded by docs/audits/. The claim/formula registries were absorbed into docs/audits/formula-registry.json.
+docs/collaborative-model-audit/results/F-6-migration-result.md,4633,2026-07-27,-,ARCHIVE,Superseded by docs/audits/. The claim/formula registries were absorbed into docs/audits/formula-registry.json.
+docs/competitor-gap-analysis.md,44989,2026-07-27,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/consensus-edge/AUDIT-2026-08-04.md,14366,2026-08-04,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/consensus-edge/DECISIONS.md,41946,2026-08-04,-,KEEP,ADR-023 is the current authority on a live flag default. Keep; add a namespace prefix per C-13.
+docs/consensus-edge/METHODOLOGY.md,19260,2026-08-04,-,KEEP,Explains the refusal state a live 200 endpoint serves (/api/consensus-edge/methodology).
+docs/e2e-assertion-audit.md,45888,2026-07-31,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/first-down-signal.md,6882,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/identity-audit-2026-07.md,12874,2026-07-26,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/idp-ranking-model.md,10855,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/intel/AUDIT.md,12710,2026-07-29,-,KEEP,Sharp/intel subsystem is live (routes return 200). Keep.
+docs/intel/FFPC_IMPLEMENTATION_MAP.md,2870,-,-,KEEP,Sharp/intel subsystem is live (routes return 200). Keep.
+docs/intel/FFPC_UNIFIED_SHARP.md,15662,-,-,KEEP,Sharp/intel subsystem is live (routes return 200). Keep.
+docs/intel/LEADS.md,7679,-,-,KEEP,Sharp/intel subsystem is live (routes return 200). Keep.
+docs/intel/METRICS.md,6952,-,-,KEEP,Sharp/intel subsystem is live (routes return 200). Keep.
+docs/intel/SHARP_PRODUCTION_INGESTION.md,2737,-,-,KEEP,Sharp/intel subsystem is live (routes return 200). Keep.
+docs/intel/SHARP_SCORE.md,8420,2026-07-29,-,KEEP,Sharp/intel subsystem is live (routes return 200). Keep.
+docs/league-intelligence/DECISIONS.md,83924,2026-07-27,-,KEEP,"84 KB of live ADRs including ADR-015 (TE basis, verified TRUE). Keep; add a namespace prefix per C-13."
+docs/league-intelligence/MASTER_PLAN.md,4925,2026-07-26,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/league-intelligence/SCORING_VALIDATION.md,6557,2026-07-26,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/league-intelligence/SETTINGS_AUDIT.md,5832,2026-07-26,STALE,ARCHIVE,"ARCHIVE. STALE-bannered 2026-07-26 audit, superseded by DECISIONS.md ADRs."
+docs/league-intelligence/STATUS.md,7154,2026-07-26,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/league-intelligence/TASK_REGISTRY.md,2613,2026-07-26,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/legacy-rank-curve-backtest.md,14044,2026-07-30,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/open-modeling-decisions.md,14794,2026-07-30,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/ops/automation-runbook.md,6761,2026-03-14,STALE,ARCHIVE,"ARCHIVE. STALE-bannered, 2026-03-14; docs/ops/current-automation-state.md is the live one."
+docs/ops/current-automation-state.md,16263,2026-03-14,-,REVIEW,automation-runbook.md is STALE-bannered and 2026-03-14; the rest track live timers.
+docs/ops/failure-handling-and-fallbacks.md,7863,2026-03-14,-,REVIEW,automation-runbook.md is STALE-bannered and 2026-03-14; the rest track live timers.
+docs/ops/recommended-automation-model.md,10495,2026-03-14,-,REVIEW,automation-runbook.md is STALE-bannered and 2026-03-14; the rest track live timers.
+docs/ops/schedules-and-cadence.md,5281,2026-03-14,-,KEEP,Cadences still match .github/workflows; cheapest ops reference.
+docs/ops/sharp-refresh-trigger-2026-07-31T2311Z.md,635,2026-07-31,-,RETIRE,RETIRE. 635 b — a single trigger receipt committed as documentation.
+docs/per-touch-efficiency.md,9278,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/performance-optimization.md,35748,2026-07-29,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/playerctx.md,11716,2026-07-26,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/public_league.md,6800,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/python-coverage-audit.md,22840,2026-07-27,-,KEEP,Holds the D-2 definition three other files argue about (C-04). Cannot retire until D-2 is actually adjudicated.
+docs/rankings_identity_fix_2026-04-14.md,16760,2026-04-14,-,ARCHIVE,"Latest internal date 2026-04-14 — at least three months before HEAD (2026-08-04) — and no staleness marker, so it reads as current."
+docs/reception-banding.md,5138,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/redesign/R5-LEAGUE-MIGRATION.md,17659,-,-,ARCHIVE,R5 redesign phase docs; the redesign shipped. Archive as a set.
+docs/redesign/R5-PANEL-CSS-PURGE.md,15196,-,-,ARCHIVE,R5 redesign phase docs; the redesign shipped. Archive as a set.
+docs/redesign/R5-PHASE-A-READY.md,5282,-,-,ARCHIVE,R5 redesign phase docs; the redesign shipped. Archive as a set.
+docs/research/bdvm-v1/IMPLEMENTATION_REPORT.md,32009,2026-08-04,-,KEEP,BDVM's living authority — but it currently states the opposite of the live flag default (C-12). Keep and correct lines 129 and 388.
+docs/research/bdvm-v1/reference/README.md,3438,2026-07-27,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/ros-engine.md,9508,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/roster-trade-intelligence/AUDIT.md,12955,2026-07-26,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/roster-trade-intelligence/DECISIONS.md,14849,2026-07-26,-,KEEP,Contains the ADR-008 CLAUDE.md cites for the refit gate. Keep; renumber or prefix (it holds a single ADR numbered 008 with no 001-007).
+docs/roster-trade-intelligence/F-6-finder-valuation-path.md,6654,2026-07-27,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/roster-trade-intelligence/UI-SPEC.md,23134,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/route-usability-audit.md,28671,2026-07-27,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/runbooks/domain-cutover-chaseupside.md,22461,-,-,REVIEW,Three of five carry STALE banners and describe a cutover that completed. Archive the STALE ones; keep domain-cutover + git-history-shrink.
+docs/runbooks/git-history-shrink.md,6983,-,-,REVIEW,Three of five carry STALE banners and describe a cutover that completed. Archive the STALE ones; keep domain-cutover + git-history-shrink.
+docs/runbooks/ktc-production-validation.md,8392,2026-07-29,STALE,ARCHIVE,ARCHIVE. STALE-bannered.
+docs/runbooks/production-activation-runbook.md,12909,2026-03-22,STALE,ARCHIVE,"ARCHIVE. STALE-bannered, 2026-03-22 activation completed."
+docs/runbooks/public-primary-activation.md,4572,2026-03-22,STALE,ARCHIVE,"ARCHIVE. STALE-bannered, 2026-03-22 activation completed."
+docs/scoring_adjustment_audit_2026-03-09.md,2527,2026-03-09,STALE,RETIRE,"RETIRE. STALE-bannered, 2026-03-09."
+docs/scoring_adjustment_migration_notes_2026-03-09.md,921,2026-03-09,-,RETIRE,RETIRE. Migration completed 2026-03-09; 921 b.
+docs/scoring_config_schema.md,1267,-,STALE,RETIRE,"RETIRE. STALE-bannered, 1,267 b; the schema lives in config/ and is validated by tests."
+docs/scoring_refactor_task_checklist_2026-03-09.md,1524,2026-03-09,-,RETIRE,"RETIRE. Completed checklist, 2026-03-09."
+docs/sharp-roster-percentage/METHODOLOGY.md,12321,-,-,KEEP,Named by CLAUDE.md as the methodology of a live 200-returning board.
+docs/status/CURRENT_STATE.md,5194,2026-03-22,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/blueprint-gap-analysis.md,8018,2026-03-14,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/blueprint-source-of-truth.md,9363,2026-03-14,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/canonical-source-matrix.md,1295,2026-04-08,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/deploy-failure-20260323-analysis.md,5837,2026-03-23,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/dynastynerds-credential-integration-20260323.md,7954,2026-03-23,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/dynastynerds-post-secret-activation-20260323.md,7923,2026-03-23,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/founder-decision-memo.md,3415,2026-03-22,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/live-production-verification-20260323.md,7991,2026-03-23,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/master-implementation-audit.md,17668,2026-04-28,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/phase-2-final-verification-20260323.md,12132,2026-03-23,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/phase-2a-noise-suppression-20260323.md,10485,2026-03-23,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/phase-2b-balancer-improvements-20260323.md,9729,2026-03-23,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/phase-2c-package-logic-20260323.md,8508,2026-03-23,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/phase-diagnosis-20260322.md,11776,2026-03-22,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/priority-roadmap.md,6994,2026-03-14,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/promotion-readiness.md,3017,2026-03-22,STALE,ARCHIVE,ARCHIVE. STALE-bannered; goes with the docs/status/ set.
+docs/status/remaining-work-inventory.md,7580,2026-04-28,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/root-cause-correction-pass-20260323.md,7654,2026-03-23,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/source-integration-tracker.md,911,2026-04-08,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/trade-suggestion-audit-20260323.md,17969,2026-03-23,-,ARCHIVE,"Historical phase reports for a pipeline retired at the 2026-04-20 Final Framework transition. Move wholesale to docs/archive/2026-03-status/ with one INDEX.md. Retains forensic value, costs nothing once it is out of the search path."
+docs/status/workstream-inventory.md,16193,2026-07-31,-,ARCHIVE,ARCHIVE. Self-marked superseded; goes with the docs/status/ set.
+docs/trust-edge-handoff.md,19386,2026-07-29,-,KEEP,No drift surface found in this pass; not examined in depth.
+docs/upgrade_phases_1_10.md,16290,2026-04-24,-,ARCHIVE,"Latest internal date 2026-04-24 — at least three months before HEAD (2026-08-04) — and no staleness marker, so it reads as current."
+docs/ux-audit.md,12170,2026-04-25,-,ARCHIVE,"Latest internal date 2026-04-25 — at least three months before HEAD (2026-08-04) — and no staleness marker, so it reads as current."
+reports/alpha_lambda_joint_backtest_full.md,1300,2026-04-16,-,KEEP,Raw backtest outputs cited by name in data_contract.py comments (e.g. reports/alpha_lambda_joint_backtest_full.md). Deleting these orphans live code comments.
+reports/alpha_shrinkage_backtest_full.md,1024,2026-04-16,-,KEEP,Raw backtest outputs cited by name in data_contract.py comments (e.g. reports/alpha_lambda_joint_backtest_full.md). Deleting these orphans live code comments.
+reports/backtest_blend_params.md,2357,-,-,KEEP,Raw backtest outputs cited by name in data_contract.py comments (e.g. reports/alpha_lambda_joint_backtest_full.md). Deleting these orphans live code comments.
+reports/ktc_volatility_backtest_full.md,5244,2026-04-16,-,KEEP,Raw backtest outputs cited by name in data_contract.py comments (e.g. reports/alpha_lambda_joint_backtest_full.md). Deleting these orphans live code comments.
+reports/mad_lambda_backtest_full.md,1201,2026-04-16,-,KEEP,Raw backtest outputs cited by name in data_contract.py comments (e.g. reports/alpha_lambda_joint_backtest_full.md). Deleting these orphans live code comments.
+reports/percentile_reference_n_backtest_full.md,763,2026-04-16,-,KEEP,Raw backtest outputs cited by name in data_contract.py comments (e.g. reports/alpha_lambda_joint_backtest_full.md). Deleting these orphans live code comments.
+reports/soft_fallback_backtest_full.md,889,2026-04-16,-,KEEP,Raw backtest outputs cited by name in data_contract.py comments (e.g. reports/alpha_lambda_joint_backtest_full.md). Deleting these orphans live code comments.
+src/README.md,932,-,-,KEEP,No drift surface found in this pass; not examined in depth.
+src/adapters/README.md,2744,-,-,KEEP,Documents the frozen adapter contract.
+src/league/README.md,2710,2026-07-29,-,KEEP,"Explains an empty directory CLAUDE.md points at. 2,731 b, load-bearing."
+tests/e2e/README.md,12978,-,-,KEEP,Documents the preflight trap AUDIT_PROTOCOL.md relies on.

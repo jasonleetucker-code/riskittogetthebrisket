@@ -1,0 +1,90 @@
+{
+ "fitDenominator": 399,
+ "serveDenominator": 499,
+ "c": 0.11,
+ "s": 1.11,
+ "rows": [
+  {
+   "rank": 1,
+   "p_fit": 0.0,
+   "p_serve": 0.0,
+   "V_fit": 9999.0,
+   "V_serve": 9999.0,
+   "delta": 0.0,
+   "pct": 0.0
+  },
+  {
+   "rank": 5,
+   "p_fit": 0.01003,
+   "p_serve": 0.00802,
+   "V_fit": 9344.6,
+   "V_serve": 9481.0,
+   "delta": 136.4,
+   "pct": 1.46
+  },
+  {
+   "rank": 10,
+   "p_fit": 0.02256,
+   "p_serve": 0.01804,
+   "V_fit": 8529.7,
+   "V_serve": 8814.4,
+   "delta": 284.7,
+   "pct": 3.34
+  },
+  {
+   "rank": 25,
+   "p_fit": 0.06015,
+   "p_serve": 0.0481,
+   "V_fit": 6614.4,
+   "V_serve": 7146.2,
+   "delta": 531.8,
+   "pct": 8.04
+  },
+  {
+   "rank": 50,
+   "p_fit": 0.12281,
+   "p_serve": 0.0982,
+   "V_fit": 4694.3,
+   "V_serve": 5314.0,
+   "delta": 619.8,
+   "pct": 13.2
+  },
+  {
+   "rank": 100,
+   "p_fit": 0.24812,
+   "p_serve": 0.1984,
+   "V_fit": 2884.2,
+   "V_serve": 3419.0,
+   "delta": 534.8,
+   "pct": 18.54
+  },
+  {
+   "rank": 200,
+   "p_fit": 0.49875,
+   "p_serve": 0.3988,
+   "V_fit": 1573.6,
+   "V_serve": 1931.3,
+   "delta": 357.8,
+   "pct": 22.73
+  },
+  {
+   "rank": 300,
+   "p_fit": 0.74937,
+   "p_serve": 0.5992,
+   "V_fit": 1062.2,
+   "V_serve": 1321.9,
+   "delta": 259.7,
+   "pct": 24.45
+  },
+  {
+   "rank": 400,
+   "p_fit": 1.0,
+   "p_serve": 0.7996,
+   "V_fit": 794.3,
+   "V_serve": 995.8,
+   "delta": 201.5,
+   "pct": 25.37
+  }
+ ],
+ "note": "the fit (src/model_registry/holdout.py:145, FIT_TOP_N=400) maps native rank i to p=i/(n-1); serving (src/api/data_contract.py:5303, _PERCENTILE_REFERENCE_N=500) maps rank to p=(rank-1)/499. Same rank, different percentile, therefore different value from the same fitted curve."
+}

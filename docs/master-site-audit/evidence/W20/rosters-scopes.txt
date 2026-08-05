@@ -1,0 +1,18 @@
+team            full   players  starters  picks valued
+Jason         330188    171495     97497     62     51
+Brent         191940    176314    103855      6      6
+MaKayla       187959    149861     84523     16     14
+Joey          180783    152641     91602     14     11
+Collin        169905    129755     78316     18     14
+Eric          164245    146522     88433     12      7
+Roy           143148     90176     59881     20     16
+Ed            143067    127441     70639      8      6
+Ty            139311    110517     68466     15     11
+Kich          123310     98550     60358     14      9
+jstuedle      120063     79913     53659     18     14
+Blaine        111250     90184     61626     13      9
+
+full      order: Jason > Brent > MaKayla > Joey > Collin > Eric > Roy > Ed > Ty > Kich > jstuedle > Blaine
+players   order: Brent > Jason > Joey > MaKayla > Eric > Collin > Ed > Ty > Kich > Blaine > Roy > jstuedle
+starters  order: Brent > Jason > Joey > Eric > MaKayla > Collin > Ed > Ty > Blaine > Kich > Roy > jstuedle
+starterSlotsUnavailable: {False}

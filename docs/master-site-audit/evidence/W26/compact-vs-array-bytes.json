@@ -1,0 +1,25 @@
+{
+ "array": {
+  "totalServedBytes": 6514536,
+  "playersArrayBytes": 6132969,
+  "playersDictBytes": null,
+  "perRowFields": 55,
+  "rowCount": 1092
+ },
+ "compact": {
+  "totalServedBytes": 7363760,
+  "playersArrayBytes": 3659280,
+  "playersDictBytes": 3336826,
+  "perRowFields": 41,
+  "rowCount": 1092
+ },
+ "app": {
+  "totalServedBytes": 5818304,
+  "playersArrayBytes": null,
+  "playersDictBytes": 5436740,
+  "perRowFields": null,
+  "rowCount": 1092
+ },
+ "delta_compact_minus_array": 849224,
+ "pctLarger": 13.04
+}

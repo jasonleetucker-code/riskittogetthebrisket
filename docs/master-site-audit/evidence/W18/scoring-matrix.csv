@@ -1,0 +1,223 @@
+setting,host API value,repo config value,frontend copy value,canonical,status,source of truth
+scoring.blk_kick,1.0,1.0,n/a (frontend holds no scoring copy),1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_def_fum_td_50p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_def_int_td_50p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_fd_qb,0.67,0.67,n/a (frontend holds no scoring copy),0.67,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_fd_rb,1.0,1.0,n/a (frontend holds no scoring copy),1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_fd_te,1.0,1.0,n/a (frontend holds no scoring copy),1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_fd_wr,1.0,1.0,n/a (frontend holds no scoring copy),1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_pass_cmp_25,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_pass_yd_300,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_pass_yd_400,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_rec_rb,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_rec_te,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_rec_wr,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_rec_yd_100,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_rec_yd_200,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_rush_att_20,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_rush_rec_yd_100,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_rush_rec_yd_200,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_rush_yd_100,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_rush_yd_200,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_sack_2p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.bonus_tkl_10p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_2pt,4.0,4.0,n/a (frontend holds no scoring copy),4.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_3_and_out,1.0,1.0,n/a (frontend holds no scoring copy),1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_4_and_stop,1.0,1.0,n/a (frontend holds no scoring copy),1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_forced_punts,1.0,1.0,n/a (frontend holds no scoring copy),1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_kr_yd,0.01,0.01,n/a (frontend holds no scoring copy),0.01,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_pass_def,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_pr_yd,0.01,0.01,n/a (frontend holds no scoring copy),0.01,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_st_ff,0.5,0.5,n/a (frontend holds no scoring copy),0.5,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_st_fum_rec,0.5,0.5,n/a (frontend holds no scoring copy),0.5,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_st_td,6.0,6.0,n/a (frontend holds no scoring copy),6.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_st_tkl_solo,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.def_td,6.0,6.0,n/a (frontend holds no scoring copy),6.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.ff,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fg_ret_yd,0.01,0.01,n/a (frontend holds no scoring copy),0.01,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgm,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgm_0_19,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgm_20_29,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgm_30_39,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgm_40_49,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgm_50p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgm_60p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgm_yds,0.07,0.07,n/a (frontend holds no scoring copy),0.07,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgm_yds_over_30,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgmiss,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgmiss_0_19,-4.55,-4.55,n/a (frontend holds no scoring copy),-4.55,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgmiss_20_29,-3.85,-3.85,n/a (frontend holds no scoring copy),-3.85,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgmiss_30_39,-3.15,-3.15,n/a (frontend holds no scoring copy),-3.15,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgmiss_40_49,-2.45,-2.45,n/a (frontend holds no scoring copy),-2.45,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgmiss_50_59,-1.75,-1.75,n/a (frontend holds no scoring copy),-1.75,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgmiss_50p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fgmiss_60p,-1.05,-1.05,n/a (frontend holds no scoring copy),-1.05,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fum,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fum_lost,-4.0,-4.0,n/a (frontend holds no scoring copy),-4.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fum_rec,1.0,1.0,n/a (frontend holds no scoring copy),1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fum_rec_td,6.0,6.0,n/a (frontend holds no scoring copy),6.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.fum_ret_yd,0.01,0.01,n/a (frontend holds no scoring copy),0.01,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_blk_kick,5.32,5.32,n/a (frontend holds no scoring copy),5.32,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_def_td,6.38,6.38,n/a (frontend holds no scoring copy),6.38,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_ff,4.25,4.25,n/a (frontend holds no scoring copy),4.25,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_fum_rec,3.19,3.19,n/a (frontend holds no scoring copy),3.19,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_fum_ret_yd,0.1111111111111111,0.1111111111111111,n/a (frontend holds no scoring copy),0.1111111111111111,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_int,5.32,5.32,n/a (frontend holds no scoring copy),5.32,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_int_ret_yd,0.1111111111111111,0.1111111111111111,n/a (frontend holds no scoring copy),0.1111111111111111,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_pass_def,5.32,5.32,n/a (frontend holds no scoring copy),5.32,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_pass_def_3p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_qb_hit,2.13,2.13,n/a (frontend holds no scoring copy),2.13,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_sack,2.92,2.92,n/a (frontend holds no scoring copy),2.92,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_sack_yd,0.1111111111111111,0.1111111111111111,n/a (frontend holds no scoring copy),0.1111111111111111,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_safe,5.32,5.32,n/a (frontend holds no scoring copy),5.32,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_tkl_ast,0.8,0.8,n/a (frontend holds no scoring copy),0.8,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_tkl_loss,4.25,4.25,n/a (frontend holds no scoring copy),4.25,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.idp_tkl_solo,1.33,1.33,n/a (frontend holds no scoring copy),1.33,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.int,1.0,1.0,n/a (frontend holds no scoring copy),1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.int_ret_yd,0.01,0.01,n/a (frontend holds no scoring copy),0.01,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.kr_yd,0.03333333333333333,0.03333333333333333,n/a (frontend holds no scoring copy),0.03333333333333333,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_2pt,2.0,2.0,n/a (frontend holds no scoring copy),2.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_att,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_cmp,0.15,0.15,n/a (frontend holds no scoring copy),0.15,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_cmp_40p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_fd,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_inc,-0.22,-0.22,n/a (frontend holds no scoring copy),-0.22,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_int,-4.0,-4.0,n/a (frontend holds no scoring copy),-4.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_int_td,-2.0,-2.0,n/a (frontend holds no scoring copy),-2.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_sack,-1.0,-1.0,n/a (frontend holds no scoring copy),-1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_td,6.0,6.0,n/a (frontend holds no scoring copy),6.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_td_40p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pass_yd,0.03333333333333333,0.03333333333333333,n/a (frontend holds no scoring copy),0.03333333333333333,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pr_yd,0.03333333333333333,0.03333333333333333,n/a (frontend holds no scoring copy),0.03333333333333333,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pts_allow,-1.0,-1.0,n/a (frontend holds no scoring copy),-1.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pts_allow_0,45.0,45.0,n/a (frontend holds no scoring copy),45.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pts_allow_14_20,35.0,35.0,n/a (frontend holds no scoring copy),35.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pts_allow_1_6,35.0,35.0,n/a (frontend holds no scoring copy),35.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pts_allow_21_27,35.0,35.0,n/a (frontend holds no scoring copy),35.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pts_allow_28_34,35.0,35.0,n/a (frontend holds no scoring copy),35.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pts_allow_35p,35.0,35.0,n/a (frontend holds no scoring copy),35.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.pts_allow_7_13,35.0,35.0,n/a (frontend holds no scoring copy),35.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.qb_hit,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec,0.08,0.08,n/a (frontend holds no scoring copy),0.08,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_0_4,0.17,0.17,n/a (frontend holds no scoring copy),0.17,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_10_19,0.67,0.67,n/a (frontend holds no scoring copy),0.67,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_20_29,0.92,0.92,n/a (frontend holds no scoring copy),0.92,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_2pt,2.0,2.0,n/a (frontend holds no scoring copy),2.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_30_39,1.17,1.17,n/a (frontend holds no scoring copy),1.17,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_40p,1.92,1.92,n/a (frontend holds no scoring copy),1.92,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_5_9,0.42,0.42,n/a (frontend holds no scoring copy),0.42,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_fd,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_td,6.0,6.0,n/a (frontend holds no scoring copy),6.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_td_40p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rec_yd,0.1,0.1,n/a (frontend holds no scoring copy),0.1,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rush_2pt,2.0,2.0,n/a (frontend holds no scoring copy),2.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rush_40p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rush_att,0.08,0.08,n/a (frontend holds no scoring copy),0.08,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rush_fd,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rush_td,6.0,6.0,n/a (frontend holds no scoring copy),6.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rush_td_40p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.rush_yd,0.1,0.1,n/a (frontend holds no scoring copy),0.1,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.sack,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.sack_yd,0.01,0.01,n/a (frontend holds no scoring copy),0.01,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.safe,4.0,4.0,n/a (frontend holds no scoring copy),4.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.st_ff,4.25,4.25,n/a (frontend holds no scoring copy),4.25,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.st_fum_rec,3.19,3.19,n/a (frontend holds no scoring copy),3.19,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.st_td,6.0,6.0,n/a (frontend holds no scoring copy),6.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.st_tkl_solo,1.33,1.33,n/a (frontend holds no scoring copy),1.33,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.tkl,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.tkl_ast,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.tkl_loss,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.tkl_solo,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.xpm,2.31,2.31,n/a (frontend holds no scoring copy),2.31,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.xpmiss,-3.15,-3.15,n/a (frontend holds no scoring copy),-3.15,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.yds_allow,-0.05,-0.05,n/a (frontend holds no scoring copy),-0.05,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.yds_allow_0_100,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.yds_allow_100_199,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.yds_allow_200_299,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.yds_allow_300_349,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.yds_allow_350_399,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.yds_allow_400_449,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.yds_allow_450_499,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.yds_allow_500_549,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+scoring.yds_allow_550p,0.0,0.0,n/a (frontend holds no scoring copy),0.0,MATCH,Sleeper host GET /v1/league/1312006700437352448
+roster_positions.BN,37,37 (derived: rosterSize 58 - starters 21),derived from contract sleeper.rosterPositions (lib/starter-slots.js),37,MATCH,Sleeper host roster_positions
+roster_positions.DB,3,3,derived from contract sleeper.rosterPositions (lib/starter-slots.js),3,MATCH,Sleeper host roster_positions
+roster_positions.DL,3,3,derived from contract sleeper.rosterPositions (lib/starter-slots.js),3,MATCH,Sleeper host roster_positions
+roster_positions.FLEX,2,2,derived from contract sleeper.rosterPositions (lib/starter-slots.js),2,MATCH,Sleeper host roster_positions
+roster_positions.IDP_FLEX,0,0,derived from contract sleeper.rosterPositions (lib/starter-slots.js),0,MATCH,Sleeper host roster_positions
+roster_positions.K,1,1,derived from contract sleeper.rosterPositions (lib/starter-slots.js),1,MATCH,Sleeper host roster_positions
+roster_positions.LB,3,3,derived from contract sleeper.rosterPositions (lib/starter-slots.js),3,MATCH,Sleeper host roster_positions
+roster_positions.QB,1,1,derived from contract sleeper.rosterPositions (lib/starter-slots.js),1,MATCH,Sleeper host roster_positions
+roster_positions.RB,2,2,derived from contract sleeper.rosterPositions (lib/starter-slots.js),2,MATCH,Sleeper host roster_positions
+roster_positions.SUPER_FLEX,1,1,derived from contract sleeper.rosterPositions (lib/starter-slots.js),1,MATCH,Sleeper host roster_positions
+roster_positions.TE,2,2,derived from contract sleeper.rosterPositions (lib/starter-slots.js),2,MATCH,Sleeper host roster_positions
+roster_positions.WR,3,3,derived from contract sleeper.rosterPositions (lib/starter-slots.js),3,MATCH,Sleeper host roster_positions
+roster_positions.TOTAL,58,58,derived,58,MATCH,Sleeper host
+roster_positions.IDP_FLEX,0,0,derived,0,MATCH,Sleeper host
+settings.bench_lock,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.best_ball,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.capacity_override,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.commissioner_direct_invite,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.daily_waivers,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.daily_waivers_base,4,snapshot=4,n/a,4,MATCH,Sleeper host settings
+settings.daily_waivers_days,10922,snapshot=10922,n/a,10922,MATCH,Sleeper host settings
+settings.daily_waivers_hour,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.daily_waivers_last_ran,4,snapshot=26,n/a,4,MISMATCH,Sleeper host settings
+settings.disable_adds,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.disable_trades,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.divisions,3,snapshot=3,n/a,3,MATCH,Sleeper host settings
+settings.draft_rounds,6,snapshot=6,n/a,6,MATCH,Sleeper host settings
+settings.faab_suggestions,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.league_average_match,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.leg,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.max_keepers,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.max_subs,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.num_teams,12,snapshot=12 | registry=12,n/a,12,MATCH,Sleeper host settings
+settings.offseason_adds,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.pick_trading,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.playoff_round_type,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.playoff_seed_type,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.playoff_teams,7,snapshot=7,n/a,7,MATCH,Sleeper host settings
+settings.playoff_type,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.playoff_week_start,15,snapshot=15,n/a,15,MATCH,Sleeper host settings
+settings.reserve_allow_cov,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.reserve_allow_dnr,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.reserve_allow_doubtful,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.reserve_allow_na,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.reserve_allow_out,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.reserve_allow_sus,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.reserve_slots,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.squads,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.start_week,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.sub_lock_if_starter_active,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.sub_start_time_eligibility,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.taxi_allow_vets,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.taxi_deadline,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.taxi_slots,0,snapshot=0 | registry=0,n/a,0,MATCH,Sleeper host settings
+settings.taxi_years,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.trade_deadline,13,snapshot=13,n/a,13,MATCH,Sleeper host settings
+settings.trade_review_days,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.type,2,snapshot=2,n/a,2,MATCH,Sleeper host settings
+settings.veto_auto_poll,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.veto_show_votes,0,snapshot=0,n/a,0,MATCH,Sleeper host settings
+settings.veto_votes_needed,10,snapshot=10,n/a,10,MATCH,Sleeper host settings
+settings.waiver_budget,100,snapshot=100,n/a,100,MATCH,Sleeper host settings
+settings.waiver_clear_days,1,snapshot=1,n/a,1,MATCH,Sleeper host settings
+settings.waiver_day_of_week,2,snapshot=2,n/a,2,MATCH,Sleeper host settings
+settings.waiver_type,2,snapshot=2,n/a,2,MATCH,Sleeper host settings
+fact.teamCount,12,12,n/a,12,MATCH,Sleeper host
+fact.superflex,True,True,n/a,True,MATCH,Sleeper host
+fact.idpEnabled,True,True,n/a,True,MATCH,Sleeper host
+fact.bestBall,True,True,n/a,True,MATCH,Sleeper host
+fact.rosterSpots,58,58,n/a,58,MATCH,Sleeper host
+fact.benchSpots,37,37,n/a,37,MATCH,Sleeper host
+fact.taxiSize,0,0,n/a,0,MATCH,Sleeper host
+fact.irSize,0,<not in registry>,n/a,0,NOT-MODELLED,Sleeper host
+fact.playoffTeams,7,<not in registry>,n/a,7,NOT-MODELLED,Sleeper host
+fact.playoffWeekStart,15,<not in registry>,n/a,15,NOT-MODELLED,Sleeper host
+fact.playoffType,1,<not in registry>,n/a,1,NOT-MODELLED,Sleeper host
+fact.medianGame,True,<not in registry>,n/a,True,NOT-MODELLED,Sleeper host
+fact.waiverType,2,<not in registry>,n/a,2,NOT-MODELLED,Sleeper host
+fact.waiverBudgetFAAB,100,<not in registry>,n/a,100,NOT-MODELLED,Sleeper host
+fact.sleeperLeagueId,1312006700437352448,1312006700437352448,n/a,1312006700437352448,MATCH,Sleeper host
+fact.scoringProfileLabel,(host has no such concept),superflex_tep15_ppr1,n/a,(host has no such concept),MISMATCH,Sleeper host

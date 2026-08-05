@@ -1,0 +1,102 @@
+{
+ "id": "W17-F001",
+ "promptSections": [
+  23
+ ],
+ "title": "ROS playoff/championship sims run on the OLDEST loaded season (2024), not the newest \u2014 sorted(snapshot.seasons, key=luck._season_sort_key) passes objects to a function typed for strings, so every season sorts equal",
+ "status": "Implemented but defective",
+ "priority": "P0",
+ "size": "XS",
+ "subsystem": "ROS playoff/championship Monte Carlo",
+ "surface": {
+  "routes": [
+   "/api/public/league/rosChampionship",
+   "/api/public/league/rosPlayoffOdds",
+   "/api/public/league/rosTradeDeadline",
+   "/api/public/league/rosPower"
+  ],
+  "pages": [
+   "/league?tab=rosChampionship",
+   "/league?tab=rosTradeDeadline"
+  ],
+  "flags": []
+ },
+ "codeRefs": [
+  {
+   "path": "src/public_league/luck.py",
+   "lines": "151-155"
+  },
+  {
+   "path": "src/ros/playoff_sim.py",
+   "lines": "464,546,562"
+  },
+  {
+   "path": "src/ros/power_v2.py",
+   "lines": "325"
+  }
+ ],
+ "claimUnderTest": "playoff_sim.py:467 `current_season = seasons_sorted[-1]` and the module docstring ('every unplayed regular-season matchup in the current season') claim the sim operates on the newest season. The prior audit attributed the degenerate odds to 'the last loaded season is complete (offseason)'.",
+ "observed": "`_season_sort_key(season: str) -> int` does `int(season)` inside try/except (TypeError, ValueError). All four ROS call sites hand it a SeasonSnapshot OBJECT, not `s.season`, so int() raises TypeError and the key is 0 for EVERY season. sorted() is then a stable no-op and `[-1]` returns the LAST element of a newest-first list \u2014 the OLDEST season. On the live league (seasons 2026, 2025, 2024) the sims resolve current_season = 2024, status 'complete', 8 owners. The whole 2025 season is loaded and ignored. Every other module in the repo (luck.py:193, power.py:79, weekly_recap.py:613) passes `s.season` correctly; only src/ros/ does not.",
+ "reproduction": {
+  "command": ".venv/bin/python -c \"import sys;sys.path.insert(0,'.');from src.public_league.snapshot import build_public_snapshot;from src.api.league_registry import get_default_league;from src.public_league import luck;s=build_public_snapshot(get_default_league().sleeper_league_id, include_nfl_players=False);ss=sorted(s.seasons,key=luck._season_sort_key);print([x.season for x in ss],'-> current:',ss[-1].season, ss[-1].league['status'])\"",
+  "expected": "2026 (or 2025 as the newest season with results)",
+  "actual": "2024, league status 'complete', 8 of the league's 12 current managers",
+  "artifact": "docs/master-site-audit/evidence/W17/season-sort-bug.txt"
+ },
+ "numericProof": {
+  "inputs": {
+   "snapshot.seasons": [
+    "2026",
+    "2025",
+    "2024"
+   ],
+   "key_applied_to_SeasonSnapshot": 0,
+   "key_applied_to_s.season": [
+    2026,
+    2025,
+    2024
+   ],
+   "live_expectedWins_from_sim": {
+    "Ty": 9.0,
+    "MaKayla": 8.0,
+    "Jason": 7.0,
+    "Roy": 7.0,
+    "Joey": 6.0,
+    "Eric": 5.0,
+    "Ed": 5.0,
+    "Collin": 4.0
+   },
+   "2024_final_records": {
+    "Ty": "9-4",
+    "MaKayla": "8-5",
+    "Jason": "7-6",
+    "Roy": "7-6",
+    "Joey": "6-7",
+    "Eric": "5-8",
+    "Ed": "5-8",
+    "Collin": "4-9"
+   }
+  },
+  "formula": "expectedWins[o] == wins_2024[o] for all 8 owners (schedule is empty, so sim_wins never increments past the seeded record)",
+  "expected": 0,
+  "actual": 8,
+  "tolerance": 0.0
+ },
+ "userImpact": "Every number on /league -> Championship and /league -> Trade Deadline is a replay of a regular season that ended ~20 months ago. A manager reads '100.0% playoff odds' or '42.6% championship odds' as a forward-looking estimate for 2026 and buys or sells on it. The bug is not confined to the offseason: mid-2026 the sims would still be simulating 2024.",
+ "blastRadius": {
+  "playersAffected": 0,
+  "routesAffected": 4,
+  "pagesAffected": 2
+ },
+ "confidence": "high",
+ "priorFinding": {
+  "match": "PRIOR-A19-F00",
+  "relation": "partial",
+  "note": "Confirms the degenerate output (playoffOdds in {0,1}, one-hot seedDistribution, integer expectedWins, worstPlayoffOddsSe 0.0) but REFUTES the stated root cause. It is not 'the last loaded season is complete'; the sim is not reading the last season at all. 2025 is loaded and skipped. One-line fix at 4 sites: key=lambda s: luck._season_sort_key(s.season)."
+ },
+ "whatWorks": "Once a season is chosen, the seeding, tiebreak-by-PF and bracket code all execute; the arithmetic downstream of the wrong season is internally consistent.",
+ "rootCause": "Type mismatch between `_season_sort_key(season: str)` and the SeasonSnapshot objects the four ROS call sites pass it, silently swallowed by `except (TypeError, ValueError): return 0`.",
+ "requiredRepair": "Change `key=luck._season_sort_key` to `key=lambda s: luck._season_sort_key(s.season)` at src/ros/playoff_sim.py:464,546,562 and src/ros/power_v2.py:325. Then add an explicit preseason guard so a season with zero scored games returns honestly-unknown odds instead of falling back to a completed season.",
+ "dependencies": "W17-F002 (the Seller mislabel) is downstream of this and of the missing-owner coercion.",
+ "workstream": "W17"
+}

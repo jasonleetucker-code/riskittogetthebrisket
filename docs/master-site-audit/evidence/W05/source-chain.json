@@ -1,0 +1,338 @@
+[
+ {
+  "key": "ktcSfTep",
+  "csv": "CSVs/site_raw/ktcSfTep.csv",
+  "csvExists": true,
+  "csvRows": 500,
+  "fetcher": [
+   "Dynasty Scraper.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.857,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 501,
+  "boardSourceRanks": 499,
+  "servedCoverage": 425
+ },
+ {
+  "key": "idpTradeCalc",
+  "csv": "CSVs/site_raw/idpTradeCalc.csv",
+  "csvExists": true,
+  "csvRows": 900,
+  "fetcher": null,
+  "freshness": "fresh",
+  "ageHours": 1.857,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 911,
+  "boardSourceRanks": 903,
+  "servedCoverage": 770
+ },
+ {
+  "key": "dlfSf",
+  "csv": "CSVs/site_raw/dlfSf.csv",
+  "csvExists": true,
+  "csvRows": 281,
+  "fetcher": [
+   "fetch_dlf.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.741,
+  "maxAgeHours": 720,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 280,
+  "boardSourceRanks": 278,
+  "servedCoverage": 277
+ },
+ {
+  "key": "dlfRookieSf",
+  "csv": "CSVs/site_raw/dlfRookieSf.csv",
+  "csvExists": true,
+  "csvRows": 55,
+  "fetcher": [
+   "fetch_dlf.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.741,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 110,
+  "boardSourceRanks": 55,
+  "servedCoverage": 52
+ },
+ {
+  "key": "dlfIdp",
+  "csv": "CSVs/site_raw/dlfIdp.csv",
+  "csvExists": true,
+  "csvRows": 171,
+  "fetcher": [
+   "fetch_dlf.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.741,
+  "maxAgeHours": 720,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 171,
+  "boardSourceRanks": 169,
+  "servedCoverage": 137
+ },
+ {
+  "key": "dlfRookieIdp",
+  "csv": "CSVs/site_raw/dlfRookieIdp.csv",
+  "csvExists": true,
+  "csvRows": 29,
+  "fetcher": [
+   "fetch_dlf.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.741,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 29,
+  "boardSourceRanks": 29,
+  "servedCoverage": 24
+ },
+ {
+  "key": "idpShow",
+  "csv": "CSVs/site_raw/idpShow.csv",
+  "csvExists": true,
+  "csvRows": 350,
+  "fetcher": [
+   "fetch_idpshow.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.665,
+  "maxAgeHours": 720,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 349,
+  "boardSourceRanks": 347,
+  "servedCoverage": 279
+ },
+ {
+  "key": "dynastyNerdsSfTep",
+  "csv": "CSVs/site_raw/dynastyNerdsSfTep.csv",
+  "csvExists": true,
+  "csvRows": 294,
+  "fetcher": [
+   "fetch_dynasty_nerds.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.847,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 293,
+  "boardSourceRanks": 293,
+  "servedCoverage": 293
+ },
+ {
+  "key": "fantasyCalc",
+  "csv": "CSVs/site_raw/fantasyCalc.csv",
+  "csvExists": true,
+  "csvRows": 399,
+  "fetcher": [
+   "fetch_fantasycalc.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.857,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 394,
+  "boardSourceRanks": 391,
+  "servedCoverage": 377
+ },
+ {
+  "key": "otcffbSf",
+  "csv": "CSVs/site_raw/otcffbSf.csv",
+  "csvExists": true,
+  "csvRows": 347,
+  "fetcher": [
+   "fetch_otcffb.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.857,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 343,
+  "boardSourceRanks": 342,
+  "servedCoverage": 342
+ },
+ {
+  "key": "fantasyNavigatorSf",
+  "csv": "CSVs/site_raw/fantasyNavigatorSf.csv",
+  "csvExists": true,
+  "csvRows": 758,
+  "fetcher": [
+   "fetch_fantasynavigator.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.856,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 455,
+  "boardSourceRanks": 448,
+  "servedCoverage": 371
+ },
+ {
+  "key": "pfkDynasty",
+  "csv": "CSVs/site_raw/pfkDynasty.csv",
+  "csvExists": true,
+  "csvRows": 496,
+  "fetcher": [
+   "fetch_pfk.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.856,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 476,
+  "boardSourceRanks": 470,
+  "servedCoverage": 395
+ },
+ {
+  "key": "dynastyDaddySf",
+  "csv": "CSVs/site_raw/dynastyDaddySf.csv",
+  "csvExists": true,
+  "csvRows": 367,
+  "fetcher": [
+   "fetch_dynasty_daddy.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.857,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 365,
+  "boardSourceRanks": 363,
+  "servedCoverage": 358
+ },
+ {
+  "key": "fantasyProsSf",
+  "csv": "CSVs/site_raw/fantasyProsSf.csv",
+  "csvExists": true,
+  "csvRows": 540,
+  "fetcher": [
+   "fetch_fantasypros_offense.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.847,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 474,
+  "boardSourceRanks": 467,
+  "servedCoverage": 412
+ },
+ {
+  "key": "fantasyProsIdp",
+  "csv": "CSVs/site_raw/fantasyProsIdp.csv",
+  "csvExists": true,
+  "csvRows": 219,
+  "fetcher": [
+   "fetch_fantasypros_idp.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.847,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 211,
+  "boardSourceRanks": 206,
+  "servedCoverage": 166
+ },
+ {
+  "key": "fantasyProsFitzmaurice",
+  "csv": "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+  "csvExists": true,
+  "csvRows": 299,
+  "fetcher": [
+   "fetch_fantasypros_fitzmaurice.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.848,
+  "maxAgeHours": 720,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 299,
+  "boardSourceRanks": 299,
+  "servedCoverage": 298
+ },
+ {
+  "key": "flockFantasySf",
+  "csv": "CSVs/site_raw/flockFantasySf.csv",
+  "csvExists": true,
+  "csvRows": 439,
+  "fetcher": [
+   "fetch_flock_fantasy.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.856,
+  "maxAgeHours": 168,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 415,
+  "boardSourceRanks": 411,
+  "servedCoverage": 378
+ },
+ {
+  "key": "flockFantasySfRookies",
+  "csv": "CSVs/site_raw/flockFantasySfRookies.csv",
+  "csvExists": true,
+  "csvRows": 84,
+  "fetcher": [
+   "fetch_flock_fantasy_rookies.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.856,
+  "maxAgeHours": 168,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 76,
+  "boardSourceRanks": 75,
+  "servedCoverage": 70
+ },
+ {
+  "key": "yahooBoone",
+  "csv": "CSVs/site_raw/yahooBoone.csv",
+  "csvExists": true,
+  "csvRows": 410,
+  "fetcher": [
+   "fetch_yahoo_boone.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.846,
+  "maxAgeHours": 720,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 377,
+  "boardSourceRanks": 374,
+  "servedCoverage": 364
+ },
+ {
+  "key": "draftSharks",
+  "csv": "CSVs/site_raw/draftSharksSf.csv",
+  "csvExists": true,
+  "csvRows": 454,
+  "fetcher": [
+   "fetch_draftsharks.py",
+   "fetch_draftsharks_ros.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.851,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 420,
+  "boardSourceRanks": 412,
+  "servedCoverage": 381
+ },
+ {
+  "key": "draftSharksIdp",
+  "csv": "CSVs/site_raw/draftSharksIdp.csv",
+  "csvExists": true,
+  "csvRows": 410,
+  "fetcher": [
+   "fetch_draftsharks.py",
+   "fetch_draftsharks_ros.py"
+  ],
+  "freshness": "fresh",
+  "ageHours": 1.851,
+  "maxAgeHours": 6,
+  "staleThresholdAlertsJson": null,
+  "boardSiteValues": 319,
+  "boardSourceRanks": 318,
+  "servedCoverage": 273
+ }
+]
