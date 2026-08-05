@@ -1,0 +1,50 @@
+[Unit]
+Description=Risk It sharp-cohort daily baseline snapshot (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Writes data/sharp/cohort/snapshot_<date>.json — who qualified as sharp
+# today, with each manager's score, percentile and weightsApplied.
+#
+# WHY THIS EXISTS: sharp-v2.1 changed WHO QUALIFIES and shipped with the
+# claim that ordering and membership were unaffected.  That claim could
+# not be checked, because nobody had captured the cohort BEFORE the
+# change and the moment is unrecoverable.  A daily baseline means the
+# next scoring change is measurable instead of argued about.
+#
+# WHY A PROD TIMER AND NOT CI: the cohort is derived from
+# data/intel/ledger.sqlite3, which is gitignored and lives on the box.
+# A CI runner sees an empty population — measured, and the script exits
+# 2 there rather than reporting a vacuous pass.  Same reasoning as the
+# playerctx and BDVM producers.
+#
+# Reads only; writes one small JSON per day into gitignored data/.
+# Nothing is pushed anywhere, so this needs no credentials.
+#
+# Exit codes (scripts/sharp_cohort_snapshot.py):
+#   0 - snapshot written
+#   2 - no evaluable managers; deliberately NOT 0, so "no data" cannot
+#       read as "measured and fine". Expected on a box whose crawls have
+#       not populated the ledger yet, which is why it is a success code
+#       below rather than a permanent red unit.
+SuccessExitStatus=0 2
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+# `--daily` rather than a date-stamped --out path: the script owns its
+# own filename, so this needs no `/bin/sh -c` wrapper and no systemd `%`
+# escaping, and every path here resolves to a file that exists — the rule
+# tests/deploy/test_all_timers_are_wired.py enforces across all units.
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/sharp_cohort_snapshot.py --daily
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

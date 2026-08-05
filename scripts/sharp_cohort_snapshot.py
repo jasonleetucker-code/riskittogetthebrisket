@@ -46,7 +46,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+_REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO))
 
 from src.sharp import cohort as sharp_cohort  # noqa: E402
 from src.sharp import platform_records  # noqa: E402
@@ -156,13 +157,128 @@ def compare(before: dict[str, Any], after: dict[str, Any]) -> tuple[int, list[st
     return (1 if changed else 0), lines
 
 
+def verify_invariant(snapshot: dict[str, Any]) -> tuple[int, list[str]]:
+    """Check the claim `sharp-v2.1` shipped on, from ONE snapshot.
+
+    The before/after this was meant to be measured with is
+    **unrecoverable**: v2.1 is already live, and nobody captured the
+    pre-v2.1 cohort.  Carrying it as an owed measurement is carrying a
+    debt that cannot be paid in the form stated.
+
+    But the safety argument does not actually need a baseline.  It is:
+
+        the absent component set is identical for every manager,
+        so every score scales by the same factor,
+        so the ORDER cannot move,
+        and qualification is a percentile of the population,
+        so the cohort cannot change.
+
+    Every clause after the first follows from it, and the first is a
+    property of a SINGLE population at a SINGLE instant: if every
+    evaluable manager's ``weightsApplied`` map is identical, the
+    renormalization multiplied every score by the same constant.  That
+    is checkable right now, on prod, with no baseline at all.
+
+    Returns ``(exit_code, lines)``.  Non-zero means the absent set is NOT
+    uniform — the case where v2.1 could have reordered managers and the
+    shipped claim would be false.
+    """
+    lines: list[str] = []
+    scores = snapshot.get("scores", {})
+
+    groups: dict[str, list[str]] = {}
+    missing: list[str] = []
+    for user_id, entry in scores.items():
+        applied = entry.get("weightsApplied")
+        if not isinstance(applied, dict) or not applied:
+            missing.append(user_id)
+            continue
+        key = json.dumps({k: round(float(v), 9) for k, v in sorted(applied.items())})
+        groups.setdefault(key, []).append(user_id)
+
+    if missing:
+        lines.append(
+            f"{len(missing)} manager(s) carry no weightsApplied stamp — "
+            "the renormalization is unauditable for them"
+        )
+        lines.append(f"  e.g. {', '.join(missing[:5])}")
+
+    if not groups:
+        lines.append("no manager carries a weightsApplied stamp; nothing to verify")
+        return 1, lines
+
+    lines.append(f"distinct weightsApplied maps across {len(scores)} managers: {len(groups)}")
+    for key, members in sorted(groups.items(), key=lambda kv: -len(kv[1])):
+        weights = json.loads(key)
+        total = sum(weights.values())
+        lines.append(f"  {len(members):>5} manager(s), sum {total:.6f}: {weights}")
+
+    if len(groups) == 1 and not missing:
+        lines.append(
+            "\nINVARIANT HOLDS: one absent-component set across the whole population, "
+            "so every score scaled by the same factor and the ordering — hence the "
+            "percentile-selected cohort — could not have moved."
+        )
+        return 0, lines
+
+    lines.append(
+        "\nINVARIANT VIOLATED: managers do NOT share one absent-component set, so "
+        "renormalization scaled them by DIFFERENT factors and could have reordered "
+        "them. The sharp-v2.1 safety claim does not hold on this population."
+    )
+    return 1, lines
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, help="write a snapshot to this path")
     ap.add_argument("--ledger", type=Path, default=None, help="override ledger path")
     ap.add_argument("--compare", type=Path, help="baseline snapshot to compare FROM")
     ap.add_argument("--against", type=Path, help="snapshot to compare TO (default: live)")
+    ap.add_argument(
+        "--daily",
+        action="store_true",
+        help="write data/sharp/cohort/snapshot_<utc-date>.json (used by the prod timer)",
+    )
+    ap.add_argument(
+        "--verify-invariant",
+        action="store_true",
+        help="check the sharp-v2.1 uniform-scaling claim on ONE snapshot (no baseline needed)",
+    )
     args = ap.parse_args()
+
+    # The script owns its own filename, deliberately.  Putting
+    # `snapshot_$(date -u +%Y-%m-%d).json` in the unit's ExecStart needs a
+    # `/bin/sh -c` wrapper and systemd `%` escaping, and it breaks the
+    # repo's rule — pinned by tests/deploy/test_all_timers_are_wired.py —
+    # that every path in an ExecStart resolves to a file that exists.
+    # Same reasoning as store.history_path owning the playerctx naming.
+    if args.daily and not args.out:
+        args.out = (
+            _REPO
+            / "data"
+            / "sharp"
+            / "cohort"
+            / f"snapshot_{datetime.now(timezone.utc).date().isoformat()}.json"
+        )
+
+    if args.verify_invariant:
+        snap = (
+            json.loads(args.compare.read_text(encoding="utf-8"))
+            if args.compare
+            else build_snapshot(args.ledger)
+        )
+        if snap.get("population", {}).get("evaluable", 0) == 0:
+            print(
+                "no evaluable managers — the invariant is VACUOUS here, not verified.\n"
+                "  Exit 2, because 'every manager in an empty set shares one weight map' "
+                "is trivially true and proves nothing about production.",
+                file=sys.stderr,
+            )
+            return 2
+        code, lines = verify_invariant(snap)
+        print("\n".join(lines))
+        return code
 
     if args.compare:
         before = json.loads(args.compare.read_text(encoding="utf-8"))
@@ -188,6 +304,10 @@ def main() -> int:
 
     payload = json.dumps(snap, indent=1) + "\n"
     if args.out:
+        # The prod timer writes into data/sharp/cohort/, which does not
+        # exist on a fresh box — a dated baseline lost to a missing
+        # parent directory is a baseline that cannot be recovered later.
+        args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(payload, encoding="utf-8")
         print(f"wrote {args.out}")
     else:
