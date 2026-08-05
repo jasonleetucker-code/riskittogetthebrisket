@@ -1405,7 +1405,7 @@ export function buildRows(data) {
       //
       // ``rankDerivedValue == null`` is the case this branch was
       // MISSING (W07-F003).  CLAUDE.md used to attribute the fallback
-      // to rows past the backend's OVERALL_RANK_LIMIT (800); measured
+      // to rows past the backend's overall rank cap (800); measured
       // on the 2026-08-04 contract the deepest stamped rank is 740, so
       // that population does not exist.  What actually took the
       // fallback was the 239 non-pick rows the board DECLINED TO PRICE
