@@ -204,18 +204,14 @@ class TestGoldenBoardInputIsFrozen(unittest.TestCase):
         self.assertEqual(len(baseline.get("sourceCsvSha256") or ""), 64)
         self.assertGreater(baseline.get("sourceCsvCount") or 0, 0)
 
-    def test_baseline_matches_the_current_tree_state(self) -> None:
-        """The committed baseline must be a capture of THIS tree.
+    def test_the_frozen_export_has_not_been_edited(self) -> None:
+        """The export is immutable, so a mismatch here is a real edit.
 
-        Both inputs are checked. The export is frozen so it can only
-        drift by an edit; the source CSVs drift on their own every two
-        hours, which is what makes this the assertion that will fail
-        most often — and that failure is the point. It means "re-capture
-        before you diff", not "something is broken".
+        This half stays a hard assertion precisely because the fixture
+        cannot move on its own: nothing writes to ``tests/fixtures/``.
         """
         import scripts.golden_board as gb
 
-        csv_digest, csv_count = gb._source_csv_digest()  # noqa: SLF001
         _, digest = gb._read_export(gb.DEFAULT_INPUT)  # noqa: SLF001
         baseline = json.loads(
             (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
@@ -228,14 +224,98 @@ class TestGoldenBoardInputIsFrozen(unittest.TestCase):
             "the committed baseline was built from a different export than the "
             "committed fixture — re-run scripts/golden_board.py",
         )
-        self.assertEqual(
-            baseline["sourceCsvSha256"],
-            csv_digest,
-            "CSVs/site_raw has changed since the baseline was captured (the "
-            "2-hourly refresh rewrites it) — re-run scripts/golden_board.py so "
-            "the next batch diffs against this tree, not a past one",
+
+    def test_baseline_freshness_is_enforced_AT_USE_not_here(self) -> None:
+        """Why there is no "baseline matches the tree" assertion.
+
+        There was one, and it was wrong — not in what it wanted but in
+        where it stood.  ``CSVs/site_raw`` is TRACKED and the scheduled
+        refresh rewrites it roughly eight times a day (16 commits in the
+        two days this was measured).  CI builds ``refs/pull/N/merge``,
+        so the tree under test carries main's newest refresh: the
+        assertion went red on every PR older than one refresh cycle, for
+        a reason no PR caused.  Batches C0 and C2 passed it by luck —
+        captured, pushed, and merged inside the window — and C3 lost the
+        same coin flip.
+
+        Clearing it by re-capturing is worse than the noise.  A baseline
+        regenerated eight times a day absorbs data-driven board movement
+        into itself, so the diff between two consecutive baselines is
+        churn, and a genuine code regression landing in that window is
+        indistinguishable from it.  The instrument meant to make code
+        movement visible would have been erased by the routine that kept
+        it green.
+
+        The freshness requirement is real, so it is enforced where it
+        BITES: ``board_diff`` refuses (exit 2) to compare captures built
+        from different trees.  A batch therefore cannot measure against
+        a stale baseline even if one is committed — it gets a refusal
+        instead of a plausible-looking diff.  That fires exactly when it
+        matters and never otherwise, which a repo-wide test cannot do.
+        The two tests below pin that refusal, which nothing tested
+        before.
+        """
+        # Non-vacuous: the claim above is only true while the guard it
+        # points at exists, so assert that it does.  If someone deletes
+        # the refusal, this reads as "the reasoning for removing the CI
+        # assertion no longer holds" rather than going quietly green.
+        diff_src = (REPO_ROOT / "scripts" / "board_diff.py").read_text(encoding="utf-8")
+        self.assertIn("sourceCsvSha256", diff_src)
+        self.assertIn("allow_input_change", diff_src)
+
+    def _run_diff(self, before: dict, after: dict) -> subprocess.CompletedProcess:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            bp, ap_ = Path(tmp) / "before.json", Path(tmp) / "after.json"
+            bp.write_text(json.dumps(before), encoding="utf-8")
+            ap_.write_text(json.dumps(after), encoding="utf-8")
+            return subprocess.run(
+                [sys.executable, "scripts/board_diff.py", str(bp), str(ap_)],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+    def test_diff_refuses_captures_built_from_different_source_csvs(self) -> None:
+        """The CSV churn case, which is the one that actually happens.
+
+        A rebase onto a main that had not touched ``data_contract.py``
+        at all once produced a diff of 290 moved values, 266 ranks and
+        664 tier flips — pure refresh churn, presented as though the
+        code had done it.
+        """
+        base = json.loads(
+            (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
+                encoding="utf-8"
+            )
         )
-        self.assertEqual(baseline["sourceCsvCount"], csv_count)
+        stale = dict(base)
+        stale["sourceCsvSha256"] = "0" * 64
+        proc = self._run_diff(stale, base)
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("different inputs", proc.stderr)
+        self.assertIn("source CSVs", proc.stderr)
+
+    def test_diff_refuses_a_capture_that_records_no_inputs_at_all(self) -> None:
+        """The guard's own blind spot, found and closed in C0.
+
+        The refusal was written as ``if before and after and before !=
+        after``, so a capture predating the field — exactly the stale
+        baseline that motivated the guard — skipped it silently. Absence
+        is now refused by name, which is the same lesson as N-2 one
+        layer up.
+        """
+        base = json.loads(
+            (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        old = {k: v for k, v in base.items() if k not in ("inputSha256", "sourceCsvSha256")}
+        proc = self._run_diff(old, base)
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("does not record its inputs", proc.stderr)
 
 
 class TestSurfaceHarness(unittest.TestCase):
