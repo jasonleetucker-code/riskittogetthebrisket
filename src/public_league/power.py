@@ -9,7 +9,10 @@ signals:
                               of schedule luck (mirrors ``luck.py``).
 
 Each signal is converted to a percentile rank within that week's set of
-owners (0 = worst in league, 1 = best), then combined into a 0-100
+owners via ``src/utils/percentile.py`` — the one shared definition
+(self-inclusive midrank), so this section, the ROS v2 power engine, the
+sharp scorer and the competitive-window model all answer "where does
+this sit in its population" the same way.  Then combined into a 0-100
 power score:
 
     power = 100 * (0.50 * PPG%ile + 0.25 * recent%ile + 0.25 * allPlayWin%)
@@ -37,6 +40,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from src.utils.percentile import percentile_rank as _shared_percentile_rank
+
 from . import luck, metrics
 from .snapshot import PublicLeagueSnapshot
 
@@ -50,15 +55,27 @@ _RECENT_WINDOW = 3
 
 
 def _percentile_rank(values: list[float], target: float) -> float:
-    """Fraction of ``values`` strictly less than ``target`` + half the
-    count equal to ``target`` (midrank tiebreak).  Returns 0-1.
+    """Self-inclusive midrank of ``target`` within ``values``, on 0-1.
+
+    Thin argument-order adapter over :func:`src.utils.percentile.percentile_rank`,
+    which is now the ONE definition (audit W30-F007). This function used
+    to carry its own: ``(below + (equal - 1) * 0.5) / (n - 1)`` — a
+    self-EXCLUSIVE rank that pinned the league minimum at a literal 0.0
+    and the maximum at a literal 1.0 regardless of spread, so two of the
+    three power components read 0.00 for the bottom team every week as a
+    property of the formula. The shared helper returns 0.0417 / 0.9583
+    on a 12-team league, matching ``sharp/score.py``, ``ros/power_v2.py``
+    and ``roster_intel/window.py``.
+
+    Power SCORES shift; the ranking does not — the change is a monotone
+    affine map of each component, and ``rank`` is assigned by sorting
+    ``power``.
+
+    ``empty=0.5``: no population to rank against is "unmeasured", which
+    for a composite that blends this with two other terms means the
+    league median, not the league floor.
     """
-    n = len(values)
-    if n <= 1:
-        return 0.5
-    below = sum(1 for v in values if v < target)
-    equal = sum(1 for v in values if v == target)
-    return (below + (equal - 1) * 0.5) / (n - 1)
+    return _shared_percentile_rank(target, values, empty=0.5)
 
 
 def _season_sort_key(season: str) -> int:

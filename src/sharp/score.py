@@ -73,6 +73,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Sequence
 
+from src.utils.percentile import percentile_rank as _shared_percentile_rank
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = REPO_ROOT / "config" / "sharp" / "scoring_v2.json"
 
@@ -191,16 +193,18 @@ def _mean(values: Sequence[float]) -> float | None:
 def percentile_rank(value: float, population: Sequence[float]) -> float:
     """Fraction of the population at or below ``value`` (0..1).
 
-    Midpoint handling for ties, so a population of identical values
-    scores 0.5 rather than 1.0 — an all-identical population carries no
-    information and must not read as universally elite.
+    Delegates to :func:`src.utils.percentile.percentile_rank`, the ONE
+    definition (audit W30-F007). The formula this file used to inline is
+    the one that survived consolidation — self-inclusive midrank, so an
+    all-identical population scores 0.5 rather than reading as
+    universally elite. Kept as a named re-export because it is part of
+    this module's public surface and several scorers import it by name.
+
+    ``empty=0.5``: with no population to rank against the scorer needs a
+    number, and "unmeasured" belongs at the league median rather than
+    the floor.
     """
-    pop = [float(v) for v in population if isinstance(v, (int, float))]
-    if not pop:
-        return 0.5
-    below = sum(1 for v in pop if v < value)
-    equal = sum(1 for v in pop if v == value)
-    return (below + 0.5 * equal) / len(pop)
+    return _shared_percentile_rank(value, population, empty=0.5)
 
 
 def _shrunk_rate(successes: int, trials: int, base_rate: float, prior_n: float) -> float:

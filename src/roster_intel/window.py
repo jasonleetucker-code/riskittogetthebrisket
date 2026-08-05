@@ -50,6 +50,7 @@ from typing import Any, Mapping, Sequence
 
 from src.roster_intel.marginal import solve_summary
 from src.ros.lineup import RosterPlayer
+from src.utils.percentile import percentile_rank
 
 __all__ = [
     "COMPETITIVE_STATES",
@@ -216,28 +217,28 @@ def league_competitiveness(
 
     Returns ``(score, source)``.
     """
+    # Both branches percentile against the league, so the scale is
+    # league-relative rather than absolute-odds-relative (in a 12-team
+    # league even the best team's title odds are small in absolute
+    # terms).  The rank itself comes from ``src/utils/percentile.py``,
+    # the one shared definition — this module used to write the same
+    # midrank formula out twice inline (audit W30-F007).
     if playoff_odds:
         rows = [r for r in playoff_odds if r.get("ownerId")]
         champ = {str(r["ownerId"]): float(r.get("championshipOdds") or 0.0) for r in rows}
         if champ and any(v > 0 for v in champ.values()):
             mine = champ.get(str(owner_id))
             if mine is not None:
-                # Percentile against the league, so the scale is
-                # league-relative rather than absolute-odds-relative
-                # (in a 12-team league even the best team's title odds
-                # are small in absolute terms).
-                below = sum(1 for v in champ.values() if v < mine)
-                ties = sum(1 for v in champ.values() if v == mine)
-                pct = (below + 0.5 * ties) / len(champ)
-                return _clamp01(pct), "championshipOdds"
+                pct = percentile_rank(mine, list(champ.values()))
+                if pct is not None:
+                    return _clamp01(pct), "championshipOdds"
 
     if lineup_scores:
         mine = lineup_scores.get(str(owner_id))
         if mine is not None and len(lineup_scores) > 1:
-            below = sum(1 for v in lineup_scores.values() if v < mine)
-            ties = sum(1 for v in lineup_scores.values() if v == mine)
-            pct = (below + 0.5 * ties) / len(lineup_scores)
-            return _clamp01(pct), "lineupScoreRank"
+            pct = percentile_rank(mine, list(lineup_scores.values()))
+            if pct is not None:
+                return _clamp01(pct), "lineupScoreRank"
 
     return 0.5, "unavailable"
 

@@ -47,8 +47,13 @@ class TestPercentile(unittest.TestCase):
         values = [10, 20, 30, 40, 50]
         self.assertLess(power_v2._percentile(values, 10), 0.2)
 
-    def test_empty_returns_zero(self):
-        self.assertEqual(power_v2._percentile([], 5), 0.0)
+    def test_empty_returns_neutral_not_worst_in_league(self):
+        # W30-F007: this used to return 0.0, so "nothing to rank
+        # against" and "worst team in the league" were the same number
+        # on a board whose entire purpose is ranking teams against each
+        # other. 0.5 is what the other three percentile callers already
+        # answered for the same condition.
+        self.assertEqual(power_v2._percentile([], 5), 0.5)
 
 
 class TestLoadTeamStrength(unittest.TestCase):

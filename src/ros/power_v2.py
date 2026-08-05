@@ -57,6 +57,7 @@ from typing import Any, Iterable
 from src.ros import ROS_DATA_DIR
 from src.public_league import luck, metrics as _metrics
 from src.public_league.snapshot import PublicLeagueSnapshot
+from src.utils.percentile import percentile_rank as _shared_percentile_rank
 
 LOG = logging.getLogger("ros.power_v2")
 
@@ -97,15 +98,21 @@ _EMPTY_CAREER: dict[str, float | int] = {
 
 
 def _percentile(values: list[float], target: float) -> float:
-    """Inclusive percentile rank in [0, 1]."""
-    if not values:
-        return 0.0
-    eligible = [v for v in values if v is not None]
-    if not eligible:
-        return 0.0
-    below = sum(1 for v in eligible if v < target)
-    same = sum(1 for v in eligible if v == target)
-    return (below + 0.5 * same) / len(eligible)
+    """Self-inclusive midrank of ``target`` within ``values``, in [0, 1].
+
+    Argument-order adapter over :func:`src.utils.percentile.percentile_rank`,
+    the ONE definition (audit W30-F007). The interior formula is
+    unchanged — it is the one that survived consolidation — but the
+    EMPTY-population answer moves from ``0.0`` to ``0.5``.
+
+    That 0.0 was a defect, not a convention: this function feeds a board
+    that ranks teams against each other, so "there was nothing to rank
+    against" rendered as "worst in the league" with no way to tell the
+    two apart. 0.5 is "unmeasured, treat as league median", which is
+    what ``sharp/score.py`` and ``public_league/power.py`` already
+    answered for the same condition.
+    """
+    return _shared_percentile_rank(target, values, empty=0.5)
 
 
 def _load_team_strength_rows() -> list[dict[str, Any]]:

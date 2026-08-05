@@ -9,18 +9,33 @@ from tests.public_league.fixtures import build_test_snapshot
 
 
 class PercentileTests(unittest.TestCase):
-    def test_top_scores_one(self) -> None:
-        self.assertEqual(_percentile_rank([10.0, 20.0, 30.0], 30.0), 1.0)
+    """Self-INCLUSIVE midrank, per ``src/utils/percentile.py``.
 
-    def test_bottom_scores_zero(self) -> None:
-        self.assertEqual(_percentile_rank([10.0, 20.0, 30.0], 10.0), 0.0)
+    These numbers moved in the W30-F007 consolidation. This module used
+    to divide by ``n - 1`` and drop the target from its own tie group —
+    a self-exclusive rank whose league minimum is a literal 0.0 and
+    maximum a literal 1.0 whatever the spread, so two of the three power
+    components read 0.00 for the bottom team every week as a property of
+    the formula rather than of the team. The shared helper is the one
+    ``sharp/score.py``, ``ros/power_v2.py`` and ``roster_intel/window.py``
+    already used.
+    """
+
+    def test_top_scores_just_under_one(self) -> None:
+        self.assertAlmostEqual(_percentile_rank([10.0, 20.0, 30.0], 30.0), 5 / 6)
+
+    def test_bottom_scores_just_over_zero(self) -> None:
+        self.assertAlmostEqual(_percentile_rank([10.0, 20.0, 30.0], 10.0), 1 / 6)
 
     def test_tied_gets_midrank(self) -> None:
-        # Value 20 in [10, 20, 20]: 1 below, 1 other tied → (1 + 0.5) / 2 = 0.75
-        self.assertAlmostEqual(_percentile_rank([10.0, 20.0, 20.0], 20.0), 0.75, places=3)
+        # Value 20 in [10, 20, 20]: 1 below, 2 equal → (1 + 1.0) / 3.
+        self.assertAlmostEqual(_percentile_rank([10.0, 20.0, 20.0], 20.0), 2 / 3, places=3)
 
     def test_singleton_is_midpoint(self) -> None:
         self.assertEqual(_percentile_rank([50.0], 50.0), 0.5)
+
+    def test_empty_population_is_neutral_not_worst(self) -> None:
+        self.assertEqual(_percentile_rank([], 50.0), 0.5)
 
 
 class PowerSectionTests(unittest.TestCase):
