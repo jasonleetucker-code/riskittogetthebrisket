@@ -76,6 +76,17 @@ export default function DraftCapitalSection() {
   }
   if (!data) return <EmptyCard label="Draft capital" />;
 
+  // Picks for the season the header claims to be describing. Rows carry
+  // `season`; when none do (the workbook path, one season only) this is the
+  // whole list, so the filter is inert there rather than emptying the page.
+  const currentSeasonPicks = (() => {
+    const all = data.picks || [];
+    const season = Number(data.season);
+    if (!Number.isFinite(season)) return all;
+    const scoped = all.filter((p) => Number(p?.season) === season);
+    return scoped.length > 0 ? scoped : all;
+  })();
+
   return (
     <>
       <div className="card" style={{ marginTop: "var(--space-md)" }}>
@@ -104,7 +115,7 @@ export default function DraftCapitalSection() {
         </div>
         <TeamTotalsChart
           teamTotals={data.teamTotals}
-          picks={data.picks}
+          picks={currentSeasonPicks}
           totalBudget={data.totalBudget}
           numTeams={data.numTeams}
           draftRounds={data.draftRounds}
@@ -112,8 +123,15 @@ export default function DraftCapitalSection() {
         />
       </div>
 
+      {/* The Sleeper-derived path builds BOTH the current season and the next
+          into one flat picks array (it stamps `coveredPickYears` to say so),
+          and every grid below groups by round with no season filter — so each
+          round rendered twice, with duplicate "1.01" labels and a doubled
+          round total. The workbook path carries one season and is unaffected,
+          which is why nothing caught it. Filter once, here, and pass the
+          current season's picks down. */}
       <PickValueGrid
-        picks={data.picks}
+        picks={currentSeasonPicks}
         draftRounds={data.draftRounds}
         numTeams={data.numTeams}
       />
@@ -123,9 +141,9 @@ export default function DraftCapitalSection() {
           projection for the ones after it. */}
       <PickProjectorPanel />
 
-      <TradeSimulator picks={data.picks} teamTotals={data.teamTotals} />
+      <TradeSimulator picks={currentSeasonPicks} teamTotals={data.teamTotals} />
 
-      <PicksByRound picks={data.picks} draftRounds={data.draftRounds} />
+      <PicksByRound picks={currentSeasonPicks} draftRounds={data.draftRounds} />
     </>
   );
 }

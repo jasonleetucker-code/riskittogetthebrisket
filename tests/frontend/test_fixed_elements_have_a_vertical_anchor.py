@@ -38,8 +38,26 @@ from pathlib import Path
 
 import pytest
 
+#: Directories holding CSS this repo did not author.
+#:
+#: ``.next`` is compiled output and ``node_modules`` is third-party, and
+#: scanning either is worse than useless here. A ``position: fixed`` rule in a
+#: build chunk came from a source file this suite already scans, so the extra
+#: cases assert nothing new — while a rule from a dependency is one the repo
+#: cannot fix, so flagging it would be the cry-wolf failure the docstring above
+#: says the scope exists to avoid.
+#:
+#: They also made the suite RACE. The file list is captured at import time and
+#: frozen into the parametrisation, so a ``next build`` running concurrently
+#: replaces a hashed chunk and the test dies on ``FileNotFoundError`` — three
+#: false failures in one session, none of them reproducible on a re-run. CI
+#: never saw it because pytest and the frontend build are separate jobs there.
+_GENERATED_DIRS = frozenset({".next", "node_modules"})
+
 _CSS_FILES = sorted(
-    (Path(__file__).resolve().parents[2] / "frontend").rglob("*.css")
+    path
+    for path in (Path(__file__).resolve().parents[2] / "frontend").rglob("*.css")
+    if _GENERATED_DIRS.isdisjoint(path.parts)
 )
 
 #: Offsets that anchor a box on the vertical axis. ``inset`` (and its
@@ -163,3 +181,10 @@ def test_there_is_css_to_scan():
     """Guards against the parametrisation silently collapsing to zero
     cases if the frontend tree ever moves."""
     assert _CSS_FILES, "no CSS files found — this suite would pass vacuously"
+    # And that the exclusion above narrowed the scan without emptying it: a
+    # typo in _GENERATED_DIRS that matched everything would otherwise leave
+    # this suite passing vacuously in exactly the way the assert above exists
+    # to prevent.
+    assert not any(
+        not _GENERATED_DIRS.isdisjoint(p.parts) for p in _CSS_FILES
+    ), "generated CSS is still being scanned"

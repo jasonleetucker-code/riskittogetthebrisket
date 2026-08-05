@@ -8602,6 +8602,15 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         # what stops /draft there falling back to a hardcoded list. A league on
         # a different profile gets no rookie fields rather than another
         # profile's board.
+        #
+        # Profile match is necessary but NOT sufficient. Both live leagues are
+        # ``superflex_tep15_ppr1``, yet ``dynasty_main`` starts DL/LB/DB and
+        # ``dynasty_new`` starts none — ``idpEnabled`` and ``rosterSettings``
+        # are leagueKey properties, not profile properties. Serving the shared
+        # board verbatim would put defenders nobody can start onto a non-IDP
+        # league's draft board, at real dollar values, ahead of offensive
+        # rookies it can. So IDP rows are dropped for a league that does not
+        # use them and the dollar ladder is rebuilt over what remains.
         rookie_rows = None
         try:
             from src.api.league_registry import get_scoring_profile  # noqa: PLC0415
@@ -8610,7 +8619,16 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             if loaded_key and get_scoring_profile(loaded_key) == get_scoring_profile(
                 league_cfg.key
             ):
+                from src.trade.angle import _IDP_POSITIONS as _ANGLE_IDP_POSITIONS  # noqa: PLC0415
+
                 pool = _our_rookie_pool(_KTC_TOTAL_PICKS)
+                if pool and not getattr(league_cfg, "idp_enabled", True):
+                    pool = [
+                        r
+                        for r in pool
+                        if str(r.get("assetClass") or "").lower() != "idp"
+                        and str(r.get("pos") or "").upper() not in _ANGLE_IDP_POSITIONS
+                    ]
                 if pool:
                     dollars = _rookie_dollars_from_values(
                         [r["value"] for r in pool], DRAFT_TOTAL_BUDGET

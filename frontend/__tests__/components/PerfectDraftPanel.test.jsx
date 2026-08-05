@@ -376,6 +376,49 @@ describe("live updating as the auction proceeds", () => {
     expect(within(table).getByText("Unpriced Body")).toBeInTheDocument();
   });
 
+  it("consumes the rung the plan charged, not the head of the backend's list", async () => {
+    // The two orders coincide in the default fixture — Deep Bench Guy is both
+    // the ECC head and the cheapest release — so nothing above discriminates
+    // whether the panel actually hands `waiverLadder` to `applyDraftProgress`.
+    // This ladder separates them: the ECC head releases for 3000 and the
+    // cheapest release is the ECC tail.
+    const ctx = {
+      ...CONTEXT,
+      openRosterSpots: 0,
+      cutLadder: {
+        ...CONTEXT.cutLadder,
+        rungs: [
+          {
+            playerId: "big",
+            name: "Big Release",
+            position: "WR",
+            effectiveCutCost: 0,
+            baseValue: 3000,
+            scarcityMultiplier: 1,
+            valueBasis: "board",
+          },
+          {
+            playerId: "small",
+            name: "Small Release",
+            position: "WR",
+            effectiveCutCost: 500,
+            baseValue: 1000,
+            scarcityMultiplier: 1,
+            valueBasis: "board",
+          },
+        ],
+      },
+    };
+    fetch.mockResolvedValue(jsonResponse(200, { ...okPayload(), context: ctx }));
+    render(<PerfectDraftPanel stats={withBought(1, 20)} workspace={WORKSPACE} />);
+    const table = await screen.findByRole("table");
+    // One purchase against zero open spots consumes Small Release (cheapest to
+    // let go), leaving Big Release. Slicing the backend's head instead would
+    // spend Big Release and re-offer Small Release — the double-charge.
+    expect(within(table).getByText("Big Release")).toBeInTheDocument();
+    expect(within(table).queryByText("Small Release")).not.toBeInTheDocument();
+  });
+
   it("reports what has already been bought alongside the remaining plan", async () => {
     render(<PerfectDraftPanel stats={withBought(1, 20)} workspace={WORKSPACE} />);
     await screen.findByRole("table");
@@ -562,5 +605,42 @@ describe("positional balance and opponent-aware pricing", () => {
     await screen.findByRole("table");
     expect(screen.getByText("Fair value")).toBeInTheDocument();
     expect(screen.getByText("Beat the room")).toBeInTheDocument();
+  });
+});
+
+describe("live-bid target is reconciled with the board", () => {
+  beforeEach(() => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+  });
+
+  it("gives the control an accessible name", async () => {
+    // ds Select has no `label` prop — it spreads rest onto the native element,
+    // so `label=` shipped an invalid attribute and no accessible name.
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    const select = screen.getByRole("combobox", { name: /live bid/i });
+    expect(select).toBeInTheDocument();
+    expect(select).not.toHaveAttribute("label");
+  });
+
+  it("says the auction closed instead of advising on a sold player", async () => {
+    // A live bid ENDS by the player being sold, which removes him from the
+    // undrafted pool. Left alone the panel printed a blank name beside
+    // "max $0 / Let him go" — advice about an auction that had closed.
+    const { rerender } = render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    fireEvent.change(screen.getByRole("combobox", { name: /live bid/i }), {
+      target: { value: "jeremiyah-love" },
+    });
+    fireEvent.change(screen.getByLabelText("Current bid"), { target: { value: "20" } });
+
+    const sold = {
+      ...STATS,
+      enrichedPlayers: STATS.enrichedPlayers.map((p) =>
+        p.id === "jeremiyah-love" ? { ...p, drafted: true } : p,
+      ),
+    };
+    rerender(<PerfectDraftPanel stats={sold} workspace={WORKSPACE} />);
+    expect(await screen.findByText(/Sold — pick the next player/i)).toBeInTheDocument();
   });
 });
