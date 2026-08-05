@@ -172,6 +172,24 @@ pass; the journey specs above are their Next.js-era replacements.
    (`screenshot: only-on-failure`, `video: retain-on-failure`,
    `trace: on-first-retry`) — check `test-results/` or the CI
    artifact.
+8. **A flaky pass is a failure.**  `retries: 1` in CI exists for the
+   trace, not for a second opinion: `failOnFlakyTests` in
+   `playwright.config.js` fails any run where a test passed only on
+   retry.  Before that key landed, Playwright reported such a run as
+   `passed` / exit 0 and nothing read the flaky count — so `e2e.yml`'s
+   close step would retire the open `e2e-failures` issue on a run that
+   had watched a critical journey fail.
+   The key lives in the config, not in `stack-death-reporter.js`,
+   because `--reporter=…` on the command line replaces the reporter
+   array and unloads every guard in that file; a CLI flag cannot unload
+   a config key.  The reporter prints the explanation and deliberately
+   returns no status.  `E2E_ALLOW_FLAKY=1` is for a local session
+   chasing something else — `test_e2e_harness_guards.py` fails the PR
+   if a workflow sets it.
+   Convention 5's rule has no exceptions left, either: the last
+   conditional skip that could hide a live defect — the settings
+   override journey's base-contract-fallback skip — is now an
+   assertion.
 
 ## CI
 
