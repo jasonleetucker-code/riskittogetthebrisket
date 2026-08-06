@@ -1,9 +1,8 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useDynastyData } from "@/components/useDynastyData";
-import { buildTeamByPlayer } from "@/lib/waiver-logic";
 // Both live in the ROOT LAYOUT, so a static import puts them in the
 // chunk set every one of ~90 routes downloads and parses — 69 KB of it,
 // measured. Neither is reachable until the user acts: PlayerPopup needs
@@ -254,13 +253,11 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
     setSearchOpen(true);
   }, [searchEnabled]);
 
-  // League-scoped ownership index for the command palette's owner: tokens.
-  // Rows are scoring-profile-scoped and never carry the owner; the
-  // join happens here at render time (CLAUDE.md split).
-  const teamByPlayer = useMemo(
-    () => buildTeamByPlayer(rawData?.sleeper?.teams || []),
-    [rawData?.sleeper?.teams],
-  );
+  // NOTE: the command palette's `owner:` ownership index is built INSIDE
+  // CommandPalette, not here. It used to be a memo at this spot, which
+  // meant the root layout statically imported `lib/waiver-logic` (33.9 KB
+  // of source) purely to feed a lazily-loaded component — putting it in
+  // the chunk every route downloads. See CommandPalette.jsx's header.
 
   // Global keyboard shortcuts for search: "/" (legacy, preserved) and
   // Cmd/Ctrl+K (the standard command-palette chord — R1 additive).
@@ -328,7 +325,7 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
       {searchEnabled && searchOpen && CommandPalette && (
         <CommandPalette
           rows={rows}
-          teamByPlayer={teamByPlayer}
+          sleeperTeams={rawData?.sleeper?.teams || null}
           isOpen={searchOpen}
           onClose={() => setSearchOpen(false)}
           onSelect={(row) => openPlayerPopup(row)}

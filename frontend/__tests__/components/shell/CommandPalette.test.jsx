@@ -47,11 +47,20 @@ const ROWS = [
   },
 ];
 
+// Raw Sleeper team array. The palette builds its own {byId, byName}
+// index from this — it does NOT take a prebuilt one, so that
+// `lib/waiver-logic` stays behind the palette's lazy chunk instead of
+// riding the root layout into every route's bundle.
+const SLEEPER_TEAMS = [
+  { name: "Brisket Bros", ownerId: "u1", players: ["Justin Jefferson"], playerIds: [] },
+  { name: "Rival Squad", ownerId: "u2", players: ["Jahmyr Gibbs"], playerIds: [] },
+];
+
 function palette(props = {}) {
   return render(
     <CommandPalette
       rows={ROWS}
-      teamByPlayer={null}
+      sleeperTeams={null}
       isOpen
       onClose={() => {}}
       onSelect={() => {}}
@@ -94,6 +103,36 @@ describe("player search (legacy semantics preserved)", () => {
     await user.keyboard("wr min");
     expect(screen.getByText("Justin Jefferson")).toBeInTheDocument();
     expect(screen.queryByText("Jahmyr Gibbs")).toBeNull();
+  });
+});
+
+// The `owner:` grammar was previously UNTESTED here — every case passed
+// `teamByPlayer={null}`, so the prop was never exercised at all. Since
+// the palette now builds that index itself from `sleeperTeams`, these
+// are what prove the move preserved the behaviour rather than quietly
+// disabling owner filtering.
+describe("owner: tokens — the index the palette builds itself", () => {
+  it("filters to one manager's players from the raw team array", async () => {
+    const user = userEvent.setup();
+    palette({ sleeperTeams: SLEEPER_TEAMS });
+    await user.keyboard("owner:brisket");
+    expect(screen.getByText("Justin Jefferson")).toBeInTheDocument();
+    expect(screen.queryByText("Jahmyr Gibbs")).toBeNull();
+  });
+
+  it("composes with the other tokens (owner: + pos:)", async () => {
+    const user = userEvent.setup();
+    palette({ sleeperTeams: SLEEPER_TEAMS });
+    await user.keyboard("owner:rival pos:rb");
+    expect(screen.getByText("Jahmyr Gibbs")).toBeInTheDocument();
+    expect(screen.queryByText("Justin Jefferson")).toBeNull();
+  });
+
+  it("without teams, owner: matches nobody rather than throwing", async () => {
+    const user = userEvent.setup();
+    palette(); // sleeperTeams = null — the /league and pre-load case
+    await user.keyboard("owner:brisket");
+    expect(screen.getByText(/No results/)).toBeInTheDocument();
   });
 });
 
