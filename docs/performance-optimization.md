@@ -1179,13 +1179,27 @@ loosening board assertions to make a change fit.
 
 ### If someone picks this up again
 
-* **Do not start from row count.** Start by profiling what the page does
-  per frame during a scroll — the answer is not in this table's size.
-* The windowing implementation worked and is recoverable from this
-  branch's history if the profile ever justifies it: opt-in `windowRows`
-  prop, document-scroll, spacer rows, data-driven zebra parity,
-  absolute-index callbacks, full-render fallback when geometry is
-  unmeasurable (jsdom reports 0 and all 28 DataTable tests depend on it).
+* ~~**Do not start from row count.** Start by profiling what the page
+  does per frame during a scroll~~ — **REVERSED by the retraction above.**
+  Row count is exactly where to start, and the per-frame profile is a
+  dead end: a static snapshot of the board with every script stripped
+  scrolls at the same speed as the live page, so there is nothing running
+  per frame to find.
+* ~~The windowing implementation worked and is recoverable from this
+  branch's history~~ — **FALSE, corrected 2026-08-06.** It is not
+  recoverable and never was: `git log --all -S windowRows` returns
+  nothing, the branch has exactly one pre-retraction commit (the
+  measurement), and no dangling object holds it. It was built in a
+  working tree and reverted without ever being committed. Anyone acting
+  on the retraction above is **writing it from scratch**, and should
+  budget accordingly. What survives is the design, which was sound and is
+  worth re-using: opt-in `windowRows` prop (default off, rankings only —
+  `DataTable` has 12 consumers), document-scroll rather than a new scroll
+  container, spacer rows to preserve scroll height, data-driven zebra
+  parity, absolute-index callbacks through `renderBeforeRow` /
+  `renderAfterRow` / `col.render`, and a full-render fallback when
+  geometry is unmeasurable (jsdom reports 0 rects and all 28 DataTable
+  tests depend on that fallback).
 * One trap it hit, worth keeping: measure row height from a row the table
   itself renders (`data-ds-row`), never `tbody tr`. The first `tr` can be
   a caller-authored tier separator, and measuring one collapses the window
