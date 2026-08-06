@@ -4036,6 +4036,18 @@ async def post_rankings_overrides(request: Request):
         the delta onto its cached base contract.
     """
     if not latest_data or not isinstance(latest_data, dict):
+        # Logged because this 503 is INVISIBLE from the outside otherwise,
+        # and it is one of exactly two ways this handler can 503.  The
+        # rotating E2E flake includes runs where
+        # journey-settings-overrides gets a 503 here, and without a log
+        # line the CI backend.log artifact cannot say which branch fired
+        # — which is why that flake has outlived two wrong root causes.
+        # Cheap, and it turns the next failing run into evidence.
+        log.warning(
+            "overrides 503: latest_data missing (type=%s, contract_loaded=%s)",
+            type(latest_data).__name__,
+            latest_contract_data is not None,
+        )
         return JSONResponse(
             status_code=503,
             content={
@@ -4068,6 +4080,13 @@ async def post_rankings_overrides(request: Request):
     loaded_profile = str(loaded_meta.get("scoringProfile") or "")
     sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
     if loaded_profile and loaded_profile != league_cfg.scoring_profile:
+        # The other 503 branch — see the note on the first one.
+        log.warning(
+            "overrides 503: scoring profile mismatch (loaded=%r, requested=%r, league=%r)",
+            loaded_profile,
+            league_cfg.scoring_profile,
+            league_cfg.key,
+        )
         return JSONResponse(
             status_code=503,
             content={
