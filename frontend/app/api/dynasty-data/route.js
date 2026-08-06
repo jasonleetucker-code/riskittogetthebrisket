@@ -167,6 +167,39 @@ function newestFile(files) {
 // Disk fallback — used only when the backend is unreachable / errored.
 // Returns the RAW contract object; the client normalizes both the raw
 // contract and the legacy ``{ ok, source, data }`` wrapper.
+/**
+ * Does this payload carry backend rank stamps, i.e. can it function as a
+ * contract at all?
+ *
+ * Mirrors `_hasBackendRankStamps` in lib/dynasty-data.js — "any" rather
+ * than "all", because the board is capped near the tail and players past
+ * the cap legitimately have a null rank.
+ *
+ * Checks BOTH encodings, because they use different field names and the
+ * payload may carry either: `playersArray` rows use
+ * `canonicalConsensusRank`, while the legacy `players` dict uses the
+ * underscore-prefixed `_canonicalConsensusRank`
+ * (src/api/data_contract.py:8346). Checking only the array would reject
+ * every runtime-view payload, since server.py:2150 pops that array by
+ * design.
+ */
+function hasRankStamps(payload) {
+  const arr = Array.isArray(payload?.playersArray) ? payload.playersArray : [];
+  for (const r of arr) {
+    if (r && Number.isInteger(r.canonicalConsensusRank) && r.canonicalConsensusRank > 0) {
+      return true;
+    }
+  }
+  const dict = payload?.players;
+  if (dict && typeof dict === "object") {
+    for (const p of Object.values(dict)) {
+      const rk = p?._canonicalConsensusRank;
+      if (Number.isInteger(rk) && rk > 0) return true;
+    }
+  }
+  return false;
+}
+
 function loadFromDisk() {
   const repoRoot = path.resolve(process.cwd(), "..");
 
@@ -248,7 +281,45 @@ export async function GET(request) {
     }
     const parsed = loadFromDisk();
     if (parsed) {
-      return NextResponse.json(parsed);
+      // A disk snapshot is only a usable CONTRACT if the pipeline has
+      // stamped ranks into it.  The committed scraper seed has not:
+      // `exports/latest/dynasty_data_*.json` carries ~1075 players with
+      // zero `canonicalConsensusRank` and zero `_canonicalConsensusRank`.
+      //
+      // Serving it anyway is how a 4-second backend stall became a blank
+      // board with no error. `buildRows` fail-fasts on a payload with no
+      // rank stamps (lib/dynasty-data.js:1358) — deliberately, so a
+      // drift-prone local blend never renders — so this fallback was
+      // manufacturing precisely the input the client is built to reject,
+      // and the user saw "no players" while the backend was healthy.
+      //
+      // Worse, it is sticky: the module-scope base-contract cache
+      // (lib/dynasty-data.js) then serves that payload to every mount for
+      // its TTL, and AppShell mounts useDynastyData on EVERY route — so
+      // one stall degrades the whole app, not one page. That is what made
+      // the E2E suite fail on a different spec each run.
+      //
+      // So: only serve the snapshot when it can actually function as a
+      // contract. Otherwise report the upstream failure honestly and let
+      // the client's error path do its job.
+      if (hasRankStamps(parsed)) {
+        return NextResponse.json(parsed);
+      }
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Backend unavailable and the on-disk snapshot carries no rank stamps, " +
+            "so it cannot be served as a contract. This is an upstream/backend " +
+            "problem, not a rendering one.",
+          diagnostic: {
+            reason: "disk_snapshot_unstamped",
+            players: Object.keys(parsed?.players || {}).length,
+            playersArray: Array.isArray(parsed?.playersArray) ? parsed.playersArray.length : 0,
+          },
+        },
+        { status: 503 },
+      );
     }
 
     return NextResponse.json(
