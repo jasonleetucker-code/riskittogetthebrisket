@@ -182,3 +182,98 @@ def test_memoized_build_matches_sequential_builders(monkeypatch):
     assert overlay["waivers"] == seq_waivers
     assert overlay["meta"]["tradeCount"] == 1
     assert overlay["meta"]["waiverCount"] == 1
+
+
+# ── Request-path budget (max_wait_sec) ────────────────────────────────
+#
+# The boot warm calls fetch_sleeper_overlay(force_refresh=True), which
+# skips the cache read entirely and holds the per-league build lock for
+# the whole ~47-70-URL build. Before the budget, an /api/data request
+# landing in that window blocked for the REMAINDER of that build.
+#
+# That is not a slow page, it is a broken one: the Next bridge in front
+# of /api/data aborts on a 4s idle timeout and falls back to an on-disk
+# snapshot, which carries no rank stamps, which makes buildRows
+# fail-fast. Blocking on a decorative overlay produced an empty board.
+
+
+def test_request_budget_returns_none_rather_than_blocking(monkeypatch):
+    """A caller with a budget gives up instead of waiting for the build."""
+    _reset()
+    monkeypatch.setattr(sleeper_overlay, "_http_get_json", _fake_sleeper([]))
+
+    lock = sleeper_overlay._overlay_build_lock(LEAGUE)
+    lock.acquire()  # stand in for the boot warm holding it
+    try:
+        t0 = time.time()
+        got = sleeper_overlay.fetch_sleeper_overlay(
+            sleeper_league_id=LEAGUE,
+            id_to_player={},
+            max_wait_sec=0.25,
+        )
+        elapsed = time.time() - t0
+    finally:
+        lock.release()
+
+    # No cache entry exists, so there is nothing to fall back to.
+    assert got is None
+    # The budget is what bounds it. Generous upper bound so this cannot
+    # flake on a loaded runner while still failing an unbounded wait,
+    # which would hang until the test timeout.
+    assert elapsed < 5.0, f"waited {elapsed:.2f}s despite a 0.25s budget"
+
+
+def test_request_budget_prefers_stale_payload_over_waiting(monkeypatch):
+    """With a cached payload, a blocked caller gets stale rather than None.
+
+    Freshness is the only thing given up; the board still renders with
+    live Sleeper data from the previous build.
+    """
+    _reset()
+    monkeypatch.setattr(sleeper_overlay, "_http_get_json", _fake_sleeper([]))
+
+    # Populate the cache with a real build first.
+    warm = sleeper_overlay.fetch_sleeper_overlay(
+        sleeper_league_id=LEAGUE, id_to_player={"1111": "P One"}
+    )
+    assert warm and warm.get("teams")
+
+    # Age it past the TTL so the fast path cannot serve it, then hold the
+    # build lock as the warm would.
+    with sleeper_overlay._CACHE_LOCK:
+        sleeper_overlay._CACHE[LEAGUE]["_cached_at"] = (
+            time.time() - sleeper_overlay._STALE_SERVE_MAX_SEC - 1
+        )
+    lock = sleeper_overlay._overlay_build_lock(LEAGUE)
+    lock.acquire()
+    try:
+        t0 = time.time()
+        got = sleeper_overlay.fetch_sleeper_overlay(
+            sleeper_league_id=LEAGUE,
+            id_to_player={},
+            max_wait_sec=0.25,
+        )
+        elapsed = time.time() - t0
+    finally:
+        lock.release()
+
+    assert got is not None, "should serve the stale payload rather than nothing"
+    assert got["leagueId"] == LEAGUE
+    assert elapsed < 5.0, f"waited {elapsed:.2f}s despite a 0.25s budget"
+
+
+def test_warm_path_keeps_its_unbounded_wait(monkeypatch):
+    """No budget => the old behaviour, which the warm and scrapes rely on.
+
+    Guards against 'fixing' this by making every caller give up: a warm
+    that skipped its build would leave the cache cold forever.
+    """
+    _reset()
+    calls: list[str] = []
+    monkeypatch.setattr(sleeper_overlay, "_http_get_json", _fake_sleeper(calls))
+
+    got = sleeper_overlay.fetch_sleeper_overlay(
+        sleeper_league_id=LEAGUE, id_to_player={"1111": "P One"}, force_refresh=True
+    )
+    assert got and got.get("teams"), "unbudgeted caller must still build"
+    assert any(u.endswith("/rosters") for u in calls), calls
