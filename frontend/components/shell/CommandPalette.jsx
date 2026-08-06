@@ -24,7 +24,25 @@
  * stack come for free.
  *
  * Props (superset of GlobalSearch's contract):
- *   rows, teamByPlayer, isOpen, onClose, onSelect(row)
+ *   rows, sleeperTeams, isOpen, onClose, onSelect(row)
+ *
+ * ⚠ `sleeperTeams` — the RAW team array — not the prebuilt
+ * `{byId, byName}` index it used to take. The index is built HERE.
+ *
+ * That is a bundle boundary, not a style preference. `buildTeamByPlayer`
+ * lives in `lib/waiver-logic.js` (33.9 KB of source), and AppShell — the
+ * ROOT LAYOUT — imported it solely to build this prop. So the whole
+ * waiver module landed in the chunk every route downloads (measured:
+ * chunk 2910, 12.0 KB raw / 4.5 KB gz, in the always-loaded intersection
+ * of all 35 routes) to serve a palette that is itself lazily loaded and
+ * only reachable after "/" or Cmd+K.
+ *
+ * Building the index inside the lazy component moves that import behind
+ * the same gate as the component. Precedent: `PlayerPopup.jsx:7,680`
+ * already imports `buildTeamByPlayer` itself for the same reason.
+ *
+ * Keep it this way. Hoisting the memo back into a caller re-attaches
+ * waiver-logic to whatever chunk that caller sits in.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -32,6 +50,7 @@ import { Icon, Modal } from "@/components/ds";
 import { resolvedRank } from "@/lib/dynasty-data";
 import { matchesQuery } from "@/lib/player-filters";
 import { paletteTargets } from "@/lib/nav-model";
+import { buildTeamByPlayer } from "@/lib/waiver-logic";
 
 const MAX_PLAYERS = 12;
 const MAX_NAV = 6;
@@ -56,12 +75,21 @@ function matchNavTargets(query) {
 
 export default function CommandPalette({
   rows = [],
-  teamByPlayer = null,
+  sleeperTeams = null,
   isOpen,
   onClose,
   onSelect,
 }) {
   const router = useRouter();
+
+  // League-scoped ownership index for the `owner:` / `team:` tokens.
+  // Rows are scoring-profile-scoped and never carry the owner, so the
+  // join happens at render time (CLAUDE.md's scoringProfile/leagueKey
+  // split). Built here rather than passed in — see the header.
+  const teamByPlayer = useMemo(
+    () => (sleeperTeams ? buildTeamByPlayer(sleeperTeams) : null),
+    [sleeperTeams],
+  );
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef(null);

@@ -1080,14 +1080,84 @@ This also scopes what the `NO_PLAYER_DATA_ROUTE_PREFIXES` work (#759)
 achieved: it removes the multi-MB `/api/data` fetch and the ~1,100-row
 `buildRows` pass from six routes — the dominant cost, and real — but
 **zero bytes of JS**. Removing the bytes needs the import itself to become
-conditional, i.e. splitting `PrivateAppShell` behind the same imperative
-`await import()` idiom `useLazyComponent` (`AppShell.jsx:81`) already uses.
-That is the largest remaining app-owned win and it is bigger than the
-shell-deferral idea.
+conditional.
 
 **Do not reach for `dynamic()` to do it** — `AppShell.jsx:16-72` documents,
 with measurements, that `dynamic()` there puts `{children}` inside a
 Suspense boundary and permanently duplicates every page's DOM.
+
+#### CORRECTION — the 57.7 KB is NOT all AppShell's to remove
+
+The paragraph above (and the PR body it came from) implied that splitting
+the AppShell import would recover all 57.7 KB / 19.4 KB gz. **It would
+not.** Traced statically from `app/layout.jsx`, only **one** of those four
+chunks hangs off AppShell's import of `useDynastyData`:
+
+| chunk | reached from |
+|---|---|
+| `2910` | `components/AppShell.jsx` — **the only edge** |
+| `8805` | `useDynastyData.js` **and** `components/useLeague.js` |
+| `6023` | `useDynastyData.js`, `useTeam.js`, `useTerminal.js` |
+| `2063` | `useLeague.js` |
+
+The surviving edges are the **chrome, not the data layer**:
+`TopBar.jsx:21-22` and `MobileChrome.jsx:21-22` statically import
+`LeagueSwitcher` → `useLeague` → `lib/dynasty-data`, and `TeamSwitcher` →
+`useTeam`. Those three chunks stay on every route no matter what AppShell
+does, because the nav bar renders on every route. Removing them means
+deferring visible chrome and making the switchers pop in after paint.
+
+So the honest ceiling on "make the player pipeline import conditional" is
+chunk 2910 alone — and after the cut below it is **5.3 KB raw / 2.2 KB
+gz**, not 57.7 KB. Weigh that against the remount hazard before attempting
+it: a lazily-loaded `PrivateAppShell` *component* is a trap, because both
+shell branches render at the same position with `{children}` inside
+(`AppShell.jsx:141-146`). When the chunk lands, the element type at that
+position changes and **React remounts every page** — page state discarded,
+effects re-run, fetches fired twice, scroll reset. A different mechanism
+from the `dynamic()` DOM duplication, the same family of damage, and this
+one is plainly visible. A null-rendering leaf bridge that reports upward
+via callback avoids it, at the cost of real complexity for ~2 KB gz.
+
+### The cut that WAS worth taking: waiver-logic out of the root layout
+
+`AppShell.jsx` imported `buildTeamByPlayer` from `lib/waiver-logic.js`
+(33.9 KB of source) for exactly one purpose: a `useMemo` that built the
+`teamByPlayer` ownership index and passed it to `<CommandPalette>`. But
+CommandPalette is **already lazily loaded** (`useLazyComponent`,
+`AppShell.jsx:200`) and only reachable after "/" or Cmd+K. The root layout
+was therefore pulling the whole waiver module into the every-route chunk to
+prepare a prop for a component that usually never loads.
+
+Fix: CommandPalette takes the raw `sleeperTeams` array and builds the index
+itself, so `lib/waiver-logic` follows the component into its lazy chunk.
+Precedent already in the tree — `PlayerPopup.jsx:7,680` does the same.
+
+Measured with `measure-first-load.mjs`, same build flags, before/after:
+
+| | raw | gzipped |
+|---|---|---|
+| always-loaded before | 641.7 KB | 202.0 KB |
+| always-loaded after | **635.1 KB** | **199.7 KB** |
+| delta on **every** route | **−6.6 KB** | **−2.3 KB** |
+
+Chunk `2910` fell 12.0 → 5.3 KB raw. waiver-logic relocated to chunk
+`5145`, which is now preloaded by exactly two routes — `/rankings`
+(`page.jsx:56` imports `buildTeamByPlayer` directly) and `/waivers` (its
+own page) — instead of all 35.
+
+**State the source size and the shipped size separately.** "33.9 KB of
+source leaves the root-layout graph" is true and was the reason to try it,
+but the number that reaches users is 6.6 KB raw / 2.3 KB gz after
+minification and shared-chunk splitting. Quoting the source figure as the
+win would overstate it by 5×. This is the same failure mode as the
+retracted `firstLoadChunks()`, just in the optimistic direction.
+
+The `owner:` token grammar was **untested** before this change — every
+existing CommandPalette case passed `teamByPlayer={null}`, so the prop was
+never exercised. Three tests were added to cover the index the palette now
+builds itself; without them the move could have silently disabled owner
+filtering and nothing would have failed.
 
 ## Rejected (attempted, reverted)
 
