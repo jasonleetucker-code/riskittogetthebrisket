@@ -3,8 +3,8 @@
     "ownerId": "1002085133723299840",
     "rosterId": 9,
     "teamName": "Brent",
-    "teamRosStrength": 584.68,
-    "startingLineupScore": 749.67,
+    "teamRosStrength": 584.72,
+    "startingLineupScore": 749.72,
     "benchDepthScore": 194.0,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -154,9 +154,9 @@
         "playerId": "7553",
         "canonicalName": "kyle pitts",
         "position": "TE",
-        "rosValue": 20.2,
-        "adjustedValue": 20.2,
-        "confidence": 0.907,
+        "rosValue": 20.25,
+        "adjustedValue": 20.25,
+        "confidence": 0.908,
         "flagged": null
       },
       {
@@ -890,7 +890,7 @@
         "playerId": "7553",
         "canonicalName": "kyle pitts",
         "position": "TE",
-        "rosValue": 20.2,
+        "rosValue": 20.25,
         "fantasyPositions": [
           "TE"
         ],
@@ -1883,9 +1883,9 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Jason",
-    "teamRosStrength": 442.92,
+    "teamRosStrength": 442.94,
     "startingLineupScore": 576.26,
-    "benchDepthScore": 100.52,
+    "benchDepthScore": 100.61,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2113,9 +2113,9 @@
         "playerId": "6217",
         "canonicalName": "blake cashman",
         "position": "LB",
-        "rosValue": 23.79,
+        "rosValue": 23.88,
         "depthFactor": 1.0,
-        "depthContribution": 23.79
+        "depthContribution": 23.88
       },
       {
         "playerId": "9756",
@@ -2314,7 +2314,7 @@
         "playerId": "6217",
         "canonicalName": "blake cashman",
         "position": "LB",
-        "rosValue": 23.79,
+        "rosValue": 23.88,
         "fantasyPositions": [
           "LB"
         ],
@@ -2644,7 +2644,7 @@
         "playerId": "6183",
         "canonicalName": "andrew van ginkel",
         "position": "LB",
-        "rosValue": 10.43,
+        "rosValue": 10.53,
         "fantasyPositions": [
           "DL",
           "LB"
@@ -3757,7 +3757,7 @@
     "teamName": "Collin",
     "teamRosStrength": 425.53,
     "startingLineupScore": 556.69,
-    "benchDepthScore": 82.17,
+    "benchDepthScore": 82.2,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -3993,9 +3993,9 @@
         "playerId": "8121",
         "canonicalName": "romeo doubs",
         "position": "WR",
-        "rosValue": 18.24,
+        "rosValue": 18.29,
         "depthFactor": 0.65,
-        "depthContribution": 11.86
+        "depthContribution": 11.89
       },
       {
         "playerId": "11435",
@@ -4252,7 +4252,7 @@
         "playerId": "8121",
         "canonicalName": "romeo doubs",
         "position": "WR",
-        "rosValue": 18.24,
+        "rosValue": 18.29,
         "fantasyPositions": [
           "WR"
         ],
@@ -5637,8 +5637,8 @@
     "ownerId": "1208452010173538304",
     "rosterId": 10,
     "teamName": "Kich",
-    "teamRosStrength": 406.88,
-    "startingLineupScore": 529.54,
+    "teamRosStrength": 406.94,
+    "startingLineupScore": 529.63,
     "benchDepthScore": 89.24,
     "positionalCoverageScore": 95.63,
     "healthAvailabilityScore": 95.24,
@@ -5698,9 +5698,9 @@
         "playerId": "10917",
         "canonicalName": "byron young",
         "position": "LB",
-        "rosValue": 14.04,
-        "adjustedValue": 14.04,
-        "confidence": 0.764,
+        "rosValue": 14.13,
+        "adjustedValue": 14.13,
+        "confidence": 0.765,
         "flagged": null
       },
       {
@@ -6279,7 +6279,7 @@
         "playerId": "10917",
         "canonicalName": "byron young",
         "position": "LB",
-        "rosValue": 14.04,
+        "rosValue": 14.13,
         "fantasyPositions": [
           "DL",
           "LB"
@@ -8401,9 +8401,9 @@
     "ownerId": "711452264774041600",
     "rosterId": 2,
     "teamName": "Ed",
-    "teamRosStrength": 377.88,
-    "startingLineupScore": 483.59,
-    "benchDepthScore": 109.88,
+    "teamRosStrength": 377.7,
+    "startingLineupScore": 483.34,
+    "benchDepthScore": 109.84,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -8572,9 +8572,9 @@
         "playerId": "5947",
         "canonicalName": "jakobi meyers",
         "position": "WR",
-        "rosValue": 20.47,
-        "adjustedValue": 20.47,
-        "confidence": 0.915,
+        "rosValue": 20.22,
+        "adjustedValue": 20.22,
+        "confidence": 0.913,
         "flagged": null
       },
       {
@@ -8639,9 +8639,9 @@
         "playerId": "6806",
         "canonicalName": "jk dobbins",
         "position": "RB",
-        "rosValue": 14.08,
+        "rosValue": 14.04,
         "depthFactor": 1.0,
-        "depthContribution": 14.08
+        "depthContribution": 14.04
       },
       {
         "playerId": "2064",
@@ -8711,7 +8711,7 @@
         "playerId": "6806",
         "canonicalName": "jk dobbins",
         "position": "RB",
-        "rosValue": 14.08,
+        "rosValue": 14.04,
         "fantasyPositions": [
           "RB"
         ],
@@ -9129,7 +9129,7 @@
         "playerId": "5947",
         "canonicalName": "jakobi meyers",
         "position": "WR",
-        "rosValue": 20.47,
+        "rosValue": 20.22,
         "fantasyPositions": [
           "WR"
         ],
@@ -10136,7 +10136,7 @@
     "teamName": "Roy",
     "teamRosStrength": 324.48,
     "startingLineupScore": 417.01,
-    "benchDepthScore": 80.28,
+    "benchDepthScore": 80.31,
     "positionalCoverageScore": 95.63,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -10372,9 +10372,9 @@
         "playerId": "1373",
         "canonicalName": "geno smith",
         "position": "QB",
-        "rosValue": 13.48,
+        "rosValue": 13.52,
         "depthFactor": 0.55,
-        "depthContribution": 7.41
+        "depthContribution": 7.44
       },
       {
         "playerId": "2036",
@@ -10923,7 +10923,7 @@
         "playerId": "1373",
         "canonicalName": "geno smith",
         "position": "QB",
-        "rosValue": 13.48,
+        "rosValue": 13.52,
         "fantasyPositions": [
           "QB"
         ],

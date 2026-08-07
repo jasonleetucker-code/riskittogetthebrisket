@@ -1465,7 +1465,7 @@
         "playerId": "6806",
         "canonicalName": "jk dobbins",
         "position": "RB",
-        "rosValue": 14.08,
+        "rosValue": 14.04,
         "fantasyPositions": [
           "RB"
         ],
@@ -1565,9 +1565,9 @@
     "ownerId": "360184624380633088",
     "rosterId": 1,
     "teamName": "DeCline",
-    "teamRosStrength": 294.06,
-    "startingLineupScore": 363.12,
-    "benchDepthScore": 125.63,
+    "teamRosStrength": 294.05,
+    "startingLineupScore": 363.17,
+    "benchDepthScore": 125.38,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1606,9 +1606,9 @@
         "playerId": "7553",
         "canonicalName": "kyle pitts",
         "position": "TE",
-        "rosValue": 20.2,
-        "adjustedValue": 20.2,
-        "confidence": 0.907,
+        "rosValue": 20.25,
+        "adjustedValue": 20.25,
+        "confidence": 0.908,
         "flagged": null
       },
       {
@@ -1701,9 +1701,9 @@
         "playerId": "5947",
         "canonicalName": "jakobi meyers",
         "position": "WR",
-        "rosValue": 20.47,
+        "rosValue": 20.22,
         "depthFactor": 1.0,
-        "depthContribution": 20.47
+        "depthContribution": 20.22
       },
       {
         "playerId": "13337",
@@ -1974,7 +1974,7 @@
         "playerId": "5947",
         "canonicalName": "jakobi meyers",
         "position": "WR",
-        "rosValue": 20.47,
+        "rosValue": 20.22,
         "fantasyPositions": [
           "WR"
         ],
@@ -2018,7 +2018,7 @@
         "playerId": "7553",
         "canonicalName": "kyle pitts",
         "position": "TE",
-        "rosValue": 20.2,
+        "rosValue": 20.25,
         "fantasyPositions": [
           "TE"
         ],
@@ -4155,9 +4155,9 @@
     "ownerId": "472206636534984704",
     "rosterId": 3,
     "teamName": "Roy",
-    "teamRosStrength": 224.12,
+    "teamRosStrength": 224.13,
     "startingLineupScore": 275.79,
-    "benchDepthScore": 86.38,
+    "benchDepthScore": 86.47,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -4267,9 +4267,9 @@
         "playerId": "8121",
         "canonicalName": "romeo doubs",
         "position": "WR",
-        "rosValue": 18.24,
+        "rosValue": 18.29,
         "depthFactor": 1.0,
-        "depthContribution": 18.24
+        "depthContribution": 18.29
       },
       {
         "playerId": "13320",
@@ -4323,9 +4323,9 @@
         "playerId": "1373",
         "canonicalName": "geno smith",
         "position": "QB",
-        "rosValue": 13.48,
+        "rosValue": 13.52,
         "depthFactor": 1.0,
-        "depthContribution": 13.48
+        "depthContribution": 13.52
       }
     ],
     "fullRoster": [
@@ -4421,7 +4421,7 @@
         "playerId": "1373",
         "canonicalName": "geno smith",
         "position": "QB",
-        "rosValue": 13.48,
+        "rosValue": 13.52,
         "fantasyPositions": [
           "QB"
         ],
@@ -4619,7 +4619,7 @@
         "playerId": "8121",
         "canonicalName": "romeo doubs",
         "position": "WR",
-        "rosValue": 18.24,
+        "rosValue": 18.29,
         "fantasyPositions": [
           "WR"
         ],
