@@ -1,7 +1,7 @@
 name,value,rank
 Josh Allen,10491,1
 Bijan Robinson,10263,2
-Jahmyr Gibbs,10006,3
+Jahmyr Gibbs,10005,3
 Ja'Marr Chase,9996,4
 Drake Maye,8799,5
 Jaxon Smith-Njigba,8685,6
@@ -12,13 +12,13 @@ Amon-Ra St. Brown,7315,10
 Jayden Daniels,7214,11
 Ashton Jeanty,7003,12
 Caleb Williams,6981,13
-Joe Burrow,6824,14
+Joe Burrow,6823,14
 Justin Jefferson,6819,15
 Jeremiyah Love,6753,16
-Trey McBride,6709,17
+Trey McBride,6695,17
 Malik Nabers,6611,18
 CeeDee Lamb,6346,19
-Omarion Hampton,6253,20
+Omarion Hampton,6234,20
 Justin Herbert,5942,21
 De'Von Achane,5620,22
 Drake London,5593,23
@@ -33,7 +33,7 @@ James Cook,4945,31
 Emeka Egbuka,4795,32
 George Pickens,4762,33
 Carnell Tate,4645,34
-Tyler Warren,4644,35
+Tyler Warren,4643,35
 Brock Purdy,4626,36
 Tetairoa McMillan,4605,37
 Christian McCaffrey,4400,38
@@ -60,7 +60,7 @@ Tucker Kraft,3645,58
 Zay Flowers,3593,59
 Jared Goff,3441,60
 Rome Odunze,3420,61
-Tee Higgins,3406,62
+Tee Higgins,3405,62
 Tyler Shough,3379,63
 Cam Skattebo,3338,64
 Baker Mayfield,3297,65
@@ -71,7 +71,7 @@ Brian Thomas,3208,69
 Kyren Williams,3208,69
 Sam LaPorta,3183,71
 Jadarian Price,3149,72
-Marvin Harrison Jr,3147,73
+Marvin Harrison Jr,3140,73
 Bucky Irving,3135,74
 Makai Lemon,3125,75
 Derrick Henry,3028,76
@@ -133,8 +133,8 @@ Rhamondre Stevenson,1677,131
 Rico Dowdle,1667,132
 Jonah Coleman,1660,133
 Tua Tagovailoa,1658,134
-Kenny Gainwell,1655,135
-Chig Okonkwo,1654,136
+Kenny Gainwell,1654,135
+Chig Okonkwo,1654,135
 Chris Godwin,1651,137
 Mark Andrews,1625,138
 Courtland Sutton,1625,138
@@ -158,7 +158,7 @@ Rachaad White,1476,156
 Jalen McMillan,1464,157
 Jakobi Meyers,1459,158
 Dallas Goedert,1443,159
-Stefon Diggs,1441,160
+Stefon Diggs,1442,160
 Jordan Mason,1433,161
 Deebo Samuel,1425,162
 Chris Bell,1421,163
@@ -286,7 +286,7 @@ Garrett Nussmeier,341,284
 Ja'Tavion Sanders,338,285
 CJ Daniels,335,286
 Michael Trigg,328,287
-J'Mari Taylor,322,288
+J'Mari Taylor,321,288
 Joe Milton,309,289
 Christian Kirk,306,290
 Najee Harris,306,290
@@ -316,7 +316,7 @@ Darnell Washington,226,314
 Andrei Iosivas,224,315
 Ben Sinnott,223,316
 Brashard Smith,222,317
-Barion Brown,217,318
+Barion Brown,219,318
 Luke McCaffrey,216,319
 Will Kacmarek,215,320
 Roman Wilson,212,321
@@ -333,17 +333,17 @@ Chris Brooks,169,331
 Erick All,168,332
 Malik Davis,165,333
 Davis Mills,164,334
-Kendre Miller,163,335
+Kendre Miller,162,335
 Cedric Tillman,160,336
 Darius Slayton,157,337
 Emari Demercado,142,338
 Will Levis,141,339
-Reggie Virgil,138,340
+Reggie Virgil,139,340
 Samaje Perine,136,341
 Zach Ertz,136,341
 Jarquez Hunter,132,343
+Calvin Austin,128,344
 Darren Waller,128,344
-Calvin Austin,127,345
 Michael Carter,124,346
 Tyrod Taylor,121,347
 Dillon Gabriel,121,347
@@ -351,7 +351,7 @@ Kendrick Bourne,118,349
 Ty Johnson,115,350
 Kenny Pickett,115,350
 Jimmy Horn,113,352
-Joe Royer,110,353
+Joe Royer,109,353
 John Metchie,107,354
 Josh Cameron,106,355
 Devin Singletary,102,356
