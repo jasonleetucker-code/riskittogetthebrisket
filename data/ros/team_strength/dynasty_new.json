@@ -1231,6 +1231,17 @@
         "bye": false
       },
       {
+        "playerId": "11834",
+        "canonicalName": "devaughn vele",
+        "position": "WR",
+        "rosValue": 11.55,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
         "playerId": "12474",
         "canonicalName": "woody marks",
         "position": "RB",
@@ -1356,6 +1367,17 @@
         "canonicalName": "eli heidenreich",
         "position": "RB",
         "rosValue": 10.89,
+        "fantasyPositions": [
+          "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "13424",
+        "canonicalName": "seth mcgowan",
+        "position": "RB",
+        "rosValue": 11.85,
         "fantasyPositions": [
           "RB"
         ],
