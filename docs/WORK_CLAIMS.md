@@ -20,6 +20,7 @@ branches are evidence.
 |---|---|---|---|---|
 | Work-claim protocol | docs/WORK_CLAIMS.md, scripts/check_work_claims.py, ASSISTANT_COORDINATION.md | — | claude/work-claim-protocol | done |
 | PR-backlog audit: repair of the /edge market-gap display half | frontend/app/edge/page.jsx, frontend/app/edge/edge-columns.jsx, frontend/lib/edge-helpers.js | C09 (S-3) | claude/fix-plan-uex7ug | done |
+| Decision-platform foundations: canonical Top-N Team Strength + trade roster-impact contract | src/roster_intel/team_strength.py, src/api/trade_simulator.py, tests/roster_intel/test_team_strength.py, tests/api/test_trade_simulator_team_strength.py, docs/WORK_CLAIMS.md | — | codex/decision-platform-foundations | open |
 
 ---
 
