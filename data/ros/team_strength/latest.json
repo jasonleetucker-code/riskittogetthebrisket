@@ -940,7 +940,7 @@
     "teamName": "Joey",
     "teamRosStrength": 485.71,
     "startingLineupScore": 632.93,
-    "benchDepthScore": 111.57,
+    "benchDepthScore": 111.54,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -1176,9 +1176,9 @@
         "playerId": "12484",
         "canonicalName": "jayden higgins",
         "position": "WR",
-        "rosValue": 17.35,
+        "rosValue": 17.32,
         "depthFactor": 1.0,
-        "depthContribution": 17.35
+        "depthContribution": 17.32
       },
       {
         "playerId": "13421",
@@ -1405,7 +1405,7 @@
         "playerId": "12484",
         "canonicalName": "jayden higgins",
         "position": "WR",
-        "rosValue": 17.35,
+        "rosValue": 17.32,
         "fantasyPositions": [
           "WR"
         ],
@@ -5646,7 +5646,7 @@
     "teamName": "MaKayla",
     "teamRosStrength": 402.55,
     "startingLineupScore": 522.44,
-    "benchDepthScore": 92.71,
+    "benchDepthScore": 92.73,
     "positionalCoverageScore": 94.05,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -5896,9 +5896,9 @@
         "playerId": "9500",
         "canonicalName": "josh downs",
         "position": "WR",
-        "rosValue": 16.4,
+        "rosValue": 16.46,
         "depthFactor": 0.275,
-        "depthContribution": 4.5
+        "depthContribution": 4.52
       },
       {
         "playerId": "12533",
@@ -5966,7 +5966,7 @@
         "playerId": "9500",
         "canonicalName": "josh downs",
         "position": "WR",
-        "rosValue": 16.4,
+        "rosValue": 16.46,
         "fantasyPositions": [
           "WR"
         ],
@@ -10133,8 +10133,8 @@
     "ownerId": "472206636534984704",
     "rosterId": 7,
     "teamName": "Roy",
-    "teamRosStrength": 332.0,
-    "startingLineupScore": 427.3,
+    "teamRosStrength": 331.98,
+    "startingLineupScore": 427.27,
     "benchDepthScore": 80.9,
     "positionalCoverageScore": 95.63,
     "healthAvailabilityScore": 100.0,
@@ -10334,9 +10334,9 @@
         "playerId": "8131",
         "canonicalName": "isaiah likely",
         "position": "TE",
-        "rosValue": 12.26,
-        "adjustedValue": 12.26,
-        "confidence": 0.898,
+        "rosValue": 12.23,
+        "adjustedValue": 12.23,
+        "confidence": 0.899,
         "flagged": null
       },
       {
@@ -10855,7 +10855,7 @@
         "playerId": "8131",
         "canonicalName": "isaiah likely",
         "position": "TE",
-        "rosValue": 12.26,
+        "rosValue": 12.23,
         "fantasyPositions": [
           "TE"
         ],

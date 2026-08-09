@@ -2462,7 +2462,7 @@
         "playerId": "8131",
         "canonicalName": "isaiah likely",
         "position": "TE",
-        "rosValue": 12.26,
+        "rosValue": 12.23,
         "fantasyPositions": [
           "TE"
         ],
@@ -3275,7 +3275,7 @@
         "playerId": "12484",
         "canonicalName": "jayden higgins",
         "position": "WR",
-        "rosValue": 17.35,
+        "rosValue": 17.32,
         "depthFactor": 0.275,
         "depthContribution": 4.76
       },
@@ -3381,7 +3381,7 @@
         "playerId": "12484",
         "canonicalName": "jayden higgins",
         "position": "WR",
-        "rosValue": 17.35,
+        "rosValue": 17.32,
         "fantasyPositions": [
           "WR"
         ],
@@ -4146,7 +4146,7 @@
     "teamName": "Roy",
     "teamRosStrength": 228.26,
     "startingLineupScore": 281.44,
-    "benchDepthScore": 86.77,
+    "benchDepthScore": 86.79,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -4272,9 +4272,9 @@
         "playerId": "9500",
         "canonicalName": "josh downs",
         "position": "WR",
-        "rosValue": 16.4,
+        "rosValue": 16.46,
         "depthFactor": 0.423,
-        "depthContribution": 6.93
+        "depthContribution": 6.95
       },
       {
         "playerId": "12499",
@@ -4630,7 +4630,7 @@
         "playerId": "9500",
         "canonicalName": "josh downs",
         "position": "WR",
-        "rosValue": 16.4,
+        "rosValue": 16.46,
         "fantasyPositions": [
           "WR"
         ],
