@@ -10,7 +10,7 @@ weekly-starter fit model in ``src.trade.team_impact``:
   upper portion of the roster.
 
 The fixed portfolio limits are product semantics, not league starter counts:
-QB 3, RB 3, WR 5, TE 3, DL 5, LB 5, DB 5.  Recomputing the Top-N groups before
+QB 3, RB 3, WR 5, TE 3, DL 5, LB 5, DB 5. Recomputing the Top-N groups before
 and after a transaction naturally implements replacement cascades: if WR3 is
 sent, the old WR6 can be promoted into the Top-5; if a received WR becomes WR7,
 he retains full asset value but contributes zero *immediate* Team Strength.
@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from typing import Any
+
+from src.utils.name_clean import normalize_position
 
 TOP_N_LIMITS: dict[str, int] = {
     "QB": 3,
@@ -39,11 +41,15 @@ _BASE_POSITIONS = frozenset(TOP_N_LIMITS)
 
 
 def _position(asset: Mapping[str, Any]) -> str:
-    """Return the canonical base position carried by resolved roster assets."""
+    """Return a canonical base position for Team Strength grouping.
+
+    ``basePos`` wins because some API contracts intentionally collapse all IDP
+    rows to ``pos=IDP``. The shared position normalizer then maps DE/DT/EDGE to
+    DL, ILB/OLB/MLB to LB, and CB/S/SS/FS to DB. A bare ``IDP`` token is never
+    guessed into a room because doing so would fabricate positional evidence.
+    """
     raw = asset.get("basePos") or asset.get("position") or asset.get("pos") or ""
-    pos = str(raw).strip().upper()
-    # Some callers collapse defensive positions to IDP in ``pos`` but carry the
-    # real slot in ``basePos``.  A bare IDP token is deliberately not guessed.
+    pos = normalize_position(raw)
     return pos if pos in _BASE_POSITIONS else ""
 
 
