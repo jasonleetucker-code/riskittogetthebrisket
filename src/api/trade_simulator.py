@@ -9,9 +9,11 @@ return the delta on the usual terminal aggregates:
 * ``byPosition`` (per-position value share) before / after
 * Per-asset resolution so the caller can render "you gave X value,
   received Y value" breakdowns in the UI
+* ``teamStrengthImpact`` — canonical dynasty Top-N roster-core impact,
+  deliberately separate from full asset value and weekly starter fit
 
 Design: pure function over the live contract — no side effects, no
-persistence.  Anyone can simulate anything, the live ``/api/data``
+persistence. Anyone can simulate anything, the live ``/api/data``
 contract doesn't change.
 
 Uses the same helpers as ``terminal.py`` (``_row_value``,
@@ -45,14 +47,13 @@ def _resolve_asset(
     row_index: dict[str, dict[str, Any]],
     offense_only: bool = False,
 ) -> dict[str, Any] | None:
-    """Resolve a single display name to a summary dict for the
-    simulator output.  Matches ``terminal.py``'s rowValue semantics.
+    """Resolve a single display name to a summary dict for simulator output.
 
-    When ``offense_only`` is True and the row carries a pre-computed
-    ``offenseOnlyRankDerivedValue`` (set by the IDP-disabled pipeline
-    pre-pass), that value is used instead of the full-source
-    ``rankDerivedValue``.  This ensures trades involving only offense
-    players and picks aren't influenced by IDP source calibration.
+    Matches ``terminal.py``'s rowValue semantics. When ``offense_only`` is
+    True and the row carries a pre-computed ``offenseOnlyRankDerivedValue``
+    (set by the IDP-disabled pipeline pre-pass), that value is used instead of
+    the full-source ``rankDerivedValue``. This ensures trades involving only
+    offense players and picks aren't influenced by IDP source calibration.
     """
     if not name:
         return None
@@ -68,13 +69,20 @@ def _resolve_asset(
     pos = _normalize_pos(row.get("pos") or row.get("position"))
     age = row.get("age")
     # ``pos`` collapses DL/LB/DB to "IDP" for terminal aggregation;
-    # ``basePos`` preserves the distinction so team_impact can apply
-    # per-position starter rules (DL/LB/DB are separate slots in
-    # rosterSettings.starters).
+    # ``basePos`` preserves the distinction so roster intelligence can apply
+    # the product's separate DL/LB/DB Team Strength groups.
     from src.utils.name_clean import normalize_position
 
     base_pos = normalize_position(row.get("pos") or row.get("position"))
+    stable_id = (
+        row.get("canonicalPlayerId")
+        or row.get("playerId")
+        or row.get("sleeperId")
+        or row.get("assetId")
+        or row.get("id")
+    )
     return {
+        "canonicalPlayerId": str(stable_id) if stable_id is not None else None,
         "name": row.get("displayName") or row.get("canonicalName") or name,
         "pos": pos,
         "basePos": base_pos or pos,
@@ -87,10 +95,7 @@ def _resolve_asset(
 
 
 def _aggregate(assets: list[dict[str, Any]]) -> dict[str, Any]:
-    """Compute totalValue / tiers / byPosition for a roster list of
-    resolved asset dicts.  Matches the shape ``_compute_portfolio_insights``
-    emits so the simulator UI can reuse the same renderers.
-    """
+    """Compute totalValue / tiers / byPosition for resolved roster assets."""
     total = 0
     tiers = {"elite": 0, "high": 0, "mid": 0, "depth": 0}
     by_position: dict[str, dict[str, int]] = {g: {"count": 0, "value": 0} for g in POS_GROUPS}
@@ -142,27 +147,11 @@ def simulate_trade(
 ) -> dict[str, Any]:
     """Build the simulator payload for a single hypothetical trade.
 
-    Returns::
-
-        {
-          "team":          {ownerId, name, rosterId},
-          "before":        {totalValue, tiers, byPosition},
-          "after":         {totalValue, tiers, byPosition},
-          "delta":         {totalValue, tiers, byPosition},
-          "receiving":     [{name, pos, value, rank, tier}],  # resolved
-          "sending":       [{name, pos, value, rank, tier}],
-          "unresolvedIn":  [str, ...],   # names we couldn't match
-          "unresolvedOut": [str, ...],
-          "equity":        int,          # net value to team (positive = good)
-        }
-
-    Never mutates the contract or persists.  Pure function over the
-    passed inputs; call repeatedly for different what-ifs.
-
-    ``picks_in`` / ``picks_out`` are treated identically to players —
-    the contract's ``players`` dict carries pick rows by their
-    canonical display name ("2026 early 1st", etc.) and they resolve
-    the same way through ``row_index``.
+    ``picks_in`` / ``picks_out`` are treated identically to players for
+    portfolio equity, but never occupy a current Team Strength slot. The
+    canonical Team Strength comparison is rebuilt from the complete before and
+    after roster so replacement cascades are measured rather than subtracting
+    the outgoing player's full dynasty value.
     """
     players_in = [p for p in (players_in or []) if p]
     players_out = [p for p in (players_out or []) if p]
@@ -182,17 +171,11 @@ def simulate_trade(
         }
         current_players = [str(p) for p in (resolved_team.get("players") or [])]
 
-    # Determine whether any asset in the trade is an IDP player.
-    # When the entire trade is offense + picks, use offense-only values
-    # that exclude IDP source calibration from the blend.
-    # Only applies when at least one asset is being traded — empty
-    # requests must resolve before/after with the same full-board values
-    # as the terminal panel (parity requirement).
+    # Determine whether any asset in the trade is an IDP player. When the
+    # entire trade is offense + picks, use offense-only values that exclude IDP
+    # source calibration from the blend. Empty/unresolvable requests retain the
+    # full-board baseline for terminal parity.
     all_trade_names = [*players_in, *players_out, *picks_in, *picks_out]
-    # Only activate offense-only mode when at least one name resolves to
-    # a known row.  A request where every name is unresolvable (e.g. all
-    # typos) should still return full-board before/after totals that match
-    # the terminal panel, not offense-only baselines.
     trade_has_resolved = any(
         row_index.get(n.strip().lower()) is not None for n in all_trade_names if n.strip()
     )
@@ -219,7 +202,8 @@ def simulate_trade(
                 resolved.append(hit)
         return resolved, missing
 
-    # BEFORE state: the team's current roster + picks, resolved.
+    # BEFORE state: the team's complete current roster + picks, resolved using
+    # the exact same canonical row-value semantics as the trade sides.
     before_assets: list[dict[str, Any]] = []
     for name in current_players:
         hit = _resolve_asset(name, row_index=row_index, offense_only=offense_only)
@@ -235,14 +219,11 @@ def simulate_trade(
         if hit is not None:
             before_assets.append(hit)
 
-    # Receiving / sending sides of the trade.
     receiving, unresolved_in = _resolve_many([*players_in, *picks_in])
     sending, unresolved_out = _resolve_many([*players_out, *picks_out])
 
-    # AFTER state: drop the sent, add the received.  Uses a Set of
-    # lowercased names to de-dup in case the same player appears on
-    # both the current roster and in the sending list (user error
-    # protection).
+    # AFTER state: remove sent assets and add received assets. Keep this
+    # simulation deterministic and side-effect free.
     sent_keys = {str(a["name"]).strip().lower() for a in sending}
     after_assets: list[dict[str, Any]] = [
         a for a in before_assets if str(a["name"]).strip().lower() not in sent_keys
@@ -267,10 +248,18 @@ def simulate_trade(
         "equity": int(equity),
     }
 
-    # Roster-shape-aware fit verdict.  Only computed when we have both
-    # a resolved team and league roster settings — free-analysis mode
-    # (no team selected) and contracts without league context skip
-    # this block entirely.
+    if resolved_team:
+        # Canonical dynasty Top-N roster-core impact. This is intentionally
+        # separate from ``teamImpact`` below, which models actual weekly starter
+        # shape / competitive-window fit. Keeping both prevents a useful depth
+        # asset from being called worthless while still answering whether the
+        # transaction changes the meaningful top of THIS roster right now.
+        from src.roster_intel.team_strength import compare_team_strength
+
+        response["teamStrengthImpact"] = compare_team_strength(before_assets, after_assets)
+
+    # Existing roster-shape-aware weekly/start-lineup fit verdict. Preserve it
+    # as a separate dimension rather than silently changing its semantics.
     if resolved_team and roster_settings:
         from src.trade import team_impact
 
