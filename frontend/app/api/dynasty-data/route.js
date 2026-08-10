@@ -85,6 +85,20 @@ const BACKEND_ORIGIN = (() => {
 // This is a floor under a symptom, NOT a fix for the stall.  Making the
 // recompute not block the loop (process pool / precompute / cheaper
 // pipeline) is the architectural item and is not attempted here.
+//
+// ⚠ AND IT COSTS AN ALARM, which is worth stating plainly rather than
+// discovering later.  No E2E spec asserts on elapsed time — the journeys
+// check content, and `grep` for a duration assertion across tests/e2e/specs
+// finds none.  The 4s budget was therefore the only thing in CI, however
+// accidentally, that failed when a page load got slow.  At 30s a backend
+// stalling 25s now passes green and silently.
+//
+// That trade is still right: the old alarm fired on a HEALTHY backend
+// (10.2s measured), so it was reporting noise, and a noisy alarm that
+// blocks merges gets muted rather than heeded.  But "CI would catch it if
+// the backend got slow" is no longer true, and nothing else covers it.
+// A real check belongs in a perf budget that measures the backend
+// directly, not in a bridge route's abort timer.
 const BACKEND_IDLE_TIMEOUT_MS = 30000;
 
 // Headers worth forwarding from the backend response.  We intentionally
