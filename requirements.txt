@@ -27,7 +27,7 @@ uvicorn~=0.52.0
 requests~=2.34.2
 
 # Browser automation (FootballGuys + DraftSharks scrapers).
-playwright~=1.58.0
+playwright~=1.62.0
 
 # Excel workbook parser (CSVs/Draft Data.xlsx → draft_data.csv).
 openpyxl~=3.1.0
