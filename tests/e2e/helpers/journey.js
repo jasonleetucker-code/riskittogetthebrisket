@@ -439,7 +439,20 @@ async function gotoRankingsBoard(page, { minRows = 50 } = {}) {
   // wait can see. Attached after goto so it captures the board's fetch.
   const consoleErrors = [];
   page.on("console", (msg) => {
-    if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 300));
+    if (msg.type() !== "error") return;
+    // The URL must be captured HERE or it is gone. Chrome's "Failed to load
+    // resource: the server responded with a status of 502" text does NOT
+    // name the resource — the URL lives only on msg.location(). Recording
+    // msg.text() alone turned a sourceable failure into a mystery: a real
+    // run printed "404, 404, 502, 503, 503, 404, 404" with no way to tell
+    // which endpoint produced which, and sourcing the 502 afterwards took
+    // a full sweep of every bridge route.
+    //
+    // With the URL, that same line reads as what it is: a timing ladder of
+    // one backend stall, each client abort budget firing in turn.
+    const where = msg.location?.() || {};
+    const url = where.url ? ` <- ${where.url}` : "";
+    consoleErrors.push((msg.text() + url).slice(0, 300));
   });
   try {
     await expect(rows.first(), "rankings board should render rows").toBeVisible(

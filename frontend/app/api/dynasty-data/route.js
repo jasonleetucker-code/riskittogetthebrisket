@@ -28,7 +28,64 @@ const BACKEND_ORIGIN = (() => {
 // without sending data, at header time OR mid-body.  Using an inactivity
 // timeout rather than a total-duration cap means a legitimately slow but
 // live transfer isn't killed, while a genuine stall still unblocks.
-const BACKEND_IDLE_TIMEOUT_MS = 4000;
+//
+// ⚠ 4000 ms WAS TOO TIGHT.  Read this before lowering it back.
+//
+// The problem it caused is a CLASS of false failure, not one bug: a 4s
+// idle budget reports a *busy* backend as a *dead* one.  The backend is
+// single-threaded on its event loop and demonstrably stalls for longer
+// than that.  MEASURED 2026-08-06 on hardware faster than a CI runner: a
+// cold `POST /api/rankings/overrides` recompute takes 13.27s, and during
+// it a trivial `/api/health` went from a 7 ms baseline to **10,218 ms**.
+// It is CPU-bound pure Python holding the GIL, so the `run_in_threadpool`
+// at server.py:4255/:4266 does not yield and cannot help.
+//
+// What that costs HERE, because the abort is deliberately not survivable
+// downstream: it falls back to `loadFromDisk()`, the committed snapshots
+// carry no rank stamps, and this route now refuses to serve those (503
+// `disk_snapshot_unstamped`).  `_fetchBaseContractNetwork` throws on any
+// non-2xx (lib/dynasty-data.js:1553-1557), `fetchDynastyData` lets that
+// escape, and `/rankings` renders its error Banner INSTEAD OF the table
+// (app/rankings/page.jsx:1642-1655) — so an E2E locator reports
+// "element(s) not found" rather than an empty tbody.  One transient stall
+// therefore reads as a total board failure.
+//
+// HOW STRONGLY THIS IS IMPLICATED, precisely.  A failing CI run logged
+// `404, 404, 502, 503, 503, 404, 404` during the load.  By elimination
+// this route is the only source the two 503s can have: it is the ONLY
+// route on /rankings' load path that synthesizes one.  `rankings/sources`
+// (3s -> 503) has no frontend caller at all; `/api/status` (3s -> 502) is
+// reached only from the admin panel and /tools/source-health; the rest are
+// POST engines /rankings never calls.  The 404s are `/api/health` — polled
+// by StaleDataBanner on every page (AppShellWrapper.jsx:94) with no bridge
+// route to answer it — plus favicon.  The 502 is `/api/auth/status`.
+//
+// That is elimination, not a URL.  tests/e2e/helpers/journey.js now
+// records `msg.location().url`, so the next failing run states it outright
+// instead of requiring this argument.
+//
+// ⚠ WHAT THIS IS *NOT*.  Two tempting stories about WHY the backend
+// stalled are already refuted — do not re-derive them:
+//   • "Playwright runs specs concurrently, so another spec's overrides
+//     POST stalls the loop during this one's page load."  FALSE:
+//     tests/e2e/playwright.config.js:190 sets `workers: 1` in CI and
+//     :135 `fullyParallel: false`.  Specs run sequentially.
+//   • "/rankings fires the overrides POST itself."  FALSE: `tepMultiplier`
+//     defaults to `null`, not 1.15 (components/useSettings.js:51, changed
+//     by 67caac3b), so default settings are not "customized" and no
+//     overrides POST is issued on that page's load path.
+// What IS established is that the backend was unresponsive for >3s during
+// a failing load — `/api/auth/status`'s own 3s budget blew and emitted the
+// 502 seen in the console.  WHY it stalled is still open.
+//
+// 30s is chosen against the measured stall (~3x), not by feel.  The cost
+// is that a genuinely dead backend takes 30s to surface instead of 4s,
+// which is the right trade for a multi-MB fetch that is legitimately slow.
+//
+// This is a floor under a symptom, NOT a fix for the stall.  Making the
+// recompute not block the loop (process pool / precompute / cheaper
+// pipeline) is the architectural item and is not attempted here.
+const BACKEND_IDLE_TIMEOUT_MS = 30000;
 
 // Headers worth forwarding from the backend response.  We intentionally
 // DROP ``content-encoding``: undici exposes ``res.body`` as the DECODED
