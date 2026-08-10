@@ -76,6 +76,32 @@ describe("routes on the /rankings load path clear the measured stall", () => {
     expect(budget).toBeTruthy();
     expect(budget).toBeGreaterThan(MEASURED_STALL_MS);
   });
+
+  it("health (StaleDataBanner polls it from every page)", () => {
+    const budget = abortBudget(read("health", "route.js"));
+    expect(budget).toBeTruthy();
+    expect(budget).toBeGreaterThan(MEASURED_STALL_MS);
+  });
+});
+
+describe("the health bridge route exists at all", () => {
+  // It did not, for the whole life of StaleDataBanner. The banner skips on
+  // a 404 by design (StaleDataBanner.jsx:57-64, so a broken probe never
+  // flashes a false "data stale"), which meant the endpoint being absent
+  // was completely silent — and the banner could never fire in any
+  // Next-fronted topology. Production was fine because nginx routes /api/*
+  // straight to FastAPI, so the gap only existed in dev and CI.
+  it("answers /api/health rather than 404ing on every page load", () => {
+    expect(fs.existsSync(path.join(API, "health", "route.js"))).toBe(true);
+  });
+
+  it("passes the backend's 503 through, because 503 means DEGRADED here", () => {
+    // The backend uses 503 for degraded-but-reporting, and the body still
+    // carries the freshness numbers the banner reads. Collapsing it to a
+    // generic error would suppress the exact warning this exists to raise.
+    const src = read("health", "route.js");
+    expect(src).toMatch(/status:\s*res\.status/);
+  });
 });
 
 describe("the specific values that regressed", () => {
