@@ -1,5 +1,26 @@
 # B4 continuation — everything a fresh session needs
 
+> **B4 IS COMPLETE. Outcome: BLOCKED BY A CANONICAL DEPENDENCY.**
+>
+> The whole sequence below (RED → criteria → candidates → owner → board
+> impact → corridor interaction → gates) ran to the checkpoint. Read
+> `evidence/W30/B4_TAIL_DECISION.md` first — it is the answer. This file is
+> kept as the record of what B4 was asked to do, so the outcome can be
+> checked against the brief rather than taken on trust.
+>
+> One-paragraph version: the repair is
+> `tail_policy.TAIL_SATURATION_RANK = 903` and nothing else. It is not
+> applied, because it drives the B3 corridor onto rows B3's own criteria
+> forbid — via **#794** (the anchor is also a voter) and **#795** (the band
+> is the board's own drift). What did land is behaviour-preserving: four
+> tail clamps became one owner, and `valueContributionPath` now records the
+> branch taken instead of re-deriving it. The W30-F023 assertions ship as
+> `xfail(strict=True)` so setting the boundary turns them into errors.
+>
+> **The next actor is not B4.** It is a decision on #794/#795. When that
+> lands, `b4_board_impact.py --report` re-measures both boards on the same
+> pin in one command.
+
 **Why this file exists.** B4 (W30-F023, percentile tail saturation) is
 mid-flight. The measurement stage is done, committed and reproducible from
 a pinned SHA; the repair stage is not started. A fresh session should be
