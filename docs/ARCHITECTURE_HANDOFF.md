@@ -99,8 +99,11 @@ These are load-bearing invariants, not style preferences. Each has an incident b
    (Owner ruling, 2026-08-11.)
 5. **Scoring profile controls rankings; league key controls context.** Never index rankings
    per-league; never collapse rosters across leagues.
-6. **Tools must not destroy the evidence they maintain.** Two instances found and fixed this
-   session (see below). Assume a third exists.
+6. **Tools must not destroy the evidence they maintain.** Two instances found and fixed in
+   Phase A; **the third was found in B1.2** — `load_or_seed_registry` treated any load failure
+   as "no registry" and overwrote the champion history with a fresh seed. It fired for real:
+   `championVersion` 2 → 1, versions `[1,2,3]` → `[1]`, restored from git. Fixed and pinned
+   (`W30-F024`). Assume a fourth exists.
 7. **A claim is not a measurement.** Reproduction settles closure. `Closes W##-F###` in a commit
    is a claim; the audit harness now labels reruns honestly rather than calling them closed.
 8. **One root cause per commit**, red-before-green, full suites only on a quiescent tree.
@@ -322,6 +325,30 @@ the value chain.
     and leaves `measuredAt` null on every version and `appliedAt` null on a champion that IS
     applied. The v1 → v2 promotion already moved GLOBAL and IDP with zero out-of-sample
     evidence.
+
+  **B1.2 (2026-08-11) superseded one B1.1 conclusion and hardened governance.** Full evidence:
+  `evidence/W30/B1_2_COORDINATE_TAIL_GOVERNANCE_EVIDENCE.md`.
+
+  * **Reference N is a UNIT, not a model.** `V` depends on rank only through `M = c·(N−1)` and
+    `s`, so refitting under a different N rescales `c` and leaves the curve alone. B1.1's
+    "N=800 scores 502 and recovers the holdout optimum" was a units error — it passed an N=800
+    `c` to an evaluator that scores at N=500. Corrected, coordinate-equivalent candidates score
+    664.81 / 671.21 / 669.64 (0.96% spread) against 933.19 / 671.21 / 502.12 (85.8%) before.
+    **That B1.1 claim is withdrawn.** Compare `rankSpaceMidpoint`, never `c`.
+  * **The clamp is the substantive tail choice**, and "declare a bigger N" is provably just
+    "extrapolate, but stop at N₂" — continuous-at-500 and transformed-N=800 agree to
+    max |diff| **0.0** through rank 800. A pure tail change moves ranks 1..500 by 0.0.
+  * **`.068` is holdout-SELECTED, not validated** — the four boards that chose it are no longer
+    an untouched set for it. No second validation layer exists, and no time split is possible:
+    **0 of 140 archives contain any holdout board.** Archiving those four CSVs is the only route
+    to validating anything selected against the current holdout.
+  * **`FIT_TOP_N`**: OFFENSE `M` does not move at all from 400→500; GLOBAL moves +6.74% and
+    saturates by 800; IDP has no ranks 401+ to add. Not what limits IDP.
+  * **Governance**: five repairs, one actively destructive — see the invariant below and
+    `W30-F024`. Scope-specific promotion gate added (`src/model_registry/scope_validation.py`):
+    a changed routed scope now needs its own evidence or a recorded owner override.
+  * **Unanimity NOT codified.** ADR-008's Decision specifies a mean criterion and a 25-point
+    margin; the unanimity language is descriptive commentary. Owner decision, not invented here.
 
   Owner directive 2026-08-11 still stands for everything beyond this: no `promote` / `apply`, no
   production constant change, no B2/B3, no competitive-expansion implementation.
