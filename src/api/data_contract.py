@@ -4766,8 +4766,15 @@ def _detect_blend_integrity_violations(
         for source_key, m in meta.items():
             if not isinstance(m, dict):
                 continue
+            raw = m.get("valueContribution")
+            # Missing is not zero. A source that stamped no contribution
+            # is absent from the hull rather than pinned to its floor —
+            # coercing ``None`` to 0.0 here would invent a lower bound of
+            # zero and make every real value look "inside" it.
+            if raw is None:
+                continue
             try:
-                c = float(m.get("valueContribution") or 0.0)
+                c = float(raw)
             except (TypeError, ValueError):
                 continue
             if c > 0:

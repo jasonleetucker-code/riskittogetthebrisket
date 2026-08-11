@@ -531,6 +531,9 @@ the blend to 1.0 after the clamp, because a clamped value is
 itself is currently modest (median 2.0%, max 10.7%). Evidence:
 `evidence/W02/CD_CORRIDOR_DECISION.md` §1.
 
+
+**CLOSED 2026-08-11 by removal.** The corridor is gone, so no anchor sets a post-blend value. Measured before removal on 17 independent days: the anchor was also a voter on 539 of 539 clamped rows, always `idpTradeCalc`. `_market_anchor_for_row` and `_MARKET_ANCHOR_BY_ASSET_CLASS` are deleted; a test pins their absence so the mechanism cannot grow back as a second value-setting vote. Evidence: `evidence/W02/CD_CORRIDOR_DECISION.md` §7a.
+
 ## W02-F016 (new) — the corridor band is derived from the drift it bounds
 
 **= GitHub issue [#795](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/795)** — same item, one identity each side.
@@ -567,6 +570,9 @@ detection at q<=10% and then 50.8% / 25.2% / 12.5% at q = 20/40/80%,
 because capacity is fixed at ~33 rows however much is broken. So the band
 is a fixed-rate outlier trimmer, not a catastrophic-error rail. Evidence:
 `evidence/W02/CD_CORRIDOR_DECISION.md` §2.
+
+
+**CLOSED 2026-08-11 by removal.** The self-derived P90 is deleted along with every `_MARKET_CORRIDOR_*` constant. The replacement has no band: `_BLEND_HULL_EPSILON` is 1e-9 float slack, pinned by a test to stay below 1e-6, and a second test rejects any percentile/bucket vocabulary reappearing in the detector body.
 
 ## W02-F017 (new) — confidence-bucket correctness is now a live dependency
 
@@ -609,6 +615,9 @@ should decline to confidence-grade at all until the bucket methodology is
 independently validated, which resolves the dependency by removing it
 rather than by making the rates look attractive. Evidence:
 `evidence/W02/CD_CORRIDOR_DECISION.md` §3.
+
+
+**CLOSED 2026-08-11 as a corridor dependency.** Nothing in the value path reads a confidence bucket any more, so bucket correctness no longer gates production values; a test asserts bucket value cannot change enforcement. #796 remains open as a *display/metadata* question — it was never tuned here.
 
 ## Not done here
 

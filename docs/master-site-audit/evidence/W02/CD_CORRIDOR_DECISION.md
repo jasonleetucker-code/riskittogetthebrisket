@@ -8,6 +8,105 @@
 > verbatim rather than edited away: the shape of the error (concluding
 > absence from an incomplete view) is the useful part.
 
+## Recommendation — FINAL
+
+**CORRIDOR DEPENDENCY RESOLVED — RETURN TO B4.**
+
+The market corridor is **removed** and replaced by a structural
+blend-integrity detector that flags and abstains rather than coerces.
+#794, #795 and #796 are resolved by removal of the mechanism that made
+them live, not by tuning it.
+
+Sections 1-6a below are the research record that led here and are left as
+written, including their superseded parts. §7a is the final selection.
+
+## 7a. FINAL SELECTION AND IMPLEMENTATION
+
+**Chosen: B + D — remove the value coercion, add a hull integrity
+detector in ABSTAIN form.** Neither C (hull-clamp) nor E's enforcing
+change-point was taken, and A was never the presumptive winner.
+
+### Why not clamp (§5's question, answered)
+
+A value outside its own contribution hull is impossible under correct
+operation. Coercing it to the nearest boundary would convert pipeline
+corruption into a clean, plausible number and destroy the only evidence
+that anything was wrong. The row is stamped and left alone.
+
+### What decided it — the upstream audit (§3)
+
+The decisive measurement, and it corrected my own earlier synthetic
+battery. Anomalies injected at the **source CSVs** with the whole
+pipeline rebuilt:
+
+| failure | upstream defense | caught? | blend effect | old corridor | hull |
+|---|---|---|---|---|---|
+| one source ×5 | Hampel + count-aware blend | absorbed | ≤1.7% | **0/6** | 0/6 |
+| one source ×20 | Hampel (3/6) + blend | absorbed | ≤1.7% | **0/6** | 0/6 |
+| anchor ×5 | declared-range check (D-1) | **fully** | **0.0%** | **0/6** | 0/6 |
+| correlated ×3 | Hampel (2/6), partial | **no** | med 5.7%, max 48% | **0/6** | 0/6 |
+| correlated ×4 | Hampel (3/6), partial | **no** | med 5.7%, max 48% | **0/6** | 0/6 |
+
+**The corridor fired on 0 of 6 victims in every scenario.** The
+protection lost by removing it measures as zero. The earlier battery made
+it look useful only because it perturbed the post-blend value directly,
+bypassing every upstream layer.
+
+**Remaining uncovered risk, named not hidden:** correlated multi-source
+anomalies, up to 48% blend movement, caught by neither mechanism. Sources
+agreeing on something wrong is indistinguishable from disagreement at the
+blend, and no independent IDP reference exists to arbitrate — every
+IDP-covering source votes. This gap is pre-existing; removal does not
+create it.
+
+### Board impact (§6)
+
+| | current board | 17 historical days |
+|---|---|---|
+| values changed | **32** | 544 total |
+| max abs change | 148 | 550 |
+| offense affected | **0** | **0** |
+| picks affected | **0** | 5 |
+| top 50 / 100 / 200 changed | **0 / 0 / 0** | — |
+| IDP top 50 / 100 / 200 changed | **0 / 0 / 0** | — |
+
+All 32 are IDP, ranks 691-740, carrying 2-4 sources. Largest: Will
+Johnson +148, Ji'Ayir Brown +116, DJ Wonnum +109. The corridor's entire
+live effect was pushing thin-coverage deep-tail IDP rows *down* toward
+`idpTradeCalc`.
+
+### B4 coupling (§9)
+
+On the implemented replacement: **0 integrity violations under both
+`TAIL_SATURATION_RANK = None` and `= 903`**. The detector is silent on a
+healthy board under either tail, so the B4 repair and this change do not
+interact. 903 remains inactive.
+
+### Change-point monitor (§10)
+
+**Deferred — diagnostic only, not implemented.** 1 alarm in 9 healthy
+holdout days is not an enforcement-grade false-positive rate, and the
+instruction was not to force it into the value path for complementarity.
+The fabricated reference is permanently retired.
+
+### Confidence buckets (§11)
+
+**Not recreated.** The detector has no confidence dependency at all, and
+a test pins that bucket value cannot change enforcement.
+
+### Limitation that travels with this (§14)
+
+Historical healthy-board validation spans **17 independent offseason
+days**, not an in-season NFL market regime. It is not hidden and it did
+not block implementation, because the rule is a structural pipeline
+invariant rather than a market-behaviour model: it asks whether a blend
+fell outside its own inputs, which does not depend on NFL outcomes.
+
+**Telemetry for the in-season check**: `blendIntegrityViolation` is
+stamped on the row and mirrored to the legacy dict, so in-season
+behaviour can be evaluated from ordinary boards without another
+retrospective data-recovery exercise.
+
 ## Recommendation
 
 **MORE CORRIDOR EVIDENCE REQUIRED** — but for a narrower reason than §6
