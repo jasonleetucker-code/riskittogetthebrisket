@@ -39,6 +39,8 @@ import statistics
 from dataclasses import dataclass
 from typing import Sequence
 
+from src.canonical.tail_policy import clamp_percentile
+
 
 # ══════════════════════════════════════════════════════════════════════
 # HYPERPARAMETERS — all tunables collected here for easy iteration
@@ -151,10 +153,13 @@ PERCENTILE_REFERENCE_N: int = 500
 def rank_to_percentile(rank: float, *, reference_n: int = PERCENTILE_REFERENCE_N) -> float:
     """Canonical 1-based ordinal rank → percentile coordinate.
 
-    ``p = (rank − 1) / (reference_n − 1)``, clamped to ``[0, 1]``.
+    ``p = (rank − 1) / (reference_n − 1)``, clamped by the tail policy.
 
-    Ranks past the reference population clamp to 1.0 and share the
-    curve's tail — deliberate top-N-board behavior, not an accident.
+    Where the tail saturates is owned by
+    :mod:`src.canonical.tail_policy`, not decided here. It used to clamp
+    to 1.0 — i.e. at ``reference_n`` — which collapsed every rank past
+    500 onto one contribution while the board published ranks to 800 and
+    sources ranked to 903 (audit finding W30-F023).
 
     Args:
         rank: 1-based ordinal rank. Rank 1 maps to 0.0.
@@ -167,7 +172,7 @@ def rank_to_percentile(rank: float, *, reference_n: int = PERCENTILE_REFERENCE_N
     if n < 2:
         return 0.0
     p = (float(rank) - 1.0) / float(n - 1)
-    return max(0.0, min(1.0, p))
+    return clamp_percentile(p, reference_n=n)
 
 
 def training_percentiles(count: int, *, reference_n: int = PERCENTILE_REFERENCE_N) -> list[float]:
@@ -481,7 +486,14 @@ def percentile_to_value(
     ``HILL_PERCENTILE_S`` for offense, ``IDP_HILL_PERCENTILE_C`` /
     ``IDP_HILL_PERCENTILE_S`` for IDP).
     """
-    p = max(0.0, min(1.0, float(percentile)))
+    # The tail bound is the coordinate owner's decision, not a second
+    # independent one taken here. This clamp used to be a bare
+    # ``min(1.0, p)``, which silently undid any repair applied at
+    # ``rank_to_percentile`` — two functions deciding one rule
+    # (W30-F023). It still clamps: a caller can hand this function any
+    # float, and the tail must be enforced somewhere on the serving path.
+    # It just no longer decides WHERE.
+    p = clamp_percentile(percentile, reference_n=PERCENTILE_REFERENCE_N)
     if p == 0.0:
         return DISPLAY_SCALE_MAX
     raw = 9999.0 / (1.0 + (p / midpoint) ** slope)

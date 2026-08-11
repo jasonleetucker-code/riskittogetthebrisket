@@ -50,7 +50,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from src.canonical.player_valuation import training_percentiles
+from src.canonical.player_valuation import PERCENTILE_REFERENCE_N, training_percentiles
+from src.canonical.tail_policy import clamp_percentile
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -162,10 +163,16 @@ def hill(p: float, c: float, s: float) -> float:
     purpose: this module must be able to score an ARBITRARY (c, s)
     pair, including a challenger that is not installed anywhere, and
     the production function reads committed module constants.
+
+    What is NOT duplicated is the tail bound. This used to clamp
+    ``min(p, 1.0)`` on its own, so a repaired serving curve would have
+    been graded by a still-saturated evaluator — a challenger scored
+    against a shape production no longer serves. The (c, s) pair stays
+    free; where the tail ends is the canonical owner's answer.
     """
     if p <= 0.0:
         return 9999.0
-    return 9999.0 / (1.0 + (min(p, 1.0) / c) ** s)
+    return 9999.0 / (1.0 + (clamp_percentile(p, reference_n=PERCENTILE_REFERENCE_N) / c) ** s)
 
 
 def _rmse(pairs: Sequence[tuple[float, float]], c: float, s: float) -> float:

@@ -1,8 +1,24 @@
 """W30-F023 — the percentile tail must not collapse live evidence.
 
-**RED as written.** Every assertion in ``TestDistinctEvidenceMustStayDistinct``
-and ``TestTheFallbackPathTakesTheTailPolicy`` fails at the B4 pin. They
-describe the defect, not a chosen repair.
+**Status: the defect is UNFIXED and these tests say so.** The classes
+marked ``xfail(strict=True)`` describe the defect and fail today. The
+repair is measured, evidence-supported and one constant away
+(``tail_policy.TAIL_SATURATION_RANK = 903``) but is BLOCKED — applying it
+drives the B3 market corridor onto rows B3's own repair criteria forbid
+it to touch, via the two residuals deliberately left open (#794, #795).
+Full decision: ``docs/master-site-audit/evidence/W30/B4_TAIL_DECISION.md``.
+
+``strict=True`` is the point: the day the boundary is set these stop
+failing, and a strict xfail that unexpectedly passes is itself an error.
+So whoever unblocks W30-F023 is forced to come back here and re-decide
+these markers deliberately, rather than finding a suite that quietly went
+green.
+
+What IS delivered and green: ``TestTheOwnerIsSingle``. Four independent
+transcriptions of the tail rule became one owner, so serving, fitting and
+holdout scoring can no longer disagree about where the tail is — a
+W30-F008-class repair, behaviour-preserving to the integer on all 1,092
+board rows.
 
 The defect, stated once: ``rank_to_percentile`` saturates ``p`` at 1.0 once
 the rank passes ``PERCENTILE_REFERENCE_N`` (500), so every deeper rank
@@ -89,8 +105,21 @@ def _contribution(rank: float, pool: str = RANK_POOL_SHARED_MARKET) -> int:
     return percentile_to_value(p, midpoint=c, slope=s)
 
 
+#: Applied to every class asserting the REPAIRED behaviour. See the module
+#: docstring for why these are strict.
+blocked = pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "W30-F023 repair is BLOCKED on the B3 corridor residuals #794/#795 — "
+        "tail_policy.TAIL_SATURATION_RANK is None (pre-B4 saturation). "
+        "See docs/master-site-audit/evidence/W30/B4_TAIL_DECISION.md"
+    ),
+)
+
+
+@blocked
 class TestDistinctEvidenceMustStayDistinct:
-    """RED. Distinct live ranks currently price identically."""
+    """Distinct live ranks currently price identically. That is the defect."""
 
     def test_rank_500_and_501_are_not_one_number(self):
         """The saturation point itself — one rank apart, both real."""
@@ -144,8 +173,9 @@ class TestDistinctEvidenceMustStayDistinct:
         assert len(set(got)) == len(LIVE_DEEP_RANKS)
 
 
+@blocked
 class TestThereIsOneTailOwnerNotFour:
-    """RED. ``percentile_to_value`` re-decides the tail independently.
+    """``percentile_to_value`` used to re-decide the tail independently.
 
     The trap this file exists to catch: a repair applied at
     ``rank_to_percentile`` alone is silently undone, because
@@ -208,6 +238,101 @@ class TestThereIsOneTailOwnerNotFour:
         )
 
 
+class TestTheOwnerIsSingle:
+    """GREEN, and the actual B4 deliverable.
+
+    The four clamps — ``rank_to_percentile``, ``percentile_to_value``, the
+    holdout scorer's standalone ``hill()`` and the fit's ``_hill`` — each
+    stated the tail rule for itself. Four transcriptions of one rule is
+    how serving and training come to disagree about a coordinate, which is
+    what W30-F008 was.
+
+    These tests do not assert WHERE the tail is; that is the blocked half.
+    They assert that there is exactly one place that decides, by moving the
+    owner's constant and requiring all four to move with it. That property
+    holds today and is what makes the eventual one-constant flip safe.
+    """
+
+    @staticmethod
+    def _sample(boundary):
+        """Values from all four sites under one declared boundary."""
+        from scripts.fit_hill_curve_percentile import _hill
+        from src.canonical import tail_policy
+        from src.model_registry.holdout import hill as holdout_hill
+
+        c, s = curve_for_pool(RANK_POOL_SHARED_MARKET)
+        prev = tail_policy.TAIL_SATURATION_RANK
+        tail_policy.TAIL_SATURATION_RANK = boundary
+        try:
+            p = rank_to_percentile(float(DEEPEST_SERVED_RANK_HILL))
+            return {
+                "rank_to_percentile": p,
+                "percentile_to_value": percentile_to_value(p, midpoint=c, slope=s),
+                "holdout_hill": round(holdout_hill(p, c, s), 6),
+                "fit_hill": round(_hill(p, c, s), 6),
+            }
+        finally:
+            tail_policy.TAIL_SATURATION_RANK = prev
+
+    def test_every_site_follows_the_owner(self):
+        """Move the owner's boundary; all four sites must move together.
+
+        A site that kept its own ``min(1.0, p)`` would be pinned to the
+        saturated answer here while the others moved — which is exactly
+        the failure mode, and exactly what this catches.
+        """
+        at_none = self._sample(None)
+        at_903 = self._sample(903)
+        assert at_none["rank_to_percentile"] == 1.0
+        assert at_903["rank_to_percentile"] > 1.0
+        for site in ("percentile_to_value", "holdout_hill", "fit_hill"):
+            assert at_903[site] != at_none[site], (
+                f"{site} did not follow the tail owner — it is still deciding "
+                "the tail for itself"
+            )
+
+    def test_serving_fitting_and_scoring_agree_with_each_other(self):
+        """Same coordinate, same curve, same number from all three.
+
+        The evaluator and the fit must grade the shape production serves.
+        Asserted under BOTH boundaries so it cannot be an accident of the
+        current one.
+        """
+        for boundary in (None, 903):
+            got = self._sample(boundary)
+            assert got["percentile_to_value"] == round(got["holdout_hill"]), boundary
+            assert round(got["holdout_hill"], 6) == round(got["fit_hill"], 6), boundary
+
+    def test_the_boundary_ships_unset(self):
+        """Pre-B4 behaviour is what is deployed, and that is deliberate.
+
+        Guards the blocked decision: flipping this constant is the whole
+        production change, so it must not happen as a side effect of an
+        unrelated edit.
+        """
+        from src.canonical.tail_policy import TAIL_SATURATION_RANK
+
+        assert TAIL_SATURATION_RANK is None, (
+            "the tail boundary was set — that is the W30-F023 production "
+            "change, blocked on the B3 corridor residuals #794/#795"
+        )
+
+    def test_unset_is_exactly_the_pre_b4_rule(self):
+        """``None`` must reproduce ``min(1.0, p)`` in every universe.
+
+        Not only at the live N=500. The old clamp was relative to the
+        caller's declared universe, so a boundary expressed as an absolute
+        RANK would silently change behaviour for any caller passing its
+        own ``reference_n`` — the fit and holdout tooling do.
+        """
+        for reference_n in (2, 100, 370, 500, 800, 5000):
+            for rank in (1, 2, reference_n // 2, reference_n, reference_n + 1, 99999):
+                expected = max(0.0, min(1.0, (float(rank) - 1.0) / float(reference_n - 1)))
+                assert rank_to_percentile(rank, reference_n=reference_n) == pytest.approx(
+                    expected
+                ), (reference_n, rank)
+
+
 class TestTheFittedHeadIsUntouched:
     """GREEN now, and must stay green. A tail repair is not a refit.
 
@@ -240,8 +365,50 @@ class TestTheFittedHeadIsUntouched:
         assert len(set(got)) == len(got)
 
 
+def _deep_fallback_rows() -> list[dict]:
+    """Rows where ``idpTradeCalc`` is forced onto the value-direct fallback.
+
+    ``_VALUE_SOURCE_DECLARED_MAX['idpTradeCalc']`` is 9999, so values above
+    it are out of declared range (D-1 policy B); past the 2% escalation
+    fraction the whole source is suppressed (policy C). Either way every
+    row takes the Hill path and therefore the tail policy. Enough rows are
+    generated to push effective ranks well past the saturation point.
+    """
+    total = PERCENTILE_REFERENCE_N + 120
+    rows = [_row("Anchor QB", "QB", ktcSfTep=9999, idpTradeCalc=9999)]
+    for i in range(total):
+        raw = 999900 - (i + 1) * 100
+        rows.append(_row(f"D{i:04d}", "LB", idpTradeCalc=raw, dlfSf=raw))
+    return rows
+
+
+class TestTheFallbackFixtureReallyEntersTheDormantBranch:
+    """GREEN guard for the blocked class below.
+
+    Without it, the blocked fallback assertion could pass vacuously
+    against the value-direct path and claim to cover a branch it never
+    entered. This is also the test that surfaced the
+    ``valueContributionPath`` defect: the stamp was re-derived rather than
+    recorded, so it reported ``value_direct`` for 621 rows the pipeline
+    had just priced with the Hill curve.
+    """
+
+    def test_the_fallback_branch_is_actually_reached_by_this_fixture(self):
+        rows = _deep_fallback_rows()
+        dc._compute_unified_rankings(rows, {})
+        metas = [
+            (r.get("sourceRankMeta") or {}).get("idpTradeCalc")
+            for r in rows[1:]
+            if (r.get("sourceRankMeta") or {}).get("idpTradeCalc")
+        ]
+        assert metas, "fixture stamped no idpTradeCalc meta at all"
+        assert {m.get("valueContributionPath") for m in metas} == {"rank_hill"}
+        assert {m.get("valueDirectFallbackReason") for m in metas} == {"source_suppressed"}
+
+
+@blocked
 class TestTheFallbackPathTakesTheTailPolicy:
-    """RED. A value-direct source that falls back must get the tail too.
+    """A value-direct source that falls back must get the tail too.
 
     ``_VALUE_BASED_SOURCES`` normally bypass the Hill curve entirely — on
     the pinned board ``idpTradeCalc`` is value-direct on all 779 of its
@@ -258,46 +425,9 @@ class TestTheFallbackPathTakesTheTailPolicy:
     second, dormant saturation that appears the day a site changes scale.
     """
 
-    def _deep_rows(self, *, out_of_range: bool) -> list[dict]:
-        """Rows where ``idpTradeCalc`` is forced onto the fallback branch.
-
-        ``_VALUE_SOURCE_DECLARED_MAX['idpTradeCalc']`` is 9999, so a value
-        above it is out of declared range (D-1 policy B) and takes the
-        same fallback a missing value takes. Enough rows are generated to
-        push ranks past the saturation point.
-        """
-        total = PERCENTILE_REFERENCE_N + 120
-        rows = [_row("Anchor QB", "QB", ktcSfTep=9999, idpTradeCalc=9999)]
-        for i in range(total):
-            raw = 999900 - (i + 1) * 100
-            rows.append(
-                _row(
-                    f"D{i:04d}",
-                    "LB",
-                    idpTradeCalc=(raw if out_of_range else raw / 100.0),
-                    dlfSf=999900 - (i + 1) * 100,
-                )
-            )
-        return rows
-
-    def test_the_fallback_branch_is_actually_reached_by_this_fixture(self):
-        """Guard: prove the fixture takes the Hill path before asserting on it.
-
-        Without this the two tests below could pass vacuously against the
-        value-direct path and claim to cover a branch they never entered.
-        """
-        rows = self._deep_rows(out_of_range=True)
-        dc._compute_unified_rankings(rows, {})
-        paths = {
-            (r.get("sourceRankMeta") or {}).get("idpTradeCalc", {}).get("valueContributionPath")
-            for r in rows[1:]
-            if (r.get("sourceRankMeta") or {}).get("idpTradeCalc")
-        }
-        assert paths == {"rank_hill"}, f"fixture did not reach the fallback branch: {paths}"
-
     def test_deep_fallback_ranks_do_not_collapse(self):
         """The defect, on the dormant branch."""
-        rows = self._deep_rows(out_of_range=True)
+        rows = _deep_fallback_rows()
         dc._compute_unified_rankings(rows, {})
         by_name = {r["canonicalName"]: r for r in rows}
 
