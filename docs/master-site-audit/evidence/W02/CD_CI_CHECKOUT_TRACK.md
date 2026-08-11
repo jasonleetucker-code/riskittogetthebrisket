@@ -12,15 +12,36 @@ anyone touches checkout semantics.
 | #799 attempt 1 | 18:39 | 8m45s | 20m28s | **cancelled at cap** |
 | #799 attempt 2 | 19:01 | 8m57s | 20m16s | **cancelled at cap** |
 | #799 attempt 3 | 19:33 | 7m40s | 17m46s | success |
+| #799 final | 21:45 | **29 s** | 10m47s | success |
 
 `timeout-minutes: 20` (`.github/workflows/pr-validation.yml:58`),
 `fetch-depth: 0` (`:65`). Repo is **549 MB** packed; every ~2h refresh
 commits ~816 KB × several files plus a ~230 KB archive zip as new blobs,
 permanently. 144 archives at time of writing.
 
-Checkout went 34 s → 7–9 min within one hour and stayed there across
-three consecutive attempts, so it is not transient. Two of three attempts
-died at the cap. This affects **every** PR, not this one.
+**Corrected 2026-08-11.** This section previously read "checkout went 34 s
+→ 7–9 min within one hour and stayed there across three consecutive
+attempts, so it is not transient." The final run, on a *larger* repo two
+hours later, checked out in **29 s** — so the slow window was **episodic,
+not a permanent regression**, and three consecutive attempts inside one
+hour were not enough to tell the difference. The original wording drew a
+durable conclusion from a sample that could not support one.
+
+What survives the correction, and what does not:
+
+* **Survives:** the job has been observed at 20m28s and 20m16s against a
+  20-minute cap, so the margin is genuinely thin and two attempts did die
+  there. A 7–9 min checkout is reachable, whatever causes it.
+* **Does not survive:** "it is not transient", and any planning that
+  treats 7–9 min as the current baseline. Observed range is 29 s – 8m57s
+  across five runs.
+* **Unaffected either way:** the `fetch-depth` analysis below. It turns on
+  which consumer needs the merge base, not on how long a clone takes.
+
+The cause of the slow window is **not established** — cold vs. warm
+runner cache, GitHub-side variance and repo growth are all consistent with
+what was measured, and nothing here distinguishes them. Recording that as
+unknown rather than naming a plausible culprit.
 
 ## Is `fetch-depth: 0` still justified? Partly — but not for the stated reason
 
@@ -64,7 +85,10 @@ compute the merge base with the PR base", which is much less than "all
    stacked PR, since `:11-20` documents that stacked PRs are supported
    and their base is another work branch.
 3. **Raise the timeout** — legitimate as *temporary resilience*, not as
-   the fix. It masks growth that continues at ~1 MB/2h.
+   the fix. It masks growth that continues at ~1 MB/2h. The episodic
+   finding above makes this *more* attractive as a stopgap, not less: if
+   the slow window is external and recurring, a cap that only fails during
+   it is a cap set too close to the worst case.
 4. **Move generated/data artifacts out of ordinary history going
    forward** — the real long-term fix, and it collides with a documented
    constraint: W31-F001 records that `data/scrape_state/` and
