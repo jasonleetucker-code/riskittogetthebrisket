@@ -3,8 +3,8 @@
     "ownerId": "1002085133723299840",
     "rosterId": 7,
     "teamName": "Brent",
-    "teamRosStrength": 435.6,
-    "startingLineupScore": 549.79,
+    "teamRosStrength": 435.94,
+    "startingLineupScore": 550.26,
     "benchDepthScore": 165.28,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -64,9 +64,9 @@
         "playerId": "9488",
         "canonicalName": "jaxon smith njigba",
         "position": "WR",
-        "rosValue": 59.05,
-        "adjustedValue": 59.05,
-        "confidence": 0.933,
+        "rosValue": 59.52,
+        "adjustedValue": 59.52,
+        "confidence": 0.923,
         "flagged": null
       },
       {
@@ -489,7 +489,7 @@
         "playerId": "9488",
         "canonicalName": "jaxon smith njigba",
         "position": "WR",
-        "rosValue": 59.05,
+        "rosValue": 59.52,
         "fantasyPositions": [
           "WR"
         ],
@@ -2606,8 +2606,8 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 254.18,
-    "startingLineupScore": 312.54,
+    "teamRosStrength": 253.83,
+    "startingLineupScore": 312.06,
     "benchDepthScore": 106.37,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -2617,9 +2617,9 @@
         "playerId": "11560",
         "canonicalName": "caleb williams",
         "position": "QB",
-        "rosValue": 44.26,
-        "adjustedValue": 44.26,
-        "confidence": 0.819,
+        "rosValue": 43.78,
+        "adjustedValue": 43.78,
+        "confidence": 0.829,
         "flagged": null
       },
       {
@@ -2817,7 +2817,7 @@
         "playerId": "11560",
         "canonicalName": "caleb williams",
         "position": "QB",
-        "rosValue": 44.26,
+        "rosValue": 43.78,
         "fantasyPositions": [
           "QB"
         ],

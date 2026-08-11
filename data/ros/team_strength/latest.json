@@ -938,8 +938,8 @@
     "ownerId": "1012114412049731584",
     "rosterId": 8,
     "teamName": "Joey",
-    "teamRosStrength": 492.0,
-    "startingLineupScore": 641.7,
+    "teamRosStrength": 492.34,
+    "startingLineupScore": 642.17,
     "benchDepthScore": 111.44,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
@@ -1099,9 +1099,9 @@
         "playerId": "9488",
         "canonicalName": "jaxon smith njigba",
         "position": "WR",
-        "rosValue": 59.05,
-        "adjustedValue": 59.05,
-        "confidence": 0.933,
+        "rosValue": 59.52,
+        "adjustedValue": 59.52,
+        "confidence": 0.923,
         "flagged": null
       },
       {
@@ -1826,7 +1826,7 @@
         "playerId": "9488",
         "canonicalName": "jaxon smith njigba",
         "position": "WR",
-        "rosValue": 59.05,
+        "rosValue": 59.52,
         "fantasyPositions": [
           "WR"
         ],
@@ -2812,8 +2812,8 @@
     "ownerId": "609821340567941120",
     "rosterId": 6,
     "teamName": "Eric",
-    "teamRosStrength": 433.26,
-    "startingLineupScore": 558.41,
+    "teamRosStrength": 432.91,
+    "startingLineupScore": 557.93,
     "benchDepthScore": 118.24,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
@@ -2923,9 +2923,9 @@
         "playerId": "11560",
         "canonicalName": "caleb williams",
         "position": "QB",
-        "rosValue": 44.26,
-        "adjustedValue": 44.26,
-        "confidence": 0.819,
+        "rosValue": 43.78,
+        "adjustedValue": 43.78,
+        "confidence": 0.829,
         "flagged": null
       },
       {
@@ -3133,7 +3133,7 @@
         "playerId": "11560",
         "canonicalName": "caleb williams",
         "position": "QB",
-        "rosValue": 44.26,
+        "rosValue": 43.78,
         "fantasyPositions": [
           "QB"
         ],
