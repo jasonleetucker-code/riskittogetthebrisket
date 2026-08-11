@@ -397,7 +397,9 @@ the value chain.
     IDP calibration post-pass, which was retired 2026-04-23 (#251). The cap arrived nine days
     after that.
   - Evidence: `docs/master-site-audit/evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md`.
-  - **Three residuals are tracked, not closed**: `W02-F015` (the corridor anchor is also a
+  - **Three residuals are tracked, not closed**, each with one identity per side —
+    `W02-F015` = **#794**, `W02-F016` = **#795**, `W02-F017` = **#796**, and W30-F023 = **#797**:
+    `W02-F015` (the corridor anchor is also a
     voting source — B3 shrank the second bite from 55.6% to 9.7% of the board but did not
     establish independence), `W02-F016` (the band is derived from the drift distribution it
     bounds, so whole-board drift widens its own acceptance), `W02-F017` (confidence-bucket

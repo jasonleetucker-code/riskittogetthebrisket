@@ -311,13 +311,18 @@ Full evidence: `evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md`. Pinned by
 rewritten cap tests in `tests/api/test_market_corridor_clamp.py` (31).
 
 Still open after B3, and now tracked with their own identities rather
-than as prose inside a closed finding: **W02-F015** (the anchor is still a
-voter on the remaining 9.7%), **W02-F016** (the band is derived from the
-drift it bounds), **W02-F017** (confidence-bucket correctness is now a
-live dependency). Also still open and unchanged by B3: C17's OFFENSE half,
+than as prose inside a closed finding: **W02-F015 / #794** (the anchor is
+still a voter on the remaining 9.7%), **W02-F016 / #795** (the band is
+derived from the drift it bounds), **W02-F017 / #796** (confidence-bucket
+correctness is now a live dependency). W30-F023 is tracked as **#797**. Also still open and unchanged by B3: C17's OFFENSE half,
 the IDP master's 1.552× fit-scale claim, and W30-F023.
 
 ## W02-F015 (new) — the corridor anchor is also a voter
+
+**= GitHub issue [#794](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/794).**
+The issue is the owner-facing identity and takes precedence; this entry is
+the audit-registry row for the same item, not a second one. Anything that
+closes one closes the other.
 
 **OPEN. Measured in B3, deliberately not repaired there.** Recorded here
 rather than in `findings.json`, which was generated at `8b88623f` and is
@@ -350,6 +355,8 @@ a fact by `tests/api/test_market_corridor_characterization.py
 
 ## W02-F016 (new) — the corridor band is derived from the drift it bounds
 
+**= GitHub issue [#795](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/795)** — same item, one identity each side.
+
 **OPEN. A property of the empirical design, not of the B3 removal.**
 
 After B3 the corridor's band is the P90 of `|value − anchor| / anchor`
@@ -373,6 +380,8 @@ Evidence: `evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md` §7, and the
 comment at the constant itself.
 
 ## W02-F017 (new) — confidence-bucket correctness is now a live dependency
+
+**= GitHub issue [#796](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/796)** — same item, one identity each side.
 
 **OPEN, and NEW as of B3 — the dependency did not exist before.**
 
