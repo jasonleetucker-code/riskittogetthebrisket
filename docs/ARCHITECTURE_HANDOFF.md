@@ -37,7 +37,7 @@ state. This file holds **architecture** state.
 
 | gate | result |
 |---|---|
-| `pytest tests/ -q` | **7,026 passed / 0 failed** / 25 skipped / 633 subtests (1471s) — measured on the quiescent tree at the correction-pass HEAD. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 more when those tests were rewritten to drive the real production functions and CLI). |
+| `pytest tests/ -q` | **7,038 passed / 0 failed** / 25 skipped / 633 subtests (1533s) — quiescent tree at `0dc0a7778`. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 when those were rewritten to drive real production logic) → 7,038 (+12 B1 pin-coverage guard). Every delta is accounted for by new tests; no existing test changed state. |
 | `vitest run` (frontend) | **2,007 passed / 0 failed**, 120 files — was 2,004; +3 from the FAAB missing-vs-zero cases |
 | `ruff format --check .` | 991 files already formatted |
 | `ruff check .` | All checks passed |
