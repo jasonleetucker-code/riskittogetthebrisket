@@ -260,6 +260,59 @@ mostly acting as a *ceiling* on IDP value. That is the opposite of the
 give — a rationale CLAUDE.md already records as stale, since the
 calibration post-pass it names was removed. Strongest B3 candidate.
 
+## W02-F003 — the IDP market corridor clamp
+
+**REPAIRED IN B3.** Reproduced first on a fresh pin (code `2449af9ac`,
+board `dynasty_data_2026-08-11.json` sha256₁₆ `8fb6ede274171aee`, a
+DIFFERENT board from B2's — the B2 numbers stay attached to the B2 pin).
+The finding reproduced identically: 183/329 ranked IDP rows clamped
+(55.6%), 100% capped by the hard band, 100% on the band edge, only
+`bandPct` 0.15, 23 up / 160 down.
+
+Root cause: a hard constant overrode the board-derived per-bucket P90
+band. Empirical bands were 0.5183–0.6504 against a 0.15 cap in every
+bucket, all above the minimum-sample threshold, so the derived number was
+computed and discarded 183 times out of 183 — and 55.6% of the ranked IDP
+board was served at exactly `idpTradeCalc × 0.85` or `× 1.15`.
+
+The cap's stated purpose predeceased it. The corridor was built
+2026-04-21 (#198) to contain the IDP calibration post-pass; that pass was
+retired 2026-04-23 (#251), two days later. The cap arrived 2026-05-02
+(#375/#376), nine days after that. The hazard it names is now covered
+without an anchor by the single-source haircut (#496).
+
+Mandatory anchor-lineage check: all four IDP anchor-chain members are
+voting sources in the blend the corridor clamps, the fallback never
+fires, and `idpTradeCalc` was the anchor on **183/183** clamped rows while
+also voting on **183/183**. Its contribution is 0.721× the median of the
+other sources on those rows, which is why 160 of 183 clamps pulled values
+down.
+
+Repair: remove the IDP entry from
+`_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS`, not retune it — criterion 6
+was low sensitivity to arbitrary constants, and 0.15 decided every clamp.
+Measured against candidates B/C/D/E on the same pin: the same code then
+clamps 32 rows (9.7%), all in the board tail, none with five or more
+sources, flat across confidence buckets (8.3/10.0/9.8% vs the capped
+63.9/45.8/60.7% — which was **inverted**, overriding the board's
+best-supported rows at the highest rate). Board composition barely moves:
+top-100 IDP 9 either way, top-200 43 → 41, top-400 130 either way.
+
+Not claimed: the empirical machinery was never dead (a tighter synthetic
+board reaches it, pinned by test), and the corridor is not removed —
+candidate E was measured alongside and the tail rail is what the corridor
+was designed for. Residual recorded: the band is derived from the drift
+it bounds, so a board that drifted as a whole would widen its own band.
+
+Full evidence: `evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md`. Pinned by
+`tests/api/test_market_corridor_characterization.py` (15) plus the
+rewritten cap tests in `tests/api/test_market_corridor_clamp.py` (31).
+
+Still open after B3: the anchor is still a voter on the remaining 9.7%;
+the confidence-bucket dependency is now LIVE for the first time (the band
+that decides clamps is derived per bucket); C17's OFFENSE half; the IDP
+master's 1.552× fit-scale claim; W30-F023.
+
 ## Not done here
 
 - `verify_closure.py --rerun` over the 338 safe reproductions. It needs the full stack
