@@ -144,9 +144,42 @@ the value chain.
   POST `{}`.
 - **B1 — W30-F008** (P1, L). `FIT_TOP_N = 400` (`src/model_registry/holdout.py:85`) vs
   `_PERCENTILE_REFERENCE_N = 500` (`src/api/data_contract.py:5368`). The fit maps rank to
-  `i/399`, serving maps to `(rank-1)/499`, so under the champion OFFENSE constants (c=0.11,
-  s=1.11) rank 50 serves 13.2% high, rank 100 18.5%, rank 400 25.4%. **This moves board values** —
-  expect wide downstream diffs and measure them.
+  `i/399`, serving maps to `(rank-1)/499`. **This moves board values** — expect wide downstream
+  diffs and measure them.
+
+  **Investigated 2026-08-11; the finding understates it.** The recorded OFFENSE numbers
+  reproduce exactly (rank 50 +13.2%, 100 +18.5%, 400 +25.4%), but the finding documents only
+  that scope, and the mismatch is **per-scope and unequal** because truncation is applied at the
+  CALL SITE, not inside `_percentile_pairs`:
+
+  | scope | fit denominator | serve denominator | served-vs-fit error, ranks 25 / 50 / 100 / 200 / 400 |
+  |---|---|---|---|
+  | OFFENSE | 399 (`values[:400]`, `fit_hill_curve_percentile.py:335`) | 499 | +8.0% / +13.2% / +18.5% / +22.7% / +25.4% |
+  | GLOBAL | 399 (`:356`) | 499 | +6.2% / +8.4% / +10.6% / +12.6% / +14.2% |
+  | **IDP** | **369** — `_percentile_pairs(idp_values)` at `:370` is **untruncated**, and the IDP slice is only 370 rows | 499 | **+14.0% / +21.7% / +28.8% / +33.9% / +26.1%** |
+
+  Every scope inflates (serve percentile is smaller than fit percentile, and V(p) decreases in
+  p), so this is not a wash — but IDP inflates **roughly double** OFFENSE at depth. The
+  user-visible harm is therefore not "all values are high by a constant", which would be
+  harmless: it is a **non-uniform, scope-dependent distortion of the value ladder**, so IDP and
+  offense rows on the same board are stretched differently. That is a cross-scope comparability
+  defect, and it is the same coordinate-system family as **W02-F001** — treat B1 and B2 as one
+  root cause with two symptoms, which is why the plan forbids shipping W02-F001's one-line
+  scope re-route alone.
+
+  **Fix direction** (chosen; not yet implemented): make the FIT adopt the SERVE coordinate
+  system — map row `i` to `i / (_PERCENTILE_REFERENCE_N - 1)` regardless of how many rows train
+  the curve. Truncation then limits *which rows train*, not *what percentile they represent*.
+  This preserves both documented intents (`_PERCENTILE_REFERENCE_N = 500` "aligns with KTC's
+  native pool"; `FIT_TOP_N = 400` exists "so train and holdout RMSE are the same quantity"),
+  where changing the serve denominator to 400 would contradict the first, reprice the whole
+  board, and still leave IDP mismatched at 369.
+
+  **This repair cannot promote itself.** ADR-008 gates production constants behind
+  `scripts/model_registry.py promote` + `apply`, run by a human. So B1 delivers: the fit-side
+  coordinate fix, a test asserting fit and serve denominators agree, a refit **challenger** with
+  its holdout verdict recorded — and production constants left alone until a human promotes.
+  Until then the served error above stands, and must be stated rather than implied fixed.
 - **B2 — W02-F001**: re-derivation, NOT the registry's one-line scope re-route, which its own
   verifier refuted. Never ship the re-route alone (`REPAIR_ROADMAP.md:1492`).
 - **B3** — re-measure Hampel anchor ejection (W02-F002) and corridor-clamp binding (W02-F003)
