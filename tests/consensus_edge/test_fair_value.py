@@ -174,57 +174,65 @@ class TestRookieLadderLeak(unittest.TestCase):
             )
 
 
-class TestCorridorClampLeak(unittest.TestCase):
-    """Leak 3: the clamp anchors on the source we removed.
+class TestNoBoardIsPulledTowardAMarketAnchor(unittest.TestCase):
+    """Leak 3, and it is now closed by construction rather than by a flag.
 
-    ``_market_anchor_value_for_row`` reads ``canonicalSiteValues``, not
-    the blend vote, so dropping a source does not stop the clamp pulling
-    values back toward it.  Measured with ``idpTradeCalc`` excluded: 101
-    IDP rows still clamped toward idpTradeCalc, mean shift 552 points.
+    The original requirement: a fair-value board must never be pulled back
+    toward the price it is about to be compared against. The old
+    market-corridor clamp read its anchor out of ``canonicalSiteValues``
+    rather than out of the vote, so *dropping* a source from the blend did
+    not stop the clamp pulling values toward it — measured 2026-08-04:
+    with ``idpTradeCalc`` excluded, 101 IDP rows were still clamped toward
+    idpTradeCalc, mean shift 552 points. Hence the opt-in suppression.
+
+    The clamp is gone (#794/#795/#796). Nothing in the contract pipeline
+    reads a market anchor or moves a value toward one, so the requirement
+    now holds on EVERY board unconditionally, and these tests assert that
+    rather than asserting the flag still works.
+
+    The previous versions of these tests asserted that the default board
+    *does* clamp. That was true and is now false — deliberately. They are
+    re-decided here from measured evidence, not deleted: the corridor
+    fired on 0 of 6 victims across every injected anomaly class once the
+    anomalies were injected at the source CSVs instead of into the
+    post-blend value, so nothing it was protecting is lost.
     """
 
     @_needs_payload
-    def test_the_default_board_still_clamps(self):
-        contract = dc.build_api_data_contract(_RAW)
-        clamped = [
-            r
-            for r in contract.get("playersArray") or []
-            if (r.get("marketCorridorClamp") or {}).get("applied")
-        ]
-        self.assertGreater(
-            len(clamped),
-            0,
-            "no rows clamped on the default board — the suppression test below proves nothing",
-        )
+    def test_no_row_on_any_board_is_clamped_toward_an_anchor(self):
+        for label, contract in (
+            ("default", dc.build_api_data_contract(_RAW)),
+            ("fair-value", fv.leave_one_out_board(_RAW, exclude=["idpTradeCalc"])),
+        ):
+            clamped = [
+                r
+                for r in contract.get("playersArray") or []
+                if (r.get("marketCorridorClamp") or {}).get("applied")
+            ]
+            self.assertEqual(
+                [r.get("displayName") for r in clamped],
+                [],
+                f"{label} board carried a corridor clamp; the mechanism was removed",
+            )
 
     @_needs_payload
-    def test_a_fair_value_board_is_never_clamped_toward_its_own_anchor(self):
-        contract = fv.leave_one_out_board(_RAW, exclude=["idpTradeCalc"])
-        clamped = [
-            r
-            for r in contract.get("playersArray") or []
-            if (r.get("marketCorridorClamp") or {}).get("applied")
-        ]
-        self.assertEqual(
-            [r.get("displayName") for r in clamped],
-            [],
-            "fair-value board was pulled back toward the price it will be compared against",
-        )
+    def test_suppression_no_longer_changes_a_single_value(self):
+        """The flag survives for its caller, but it cannot move a number.
 
-    @_needs_payload
-    def test_suppression_is_opt_in(self):
+        It now suppresses only the integrity DIAGNOSTIC. If suppressing it
+        ever changes a value again, something value-moving has been
+        reattached to that flag.
+        """
         default = dc.build_api_data_contract(_RAW)
         suppressed = dc.build_api_data_contract(_RAW, suppress_market_corridor_clamp=True)
 
-        def clamped_count(contract):
-            return sum(
-                1
+        def values(contract):
+            return {
+                str(r.get("displayName")): r.get("rankDerivedValue")
                 for r in contract.get("playersArray") or []
-                if (r.get("marketCorridorClamp") or {}).get("applied")
-            )
+            }
 
-        self.assertGreater(clamped_count(default), 0)
-        self.assertEqual(clamped_count(suppressed), 0)
+        self.assertEqual(values(default), values(suppressed))
 
 
 class TestFairValueIndex(unittest.TestCase):
@@ -396,13 +404,28 @@ class TestFairValueIndex(unittest.TestCase):
 
 
 class TestAnchorParity(unittest.TestCase):
-    """One definition of "which source is the market" across the repo."""
+    """One definition of "which source is the market" across the repo.
 
-    def test_anchor_map_matches_the_contract_pipeline(self):
-        self.assertEqual(
-            fv.MARKET_ANCHOR_BY_ASSET_CLASS,
-            dc._MARKET_ANCHOR_BY_ASSET_CLASS,
+    Was a THREE-way parity check. ``data_contract`` no longer defines an
+    anchor map at all: it existed only for the market-corridor clamp,
+    which was removed (#794/#795/#796) because the anchor was itself a
+    voter in the blend it corrected. The two remaining definitions are
+    genuine consumers — mispricing signal and league-adjusted values —
+    and they still have to agree with each other.
+    """
+
+    def test_the_contract_no_longer_defines_a_market_anchor(self):
+        """The removal is asserted, not merely no longer checked.
+
+        A deleted parity leg is indistinguishable from a forgotten one
+        unless something pins the deletion.
+        """
+        self.assertFalse(
+            hasattr(dc, "_MARKET_ANCHOR_BY_ASSET_CLASS"),
+            "the contract pipeline re-grew a market anchor; if that is "
+            "deliberate, this parity check needs its third leg back",
         )
+        self.assertFalse(hasattr(dc, "_apply_market_corridor_clamp"))
 
     def test_anchor_map_matches_league_intel(self):
         from src.league_intel import values as li_values

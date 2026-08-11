@@ -74,10 +74,12 @@ Validated on the live board before flipping: 719 of 874 rows moved,
 [0.953, 1.043] — comfortably inside ``MAX_TOTAL_ADJUSTMENT``."""
 
 # Primary market anchor per asset class — mirrors
-# ``data_contract._MARKET_ANCHOR_BY_ASSET_CLASS``.  Duplicated as a
+# ``consensus_edge.fair_value.MARKET_ANCHOR_BY_ASSET_CLASS``.  Kept as a
 # read-only constant rather than imported to keep this module free of
 # the contract module's heavy import graph; the parity test in
-# tests/league_intel/test_values.py fails if the two ever diverge.
+# tests/consensus_edge/test_fair_value.py fails if the two diverge.
+# ``data_contract`` no longer defines one: that copy served the
+# market-corridor clamp, removed under #794/#795/#796.
 MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
     "offense": "ktcSfTep",
     "idp": "idpTradeCalc",

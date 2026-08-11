@@ -60,12 +60,26 @@ class TestSchema:
         assert d["marketValue"] == 6800
         assert d["marketAnchorSource"] == "ktcSfTep"
 
-    def test_market_anchor_registry_matches_data_contract(self):
-        """Parity guard: this module keeps a read-only copy of the
-        anchor map to avoid importing the contract's heavy graph."""
-        from src.api.data_contract import _MARKET_ANCHOR_BY_ASSET_CLASS
+    def test_market_anchor_registry_matches_the_other_live_consumer(self):
+        """Parity guard, now two-way rather than three.
 
-        assert MARKET_ANCHOR_BY_ASSET_CLASS == _MARKET_ANCHOR_BY_ASSET_CLASS
+        ``data_contract`` no longer defines an anchor map: its copy
+        existed only for the market-corridor clamp, removed under
+        #794/#795/#796 because the anchor was a voter in the blend it
+        corrected. The remaining two definitions are genuine consumers —
+        league-adjusted values here, the mispricing signal in
+        ``consensus_edge.fair_value`` — and still have to agree.
+        """
+        from src.api import data_contract as dc
+        from src.consensus_edge.fair_value import (
+            MARKET_ANCHOR_BY_ASSET_CLASS as FV_ANCHORS,
+        )
+
+        assert MARKET_ANCHOR_BY_ASSET_CLASS == FV_ANCHORS
+        assert not hasattr(dc, "_MARKET_ANCHOR_BY_ASSET_CLASS"), (
+            "the contract pipeline re-grew a market anchor; if deliberate, "
+            "restore the third parity leg"
+        )
 
 
 class TestNoOpGuarantee:

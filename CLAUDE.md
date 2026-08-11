@@ -362,20 +362,52 @@ Steps:
    diagnostics-only (``softFallbackCount`` never touches the math).
 9. Single-source haircut: non-pick rows resting on one post-Hampel
    source keep 30% of their blended value
-10. Market corridor clamp (``_apply_market_corridor_clamp``) — IDP
-    rows only, P90 drift band per confidence bucket, hard band cap
-    ``_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS = {"idp": 0.15}``.
-    Offense rows are not clamped at all.
-    RETIRED: the IDP calibration post-pass this stage used to describe
-    (``_apply_idp_calibration_post_pass`` reading
-    ``config/idp_calibration.json``) no longer exists — see the
-    "Phase 4c: removed" note in ``data_contract.py``.  Neither the
-    function nor the config file is in the tree; ``rankDerivedValue``
-    is the canonical-pipeline output with no post-blend IDP
-    adjustment.  Note that the clamp's own comments still justify it
-    as containing "the IDP calibration runaway", which is now a
-    retired mechanism — the clamp still does real work against raw
-    blend drift, but that stated rationale is stale.
+10. Blend-integrity detection (``_detect_blend_integrity_violations``)
+    — flags rows whose blended value fell OUTSIDE the range of their own
+    source contributions, which is structurally impossible under correct
+    operation.  **It changes no value**: the row is stamped
+    ``blendIntegrityViolation`` and left alone, because coercing an
+    impossible number to a plausible one hides a pipeline fault.  No
+    asset-class exemption, no confidence dependency, no tunable band —
+    ``_BLEND_HULL_EPSILON`` (1e-9) is float slack, not policy.
+
+    REPLACED the market corridor clamp (W02-F015/F016/F017 =
+    #794/#795/#796), which is gone along with
+    ``_apply_market_corridor_clamp``, ``_market_anchor_for_row``,
+    ``_MARKET_ANCHOR_BY_ASSET_CLASS``, ``_MARKET_ANCHOR_FALLBACKS`` and
+    every ``_MARKET_CORRIDOR_*`` constant.  Four measured reasons:
+
+    * its **anchor was a voter** in the blend it corrected — on 539 of
+      539 clamped rows across 17 independent historical days, always
+      ``idpTradeCalc``, and the fallback chain never fired;
+    * its **band was a P90 of the board it policed**, so it clamped a
+      fixed ~9% whether the board was healthy or 10x broken — scaling
+      every IDP value by 10x fired the identical rows at the identical
+      rate;
+    * its **confidence bands were ordered backwards** (HIGH permitted
+      MORE disagreement than MEDIUM);
+    * it **caught nothing upstream did not already handle**.  Injecting
+      anomalies at the source CSVs and rebuilding the whole pipeline, it
+      fired on 0 of 6 victims in every scenario: a single source at x5 or
+      x20 is absorbed by the Hampel filter plus the count-aware blend
+      (<=1.7% movement) and an anchor source at x5 is caught outright by
+      the declared-range check (0.0%).
+
+    Its stated purpose had also predeceased it: the docstring justified
+    it as containing the IDP calibration post-pass, which was retired.
+
+    Removing it changed 32 rows on the live board — all IDP, ranks
+    691-740, 2-4 sources each, zero offense, zero picks, and **zero
+    change to any published top-200 membership**.
+
+    Known uncovered risk, named rather than papered over: correlated
+    multi-source anomalies (measured up to 48% blend movement) are caught
+    by neither the old corridor nor this detector, because sources
+    agreeing on something wrong is indistinguishable from disagreement at
+    the blend.  No independent IDP reference exists to arbitrate — every
+    IDP-covering source votes.
+
+    Evidence: ``docs/master-site-audit/evidence/W02/CD_*``.
 11. Two-way player boost (``_apply_two_way_player_boost``,
     ``_TWO_WAY_PLAYERS`` — today exactly ``{"Travis Hunter": "DB"}``).
     A genuine post-blend OVERRIDE: ``rankDerivedValue`` becomes
