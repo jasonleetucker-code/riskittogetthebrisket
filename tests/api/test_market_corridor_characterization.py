@@ -1,11 +1,15 @@
 """W02-F003 — what the IDP market corridor does today, pinned.
 
-These are **characterization** tests, and the distinction matters. They are
-GREEN at the B3 baseline by construction: their job is to make the
-corridor's current behaviour impossible to change silently, so that any
-candidate policy's effect shows up as a test diff rather than as a number
-someone has to notice. They are not assertions that the behaviour is
-correct — §2 of the B3 authorization records most of it as the defect.
+These began as **characterization** tests, written GREEN against the
+pre-repair board so that any candidate policy's effect would show up as a
+test diff rather than as a number someone had to notice. They did exactly
+that: removing the hard cap turned seven of them red, four here and three
+in `test_market_corridor_clamp.py`, and each was then rewritten against
+the measured post-repair behaviour with the reason recorded in the
+assertion message. That RED set is the change's receipt.
+
+They still are not assertions that any of this is *correct* — they pin
+what the pipeline does so the next change has to argue with them.
 
 The existing `test_market_corridor_clamp.py` covers the mechanism's happy
 path. What was missing, and what B3 needs before touching anything, is a
@@ -22,7 +26,7 @@ Measured at the B3 pin (code `2449af9ac`, board sha256₁₆
 `8fb6ede274171aee`). Bounds are deliberately loose where the underlying
 quantity is a property of this week's market data rather than of the code
 — a tight assertion there goes red when sources agree more closely, which
-is noise. Where the quantity is a property of the CODE (every clamp capped,
+is noise. Where the quantity is a property of the CODE (no clamp capped,
 every clamp on the band edge, the anchor being a voting source) the
 assertion is exact.
 """
@@ -68,8 +72,11 @@ def live() -> dict | None:
 
 
 class TestCorridorConfiguration(unittest.TestCase):
-    def test_the_hard_cap_is_idp_only_and_is_the_value_b3_measured(self) -> None:
-        self.assertEqual(_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS, {"idp": 0.15})
+    def test_no_asset_class_carries_a_hard_cap_after_b3(self) -> None:
+        """The B3 repair. The facility is kept — the mechanism is
+        generic — but nothing populates it, so the band is whatever the
+        board's own drift distribution produces."""
+        self.assertEqual(_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS, {})
 
     def test_the_empirical_machinery_is_still_configured(self) -> None:
         self.assertEqual(_MARKET_CORRIDOR_PERCENTILE, 0.90)
@@ -122,17 +129,48 @@ class TestLiveCorridorDistribution(unittest.TestCase):
             if r.get("assetClass") == "idp" and r.get("canonicalConsensusRank")
         ]
 
-    def test_the_corridor_decides_a_large_share_of_the_ranked_idp_board(self) -> None:
-        """B3 measured 183/329 = 55.6%. The share is market-dependent; that
-        it is a *large* share is the finding."""
+    def test_the_corridor_is_a_tail_rail_not_a_majority_of_the_board(self) -> None:
+        """The B3 repair's headline effect.
+
+        Before: 183/329 = 55.6%, reaching 25 of the top third. After:
+        32/329 = 9.7%, entirely in the tail. The exact share is
+        market-dependent, so this asserts the *shape* — a minority of
+        rows, and none near the top of the board.
+        """
         clamped, pop = self._clamped(), self._ranked_idp()
         self.assertGreater(len(pop), 50, "too few ranked IDP rows to characterize")
         rate = len(clamped) / len(pop)
-        self.assertGreater(
+        self.assertLess(
             rate,
             0.25,
-            f"clamp rate collapsed to {rate:.1%} — if this is a deliberate "
-            "policy change, update this characterization with the evidence",
+            f"the corridor is back to deciding {rate:.1%} of the ranked IDP "
+            "board — B3 reduced it to a tail rail; re-derive before accepting",
+        )
+        ranked = sorted(pop, key=lambda r: r["canonicalConsensusRank"])
+        top_third = {str(r.get("displayName")) for r in ranked[: max(1, len(ranked) // 3)]}
+        in_top = [r for r in clamped if str(r.get("displayName")) in top_third]
+        self.assertEqual(
+            in_top,
+            [],
+            f"{len(in_top)} clamped rows are in the top third of the IDP "
+            "board — the corridor is overriding well-ranked players again",
+        )
+
+    def test_the_corridor_no_longer_overrides_well_covered_rows(self) -> None:
+        """Criterion 2 of the B3 evaluation, as a test.
+
+        With the cap in place the clamp rate was INVERTED against the
+        board's own confidence — 63.9% of high-confidence rows against
+        45.8% of medium — and 89.3% of 3-source rows were clamped while
+        5-source rows were 26.2%. After the repair no row with five or
+        more contributing sources is clamped at all.
+        """
+        thick = [r for r in self._clamped() if len(r.get("sourceRankMeta") or {}) >= 5]
+        self.assertEqual(
+            [str(r.get("displayName")) for r in thick],
+            [],
+            "a row backed by five or more sources was overridden toward a "
+            "single anchor source that is itself one of those sources",
         )
 
     def test_only_idp_rows_are_clamped(self) -> None:
@@ -142,15 +180,19 @@ class TestLiveCorridorDistribution(unittest.TestCase):
         classes = {str(r.get("assetClass")) for r in self._clamped()}
         self.assertEqual(classes, {"idp"})
 
-    def test_every_clamp_is_capped_by_the_hard_band_not_the_bucket_p90(self) -> None:
-        """The defect in one assertion: the per-bucket empirical band is
-        computed and then discarded on every single row."""
+    def test_every_clamp_now_uses_the_board_derived_band(self) -> None:
+        """The inverse of the defect. Before B3 every clamp reported
+        ``cappedByMaxBand: True`` and ``bandPct: 0.15``; the empirical
+        band was computed and discarded 183 times out of 183."""
         clamped = self._clamped()
         self.assertTrue(clamped)
         for r in clamped:
             c = r["marketCorridorClamp"]
-            self.assertTrue(c["cappedByMaxBand"], f"{r.get('displayName')} used a bucket band")
-            self.assertEqual(c["bandPct"], 0.15)
+            self.assertFalse(
+                c["cappedByMaxBand"], f"{r.get('displayName')} was capped by a hard band"
+            )
+            self.assertIsNone(c["maxBandPct"])
+            self.assertGreater(c["bandPct"], 0.15)
 
     def test_every_clamped_row_lands_exactly_on_the_band_edge(self) -> None:
         """So a clamped row's value is `anchor × (1 ± band)` — the blend
@@ -217,7 +259,7 @@ class TestLiveCorridorDistribution(unittest.TestCase):
             for r in unclamped.get("playersArray") or []
         }
         moved = [k for k, v in served.items() if k in without and without[k] != v]
-        self.assertGreater(len(moved), 50, "the corridor moved almost nothing")
+        self.assertGreater(len(moved), 10, "the corridor moved almost nothing")
 
 
 # ── deterministic mechanism cases through the production path ──────────

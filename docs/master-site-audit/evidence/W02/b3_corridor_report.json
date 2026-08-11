@@ -1,8 +1,8 @@
 {
  "pin": {
   "phase": "B3",
-  "codeSha": "8a0592e8af2153e86ea01c6ead9f98f56ace42e3",
-  "codeSubject": "evidence(B3): pin the B3 baseline and reproduce W02-F003 with anchor lineage",
+  "codeSha": "1e88c6863c8674e7478c4bf8c71d1297cccec454",
+  "codeSubject": "evidence(B3): candidate corridor policies measured, and the hard cap is the whole defect",
   "dirty": true,
   "board": {
    "path": "exports/latest/dynasty_data_2026-08-11.json",
@@ -183,27 +183,27 @@
   },
   "percentile": 0.9,
   "minBucketN": 30,
-  "maxBand": {
-   "idp": 0.15
-  },
+  "maxBand": {},
   "idpChainAllVoting": true
  },
  "reproduction": {
-  "clampedRows": 183,
+  "clampedRows": 32,
   "rankedIdpRows": 329,
-  "clampRate": 0.5562310030395137,
-  "cappedByMaxBand": 183,
-  "onBandEdge": 183,
+  "clampRate": 0.0972644376899696,
+  "cappedByMaxBand": 0,
+  "onBandEdge": 32,
   "distinctBandPct": [
-   0.15
+   0.5183,
+   0.6316,
+   0.6504
   ],
-  "up": 23,
-  "down": 160,
-  "anchorAlsoVoted": 183,
+  "up": 0,
+  "down": 32,
+  "anchorAlsoVoted": 32,
   "anchorSourceCounts": {
-   "idpTradeCalc": 183
+   "idpTradeCalc": 32
   },
-  "servedRowsMovedByCorridor": 193,
+  "servedRowsMovedByCorridor": 32,
   "bucketP90": {
    "medium": 0.5183066361556065,
    "high": 0.6503856041131105,

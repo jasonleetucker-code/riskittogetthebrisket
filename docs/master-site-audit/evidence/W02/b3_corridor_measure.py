@@ -243,7 +243,7 @@ def reproduce() -> None:
         print(
             f"  {bucket:<8} n={len(vals):<5} P90={_q(vals, 0.90):.4f}   "
             f"{'own band' if used_own else 'FALLS BACK to overall'}   "
-            f"cap wins={_q(vals, 0.90) > (cap or 0)}"
+            f"cap wins={cap is not None and _q(vals, 0.90) > cap}"
         )
 
     # ── who gets clamped: by confidence bucket and by source count ──
