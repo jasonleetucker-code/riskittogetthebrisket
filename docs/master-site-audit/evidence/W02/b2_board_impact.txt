@@ -1,0 +1,140 @@
+== inputs ==
+  before: 1092 rows from exports/latest/dynasty_data_2026-08-11.json sha256_16=a495c049fa69f141
+  after: 1092 rows from exports/latest/dynasty_data_2026-08-11.json sha256_16=a495c049fa69f141
+
+== membership ==
+  before priced: 812
+  after  priced: 812
+  only in before: []
+  only in after:  []
+  priced before but NOT after: 26
+    Jordan Whittington         WR    was  1203 @ #630
+    Raheim Sanders             RB    was  1199 @ #632
+    KeAndre Lambert-Smith      WR    was  1194 @ #633
+    Malik Benson               WR    was  1193 @ #634
+    Cole Payton                QB    was  1191 @ #635
+    Desmond Reid               RB    was  1188 @ #636
+    Eric Rivers                WR    was  1183 @ #639
+    Tutu Atwell                WR    was  1183 @ #640
+    Davis Mills                QB    was  1182 @ #641
+    Phil Mafah                 RB    was  1180 @ #642
+    Deion Burks                WR    was  1179 @ #643
+    Eric McAlister             WR    was  1177 @ #644
+    Jeff Caldwell              WR    was  1169 @ #651
+    Damien Martinez            RB    was  1168 @ #654
+    Kareem Hunt                RB    was  1160 @ #662
+    Dyami Brown                WR    was  1159 @ #664
+    Tanner McKee               QB    was  1159 @ #663
+    KaVontae Turpin            WR    was  1158 @ #665
+    Barion Brown               WR    was  1157 @ #666
+    Jahdae Walker              WR    was  1155 @ #667
+    2029 Early 3rd             PICK  was  1152 @ #668
+    Ty Johnson                 RB    was  1152 @ #669
+    Elijah Moore               WR    was  1151 @ #670
+    Josh Cameron               WR    was  1151 @ #671
+    Nick Chubb                 RB    was  1143 @ #672
+    Tyler Huntley              QB    was  1143 @ #673
+  priced after but NOT before: 26
+    Devin Bush                 LB    now  2711 @ #207
+    Xavier Watts               DB    now  2073 @ #296
+    Nick Cross                 DB    now  2015 @ #309
+    Devon Witherspoon          DB    now  1993 @ #316
+    Divine Deablo              LB    now  1973 @ #326
+    Anthony Hill               LB    now  1967 @ #329
+    Malaki Starks              DB    now  1935 @ #336
+    Leo Chenal                 LB    now  1933 @ #338
+    James Pearce               DL    now  1895 @ #351
+    Cole Bishop                DB    now  1894 @ #353
+    Frankie Luvu               LB    now  1880 @ #358
+    Mike Green                 DL    now  1877 @ #359
+    Talanoa Hufanga            DB    now  1855 @ #370
+    Tre'von Moehrig            DB    now  1827 @ #386
+    Jalen Pitre                DB    now  1819 @ #391
+    Quentin Lake               DB    now  1816 @ #392
+    Jeremy Chinn               DB    now  1811 @ #394
+    Leonard Williams           DL    now  1807 @ #400
+    Julian Love                DB    now  1803 @ #405
+    Mason Graham               DL    now  1803 @ #407
+    Josh Sweat                 DL    now  1802 @ #409
+    Kyle Louis                 LB    now  1800 @ #412
+    Jordan Battle              DB    now  1799 @ #414
+    Gabe Jacas                 DL    now   883 @ #723
+    Keyshaun Elliott           LB    now   883 @ #722
+    Osa Odighizuwa             DL    now   879 @ #727
+
+== per-source contribution changes (the direct effect) ==
+  idpShow              rows_changed=289   median=+185.9% mean=+159.4% min=+5.6% max=+185.9% pool=['shared_market']
+  dlfIdp               rows_changed=145   median=+159.1% mean=+132.1% min=+5.6% max=+185.9% pool=['shared_market']
+  fantasyProsIdp       rows_changed=119   median=+111.2% mean=+121.6% min=+5.6% max=+185.9% pool=['shared_market']
+  dlfRookieIdp         rows_changed=25    median=+163.4% mean=+139.2% min=+27.0% max=+185.9% pool=['shared_market']
+
+== board value changes (rankDerivedValue) ==
+  rows compared: 786   unchanged: 539   changed: 247
+  |Δ%| over changed rows: n=247 mean=7.16 median=6.04 p90=15.60 max=150.27
+    |Δ| >  5% :  139 rows (17.7% of compared)
+    |Δ| > 10% :   34 rows (4.3% of compared)
+    |Δ| > 25% :    1 rows (0.1% of compared)
+    |Δ| > 50% :    1 rows (0.1% of compared)
+
+  by bucket:
+    offense   changed    1/530  median=+8.1% mean=+8.1% min=+8.1% max=+8.1%
+    dl_edge   changed   83/145  median=+6.7% mean=+7.4% min=+0.5% max=+21.3%
+    lb        changed   70/114  median=+6.2% mean=+7.1% min=-1.5% max=+23.9%
+    db        changed   54/139  median=+5.0% mean=+9.3% min=+1.7% max=+150.3%
+    picks     changed   39/144  median=+3.8% mean=+3.7% min=+0.5% max=+8.4%
+    other     changed    0/20  
+
+  largest 12 absolute moves:
+    Malachi Moore                db         746 →  1867  (+150.3%)
+    Micah Parsons                dl_edge   4606 →  5383  (+16.9%)
+    Jared Verse                  dl_edge   4593 →  5332  (+16.1%)
+    Myles Garrett                dl_edge   4602 →  5320  (+15.6%)
+    Ernest Jones                 lb        2795 →  3464  (+23.9%)
+    Kevin Winston                db        2763 →  3316  (+20.0%)
+    Nick Bosa                    dl_edge   3065 →  3594  (+17.3%)
+    Quay Walker                  lb        2774 →  3297  (+18.9%)
+    Roquan Smith                 lb        3067 →  3576  (+16.6%)
+    Maxx Crosby                  dl_edge   3064 →  3572  (+16.6%)
+    Laiatu Latu                  dl_edge   3068 →  3568  (+16.3%)
+    Kyle Hamilton                db        3062 →  3561  (+16.3%)
+
+== rank changes (canonicalConsensusRank) ==
+  ranked both sides: 714   unchanged: 79   moved: 635
+  |Δrank| over moved rows: n=635 mean=19.80 median=10.00 p90=48.00 max=376.00
+  largest 12 rank moves:
+    Malachi Moore                db       # 740 → # 364  (-376)
+    Trevin Wallace               lb       # 583 → # 452  (-131)
+    Jonathon Cooper              dl_edge  # 612 → # 494  (-118)
+    Chris Jones                  dl_edge  # 628 → # 516  (-112)
+    Andrew Mukuba                db       # 655 → # 555  (-100)
+    Kaleb Elarms-Orr             lb       # 637 → # 541  (-96)
+    Uchenna Nwosu                dl_edge  # 656 → # 561  (-95)
+    Jalen Royals                 offense  # 506 → # 600  (+94)
+    Joe Milton                   offense  # 512 → # 601  (+89)
+    Tahj Brooks                  offense  # 514 → # 603  (+89)
+    Zavion Thomas                offense  # 513 → # 602  (+89)
+    Tyquan Thornton              offense  # 518 → # 604  (+86)
+
+== offense / IDP balance in the top 100 ==
+  before: IDP   9/100   picks   6/100   offense  85/100
+  after: IDP   9/100   picks   6/100   offense  85/100
+
+== IDP value at representative board ranks ==
+    rank                        before                         after
+  IDP#1     Aidan Hutchinson       6362   Aidan Hutchinson       6393
+  IDP#5     Jack Campbell          4803   Jared Verse            5332
+  IDP#10    Edgerrin Cooper        3919   Edgerrin Cooper        4043
+  IDP#25    David Bailey           3059   T.J. Watt              3318
+  IDP#50    George Karlaftis       2587   Byron Young            2644
+  IDP#100   Jessie Bates           1707   Quincy Williams        1869
+  IDP#150   Myles Murphy           1404   Austin Booker          1562
+  IDP#200   Christian Barmore      1375   Andrew Mukuba          1416
+  IDP#300   Kayden McDonald         872   John Franklin-Myers     896
+
+== W02-F002 remeasure: Hampel ejects idpTradeCalc on IDP rows ==
+  before: ejected 50/164 eligible (30.5%)   HIGH 50/50   IDP rows with any dropped source: 73
+  after: ejected 4/190 eligible (2.1%)   HIGH 4/4   IDP rows with any dropped source: 35
+
+== W02-F003 remeasure: market corridor clamp ==
+  before: clamped 131 rows (43.2% of 303 ranked IDP rows)   cappedByMaxBand 131/131 (100.0%)   on the band edge 131/131 (100.0%)   up 57 / down 74   distinct bandPct [0.15]
+  after: clamped 183 rows (55.6% of 329 ranked IDP rows)   cappedByMaxBand 183/183 (100.0%)   on the band edge 183/183 (100.0%)   up 23 / down 160   distinct bandPct [0.15]

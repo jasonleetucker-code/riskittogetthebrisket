@@ -153,6 +153,113 @@ Third instance of `ARCHITECTURE_HANDOFF` invariant 6 — "tools must not
 destroy the evidence they maintain" — whose own note said to assume a third
 existed. Pinned by `tests/model_registry/test_registry_self_destruction.py`.
 
+## W02-F001 — IDP-only sources scored on the wrong scope master
+
+**FIXED in B2.** Reproduced on a fresh pinned baseline before anything
+changed (code `a5ff76b09`, board `dynasty_data_2026-08-11.json`
+sha256₁₆ `a495c049fa69f141`, 1,092 rows, 24 source CSVs hashed), then
+repaired root-cause-first and remeasured.
+
+The root cause is not "IDP sources are routed wrongly". It is that
+`_curve_for_source` picked the master from the source's **registry
+declaration**, which describes the source's native coordinates and says
+nothing about the crosswalks the pipeline runs before the curve sees the
+rank. Two independent paths reach the wrong master:
+
+* the three `needs_shared_market_translation` sources (`dlfIdp`,
+  `idpShow`, `fantasyProsIdp`), lifted onto the backbone's combined
+  offense+IDP ladder in Phase 1;
+* `dlfRookieIdp`, whose within-class rookie rank Phase 1d translates
+  through `idpTradeCalc`'s ranks — also shared-market — with none of the
+  three flags involved.
+
+`src/canonical/rank_coordinates.py` is now the single owner: a rank
+belongs to the pool of the ladder it was translated through, each pass
+stamps `rankCoordinatePool`, and the curve follows the pool. No source
+name appears in the routing. Hill constants unchanged; champion still
+registry v2.
+
+The registry's recorded "~48% of the anchor" was a flat number for a
+strongly rank-dependent gap (IDP÷GLOBAL 1.00 at rank 1, 0.87 at 50, 0.69
+at 100, 0.35 at 500). Measured effect of the repair on the pinned board:
+per-source contributions +111% to +186% median on 578 rows; 247 of 786
+comparable served values changed, median |6.0%|, p90 15.6%; the top-100
+offense/IDP/pick balance is **unchanged** at 85/9/6; and **26 IDP rows
+re-entered the served top-800 window** (Devon Witherspoon, Malaki Starks,
+Leonard Williams, Josh Sweat, Mason Graham …) displacing 26 deep-tail
+offense/pick rows — the priced-row count is identical on both sides, so
+totals alone would have rendered that as "no change".
+
+`REPAIR_ROADMAP.md:1492`'s instruction never to ship the GLOBAL re-route
+alone rests on a verifier statistic of `0.92 / 0.92 / 1.29 / 1.32`
+per-source medians against the anchor, "wider than the control band".
+**Not reproduced on this baseline**: the four post-repair medians are
+0.949 / 0.940 / 0.931 / 0.893, spanning 0.056 inside an offense control
+band spanning 0.292. Three of the four have n ≤ 5, and the earlier
+verifier measured a different board, so this is recorded as "not
+reproduced here" rather than "was wrong". The roadmap's second ground —
+the IDP master's 1.552× fit-scale claim — is **untested in B2** and now
+prices zero rows on the default board (every live IDP rank is
+shared-market after the repair), but stays live on backbone-disabled
+override boards. Open.
+
+Full evidence: `evidence/W02/B2_CURVE_ROUTING_EVIDENCE.md`. Pinned by
+`tests/api/test_curve_routing_coordinate_pool.py` (15 tests; 6 RED → all
+green).
+
+### W02-F001b (new) — `sharedMarketTranslated` recorded intent, not outcome
+
+**FIXED in B2, same commit.** The field was stamped
+`needs_shared_market and scope == overall_idp` — the registry's promise.
+When the backbone is absent `translate_position_rank` returns the raw
+rank with `method == "fallback"` and the field still read `True`. A
+provenance field that lies exactly when provenance matters, and the field
+any coordinate-aware routing would naturally key on. Now stamped from the
+translation outcome.
+
+## W02-F002 — Hampel ejects the IDP market anchor
+
+**RESOLVED AS A CONSEQUENCE OF W02-F001, in magnitude.** Remeasured on
+the post-B2 board rather than fixed independently, as the finding's own
+`dependencies` field requires.
+
+| | ejected / eligible | rate | HIGH |
+|---|---|---|---|
+| baseline | 50 / 164 | 30.5% | 50/50 |
+| post-B2 | 4 / 190 | **2.1%** | 4/4 |
+
+The baseline reproduces the registry's 29.4% / 52-of-52. The mechanism
+was F001's: three mispriced votes dragged the per-player median far
+enough that the correctly-priced anchor read as the outlier. The
+finding's `expected` is "a low single-digit percentage, with drops in
+both directions" — 2.1% meets the magnitude half.
+
+**PARTIALLY REMAINS, in direction**: the four survivors are still all
+HIGH. At n = 4 that is not evidence of a mechanism, so it justifies no
+Hampel change; recorded so a later phase can test it across boards.
+
+## W02-F003 — the market corridor clamp
+
+**STILL REPRODUCES, and the rate rose.** Remeasured, not fixed.
+
+| | clamped | of ranked IDP rows | capped by max band | on the band edge | up / down |
+|---|---|---|---|---|---|
+| baseline | 131 | 43.2% of 303 | 131/131 (100%) | 131/131 (100%) | 57 / 74 |
+| post-B2 | 183 | **55.6%** of 329 | 183/183 (100%) | 183/183 (100%) | **23 / 160** |
+
+Both recorded symptoms are intact: the per-bucket P90 machinery is inert
+(every clamp is capped by the 0.15 hard band, and 0.15 is the only
+`bandPct` observed), and every clamped row lands exactly on
+`anchor × (1 ± 0.15)`.
+
+Two new facts. The rate **rose** — F001 was masking part of the binding,
+not causing it. And the direction **flipped**: the corrected blend now
+sits above the anchor far more often than below, so the corridor is
+mostly acting as a *ceiling* on IDP value. That is the opposite of the
+"containing the IDP calibration runaway" rationale its own comments still
+give — a rationale CLAUDE.md already records as stale, since the
+calibration post-pass it names was removed. Strongest B3 candidate.
+
 ## Not done here
 
 - `verify_closure.py --rerun` over the 338 safe reproductions. It needs the full stack
