@@ -136,6 +136,68 @@ facts a repair will need: the clamp is enforced in *two* places
 and board impact is non-monotone in per-source value because the post-blend
 IDP stages are relative — a row can rise when its clamped peers fall.
 
+### B4 outcome (2026-08-11) — BLOCKED BY A CANONICAL DEPENDENCY
+
+Everything above this heading is B1.2's record on **B1.2's pin** and is left
+standing as written. The numbers below are B4's, on **B4's pin**
+(`dynasty_data_2026-08-11.json` sha256 `8fb6ede274171aee…`); the two are
+different experiments and are not interchangeable. Full decision:
+`evidence/W30/B4_TAIL_DECISION.md`.
+
+**Two corrections to the population, both narrowing it.**
+
+*Withdrawn — B4's own first measurement.* B4 initially reported **703 of
+6,322 observations (11.1%) touching 348 of 1,092 rows**, counting any
+stamped `effectiveRank > 500` as saturated. That is wrong: value-direct
+sources price from the raw site value and never reach `percentile_to_value`.
+Withdrawn explicitly, and the specific claim withdrawn with it — *"208
+distinct `idpTradeCalc` opinions priced as one number"* — is false, because
+none of `idpTradeCalc`'s live contributions take the rank-Hill path at all.
+The B1.2 table above has the same shape (it attributes 289 collapsed ranks
+to `idpTradeCalc`), and it stays as B1.2's record; B4's path-gated figure is
+the one a repair should be measured against.
+
+*Path-gated figure.* **421 of 5,146 rank-Hill observations past rank 500
+(8.18%), touching 254 of 1,092 board rows.** `idpTradeCalc` contributes
+**zero** — 779 stamped ranks, all value-direct. Its deep ranks remain real
+as the shared-market translation backbone, which is a translation role, not
+a flattened contribution.
+
+*Served-row distinction (added 2026-08-11).* All **254 of 254** touched rows
+are served. `254 / 1,092` mixes published rows with 352 the board never
+serves and understates the user-visible rate; against the 740 served rows it
+is **34.3%**, and per position DB 79.8%, DL/EDGE 75.2%, LB 53.8%.
+
+**Two facts the entry above got right, and two it did not have.** The clamp
+count is **four**, not two — `rank_to_percentile`, `percentile_to_value`,
+the holdout scorer's standalone `hill()` and the fit's `_hill`. And the
+deepest rank-Hill rank consumed by a *served* row is **877**, past
+`OVERALL_RANK_LIMIT`, so the board limit is not a defensible saturation
+point for the source-coordinate domain.
+
+**Selected policy: bounded at rank 903**, the deepest rank any source
+publishes (corroborated at `src/api/source_history.py:352-353`). Continuous
+extrapolation is observationally identical on this board — max |delta| 0
+over ranks 1..877 — and is refused only on "missing is never zero": it
+resolves rank 50,000 to 72 with no evidence behind it.
+
+**Not applied.** Setting the boundary makes the B3 corridor clamp four rows
+carrying five or more sources and three rows in the top third of the IDP
+board — both of which B3's own repair criteria forbid — and flips three
+clamps to direction `up`. The mechanism is **W02-F015/#794** (all 27 clamps
+anchor on `idpTradeCalc`, itself one of the row's voters) and
+**W02-F016/#795** (the band is the board's own P90 drift, so removing the
+saturation inflation narrows it 0.63 → 0.46 and tightens the corridor onto
+rows it never targeted). W30-F023 is therefore **not separable** from those
+two residuals on this board, and B4 may not reopen B3.
+
+**What did land, behaviour-preserving:** the four clamps now defer to one
+owner (`src/canonical/tail_policy.py`) — a W30-F008-class repair, verified
+identical on all 1,092 rows — and `valueContributionPath` is recorded from
+the branch taken instead of re-derived. The W30-F023 assertions ship as
+`xfail(strict=True)`, so setting the boundary turns them into errors and
+forces a deliberate re-decision.
+
 ## W30-F024 (new) — the model registry could overwrite its own history
 
 **FIXED this session.** `load_or_seed_registry` treated any `RegistryError`
@@ -238,9 +300,11 @@ both directions" — 2.1% meets the magnitude half.
 HIGH. At n = 4 that is not evidence of a mechanism, so it justifies no
 Hampel change; recorded so a later phase can test it across boards.
 
-## W02-F003 — the market corridor clamp
+## W02-F003 — the IDP market corridor clamp
 
-**STILL REPRODUCES, and the rate rose.** Remeasured, not fixed.
+Two stages, recorded in order. **B2 remeasured it and did not fix it**; **B3 repaired it.** Read both — the B2 numbers are attached to the B2 pin and were not recomputed on B3's board.
+
+### B2 — STILL REPRODUCES, and the rate rose. Remeasured, not fixed.
 
 | | clamped | of ranked IDP rows | capped by max band | on the band edge | up / down |
 |---|---|---|---|---|---|
@@ -260,9 +324,9 @@ mostly acting as a *ceiling* on IDP value. That is the opposite of the
 give — a rationale CLAUDE.md already records as stale, since the
 calibration post-pass it names was removed. Strongest B3 candidate.
 
-## W02-F003 — the IDP market corridor clamp
+### B3 — REPAIRED.
 
-**REPAIRED IN B3.** Reproduced first on a fresh pin (code `2449af9ac`,
+Reproduced first on a fresh pin (code `2449af9ac`,
 board `dynasty_data_2026-08-11.json` sha256₁₆ `8fb6ede274171aee`, a
 DIFFERENT board from B2's — the B2 numbers stay attached to the B2 pin).
 The finding reproduced identically: 183/329 ranked IDP rows clamped
@@ -308,10 +372,103 @@ Full evidence: `evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md`. Pinned by
 `tests/api/test_market_corridor_characterization.py` (15) plus the
 rewritten cap tests in `tests/api/test_market_corridor_clamp.py` (31).
 
-Still open after B3: the anchor is still a voter on the remaining 9.7%;
-the confidence-bucket dependency is now LIVE for the first time (the band
-that decides clamps is derived per bucket); C17's OFFENSE half; the IDP
-master's 1.552× fit-scale claim; W30-F023.
+Still open after B3, and now tracked with their own identities rather
+than as prose inside a closed finding: **W02-F015 / #794** (the anchor is
+still a voter on the remaining 9.7%), **W02-F016 / #795** (the band is
+derived from the drift it bounds), **W02-F017 / #796** (confidence-bucket
+correctness is now a live dependency). W30-F023 is tracked as **#797**. Also still open and unchanged by B3: C17's OFFENSE half,
+the IDP master's 1.552× fit-scale claim, and W30-F023.
+
+## W02-F015 (new) — the corridor anchor is also a voter
+
+**= GitHub issue [#794](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/794).**
+The issue is the owner-facing identity and takes precedence; this entry is
+the audit-registry row for the same item, not a second one. Anything that
+closes one closes the other.
+
+**OPEN. Measured in B3, deliberately not repaired there.** Recorded here
+rather than in `findings.json`, which was generated at `8b88623f` and is
+not regenerated by this engagement.
+
+`idpTradeCalc` is the IDP corridor's market anchor *and* a voting source
+in the blend the corridor constrains — as are all three fallback anchors
+(`dlfIdp`, `idpShow`, `fantasyProsIdp`). On the B3 pin it was the anchor
+on **183/183** clamped rows and also voted on **183/183**; the fallback
+chain never fired. So it received a direct contribution and then a
+post-blend veto over the result.
+
+B3 removed the hard second-bite (the veto covered 55.6% of the ranked IDP
+board; it now covers **9.7%**) but **did not establish anchor
+independence**, and that was outside its authorization. Whether the
+corridor should anchor on a leave-one-out blend, on a genuinely external
+source, or on something else is a design question with no measured answer
+yet.
+
+One measurement constraint a repair will hit: `idpTradeCalc` is also the
+IDP **backbone**, so a whole-board leave-it-out rebuild is not "the same
+model minus one vote" — it empties the shared-market ladder and changes
+every other IDP source's coordinates. B3's isolate was the stamped
+per-source vote share (0.721× the median of the other sources on clamped
+rows), not the rebuild.
+
+Evidence: `evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md` §2, §9. Pinned as
+a fact by `tests/api/test_market_corridor_characterization.py
+::test_every_idp_anchor_is_a_voting_source_in_the_blend_it_clamps`.
+
+## W02-F016 (new) — the corridor band is derived from the drift it bounds
+
+**= GitHub issue [#795](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/795)** — same item, one identity each side.
+
+**OPEN. A property of the empirical design, not of the B3 removal.**
+
+After B3 the corridor's band is the P90 of `|value − anchor| / anchor`
+computed per confidence bucket *on the board being clamped*. A board that
+drifted **as a whole** would therefore widen its own acceptable band and
+catch nothing — the mechanism cannot distinguish "this row is an outlier"
+from "everything moved together".
+
+This is why B3 kept the `_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS`
+facility in place rather than deleting it: the empty dict is a deliberate
+state, not dead code awaiting cleanup.
+
+What a repair would need that does not exist today: an anchor for the
+band that is not the current board — a historical drift distribution, a
+cross-league comparison, or a declared tolerance with stated provenance.
+Any of those is a modelling decision requiring its own evidence, and
+inventing a second hand-set constant is precisely what B3's criterion 6
+rejected.
+
+Evidence: `evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md` §7, and the
+comment at the constant itself.
+
+## W02-F017 (new) — confidence-bucket correctness is now a live dependency
+
+**= GitHub issue [#796](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/796)** — same item, one identity each side.
+
+**OPEN, and NEW as of B3 — the dependency did not exist before.**
+
+The corridor derives its band per `confidenceBucket`. Before B3 the hard
+cap overrode that number on every row, so bucket quality could not affect
+production: B3's §7 analysis is explicit that the corridor was *not*
+blocked by confidence work for exactly that reason. After B3 the
+bucket-derived band decides every clamp, so **confidence-bucket semantics
+now control production corridor behaviour for the first time**.
+
+Concretely, on the B3 pin the three bands differ materially — medium
+0.5183, low 0.6316, high 0.6504 — so which bucket a row lands in changes
+whether it is clamped.
+
+Cross-reference, do not duplicate: `W03-F004` tracks confidence-bucket
+correctness itself (tooltip honesty now, a coverage term in the bucket
+next). This entry exists because that finding acquired a **new consumer**
+and its severity to the served board changed; it should be read alongside,
+not instead of, W03-F004.
+
+Note also the inversion B3 measured under the old policy — clamp rate by
+bucket ran high 63.9% / medium 45.8% / low 60.7%, i.e. non-monotone in
+confidence. Post-repair it is 8.3 / 10.0 / 9.8%, which is flat rather than
+ordered. A band system that is *meant* to be confidence-graded producing a
+flat outcome is worth understanding before anyone tunes it.
 
 ## Not done here
 

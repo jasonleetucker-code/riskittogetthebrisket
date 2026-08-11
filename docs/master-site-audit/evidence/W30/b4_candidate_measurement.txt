@@ -1,0 +1,99 @@
+
+B4 evaluation criteria — DECLARED BEFORE MEASUREMENT
+====================================================
+
+A candidate must be scored against all eight. They are ordered: 1-3 are
+disqualifying, 4-6 decide between survivors, 7-8 are properties the
+chosen candidate must be able to demonstrate.
+
+1. HEAD PRESERVATION (disqualifying).
+   Ranks 1..500 must be bit-identical to today. A tail policy that moves
+   the region the curve was fitted to represent is a refit wearing a
+   tail's clothes, and B4 is explicitly forbidden from refitting to
+   compensate for the tail.
+
+2. EVIDENCE SEPARATION (disqualifying).
+   Distinct ranks for which a source published distinct evidence must
+   receive distinct contributions. Measured as (distinct values) /
+   (distinct live deep ranks) over the observed range. This is the
+   defect; a candidate that does not fix it is candidate A.
+
+3. MONOTONICITY (disqualifying).
+   Non-increasing in rank everywhere — a deeper rank must never be worth
+   more — AND strictly decreasing across ranks that carry distinct
+   evidence.
+
+   MEASUREMENT CLARIFICATION, recorded rather than silently applied: the
+   first draft of this criterion said "strictly decreasing per unit
+   rank". That is unachievable by ANY candidate including the current
+   one, because contributions are integers on a 1-9999 scale and adjacent
+   deep ranks differ by less than half a unit, so they legitimately tie
+   on rounding. The standard is unchanged in substance — distinct
+   evidence must not collapse — but it is evaluated over distinct
+   evidence ranks, with per-unit-rank strictness reported alongside as a
+   diagnostic rather than a gate. Both figures are printed.
+
+4. NO INVENTED EVIDENCE.
+   "Missing is never zero." A source that stops at rank N has no opinion
+   about players below it. A policy is penalised for resolving ranks
+   beyond any observed coverage, because doing so states a value the
+   data does not support.
+
+5. BOUNDED AND STABLE AT DEPTH.
+   Behaviour as rank grows without limit must be defined and defensible.
+   A future source ranking twice as deep must not silently receive an
+   arbitrarily small contribution that no evidence backs.
+
+6. ONE OWNER FOR SERVING, FITTING AND SCORING.
+   The policy must be expressible in a single place that all four
+   clamps defer to. A policy that cannot be shared re-creates W30-F008,
+   where training and serving disagreed about a coordinate.
+
+7. PROPORTIONATE BOARD IMPACT.
+   The measured movement must land where the defect is (deep IDP rows)
+   and not where it is not (offense, picks). Movement outside the
+   saturated population is evidence the change did something other than
+   what it claims.
+
+8. REVERSIBLE BY ONE CONSTANT.
+   Current behaviour must be restorable by a single declared value,
+   with no code path change.
+
+== the bounded candidate is a change of units, proven as arithmetic ==
+  GLOBAL   M=c(N-1)=  55.888   boundary 878: transform c->0.063726 == coordinate ceiling p_max=1.7575   max |delta| = 0
+  GLOBAL   M=c(N-1)=  55.888   boundary 903: transform c->0.061960 == coordinate ceiling p_max=1.8076   max |delta| = 0
+  OFFENSE  M=c(N-1)=  54.890   boundary 878: transform c->0.062588 == coordinate ceiling p_max=1.7575   max |delta| = 0
+  OFFENSE  M=c(N-1)=  54.890   boundary 903: transform c->0.060854 == coordinate ceiling p_max=1.8076   max |delta| = 0
+  IDP      M=c(N-1)=  41.417   boundary 878: transform c->0.047226 == coordinate ceiling p_max=1.7575   max |delta| = 0
+  IDP      M=c(N-1)=  41.417   boundary 903: transform c->0.045917 == coordinate ceiling p_max=1.8076   max |delta| = 0
+
+== criteria 1-3 (disqualifying) ==
+  'strict/evidence' = strictly decreasing across ranks carrying distinct evidence.
+  'strict/unit' = per unit rank; False for EVERY candidate incl. current, because
+  contributions are integers and adjacent deep ranks tie on rounding — diagnostic,
+  not a gate (see criterion 3).
+  cand    head delta  head ok  separation  strict/evidence  strict/unit  non-incr
+  A                0     True       0.125            False        False      True
+  B                0     True         1.0             True        False      True
+  C877             0     True         1.0             True        False      True
+  C903             0     True         1.0             True        False      True
+  D             1063    False         1.0             True            —         —
+
+== criteria 4-6 ==
+  cand    invents evidence   V@5000  V@50000  one owner
+  A                  False     1698     1698       True
+  B                   True      370       72       True
+  C877               False     1197     1197       True
+  C903               False     1175     1175       True
+
+  D — per-source native-pool coordinate: rank 600 receives 6 different values depending on which source supplied it, and the fitted head moves by 1063 — the coordinate stops being a shared unit, which is W30-F008 re-created, and the curve is reshaped inside the region it was fitted to
+      rank 600 priced as {'dlfIdp': 1731, 'dlfRookieIdp': 1799, 'draftSharks': 1836, 'draftSharksIdp': 1908, 'flockFantasySfRookies': 1733, 'idpShow': 2122}
+
+== B vs C on the LIVE evidence range — do they differ at all? ==
+  B vs C877: max |delta| over ranks 1..877 = 0
+  B vs C903: max |delta| over ranks 1..877 = 0
+  They are observationally IDENTICAL on every rank the pinned board contains.
+  The choice between them is therefore not decidable from this board — it is a
+  decision about ranks nobody has published, and criteria 4/5 are what decide it.
+
+wrote /home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W30/b4_candidate_report.json

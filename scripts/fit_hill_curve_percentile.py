@@ -52,7 +52,11 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from src.canonical.player_valuation import training_percentiles  # noqa: E402
+from src.canonical.player_valuation import (  # noqa: E402
+    PERCENTILE_REFERENCE_N,
+    training_percentiles,
+)
+from src.canonical.tail_policy import clamp_percentile  # noqa: E402
 
 # Value-based sources grouped by scope.  Each entry: (csv_path,
 # value_col, label).  The IDPTC IDP scope contribution is still
@@ -258,7 +262,11 @@ def _percentile_pairs(values: list[float]) -> list[tuple[float, float]]:
 
 
 def _hill(p: float, c: float, s: float) -> float:
-    p = max(0.0, min(1.0, float(p)))
+    # Tail bound from the canonical owner, not a local ``min(1.0, p)``.
+    # A fit that capped its own training coordinates would re-learn the
+    # saturated shape on every refit and hand production a curve shaped
+    # by a tail policy production had already stopped using (W30-F023).
+    p = clamp_percentile(p, reference_n=PERCENTILE_REFERENCE_N)
     if p == 0.0:
         return 9999.0
     return 9999.0 / (1.0 + (p / c) ** s)

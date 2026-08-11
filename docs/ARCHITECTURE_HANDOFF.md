@@ -17,14 +17,14 @@ state. This file holds **architecture** state.
 | | |
 |---|---|
 | Branch | `claude/dynasty-audit-consolidation-e75vdy` |
-| **Validated implementation HEAD** | `27c8a8d1e` (B2) — the exact tree that received the full Python suite, full frontend suite, build and lint below. The pre-B2 figures were measured at `efa18f0e6` |
-| **Validation base** | `origin/main` @ `a5ff76b09` (post-PR-#776 merge; the branch was re-cut from it). The pre-B2 base was `4ac9b22b2`.|
+| **Validated implementation HEAD** | `e18510708` (B3) — the exact tree that received the full Python suite, full frontend suite, build and lint below, and the exact-HEAD CI run the owner gated on. B2's figures were measured at `27c8a8d1e`, pre-B2 at `efa18f0e6` |
+| **Validation base** | `origin/main` @ `2449af9ac` (post-PR-#787 merge; the branch was re-cut from it, as B3 required). B2's base was `a5ff76b09`, pre-B2 `4ac9b22b2`. |
 | **Post-validation commits** | Correction-pass commits after `efa18f0e6` carry their own targeted gates, recorded per commit. Any that change production or test behavior re-run the suites; documentation-only commits do not |
 | **Handoff document commit** | This file is committed *after* the state it describes, so it cannot contain its own SHA. Read the fields above, not "current HEAD" |
-| PR | [#787](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/787) — B2; Validate PR **green** at `27c8a8d1e`. [#776](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/776) (Phase A + B1/B1.2) is merged |
+| PR | [#793](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/793) — B3, **merged** as `a89a07ea3`; Validate PR green on exact HEAD `e18510708` (run 31492572309). [#787](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/787) (B2) and [#776](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/776) (Phase A + B1/B1.2) are also merged |
 | Working tree | clean at each recorded gate |
 | **Model-input snapshot** | Pinned and hashed by `docs/master-site-audit/evidence/W30/b1_denominator_measure.py` — required before any B1 comparison, because `main`'s 2-hourly refreshes rewrite the fit's own CSVs |
-| Phase | **A FORMALLY CLOSED 2026-08-11.** B1 + B1.2 executed to the evidence boundary (coordinate repair merged, challenger measured, **nothing promoted**) and merged as PR #776. **B2 executed 2026-08-11**: W02-F001 repaired at the root cause, W02-F002/F003 re-measured on the post-B2 board rather than pre-fixed. Hill-model promotion remains **NOT AUTHORIZED** and nothing was promoted or applied. B3 and competitive-expansion implementation NOT started — owner gate below. |
+| Phase | **A FORMALLY CLOSED 2026-08-11.** B1 + B1.2 to the evidence boundary, merged as #776. **B2** (W02-F001 curve routing) merged as #787. **B3** (W02-F003 market corridor) merged as #793 — W02-F003 VERIFIED FIXED, with three residuals tracked as W02-F015/F016/F017 rather than closed into its narrative. Hill-model promotion remains **NOT AUTHORIZED**; nothing has been promoted or applied in any phase. **B4 NOT started** — the owner is choosing the next foundational item against the master inventory, current audit state and the owner-requested priority list. |
 
 > **Why these fields and not "current HEAD".** A Markdown file committed at one
 > SHA cannot literally contain that SHA, so a field claiming to be "the commit
@@ -37,15 +37,16 @@ state. This file holds **architecture** state.
 
 | gate | result |
 |---|---|
+| `pytest tests/ -q -x -m "not livedata"` (B3 HEAD) | **6,913 passed / 0 failed**, 278 deselected, 294 subtests, 22m50s. Exactly +15 over B2 — the corridor characterization file, and nothing else |
 | `pytest tests/ -q -x -m "not livedata"` (B2 HEAD) | **6,898 passed / 0 failed**, 278 deselected, 294 subtests, 23m50s. +15 over the pre-B2 tree are the curve-routing regression tests; the rest of the delta from the figures below is what merged into `main` with PR #776, not measured here |
 | `pytest tests/ -q` (pre-B2, `efa18f0e6`) | **7,070 passed / 0 failed** / 25 skipped / 633 subtests. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 when those were rewritten to drive real production logic) → 7,038 (+12 B1 pin-coverage guard) → 7,070 (+32 percentile-coordinate contract, minus one file's rename). Every delta is accounted for by new tests; no existing test changed state. |
-| `vitest run` (frontend, B2 HEAD) | **2,010 passed / 0 failed**, 121 files — unchanged by B2 (backend-only). Trail: 2,004 → 2,007 (+3 FAAB missing-vs-zero) → 2,010 (+3 multi-team trade crash regression) |
-| `ruff format --check .` | 1,006 files already formatted |
+| `vitest run` (frontend, B3 HEAD) | **2,010 passed / 0 failed**, 121 files — unchanged by B2 and B3 alike, both backend-only. Trail: 2,004 → 2,007 (+3 FAAB missing-vs-zero) → 2,010 (+3 multi-team trade crash regression) |
+| `ruff format --check .` | 1,009 files already formatted |
 | `ruff check .` | All checks passed |
 | `scripts/check_decision_coercions.py` | clean — no new coercions, no stale allowances |
 | `scripts/audit_status.py` | no drift (C-tracker: 21 closed / 19 open / 2 needs_review / 1 deferred). **B2 tripped it**: C17's defect signature `if src_def.get("is_cross_market"):` no longer exists. C17 stays OPEN with `signature: None` — its routing half is fixed, its scale half (OFFENSE master at 0.76 of ktcSfTep raw) is not, and a number has no source fragment to witness it. `needs_review` was rejected: it is exempt from the drift check, so it tracks nothing |
 | `npm --prefix frontend run build` | compiled; **all 14 route bundle budgets under** |
-| CI `Validate PR` on `27c8a8d1e` | **green** (run 31483317554) |
+| CI `Validate PR` on `e18510708` | **green** (run 31492572309) — the owner gated on the exact HEAD, not the prior implementation SHA |
 | Stack bring-up | `/api/status` `has_data: true`, 1,095 players, scrape suppressed |
 
 Environment: python 3.11.15 in `.venv` (`scripts/setup.sh`), node 22.22.2, vitest 4.1.10.
@@ -382,12 +383,28 @@ the value chain.
     shared-market) but is still live on backbone-disabled override boards. Any future IDP-master
     promotion must be judged against that changed live role.
   - Evidence: `docs/master-site-audit/evidence/W02/B2_CURVE_ROUTING_EVIDENCE.md`.
-- **B3** — W02-F002 and W02-F003 have been **re-measured on the post-B2 board** (B2 §6–§7), which
-  was the precondition. W02-F002 is resolved as a consequence of F001 in magnitude
-  (30.5% → 2.1% anchor ejection) with the all-HIGH direction partially remaining at n=4.
-  **W02-F003 still reproduces and the rate rose** (43.2% → 55.6% of ranked IDP rows, still 100%
-  capped by the 0.15 hard band, direction flipped 57up/74down → 23up/160down). It is the
-  strongest B3 candidate. Neither was pre-fixed.
+- **B3 — W02-F003: DONE 2026-08-11, merged as PR #793.** W02-F002 needed no independent repair
+  (anchor ejection fell 30.5% → 2.1% as a consequence of W02-F001; the residual 4/4 HIGH at n=4
+  justifies no Hampel change and is kept as evidence for later monitoring). **W02-F003 is
+  VERIFIED FIXED**: the IDP entry was removed from `_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS`,
+  so the corridor's band is again the board-derived per-bucket P90 it was designed to be.
+  - The cap decided 100% of clamps and re-priced **55.6%** of the ranked IDP board to exactly
+    `idpTradeCalc × 0.85` or `× 1.15`, at a clamp rate **inverted** against confidence (high
+    63.9% vs medium 45.8%). Uncapped, the same code clamps **9.7%**, all in the board tail,
+    none with five or more sources, flat across buckets. Removing rather than retuning was the
+    point — a new hand-set number reproduces the defect at a new value.
+  - Its stated purpose predeceased it: the corridor was built 2026-04-21 (#198) to contain the
+    IDP calibration post-pass, which was retired 2026-04-23 (#251). The cap arrived nine days
+    after that.
+  - Evidence: `docs/master-site-audit/evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md`.
+  - **Three residuals are tracked, not closed**, each with one identity per side —
+    `W02-F015` = **#794**, `W02-F016` = **#795**, `W02-F017` = **#796**, and W30-F023 = **#797**:
+    `W02-F015` (the corridor anchor is also a
+    voting source — B3 shrank the second bite from 55.6% to 9.7% of the board but did not
+    establish independence), `W02-F016` (the band is derived from the drift distribution it
+    bounds, so whole-board drift widens its own acceptance), `W02-F017` (confidence-bucket
+    correctness is now a LIVE production dependency for the first time — read with W03-F004).
+
 - Then B4 (TEP residual), B5 (W06 identity batch), B6/B7 (league config + realized points —
   W18-F003 has an NFL-week-1 deadline), B8 (security chain, incl. owner-decided draft-capital
   redaction), B10 (W12-F008 circularity), B11 (confidence), B9 (value-scale semantics — **hard

@@ -1,0 +1,331 @@
+{
+ "saturationRankAfter": 903,
+ "rowsCompared": 1092,
+ "rowsWithSaturatedObservation": 254,
+ "valuesChanged": 252,
+ "valuesChangedOutsideSaturatedPopulation": 36,
+ "servedBefore": 740,
+ "servedAfter": 740,
+ "promoted": [
+  "2029 Early 3rd",
+  "Barion Brown",
+  "CJ Daniels",
+  "Cole Payton",
+  "Davis Mills",
+  "Deion Burks",
+  "Desmond Reid",
+  "Dyami Brown",
+  "Elijah Moore",
+  "Emari Demercado",
+  "Eric McAlister",
+  "Eric Rivers",
+  "J'Mari Taylor",
+  "Ja'Lynn Polk",
+  "Jahdae Walker",
+  "Jaleel McLaughlin",
+  "Jeff Caldwell",
+  "Josh Cameron",
+  "Kameron Johnson",
+  "Kareem Hunt",
+  "KeAndre Lambert-Smith",
+  "Kendrick Bourne",
+  "Malik Benson",
+  "Nick Chubb",
+  "Olamide Zaccheaus",
+  "Phil Mafah",
+  "Tahj Washington",
+  "Tai Felton",
+  "Tanner McKee",
+  "Tutu Atwell",
+  "Ty Johnson",
+  "Tyler Huntley",
+  "Will Levis"
+ ],
+ "dropped": [
+  "Alim McNeill",
+  "B.J. Hill",
+  "Baron Browning",
+  "Christian Benford",
+  "DJ Wonnum",
+  "Darius Robinson",
+  "David Walker",
+  "Deommodore Lenoir",
+  "Elijah Molden",
+  "Genesis Smith",
+  "Geno Stone",
+  "Harold Perkins",
+  "Ja'Quan McMillian",
+  "Jaden Dugger",
+  "Jadon Canady",
+  "Jaycee Horn",
+  "Ji'Ayir Brown",
+  "Jonah Laulu",
+  "Jonathan Allen",
+  "Jourdan Lewis",
+  "Kamari Ramsey",
+  "Kayden McDonald",
+  "Kendal Daniels",
+  "Keyron Crawford",
+  "Keyshaun Elliott",
+  "Omar Speights",
+  "Pat Surtain",
+  "Ronnie Hickman",
+  "Sauce Gardner",
+  "Tarheeb Still",
+  "Taron Johnson",
+  "Theo Jackson",
+  "Zakee Wheatley"
+ ],
+ "roseWithNoContributionRising": [
+  {
+   "name": "Abdul Carter",
+   "delta": 372,
+   "someContributionFell": false
+  },
+  {
+   "name": "Dallas Turner",
+   "delta": 77,
+   "someContributionFell": false
+  }
+ ],
+ "corridor": {
+  "appliedBefore": 32,
+  "appliedAfter": 27,
+  "newlyClamped": [
+   "Abdul Carter",
+   "Calen Bullock",
+   "Christian Gonzalez",
+   "Coby Bryant",
+   "Dallas Turner",
+   "DeMarcus Lawrence",
+   "Jamien Sherwood",
+   "Javon Bullard",
+   "Jordan Burch",
+   "Joshua Josephs",
+   "Justin Reid",
+   "Keisean Nixon",
+   "Nick Herbig",
+   "Quinyon Mitchell"
+  ],
+  "noLongerClamped": [
+   "B.J. Hill",
+   "Christian Benford",
+   "DJ Wonnum",
+   "Daron Payne",
+   "Genesis Smith",
+   "Geno Stone",
+   "Ja'Quan McMillian",
+   "Jaden Dugger",
+   "Jaycee Horn",
+   "Ji'Ayir Brown",
+   "Jonah Laulu",
+   "Jonathan Allen",
+   "Kamari Ramsey",
+   "Keyron Crawford",
+   "Keyshaun Elliott",
+   "Omar Speights",
+   "Tarheeb Still",
+   "Taron Johnson",
+   "Zakee Wheatley"
+  ],
+  "bucketsBefore": {
+   "low": 17,
+   "medium": 12,
+   "high": 3
+  },
+  "bucketsAfter": {
+   "medium": 11,
+   "low": 16
+  },
+  "directionBefore": {
+   "down": 32
+  },
+  "directionAfter": {
+   "up": 3,
+   "down": 24
+  },
+  "anchorsBefore": {
+   "idpTradeCalc": 32
+  },
+  "anchorsAfter": {
+   "idpTradeCalc": 27
+  }
+ },
+ "largestMovers": [
+  {
+   "name": "Jamien Sherwood",
+   "position": "LB",
+   "before": 3198,
+   "after": 2688,
+   "delta": -510
+  },
+  {
+   "name": "Abdul Carter",
+   "position": "DL",
+   "before": 3654,
+   "after": 4026,
+   "delta": 372
+  },
+  {
+   "name": "Javon Bullard",
+   "position": "DB",
+   "before": 1327,
+   "after": 1097,
+   "delta": -230
+  },
+  {
+   "name": "Oluwafemi Oladejo",
+   "position": "DL",
+   "before": 1312,
+   "after": 1085,
+   "delta": -227
+  },
+  {
+   "name": "Christen Miller",
+   "position": "DL",
+   "before": 1263,
+   "after": 1045,
+   "delta": -218
+  },
+  {
+   "name": "Jordan Burch",
+   "position": "DL",
+   "before": 1336,
+   "after": 1123,
+   "delta": -213
+  },
+  {
+   "name": "Joshua Josephs",
+   "position": "DL",
+   "before": 1338,
+   "after": 1129,
+   "delta": -209
+  },
+  {
+   "name": "DeMarcus Lawrence",
+   "position": "DL",
+   "before": 1340,
+   "after": 1134,
+   "delta": -206
+  },
+  {
+   "name": "Justin Reid",
+   "position": "DB",
+   "before": 1342,
+   "after": 1140,
+   "delta": -202
+  },
+  {
+   "name": "Coby Bryant",
+   "position": "DB",
+   "before": 1344,
+   "after": 1146,
+   "delta": -198
+  },
+  {
+   "name": "Jimmy Rolder",
+   "position": "LB",
+   "before": 1359,
+   "after": 1163,
+   "delta": -196
+  },
+  {
+   "name": "Romello Height",
+   "position": "LB",
+   "before": 1349,
+   "after": 1159,
+   "delta": -190
+  },
+  {
+   "name": "Alohi Gilman",
+   "position": "DB",
+   "before": 1485,
+   "after": 1300,
+   "delta": -185
+  },
+  {
+   "name": "Jakobe Thomas",
+   "position": "DB",
+   "before": 1490,
+   "after": 1305,
+   "delta": -185
+  },
+  {
+   "name": "Jalen Ramsey",
+   "position": "DB",
+   "before": 1356,
+   "after": 1172,
+   "delta": -184
+  },
+  {
+   "name": "Christian Rozeboom",
+   "position": "LB",
+   "before": 1486,
+   "after": 1303,
+   "delta": -183
+  },
+  {
+   "name": "Khalil Mack",
+   "position": "DL",
+   "before": 1492,
+   "after": 1312,
+   "delta": -180
+  },
+  {
+   "name": "Kyler Gordon",
+   "position": "DB",
+   "before": 1485,
+   "after": 1308,
+   "delta": -177
+  },
+  {
+   "name": "Jahdae Barron",
+   "position": "DB",
+   "before": 1503,
+   "after": 1327,
+   "delta": -176
+  },
+  {
+   "name": "Zaven Collins",
+   "position": "LB",
+   "before": 1486,
+   "after": 1310,
+   "delta": -176
+  },
+  {
+   "name": "Demario Davis",
+   "position": "LB",
+   "before": 1500,
+   "after": 1328,
+   "delta": -172
+  },
+  {
+   "name": "Jevon Holland",
+   "position": "DB",
+   "before": 1485,
+   "after": 1313,
+   "delta": -172
+  },
+  {
+   "name": "Bryce Boettcher",
+   "position": "LB",
+   "before": 1485,
+   "after": 1314,
+   "delta": -171
+  },
+  {
+   "name": "Kevin Byard",
+   "position": "DB",
+   "before": 1485,
+   "after": 1314,
+   "delta": -171
+  },
+  {
+   "name": "Cameron Heyward",
+   "position": "DL",
+   "before": 1485,
+   "after": 1315,
+   "delta": -170
+  }
+ ]
+}

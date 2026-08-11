@@ -1,0 +1,681 @@
+{
+ "pin": {
+  "phase": "B4",
+  "codeSha": "3d69718e9a07118f460cf7f2a6f2873175db2dab",
+  "codeSubject": "docs(B4): mark the continuation handoff complete with its outcome",
+  "dirtyPaths": [
+   "docs/master-site-audit/evidence/W30/b4_board_impact.py",
+   "docs/master-site-audit/evidence/W30/b4_tail_measure.py",
+   "docs/master-site-audit/evidence/W30/b4_tail_report.json",
+   "docs/master-site-audit/evidence/W30/b4_tail_reproduction.txt",
+   "tests/canonical/test_percentile_tail_policy.py"
+  ],
+  "dirtyIsEvidenceOnly": false,
+  "mainTip": "93b0a6617567fc837d809e732ba3529278172bb5",
+  "commitsAheadOfMain": [
+   "3d69718e9 docs(B4): mark the continuation handoff complete with its outcome",
+   "7b67c8cd5 docs(B4): W30-F023 is BLOCKED \u2014 the tail repair and the B3 corridor are not separable",
+   "93fab7734 refactor(canonical): one owner for the percentile tail, behaviour unchanged",
+   "3d9c36ad7 evidence(B4): criteria declared, then candidates A-D measured on the pin",
+   "468ea89fc test(B4): RED \u2014 distinct live evidence past rank 500 prices as one number",
+   "12409ca7e fix(contract): record valueContributionPath from the branch taken, not re-derive it",
+   "64a29501a evidence(B4): every saturated row is a SERVED row, and 254/1092 understated it",
+   "2eb9b64b2 docs(B4): single-file continuation handoff for a fresh session",
+   "49f86c93f fix(B4): correct the W30-F023 blast radius \u2014 it is path-gated, and smaller",
+   "485a77c06 evidence(B4): trace every saturation point \u2014 there are four, not two",
+   "b7f0dc5a7 evidence(B4): pin the B4 baseline and reproduce W30-F023",
+   "d1831d062 docs: map the B3 residual registry rows to their GitHub issues",
+   "5e355b9e3 docs(B3): give the three B3 residuals their own tracked identities"
+  ],
+  "board": {
+   "path": "exports/latest/dynasty_data_2026-08-11.json",
+   "sha256": "8fb6ede274171aeeea5b01d1b88cd49c391133dfb83490c213b38bce2f4cee36",
+   "bytes": 834861,
+   "scrapeTimestamp": "2026-08-11T11:32:57.431111",
+   "date": "2026-08-11",
+   "playerCount": 1074
+  },
+  "sourceCsvs": {
+   "dlfIdp.csv": {
+    "sha256": "9bf471c7222ad7d292244f11d72eba58a472a38e61f7b72f809738de8cf98166",
+    "bytes": 3528
+   },
+   "dlfRookieIdp.csv": {
+    "sha256": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "bytes": 575
+   },
+   "dlfRookieSf.csv": {
+    "sha256": "7b3109d1cf8eee82c4ec1fd2fbcd0ee9872b10c923b165f840d0156c318a0419",
+    "bytes": 1111
+   },
+   "dlfSf.csv": {
+    "sha256": "20ec2e95239e8e5b0232f816c6eab9f3702935dbd181587dda374595589363eb",
+    "bytes": 5872
+   },
+   "draftSharksIdp.csv": {
+    "sha256": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+    "bytes": 22026
+   },
+   "draftSharksRosIdp.csv": {
+    "sha256": "659e6a97771b0cb21e66e87329e0fe1c92f979a3002fc5dd1eb1a3fb7be6e3c2",
+    "bytes": 12423
+   },
+   "draftSharksRosSf.csv": {
+    "sha256": "83dc969830487b225e657e3c466e55c396938424b02ed26f729fd0712a89039a",
+    "bytes": 7273
+   },
+   "draftSharksSf.csv": {
+    "sha256": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+    "bytes": 163609
+   },
+   "dynastyDaddySf.csv": {
+    "sha256": "d9f57b19c9626a4810cbe3c5db0a451462662b1eab175a7d881116a5738c00ca",
+    "bytes": 8503
+   },
+   "dynastyNerdsSfTep.csv": {
+    "sha256": "fe232d5ef61c73793b663365c8c65906daa38b317666ddcd087f63f1433828d7",
+    "bytes": 10255
+   },
+   "fantasyCalc.csv": {
+    "sha256": "fc1fe584c0edf761718b97fc7e7e7cf956ef42f217e2a131a1b91f5fff5c7409",
+    "bytes": 9111
+   },
+   "fantasyNavigatorSf.csv": {
+    "sha256": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "bytes": 17978
+   },
+   "fantasyProsFitzmaurice.csv": {
+    "sha256": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "bytes": 8505
+   },
+   "fantasyProsIdp.csv": {
+    "sha256": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "bytes": 10513
+   },
+   "fantasyProsSf.csv": {
+    "sha256": "e7e91d2b6ae3ce1dcfaeaf8f237b3faaf7cbf69fea5c416e17c274b716fc5a94",
+    "bytes": 14004
+   },
+   "flockFantasySf.csv": {
+    "sha256": "31c9923a82417f82cebcb4515b6a5f0bada64469224ad35b98bba38c9a86ba1d",
+    "bytes": 9276
+   },
+   "flockFantasySfRookies.csv": {
+    "sha256": "e1cf340a54a7b2898cf912dfb0a23fe66f37aff0ec9d4cb31d2d43c52c5f9e20",
+    "bytes": 1694
+   },
+   "idpShow.csv": {
+    "sha256": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "bytes": 7670
+   },
+   "idpTradeCalc.csv": {
+    "sha256": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "bytes": 19660
+   },
+   "ktc.csv": {
+    "sha256": "4c7fab0cc7bb1ebd40ff03e2bb7a76fc7bd76eacbe47bfc2b3e78fe511d98790",
+    "bytes": 9856
+   },
+   "ktcSfTep.csv": {
+    "sha256": "92b7414d58535b67667befdc1305171ae5d0fa14f1f5ec9e8df476b45045c94b",
+    "bytes": 9863
+   },
+   "otcffbSf.csv": {
+    "sha256": "c1348395d72924bdac742185e1fd50d0c082b658b23d4e320f909a069867203b",
+    "bytes": 10164
+   },
+   "pfkDynasty.csv": {
+    "sha256": "dbeec7c1b0adb640f76af23faa3629c6763daa05c23cea5e0b349a3aede4446b",
+    "bytes": 15210
+   },
+   "yahooBoone.csv": {
+    "sha256": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3",
+    "bytes": 10774
+   }
+  },
+  "championModel": {
+   "modelId": "hill_scope_masters",
+   "version": 2,
+   "status": "champion",
+   "params": {
+    "HILL_GLOBAL_PERCENTILE_C": 0.112,
+    "HILL_GLOBAL_PERCENTILE_S": 0.725,
+    "HILL_PERCENTILE_C": 0.11,
+    "HILL_PERCENTILE_S": 1.11,
+    "IDP_HILL_PERCENTILE_C": 0.083,
+    "IDP_HILL_PERCENTILE_S": 1.11,
+    "HILL_ROOKIE_PERCENTILE_C": 0.153,
+    "HILL_ROOKIE_PERCENTILE_S": 0.885
+   }
+  },
+  "registryVersions": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "tailConstants": {
+   "PERCENTILE_REFERENCE_N": 500,
+   "OVERALL_RANK_LIMIT": 800
+  },
+  "sourceDepths": {
+   "ktcSfTep": null,
+   "idpTradeCalc": null,
+   "dlfSf": 280,
+   "dlfRookieSf": 50,
+   "dlfIdp": 185,
+   "dlfRookieIdp": 50,
+   "idpShow": 420,
+   "dynastyNerdsSfTep": 300,
+   "fantasyCalc": 450,
+   "otcffbSf": 460,
+   "fantasyNavigatorSf": 460,
+   "pfkDynasty": 460,
+   "dynastyDaddySf": 320,
+   "fantasyProsSf": 250,
+   "fantasyProsIdp": 100,
+   "fantasyProsFitzmaurice": 350,
+   "flockFantasySf": 370,
+   "flockFantasySfRookies": 50,
+   "yahooBoone": 500,
+   "draftSharks": 500,
+   "draftSharksIdp": 400
+  }
+ },
+ "clampSites": [
+  "rank_to_percentile",
+  "percentile_to_value"
+ ],
+ "totals": {
+  "rankHillObservations": 5146,
+  "rankHillPastN": 421,
+  "pctRankHillSaturated": 8.18,
+  "rowsTouchedByRankHillSaturation": 254,
+  "servedRowsTouchedByRankHillSaturation": 254,
+  "unservedRowsTouchedByRankHillSaturation": 0,
+  "rankHillPastNOnServedRows": 421,
+  "pctServedRowsTouched": 34.32,
+  "valueDirectObservations": 1176,
+  "valueDirectPastN": 282,
+  "boardRows": 1092,
+  "rankedRows": 740,
+  "overallRankLimit": 800,
+  "deepestServedCanonicalRank": 740,
+  "deepestEffectiveRankAny": 899,
+  "deepestEffectiveRankOnHillPath": 877,
+  "deepestHillRankConsumedByServedRow": 877
+ },
+ "bySource": {
+  "draftSharksIdp": {
+   "stampedRanks": 306,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 306,
+   "rankHillPastN": 193,
+   "rankHillPastNOnServedRows": 193,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 193,
+   "distinctRanksCollapsedOnServedRows": 193,
+   "deepestRank": 730,
+   "deepestRankHillRank": 730,
+   "pool": "shared_market",
+   "curve": "GLOBAL",
+   "clampedContribution": 1697.6,
+   "continuousContribution": 1344.5,
+   "absoluteDistortion": 353.1,
+   "pctDistortion": 26.3
+  },
+  "idpShow": {
+   "stampedRanks": 315,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 315,
+   "rankHillPastN": 170,
+   "rankHillPastNOnServedRows": 170,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 170,
+   "distinctRanksCollapsedOnServedRows": 170,
+   "deepestRank": 877,
+   "deepestRankHillRank": 877,
+   "pool": "shared_market",
+   "curve": "GLOBAL",
+   "clampedContribution": 1697.6,
+   "continuousContribution": 1196.9,
+   "absoluteDistortion": 500.7,
+   "pctDistortion": 41.8
+  },
+  "dlfIdp": {
+   "stampedRanks": 169,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 169,
+   "rankHillPastN": 23,
+   "rankHillPastNOnServedRows": 23,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 19,
+   "distinctRanksCollapsedOnServedRows": 19,
+   "deepestRank": 620,
+   "deepestRankHillRank": 620,
+   "pool": "shared_market",
+   "curve": "GLOBAL",
+   "clampedContribution": 1697.6,
+   "continuousContribution": 1488.6,
+   "absoluteDistortion": 209.0,
+   "pctDistortion": 14.0
+  },
+  "draftSharks": {
+   "stampedRanks": 359,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 359,
+   "rankHillPastN": 18,
+   "rankHillPastNOnServedRows": 18,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 18,
+   "distinctRanksCollapsedOnServedRows": 18,
+   "deepestRank": 684,
+   "deepestRankHillRank": 684,
+   "pool": "shared_market",
+   "curve": "GLOBAL",
+   "clampedContribution": 1697.6,
+   "continuousContribution": 1400.5,
+   "absoluteDistortion": 297.1,
+   "pctDistortion": 21.2
+  },
+  "dlfRookieIdp": {
+   "stampedRanks": 29,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 29,
+   "rankHillPastN": 8,
+   "rankHillPastNOnServedRows": 8,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 6,
+   "distinctRanksCollapsedOnServedRows": 6,
+   "deepestRank": 661,
+   "deepestRankHillRank": 661,
+   "pool": "shared_market",
+   "curve": "GLOBAL",
+   "clampedContribution": 1697.6,
+   "continuousContribution": 1430.7,
+   "absoluteDistortion": 266.9,
+   "pctDistortion": 18.7
+  },
+  "flockFantasySfRookies": {
+   "stampedRanks": 59,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 59,
+   "rankHillPastN": 6,
+   "rankHillPastNOnServedRows": 6,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 6,
+   "distinctRanksCollapsedOnServedRows": 6,
+   "deepestRank": 621,
+   "deepestRankHillRank": 621,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": 794.3,
+   "continuousContribution": 635.0,
+   "absoluteDistortion": 159.3,
+   "pctDistortion": 25.1
+  },
+  "fantasyProsIdp": {
+   "stampedRanks": 141,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 141,
+   "rankHillPastN": 3,
+   "rankHillPastNOnServedRows": 3,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 3,
+   "distinctRanksCollapsedOnServedRows": 3,
+   "deepestRank": 572,
+   "deepestRankHillRank": 572,
+   "pool": "shared_market",
+   "curve": "GLOBAL",
+   "clampedContribution": 1697.6,
+   "continuousContribution": 1564.3,
+   "absoluteDistortion": 133.3,
+   "pctDistortion": 8.5
+  },
+  "ktcSfTep": {
+   "stampedRanks": 397,
+   "valueDirectObservations": 397,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 0,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 456,
+   "deepestRankHillRank": 0,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "idpTradeCalc": {
+   "stampedRanks": 779,
+   "valueDirectObservations": 779,
+   "valueDirectPastN": 282,
+   "rankHillObservations": 0,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 899,
+   "deepestRankHillRank": 0,
+   "pool": "shared_market",
+   "curve": "GLOBAL",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "dlfSf": {
+   "stampedRanks": 277,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 277,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 278,
+   "deepestRankHillRank": 278,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "dynastyNerdsSfTep": {
+   "stampedRanks": 293,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 293,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 293,
+   "deepestRankHillRank": 293,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "fantasyCalc": {
+   "stampedRanks": 350,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 350,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 385,
+   "deepestRankHillRank": 385,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "otcffbSf": {
+   "stampedRanks": 360,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 360,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 350,
+   "deepestRankHillRank": 350,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "pfkDynasty": {
+   "stampedRanks": 364,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 364,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 433,
+   "deepestRankHillRank": 433,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "dynastyDaddySf": {
+   "stampedRanks": 340,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 340,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 368,
+   "deepestRankHillRank": 368,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "fantasyProsSf": {
+   "stampedRanks": 379,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 379,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 463,
+   "deepestRankHillRank": 463,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "fantasyProsFitzmaurice": {
+   "stampedRanks": 295,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 295,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 298,
+   "deepestRankHillRank": 298,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "flockFantasySf": {
+   "stampedRanks": 354,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 354,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 410,
+   "deepestRankHillRank": 410,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "yahooBoone": {
+   "stampedRanks": 363,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 363,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 386,
+   "deepestRankHillRank": 386,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "fantasyNavigatorSf": {
+   "stampedRanks": 344,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 344,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 426,
+   "deepestRankHillRank": 426,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  },
+  "dlfRookieSf": {
+   "stampedRanks": 49,
+   "valueDirectObservations": 0,
+   "valueDirectPastN": 0,
+   "rankHillObservations": 49,
+   "rankHillPastN": 0,
+   "rankHillPastNOnServedRows": 0,
+   "fallbackRankHillObservations": 0,
+   "distinctRanksCollapsed": 0,
+   "distinctRanksCollapsedOnServedRows": 0,
+   "deepestRank": 375,
+   "deepestRankHillRank": 375,
+   "pool": "offense",
+   "curve": "OFFENSE",
+   "clampedContribution": null,
+   "continuousContribution": null,
+   "absoluteDistortion": null,
+   "pctDistortion": null
+  }
+ },
+ "unaffectedSources": [
+  "dlfRookieSf",
+  "dlfSf",
+  "dynastyDaddySf",
+  "dynastyNerdsSfTep",
+  "fantasyCalc",
+  "fantasyNavigatorSf",
+  "fantasyProsFitzmaurice",
+  "fantasyProsSf",
+  "flockFantasySf",
+  "idpTradeCalc",
+  "ktcSfTep",
+  "otcffbSf",
+  "pfkDynasty",
+  "yahooBoone"
+ ],
+ "byPosition": {
+  "QB": {
+   "affected": 4,
+   "population": 70,
+   "affectedServed": 4,
+   "populationServed": 56
+  },
+  "RB": {
+   "affected": 2,
+   "population": 144,
+   "affectedServed": 2,
+   "populationServed": 102
+  },
+  "WR": {
+   "affected": 3,
+   "population": 214,
+   "affectedServed": 3,
+   "populationServed": 143
+  },
+  "TE": {
+   "affected": 12,
+   "population": 83,
+   "affectedServed": 12,
+   "populationServed": 80
+  },
+  "DL/EDGE": {
+   "affected": 97,
+   "population": 145,
+   "affectedServed": 97,
+   "populationServed": 129
+  },
+  "LB": {
+   "affected": 49,
+   "population": 114,
+   "affectedServed": 49,
+   "populationServed": 91
+  },
+  "DB": {
+   "affected": 87,
+   "population": 139,
+   "affectedServed": 87,
+   "populationServed": 109
+  },
+  "picks": {
+   "affected": 0,
+   "population": 144,
+   "affectedServed": 0,
+   "populationServed": 30
+  },
+  "other": {
+   "affected": 0,
+   "population": 39,
+   "affectedServed": 0,
+   "populationServed": 0
+  }
+ }
+}
