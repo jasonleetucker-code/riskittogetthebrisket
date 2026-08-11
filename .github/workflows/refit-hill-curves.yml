@@ -91,6 +91,41 @@ jobs:
           # so there is nothing for a full sweep to regress.
           python -m pytest tests/model_registry/ -q
 
+      - name: Pin the board snapshot this fit trains on
+        id: snapshot
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The snapshot is a MATERIAL model input, not a convenience: it
+          # supplies the position filter and the IDPTradeCalc values behind
+          # the IDP scope, and every rookie slice.  Left unset,
+          # `_latest_snapshot()` selects by MTIME, so two runs a day apart
+          # can train different data with identical code — and the
+          # challenger record would name neither the file nor its bytes.
+          #
+          # Resolve it HERE, once, and export it.  The fitter treats a pin
+          # that does not exist as fatal rather than falling back, so a
+          # snapshot deleted between this step and the fit fails the run
+          # instead of silently training something else.
+          SNAP=""
+          for dir in data exports/latest; do
+            if [[ -d "$dir" ]]; then
+              CAND=$(ls -1t "$dir"/dynasty_data_*.json 2>/dev/null | head -1 || true)
+              if [[ -n "$CAND" ]]; then SNAP="$CAND"; break; fi
+            fi
+          done
+          if [[ -z "$SNAP" ]]; then
+            echo "::error title=Hill refit::no dynasty_data_*.json snapshot found in data/ or exports/latest/"
+            exit 1
+          fi
+          SNAP_ABS="$(cd "$(dirname "$SNAP")" && pwd)/$(basename "$SNAP")"
+          SNAP_SHA="$(sha256sum "$SNAP_ABS" | cut -d' ' -f1)"
+          echo "RISKIT_FIT_SNAPSHOT=${SNAP_ABS}" >> "$GITHUB_ENV"
+          echo "path=${SNAP_ABS}" >> "$GITHUB_OUTPUT"
+          echo "sha256=${SNAP_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Pinned snapshot: ${SNAP_ABS}"
+          echo "sha256: ${SNAP_SHA}"
+
       - name: Run refit + held-out gate
         id: refit
         shell: bash

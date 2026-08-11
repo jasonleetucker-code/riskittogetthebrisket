@@ -95,6 +95,19 @@ class ModelVersion:
     notes: tuple[str, ...] = ()
     promoted_at: str | None = None
     retired_at: str | None = None
+    #: When this version's params were written into ``player_valuation.py``.
+    #: ADR-008 split promote from apply so a human performs the second step;
+    #: without this the registry records the first and not the second, so it
+    #: cannot answer "are the live constants the champion?" — the question
+    #: the split exists to make askable.  Accepts the sentinel
+    #: ``UNKNOWN_HISTORICAL_APPLY_TIME`` for state predating this field:
+    #: fabricating a precise timestamp would be worse than admitting the
+    #: gap, and ``None`` would read as "never applied".
+    applied_at: str | None = None
+    #: Per-scope evidence at promotion time (see ``scope_validation``).
+    #: Stored rather than recomputed so a reader sees what the gate actually
+    #: concluded, not what it would conclude against today's code.
+    scope_validation: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.status not in VERSION_STATUSES:
@@ -142,6 +155,8 @@ class ModelVersion:
             "notes": list(self.notes),
             "promotedAt": self.promoted_at,
             "retiredAt": self.retired_at,
+            "appliedAt": self.applied_at,
+            "scopeValidation": dict(self.scope_validation),
         }
 
     @classmethod
@@ -158,6 +173,10 @@ class ModelVersion:
             notes=tuple(blob.get("notes") or ()),
             promoted_at=blob.get("promotedAt"),
             retired_at=blob.get("retiredAt"),
+            applied_at=blob.get("appliedAt"),
+            scope_validation={
+                str(k): str(v) for k, v in (blob.get("scopeValidation") or {}).items()
+            },
         )
 
 
@@ -247,6 +266,35 @@ class ModelRegistry:
 
     # ── writes ─────────────────────────────────────────────────────
 
+    @staticmethod
+    def _require_measurement_time(version: ModelVersion) -> None:
+        """A recorded criterion must carry the date it was measured on.
+
+        The criterion's ABSOLUTE level drifts ~19 points on identical
+        parameters across 7 days, against a 25-point promotion margin — so
+        two undated scores sitting in one file look directly comparable and
+        are not.  ``HoldoutResult.to_dict`` has stamped ``measuredAt`` since
+        `705cdc03e` (2026-08-05); this stops any other path from writing a
+        score without one.
+
+        Enforced on the WRITE path only.  The three stored versions predate
+        that commit and legitimately have nulls; guarding in
+        ``__post_init__`` would make the shipped registry unloadable, which
+        is rewriting history rather than annotating it.
+        """
+        holdout = version.holdout or {}
+        if holdout.get("criterion") is None:
+            return
+        if holdout.get("measuredAt") or holdout.get("measuredAtUnknownHistorical"):
+            return
+        raise RegistryError(
+            f"v{version.version} records a holdout criterion with no measuredAt; "
+            "an undated score cannot be compared with a dated one, because the "
+            "criterion's absolute level drifts week to week. Set measuredAt, or "
+            "measuredAtUnknownHistorical for a pre-existing record whose date is "
+            "genuinely unrecoverable."
+        )
+
     def add(self, version: ModelVersion) -> ModelVersion:
         """Register a new version.  Never auto-promotes."""
         if version.status == "champion":
@@ -254,6 +302,7 @@ class ModelRegistry:
                 "add() cannot introduce a champion directly — register the "
                 "version, then promote() it, so the transition is recorded"
             )
+        self._require_measurement_time(version)
         self._versions.append(version)
         self._versions.sort(key=lambda v: v.version)
         self._validate()
@@ -271,6 +320,7 @@ class ModelRegistry:
                 f"{self.model_id!r} already has a champion (v{self.champion.version}); "
                 "use promote()"
             )
+        self._require_measurement_time(version)
         seeded = replace(version, status="champion", promoted_at=_utcnow())
         self._versions.append(seeded)
         self._versions.sort(key=lambda v: v.version)
