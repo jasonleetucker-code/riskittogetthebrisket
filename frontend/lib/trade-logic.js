@@ -1172,9 +1172,82 @@ export function buildPickLookupCandidates(rawLabel) {
  * must treat them as non-authoritative and consult `pickAliases` or
  * slot-specific candidates instead.
  */
-function isSuppressedGenericPickRow(row) {
+export function isSuppressedGenericPickRow(row) {
   if (!row) return false;
   return Boolean(row.pickGenericSuppressed || row.raw?.pickGenericSuppressed);
+}
+
+/**
+ * True if a board row can be offered as a trade asset.
+ *
+ * The only rows excluded are the suppressed generic-tier pick aliases
+ * above: they are DUPLICATES of a row already on the board (the
+ * slot-specific sibling `pickAliases` redirects them to), and the
+ * backend cleared their value, so offering one adds a second copy of
+ * the same asset priced at nothing.
+ *
+ * `/trade` used to express this as a hardcoded `/^2026\b/` regex at
+ * four call sites, which is a different rule wearing the same clothes.
+ * It removed the 72 SLOT rows the current-year board is actually priced
+ * on: typing "2026" or "2026 Pick 1.0" into the only search box on the
+ * page returned zero results, while "2027 Mid 1st" returned a row, so
+ * the omission read as the app not having the asset rather than as a
+ * filter. It would also have excluded the wrong year from 2027 onward.
+ * Audit finding W08-F004.
+ *
+ * Unpriced rows are deliberately NOT excluded here — the board declines
+ * to price 260 of 1,072 rows and hiding them would be a bigger lie than
+ * showing them. They are labelled instead, at the chip.
+ */
+export function isTradeableBoardRow(row) {
+  if (!row) return false;
+  return !(row.assetClass === "pick" && isSuppressedGenericPickRow(row));
+}
+
+/**
+ * True if the board declined to price this row.
+ *
+ * 260 of 1,072 materialised rows carry `rankDerivedValue: null` -> a
+ * `values.full` of 0, including every 2027/2028 5th and 6th (48 of the
+ * league's 216 roster picks). Added to a trade they render as an
+ * ordinary chip contributing 0 to the side total, the gap, the verdict
+ * and the CSV export — indistinguishable from an asset that is priced
+ * and merely cheap. Audit finding W08-F006.
+ */
+export function isUnpricedBoardRow(row) {
+  if (!row) return false;
+  if (row.rankDerivedValue != null) return false;
+  return !Number(row.values?.full);
+}
+
+/**
+ * Board rows matching a search query, excluding anything already in the
+ * trade. Sorted by blended source rank so the most relevant dynasty
+ * assets come first — the KTC trade-calculator UX.
+ *
+ * Extracted from `/trade`'s `searchAssets` so the asset-eligibility
+ * rule is one testable function rather than an inline predicate
+ * repeated beside three other copies of itself.
+ */
+export function searchTradeAssets(rows, query, excludedNames, limit = 5) {
+  const q = String(query || "")
+    .trim()
+    .toLowerCase();
+  if (!q) return [];
+  const excluded =
+    excludedNames instanceof Set ? excludedNames : new Set(excludedNames || []);
+  const list = (rows || []).filter(
+    (r) =>
+      r &&
+      !excluded.has(r.name) &&
+      isTradeableBoardRow(r) &&
+      String(r.name).toLowerCase().includes(q),
+  );
+  list.sort(
+    (a, b) =>
+      (a.blendedSourceRank ?? Infinity) - (b.blendedSourceRank ?? Infinity),
+  );
+  return list.slice(0, limit);
 }
 
 /**
