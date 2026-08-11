@@ -256,6 +256,120 @@ unsafe, in which case record the contradiction rather than inventing an answer.
 
 ---
 
+## 12. Competitive expansion — OTC Fantasy + Play For Keeps
+
+**OWNER DECISION 2026-08-11: KEEP the competitive expansion as authoritative future product
+scope.** These capabilities were selected after a feature-by-feature review of OTC Fantasy and
+Play For Keeps. They are **not permission to clone competitor implementation**, and they are not
+permission to interrupt foundational correctness work. The product strategy is to combine the
+strongest workflow/execution ideas from OTC, the strongest market/manager-intelligence ideas from
+Play For Keeps, and this platform's deeper roster-aware decision intelligence.
+
+**Implementation status at the time this section was added:** scope is approved and must not be
+forgotten, but CE product-code implementation is not yet authorized. The later reconciliation pass
+must map each CE item to actual repository owners and phase dependencies before implementation.
+Existing canonical systems win over creating parallel engines.
+
+| ID | Feature | Purpose | New/Existing | Current status | Dependency placement | Scope | Classification |
+|---|---|---|---|---|---|---|---|
+| CE-01 | **Market Trade Ledger / Trade Database** | Canonical broad-market ledger of real completed dynasty trades powering searchable trade comps, Most Traded, player/pick market history and eventual independent real-trade market value | New | Approved scope; no canonical broad-market trade ledger yet. Must remain distinct from the Sharp ledger | After canonical player + pick identity; ingestion/schema prep may begin after critical foundations | **XL** | **KEEP — NEW BUILD** |
+| CE-02 | **Pick Forecast** | Project each specific future pick's landing distribution, expected slot/value, confidence and volatility instead of only generic early/mid/late value | New | Approved scope; no canonical specific-pick forecast exists | After stable pick identity + Team Strength/Weakness + leakage-safe historical backtest inputs | **L** | **KEEP — NEW BUILD** |
+| CE-03 | **Manager Scout / Manager Intelligence** | Canonical fantasy-behavior profile for managers: trade/pick tendencies, roster construction, cross-league ownership and negotiation-relevance signals | New | Approved scope; extends Insider Trading rather than replacing it | After canonical manager/team identity and transaction history are trustworthy | **L** | **KEEP — NEW BUILD** |
+| CE-04 | **Dynasty Command Center** | Action-oriented homepage ranking what needs attention now: incoming offers, waivers, lineup issues, market/Sharp/Insider signals, pick movement and later podcast intelligence | New | Approved scope; must aggregate canonical actionable events rather than create separate logic per card | After core roster/trade/waiver/market foundations | **L** | **KEEP — NEW BUILD** |
+| CE-05 | **Trade Desk** | Unified Incoming / Outgoing / Past / Completed trade workflow with canonical value, KTC advisory metric, package adjustment, roster impact, weaknesses, comps, Sharp and manager context | New | Approved scope; must consume Trade Calculator/Simulator/Package infrastructure rather than duplicate it | After canonical trade/package architecture; execution waits for CE-11 | **L** | **KEEP — NEW BUILD** |
+| CE-06 | **Dynasty Portfolio / Exposure** | Cross-league player, NFL-team, position, age, contender/rebuild and draft-pick exposure with value-weighted drilldowns | New | Approved scope; descriptive by default, not automatic diversification judgment | After multi-league identity/ownership foundations | **M** | **KEEP — NEW BUILD** |
+| CE-07 | **Market ADP** | One canonical time-series service for rookie ADP, startup ADP and optional best-ball ADP, with provenance, samples and trends | New | Approved scope; do not build separate ingestion systems per draft type | After canonical identity; may feed Perfect Draft/Profile/Market Pulse later | **L** | **KEEP — NEW BUILD** |
+| CE-08 | **Projections & Stats Hub** | Canonical sortable projections and realized-stat research surface feeding profiles, BDVM, matchup intelligence and replacement value | Existing foundations / new surface | Approved scope; must reuse canonical scoring/projection infrastructure rather than create another scoring system | After scoring/projection correctness foundations | **M** | **KEEP — EXISTING FOUNDATION / NEW SURFACE** |
+| CE-09 | **League Replacement Value / PAR / WAR** | League-specific production scarcity: projected/realized points above replacement, defensible WAR-style outputs and Value/PAR | New | Approved scope; analytical lens only, never a replacement for canonical dynasty value or Team Strength | After canonical league settings + scoring + projections | **M** | **KEEP — NEW BUILD** |
+| CE-10 | **Share Renderer / Team Cards** | Reusable export layer for Team, Anonymous Team, Trade, Player and Power Rankings cards in shareable layouts | New | Approved scope; one renderer, not bespoke screenshot code per page | After underlying surfaces stabilize | **M** | **KEEP — NEW BUILD** |
+| CE-11 | **Sleeper Action Gateway** | One authenticated/authorized mutation boundary for sending/responding to trades, setting lineups, waivers and supported draft actions | New | Approved scope; recommendation and execution must remain separate; no page-specific raw Sleeper write logic | Only after core decision products are correct/stable and security/auth architecture is ready | **L** | **KEEP — NEW BUILD** |
+| CE-12 | **Lineup Intelligence** | User-facing lineup optimization over existing assignment primitives, beginning with max projection and later adding defensible ceiling/floor/contingency modes | Existing foundations / new surface | Approved scope; must reuse lineup solver | After projection/lineup infrastructure; execution later through CE-11 | **M** | **KEEP — EXISTING FOUNDATION / NEW SURFACE** |
+| CE-13 | **Draft Room** | Unified live draft workspace combining Perfect Draft, rookie rankings, ADP, profiles, Team Weakness, pick trades and real trade comps | Existing foundations / new surface | Approved scope; Perfect Draft remains the optimizer and is embedded, not rebuilt | After draft + ADP + trade/pick foundations | **M** | **KEEP — EXISTING FOUNDATION / NEW SURFACE** |
+| CE-14 | **Market Pulse** | Market dashboard for Most Traded, Most Traded Picks, ADP/value risers/fallers and broad-market vs Sharp divergence | New surface over CE-01/07 | Approved scope; derives from canonical ledgers/history rather than a new transaction source | After CE-01 + CE-07 + Sharp ledger | **M** | **KEEP — NEW SURFACE OVER CE-01/07** |
+| CE-14A | **Personal Rankings Overlay** | Private user ordering shown beside Site/KTC/Market/Sharp/Podcast/ADP ranks without mutating canonical values | New | Approved scope | After canonical rankings/profile foundations | **M** | **KEEP — NEW BUILD** |
+| CE-15 | **Portfolio Trade Campaign** | Find plausible acquire/sell packages across multiple leagues with owner fit, cooldown/duplicate protection and required human review | New | Approved future scope; no automatic mass-spam default | Requires multi-league Portfolio + Manager Intelligence + Trade Finder/Package Builder + CE-11 | **L** | **KEEP — FUTURE** |
+| CE-16 | **Trade Polls** | Optional community/league/shareable trade polls compared against KTC, canonical model, real comps and Sharp market | New | Optional future scope; votes are descriptive, never authoritative valuation | After Trade Desk/Share infrastructure if still desired | **S–M** | **KEEP — OPTIONAL / FUTURE** |
+
+### 12.1 Canonical competitive-expansion owners
+
+Do not implement the table above as 17 isolated engines. The intended reusable canonical layers are:
+
+1. `market_trade_ledger` — broad market behavior; **separate from** the Sharp event ledger.
+2. `market_adp` — rookie/startup/optional best-ball ADP observations and time series.
+3. `manager_intelligence` — fantasy-behavior observations and tendencies; extends Insider Trading.
+4. `projection_and_stats` — one stats/projection layer reused by profiles, BDVM, PAR and matchup tools.
+5. `league_action_gateway` — all authenticated Sleeper mutations; decision plane stays separate.
+6. `share_renderer` — one export/rendering layer reused across products.
+7. `command_center` — one canonical actionable-event feed/ranking contract, not many homepage APIs.
+8. `pick_forecast` — specific-pick probability/EV model with leakage-safe backtesting.
+
+Existing owners remain authoritative for player identity, pick identity, league settings, canonical
+value, package generation, package adjustment, trade simulation, Team Strength and Team Weakness.
+Pages consume those owners; pages do not recalculate them.
+
+### 12.2 Competitive-expansion priority after dependencies
+
+**Tier 1:** CE-01 Market Trade Ledger / Trade Database; CE-02 Pick Forecast; CE-04 Dynasty Command
+Center; CE-03 Manager Scout.
+
+**Tier 2:** CE-06 Dynasty Portfolio; CE-07 Market ADP; CE-08 Projections & Stats Hub; CE-09
+Replacement Value.
+
+**Tier 3:** CE-05 Trade Desk; CE-11 Sleeper Action Gateway; CE-12 Lineup Intelligence; CE-13 Draft
+Room.
+
+**Tier 4:** CE-10 Share Renderer; CE-14 Market Pulse; CE-14A Personal Rankings Overlay.
+
+**Tier 5:** CE-15 Portfolio Trade Campaign; CE-16 Trade Polls.
+
+Tier does **not** override foundational dependency ordering. Identity/value/scoring/Team
+Strength/Team Weakness/trade correctness still win over competitor parity or convenience.
+
+### 12.3 Binding competitive-expansion methodology rules
+
+- **Broad market != Sharps != Insider != Podcast != KTC != BDVM != canonical model.** Keep the
+  observation populations distinct and document overlap/correlation before any signal enters a
+  blended product.
+- **Missing is never zero.** No trades, ADP, projection, manager observation or Sharp sample must
+  publish as a numeric zero merely because evidence is absent.
+- Real historical trade comps must use contemporaneous value provenance where available:
+  RECORDED / HISTORICAL SNAPSHOT / RECONSTRUCTED / UNAVAILABLE. Never label today's value as a
+  historical acquisition/trade value.
+- Pick Forecast keeps **generic market value** (for example, `2027 Mid 1st`) distinct from a
+  **specific-pick expected value** (for example, a named franchise's 2027 1st distribution).
+- Manager Scout is fantasy-behavior analysis only; no real-world identity enrichment, financial
+  profiling or psychological profiling.
+- Recommendation and execution are separate planes. AI/model recommendations must never silently
+  trigger Sleeper mutations.
+- All new market/manager/predictive outputs require explicit freshness, sample/coverage and
+  confidence semantics.
+- Multi-league support must remain possible without prematurely rewriting the entire current app
+  during foundational phases.
+
+### 12.4 Competitor-parity features explicitly NOT added by this decision
+
+The competitive review does **not** reintroduce or newly approve:
+
+- Fantasy Schedule Generator — still permanently removed / NOT APPLICABLE.
+- Full Dispersal Draft system — not approved now; future owner decision required if genuinely needed.
+- Standalone competitor-copy Rookie WR model.
+- Generic best-ball product suite (best-ball ADP may be an optional CE-07 data source only).
+- Generic article CMS / media-company build.
+- Generic podcast-hosting product; Podcast Intelligence remains the approved media strategy.
+- Automatic bulk-trade spam.
+- Generic community/social-network build.
+- Subscription/billing platform merely for competitor parity.
+- Competitor branding, copyrighted copy, proprietary code, private APIs or protected assets.
+
+The later competitive reconciliation should create
+`docs/competitive/OTC_PFK_FEATURE_AUDIT.md` and
+`docs/competitive/COMPETITIVE_EXPANSION_ARCHITECTURE.md`, map every public/login-gated competitor
+capability to COVERED / EXTEND / NEW / LATER / DO NOT BUILD, build the duplicate-risk and dependency
+maps, and insert these CE items into the existing execution plan. **That reconciliation work must
+not silently remove, rename away, or forget any CE item recorded here.**
+
+---
+
 ## Not in this inventory, by design
 
 Audit tooling and registry work, test harnesses and regression tests, CI gates, lint/format,
