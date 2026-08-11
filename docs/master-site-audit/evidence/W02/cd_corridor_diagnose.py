@@ -234,7 +234,7 @@ def diagnose() -> None:
     print("\n-- incremental second influence, on clamped rows --")
     print(f"  anchor is also a blend voter on {anchor_is_voter} of {len(clamped)} clamped rows")
     print(f"  anchor's share of the blend BEFORE the clamp (1/n): {stats(shares)}")
-    print(f"  anchor's share of the value AFTER the clamp        : 1.0 on every clamped row")
+    print("  anchor's share of the value AFTER the clamp        : 1.0 on every clamped row")
     print("    (final = anchor x (1 +/- band), so the value is a pure function of the anchor)")
     print(f"  share JUMP attributable to the corridor            : {stats(jumps)}")
     print(f"  |final - preCorridor| / preCorridor                : {stats(incs)}")
