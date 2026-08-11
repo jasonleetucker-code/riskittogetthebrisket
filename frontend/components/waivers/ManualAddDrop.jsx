@@ -311,8 +311,17 @@ export default function ManualAddDrop({
         const data = await res.json();
         if (cancelled) return;
         // The /api/public/league/{section} endpoint wraps the builder
-        // output as ``{section, body}`` so unwrap.
-        setLeagueFaab(data?.body || data || null);
+        // output as ``{contractVersion, league, section, data}`` — the
+        // body is under ``data``, never ``body``.  Unwrapping ``body``
+        // and falling through to the envelope itself put every field
+        // this strip reads (leagueBudget, leagueAvgWinningBid,
+        // leagueMedianWinningBid) one level too high, so the tiles
+        // rendered an em-dash against a response carrying the real
+        // numbers — indistinguishable from a league with no FAAB
+        // history (W11-F006).  No ``|| data`` fallback: a payload
+        // without ``data`` has no section body, and pretending the
+        // envelope is one is what produced the silent failure.
+        setLeagueFaab(data?.data ?? null);
       } catch {
         // Silent failure — context panel just stays hidden.
       }
