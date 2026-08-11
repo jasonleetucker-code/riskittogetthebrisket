@@ -103,8 +103,94 @@ def git_sha() -> str:
 
 
 def training_input_paths() -> dict[str, Path]:
-    """The CSVs the fit consumes, for provenance fingerprinting."""
-    return {role.label: REPO / role.path for role in source_roles() if role.role == "train"}
+    """Every material input the model set is fitted from.
+
+    A recorded version carries EIGHT constants across four scopes, so a
+    provenance record covering only the six OFFENSE CSVs answers "what
+    produced ``HILL_PERCENTILE_C``" while appearing to answer for all of
+    them. Until B1.2 that is exactly what it did — GLOBAL's IDPTradeCalc,
+    IDP's DraftSharks-IDP and the board snapshot behind the IDP slice and
+    every rookie slice were unrecorded, so a challenger could not be
+    reproduced from its own record.
+
+    Derived from the fitter's own source tables rather than mirrored here.
+    A hand-maintained parallel list stops covering the thing it mirrors —
+    the B1 pin instrument had this same defect and named three of six
+    OFFENSE sources within a day of being written.
+    """
+    out: dict[str, Path] = {}
+    seen: set[Path] = set()
+
+    def _record(label: str, path: Path) -> None:
+        # Keyed by resolved PATH, not label: several sources appear under
+        # more than one name (DraftSharks-SF is both an OFFENSE source and
+        # half of GLOBAL's concatenated pair), and fingerprinting one file
+        # twice under two keys makes a stored record look like it covers
+        # more inputs than it does.
+        resolved = path.resolve()
+        if resolved in seen:
+            return
+        seen.add(resolved)
+        out[label] = path
+
+    for role in source_roles():
+        if role.role == "train":
+            _record(role.label, REPO / role.path)
+
+    fitter = _fitter_module()
+    for table, scope in (
+        (getattr(fitter, "OFFENSE_SOURCES", {}), "OFFENSE"),
+        (getattr(fitter, "GLOBAL_SOURCES", {}), "GLOBAL"),
+        (getattr(fitter, "IDP_CSV_SOURCES", {}), "IDP"),
+    ):
+        for label, (rel, _column) in table.items():
+            _record(f"{scope}:{label}", REPO / rel)
+
+    # GLOBAL builds DraftSharks-Combined by concatenating the SF and IDP
+    # slices in code, so it appears in no source table at all. Both halves
+    # are already recorded above under their own scopes; this only catches
+    # the case where one of them is dropped from a table but still
+    # concatenated.
+    for rel in ("CSVs/site_raw/draftSharksSf.csv", "CSVs/site_raw/draftSharksIdp.csv"):
+        _record(f"GLOBAL:DraftSharks-Combined:{Path(rel).name}", REPO / rel)
+
+    snapshot = _resolve_fit_snapshot(fitter)
+    if snapshot is not None:
+        _record("boardSnapshot", snapshot)
+    return out
+
+
+def _fitter_module():
+    """Import the fit script as a module, tolerating its ``argparse`` main."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "fit_hill_curve_percentile_provenance", REPO / "scripts/fit_hill_curve_percentile.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except SystemExit:  # pragma: no cover - only if the script grows a main guard
+        pass
+    return module
+
+
+def _resolve_fit_snapshot(fitter) -> Path | None:
+    """The board snapshot the fit WOULD use, resolved the same way it does.
+
+    Returns ``None`` rather than raising when nothing resolves: a missing
+    snapshot should surface as an absent provenance entry, not as an
+    exception inside a registry read.
+    """
+    try:
+        return fitter._latest_snapshot()
+    except SystemExit:
+        # `RISKIT_FIT_SNAPSHOT` names a file that does not exist. The fit
+        # itself will refuse for the same reason; provenance should not be
+        # the thing that reports it.
+        return None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def load_or_seed_registry(registry_dir: Path | None = None) -> ModelRegistry:
@@ -114,23 +200,44 @@ def load_or_seed_registry(registry_dir: Path | None = None) -> ModelRegistry:
     claim that those constants won anything — ``qualified`` stays False
     until someone evaluates them.
     """
-    try:
+    path = ModelRegistry.path_for(MODEL_ID, registry_dir)
+    if path.exists():
+        # An existing registry that will not load is a PROBLEM, not an
+        # absence.  This used to be a bare `except RegistryError` around
+        # `load()`, which made the two indistinguishable: any structural
+        # failure — a duplicate version, two champions, a schema the code
+        # no longer understands — fell into the seed branch and `save()`
+        # replaced the file with a single fresh v1.  The one artifact
+        # recording every promotion and rollback decision was one
+        # validation error away from being silently destroyed, and it was
+        # reproduced live during B1.2: a guard that made `load()` raise
+        # replaced the real three-version registry with a seeded
+        # single-version one inside one test run.
+        #
+        # Same defect class as the closure harness in Phase A, which is
+        # why ARCHITECTURE_HANDOFF invariant 6 says to assume a third
+        # exists.  This is the third.
         return ModelRegistry.load(MODEL_ID, registry_dir)
-    except RegistryError:
-        reg = ModelRegistry(MODEL_ID)
-        reg.seed_champion(
-            ModelVersion(
-                model_id=MODEL_ID,
-                version=1,
-                params=read_committed_constants(),
-                fitted_at="unknown",
-                producer="seeded from committed constants in player_valuation.py",
-                training_inputs=fingerprint_inputs(training_input_paths()),
-                notes=(
-                    "seeded, not validated: these constants were live before the "
-                    "registry existed and carry no out-of-sample score",
-                ),
-            )
+
+    reg = ModelRegistry(MODEL_ID)
+    reg.seed_champion(
+        ModelVersion(
+            model_id=MODEL_ID,
+            version=1,
+            params=read_committed_constants(),
+            fitted_at="unknown",
+            producer="seeded from committed constants in player_valuation.py",
+            training_inputs=fingerprint_inputs(training_input_paths()),
+            # The constants ARE live at seed time — that is what seeding
+            # records — but the moment they were written is not
+            # reconstructable, and inventing one would be worse than saying
+            # so (ADR-008 lifecycle; §39).
+            applied_at="UNKNOWN_HISTORICAL_APPLY_TIME",
+            notes=(
+                "seeded, not validated: these constants were live before the "
+                "registry existed and carry no out-of-sample score",
+            ),
         )
-        reg.save(registry_dir)
-        return reg
+    )
+    reg.save(registry_dir)
+    return reg
