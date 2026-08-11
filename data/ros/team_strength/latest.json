@@ -1883,8 +1883,8 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Jason",
-    "teamRosStrength": 463.7,
-    "startingLineupScore": 605.86,
+    "teamRosStrength": 466.0,
+    "startingLineupScore": 609.05,
     "benchDepthScore": 97.57,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
@@ -1911,12 +1911,12 @@
       },
       {
         "slot": "DB",
-        "playerId": "12605",
-        "canonicalName": "jacob parrish",
+        "playerId": "12597",
+        "canonicalName": "nick emmanwori",
         "position": "DB",
-        "rosValue": 11.84,
-        "adjustedValue": 11.84,
-        "confidence": 0.662,
+        "rosValue": 15.03,
+        "adjustedValue": 15.03,
+        "confidence": 0.618,
         "flagged": null
       },
       {
@@ -2693,7 +2693,7 @@
         "fantasyPositions": [
           "DB"
         ],
-        "injured": true,
+        "injured": false,
         "bye": false
       },
       {
