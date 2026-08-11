@@ -37,8 +37,8 @@ state. This file holds **architecture** state.
 
 | gate | result |
 |---|---|
-| `pytest tests/ -q` | **7,008 passed / 0 failed** / 25 skipped / 633 subtests (1324s) — authoritative, measured on the quiescent repaired tree. Baseline was 7,001 at `4ac9b22`; the +7 are the new closure-harness tests. |
-| `vitest run` (frontend) | 120 files / 2,004 tests / 0 failed |
+| `pytest tests/ -q` | **7,026 passed / 0 failed** / 25 skipped / 633 subtests (1471s) — measured on the quiescent tree at the correction-pass HEAD. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 more when those tests were rewritten to drive the real production functions and CLI). |
+| `vitest run` (frontend) | **2,007 passed / 0 failed**, 120 files — was 2,004; +3 from the FAAB missing-vs-zero cases |
 | `ruff format --check .` | 991 files already formatted |
 | `ruff check .` | All checks passed |
 | `scripts/check_decision_coercions.py` | clean — no new coercions, no stale allowances |
