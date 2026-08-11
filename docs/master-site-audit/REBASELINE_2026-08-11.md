@@ -379,7 +379,77 @@ derived from the drift it bounds), **W02-F017 / #796** (confidence-bucket
 correctness is now a live dependency). W30-F023 is tracked as **#797**. Also still open and unchanged by B3: C17's OFFENSE half,
 the IDP master's 1.552× fit-scale claim, and W30-F023.
 
-## W02-F018 (new) — the export bundle does not retain the inputs needed to audit board-over-board behaviour
+## W02-F018 (new) — the export bundle is incomplete, but git history is not
+
+**CORRECTED 2026-08-11, and the correction reverses the conclusion.**
+Verdict: **A. HISTORICAL GIT REPLAY AVAILABLE** — no collection wait is
+required.
+
+The original entry read "the export bundle does not retain the inputs
+needed to audit board-over-board behaviour" and concluded that ~2 weeks of
+new boards had to be collected. The first clause is true. **The conclusion
+does not follow from it and is withdrawn**: the export bundle is one
+retention mechanism, and git history is another. All 24 per-source CSVs
+are committed at every automated refresh.
+
+The archive-ZIP finding stands as originally measured: `exports/archive/*.zip`
+carries 2 of the 21 voting sources' CSVs, so rebuilding an archived board
+reproduces ~90% of today's inputs under a historical filename. Any
+cross-board claim derived that way is unsound, and the one this pass
+derived was withdrawn.
+
+**What the correction found**, via `evidence/W02/cd_historical_replay.py`:
+
+| | |
+|---|---|
+| refresh commits scanned | 1,099 over 140 distinct days |
+| **usable days** (all 22 required inputs present) | **17** — 2026-07-26 → 2026-08-11 |
+| partial days | 123 — 2026-03-25 → 2026-07-25 |
+| unusable days | 0 |
+
+Partial days are missing sources that **did not yet exist**, not sources
+that were lost: `fantasyNavigatorSf` and `pfkDynasty` are absent on 123
+days, `otcffbSf` on 51, `fantasyCalc` on 49. Those days are replayable
+only against a smaller source set, which is a different pipeline
+population and not directly comparable.
+
+**A near-repeat of the same error, recorded because it is the more useful
+lesson.** The first matrix returned 14 refresh commits over 2 days, which
+would have supported the original conclusion. That was an artifact of a
+**shallow clone** (145 commits, oldest 2026-08-10) — the exact trap this
+document already warns about under "The clone was shallow, and it
+mattered". After `git fetch --unshallow`, the same query returns 1,099
+commits over 140 days. Both errors have one shape: concluding *absence*
+from an incomplete view without checking whether the view was complete.
+
+**Temporal independence is measured, not assumed**: 7-15 of 22 sources
+change between consecutive usable days, and **zero** transitions are
+byte-identical. Replayed board row counts move 973-1095 and IDP
+populations 276-359 — variation the contaminated archive test could not
+produce.
+
+Three inputs the replay had to neutralise, found by *instrumenting* a real
+build rather than reading the source, and each of which would have
+silently contaminated a historical run:
+
+* every build **reads and writes** `data/snapshots/ranks_last.json`;
+* every build makes a **live network call** to `api.sleeper.app`, which
+  derives `tep_multiplier` from the league's `bonus_rec_te` and therefore
+  **affects values** — unpinned, every historical replay would have used
+  *today's* league scoring;
+* 22 market-data CSVs are read, not 21 and not 24 (`draftSharksRos*` are
+  never read on this path).
+
+Remaining limitation, stated rather than hidden: 17 days is one market
+regime (late-July to mid-August, no live NFL games). That bounds
+generalisation; it does not bound availability, which is what this finding
+was about.
+
+Evidence: `evidence/W02/CD_CORRIDOR_DECISION.md` §6,
+`evidence/W02/cd_input_manifest.py`, `cd_historical_replay.py`,
+`cd_historical_metrics.py` + reports.
+
+## W02-F018 — original entry, superseded by the correction above
 
 **OPEN. Found by the corridor dependency pass, 2026-08-11.** It is the
 concrete blocker on closing #794/#795, so it is recorded as its own item

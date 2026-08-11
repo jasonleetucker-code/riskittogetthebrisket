@@ -1,8 +1,18 @@
 # Corridor dependency pass — decision
 
+> **CORRECTED 2026-08-11.** §6 claimed the platform does not retain the
+> inputs needed to characterise board-over-board behaviour. That was drawn
+> from the export bundle alone and is **wrong** — git history retains all
+> 24 per-source CSVs at every refresh, and **17 fully usable independent
+> days** exist right now. See **§6a**, which supersedes it. §6 is kept
+> verbatim rather than edited away: the shape of the error (concluding
+> absence from an incomplete view) is the useful part.
+
 ## Recommendation
 
-**MORE CORRIDOR EVIDENCE REQUIRED.**
+**MORE CORRIDOR EVIDENCE REQUIRED** — but for a narrower reason than §6
+gave, and *not* for want of available history. See §6a: what remains is
+one market regime and an unwritten repair, not a collection wait.
 
 The *diagnosis* is complete and decisive: **the market corridor in its
 current form is not a defensible canonical safety mechanism**, and the
@@ -161,7 +171,55 @@ conclusions:
 The **2% hull tolerance does no policy work**: on the live board the
 invariant holds with **0 violations at every tolerance from 0% to 10%**.
 
-## 6. Why this is not yet a recommendation to implement
+## 6a. CORRECTION — the historical replay (supersedes §6)
+
+**W02-F018 verdict: A. HISTORICAL GIT REPLAY AVAILABLE.** No collection
+wait is required. §6 below is retained as withdrawn reasoning.
+
+`cd_historical_replay.py` replays **current code against historical
+inputs** — never historical code, so methodology drift cannot be confused
+with data drift. Four input classes are redirected and a leak guard makes
+any current-tree market read or network access a hard failure; 17 of 17
+replays passed it.
+
+| | |
+|---|---|
+| refresh commits scanned | 1,099 over 140 days |
+| **usable days** | **17** (2026-07-26 → 2026-08-11) |
+| partial days | 123 — sources that did not yet exist |
+| unusable | 0 |
+| transitions with zero source change | **0 of 16** (7-15 of 22 sources change daily) |
+
+Measured over 17 independent days / **5,931 IDP rows**:
+
+| candidate | result on real independent boards |
+|---|---|
+| current corridor | trigger 8.7-9.2%, pinned near 10% on every board; **anchor also votes on 539 of 539 clamped rows (100%)**; `idpTradeCalc` anchors all 539, fallback chain never fires |
+| **hull invariant** | **0 violations at every tolerance from 0.000% to 10%** |
+| change-point | reference from a chronological TRAIN split (8 days), scored on a later HOLDOUT (9 days); 1 alarm in 9 |
+
+Under the B4 tail (903) the ordering is unchanged: hull 0 violations
+across 5,491 rows, corridor 8.2-9.1% with the anchor voting on 471 of 471.
+
+So #794 and #795 are now confirmed on genuinely independent history
+rather than on one board, and the hull's zero false-positive rate is
+established on the evidence the earlier archive test only appeared to
+provide.
+
+**What still blocks implementation**, stated narrowly:
+
+* **One regime.** All 17 days are late-July to mid-August, with no live
+  NFL games. Hull's 0% false-positive rate is measured only there. That
+  bounds generalisation — it does not bound availability, which is what
+  W02-F018 was about.
+* **The repair is not written.** Replacing a live post-blend safety
+  mechanism changes served values on ~32 rows per board, and that is a
+  production change this pass did not make.
+
+The fabricated `HISTORICAL_BAND x 0.35` is retired: the change-point
+candidate now takes a reference measured from real history or abstains.
+
+## 6. Why this is not yet a recommendation to implement — WITHDRAWN, see §6a
 
 Two gaps, both specific.
 
