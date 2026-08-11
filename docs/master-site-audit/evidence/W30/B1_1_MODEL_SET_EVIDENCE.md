@@ -43,12 +43,22 @@ IDP      IDPTradeCalc-IDP     370 rows -> trains 370
 ```
 
 **GLOBAL's and OFFENSE's blind tail is self-inflicted.** `FIT_TOP_N = 400`, not source depth,
-is what stops them at p = 0.7996. KTC publishes exactly 500 rows and IDPTradeCalc publishes
-900; the data to observe p = 1.0 is sitting in the CSVs the fit already opens. IDP's tail is
-the real thing — 370 rows is all IDPTradeCalc's IDP slice has.
+is what stops them at p = 0.7996. KTC publishes exactly 500 rows and IDPTradeCalc 900, so
+raising the truncation would let each scope's *deepest* source observe out to p = 1.0 —
+the rows are already in CSVs the fit opens. IDP's tail is the real thing: 370 rows is all
+IDPTradeCalc's IDP slice has, and nothing available extends it.
 
 This matters because B1's §7.4 concluded "the tail is unobserved for every scope" and left it
 there. For two of the three scopes it is unobserved **by policy**, and the policy is one line.
+
+**And "deepest observation" understates it, because the master is not fit on observations.**
+`_fit_scope_master` builds a percentile grid running to p ≈ 0.995, evaluates **every**
+per-source fitted Hill at every grid point, averages, and fits one curve to that average. A
+source therefore contributes to the whole grid whether or not it observed any of it — its own
+curve is extrapolated there first, then averaged with equal weight. So the tail of a scope
+master is shaped as much by the extrapolations of its shallow sources as by the observations
+of its deep ones. This is the mechanism behind §30's IDP result: DraftSharks-IDP sees the top
+29% and still votes across 100% of the grid.
 
 ## 2. Q5 — the tail clamp, measured on the live board
 
