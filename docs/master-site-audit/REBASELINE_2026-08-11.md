@@ -136,6 +136,68 @@ facts a repair will need: the clamp is enforced in *two* places
 and board impact is non-monotone in per-source value because the post-blend
 IDP stages are relative — a row can rise when its clamped peers fall.
 
+### B4 outcome (2026-08-11) — BLOCKED BY A CANONICAL DEPENDENCY
+
+Everything above this heading is B1.2's record on **B1.2's pin** and is left
+standing as written. The numbers below are B4's, on **B4's pin**
+(`dynasty_data_2026-08-11.json` sha256 `8fb6ede274171aee…`); the two are
+different experiments and are not interchangeable. Full decision:
+`evidence/W30/B4_TAIL_DECISION.md`.
+
+**Two corrections to the population, both narrowing it.**
+
+*Withdrawn — B4's own first measurement.* B4 initially reported **703 of
+6,322 observations (11.1%) touching 348 of 1,092 rows**, counting any
+stamped `effectiveRank > 500` as saturated. That is wrong: value-direct
+sources price from the raw site value and never reach `percentile_to_value`.
+Withdrawn explicitly, and the specific claim withdrawn with it — *"208
+distinct `idpTradeCalc` opinions priced as one number"* — is false, because
+none of `idpTradeCalc`'s live contributions take the rank-Hill path at all.
+The B1.2 table above has the same shape (it attributes 289 collapsed ranks
+to `idpTradeCalc`), and it stays as B1.2's record; B4's path-gated figure is
+the one a repair should be measured against.
+
+*Path-gated figure.* **421 of 5,146 rank-Hill observations past rank 500
+(8.18%), touching 254 of 1,092 board rows.** `idpTradeCalc` contributes
+**zero** — 779 stamped ranks, all value-direct. Its deep ranks remain real
+as the shared-market translation backbone, which is a translation role, not
+a flattened contribution.
+
+*Served-row distinction (added 2026-08-11).* All **254 of 254** touched rows
+are served. `254 / 1,092` mixes published rows with 352 the board never
+serves and understates the user-visible rate; against the 740 served rows it
+is **34.3%**, and per position DB 79.8%, DL/EDGE 75.2%, LB 53.8%.
+
+**Two facts the entry above got right, and two it did not have.** The clamp
+count is **four**, not two — `rank_to_percentile`, `percentile_to_value`,
+the holdout scorer's standalone `hill()` and the fit's `_hill`. And the
+deepest rank-Hill rank consumed by a *served* row is **877**, past
+`OVERALL_RANK_LIMIT`, so the board limit is not a defensible saturation
+point for the source-coordinate domain.
+
+**Selected policy: bounded at rank 903**, the deepest rank any source
+publishes (corroborated at `src/api/source_history.py:352-353`). Continuous
+extrapolation is observationally identical on this board — max |delta| 0
+over ranks 1..877 — and is refused only on "missing is never zero": it
+resolves rank 50,000 to 72 with no evidence behind it.
+
+**Not applied.** Setting the boundary makes the B3 corridor clamp four rows
+carrying five or more sources and three rows in the top third of the IDP
+board — both of which B3's own repair criteria forbid — and flips three
+clamps to direction `up`. The mechanism is **W02-F015/#794** (all 27 clamps
+anchor on `idpTradeCalc`, itself one of the row's voters) and
+**W02-F016/#795** (the band is the board's own P90 drift, so removing the
+saturation inflation narrows it 0.63 → 0.46 and tightens the corridor onto
+rows it never targeted). W30-F023 is therefore **not separable** from those
+two residuals on this board, and B4 may not reopen B3.
+
+**What did land, behaviour-preserving:** the four clamps now defer to one
+owner (`src/canonical/tail_policy.py`) — a W30-F008-class repair, verified
+identical on all 1,092 rows — and `valueContributionPath` is recorded from
+the branch taken instead of re-derived. The W30-F023 assertions ship as
+`xfail(strict=True)`, so setting the boundary turns them into errors and
+forces a deliberate re-decision.
+
 ## W30-F024 (new) — the model registry could overwrite its own history
 
 **FIXED this session.** `load_or_seed_registry` treated any `RegistryError`

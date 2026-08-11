@@ -1,0 +1,85 @@
+== building the pinned board twice: tail at 500 (pre-B4) vs 903 ==
+  rows: before=1092 after=1092 common=1092
+  rows carrying a saturated rank-Hill observation: 254
+
+== values changed: 252 of 1092 rows ==
+  of which OUTSIDE the saturated population: 36
+  (a value moving on a row with no saturated observation is a SECOND-ORDER
+   effect — blend/corridor coupling, not the tail policy acting directly)
+
+== rank movement over 707 rows ranked in BOTH builds ==
+  moved at all : 457
+  min/p10/med/p90/max : -74 / -30 / 0 / 33 / 104
+
+== membership at the served cutoff ==
+  served before=740  after=740
+  promoted into the board: ['2029 Early 3rd', 'Barion Brown', 'CJ Daniels', 'Cole Payton', 'Davis Mills', 'Deion Burks', 'Desmond Reid', 'Dyami Brown', 'Elijah Moore', 'Emari Demercado', 'Eric McAlister', 'Eric Rivers', "J'Mari Taylor", "Ja'Lynn Polk", 'Jahdae Walker', 'Jaleel McLaughlin', 'Jeff Caldwell', 'Josh Cameron', 'Kameron Johnson', 'Kareem Hunt', 'KeAndre Lambert-Smith', 'Kendrick Bourne', 'Malik Benson', 'Nick Chubb', 'Olamide Zaccheaus', 'Phil Mafah', 'Tahj Washington', 'Tai Felton', 'Tanner McKee', 'Tutu Atwell', 'Ty Johnson', 'Tyler Huntley', 'Will Levis']
+  dropped off the board  : ['Alim McNeill', 'B.J. Hill', 'Baron Browning', 'Christian Benford', 'DJ Wonnum', 'Darius Robinson', 'David Walker', 'Deommodore Lenoir', 'Elijah Molden', 'Genesis Smith', 'Geno Stone', 'Harold Perkins', "Ja'Quan McMillian", 'Jaden Dugger', 'Jadon Canady', 'Jaycee Horn', "Ji'Ayir Brown", 'Jonah Laulu', 'Jonathan Allen', 'Jourdan Lewis', 'Kamari Ramsey', 'Kayden McDonald', 'Kendal Daniels', 'Keyron Crawford', 'Keyshaun Elliott', 'Omar Speights', 'Pat Surtain', 'Ronnie Hickman', 'Sauce Gardner', 'Tarheeb Still', 'Taron Johnson', 'Theo Jackson', 'Zakee Wheatley']
+
+== composition at the top ==
+  top 50   identical=True  entered=0  left=0
+  top 100  identical=True  entered=0  left=0
+  top 200  identical=False  entered=1  left=1
+  top 400  identical=False  entered=12  left=12
+
+== positional effect (rows whose value moved) ==
+  QB           3 of   70  (  4.3%)
+  RB           2 of  144  (  1.4%)
+  WR           3 of  214  (  1.4%)
+  TE          10 of   83  ( 12.0%)
+  DL/EDGE     89 of  145  ( 61.4%)
+  LB          43 of  114  ( 37.7%)
+  DB          72 of  139  ( 51.8%)
+  picks       30 of  144  ( 20.8%)
+  other        0 of   39  (  0.0%)
+
+== largest value movers ==
+  Jamien Sherwood           LB     3198 ->   2688  ( -510)   rank 157 -> 205
+  Abdul Carter              DL     3654 ->   4026  ( +372)   rank 119 -> 102
+  Javon Bullard             DB     1327 ->   1097  ( -230)   rank 635 -> 738
+  Oluwafemi Oladejo         DL     1312 ->   1085  ( -227)   rank 643 -> 739
+  Christen Miller           DL     1263 ->   1045  ( -218)   rank 693 -> 740
+  Jordan Burch              DL     1336 ->   1123  ( -213)   rank 627 -> 731
+  Joshua Josephs            DL     1338 ->   1129  ( -209)   rank 625 -> 729
+  DeMarcus Lawrence         DL     1340 ->   1134  ( -206)   rank 624 -> 727
+  Justin Reid               DB     1342 ->   1140  ( -202)   rank 622 -> 722
+  Coby Bryant               DB     1344 ->   1146  ( -198)   rank 620 -> 717
+  Jimmy Rolder              LB     1359 ->   1163  ( -196)   rank 612 -> 697
+  Romello Height            LB     1349 ->   1159  ( -190)   rank 618 -> 702
+
+== pick movement: 30 pick rows changed value ==
+  2026 Pick 6.03              1762 ->   1682  (  -80)
+  2026 Pick 6.02              1782 ->   1703  (  -79)
+  2026 Pick 6.04              1754 ->   1676  (  -78)
+  2026 Pick 6.05              1749 ->   1673  (  -76)
+  2026 Pick 6.01              1788 ->   1727  (  -61)
+  2026 Pick 5.09              1803 ->   1754  (  -49)
+  2026 Pick 5.11              1798 ->   1749  (  -49)
+  2026 Pick 5.10              1800 ->   1753  (  -47)
+
+== rows that ROSE despite every changed contribution falling ==
+  2 row(s)
+  Abdul Carter                +372  someContributionFell=False  corridorClamp None -> True
+  Dallas Turner                +77  someContributionFell=False  corridorClamp None -> True
+
+== B3 market-corridor interaction (measured, B3 NOT reopened) ==
+  clamps applied: before=32  after=27
+  newly clamped : 14
+  no longer     : 19
+  before  buckets={'low': 17, 'medium': 12, 'high': 3}  direction={'down': 32}  anchors={'idpTradeCalc': 32}
+  after   buckets={'medium': 11, 'low': 16}  direction={'up': 3, 'down': 24}  anchors={'idpTradeCalc': 27}
+  before  bandPct min/med/max = 0.5183 / 0.6316 / 0.6504
+  after   bandPct min/med/max = 0.2557 / 0.4613 / 0.4613
+  newly-clamped rows:
+    Abdul Carter              up    band=0.2557  anchor=idpTradeCalc  sources=5  rank=102
+    Calen Bullock             down  band=0.4613  anchor=idpTradeCalc  sources=3  rank=666
+    Christian Gonzalez        down  band=0.4613  anchor=idpTradeCalc  sources=3  rank=629
+    Coby Bryant               down  band=0.2557  anchor=idpTradeCalc  sources=3  rank=717
+    Dallas Turner             up    band=0.2557  anchor=idpTradeCalc  sources=5  rank=171
+    DeMarcus Lawrence         down  band=0.2557  anchor=idpTradeCalc  sources=3  rank=727
+    Jamien Sherwood           down  band=0.2557  anchor=idpTradeCalc  sources=5  rank=205
+    Javon Bullard             down  band=0.2557  anchor=idpTradeCalc  sources=3  rank=738
+    Jordan Burch              down  band=0.2557  anchor=idpTradeCalc  sources=3  rank=731
+    Joshua Josephs            down  band=0.2557  anchor=idpTradeCalc  sources=3  rank=729
+    Justin Reid               down  band=0.2557  anchor=idpTradeCalc  sources=3  rank=722
+    Keisean Nixon             down  band=0.4613  anchor=idpTradeCalc  sources=3  rank=691
