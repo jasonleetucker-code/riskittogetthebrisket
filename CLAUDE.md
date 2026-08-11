@@ -67,9 +67,16 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ├── scripts/                   # Pipeline helper scripts (source fetches, fit, etc.)
 ├── deploy/                    # Deployment configs (nginx, systemd, deploy scripts)
 ├── tests/                     # pytest unit/integration + Playwright E2E
-├── data/                      # Pipeline outputs. MOSTLY gitignored, but ~7,900
+├── data/                      # Pipeline outputs. MOSTLY gitignored, but 8,562
 │                              #   files ARE tracked (data/ros/ is re-included by
-│                              #   .gitignore, and refresh workflows `git add -f`)
+│                              #   .gitignore, and refresh workflows `git add -f`).
+│                              #   The tracking is DELIBERATE, not an accident:
+│                              #   scheduled-refresh.yml force-adds
+│                              #   data/scrape_state/ every 2h even when the
+│                              #   scrape fails, and deploy dispatch keys on
+│                              #   those commit subjects — so `git rm --cached`
+│                              #   freezes prod's source_health. See W31-F001 in
+│                              #   docs/master-site-audit/REBASELINE_2026-08-11.md
 ├── exports/                   # Release artifacts (latest/ + archive/) — 141 tracked
 └── docs/                      # Architecture blueprints, status docs, ADRs, audits
 ```
