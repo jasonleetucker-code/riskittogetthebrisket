@@ -1,16 +1,16 @@
 {
  "pin": {
   "phase": "B4",
-  "codeSha": "2eb9b64b20a78af4294334093d85f26e02c9d783",
-  "codeSubject": "docs(B4): single-file continuation handoff for a fresh session",
+  "codeSha": "64a29501aa2263a127306b79c4a5c9e1b4ab3fe0",
+  "codeSubject": "evidence(B4): every saturated row is a SERVED row, and 254/1092 understated it",
   "dirtyPaths": [
-   "docs/master-site-audit/evidence/W30/b4_tail_measure.py",
-   "docs/master-site-audit/evidence/W30/b4_tail_report.json",
-   "docs/master-site-audit/evidence/W30/b4_tail_reproduction.txt"
+   "src/api/data_contract.py",
+   "tests/canonical/test_percentile_tail_policy.py"
   ],
-  "dirtyIsEvidenceOnly": true,
+  "dirtyIsEvidenceOnly": false,
   "mainTip": "93b0a6617567fc837d809e732ba3529278172bb5",
   "commitsAheadOfMain": [
+   "64a29501a evidence(B4): every saturated row is a SERVED row, and 254/1092 understated it",
    "2eb9b64b2 docs(B4): single-file continuation handoff for a fresh session",
    "49f86c93f fix(B4): correct the W30-F023 blast radius \u2014 it is path-gated, and smaller",
    "485a77c06 evidence(B4): trace every saturation point \u2014 there are four, not two",
