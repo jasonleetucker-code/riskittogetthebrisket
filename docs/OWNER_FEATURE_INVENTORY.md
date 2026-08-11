@@ -10,6 +10,11 @@ implementation. Reconciled against BOTH the master specification and the tree �
 bullets are **not** treated as exhaustive; several items below appear in the repo or the
 specification but in no plan bullet.
 
+**2026-08-11 owner-scope reconciliation:** §13 incorporates the later owner-approved YouTube,
+player-profile, ticker, TEP, trade-exposure, Dynasty Daddy, X-feed, Game Day, Monte Carlo,
+Second Opinions and Analyze Trade requirements. Where older wording in this file conflicts with
+§13's explicit owner clarification, the newer §13 decision controls.
+
 ## How to read this
 
 **Classification** is exactly one of:
@@ -72,7 +77,7 @@ build, blocker, backlog item or future feature.
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
 | 2.1 | **Trade calculator** | Value a proposed trade on the canonical board | Existing | Live at `/trade`. **W08-F004 repaired this session** — the search box could not find the current rookie class | — | — | S (done) | ALREADY COMPLETE — VERIFY ONLY |
-| 2.2 | **Package adjustment** | One engine for consolidation premium / multi-asset discount | Existing, duplicated | KTC's published algorithm is ported in `src/trade/ktc_va.py`; a second port lives in `trade_grading.py`; `src/trade/__init__.py` monkeypatches. **OWNER DECISION 2026-08-11 (W08-F003):** KTC's non-monotonicity — where adding a positive-value asset can LOWER an adjusted side total — is **preserved exactly** when displaying the KTC-parity metric, and is never silently "fixed" or clamped. But it is **not** the canonical definition of trade value: our roster-aware, package-aware model is separate and uses our own methodology. The UI must label which is which, and KTC parity must not contaminate canonical package value, roster-aware marginal value, Team Strength/Weakness impact, Golden Upgrades, Perfect Waivers or any other decision model | C5 | — | **M** | KEEP — EXISTING, CONSOLIDATE (two clearly-separated concepts, not one merged engine) |
+| 2.2 | **Package adjustment / consolidation** | Preserve KTC market-parity Value Adjustment while establishing the site's canonical package/roster decision semantics | Existing, duplicated + future methodology | KTC's algorithm is ported in `src/trade/ktc_va.py`; duplicate/legacy implementations still require consolidation. **OWNER CLARIFICATION 2026-08-11:** exact KTC VA is the trusted market-parity/consolidation benchmark and must remain available, including genuine non-monotonic behavior in KTC-parity mode. The site has **not** yet proven a superior proprietary scalar "Our VA". Do not invent one merely to have one. The preferred canonical architecture may be canonical asset/package equity + exact KTC VA as the market lens + separate before→apply→rerank→after roster marginal impact. Only introduce a proprietary scalar package premium if a defined target and evidence show it adds information; benchmark any candidate against KTC and contemporaneous market evidence across common trade topologies. KTC parity must be visibly distinct from canonical roster impact and must not silently contaminate Team Strength/Weakness, Golden Upgrades, Perfect Waivers or the final Analyze Trade decision | C5 / D1 / future evidence gate | 1.1, 1.2, 1.3 | **M–L** | KEEP — EXISTING, CONSOLIDATE + EVIDENCE-GATED CANONICAL METHODOLOGY |
 | 2.3 | **Trade Finder (arbitrage)** | Find trades where our board and the retail market disagree | Existing, defective | Live at `/arbitrage`. Open: no dominance pruning (W09-F012), gain not normalized by package size (W09-F002), lopsidedness ranked over mutual benefit (W09-F009) | D2 | — | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 2.4 | **Trade Suggestions** | Roster-aware sell-high / buy-low / consolidation proposals | Existing, defective | Returns zero suggestions for 8 of 12 teams with no diagnosis (W09-F001); no DB can ever be proposed (W27-F002) | D2 | — | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 2.5 | **Golden Upgrades** | Surface owned-player → target pairs where our model prefers the target while the market prefers what you already own, so the swap can improve the model score *and* potentially extract market value | Existing semantics, new surface | The arbitrage finder already computes market inversion. **OWNER DECISION 2026-08-11: KEEP as a distinct user-facing surface, but it must NOT become a second trade/arbitrage/value engine** — it is a specialized *consumer* of canonical infrastructure (values, ownership, package generation, package adjustment, roster-impact simulation, Team Strength/Weakness, market data, confidence). Distinct presentation, not distinct methodology. Criteria: owned by selected team; genuinely substitutable target; model prefers target; market prefers owned; obtainable; inversion meaningful enough to act on | D3 | D2, C1, C5 | **S–M on top of D2** | KEEP — EXISTING, REPAIR/COMPLETE |
@@ -102,7 +107,7 @@ build, blocker, backlog item or future feature.
 |---|---|---|---|---|---|---|---|---|
 | 4.1 | **Consensus Edge** | Where our model disagrees with the market, with component-level explainability | Existing, half-wired | `src/consensus_edge/` (~17 modules) + `/consensus-edge` page. Identity join fails (W14-F001); flag gated behind an ADR-023 quality gate. Spec requires: global component failure must not become zero for every player, weights renormalize, score/coverage/confidence stay distinct | E1 | — | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 4.2 | **Central Buy/Sell Tracker** | One reconciled buy/sell verdict per player, replacing scattered emitters | New | **22 label emitters at HEAD** (registry recorded 16), ~14 reachable, 5 competing threshold sets, nothing reconciling them (W12-F003) | E2 | 4.1 | **XL** | KEEP — NEW BUILD |
-| 4.3 | **Homepage Buy/Sell ticker** | Surface the canonical verdicts on the landing page | Existing, wrong source | `frontend/components/terminal/MarketTicker.jsx` exists and is live; must consume 4.2 rather than its own algorithm. Accessibility (touch/keyboard/screen-reader/reduced-motion) required | E2 | 4.2 | **S** | KEEP — EXISTING, REPAIR/COMPLETE |
+| 4.3 | **Homepage Buy/Sell ticker** | Surface the canonical verdicts on the landing page | Existing, wrong source | `frontend/components/terminal/MarketTicker.jsx` exists and is live; must consume 4.2 rather than its own algorithm. Accessibility (touch/keyboard/screen-reader/reduced-motion) required. **Owner rule:** BUY items may be global; SELL items must be limited to players rostered by the selected fantasy team | E2 | 4.2 | **S** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 4.4 | **Sharp Tracker** | What proven-sharp managers are buying and selling | Existing, slow | Live at `/market/sharp-tracker`. Cohort recomputed per request; no memoization (W15-F017) | E3 | — | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 4.5 | **Sharp Roster Percentage** | What share of sharp rosters own each player | Existing | Live at `/market/sharp-roster-percentage` with methodology doc and validation script | E3 | — | S (verify) | ALREADY COMPLETE — VERIFY ONLY |
 | 4.6 | **Manager-level Sharp concentration** | Stop one manager's five teams reading as five independent opinions | Existing, missing field | No per-player manager concentration published (W15-F009, P1) | E3 | 4.5 | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
@@ -174,7 +179,7 @@ elsewhere.
 | 6.3 | **Franchise / ownership history** | All-time records that do not erase franchises | Existing, defective | A hardcoded retired-owner list erases 2 of 10 2024 franchises from every all-time aggregate; history payload self-contradicts (W19-F001/F002) | F2 | — | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 6.4 | **Public league pages** | Standings, champions, records, rivalries, drafts, trades, recaps | Existing, broad | Extensive: `/league` plus franchise, rivalry, weekly, articles, activity routes | F | — | S–M | KEEP — EXISTING, REPAIR/COMPLETE |
 | 6.5 | ~~**Money / Constitution / League Media**~~ | Public surfaces for dues, rules and league media | New | Do not exist (W19-F007). **OWNER DECISION 2026-08-11: REMOVED from this engagement's product scope.** No implementation time during this master pass; may be reconsidered as a future project. Must not remain an unresolved defect, blocker, backlog requirement or Phase F obligation. This is a scope decision only — no existing working code is to be deleted for it | ~~F~~ | — | ~~L~~ | **REMOVE — OWNER DEFERRED OUT OF THIS ENGAGEMENT** |
-| 6.6 | **Universal Player Profile** | One canonical page per player: identity, value, history, intelligence, performance, roster context, news | New (as canon) | **No universal profile route exists.** Only `/league/player/[playerId]` (public-league scoped) and `/players/compare`. Player clicks do not route to one canonical profile | F | 7.1, 7.2 | **L** | KEEP — NEW BUILD |
+| 6.6 | **Universal Player Profile** | One canonical page per player: identity, value, history, intelligence, performance, roster context, news | New (as canon) | **No universal profile route exists.** Only `/league/player/[playerId]` (public-league scoped) and `/players/compare`. Player clicks do not route to one canonical profile. Owner-approved expansion: consume one canonical player intelligence/news feed spanning Podcast Intelligence, future YouTube Intelligence and all canonical fantasy-news pools, with fact/opinion separation, provenance, freshness and dedupe | F / E6 | 7.1, 7.2, 5.x, 13.2 | **L** | KEEP — NEW BUILD |
 | 6.7 | **Blended source rank** | The cross-source rank shown on comparison surfaces | Existing, blank | Renders empty on the compare page; either restore or remove honestly | F4 | — | **S** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 6.8 | **Freshness indicators** | Show how old each computed intelligence actually is | Existing, partial | Some surfaces stamp freshness; not systematic (W08-F011) | F4 | — | **S** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 6.9 | **Human review / admin controls** | Approve / suppress / annotate / roll back model and extracted intelligence | Existing, narrow | `/admin` + `/admin/sharp-identities` and `src/sharp/curated_service.py` exist — a real review layer, but scoped to sharp identities only. Spec wants it general (W23-F017) | F | 4.2, 5.3 | **XL** | KEEP — EXISTING, REPAIR/COMPLETE |
@@ -250,7 +255,7 @@ unsafe, in which case record the contradiction rather than inventing an answer.
 | 6.5 | **Money / Constitution / League Media** | REMOVED from this engagement's scope. Not a defect, blocker, backlog item or Phase F obligation. May return as a future project. No existing working code is to be deleted for it | REMOVE — OWNER DEFERRED OUT OF THIS ENGAGEMENT |
 | 7.5 | **Canonical value scale** | Individual player and pick values are a **1–9999 product scale**. Raw provider units stay native. Intermediate maths may exceed it. **Aggregates (Team Strength, package/roster/portfolio totals) are NOT capped.** B9 must find the true cause of >9999 league-adjusted values and normalize defensibly — a bare `min(v, 9999)` is forbidden where it would tie elite assets, destroy ordering, mask double application or hide a scaling defect | RESOLVED — B9 unblocked |
 | 10.2 | **Adaptive source weighting** | KEEP in the vision, DO NOT ACTIVATE. Static explicit weights until the full evidence lifecycle (history → outcomes → leakage-safe splits → train → backtest → out-of-sample → stability → minimum samples → beat static baseline → human approval → flagged deploy → monitor → rollback) is satisfied | KEEP — FUTURE / EVIDENCE-GATED |
-| 2.2 | **W08-F003 / KTC value adjustment** | PRESERVE exact KTC parity as a secondary/advisory metric — do not silently fix or clamp its non-monotonicity. Our canonical roster-aware model stays separate and uses our own methodology. Label the distinction in the UI; parity must not contaminate canonical package value, marginal value, Team Strength/Weakness, Golden Upgrades or Perfect Waivers | KEEP — EXISTING, CONSOLIDATE (two separated concepts) |
+| 2.2 | **W08-F003 / KTC value adjustment** | KEEP exact KTC parity as a secondary/advisory market-consolidation metric. Do not silently fix or clamp its genuine behavior. **Do not claim we already have a superior proprietary replacement.** The canonical site trade architecture remains separate and should combine canonical asset/package equity with true roster marginal impact; determine through evidence whether a second proprietary scalar VA is needed at all | KEEP — EXISTING KTC PARITY + EVIDENCE-GATED CANONICAL METHODOLOGY |
 | §5 | **Podcast Intelligence** | KEEP the complete vision, STAGED after core foundations, in the 10-stage order recorded in §5. Not started during Phase B | KEEP — NEW BUILD (staged) |
 | 0.1 | **Schedule Generator** | REMOVED permanently from this engagement. Must not be reintroduced as generator, optimizer, API, page, export or backlog item, and must not be resurrected by later plan regeneration because an old master prompt contained it | REMOVE — OWNER DOES NOT WANT / NOT APPLICABLE |
 
@@ -367,6 +372,150 @@ The later competitive reconciliation should create
 capability to COVERED / EXTEND / NEW / LATER / DO NOT BUILD, build the duplicate-risk and dependency
 maps, and insert these CE items into the existing execution plan. **That reconciliation work must
 not silently remove, rename away, or forget any CE item recorded here.**
+
+---
+
+## 13. Owner-approved scope reconciliation — later 2026-08-11 additions
+
+This section is authoritative master scope. It incorporates the owner requests that were initially
+recorded in `docs/OWNER_FEATURE_ADDENDUM_2026-08-11.md`, the Dynasty Daddy competitive audit,
+`docs/OWNER_REQUESTED_TODO.md`, and `docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md`.
+These are not optional ideas merely because they arrived after the first inventory pass.
+
+### 13.1 Additional approved features and repairs
+
+| Ref | Feature | Binding requirement | Dependency/status | Classification |
+|---|---|---|---|---|
+| #782 | **YouTube Dynasty Intelligence** | Build a large dynasty-YouTube intelligence pipeline targeting roughly 50 reputable sources/channels/videos while excluding/deduping content already represented by Podcast Intelligence. Reuse canonical source/analyst identity, transcript acquisition, actionable-take extraction, NO SIGNAL, freshness, provenance and independence/correlation handling. Feed appropriate structured output into Consensus Edge/bounded intelligence, Buy/Sell, player profiles, selected-team intelligence and the personalized weekly team podcast/brief. A podcast episode uploaded to YouTube must not become another independent vote | Stage after Podcast/source-identity foundations; no Phase-B build | **KEEP — NEW BUILD (STAGED)** |
+| #783 / 6.6 | **Unified Player Profile Intelligence** | Universal Player Profile must contain one useful player-specific intelligence/news feed spanning Podcast Intelligence, future YouTube Intelligence, Sleeper news, RotoWire, RotoBaller and every other canonical fantasy-news source. Use attributed excerpts, concise source cards, synthesis or a hybrid; separate fact from opinion; preserve source/as-of/provenance; dedupe syndicated/reposted content; do not republish full copyrighted articles/transcripts | Extends Universal Player Profile and canonical news/intelligence services | **KEEP — NEW BUILD / EXTEND 6.6** |
+| #784 / 4.3 | **Consensus Edge / Buy-Sell homepage ticker** | Stock-market-style horizontal ticker. BUY may include relevant targets broadly. **SELL may only include players currently rostered by the selected fantasy team.** Ticker is presentation only and must read canonical persisted Buy/Sell/Consensus output; no frontend thresholds or second signal engine | After Central Buy/Sell Tracker; accessibility/reduced-motion required | **KEEP — EXISTING, REPAIR/COMPLETE** |
+| #785 | **Two-TE / TE-premium valuation audit** | Deep-audit exact two-mandatory-TE scoring and value methodology. Derive league demand/FLEX/SF eligibility from canonical settings; measure TE scoring relative to WR/RB; inventory every source's base/TEP/TE++ basis; where standard+TEP boards exist measure actual rank/player-dependent uplift; remeasure KTC base→TEP/TE++ as a diagnostic; prevent native-TEP double adjustment; search whole tree for stale blanket `1.15` or duplicate premium paths; validate elite/mid/starter/TE2/fringe/deep ranges against cross-position scarcity and realized scoring. Success means evidence that values are right for this league, not merely closer to KTC | Appropriate Phase-B/league-value checkpoint after isolated B2 unless direct overlap | **KEEP — METHODOLOGY AUDIT / REPAIR** |
+| #786 | **Trade Simulator NFL-team exposure** | Add value-weighted NFL-team exposure before→after a proposed trade, showing affected teams as before % → after % and percentage-point change; raw count secondary. Picks normally have no NFL-team exposure. Missing/unpriced stays explicit. This is informational only and must not influence grade, package adjustment, Team Strength or Analyze Trade unless separately authorized. Share one reusable exposure primitive with CE-06 Portfolio | After canonical roster/trade state is available | **KEEP — NEW BUILD / EXTEND TRADE SIMULATOR + CE-06** |
+| #788 | **Dynasty Analyst X Feed** | Preserve long-term concept of roughly 500 reputation-curated dynasty analysts using official/authorized X integration, with cross-media analyst identity/dedupe and useful filtering. **Do not build while recurring API economics are disproportionate to the current small/private site. No scraping.** | Cost/policy gated; reconsider later | **KEEP — FUTURE / COST-GATED** |
+| #789 / CE-20 | **Game Day Command Center** | Build a Sunday companion that is materially better for this league than generic Sleeper display: exact custom scoring, true entire-roster best-ball simulation, projected final-score distributions, calibrated live win probability, current score/state, likely eventual best-ball contributors, personalized owner/opponent event/news context, rooting/leverage guide, late-Sunday/Monday "what do I need?", mobile `For You | Matchup | Players | Games | News`, desktop/tablet TV mode and eventual custom-scoring play explanation where affordable event data supports it | Low-cost V1 first; dependencies: scoring correctness → canonical best-ball assignment → projection-source audit → custom-stat projection → snapshot/history → calibrated simulation → live refresh → UI. Paid second-by-second PBP optional later only if usage justifies cost | **KEEP — NEW BUILD / PLANNED PRODUCT** |
+| #790 | **Monte Carlo current-HEAD methodology audit** | Revalidate complete path asset value → payload → `TradePlayer` → uncertainty band → KTC/package adjustment → correlation → simulation → symmetry/enrichment → UI. Verify TEP/IDP/pick/manual override propagation exactly once; mean preservation, side-swap symmetry, ties, seeded reproducibility, convergence and endpoint behavior. Remeasure synthetic ±15% fallback and investigate defensible player-specific uncertainty/source correlation. Monte Carlo is a value/consensus uncertainty lens, **not** literal probability the dynasty trade succeeds in real life | Next appropriate trade/model checkpoint; do not interrupt B2 | **KEEP — EXISTING, RE-AUDIT/REPAIR** |
+| #791 | **Second Opinions one-glance winner tally** | Add immediate `Side A · Side B · Even · Incomplete` summary above detailed vendor rows. Count once per genuinely independent vendor/network; native coverage only for a true external vote. Rows completed with our canonical value are partial/incomplete rather than independent corroboration. Preserve coverage and margin for drilldown | Small UX addition after safe checkpoint; reuse existing per-vendor breakdown | **KEEP — EXISTING, REPAIR/COMPLETE** |
+| #792 / CE-05 | **Analyze Trade canonical recommendation** | After assets are entered, one deliberate Analyze Trade action returns MAKE THE TRADE / LEAN MAKE / TOO CLOSE-DEPENDS / LEAN PASS / PASS from selected-team perspective, with confidence, strongest reasons for/against, material uncertainty/disagreement and optionally "what would change the answer." Must synthesize unique-information dimensions and lineage rather than averaging visible panels | Dependency-gated until canonical value/package/Team Strength/Weakness/roster-impact foundations and MC audit are trustworthy; `/trade` and CE-05 must consume the same decision contract | **KEEP — NEW BUILD / PLANNED DECISION PRODUCT** |
+
+### 13.2 Game Day prediction methodology is part of the product, not an implementation detail
+
+CE-20/#789 must model the actual league rather than inherit Sleeper's assumptions:
+
+- every still-eligible rostered player remains in the weekly/live outcome distribution until the
+  final best-ball assignment makes his contribution impossible;
+- a provisionally filled lineup slot is not treated as permanently complete while bench players
+  can still displace that score;
+- weekly player projections must be translated through the league's complete scoring system;
+- projection-provider gaps such as first downs, reception-distance/big-play bands and unusual IDP
+  events must be modeled from defensible historical/conditional distributions where possible or
+  remain explicitly uncertain — never silently zero;
+- archive timestamped pregame and in-game predictions and measure final-score MAE/RMSE, best-ball
+  assignment accuracy, Brier score/log loss where appropriate and reliability/calibration without
+  temporal leakage;
+- one canonical matchup-projection/win-probability owner feeds every Game Day surface;
+- V1 must be useful without a commercial real-time play-by-play contract.
+
+### 13.3 Analyze Trade unique-information architecture
+
+Do **not** treat current trade panels as independent votes. Canonical value already contains many
+external sources; Second Opinions exposes many of those same sources; Monte Carlo is centered on
+canonical values; KTC VA can appear in several trade views; roster analysis also consumes canonical
+values. A naïve formula such as `value + MC + second opinions + KTC VA + roster impact` can
+triple-count the same evidence.
+
+The canonical Analyze Trade contract should reason over unique-information dimensions:
+
+1. **Canonical economic value** — one owner for player/pick/package equity.
+2. **Market corroboration/disagreement** — independent external evidence, with native coverage,
+   source/network lineage and imputation clearly separated; primarily confidence/explainability
+   unless incremental value is proven.
+3. **Uncertainty/risk** — revalidated Monte Carlo or successor around the value conclusion, usually
+   a confidence/risk modifier rather than another vote for the same p50.
+4. **Roster marginal impact** — true before → remove outgoing → add incoming → rerank → recompute
+   meaningful Top-N groups → measure promotions/displacements → recompute Team Weaknesses and
+   construction. Draft picks have zero current Team Strength contribution but retain future/asset
+   value.
+5. **Future/window context** — picks, age, liquidity and competitive window only where the
+   canonical methodology is validated; do not stack duplicate contender classifiers.
+6. **Later incremental intelligence** — real trade comps, Sharp, Insider, Consensus Edge,
+   news/podcast/YouTube and Manager Scout only when freshness/independence justify inclusion.
+7. **Explicit owner constraints** — untouchables/exclusions can veto or qualify a recommendation;
+   do not infer hidden preferences.
+
+Every dimension should expose direction, magnitude, confidence/coverage, provenance/freshness and
+lineage/dependencies. The final result must remain explainable rather than collapse into a mystery
+number.
+
+### 13.4 KTC Value Adjustment — binding owner clarification
+
+This supersedes any earlier wording that could be read as "we already have a better proprietary VA."
+
+- **KEEP exact KTC VA.** The owner values it and much of the market understands it.
+- KTC VA is the site's **market-parity/consolidation benchmark**, not an enemy to replace.
+- Preserve exact KTC behavior when labeled KTC, including genuine non-monotonic cases; do not
+  silently clamp/fix it while still calling it KTC.
+- The site **has not yet proven a superior proprietary scalar Value Adjustment**.
+- Do not create an "Our VA" merely because the product seems to need a second number.
+- A preferred final architecture may be **canonical raw/package equity + exact KTC VA market lens
+  + canonical roster marginal impact + uncertainty + independent corroboration → Analyze Trade**.
+- If a proprietary scalar package premium is ever proposed, first define its target and validate
+  it across 1-for-1, 2-for-1, 3-for-1, larger packages, elite consolidation/breakup, player+pick,
+  pick-heavy, offense, IDP, mixed and pathological/non-monotonic cases. Benchmark against exact KTC
+  VA and contemporaneous market/trade evidence. No temporal leakage and no tuning merely until
+  hand-picked examples look good.
+- When our eventual canonical recommendation differs from KTC, explain the reason — e.g. different
+  player values, exact league scoring, Team Strength displacement, positional weakness, future
+  assets or another independently justified factor.
+
+### 13.5 Dynasty Daddy competitive additions — CE-17 through CE-21
+
+The full evidence/implementation detail lives in
+`docs/competitive/DYNASTY_DADDY_FEATURE_AUDIT.md` and
+`docs/competitive/COMPETITIVE_EXPANSION_DYNASTY_DADDY_ADDENDUM.md`.
+These additions are approved future scope and must be reconciled with §12, not left in a side file.
+
+| ID | Feature | Canonical interpretation | Classification |
+|---|---|---|---|
+| CE-17 | **League Format / Utilization Lab** | League-specific research surface over canonical scoring/stats/replacement infrastructure: utilization, target/opportunity metrics, spike weeks and defensible WAR/WoRP/VoRP-style research without creating another scoring engine | **KEEP — NEW BUILD** |
+| CE-18 | **Trade Trees / Asset Lineage** | Show how a player/pick/asset was acquired and what traded-away assets subsequently became. Must consume stable pick identity, transaction history and acquisition provenance rather than reconstructing with future data | **KEEP — NEW BUILD** |
+| CE-19 | **Waiver Market / FAAB Market Ledger** | Broad-market real waiver-bid observations, claim counts/ranges and market context kept distinct from our FAAB recommendation and Sharp behavior. One market ledger, not another bidding model | **KEEP — NEW BUILD** |
+| CE-20 | **Game Day Command Center** | Now elevated from a vague optional idea to the fully specified best-ball/custom-scoring Sunday intelligence console in #789/§13.2 | **KEEP — NEW BUILD / PLANNED PRODUCT** |
+| CE-21 | **Dynasty Season Recap / Wrapped** | Analytical season recap: best/worst trades, waiver wins, draft hits/misses, value gains, championship run, roster evolution and shareable outputs; not gamification for its own sake | **KEEP — FUTURE / NEW BUILD** |
+
+Dynasty Daddy also enriches existing approved features rather than creating duplicates: CE-03
+manager tendencies in context; CE-04 watchlist/target alerts; CE-06 richer player/NFL-team/position/
+age/stack/pick exposure and cross-league availability; CE-09 research into startability-adjusted
+realized contribution; CE-11 supported waiver/lineup/draft mutations through one secure action
+gateway; CE-12 schedule-aware FLEX placement, weather/status context, waiver alternatives and
+projection accuracy; CE-13 live draft sync; CE-14A personal ranking import; CE-15 richer
+multi-asset/FAAB campaign patterns; and Universal Player Profile historical value/ADP/stats/
+started-rostered history/trade context. These are extensions of canonical owners, not new engines.
+
+### 13.6 Immediate owner-requested live/product fixes remain binding
+
+These are tracked in `docs/OWNER_REQUESTED_TODO.md` and are not erased simply because the feature
+inventory normally excludes small defects:
+
+- **#779** — repair the `/admin` `fmtPassExpiry` runtime crash with real-page regression evidence.
+- **#780** — repair/verify configurable-hours temporary password/pass generation end to end,
+  including actual authentication, expiry and revocation/fail-closed semantics.
+- **#781** — Trade Calculator manual value edits must be visually silent; no yellow/badge/per-player
+  override marker, one discreet top-level Reset Values control, removal clears the temporary
+  override, re-adding returns to canonical value, and canonical truth is never mutated.
+
+### 13.7 Execution ordering / scope safety
+
+- Do not interrupt the isolated B2 IDP curve-routing work merely to implement any §13 item.
+- At the next safe integration/planning checkpoint, reconcile §13 into the active dependency graph,
+  canonical-owner map and phase plan.
+- #790 should be the next appropriate Monte Carlo/trade-model audit; #791 is small but still waits
+  for a safe checkpoint; #792 waits for canonical Team Strength/Weakness/roster-impact foundations.
+- #785 belongs at the appropriate league-value/TEP checkpoint and must not be "fixed" by simply
+  raising tight ends until they resemble KTC.
+- #788 stays cost-gated/long-term.
+- CE-17–CE-21 and all competitor enrichments remain future scope after dependencies.
+- Missing is never zero. Signal lineage/independence remains mandatory. Recommendation and mutation
+  planes stay separate.
 
 ---
 
