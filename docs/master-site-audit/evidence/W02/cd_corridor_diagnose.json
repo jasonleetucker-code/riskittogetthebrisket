@@ -1,0 +1,372 @@
+{
+ "pin": {
+  "phase": "CD (corridor dependency)",
+  "note": "A NEW pin. The B4 pin (board sha256 8fb6ede274171aee\u2026) is historical and is neither reused nor overwritten by this pass.",
+  "codeSha": "8639e79f4a7b36d5b2e92160c4701488140fdc99",
+  "codeSubject": "Merge PR #798: B4 \u2014 one canonical tail-policy owner; W30-F023 blocked on the corridor residuals",
+  "mainTip": "8639e79f4a7b36d5b2e92160c4701488140fdc99",
+  "dirtyPaths": [
+   "docs/master-site-audit/evidence/W02/cd_corridor_diagnose.json",
+   "docs/master-site-audit/evidence/W02/cd_corridor_diagnose.py",
+   "docs/master-site-audit/evidence/W02/cd_corridor_diagnose.txt"
+  ],
+  "dirtyIsEvidenceOnly": true,
+  "board": {
+   "path": "exports/latest/dynasty_data_2026-08-11.json",
+   "sha256": "d0cf7b27670bcb6ca325e84c4d9ddcb0cbe3a1b5abe3ca8b12e8bb2c7f4d3ae8",
+   "bytes": 834997,
+   "scrapeTimestamp": "2026-08-11T17:43:03.470590",
+   "playerCount": 1074
+  },
+  "sourceCsvs": {
+   "dlfIdp.csv": {
+    "sha256": "9bf471c7222ad7d292244f11d72eba58a472a38e61f7b72f809738de8cf98166",
+    "bytes": 3528
+   },
+   "dlfRookieIdp.csv": {
+    "sha256": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "bytes": 575
+   },
+   "dlfRookieSf.csv": {
+    "sha256": "7b3109d1cf8eee82c4ec1fd2fbcd0ee9872b10c923b165f840d0156c318a0419",
+    "bytes": 1111
+   },
+   "dlfSf.csv": {
+    "sha256": "20ec2e95239e8e5b0232f816c6eab9f3702935dbd181587dda374595589363eb",
+    "bytes": 5872
+   },
+   "draftSharksIdp.csv": {
+    "sha256": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+    "bytes": 22026
+   },
+   "draftSharksRosIdp.csv": {
+    "sha256": "569c1b35a7bc08a60a37cc030d290b2a9d35373ecc7dfcc2193b3810b0eea4cd",
+    "bytes": 12423
+   },
+   "draftSharksRosSf.csv": {
+    "sha256": "77581439f9b59acebe623256a97e5ab589e9fe92233ebc2a6eb61cff547a23cb",
+    "bytes": 7274
+   },
+   "draftSharksSf.csv": {
+    "sha256": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+    "bytes": 163609
+   },
+   "dynastyDaddySf.csv": {
+    "sha256": "8736e2fad5435456eb88adb9eb2d18f0d006bd787e845ca8b9e3ae8df25cacfb",
+    "bytes": 8526
+   },
+   "dynastyNerdsSfTep.csv": {
+    "sha256": "fe232d5ef61c73793b663365c8c65906daa38b317666ddcd087f63f1433828d7",
+    "bytes": 10255
+   },
+   "fantasyCalc.csv": {
+    "sha256": "c016906c305996284f40a4246ac03d073764fbb6e503f981a384d9bd9c820cb3",
+    "bytes": 9140
+   },
+   "fantasyNavigatorSf.csv": {
+    "sha256": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "bytes": 17978
+   },
+   "fantasyProsFitzmaurice.csv": {
+    "sha256": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "bytes": 8505
+   },
+   "fantasyProsIdp.csv": {
+    "sha256": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "bytes": 10513
+   },
+   "fantasyProsSf.csv": {
+    "sha256": "0aa0deaa1357e28990ae9394d86a07dc38c32f8a8a62ee89df2ea4c13d0bdde4",
+    "bytes": 14004
+   },
+   "flockFantasySf.csv": {
+    "sha256": "31c9923a82417f82cebcb4515b6a5f0bada64469224ad35b98bba38c9a86ba1d",
+    "bytes": 9276
+   },
+   "flockFantasySfRookies.csv": {
+    "sha256": "e1cf340a54a7b2898cf912dfb0a23fe66f37aff0ec9d4cb31d2d43c52c5f9e20",
+    "bytes": 1694
+   },
+   "idpShow.csv": {
+    "sha256": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "bytes": 7670
+   },
+   "idpTradeCalc.csv": {
+    "sha256": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "bytes": 19660
+   },
+   "ktc.csv": {
+    "sha256": "d50662187bffd3dc9112a5aa4adadb629bfd40a361e4fd841dc337fe5ce08b1a",
+    "bytes": 9857
+   },
+   "ktcSfTep.csv": {
+    "sha256": "02081dffb9577814c99ba1d170e68e08e90b8808f26a53c0f0fe9a2847487719",
+    "bytes": 9864
+   },
+   "otcffbSf.csv": {
+    "sha256": "c1348395d72924bdac742185e1fd50d0c082b658b23d4e320f909a069867203b",
+    "bytes": 10164
+   },
+   "pfkDynasty.csv": {
+    "sha256": "dbeec7c1b0adb640f76af23faa3629c6763daa05c23cea5e0b349a3aede4446b",
+    "bytes": 15210
+   },
+   "yahooBoone.csv": {
+    "sha256": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3",
+    "bytes": 10774
+   }
+  },
+  "championModel": {
+   "modelId": "hill_scope_masters",
+   "version": 2,
+   "params": {
+    "HILL_GLOBAL_PERCENTILE_C": 0.112,
+    "HILL_GLOBAL_PERCENTILE_S": 0.725,
+    "HILL_PERCENTILE_C": 0.11,
+    "HILL_PERCENTILE_S": 1.11,
+    "IDP_HILL_PERCENTILE_C": 0.083,
+    "IDP_HILL_PERCENTILE_S": 1.11,
+    "HILL_ROOKIE_PERCENTILE_C": 0.153,
+    "HILL_ROOKIE_PERCENTILE_S": 0.885
+   }
+  },
+  "corridorConstants": {
+   "percentile": 0.9,
+   "minBucketN": 30,
+   "maxBandByAssetClass": {},
+   "anchorByAssetClass": {
+    "offense": "ktcSfTep",
+    "idp": "idpTradeCalc"
+   },
+   "anchorFallbacks": {
+    "offense": [
+     "ktcSfTep",
+     "idpTradeCalc",
+     "dynastyDaddySf",
+     "fantasyProsFitzmaurice",
+     "yahooBoone"
+    ],
+    "idp": [
+     "idpTradeCalc",
+     "dlfIdp",
+     "idpShow",
+     "fantasyProsIdp"
+    ]
+   }
+  },
+  "tailPolicy": {
+   "TAIL_SATURATION_RANK": null
+  },
+  "blendVoters": [
+   "dlfIdp",
+   "dlfRookieIdp",
+   "dlfRookieSf",
+   "dlfSf",
+   "draftSharks",
+   "draftSharksIdp",
+   "dynastyDaddySf",
+   "dynastyNerdsSfTep",
+   "fantasyCalc",
+   "fantasyNavigatorSf",
+   "fantasyProsFitzmaurice",
+   "fantasyProsIdp",
+   "fantasyProsSf",
+   "flockFantasySf",
+   "flockFantasySfRookies",
+   "idpShow",
+   "idpTradeCalc",
+   "ktcSfTep",
+   "otcffbSf",
+   "pfkDynasty",
+   "yahooBoone"
+  ]
+ },
+ "q1_anchorIndependence": {
+  "chains": {
+   "offense": {
+    "ktcSfTep": true,
+    "idpTradeCalc": true,
+    "dynastyDaddySf": true,
+    "fantasyProsFitzmaurice": true,
+    "yahooBoone": true
+   },
+   "idp": {
+    "idpTradeCalc": true,
+    "dlfIdp": true,
+    "idpShow": true,
+    "fantasyProsIdp": true
+   }
+  },
+  "clampedRows": 32,
+  "anchorIsAlsoVoter": 32,
+  "anchorBlendShareBeforeClamp": {
+   "n": 32,
+   "min": 0.25,
+   "median": 0.3333,
+   "p90": 0.3333,
+   "max": 0.5,
+   "mean": 0.3411
+  },
+  "anchorShareAfterClamp": 1.0,
+  "shareJump": {
+   "n": 32,
+   "min": 0.5,
+   "median": 0.6667,
+   "p90": 0.6667,
+   "max": 0.75,
+   "mean": 0.6589
+  },
+  "incrementalSecondInfluence": {
+   "n": 32,
+   "min": 0.0008,
+   "median": 0.0203,
+   "p90": 0.0763,
+   "max": 0.1068,
+   "mean": 0.0327
+  },
+  "firstInfluenceViaBlend": {
+   "n": 29,
+   "min": 0.1901,
+   "median": 0.208,
+   "p90": 0.209,
+   "max": 0.3321,
+   "mean": 0.2153
+  },
+  "anchorSources": {
+   "idpTradeCalc": 32
+  }
+ },
+ "q2_bandIndependence": {
+  "eligibleRows": 359,
+  "clampedRows": 32,
+  "triggerRatePct": 8.91,
+  "percentile": 0.9,
+  "systemicDrift": [
+   {
+    "f": 1.0,
+    "band": 0.6201,
+    "fired": 32,
+    "ratePct": 9.73,
+    "identicalRowSetToUndrifted": true
+   },
+   {
+    "f": 1.05,
+    "band": 0.7011,
+    "fired": 32,
+    "ratePct": 9.73,
+    "identicalRowSetToUndrifted": true
+   },
+   {
+    "f": 1.15,
+    "band": 0.8631,
+    "fired": 32,
+    "ratePct": 9.73,
+    "identicalRowSetToUndrifted": true
+   },
+   {
+    "f": 1.3,
+    "band": 1.1061,
+    "fired": 32,
+    "ratePct": 9.73,
+    "identicalRowSetToUndrifted": true
+   },
+   {
+    "f": 1.6,
+    "band": 1.5921,
+    "fired": 32,
+    "ratePct": 9.73,
+    "identicalRowSetToUndrifted": true
+   },
+   {
+    "f": 2.0,
+    "band": 2.2401,
+    "fired": 32,
+    "ratePct": 9.73,
+    "identicalRowSetToUndrifted": true
+   },
+   {
+    "f": 3.0,
+    "band": 3.8602,
+    "fired": 32,
+    "ratePct": 9.73,
+    "identicalRowSetToUndrifted": true
+   },
+   {
+    "f": 10.0,
+    "band": 15.2005,
+    "fired": 32,
+    "ratePct": 9.73,
+    "identicalRowSetToUndrifted": true
+   }
+  ],
+  "absorption": [
+   {
+    "brokenFraction": 0.02,
+    "brokenRows": 6,
+    "caught": 6,
+    "detectionPct": 100.0,
+    "band": 0.6316
+   },
+   {
+    "brokenFraction": 0.05,
+    "brokenRows": 16,
+    "caught": 16,
+    "detectionPct": 100.0,
+    "band": 0.6504
+   },
+   {
+    "brokenFraction": 0.1,
+    "brokenRows": 32,
+    "caught": 32,
+    "detectionPct": 100.0,
+    "band": 0.7034
+   },
+   {
+    "brokenFraction": 0.2,
+    "brokenRows": 65,
+    "caught": 33,
+    "detectionPct": 50.77,
+    "band": 2.3309
+   },
+   {
+    "brokenFraction": 0.4,
+    "brokenRows": 131,
+    "caught": 33,
+    "detectionPct": 25.19,
+    "band": 2.6465
+   },
+   {
+    "brokenFraction": 0.8,
+    "brokenRows": 263,
+    "caught": 33,
+    "detectionPct": 12.55,
+    "band": 3.7751
+   }
+  ]
+ },
+ "q3_confidenceDependency": {
+  "buckets": {
+   "high": {
+    "n": 36,
+    "usesOwnBand": true,
+    "band": 0.6504,
+    "medianDrift": 0.2071
+   },
+   "low": {
+    "n": 174,
+    "usesOwnBand": true,
+    "band": 0.6316,
+    "medianDrift": 0.1951
+   },
+   "medium": {
+    "n": 119,
+    "usesOwnBand": true,
+    "band": 0.5183,
+    "medianDrift": 0.098
+   }
+  },
+  "overallP90": 0.6201,
+  "minBucketN": 30,
+  "bandSpread": 0.1321
+ }
+}
