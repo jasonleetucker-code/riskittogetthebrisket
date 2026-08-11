@@ -49,15 +49,18 @@ state. This file holds **architecture** state.
 Environment: python 3.11.15 in `.venv` (`scripts/setup.sh`), node 22.22.2, vitest 4.1.10.
 The clone must be **unshallowed** (`git fetch --unshallow`) or every git-derived audit signal lies.
 
-> **Prefer CI's numbers over a container's for the full Python suite.** `Validate PR` splits it —
+> **CI splits the Python suite; add both halves.** `Validate PR` runs
 > `pytest tests/ -x -q -m "not livedata"` as the hard gate (6,817 passed / 278 deselected /
 > 295 subtests, 456s) plus a non-blocking livedata pass (253 passed / 25 skipped / 338
-> subtests, 41s) — and 6,817 + 253 = the 7,070 above. A dev container's wall-clock for the same
-> suite is **not** comparable: measured runs in this container ranged from ~580s to a pace
-> implying ~4 hours, on identical code, with no disk or memory pressure and the process
-> CPU-bound throughout. `tests/api` (118 files, contract builds) dominates. If a local full run
-> is pacing absurdly, that is the container, not a regression — read the CI job instead of
-> waiting it out.
+> subtests, 41s) — and 6,817 + 253 = the 7,070 above.
+>
+> **This container runs the same suite in ~24 minutes, about 3x CI.** Measured end to end:
+> 6,881 passed / 0 failed / 278 deselected / 295 subtests in **1429s (23m49s)**, CPU-bound
+> throughout, no disk or memory pressure. `tests/api` (118 files, each building the 4 MB
+> contract) dominates. Do **not** extrapolate a total from the early percentage — the run is
+> front-loaded with slow work and an early-phase rate implies wildly wrong totals; an earlier
+> note here claimed "a pace implying ~4 hours" on exactly that mistake. Let it finish, or read
+> the CI job.
 
 ### Phase A formal closure — 2026-08-11
 
