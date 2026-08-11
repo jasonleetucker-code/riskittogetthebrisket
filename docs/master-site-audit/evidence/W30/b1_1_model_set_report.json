@@ -283,12 +283,18 @@
     "500 (current \u2014 serving's fixed reference pool)": {
       "GLOBAL": {
         "c": 0.089,
-        "s": 0.72
+        "s": 0.72,
+        "referenceN": 500,
+        "rankSpaceMidpoint": 44.411,
+        "cInScoringCoordinate": 0.089
       },
       "OFFENSE": {
         "c": 0.077,
         "s": 1.11,
-        "holdoutInServingCoordinate": {
+        "referenceN": 500,
+        "rankSpaceMidpoint": 38.423,
+        "cInScoringCoordinate": 0.077,
+        "holdout": {
           "criterion": 671.21,
           "perBoard": {
             "FantasyCalc": 608.13,
@@ -296,63 +302,99 @@
             "OTCFFB": 821.98,
             "PFKDynasty": 308.23
           },
-          "skipped": {}
+          "skipped": {},
+          "cAsFit": 0.077,
+          "fitReferenceN": 500,
+          "cInScoringCoordinate": 0.077,
+          "scoringReferenceN": 500,
+          "rankSpaceMidpoint": 38.423
         }
       },
       "IDP": {
         "c": 0.038,
-        "s": 0.87
+        "s": 0.87,
+        "referenceN": 500,
+        "rankSpaceMidpoint": 18.962,
+        "cInScoringCoordinate": 0.038
       }
     },
     "400 (FIT_TOP_N \u2014 the deepest row any fit trains on)": {
       "GLOBAL": {
         "c": 0.112,
-        "s": 0.72
+        "s": 0.72,
+        "referenceN": 400,
+        "rankSpaceMidpoint": 44.688,
+        "cInScoringCoordinate": 0.089555
       },
       "OFFENSE": {
         "c": 0.096,
         "s": 1.115,
-        "holdoutInServingCoordinate": {
-          "criterion": 927.77,
+        "referenceN": 400,
+        "rankSpaceMidpoint": 38.304,
+        "cInScoringCoordinate": 0.076762,
+        "holdout": {
+          "criterion": 664.81,
           "perBoard": {
-            "FantasyCalc": 944.11,
-            "FantasyNavigator": 1285.43,
-            "OTCFFB": 1185.8,
-            "PFKDynasty": 295.74
+            "FantasyCalc": 598.29,
+            "FantasyNavigator": 934.86,
+            "OTCFFB": 811.54,
+            "PFKDynasty": 314.56
           },
-          "skipped": {}
+          "skipped": {},
+          "cAsFit": 0.096,
+          "fitReferenceN": 400,
+          "cInScoringCoordinate": 0.076762,
+          "scoringReferenceN": 500,
+          "rankSpaceMidpoint": 38.304
         }
       },
       "IDP": {
         "c": 0.048,
-        "s": 0.875
+        "s": 0.875,
+        "referenceN": 400,
+        "rankSpaceMidpoint": 19.152,
+        "cInScoringCoordinate": 0.038381
       }
     },
     "800 (OVERALL_RANK_LIMIT \u2014 the deepest rank the board publishes)": {
       "GLOBAL": {
         "c": 0.056,
-        "s": 0.73
+        "s": 0.73,
+        "referenceN": 800,
+        "rankSpaceMidpoint": 44.744,
+        "cInScoringCoordinate": 0.089667
       },
       "OFFENSE": {
         "c": 0.048,
         "s": 1.11,
-        "holdoutInServingCoordinate": {
-          "criterion": 502.12,
+        "referenceN": 800,
+        "rankSpaceMidpoint": 38.352,
+        "cInScoringCoordinate": 0.076858,
+        "holdout": {
+          "criterion": 669.64,
           "perBoard": {
-            "FantasyCalc": 350.09,
-            "FantasyNavigator": 499.98,
-            "OTCFFB": 239.81,
-            "PFKDynasty": 918.62
+            "FantasyCalc": 605.54,
+            "FantasyNavigator": 943.87,
+            "OTCFFB": 819.05,
+            "PFKDynasty": 310.11
           },
-          "skipped": {}
+          "skipped": {},
+          "cAsFit": 0.048,
+          "fitReferenceN": 800,
+          "cInScoringCoordinate": 0.076858,
+          "scoringReferenceN": 500,
+          "rankSpaceMidpoint": 38.352
         }
       },
       "IDP": {
         "c": 0.024,
-        "s": 0.87
+        "s": 0.87,
+        "referenceN": 800,
+        "rankSpaceMidpoint": 19.176,
+        "cInScoringCoordinate": 0.038429
       }
     },
-    "_note": "Only OFFENSE has a holdout. GLOBAL and IDP constants are reported for completeness and are NOT validated by anything here."
+    "_note": "Reference N is a UNIT, not a model: compare rankSpaceMidpoint, not c. Only OFFENSE has a holdout; GLOBAL and IDP constants are reported for completeness and are NOT validated by anything here."
   },
   "S18_unanimitySweep": {
     "slopeHeld": 1.11,
@@ -732,7 +774,12 @@
             "OTCFFB": 821.98,
             "PFKDynasty": 308.23
           },
-          "skipped": {}
+          "skipped": {},
+          "cAsFit": 0.077,
+          "fitReferenceN": 500,
+          "cInScoringCoordinate": 0.077,
+          "scoringReferenceN": 500,
+          "rankSpaceMidpoint": 38.423
         }
       },
       "sourceCount": 6,
@@ -756,7 +803,12 @@
               "OTCFFB": 643.99,
               "PFKDynasty": 457.2
             },
-            "skipped": {}
+            "skipped": {},
+            "cAsFit": 0.072,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.072,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 35.928
           }
         },
         {
@@ -778,7 +830,12 @@
               "OTCFFB": 911.83,
               "PFKDynasty": 266.92
             },
-            "skipped": {}
+            "skipped": {},
+            "cAsFit": 0.08,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.08,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 39.92
           }
         },
         {
@@ -800,7 +857,12 @@
               "OTCFFB": 995.01,
               "PFKDynasty": 265.16
             },
-            "skipped": {}
+            "skipped": {},
+            "cAsFit": 0.082,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.082,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 40.918
           }
         },
         {
@@ -822,7 +884,12 @@
               "OTCFFB": 844.9,
               "PFKDynasty": 297.96
             },
-            "skipped": {}
+            "skipped": {},
+            "cAsFit": 0.077,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.077,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 38.423
           }
         },
         {
@@ -844,7 +911,12 @@
               "OTCFFB": 686.39,
               "PFKDynasty": 411.45
             },
-            "skipped": {}
+            "skipped": {},
+            "cAsFit": 0.07,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.07,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 34.93
           }
         },
         {
@@ -866,7 +938,12 @@
               "OTCFFB": 836.91,
               "PFKDynasty": 313.49
             },
-            "skipped": {}
+            "skipped": {},
+            "cAsFit": 0.082,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.082,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 40.918
           }
         }
       ]

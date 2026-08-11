@@ -254,23 +254,75 @@ def evaluate_offense_master(c: float, s: float):
     return _ev(c, s)
 
 
-def holdout_score(c: float, s: float) -> dict:
-    """Score an OFFENSE curve on the four held-out retail boards."""
-    res = evaluate_offense_master(c, s)
+def rank_space_midpoint(c: float, reference_n: int) -> float:
+    """``M = c · (N − 1)`` — the parameterization-independent midpoint.
+
+    ``V(p) = 9999/(1 + (p/c)^s)`` with ``p = (rank−1)/(N−1)`` reduces to
+    ``V = 9999/(1 + ((rank−1)/M)^s)``, so rank-space behaviour depends on
+    ``(M, s)`` and NOT on ``(c, N)`` separately. Two candidates with equal
+    ``M`` and ``s`` are the same curve written in different units.
+
+    Reported on every candidate because its absence is what let B1.1 read
+    0.0480 and 0.0770 as rival proposals when they are one curve.
+    """
+    return float(c) * (int(reference_n) - 1)
+
+
+def transform_c(c: float, *, from_n: int, to_n: int) -> float:
+    """Re-express ``c`` in another reference universe, curve unchanged.
+
+    ``c₂ = c₁ · (N₁ − 1) / (N₂ − 1)``, the inverse of `rank_space_midpoint`.
+    """
+    return float(c) * (int(from_n) - 1) / (int(to_n) - 1)
+
+
+def score_candidate(c: float, s: float, *, reference_n: int) -> dict:
+    """Score an OFFENSE candidate on the four held-out retail boards.
+
+    ``reference_n`` is keyword-only and has NO DEFAULT on purpose. The
+    evaluator builds its percentiles at the canonical `PERCENTILE_REFERENCE_N`
+    (see `holdout._percentile_pairs`), so a `c` fitted under any other
+    universe must be transformed before it is scored. B1.1 passed the raw
+    fitted `c` straight through and reported the resulting units error as a
+    model result — 933.19 / 671.21 / 502.12 for one curve. Forcing the
+    caller to name the coordinate is what makes that mistake hard to repeat.
+    """
+    c_scored = transform_c(c, from_n=reference_n, to_n=PERCENTILE_REFERENCE_N)
+    res = evaluate_offense_master(c_scored, s)
     return {
         "criterion": round(res.criterion, 2),
         "perBoard": {k: round(v, 2) for k, v in res.per_source.items()},
         "skipped": dict(res.skipped),
+        "cAsFit": round(float(c), 6),
+        "fitReferenceN": int(reference_n),
+        "cInScoringCoordinate": round(c_scored, 6),
+        "scoringReferenceN": int(PERCENTILE_REFERENCE_N),
+        "rankSpaceMidpoint": round(rank_space_midpoint(c, reference_n), 3),
     }
+
+
+def holdout_score(c: float, s: float) -> dict:
+    """Score a curve already expressed in the canonical coordinate.
+
+    Retained for callers that genuinely hold an N=500 parameter — the
+    unanimity sweep, which varies `c` directly in the serving coordinate
+    and is therefore unaffected by the B1.2 correction.
+    """
+    return score_candidate(c, s, reference_n=PERCENTILE_REFERENCE_N)
 
 
 def s18_reference_universe(fit, sources) -> dict:
     """Refit every scope under candidate reference universes.
 
-    The universe is the one modelling choice B1 did NOT make: it unified
-    fit and serve onto 500 because 500 is what serving already used, not
-    because 500 was shown to be right. These are the defensible
-    candidates, each scored where a score exists.
+    B1 unified fit and serve onto 500 because 500 is what serving already
+    used, not because 500 was shown to be right — so this asks whether the
+    universe itself is a modelling choice.
+
+    **B1.2 answer: it is not.** Refitting the same observations under a
+    different N rescales `c` and leaves `M = c·(N−1)` alone, so every
+    universe recovers one curve. The `rankSpaceMidpoint` column is what
+    makes that visible; the earlier version of this function reported only
+    `c` and read the rescaling as three different models.
     """
     candidates = {
         "500 (current — serving's fixed reference pool)": PERCENTILE_REFERENCE_N,
@@ -285,20 +337,23 @@ def s18_reference_universe(fit, sources) -> dict:
             if got is None:
                 continue
             c, s = got
-            entry = {"c": round(c, 4), "s": round(s, 4)}
+            entry = {
+                "c": round(c, 4),
+                "s": round(s, 4),
+                "referenceN": int(ref_n),
+                "rankSpaceMidpoint": round(rank_space_midpoint(c, ref_n), 3),
+                "cInScoringCoordinate": round(
+                    transform_c(c, from_n=ref_n, to_n=PERCENTILE_REFERENCE_N), 6
+                ),
+            }
             if scope == "OFFENSE":
-                # The holdout scores in the CANONICAL coordinate, so a
-                # curve fit against a different universe must be scored
-                # in the universe it will actually be served in. Scoring
-                # it in its own coordinate would grade every candidate on
-                # its own private scale and make them incomparable —
-                # which is the original W30-F008 defect wearing a hat.
-                entry["holdoutInServingCoordinate"] = holdout_score(c, s)
+                entry["holdout"] = score_candidate(c, s, reference_n=ref_n)
             scopes[scope] = entry
         out[label] = scopes
     out["_note"] = (
-        "Only OFFENSE has a holdout. GLOBAL and IDP constants are reported "
-        "for completeness and are NOT validated by anything here."
+        "Reference N is a UNIT, not a model: compare rankSpaceMidpoint, not c. "
+        "Only OFFENSE has a holdout; GLOBAL and IDP constants are reported for "
+        "completeness and are NOT validated by anything here."
     )
     return out
 
@@ -656,16 +711,19 @@ def _print_human(r: dict) -> None:
                 f"    {s['source']:24s} {s['clamped']:4d}/{s['observations']:4d}  {s['clampedPct']:5.1f}%"
             )
 
-    print("\n=== §18 — reference-universe candidates ===")
+    print("\n=== §18 — reference-universe candidates (M is the model, c is units) ===")
     for label, scopes in r["S18_referenceUniverse"].items():
         if label.startswith("_"):
             continue
         print(f"\n  {label}")
         for scope, e in scopes.items():
-            line = f"    {scope:8s} c={e['c']:.4f} s={e['s']:.4f}"
-            h = e.get("holdoutInServingCoordinate")
+            line = (
+                f"    {scope:8s} c={e['c']:.4f} s={e['s']:.4f}  "
+                f"M={e['rankSpaceMidpoint']:7.3f}  c@N500={e['cInScoringCoordinate']:.4f}"
+            )
+            h = e.get("holdout")
             if h:
-                line += f"   holdout criterion {h['criterion']}"
+                line += f"   holdout {h['criterion']}"
             print(line)
     print(f"\n  {r['S18_referenceUniverse']['_note']}")
 
