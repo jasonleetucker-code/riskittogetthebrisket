@@ -1,8 +1,8 @@
 {
  "pin": {
   "phase": "B3",
-  "codeSha": "2449af9ac3e2614e27a0dc2cac46acf3a404790f",
-  "codeSubject": "Merge PR #787: B2 \u2014 route the Hill master by the rank's coordinate pool (W02-F001)",
+  "codeSha": "8a0592e8af2153e86ea01c6ead9f98f56ace42e3",
+  "codeSubject": "evidence(B3): pin the B3 baseline and reproduce W02-F003 with anchor lineage",
   "dirty": true,
   "board": {
    "path": "exports/latest/dynasty_data_2026-08-11.json",

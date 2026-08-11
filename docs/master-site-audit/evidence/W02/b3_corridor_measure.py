@@ -246,6 +246,33 @@ def reproduce() -> None:
             f"cap wins={_q(vals, 0.90) > (cap or 0)}"
         )
 
+    # ── who gets clamped: by confidence bucket and by source count ──
+    #
+    # ``confidenceBucket`` is INTER-SOURCE agreement (high = >=2 sources
+    # with a tight percentile spread). The corridor uses it to pick a
+    # band. If high-confidence rows are clamped MORE, the corridor is
+    # preferentially overriding the board's best-supported opinions with
+    # a single dissenting source.
+    print("\n== who gets clamped ==")
+    print(f"  {'bucket':<10} {'ranked IDP':>10} {'clamped':>8} {'rate':>7} {'up/down':>9}")
+    for bucket in ("high", "medium", "low", "none"):
+        pop = [r for r in ranked_idp if str(r.get("confidenceBucket") or "") == bucket]
+        cl = [r for r in pop if r.get("marketCorridorClamp")]
+        if not pop:
+            continue
+        u = sum(1 for r in cl if r["marketCorridorClamp"]["direction"] == "up")
+        print(
+            f"  {bucket:<10} {len(pop):>10} {len(cl):>8} {_pct(len(cl), len(pop)):>7} "
+            f"{f'{u}/{len(cl) - u}':>9}"
+        )
+    print(f"  {'sources':<10} {'ranked IDP':>10} {'clamped':>8} {'rate':>7}")
+    for n in (1, 2, 3, 4, 5, 6):
+        pop = [r for r in ranked_idp if len(r.get("sourceRankMeta") or {}) == n]
+        if not pop:
+            continue
+        cl = [r for r in pop if r.get("marketCorridorClamp")]
+        print(f"  {n:<10} {len(pop):>10} {len(cl):>8} {_pct(len(cl), len(pop)):>7}")
+
     # ── anchor lineage ──
     print("\n== anchor lineage on clamped rows ==")
     src_counts: dict[str, int] = {}

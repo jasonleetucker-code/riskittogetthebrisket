@@ -1,5 +1,5 @@
 == B3 pin ==
-  code   2449af9ac  dirty=True
+  code   8a0592e8a  dirty=True
   board  exports/latest/dynasty_data_2026-08-11.json  sha256_16=8fb6ede274171aee  834861 B  scraped=2026-08-11T11:32:57.431111
   csvs   24 hashed
   champ  v2 (champion) params={'HILL_GLOBAL_PERCENTILE_C': 0.112, 'HILL_GLOBAL_PERCENTILE_S': 0.725, 'HILL_PERCENTILE_C': 0.11, 'HILL_PERCENTILE_S': 1.11, 'IDP_HILL_PERCENTILE_C': 0.083, 'IDP_HILL_PERCENTILE_S': 1.11, 'HILL_ROOKIE_PERCENTILE_C': 0.153, 'HILL_ROOKIE_PERCENTILE_S': 0.885}
@@ -30,6 +30,18 @@
   high     n=36    P90=0.6504   own band   cap wins=True
   low      n=173   P90=0.6316   own band   cap wins=True
   medium   n=120   P90=0.5183   own band   cap wins=True
+
+== who gets clamped ==
+  bucket     ranked IDP  clamped    rate   up/down
+  high               36       23   63.9%      6/17
+  medium            120       55   45.8%     11/44
+  low               173      105   60.7%      6/99
+  sources    ranked IDP  clamped    rate
+  2                  27       13   48.1%
+  3                 112      100   89.3%
+  4                  60       36   60.0%
+  5                 122       32   26.2%
+  6                   8        2   25.0%
 
 == anchor lineage on clamped rows ==
   anchor=idpTradeCalc              183 rows
