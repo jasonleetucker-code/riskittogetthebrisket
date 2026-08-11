@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -102,13 +103,47 @@ def _load_values(path: Path, col: str) -> list[float]:
     return vs
 
 
-def _latest_snapshot() -> "Path | None":
-    """Return the newest ``dynasty_data_*.json`` snapshot path, or None.
+#: Env var that pins the board snapshot this fit trains against.
+#: Set it to an absolute path to force a specific file instead of
+#: whichever one happens to be newest on disk.
+SNAPSHOT_ENV_VAR = "RISKIT_FIT_SNAPSHOT"
 
-    Prefers ``data/`` (dev machine) but falls back to
-    ``exports/latest/`` (which is checked into the repo, so CI runs can
-    still fit IDP / rookie scopes off the most recent committed board).
+
+def _latest_snapshot() -> "Path | None":
+    """Return the ``dynasty_data_*.json`` snapshot this fit trains on.
+
+    The snapshot is a MATERIAL model input, not a convenience: it
+    supplies the position filter AND the IDPTradeCalc per-player values
+    behind the IDP scope, and the rookie slices behind ROOKIE. Two runs
+    that select different snapshots are not comparable, however identical
+    the code.
+
+    Selection order:
+
+    1. ``$RISKIT_FIT_SNAPSHOT`` if set — an explicit pin, so a
+       challenger-vs-champion comparison can hold the data fixed while
+       the model code changes. Without this the choice is made by
+       **mtime**, which drifts every time the container writes a board,
+       and a refit could silently train on different data than the
+       measurement it is being compared against.
+    2. newest ``data/`` (dev machine),
+    3. newest ``exports/latest/`` (checked into the repo, so CI runs can
+       still fit IDP / rookie scopes off the most recent committed board).
+
+    A pin that does not exist is fatal rather than a silent fallback —
+    quietly training on a different snapshot than the operator named is
+    the failure this pin exists to prevent.
     """
+    override = os.getenv(SNAPSHOT_ENV_VAR, "").strip()
+    if override:
+        pinned = Path(override).expanduser()
+        if not pinned.is_file():
+            raise SystemExit(
+                f"{SNAPSHOT_ENV_VAR} points at a file that does not exist: {pinned}\n"
+                "Refusing to fall back to whichever snapshot is newest — that would "
+                "train on different data than the pin names."
+            )
+        return pinned
     for sub in ("data", "exports/latest"):
         candidates = sorted(
             (REPO / sub).glob("dynasty_data_*.json"),
