@@ -18,6 +18,7 @@ branches are evidence.
 
 | Claim | Paths | Defect ids | Branch | Status |
 |---|---|---|---|---|
+| Stage-A audit consolidation: Phase A truth re-baseline + verified quick wins (registry ledger freeze, test baseline, W31-F001 untracking, 3 one-line fixes). Deliberately NOT claiming server.py, frontend/app/api/* bridge routes, or src/api/sleeper_overlay.py — those belong to the live `claude/bridge-timeout-root-cause` session (last push 2026-08-10 22:33Z). | docs/master-site-audit/ (claims-frozen file, registry re-baseline), docs/WORK_CLAIMS.md, docs/BRANCH_DISPOSITION_2026-08-11.md, frontend/__tests__/draft-logic.test.js, frontend/components/waivers/ManualAddDrop.jsx, frontend/app/trade/page.jsx, data/sleeper_last_good.json + data/scrape_state/ (untrack only) | W31-F001, W11-F006, W08-F004 (partial: year-literal half) | claude/dynasty-audit-consolidation-e75vdy | open |
 | Work-claim protocol | docs/WORK_CLAIMS.md, scripts/check_work_claims.py, ASSISTANT_COORDINATION.md | — | claude/work-claim-protocol | done |
 | PR-backlog audit: repair of the /edge market-gap display half | frontend/app/edge/page.jsx, frontend/app/edge/edge-columns.jsx, frontend/lib/edge-helpers.js | C09 (S-3) | claude/fix-plan-uex7ug | done |
 
