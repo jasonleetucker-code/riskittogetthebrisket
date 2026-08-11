@@ -1,0 +1,79 @@
+== usable historical days: 17  (2026-07-26 -> 2026-08-11) ==
+
+== temporal independence: how much did the SOURCES actually change? ==
+  transition                  sources changed  board changed
+  2026-07-26 -> 2026-07-27          13 of 22             True
+  2026-07-27 -> 2026-07-28          15 of 22             True
+  2026-07-28 -> 2026-07-29          11 of 22             True
+  2026-07-29 -> 2026-07-30          11 of 22             True
+  2026-07-30 -> 2026-07-31          11 of 22             True
+  2026-07-31 -> 2026-08-01          10 of 22             True
+  2026-08-01 -> 2026-08-02          12 of 22             True
+  2026-08-02 -> 2026-08-03          11 of 22             True
+  2026-08-03 -> 2026-08-04          13 of 22             True
+  2026-08-04 -> 2026-08-05          12 of 22             True
+  2026-08-05 -> 2026-08-06           9 of 22             True
+  2026-08-06 -> 2026-08-07           9 of 22             True
+  2026-08-07 -> 2026-08-08           8 of 22             True
+  2026-08-08 -> 2026-08-09           7 of 22             True
+  2026-08-09 -> 2026-08-10           8 of 22             True
+  2026-08-10 -> 2026-08-11           8 of 22             True
+
+  transitions with ZERO source change: 0 of 16
+  (a day that changes nothing adds no independent information)
+
+== B4 COUPLING: TAIL_SATURATION_RANK=903 ==
+
+day           idp  clamp  rate%  hull@0  hull@2%  driftP50  driftP90
+2026-07-26    326     27    8.3       0        0    0.0957    0.3432
+2026-07-27    329     27    8.2       0        0    0.0935    0.3464
+2026-07-28    331     30    9.1       0        0    0.0954    0.3810
+2026-07-29    330     30    9.1       0        0    0.0947    0.3565
+2026-07-30    330     30    9.1       0        0    0.0954    0.3712
+2026-07-31    331     30    9.1       0        0    0.0963    0.3810
+2026-08-01    333     30    9.0       0        0    0.0963    0.3901
+2026-08-02    328     29    8.8       0        0    0.0943    0.3537
+2026-08-03    276     24    8.7       0        0    0.1053    0.3278
+2026-08-04    328     27    8.2       0        0    0.0957    0.3673
+2026-08-05    329     27    8.2       0        0    0.0947    0.3673
+2026-08-06    276     25    9.1       0        0    0.1012    0.3278
+2026-08-07    329     27    8.2       0        0    0.0947    0.3673
+2026-08-08    330     27    8.2       0        0    0.0957    0.3799
+2026-08-09    329     27    8.2       0        0    0.0947    0.3754
+2026-08-10    329     27    8.2       0        0    0.0947    0.3754
+2026-08-11    327     27    8.3       0        0    0.0947    0.3754
+
+== aggregate over 17 independent days, 5491 IDP rows ==
+
+-- current corridor --
+  trigger rate  min 8.2%  median 8.3%  max 9.1%
+  anchor also votes on 471 of 471 clamped rows (100.0%)
+  anchors used: {'idpTradeCalc': 471}
+
+-- hull invariant, false positives on REAL healthy boards --
+  tolerance     violations     rows    rate%
+  0.000%                 0     5491   0.0000
+  0.500%                 0     5491   0.0000
+  1.000%                 0     5491   0.0000
+  2.000%                 0     5491   0.0000
+  5.000%                 0     5491   0.0000
+  10.000%                0     5491   0.0000
+
+-- reference/change-point family, TRAIN -> HOLDOUT (no reuse) --
+  train  2026-07-26 -> 2026-08-02  (8 days)
+         reference P90 = 0.3639   reference median drift = 0.0954
+  holdout 2026-08-03 -> 2026-08-11  (9 days)
+  day               P90   vs ref   median   vs ref   alarm
+  2026-08-03     0.3278     0.90   0.1053     1.10   False
+  2026-08-04     0.3673     1.01   0.0957     1.00   False
+  2026-08-05     0.3673     1.01   0.0947     0.99   False
+  2026-08-06     0.3278     0.90   0.1012     1.06   False
+  2026-08-07     0.3673     1.01   0.0947     0.99   False
+  2026-08-08     0.3799     1.04   0.0957     1.00   False
+  2026-08-09     0.3754     1.03   0.0947     0.99   False
+  2026-08-10     0.3754     1.03   0.0947     0.99   False
+  2026-08-11     0.3754     1.03   0.0947     0.99   False
+  A change-point rail with a reference from REAL earlier days, not a
+  fabricated constant. Alarms on the healthy holdout are false positives.
+
+wrote /home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W02/cd_historical_metrics_tail903.json

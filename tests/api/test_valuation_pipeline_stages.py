@@ -590,10 +590,23 @@ class TestRetiredPassesStayRetired:
         repo_root = Path(dc.__file__).resolve().parents[2]
         assert not (repo_root / "config" / "idp_calibration.json").exists()
 
-    def test_market_corridor_clamp_is_still_wired(self):
-        """The clamp that DOES survive stage 10 must stay callable.
+    def test_the_market_corridor_clamp_is_retired_too(self):
+        """Stage 10 is now DETECTION, not containment.
 
-        Complements the retirement guards above: this is the one
-        containment pass the live pipeline still runs.
+        This test used to assert the opposite — that the corridor "must
+        stay callable" as "the one containment pass the live pipeline
+        still runs". It is re-decided from measured evidence, not
+        amended quietly: the corridor's anchor was itself a voter in the
+        blend it corrected (539 of 539 clamped rows across 17
+        independent historical days), its band was a P90 of the board it
+        policed so it clamped a fixed ~9% regardless of board health, and
+        injecting anomalies at the source CSVs it fired on 0 of 6 victims
+        in every scenario — upstream Hampel filtering, the count-aware
+        blend and the declared-range check had already absorbed them.
+
+        What replaced it changes no value at all, so stage 10 no longer
+        contains anything (#794/#795/#796).
         """
-        assert callable(getattr(dc, "_apply_market_corridor_clamp", None))
+        assert not hasattr(dc, "_apply_market_corridor_clamp")
+        assert not hasattr(dc, "_market_anchor_for_row")
+        assert callable(getattr(dc, "_detect_blend_integrity_violations", None))

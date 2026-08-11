@@ -1,0 +1,3184 @@
+{
+ "tail": null,
+ "current": {
+  "rowsCompared": 1094,
+  "clampedInProduction": 32,
+  "valuesChanged": 32,
+  "meanAbsChange": 42.5,
+  "medianAbsChange": 26,
+  "p90AbsChange": 98,
+  "maxAbsChange": 148,
+  "medianRelChangePct": 2.08,
+  "p90RelChangePct": 8.26,
+  "maxRelChangePct": 11.95,
+  "ranksChanged": 132,
+  "meanRankMove": 11.47,
+  "maxRankMove": 103,
+  "top50Changed": 0,
+  "top100Changed": 0,
+  "top200Changed": 0,
+  "idpTop50Changed": 0,
+  "idpTop100Changed": 0,
+  "idpTop200Changed": 0,
+  "byBucket": {
+   "DL/EDGE": 14,
+   "DB": 15,
+   "LB": 3
+  },
+  "bySourceCount": {
+   "2": 3,
+   "3": 26,
+   "4": 3
+  },
+  "byConfidence": {
+   "low": 17,
+   "medium": 12,
+   "high": 3
+  },
+  "offenseAffected": 0,
+  "picksAffected": 0,
+  "largestMovers": [
+   {
+    "name": "Will Johnson",
+    "position": "DB",
+    "production": 1238,
+    "noCorridor": 1386,
+    "delta": 148,
+    "rank": 709,
+    "sources": 2
+   },
+   {
+    "name": "Ji'Ayir Brown",
+    "position": "DB",
+    "production": 1162,
+    "noCorridor": 1278,
+    "delta": 116,
+    "rank": 740,
+    "sources": 3
+   },
+   {
+    "name": "DJ Wonnum",
+    "position": "DL",
+    "production": 1172,
+    "noCorridor": 1281,
+    "delta": 109,
+    "rank": 738,
+    "sources": 3
+   },
+   {
+    "name": "Ja'Quan McMillian",
+    "position": "DB",
+    "production": 1172,
+    "noCorridor": 1281,
+    "delta": 109,
+    "rank": 739,
+    "sources": 3
+   },
+   {
+    "name": "Christian Benford",
+    "position": "DB",
+    "production": 1187,
+    "noCorridor": 1285,
+    "delta": 98,
+    "rank": 737,
+    "sources": 3
+   },
+   {
+    "name": "Jaycee Horn",
+    "position": "DB",
+    "production": 1190,
+    "noCorridor": 1286,
+    "delta": 96,
+    "rank": 736,
+    "sources": 3
+   },
+   {
+    "name": "Tarheeb Still",
+    "position": "DB",
+    "production": 1202,
+    "noCorridor": 1290,
+    "delta": 88,
+    "rank": 735,
+    "sources": 3
+   },
+   {
+    "name": "Kamari Ramsey",
+    "position": "DB",
+    "production": 1218,
+    "noCorridor": 1294,
+    "delta": 76,
+    "rank": 727,
+    "sources": 3
+   },
+   {
+    "name": "Genesis Smith",
+    "position": "DB",
+    "production": 1233,
+    "noCorridor": 1299,
+    "delta": 66,
+    "rank": 713,
+    "sources": 3
+   },
+   {
+    "name": "Geno Stone",
+    "position": "DB",
+    "production": 1242,
+    "noCorridor": 1302,
+    "delta": 60,
+    "rank": 708,
+    "sources": 3
+   },
+   {
+    "name": "Nate Wiggins",
+    "position": "DB",
+    "production": 1243,
+    "noCorridor": 1298,
+    "delta": 55,
+    "rank": 707,
+    "sources": 2
+   },
+   {
+    "name": "Christen Miller",
+    "position": "DL",
+    "production": 1263,
+    "noCorridor": 1308,
+    "delta": 45,
+    "rank": 691,
+    "sources": 3
+   },
+   {
+    "name": "Osa Odighizuwa",
+    "position": "DL",
+    "production": 1247,
+    "noCorridor": 1277,
+    "delta": 30,
+    "rank": 704,
+    "sources": 4
+   },
+   {
+    "name": "Keyron Crawford",
+    "position": "DL",
+    "production": 1251,
+    "noCorridor": 1279,
+    "delta": 28,
+    "rank": 702,
+    "sources": 3
+   },
+   {
+    "name": "Keyshaun Elliott",
+    "position": "LB",
+    "production": 1253,
+    "noCorridor": 1281,
+    "delta": 28,
+    "rank": 697,
+    "sources": 4
+   }
+  ]
+ },
+ "historical": [
+  {
+   "rowsCompared": 1095,
+   "clampedInProduction": 32,
+   "valuesChanged": 32,
+   "meanAbsChange": 45.9,
+   "medianAbsChange": 37,
+   "p90AbsChange": 90,
+   "maxAbsChange": 162,
+   "medianRelChangePct": 2.98,
+   "p90RelChangePct": 7.53,
+   "maxRelChangePct": 13.22,
+   "ranksChanged": 125,
+   "meanRankMove": 10.9,
+   "maxRankMove": 116,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 12,
+    "DB": 17,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 4,
+    "3": 24,
+    "4": 4
+   },
+   "byConfidence": {
+    "low": 19,
+    "medium": 10,
+    "high": 3
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1225,
+     "noCorridor": 1387,
+     "delta": 162,
+     "rank": 732,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1168,
+     "noCorridor": 1278,
+     "delta": 110,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1179,
+     "noCorridor": 1281,
+     "delta": 102,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1179,
+     "noCorridor": 1281,
+     "delta": 102,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1196,
+     "noCorridor": 1286,
+     "delta": 90,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1202,
+     "noCorridor": 1288,
+     "delta": 86,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1216,
+     "noCorridor": 1292,
+     "delta": 76,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1225,
+     "noCorridor": 1294,
+     "delta": 69,
+     "rank": 733,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1237,
+     "noCorridor": 1298,
+     "delta": 61,
+     "rank": 722,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1255,
+     "noCorridor": 1303,
+     "delta": 48,
+     "rank": 710,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1230,
+     "noCorridor": 1278,
+     "delta": 48,
+     "rank": 725,
+     "sources": 2
+    },
+    {
+     "name": "Osa Odighizuwa",
+     "position": "DL",
+     "production": 1233,
+     "noCorridor": 1277,
+     "delta": 44,
+     "rank": 724,
+     "sources": 4
+    },
+    {
+     "name": "Keyshaun Elliott",
+     "position": "LB",
+     "production": 1240,
+     "noCorridor": 1282,
+     "delta": 42,
+     "rank": 719,
+     "sources": 4
+    },
+    {
+     "name": "Keyron Crawford",
+     "position": "DL",
+     "production": 1238,
+     "noCorridor": 1279,
+     "delta": 41,
+     "rank": 721,
+     "sources": 3
+    },
+    {
+     "name": "Gabe Jacas",
+     "position": "DL",
+     "production": 1240,
+     "noCorridor": 1279,
+     "delta": 39,
+     "rank": 720,
+     "sources": 4
+    }
+   ],
+   "day": "2026-07-26"
+  },
+  {
+   "rowsCompared": 1094,
+   "clampedInProduction": 33,
+   "valuesChanged": 33,
+   "meanAbsChange": 44.3,
+   "medianAbsChange": 28,
+   "p90AbsChange": 95,
+   "maxAbsChange": 147,
+   "medianRelChangePct": 2.24,
+   "p90RelChangePct": 7.98,
+   "maxRelChangePct": 11.85,
+   "ranksChanged": 128,
+   "meanRankMove": 10.94,
+   "maxRankMove": 101,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 16,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 2,
+    "3": 24,
+    "4": 6,
+    "5": 1
+   },
+   "byConfidence": {
+    "low": 16,
+    "medium": 13,
+    "high": 4
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1240,
+     "noCorridor": 1387,
+     "delta": 147,
+     "rank": 712,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1164,
+     "noCorridor": 1278,
+     "delta": 114,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1174,
+     "noCorridor": 1281,
+     "delta": 107,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1174,
+     "noCorridor": 1281,
+     "delta": 107,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1191,
+     "noCorridor": 1286,
+     "delta": 95,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1197,
+     "noCorridor": 1288,
+     "delta": 91,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1211,
+     "noCorridor": 1292,
+     "delta": 81,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Darius Robinson",
+     "position": "DL",
+     "production": 1215,
+     "noCorridor": 1293,
+     "delta": 78,
+     "rank": 731,
+     "sources": 4
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1220,
+     "noCorridor": 1294,
+     "delta": 74,
+     "rank": 728,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1232,
+     "noCorridor": 1298,
+     "delta": 66,
+     "rank": 716,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1250,
+     "noCorridor": 1303,
+     "delta": 53,
+     "rank": 709,
+     "sources": 3
+    },
+    {
+     "name": "Alim McNeill",
+     "position": "DL",
+     "production": 1238,
+     "noCorridor": 1275,
+     "delta": 37,
+     "rank": 713,
+     "sources": 3
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1273,
+     "noCorridor": 1310,
+     "delta": 37,
+     "rank": 686,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1245,
+     "noCorridor": 1278,
+     "delta": 33,
+     "rank": 711,
+     "sources": 2
+    },
+    {
+     "name": "Kenny Moore",
+     "position": "DB",
+     "production": 1285,
+     "noCorridor": 1314,
+     "delta": 29,
+     "rank": 672,
+     "sources": 4
+    }
+   ],
+   "day": "2026-07-27"
+  },
+  {
+   "rowsCompared": 1093,
+   "clampedInProduction": 33,
+   "valuesChanged": 33,
+   "meanAbsChange": 44.3,
+   "medianAbsChange": 27,
+   "p90AbsChange": 95,
+   "maxAbsChange": 146,
+   "medianRelChangePct": 2.15,
+   "p90RelChangePct": 7.98,
+   "maxRelChangePct": 11.76,
+   "ranksChanged": 127,
+   "meanRankMove": 11.06,
+   "maxRankMove": 101,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 15,
+    "DB": 15,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 2,
+    "3": 24,
+    "4": 6,
+    "5": 1
+   },
+   "byConfidence": {
+    "low": 16,
+    "medium": 13,
+    "high": 4
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1241,
+     "noCorridor": 1387,
+     "delta": 146,
+     "rank": 715,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1164,
+     "noCorridor": 1278,
+     "delta": 114,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1174,
+     "noCorridor": 1281,
+     "delta": 107,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1174,
+     "noCorridor": 1281,
+     "delta": 107,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1190,
+     "noCorridor": 1285,
+     "delta": 95,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1193,
+     "noCorridor": 1286,
+     "delta": 93,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1205,
+     "noCorridor": 1290,
+     "delta": 85,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Darius Robinson",
+     "position": "DL",
+     "production": 1214,
+     "noCorridor": 1293,
+     "delta": 79,
+     "rank": 734,
+     "sources": 4
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1220,
+     "noCorridor": 1294,
+     "delta": 74,
+     "rank": 733,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1235,
+     "noCorridor": 1299,
+     "delta": 64,
+     "rank": 718,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1244,
+     "noCorridor": 1302,
+     "delta": 58,
+     "rank": 712,
+     "sources": 3
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1266,
+     "noCorridor": 1308,
+     "delta": 42,
+     "rank": 699,
+     "sources": 3
+    },
+    {
+     "name": "Kenny Moore",
+     "position": "DB",
+     "production": 1269,
+     "noCorridor": 1309,
+     "delta": 40,
+     "rank": 697,
+     "sources": 4
+    },
+    {
+     "name": "Alim McNeill",
+     "position": "DL",
+     "production": 1239,
+     "noCorridor": 1275,
+     "delta": 36,
+     "rank": 716,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1246,
+     "noCorridor": 1279,
+     "delta": 33,
+     "rank": 711,
+     "sources": 2
+    }
+   ],
+   "day": "2026-07-28"
+  },
+  {
+   "rowsCompared": 1093,
+   "clampedInProduction": 33,
+   "valuesChanged": 33,
+   "meanAbsChange": 45.0,
+   "medianAbsChange": 27,
+   "p90AbsChange": 98,
+   "maxAbsChange": 146,
+   "medianRelChangePct": 2.15,
+   "p90RelChangePct": 8.26,
+   "maxRelChangePct": 11.76,
+   "ranksChanged": 123,
+   "meanRankMove": 12.37,
+   "maxRankMove": 102,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 16,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 2,
+    "3": 24,
+    "4": 6,
+    "5": 1
+   },
+   "byConfidence": {
+    "low": 16,
+    "medium": 13,
+    "high": 4
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1241,
+     "noCorridor": 1387,
+     "delta": 146,
+     "rank": 713,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1162,
+     "noCorridor": 1278,
+     "delta": 116,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1187,
+     "noCorridor": 1285,
+     "delta": 98,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1190,
+     "noCorridor": 1286,
+     "delta": 96,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1202,
+     "noCorridor": 1290,
+     "delta": 88,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Darius Robinson",
+     "position": "DL",
+     "production": 1212,
+     "noCorridor": 1293,
+     "delta": 81,
+     "rank": 734,
+     "sources": 4
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1218,
+     "noCorridor": 1294,
+     "delta": 76,
+     "rank": 730,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1233,
+     "noCorridor": 1299,
+     "delta": 66,
+     "rank": 716,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1242,
+     "noCorridor": 1302,
+     "delta": 60,
+     "rank": 712,
+     "sources": 3
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1263,
+     "noCorridor": 1308,
+     "delta": 45,
+     "rank": 696,
+     "sources": 3
+    },
+    {
+     "name": "Kenny Moore",
+     "position": "DB",
+     "production": 1266,
+     "noCorridor": 1309,
+     "delta": 43,
+     "rank": 693,
+     "sources": 4
+    },
+    {
+     "name": "Alim McNeill",
+     "position": "DL",
+     "production": 1239,
+     "noCorridor": 1275,
+     "delta": 36,
+     "rank": 714,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1246,
+     "noCorridor": 1279,
+     "delta": 33,
+     "rank": 709,
+     "sources": 2
+    }
+   ],
+   "day": "2026-07-29"
+  },
+  {
+   "rowsCompared": 1095,
+   "clampedInProduction": 33,
+   "valuesChanged": 33,
+   "meanAbsChange": 45.6,
+   "medianAbsChange": 28,
+   "p90AbsChange": 98,
+   "maxAbsChange": 149,
+   "medianRelChangePct": 2.23,
+   "p90RelChangePct": 8.26,
+   "maxRelChangePct": 12.02,
+   "ranksChanged": 133,
+   "meanRankMove": 11.86,
+   "maxRankMove": 103,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 16,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 2,
+    "3": 24,
+    "4": 6,
+    "5": 1
+   },
+   "byConfidence": {
+    "low": 16,
+    "medium": 13,
+    "high": 4
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1240,
+     "noCorridor": 1389,
+     "delta": 149,
+     "rank": 711,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1162,
+     "noCorridor": 1278,
+     "delta": 116,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1187,
+     "noCorridor": 1285,
+     "delta": 98,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1190,
+     "noCorridor": 1286,
+     "delta": 96,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1202,
+     "noCorridor": 1290,
+     "delta": 88,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Darius Robinson",
+     "position": "DL",
+     "production": 1212,
+     "noCorridor": 1293,
+     "delta": 81,
+     "rank": 732,
+     "sources": 4
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1218,
+     "noCorridor": 1294,
+     "delta": 76,
+     "rank": 731,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1233,
+     "noCorridor": 1299,
+     "delta": 66,
+     "rank": 717,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1242,
+     "noCorridor": 1302,
+     "delta": 60,
+     "rank": 709,
+     "sources": 3
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1263,
+     "noCorridor": 1308,
+     "delta": 45,
+     "rank": 694,
+     "sources": 3
+    },
+    {
+     "name": "Kenny Moore",
+     "position": "DB",
+     "production": 1266,
+     "noCorridor": 1309,
+     "delta": 43,
+     "rank": 691,
+     "sources": 4
+    },
+    {
+     "name": "Alim McNeill",
+     "position": "DL",
+     "production": 1238,
+     "noCorridor": 1275,
+     "delta": 37,
+     "rank": 713,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1245,
+     "noCorridor": 1279,
+     "delta": 34,
+     "rank": 708,
+     "sources": 2
+    }
+   ],
+   "day": "2026-07-30"
+  },
+  {
+   "rowsCompared": 1094,
+   "clampedInProduction": 33,
+   "valuesChanged": 33,
+   "meanAbsChange": 44.4,
+   "medianAbsChange": 27,
+   "p90AbsChange": 95,
+   "maxAbsChange": 148,
+   "medianRelChangePct": 2.15,
+   "p90RelChangePct": 7.98,
+   "maxRelChangePct": 11.93,
+   "ranksChanged": 134,
+   "meanRankMove": 12.12,
+   "maxRankMove": 104,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 15,
+    "DB": 15,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 2,
+    "3": 24,
+    "4": 6,
+    "5": 1
+   },
+   "byConfidence": {
+    "low": 16,
+    "medium": 13,
+    "high": 4
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1241,
+     "noCorridor": 1389,
+     "delta": 148,
+     "rank": 710,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1164,
+     "noCorridor": 1278,
+     "delta": 114,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1174,
+     "noCorridor": 1281,
+     "delta": 107,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1174,
+     "noCorridor": 1281,
+     "delta": 107,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1190,
+     "noCorridor": 1285,
+     "delta": 95,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1193,
+     "noCorridor": 1286,
+     "delta": 93,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1205,
+     "noCorridor": 1290,
+     "delta": 85,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Darius Robinson",
+     "position": "DL",
+     "production": 1214,
+     "noCorridor": 1293,
+     "delta": 79,
+     "rank": 733,
+     "sources": 4
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1220,
+     "noCorridor": 1294,
+     "delta": 74,
+     "rank": 731,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1235,
+     "noCorridor": 1299,
+     "delta": 64,
+     "rank": 717,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1244,
+     "noCorridor": 1302,
+     "delta": 58,
+     "rank": 709,
+     "sources": 3
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1266,
+     "noCorridor": 1308,
+     "delta": 42,
+     "rank": 691,
+     "sources": 3
+    },
+    {
+     "name": "Kenny Moore",
+     "position": "DB",
+     "production": 1269,
+     "noCorridor": 1309,
+     "delta": 40,
+     "rank": 689,
+     "sources": 4
+    },
+    {
+     "name": "Alim McNeill",
+     "position": "DL",
+     "production": 1239,
+     "noCorridor": 1275,
+     "delta": 36,
+     "rank": 712,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1246,
+     "noCorridor": 1280,
+     "delta": 34,
+     "rank": 706,
+     "sources": 2
+    }
+   ],
+   "day": "2026-07-31"
+  },
+  {
+   "rowsCompared": 1094,
+   "clampedInProduction": 33,
+   "valuesChanged": 33,
+   "meanAbsChange": 45.6,
+   "medianAbsChange": 28,
+   "p90AbsChange": 98,
+   "maxAbsChange": 149,
+   "medianRelChangePct": 2.23,
+   "p90RelChangePct": 8.26,
+   "maxRelChangePct": 12.02,
+   "ranksChanged": 133,
+   "meanRankMove": 12.18,
+   "maxRankMove": 106,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 16,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 2,
+    "3": 24,
+    "4": 6,
+    "5": 1
+   },
+   "byConfidence": {
+    "low": 16,
+    "medium": 13,
+    "high": 4
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1240,
+     "noCorridor": 1389,
+     "delta": 149,
+     "rank": 711,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1162,
+     "noCorridor": 1278,
+     "delta": 116,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1187,
+     "noCorridor": 1285,
+     "delta": 98,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1190,
+     "noCorridor": 1286,
+     "delta": 96,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1202,
+     "noCorridor": 1290,
+     "delta": 88,
+     "rank": 734,
+     "sources": 3
+    },
+    {
+     "name": "Darius Robinson",
+     "position": "DL",
+     "production": 1212,
+     "noCorridor": 1293,
+     "delta": 81,
+     "rank": 731,
+     "sources": 4
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1218,
+     "noCorridor": 1294,
+     "delta": 76,
+     "rank": 727,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1233,
+     "noCorridor": 1299,
+     "delta": 66,
+     "rank": 716,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1242,
+     "noCorridor": 1302,
+     "delta": 60,
+     "rank": 710,
+     "sources": 3
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1263,
+     "noCorridor": 1308,
+     "delta": 45,
+     "rank": 692,
+     "sources": 3
+    },
+    {
+     "name": "Kenny Moore",
+     "position": "DB",
+     "production": 1266,
+     "noCorridor": 1309,
+     "delta": 43,
+     "rank": 688,
+     "sources": 4
+    },
+    {
+     "name": "Alim McNeill",
+     "position": "DL",
+     "production": 1238,
+     "noCorridor": 1275,
+     "delta": 37,
+     "rank": 713,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1245,
+     "noCorridor": 1281,
+     "delta": 36,
+     "rank": 709,
+     "sources": 2
+    }
+   ],
+   "day": "2026-08-01"
+  },
+  {
+   "rowsCompared": 1093,
+   "clampedInProduction": 33,
+   "valuesChanged": 33,
+   "meanAbsChange": 45.8,
+   "medianAbsChange": 28,
+   "p90AbsChange": 98,
+   "maxAbsChange": 147,
+   "medianRelChangePct": 2.23,
+   "p90RelChangePct": 8.26,
+   "maxRelChangePct": 11.86,
+   "ranksChanged": 131,
+   "meanRankMove": 11.65,
+   "maxRankMove": 109,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 16,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 2,
+    "3": 25,
+    "4": 5,
+    "5": 1
+   },
+   "byConfidence": {
+    "low": 16,
+    "medium": 13,
+    "high": 4
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1239,
+     "noCorridor": 1386,
+     "delta": 147,
+     "rank": 716,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1162,
+     "noCorridor": 1278,
+     "delta": 116,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1187,
+     "noCorridor": 1285,
+     "delta": 98,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1190,
+     "noCorridor": 1286,
+     "delta": 96,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1202,
+     "noCorridor": 1290,
+     "delta": 88,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Darius Robinson",
+     "position": "DL",
+     "production": 1212,
+     "noCorridor": 1293,
+     "delta": 81,
+     "rank": 734,
+     "sources": 4
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1218,
+     "noCorridor": 1294,
+     "delta": 76,
+     "rank": 733,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1233,
+     "noCorridor": 1299,
+     "delta": 66,
+     "rank": 720,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1242,
+     "noCorridor": 1302,
+     "delta": 60,
+     "rank": 713,
+     "sources": 3
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1263,
+     "noCorridor": 1308,
+     "delta": 45,
+     "rank": 699,
+     "sources": 3
+    },
+    {
+     "name": "Kenny Moore",
+     "position": "DB",
+     "production": 1266,
+     "noCorridor": 1309,
+     "delta": 43,
+     "rank": 696,
+     "sources": 4
+    },
+    {
+     "name": "Alim McNeill",
+     "position": "DL",
+     "production": 1237,
+     "noCorridor": 1275,
+     "delta": 38,
+     "rank": 718,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1244,
+     "noCorridor": 1280,
+     "delta": 36,
+     "rank": 712,
+     "sources": 2
+    }
+   ],
+   "day": "2026-08-02"
+  },
+  {
+   "rowsCompared": 973,
+   "clampedInProduction": 24,
+   "valuesChanged": 24,
+   "meanAbsChange": 135.3,
+   "medianAbsChange": 104,
+   "p90AbsChange": 277,
+   "maxAbsChange": 525,
+   "medianRelChangePct": 5.63,
+   "p90RelChangePct": 19.71,
+   "maxRelChangePct": 29.1,
+   "ranksChanged": 226,
+   "meanRankMove": 6.54,
+   "maxRankMove": 106,
+   "top50Changed": 0,
+   "top100Changed": 4,
+   "top200Changed": 2,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 7,
+    "DB": 13,
+    "LB": 4
+   },
+   "bySourceCount": {
+    "2": 6,
+    "3": 8,
+    "4": 4,
+    "5": 6
+   },
+   "byConfidence": {
+    "medium": 10,
+    "low": 9,
+    "high": 5
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Jamien Sherwood",
+     "position": "LB",
+     "production": 2663,
+     "noCorridor": 3188,
+     "delta": 525,
+     "rank": 208,
+     "sources": 5
+    },
+    {
+     "name": "Abdul Carter",
+     "position": "DL",
+     "production": 4052,
+     "noCorridor": 3639,
+     "delta": -413,
+     "rank": 97,
+     "sources": 5
+    },
+    {
+     "name": "Jared Verse",
+     "position": "DL",
+     "production": 4049,
+     "noCorridor": 3730,
+     "delta": -319,
+     "rank": 98,
+     "sources": 5
+    },
+    {
+     "name": "Sauce Gardner",
+     "position": "DB",
+     "production": 952,
+     "noCorridor": 1229,
+     "delta": 277,
+     "rank": 740,
+     "sources": 2
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1041,
+     "noCorridor": 1308,
+     "delta": 267,
+     "rank": 716,
+     "sources": 3
+    },
+    {
+     "name": "Kenny Moore",
+     "position": "DB",
+     "production": 1043,
+     "noCorridor": 1309,
+     "delta": 266,
+     "rank": 715,
+     "sources": 4
+    },
+    {
+     "name": "Joshua Josephs",
+     "position": "DL",
+     "production": 1124,
+     "noCorridor": 1338,
+     "delta": 214,
+     "rank": 685,
+     "sources": 3
+    },
+    {
+     "name": "Colton Hood",
+     "position": "DB",
+     "production": 1106,
+     "noCorridor": 1224,
+     "delta": 118,
+     "rank": 693,
+     "sources": 2
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1181,
+     "noCorridor": 1294,
+     "delta": 113,
+     "rank": 663,
+     "sources": 3
+    },
+    {
+     "name": "Chris Johnson",
+     "position": "DB",
+     "production": 1225,
+     "noCorridor": 1332,
+     "delta": 107,
+     "rank": 645,
+     "sources": 2
+    },
+    {
+     "name": "Dallas Turner",
+     "position": "DL",
+     "production": 3120,
+     "noCorridor": 3015,
+     "delta": -105,
+     "rank": 168,
+     "sources": 5
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1195,
+     "noCorridor": 1299,
+     "delta": 104,
+     "rank": 658,
+     "sources": 3
+    },
+    {
+     "name": "Daiyan Henley",
+     "position": "LB",
+     "production": 2482,
+     "noCorridor": 2552,
+     "delta": 70,
+     "rank": 234,
+     "sources": 5
+    },
+    {
+     "name": "Harold Perkins",
+     "position": "LB",
+     "production": 1244,
+     "noCorridor": 1314,
+     "delta": 70,
+     "rank": 632,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1234,
+     "noCorridor": 1298,
+     "delta": 64,
+     "rank": 637,
+     "sources": 2
+    }
+   ],
+   "day": "2026-08-03"
+  },
+  {
+   "rowsCompared": 1093,
+   "clampedInProduction": 33,
+   "valuesChanged": 33,
+   "meanAbsChange": 49.5,
+   "medianAbsChange": 26,
+   "p90AbsChange": 116,
+   "maxAbsChange": 148,
+   "medianRelChangePct": 2.08,
+   "p90RelChangePct": 9.92,
+   "maxRelChangePct": 11.95,
+   "ranksChanged": 130,
+   "meanRankMove": 11.48,
+   "maxRankMove": 108,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 16,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 3,
+    "3": 27,
+    "4": 3
+   },
+   "byConfidence": {
+    "low": 17,
+    "medium": 12,
+    "high": 4
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1238,
+     "noCorridor": 1386,
+     "delta": 148,
+     "rank": 714,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1143,
+     "noCorridor": 1278,
+     "delta": 135,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1154,
+     "noCorridor": 1281,
+     "delta": 127,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1154,
+     "noCorridor": 1281,
+     "delta": 127,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1169,
+     "noCorridor": 1285,
+     "delta": 116,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1286,
+     "delta": 114,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1184,
+     "noCorridor": 1290,
+     "delta": 106,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1199,
+     "noCorridor": 1294,
+     "delta": 95,
+     "rank": 734,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1213,
+     "noCorridor": 1299,
+     "delta": 86,
+     "rank": 733,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1222,
+     "noCorridor": 1302,
+     "delta": 80,
+     "rank": 731,
+     "sources": 3
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1243,
+     "noCorridor": 1308,
+     "delta": 65,
+     "rank": 710,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1243,
+     "noCorridor": 1298,
+     "delta": 55,
+     "rank": 711,
+     "sources": 2
+    },
+    {
+     "name": "Oluwafemi Oladejo",
+     "position": "DL",
+     "production": 1291,
+     "noCorridor": 1322,
+     "delta": 31,
+     "rank": 664,
+     "sources": 3
+    },
+    {
+     "name": "Osa Odighizuwa",
+     "position": "DL",
+     "production": 1247,
+     "noCorridor": 1277,
+     "delta": 30,
+     "rank": 708,
+     "sources": 4
+    },
+    {
+     "name": "Keyron Crawford",
+     "position": "DL",
+     "production": 1251,
+     "noCorridor": 1279,
+     "delta": 28,
+     "rank": 707,
+     "sources": 3
+    }
+   ],
+   "day": "2026-08-04"
+  },
+  {
+   "rowsCompared": 1093,
+   "clampedInProduction": 33,
+   "valuesChanged": 33,
+   "meanAbsChange": 49.5,
+   "medianAbsChange": 26,
+   "p90AbsChange": 116,
+   "maxAbsChange": 148,
+   "medianRelChangePct": 2.08,
+   "p90RelChangePct": 9.92,
+   "maxRelChangePct": 11.95,
+   "ranksChanged": 132,
+   "meanRankMove": 12.74,
+   "maxRankMove": 98,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 16,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 3,
+    "3": 27,
+    "4": 3
+   },
+   "byConfidence": {
+    "low": 17,
+    "medium": 12,
+    "high": 4
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1238,
+     "noCorridor": 1386,
+     "delta": 148,
+     "rank": 704,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1143,
+     "noCorridor": 1278,
+     "delta": 135,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1154,
+     "noCorridor": 1281,
+     "delta": 127,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1154,
+     "noCorridor": 1281,
+     "delta": 127,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1169,
+     "noCorridor": 1285,
+     "delta": 116,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1286,
+     "delta": 114,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1184,
+     "noCorridor": 1290,
+     "delta": 106,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1199,
+     "noCorridor": 1294,
+     "delta": 95,
+     "rank": 734,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1213,
+     "noCorridor": 1299,
+     "delta": 86,
+     "rank": 732,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1222,
+     "noCorridor": 1302,
+     "delta": 80,
+     "rank": 725,
+     "sources": 3
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1243,
+     "noCorridor": 1308,
+     "delta": 65,
+     "rank": 702,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1243,
+     "noCorridor": 1298,
+     "delta": 55,
+     "rank": 703,
+     "sources": 2
+    },
+    {
+     "name": "Oluwafemi Oladejo",
+     "position": "DL",
+     "production": 1291,
+     "noCorridor": 1322,
+     "delta": 31,
+     "rank": 658,
+     "sources": 3
+    },
+    {
+     "name": "Osa Odighizuwa",
+     "position": "DL",
+     "production": 1247,
+     "noCorridor": 1277,
+     "delta": 30,
+     "rank": 701,
+     "sources": 4
+    },
+    {
+     "name": "Keyron Crawford",
+     "position": "DL",
+     "production": 1251,
+     "noCorridor": 1279,
+     "delta": 28,
+     "rank": 698,
+     "sources": 3
+    }
+   ],
+   "day": "2026-08-05"
+  },
+  {
+   "rowsCompared": 973,
+   "clampedInProduction": 25,
+   "valuesChanged": 30,
+   "meanAbsChange": 97.0,
+   "medianAbsChange": 42,
+   "p90AbsChange": 277,
+   "maxAbsChange": 550,
+   "medianRelChangePct": 3.39,
+   "p90RelChangePct": 20.76,
+   "maxRelChangePct": 30.61,
+   "ranksChanged": 245,
+   "meanRankMove": 6.5,
+   "maxRankMove": 112,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 2,
+   "idpTop50Changed": 2,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "picks": 5,
+    "DB": 13,
+    "DL/EDGE": 7,
+    "LB": 5
+   },
+   "bySourceCount": {
+    "0": 5,
+    "2": 7,
+    "3": 10,
+    "4": 2,
+    "5": 6
+   },
+   "byConfidence": {
+    "none": 5,
+    "medium": 10,
+    "low": 10,
+    "high": 5
+   },
+   "offenseAffected": 0,
+   "picksAffected": 5,
+   "largestMovers": [
+    {
+     "name": "Jamien Sherwood",
+     "position": "LB",
+     "production": 2649,
+     "noCorridor": 3199,
+     "delta": 550,
+     "rank": 212,
+     "sources": 5
+    },
+    {
+     "name": "Sauce Gardner",
+     "position": "DB",
+     "production": 941,
+     "noCorridor": 1229,
+     "delta": 288,
+     "rank": 740,
+     "sources": 2
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1029,
+     "noCorridor": 1308,
+     "delta": 279,
+     "rank": 718,
+     "sources": 3
+    },
+    {
+     "name": "Kenny Moore",
+     "position": "DB",
+     "production": 1032,
+     "noCorridor": 1309,
+     "delta": 277,
+     "rank": 715,
+     "sources": 3
+    },
+    {
+     "name": "Joshua Josephs",
+     "position": "DL",
+     "production": 1112,
+     "noCorridor": 1338,
+     "delta": 226,
+     "rank": 690,
+     "sources": 3
+    },
+    {
+     "name": "Dallas Turner",
+     "position": "DL",
+     "production": 3177,
+     "noCorridor": 3021,
+     "delta": -156,
+     "rank": 160,
+     "sources": 5
+    },
+    {
+     "name": "Colton Hood",
+     "position": "DB",
+     "production": 1106,
+     "noCorridor": 1224,
+     "delta": 118,
+     "rank": 691,
+     "sources": 2
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1181,
+     "noCorridor": 1294,
+     "delta": 113,
+     "rank": 658,
+     "sources": 3
+    },
+    {
+     "name": "Chris Johnson",
+     "position": "DB",
+     "production": 1221,
+     "noCorridor": 1332,
+     "delta": 111,
+     "rank": 642,
+     "sources": 2
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1195,
+     "noCorridor": 1299,
+     "delta": 104,
+     "rank": 652,
+     "sources": 3
+    },
+    {
+     "name": "Kaleb Elarms-Orr",
+     "position": "LB",
+     "production": 1538,
+     "noCorridor": 1636,
+     "delta": 98,
+     "rank": 490,
+     "sources": 5
+    },
+    {
+     "name": "Daiyan Henley",
+     "position": "LB",
+     "production": 2454,
+     "noCorridor": 2548,
+     "delta": 94,
+     "rank": 239,
+     "sources": 5
+    },
+    {
+     "name": "Harold Perkins",
+     "position": "LB",
+     "production": 1244,
+     "noCorridor": 1314,
+     "delta": 70,
+     "rank": 628,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1231,
+     "noCorridor": 1298,
+     "delta": 67,
+     "rank": 635,
+     "sources": 2
+    },
+    {
+     "name": "Keyshaun Elliott",
+     "position": "LB",
+     "production": 1240,
+     "noCorridor": 1282,
+     "delta": 42,
+     "rank": 630,
+     "sources": 4
+    }
+   ],
+   "day": "2026-08-06"
+  },
+  {
+   "rowsCompared": 1092,
+   "clampedInProduction": 32,
+   "valuesChanged": 32,
+   "meanAbsChange": 42.5,
+   "medianAbsChange": 26,
+   "p90AbsChange": 98,
+   "maxAbsChange": 148,
+   "medianRelChangePct": 2.08,
+   "p90RelChangePct": 8.26,
+   "maxRelChangePct": 11.95,
+   "ranksChanged": 134,
+   "meanRankMove": 11.0,
+   "maxRankMove": 104,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 15,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 3,
+    "3": 26,
+    "4": 3
+   },
+   "byConfidence": {
+    "low": 17,
+    "medium": 12,
+    "high": 3
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1238,
+     "noCorridor": 1386,
+     "delta": 148,
+     "rank": 710,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1162,
+     "noCorridor": 1278,
+     "delta": 116,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1187,
+     "noCorridor": 1285,
+     "delta": 98,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1190,
+     "noCorridor": 1286,
+     "delta": 96,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1202,
+     "noCorridor": 1290,
+     "delta": 88,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1218,
+     "noCorridor": 1294,
+     "delta": 76,
+     "rank": 729,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1233,
+     "noCorridor": 1299,
+     "delta": 66,
+     "rank": 713,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1242,
+     "noCorridor": 1302,
+     "delta": 60,
+     "rank": 709,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1243,
+     "noCorridor": 1298,
+     "delta": 55,
+     "rank": 707,
+     "sources": 2
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1263,
+     "noCorridor": 1308,
+     "delta": 45,
+     "rank": 694,
+     "sources": 3
+    },
+    {
+     "name": "Osa Odighizuwa",
+     "position": "DL",
+     "production": 1247,
+     "noCorridor": 1277,
+     "delta": 30,
+     "rank": 706,
+     "sources": 4
+    },
+    {
+     "name": "Keyron Crawford",
+     "position": "DL",
+     "production": 1251,
+     "noCorridor": 1279,
+     "delta": 28,
+     "rank": 702,
+     "sources": 3
+    },
+    {
+     "name": "Keyshaun Elliott",
+     "position": "LB",
+     "production": 1253,
+     "noCorridor": 1281,
+     "delta": 28,
+     "rank": 700,
+     "sources": 4
+    }
+   ],
+   "day": "2026-08-07"
+  },
+  {
+   "rowsCompared": 1095,
+   "clampedInProduction": 32,
+   "valuesChanged": 32,
+   "meanAbsChange": 42.5,
+   "medianAbsChange": 26,
+   "p90AbsChange": 98,
+   "maxAbsChange": 148,
+   "medianRelChangePct": 2.08,
+   "p90RelChangePct": 8.26,
+   "maxRelChangePct": 11.95,
+   "ranksChanged": 132,
+   "meanRankMove": 10.86,
+   "maxRankMove": 101,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 15,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 3,
+    "3": 26,
+    "4": 3
+   },
+   "byConfidence": {
+    "low": 17,
+    "medium": 12,
+    "high": 3
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1238,
+     "noCorridor": 1386,
+     "delta": 148,
+     "rank": 708,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1162,
+     "noCorridor": 1278,
+     "delta": 116,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1187,
+     "noCorridor": 1285,
+     "delta": 98,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1190,
+     "noCorridor": 1286,
+     "delta": 96,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1202,
+     "noCorridor": 1290,
+     "delta": 88,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1218,
+     "noCorridor": 1294,
+     "delta": 76,
+     "rank": 727,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1233,
+     "noCorridor": 1299,
+     "delta": 66,
+     "rank": 712,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1242,
+     "noCorridor": 1302,
+     "delta": 60,
+     "rank": 706,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1243,
+     "noCorridor": 1298,
+     "delta": 55,
+     "rank": 704,
+     "sources": 2
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1263,
+     "noCorridor": 1308,
+     "delta": 45,
+     "rank": 693,
+     "sources": 3
+    },
+    {
+     "name": "Osa Odighizuwa",
+     "position": "DL",
+     "production": 1247,
+     "noCorridor": 1277,
+     "delta": 30,
+     "rank": 702,
+     "sources": 4
+    },
+    {
+     "name": "Keyron Crawford",
+     "position": "DL",
+     "production": 1251,
+     "noCorridor": 1279,
+     "delta": 28,
+     "rank": 700,
+     "sources": 3
+    },
+    {
+     "name": "Keyshaun Elliott",
+     "position": "LB",
+     "production": 1253,
+     "noCorridor": 1281,
+     "delta": 28,
+     "rank": 698,
+     "sources": 4
+    }
+   ],
+   "day": "2026-08-08"
+  },
+  {
+   "rowsCompared": 1095,
+   "clampedInProduction": 32,
+   "valuesChanged": 32,
+   "meanAbsChange": 42.5,
+   "medianAbsChange": 26,
+   "p90AbsChange": 98,
+   "maxAbsChange": 148,
+   "medianRelChangePct": 2.08,
+   "p90RelChangePct": 8.26,
+   "maxRelChangePct": 11.95,
+   "ranksChanged": 131,
+   "meanRankMove": 11.28,
+   "maxRankMove": 103,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 15,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 3,
+    "3": 26,
+    "4": 3
+   },
+   "byConfidence": {
+    "low": 17,
+    "medium": 12,
+    "high": 3
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1238,
+     "noCorridor": 1386,
+     "delta": 148,
+     "rank": 710,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1162,
+     "noCorridor": 1278,
+     "delta": 116,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1187,
+     "noCorridor": 1285,
+     "delta": 98,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1190,
+     "noCorridor": 1286,
+     "delta": 96,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1202,
+     "noCorridor": 1290,
+     "delta": 88,
+     "rank": 734,
+     "sources": 3
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1218,
+     "noCorridor": 1294,
+     "delta": 76,
+     "rank": 730,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1233,
+     "noCorridor": 1299,
+     "delta": 66,
+     "rank": 714,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1242,
+     "noCorridor": 1302,
+     "delta": 60,
+     "rank": 708,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1243,
+     "noCorridor": 1298,
+     "delta": 55,
+     "rank": 706,
+     "sources": 2
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1263,
+     "noCorridor": 1308,
+     "delta": 45,
+     "rank": 693,
+     "sources": 3
+    },
+    {
+     "name": "Osa Odighizuwa",
+     "position": "DL",
+     "production": 1247,
+     "noCorridor": 1277,
+     "delta": 30,
+     "rank": 704,
+     "sources": 4
+    },
+    {
+     "name": "Keyron Crawford",
+     "position": "DL",
+     "production": 1251,
+     "noCorridor": 1279,
+     "delta": 28,
+     "rank": 701,
+     "sources": 3
+    },
+    {
+     "name": "Keyshaun Elliott",
+     "position": "LB",
+     "production": 1253,
+     "noCorridor": 1281,
+     "delta": 28,
+     "rank": 698,
+     "sources": 4
+    }
+   ],
+   "day": "2026-08-09"
+  },
+  {
+   "rowsCompared": 1094,
+   "clampedInProduction": 33,
+   "valuesChanged": 33,
+   "meanAbsChange": 49.5,
+   "medianAbsChange": 26,
+   "p90AbsChange": 116,
+   "maxAbsChange": 148,
+   "medianRelChangePct": 2.08,
+   "p90RelChangePct": 9.92,
+   "maxRelChangePct": 11.95,
+   "ranksChanged": 132,
+   "meanRankMove": 12.12,
+   "maxRankMove": 102,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 16,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 3,
+    "3": 27,
+    "4": 3
+   },
+   "byConfidence": {
+    "low": 17,
+    "medium": 12,
+    "high": 4
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1238,
+     "noCorridor": 1386,
+     "delta": 148,
+     "rank": 709,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1143,
+     "noCorridor": 1278,
+     "delta": 135,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1154,
+     "noCorridor": 1281,
+     "delta": 127,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1154,
+     "noCorridor": 1281,
+     "delta": 127,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1169,
+     "noCorridor": 1285,
+     "delta": 116,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1286,
+     "delta": 114,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1184,
+     "noCorridor": 1290,
+     "delta": 106,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1199,
+     "noCorridor": 1294,
+     "delta": 95,
+     "rank": 734,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1213,
+     "noCorridor": 1299,
+     "delta": 86,
+     "rank": 729,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1222,
+     "noCorridor": 1302,
+     "delta": 80,
+     "rank": 723,
+     "sources": 3
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1243,
+     "noCorridor": 1308,
+     "delta": 65,
+     "rank": 707,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1243,
+     "noCorridor": 1298,
+     "delta": 55,
+     "rank": 708,
+     "sources": 2
+    },
+    {
+     "name": "Oluwafemi Oladejo",
+     "position": "DL",
+     "production": 1291,
+     "noCorridor": 1322,
+     "delta": 31,
+     "rank": 660,
+     "sources": 3
+    },
+    {
+     "name": "Osa Odighizuwa",
+     "position": "DL",
+     "production": 1247,
+     "noCorridor": 1277,
+     "delta": 30,
+     "rank": 705,
+     "sources": 4
+    },
+    {
+     "name": "Keyron Crawford",
+     "position": "DL",
+     "production": 1251,
+     "noCorridor": 1279,
+     "delta": 28,
+     "rank": 701,
+     "sources": 3
+    }
+   ],
+   "day": "2026-08-10"
+  },
+  {
+   "rowsCompared": 1094,
+   "clampedInProduction": 32,
+   "valuesChanged": 32,
+   "meanAbsChange": 42.5,
+   "medianAbsChange": 26,
+   "p90AbsChange": 98,
+   "maxAbsChange": 148,
+   "medianRelChangePct": 2.08,
+   "p90RelChangePct": 8.26,
+   "maxRelChangePct": 11.95,
+   "ranksChanged": 132,
+   "meanRankMove": 11.47,
+   "maxRankMove": 103,
+   "top50Changed": 0,
+   "top100Changed": 0,
+   "top200Changed": 0,
+   "idpTop50Changed": 0,
+   "idpTop100Changed": 0,
+   "idpTop200Changed": 0,
+   "byBucket": {
+    "DL/EDGE": 14,
+    "DB": 15,
+    "LB": 3
+   },
+   "bySourceCount": {
+    "2": 3,
+    "3": 26,
+    "4": 3
+   },
+   "byConfidence": {
+    "low": 17,
+    "medium": 12,
+    "high": 3
+   },
+   "offenseAffected": 0,
+   "picksAffected": 0,
+   "largestMovers": [
+    {
+     "name": "Will Johnson",
+     "position": "DB",
+     "production": 1238,
+     "noCorridor": 1386,
+     "delta": 148,
+     "rank": 709,
+     "sources": 2
+    },
+    {
+     "name": "Ji'Ayir Brown",
+     "position": "DB",
+     "production": 1162,
+     "noCorridor": 1278,
+     "delta": 116,
+     "rank": 740,
+     "sources": 3
+    },
+    {
+     "name": "DJ Wonnum",
+     "position": "DL",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 738,
+     "sources": 3
+    },
+    {
+     "name": "Ja'Quan McMillian",
+     "position": "DB",
+     "production": 1172,
+     "noCorridor": 1281,
+     "delta": 109,
+     "rank": 739,
+     "sources": 3
+    },
+    {
+     "name": "Christian Benford",
+     "position": "DB",
+     "production": 1187,
+     "noCorridor": 1285,
+     "delta": 98,
+     "rank": 737,
+     "sources": 3
+    },
+    {
+     "name": "Jaycee Horn",
+     "position": "DB",
+     "production": 1190,
+     "noCorridor": 1286,
+     "delta": 96,
+     "rank": 736,
+     "sources": 3
+    },
+    {
+     "name": "Tarheeb Still",
+     "position": "DB",
+     "production": 1202,
+     "noCorridor": 1290,
+     "delta": 88,
+     "rank": 735,
+     "sources": 3
+    },
+    {
+     "name": "Kamari Ramsey",
+     "position": "DB",
+     "production": 1218,
+     "noCorridor": 1294,
+     "delta": 76,
+     "rank": 727,
+     "sources": 3
+    },
+    {
+     "name": "Genesis Smith",
+     "position": "DB",
+     "production": 1233,
+     "noCorridor": 1299,
+     "delta": 66,
+     "rank": 713,
+     "sources": 3
+    },
+    {
+     "name": "Geno Stone",
+     "position": "DB",
+     "production": 1242,
+     "noCorridor": 1302,
+     "delta": 60,
+     "rank": 708,
+     "sources": 3
+    },
+    {
+     "name": "Nate Wiggins",
+     "position": "DB",
+     "production": 1243,
+     "noCorridor": 1298,
+     "delta": 55,
+     "rank": 707,
+     "sources": 2
+    },
+    {
+     "name": "Christen Miller",
+     "position": "DL",
+     "production": 1263,
+     "noCorridor": 1308,
+     "delta": 45,
+     "rank": 691,
+     "sources": 3
+    },
+    {
+     "name": "Osa Odighizuwa",
+     "position": "DL",
+     "production": 1247,
+     "noCorridor": 1277,
+     "delta": 30,
+     "rank": 704,
+     "sources": 4
+    },
+    {
+     "name": "Keyron Crawford",
+     "position": "DL",
+     "production": 1251,
+     "noCorridor": 1279,
+     "delta": 28,
+     "rank": 702,
+     "sources": 3
+    },
+    {
+     "name": "Keyshaun Elliott",
+     "position": "LB",
+     "production": 1253,
+     "noCorridor": 1281,
+     "delta": 28,
+     "rank": 697,
+     "sources": 4
+    }
+   ],
+   "day": "2026-08-11"
+  }
+ ]
+}

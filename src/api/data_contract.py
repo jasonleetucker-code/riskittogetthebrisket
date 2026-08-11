@@ -259,15 +259,29 @@ _NEAR_NAME_VALUE_RATIO_THRESHOLD = 3.0  # flag if max/min value ratio > 3x
 #   "position_source_contradiction" — position family disagrees with source evidence
 #   "unsupported_position"          — position not in _SUPPORTED_BOARD_POSITIONS
 #   "no_valid_source_values"        — no source values > 0 but has derived value
+#   "blend_integrity_violation"     — blended value fell OUTSIDE the range of
+#                                     its own source contributions, which is
+#                                     structurally impossible under correct
+#                                     operation (stamped by
+#                                     ``_detect_blend_integrity_violations``)
 #
 # The legacy ``near_name_value_mismatch`` flag was retired (see
 # ``_validate_and_quarantine_rows`` Check 3 for rationale).  It used to
 # fire here but the underlying rule produced only false positives.
+#
+# ``blend_integrity_violation`` is quarantine-level for the same reason
+# the others are: the row's value cannot be trusted as an ordinary
+# canonical number.  It is deliberately NOT accompanied by a correction —
+# the retired market corridor coerced such rows toward a plausible value
+# and thereby destroyed the evidence of the fault.  Quarantine is how this
+# codebase already says "present but not consumable"; that is the whole
+# mechanism, and no second one was invented for this detector.
 _QUARANTINE_FLAGS = {
     "duplicate_canonical_identity",
     "position_source_contradiction",
     "unsupported_position",
     "no_valid_source_values",
+    "blend_integrity_violation",
 }
 
 # CSV export paths for source enrichment (relative to repo root).
@@ -4677,273 +4691,111 @@ def _parse_pick_tier(name: str) -> tuple[int, str, int] | None:
         return None
 
 
-# ── Market-anchor corridor clamp ────────────────────────────────────────
-# Designated PRIMARY market anchor sources per asset class.  KTC and
-# IDPTC are the deepest retail value boards, so they define "market
-# reality" for each universe.  Other sources can move the final value
-# within the corridor — they just can't pull a player into a rank
-# that contradicts market at a pathological level.
-_MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
-    "offense": "ktcSfTep",
-    "idp": "idpTradeCalc",
-}
-
-# Fallback anchor chain per asset class.  When the primary anchor
-# (KTC / IDPTC) doesn't list a player — common for deep prospects or
-# freshly-drafted rookies — we fall through to additional value-based
-# sources, then finally to a MEDIAN of valueContributions across all
-# scope-eligible sources that DID list them.  Without this chain,
-# Shavon-Revel-style single-source-only IDPs escape the clamp
-# entirely and the IDP calibration's 3-4× DB bucket multipliers can
-# inflate a 1500-point uncalibrated value into a top-50 finish.
-_MARKET_ANCHOR_FALLBACKS: dict[str, list[str]] = {
-    "offense": [
-        "ktcSfTep",
-        "idpTradeCalc",
-        "dynastyDaddySf",
-        "fantasyProsFitzmaurice",
-        "yahooBoone",
-    ],
-    "idp": ["idpTradeCalc", "dlfIdp", "idpShow", "fantasyProsIdp"],
-}
-
-# Percentile at which we declare a drift "too extreme" and clamp it.
-# 0.90 means: the worst 10% of drifts (relative to the market anchor)
-# inside each confidence bucket get pulled back to the edge of that
-# bucket's natural drift distribution.  Everything inside the top 90%
-# of natural drifts is untouched.  Chosen over an arbitrary fixed
-# percent so the band width adapts as the board's source set evolves.
-_MARKET_CORRIDOR_PERCENTILE: float = 0.90
-# Minimum sample per confidence bucket before we trust its own P90;
-# below this we fall back to the overall board P90 so a tiny bucket
-# can't get an unrepresentative band.
-_MARKET_CORRIDOR_MIN_BUCKET_N: int = 30
-
-# Hard ceiling on the corridor band per asset class.  **EMPTY since
-# B3 (2026-08-11): the IDP entry of 0.15 was removed.**  The facility
-# is kept because the mechanism is generic and a future asset class
-# may need it; nothing populates it today.
-#
-# It was introduced (#375/#376, 2026-05-02) so a wide bucket
-# distribution could not let a truly-extreme outlier escape — the
-# Vikings-LB case, 1,900 internal against 3,600 on IDPTC.  Measured
-# on the 2026-08-11 board, that is not what it does.  It decided
-# EVERY clamp: 183 of 329 ranked IDP rows (55.6%), all capped, all
-# landing on exactly ``idpTradeCalc × 0.85`` or ``× 1.15``, because
-# the empirical bucket bands run 0.5183–0.6504 — 3.5× to 4.3× the
-# cap — in every bucket, all of them above the min-sample threshold.
-# So the board-derived band was computed and then discarded 183 times
-# out of 183, and the served value of most of the ranked IDP board
-# was a constant times one source.
-#
-# The distributional evidence is what settles it.  With the cap gone
-# the same code clamps 32 rows (9.7%), every one of them in the board
-# tail, none with five or more sources, median move 2.0% — which is
-# the tail safety rail the corridor was designed to be.  With the cap
-# the clamp rate is INVERTED against the board's own confidence:
-# 63.9% of high-confidence rows against 45.8% of medium, i.e. it
-# overrode the rows where our sources agree most tightly, in favour
-# of the one source that disagreed — and that source
-# (``idpTradeCalc``) is itself a voting member of the blend being
-# clamped, so it was getting a direct contribution and then a
-# post-blend veto.
-#
-# Two things this deliberately does NOT rely on.  It is not "the
-# empirical machinery was dead": a tighter synthetic board reaches it
-# (pinned in ``test_market_corridor_characterization``), so the cap's
-# dominance was a property of this market's IDP disagreement.  And it
-# is not "the corridor is unnecessary": the corridor still runs, and
-# the hazard the cap was aimed at is separately covered by the
-# single-source haircut (``_SINGLE_SOURCE_VALUE_RETENTION``, #496).
-#
-# Residual, stated rather than hidden: the band is derived from the
-# same drift distribution it bounds, so a board that drifted as a
-# whole would widen its own band and catch nothing.  That is a
-# property of the empirical design, not of this removal, and it is
-# the reason the facility below is kept rather than deleted.
-#
-# Full evidence: ``docs/master-site-audit/evidence/W02/``
-#   ``B3_MARKET_CORRIDOR_EVIDENCE.md``.
-_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS: dict[str, float] = {}
+# ── Blend-integrity detection ───────────────────────────────────────────
+# This section used to be headed "Market-anchor corridor clamp" and to
+# document designated per-asset-class market anchors.  Both the heading
+# and the anchor design are gone with the corridor (#794/#795/#796):
+# nothing here reads an anchor, and the check below does not "keep a
+# player within a corridor" of anything.  It asks one structural
+# question — did a blended value land outside the range of its own
+# contributions — and answers it without changing any value.
+#: Numerical-precision allowance for the blend-integrity check, NOT a
+#: policy band.
+#:
+#: The check asks whether a blended value fell outside the range of its own
+#: contributions, which is impossible under correct operation. The only
+#: slack it needs is for float representation and the integer rounding the
+#: contributions are stamped with. It is emphatically not a "how much
+#: disagreement do we tolerate" dial: measured across 5,931 IDP rows on 17
+#: independent historical days, the violation count is **0 at every
+#: tolerance from 0% to 10%**, so no policy slack is doing any work and
+#: none is offered.
+#:
+#: The retired market corridor had exactly that kind of dial, re-derived
+#: from the board it policed. Reintroducing one here would recreate
+#: W02-F016.
+_BLEND_HULL_EPSILON: float = 1e-9
 
 
-def _market_anchor_value_for_row(row: dict[str, Any]) -> float | None:
-    """Return the primary market-anchor source value (KTC for offense,
-    IDPTC for IDP) as a raw native-scale value, or None if missing.
-
-    Kept for backwards-compat of call sites that only care about the
-    canonical primary anchor.  The clamp pipeline uses
-    :func:`_market_anchor_for_row` instead, which returns both value
-    and source identity and falls back through the anchor chain.
-    """
-    sites = row.get("canonicalSiteValues")
-    if not isinstance(sites, dict):
-        return None
-    asset_class = str(row.get("assetClass") or "")
-    source_key = _MARKET_ANCHOR_BY_ASSET_CLASS.get(asset_class)
-    if not source_key:
-        return None
-    raw = sites.get(source_key)
-    if raw is None:
-        return None
-    try:
-        v = float(raw)
-    except (TypeError, ValueError):
-        return None
-    if v <= 0:
-        return None
-    return v
-
-
-def _market_anchor_for_row(
-    row: dict[str, Any],
-) -> tuple[float | None, str | None]:
-    """Return ``(anchor_value, anchor_source)`` for the corridor clamp.
-
-    Resolution order:
-      1. Primary anchor (KTC for offense, IDPTC for IDP) read from
-         ``canonicalSiteValues`` as a native-scale value.  If the
-         source is value-based, we also cross-check
-         ``sourceRankMeta[source].valueContribution`` so the clamp
-         math stays on the 0-9,999 scale.
-      2. Secondary anchors from ``_MARKET_ANCHOR_FALLBACKS`` — the
-         first source in the chain that has a ``valueContribution``
-         on the row wins.
-      3. Median of ``valueContribution`` across every source in the
-         fallback chain that actually stamped a contribution.  This
-         handles the "Shavon Revel" case: IDPTC didn't list him,
-         but IDP Show did — pegging him to the single source's
-         9,999-scale contribution is safer than no clamp at all,
-         because unclamped the calibration's DB bucket multiplier
-         can 4x him and he lands top-50 on pure single-source noise.
-
-    Returns ``(None, None)`` when no source contributed at all —
-    the caller should skip the clamp for that player.
-    """
-    asset_class = str(row.get("assetClass") or "")
-    chain = _MARKET_ANCHOR_FALLBACKS.get(asset_class) or []
-    if not chain:
-        return None, None
-    sites = row.get("canonicalSiteValues") or {}
-    meta = row.get("sourceRankMeta") or {}
-    if not isinstance(sites, dict):
-        sites = {}
-    if not isinstance(meta, dict):
-        meta = {}
-
-    # Stage 1+2: try each source in chain order, use its
-    # ``valueContribution`` if present (always 0-9,999 scaled), else
-    # fall back to the native ``canonicalSiteValues`` entry for the
-    # primary anchor only (since that's guaranteed to be a value-based
-    # source on a 0-9,999 scale).
-    primary = _MARKET_ANCHOR_BY_ASSET_CLASS.get(asset_class)
-    for source_key in chain:
-        src_meta = meta.get(source_key)
-        vc: float | None = None
-        if isinstance(src_meta, dict):
-            raw_vc = src_meta.get("valueContribution")
-            try:
-                vc_f = float(raw_vc) if raw_vc is not None else 0.0
-            except (TypeError, ValueError):
-                vc_f = 0.0
-            if vc_f > 0:
-                vc = vc_f
-        if vc is None and source_key == primary:
-            raw_site = sites.get(source_key)
-            try:
-                v_f = float(raw_site) if raw_site is not None else 0.0
-            except (TypeError, ValueError):
-                v_f = 0.0
-            if v_f > 0:
-                vc = v_f
-        if vc is not None:
-            return vc, source_key
-
-    # Stage 3: median of per-source valueContribution across whatever
-    # sources in the chain stamped a contribution.  Strictly
-    # informational (labelled with a synthetic source key for audit).
-    contributions: list[float] = []
-    for source_key in chain:
-        src_meta = meta.get(source_key)
-        if not isinstance(src_meta, dict):
-            continue
-        raw_vc = src_meta.get("valueContribution")
-        try:
-            vc_f = float(raw_vc) if raw_vc is not None else 0.0
-        except (TypeError, ValueError):
-            vc_f = 0.0
-        if vc_f > 0:
-            contributions.append(vc_f)
-    if len(contributions) >= 2:
-        contributions.sort()
-        n = len(contributions)
-        med = (
-            contributions[n // 2]
-            if n % 2 == 1
-            else (contributions[n // 2 - 1] + contributions[n // 2]) / 2.0
-        )
-        return med, f"median_of_{n}"
-    if len(contributions) == 1:
-        return contributions[0], "single_source_fallback"
-    return None, None
-
-
-def _percentile(sorted_vals: list[float], p: float) -> float:
-    """Nearest-rank percentile on a pre-sorted list."""
-    if not sorted_vals:
-        return 0.0
-    idx = int(round((len(sorted_vals) - 1) * max(0.0, min(1.0, p))))
-    return float(sorted_vals[idx])
-
-
-def _apply_market_corridor_clamp(
+def _detect_blend_integrity_violations(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
 ) -> None:
-    """Clamp blended values that have drifted further from the market
-    anchor than the 90th percentile of natural drift within each
-    confidence bucket.
+    """Detect blended values that are STRUCTURALLY IMPOSSIBLE, and abstain.
 
-    Rationale: with 19 sources, extreme disagreements (e.g. FG + DS
-    pricing an elite edge on their combined offense+IDP pool at rank
-    300, while IDPTC + DLF IDP + IDP Show + FP IDP price him top-10)
-    can pull a player's final rank hundreds of slots from where the
-    market anchor alone would place him.  The clamp leaves the blend
-    alone for players whose drift sits inside the naturally-observed
-    distribution, but pulls back the tail outliers to the edge of
-    that distribution.
+    Replaces the market-corridor clamp (W02-F015/F016/F017, #794/#795/#796).
+    Detects, stamps, and deliberately **does not alter any value**.
 
-    Band width is empirical — P90 of ``|final - market| / market``
-    computed within each confidence bucket on THIS board build.
-    Buckets with fewer than _MARKET_CORRIDOR_MIN_BUCKET_N players
-    fall back to the overall board P90 so small-sample noise can't
-    set an unrepresentative band.
+    The invariant
+    ─────────────
 
-    Stamps ``marketCorridorClamp`` on every clamped row so the UI
-    and audit code can see original value, clamped value, anchor,
-    direction, and which source provided the anchor.
+    A weighted blend of source contributions cannot lie outside
+    ``[min, max]`` of those contributions. Ordinary market disagreement —
+    however violent — can never violate it; only a pipeline, routing or
+    calibration fault can. That is exactly the distinction the corridor's
+    stated purpose required and its implementation could not make.
 
-    Offense is exempt.  The corridor clamp exists solely to contain
-    the IDP calibration post-pass's 3-4x DB-bucket multipliers (the
-    Shavon-Revel / Vikings-LB runaway).  The offense path has no
-    post-blend calibration, so anchoring offense to KTC (which bakes
-    in its own TE-premium) only fights the league TE-premium
-    multiplier: a non-TEP single source + the 1.25x TE boost would
-    drift past the KTC band and get clamped straight back, silently
-    cancelling the premium.  Offense values are the pure blend
-    output; only IDP rows are clamped.
+    Why the corridor was removed rather than retuned
+    ────────────────────────────────────────────────
+
+    Its band was a P90 of the drift distribution of the board it was
+    policing, so it clamped the worst ~10% of *whatever* it was handed.
+    Measured over 17 independent historical days / 5,931 IDP rows the
+    trigger rate never left 8.7-9.2%, and scaling every IDP value by 10x
+    fired the identical rows at the identical rate — a board-wide error
+    was invisible to it. Its anchor was also a voter in the blend it
+    corrected, on 539 of 539 clamped rows.
+
+    And it caught nothing upstream did not already handle. Injecting
+    anomalies into the SOURCE CSVs and rebuilding the whole pipeline, the
+    corridor fired on 0 of 6 victims in every scenario: a single source at
+    x5 or x20 is absorbed by the Hampel filter plus the count-aware blend
+    (<=1.7% movement), and an anchor source at x5 is caught outright by
+    the declared-range check (0.0% movement). Correlated multi-source
+    anomalies do get through (up to 48%), but the corridor missed those
+    too — and so does this detector, because sources agreeing on something
+    wrong is indistinguishable from disagreement at the blend. That gap is
+    pre-existing and named rather than papered over.
+
+    Why ABSTAIN rather than clamp
+    ─────────────────────────────
+
+    If a value here is impossible under correct operation, coercing it to
+    the nearest boundary would turn pipeline corruption into a clean,
+    plausible-looking number. The row is marked instead, so the failure
+    stays visible. There is no tolerance dial: the check is exact up to
+    floating-point representation, and ``_BLEND_HULL_EPSILON`` is a
+    numerical-precision allowance, NOT a policy band — measured across
+    5,931 historical rows the violation count is 0 at every tolerance from
+    0% to 10%, so no policy slack is doing any work.
+
+    Rows resting on fewer than two contributions are skipped: a hull needs
+    two points, and "missing" is not "violating".
     """
-    # Gather drift values per confidence bucket.
-    by_bucket: dict[str, list[float]] = {}
-    overall: list[float] = []
-    drifts: list[tuple[dict[str, Any], float, float, str]] = []
     for row in players_array:
         if not row.get("canonicalConsensusRank"):
             continue
-        if str(row.get("assetClass") or "") == "offense":
+        meta = row.get("sourceRankMeta")
+        if not isinstance(meta, dict):
             continue
-        anchor, anchor_source = _market_anchor_for_row(row)
-        if anchor is None:
+        contributions: dict[str, float] = {}
+        for source_key, m in meta.items():
+            if not isinstance(m, dict):
+                continue
+            raw = m.get("valueContribution")
+            # Missing is not zero. A source that stamped no contribution
+            # is absent from the hull rather than pinned to its floor —
+            # coercing ``None`` to 0.0 here would invent a lower bound of
+            # zero and make every real value look "inside" it.
+            if raw is None:
+                continue
+            try:
+                c = float(raw)
+            except (TypeError, ValueError):
+                continue
+            if c > 0:
+                contributions[str(source_key)] = c
+        if len(contributions) < 2:
             continue
         try:
             value = float(row.get("rankDerivedValue") or 0.0)
@@ -4951,97 +4803,47 @@ def _apply_market_corridor_clamp(
             continue
         if value <= 0:
             continue
-        drift = abs(value - anchor) / anchor
-        bucket = str(row.get("confidenceBucket") or "low")
-        by_bucket.setdefault(bucket, []).append(drift)
-        overall.append(drift)
-        drifts.append((row, value, anchor, anchor_source or ""))
 
-    if not overall:
-        return
-
-    # ── The per-bucket empirical band vs the cap ──────────────────
-    #
-    # This computes a P90 drift band per confidence bucket; the cap
-    # below (``_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS``) then reduces
-    # it.  On the live board the cap wins EVERY time — measured on the
-    # pinned 2026-07-30 contract, all 128 clamped rows carry
-    # ``bandPct: 0.15`` and ``cappedByMaxBand: True``, because the
-    # empirical bands run ~3.3x the cap (high 0.523 n=29, low 0.513
-    # n=174, medium 0.481 n=91, overall 0.510).
-    #
-    # That is NOT the same as the arithmetic being dead, and the
-    # difference is worth stating because the first pass of this audit
-    # got it wrong.  The percentile block is live machinery that the
-    # current board's unusually wide IDP drift happens to dominate — on
-    # a tighter board it binds immediately.  Verified rather than
-    # assumed: a synthetic fixture with narrower disagreement produces
-    # ``bandPct: 0.0217, cappedByMaxBand: False``.
-    #
-    # So the dominance is a property of today's market data, not of
-    # this code, and it is deliberately NOT pinned by a test — such a
-    # test would assert a fact about IDP drift and go red the first
-    # time the sources agree more closely, which is noise rather than
-    # signal.
-    #
-    # Whether 0.15 is the right cap is a live calibration question
-    # (it decides every clamp today) and belongs in
-    # ``docs/open-modeling-decisions.md``, not in a silent re-tune here:
-    # moving it moves real IDP values.
-    overall_sorted = sorted(overall)
-    overall_p90 = _percentile(overall_sorted, _MARKET_CORRIDOR_PERCENTILE)
-    bucket_bands: dict[str, float] = {}
-    for bucket, vals in by_bucket.items():
-        if len(vals) >= _MARKET_CORRIDOR_MIN_BUCKET_N:
-            bucket_bands[bucket] = _percentile(sorted(vals), _MARKET_CORRIDOR_PERCENTILE)
-        else:
-            bucket_bands[bucket] = overall_p90
-
-    # Apply clamps.
-    for row, value, anchor, source_key in drifts:
-        bucket = str(row.get("confidenceBucket") or "low")
-        band = bucket_bands.get(bucket, overall_p90)
-        asset_class = str(row.get("assetClass") or "")
-        max_band = _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS.get(asset_class)
-        capped_by_max = False
-        if max_band is not None and band > max_band:
-            band = max_band
-            capped_by_max = True
-        drift = abs(value - anchor) / anchor
-        if drift <= band:
+        lo, hi = min(contributions.values()), max(contributions.values())
+        if lo * (1.0 - _BLEND_HULL_EPSILON) <= value <= hi * (1.0 + _BLEND_HULL_EPSILON):
             continue
-        # Clamp to the band edge, preserving direction.
-        if value > anchor:
-            clamped_f = anchor * (1.0 + band)
-            direction = "down"
-        else:
-            clamped_f = anchor * (1.0 - band)
-            direction = "up"
-        clamped_int = int(round(clamped_f))
-        if clamped_int <= 0:
-            continue
-        row["rankDerivedValue"] = clamped_int
-        row["marketCorridorClamp"] = {
-            "applied": True,
-            "originalValue": int(round(value)),
-            "clampedValue": clamped_int,
-            "marketAnchor": int(round(anchor)),
-            "marketSource": source_key,
-            "bandPct": round(band, 4),
-            "percentile": _MARKET_CORRIDOR_PERCENTILE,
-            "confidenceBucket": bucket,
-            "direction": direction,
-            "cappedByMaxBand": capped_by_max,
-            "maxBandPct": max_band,
+
+        stamp = {
+            "detected": True,
+            "reason": "blend_outside_contribution_hull",
+            "value": int(round(value)),
+            "contributionMin": int(round(lo)),
+            "contributionMax": int(round(hi)),
+            "sourceCount": len(contributions),
+            "direction": "above" if value > hi else "below",
+            # The value is NOT altered. This is a pipeline-integrity
+            # signal, not a correction.
+            "valueAltered": False,
         }
-        # Mirror onto the legacy dict payload so the delta + full
-        # contract views both see the clamped value.
+        row["blendIntegrityViolation"] = stamp
+
+        # Abstention, expressed through the channel the platform already
+        # routes on.  ``blendIntegrityViolation`` above is a rich
+        # diagnostic that nothing reads; ``anomalyFlags`` is what
+        # ``_validate_and_quarantine_rows`` consults, and the flag is in
+        # ``_QUARANTINE_FLAGS``, so the row comes out of that pass
+        # ``quarantined`` with a degraded confidence bucket.  Consensus
+        # Edge then Withholds it, BDVM skips it, and /edge drops it —
+        # all pre-existing behaviour for quarantined rows.
+        #
+        # Without this the detector would be diagnostics only: the value
+        # is proven impossible and would still be consumed as an ordinary
+        # canonical number by everything downstream.
+        flags = list(row.get("anomalyFlags") or [])
+        if "blend_integrity_violation" not in flags:
+            flags.append("blend_integrity_violation")
+        row["anomalyFlags"] = flags
+
         legacy_ref = row.get("legacyRef")
         if legacy_ref and legacy_ref in players_by_name:
             pdata = players_by_name[legacy_ref]
             if isinstance(pdata, dict):
-                pdata["rankDerivedValue"] = clamped_int
-                pdata["marketCorridorClamp"] = dict(row["marketCorridorClamp"])
+                pdata["blendIntegrityViolation"] = dict(stamp)
 
 
 # ── Rank-change snapshot ────────────────────────────────────────────────
@@ -8537,29 +8339,49 @@ def _compute_unified_rankings(
     # back to the live rank and value, which are the single source
     # of truth for every position.
 
-    # Market-anchor corridor clamp: after all value-moving passes,
-    # clamp players whose blended value has drifted further from the
-    # market anchor (KTC for offense, IDPTC for IDP) than the P90 of
-    # natural drift inside their confidence bucket.  Leaves 90% of
-    # the board untouched — only the tail outliers where one or two
-    # sources have pulled a player far from the retail-market consensus
-    # get pulled back to the band edge.  See
-    # ``_apply_market_corridor_clamp`` for the design rationale.
+    # Blend-integrity detection: flag any row whose blended value fell
+    # OUTSIDE the range of its own source contributions.  That is
+    # structurally impossible under correct operation, so it is a
+    # pipeline-integrity signal rather than a disagreement to be corrected
+    # — the row is stamped, quarantined, and its value is left alone.
+    # See ``_detect_blend_integrity_violations``.
     #
-    # ``suppress_market_corridor_clamp`` exists for exactly one caller:
-    # a board built to be INDEPENDENT of a market anchor (see
-    # ``src/consensus_edge/fair_value.py``).  The clamp reads the anchor
-    # out of ``canonicalSiteValues``, not out of the vote, so dropping a
-    # source from the blend does NOT stop the clamp pulling values back
-    # toward it — measured 2026-08-04 on the live payload: with
-    # ``idpTradeCalc`` excluded from voting, 101 IDP rows were still
-    # clamped toward idpTradeCalc, mean shift 552 points.  A fair value
-    # that has been pulled back toward the price it is about to be
-    # compared against is not a fair value.
+    # WHERE this sits, precisely.  It runs after the blend and the
+    # count-aware aggregation, and BEFORE the two-way-player boost
+    # immediately below and the Phase 5 pick passes further down.  This
+    # comment used to claim it ran "after all value-moving passes", which
+    # is simply false.
     #
-    # Default False: the live board is byte-identical to before.
+    # The placement is chosen on what the invariant MEANS, not on a
+    # measured difference.  The invariant says a *blend* cannot leave the
+    # range of the contributions it was blended from; the later stages are
+    # deliberate OVERRIDES that replace the blended value with a number
+    # computed from a different population (the alt-position family's
+    # implied value; the merged rookie pool's value), so the invariant
+    # does not describe their output and asking it there is a category
+    # error.
+    #
+    # Measured on the live board, both placements currently flag ZERO
+    # rows, so this is not a false-positive rate anyone has observed —
+    # Travis Hunter's boosted 4758 lands inside his own (2538, 5637) hull,
+    # and every ranked pick with two contributions sits inside its hull
+    # too.  Stating that plainly rather than claiming the later placement
+    # "would" misfire, which the evidence does not show.
+    #
+    # This replaced the market-anchor corridor clamp (#794/#795/#796).
+    # The clamp coerced values toward a "market anchor" that was itself a
+    # voter in the blend it corrected, using a band re-derived from the
+    # same board, so it clamped a fixed ~9% of rows whether the board was
+    # healthy or catastrophically broken.
+    #
+    # ``suppress_market_corridor_clamp`` keeps its name for the one
+    # caller that passes it (``src/consensus_edge/fair_value.py``), whose
+    # requirement was "do not pull my board back toward a market anchor".
+    # That requirement is now satisfied unconditionally — nothing here
+    # reads an anchor or changes a value — so the flag only suppresses
+    # the diagnostic stamp.
     if not suppress_market_corridor_clamp:
-        _apply_market_corridor_clamp(players_array, players_by_name)
+        _detect_blend_integrity_violations(players_array, players_by_name)
 
     # Two-way player boost: a tiny override table that rescues players
     # whose Sleeper single-position classification excludes them from
@@ -10244,6 +10066,35 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 warnings.append(
                     f"playersArray[{idx}] canonicalSiteValues missing keys: {', '.join(missing_keys[:6])}"
                 )
+
+    # ── Blend integrity: a hard error, and scanned over the WHOLE array ──
+    # An out-of-hull value is structurally impossible under correct
+    # operation, so a board carrying one is not a board to publish — this
+    # is what makes ``scripts/validate_api_contract.py`` (the "API data
+    # contract check" CI step) exit non-zero, and what stamps
+    # ``contractHealth.ok = False`` on the served payload.
+    #
+    # Deliberately an ERROR rather than a warning or the soft ``degraded``
+    # flag: the CI gate keys on ``ok`` and ignores warnings entirely, so
+    # anything softer would be a note nobody acts on.
+    #
+    # And deliberately NOT bounded by the ``[:1000]`` slice the loop above
+    # uses. That cap is a cost control for per-row shape checks on a
+    # ~1,094-row board, but the corridor this replaced did its work at
+    # ranks 691-740 and the board runs deeper than the cap — a prefix scan
+    # would miss violations exactly where they are most likely.
+    integrity_violations = [
+        str(r.get("displayName") or r.get("canonicalName") or f"index {i}")
+        for i, r in enumerate(players_array)
+        if isinstance(r, dict) and isinstance(r.get("blendIntegrityViolation"), dict)
+    ]
+    if integrity_violations:
+        errors.append(
+            f"blend_integrity_violation:{len(integrity_violations)} row(s) hold a value "
+            f"outside the range of their own source contributions "
+            f"({', '.join(integrity_violations[:6])}"
+            f"{', …' if len(integrity_violations) > 6 else ''})"
+        )
 
     idp_count = 0
     normalized_pos_by_name: dict[str, set[str]] = {}

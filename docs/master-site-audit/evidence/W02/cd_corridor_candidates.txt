@@ -1,0 +1,206 @@
+
+##########################################################################
+#  production tail (None)
+##########################################################################
+
+eligible pre-corridor IDP-side rows: 359
+reference band frozen from this healthy board: 0.6201
+
+=== scenario: healthy_control  (broken rows: 0) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.9     -1.0        8.9      0/32      2.0       0       32
+  2_loo_anchor              9.8     -1.0        9.8      28/7      4.2      10       29
+  3_multi_anchor           52.9     -1.0       52.9      7/14      7.5      42      160
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0     -1.0        0.0       0/0      0.0       0        0
+  5_historical_band         8.9     -1.0        8.9      0/32      2.0       0       32
+  6_changepoint             0.0     -1.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only       0.0     -1.0        0.0       0/0      0.0       0        0
+  8_hull_abstain            0.0     -1.0        0.0       0/0      0.0       0        0
+  9_none                    0.0     -1.0        0.0       0/0      0.0       0        0
+
+=== scenario: normal_disagreement  (broken rows: 0) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.9     -1.0        8.9      0/32      6.0       1       32
+  2_loo_anchor             10.0     -1.0       10.0      28/8      4.9      11       30
+  3_multi_anchor           52.6     -1.0       52.6      6/14      9.4      42      159
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0     -1.0        0.0       0/0      0.0       0        0
+  5_historical_band        10.6     -1.0       10.6      0/38      6.0       0       38
+  6_changepoint             0.0     -1.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only       1.9     -1.0        1.9       5/2      3.0       2        7
+  8_hull_abstain            1.9     -1.0        1.9       0/0      0.0       2        7
+  9_none                    0.0     -1.0        0.0       0/0      0.0       0        0
+
+=== scenario: one_source_anomaly  (broken rows: 17) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.9     70.6        5.8      0/32      3.4       1       32
+  2_loo_anchor              9.5     70.6        6.4     21/13     17.2      14       28
+  3_multi_anchor           53.2     94.1       51.2      5/17     17.8      42      161
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0      0.0        0.0       0/0      0.0       0        0
+  5_historical_band        12.3     76.5        9.1      0/44      2.6       2       44
+  6_changepoint             0.0      0.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only       0.0      0.0        0.0       0/0      0.0       0        0
+  8_hull_abstain            0.0      0.0        0.0       0/0      0.0       0        0
+  9_none                    0.0      0.0        0.0       0/0      0.0       0        0
+
+=== scenario: anchor_source_anomaly  (broken rows: 17) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.9     82.3        5.3     14/18      2.5       5       32
+  2_loo_anchor              9.8     11.8        9.7      28/7      4.2      10       29
+  3_multi_anchor           52.9     70.6       52.0      7/14      7.5      42      160
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0      0.0        0.0       0/0      0.0       0        0
+  5_historical_band        13.1     94.1        9.1     16/31      2.7       5       47
+  6_changepoint             0.0      0.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only       2.8     58.8        0.0      10/0     14.3       0       10
+  8_hull_abstain            2.8     58.8        0.0       0/0      0.0       0       10
+  9_none                    0.0      0.0        0.0       0/0      0.0       0        0
+
+=== scenario: correlated_multi_source  (broken rows: 17) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.9     76.5        5.6      0/32      3.4       2       32
+  2_loo_anchor              9.8     64.7        7.0      29/6      6.4      11       29
+  3_multi_anchor           52.9     82.3       51.5     11/10     12.0      39      160
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0      0.0        0.0       0/0      0.0       0        0
+  5_historical_band        12.8     88.2        9.1      0/46      2.7       4       46
+  6_changepoint             0.0      0.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only       0.0      0.0        0.0       0/0      0.0       0        0
+  8_hull_abstain            0.0      0.0        0.0       0/0      0.0       0        0
+  9_none                    0.0      0.0        0.0       0/0      0.0       0        0
+
+=== scenario: whole_board_scale_drift  (broken rows: 359) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.9      8.9       -1.0      0/32      2.0       0       32
+  2_loo_anchor             10.0     10.0       -1.0      0/36      4.5      30       36
+  3_multi_anchor           53.2     53.2       -1.0      0/22      5.7      47      161
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0      0.0       -1.0       0/0      0.0       0        0
+  5_historical_band        47.4     47.4       -1.0     0/170     11.2       6      170
+  6_changepoint           100.0    100.0       -1.0       0/0      0.0     120      329
+  7_hull_anomaly_only      93.3     93.3       -1.0     0/335     22.9     107      311
+  8_hull_abstain           93.3     93.3       -1.0       0/0      0.0     107      311
+  9_none                    0.0      0.0       -1.0       0/0      0.0       0        0
+
+=== scenario: coordinate_routing_failure  (broken rows: 89) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.9      6.7        9.6      6/26      2.7       6       32
+  2_loo_anchor              9.8     38.2        0.4      34/1     12.5       4       33
+  3_multi_anchor           52.9     65.2       48.9      20/1      9.7      34      160
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0      0.0        0.0       0/0      0.0       0        0
+  5_historical_band         7.8      4.5        8.9      4/24      2.2       4       28
+  6_changepoint             0.0      0.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only      24.2     97.8        0.0      87/0     72.5      33       81
+  8_hull_abstain           24.2     97.8        0.0       0/0      0.0      33       81
+  9_none                    0.0      0.0        0.0       0/0      0.0       0        0
+
+=== stability (Jaccard of fired set under +/-2% board noise, 5 trials) ===
+  1_current               0.7510
+  2_loo_anchor            0.7754
+  3_multi_anchor          0.9896
+  4_external_anchor_NOT_CONSTRUCTIBLE  1.0000
+  5_historical_band       0.7340
+  6_changepoint           1.0000
+  7_hull_anomaly_only     1.0000
+  8_hull_abstain          1.0000
+  9_none                  1.0000
+
+##########################################################################
+#  TAIL_SATURATION_RANK=903 (B4 coupling)
+##########################################################################
+
+eligible pre-corridor IDP-side rows: 327
+reference band frozen from this healthy board: 0.3834
+
+=== scenario: healthy_control  (broken rows: 0) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.3     -1.0        8.3      3/24      5.0       3       27
+  2_loo_anchor             10.1     -1.0       10.1     19/14     10.6      19       26
+  3_multi_anchor           48.6     -1.0       48.6      8/13      6.5      40      128
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0     -1.0        0.0       0/0      0.0       0        0
+  5_historical_band         8.9     -1.0        8.9      3/26      7.4       1       29
+  6_changepoint             0.0     -1.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only       0.0     -1.0        0.0       0/0      0.0       0        0
+  8_hull_abstain            0.0     -1.0        0.0       0/0      0.0       0        0
+  9_none                    0.0     -1.0        0.0       0/0      0.0       0        0
+
+=== scenario: normal_disagreement  (broken rows: 0) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.6     -1.0        8.6      5/23      5.8       7       28
+  2_loo_anchor             10.1     -1.0       10.1     17/16     10.3      19       26
+  3_multi_anchor           48.9     -1.0       48.9      7/15      3.9      42      129
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0     -1.0        0.0       0/0      0.0       0        0
+  5_historical_band         9.8     -1.0        9.8      3/29      8.5       3       32
+  6_changepoint             0.0     -1.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only       1.5     -1.0        1.5       4/1      3.9       1        5
+  8_hull_abstain            1.5     -1.0        1.5       0/0      0.0       1        5
+  9_none                    0.0     -1.0        0.0       0/0      0.0       0        0
+
+=== scenario: one_source_anomaly  (broken rows: 16) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.9     87.5        4.8      1/28     15.0       6       29
+  2_loo_anchor             10.1     87.5        6.1     14/19     17.1      17       26
+  3_multi_anchor           48.6    100.0       46.0      3/18     17.8      37      128
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0      0.0        0.0       0/0      0.0       0        0
+  5_historical_band        13.2     87.5        9.3      3/40     11.7       5       43
+  6_changepoint             0.0      0.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only       0.0      0.0        0.0       0/0      0.0       0        0
+  8_hull_abstain            0.0      0.0        0.0       0/0      0.0       0        0
+  9_none                    0.0      0.0        0.0       0/0      0.0       0        0
+
+=== scenario: anchor_source_anomaly  (broken rows: 16) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.9     87.5        4.8     15/14     16.2       6       29
+  2_loo_anchor             10.1     12.5       10.0     19/14     10.6      19       26
+  3_multi_anchor           48.6     43.8       48.9      8/13      6.5      40      128
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0      0.0        0.0       0/0      0.0       0        0
+  5_historical_band        13.2     87.5        9.3     17/26     11.7       5       43
+  6_changepoint             0.0      0.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only       0.9     18.8        0.0       3/0      4.4       0        3
+  8_hull_abstain            0.9     18.8        0.0       0/0      0.0       0        3
+  9_none                    0.0      0.0        0.0       0/0      0.0       0        0
+
+=== scenario: correlated_multi_source  (broken rows: 16) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.9     87.5        4.8      1/28     16.2       6       29
+  2_loo_anchor             10.1     56.2        7.7     22/11     12.9      16       26
+  3_multi_anchor           48.6     81.2       47.0     11/10      5.9      37      128
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0      0.0        0.0       0/0      0.0       0        0
+  5_historical_band        13.2     87.5        9.3      3/40     11.7       5       43
+  6_changepoint             0.0      0.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only       0.0      0.0        0.0       0/0      0.0       0        0
+  8_hull_abstain            0.0      0.0        0.0       0/0      0.0       0        0
+  9_none                    0.0      0.0        0.0       0/0      0.0       0        0
+
+=== scenario: whole_board_scale_drift  (broken rows: 327) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 8.3      8.3       -1.0      0/27      8.5       1       27
+  2_loo_anchor             10.1     10.1       -1.0      0/33      6.0      26       33
+  3_multi_anchor           48.9     48.9       -1.0      0/22      5.5      42      129
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0      0.0       -1.0       0/0      0.0       0        0
+  5_historical_band        72.8     72.8       -1.0     0/238     14.0      65      238
+  6_changepoint           100.0    100.0       -1.0       0/0      0.0     110      296
+  7_hull_anomaly_only      91.7     91.7       -1.0     0/300     24.4      98      276
+  8_hull_abstain           91.7     91.7       -1.0       0/0      0.0      98      276
+  9_none                    0.0      0.0       -1.0       0/0      0.0       0        0
+
+=== scenario: coordinate_routing_failure  (broken rows: 81) ===
+  candidate               fire%  detect%  falseInt%   up/down  medMag%  top3rd  lineage
+  1_current                 9.2     27.2        3.2      22/8      5.7       8       30
+  2_loo_anchor             10.1     39.5        0.4      32/1      3.9       8       30
+  3_multi_anchor           49.2     63.0       44.7      22/1      4.4      33      130
+  4_external_anchor_NOT_CONSTRUCTIBLE    0.0      0.0        0.0       0/0      0.0       0        0
+  5_historical_band        28.4     81.5       11.0     69/24     20.3      27       93
+  6_changepoint             0.0      0.0        0.0       0/0      0.0       0        0
+  7_hull_anomaly_only      22.9     92.6        0.0      75/0     87.1      28       69
+  8_hull_abstain           22.9     92.6        0.0       0/0      0.0      28       69
+  9_none                    0.0      0.0        0.0       0/0      0.0       0        0
+
+=== stability (Jaccard of fired set under +/-2% board noise, 5 trials) ===
+  1_current               0.8763
+  2_loo_anchor            0.8444
+  3_multi_anchor          0.9900
+  4_external_anchor_NOT_CONSTRUCTIBLE  1.0000
+  5_historical_band       0.8646
+  6_changepoint           1.0000
+  7_hull_anomaly_only     0.6000
+  8_hull_abstain          0.2000
+  9_none                  1.0000
+
+wrote /home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W02/cd_corridor_candidates.json

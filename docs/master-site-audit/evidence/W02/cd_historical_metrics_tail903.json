@@ -1,0 +1,2072 @@
+{
+ "codeSha": "7ae86111a1abc51091b2329b7f54a72d689278c4",
+ "tail": 903,
+ "usableDays": 17,
+ "totalIdpRows": 5491,
+ "temporalIndependence": [
+  {
+   "from": "2026-07-26",
+   "to": "2026-07-27",
+   "sourcesChanged": 13,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfRookieSf.csv",
+    "CSVs/site_raw/draftSharksIdp.csv",
+    "CSVs/site_raw/draftSharksSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsIdp.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySf.csv",
+    "CSVs/site_raw/flockFantasySfRookies.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv"
+   ]
+  },
+  {
+   "from": "2026-07-27",
+   "to": "2026-07-28",
+   "sourcesChanged": 15,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfIdp.csv",
+    "CSVs/site_raw/dlfRookieIdp.csv",
+    "CSVs/site_raw/dlfRookieSf.csv",
+    "CSVs/site_raw/dlfSf.csv",
+    "CSVs/site_raw/draftSharksIdp.csv",
+    "CSVs/site_raw/draftSharksSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySf.csv",
+    "CSVs/site_raw/idpTradeCalc.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv"
+   ]
+  },
+  {
+   "from": "2026-07-28",
+   "to": "2026-07-29",
+   "sourcesChanged": 11,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfIdp.csv",
+    "CSVs/site_raw/dlfRookieIdp.csv",
+    "CSVs/site_raw/draftSharksIdp.csv",
+    "CSVs/site_raw/draftSharksSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv",
+    "CSVs/site_raw/pfkDynasty.csv"
+   ]
+  },
+  {
+   "from": "2026-07-29",
+   "to": "2026-07-30",
+   "sourcesChanged": 11,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfRookieSf.csv",
+    "CSVs/site_raw/draftSharksIdp.csv",
+    "CSVs/site_raw/draftSharksSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySf.csv",
+    "CSVs/site_raw/flockFantasySfRookies.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv"
+   ]
+  },
+  {
+   "from": "2026-07-30",
+   "to": "2026-07-31",
+   "sourcesChanged": 11,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfSf.csv",
+    "CSVs/site_raw/draftSharksIdp.csv",
+    "CSVs/site_raw/draftSharksSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv"
+   ]
+  },
+  {
+   "from": "2026-07-31",
+   "to": "2026-08-01",
+   "sourcesChanged": 10,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/draftSharksIdp.csv",
+    "CSVs/site_raw/draftSharksSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv"
+   ]
+  },
+  {
+   "from": "2026-08-01",
+   "to": "2026-08-02",
+   "sourcesChanged": 12,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfIdp.csv",
+    "CSVs/site_raw/dlfRookieIdp.csv",
+    "CSVs/site_raw/draftSharksIdp.csv",
+    "CSVs/site_raw/draftSharksSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv",
+    "CSVs/site_raw/pfkDynasty.csv"
+   ]
+  },
+  {
+   "from": "2026-08-02",
+   "to": "2026-08-03",
+   "sourcesChanged": 11,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/draftSharksIdp.csv",
+    "CSVs/site_raw/draftSharksSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv",
+    "CSVs/site_raw/pfkDynasty.csv"
+   ]
+  },
+  {
+   "from": "2026-08-03",
+   "to": "2026-08-04",
+   "sourcesChanged": 13,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfRookieSf.csv",
+    "CSVs/site_raw/dlfSf.csv",
+    "CSVs/site_raw/draftSharksIdp.csv",
+    "CSVs/site_raw/draftSharksSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsIdp.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/idpTradeCalc.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv",
+    "CSVs/site_raw/pfkDynasty.csv"
+   ]
+  },
+  {
+   "from": "2026-08-04",
+   "to": "2026-08-05",
+   "sourcesChanged": 12,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfRookieSf.csv",
+    "CSVs/site_raw/dlfSf.csv",
+    "CSVs/site_raw/draftSharksIdp.csv",
+    "CSVs/site_raw/draftSharksSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv",
+    "CSVs/site_raw/yahooBoone.csv"
+   ]
+  },
+  {
+   "from": "2026-08-05",
+   "to": "2026-08-06",
+   "sourcesChanged": 9,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfRookieSf.csv",
+    "CSVs/site_raw/dlfSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySfRookies.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv"
+   ]
+  },
+  {
+   "from": "2026-08-06",
+   "to": "2026-08-07",
+   "sourcesChanged": 9,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfRookieSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv"
+   ]
+  },
+  {
+   "from": "2026-08-07",
+   "to": "2026-08-08",
+   "sourcesChanged": 8,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfIdp.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv"
+   ]
+  },
+  {
+   "from": "2026-08-08",
+   "to": "2026-08-09",
+   "sourcesChanged": 7,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv"
+   ]
+  },
+  {
+   "from": "2026-08-09",
+   "to": "2026-08-10",
+   "sourcesChanged": 8,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfRookieSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/flockFantasySf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv"
+   ]
+  },
+  {
+   "from": "2026-08-10",
+   "to": "2026-08-11",
+   "sourcesChanged": 8,
+   "sourcesTotal": 22,
+   "boardChanged": true,
+   "changed": [
+    "CSVs/site_raw/dlfRookieSf.csv",
+    "CSVs/site_raw/dynastyDaddySf.csv",
+    "CSVs/site_raw/fantasyCalc.csv",
+    "CSVs/site_raw/fantasyProsSf.csv",
+    "CSVs/site_raw/ktc.csv",
+    "CSVs/site_raw/ktcSfTep.csv",
+    "CSVs/site_raw/otcffbSf.csv",
+    "CSVs/site_raw/pfkDynasty.csv"
+   ]
+  }
+ ],
+ "perDay": [
+  {
+   "idpRows": 326,
+   "current": {
+    "clamped": 27,
+    "triggerRatePct": 8.28,
+    "byBucket": {
+     "medium": 9,
+     "low": 18
+    },
+    "anchors": {
+     "idpTradeCalc": 27
+    },
+    "anchorAlsoVotes": 27,
+    "medianValueEffectPct": 4.63,
+    "maxValueEffectPct": 21.05,
+    "distinctBands": [
+     0.275,
+     0.4432
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0957,
+   "driftP90": 0.3432,
+   "driftP99": 0.4436,
+   "driftN": 295,
+   "day": "2026-07-26",
+   "sha": "c9371ab6caaf4b058dfcc203e79e648502f599a7",
+   "boardSha256": "8488440f388743239f0799daa339803ae5e9f755d70bff8b30e23d1a6b5b1e2a",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "6141155e3c98d17834d87bb814a6f653719e66c32c3244fe87dd29db27d058b8",
+    "CSVs/site_raw/dlfRookieIdp.csv": "e09749a84d8e87c6982bd446dc6afa37ce85bb5284c4f19c67129a55a29f4126",
+    "CSVs/site_raw/dlfRookieSf.csv": "d46a196b48422a0ad952a2fa6eb25bd5650ce8406565dccc8ff2fb6da0826ef2",
+    "CSVs/site_raw/dlfSf.csv": "e58093aa2532799842784443d102508cd816ae7e76575f41b9b19cb94c0eb05e",
+    "CSVs/site_raw/draftSharksIdp.csv": "22ad1c4ef23ec88c504918405ffb0165187bea53194ce0e552794be9173b6eb4",
+    "CSVs/site_raw/draftSharksSf.csv": "c37dc3fb4b127a2d05121064d97be8e2e5f99b7bd4d42e2fdbb7a77f546bda4d",
+    "CSVs/site_raw/dynastyDaddySf.csv": "7bd6050df281caf2b999dbbe942c8779eacb8c154f6fd019dc5831a462581d75",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "f155042eb4257334f797bf942683f4497545cd975bc9457e5eba0c7c7f78e1b9",
+    "CSVs/site_raw/fantasyCalc.csv": "c5fbbfe7debf8ed9999e700e25e4451757145b25a0c84a96f03846249880360d",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "caf3ef4823ffcaf8f622391e6c774cf2aee997f4460c424789535b40fede060f",
+    "CSVs/site_raw/fantasyProsIdp.csv": "9a025a147818005f25cd315217f8ca66509775a49c6d3406b64a9b8b0a9a98f9",
+    "CSVs/site_raw/fantasyProsSf.csv": "821a6113cae394927b6ced3f1c5c0284153f7e1a529e631058791568b42da668",
+    "CSVs/site_raw/flockFantasySf.csv": "2ff8715b4ffc55b1ef06791cf28fbb65732682ed3d9531736d34d134c7c19136",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "e6ec0c81dde1db758d9713f4b84066731f0f0bf9a4d3ae778545b38fab6fc0ba",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "834a8a6605f18b8f49396155a0d3c9ee7befd478656ec7f3d0a05a592b067143",
+    "CSVs/site_raw/ktc.csv": "dc2961a30eefaaa59ad1eec5d4bbae277addf2e5c2deb4b3b5d343057b9e079b",
+    "CSVs/site_raw/ktcSfTep.csv": "72a1c17231363a64fb3c79a02687106d873032d32f2d65cd27722da333efca63",
+    "CSVs/site_raw/otcffbSf.csv": "243e450cac359783058da6f1b4106ba124d04d6464de7a132bd9971a521df5ed",
+    "CSVs/site_raw/pfkDynasty.csv": "3de30856316aaccb29ac83fbcfa5e7016511d646987fa9fe1ede825f8c363b69",
+    "CSVs/site_raw/yahooBoone.csv": "8687353a0fcbb9ee8730b03f86ff51209374cfb1bd774e3760a06a64e20d59e1"
+   }
+  },
+  {
+   "idpRows": 329,
+   "current": {
+    "clamped": 27,
+    "triggerRatePct": 8.21,
+    "byBucket": {
+     "medium": 12,
+     "low": 15
+    },
+    "anchors": {
+     "idpTradeCalc": 27
+    },
+    "anchorAlsoVotes": 27,
+    "medianValueEffectPct": 4.42,
+    "maxValueEffectPct": 19.18,
+    "distinctBands": [
+     0.2769,
+     0.4766
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0935,
+   "driftP90": 0.3464,
+   "driftP99": 0.4769,
+   "driftN": 298,
+   "day": "2026-07-27",
+   "sha": "aaa4ee144f4a55b1132223489d64741de70826b5",
+   "boardSha256": "184c83c7dec1b45cd36ae7db92aa6936eae173ba44d6289dda09a6c631a77d2c",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "6141155e3c98d17834d87bb814a6f653719e66c32c3244fe87dd29db27d058b8",
+    "CSVs/site_raw/dlfRookieIdp.csv": "e09749a84d8e87c6982bd446dc6afa37ce85bb5284c4f19c67129a55a29f4126",
+    "CSVs/site_raw/dlfRookieSf.csv": "a8248b6689175d5d54b9618b979793ba078eb6d7c822e03b89ab430f63a675a4",
+    "CSVs/site_raw/dlfSf.csv": "e58093aa2532799842784443d102508cd816ae7e76575f41b9b19cb94c0eb05e",
+    "CSVs/site_raw/draftSharksIdp.csv": "7a77308df2c96f3c7b0eb4a7c67f6389e2d962995642e4880104eb2ca4232631",
+    "CSVs/site_raw/draftSharksSf.csv": "61eb77621be572dbfacd39b1aeacee8acc722a9475306decaba8f851a65a5a4c",
+    "CSVs/site_raw/dynastyDaddySf.csv": "97ecb8f256ed52d004daef6747c7846518718ad0cfd5c1684bd6e0617adfa928",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "d8d10d6fddfbabd7e7d3d81e8b6c99caab0ac284d4e5939565fa0ad070975a68",
+    "CSVs/site_raw/fantasyCalc.csv": "e15a314d6059f67cf423b0aa7f2bbb68dd82e11163919b3687ae81e039b3e924",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "caf3ef4823ffcaf8f622391e6c774cf2aee997f4460c424789535b40fede060f",
+    "CSVs/site_raw/fantasyProsIdp.csv": "39eb8edab1866ed1a976c90b11d1e42e118227fade12bfebb907fde32b82a102",
+    "CSVs/site_raw/fantasyProsSf.csv": "4b9922f1bd96491ccb836f15b57503507639eb3f854fdbec3e443214e0562b5a",
+    "CSVs/site_raw/flockFantasySf.csv": "26995e95d7215fe1664d2709087c75cd9a979fc90c80f6b34c35823273540998",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "773df16e8264a15fd3ceeee12153724b29dd714c2ee90c137f0190a7632f632a",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "834a8a6605f18b8f49396155a0d3c9ee7befd478656ec7f3d0a05a592b067143",
+    "CSVs/site_raw/ktc.csv": "1e74594d3889375fd6c813f69e1d1f5fba63a981de286914a300d25ae2ef877f",
+    "CSVs/site_raw/ktcSfTep.csv": "d4e450beed9c6260fded33e0c39b71f832241f7da38d9d8a1511c9c0c964cd42",
+    "CSVs/site_raw/otcffbSf.csv": "45dc4b34e34a957f82a3f94642c6ed348b9e14ae117c3763ff561a6a6180c402",
+    "CSVs/site_raw/pfkDynasty.csv": "3de30856316aaccb29ac83fbcfa5e7016511d646987fa9fe1ede825f8c363b69",
+    "CSVs/site_raw/yahooBoone.csv": "8687353a0fcbb9ee8730b03f86ff51209374cfb1bd774e3760a06a64e20d59e1"
+   }
+  },
+  {
+   "idpRows": 331,
+   "current": {
+    "clamped": 30,
+    "triggerRatePct": 9.06,
+    "byBucket": {
+     "medium": 12,
+     "low": 15,
+     "high": 3
+    },
+    "anchors": {
+     "idpTradeCalc": 30
+    },
+    "anchorAlsoVotes": 30,
+    "medianValueEffectPct": 4.33,
+    "maxValueEffectPct": 19.03,
+    "distinctBands": [
+     0.1928,
+     0.2892,
+     0.4791
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0954,
+   "driftP90": 0.381,
+   "driftP99": 0.4795,
+   "driftN": 300,
+   "day": "2026-07-28",
+   "sha": "5f201e466e8927a4bb8e0cfe584df2caa22968d4",
+   "boardSha256": "6b0b35fdf5c7a7e1e451bcdad8b6ea1fe0993e2ca136e72aedfe7fe8ee2cc591",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "bf197f7e0d04bf0871f0d3efa5e272bb44f6fc5b2f11f3a7f76ee6d62ec56fc4",
+    "CSVs/site_raw/dlfRookieIdp.csv": "34b1a5fa96a215e99a9f7d9a4d25708cbde47673fcd44c17c16988ff516454bd",
+    "CSVs/site_raw/dlfRookieSf.csv": "dbf0df155fffa449f47ac2162fe966cfdf8034169fc69ca153db7c4bfe4d89d2",
+    "CSVs/site_raw/dlfSf.csv": "cac0b93ac90b69757f4be16fd04b2814489a4ec5cbff30fc2cf11701501214cf",
+    "CSVs/site_raw/draftSharksIdp.csv": "f3ade5005b32d8e12c8c880c0f00f1f6bb69dbd35e4b6229a25dc87e9344abe2",
+    "CSVs/site_raw/draftSharksSf.csv": "e34453dbe48c0ebad9074f7bf797987df41d8783f08b5eadddfae844b55f0ddc",
+    "CSVs/site_raw/dynastyDaddySf.csv": "a46b41b38f518650ba7cea5107f7ba51dccf98e47cc598587cec0cfd403e874c",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "328200f6ecee0eb4b2a760a9e85dfef37cdb0f7c1dd43ead6b836b3814c3c8bc",
+    "CSVs/site_raw/fantasyCalc.csv": "740e77cc495ee2cbfe71137870819ccc16f3e1cdb0720eb0d7fd36c642c2d0ee",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "caf3ef4823ffcaf8f622391e6c774cf2aee997f4460c424789535b40fede060f",
+    "CSVs/site_raw/fantasyProsIdp.csv": "39eb8edab1866ed1a976c90b11d1e42e118227fade12bfebb907fde32b82a102",
+    "CSVs/site_raw/fantasyProsSf.csv": "4970bd622a72b9b980bf7ea2aa2415a71f51f0d86676fd2596fca8d5eb64d831",
+    "CSVs/site_raw/flockFantasySf.csv": "d5b398853063069850527876f70e772c44f41303a494c040ee6e88afbb5755d5",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "773df16e8264a15fd3ceeee12153724b29dd714c2ee90c137f0190a7632f632a",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "72368bda1b7e90b0af2e6f3cd4f8eaf0bc0f01c25a89aee127e3c9384db28a10",
+    "CSVs/site_raw/ktc.csv": "d0360f7433fc0147c8a4934c2f2049f6c562984a00596241d8c4c2c4606bfac5",
+    "CSVs/site_raw/ktcSfTep.csv": "ba1dc60d354808d0b3960bc12be8e287fe489b2d133dbeb9d6fbfe864816e199",
+    "CSVs/site_raw/otcffbSf.csv": "72b396a2adae3df9404044d58af26abafe7792ffe04cf31de3bd0851ef263d17",
+    "CSVs/site_raw/pfkDynasty.csv": "3de30856316aaccb29ac83fbcfa5e7016511d646987fa9fe1ede825f8c363b69",
+    "CSVs/site_raw/yahooBoone.csv": "8687353a0fcbb9ee8730b03f86ff51209374cfb1bd774e3760a06a64e20d59e1"
+   }
+  },
+  {
+   "idpRows": 330,
+   "current": {
+    "clamped": 30,
+    "triggerRatePct": 9.09,
+    "byBucket": {
+     "medium": 12,
+     "low": 15,
+     "high": 3
+    },
+    "anchors": {
+     "idpTradeCalc": 30
+    },
+    "anchorAlsoVotes": 30,
+    "medianValueEffectPct": 4.25,
+    "maxValueEffectPct": 18.96,
+    "distinctBands": [
+     0.1928,
+     0.2745,
+     0.4804
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0947,
+   "driftP90": 0.3565,
+   "driftP99": 0.4807,
+   "driftN": 299,
+   "day": "2026-07-29",
+   "sha": "21dc24767de474a24e10b824402fc6ef8a5c3080",
+   "boardSha256": "15f07396e003129ba231a393d47176b3ef7e54dec97f7d01c95bcdae387d3176",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "feb977492a7294178de6f1dc3f49d2b421f5a38be5d88dc250459fdd81f78714",
+    "CSVs/site_raw/dlfRookieIdp.csv": "a791050d2d8a0227cbc08e623b2793fa77d4ee28ce7b40ebab2fff461edd0c9f",
+    "CSVs/site_raw/dlfRookieSf.csv": "dbf0df155fffa449f47ac2162fe966cfdf8034169fc69ca153db7c4bfe4d89d2",
+    "CSVs/site_raw/dlfSf.csv": "cac0b93ac90b69757f4be16fd04b2814489a4ec5cbff30fc2cf11701501214cf",
+    "CSVs/site_raw/draftSharksIdp.csv": "c839a92e7dbf2642ed770f60d618e0d2eec13e4d45e7946c76bce584646afc38",
+    "CSVs/site_raw/draftSharksSf.csv": "a92c581cdc6e84d00feb868a7084b2c14a8f24e4f506490fe71903aa20d85a17",
+    "CSVs/site_raw/dynastyDaddySf.csv": "0d09986a874fc828b5dd2d54f9283746ad1df79f5492c0d66d331cb91781ec34",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "328200f6ecee0eb4b2a760a9e85dfef37cdb0f7c1dd43ead6b836b3814c3c8bc",
+    "CSVs/site_raw/fantasyCalc.csv": "5845957df1329678def79542e75307a43b23ce53fb0c849dd3bf4b91340e3445",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "caf3ef4823ffcaf8f622391e6c774cf2aee997f4460c424789535b40fede060f",
+    "CSVs/site_raw/fantasyProsIdp.csv": "39eb8edab1866ed1a976c90b11d1e42e118227fade12bfebb907fde32b82a102",
+    "CSVs/site_raw/fantasyProsSf.csv": "e1797e55b195b14f48c1b96fc2d57435d59b6dbb2d3e2e388edfc96ad0e566a7",
+    "CSVs/site_raw/flockFantasySf.csv": "d5b398853063069850527876f70e772c44f41303a494c040ee6e88afbb5755d5",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "773df16e8264a15fd3ceeee12153724b29dd714c2ee90c137f0190a7632f632a",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "72368bda1b7e90b0af2e6f3cd4f8eaf0bc0f01c25a89aee127e3c9384db28a10",
+    "CSVs/site_raw/ktc.csv": "dd4a0508e4b87ce0c2f5beefb355b2cc12ca0027a598299e6ef331236897a8ae",
+    "CSVs/site_raw/ktcSfTep.csv": "da475bce156215598811b55d54b34e1f83a7d4c532c02e5a282294cba913d9a7",
+    "CSVs/site_raw/otcffbSf.csv": "06a0ee2015b2105ea3f1341328d6d77e099d04ad97978596b0300c792b036f5c",
+    "CSVs/site_raw/pfkDynasty.csv": "09735fada71d90ec539474c34db0b00f85bd622b737a682fce421f151ac2b868",
+    "CSVs/site_raw/yahooBoone.csv": "8687353a0fcbb9ee8730b03f86ff51209374cfb1bd774e3760a06a64e20d59e1"
+   }
+  },
+  {
+   "idpRows": 330,
+   "current": {
+    "clamped": 30,
+    "triggerRatePct": 9.09,
+    "byBucket": {
+     "medium": 12,
+     "low": 15,
+     "high": 3
+    },
+    "anchors": {
+     "idpTradeCalc": 30
+    },
+    "anchorAlsoVotes": 30,
+    "medianValueEffectPct": 4.25,
+    "maxValueEffectPct": 19.08,
+    "distinctBands": [
+     0.1928,
+     0.2747,
+     0.4804
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0954,
+   "driftP90": 0.3712,
+   "driftP99": 0.4807,
+   "driftN": 299,
+   "day": "2026-07-30",
+   "sha": "668961e3f5f957e97dfd14ad2fb02e1052323b10",
+   "boardSha256": "8a4969956b1962b0a87bd12f436eb0146692f47d93b94bd30950c1b9cf6e1d8c",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "feb977492a7294178de6f1dc3f49d2b421f5a38be5d88dc250459fdd81f78714",
+    "CSVs/site_raw/dlfRookieIdp.csv": "a791050d2d8a0227cbc08e623b2793fa77d4ee28ce7b40ebab2fff461edd0c9f",
+    "CSVs/site_raw/dlfRookieSf.csv": "b73234cab947ed22fcf167b175f887ded0ab9f218257448efb3bb62d9b2b58c6",
+    "CSVs/site_raw/dlfSf.csv": "cac0b93ac90b69757f4be16fd04b2814489a4ec5cbff30fc2cf11701501214cf",
+    "CSVs/site_raw/draftSharksIdp.csv": "36a8604804495af66bc6f4a1210c54a79419b3321d88f65a286f60be40ed2c31",
+    "CSVs/site_raw/draftSharksSf.csv": "376bc48b6f5ac230659339fd19d63e0f1cd29b1b7600b76404e8f17640d3f6fb",
+    "CSVs/site_raw/dynastyDaddySf.csv": "075d0d3b5bf2c630c97720aaa8dbf84dc700f6e662c07a472ca7e1ed626e01c2",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "328200f6ecee0eb4b2a760a9e85dfef37cdb0f7c1dd43ead6b836b3814c3c8bc",
+    "CSVs/site_raw/fantasyCalc.csv": "8bf460d52b7ff1c12cb08d13c14903202d5aa0eeb2f14c968bf0fede42d0710f",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "caf3ef4823ffcaf8f622391e6c774cf2aee997f4460c424789535b40fede060f",
+    "CSVs/site_raw/fantasyProsIdp.csv": "39eb8edab1866ed1a976c90b11d1e42e118227fade12bfebb907fde32b82a102",
+    "CSVs/site_raw/fantasyProsSf.csv": "2462935e81250da990b9784816e311126489831ea317cdd33e2381959a0e5979",
+    "CSVs/site_raw/flockFantasySf.csv": "77c8e0eca65fbe235493daf7acf66207ca8c8e5f4ad4276060b85017fce0bd3b",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "6ff7f1b715ab97e43c61b813d530ff00659583cd41891aa50d7dffaa7235041c",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "72368bda1b7e90b0af2e6f3cd4f8eaf0bc0f01c25a89aee127e3c9384db28a10",
+    "CSVs/site_raw/ktc.csv": "40b3d242f048bb5022afed0db276cc214a032ce2867cb8ea91592192a67bd181",
+    "CSVs/site_raw/ktcSfTep.csv": "d440ab17a836f3a02819cf27f5fe4e32595892030eacfcc2214bda531dc32711",
+    "CSVs/site_raw/otcffbSf.csv": "9904e4d4c2dfef08206e3bf56b2033555807fe68df8bafedd9a5a98834b87b61",
+    "CSVs/site_raw/pfkDynasty.csv": "09735fada71d90ec539474c34db0b00f85bd622b737a682fce421f151ac2b868",
+    "CSVs/site_raw/yahooBoone.csv": "8687353a0fcbb9ee8730b03f86ff51209374cfb1bd774e3760a06a64e20d59e1"
+   }
+  },
+  {
+   "idpRows": 331,
+   "current": {
+    "clamped": 30,
+    "triggerRatePct": 9.06,
+    "byBucket": {
+     "medium": 12,
+     "low": 15,
+     "high": 3
+    },
+    "anchors": {
+     "idpTradeCalc": 30
+    },
+    "anchorAlsoVotes": 30,
+    "medianValueEffectPct": 4.33,
+    "maxValueEffectPct": 19.08,
+    "distinctBands": [
+     0.1928,
+     0.2903,
+     0.4804
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0963,
+   "driftP90": 0.381,
+   "driftP99": 0.4807,
+   "driftN": 300,
+   "day": "2026-07-31",
+   "sha": "a1afce18898d41c075ca28ab6c54faeba91e0d34",
+   "boardSha256": "e2c0dea91f52e3dbbacf68864af258cf74eb020b541513c790318de19be1dfc8",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "feb977492a7294178de6f1dc3f49d2b421f5a38be5d88dc250459fdd81f78714",
+    "CSVs/site_raw/dlfRookieIdp.csv": "a791050d2d8a0227cbc08e623b2793fa77d4ee28ce7b40ebab2fff461edd0c9f",
+    "CSVs/site_raw/dlfRookieSf.csv": "b73234cab947ed22fcf167b175f887ded0ab9f218257448efb3bb62d9b2b58c6",
+    "CSVs/site_raw/dlfSf.csv": "55407f63288cc6cdc2b8d0f4a7b3d6eac0a79f15e5436a6c12bb4c5d6c5b76c7",
+    "CSVs/site_raw/draftSharksIdp.csv": "dd267635fb3be51698e136756996545e427cc94ff85038c720ad611b755f8683",
+    "CSVs/site_raw/draftSharksSf.csv": "fd3e9f01b48871e30c1d912c10c68d0c346cdc05438fc1656b73a04301db5332",
+    "CSVs/site_raw/dynastyDaddySf.csv": "f5b891f31f1f92d86dee6c072a5f4b4b5501ea39442a7504b26650b8b30ec1a6",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "6ff8a520015963e28aeff399c71b542d6b9e839f93c0cac77393138e5992e024",
+    "CSVs/site_raw/fantasyCalc.csv": "0ada42dce5288b33699588cbc9321a81c576628dadec47028f5ff704336e43fb",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "caf3ef4823ffcaf8f622391e6c774cf2aee997f4460c424789535b40fede060f",
+    "CSVs/site_raw/fantasyProsIdp.csv": "39eb8edab1866ed1a976c90b11d1e42e118227fade12bfebb907fde32b82a102",
+    "CSVs/site_raw/fantasyProsSf.csv": "6a2f38609a77893674b5bc20111703b7e8c28c762145a19d19e162e379f74b8b",
+    "CSVs/site_raw/flockFantasySf.csv": "d44930871be4aeed0cb9c0bdeb214ac6bdf563f0099e8798081df86cf974d8e1",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "6ff7f1b715ab97e43c61b813d530ff00659583cd41891aa50d7dffaa7235041c",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "72368bda1b7e90b0af2e6f3cd4f8eaf0bc0f01c25a89aee127e3c9384db28a10",
+    "CSVs/site_raw/ktc.csv": "6738c6c68f6adff4c11ab3697708f9f68ce34c69d6c38b95f53834f07dc20ff2",
+    "CSVs/site_raw/ktcSfTep.csv": "d0f1cbb0714d67da59d49c1257ef594617fecc1c9be703d1b147095a70adc621",
+    "CSVs/site_raw/otcffbSf.csv": "1a00a408d3bf4b2d554117ff79f326a38c6cb02c0efddc10e427025deccc99d5",
+    "CSVs/site_raw/pfkDynasty.csv": "09735fada71d90ec539474c34db0b00f85bd622b737a682fce421f151ac2b868",
+    "CSVs/site_raw/yahooBoone.csv": "8687353a0fcbb9ee8730b03f86ff51209374cfb1bd774e3760a06a64e20d59e1"
+   }
+  },
+  {
+   "idpRows": 333,
+   "current": {
+    "clamped": 30,
+    "triggerRatePct": 9.01,
+    "byBucket": {
+     "medium": 12,
+     "low": 15,
+     "high": 3
+    },
+    "anchors": {
+     "idpTradeCalc": 30
+    },
+    "anchorAlsoVotes": 30,
+    "medianValueEffectPct": 3.73,
+    "maxValueEffectPct": 19.01,
+    "distinctBands": [
+     0.1928,
+     0.2913,
+     0.4816
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0963,
+   "driftP90": 0.3901,
+   "driftP99": 0.482,
+   "driftN": 302,
+   "day": "2026-08-01",
+   "sha": "c93123ebadab065c85e8015be12af6f054929c34",
+   "boardSha256": "3b5c1c1015d5815ece2d6b2d1c19a3176e363784c5c37cc83abdef87d10ffd6e",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "feb977492a7294178de6f1dc3f49d2b421f5a38be5d88dc250459fdd81f78714",
+    "CSVs/site_raw/dlfRookieIdp.csv": "a791050d2d8a0227cbc08e623b2793fa77d4ee28ce7b40ebab2fff461edd0c9f",
+    "CSVs/site_raw/dlfRookieSf.csv": "b73234cab947ed22fcf167b175f887ded0ab9f218257448efb3bb62d9b2b58c6",
+    "CSVs/site_raw/dlfSf.csv": "55407f63288cc6cdc2b8d0f4a7b3d6eac0a79f15e5436a6c12bb4c5d6c5b76c7",
+    "CSVs/site_raw/draftSharksIdp.csv": "b174421b0c3e70aefe395a41bfe1d46342cb84a5c0506d474f5fb6f19fcf9bae",
+    "CSVs/site_raw/draftSharksSf.csv": "4c1b3dd25f88d64d8cc20f98383c89430ab6b84ab3d2c9cb08f5157674e9ecc7",
+    "CSVs/site_raw/dynastyDaddySf.csv": "7ce8addc312488c545a39806936f907561006617f357f0348322d463ddc64f28",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "6ff8a520015963e28aeff399c71b542d6b9e839f93c0cac77393138e5992e024",
+    "CSVs/site_raw/fantasyCalc.csv": "5e2cfd78ae1aff2b109852fa971fbc074ba6416135062f04661d5de27d7dfef7",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "CSVs/site_raw/fantasyProsIdp.csv": "39eb8edab1866ed1a976c90b11d1e42e118227fade12bfebb907fde32b82a102",
+    "CSVs/site_raw/fantasyProsSf.csv": "c7a065fa90456e6eb0f091280dcfbc1b993ab802797f74672f903277b02f4d54",
+    "CSVs/site_raw/flockFantasySf.csv": "f6314dabd6b3b0454f1ae74b78671cced56d79f82d9c3047b9598dc82852cfd8",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "6ff7f1b715ab97e43c61b813d530ff00659583cd41891aa50d7dffaa7235041c",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "72368bda1b7e90b0af2e6f3cd4f8eaf0bc0f01c25a89aee127e3c9384db28a10",
+    "CSVs/site_raw/ktc.csv": "d9d9585745fe955e1732c6c46d63d341c1a0d850595e44fddcef069bdcd450eb",
+    "CSVs/site_raw/ktcSfTep.csv": "52476fe72d5a958caa1ceae6bae7a6b3dec5a71aa8cc0928fdc7c21b03a50f0d",
+    "CSVs/site_raw/otcffbSf.csv": "f7460a2d2b1bd579e7aad8ba6b2325069374469a0728e71263715d9d4462873f",
+    "CSVs/site_raw/pfkDynasty.csv": "09735fada71d90ec539474c34db0b00f85bd622b737a682fce421f151ac2b868",
+    "CSVs/site_raw/yahooBoone.csv": "8687353a0fcbb9ee8730b03f86ff51209374cfb1bd774e3760a06a64e20d59e1"
+   }
+  },
+  {
+   "idpRows": 328,
+   "current": {
+    "clamped": 29,
+    "triggerRatePct": 8.84,
+    "byBucket": {
+     "medium": 11,
+     "low": 15,
+     "high": 3
+    },
+    "anchors": {
+     "idpTradeCalc": 29
+    },
+    "anchorAlsoVotes": 29,
+    "medianValueEffectPct": 4.84,
+    "maxValueEffectPct": 19.41,
+    "distinctBands": [
+     0.1928,
+     0.2546,
+     0.4711
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0943,
+   "driftP90": 0.3537,
+   "driftP99": 0.4714,
+   "driftN": 297,
+   "day": "2026-08-02",
+   "sha": "34b5354263c6bb86f79f0b4a79421f4dfb673b33",
+   "boardSha256": "c39c3b519757cbbf3c99a34667f8016a3b3e8df6cacf4b32b04c5e2f2a537f9d",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "a3322441a07b36039d37528447c56e5082f29ac92e73eae2846b1ea5535cc1a6",
+    "CSVs/site_raw/dlfRookieIdp.csv": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "CSVs/site_raw/dlfRookieSf.csv": "b73234cab947ed22fcf167b175f887ded0ab9f218257448efb3bb62d9b2b58c6",
+    "CSVs/site_raw/dlfSf.csv": "55407f63288cc6cdc2b8d0f4a7b3d6eac0a79f15e5436a6c12bb4c5d6c5b76c7",
+    "CSVs/site_raw/draftSharksIdp.csv": "67b1da89e991652845c1a6d600a7f0fc2c78dd4a13238d1bd0304971cfb2ddc0",
+    "CSVs/site_raw/draftSharksSf.csv": "df2d702414eec17fafaa4e5135fb338573d5517a8d56f10e689981bb2c679687",
+    "CSVs/site_raw/dynastyDaddySf.csv": "7a53112488ceb38226dfac4dae17c3c5a77ef074c35c837cbf3fb652639e3c38",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "6ff8a520015963e28aeff399c71b542d6b9e839f93c0cac77393138e5992e024",
+    "CSVs/site_raw/fantasyCalc.csv": "4972ab612119a7b84c7cc954c1b65ebb88d0e5a272babfe89bc8a58b44623528",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "caf3ef4823ffcaf8f622391e6c774cf2aee997f4460c424789535b40fede060f",
+    "CSVs/site_raw/fantasyProsIdp.csv": "39eb8edab1866ed1a976c90b11d1e42e118227fade12bfebb907fde32b82a102",
+    "CSVs/site_raw/fantasyProsSf.csv": "21f27661e869f576f8e9e023a65e9da2fc917138398aaca53e3eeedc217d2d52",
+    "CSVs/site_raw/flockFantasySf.csv": "f6314dabd6b3b0454f1ae74b78671cced56d79f82d9c3047b9598dc82852cfd8",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "6ff7f1b715ab97e43c61b813d530ff00659583cd41891aa50d7dffaa7235041c",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "72368bda1b7e90b0af2e6f3cd4f8eaf0bc0f01c25a89aee127e3c9384db28a10",
+    "CSVs/site_raw/ktc.csv": "ace5875e29c4747efbf5f3348ddf5838cccfbb004df694132fea1616870191bd",
+    "CSVs/site_raw/ktcSfTep.csv": "57631ec8481e880b050b413af167ae0205d11cf2c350494f1bf6808207ada80f",
+    "CSVs/site_raw/otcffbSf.csv": "c20da060855295066aa510b81b33e845144888e95c2b2f3e20a1093f12e3423f",
+    "CSVs/site_raw/pfkDynasty.csv": "370de097050f9a18057ab3d85b1164b8f9ad1cde6c6e2e4b16642bb30a1f79a2",
+    "CSVs/site_raw/yahooBoone.csv": "8687353a0fcbb9ee8730b03f86ff51209374cfb1bd774e3760a06a64e20d59e1"
+   }
+  },
+  {
+   "idpRows": 276,
+   "current": {
+    "clamped": 24,
+    "triggerRatePct": 8.7,
+    "byBucket": {
+     "medium": 10,
+     "low": 9,
+     "high": 5
+    },
+    "anchors": {
+     "idpTradeCalc": 24
+    },
+    "anchorAlsoVotes": 24,
+    "medianValueEffectPct": 7.14,
+    "maxValueEffectPct": 17.06,
+    "distinctBands": [
+     0.2419,
+     0.3275,
+     0.5435
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    }
+   },
+   "driftP50": 0.1053,
+   "driftP90": 0.3278,
+   "driftP99": 0.5437,
+   "driftN": 249,
+   "day": "2026-08-03",
+   "sha": "d9f7e4cdaed29a94e59aad7706c3ce80699b16db",
+   "boardSha256": "19e2e0d7ad54965a18d47b962e31dc82909f3c8cac8e2008be95d052cd4273ac",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "a3322441a07b36039d37528447c56e5082f29ac92e73eae2846b1ea5535cc1a6",
+    "CSVs/site_raw/dlfRookieIdp.csv": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "CSVs/site_raw/dlfRookieSf.csv": "b73234cab947ed22fcf167b175f887ded0ab9f218257448efb3bb62d9b2b58c6",
+    "CSVs/site_raw/dlfSf.csv": "55407f63288cc6cdc2b8d0f4a7b3d6eac0a79f15e5436a6c12bb4c5d6c5b76c7",
+    "CSVs/site_raw/draftSharksIdp.csv": "c5d759e956d1386c98342f5cd76e91126acdf6771a7f64ecae34ad8600e1c438",
+    "CSVs/site_raw/draftSharksSf.csv": "772bd986c734e9a8b1502af9ef36dffb4ccac0e7e2ca903d98b1c097ce01af74",
+    "CSVs/site_raw/dynastyDaddySf.csv": "04707d904ef1015026d94146f46051560f2ef02b1afc78fb83f8f492ef94a479",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "6ff8a520015963e28aeff399c71b542d6b9e839f93c0cac77393138e5992e024",
+    "CSVs/site_raw/fantasyCalc.csv": "1f4a15a01e59d36b0dab07689b9301d9b4700b613d1f13cdcbf7c284da88bf71",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "CSVs/site_raw/fantasyProsIdp.csv": "39eb8edab1866ed1a976c90b11d1e42e118227fade12bfebb907fde32b82a102",
+    "CSVs/site_raw/fantasyProsSf.csv": "9e39ed9da0b63b8a3708e36bcc81e5d603ad21ef4d0fd8cd1778a81f0ed72d2e",
+    "CSVs/site_raw/flockFantasySf.csv": "a5e42be76e48af62e38f80adfe1c80059adbcd12440929b9e7853ffb531ff69d",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "6ff7f1b715ab97e43c61b813d530ff00659583cd41891aa50d7dffaa7235041c",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "72368bda1b7e90b0af2e6f3cd4f8eaf0bc0f01c25a89aee127e3c9384db28a10",
+    "CSVs/site_raw/ktc.csv": "e33531872700ec377ed86b0993411bd75134bcfe5524aadc7ae86f72c68e4141",
+    "CSVs/site_raw/ktcSfTep.csv": "cb4b4dd316d73627b5839506891601f2fb9ba7c4e3793b07044d01d0c1436a2d",
+    "CSVs/site_raw/otcffbSf.csv": "f09189dbcbe8c7e04dc439c77c8317a1b5dff621360e84bd752012727de46923",
+    "CSVs/site_raw/pfkDynasty.csv": "5d53fd5d0460bafe9dbc66c4e16dbf965b77a1ba374d05e74e74f9330e141206",
+    "CSVs/site_raw/yahooBoone.csv": "8687353a0fcbb9ee8730b03f86ff51209374cfb1bd774e3760a06a64e20d59e1"
+   }
+  },
+  {
+   "idpRows": 328,
+   "current": {
+    "clamped": 27,
+    "triggerRatePct": 8.23,
+    "byBucket": {
+     "medium": 11,
+     "low": 16
+    },
+    "anchors": {
+     "idpTradeCalc": 27
+    },
+    "anchorAlsoVotes": 27,
+    "medianValueEffectPct": 4.68,
+    "maxValueEffectPct": 19.7,
+    "distinctBands": [
+     0.2492,
+     0.4662
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0957,
+   "driftP90": 0.3673,
+   "driftP99": 0.4664,
+   "driftN": 297,
+   "day": "2026-08-04",
+   "sha": "d7a0c1c3dd500fa3883f8182dd5cda8c29f0cd13",
+   "boardSha256": "e51755905a9d260e6336562281551e8831fc8aa7383b691beb606e0e6adc0dff",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "a3322441a07b36039d37528447c56e5082f29ac92e73eae2846b1ea5535cc1a6",
+    "CSVs/site_raw/dlfRookieIdp.csv": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "CSVs/site_raw/dlfRookieSf.csv": "dfbb8e6d9b3c25d2582a92c4b164efa332eaad176147fd6f973d8ddd4d239bd5",
+    "CSVs/site_raw/dlfSf.csv": "5c3e86752a35014b2bd99beaba58d76561013544452f9cd35399607f0916be54",
+    "CSVs/site_raw/draftSharksIdp.csv": "049ac769f5144f650a070916966bfc8afdbbd04fbd73ca49994b2fe8edb4b00a",
+    "CSVs/site_raw/draftSharksSf.csv": "75321b14fb82944b3ea3341e91c7033459febc53051c1d4205ad049b31a60680",
+    "CSVs/site_raw/dynastyDaddySf.csv": "2183dcf600baf720a880c62415d083ae6d5bd894135fb6dacc5690cb70e85ffc",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "6ff8a520015963e28aeff399c71b542d6b9e839f93c0cac77393138e5992e024",
+    "CSVs/site_raw/fantasyCalc.csv": "b01dc8766e1e160eedccabc78f0a85459ad55602d464e1c8381f02a48a072e21",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "CSVs/site_raw/fantasyProsIdp.csv": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "CSVs/site_raw/fantasyProsSf.csv": "addcec728cc720bf3b654ec24b4d558903de49c0516d2b2124cc8ad7b7636a4d",
+    "CSVs/site_raw/flockFantasySf.csv": "a5e42be76e48af62e38f80adfe1c80059adbcd12440929b9e7853ffb531ff69d",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "6ff7f1b715ab97e43c61b813d530ff00659583cd41891aa50d7dffaa7235041c",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "CSVs/site_raw/ktc.csv": "b2a861fc24028d55ad4c5d9ace7f8255300b1367fc9db861dfe6c5bbf52e297a",
+    "CSVs/site_raw/ktcSfTep.csv": "8ac8e5495faf71552d5364996c58dc8bffb02b53078a6154157387324e4cca8b",
+    "CSVs/site_raw/otcffbSf.csv": "d42171962e1b4b54adffc69c1b43624ac1c82c86f97ccb91b4932f3ec102110f",
+    "CSVs/site_raw/pfkDynasty.csv": "25ddb57e8765861a28215eee07b44314fb368d95967305d43beb4b138c637808",
+    "CSVs/site_raw/yahooBoone.csv": "8687353a0fcbb9ee8730b03f86ff51209374cfb1bd774e3760a06a64e20d59e1"
+   }
+  },
+  {
+   "idpRows": 329,
+   "current": {
+    "clamped": 27,
+    "triggerRatePct": 8.21,
+    "byBucket": {
+     "medium": 11,
+     "low": 16
+    },
+    "anchors": {
+     "idpTradeCalc": 27
+    },
+    "anchorAlsoVotes": 27,
+    "medianValueEffectPct": 4.68,
+    "maxValueEffectPct": 19.7,
+    "distinctBands": [
+     0.2557,
+     0.4662
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0947,
+   "driftP90": 0.3673,
+   "driftP99": 0.4664,
+   "driftN": 298,
+   "day": "2026-08-05",
+   "sha": "c85bb696177b958bf7ad233d8c9b312307e51afa",
+   "boardSha256": "3366e9d9a585615964609df7a89743ab3821b29d380d60f54abe441848d09ca9",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "a3322441a07b36039d37528447c56e5082f29ac92e73eae2846b1ea5535cc1a6",
+    "CSVs/site_raw/dlfRookieIdp.csv": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "CSVs/site_raw/dlfRookieSf.csv": "311bcdb0d5a40dc9e58a1ab5689950564f98f7e04b958a350643344ae1a939c7",
+    "CSVs/site_raw/dlfSf.csv": "b029830c5b7b70b399fde5bc0b0d384fd028a9b7159f0db82824f4cd0dc485de",
+    "CSVs/site_raw/draftSharksIdp.csv": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+    "CSVs/site_raw/draftSharksSf.csv": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+    "CSVs/site_raw/dynastyDaddySf.csv": "1577a7e07ee337d63c7e500ad988e921faa1a5140a8ea4b7954848079f9fab89",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "6ff8a520015963e28aeff399c71b542d6b9e839f93c0cac77393138e5992e024",
+    "CSVs/site_raw/fantasyCalc.csv": "bc766938d295106ec48814c8022b895998f883aac0b32e5a771602cceb1714ac",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "CSVs/site_raw/fantasyProsIdp.csv": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "CSVs/site_raw/fantasyProsSf.csv": "b8a23e22944c9ad827fe0bf1606622969e07eefe22b58f1f187f66cae5c6cbc7",
+    "CSVs/site_raw/flockFantasySf.csv": "8d74336689a24d5445573eb0bbcc497eca120da0060f186224ae4d7985460db8",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "6ff7f1b715ab97e43c61b813d530ff00659583cd41891aa50d7dffaa7235041c",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "CSVs/site_raw/ktc.csv": "86c42760b3e5b40aa13a6c11629d2267bd617449d6063b44c2dd556d4672044c",
+    "CSVs/site_raw/ktcSfTep.csv": "049797476a55fc6a2fbe9ba318d7efa500185007d4ee49d8a4b91a836d510608",
+    "CSVs/site_raw/otcffbSf.csv": "7e5920d8679c0ba6605d09dcfe54ea47f3fe725d333ff2e1a31ffc7a4a926280",
+    "CSVs/site_raw/pfkDynasty.csv": "25ddb57e8765861a28215eee07b44314fb368d95967305d43beb4b138c637808",
+    "CSVs/site_raw/yahooBoone.csv": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3"
+   }
+  },
+  {
+   "idpRows": 276,
+   "current": {
+    "clamped": 25,
+    "triggerRatePct": 9.06,
+    "byBucket": {
+     "low": 10,
+     "medium": 10,
+     "high": 5
+    },
+    "anchors": {
+     "idpTradeCalc": 25
+    },
+    "anchorAlsoVotes": 25,
+    "medianValueEffectPct": 5.85,
+    "maxValueEffectPct": 17.1,
+    "distinctBands": [
+     0.2388,
+     0.3275,
+     0.5104
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 3
+    }
+   },
+   "driftP50": 0.1012,
+   "driftP90": 0.3278,
+   "driftP99": 0.5106,
+   "driftN": 249,
+   "day": "2026-08-06",
+   "sha": "75ca34762a8afacd83000efc2c0650aea8ae1358",
+   "boardSha256": "2ca9fd8ef4248006285386cbd2498eec9fb03384348c50135bcce024a168b9f3",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "a3322441a07b36039d37528447c56e5082f29ac92e73eae2846b1ea5535cc1a6",
+    "CSVs/site_raw/dlfRookieIdp.csv": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "CSVs/site_raw/dlfRookieSf.csv": "78d906af09712e3878c428e58ea1de6576c8ba55822f6521c51aa6e4f0baea80",
+    "CSVs/site_raw/dlfSf.csv": "56dee1368d96ae0903fc430139bd801ff22572f45a42c47ae7fc408aae6d89ce",
+    "CSVs/site_raw/draftSharksIdp.csv": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+    "CSVs/site_raw/draftSharksSf.csv": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+    "CSVs/site_raw/dynastyDaddySf.csv": "1c20d7b9a80bde22568409dd80f847a82934abbc2e791394d79228a1fac01cb6",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "6ff8a520015963e28aeff399c71b542d6b9e839f93c0cac77393138e5992e024",
+    "CSVs/site_raw/fantasyCalc.csv": "7bce196fb77951c6b66b64e39c06774d46e26a72642cd19ceaa37d4549588ac7",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "CSVs/site_raw/fantasyProsIdp.csv": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "CSVs/site_raw/fantasyProsSf.csv": "c3a70148d6a2ddf0ba4798a15d5c6311fbcbcbdc90323b74240af8aaf70bdac7",
+    "CSVs/site_raw/flockFantasySf.csv": "8d74336689a24d5445573eb0bbcc497eca120da0060f186224ae4d7985460db8",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "e1cf340a54a7b2898cf912dfb0a23fe66f37aff0ec9d4cb31d2d43c52c5f9e20",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "CSVs/site_raw/ktc.csv": "b6fa2536f8d1bff74b387854a31a782883cea5b1d519dc8ba1f04a5605f8b64a",
+    "CSVs/site_raw/ktcSfTep.csv": "4f7e54c735252e4fb471feee285eca720f77ec99c6fb05dbbaa67c518a2d5703",
+    "CSVs/site_raw/otcffbSf.csv": "b8a753d3efadf0bed22966a9b52f33bdfdefba201161ca0cc9fec4f80ea114b9",
+    "CSVs/site_raw/pfkDynasty.csv": "25ddb57e8765861a28215eee07b44314fb368d95967305d43beb4b138c637808",
+    "CSVs/site_raw/yahooBoone.csv": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3"
+   }
+  },
+  {
+   "idpRows": 329,
+   "current": {
+    "clamped": 27,
+    "triggerRatePct": 8.21,
+    "byBucket": {
+     "medium": 11,
+     "low": 16
+    },
+    "anchors": {
+     "idpTradeCalc": 27
+    },
+    "anchorAlsoVotes": 27,
+    "medianValueEffectPct": 4.4,
+    "maxValueEffectPct": 19.7,
+    "distinctBands": [
+     0.2743,
+     0.4662
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0947,
+   "driftP90": 0.3673,
+   "driftP99": 0.4664,
+   "driftN": 298,
+   "day": "2026-08-07",
+   "sha": "00e2028941d8917f08841d5a0a9480290980c3e2",
+   "boardSha256": "9846f4dec3f6069441270d4a30e00898343200ca9e69df0b048350aa0d2b88f8",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "a3322441a07b36039d37528447c56e5082f29ac92e73eae2846b1ea5535cc1a6",
+    "CSVs/site_raw/dlfRookieIdp.csv": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "CSVs/site_raw/dlfRookieSf.csv": "87025e77c5aa31dc3bce52bc2c132ca4a35c2e4270978339e6ac272086f61043",
+    "CSVs/site_raw/dlfSf.csv": "56dee1368d96ae0903fc430139bd801ff22572f45a42c47ae7fc408aae6d89ce",
+    "CSVs/site_raw/draftSharksIdp.csv": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+    "CSVs/site_raw/draftSharksSf.csv": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+    "CSVs/site_raw/dynastyDaddySf.csv": "76f48367388f1fa706d98f0c390d6e5d80b5a239b51abe98772d328cd5eada78",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "fe232d5ef61c73793b663365c8c65906daa38b317666ddcd087f63f1433828d7",
+    "CSVs/site_raw/fantasyCalc.csv": "1312eaaa282effe018873cac2472f399487d290ca89b41c36705796dc6e2cbd5",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "CSVs/site_raw/fantasyProsIdp.csv": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "CSVs/site_raw/fantasyProsSf.csv": "68d065740750e5e98e218ef7c037bf9c7bed73f44cbe529163a833da5205801d",
+    "CSVs/site_raw/flockFantasySf.csv": "a3ede7e5b21c61e6c6959944563d6856ef34512259eb2b55ae8ce8e961bba937",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "e1cf340a54a7b2898cf912dfb0a23fe66f37aff0ec9d4cb31d2d43c52c5f9e20",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "CSVs/site_raw/ktc.csv": "a8b64ef6d14f5477e25bb366c170be42ccccf04aa0da78289184e8669283c7f4",
+    "CSVs/site_raw/ktcSfTep.csv": "9d9cc486e1dafd3bc80ca0bea120d33bba9ef91962fe1f7b636608db2e050d63",
+    "CSVs/site_raw/otcffbSf.csv": "31c540cfb0e275db9eccfa5fb8874839ac49bf24dd012dc90d3b314d63559e82",
+    "CSVs/site_raw/pfkDynasty.csv": "25ddb57e8765861a28215eee07b44314fb368d95967305d43beb4b138c637808",
+    "CSVs/site_raw/yahooBoone.csv": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3"
+   }
+  },
+  {
+   "idpRows": 330,
+   "current": {
+    "clamped": 27,
+    "triggerRatePct": 8.18,
+    "byBucket": {
+     "medium": 11,
+     "low": 16
+    },
+    "anchors": {
+     "idpTradeCalc": 27
+    },
+    "anchorAlsoVotes": 27,
+    "medianValueEffectPct": 4.48,
+    "maxValueEffectPct": 19.7,
+    "distinctBands": [
+     0.2743,
+     0.4662
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0957,
+   "driftP90": 0.3799,
+   "driftP99": 0.4664,
+   "driftN": 299,
+   "day": "2026-08-08",
+   "sha": "ac659cad400371c745220e4e29986550b4b9ea2e",
+   "boardSha256": "f957ab3942bd1f979ce25e5fc1fe386a1805c247d69f1b700f46853a6d527c16",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "9bf471c7222ad7d292244f11d72eba58a472a38e61f7b72f809738de8cf98166",
+    "CSVs/site_raw/dlfRookieIdp.csv": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "CSVs/site_raw/dlfRookieSf.csv": "87025e77c5aa31dc3bce52bc2c132ca4a35c2e4270978339e6ac272086f61043",
+    "CSVs/site_raw/dlfSf.csv": "56dee1368d96ae0903fc430139bd801ff22572f45a42c47ae7fc408aae6d89ce",
+    "CSVs/site_raw/draftSharksIdp.csv": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+    "CSVs/site_raw/draftSharksSf.csv": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+    "CSVs/site_raw/dynastyDaddySf.csv": "08e9b1b0fe237cbe0fe76c5b573e12c9e9a5bd8a7ef930322c6b5214d76beba6",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "fe232d5ef61c73793b663365c8c65906daa38b317666ddcd087f63f1433828d7",
+    "CSVs/site_raw/fantasyCalc.csv": "3e07dd58972cfd9659fbab386acc405e0fd0362cec44de1853629558f9764fc5",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "CSVs/site_raw/fantasyProsIdp.csv": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "CSVs/site_raw/fantasyProsSf.csv": "10d8c455afa93b5b6a0132144149d29686a2dce7403f06855af2445c947bc268",
+    "CSVs/site_raw/flockFantasySf.csv": "ec2e2c1ec46403cd6e2078326deb90027557ad6b48c8088ebc880405ad86d60c",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "e1cf340a54a7b2898cf912dfb0a23fe66f37aff0ec9d4cb31d2d43c52c5f9e20",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "CSVs/site_raw/ktc.csv": "f4e64eb23c38fbcf44f2c9b6241470644f86c4db6d1044acece560d2319a5ab5",
+    "CSVs/site_raw/ktcSfTep.csv": "a0199d7e342a99ccc2b10fda1ac2abd174c0490ec24a0c9397bc01a2ae9d38a2",
+    "CSVs/site_raw/otcffbSf.csv": "6a040020643f825ef998c5d0cc444197907eb9fb3fb9a65b98e4a297f7288820",
+    "CSVs/site_raw/pfkDynasty.csv": "25ddb57e8765861a28215eee07b44314fb368d95967305d43beb4b138c637808",
+    "CSVs/site_raw/yahooBoone.csv": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3"
+   }
+  },
+  {
+   "idpRows": 329,
+   "current": {
+    "clamped": 27,
+    "triggerRatePct": 8.21,
+    "byBucket": {
+     "medium": 11,
+     "low": 16
+    },
+    "anchors": {
+     "idpTradeCalc": 27
+    },
+    "anchorAlsoVotes": 27,
+    "medianValueEffectPct": 4.48,
+    "maxValueEffectPct": 19.7,
+    "distinctBands": [
+     0.2743,
+     0.4662
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0947,
+   "driftP90": 0.3754,
+   "driftP99": 0.4664,
+   "driftN": 298,
+   "day": "2026-08-09",
+   "sha": "bba011bd426713aa0e9783b1d8f515561d7b7e76",
+   "boardSha256": "70e456bc17ef6f3f68350d48d87b4ee662abf46f8845563ff9e2d23cf3d57b83",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "9bf471c7222ad7d292244f11d72eba58a472a38e61f7b72f809738de8cf98166",
+    "CSVs/site_raw/dlfRookieIdp.csv": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "CSVs/site_raw/dlfRookieSf.csv": "87025e77c5aa31dc3bce52bc2c132ca4a35c2e4270978339e6ac272086f61043",
+    "CSVs/site_raw/dlfSf.csv": "20ec2e95239e8e5b0232f816c6eab9f3702935dbd181587dda374595589363eb",
+    "CSVs/site_raw/draftSharksIdp.csv": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+    "CSVs/site_raw/draftSharksSf.csv": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+    "CSVs/site_raw/dynastyDaddySf.csv": "63dcb85e6a426f641aa17e75a7db7d8175f9d05c8dbbe882e3ffbcbaa05afaba",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "fe232d5ef61c73793b663365c8c65906daa38b317666ddcd087f63f1433828d7",
+    "CSVs/site_raw/fantasyCalc.csv": "5a7abdc27a61054e933e6089eba8de0866f4afd10f11ca1f2f43c29b942e5e27",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "CSVs/site_raw/fantasyProsIdp.csv": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "CSVs/site_raw/fantasyProsSf.csv": "01cbfb801fee05ff54f3583dd33a88a261ec8626b9ef896b57dfce73e79bd66a",
+    "CSVs/site_raw/flockFantasySf.csv": "ec2e2c1ec46403cd6e2078326deb90027557ad6b48c8088ebc880405ad86d60c",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "e1cf340a54a7b2898cf912dfb0a23fe66f37aff0ec9d4cb31d2d43c52c5f9e20",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "CSVs/site_raw/ktc.csv": "bd28c35c5d68dc7ccb70aa398ef09aedd8745fdfe952947992e5f4a7735be428",
+    "CSVs/site_raw/ktcSfTep.csv": "aa929e74897d850692e7631dda93039d4601666f7d05c4b5cb6c11c04c8109d5",
+    "CSVs/site_raw/otcffbSf.csv": "da770d92344deb5b5543b22f2a54356f3dbfd9d2775af0546ba572ebd3490262",
+    "CSVs/site_raw/pfkDynasty.csv": "25ddb57e8765861a28215eee07b44314fb368d95967305d43beb4b138c637808",
+    "CSVs/site_raw/yahooBoone.csv": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3"
+   }
+  },
+  {
+   "idpRows": 329,
+   "current": {
+    "clamped": 27,
+    "triggerRatePct": 8.21,
+    "byBucket": {
+     "medium": 11,
+     "low": 16
+    },
+    "anchors": {
+     "idpTradeCalc": 27
+    },
+    "anchorAlsoVotes": 27,
+    "medianValueEffectPct": 4.76,
+    "maxValueEffectPct": 19.7,
+    "distinctBands": [
+     0.2557,
+     0.4662
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0947,
+   "driftP90": 0.3754,
+   "driftP99": 0.4664,
+   "driftN": 298,
+   "day": "2026-08-10",
+   "sha": "c67568b2938f5dffd0a54dc6de9fbc53d049e97c",
+   "boardSha256": "c21e6d94f44f7bc7e5179044305c897c9e9252c6849fb2852c080a24d1add16d",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "9bf471c7222ad7d292244f11d72eba58a472a38e61f7b72f809738de8cf98166",
+    "CSVs/site_raw/dlfRookieIdp.csv": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "CSVs/site_raw/dlfRookieSf.csv": "ea68dc64d47d82ffc1f30f3e7853da609c000d247a7c67b0e6b78f3d23ce4330",
+    "CSVs/site_raw/dlfSf.csv": "20ec2e95239e8e5b0232f816c6eab9f3702935dbd181587dda374595589363eb",
+    "CSVs/site_raw/draftSharksIdp.csv": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+    "CSVs/site_raw/draftSharksSf.csv": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+    "CSVs/site_raw/dynastyDaddySf.csv": "393446bc5eccd56f7d048cacc629ffbd0eb26c0e2cc77a2d6bb72e3e000973e7",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "fe232d5ef61c73793b663365c8c65906daa38b317666ddcd087f63f1433828d7",
+    "CSVs/site_raw/fantasyCalc.csv": "22e1634bf65a7c0a5de9830cd07bfe0551009e95c827b6b82cda648882cfb1d1",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "CSVs/site_raw/fantasyProsIdp.csv": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "CSVs/site_raw/fantasyProsSf.csv": "25262c3d01a20c2fe81bfddc84ac2c5e172a380bd8226c0a6fdb9994926e329a",
+    "CSVs/site_raw/flockFantasySf.csv": "31c9923a82417f82cebcb4515b6a5f0bada64469224ad35b98bba38c9a86ba1d",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "e1cf340a54a7b2898cf912dfb0a23fe66f37aff0ec9d4cb31d2d43c52c5f9e20",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "CSVs/site_raw/ktc.csv": "a3723d88a637e3c3bb75630bc99840b690865daeaef70fa6eaa611407bd61507",
+    "CSVs/site_raw/ktcSfTep.csv": "897caf3ba06e68b172d4cf7fa2508b05167ab834cc9d040cd0ae9b54167a8be8",
+    "CSVs/site_raw/otcffbSf.csv": "c421726b27a321a523df780d9c11eaab39ac209dde1b95b8fc2df34a07845df4",
+    "CSVs/site_raw/pfkDynasty.csv": "25ddb57e8765861a28215eee07b44314fb368d95967305d43beb4b138c637808",
+    "CSVs/site_raw/yahooBoone.csv": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3"
+   }
+  },
+  {
+   "idpRows": 327,
+   "current": {
+    "clamped": 27,
+    "triggerRatePct": 8.26,
+    "byBucket": {
+     "medium": 11,
+     "low": 16
+    },
+    "anchors": {
+     "idpTradeCalc": 27
+    },
+    "anchorAlsoVotes": 27,
+    "medianValueEffectPct": 5.08,
+    "maxValueEffectPct": 19.99,
+    "distinctBands": [
+     0.2557,
+     0.4613
+    ]
+   },
+   "hull": {
+    "0.000": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.005": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.010": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.020": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.050": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    },
+    "0.100": {
+     "violations": 0,
+     "ratePct": 0.0,
+     "topThird": 0,
+     "sourceCounts": [],
+     "byBucket": {},
+     "sparseRowsSkipped": 7
+    }
+   },
+   "driftP50": 0.0947,
+   "driftP90": 0.3754,
+   "driftP99": 0.4617,
+   "driftN": 296,
+   "day": "2026-08-11",
+   "sha": "d62f2965aeda3583e8e9a5686ea8689dd8489405",
+   "boardSha256": "deb0e41c1c7f45d9647fb396b635c83a371d039a6bc555e0938d9dd6840575ba",
+   "csvHashes": {
+    "CSVs/site_raw/dlfIdp.csv": "9bf471c7222ad7d292244f11d72eba58a472a38e61f7b72f809738de8cf98166",
+    "CSVs/site_raw/dlfRookieIdp.csv": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "CSVs/site_raw/dlfRookieSf.csv": "b64334a0094d72e81cecf5017a29347654b768ce510579850ed73cb06e91fae4",
+    "CSVs/site_raw/dlfSf.csv": "20ec2e95239e8e5b0232f816c6eab9f3702935dbd181587dda374595589363eb",
+    "CSVs/site_raw/draftSharksIdp.csv": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+    "CSVs/site_raw/draftSharksSf.csv": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+    "CSVs/site_raw/dynastyDaddySf.csv": "4f6e5528195151b2d70c5524401d802fb627e222dfe5c2c412e4d50f66df602b",
+    "CSVs/site_raw/dynastyNerdsSfTep.csv": "fe232d5ef61c73793b663365c8c65906daa38b317666ddcd087f63f1433828d7",
+    "CSVs/site_raw/fantasyCalc.csv": "20ea16711b7101e85946c82856f76ef821c4dbc309664707d1c7cecbacd44738",
+    "CSVs/site_raw/fantasyNavigatorSf.csv": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "CSVs/site_raw/fantasyProsFitzmaurice.csv": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "CSVs/site_raw/fantasyProsIdp.csv": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "CSVs/site_raw/fantasyProsSf.csv": "1a7258f7704cd40b45ba4dd2c678a434109a34427a1fba6422416906ddf17401",
+    "CSVs/site_raw/flockFantasySf.csv": "31c9923a82417f82cebcb4515b6a5f0bada64469224ad35b98bba38c9a86ba1d",
+    "CSVs/site_raw/flockFantasySfRookies.csv": "e1cf340a54a7b2898cf912dfb0a23fe66f37aff0ec9d4cb31d2d43c52c5f9e20",
+    "CSVs/site_raw/idpShow.csv": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "CSVs/site_raw/idpTradeCalc.csv": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "CSVs/site_raw/ktc.csv": "1adf87c50eb3c124487366e6fa44137a26f81879566d4e846bf68c506a260572",
+    "CSVs/site_raw/ktcSfTep.csv": "0cba8c360d51052461e5616832f8d1db55417ef5d126c873aa8d74dfc28ea368",
+    "CSVs/site_raw/otcffbSf.csv": "c1348395d72924bdac742185e1fd50d0c082b658b23d4e320f909a069867203b",
+    "CSVs/site_raw/pfkDynasty.csv": "dbeec7c1b0adb640f76af23faa3629c6763daa05c23cea5e0b349a3aede4446b",
+    "CSVs/site_raw/yahooBoone.csv": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3"
+   }
+  }
+ ]
+}

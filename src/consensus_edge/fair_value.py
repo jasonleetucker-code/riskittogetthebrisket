@@ -130,9 +130,10 @@ from src.api.data_contract import (
 )
 
 # Which source is the acquisition market for each asset class.  Mirrors
-# ``data_contract._MARKET_ANCHOR_BY_ASSET_CLASS`` and
 # ``league_intel.values.MARKET_ANCHOR_BY_ASSET_CLASS``; a parity test
-# keeps the three honest.  Picks are deliberately absent — neither
+# keeps the two honest.  ``data_contract`` used to be a third mirror and
+# is not any more — its copy existed only for the market-corridor clamp,
+# removed under #794/#795/#796.  Picks are deliberately absent — neither
 # retail board publishes a pick market we can treat as a price, so pick
 # rows get no mispricing signal rather than an invented one.
 MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {

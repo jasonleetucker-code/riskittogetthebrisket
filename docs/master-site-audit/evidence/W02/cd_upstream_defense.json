@@ -1,0 +1,88 @@
+{
+ "day": "2026-08-11",
+ "victims": [
+  "Abdul Carter",
+  "Aidan Hutchinson",
+  "AJ Haulcy",
+  "Alex Highsmith",
+  "Alex Singleton",
+  "Andrew Mukuba"
+ ],
+ "scenarios": {
+  "one_source_x5": {
+   "sourcesPerturbed": [
+    "idpShow"
+   ],
+   "factor": 5.0,
+   "csvRowsTouched": 5,
+   "hampelDropped": 1,
+   "hampelKept": 5,
+   "victims": 6,
+   "medianBlendMovePct": 1.23,
+   "maxBlendMovePct": 1.7,
+   "oldCorridorFired": 0,
+   "hullFired": 0
+  },
+  "one_source_x20": {
+   "sourcesPerturbed": [
+    "idpShow"
+   ],
+   "factor": 20.0,
+   "csvRowsTouched": 5,
+   "hampelDropped": 3,
+   "hampelKept": 3,
+   "victims": 6,
+   "medianBlendMovePct": 0.57,
+   "maxBlendMovePct": 1.7,
+   "oldCorridorFired": 0,
+   "hullFired": 0
+  },
+  "anchor_source_x5": {
+   "sourcesPerturbed": [
+    "idpTradeCalc"
+   ],
+   "factor": 5.0,
+   "csvRowsTouched": 5,
+   "hampelDropped": 0,
+   "hampelKept": 6,
+   "victims": 6,
+   "medianBlendMovePct": 0.0,
+   "maxBlendMovePct": 0.0,
+   "oldCorridorFired": 0,
+   "hullFired": 0
+  },
+  "correlated_3_sources_x5": {
+   "sourcesPerturbed": [
+    "idpShow",
+    "dlfIdp",
+    "fantasyProsIdp"
+   ],
+   "factor": 5.0,
+   "csvRowsTouched": 11,
+   "hampelDropped": 2,
+   "hampelKept": 4,
+   "victims": 6,
+   "medianBlendMovePct": 5.7,
+   "maxBlendMovePct": 48.19,
+   "oldCorridorFired": 0,
+   "hullFired": 0
+  },
+  "correlated_4_sources_x5": {
+   "sourcesPerturbed": [
+    "idpShow",
+    "dlfIdp",
+    "fantasyProsIdp",
+    "draftSharksIdp"
+   ],
+   "factor": 5.0,
+   "csvRowsTouched": 11,
+   "hampelDropped": 3,
+   "hampelKept": 3,
+   "victims": 6,
+   "medianBlendMovePct": 5.7,
+   "maxBlendMovePct": 48.19,
+   "oldCorridorFired": 0,
+   "hullFired": 0
+  }
+ }
+}

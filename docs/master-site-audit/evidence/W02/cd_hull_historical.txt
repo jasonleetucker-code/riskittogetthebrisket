@@ -1,0 +1,20 @@
+== hull invariant + current corridor across 14 REAL historical boards ==
+   (independent snapshots, not synthetic perturbations of one board)
+  export                             IDProws  hullViol   hull%   P90band  clamp%
+  dynasty_export_20260714_233659.zip     360         0   0.00%    0.6183   10.0%
+  dynasty_export_20260724_234602.zip     359         0   0.00%    0.6201    9.4%
+  dynasty_export_20260729_073315.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260730_180551.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260731_214843.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260801_213932.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260802_213935.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260804_035640.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260805_110843.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260807_003338.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260807_212444.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260808_171140.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260809_150849.zip     359         0   0.00%    0.6201    9.7%
+  dynasty_export_20260810_140816.zip     359         0   0.00%    0.6201    9.7%
+
+  TOTAL: 0 hull violations across 5027 IDP rows = 0.000% false-intervention on real boards
+  The current corridor's clamp% is ~10% on EVERY board by construction.

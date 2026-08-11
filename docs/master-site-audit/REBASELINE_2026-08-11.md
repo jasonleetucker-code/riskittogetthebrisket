@@ -379,6 +379,109 @@ derived from the drift it bounds), **W02-F017 / #796** (confidence-bucket
 correctness is now a live dependency). W30-F023 is tracked as **#797**. Also still open and unchanged by B3: C17's OFFENSE half,
 the IDP master's 1.552× fit-scale claim, and W30-F023.
 
+## W02-F018 (new) — the export bundle is incomplete, but git history is not
+
+**CORRECTED 2026-08-11, and the correction reverses the conclusion.**
+Verdict: **A. HISTORICAL GIT REPLAY AVAILABLE** — no collection wait is
+required.
+
+The original entry read "the export bundle does not retain the inputs
+needed to audit board-over-board behaviour" and concluded that ~2 weeks of
+new boards had to be collected. The first clause is true. **The conclusion
+does not follow from it and is withdrawn**: the export bundle is one
+retention mechanism, and git history is another. All 24 per-source CSVs
+are committed at every automated refresh.
+
+The archive-ZIP finding stands as originally measured: `exports/archive/*.zip`
+carries 2 of the 21 voting sources' CSVs, so rebuilding an archived board
+reproduces ~90% of today's inputs under a historical filename. Any
+cross-board claim derived that way is unsound, and the one this pass
+derived was withdrawn.
+
+**What the correction found**, via `evidence/W02/cd_historical_replay.py`:
+
+| | |
+|---|---|
+| refresh commits scanned | 1,099 over 140 distinct days |
+| **usable days** (all 22 required inputs present) | **17** — 2026-07-26 → 2026-08-11 |
+| partial days | 123 — 2026-03-25 → 2026-07-25 |
+| unusable days | 0 |
+
+Partial days are missing sources that **did not yet exist**, not sources
+that were lost: `fantasyNavigatorSf` and `pfkDynasty` are absent on 123
+days, `otcffbSf` on 51, `fantasyCalc` on 49. Those days are replayable
+only against a smaller source set, which is a different pipeline
+population and not directly comparable.
+
+**A near-repeat of the same error, recorded because it is the more useful
+lesson.** The first matrix returned 14 refresh commits over 2 days, which
+would have supported the original conclusion. That was an artifact of a
+**shallow clone** (145 commits, oldest 2026-08-10) — the exact trap this
+document already warns about under "The clone was shallow, and it
+mattered". After `git fetch --unshallow`, the same query returns 1,099
+commits over 140 days. Both errors have one shape: concluding *absence*
+from an incomplete view without checking whether the view was complete.
+
+**Temporal independence is measured, not assumed**: 7-15 of 22 sources
+change between consecutive usable days, and **zero** transitions are
+byte-identical. Replayed board row counts move 973-1095 and IDP
+populations 276-359 — variation the contaminated archive test could not
+produce.
+
+Three inputs the replay had to neutralise, found by *instrumenting* a real
+build rather than reading the source, and each of which would have
+silently contaminated a historical run:
+
+* every build **reads and writes** `data/snapshots/ranks_last.json`;
+* every build makes a **live network call** to `api.sleeper.app`, which
+  derives `tep_multiplier` from the league's `bonus_rec_te` and therefore
+  **affects values** — unpinned, every historical replay would have used
+  *today's* league scoring;
+* 22 market-data CSVs are read, not 21 and not 24 (`draftSharksRos*` are
+  never read on this path).
+
+Remaining limitation, stated rather than hidden: 17 days is one market
+regime (late-July to mid-August, no live NFL games). That bounds
+generalisation; it does not bound availability, which is what this finding
+was about.
+
+Evidence: `evidence/W02/CD_CORRIDOR_DECISION.md` §6,
+`evidence/W02/cd_input_manifest.py`, `cd_historical_replay.py`,
+`cd_historical_metrics.py` + reports.
+
+## W02-F018 — original entry, superseded by the correction above
+
+**OPEN. Found by the corridor dependency pass, 2026-08-11.** It is the
+concrete blocker on closing #794/#795, so it is recorded as its own item
+rather than as a caveat inside them.
+
+`exports/archive/*.zip` carries **2 of the 21 voting sources' CSVs**
+(`idpTradeCalc`, `ktcSfTep`). `build_api_data_contract` reads the other
+19 from the working tree, so rebuilding an archived board reproduces
+roughly 90% of *today's* inputs under a historical filename.
+
+Measured consequence: rebuilding 14 archived exports spanning
+2026-07-14 → 2026-08-10 produced 359 rows and a P90 band of 0.6201 on
+nearly every one. That near-identity reads as remarkable stability and is
+actually contamination. Any cross-board claim derived this way — the
+corridor pass initially derived one, and withdrew it — is unsound.
+
+Why it blocks the corridor decision specifically: every candidate
+replacement whose reference is *external to the board being policed*
+(historical drift distribution, change-point rail) needs a real
+board-over-board distribution to be characterised, and none can be
+recovered from what is retained. The corridor pass had to fabricate a
+reference constant to score its change-point candidate at all, and
+withdrew that too.
+
+Cheap to fix and worth doing before the next corridor pass: archive all
+21 voting-source CSVs in the export bundle, or persist a per-build drift
+summary. Roughly two weeks of genuinely independent boards is enough to
+measure a replacement detector's false-positive rate honestly.
+
+Evidence: `evidence/W02/CD_CORRIDOR_DECISION.md` §6,
+`evidence/W02/cd_hull_historical.txt`.
+
 ## W02-F015 (new) — the corridor anchor is also a voter
 
 **= GitHub issue [#794](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/794).**
@@ -415,6 +518,22 @@ Evidence: `evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md` §2, §9. Pinned as
 a fact by `tests/api/test_market_corridor_characterization.py
 ::test_every_idp_anchor_is_a_voting_source_in_the_blend_it_clamps`.
 
+**CD pass outcome (2026-08-11): CONFIRMED, and stronger than B3 stated.**
+Not merely "the anchor is also a voter" — **no independent anchor is
+constructible from this tree at all.** Exactly one loaded source does not
+vote (`ktc`) and it is offense-only, while the corridor clamps IDP only;
+every source covering IDP votes. The stage-3 median fallback is a median
+over that same chain, so it is a second statistic of the same voters.
+Quantified on the CD pin: all 32 clamps anchor on `idpTradeCalc`, which
+votes on all 32; the anchor's share of the row goes from a median 1/3 in
+the blend to 1.0 after the clamp, because a clamped value is
+`anchor x (1 +/- band)` — a pure function of the anchor. The value move
+itself is currently modest (median 2.0%, max 10.7%). Evidence:
+`evidence/W02/CD_CORRIDOR_DECISION.md` §1.
+
+
+**CLOSED 2026-08-11 by removal.** The corridor is gone, so no anchor sets a post-blend value. Measured before removal on 17 independent days: the anchor was also a voter on 539 of 539 clamped rows, always `idpTradeCalc`. `_market_anchor_for_row` and `_MARKET_ANCHOR_BY_ASSET_CLASS` are deleted; a test pins their absence so the mechanism cannot grow back as a second value-setting vote. Evidence: `evidence/W02/CD_CORRIDOR_DECISION.md` §7a.
+
 ## W02-F016 (new) — the corridor band is derived from the drift it bounds
 
 **= GitHub issue [#795](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/795)** — same item, one identity each side.
@@ -440,6 +559,20 @@ rejected.
 
 Evidence: `evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md` §7, and the
 comment at the constant itself.
+
+**CD pass outcome (2026-08-11): CONFIRMED as a tautology, not a tuning
+defect.** A percentile threshold cuts the worst 10% of whatever
+distribution it is handed. Scaling every IDP value by f with anchors
+untouched fires the IDENTICAL 32 rows at a flat 9.7% for every f from 1.0
+to 10.0, the band scaling 0.6201 -> 15.2005: a 10x board-wide error is
+invisible. Inverting it, inflating a fraction q of rows 3x gives 100%
+detection at q<=10% and then 50.8% / 25.2% / 12.5% at q = 20/40/80%,
+because capacity is fixed at ~33 rows however much is broken. So the band
+is a fixed-rate outlier trimmer, not a catastrophic-error rail. Evidence:
+`evidence/W02/CD_CORRIDOR_DECISION.md` §2.
+
+
+**CLOSED 2026-08-11 by removal.** The self-derived P90 is deleted along with every `_MARKET_CORRIDOR_*` constant. The replacement has no band: `_BLEND_HULL_EPSILON` is 1e-9 float slack, pinned by a test to stay below 1e-6, and a second test rejects any percentile/bucket vocabulary reappearing in the detector body.
 
 ## W02-F017 (new) — confidence-bucket correctness is now a live dependency
 
@@ -469,6 +602,53 @@ bucket ran high 63.9% / medium 45.8% / low 60.7%, i.e. non-monotone in
 confidence. Post-repair it is 8.3 / 10.0 / 9.8%, which is flat rather than
 ordered. A band system that is *meant* to be confidence-graded producing a
 flat outcome is worth understanding before anyone tunes it.
+
+**CD pass outcome (2026-08-11): CONFIRMED incoherent; the recommendation
+is abstention, not tuning.** On the CD pin the bands are ordered
+*backwards* — high 0.6504 (n=36), low 0.6316 (n=174), medium 0.5183
+(n=119) — so a HIGH-confidence row is permitted MORE disagreement than a
+MEDIUM one, and high-confidence rows drift further from the anchor
+(median 0.2071) than medium ones (0.0980). Total spread is 0.1321, so the
+dependency is also doing little work for the complexity it carries. No
+bucket constant was touched: the finding is that a replacement corridor
+should decline to confidence-grade at all until the bucket methodology is
+independently validated, which resolves the dependency by removing it
+rather than by making the rates look attractive. Evidence:
+`evidence/W02/CD_CORRIDOR_DECISION.md` §3.
+
+
+**CLOSED 2026-08-11 as a corridor dependency.** Nothing in the value path reads a confidence bucket any more, so bucket correctness no longer gates production values; a test asserts bucket value cannot change enforcement. #796 remains open as a *display/metadata* question — it was never tuned here.
+
+## W02-F019 (new) — correlated-source anomalies are covered by nothing
+
+**= GitHub issue [#804](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/804)** — same item, one identity each side.
+
+**Status: open. Pre-existing, and NOT created by the corridor removal.**
+
+Injecting anomalies at the source CSVs and rebuilding the whole pipeline
+(`evidence/W02/cd_upstream_defense.py`), single-source failures are well
+handled — a source at ×5 or ×20 is absorbed by Hampel plus the
+count-aware blend (≤1.7% blend movement), and an anchor source at ×5 is
+caught outright by the declared-range check (0.0%). **Correlated
+multi-source failures are not**: three or four sources moving together
+move the blend by a median 5.7% and a maximum of **48%**, and *neither*
+the retired market corridor *nor* the blend-integrity hull invariant
+fires — both at 0 of 6 victims.
+
+The reason is structural rather than a tuning miss. The hull invariant
+asks whether a blend left the range of its own contributions; if every
+contribution moves together the blend moves with them and stays inside.
+The corridor anchored on `idpTradeCalc`, one of the correlated voters, so
+its band moved too. And there is no independent arbiter to appeal to —
+every IDP-covering source votes in the blend.
+
+Recorded as its own finding so the gap outlives the corridor pass. It
+does **not** reopen W02-F015/F016/F017, does **not** justify restoring
+the corridor (which fired 0/6 in exactly these scenarios), and must not
+be closed by inventing source weights ahead of a measurement of which
+sources actually move together. Limitation on the evidence: 17
+independent **offseason** days; correlated-source behaviour during live
+games is unobserved.
 
 ## Not done here
 

@@ -1,0 +1,95 @@
+== CD pin ==
+  code   8639e79f4   main 8639e79f4
+  board  exports/latest/dynasty_data_2026-08-11.json  sha256=d0cf7b27670bcb6c…  834997 B
+         scraped=2026-08-11T17:43:03.470590  players=1074
+  csvs   24 hashed
+  champ  v2
+  tail   TAIL_SATURATION_RANK=None
+  band   P90 per confidence bucket, minBucketN=30, maxBand={}
+  dirty  3 path(s), evidence-only=True
+
+========================================================================
+Q1  ANCHOR INDEPENDENCE
+========================================================================
+
+-- structural: is any anchor NOT a voter in the blend it constrains? --
+  offense  chain=['ktcSfTep', 'idpTradeCalc', 'dynastyDaddySf', 'fantasyProsFitzmaurice', 'yahooBoone']
+           independent members: NONE
+  idp      chain=['idpTradeCalc', 'dlfIdp', 'idpShow', 'fantasyProsIdp']
+           independent members: NONE
+
+  Every member of every chain votes in the blend it later anchors.
+  The stage-3 median fallback is a median OVER THAT SAME CHAIN, so it is
+  not independent either — it is a second statistic of the same voters.
+
+-- building P (production), N (no corridor), L (leave-one-out IDPTC) --
+  rows: P=1092 N=1092 L=1092
+  clamped rows: 32
+
+-- incremental second influence, on clamped rows --
+  anchor is also a blend voter on 32 of 32 clamped rows
+  anchor's share of the blend BEFORE the clamp (1/n): {'n': 32, 'min': 0.25, 'median': 0.3333, 'p90': 0.3333, 'max': 0.5, 'mean': 0.3411}
+  anchor's share of the value AFTER the clamp        : 1.0 on every clamped row
+    (final = anchor x (1 +/- band), so the value is a pure function of the anchor)
+  share JUMP attributable to the corridor            : {'n': 32, 'min': 0.5, 'median': 0.6667, 'p90': 0.6667, 'max': 0.75, 'mean': 0.6589}
+  |final - preCorridor| / preCorridor                : {'n': 32, 'min': 0.0008, 'median': 0.0203, 'p90': 0.0763, 'max': 0.1068, 'mean': 0.0327}
+  FIRST influence, |pre - leaveOneOut| / leaveOneOut  : {'n': 29, 'min': 0.1901, 'median': 0.208, 'p90': 0.209, 'max': 0.3321, 'mean': 0.2153}
+
+-- anchor source distribution on clamped rows --
+  {'idpTradeCalc': 32}
+
+========================================================================
+Q2  BAND INDEPENDENCE
+========================================================================
+
+-- eligible IDP-side rows (post-blend, pre-corridor): 359 --
+  clamped 32 of 359 = 8.9%
+  a P90 band clamps the worst 10% by construction, minus ties
+
+-- systemic whole-IDP-board drift: does the band move WITH the defect? --
+  Every IDP blended value scaled by f, anchors untouched — a whole-board
+  calibration failure, which is exactly what a safety rail exists for.
+  drift f       P90 band   fires     rate   same rows as f=1
+  1.00            0.6201      32     9.7%               True
+  1.05            0.7011      32     9.7%               True
+  1.15            0.8631      32     9.7%               True
+  1.30            1.1061      32     9.7%               True
+  1.60            1.5921      32     9.7%               True
+  2.00            2.2401      32     9.7%               True
+  3.00            3.8602      32     9.7%               True
+  10.00          15.2005      32     9.7%               True
+
+  A flat rate on the SAME rows means the band is not detecting the drift at
+  all — it re-derives itself from the drifted board. That is #795, and it is a
+  tautology rather than a tuning problem: a P90 threshold cuts the worst 10% of
+  whatever distribution it is handed, healthy or catastrophic.
+
+-- absorption: how much of the board can break before the rail stops seeing it? --
+  A fraction q of rows is inflated 3x. A rail should catch all of them; a P90
+  can flag at most ~10% of the board, so past that it must start missing.
+  broken q      rows  caught  detection     band
+  2%               6       6     100.0%   0.6316
+  5%              16      16     100.0%   0.6504
+  10%             32      32     100.0%   0.7034
+  20%             65      33      50.8%   2.3309
+  40%            131      33      25.2%   2.6465
+  80%            263      33      12.5%   3.7751
+
+  Detection collapsing as q grows is the same tautology from the other side:
+  the rail's capacity is fixed at ~10% of the board however much is broken.
+
+========================================================================
+Q3  CONFIDENCE-BUCKET DEPENDENCY  (#796, audited as a dependency)
+========================================================================
+
+  bucket         n   usesOwnBand       P90   medianDrift
+  high          36          True    0.6504        0.2071
+  low          174          True    0.6316        0.1951
+  medium       119          True    0.5183        0.0980
+  OVERALL      329             —    0.6201
+
+  band spread across buckets: 0.1321 (min 0.5183, max 0.6504)
+  If the bands are close, confidence-specific banding is doing little work
+  and the dependency is mostly unearned complexity.
+
+wrote /home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W02/cd_corridor_diagnose.json
