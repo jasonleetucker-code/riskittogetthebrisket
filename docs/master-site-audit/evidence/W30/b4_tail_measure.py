@@ -219,9 +219,25 @@ def reproduce() -> None:
     # path-gated.
     from src.api.data_contract import _VALUE_BASED_SOURCES
 
+    # Two row populations, deliberately kept apart.
+    #
+    # ``hill_rows`` is every board row a saturated rank-Hill observation
+    # touches. ``hill_rows_served`` is the subset the board actually
+    # PUBLISHES — rows carrying a ``canonicalConsensusRank``, i.e. inside
+    # ``OVERALL_RANK_LIMIT``. The difference is the blast radius a user can
+    # see today versus the blast radius the pipeline computes. A row past
+    # the board cut loses both its rank and its ``rankDerivedValue``
+    # (``data_contract.py:8327``), so a tail repair that only moved
+    # unserved rows would change nothing anyone can observe, and quoting
+    # the combined figure as "rows affected" would overstate the
+    # user-visible defect. Neither number is the interesting one alone:
+    # the unserved remainder is what a policy change could promote ACROSS
+    # the cut, which is exactly the membership question §4 step 5 asks.
     per_source: dict[str, dict] = {}
     hill_rows: set[str] = set()
+    hill_rows_served: set[str] = set()
     hill_obs = hill_sat = direct_obs = direct_deep = 0
+    hill_sat_served = 0
     deepest_hill_served = 0
     for row in rows:
         name = str(row.get("displayName"))
@@ -240,9 +256,11 @@ def reproduce() -> None:
                     "direct": 0,
                     "hill": 0,
                     "hillSat": 0,
+                    "hillSatServed": 0,
                     "directDeep": 0,
                     "fallbackHill": 0,
                     "satRanks": set(),
+                    "satRanksServed": set(),
                     "deepest": 0,
                     "deepestHill": 0,
                     "pools": set(),
@@ -267,6 +285,11 @@ def reproduce() -> None:
                     hill_sat += 1
                     rec["satRanks"].add(eff)
                     hill_rows.add(name)
+                    if served:
+                        rec["hillSatServed"] += 1
+                        hill_sat_served += 1
+                        rec["satRanksServed"].add(eff)
+                        hill_rows_served.add(name)
             else:
                 rec["direct"] += 1
                 direct_obs += 1
@@ -274,12 +297,43 @@ def reproduce() -> None:
                     rec["directDeep"] += 1
                     direct_deep += 1
 
+    served_rows = [r for r in rows if r.get("canonicalConsensusRank")]
     print(
         f"\n== W30-F023 reproduction (PATH-GATED) — {hill_sat} of {hill_obs} "
         f"rank-Hill observations sit past rank {n} "
         f"({100.0 * hill_sat / hill_obs:.1f}%), touching {len(hill_rows)} of "
         f"{len(rows)} board rows =="
     )
+    print(
+        f"  Of those {len(hill_rows)} rows, {len(hill_rows_served)} are CURRENTLY SERVED "
+        f"(carry a canonicalConsensusRank, i.e. inside OVERALL_RANK_LIMIT="
+        f"{OVERALL_RANK_LIMIT}) — {100.0 * len(hill_rows_served) / len(served_rows):.1f}% "
+        f"of the {len(served_rows)} served rows, carrying {hill_sat_served} of the "
+        f"{hill_sat} saturated observations."
+    )
+    unserved_touched = len(hill_rows) - len(hill_rows_served)
+    if unserved_touched:
+        print(
+            f"  The remaining {unserved_touched} touched rows sit PAST the board cut, so they "
+            "publish neither a rank nor a rankDerivedValue today. They are not user-visible "
+            "now, but they are exactly the population a tail-policy change could move across "
+            "the cut — a membership effect, not a no-op."
+        )
+    else:
+        print(
+            "  EVERY touched row is served: the saturation is entirely inside the published "
+            "board, so 100% of this defect's blast radius is user-visible today. The combined "
+            f"'{len(hill_rows)} of {len(rows)}' framing therefore UNDERSTATES it — "
+            f"{len(rows) - len(served_rows)} of the {len(rows)} board rows are never served at "
+            "all, so the honest user-visible rate is against the served denominator "
+            f"({100.0 * len(hill_rows_served) / len(served_rows):.1f}%), not "
+            f"{100.0 * len(hill_rows) / len(rows):.1f}%."
+        )
+        print(
+            "  Note this does NOT mean a repair has no membership effect: rows crossing the cut "
+            "would be displaced by the repricing of these 254, not drawn from a touched-but-"
+            "unserved pool, because that pool is empty."
+        )
     print(
         f"  For contrast, {direct_deep} value-direct observations also carry a rank past {n} "
         f"(of {direct_obs} value-direct observations). Those are NOT part of this defect: "
@@ -299,9 +353,11 @@ def reproduce() -> None:
         )
 
     print("\n== the collapse, for rank-Hill observations only ==")
+    print("  'past N' / 'collapsed' count ALL board rows; the 'served' pair counts only rows")
+    print("  the board publishes today.")
     print(
-        f"  {'source':<22}{'past N':>8}{'collapsed':>11}{'deepest':>9}  "
-        f"{'curve':<10}{'clamped':>9}{'continuous':>12}{'distortion':>14}"
+        f"  {'source':<22}{'past N':>8}{'served':>8}{'collapsed':>11}{'servedCol':>11}"
+        f"{'deepest':>9}  {'curve':<10}{'clamped':>9}{'continuous':>12}{'distortion':>14}"
     )
     payload_sources = {}
     for key, rec in sorted(per_source.items(), key=lambda kv: -kv[1]["hillSat"]):
@@ -320,7 +376,8 @@ def reproduce() -> None:
             pct = 100.0 * dist / cont if cont else None
         if rec["hillSat"]:
             print(
-                f"  {key:<22}{rec['hillSat']:>8}{len(rec['satRanks']):>11}"
+                f"  {key:<22}{rec['hillSat']:>8}{rec['hillSatServed']:>8}"
+                f"{len(rec['satRanks']):>11}{len(rec['satRanksServed']):>11}"
                 f"{rec['deepestHill']:>9}  {label:<10}"
                 f"{clamped:>9.0f}{cont:>12.0f}{f'{dist:+.0f} ({pct:+.0f}%)':>14}"
             )
@@ -330,8 +387,10 @@ def reproduce() -> None:
             "valueDirectPastN": rec["directDeep"],
             "rankHillObservations": rec["hill"],
             "rankHillPastN": rec["hillSat"],
+            "rankHillPastNOnServedRows": rec["hillSatServed"],
             "fallbackRankHillObservations": rec["fallbackHill"],
             "distinctRanksCollapsed": len(rec["satRanks"]),
+            "distinctRanksCollapsedOnServedRows": len(rec["satRanksServed"]),
             "deepestRank": rec["deepest"],
             "deepestRankHillRank": rec["deepestHill"],
             "pool": pool,
@@ -347,19 +406,37 @@ def reproduce() -> None:
 
     # ── affected rows by position (rank-Hill only) ──
     print("\n== affected board rows by position (rank-Hill saturation only) ==")
+    print("  'all rows' is every board row; 'served' restricts both halves to published rows.")
     by_bucket: dict[str, int] = {}
     pop: dict[str, int] = {}
+    by_bucket_served: dict[str, int] = {}
+    pop_served: dict[str, int] = {}
     for row in rows:
         b = bucket_for(str(row.get("position") or ""), str(row.get("assetClass") or ""))
         pop[b] = pop.get(b, 0) + 1
+        served_row = bool(row.get("canonicalConsensusRank"))
+        if served_row:
+            pop_served[b] = pop_served.get(b, 0) + 1
         if str(row.get("displayName")) in hill_rows:
             by_bucket[b] = by_bucket.get(b, 0) + 1
+        if served_row and str(row.get("displayName")) in hill_rows_served:
+            by_bucket_served[b] = by_bucket_served.get(b, 0) + 1
     order = [name for name, _ in POSITION_BUCKETS] + ["picks", "other"]
+    print(f"  {'bucket':<9}{'all rows':>18}{'served rows':>21}")
     for b in order:
         if not pop.get(b):
             continue
         hit = by_bucket.get(b, 0)
-        print(f"  {b:<9} {hit:>4} of {pop[b]:>4}  ({100.0 * hit / pop[b]:>5.1f}%)")
+        hit_s = by_bucket_served.get(b, 0)
+        pop_s = pop_served.get(b, 0)
+        served_cell = (
+            f"{hit_s:>4} of {pop_s:>4} ({100.0 * hit_s / pop_s:>5.1f}%)"
+            if pop_s
+            else f"{'—':>18}"
+        )
+        print(
+            f"  {b:<9}{hit:>5} of {pop[b]:>4} ({100.0 * hit / pop[b]:>5.1f}%)   {served_cell}"
+        )
 
     # ── the four distinct rank domains ──
     ranked = [r for r in rows if r.get("canonicalConsensusRank")]
@@ -391,6 +468,18 @@ def reproduce() -> None:
             "rankHillPastN": hill_sat,
             "pctRankHillSaturated": round(100.0 * hill_sat / hill_obs, 2),
             "rowsTouchedByRankHillSaturation": len(hill_rows),
+            # The user-visible half. A row past OVERALL_RANK_LIMIT publishes
+            # neither canonicalConsensusRank nor rankDerivedValue, so the
+            # combined count above overstates what a reader of the board can
+            # observe today. Kept as a separate field rather than replacing
+            # the combined one: the unserved remainder is the population a
+            # tail change could move across the cut.
+            "servedRowsTouchedByRankHillSaturation": len(hill_rows_served),
+            "unservedRowsTouchedByRankHillSaturation": len(hill_rows) - len(hill_rows_served),
+            "rankHillPastNOnServedRows": hill_sat_served,
+            "pctServedRowsTouched": round(100.0 * len(hill_rows_served) / len(served_rows), 2)
+            if served_rows
+            else None,
             "valueDirectObservations": direct_obs,
             "valueDirectPastN": direct_deep,
             "boardRows": len(rows),
@@ -404,7 +493,12 @@ def reproduce() -> None:
         "bySource": payload_sources,
         "unaffectedSources": sorted(unaffected),
         "byPosition": {
-            b: {"affected": by_bucket.get(b, 0), "population": pop.get(b, 0)}
+            b: {
+                "affected": by_bucket.get(b, 0),
+                "population": pop.get(b, 0),
+                "affectedServed": by_bucket_served.get(b, 0),
+                "populationServed": pop_served.get(b, 0),
+            }
             for b in order
             if pop.get(b)
         },

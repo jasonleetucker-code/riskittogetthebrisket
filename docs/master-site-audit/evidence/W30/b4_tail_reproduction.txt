@@ -1,7 +1,9 @@
 == B4 pin ==
-  code   485a77c06  main tip a89a07ea3
+  code   2eb9b64b2  main tip 93b0a6617
   dirty  3 path(s), evidence-only=True: ['docs/master-site-audit/evidence/W30/b4_tail_measure.py', 'docs/master-site-audit/evidence/W30/b4_tail_report.json', 'docs/master-site-audit/evidence/W30/b4_tail_reproduction.txt']
-  ahead of main by 4 commit(s), documentation only:
+  ahead of main by 6 commit(s), documentation only:
+    2eb9b64b2 docs(B4): single-file continuation handoff for a fresh session
+    49f86c93f fix(B4): correct the W30-F023 blast radius — it is path-gated, and smaller
     485a77c06 evidence(B4): trace every saturation point — there are four, not two
     b7f0dc5a7 evidence(B4): pin the B4 baseline and reproduce W30-F023
     d1831d062 docs: map the B3 residual registry rows to their GitHub issues
@@ -15,6 +17,9 @@
 == saturation points still present in player_valuation.py: ['rank_to_percentile', 'percentile_to_value'] ==
 
 == W30-F023 reproduction (PATH-GATED) — 421 of 5146 rank-Hill observations sit past rank 500 (8.2%), touching 254 of 1092 board rows ==
+  Of those 254 rows, 254 are CURRENTLY SERVED (carry a canonicalConsensusRank, i.e. inside OVERALL_RANK_LIMIT=800) — 34.3% of the 740 served rows, carrying 421 of the 421 saturated observations.
+  EVERY touched row is served: the saturation is entirely inside the published board, so 100% of this defect's blast radius is user-visible today. The combined '254 of 1092' framing therefore UNDERSTATES it — 352 of the 1092 board rows are never served at all, so the honest user-visible rate is against the served denominator (34.3%), not 23.3%.
+  Note this does NOT mean a repair has no membership effect: rows crossing the cut would be displaced by the repricing of these 254, not drawn from a touched-but-unserved pool, because that pool is empty.
   For contrast, 282 value-direct observations also carry a rank past 500 (of 1176 value-direct observations). Those are NOT part of this defect: they price from the raw site value and never reach percentile_to_value.
 
 == path mix per source ==
@@ -42,27 +47,31 @@
   yahooBoone                363       0    363       0         0          0      386       386  ['offense']
 
 == the collapse, for rank-Hill observations only ==
-  source                  past N  collapsed  deepest  curve       clamped  continuous    distortion
-  draftSharksIdp             193        193      730  GLOBAL         1698        1345   +353 (+26%)
-  idpShow                    170        170      877  GLOBAL         1698        1197   +501 (+42%)
-  dlfIdp                      23         19      620  GLOBAL         1698        1489   +209 (+14%)
-  draftSharks                 18         18      684  GLOBAL         1698        1400   +297 (+21%)
-  dlfRookieIdp                 8          6      661  GLOBAL         1698        1431   +267 (+19%)
-  flockFantasySfRookies        6          6      621  OFFENSE         794         635   +159 (+25%)
-  fantasyProsIdp               3          3      572  GLOBAL         1698        1564    +133 (+9%)
+  'past N' / 'collapsed' count ALL board rows; the 'served' pair counts only rows
+  the board publishes today.
+  source                  past N  served  collapsed  servedCol  deepest  curve       clamped  continuous    distortion
+  draftSharksIdp             193     193        193        193      730  GLOBAL         1698        1345   +353 (+26%)
+  idpShow                    170     170        170        170      877  GLOBAL         1698        1197   +501 (+42%)
+  dlfIdp                      23      23         19         19      620  GLOBAL         1698        1489   +209 (+14%)
+  draftSharks                 18      18         18         18      684  GLOBAL         1698        1400   +297 (+21%)
+  dlfRookieIdp                 8       8          6          6      661  GLOBAL         1698        1431   +267 (+19%)
+  flockFantasySfRookies        6       6          6          6      621  OFFENSE         794         635   +159 (+25%)
+  fantasyProsIdp               3       3          3          3      572  GLOBAL         1698        1564    +133 (+9%)
 
   sources with ZERO saturated rank-Hill observations: ['dlfRookieSf', 'dlfSf', 'dynastyDaddySf', 'dynastyNerdsSfTep', 'fantasyCalc', 'fantasyNavigatorSf', 'fantasyProsFitzmaurice', 'fantasyProsSf', 'flockFantasySf', 'idpTradeCalc', 'ktcSfTep', 'otcffbSf', 'pfkDynasty', 'yahooBoone']
 
 == affected board rows by position (rank-Hill saturation only) ==
-  QB           4 of   70  (  5.7%)
-  RB           2 of  144  (  1.4%)
-  WR           3 of  214  (  1.4%)
-  TE          12 of   83  ( 14.5%)
-  DL/EDGE     97 of  145  ( 66.9%)
-  LB          49 of  114  ( 43.0%)
-  DB          87 of  139  ( 62.6%)
-  picks        0 of  144  (  0.0%)
-  other        0 of   39  (  0.0%)
+  'all rows' is every board row; 'served' restricts both halves to published rows.
+  bucket             all rows          served rows
+  QB           4 of   70 (  5.7%)      4 of   56 (  7.1%)
+  RB           2 of  144 (  1.4%)      2 of  102 (  2.0%)
+  WR           3 of  214 (  1.4%)      3 of  143 (  2.1%)
+  TE          12 of   83 ( 14.5%)     12 of   80 ( 15.0%)
+  DL/EDGE     97 of  145 ( 66.9%)     97 of  129 ( 75.2%)
+  LB          49 of  114 ( 43.0%)     49 of   91 ( 53.8%)
+  DB          87 of  139 ( 62.6%)     87 of  109 ( 79.8%)
+  picks        0 of  144 (  0.0%)      0 of   30 (  0.0%)
+  other        0 of   39 (  0.0%)                    —
 
 == four rank domains, which candidate C must not conflate ==
   canonical final-board rank limit        : 800
