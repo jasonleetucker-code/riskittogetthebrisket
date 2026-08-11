@@ -102,6 +102,84 @@ HILL_SLOPE: float = 0.910  # controls steepness of decay
 IDP_HILL_MIDPOINT: float = 64.6
 IDP_HILL_SLOPE: float = 0.900
 
+# ── The canonical percentile-coordinate contract ──────────────────────
+#
+# ONE owner for the rank → percentile half of the pipeline. Fitting,
+# holdout evaluation and serving all consume this; none of them may
+# reconstruct the equation locally.
+#
+# The contract, stated once:
+#
+#   rank base            1-based ordinal rank (rank 1 is the best asset)
+#   reference population PERCENTILE_REFERENCE_N — a FIXED universe, not
+#                        the length of whatever list a caller happens to
+#                        hold
+#   coordinate           p = (rank − 1) / (REFERENCE_N − 1), clamped [0,1]
+#   truncation semantics FIT_TOP_N and friends select WHICH observations
+#                        participate. They do NOT redefine the universe.
+#
+# That last line is the whole of audit finding W30-F008. The fit
+# truncated each source to its top 400 and then divided by the length of
+# the truncated list, so a training row's percentile depended on how many
+# rows the fit happened to keep: /399 for OFFENSE and GLOBAL, /369 for
+# the 370-row IDP slice, against /499 at serve time. The same ordinal
+# rank therefore meant three different coordinates, and because
+# V(p) falls in p, every scope served ABOVE anything the fit was scored
+# against — OFFENSE +8.0%..+25.4%, GLOBAL +6.2%..+14.2%, IDP
+# +14.0%..+33.9% across ranks 25..400 (measured 2026-08-11 on pinned
+# inputs, docs/master-site-audit/evidence/W30/b1_denominator_measure.py).
+#
+# The spread is the defect, not the offset. A uniform inflation would
+# cancel out of every comparison that matters; a per-scope one stretches
+# the IDP ladder differently from the offense ladder, so IDP and offense
+# rows on the same board stop being comparable.
+#
+# Note what is deliberately NOT done: serving is not moved to /399 and
+# /369 to match the fits. That would make each scope internally
+# consistent and leave them mutually incompatible — the same defect
+# wearing a tidier coat.
+#
+# A short population is the case that makes the contract concrete. The
+# IDP slice holds 370 rows against a 500-row universe. Its last observed
+# player sits at (370 − 1) / 499 = 0.7395, NOT at 1.0. Stretching a
+# 370-row source across the full range would assert that its worst
+# observed player is the worst player in the universe, which is a claim
+# the data does not make.
+PERCENTILE_REFERENCE_N: int = 500
+
+
+def rank_to_percentile(rank: float, *, reference_n: int = PERCENTILE_REFERENCE_N) -> float:
+    """Canonical 1-based ordinal rank → percentile coordinate.
+
+    ``p = (rank − 1) / (reference_n − 1)``, clamped to ``[0, 1]``.
+
+    Ranks past the reference population clamp to 1.0 and share the
+    curve's tail — deliberate top-N-board behavior, not an accident.
+
+    Args:
+        rank: 1-based ordinal rank. Rank 1 maps to 0.0.
+        reference_n: the declared reference universe. Callers should
+            almost never pass this; it exists so a genuinely different
+            universe can be declared explicitly rather than implied by a
+            list length.
+    """
+    n = int(reference_n)
+    if n < 2:
+        return 0.0
+    p = (float(rank) - 1.0) / float(n - 1)
+    return max(0.0, min(1.0, p))
+
+
+def training_percentiles(count: int, *, reference_n: int = PERCENTILE_REFERENCE_N) -> list[float]:
+    """Canonical coordinates for ``count`` consecutively-ranked rows.
+
+    The helper fit and holdout share so neither divides by its own list
+    length. Row ``i`` (0-based) is ordinal rank ``i + 1``, whatever
+    truncation was applied before the call.
+    """
+    return [rank_to_percentile(i + 1, reference_n=reference_n) for i in range(int(count))]
+
+
 # Final Framework step 2-3: percentile-input Hill curves, one per scope.
 #
 #     p = (r − 1) / (N − 1)

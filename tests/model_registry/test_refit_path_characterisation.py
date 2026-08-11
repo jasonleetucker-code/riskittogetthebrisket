@@ -242,17 +242,21 @@ class TestWhyTheOldGuardCouldNotFail:
                     continue
         rows.sort(reverse=True)
 
-        ref_n = int(
-            re.search(
-                r"_PERCENTILE_REFERENCE_N:\s*int\s*=\s*(\d+)",
-                (REPO / "src" / "api" / "data_contract.py").read_text(),
-            ).group(1)
+        # Imported, not scraped out of the source text. The reference
+        # population moved to the canonical coordinate owner in B1
+        # (W30-F008) and `data_contract` now aliases it, so a regex for
+        # a literal digit finds nothing — and a test that reads a
+        # constant by pattern-matching source is measuring the spelling
+        # rather than the value.
+        from src.canonical.player_valuation import (
+            PERCENTILE_REFERENCE_N as ref_n,
+            rank_to_percentile,
         )
 
         for c, s in ((0.118, 1.17), (0.300, 2.50)):
             for rank in (1, 12, 50, 150, 400):
                 ktc = rows[rank - 1]
-                p = max(0.0, min(1.0, (rank - 1) / (ref_n - 1)))
+                p = rank_to_percentile(rank, reference_n=ref_n)
                 ours = int(round(hill(p, c, s)))
                 pinned_ours = ours  # what the rebaseline wrote
                 pinned_pct = round(100.0 * (ours - ktc) / ktc, 1)

@@ -12,6 +12,9 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from src.canonical.player_valuation import (
+    PERCENTILE_REFERENCE_N as _CANONICAL_PERCENTILE_REFERENCE_N,
+)
 from src.data_models.contracts import utc_now_iso
 
 _LOGGER = logging.getLogger(__name__)
@@ -5365,7 +5368,13 @@ _DISPLAY_SCALE_MAX: int = 9999
 # contribution lives in the same combined-pool coordinate system.  500
 # aligns with KTC's native pool, the retail market's natural scale;
 # deeper ranks asymptote to the Hill's long tail.
-_PERCENTILE_REFERENCE_N: int = 500
+#
+# ALIAS, not a second declaration.  The reference population is owned by
+# ``src/canonical/player_valuation`` along with the rank→percentile
+# mapping itself, because fitting and holdout evaluation need the same
+# number and a local copy is how they drifted apart (W30-F008).  The
+# name survives for the many call sites that already read it.
+_PERCENTILE_REFERENCE_N: int = _CANONICAL_PERCENTILE_REFERENCE_N
 
 
 def _build_hill_curves_block() -> dict[str, dict[str, Any]]:
@@ -6946,6 +6955,7 @@ def _compute_unified_rankings(
         IDP_HILL_PERCENTILE_C,
         IDP_HILL_PERCENTILE_S,
         percentile_to_value,
+        rank_to_percentile,
     )
 
     # Updated framework (steps 5-6): route each source to its scope-
@@ -7664,11 +7674,11 @@ def _compute_unified_rankings(
             hill_c, hill_s = _curve_for_source(src_def)
             denom = _percentile_denom_for_source(src_def, source_key)
 
-            if denom >= 2:
-                p = (float(eff_rank) - 1.0) / float(denom - 1)
-            else:
-                p = 0.0
-            p = max(0.0, min(1.0, p))
+            # Canonical coordinate owner — the same mapping the fit and
+            # the holdout use. Recomputing it inline here is what let
+            # serving drift onto a different denominator than training
+            # (audit finding W30-F008).
+            p = rank_to_percentile(float(eff_rank), reference_n=denom)
 
             if source_key in _VALUE_BASED_SOURCES:
                 raw_v = canonical_site_values.get(source_key)
