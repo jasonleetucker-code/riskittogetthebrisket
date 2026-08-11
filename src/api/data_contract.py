@@ -7813,16 +7813,30 @@ def _compute_unified_rankings(
                 in_range = _value_is_in_declared_range(source_key, raw_f)
                 if source_key in value_range_suppressed or not in_range:
                     value = float(percentile_to_value(p, midpoint=hill_c, slope=hill_s))
+                    contribution_path = "rank_hill"
+                    fallback_reason = (
+                        "source_suppressed"
+                        if source_key in value_range_suppressed
+                        else "value_out_of_declared_range"
+                    )
                 elif raw_f > 0.0 and site_max > 0.0:
                     value = raw_f / site_max * 9999.0
+                    contribution_path = "value_direct"
+                    fallback_reason = None
                 else:
                     # Fall back to the Hill path if the raw value is
                     # missing/invalid — should be rare, but protects
                     # against malformed site data dropping a source's
                     # vote to zero silently.
                     value = float(percentile_to_value(p, midpoint=hill_c, slope=hill_s))
+                    contribution_path = "rank_hill"
+                    fallback_reason = (
+                        "value_missing_or_nonpositive" if raw_f <= 0.0 else "no_site_maximum"
+                    )
             else:
                 value = float(percentile_to_value(p, midpoint=hill_c, slope=hill_s))
+                contribution_path = "rank_hill"
+                fallback_reason = None
             tep_applied = False
             tep_native_corrected = False
             # Blanket TE-value multipliers (see the constants block
@@ -7920,12 +7934,31 @@ def _compute_unified_rankings(
             effective_weight = coverage_weight(declared_weight, src_def.get("depth"))
             meta["percentile"] = round(p, 6)
             meta["valueContribution"] = int(round(value))
-            meta["valueContributionPath"] = (
-                "value_direct"
-                if source_key in _VALUE_BASED_SOURCES
-                and value_source_max.get(source_key, 0.0) > 0.0
-                else "rank_hill"
-            )
+            # RECORDED from the branch above, never re-derived here. The
+            # previous expression asked a different question than the
+            # serving branch did — it tested only "is this a value source
+            # with a positive site max", ignoring all three conditions
+            # that actually route a row to the Hill path (source
+            # suppressed, value out of declared range, value
+            # missing/non-positive). A row taking the fallback was
+            # therefore stamped ``value_direct`` while being priced by the
+            # curve, and no fallback could ever be stamped ``rank_hill``
+            # while the source had any in-range row at all.
+            #
+            # That made the field unusable for the question it exists to
+            # answer, and it silently invalidated any measurement gated on
+            # it: B4's fallback-traffic count read this stamp, so its zero
+            # was structurally unreachable rather than observed. (Measured
+            # directly on the same pin, the true fallback count is also
+            # zero — the reported number was right, the evidence for it
+            # was not.)
+            meta["valueContributionPath"] = contribution_path
+            if fallback_reason is not None:
+                # Why a value-direct source was priced by the curve. This
+                # is a live branch with no live traffic, so without a
+                # reason stamped the first real occurrence would be
+                # indistinguishable from a rank-only source's normal vote.
+                meta["valueDirectFallbackReason"] = fallback_reason
             # ``effectiveWeight`` is the depth-scaled coverage
             # DIAGNOSTIC (declared × min(1, depth/60)) — stamped for
             # transparency, never applied to the blend.
