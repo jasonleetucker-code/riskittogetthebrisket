@@ -1,0 +1,29 @@
+== upstream-defense audit on 2026-08-11 (d62f2965a) ==
+   victims (>=5 sources): ['Abdul Carter', 'Aidan Hutchinson', 'AJ Haulcy', 'Alex Highsmith', 'Alex Singleton', 'Andrew Mukuba']
+
+-- one_source_x5  (idpShow x5.0, 5 csv rows) --
+   Hampel dropped the bad source on 1/6 victims   (kept on 5)
+   blend moved: median 1.23%  max 1.7%
+   old corridor fired on 0/6;   hull fired on 0/6
+
+-- one_source_x20  (idpShow x20.0, 5 csv rows) --
+   Hampel dropped the bad source on 3/6 victims   (kept on 3)
+   blend moved: median 0.57%  max 1.7%
+   old corridor fired on 0/6;   hull fired on 0/6
+
+-- anchor_source_x5  (idpTradeCalc x5.0, 5 csv rows) --
+   Hampel dropped the bad source on 0/6 victims   (kept on 6)
+   blend moved: median 0.0%  max 0.0%
+   old corridor fired on 0/6;   hull fired on 0/6
+
+-- correlated_3_sources_x5  (idpShow, dlfIdp, fantasyProsIdp x5.0, 11 csv rows) --
+   Hampel dropped the bad source on 2/6 victims   (kept on 4)
+   blend moved: median 5.7%  max 48.19%
+   old corridor fired on 0/6;   hull fired on 0/6
+
+-- correlated_4_sources_x5  (idpShow, dlfIdp, fantasyProsIdp, draftSharksIdp x5.0, 11 csv rows) --
+   Hampel dropped the bad source on 3/6 victims   (kept on 3)
+   blend moved: median 5.7%  max 48.19%
+   old corridor fired on 0/6;   hull fired on 0/6
+
+wrote /home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W02/cd_upstream_defense.json
