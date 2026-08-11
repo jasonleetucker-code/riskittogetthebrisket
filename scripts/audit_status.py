@@ -299,14 +299,23 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C17": (
         "V-1",
         "src/api/data_contract.py",
-        'if src_def.get("is_cross_market"):',
-        # STILL OPEN, and deliberately not needs_review: that status is
-        # exempt from the drift check entirely, which would disarm the
-        # tripwire. Left OPEN with the probe recorded as absent, a return
-        # of the old needle registers as drift and fails the build.
+        # No mechanical probe any more, and that is the honest record
+        # rather than a convenience. The needle witnessed the ROUTING
+        # half, which B2 removed; what remains of C17 is a numeric
+        # property of the fitted constants, and no source fragment
+        # witnesses a number. Routing regressions are now guarded far
+        # better than a grep could: tests/api/
+        # test_curve_routing_coordinate_pool.py drives
+        # build_api_data_contract and fails on the value, not the text.
+        #
+        # Deliberately NOT needs_review — that status is exempt from the
+        # drift check entirely, so it would read as "under review" while
+        # quietly tracking nothing.
+        None,
         OPEN,
         "ROUTING HALF FIXED IN B2 (W02-F001), SCALE HALF STILL OPEN. "
-        "The needle is gone: _curve_for_source is replaced by "
+        'The needle `if src_def.get("is_cross_market"):` is gone: '
+        "_curve_for_source is replaced by "
         "_curve_for_rank, which reads the coordinate pool the rank "
         "actually landed in (src/canonical/rank_coordinates.py) instead "
         "of the source's registry declaration. Note the old verifiedBy "
