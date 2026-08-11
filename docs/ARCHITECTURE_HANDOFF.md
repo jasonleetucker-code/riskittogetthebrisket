@@ -37,7 +37,7 @@ state. This file holds **architecture** state.
 
 | gate | result |
 |---|---|
-| `pytest tests/ -q` | **7,038 passed / 0 failed** / 25 skipped / 633 subtests (1533s) — quiescent tree at `0dc0a7778`. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 when those were rewritten to drive real production logic) → 7,038 (+12 B1 pin-coverage guard). Every delta is accounted for by new tests; no existing test changed state. |
+| `pytest tests/ -q` | **7,070 passed / 0 failed** / 25 skipped / 633 subtests. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 when those were rewritten to drive real production logic) → 7,038 (+12 B1 pin-coverage guard) → 7,070 (+32 percentile-coordinate contract, minus one file's rename). Every delta is accounted for by new tests; no existing test changed state. |
 | `vitest run` (frontend) | **2,010 passed / 0 failed**, 121 files — trail: 2,004 → 2,007 (+3 FAAB missing-vs-zero) → 2,010 (+3 multi-team trade crash regression) |
 | `ruff format --check .` | 991 files already formatted |
 | `ruff check .` | All checks passed |
@@ -48,6 +48,16 @@ state. This file holds **architecture** state.
 
 Environment: python 3.11.15 in `.venv` (`scripts/setup.sh`), node 22.22.2, vitest 4.1.10.
 The clone must be **unshallowed** (`git fetch --unshallow`) or every git-derived audit signal lies.
+
+> **Prefer CI's numbers over a container's for the full Python suite.** `Validate PR` splits it —
+> `pytest tests/ -x -q -m "not livedata"` as the hard gate (6,817 passed / 278 deselected /
+> 295 subtests, 456s) plus a non-blocking livedata pass (253 passed / 25 skipped / 338
+> subtests, 41s) — and 6,817 + 253 = the 7,070 above. A dev container's wall-clock for the same
+> suite is **not** comparable: measured runs in this container ranged from ~580s to a pace
+> implying ~4 hours, on identical code, with no disk or memory pressure and the process
+> CPU-bound throughout. `tests/api` (118 files, contract builds) dominates. If a local full run
+> is pacing absurdly, that is the container, not a regression — read the CI job instead of
+> waiting it out.
 
 ### Phase A formal closure — 2026-08-11
 
