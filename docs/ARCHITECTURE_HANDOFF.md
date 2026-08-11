@@ -17,14 +17,14 @@ state. This file holds **architecture** state.
 | | |
 |---|---|
 | Branch | `claude/dynasty-audit-consolidation-e75vdy` |
-| **Validated implementation HEAD** | `efa18f0e6` — the exact tree that received the full Python suite, full frontend suite, build and lint below |
-| **Validation base** | `origin/main` @ `4ac9b22b2` (the merge-base). `main` has since advanced 5 automated-refresh commits to `73c5e2776`; none is merged here, deliberately — see the B1 input-pinning note |
+| **Validated implementation HEAD** | `27c8a8d1e` (B2) — the exact tree that received the full Python suite, full frontend suite, build and lint below. The pre-B2 figures were measured at `efa18f0e6` |
+| **Validation base** | `origin/main` @ `a5ff76b09` (post-PR-#776 merge; the branch was re-cut from it). The pre-B2 base was `4ac9b22b2`.|
 | **Post-validation commits** | Correction-pass commits after `efa18f0e6` carry their own targeted gates, recorded per commit. Any that change production or test behavior re-run the suites; documentation-only commits do not |
 | **Handoff document commit** | This file is committed *after* the state it describes, so it cannot contain its own SHA. Read the fields above, not "current HEAD" |
-| PR | [#776](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/776) — Validate PR **green** at the last pushed state |
+| PR | [#787](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/787) — B2; Validate PR **green** at `27c8a8d1e`. [#776](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/776) (Phase A + B1/B1.2) is merged |
 | Working tree | clean at each recorded gate |
 | **Model-input snapshot** | Pinned and hashed by `docs/master-site-audit/evidence/W30/b1_denominator_measure.py` — required before any B1 comparison, because `main`'s 2-hourly refreshes rewrite the fit's own CSVs |
-| Phase | **A FORMALLY CLOSED 2026-08-11.** B1 authorized and executed to the evidence boundary: coordinate repair merged, challenger measured, **nothing promoted**. B2 and later NOT started — owner gate below. |
+| Phase | **A FORMALLY CLOSED 2026-08-11.** B1 + B1.2 executed to the evidence boundary (coordinate repair merged, challenger measured, **nothing promoted**) and merged as PR #776. **B2 executed 2026-08-11**: W02-F001 repaired at the root cause, W02-F002/F003 re-measured on the post-B2 board rather than pre-fixed. Hill-model promotion remains **NOT AUTHORIZED** and nothing was promoted or applied. B3 and competitive-expansion implementation NOT started — owner gate below. |
 
 > **Why these fields and not "current HEAD".** A Markdown file committed at one
 > SHA cannot literally contain that SHA, so a field claiming to be "the commit
@@ -37,13 +37,15 @@ state. This file holds **architecture** state.
 
 | gate | result |
 |---|---|
-| `pytest tests/ -q` | **7,070 passed / 0 failed** / 25 skipped / 633 subtests. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 when those were rewritten to drive real production logic) → 7,038 (+12 B1 pin-coverage guard) → 7,070 (+32 percentile-coordinate contract, minus one file's rename). Every delta is accounted for by new tests; no existing test changed state. |
-| `vitest run` (frontend) | **2,010 passed / 0 failed**, 121 files — trail: 2,004 → 2,007 (+3 FAAB missing-vs-zero) → 2,010 (+3 multi-team trade crash regression) |
-| `ruff format --check .` | 991 files already formatted |
+| `pytest tests/ -q -x -m "not livedata"` (B2 HEAD) | **6,898 passed / 0 failed**, 278 deselected, 294 subtests, 23m50s. +15 over the pre-B2 tree are the curve-routing regression tests; the rest of the delta from the figures below is what merged into `main` with PR #776, not measured here |
+| `pytest tests/ -q` (pre-B2, `efa18f0e6`) | **7,070 passed / 0 failed** / 25 skipped / 633 subtests. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 when those were rewritten to drive real production logic) → 7,038 (+12 B1 pin-coverage guard) → 7,070 (+32 percentile-coordinate contract, minus one file's rename). Every delta is accounted for by new tests; no existing test changed state. |
+| `vitest run` (frontend, B2 HEAD) | **2,010 passed / 0 failed**, 121 files — unchanged by B2 (backend-only). Trail: 2,004 → 2,007 (+3 FAAB missing-vs-zero) → 2,010 (+3 multi-team trade crash regression) |
+| `ruff format --check .` | 1,006 files already formatted |
 | `ruff check .` | All checks passed |
 | `scripts/check_decision_coercions.py` | clean — no new coercions, no stale allowances |
-| `scripts/audit_status.py` | no drift (C-tracker: 21 closed / 19 open / 2 needs_review / 1 deferred) |
+| `scripts/audit_status.py` | no drift (C-tracker: 21 closed / 19 open / 2 needs_review / 1 deferred). **B2 tripped it**: C17's defect signature `if src_def.get("is_cross_market"):` no longer exists. C17 stays OPEN with `signature: None` — its routing half is fixed, its scale half (OFFENSE master at 0.76 of ktcSfTep raw) is not, and a number has no source fragment to witness it. `needs_review` was rejected: it is exempt from the drift check, so it tracks nothing |
 | `npm --prefix frontend run build` | compiled; **all 14 route bundle budgets under** |
+| CI `Validate PR` on `27c8a8d1e` | **green** (run 31483317554) |
 | Stack bring-up | `/api/status` `has_data: true`, 1,095 players, scrape suppressed |
 
 Environment: python 3.11.15 in `.venv` (`scripts/setup.sh`), node 22.22.2, vitest 4.1.10.
@@ -126,6 +128,7 @@ These are load-bearing invariants, not style preferences. Each has an incident b
 |---|---|---|
 | Live player value | `src/api/data_contract.py::_compute_unified_rankings` | established |
 | Hill curves / percentile→value | `src/canonical/player_valuation.py` | **coordinate repaired this session (B1)**; it now owns `PERCENTILE_REFERENCE_N` / `rank_to_percentile` / `training_percentiles` and fit + holdout + serving all consume it. Constants unchanged — challenger measured, not promoted |
+| **Which master prices a rank** | `src/canonical/rank_coordinates.py` | **established in B2.** Three coordinate pools (`shared_market` / `offense` / `idp`), `native_pool_for_source` for the pre-translation answer, `curve_for_pool` for the master. A translation moves a rank INTO the pool of the ladder it went through, so the pool is a property of a `(row, source)` rank and is stamped as `sourceRankMeta.rankCoordinatePool`. The scope-master constants are named here and nowhere else — two copies of that mapping is what W02-F001 was |
 | Player identity | `src/identity/` + `unified_mapper` | defects open (W06 batch — B5) |
 | League registry / scoring | `src/api/league_registry.py`, `src/league_intel/config.py` | profile identity defect open (W18-F001 — B6) |
 | Trade asset eligibility | `frontend/lib/trade-logic.js::isTradeableBoardRow` | **established this session** |
@@ -363,10 +366,28 @@ the value chain.
   fit source, holdout source and model file, records commit + dirty state, and asserts the
   holdout does not overlap the fit set (verified CLEAN). Re-run it before and after any B1 change
   and compare snapshots, or the numbers mean nothing.
-- **B2 — W02-F001**: re-derivation, NOT the registry's one-line scope re-route, which its own
-  verifier refuted. Never ship the re-route alone (`REPAIR_ROADMAP.md:1492`).
-- **B3** — re-measure Hampel anchor ejection (W02-F002) and corridor-clamp binding (W02-F003)
-  **on the post-B2 board** before changing either.
+- **B2 — W02-F001: DONE 2026-08-11.** Repaired at the root cause: the master is chosen from the
+  rank's **coordinate pool** (`src/canonical/rank_coordinates.py`), never from the source's
+  registry declaration, and never from a source-name list. Two paths reached the wrong master —
+  the three `needs_shared_market_translation` sources *and* `dlfRookieIdp` through
+  `idpTradeCalc`'s rookie ladder — so it is a translation defect, not an IDP-source defect.
+  Hill constants untouched; champion still registry v2.
+  - `REPAIR_ROADMAP.md:1492`'s "never ship the re-route alone" rests on per-source anchor
+    medians of `0.92 / 0.92 / 1.29 / 1.32`, "wider than the control band". **Not reproduced on
+    the B2 baseline**: post-repair medians are 0.949 / 0.940 / 0.931 / 0.893, spanning 0.056
+    inside a 0.292-wide offense control band. Three of the four have n ≤ 5 and the earlier
+    verifier used a different board, so this is "not reproduced here", not "was wrong".
+  - Its second ground — the IDP master's **1.552× fit-scale** claim — is **untested** and stays
+    open. It now prices zero rows on the default board (after the repair every live IDP rank is
+    shared-market) but is still live on backbone-disabled override boards. Any future IDP-master
+    promotion must be judged against that changed live role.
+  - Evidence: `docs/master-site-audit/evidence/W02/B2_CURVE_ROUTING_EVIDENCE.md`.
+- **B3** — W02-F002 and W02-F003 have been **re-measured on the post-B2 board** (B2 §6–§7), which
+  was the precondition. W02-F002 is resolved as a consequence of F001 in magnitude
+  (30.5% → 2.1% anchor ejection) with the all-HIGH direction partially remaining at n=4.
+  **W02-F003 still reproduces and the rate rose** (43.2% → 55.6% of ranked IDP rows, still 100%
+  capped by the 0.15 hard band, direction flipped 57up/74down → 23up/160down). It is the
+  strongest B3 candidate. Neither was pre-fixed.
 - Then B4 (TEP residual), B5 (W06 identity batch), B6/B7 (league config + realized points —
   W18-F003 has an NFL-week-1 deadline), B8 (security chain, incl. owner-decided draft-capital
   redaction), B10 (W12-F008 circularity), B11 (confidence), B9 (value-scale semantics — **hard

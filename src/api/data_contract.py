@@ -1000,6 +1000,12 @@ from src.canonical.idp_backbone import (  # noqa: E402
     TRANSLATION_DIRECT,
     TRANSLATION_FALLBACK,
 )
+from src.canonical.rank_coordinates import (  # noqa: E402
+    RANK_POOL_IDP,
+    RANK_POOL_SHARED_MARKET,
+    curve_for_pool,
+    native_pool_for_source,
+)
 
 # ── Source weight policy ─────────────────────────────────────────────
 # Every registered source is declared with ``weight = 1.0``.  All six
@@ -6947,37 +6953,48 @@ def _compute_unified_rankings(
       - anomalyFlags
       - ktcRank / idpRank — preserved for backward compatibility
     """
+    # The scope-master constants themselves are no longer named here —
+    # ``rank_coordinates.curve_for_pool`` is the single place that maps
+    # a coordinate pool to its ``(c, s)`` pair, so a second copy of the
+    # mapping in this function is exactly the drift W02-F001 was.
     from src.canonical.player_valuation import (  # noqa: PLC0415
-        HILL_GLOBAL_PERCENTILE_C,
-        HILL_GLOBAL_PERCENTILE_S,
-        HILL_PERCENTILE_C,
-        HILL_PERCENTILE_S,
-        IDP_HILL_PERCENTILE_C,
-        IDP_HILL_PERCENTILE_S,
         percentile_to_value,
         rank_to_percentile,
     )
 
-    # Updated framework (steps 5-6): route each source to its scope-
-    # appropriate master curve, not per-player-position.
-    #   is_cross_market=True             → GLOBAL master
-    #   scope=overall_idp                → IDP master
-    #   everything else (offense, picks) → OFFENSE master
+    # Updated framework (steps 5-6): route each rank to the master fit
+    # on the population that rank counts within.
+    #   shared offense+IDP pool → GLOBAL master
+    #   offense (+ picks) pool  → OFFENSE master
+    #   IDP-only pool           → IDP master
     #
-    # ``needs_rookie_translation`` flag and the ROOKIE master used to
-    # gate rookie-only sources through their own Hill curve fit
-    # against rookie slices.  Retired 2026-04-21: rookie-only sources
-    # now go through the Phase 1d ladder translation (their rank is
-    # translated to a combined-pool rank via KTC/IDPTC), so by the
-    # time they reach this function their rank is in combined-pool
-    # space and the OFFENSE/IDP master is the correct curve.
-    def _curve_for_source(src_def: dict) -> tuple[float, float]:
-        if src_def.get("is_cross_market"):
-            return HILL_GLOBAL_PERCENTILE_C, HILL_GLOBAL_PERCENTILE_S
-        scope = str(src_def.get("scope") or "")
-        if scope == SOURCE_SCOPE_OVERALL_IDP:
-            return IDP_HILL_PERCENTILE_C, IDP_HILL_PERCENTILE_S
-        return HILL_PERCENTILE_C, HILL_PERCENTILE_S
+    # The pool is stamped on the per-(row, source) meta by whichever
+    # Phase-1 pass last established the effective rank, and
+    # ``src/canonical/rank_coordinates.py`` owns the mapping.  It is
+    # deliberately NOT re-derived from the source definition here: this
+    # function used to read ``is_cross_market`` / ``scope`` off the
+    # registry, which describes the source's NATIVE coordinates and
+    # says nothing about the crosswalks the pipeline ran in between.
+    # Sources flagged ``needs_shared_market_translation`` arrive with a
+    # combined-market rank and were priced on the IDP slice anyway
+    # (W02-F001), as did every IDP rookie rank translated through
+    # ``idpTradeCalc``'s ladder in Phase 1d.
+    #
+    # ``needs_rookie_translation`` and the ROOKIE master used to gate
+    # rookie-only sources through their own Hill curve fit against
+    # rookie slices.  Retired 2026-04-21: rookie-only sources now go
+    # through the Phase 1d ladder translation, so by the time they reach
+    # this function their rank belongs to the reference ladder's pool.
+    def _curve_for_rank(src_def: dict, meta: dict | None) -> tuple[float, float]:
+        pool = str((meta or {}).get("rankCoordinatePool") or "")
+        if not pool:
+            # No pass claimed this rank.  Fall back to the source's
+            # declared native pool rather than to a curve: that is the
+            # honest reading of "nothing translated it", and it keeps a
+            # future pass that forgets to stamp from silently landing on
+            # GLOBAL for everything.
+            pool = native_pool_for_source(src_def)
+        return curve_for_pool(pool)
 
     # All sources (including rookie-only ones after Phase 1d ladder
     # translation) use the fixed combined-pool reference denominator.
@@ -7056,6 +7073,9 @@ def _compute_unified_rankings(
     # loops iterate `active_sources` instead of the raw registry.
     active_sources = _active_sources(source_overrides)
     active_keys = {str(s.get("key") or "") for s in active_sources}
+    # Hoisted above Phase 1: the coordinate-pool bookkeeping in the
+    # translation passes needs to look a source definition up by key.
+    src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in active_sources}
 
     # ── Phase 0: Build IDP backbone from the designated backbone source ──
     # The first enabled source with scope=overall_idp and is_backbone=True
@@ -7272,13 +7292,27 @@ def _compute_unified_rankings(
             # the cross-universe combined pool — pass through directly
             # unless the source is an IDP-only expert board that opts in
             # to the shared-market crosswalk (e.g. DLF).
+            #
+            # Each branch also records which COORDINATE POOL the
+            # resulting rank counts within — see
+            # ``src/canonical/rank_coordinates.py``.  That is what
+            # Phase 2-3 routes the Hill curve on, so it has to record
+            # what happened rather than what the registry promised: a
+            # crosswalk that fell back left an IDP-local ordinal behind
+            # and must keep the IDP master (W02-F001).
             ladder_depth_meta: int | None = None
             backbone_depth_meta: int | None = None
+            native_pool = native_pool_for_source(src)
+            rank_pool = native_pool
             if row_scope == SOURCE_SCOPE_POSITION_IDP and position_group:
                 ladder = backbone.ladder_for(position_group)
                 effective_rank, method = translate_position_rank(raw_rank, ladder)
                 ladder_depth_meta = len(ladder)
                 backbone_depth_meta = backbone_depth
+                # ``ladder_for`` is numbered over IDP entries only, so a
+                # successful lift lands in IDP-overall space — as does
+                # the untranslated within-position fallback.
+                rank_pool = RANK_POOL_IDP
             elif needs_shared_market and row_scope == SOURCE_SCOPE_OVERALL_IDP:
                 # Crosswalk an IDP-only expert board's raw IDP ordinal
                 # into the backbone source's combined offense+IDP rank
@@ -7287,6 +7321,8 @@ def _compute_unified_rankings(
                 effective_rank, method = translate_position_rank(raw_rank, shared_market_ladder)
                 ladder_depth_meta = len(shared_market_ladder)
                 backbone_depth_meta = shared_market_depth
+                if method != TRANSLATION_FALLBACK:
+                    rank_pool = RANK_POOL_SHARED_MARKET
             elif needs_rookie_xlate:
                 # Updated framework: rookie sources skip the ladder.
                 # The ROOKIE master curve + native-N percentile
@@ -7294,6 +7330,11 @@ def _compute_unified_rankings(
                 # decay — no reference-source crosswalk needed.
                 effective_rank = raw_rank
                 method = TRANSLATION_DIRECT
+                # Phase 1d re-stamps the pool when it translates through
+                # a reference ladder.  Left alone, this rank is still a
+                # within-class ordinal and keeps the source's native
+                # pool — the pre-existing behaviour, tracked separately
+                # as ``scale_integrity_lost``.
             else:
                 effective_rank = raw_rank
                 method = TRANSLATION_DIRECT
@@ -7309,9 +7350,17 @@ def _compute_unified_rankings(
                 "backboneDepth": backbone_depth_meta,
                 "depth": src.get("depth"),
                 "weight": float(src.get("weight") or 0.0),
+                # The OUTCOME, not the registry's intent.  This used to
+                # read ``needs_shared_market and row_scope == overall_idp``
+                # and so stamped True on rows whose crosswalk had fallen
+                # back to the raw rank — a provenance field that lied in
+                # exactly the case where provenance mattered.
                 "sharedMarketTranslated": bool(
-                    needs_shared_market and row_scope == SOURCE_SCOPE_OVERALL_IDP
+                    needs_shared_market
+                    and row_scope == SOURCE_SCOPE_OVERALL_IDP
+                    and method != TRANSLATION_FALLBACK
                 ),
+                "rankCoordinatePool": rank_pool,
             }
 
     # ── Phase 1b: DraftSharks cross-market combined ranking ──
@@ -7358,12 +7407,30 @@ def _compute_unified_rankings(
         # gets combined rank 1; DS-negative-value players sort to the
         # tail.  Stable tiebreak on (row_idx, skey) for determinism.
         ds_pairs.sort(key=lambda t: (-t[0], t[1], t[2]))
+        # The combined pool is only genuinely cross-market when BOTH
+        # halves contributed rows.  With one partner disabled by an
+        # override the "combined" pool is a single family, and the
+        # re-ranked ordinal is exactly the within-family one — so it
+        # takes that family's master, not GLOBAL.  On the default board
+        # both halves are present and this resolves to shared market.
+        ds_pools = {
+            native_pool_for_source(src_by_key.get(skey, {})) for _v, _row_idx, skey in ds_pairs
+        }
+        ds_scopes = {
+            str((src_by_key.get(skey) or {}).get("scope") or "") for _v, _row_idx, skey in ds_pairs
+        }
+        ds_combined_pool = (
+            RANK_POOL_SHARED_MARKET
+            if len(ds_scopes) > 1
+            else (next(iter(ds_pools)) if len(ds_pools) == 1 else RANK_POOL_SHARED_MARKET)
+        )
         for combined_rank, (_v, row_idx, skey) in enumerate(ds_pairs, start=1):
             row_source_ranks[row_idx][skey] = combined_rank
             meta = row_source_meta.setdefault(row_idx, {}).setdefault(skey, {})
             meta["rawRank"] = meta.get("rawRank", combined_rank)
             meta["effectiveRank"] = combined_rank
             meta["method"] = "ds_combined_cross_market"
+            meta["rankCoordinatePool"] = ds_combined_pool
 
     # ── Phase 1c: FootballGuys cross-market combined rank restoration ──
     # FBG's CSVs natively carry the cross-market combined rank (Jack
@@ -7426,6 +7493,10 @@ def _compute_unified_rankings(
                 meta["rawRank"] = meta.get("rawRank", csv_rank)
                 meta["effectiveRank"] = csv_rank
                 meta["method"] = "csv_combined_cross_market"
+                # The restored CSV rank IS the source's native combined
+                # offense+IDP rank — that is what makes this block
+                # cross-market-only.
+                meta["rankCoordinatePool"] = RANK_POOL_SHARED_MARKET
 
     # ── Phase 1d: Rookie-ladder translation ──
     # DLF Rookie SF / DLF Rookie IDP publish rookie-only boards (~50
@@ -7525,6 +7596,23 @@ def _compute_unified_rankings(
             # translate reliably; skip and let the rookie source flow
             # through the normal Hill path below.
             continue
+        # The ladder's entries ARE the reference source's effective
+        # ranks, so a translated rookie rank lands in whatever pool the
+        # reference occupies — offense for ``ktcSfTep``, shared market
+        # for ``idpTradeCalc``.  That second case is the reason
+        # W02-F001 is a translation problem rather than an IDP-source
+        # one: no source flagged ``needs_shared_market_translation`` is
+        # involved and the rank still arrives in combined coordinates.
+        ref_pools = {
+            str(meta_by_source[ref_key].get("rankCoordinatePool") or "")
+            for meta_by_source in row_source_meta.values()
+            if ref_key in meta_by_source and meta_by_source[ref_key].get("rankCoordinatePool")
+        }
+        ladder_pool = (
+            ref_pools.pop()
+            if len(ref_pools) == 1
+            else native_pool_for_source(src_by_key.get(ref_key, {}))
+        )
         for row_idx, rk_dict in row_source_ranks.items():
             if rookie_key not in rk_dict:
                 continue
@@ -7538,10 +7626,11 @@ def _compute_unified_rankings(
             meta = row_source_meta.setdefault(row_idx, {}).setdefault(rookie_key, {})
             meta["effectiveRank"] = translated
             meta["method"] = f"rookie_ladder_translation_via_{ref_key}"
+            meta["rankCoordinatePool"] = ladder_pool
 
     # ── Phase 2-3: Normalized value (Hill curve) + robust blend ──
-    # Look up each source's weight / depth once.
-    src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in active_sources}
+    # Look up each source's weight / depth once.  ``src_by_key`` itself
+    # is built above Phase 1 — the translation passes need it too.
 
     # Declared blend weight per source (2026-07-29).  Registry defaults
     # are all 1.0, so the default board blends every covered source
@@ -7663,15 +7752,15 @@ def _compute_unified_rankings(
             #     Final Framework override (2026-04-20) — real dollar-
             #     equivalent values bypass the Hill curve entirely.
             #   - rank-only sources: keep the rank → percentile → Hill
-            #     pipeline using the source's scope-master curve
-            #     (GLOBAL for the anchor, OFFENSE / IDP / ROOKIE for the
-            #     others; see ``_curve_for_source``).
+            #     pipeline using the master fit on the population this
+            #     rank counts within (see ``_curve_for_rank``).
             #
             # Hill + percentile fields in the per-source meta are still
             # computed for diagnostic completeness even on the value-
             # based branch.  ``valueContribution`` always reflects the
             # value that actually enters aggregation.
-            hill_c, hill_s = _curve_for_source(src_def)
+            rank_meta = row_source_meta.get(row_idx, {}).get(source_key)
+            hill_c, hill_s = _curve_for_rank(src_def, rank_meta)
             denom = _percentile_denom_for_source(src_def, source_key)
 
             # Canonical coordinate owner — the same mapping the fit and

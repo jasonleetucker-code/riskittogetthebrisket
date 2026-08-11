@@ -1,0 +1,15 @@
+=========================== short test summary info ============================
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestSameCoordinatePoolPricesIdentically::test_translated_idp_matches_cross_market_at_the_same_rank
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestTranslatedIdpRankUsesSharedMarketCurve::test_shared_market_translated_ranks_take_the_global_master
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestRookieLadderFollowsItsReferencePool::test_idp_rookie_ladder_lands_in_shared_market_coordinates
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestRookieLadderFollowsItsReferencePool::test_idp_rookie_matches_the_cross_market_source_at_the_same_rank
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestTranslationProvenanceIsHonest::test_it_reads_false_when_no_translation_occurred
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestLiveBoardHonoursTheCoordinatePool::test_every_translated_rank_is_priced_on_the_shared_market_master
+6 failed, 9 passed in 0.99s
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestSameCoordinatePoolPricesIdentically::test_translated_idp_matches_cross_market_at_the_same_rank
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestTranslatedIdpRankUsesSharedMarketCurve::test_shared_market_translated_ranks_take_the_global_master
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestRookieLadderFollowsItsReferencePool::test_idp_rookie_ladder_lands_in_shared_market_coordinates
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestRookieLadderFollowsItsReferencePool::test_idp_rookie_matches_the_cross_market_source_at_the_same_rank
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestTranslationProvenanceIsHonest::test_it_reads_false_when_no_translation_occurred
+FAILED tests/api/test_curve_routing_coordinate_pool.py::TestLiveBoardHonoursTheCoordinatePool::test_every_translated_rank_is_priced_on_the_shared_market_master
+6 failed, 9 passed in 1.24s

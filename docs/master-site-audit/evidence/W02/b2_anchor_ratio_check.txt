@@ -1,0 +1,44 @@
+Ratio = source contribution / anchor contribution, ONLY where the two
+share an effective rank.  Anchor = idpTradeCalc on IDP rows, ktcSfTep on
+offense rows.  The roadmap's refutation of the GLOBAL re-route rests on
+this statistic: it recorded 0.92 / 0.92 / 1.29 / 1.32 and called the
+spread wider than the control band.
+
+== BEFORE (baseline a5ff76b09) ==
+  IDP idpShow                  n=61   median=0.484  p25=0.432  p75=0.677  min=0.323  max=0.873
+  OFF fantasyProsSf            n=9    median=0.987  p25=0.909  p75=1.033  min=0.721  max=1.084
+  OFF fantasyCalc              n=9    median=0.833  p25=0.716  p75=0.951  min=0.675  max=1.101
+  OFF dlfSf                    n=8    median=0.869  p25=0.741  p75=0.887  min=0.676  max=1.116
+  OFF dynastyDaddySf           n=8    median=0.982  p25=0.963  p75=1.005  min=0.679  max=1.116
+  OFF fantasyProsFitzmaurice   n=8    median=0.936  p25=0.862  p75=1.005  min=0.685  max=1.035
+  OFF otcffbSf                 n=7    median=1.005  p25=1.000  p75=1.047  min=0.681  max=1.078
+  OFF flockFantasySfRookies    n=7    median=0.987  p25=0.878  p75=1.022  min=0.679  max=1.078
+  OFF dlfRookieSf              n=7    median=0.792  p25=0.779  p75=0.849  min=0.721  max=1.078
+  OFF dynastyNerdsSfTep        n=6    median=0.981  p25=0.942  p75=1.005  min=0.793  max=1.078
+  OFF yahooBoone               n=6    median=0.848  p25=0.730  p75=0.860  min=0.712  max=1.061
+  IDP dlfRookieIdp             n=5    median=0.584  p25=0.525  p75=0.588  min=0.446  max=0.677
+  IDP dlfIdp                   n=4    median=0.839  p25=0.823  p75=0.855  min=0.697  max=0.873
+  OFF flockFantasySf           n=4    median=0.984  p25=0.963  p75=1.005  min=0.710  max=1.026
+  IDP fantasyProsIdp           n=3    median=0.855  p25=0.366  p75=0.873  min=0.366  max=0.873
+  OFF pfkDynasty               n=3    median=0.713  p25=0.710  p75=1.078  min=0.710  max=1.078
+  OFF fantasyNavigatorSf       n=3    median=0.844  p25=0.684  p75=1.015  min=0.684  max=1.015
+
+== AFTER  (coordinate-pool routing) ==
+  IDP idpShow                  n=67   median=0.949  p25=0.911  p75=1.373  min=0.860  max=2.223
+  OFF fantasyProsSf            n=9    median=0.987  p25=0.909  p75=1.033  min=0.721  max=1.084
+  OFF fantasyCalc              n=9    median=0.833  p25=0.716  p75=0.951  min=0.675  max=1.101
+  OFF dlfSf                    n=8    median=0.869  p25=0.741  p75=0.887  min=0.676  max=1.116
+  OFF dynastyDaddySf           n=8    median=0.982  p25=0.963  p75=1.005  min=0.679  max=1.116
+  OFF fantasyProsFitzmaurice   n=8    median=0.936  p25=0.862  p75=1.005  min=0.685  max=1.035
+  OFF otcffbSf                 n=7    median=1.005  p25=1.000  p75=1.047  min=0.681  max=1.078
+  OFF flockFantasySfRookies    n=7    median=0.987  p25=0.878  p75=1.022  min=0.679  max=1.078
+  OFF dynastyNerdsSfTep        n=6    median=0.981  p25=0.942  p75=1.005  min=0.793  max=1.078
+  OFF dlfRookieSf              n=6    median=0.820  p25=0.744  p75=0.885  min=0.721  max=1.078
+  OFF yahooBoone               n=6    median=0.848  p25=0.730  p75=0.860  min=0.712  max=1.061
+  IDP dlfRookieIdp             n=5    median=0.893  p25=0.876  p75=0.895  min=0.860  max=0.901
+  IDP dlfIdp                   n=4    median=0.931  p25=0.922  p75=0.940  min=0.873  max=0.940
+  OFF flockFantasySf           n=4    median=0.984  p25=0.963  p75=1.005  min=0.710  max=1.026
+  IDP fantasyProsIdp           n=3    median=0.940  p25=0.922  p75=0.960  min=0.922  max=0.960
+  OFF pfkDynasty               n=3    median=0.713  p25=0.710  p75=1.078  min=0.710  max=1.078
+  OFF fantasyNavigatorSf       n=3    median=0.844  p25=0.684  p75=1.015  min=0.684  max=1.015
+

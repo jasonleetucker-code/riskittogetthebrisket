@@ -299,11 +299,42 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C17": (
         "V-1",
         "src/api/data_contract.py",
-        'if src_def.get("is_cross_market"):',
+        # No mechanical probe any more, and that is the honest record
+        # rather than a convenience. The needle witnessed the ROUTING
+        # half, which B2 removed; what remains of C17 is a numeric
+        # property of the fitted constants, and no source fragment
+        # witnesses a number. Routing regressions are now guarded far
+        # better than a grep could: tests/api/
+        # test_curve_routing_coordinate_pool.py drives
+        # build_api_data_contract and fails on the value, not the text.
+        #
+        # Deliberately NOT needs_review — that status is exempt from the
+        # drift check entirely, so it would read as "under review" while
+        # quietly tracking nothing.
+        None,
         OPEN,
-        "_curve_for_source tests is_cross_market FIRST, so IDP-scoped "
-        "sources route to GLOBAL and the IDP master curve is applied to "
-        "nothing it was fit on. Fit/apply overlap is zero.",
+        "ROUTING HALF FIXED IN B2 (W02-F001), SCALE HALF STILL OPEN. "
+        'The needle `if src_def.get("is_cross_market"):` is gone: '
+        "_curve_for_source is replaced by "
+        "_curve_for_rank, which reads the coordinate pool the rank "
+        "actually landed in (src/canonical/rank_coordinates.py) instead "
+        "of the source's registry declaration. Note the old verifiedBy "
+        "prose here was wrong in one detail — is_cross_market was tested "
+        "first, but dlfIdp / idpShow / fantasyProsIdp are NOT "
+        "cross-market, so they fell through to the IDP master rather "
+        "than routing to GLOBAL. That is what produced the recorded 0.48 "
+        "median. Post-repair, per-source medians against the market "
+        "anchor at a shared effective rank are 0.949 / 0.940 / 0.931 / "
+        "0.893 (evidence/W02/b2_anchor_ratio_check.txt). "
+        "WHAT REMAINS: the finding's other half — the OFFENSE master "
+        "sitting at a median 0.76 of ktcSfTep raw at the same rank — is "
+        "untouched by B2 and reproduces (offense rank-signal sources "
+        "measure 0.713-1.005 against their anchor, unchanged either side "
+        "of the repair). Also unresolved: the IDP master's fit/apply "
+        "overlap, which B2 made MORE extreme rather than less — it now "
+        "prices zero rows on the default board, since every live IDP "
+        "rank is shared-market, and routes only on override boards where "
+        "idpTradeCalc is disabled.",
     ),
     "C18": (
         "V-1b",

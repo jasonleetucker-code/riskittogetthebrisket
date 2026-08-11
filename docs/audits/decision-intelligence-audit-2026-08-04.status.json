@@ -315,16 +315,14 @@
    "auditEvidence": "Measured on a contract rebuilt from the live 2026-08-04 payload. For each row I compared a source's vote at its own effective rank against the retail market value at that same rank:\n\n  IDP master (c=0.083, s=1.110) vs idpTradeCalc raw, n=293:   p10 0.36  median 0.48  p90 0.76\n  OFFENSE master (c=0.110, s=1.110) vs ktcSfTep raw, n=391:   p10 0.68  median 0.76  p90 1.00\n  GLOBAL master (c=0.112, s=0",
    "auditId": "V-1",
    "path": "src/api/data_contract.py",
-   "signature": "if src_def.get(\"is_cross_market\"):",
+   "signature": null,
    "status": "open",
-   "verifiedBy": "_curve_for_source tests is_cross_market FIRST, so IDP-scoped sources route to GLOBAL and the IDP master curve is applied to nothing it was fit on. Fit/apply overlap is zero.",
+   "verifiedBy": "ROUTING HALF FIXED IN B2 (W02-F001), SCALE HALF STILL OPEN. The needle `if src_def.get(\"is_cross_market\"):` is gone: _curve_for_source is replaced by _curve_for_rank, which reads the coordinate pool the rank actually landed in (src/canonical/rank_coordinates.py) instead of the source's registry declaration. Note the old verifiedBy prose here was wrong in one detail \u2014 is_cross_market was tested first, but dlfIdp / idpShow / fantasyProsIdp are NOT cross-market, so they fell through to the IDP master rather than routing to GLOBAL. That is what produced the recorded 0.48 median. Post-repair, per-source medians against the market anchor at a shared effective rank are 0.949 / 0.940 / 0.931 / 0.893 (evidence/W02/b2_anchor_ratio_check.txt). WHAT REMAINS: the finding's other half \u2014 the OFFENSE master sitting at a median 0.76 of ktcSfTep raw at the same rank \u2014 is untouched by B2 and reproduces (offense rank-signal sources measure 0.713-1.005 against their anchor, unchanged either side of the repair). Also unresolved: the IDP master's fit/apply overlap, which B2 made MORE extreme rather than less \u2014 it now prices zero rows on the default board, since every live IDP rank is shared-market, and routes only on override boards where idpTradeCalc is disabled.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
-    "path": "src/api/data_contract.py",
-    "needle": "if src_def.get(\"is_cross_market\"):"
+    "result": "no_mechanical_probe"
    }
   },
   {

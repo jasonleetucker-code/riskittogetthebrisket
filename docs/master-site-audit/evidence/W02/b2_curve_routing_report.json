@@ -1,0 +1,586 @@
+{
+  "baseline": {
+    "codeSha": "a5ff76b09a9c8c3b363f0406035d265331c973dd",
+    "codeShaShort": "a5ff76b09",
+    "branch": "claude/dynasty-audit-consolidation-e75vdy",
+    "treeDirtyFiles": 2,
+    "boardSnapshot": "exports/latest/dynasty_data_2026-08-11.json",
+    "boardSha256_16": "a495c049fa69f141",
+    "boardBytes": 834844,
+    "sourceCsvSha256_16": {
+      "dlfIdp.csv": "9bf471c7222ad7d2",
+      "dlfRookieIdp.csv": "53dea29be05656dc",
+      "dlfRookieSf.csv": "ea68dc64d47d82ff",
+      "dlfSf.csv": "20ec2e95239e8e5b",
+      "draftSharksIdp.csv": "f5fe62320c7e1837",
+      "draftSharksRosIdp.csv": "659e6a97771b0cb2",
+      "draftSharksRosSf.csv": "83dc969830487b22",
+      "draftSharksSf.csv": "2a656d65e0514479",
+      "dynastyDaddySf.csv": "c2d5573c812011bc",
+      "dynastyNerdsSfTep.csv": "fe232d5ef61c7379",
+      "fantasyCalc.csv": "be8c0ed993e374ba",
+      "fantasyNavigatorSf.csv": "45208ef97e0e016d",
+      "fantasyProsFitzmaurice.csv": "a834e5f371c49970",
+      "fantasyProsIdp.csv": "01a17ce73c2a579f",
+      "fantasyProsSf.csv": "e7e91d2b6ae3ce1d",
+      "flockFantasySf.csv": "31c9923a82417f82",
+      "flockFantasySfRookies.csv": "e1cf340a54a7b289",
+      "idpShow.csv": "fbcfc0f16236b046",
+      "idpTradeCalc.csv": "00a43e7aaa6ce0d9",
+      "ktc.csv": "d8d63bfff2382c01",
+      "ktcSfTep.csv": "b23534d1a28227c4",
+      "otcffbSf.csv": "c421726b27a321a5",
+      "pfkDynasty.csv": "dbeec7c1b0adb640",
+      "yahooBoone.csv": "27cdfd58e4f4e7db"
+    },
+    "championConstants": {
+      "GLOBAL": [
+        0.112,
+        0.725
+      ],
+      "OFFENSE": [
+        0.11,
+        1.11
+      ],
+      "IDP": [
+        0.083,
+        1.11
+      ]
+    },
+    "measuredAt": "2026-08-11T05:23:24-04:00",
+    "_note": "B1/B1.1/B1.2 numbers are tied to THEIR pins and are not reproducible against this board. Any before/after here is internal to this baseline."
+  },
+  "routing": {
+    "sources": [
+      {
+        "source": "dlfIdp",
+        "scope": "overall_idp",
+        "sharedMarketTranslated": true,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "IDP",
+        "defectShape": true,
+        "rookieDefectShape": false,
+        "anyTranslation": true
+      },
+      {
+        "source": "dlfRookieIdp",
+        "scope": "overall_idp",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": true,
+        "crossMarket": false,
+        "routedCurve": "IDP",
+        "defectShape": false,
+        "rookieDefectShape": true,
+        "anyTranslation": true
+      },
+      {
+        "source": "dlfRookieSf",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": true,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": true
+      },
+      {
+        "source": "dlfSf",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "draftSharks",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": true,
+        "routedCurve": "GLOBAL",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "draftSharksIdp",
+        "scope": "overall_idp",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": true,
+        "routedCurve": "GLOBAL",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "dynastyDaddySf",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "dynastyNerdsSfTep",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "fantasyCalc",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "fantasyNavigatorSf",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "fantasyProsFitzmaurice",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "fantasyProsIdp",
+        "scope": "overall_idp",
+        "sharedMarketTranslated": true,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "IDP",
+        "defectShape": true,
+        "rookieDefectShape": false,
+        "anyTranslation": true
+      },
+      {
+        "source": "fantasyProsSf",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "flockFantasySf",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "flockFantasySfRookies",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": true,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": true
+      },
+      {
+        "source": "idpShow",
+        "scope": "overall_idp",
+        "sharedMarketTranslated": true,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "IDP",
+        "defectShape": true,
+        "rookieDefectShape": false,
+        "anyTranslation": true
+      },
+      {
+        "source": "idpTradeCalc",
+        "scope": "overall_idp",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": true,
+        "routedCurve": "GLOBAL",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "ktcSfTep",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "otcffbSf",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "pfkDynasty",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      },
+      {
+        "source": "yahooBoone",
+        "scope": "overall_offense",
+        "sharedMarketTranslated": false,
+        "rookieTranslated": false,
+        "crossMarket": false,
+        "routedCurve": "OFFENSE",
+        "defectShape": false,
+        "rookieDefectShape": false,
+        "anyTranslation": false
+      }
+    ],
+    "defectSources": [
+      "dlfIdp",
+      "fantasyProsIdp",
+      "idpShow"
+    ],
+    "rookieRiskSources": [
+      "dlfRookieIdp"
+    ]
+  },
+  "curveGapByRank": {
+    "rows": [
+      {
+        "rank": 1,
+        "percentile": 0.0,
+        "idpCurve": 9999.0,
+        "globalCurve": 9999.0,
+        "idpOverGlobal": 1.0,
+        "deltaIfRouted": 0.0
+      },
+      {
+        "rank": 5,
+        "percentile": 0.008016,
+        "idpCurve": 9304.1,
+        "globalCurve": 8711.4,
+        "idpOverGlobal": 1.068,
+        "deltaIfRouted": -592.7
+      },
+      {
+        "rank": 10,
+        "percentile": 0.018036,
+        "idpCurve": 8447.1,
+        "globalCurve": 7897.6,
+        "idpOverGlobal": 1.0696,
+        "deltaIfRouted": -549.6
+      },
+      {
+        "rank": 25,
+        "percentile": 0.048096,
+        "idpCurve": 6468.8,
+        "globalCurve": 6485.2,
+        "idpOverGlobal": 0.9975,
+        "deltaIfRouted": 16.4
+      },
+      {
+        "rank": 50,
+        "percentile": 0.098196,
+        "idpCurve": 4534.3,
+        "globalCurve": 5237.7,
+        "idpOverGlobal": 0.8657,
+        "deltaIfRouted": 703.4
+      },
+      {
+        "rank": 100,
+        "percentile": 0.198397,
+        "idpCurve": 2753.9,
+        "globalCurve": 3977.9,
+        "idpOverGlobal": 0.6923,
+        "deltaIfRouted": 1223.9
+      },
+      {
+        "rank": 150,
+        "percentile": 0.298597,
+        "idpCurve": 1944.7,
+        "globalCurve": 3293.6,
+        "idpOverGlobal": 0.5905,
+        "deltaIfRouted": 1348.9
+      },
+      {
+        "rank": 200,
+        "percentile": 0.398798,
+        "idpCurve": 1490.1,
+        "globalCurve": 2847.8,
+        "idpOverGlobal": 0.5232,
+        "deltaIfRouted": 1357.7
+      },
+      {
+        "rank": 300,
+        "percentile": 0.599198,
+        "idpCurve": 1002.6,
+        "globalCurve": 2286.4,
+        "idpOverGlobal": 0.4385,
+        "deltaIfRouted": 1283.7
+      },
+      {
+        "rank": 400,
+        "percentile": 0.799599,
+        "idpCurve": 748.4,
+        "globalCurve": 1938.5,
+        "idpOverGlobal": 0.3861,
+        "deltaIfRouted": 1190.0
+      },
+      {
+        "rank": 500,
+        "percentile": 1.0,
+        "idpCurve": 593.7,
+        "globalCurve": 1697.6,
+        "idpOverGlobal": 0.3497,
+        "deltaIfRouted": 1103.9
+      }
+    ]
+  },
+  "contributions": {
+    "perSource": {
+      "dlfIdp": {
+        "vsAnchor": {
+          "n": 4,
+          "median": 0.8386,
+          "p25": 0.7285,
+          "p75": 0.8686,
+          "min": 0.6971,
+          "max": 0.8732
+        },
+        "idpCurveVsGlobalCurve": {
+          "n": 145,
+          "median": 0.3861,
+          "p25": 0.3631,
+          "p75": 0.5232,
+          "min": 0.3497,
+          "max": 0.9468
+        },
+        "samples": [
+          {
+            "player": "Aidan Hutchinson",
+            "position": "DL",
+            "rawRank": 1,
+            "effectiveRank": 34,
+            "percentile": 0.066132,
+            "contribution": 5627.0,
+            "anchorContribution": 6444.0,
+            "ratioToAnchor": 0.8732,
+            "idpCurve": 5626.6,
+            "globalCurve": 5942.9
+          },
+          {
+            "player": "Jack Campbell",
+            "position": "LB",
+            "rawRank": 4,
+            "effectiveRank": 48,
+            "percentile": 0.094188,
+            "contribution": 4649.0,
+            "anchorContribution": 5651.0,
+            "ratioToAnchor": 0.8227,
+            "idpCurve": 4649.2,
+            "globalCurve": 5313.0
+          },
+          {
+            "player": "Myles Garrett",
+            "position": "DL",
+            "rawRank": 6,
+            "effectiveRank": 66,
+            "percentile": 0.130261,
+            "contribution": 3774.0,
+            "anchorContribution": 5414.0,
+            "ratioToAnchor": 0.6971,
+            "idpCurve": 3774.4,
+            "globalCurve": 4726.0
+          },
+          {
+            "player": "Will Anderson",
+            "position": "DL",
+            "rawRank": 2,
+            "effectiveRank": 41,
+            "percentile": 0.08016,
+            "contribution": 5096.0,
+            "anchorContribution": 5963.0,
+            "ratioToAnchor": 0.8546,
+            "idpCurve": 5096.1,
+            "globalCurve": 5602.7
+          }
+        ]
+      },
+      "fantasyProsIdp": {
+        "vsAnchor": {
+          "n": 3,
+          "median": 0.8546,
+          "p25": 0.3662,
+          "p75": 0.8732,
+          "min": 0.3662,
+          "max": 0.8732
+        },
+        "idpCurveVsGlobalCurve": {
+          "n": 119,
+          "median": 0.4734,
+          "p25": 0.3728,
+          "p75": 0.5498,
+          "min": 0.3497,
+          "max": 0.9468
+        },
+        "samples": [
+          {
+            "player": "Aidan Hutchinson",
+            "position": "DL",
+            "rawRank": 1,
+            "effectiveRank": 34,
+            "percentile": 0.066132,
+            "contribution": 5627.0,
+            "anchorContribution": 6444.0,
+            "ratioToAnchor": 0.8732,
+            "idpCurve": 5626.6,
+            "globalCurve": 5942.9
+          },
+          {
+            "player": "Montez Sweat",
+            "position": "DL",
+            "rawRank": 84,
+            "effectiveRank": 411,
+            "percentile": 0.821643,
+            "contribution": 728.0,
+            "anchorContribution": 1988.0,
+            "ratioToAnchor": 0.3662,
+            "idpCurve": 727.8,
+            "globalCurve": 1907.9
+          },
+          {
+            "player": "Will Anderson",
+            "position": "DL",
+            "rawRank": 2,
+            "effectiveRank": 41,
+            "percentile": 0.08016,
+            "contribution": 5096.0,
+            "anchorContribution": 5963.0,
+            "ratioToAnchor": 0.8546,
+            "idpCurve": 5096.1,
+            "globalCurve": 5602.7
+          }
+        ]
+      },
+      "idpShow": {
+        "vsAnchor": {
+          "n": 61,
+          "median": 0.4837,
+          "p25": 0.431,
+          "p75": 0.6797,
+          "min": 0.323,
+          "max": 0.8732
+        },
+        "idpCurveVsGlobalCurve": {
+          "n": 289,
+          "median": 0.3497,
+          "p25": 0.3497,
+          "p75": 0.3881,
+          "min": 0.3497,
+          "max": 0.9468
+        },
+        "samples": [
+          {
+            "player": "Abdul Carter",
+            "position": "DL",
+            "rawRank": 7,
+            "effectiveRank": 67,
+            "percentile": 0.132265,
+            "contribution": 3735.0,
+            "anchorContribution": 5409.0,
+            "ratioToAnchor": 0.6905,
+            "idpCurve": 3734.6,
+            "globalCurve": 4698.5
+          },
+          {
+            "player": "Aidan Hutchinson",
+            "position": "DL",
+            "rawRank": 1,
+            "effectiveRank": 34,
+            "percentile": 0.066132,
+            "contribution": 5627.0,
+            "anchorContribution": 6444.0,
+            "ratioToAnchor": 0.8732,
+            "idpCurve": 5626.6,
+            "globalCurve": 5942.9
+          },
+          {
+            "player": "Alex Anzalone",
+            "position": "LB",
+            "rawRank": 167,
+            "effectiveRank": 616,
+            "percentile": 1.0,
+            "contribution": 594.0,
+            "anchorContribution": 1294.0,
+            "ratioToAnchor": 0.459,
+            "idpCurve": 593.7,
+            "globalCurve": 1697.6
+          },
+          {
+            "player": "Arvell Reese",
+            "position": "LB",
+            "rawRank": 10,
+            "effectiveRank": 115,
+            "percentile": 0.228457,
+            "contribution": 2453.0,
+            "anchorContribution": 4173.0,
+            "ratioToAnchor": 0.5878,
+            "idpCurve": 2452.7,
+            "globalCurve": 3735.6
+          }
+        ]
+      }
+    },
+    "_note": "vsAnchor mixes curve choice with value-direct-vs-Hill, because idpTradeCalc is a value-based source. idpCurveVsGlobalCurve is the clean routing measure: same percentile, two curves."
+  },
+  "boardRows": 1092
+}
