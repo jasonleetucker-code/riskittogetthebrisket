@@ -103,15 +103,32 @@ describe("league FAAB context strip — response envelope", () => {
     expect(screen.getByText("of $100")).toBeInTheDocument();
   });
 
-  it("still shows an em-dash when the league genuinely has no bid history", async () => {
-    // Guards against a "fix" that invents numbers: zero is the real
-    // observed value here, and zero must not render as a dollar figure.
+  // ── MISSING != ZERO ───────────────────────────────────────────────
+  //
+  // An earlier version of this file asserted that avg/median of 0 must
+  // render as an em-dash, calling that payload "no bid history". That
+  // was wrong, and it pinned a real defect as the contract: the strip
+  // gated on `avg > 0 && median > 0`, so a MEASURED zero was displayed
+  // identically to an absent observation.
+  //
+  // Zero is not a placeholder here — it is this league's most common
+  // answer. `src/api/faab_analytics.py:278-288` deliberately KEEPS $0
+  // bids, because excluding them overstated the median by ~200x when
+  // 41-77% of adds cost nothing in a given season. So "the median
+  // winning bid is $0" is a finding, not a gap.
+  //
+  // The backend cannot disambiguate through the value: it emits 0.0 for
+  // both an empty pool and a genuinely-zero one. `totalBidsAnalyzed` is
+  // the discriminator, and it is published for exactly this purpose.
+
+  it("renders $0 when the league measurably pays $0 — zero is an observation", async () => {
     vi.stubGlobal("fetch", vi.fn(async () =>
       jsonResponse(
         sectionEnvelope({
           leagueBudget: 100,
           leagueAvgWinningBid: 0,
           leagueMedianWinningBid: 0,
+          totalBidsAnalyzed: 412, // 412 real claims, and they were free
           seasons: [],
         }),
       ),
@@ -120,8 +137,61 @@ describe("league FAAB context strip — response envelope", () => {
     renderPanel();
 
     await waitFor(() => expect(screen.getByText("of $100")).toBeInTheDocument());
-    expect(screen.queryByText("$17")).not.toBeInTheDocument();
+    // Both tiles must show the measured value, not an absence marker.
+    expect(screen.getAllByText("$0").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("shows an em-dash only when there are genuinely no observations", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      jsonResponse(
+        sectionEnvelope({
+          leagueBudget: 100,
+          leagueAvgWinningBid: 0,
+          leagueMedianWinningBid: 0,
+          totalBidsAnalyzed: 0, // nothing was measured
+          seasons: [],
+        }),
+      ),
+    ));
+
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByText("of $100")).toBeInTheDocument());
+    expect(screen.queryByText("$0")).not.toBeInTheDocument();
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+
+  it("does not let a malformed body masquerade as a measured zero", async () => {
+    // No analytics fields at all. Absence of evidence must not read as
+    // "$0 measured" — the failure mode a naive `?? 0` would introduce.
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      jsonResponse(sectionEnvelope({ leagueBudget: 100, seasons: [] })),
+    ));
+
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByText("of $100")).toBeInTheDocument());
+    expect(screen.queryByText("$0")).not.toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+
+  it("renders a $0 remaining balance as $0, not as unknown", async () => {
+    // The same invariant on the team side: a manager who has spent
+    // everything has $0, which is a fact about their season, not a
+    // missing reading.
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(sectionEnvelope(POPULATED))));
+
+    render(
+      <ManualAddDrop
+        rows={ROWS}
+        selectedTeam={{ ...TEAM, faabRemaining: 0 }}
+        sleeperTeams={[]}
+        leagueKey="dynasty_main"
+        settings={{}}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText("$0")).toBeInTheDocument());
   });
 
   it("requests the faabAnalytics section for the active league", async () => {
