@@ -21,8 +21,10 @@ checkout-able — it identifies the work, not a reviewable diff.
 | closure | count |
 |---|---|
 | open | 269 |
-| claimed-unverified | 86 |
+| claimed-unverified | 84 |
 | open-unsafe-to-rerun | 77 |
+| claimed-rerun-failed | 1 |
+| claimed-rerun-needs-adjudication | 1 |
 
 ## Claimed closed
 

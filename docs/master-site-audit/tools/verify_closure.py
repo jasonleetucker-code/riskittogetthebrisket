@@ -236,9 +236,21 @@ def main() -> None:
             rec["rerun"] = rerun(cmd, timeout=args.timeout)
 
         if claimed:
-            rec["closure"] = (
-                "claimed-unverified" if not rec.get("rerun") else "closed-claimed-rerun"
-            )
+            run = rec.get("rerun") or {}
+            if not run:
+                rec["closure"] = "claimed-unverified"
+            elif not run.get("ran") or run.get("exit") != 0:
+                # The reproduction did not complete. That is NOT closure
+                # evidence — it is usually the repro itself being broken
+                # (a missing fixture, a dead path), and it may equally be
+                # the defect back. Either way it needs a human.
+                rec["closure"] = "claimed-rerun-failed"
+            else:
+                # Exit 0 means the command RAN, not that the defect is
+                # gone: this harness never compares stdout against the
+                # finding's `expected`. Adjudication is manual, and the
+                # bucket name has to say so or the count reads as proof.
+                rec["closure"] = "claimed-rerun-needs-adjudication"
         elif not cmd:
             rec["closure"] = "no-repro"
         elif not safe:
@@ -246,6 +258,25 @@ def main() -> None:
         else:
             rec["closure"] = "open"
         records.append(rec)
+
+    if args.id:
+        # A filtered run reports on a few findings; it must not PUBLISH a
+        # few findings. `records` holds only the ids asked for, and this
+        # function writes closure.json wholesale — so `--id W10-F002`
+        # replaced a 432-record ledger with a 3-record one, silently
+        # discarding the other 429 (and the 85 historical claims with
+        # them). Merge onto the existing ledger instead: same failure
+        # mode as the squash that made the frozen ledger necessary, and
+        # the same rule — a tool must not destroy the evidence it exists
+        # to maintain.
+        try:
+            previous = json.loads(OUT.read_text()).get("records") or []
+        except (OSError, json.JSONDecodeError):
+            previous = []
+        updated = {r["id"]: r for r in records}
+        merged = [updated.pop(r["id"], r) for r in previous]
+        merged.extend(updated.values())
+        records = merged
 
     by_closure = Counter(r["closure"] for r in records)
     by_pri_claimed = Counter(r["priority"] for r in records if r["claimedBy"])
