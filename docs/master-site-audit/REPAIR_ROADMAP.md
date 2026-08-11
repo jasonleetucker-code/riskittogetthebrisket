@@ -985,8 +985,11 @@ came from a different league than its `teams`.
 
 ### P1-13 · R17 — The public-league identity filter erases franchises
 
-**Closes:** `W19-F001`, `W19-F002`, `W28-F001` (P1); 7 P2; 8 P3 including 4 verified-working —
-18 findings.
+**Closes:** `W19-F001`, `W19-F002` (P1); 7 P2; 8 P3 including 4 verified-working — 17 findings.
+
+`W28-F001` (the schedule generator) was listed here and is **REMOVED FROM SCOPE by the owner,
+2026-08-11** — not a build, not a blocker, not backlog. It never belonged to this root cause
+anyway: it was grouped here by workstream adjacency, not by mechanism.
 
 **Problem.** `identity._RETIRED_OWNER_IDS` strips two owners from the `ManagerRegistry`, which is
 the `roster_id → owner_id` map every public section resolves through. Filtering identity and

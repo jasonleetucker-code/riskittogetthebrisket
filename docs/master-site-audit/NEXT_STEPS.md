@@ -52,7 +52,7 @@ Sized, and deliberately last in the roadmap:
 | W12-F003 | XL | central Buy/Sell Tracker (16 label emitters today, 5 threshold sets, nothing reconciling them) |
 | W11-F013 | XL | FAAB context — season timing, roster need, contender posture |
 | W23-F017 | XL | human review layer (approve / suppress / annotate / roll back) |
-| W28-F001 | L | the 12-team / 14-week schedule generator + NFL-aware optimizer — **no code exists anywhere** |
+| ~~W28-F001~~ | — | ~~schedule generator~~ — **REMOVED FROM SCOPE by the owner, 2026-08-11.** Not a build, not a blocker, not backlog. `published: false`; see `OWNER_FEATURE_INVENTORY.md`. |
 | W10-F003 | L | perfect-draft optimizer (today: an unconstrained per-player sort) |
 | W19-F007 | L | public Money / Constitution / League Media surfaces |
 | W04-F011 | M | model version / param-set / as-of provenance stamps |

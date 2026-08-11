@@ -30236,7 +30236,10 @@
    "rootCause": "Feature was never started. Not a regression, not a disconnection \u2014 there is no code to disconnect.",
    "requiredRepair": "The constraint set is exactly determined and provably satisfiable, so this is a bounded build, not research: 2*3 + 8 = 14 games per team over exactly 14 weeks means the game multiset is forced and only the week assignment is free. docs/master-site-audit/evidence/W28/schedule_feasibility_proof.py constructs a conforming 14-week bracket (all 84 games, every team exactly once per week, divisional pairs twice and non-divisional once, no back-to-back rematch, Jason-Michaela pinned to week 4) with a randomized-restart greedy in well under a second \u2014 no ILP or SAT solver is needed and none is in requirements.txt. Build order: (1) config/schedule/league_2026.json holding the three divisions, the tier-1 rivalry weight list (Jason, Colin, Eric, Ty, Michaela, Ed, Roy, Joey) and the hard pins; (2) src/schedule/generator.py producing feasible brackets; (3) src/schedule/optimizer.py scoring candidates against the 2026 NFL weeks 1-14 pulled through the EXISTING src/bdvm/schedule.py fetcher \u2014 NFL head-to-head and NFL bye weeks weighted above rivalry preference per the spec; (4) GET /api/schedule/generate plus a /schedule page and a CSV/Sleeper-importable export. Estimate L: ~400-600 LOC plus tests.",
    "dependencies": "src/bdvm/schedule.py (nflverse slate \u2014 network fetch, degrades to [] offline, so the optimizer must treat the NFL layer as optional and fall back to constraint-only generation); config/leagues/registry.json; config/team_assignment.json for the manager-name vocabulary.",
-   "published": true
+   "published": false,
+   "ownerDisposition": "NOT APPLICABLE \u2014 OWNER REMOVED FROM SCOPE",
+   "ownerDispositionAt": "2026-08-11",
+   "ownerDispositionNote": "The owner removed the fantasy-league schedule generator from product scope on 2026-08-11. This finding existed solely because an earlier specification required the feature; there is no defect, no regression and no code to repair \u2014 the audit confirmed zero implementation anywhere in the tree. It is NOT a build, blocker, backlog item or future feature. Do not re-open it as 'missing'."
   },
   {
    "id": "W28-F002",

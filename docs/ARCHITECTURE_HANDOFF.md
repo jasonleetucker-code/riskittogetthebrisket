@@ -82,7 +82,7 @@ These are load-bearing invariants, not style preferences. Each has an incident b
 | Team Weakness | `src/roster_intel/` (unconsumed, unverified) | **C2 must verify/repair before canonicalizing** |
 | Acquisition history | — | **does not exist; C3 build** |
 | Central Buy/Sell | — | **does not exist; E2 build (22 emitters today)** |
-| Schedule generator | — | **does not exist; D7 build** |
+| ~~Schedule generator~~ | — | **REMOVED FROM SCOPE by the owner 2026-08-11** — not a build, not a blocker, not backlog. `W28-F001` is `published: false`. See `docs/OWNER_FEATURE_INVENTORY.md`. |
 | Podcast intelligence | — | **does not exist; E6 build** |
 
 ---
@@ -180,6 +180,12 @@ the value chain.
   coordinate fix, a test asserting fit and serve denominators agree, a refit **challenger** with
   its holdout verdict recorded — and production constants left alone until a human promotes.
   Until then the served error above stands, and must be stated rather than implied fixed.
+
+  **STATUS: INVESTIGATION ONLY — NO IMPLEMENTATION HAS BEGUN.** Owner directive 2026-08-11: do
+  not start B1 (or any later) source implementation until explicitly authorized, and do not run
+  or authorize `promote` / `apply`, change production model constants, or promote a challenger
+  without first presenting holdout/backtest evidence, expected board impact, risks and the exact
+  proposed change for approval. Zero production source files have been modified for B1.
 - **B2 — W02-F001**: re-derivation, NOT the registry's one-line scope re-route, which its own
   verifier refuted. Never ship the re-route alone (`REPAIR_ROADMAP.md:1492`).
 - **B3** — re-measure Hampel anchor ejection (W02-F002) and corridor-clamp binding (W02-F003)

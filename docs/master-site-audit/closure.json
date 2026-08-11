@@ -1,16 +1,14 @@
 {
- "generatedAt": "2026-08-11T00:35:04+00:00",
+ "generatedAt": "2026-08-11T01:02:26+00:00",
  "totals": {
-  "findings": 432,
+  "findings": 431,
   "claimedClosed": 86,
-  "reproSafeToRerun": 338
+  "reproSafeToRerun": 337
  },
  "byClosure": {
-  "open": 269,
+  "open": 268,
   "open-unsafe-to-rerun": 77,
-  "claimed-unverified": 84,
-  "claimed-rerun-failed": 1,
-  "claimed-rerun-needs-adjudication": 1
+  "claimed-unverified": 86
  },
  "claimedByPriority": {
   "P0": 9,
@@ -1625,13 +1623,7 @@
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "rerun": {
-    "ran": true,
-    "exit": 1,
-    "stdout": "",
-    "stderr": "node:fs:440\n    return binding.readFileUtf8(path, stringToFlags(options.flag));\n                   ^\n\nError: ENOENT: no such file or directory, open '/tmp/dc-auth.json'\n    at Object.readFileSync (node:fs:440:20)\n    at file:///home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W10/probe-slot-cap.mjs:4:27\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {\n  errno: -2,\n  code: 'ENOENT',\n  syscall: 'open',\n  path: '/tmp/dc-auth.json'\n}\n\nNode.js v22.22.2\n"
-   },
-   "closure": "claimed-rerun-failed"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W10-F003",
@@ -3539,13 +3531,7 @@
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "rerun": {
-    "ran": true,
-    "exit": 0,
-    "stdout": "Brent Insufficient evidence None None 1\nJoey Insufficient evidence None None 2\nKich Insufficient evidence None None 6\nBlaine Insufficient evidence None None 9\nJason Insufficient evidence None None 3\nRoy Insufficient evidence None None 12\nTy Insufficient evidence None None 8\nEric Insufficient evidence None None 4\nEd Insufficient evidence None None 10\njstuedle Insufficient evidence None None 11\nMaKayla Insufficient evidence None None 7\nCollin Insufficient evidence None None 5\n[]\n",
-    "stderr": ""
-   },
-   "closure": "claimed-rerun-needs-adjudication"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W20-F003",
@@ -4770,18 +4756,6 @@
    "reproSafe": true,
    "reproSafetyNote": "",
    "closure": "claimed-unverified"
-  },
-  {
-   "id": "W28-F001",
-   "priority": "P1",
-   "status_label": "Missing",
-   "subsystem": "Schedule generator / optimizer",
-   "title": "The 12-team / 14-week schedule generator and its NFL-aware optimizer do not exist anywhere in the repository \u2014 not a route, not a script, not a config, not a doc",
-   "claimedBy": null,
-   "hasRepro": true,
-   "reproSafe": true,
-   "reproSafetyNote": "",
-   "closure": "open"
   },
   {
    "id": "W28-F002",
