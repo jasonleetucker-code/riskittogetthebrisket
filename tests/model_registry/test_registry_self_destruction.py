@@ -135,9 +135,9 @@ class TestProductionRegistryIsNotReseeded:
             "is the seed shape, which means something reseeded it"
         )
         producers = {(v.get("producer") or "") for v in versions}
-        assert any("fit_hill_curve_percentile" in p for p in producers), (
-            "no version was produced by a real fit; the registry looks seeded"
-        )
+        assert any(
+            "fit_hill_curve_percentile" in p for p in producers
+        ), "no version was produced by a real fit; the registry looks seeded"
 
     def test_it_still_names_a_champion_with_recorded_history(self):
         blob = json.loads(PROD_REGISTRY.read_text())
