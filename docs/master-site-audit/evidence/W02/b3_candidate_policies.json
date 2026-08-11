@@ -1,0 +1,90 @@
+{
+ "criteria": "EVALUATION CRITERIA \u2014 declared before any candidate is measured (B3 \u00a710).\nNot a score. Where no objective ground truth exists the tradeoff is\nreported, not invented.\n\n 1. Pathology containment. Does the policy still catch a value that is\n    wrong rather than merely contested \u2014 the single-source explosion the\n    corridor was built for?\n 2. Preservation of well-evidenced disagreement. A row where several\n    independent sources agree with each other and disagree with one\n    dissenting source is the board working, not failing. A policy that\n    overrides those rows at a HIGHER rate than thin rows is inverted.\n 3. No hidden second weighting of the anchor. `idpTradeCalc` already\n    votes. A policy that also lets it veto gives it two bites; the size\n    of the second bite is a cost, not a feature.\n 4. Robustness to one missing source. Behaviour should not hinge on\n    whether one board happened to cover a player.\n 5. Understandable provenance. A reader must be able to see why a value\n    is what it is.\n 6. Low sensitivity to arbitrary constants. A policy whose entire\n    behaviour is decided by one hand-set number is fragile by\n    construction.\n 7. Board coherence. Positional and top-of-board composition should not\n    move for reasons unrelated to evidence.\n\nNOT a criterion: which board \"looks right\". No objective per-player ground\ntruth for dynasty IDP value exists on this timeframe, so any candidate\nselected on eyeball plausibility would be selected on nothing.",
+ "results": [
+  {
+   "label": "A  current (bucket P90 capped at 0.15)",
+   "affected": 183,
+   "population": 329,
+   "up": 23,
+   "down": 160,
+   "medianAbsMovePct": 8.290155440414507,
+   "p90AbsMovePct": 30.49921996879875,
+   "maxAbsMovePct": 51.95402298850575,
+   "byFamily": {
+    "dl_edge": 74,
+    "lb": 34,
+    "db": 75
+   },
+   "byConfidence": {
+    "medium": 55,
+    "low": 105,
+    "high": 23
+   },
+   "bySourceCount": {
+    "5": 32,
+    "3": 100,
+    "4": 36,
+    "2": 13,
+    "6": 2
+   }
+  },
+  {
+   "label": "B  uncapped (bucket P90, no hard maximum)",
+   "affected": 32,
+   "population": 329,
+   "up": 0,
+   "down": 32,
+   "medianAbsMovePct": 1.9546520719311964,
+   "p90AbsMovePct": 8.508977361436378,
+   "maxAbsMovePct": 10.678210678210679,
+   "byFamily": {
+    "dl_edge": 14,
+    "db": 15,
+    "lb": 3
+   },
+   "byConfidence": {
+    "low": 17,
+    "medium": 12,
+    "high": 3
+   },
+   "bySourceCount": {
+    "3": 26,
+    "4": 3,
+    "2": 3
+   }
+  },
+  {
+   "label": "C  evidence-gated empirical band",
+   "affected": 17,
+   "population": 329,
+   "up": 0,
+   "down": 17,
+   "medianAbsMovePct": 1.56128024980484,
+   "p90AbsMovePct": 2.349256068911511,
+   "maxAbsMovePct": 10.678210678210679,
+   "byFamily": {
+    "dl_edge": 10,
+    "db": 5,
+    "lb": 2
+   },
+   "byConfidence": {
+    "low": 17
+   },
+   "bySourceCount": {
+    "3": 11,
+    "4": 3,
+    "2": 3
+   }
+  },
+  {
+   "label": "D  safety rail only",
+   "affected": 0,
+   "population": 329
+  },
+  {
+   "label": "E  no corridor",
+   "affected": 0,
+   "population": 329
+  }
+ ]
+}

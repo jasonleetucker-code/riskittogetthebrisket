@@ -525,10 +525,17 @@ class TestIdpMaxBandCap(unittest.TestCase):
     bucket P90 are still untouched.
     """
 
-    def test_idp_cap_constant_is_set(self):
-        """Cap is configured for IDP and lives at 15% by default."""
-        self.assertIn("idp", _MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS)
-        self.assertEqual(_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS["idp"], 0.15)
+    def test_no_asset_class_carries_a_hard_cap(self):
+        """B3 (2026-08-11) removed the IDP entry; nothing replaced it.
+
+        The facility is kept because the mechanism is generic, but on
+        the live board the 0.15 cap decided EVERY clamp — 183 of 329
+        ranked IDP rows, all landing on ``idpTradeCalc × 0.85`` or
+        ``× 1.15`` — while the board-derived bucket bands (0.5183 to
+        0.6504) were computed and discarded every time. Evidence:
+        ``docs/master-site-audit/evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md``.
+        """
+        self.assertEqual(_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS, {})
 
     def test_offense_has_no_cap(self):
         """Offense has no cap because offense rows are not clamped at
@@ -569,18 +576,20 @@ class TestIdpMaxBandCap(unittest.TestCase):
         rows.append(outlier)
         _apply_market_corridor_clamp(rows, players_by_name={})
 
-        # Without the cap, bucket P90 would be ~0.30 → clamp to
-        # 3600 × 0.70 = 2520.  WITH the cap at 0.15, clamp is to
-        # 3600 × 0.85 = 3060.  The cap should bind.
+        # The outlier is STILL caught — which is the point of the test
+        # and the reason B3 removed the cap rather than the corridor.
+        # It now clamps to the band the board itself produced
+        # (bucket P90 ≈ 0.30 → 3600 × 0.70 = 2520) instead of to a
+        # hand-set constant (3600 × 0.85 = 3060).
         self.assertIn("marketCorridorClamp", outlier)
         stamp = outlier["marketCorridorClamp"]
         self.assertEqual(stamp["direction"], "up")
         self.assertEqual(stamp["originalValue"], 1900)
         self.assertEqual(stamp["marketAnchor"], 3600)
-        self.assertEqual(stamp["bandPct"], 0.15)
-        self.assertTrue(stamp["cappedByMaxBand"])
-        self.assertEqual(stamp["maxBandPct"], 0.15)
-        self.assertEqual(outlier["rankDerivedValue"], 3060)
+        self.assertFalse(stamp["cappedByMaxBand"])
+        self.assertIsNone(stamp["maxBandPct"])
+        self.assertAlmostEqual(stamp["bandPct"], 0.30, places=2)
+        self.assertEqual(outlier["rankDerivedValue"], 2520)
 
     def test_idp_inside_cap_uses_bucket_p90(self):
         """When the bucket P90 is below the cap, the existing dynamic
@@ -614,9 +623,10 @@ class TestIdpMaxBandCap(unittest.TestCase):
         # Clamp = 5000 × (1 − 0.10) = 4500.
         self.assertEqual(outlier["rankDerivedValue"], 4500)
 
-    def test_idp_cap_applies_in_both_directions(self):
-        """Over-valued outliers also clamp to the 15% cap edge above
-        IDPTC, not just below it."""
+    def test_the_corridor_applies_in_both_directions(self):
+        """Over-valued outliers clamp to the band edge above the anchor,
+        not just below it.  Symmetry is a property of the mechanism and
+        survived the B3 cap removal."""
         rows = []
         # 39 IDPs with 30% drift to widen the bucket band past 0.15.
         for i in range(39):
@@ -641,10 +651,10 @@ class TestIdpMaxBandCap(unittest.TestCase):
         _apply_market_corridor_clamp(rows, players_by_name={})
         stamp = over["marketCorridorClamp"]
         self.assertEqual(stamp["direction"], "down")
-        self.assertTrue(stamp["cappedByMaxBand"])
-        self.assertEqual(stamp["bandPct"], 0.15)
-        # Clamp = 5000 × 1.15 = 5750.
-        self.assertEqual(over["rankDerivedValue"], 5750)
+        self.assertFalse(stamp["cappedByMaxBand"])
+        self.assertAlmostEqual(stamp["bandPct"], 0.30, places=2)
+        # Clamp = 5000 × 1.30 = 6500, the board's own band edge.
+        self.assertEqual(over["rankDerivedValue"], 6500)
 
     def test_offense_rows_are_never_clamped(self):
         """Offense is fully exempt from the corridor clamp.

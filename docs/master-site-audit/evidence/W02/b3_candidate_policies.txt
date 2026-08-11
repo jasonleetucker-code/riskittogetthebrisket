@@ -1,0 +1,88 @@
+
+EVALUATION CRITERIA — declared before any candidate is measured (B3 §10).
+Not a score. Where no objective ground truth exists the tradeoff is
+reported, not invented.
+
+ 1. Pathology containment. Does the policy still catch a value that is
+    wrong rather than merely contested — the single-source explosion the
+    corridor was built for?
+ 2. Preservation of well-evidenced disagreement. A row where several
+    independent sources agree with each other and disagree with one
+    dissenting source is the board working, not failing. A policy that
+    overrides those rows at a HIGHER rate than thin rows is inverted.
+ 3. No hidden second weighting of the anchor. `idpTradeCalc` already
+    votes. A policy that also lets it veto gives it two bites; the size
+    of the second bite is a cost, not a feature.
+ 4. Robustness to one missing source. Behaviour should not hinge on
+    whether one board happened to cover a player.
+ 5. Understandable provenance. A reader must be able to see why a value
+    is what it is.
+ 6. Low sensitivity to arbitrary constants. A policy whose entire
+    behaviour is decided by one hand-set number is fragile by
+    construction.
+ 7. Board coherence. Positional and top-of-board composition should not
+    move for reasons unrelated to evidence.
+
+NOT a criterion: which board "looks right". No objective per-player ground
+truth for dynasty IDP value exists on this timeframe, so any candidate
+selected on eyeball plausibility would be selected on nothing.
+
+pinned board: exports/latest/dynasty_data_2026-08-11.json
+
+── A  current (bucket P90 capped at 0.15) ── true pipeline run — the shipped policy
+  rows affected: 183 of 329 ranked IDP rows (55.6%)   up 23 / down 160
+  |Δvalue%|: median=8.3 p90=30.5 max=52.0   signed median=-5.2
+  by family: dl_edge 74/129  lb 34/91  db 75/109  other 0/0
+  by confidence: high 23/36 (63.9%)  medium 55/120 (45.8%)  low 105/173 (60.7%)
+  by source count: 2→13/27  3→100/112  4→36/60  5→32/122  6→2/8
+  by board zone: top 25/109  mid 64/109  tail 94/111
+  largest 6 moves:
+    Abdul Carter                3654 →  4598 (anchor  5409, medium, 5 src)
+    Jalon Walker                1838 →  2755 (anchor  3241, low, 5 src)
+    Byron Young                 1740 →  2644 (anchor  3111, low, 5 src)
+    Nick Herbig                 1727 →  2620 (anchor  3082, low, 5 src)
+    Jamien Sherwood             3198 →  2462 (anchor  2141, medium, 5 src)
+    Chase Young                 1828 →  2506 (anchor  2948, low, 5 src)
+
+── B  uncapped (bucket P90, no hard maximum) ── true pipeline run — the empirical machinery allowed to decide
+  rows affected: 32 of 329 ranked IDP rows (9.7%)   up 0 / down 32
+  |Δvalue%|: median=2.0 p90=8.5 max=10.7   signed median=-2.0
+  by family: dl_edge 14/129  lb 3/91  db 15/109  other 0/0
+  by confidence: high 3/36 (8.3%)  medium 12/120 (10.0%)  low 17/173 (9.8%)
+  by source count: 2→3/27  3→26/112  4→3/60  5→0/122  6→0/8
+  by board zone: top 0/109  mid 0/109  tail 32/111
+  largest 6 moves:
+    Will Johnson                1386 →  1238 (anchor   759, low, 2 src)
+    Ji'Ayir Brown               1278 →  1162 (anchor   765, medium, 3 src)
+    DJ Wonnum                   1281 →  1172 (anchor   772, medium, 3 src)
+    Ja'Quan McMillian           1281 →  1172 (anchor   772, medium, 3 src)
+    Christian Benford           1285 →  1187 (anchor   782, medium, 3 src)
+    Jaycee Horn                 1286 →  1190 (anchor   784, medium, 3 src)
+
+── C  evidence-gated empirical band ── POST-HOC on B — clamp only rows without independent corroboration (<3 sources or low confidence)
+  rows affected: 17 of 329 ranked IDP rows (5.2%)   up 0 / down 17
+  |Δvalue%|: median=1.6 p90=2.3 max=10.7   signed median=-1.6
+  by family: dl_edge 10/129  lb 2/91  db 5/109  other 0/0
+  by confidence: high 0/36 (0.0%)  medium 0/120 (0.0%)  low 17/173 (9.8%)
+  by source count: 2→3/27  3→11/112  4→3/60  5→0/122  6→0/8
+  by board zone: top 0/109  mid 0/109  tail 17/111
+  largest 6 moves:
+    Will Johnson                1386 →  1238 (anchor   759, low, 2 src)
+    Nate Wiggins                1298 →  1243 (anchor   762, low, 2 src)
+    Osa Odighizuwa              1277 →  1247 (anchor   764, low, 4 src)
+    Keyron Crawford             1279 →  1251 (anchor   767, low, 3 src)
+    Keyshaun Elliott            1281 →  1253 (anchor   768, low, 4 src)
+    Gabe Jacas                  1279 →  1253 (anchor   768, low, 4 src)
+
+── D  safety rail only ── POST-HOC on B — clamp only drift > 1.341 (2x the board's own P90 drift)
+  rows affected: 0 of 329 ranked IDP rows
+
+── E  no corridor ── true pipeline run via suppress flag
+  rows affected: 0 of 329 ranked IDP rows
+
+── board composition, true pipeline runs only ──
+  A current    top100 IDP 9   top200 IDP 43   top400 IDP 130
+  B uncapped   top100 IDP 9   top200 IDP 41   top400 IDP 130
+  E none       top100 IDP 9   top200 IDP 41   top400 IDP 130
+
+wrote /home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W02/b3_candidate_policies.json

@@ -1,0 +1,96 @@
+== B3 pin ==
+  code   8a0592e8a  dirty=True
+  board  exports/latest/dynasty_data_2026-08-11.json  sha256_16=8fb6ede274171aee  834861 B  scraped=2026-08-11T11:32:57.431111
+  csvs   24 hashed
+  champ  v2 (champion) params={'HILL_GLOBAL_PERCENTILE_C': 0.112, 'HILL_GLOBAL_PERCENTILE_S': 0.725, 'HILL_PERCENTILE_C': 0.11, 'HILL_PERCENTILE_S': 1.11, 'IDP_HILL_PERCENTILE_C': 0.083, 'IDP_HILL_PERCENTILE_S': 1.11, 'HILL_ROOKIE_PERCENTILE_C': 0.153, 'HILL_ROOKIE_PERCENTILE_S': 0.885}
+
+== corridor configuration as shipped ==
+  primary anchors      {'offense': 'ktcSfTep', 'idp': 'idpTradeCalc'}
+  fallback chains      {'offense': ['ktcSfTep', 'idpTradeCalc', 'dynastyDaddySf', 'fantasyProsFitzmaurice', 'yahooBoone'], 'idp': ['idpTradeCalc', 'dlfIdp', 'idpShow', 'fantasyProsIdp']}
+  percentile           0.9
+  min bucket n         30
+  hard max band        {'idp': 0.15}
+
+  anchor sources that are ALSO voting members of the blend they clamp:
+    idpTradeCalc       voting=True
+    dlfIdp             voting=True
+    idpShow            voting=True
+    fantasyProsIdp     voting=True
+
+== W02-F003 reproduction ==
+  clamped 183 rows — 55.6% of 329 ranked IDP rows; asset classes {'idp': 183}
+  non-offense ranked rows the clamp iterates: 359 (picks reach the loop and are dropped by having no anchor chain)
+  cappedByMaxBand      183/183 (100.0%)
+  distinct bandPct     [0.15]
+  on the band edge     183/183 (100.0%)
+  direction            up 23 (value was BELOW anchor) / down 160 (value was ABOVE anchor)
+
+== empirical bucket P90s the hard cap overrides ==
+  overall  n=329   P90=0.6201   (cap 0.15)
+  high     n=36    P90=0.6504   own band   cap wins=True
+  low      n=173   P90=0.6316   own band   cap wins=True
+  medium   n=120   P90=0.5183   own band   cap wins=True
+
+== who gets clamped ==
+  bucket     ranked IDP  clamped    rate   up/down
+  high               36       23   63.9%      6/17
+  medium            120       55   45.8%     11/44
+  low               173      105   60.7%      6/99
+  sources    ranked IDP  clamped    rate
+  2                  27       13   48.1%
+  3                 112      100   89.3%
+  4                  60       36   60.0%
+  5                 122       32   26.2%
+  6                   8        2   25.0%
+
+== anchor lineage on clamped rows ==
+  anchor=idpTradeCalc              183 rows
+  rows where the anchor source ALSO voted in this row's blend: 183/183 (100.0%)
+
+== corridor's share of the served value ==
+  rows whose SERVED value differs with the corridor on: 193
+  |Δ%| mean=14.45 median=7.05 p90=30.48 max=51.95
+  largest 10:
+    Abdul Carter               unclamped  3654 → served  4598  (+25.8%)
+    Jalon Walker               unclamped  1838 → served  2755  (+49.9%)
+    Byron Young                unclamped  1740 → served  2644  (+52.0%)
+    Nick Herbig                unclamped  1727 → served  2620  (+51.7%)
+    Jamien Sherwood            unclamped  3198 → served  2462  (-23.0%)
+    Chase Young                unclamped  1828 → served  2506  (+37.1%)
+    Dallas Turner              unclamped  3022 → served  3539  (+17.1%)
+    Will Johnson               unclamped  1386 → served   873  (-37.0%)
+    Nate Wiggins               unclamped  1298 → served   876  (-32.5%)
+    Ji'Ayir Brown              unclamped  1278 → served   880  (-31.1%)
+
+== distance from the anchor, before and after the corridor ==
+  unclamped |value − anchor| / anchor : median=0.2264 p90=0.6483 max=0.8261
+  clamped   |value − anchor| / anchor : median=0.1500 p90=0.1504 max=0.1506
+  → 183 of 329 ranked IDP rows (55.6%) are served at exactly idpTradeCalc × 0.85 or × 1.15
+
+== idpTradeCalc's direct share of the vote on clamped rows ==
+  sources stamped per clamped row: median=3 min=2 max=6
+  idpTradeCalc contribution ÷ median of the other sources: n=183 median=0.721 p10=0.452 p90=1.184
+  (>1 means IDPTC prices the row ABOVE its peers — and the corridor then pulls the blend back toward IDPTC as well)
+
+== leave-IDPTC-out WHOLE-BOARD rebuild (DIAGNOSTIC ONLY) ==
+  CAVEAT, load-bearing: idpTradeCalc is also the IDP BACKBONE, so
+  dropping it empties the shared-market ladder and every translated
+  IDP source falls back to a raw IDP-local rank. This board is
+  therefore NOT 'the same model minus one vote' — it is an UPPER
+  BOUND on idpTradeCalc's influence, and the vote-share block above
+  is the isolate.
+  player                       blend     LOO  anchor unclamp  served
+  Abdul Carter                  3654    2493    5409    3654    4598
+  Jacob Rodriguez               3517    3239    4169    3517    3544
+  Jamien Sherwood               3198    4522    2141    3198    2462
+  Dallas Turner                 3022    2327    4164    3022    3539
+  Nik Bonitto                   2814    2397    3593    2814    3054
+  Josh Hines-Allen              2704    2150    3596    2704    3057
+  Rueben Bain                   2636    2199    3458    2636    2939
+  Tuli Tuipulotu                2618    2263    3220    2618    2737
+  Nate Landman                  2572    5230    3127    2572    2658
+  Brian Branch                  2569    5430    3200    2569    2720
+  Daiyan Henley                 2548    3278    1984    2548    2282
+  George Karlaftis              2481    4441    3043    2481    2587
+
+wrote /home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W02/b3_corridor_report.json

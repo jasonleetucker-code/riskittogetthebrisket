@@ -4719,23 +4719,52 @@ _MARKET_CORRIDOR_PERCENTILE: float = 0.90
 # can't get an unrepresentative band.
 _MARKET_CORRIDOR_MIN_BUCKET_N: int = 30
 
-# Hard ceiling on the corridor band per asset class.  The dynamic
-# bucket-P90 still controls clamp behaviour for normal cases; this
-# cap is a safety rail that prevents a wide bucket distribution from
-# letting truly-extreme outliers escape the clamp entirely.
+# Hard ceiling on the corridor band per asset class.  **EMPTY since
+# B3 (2026-08-11): the IDP entry of 0.15 was removed.**  The facility
+# is kept because the mechanism is generic and a future asset class
+# may need it; nothing populates it today.
 #
-# IDP cap is 0.15 (±15% of IDPTradeCalc): IDPTC is the retail IDP
-# market, so blended values that drift further than that aren't
-# tradeable in real leagues regardless of how many other sources
-# disagree.  Cases like a Vikings LB priced at 1,900 internal vs
-# 3,600 on IDPTC (47% drift) clamp to the band edge (3,060) instead
-# of riding through on a wide bucket P90.  Offense has no cap
-# because offense rows are not clamped at all (see
-# ``_apply_market_corridor_clamp`` — the clamp only contains the
-# IDP calibration runaway; offense has no calibration post-pass).
-_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS: dict[str, float] = {
-    "idp": 0.15,
-}
+# It was introduced (#375/#376, 2026-05-02) so a wide bucket
+# distribution could not let a truly-extreme outlier escape — the
+# Vikings-LB case, 1,900 internal against 3,600 on IDPTC.  Measured
+# on the 2026-08-11 board, that is not what it does.  It decided
+# EVERY clamp: 183 of 329 ranked IDP rows (55.6%), all capped, all
+# landing on exactly ``idpTradeCalc × 0.85`` or ``× 1.15``, because
+# the empirical bucket bands run 0.5183–0.6504 — 3.5× to 4.3× the
+# cap — in every bucket, all of them above the min-sample threshold.
+# So the board-derived band was computed and then discarded 183 times
+# out of 183, and the served value of most of the ranked IDP board
+# was a constant times one source.
+#
+# The distributional evidence is what settles it.  With the cap gone
+# the same code clamps 32 rows (9.7%), every one of them in the board
+# tail, none with five or more sources, median move 2.0% — which is
+# the tail safety rail the corridor was designed to be.  With the cap
+# the clamp rate is INVERTED against the board's own confidence:
+# 63.9% of high-confidence rows against 45.8% of medium, i.e. it
+# overrode the rows where our sources agree most tightly, in favour
+# of the one source that disagreed — and that source
+# (``idpTradeCalc``) is itself a voting member of the blend being
+# clamped, so it was getting a direct contribution and then a
+# post-blend veto.
+#
+# Two things this deliberately does NOT rely on.  It is not "the
+# empirical machinery was dead": a tighter synthetic board reaches it
+# (pinned in ``test_market_corridor_characterization``), so the cap's
+# dominance was a property of this market's IDP disagreement.  And it
+# is not "the corridor is unnecessary": the corridor still runs, and
+# the hazard the cap was aimed at is separately covered by the
+# single-source haircut (``_SINGLE_SOURCE_VALUE_RETENTION``, #496).
+#
+# Residual, stated rather than hidden: the band is derived from the
+# same drift distribution it bounds, so a board that drifted as a
+# whole would widen its own band and catch nothing.  That is a
+# property of the empirical design, not of this removal, and it is
+# the reason the facility below is kept rather than deleted.
+#
+# Full evidence: ``docs/master-site-audit/evidence/W02/``
+#   ``B3_MARKET_CORRIDOR_EVIDENCE.md``.
+_MARKET_CORRIDOR_MAX_BAND_BY_ASSET_CLASS: dict[str, float] = {}
 
 
 def _market_anchor_value_for_row(row: dict[str, Any]) -> float | None:
