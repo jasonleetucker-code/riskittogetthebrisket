@@ -1,0 +1,232 @@
+# Corridor dependency pass — decision
+
+## Recommendation
+
+**MORE CORRIDOR EVIDENCE REQUIRED.**
+
+The *diagnosis* is complete and decisive: **the market corridor in its
+current form is not a defensible canonical safety mechanism**, and the
+reasons are structural rather than tuning failures. What is not
+established is the *replacement*, and the gap is specific and nameable —
+see §6. Recommending a production swap on the evidence I have would mean
+replacing a measured-bad mechanism with an insufficiently-measured one.
+
+No production behaviour changed in this pass. `TAIL_SATURATION_RANK`
+remains `None`; the 903 policy was enabled experimentally and restored.
+
+## Pin
+
+New pin on integrated `main` `8639e79f4` (board
+`dynasty_data_2026-08-11.json`, 24 CSVs, champion registry v2). The B4
+pin is historical and was neither reused nor overwritten; this pass
+writes only to `cd_*` paths.
+
+## 1. Anchor independence (#794) — no independent anchor exists
+
+**Every member of every anchor chain votes in the blend it later
+anchors.** IDP chain: `idpTradeCalc`, `dlfIdp`, `idpShow`,
+`fantasyProsIdp` — four voters. The stage-3 median fallback is a median
+*over that same chain*, so it is a second statistic of the same voters,
+not an independent one.
+
+All 32 clamps on this pin anchor on `idpTradeCalc`, which votes on all 32.
+
+The incremental second influence, stated two ways because they differ in
+size and both are true:
+
+* **Structurally it is total.** A clamped value is `anchor × (1 ± band)`
+  — a pure function of the anchor. The anchor's share of the row goes
+  from a median **1/3** in the blend to **1.0** after the clamp.
+* **Numerically it is currently modest.** The clamp moves the value a
+  median 2.0% (max 10.7%), because the band is wide. Its first influence
+  through the blend is a median 20.8%.
+
+**A genuinely independent anchor is not constructible from this tree.**
+Exactly one loaded source does not vote — `ktc` — and it is offense-only,
+while the corridor clamps IDP only. Every source covering IDP votes.
+Candidate family 4 is therefore reported as *not constructible* rather
+than quietly dropped; it would require a new data source, which is out of
+scope.
+
+## 2. Band independence (#795) — a P90 cannot detect systemic drift
+
+Not a calibration problem. A percentile threshold cuts the worst 10% of
+**whatever distribution it is handed**, healthy or catastrophic.
+
+Scaling every IDP blended value by `f` with anchors untouched — a
+whole-board calibration failure, precisely what a rail exists for:
+
+| f | band | fires | rate | same rows as f=1 |
+|---|---|---|---|---|
+| 1.0 | 0.6201 | 32 | 9.7% | — |
+| 1.3 | 1.1061 | 32 | 9.7% | yes |
+| 3.0 | 3.8602 | 32 | 9.7% | yes |
+| 10.0 | 15.2005 | 32 | 9.7% | yes |
+
+A **10× board-wide error is invisible**: identical rows, identical rate,
+band scaled to match the defect.
+
+From the other side — inflate a fraction `q` of rows 3×:
+
+| q | broken | caught | detection |
+|---|---|---|---|
+| 2% | 6 | 6 | 100% |
+| 10% | 32 | 32 | 100% |
+| 20% | 65 | 33 | 50.8% |
+| 80% | 263 | 33 | 12.5% |
+
+The rail's capacity is fixed at ~33 rows however much is broken.
+
+**So the current band is a fixed-rate outlier trimmer, not a
+catastrophic-error rail.** It detects the class of problem it is least
+needed for and is structurally blind to the class it was justified by.
+
+## 3. Confidence dependency (#796) — the bands are ordered incoherently
+
+| bucket | n | band | median drift |
+|---|---|---|---|
+| high | 36 | 0.6504 | 0.2071 |
+| low | 174 | 0.6316 | 0.1951 |
+| medium | 119 | 0.5183 | 0.0980 |
+
+**HIGH confidence is permitted MORE disagreement than MEDIUM**, and
+high-confidence rows drift further from the anchor than medium ones. That
+is not a defensible basis for separate bands. Total spread is 0.1321, so
+the dependency is also doing little work for the complexity it carries.
+
+The recommendation is **abstention, not tuning**: any replacement should
+decline to confidence-grade until the bucket methodology is independently
+validated. No bucket constant was touched in this pass.
+
+## 4. Necessity (Q4) — the stated purpose predeceased the mechanism
+
+`_apply_market_corridor_clamp`'s docstring justifies it as containing
+"the IDP calibration post-pass's 3-4× DB-bucket multipliers". **That
+post-pass no longer exists** — it was retired, and neither the function
+nor its config file is in the tree. The corridor is now justified by a
+mechanism it outlived.
+
+Separately: the corridor runs *after* `canonicalConsensusRank` is
+stamped, so it rewrites values and never reorders. **A clamped row keeps
+the rank its unclamped value earned**, so its published value and
+published rank come from different stages.
+
+## 5. Candidate families, measured
+
+Seven scenarios × nine families, on identical pinned inputs. Full tables
+in `cd_corridor_candidates.txt` / `.json`.
+
+Headline — detection vs false intervention:
+
+| candidate | false-int (healthy) | whole-board drift | routing failure | stability |
+|---|---|---|---|---|
+| 1 current | **8.9%** | **8.9%** | **6.7%** | 0.751 |
+| 2 leave-one-out anchor | 9.8% | 10.0% | 38.2% | 0.775 |
+| 3 multi-source anchor | **52.9%** | 53.2% | 65.2% | 0.990 |
+| 4 external anchor | *not constructible* | — | — | — |
+| 5 historical band | 8.9% | 47.4% | 4.5% | 0.734 |
+| 6 change-point | 0.0% | **100%** | 0.0% | 1.000 |
+| 7 hull invariant | **0.0%** | 93.3% | **97.8%** | 1.000 |
+| 8 hull + ABSTAIN | **0.0%** | 93.3% | **97.8%** | 1.000 |
+| 9 none | 0.0% | 0.0% | 0.0% | 1.000 |
+
+Readings:
+
+* **Current is worse than absent on routing failure**: it intervenes on
+  9.6% of healthy rows while catching 6.7% of broken ones.
+* **Candidate 3 is disqualified** — 52.9% false intervention.
+* **Candidate 2 fails where it matters most**: excluding the anchor makes
+  an *anchor* fault invisible (11.8% detection).
+* **The hull invariant is the mirror image of current.** "A blend cannot
+  fall outside the range of its own inputs" is violated only by a
+  pipeline/routing/calibration fault, never by disagreement however
+  violent — which is exactly the distinction the corridor's stated
+  purpose needs and its current form cannot make. It correctly scores 0%
+  on single-source anomalies: one source being weird *is* disagreement.
+* **Change-point** catches whole-board drift perfectly and nothing else.
+  It is complementary to the hull, not a substitute.
+
+Two corrections I made to my own harness, recorded because they changed
+conclusions:
+
+* the first `normal_disagreement` scenario perturbed the *blend*
+  independently of its inputs, which violates the hull invariant **by
+  construction** and scored the hull at 15.9% false intervention. Real
+  disagreement moves the sources and the blend follows. Corrected, it is
+  **1.9%**. The same bug inflated the stability probe.
+* candidate D-style "per-source ceiling" is not a distinct candidate at
+  all — it prices every rank identically to a shared ceiling and only
+  moves where saturation begins.
+
+The **2% hull tolerance does no policy work**: on the live board the
+invariant holds with **0 violations at every tolerance from 0% to 10%**.
+
+## 6. Why this is not yet a recommendation to implement
+
+Two gaps, both specific.
+
+**(a) The replacement's false-positive rate rests on one board.** I
+extended the hull test across 14 archived exports and got 0 violations in
+5,027 IDP rows — then checked what those archives actually contain.
+**The export bundle carries only 2 of the 21 voting sources' CSVs**
+(`idpTradeCalc`, `ktcSfTep`); the pipeline reads the other 19 from the
+working tree. So those 14 "historical boards" share ~90% of their inputs
+with today's, and the near-identical outputs (359 rows, band 0.6201 on
+nearly every one) are that contamination, not stability. **I withdraw
+that test as evidence of cross-board behaviour.** It remains valid only
+as what it is: one board, measured exactly.
+
+**(b) Candidate 6's reference distribution was fabricated.** My
+change-point implementation derives its reference median as
+`HISTORICAL_BAND × 0.35` — a constant I invented because no stored
+historical drift distribution exists. That is precisely the hand-set
+constant this pass was told not to introduce. Its 100%/0% scores are
+therefore indicative of the *shape* of a change-point rail, not evidence
+for a specific one.
+
+Both gaps have the same root: **the platform does not retain the inputs
+needed to characterise a board-over-board distribution.** That is the
+concrete unblocking work, and it is cheap: archive all 21 voting-source
+CSVs in the export bundle (today: 2), or persist a per-build drift
+summary. After ~2 weeks of genuinely independent boards, the hull's
+false-positive rate and a real reference distribution can both be
+measured, and this pass can conclude.
+
+## 7. B4 coupling — the conclusion is robust to the tail repair
+
+The whole battery was re-run with `TAIL_SATURATION_RANK = 903` enabled
+experimentally (327 eligible rows vs 359; reference band 0.3834 vs
+0.6201). The ordering is unchanged:
+
+| candidate | false-int @903 | drift @903 | routing @903 |
+|---|---|---|---|
+| 1 current | 8.3% | 8.3% | 27.2% |
+| 7/8 hull | **0.0%** | 91.7% | 92.6% |
+| 6 change-point | 0.0% | **100%** | 0.0% |
+
+So the corridor's defects are not artefacts of the saturated board, and
+the replacement direction does not change under the value distribution
+B4 intends to ship. 903 was restored to `None` after measurement.
+
+## 8. What must NOT be concluded from this
+
+* Not "remove `idpTradeCalc` from the blend" — explicitly out of scope
+  and not required by any finding here.
+* Not "restore the 0.15 cap" — the removed cap is not the problem; the
+  self-derived band is.
+* Not "the corridor caught nothing useful" — it does catch single-source
+  and correlated anomalies at 70-82%. The objection is that it pays ~9%
+  false intervention for that and is blind to the systemic failures it
+  was justified by.
+* Not a change to W02-F003. B3's repair is not reopened.
+
+## 9. State of the three tracked items
+
+| item | status after this pass |
+|---|---|
+| #794 anchor/voter circularity | **CONFIRMED, and stronger than stated** — no independent anchor is constructible without a new source |
+| #795 self-derived band | **CONFIRMED as a tautology**, not a tuning defect |
+| #796 confidence buckets | **CONFIRMED incoherent** (high band > medium band); recommendation is abstention, not tuning |
+
+W30-F023 stays **BLOCKED**. B4 cannot return for closure until a corridor
+methodology is settled, and settling it needs the retained inputs in §6.
