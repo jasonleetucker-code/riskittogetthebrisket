@@ -1,0 +1,219 @@
+{
+ "pin": {
+  "phase": "B3",
+  "codeSha": "2449af9ac3e2614e27a0dc2cac46acf3a404790f",
+  "codeSubject": "Merge PR #787: B2 \u2014 route the Hill master by the rank's coordinate pool (W02-F001)",
+  "dirty": true,
+  "board": {
+   "path": "exports/latest/dynasty_data_2026-08-11.json",
+   "sha256_16": "8fb6ede274171aee",
+   "bytes": 834861,
+   "mtime": 1786448566.2751555,
+   "scrapeTimestamp": "2026-08-11T11:32:57.431111",
+   "date": "2026-08-11",
+   "playerCount": 1074
+  },
+  "sourceCsvs": {
+   "dlfIdp.csv": {
+    "sha256_16": "9bf471c7222ad7d2",
+    "bytes": 3528,
+    "mtime": 1786401006.7137527
+   },
+   "dlfRookieIdp.csv": {
+    "sha256_16": "53dea29be05656dc",
+    "bytes": 575,
+    "mtime": 1786401006.7157583
+   },
+   "dlfRookieSf.csv": {
+    "sha256_16": "7b3109d1cf8eee82",
+    "bytes": 1111,
+    "mtime": 1786448566.2151556
+   },
+   "dlfSf.csv": {
+    "sha256_16": "20ec2e95239e8e5b",
+    "bytes": 5872,
+    "mtime": 1786401006.7157583
+   },
+   "draftSharksIdp.csv": {
+    "sha256_16": "f5fe62320c7e1837",
+    "bytes": 22026,
+    "mtime": 1786401006.7157583
+   },
+   "draftSharksRosIdp.csv": {
+    "sha256_16": "659e6a97771b0cb2",
+    "bytes": 12423,
+    "mtime": 1786440245.6273458
+   },
+   "draftSharksRosSf.csv": {
+    "sha256_16": "83dc969830487b22",
+    "bytes": 7273,
+    "mtime": 1786440245.6273458
+   },
+   "draftSharksSf.csv": {
+    "sha256_16": "2a656d65e0514479",
+    "bytes": 163609,
+    "mtime": 1786401006.7217526
+   },
+   "dynastyDaddySf.csv": {
+    "sha256_16": "d9f57b19c9626a48",
+    "bytes": 8503,
+    "mtime": 1786448566.2151556
+   },
+   "dynastyNerdsSfTep.csv": {
+    "sha256_16": "fe232d5ef61c7379",
+    "bytes": 10255,
+    "mtime": 1786401006.7217526
+   },
+   "fantasyCalc.csv": {
+    "sha256_16": "fc1fe584c0edf761",
+    "bytes": 9111,
+    "mtime": 1786448566.2151556
+   },
+   "fantasyNavigatorSf.csv": {
+    "sha256_16": "45208ef97e0e016d",
+    "bytes": 17978,
+    "mtime": 1786401006.7217526
+   },
+   "fantasyProsFitzmaurice.csv": {
+    "sha256_16": "a834e5f371c49970",
+    "bytes": 8505,
+    "mtime": 1786401006.7217526
+   },
+   "fantasyProsIdp.csv": {
+    "sha256_16": "01a17ce73c2a579f",
+    "bytes": 10513,
+    "mtime": 1786401006.7257528
+   },
+   "fantasyProsSf.csv": {
+    "sha256_16": "e7e91d2b6ae3ce1d",
+    "bytes": 14004,
+    "mtime": 1786440245.6313457
+   },
+   "flockFantasySf.csv": {
+    "sha256_16": "31c9923a82417f82",
+    "bytes": 9276,
+    "mtime": 1786440245.6313457
+   },
+   "flockFantasySfRookies.csv": {
+    "sha256_16": "e1cf340a54a7b289",
+    "bytes": 1694,
+    "mtime": 1786401006.7257528
+   },
+   "idpShow.csv": {
+    "sha256_16": "fbcfc0f16236b046",
+    "bytes": 7670,
+    "mtime": 1786401006.7257528
+   },
+   "idpTradeCalc.csv": {
+    "sha256_16": "00a43e7aaa6ce0d9",
+    "bytes": 19660,
+    "mtime": 1786401006.7257528
+   },
+   "ktc.csv": {
+    "sha256_16": "4c7fab0cc7bb1ebd",
+    "bytes": 9856,
+    "mtime": 1786448566.2151556
+   },
+   "ktcSfTep.csv": {
+    "sha256_16": "92b7414d58535b67",
+    "bytes": 9863,
+    "mtime": 1786448566.2151556
+   },
+   "otcffbSf.csv": {
+    "sha256_16": "c1348395d72924bd",
+    "bytes": 10164,
+    "mtime": 1786448566.2151556
+   },
+   "pfkDynasty.csv": {
+    "sha256_16": "dbeec7c1b0adb640",
+    "bytes": 15210,
+    "mtime": 1786440245.6313457
+   },
+   "yahooBoone.csv": {
+    "sha256_16": "27cdfd58e4f4e7db",
+    "bytes": 10774,
+    "mtime": 1786401006.7297528
+   }
+  },
+  "championModel": {
+   "modelId": "hill_scope_masters",
+   "version": 2,
+   "status": "champion",
+   "producer": "scripts/fit_hill_curve_percentile.py @ 3df9cc4",
+   "fittedAt": "2026-07-28T09:08:00.219336+00:00",
+   "promotedAt": "2026-07-29T23:35:35.519297+00:00",
+   "appliedAt": null,
+   "params": {
+    "HILL_GLOBAL_PERCENTILE_C": 0.112,
+    "HILL_GLOBAL_PERCENTILE_S": 0.725,
+    "HILL_PERCENTILE_C": 0.11,
+    "HILL_PERCENTILE_S": 1.11,
+    "IDP_HILL_PERCENTILE_C": 0.083,
+    "IDP_HILL_PERCENTILE_S": 1.11,
+    "HILL_ROOKIE_PERCENTILE_C": 0.153,
+    "HILL_ROOKIE_PERCENTILE_S": 0.885
+   }
+  },
+  "registryVersions": [
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ "corridorConfig": {
+  "primaryAnchors": {
+   "offense": "ktcSfTep",
+   "idp": "idpTradeCalc"
+  },
+  "fallbackChains": {
+   "offense": [
+    "ktcSfTep",
+    "idpTradeCalc",
+    "dynastyDaddySf",
+    "fantasyProsFitzmaurice",
+    "yahooBoone"
+   ],
+   "idp": [
+    "idpTradeCalc",
+    "dlfIdp",
+    "idpShow",
+    "fantasyProsIdp"
+   ]
+  },
+  "percentile": 0.9,
+  "minBucketN": 30,
+  "maxBand": {
+   "idp": 0.15
+  },
+  "idpChainAllVoting": true
+ },
+ "reproduction": {
+  "clampedRows": 183,
+  "rankedIdpRows": 329,
+  "clampRate": 0.5562310030395137,
+  "cappedByMaxBand": 183,
+  "onBandEdge": 183,
+  "distinctBandPct": [
+   0.15
+  ],
+  "up": 23,
+  "down": 160,
+  "anchorAlsoVoted": 183,
+  "anchorSourceCounts": {
+   "idpTradeCalc": 183
+  },
+  "servedRowsMovedByCorridor": 193,
+  "bucketP90": {
+   "medium": 0.5183066361556065,
+   "high": 0.6503856041131105,
+   "low": 0.6316455696202532
+  },
+  "bucketN": {
+   "medium": 120,
+   "high": 36,
+   "low": 173
+  },
+  "overallP90": 0.6200527704485488
+ }
+}
