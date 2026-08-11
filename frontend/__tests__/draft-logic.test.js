@@ -8,11 +8,9 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_AGGRESSION,
   DEFAULT_ENFORCE_PCT,
-  DEFAULT_INITIAL_SLOTS,
   DEFAULT_TEAMS,
   DEFAULT_ROOKIES,
   DRAFT_STORAGE_KEY,
-  PHASE_LATE_BOOST,
   TIER_DEFS,
   TIER_CONFIDENCE_MIN_SAMPLES,
   addPlayer,
@@ -30,7 +28,6 @@ import {
   removeFromParSheet,
   removePick,
   removePlayer,
-  slotsByTeamFromPicks,
   tierForPreDraft,
   undoLastPick,
   updateParSheetFairValue,
@@ -1368,16 +1365,28 @@ describe("hydrateWorkspace — Tier 1 field backfill", () => {
     expect(ws.picks[0].preDraftAtPick).toBe(999);
   });
 
-  it("backfills initialSlots to DEFAULT_INITIAL_SLOTS when missing", () => {
+  it("hydrates a team without inventing slot fields", () => {
+    // This test used to read "backfills initialSlots to
+    // DEFAULT_INITIAL_SLOTS when missing" and assert
+    // `expect(ws.teams[0].initialSlots).toBe(DEFAULT_INITIAL_SLOTS)`.
+    // The Perfect Draft rebuild deleted that export, esbuild resolved
+    // the import to `undefined` without complaint, and the assertion
+    // became `expect(undefined).toBe(undefined)` — green while
+    // verifying nothing, and contradicting the sibling test above that
+    // pins those exports as removed. The rookie auction caps nobody's
+    // slot count, so the honest contract is that hydration adds no
+    // slot field at all.
     const parsed = {
       version: 1,
       settings: { myTeamIdx: 0 },
-      teams: [{ name: "A", initialBudget: 100 }], // no initialSlots
+      teams: [{ name: "A", initialBudget: 100 }],
       players: [],
       picks: [],
     };
     const ws = hydrateWorkspace(parsed);
-    expect(ws.teams[0].initialSlots).toBe(DEFAULT_INITIAL_SLOTS);
+    expect(ws.teams[0].initialBudget).toBe(100);
+    expect(ws.teams[0]).not.toHaveProperty("initialSlots");
+    expect(ws.teams[0]).not.toHaveProperty("slotsRemaining");
   });
 });
 
