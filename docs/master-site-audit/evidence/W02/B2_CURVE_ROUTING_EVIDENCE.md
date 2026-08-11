@@ -424,13 +424,39 @@ recorded here as **not reproduced**, and the decision to keep W02-F003 open
 
 ## 8. Gates
 
+Measured on B2 HEAD `27c8a8d1e`, quiescent tree.
+
 | gate | result |
 |---|---|
 | `tests/api/test_curve_routing_coordinate_pool.py` | 6 failed / 9 passed → **15 passed** |
 | `tests/canonical` + `tests/api` | **1,983 passed, 3 skipped, 477 subtests, 0 failed** (1,002 s) |
-| `ruff check src/ tests/` | clean |
-| `ruff format --check` | clean |
-| full `pytest tests/ -q -m "not livedata"` | see §9 of the B2 checkpoint report |
+| full `pytest tests/ -q -x -m "not livedata"` | **6,898 passed / 0 failed**, 278 deselected, 294 subtests (1,430 s = 23m50s) |
+| `tests/audit/` | 104 passed, 91 subtests |
+| `vitest run` (frontend) | **2,010 passed / 0 failed**, 121 files |
+| `npm --prefix frontend run build` | compiled; **all 14 route bundle budgets under** |
+| `ruff check .` | All checks passed |
+| `ruff format --check .` | 1,006 files already formatted |
+| `scripts/check_decision_coercions.py` | clean — no new coercions in the files this change touches |
+| `scripts/audit_status.py` | no drift (21 closed / 19 open / 2 needs_review / 1 deferred) |
+| CI `Validate PR` on `27c8a8d1e` | **green** ([run 31483317554](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/31483317554)) |
+
+Two intermediate reds, both mine and both fixed in-branch rather than
+worked around:
+
+* `27c8a8d1e`'s parent left C17 recorded `open` with a defect signature
+  the repair had removed. That trips the tracker's own invariant — an
+  open finding the probe cannot find is a rotted record — in both the
+  local suite and CI. C17's signature is now `None`, the sanctioned
+  representation for "open, no mechanical probe", because the needle
+  witnessed the *routing* half and what remains of C17 is a numeric
+  property of fitted constants that no source fragment can witness.
+  `needs_review` was rejected: that status is exempt from the drift check
+  entirely, so it would read as "under review" while tracking nothing.
+* The first pass of the impact harness compared the clamp's band edge
+  against `rankDerivedValue` and reported 0/131 on the edge. Later passes
+  (two-way boost, pick tether) move the served value after the clamp; the
+  correct comparison is against `clampedValue`, which gives 131/131 and
+  reproduces the finding.
 
 ---
 

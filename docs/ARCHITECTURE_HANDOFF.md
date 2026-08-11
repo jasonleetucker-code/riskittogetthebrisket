@@ -17,11 +17,11 @@ state. This file holds **architecture** state.
 | | |
 |---|---|
 | Branch | `claude/dynasty-audit-consolidation-e75vdy` |
-| **Validated implementation HEAD** | `efa18f0e6` — the exact tree that received the full Python suite, full frontend suite, build and lint below |
-| **Validation base** | `origin/main` @ `4ac9b22b2` (the merge-base). `main` has since advanced 5 automated-refresh commits to `73c5e2776`; none is merged here, deliberately — see the B1 input-pinning note |
+| **Validated implementation HEAD** | `27c8a8d1e` (B2) — the exact tree that received the full Python suite, full frontend suite, build and lint below. The pre-B2 figures were measured at `efa18f0e6` |
+| **Validation base** | `origin/main` @ `a5ff76b09` (post-PR-#776 merge; the branch was re-cut from it). The pre-B2 base was `4ac9b22b2`.|
 | **Post-validation commits** | Correction-pass commits after `efa18f0e6` carry their own targeted gates, recorded per commit. Any that change production or test behavior re-run the suites; documentation-only commits do not |
 | **Handoff document commit** | This file is committed *after* the state it describes, so it cannot contain its own SHA. Read the fields above, not "current HEAD" |
-| PR | [#776](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/776) — Validate PR **green** at the last pushed state |
+| PR | [#787](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/787) — B2; Validate PR **green** at `27c8a8d1e`. [#776](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/776) (Phase A + B1/B1.2) is merged |
 | Working tree | clean at each recorded gate |
 | **Model-input snapshot** | Pinned and hashed by `docs/master-site-audit/evidence/W30/b1_denominator_measure.py` — required before any B1 comparison, because `main`'s 2-hourly refreshes rewrite the fit's own CSVs |
 | Phase | **A FORMALLY CLOSED 2026-08-11.** B1 + B1.2 executed to the evidence boundary (coordinate repair merged, challenger measured, **nothing promoted**) and merged as PR #776. **B2 executed 2026-08-11**: W02-F001 repaired at the root cause, W02-F002/F003 re-measured on the post-B2 board rather than pre-fixed. Hill-model promotion remains **NOT AUTHORIZED** and nothing was promoted or applied. B3 and competitive-expansion implementation NOT started — owner gate below. |
@@ -37,13 +37,15 @@ state. This file holds **architecture** state.
 
 | gate | result |
 |---|---|
-| `pytest tests/ -q` | **7,070 passed / 0 failed** / 25 skipped / 633 subtests. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 when those were rewritten to drive real production logic) → 7,038 (+12 B1 pin-coverage guard) → 7,070 (+32 percentile-coordinate contract, minus one file's rename). Every delta is accounted for by new tests; no existing test changed state. |
-| `vitest run` (frontend) | **2,010 passed / 0 failed**, 121 files — trail: 2,004 → 2,007 (+3 FAAB missing-vs-zero) → 2,010 (+3 multi-team trade crash regression) |
-| `ruff format --check .` | 991 files already formatted |
+| `pytest tests/ -q -x -m "not livedata"` (B2 HEAD) | **6,898 passed / 0 failed**, 278 deselected, 294 subtests, 23m50s. +15 over the pre-B2 tree are the curve-routing regression tests; the rest of the delta from the figures below is what merged into `main` with PR #776, not measured here |
+| `pytest tests/ -q` (pre-B2, `efa18f0e6`) | **7,070 passed / 0 failed** / 25 skipped / 633 subtests. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 when those were rewritten to drive real production logic) → 7,038 (+12 B1 pin-coverage guard) → 7,070 (+32 percentile-coordinate contract, minus one file's rename). Every delta is accounted for by new tests; no existing test changed state. |
+| `vitest run` (frontend, B2 HEAD) | **2,010 passed / 0 failed**, 121 files — unchanged by B2 (backend-only). Trail: 2,004 → 2,007 (+3 FAAB missing-vs-zero) → 2,010 (+3 multi-team trade crash regression) |
+| `ruff format --check .` | 1,006 files already formatted |
 | `ruff check .` | All checks passed |
 | `scripts/check_decision_coercions.py` | clean — no new coercions, no stale allowances |
-| `scripts/audit_status.py` | no drift (C-tracker: 21 closed / 19 open / 2 needs_review / 1 deferred) |
+| `scripts/audit_status.py` | no drift (C-tracker: 21 closed / 19 open / 2 needs_review / 1 deferred). **B2 tripped it**: C17's defect signature `if src_def.get("is_cross_market"):` no longer exists. C17 stays OPEN with `signature: None` — its routing half is fixed, its scale half (OFFENSE master at 0.76 of ktcSfTep raw) is not, and a number has no source fragment to witness it. `needs_review` was rejected: it is exempt from the drift check, so it tracks nothing |
 | `npm --prefix frontend run build` | compiled; **all 14 route bundle budgets under** |
+| CI `Validate PR` on `27c8a8d1e` | **green** (run 31483317554) |
 | Stack bring-up | `/api/status` `has_data: true`, 1,095 players, scrape suppressed |
 
 Environment: python 3.11.15 in `.venv` (`scripts/setup.sh`), node 22.22.2, vitest 4.1.10.
