@@ -1,0 +1,29 @@
+{
+ "boardOnDisk": {
+  "path": "exports/latest/dynasty_data_2026-08-11.json",
+  "sha256": "b1c66a4fea2b5a569d25f4f1755f604f80c6f1c36b941a2abf59dab173990784",
+  "bytes": 835364,
+  "isB4Pin": false
+ },
+ "check1_ownerReproducesPreB4Rule": {
+  "tailSaturationRank": null,
+  "casesChecked": 153,
+  "mismatches": [],
+  "ok": true
+ },
+ "check2_noProductionValueChange": {
+  "rowsNew": 1093,
+  "rowsOld": 1093,
+  "rowsCompared": 1093,
+  "differingRows": 0,
+  "examples": [],
+  "ok": true
+ },
+ "check3_contributionPathIsHonest": {
+  "valueDirectObservationsChecked": 1175,
+  "rowsRequiringFallback": 0,
+  "stampMismatches": [],
+  "ok": true
+ },
+ "allChecksPassed": true
+}

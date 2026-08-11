@@ -1,5 +1,32 @@
 # B4 / W30-F023 — decision
 
+> **The measurements below are HISTORICAL. Do not reproduce them on the
+> current tree.**
+>
+> Every B4 figure is pinned to
+> `exports/latest/dynasty_data_2026-08-11.json` at sha256
+> `8fb6ede274171aee…` (834,861 B). Integrating `main` rewrote that path
+> **in place** — same filename, a later scrape, sha256 `b1c66a4fea2b5a56…`
+> (835,364 B). The board this experiment ran on is no longer on disk.
+>
+> `b4_tail_measure.py` and `b4_candidate_measure.py` resolve their input by
+> filename and write to fixed report paths, so re-running either here would
+> overwrite this evidence with numbers from a **different experiment**
+> wearing the same names. That is the substitution a pin exists to prevent.
+> Both are left as the record of what was measured, not as commands to
+> re-issue.
+>
+> What was verified after integration is a *smoke*, not a re-measurement:
+> `b4_post_integration_smoke.py` — the tail owner still reproduces the
+> pre-B4 rule in every universe, no production value moves on the **new**
+> board, and `valueContributionPath` still matches the branch taken. Those
+> hold independently of which board is on disk, which is exactly why they
+> are the right post-merge check and the candidate table is not.
+>
+> When the corridor dependency is resolved and the 903 experiment is re-run,
+> it must be re-pinned to fresh inputs and reported as a new experiment
+> alongside these, never as an update to them.
+
 ## Recommendation
 
 **BLOCKED BY A CANONICAL DEPENDENCY.**
@@ -225,6 +252,40 @@ fixed in `fde9e31bc`. That fix also corrected a real defect it exposed:
 the harness's tautology guard grepped for clamp source-text the
 single-owner refactor had removed, so it would have reported "no clamps
 found" on a tree whose saturation is unchanged. It is now behavioural.
+
+## Post-integration verification
+
+Current `main` merged in (`--no-ff`). Its side is data-refresh only — no
+`src/`, `tests/`, `scripts/` or `frontend/` change — so the merge is clean
+and the B4 code surface is untouched. It did move the board at the pinned
+path, which is why the banner at the top of this file exists.
+
+Re-verified on the integrated tree, against the **new** board:
+
+| check | result |
+|---|---|
+| tail owner reproduces the pre-B4 rule | **153 cases, 0 mismatches**, `TAIL_SATURATION_RANK is None` |
+| no production value change | **1,093 rows, 0 differing** vs the pre-B4 functions |
+| `valueContributionPath` honest | **1,175 value-source observations, 0 mismatches**, 0 requiring fallback |
+| B4 tripwires still xfail | **8 xfailed, 0 XPASS** (17 passed) |
+| B3 corridor characterization | **46 passed** under the unchanged production tail |
+| `audit_status.py` | no drift (21 closed / 19 open / 2 needs_review / 1 deferred) |
+| `check_decision_coercions.py` | clean in the touched files |
+| full `pytest -m "not livedata"` | **6,912 passed / 0 failed**, 8 xfailed, 294 subtests (705 s) |
+| `pytest -m livedata` | **253 passed / 0 failed**, 336 subtests |
+| `vitest run` | **2,010 passed / 0 failed**, 121 files |
+| `npm run build` | all 14 bundle budgets under |
+| `ruff check` / `format --check` | clean, 1,015 files |
+
+The Python counts are **identical to pre-merge** (6,912 + 8 xfailed), which
+is the point: main brought new data, not new behaviour, and the shipped B4
+half is behaviour-preserving on that data too.
+
+The first two checks are the ones worth reading carefully. Both compare
+against the pre-B4 canonical functions **extracted from the git blob at
+`a89a07ea3`**, not transcribed — a hand-copy of "what the old code did"
+can be wrong in the same direction as the new code and would then confirm
+itself. `b4_post_integration_smoke.py --report`.
 
 ## What would unblock this
 
