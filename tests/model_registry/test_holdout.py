@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from src.canonical.player_valuation import training_percentiles
 from src.model_registry.holdout import (
     MIN_ROWS_FOR_SCORING,
     OFFENSE_HOLDOUT_SOURCES,
@@ -38,8 +39,16 @@ def _write_board(path: Path, values: list[float], column: str = "value") -> None
 
 
 def _curve_board(c: float, s: float, n: int = 400) -> list[float]:
-    """A board that a curve with (c, s) fits exactly."""
-    return [hill(i / (n - 1), c, s) for i in range(n)]
+    """A board that a curve with (c, s) fits exactly.
+
+    "Exactly" is defined by the coordinate system the holdout grades in,
+    so this generates rows at the CANONICAL percentile for their ordinal
+    rank. It previously used ``i / (n - 1)`` — the local-length
+    convention W30-F008 removed — which made the fixture agree with the
+    old holdout by construction and would now manufacture a mismatch
+    that says nothing about the gate.
+    """
+    return [hill(p, c, s) for p in training_percentiles(n)]
 
 
 class TestTrainHoldoutSeparation:
@@ -199,30 +208,77 @@ class TestTheBoardsDisagree:
     These tests exist so the narrower claim cannot quietly drift back
     to the stronger one, and so a data refresh that changes the picture
     surfaces here rather than in a confident sentence.
+
+    RE-CHARACTERISED 2026-08-11 (B1 / W30-F008), and the cause was NOT a
+    data refresh — it was the fit/serve percentile-coordinate repair.
+    Grading on the canonical coordinate instead of the holdout's local
+    ``i / (n - 1)`` moved every number, and it dissolved the
+    disagreement these tests were written to pin:
+
+        board             OLD champ -> prop      NEW champ -> prop
+        FantasyCalc          851.00    566.49     1255.01    923.03
+        FantasyNavigator    1185.15    889.84     1589.10   1250.29
+        OTCFFB              1012.59    708.05     1514.87   1169.48
+        PFKDynasty           254.34    335.27      552.03    283.81
+        criterion (mean)     825.77    624.91     1227.75    906.65
+
+    Two things changed, and both matter:
+
+    1. The champion scores materially WORSE on every board once graded
+       honestly (825.77 -> 1227.75). That is the expected consequence of
+       the defect, not a regression: the champion was fit in a
+       coordinate system that placed each training row at a larger
+       percentile than serving used, so the curve was never scored
+       against the coordinates it is actually served on.
+
+    2. **The disagreement is gone.** Under the old coordinates the
+       improvement was three boards outvoting PFKDynasty, which
+       worsened. Under the corrected ones all four improve, PFKDynasty
+       most of all (552.03 -> 283.81, a 49% drop). The board that
+       "already sat near its own optimum" was an artifact of grading it
+       on a mismatched scale.
+
+    ADR-008 narrowed its headline claim on the strength of that
+    disagreement. The narrowing may no longer be justified — that is an
+    owner-facing finding recorded in the B1 report, not something these
+    tests decide.
     """
 
     CHAMPION = (0.118, 1.17)
     PROPOSED = (0.098, 1.17)
 
-    def test_the_mean_improves_but_not_every_board_does(self):
+    def test_the_mean_improves(self):
         champ = evaluate_offense_master(*self.CHAMPION)
         proposed = evaluate_offense_master(*self.PROPOSED)
         assert proposed.criterion < champ.criterion
 
-        improved = [b for b in champ.per_source if proposed.per_source[b] < champ.per_source[b]]
+    def test_every_board_now_agrees(self):
+        """The re-characterised claim: unanimity, not a 3-1 vote.
+
+        Fails if a board starts dissenting again — which would mean
+        either a data refresh moved the picture, or the coordinate
+        contract regressed.
+        """
+        champ = evaluate_offense_master(*self.CHAMPION)
+        proposed = evaluate_offense_master(*self.PROPOSED)
         worsened = [b for b in champ.per_source if proposed.per_source[b] > champ.per_source[b]]
-        assert improved and worsened, (
-            "every holdout board now moves the same way — the mean is no longer "
-            "hiding a disagreement, so ADR-008's narrowing may need revisiting"
+        assert not worsened, (
+            f"boards {worsened} now dissent under the canonical coordinate; the "
+            "unanimity recorded on 2026-08-11 has broken and ADR-008's revisit "
+            "needs re-deriving"
         )
 
-    def test_the_board_the_champion_fits_best_is_the_one_that_worsens(self):
-        """The specific shape of the disagreement: the curve is already
-        close to one board's optimum, and moving away costs there."""
+    def test_the_board_the_champion_fits_best_now_improves_too(self):
+        """PFKDynasty was the dissenter; it is now the biggest gainer.
+
+        The inversion is the single clearest piece of evidence that the
+        old disagreement was a coordinate artifact rather than a real
+        property of that board.
+        """
         champ = evaluate_offense_master(*self.CHAMPION)
         proposed = evaluate_offense_master(*self.PROPOSED)
         best_fit = min(champ.per_source, key=lambda b: champ.per_source[b])
-        assert proposed.per_source[best_fit] > champ.per_source[best_fit]
+        assert proposed.per_source[best_fit] < champ.per_source[best_fit]
 
     def test_the_mean_optimum_is_not_bracketed_by_the_search_grid(self):
         """MECHANISM TEST. If the criterion still falls at the grid

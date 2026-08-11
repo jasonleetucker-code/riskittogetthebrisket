@@ -1,0 +1,981 @@
+{
+  "pinnedSnapshot": "data/dynasty_data_2026-08-10.json",
+  "referenceN": 500,
+  "champion": {
+    "GLOBAL": [
+      0.112,
+      0.725
+    ],
+    "OFFENSE": [
+      0.11,
+      1.11
+    ],
+    "IDP": [
+      0.083,
+      1.11
+    ]
+  },
+  "policyEquivalence": {
+    "c": 0.077,
+    "s": 1.11,
+    "deeperN": 800,
+    "cInDeeperN": 0.048089,
+    "rows": [
+      {
+        "rank": 1,
+        "clamp_N500": 9999.0,
+        "continuous_N500": 9999.0,
+        "deeperN_clamped": 9999.0,
+        "continuousVsDeeper": 0.0
+      },
+      {
+        "rank": 10,
+        "clamp_N500": 8334.79,
+        "continuous_N500": 8334.79,
+        "deeperN_clamped": 8334.79,
+        "continuousVsDeeper": 0.0
+      },
+      {
+        "rank": 25,
+        "clamp_N500": 6276.39,
+        "continuous_N500": 6276.39,
+        "deeperN_clamped": 6276.39,
+        "continuousVsDeeper": 0.0
+      },
+      {
+        "rank": 50,
+        "clamp_N500": 4328.85,
+        "continuous_N500": 4328.85,
+        "deeperN_clamped": 4328.85,
+        "continuousVsDeeper": 0.0
+      },
+      {
+        "rank": 100,
+        "clamp_N500": 2590.89,
+        "continuous_N500": 2590.89,
+        "deeperN_clamped": 2590.89,
+        "continuousVsDeeper": -0.0
+      },
+      {
+        "rank": 200,
+        "clamp_N500": 1387.54,
+        "continuous_N500": 1387.54,
+        "deeperN_clamped": 1387.54,
+        "continuousVsDeeper": 0.0
+      },
+      {
+        "rank": 300,
+        "clamp_N500": 929.96,
+        "continuous_N500": 929.96,
+        "deeperN_clamped": 929.96,
+        "continuousVsDeeper": -0.0
+      },
+      {
+        "rank": 400,
+        "clamp_N500": 692.77,
+        "continuous_N500": 692.77,
+        "deeperN_clamped": 692.77,
+        "continuousVsDeeper": 0.0
+      },
+      {
+        "rank": 500,
+        "clamp_N500": 548.84,
+        "continuous_N500": 548.84,
+        "deeperN_clamped": 548.84,
+        "continuousVsDeeper": -0.0
+      },
+      {
+        "rank": 550,
+        "clamp_N500": 548.84,
+        "continuous_N500": 496.38,
+        "deeperN_clamped": 496.38,
+        "continuousVsDeeper": -0.0
+      },
+      {
+        "rank": 600,
+        "clamp_N500": 548.84,
+        "continuous_N500": 452.68,
+        "deeperN_clamped": 452.68,
+        "continuousVsDeeper": 0.0
+      },
+      {
+        "rank": 700,
+        "clamp_N500": 548.84,
+        "continuous_N500": 384.12,
+        "deeperN_clamped": 384.12,
+        "continuousVsDeeper": 0.0
+      },
+      {
+        "rank": 800,
+        "clamp_N500": 548.84,
+        "continuous_N500": 332.91,
+        "deeperN_clamped": 332.91,
+        "continuousVsDeeper": 0.0
+      },
+      {
+        "rank": 900,
+        "clamp_N500": 548.84,
+        "continuous_N500": 293.26,
+        "deeperN_clamped": 332.91,
+        "continuousVsDeeper": -39.6458
+      }
+    ],
+    "equivalentThroughDeeperN": true,
+    "maxAbsDiffWithin": 0.0,
+    "divergesBeyondDeeperN": true,
+    "_note": "CONTINUOUS at N=500 and DEEPER_N with transformed c are the same curve up to the deeper universe's own clamp; past it, DEEPER_N saturates and CONTINUOUS does not. 'Use a bigger N' is therefore 'extrapolate, but stop at N2'."
+  },
+  "topRegionUntouched": {
+    "maxAbsDeltaAtOrAboveRank1ThroughN": 0.0,
+    "topRegionUnchanged": true,
+    "deeperN": 800
+  },
+  "tailDifferentiation": {
+    "referenceN": 500,
+    "perSource": [
+      {
+        "source": "idpTradeCalc",
+        "scope": "IDP",
+        "observations": 899,
+        "clampedObservations": 399,
+        "clampedPct": 44.4,
+        "deepestRank": 897,
+        "distinctClampedRanks": 289,
+        "collapsedOntoOneValue": 593.7,
+        "samples": [
+          {
+            "rank": 500,
+            "clamped": 593.7,
+            "continuous": 593.7,
+            "delta": 0.0,
+            "pctOfClamped": 0.0
+          },
+          {
+            "rank": 550,
+            "clamped": 593.7,
+            "continuous": 537.2,
+            "delta": -56.5,
+            "pctOfClamped": -9.5
+          },
+          {
+            "rank": 600,
+            "clamped": 593.7,
+            "continuous": 490.1,
+            "delta": -103.6,
+            "pctOfClamped": -17.5
+          },
+          {
+            "rank": 700,
+            "clamped": 593.7,
+            "continuous": 416.1,
+            "delta": -177.6,
+            "pctOfClamped": -29.9
+          },
+          {
+            "rank": 800,
+            "clamped": 593.7,
+            "continuous": 360.8,
+            "delta": -232.9,
+            "pctOfClamped": -39.2
+          },
+          {
+            "rank": 897,
+            "clamped": 593.7,
+            "continuous": 319.1,
+            "delta": -274.6,
+            "pctOfClamped": -46.3
+          }
+        ]
+      },
+      {
+        "source": "draftSharks",
+        "scope": "GLOBAL",
+        "observations": 411,
+        "clampedObservations": 26,
+        "clampedPct": 6.3,
+        "deepestRank": 708,
+        "distinctClampedRanks": 26,
+        "collapsedOntoOneValue": 1697.6,
+        "samples": [
+          {
+            "rank": 500,
+            "clamped": 1697.6,
+            "continuous": 1697.6,
+            "delta": 0.0,
+            "pctOfClamped": 0.0
+          },
+          {
+            "rank": 550,
+            "clamped": 1697.6,
+            "continuous": 1602.2,
+            "delta": -95.4,
+            "pctOfClamped": -5.6
+          },
+          {
+            "rank": 600,
+            "clamped": 1697.6,
+            "continuous": 1519.0,
+            "delta": -178.6,
+            "pctOfClamped": -10.5
+          },
+          {
+            "rank": 700,
+            "clamped": 1697.6,
+            "continuous": 1380.4,
+            "delta": -317.2,
+            "pctOfClamped": -18.7
+          },
+          {
+            "rank": 800,
+            "clamped": 1697.6,
+            "continuous": 1269.0,
+            "delta": -428.6,
+            "pctOfClamped": -25.2
+          },
+          {
+            "rank": 708,
+            "clamped": 1697.6,
+            "continuous": 1370.6,
+            "delta": -327.0,
+            "pctOfClamped": -19.3
+          }
+        ]
+      },
+      {
+        "source": "idpShow",
+        "scope": "IDP",
+        "observations": 347,
+        "clampedObservations": 202,
+        "clampedPct": 58.2,
+        "deepestRank": 876,
+        "distinctClampedRanks": 202,
+        "collapsedOntoOneValue": 593.7,
+        "samples": [
+          {
+            "rank": 500,
+            "clamped": 593.7,
+            "continuous": 593.7,
+            "delta": 0.0,
+            "pctOfClamped": 0.0
+          },
+          {
+            "rank": 550,
+            "clamped": 593.7,
+            "continuous": 537.2,
+            "delta": -56.5,
+            "pctOfClamped": -9.5
+          },
+          {
+            "rank": 600,
+            "clamped": 593.7,
+            "continuous": 490.1,
+            "delta": -103.6,
+            "pctOfClamped": -17.5
+          },
+          {
+            "rank": 700,
+            "clamped": 593.7,
+            "continuous": 416.1,
+            "delta": -177.6,
+            "pctOfClamped": -29.9
+          },
+          {
+            "rank": 800,
+            "clamped": 593.7,
+            "continuous": 360.8,
+            "delta": -232.9,
+            "pctOfClamped": -39.2
+          },
+          {
+            "rank": 876,
+            "clamped": 593.7,
+            "continuous": 327.3,
+            "delta": -266.4,
+            "pctOfClamped": -44.9
+          }
+        ]
+      },
+      {
+        "source": "draftSharksIdp",
+        "scope": "IDP",
+        "observations": 318,
+        "clampedObservations": 203,
+        "clampedPct": 63.8,
+        "deepestRank": 729,
+        "distinctClampedRanks": 203,
+        "collapsedOntoOneValue": 593.7,
+        "samples": [
+          {
+            "rank": 500,
+            "clamped": 593.7,
+            "continuous": 593.7,
+            "delta": 0.0,
+            "pctOfClamped": 0.0
+          },
+          {
+            "rank": 550,
+            "clamped": 593.7,
+            "continuous": 537.2,
+            "delta": -56.5,
+            "pctOfClamped": -9.5
+          },
+          {
+            "rank": 600,
+            "clamped": 593.7,
+            "continuous": 490.1,
+            "delta": -103.6,
+            "pctOfClamped": -17.5
+          },
+          {
+            "rank": 700,
+            "clamped": 593.7,
+            "continuous": 416.1,
+            "delta": -177.6,
+            "pctOfClamped": -29.9
+          },
+          {
+            "rank": 800,
+            "clamped": 593.7,
+            "continuous": 360.8,
+            "delta": -232.9,
+            "pctOfClamped": -39.2
+          },
+          {
+            "rank": 729,
+            "clamped": 593.7,
+            "continuous": 398.5,
+            "delta": -195.2,
+            "pctOfClamped": -32.9
+          }
+        ]
+      },
+      {
+        "source": "dlfIdp",
+        "scope": "IDP",
+        "observations": 170,
+        "clampedObservations": 24,
+        "clampedPct": 14.1,
+        "deepestRank": 619,
+        "distinctClampedRanks": 19,
+        "collapsedOntoOneValue": 593.7,
+        "samples": [
+          {
+            "rank": 500,
+            "clamped": 593.7,
+            "continuous": 593.7,
+            "delta": 0.0,
+            "pctOfClamped": 0.0
+          },
+          {
+            "rank": 550,
+            "clamped": 593.7,
+            "continuous": 537.2,
+            "delta": -56.5,
+            "pctOfClamped": -9.5
+          },
+          {
+            "rank": 600,
+            "clamped": 593.7,
+            "continuous": 490.1,
+            "delta": -103.6,
+            "pctOfClamped": -17.5
+          },
+          {
+            "rank": 700,
+            "clamped": 593.7,
+            "continuous": 416.1,
+            "delta": -177.6,
+            "pctOfClamped": -29.9
+          },
+          {
+            "rank": 800,
+            "clamped": 593.7,
+            "continuous": 360.8,
+            "delta": -232.9,
+            "pctOfClamped": -39.2
+          },
+          {
+            "rank": 619,
+            "clamped": 593.7,
+            "continuous": 474.2,
+            "delta": -119.5,
+            "pctOfClamped": -20.1
+          }
+        ]
+      },
+      {
+        "source": "fantasyProsIdp",
+        "scope": "IDP",
+        "observations": 143,
+        "clampedObservations": 3,
+        "clampedPct": 2.1,
+        "deepestRank": 572,
+        "distinctClampedRanks": 3,
+        "collapsedOntoOneValue": 593.7,
+        "samples": [
+          {
+            "rank": 500,
+            "clamped": 593.7,
+            "continuous": 593.7,
+            "delta": 0.0,
+            "pctOfClamped": 0.0
+          },
+          {
+            "rank": 550,
+            "clamped": 593.7,
+            "continuous": 537.2,
+            "delta": -56.5,
+            "pctOfClamped": -9.5
+          },
+          {
+            "rank": 600,
+            "clamped": 593.7,
+            "continuous": 490.1,
+            "delta": -103.6,
+            "pctOfClamped": -17.5
+          },
+          {
+            "rank": 700,
+            "clamped": 593.7,
+            "continuous": 416.1,
+            "delta": -177.6,
+            "pctOfClamped": -29.9
+          },
+          {
+            "rank": 800,
+            "clamped": 593.7,
+            "continuous": 360.8,
+            "delta": -232.9,
+            "pctOfClamped": -39.2
+          },
+          {
+            "rank": 572,
+            "clamped": 593.7,
+            "continuous": 515.4,
+            "delta": -78.2,
+            "pctOfClamped": -13.2
+          }
+        ]
+      },
+      {
+        "source": "flockFantasySfRookies",
+        "scope": "OFFENSE",
+        "observations": 75,
+        "clampedObservations": 12,
+        "clampedPct": 16.0,
+        "deepestRank": 620,
+        "distinctClampedRanks": 11,
+        "collapsedOntoOneValue": 794.3,
+        "samples": [
+          {
+            "rank": 500,
+            "clamped": 794.3,
+            "continuous": 794.3,
+            "delta": 0.0,
+            "pctOfClamped": 0.0
+          },
+          {
+            "rank": 550,
+            "clamped": 794.3,
+            "continuous": 720.1,
+            "delta": -74.1,
+            "pctOfClamped": -9.3
+          },
+          {
+            "rank": 600,
+            "clamped": 794.3,
+            "continuous": 658.1,
+            "delta": -136.2,
+            "pctOfClamped": -17.1
+          },
+          {
+            "rank": 700,
+            "clamped": 794.3,
+            "continuous": 560.3,
+            "delta": -234.0,
+            "pctOfClamped": -29.5
+          },
+          {
+            "rank": 800,
+            "clamped": 794.3,
+            "continuous": 486.7,
+            "delta": -307.5,
+            "pctOfClamped": -38.7
+          },
+          {
+            "rank": 620,
+            "clamped": 794.3,
+            "continuous": 636.0,
+            "delta": -158.2,
+            "pctOfClamped": -19.9
+          }
+        ]
+      },
+      {
+        "source": "dlfRookieIdp",
+        "scope": "OFFENSE",
+        "observations": 29,
+        "clampedObservations": 8,
+        "clampedPct": 27.6,
+        "deepestRank": 660,
+        "distinctClampedRanks": 6,
+        "collapsedOntoOneValue": 794.3,
+        "samples": [
+          {
+            "rank": 500,
+            "clamped": 794.3,
+            "continuous": 794.3,
+            "delta": 0.0,
+            "pctOfClamped": 0.0
+          },
+          {
+            "rank": 550,
+            "clamped": 794.3,
+            "continuous": 720.1,
+            "delta": -74.1,
+            "pctOfClamped": -9.3
+          },
+          {
+            "rank": 600,
+            "clamped": 794.3,
+            "continuous": 658.1,
+            "delta": -136.2,
+            "pctOfClamped": -17.1
+          },
+          {
+            "rank": 700,
+            "clamped": 794.3,
+            "continuous": 560.3,
+            "delta": -234.0,
+            "pctOfClamped": -29.5
+          },
+          {
+            "rank": 800,
+            "clamped": 794.3,
+            "continuous": 486.7,
+            "delta": -307.5,
+            "pctOfClamped": -38.7
+          },
+          {
+            "rank": 660,
+            "clamped": 794.3,
+            "continuous": 595.9,
+            "delta": -198.4,
+            "pctOfClamped": -25.0
+          }
+        ]
+      }
+    ],
+    "_note": "distinctClampedRanks is the differentiation the clamp destroys: that many distinct ordinal positions currently receive one identical contribution from this source."
+  },
+  "crossScope": {
+    "champion": [
+      {
+        "rank": 25,
+        "policy": "clamp",
+        "offense": 7146.2,
+        "idp": 6468.8,
+        "idpOverOffense": 0.9052
+      },
+      {
+        "rank": 25,
+        "policy": "continuous",
+        "offense": 7146.2,
+        "idp": 6468.8,
+        "idpOverOffense": 0.9052
+      },
+      {
+        "rank": 100,
+        "policy": "clamp",
+        "offense": 3419.0,
+        "idp": 2753.9,
+        "idpOverOffense": 0.8055
+      },
+      {
+        "rank": 100,
+        "policy": "continuous",
+        "offense": 3419.0,
+        "idp": 2753.9,
+        "idpOverOffense": 0.8055
+      },
+      {
+        "rank": 400,
+        "policy": "clamp",
+        "offense": 995.8,
+        "idp": 748.4,
+        "idpOverOffense": 0.7516
+      },
+      {
+        "rank": 400,
+        "policy": "continuous",
+        "offense": 995.8,
+        "idp": 748.4,
+        "idpOverOffense": 0.7516
+      },
+      {
+        "rank": 500,
+        "policy": "clamp",
+        "offense": 794.3,
+        "idp": 593.7,
+        "idpOverOffense": 0.7475
+      },
+      {
+        "rank": 500,
+        "policy": "continuous",
+        "offense": 794.3,
+        "idp": 593.7,
+        "idpOverOffense": 0.7475
+      },
+      {
+        "rank": 600,
+        "policy": "clamp",
+        "offense": 794.3,
+        "idp": 593.7,
+        "idpOverOffense": 0.7475
+      },
+      {
+        "rank": 600,
+        "policy": "continuous",
+        "offense": 658.1,
+        "idp": 490.1,
+        "idpOverOffense": 0.7447
+      },
+      {
+        "rank": 800,
+        "policy": "clamp",
+        "offense": 794.3,
+        "idp": 593.7,
+        "idpOverOffense": 0.7475
+      },
+      {
+        "rank": 800,
+        "policy": "continuous",
+        "offense": 486.7,
+        "idp": 360.8,
+        "idpOverOffense": 0.7412
+      }
+    ],
+    "challenger": [
+      {
+        "rank": 25,
+        "policy": "clamp",
+        "offense": 6276.4,
+        "idp": 4488.9,
+        "idpOverOffense": 0.7152
+      },
+      {
+        "rank": 25,
+        "policy": "continuous",
+        "offense": 6276.4,
+        "idp": 4488.9,
+        "idpOverOffense": 0.7152
+      },
+      {
+        "rank": 100,
+        "policy": "clamp",
+        "offense": 2590.9,
+        "idp": 1918.6,
+        "idpOverOffense": 0.7405
+      },
+      {
+        "rank": 100,
+        "policy": "continuous",
+        "offense": 2590.9,
+        "idp": 1918.6,
+        "idpOverOffense": 0.7405
+      },
+      {
+        "rank": 400,
+        "policy": "clamp",
+        "offense": 692.8,
+        "idp": 659.5,
+        "idpOverOffense": 0.952
+      },
+      {
+        "rank": 400,
+        "policy": "continuous",
+        "offense": 692.8,
+        "idp": 659.5,
+        "idpOverOffense": 0.952
+      },
+      {
+        "rank": 500,
+        "policy": "clamp",
+        "offense": 548.8,
+        "idp": 549.3,
+        "idpOverOffense": 1.0009
+      },
+      {
+        "rank": 500,
+        "policy": "continuous",
+        "offense": 548.8,
+        "idp": 549.3,
+        "idpOverOffense": 1.0009
+      },
+      {
+        "rank": 600,
+        "policy": "clamp",
+        "offense": 548.8,
+        "idp": 549.3,
+        "idpOverOffense": 1.0009
+      },
+      {
+        "rank": 600,
+        "policy": "continuous",
+        "offense": 452.7,
+        "idp": 472.4,
+        "idpOverOffense": 1.0436
+      },
+      {
+        "rank": 800,
+        "policy": "clamp",
+        "offense": 548.8,
+        "idp": 549.3,
+        "idpOverOffense": 1.0009
+      },
+      {
+        "rank": 800,
+        "policy": "continuous",
+        "offense": 332.9,
+        "idp": 371.6,
+        "idpOverOffense": 1.1162
+      }
+    ]
+  },
+  "boardImpact": {
+    "comparableRows": 777,
+    "rowsWithChangedValue": 170,
+    "rowsReordered": 332,
+    "meanAbsRankShift": 8.16,
+    "medianAbsRankShift": 0,
+    "p90AbsRankShift": 28,
+    "maxAbsRankShift": 96,
+    "over5": 216,
+    "over10": 164,
+    "over25": 84,
+    "over50": 44,
+    "byPosition": {
+      "WR": {
+        "rows": 158,
+        "reordered": 64,
+        "meanAbsShift": 6.83,
+        "max": 68
+      },
+      "DL": {
+        "rows": 111,
+        "reordered": 65,
+        "meanAbsShift": 11.99,
+        "max": 96
+      },
+      "RB": {
+        "rows": 109,
+        "reordered": 43,
+        "meanAbsShift": 6.5,
+        "max": 68
+      },
+      "PICK": {
+        "rows": 103,
+        "reordered": 30,
+        "meanAbsShift": 1.86,
+        "max": 52
+      },
+      "TE": {
+        "rows": 79,
+        "reordered": 23,
+        "meanAbsShift": 1.96,
+        "max": 49
+      },
+      "DB": {
+        "rows": 79,
+        "reordered": 49,
+        "meanAbsShift": 18.85,
+        "max": 88
+      },
+      "LB": {
+        "rows": 78,
+        "reordered": 39,
+        "meanAbsShift": 11.97,
+        "max": 83
+      },
+      "QB": {
+        "rows": 60,
+        "reordered": 19,
+        "meanAbsShift": 7.48,
+        "max": 57
+      }
+    },
+    "largestMovers": [
+      {
+        "player": "Chris Jones",
+        "position": "DL",
+        "rank": "701 -> 605",
+        "shift": 96,
+        "value": "1204 -> 1326"
+      },
+      {
+        "player": "Khalil Mack",
+        "position": "DL",
+        "rank": "606 -> 695",
+        "shift": -89,
+        "value": "1381 -> 1213"
+      },
+      {
+        "player": "Jakobe Thomas",
+        "position": "DB",
+        "rank": "611 -> 699",
+        "shift": -88,
+        "value": "1379 -> 1207"
+      },
+      {
+        "player": "Jahdae Barron",
+        "position": "DB",
+        "rank": "591 -> 678",
+        "shift": -87,
+        "value": "1392 -> 1227"
+      },
+      {
+        "player": "Demario Davis",
+        "position": "LB",
+        "rank": "594 -> 677",
+        "shift": -83,
+        "value": "1390 -> 1227"
+      },
+      {
+        "player": "Christian Rozeboom",
+        "position": "LB",
+        "rank": "623 -> 702",
+        "shift": -79,
+        "value": "1376 -> 1205"
+      },
+      {
+        "player": "Jaquan Brisker",
+        "position": "DB",
+        "rank": "578 -> 656",
+        "shift": -78,
+        "value": "1403 -> 1252"
+      },
+      {
+        "player": "Alex Anzalone",
+        "position": "LB",
+        "rank": "576 -> 653",
+        "shift": -77,
+        "value": "1405 -> 1257"
+      }
+    ]
+  },
+  "fitDepth": {
+    "OFFENSE": {
+      "deepestSourceAvailable": 500,
+      "cases": [
+        {
+          "fitTopN": 400,
+          "c": 0.077,
+          "s": 1.11,
+          "rankSpaceMidpoint": 38.423,
+          "rowsTrainedPerSource": {
+            "KTC": 400,
+            "DynastyDaddy": 373,
+            "DynastyNerds": 294,
+            "YahooBoone": 400,
+            "Fitzmaurice": 299,
+            "DraftSharks": 400
+          },
+          "holdout": {
+            "criterion": 671.21,
+            "perBoard": {
+              "FantasyCalc": 608.13,
+              "FantasyNavigator": 946.52,
+              "OTCFFB": 821.98,
+              "PFKDynasty": 308.23
+            },
+            "skipped": {},
+            "cAsFit": 0.077,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.077,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 38.423
+          }
+        },
+        {
+          "fitTopN": 500,
+          "c": 0.077,
+          "s": 1.125,
+          "rankSpaceMidpoint": 38.423,
+          "rowsTrainedPerSource": {
+            "KTC": 500,
+            "DynastyDaddy": 373,
+            "DynastyNerds": 294,
+            "YahooBoone": 418,
+            "Fitzmaurice": 299,
+            "DraftSharks": 411
+          },
+          "holdout": {
+            "criterion": 660.19,
+            "perBoard": {
+              "FantasyCalc": 591.92,
+              "FantasyNavigator": 925.08,
+              "OTCFFB": 805.67,
+              "PFKDynasty": 318.07
+            },
+            "skipped": {},
+            "cAsFit": 0.077,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.077,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 38.423
+          }
+        }
+      ],
+      "midpointSpreadPct": 0.0
+    },
+    "GLOBAL": {
+      "deepestSourceAvailable": 900,
+      "cases": [
+        {
+          "fitTopN": 400,
+          "c": 0.089,
+          "s": 0.72,
+          "rankSpaceMidpoint": 44.411,
+          "rowsTrainedPerSource": {
+            "IDPTradeCalc": 400,
+            "DraftSharks-Combined": 400
+          }
+        },
+        {
+          "fitTopN": 500,
+          "c": 0.091,
+          "s": 0.76,
+          "rankSpaceMidpoint": 45.409,
+          "rowsTrainedPerSource": {
+            "IDPTradeCalc": 500,
+            "DraftSharks-Combined": 500
+          }
+        },
+        {
+          "fitTopN": 800,
+          "c": 0.095,
+          "s": 0.825,
+          "rankSpaceMidpoint": 47.405,
+          "rowsTrainedPerSource": {
+            "IDPTradeCalc": 800,
+            "DraftSharks-Combined": 557
+          }
+        },
+        {
+          "fitTopN": 900,
+          "c": 0.095,
+          "s": 0.845,
+          "rankSpaceMidpoint": 47.405,
+          "rowsTrainedPerSource": {
+            "IDPTradeCalc": 900,
+            "DraftSharks-Combined": 557
+          }
+        }
+      ],
+      "midpointSpreadPct": 6.74
+    },
+    "IDP": {
+      "skipped": "IDP's deepest value source is the 370-row IDPTC slice; there are no ranks 401+ to add, so a depth experiment would vary nothing."
+    }
+  }
+}

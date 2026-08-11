@@ -103,24 +103,42 @@ function FaabHeaderStat({ selectedTeam, leagueFaab }) {
   const budget = selectedTeam?.faabBudget ?? leagueFaab?.leagueBudget;
   const avg = leagueFaab?.leagueAvgWinningBid;
   const median = leagueFaab?.leagueMedianWinningBid;
+
+  // MISSING != ZERO.  These tiles used to gate on `avg > 0` / `median > 0`,
+  // which displayed a MEASURED zero exactly like an absent observation.
+  // That is not a hypothetical: `src/api/faab_analytics.py:278-288`
+  // deliberately KEEPS $0 bids, because dropping them overstated the
+  // median by ~200x when 41-77% of adds cost nothing in a season. "The
+  // median winning bid is $0" is this league's most common answer, and
+  // the strip was hiding it.
+  //
+  // The value alone cannot disambiguate — the backend emits 0.0 both for
+  // an empty pool and a genuinely-zero one — so gate on the evidence
+  // count it publishes for exactly this purpose.  `!= null` rather than
+  // truthiness, so a legitimately-zero count is still a count.
+  const analyzed = leagueFaab?.totalBidsAnalyzed;
+  const hasBidHistory =
+    analyzed != null
+      ? analyzed > 0
+      : // Older or partial payloads may omit the count. A nonzero mean or
+        // median cannot arise from zero samples, so it is safe to infer
+        // that observations exist — but a zero with no count stays
+        // ambiguous, and ambiguous renders as unknown rather than as $0.
+        (avg != null && avg > 0) || (median != null && median > 0);
+  const bidValue = (v) => (hasBidHistory && v != null ? `$${Math.round(v)}` : "—");
+
   if (remaining == null && avg == null) return null;
   return (
     <div className={styles.faabStrip}>
       <StatTile
         label="Your FAAB"
         value={remaining != null ? `$${remaining.toLocaleString()}` : "—"}
-        meta={budget ? `of $${budget.toLocaleString()}` : null}
+        // `budget != null`, not truthiness: a $0 budget is a real setting,
+        // and hiding the line would be the same defect one tile over.
+        meta={budget != null ? `of $${budget.toLocaleString()}` : null}
       />
-      <StatTile
-        label="League average bid"
-        value={avg != null && avg > 0 ? `$${Math.round(avg)}` : "—"}
-        meta="winning bids"
-      />
-      <StatTile
-        label="League median bid"
-        value={median != null && median > 0 ? `$${Math.round(median)}` : "—"}
-        meta="winning bids"
-      />
+      <StatTile label="League average bid" value={bidValue(avg)} meta="winning bids" />
+      <StatTile label="League median bid" value={bidValue(median)} meta="winning bids" />
     </div>
   );
 }
@@ -311,8 +329,17 @@ export default function ManualAddDrop({
         const data = await res.json();
         if (cancelled) return;
         // The /api/public/league/{section} endpoint wraps the builder
-        // output as ``{section, body}`` so unwrap.
-        setLeagueFaab(data?.body || data || null);
+        // output as ``{contractVersion, league, section, data}`` — the
+        // body is under ``data``, never ``body``.  Unwrapping ``body``
+        // and falling through to the envelope itself put every field
+        // this strip reads (leagueBudget, leagueAvgWinningBid,
+        // leagueMedianWinningBid) one level too high, so the tiles
+        // rendered an em-dash against a response carrying the real
+        // numbers — indistinguishable from a league with no FAAB
+        // history (W11-F006).  No ``|| data`` fallback: a payload
+        // without ``data`` has no section body, and pretending the
+        // envelope is one is what produced the silent failure.
+        setLeagueFaab(data?.data ?? null);
       } catch {
         // Silent failure — context panel just stays hidden.
       }

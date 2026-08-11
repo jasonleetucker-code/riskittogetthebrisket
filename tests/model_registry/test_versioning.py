@@ -197,7 +197,16 @@ class TestConfidenceHonesty:
 class TestPersistence:
     def test_round_trips_through_disk(self, tmp_path):
         reg = ModelRegistry("m")
-        reg.seed_champion(_v(1, holdout={"criterion": 12.5, "perSource": {"A": 12.5}}))
+        reg.seed_champion(
+            _v(
+                1,
+                holdout={
+                    "criterion": 12.5,
+                    "perSource": {"A": 12.5},
+                    "measuredAt": "2026-08-11T00:00:00Z",
+                },
+            )
+        )
         reg.add(_v(2))
         reg.promote(2, reason="win")
         reg.save(tmp_path)

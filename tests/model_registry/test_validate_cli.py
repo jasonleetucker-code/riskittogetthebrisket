@@ -104,7 +104,11 @@ def _registry(champ_stored: float | None, chal_stored: float | None) -> ModelReg
             fitted_at="2026-07-28T00:00:00Z",
             producer="test",
             status="champion",
-            holdout={"criterion": champ_stored} if champ_stored is not None else None,
+            holdout=(
+                {"criterion": champ_stored, "measuredAt": "2026-07-29T00:00:00Z"}
+                if champ_stored is not None
+                else None
+            ),
         )
     )
     reg.add(
@@ -115,7 +119,11 @@ def _registry(champ_stored: float | None, chal_stored: float | None) -> ModelReg
             fitted_at="2026-08-04T00:00:00Z",
             producer="test",
             status="challenger",
-            holdout={"criterion": chal_stored} if chal_stored is not None else None,
+            holdout=(
+                {"criterion": chal_stored, "measuredAt": "2026-08-04T00:00:00Z"}
+                if chal_stored is not None
+                else None
+            ),
         )
     )
     return reg

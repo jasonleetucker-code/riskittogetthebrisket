@@ -50,6 +50,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from src.canonical.player_valuation import training_percentiles
+
 REPO = Path(__file__).resolve().parents[2]
 
 # Mirrors scripts/fit_hill_curve_percentile.py::OFFENSE_SOURCES.  Kept
@@ -143,7 +145,14 @@ def _percentile_pairs(values: Sequence[float]) -> list[tuple[float, float]]:
     top = vs[0]
     if top <= 0:
         return []
-    return [(i / (n - 1), vs[i] / top * 9999.0) for i in range(n)]
+    # Percentiles come from the canonical coordinate owner, not from the
+    # length of the truncated list. FIT_TOP_N still selects WHICH rows
+    # are scored; it no longer decides what universe they are scored
+    # against (audit finding W30-F008). Grading a curve on a different
+    # coordinate system than it was trained on is exactly the mismatch
+    # this module exists to detect.
+    ps = training_percentiles(n)
+    return [(ps[i], vs[i] / top * 9999.0) for i in range(n)]
 
 
 def hill(p: float, c: float, s: float) -> float:

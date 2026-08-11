@@ -1,18 +1,18 @@
 {
- "generatedAt": "2026-08-05T09:42:28+00:00",
+ "generatedAt": "2026-08-11T01:02:26+00:00",
  "totals": {
-  "findings": 432,
-  "claimedClosed": 85,
-  "reproSafeToRerun": 338
+  "findings": 431,
+  "claimedClosed": 86,
+  "reproSafeToRerun": 337
  },
  "byClosure": {
-  "open": 270,
+  "open": 268,
   "open-unsafe-to-rerun": 77,
-  "claimed-unverified": 85
+  "claimed-unverified": 86
  },
  "claimedByPriority": {
   "P0": 9,
-  "P1": 38,
+  "P1": 39,
   "P2": 29,
   "P3": 9
  },
@@ -1271,7 +1271,7 @@
    "status_label": "Implemented but defective",
    "subsystem": "Trade asset picker",
    "title": "Current-year (2026) draft picks cannot be found in the trade calculator's only search box \u2014 the exclusion is a hardcoded /^2026\\b/ regex, not the contract's currentDraftYear",
-   "claimedBy": "00a3ce2c",
+   "claimedBy": "8560e9bcc",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
@@ -1871,11 +1871,11 @@
    "status_label": "Implemented but defective",
    "subsystem": "Waivers page",
    "title": "The /waivers league FAAB context panel unwraps the wrong envelope key (data.body vs the API's data.data), so every league bid statistic renders as an em dash despite the API returning real numbers",
-   "claimedBy": null,
+   "claimedBy": "c3c3aea81",
    "hasRepro": true,
    "reproSafe": true,
    "reproSafetyNote": "",
-   "closure": "open"
+   "closure": "claimed-unverified"
   },
   {
    "id": "W11-F007",
@@ -4756,18 +4756,6 @@
    "reproSafe": true,
    "reproSafetyNote": "",
    "closure": "claimed-unverified"
-  },
-  {
-   "id": "W28-F001",
-   "priority": "P1",
-   "status_label": "Missing",
-   "subsystem": "Schedule generator / optimizer",
-   "title": "The 12-team / 14-week schedule generator and its NFL-aware optimizer do not exist anywhere in the repository \u2014 not a route, not a script, not a config, not a doc",
-   "claimedBy": null,
-   "hasRepro": true,
-   "reproSafe": true,
-   "reproSafetyNote": "",
-   "closure": "open"
   },
   {
    "id": "W28-F002",

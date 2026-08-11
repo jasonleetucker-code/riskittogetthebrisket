@@ -12,10 +12,13 @@ import {
   adjustedSideTotals,
   multiAdjustedSideTotals,
   sideTotal,
+  defaultDestination,
   effectiveValue,
   findBalancers,
+  isTradeableBoardRow,
   parsePickToken,
   resolvePickRow,
+  searchTradeAssets,
   createSide,
   serializeWorkspaceMulti,
   tradeWorkspaceToCSV,
@@ -744,11 +747,11 @@ export default function TradePage() {
     const behindTeam = inferTeamForSide(behindSide);
     let pool;
     let teamName = null;
-    const is2026Pick = (r) => r.assetClass === "pick" && /^2026\b/.test(r.name);
+    const excluded = (r) => !isTradeableBoardRow(r);
     if (behindTeam) {
       const roster = teamRosterNames(behindTeam);
       pool = rows.filter(
-        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !is2026Pick(r),
+        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !excluded(r),
       );
       teamName = behindTeam.name || null;
     }
@@ -757,7 +760,7 @@ export default function TradePage() {
     // trade).  Preserves existing behaviour when Sleeper data is
     // unavailable.
     if (!pool || pool.length === 0) {
-      pool = rows.filter((r) => !allInTrade.has(r.name) && !is2026Pick(r));
+      pool = rows.filter((r) => !allInTrade.has(r.name) && !excluded(r));
       teamName = null;
     }
     const list = findBalancers(pwGap, pool, valueMode);
@@ -789,16 +792,16 @@ export default function TradePage() {
     const underpayingTeam = inferTeamForSide(underpayingSide);
     let pool;
     let teamName = null;
-    const is2026Pick = (r) => r.assetClass === "pick" && /^2026\b/.test(r.name);
+    const excluded = (r) => !isTradeableBoardRow(r);
     if (underpayingTeam) {
       const roster = teamRosterNames(underpayingTeam);
       pool = rows.filter(
-        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !is2026Pick(r),
+        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !excluded(r),
       );
       teamName = underpayingTeam.name || null;
     }
     if (!pool || pool.length === 0) {
-      pool = rows.filter((r) => !allInTrade.has(r.name) && !is2026Pick(r));
+      pool = rows.filter((r) => !allInTrade.has(r.name) && !excluded(r));
       teamName = null;
     }
     const suggestions = findBalancers(gap, pool, valueMode);
@@ -822,19 +825,14 @@ export default function TradePage() {
   // dynasty assets first — matches the KTC trade-calculator UX.
   const searchAssets = useCallback(
     (query) => {
-      const q = (query || "").trim().toLowerCase();
-      if (!q) return [];
-      const list = rows.filter(
-        (r) =>
-          !allTradeNames.has(r.name) &&
-          !(r.assetClass === "pick" && /^2026\b/.test(r.name)) &&
-          r.name.toLowerCase().includes(q),
-      );
-      list.sort(
-        (a, b) =>
-          (a.blendedSourceRank ?? Infinity) - (b.blendedSourceRank ?? Infinity),
-      );
-      return list.slice(0, 5);
+      // The eligibility rule lives in ``lib/trade-logic`` so the four
+      // call sites on this page cannot drift apart again.  What it
+      // excludes is the suppressed generic-tier pick ALIASES (rows the
+      // backend cleared because a slot-specific sibling exists), not a
+      // hardcoded year: the old ``/^2026\b/`` also removed the 72 slot
+      // rows the current-year board is priced on, so searching "2026"
+      // returned nothing at all (W08-F004).
+      return searchTradeAssets(rows, query, allTradeNames, 5);
     },
     [rows, allTradeNames],
   );

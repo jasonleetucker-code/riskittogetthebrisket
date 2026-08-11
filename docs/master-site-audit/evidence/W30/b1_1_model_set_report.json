@@ -1,0 +1,1080 @@
+{
+  "pinnedSnapshot": "data/dynasty_data_2026-08-10.json",
+  "referenceN": 500,
+  "fitTopN": 400,
+  "champion": {
+    "GLOBAL": [
+      0.112,
+      0.725
+    ],
+    "OFFENSE": [
+      0.11,
+      1.11
+    ],
+    "IDP": [
+      0.083,
+      1.11
+    ]
+  },
+  "challenger": {
+    "GLOBAL": [
+      0.089,
+      0.72
+    ],
+    "OFFENSE": [
+      0.077,
+      1.11
+    ],
+    "IDP": [
+      0.038,
+      0.87
+    ]
+  },
+  "Q4_coordinateTrace": {
+    "GLOBAL": {
+      "sources": [
+        {
+          "source": "IDPTradeCalc",
+          "rowsAvailable": 900,
+          "rowsTrained": 400,
+          "truncated": true,
+          "pMaxObserved": 0.7996,
+          "rankMaxObserved": 400
+        },
+        {
+          "source": "DraftSharks-Combined",
+          "rowsAvailable": 557,
+          "rowsTrained": 400,
+          "truncated": true,
+          "pMaxObserved": 0.7996,
+          "rankMaxObserved": 400
+        }
+      ],
+      "pMaxObservedByAnySource": 0.7996,
+      "pMaxServed": 1.0,
+      "extrapolatedFractionOfUniverse": 0.2004,
+      "firstExtrapolatedRank": 401
+    },
+    "OFFENSE": {
+      "sources": [
+        {
+          "source": "KTC",
+          "rowsAvailable": 500,
+          "rowsTrained": 400,
+          "truncated": true,
+          "pMaxObserved": 0.7996,
+          "rankMaxObserved": 400
+        },
+        {
+          "source": "DynastyDaddy",
+          "rowsAvailable": 373,
+          "rowsTrained": 373,
+          "truncated": false,
+          "pMaxObserved": 0.7455,
+          "rankMaxObserved": 373
+        },
+        {
+          "source": "DynastyNerds",
+          "rowsAvailable": 294,
+          "rowsTrained": 294,
+          "truncated": false,
+          "pMaxObserved": 0.5872,
+          "rankMaxObserved": 294
+        },
+        {
+          "source": "YahooBoone",
+          "rowsAvailable": 418,
+          "rowsTrained": 400,
+          "truncated": true,
+          "pMaxObserved": 0.7996,
+          "rankMaxObserved": 400
+        },
+        {
+          "source": "Fitzmaurice",
+          "rowsAvailable": 299,
+          "rowsTrained": 299,
+          "truncated": false,
+          "pMaxObserved": 0.5972,
+          "rankMaxObserved": 299
+        },
+        {
+          "source": "DraftSharks",
+          "rowsAvailable": 411,
+          "rowsTrained": 400,
+          "truncated": true,
+          "pMaxObserved": 0.7996,
+          "rankMaxObserved": 400
+        }
+      ],
+      "pMaxObservedByAnySource": 0.7996,
+      "pMaxServed": 1.0,
+      "extrapolatedFractionOfUniverse": 0.2004,
+      "firstExtrapolatedRank": 401
+    },
+    "IDP": {
+      "sources": [
+        {
+          "source": "DraftSharks-IDP",
+          "rowsAvailable": 146,
+          "rowsTrained": 146,
+          "truncated": false,
+          "pMaxObserved": 0.2906,
+          "rankMaxObserved": 146
+        },
+        {
+          "source": "IDPTradeCalc-IDP",
+          "rowsAvailable": 370,
+          "rowsTrained": 370,
+          "truncated": false,
+          "pMaxObserved": 0.7395,
+          "rankMaxObserved": 370
+        }
+      ],
+      "pMaxObservedByAnySource": 0.7395,
+      "pMaxServed": 1.0,
+      "extrapolatedFractionOfUniverse": 0.2605,
+      "firstExtrapolatedRank": 371
+    }
+  },
+  "Q5_tailClamp": {
+    "referenceN": 500,
+    "overallRankLimit": 800,
+    "totalObservations": 7130,
+    "clampedObservations": 877,
+    "clampedPct": 12.3,
+    "distinctBoardRowsTouched": 487,
+    "boardRows": 1095,
+    "perSource": [
+      {
+        "source": "idpTradeCalc",
+        "observations": 899,
+        "clamped": 399,
+        "clampedPct": 44.4
+      },
+      {
+        "source": "ktcSfTep",
+        "observations": 499,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "pfkDynasty",
+        "observations": 466,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "fantasyProsSf",
+        "observations": 466,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "fantasyNavigatorSf",
+        "observations": 446,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "draftSharks",
+        "observations": 411,
+        "clamped": 26,
+        "clampedPct": 6.3
+      },
+      {
+        "source": "flockFantasySf",
+        "observations": 410,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "yahooBoone",
+        "observations": 396,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "fantasyCalc",
+        "observations": 387,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "otcffbSf",
+        "observations": 375,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "dynastyDaddySf",
+        "observations": 369,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "idpShow",
+        "observations": 347,
+        "clamped": 202,
+        "clampedPct": 58.2
+      },
+      {
+        "source": "draftSharksIdp",
+        "observations": 318,
+        "clamped": 203,
+        "clampedPct": 63.8
+      },
+      {
+        "source": "fantasyProsFitzmaurice",
+        "observations": 299,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "dynastyNerdsSfTep",
+        "observations": 293,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "dlfSf",
+        "observations": 278,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "dlfIdp",
+        "observations": 170,
+        "clamped": 24,
+        "clampedPct": 14.1
+      },
+      {
+        "source": "fantasyProsIdp",
+        "observations": 143,
+        "clamped": 3,
+        "clampedPct": 2.1
+      },
+      {
+        "source": "flockFantasySfRookies",
+        "observations": 75,
+        "clamped": 12,
+        "clampedPct": 16.0
+      },
+      {
+        "source": "dlfRookieSf",
+        "observations": 54,
+        "clamped": 0,
+        "clampedPct": 0.0
+      },
+      {
+        "source": "dlfRookieIdp",
+        "observations": 29,
+        "clamped": 8,
+        "clampedPct": 27.6
+      }
+    ],
+    "worstSource": {
+      "source": "draftSharksIdp",
+      "observations": 318,
+      "clamped": 203,
+      "clampedPct": 63.8
+    }
+  },
+  "S18_referenceUniverse": {
+    "500 (current \u2014 serving's fixed reference pool)": {
+      "GLOBAL": {
+        "c": 0.089,
+        "s": 0.72,
+        "referenceN": 500,
+        "rankSpaceMidpoint": 44.411,
+        "cInScoringCoordinate": 0.089
+      },
+      "OFFENSE": {
+        "c": 0.077,
+        "s": 1.11,
+        "referenceN": 500,
+        "rankSpaceMidpoint": 38.423,
+        "cInScoringCoordinate": 0.077,
+        "holdout": {
+          "criterion": 671.21,
+          "perBoard": {
+            "FantasyCalc": 608.13,
+            "FantasyNavigator": 946.52,
+            "OTCFFB": 821.98,
+            "PFKDynasty": 308.23
+          },
+          "skipped": {},
+          "cAsFit": 0.077,
+          "fitReferenceN": 500,
+          "cInScoringCoordinate": 0.077,
+          "scoringReferenceN": 500,
+          "rankSpaceMidpoint": 38.423
+        }
+      },
+      "IDP": {
+        "c": 0.038,
+        "s": 0.87,
+        "referenceN": 500,
+        "rankSpaceMidpoint": 18.962,
+        "cInScoringCoordinate": 0.038
+      }
+    },
+    "400 (FIT_TOP_N \u2014 the deepest row any fit trains on)": {
+      "GLOBAL": {
+        "c": 0.112,
+        "s": 0.72,
+        "referenceN": 400,
+        "rankSpaceMidpoint": 44.688,
+        "cInScoringCoordinate": 0.089555
+      },
+      "OFFENSE": {
+        "c": 0.096,
+        "s": 1.115,
+        "referenceN": 400,
+        "rankSpaceMidpoint": 38.304,
+        "cInScoringCoordinate": 0.076762,
+        "holdout": {
+          "criterion": 664.81,
+          "perBoard": {
+            "FantasyCalc": 598.29,
+            "FantasyNavigator": 934.86,
+            "OTCFFB": 811.54,
+            "PFKDynasty": 314.56
+          },
+          "skipped": {},
+          "cAsFit": 0.096,
+          "fitReferenceN": 400,
+          "cInScoringCoordinate": 0.076762,
+          "scoringReferenceN": 500,
+          "rankSpaceMidpoint": 38.304
+        }
+      },
+      "IDP": {
+        "c": 0.048,
+        "s": 0.875,
+        "referenceN": 400,
+        "rankSpaceMidpoint": 19.152,
+        "cInScoringCoordinate": 0.038381
+      }
+    },
+    "800 (OVERALL_RANK_LIMIT \u2014 the deepest rank the board publishes)": {
+      "GLOBAL": {
+        "c": 0.056,
+        "s": 0.73,
+        "referenceN": 800,
+        "rankSpaceMidpoint": 44.744,
+        "cInScoringCoordinate": 0.089667
+      },
+      "OFFENSE": {
+        "c": 0.048,
+        "s": 1.11,
+        "referenceN": 800,
+        "rankSpaceMidpoint": 38.352,
+        "cInScoringCoordinate": 0.076858,
+        "holdout": {
+          "criterion": 669.64,
+          "perBoard": {
+            "FantasyCalc": 605.54,
+            "FantasyNavigator": 943.87,
+            "OTCFFB": 819.05,
+            "PFKDynasty": 310.11
+          },
+          "skipped": {},
+          "cAsFit": 0.048,
+          "fitReferenceN": 800,
+          "cInScoringCoordinate": 0.076858,
+          "scoringReferenceN": 500,
+          "rankSpaceMidpoint": 38.352
+        }
+      },
+      "IDP": {
+        "c": 0.024,
+        "s": 0.87,
+        "referenceN": 800,
+        "rankSpaceMidpoint": 19.176,
+        "cInScoringCoordinate": 0.038429
+      }
+    },
+    "_note": "Reference N is a UNIT, not a model: compare rankSpaceMidpoint, not c. Only OFFENSE has a holdout; GLOBAL and IDP constants are reported for completeness and are NOT validated by anything here."
+  },
+  "S18_unanimitySweep": {
+    "slopeHeld": 1.11,
+    "championCriterion": 1160.29,
+    "championPerBoard": {
+      "FantasyCalc": 1185.42,
+      "FantasyNavigator": 1530.16,
+      "OTCFFB": 1436.51,
+      "PFKDynasty": 489.07
+    },
+    "sweep": [
+      {
+        "c": 0.024,
+        "criterion": 1075.1,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -189.2,
+          "FantasyNavigator": -654.5,
+          "OTCFFB": -685.8,
+          "PFKDynasty": 1188.7
+        }
+      },
+      {
+        "c": 0.028,
+        "criterion": 935.18,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -331.1,
+          "FantasyNavigator": -778.9,
+          "OTCFFB": -831.6,
+          "PFKDynasty": 1041.1
+        }
+      },
+      {
+        "c": 0.032,
+        "criterion": 809.98,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -460.4,
+          "FantasyNavigator": -882.3,
+          "OTCFFB": -962.3,
+          "PFKDynasty": 903.7
+        }
+      },
+      {
+        "c": 0.036,
+        "criterion": 700.27,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -577.3,
+          "FantasyNavigator": -961.9,
+          "OTCFFB": -1075.6,
+          "PFKDynasty": 774.7
+        }
+      },
+      {
+        "c": 0.04,
+        "criterion": 608.89,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -681.1,
+          "FantasyNavigator": -1014.3,
+          "OTCFFB": -1163.4,
+          "PFKDynasty": 653.2
+        }
+      },
+      {
+        "c": 0.044,
+        "criterion": 541.27,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -768.9,
+          "FantasyNavigator": -1036.8,
+          "OTCFFB": -1208.8,
+          "PFKDynasty": 538.4
+        }
+      },
+      {
+        "c": 0.048,
+        "criterion": 502.12,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -835.3,
+          "FantasyNavigator": -1030.2,
+          "OTCFFB": -1196.7,
+          "PFKDynasty": 429.5
+        }
+      },
+      {
+        "c": 0.052,
+        "criterion": 488.77,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -873.0,
+          "FantasyNavigator": -999.1,
+          "OTCFFB": -1140.3,
+          "PFKDynasty": 326.3
+        }
+      },
+      {
+        "c": 0.056,
+        "criterion": 494.99,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -876.4,
+          "FantasyNavigator": -950.2,
+          "OTCFFB": -1063.1,
+          "PFKDynasty": 228.5
+        }
+      },
+      {
+        "c": 0.06,
+        "criterion": 515.24,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -848.3,
+          "FantasyNavigator": -889.7,
+          "OTCFFB": -978.2,
+          "PFKDynasty": 136.0
+        }
+      },
+      {
+        "c": 0.064,
+        "criterion": 544.64,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": -798.5,
+          "FantasyNavigator": -822.1,
+          "OTCFFB": -891.2,
+          "PFKDynasty": 49.2
+        }
+      },
+      {
+        "c": 0.068,
+        "criterion": 579.69,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -736.1,
+          "FantasyNavigator": -750.4,
+          "OTCFFB": -804.5,
+          "PFKDynasty": -31.4
+        }
+      },
+      {
+        "c": 0.072,
+        "criterion": 618.46,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -667.3,
+          "FantasyNavigator": -676.7,
+          "OTCFFB": -719.0,
+          "PFKDynasty": -104.3
+        }
+      },
+      {
+        "c": 0.076,
+        "criterion": 660.27,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -595.5,
+          "FantasyNavigator": -602.3,
+          "OTCFFB": -635.2,
+          "PFKDynasty": -167.2
+        }
+      },
+      {
+        "c": 0.08,
+        "criterion": 705.45,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -522.6,
+          "FantasyNavigator": -527.8,
+          "OTCFFB": -553.3,
+          "PFKDynasty": -215.6
+        }
+      },
+      {
+        "c": 0.084,
+        "criterion": 755.05,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -449.7,
+          "FantasyNavigator": -453.9,
+          "OTCFFB": -473.4,
+          "PFKDynasty": -243.9
+        }
+      },
+      {
+        "c": 0.088,
+        "criterion": 810.01,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -377.4,
+          "FantasyNavigator": -380.8,
+          "OTCFFB": -395.5,
+          "PFKDynasty": -247.4
+        }
+      },
+      {
+        "c": 0.092,
+        "criterion": 869.94,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -306.0,
+          "FantasyNavigator": -308.8,
+          "OTCFFB": -319.6,
+          "PFKDynasty": -227.0
+        }
+      },
+      {
+        "c": 0.096,
+        "criterion": 933.19,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -235.8,
+          "FantasyNavigator": -238.0,
+          "OTCFFB": -245.5,
+          "PFKDynasty": -189.2
+        }
+      },
+      {
+        "c": 0.1,
+        "criterion": 998.01,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -166.8,
+          "FantasyNavigator": -168.4,
+          "OTCFFB": -173.2,
+          "PFKDynasty": -140.8
+        }
+      },
+      {
+        "c": 0.104,
+        "criterion": 1063.21,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -99.1,
+          "FantasyNavigator": -100.1,
+          "OTCFFB": -102.7,
+          "PFKDynasty": -86.5
+        }
+      },
+      {
+        "c": 0.108,
+        "criterion": 1128.09,
+        "unanimous": true,
+        "deltaVsChampion": {
+          "FantasyCalc": -32.7,
+          "FantasyNavigator": -33.0,
+          "OTCFFB": -33.8,
+          "PFKDynasty": -29.2
+        }
+      },
+      {
+        "c": 0.112,
+        "criterion": 1192.28,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": 32.4,
+          "FantasyNavigator": 32.7,
+          "OTCFFB": 33.4,
+          "PFKDynasty": 29.5
+        }
+      },
+      {
+        "c": 0.116,
+        "criterion": 1255.57,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": 96.2,
+          "FantasyNavigator": 97.2,
+          "OTCFFB": 99.2,
+          "PFKDynasty": 88.6
+        }
+      },
+      {
+        "c": 0.12,
+        "criterion": 1317.84,
+        "unanimous": false,
+        "deltaVsChampion": {
+          "FantasyCalc": 158.7,
+          "FantasyNavigator": 160.4,
+          "OTCFFB": 163.4,
+          "PFKDynasty": 147.7
+        }
+      }
+    ],
+    "unanimousRange": {
+      "lo": 0.068,
+      "hi": 0.108
+    },
+    "bestUnanimous": {
+      "c": 0.068,
+      "criterion": 579.69,
+      "unanimous": true,
+      "deltaVsChampion": {
+        "FantasyCalc": -736.1,
+        "FantasyNavigator": -750.4,
+        "OTCFFB": -804.5,
+        "PFKDynasty": -31.4
+      }
+    },
+    "bestMean": {
+      "c": 0.052,
+      "criterion": 488.77,
+      "unanimous": false,
+      "deltaVsChampion": {
+        "FantasyCalc": -873.0,
+        "FantasyNavigator": -999.1,
+        "OTCFFB": -1140.3,
+        "PFKDynasty": 326.3
+      }
+    },
+    "degenerateCheck": [
+      {
+        "c": 0.02,
+        "criterion": 1230.49
+      },
+      {
+        "c": 0.01,
+        "criterion": 1707.88
+      },
+      {
+        "c": 0.002,
+        "criterion": 2279.36
+      },
+      {
+        "c": 0.0005,
+        "criterion": 2446.11
+      }
+    ],
+    "_note": "degenerateCheck exists so 'lower is better' cannot be trusted blindly: if the criterion were monotone in falling values, a curve returning ~0 would win it. It does not \u2014 these score far worse than the champion \u2014 so the interior optimum is real."
+  },
+  "S30_leaveOneSourceOut": {
+    "GLOBAL": {
+      "full": {
+        "c": 0.089,
+        "s": 0.72
+      },
+      "sourceCount": 2,
+      "dropped": [
+        {
+          "without": "IDPTradeCalc",
+          "sourceDepth": 400,
+          "pMaxObserved": 0.7996,
+          "c": 0.052,
+          "s": 0.71,
+          "valueShiftPct": {
+            "25": -15.6,
+            "100": -22.5,
+            "400": -26.4
+          }
+        },
+        {
+          "without": "DraftSharks-Combined",
+          "sourceDepth": 400,
+          "pMaxObserved": 0.7996,
+          "c": 0.149,
+          "s": 0.78,
+          "valueShiftPct": {
+            "25": 16.1,
+            "100": 23.6,
+            "400": 24.4
+          }
+        }
+      ]
+    },
+    "OFFENSE": {
+      "full": {
+        "c": 0.077,
+        "s": 1.11,
+        "holdout": {
+          "criterion": 671.21,
+          "perBoard": {
+            "FantasyCalc": 608.13,
+            "FantasyNavigator": 946.52,
+            "OTCFFB": 821.98,
+            "PFKDynasty": 308.23
+          },
+          "skipped": {},
+          "cAsFit": 0.077,
+          "fitReferenceN": 500,
+          "cInScoringCoordinate": 0.077,
+          "scoringReferenceN": 500,
+          "rankSpaceMidpoint": 38.423
+        }
+      },
+      "sourceCount": 6,
+      "dropped": [
+        {
+          "without": "KTC",
+          "sourceDepth": 400,
+          "pMaxObserved": 0.7996,
+          "c": 0.072,
+          "s": 1.185,
+          "valueShiftPct": {
+            "25": -1.7,
+            "100": -10.7,
+            "400": -21.3
+          },
+          "holdout": {
+            "criterion": 576.37,
+            "perBoard": {
+              "FantasyCalc": 452.42,
+              "FantasyNavigator": 751.87,
+              "OTCFFB": 643.99,
+              "PFKDynasty": 457.2
+            },
+            "skipped": {},
+            "cAsFit": 0.072,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.072,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 35.928
+          }
+        },
+        {
+          "without": "DynastyDaddy",
+          "sourceDepth": 373,
+          "pMaxObserved": 0.7455,
+          "c": 0.08,
+          "s": 1.085,
+          "valueShiftPct": {
+            "25": 1.1,
+            "100": 4.9,
+            "400": 9.7
+          },
+          "holdout": {
+            "criterion": 727.53,
+            "perBoard": {
+              "FantasyCalc": 692.24,
+              "FantasyNavigator": 1039.13,
+              "OTCFFB": 911.83,
+              "PFKDynasty": 266.92
+            },
+            "skipped": {},
+            "cAsFit": 0.08,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.08,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 39.92
+          }
+        },
+        {
+          "without": "DynastyNerds",
+          "sourceDepth": 294,
+          "pMaxObserved": 0.5872,
+          "c": 0.082,
+          "s": 1.05,
+          "valueShiftPct": {
+            "25": 1.4,
+            "100": 9.4,
+            "400": 21.0
+          },
+          "holdout": {
+            "criterion": 791.03,
+            "perBoard": {
+              "FantasyCalc": 774.05,
+              "FantasyNavigator": 1129.88,
+              "OTCFFB": 995.01,
+              "PFKDynasty": 265.16
+            },
+            "skipped": {},
+            "cAsFit": 0.082,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.082,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 40.918
+          }
+        },
+        {
+          "without": "YahooBoone",
+          "sourceDepth": 400,
+          "pMaxObserved": 0.7996,
+          "c": 0.077,
+          "s": 1.09,
+          "valueShiftPct": {
+            "25": -0.4,
+            "100": 1.4,
+            "400": 4.4
+          },
+          "holdout": {
+            "criterion": 687.54,
+            "perBoard": {
+              "FantasyCalc": 631.26,
+              "FantasyNavigator": 976.04,
+              "OTCFFB": 844.9,
+              "PFKDynasty": 297.96
+            },
+            "skipped": {},
+            "cAsFit": 0.077,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.077,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 38.423
+          }
+        },
+        {
+          "without": "Fitzmaurice",
+          "sourceDepth": 299,
+          "pMaxObserved": 0.5972,
+          "c": 0.07,
+          "s": 1.1,
+          "valueShiftPct": {
+            "25": -4.1,
+            "100": -6.9,
+            "400": -7.3
+          },
+          "holdout": {
+            "criterion": 605.71,
+            "perBoard": {
+              "FantasyCalc": 493.88,
+              "FantasyNavigator": 831.13,
+              "OTCFFB": 686.39,
+              "PFKDynasty": 411.45
+            },
+            "skipped": {},
+            "cAsFit": 0.07,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.07,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 34.93
+          }
+        },
+        {
+          "without": "DraftSharks",
+          "sourceDepth": 400,
+          "pMaxObserved": 0.7996,
+          "c": 0.082,
+          "s": 1.2,
+          "valueShiftPct": {
+            "25": 4.3,
+            "100": -0.7,
+            "400": -11.9
+          },
+          "holdout": {
+            "criterion": 671.22,
+            "perBoard": {
+              "FantasyCalc": 613.75,
+              "FantasyNavigator": 920.74,
+              "OTCFFB": 836.91,
+              "PFKDynasty": 313.49
+            },
+            "skipped": {},
+            "cAsFit": 0.082,
+            "fitReferenceN": 500,
+            "cInScoringCoordinate": 0.082,
+            "scoringReferenceN": 500,
+            "rankSpaceMidpoint": 40.918
+          }
+        }
+      ]
+    },
+    "IDP": {
+      "full": {
+        "c": 0.038,
+        "s": 0.87
+      },
+      "sourceCount": 2,
+      "dropped": [
+        {
+          "without": "DraftSharks-IDP",
+          "sourceDepth": 146,
+          "pMaxObserved": 0.2906,
+          "c": 0.065,
+          "s": 0.785,
+          "valueShiftPct": {
+            "25": 24.5,
+            "100": 53.2,
+            "400": 85.5
+          }
+        },
+        {
+          "without": "IDPTradeCalc-IDP",
+          "sourceDepth": 370,
+          "pMaxObserved": 0.7395,
+          "c": 0.024,
+          "s": 1.13,
+          "valueShiftPct": {
+            "25": -30.2,
+            "100": -56.1,
+            "400": -71.7
+          }
+        }
+      ]
+    }
+  },
+  "S39_coherentModelSets": {
+    "OFFENSE-only (every member validated)": {
+      "comparableRows": 799,
+      "rowsReordered": 788,
+      "meanAbsRankShift": 63.52,
+      "maxAbsRankShift": 228,
+      "rowsMovingOver10": 680,
+      "largestMovers": [
+        {
+          "player": "Mac Jones",
+          "rank": "336 -> 564",
+          "shift": -228,
+          "value": "2028 -> 1358"
+        },
+        {
+          "player": "Troy Franklin",
+          "rank": "348 -> 569",
+          "shift": -221,
+          "value": "1987 -> 1338"
+        },
+        {
+          "player": "Skyler Bell",
+          "rank": "353 -> 573",
+          "shift": -220,
+          "value": "1970 -> 1325"
+        },
+        {
+          "player": "Tory Horton",
+          "rank": "351 -> 566",
+          "shift": -215,
+          "value": "1971 -> 1348"
+        },
+        {
+          "player": "Dontayvion Wicks",
+          "rank": "361 -> 575",
+          "shift": -214,
+          "value": "1933 -> 1319"
+        }
+      ]
+    },
+    "all three (B1's full challenger)": {
+      "comparableRows": 787,
+      "rowsReordered": 762,
+      "meanAbsRankShift": 51.87,
+      "maxAbsRankShift": 196,
+      "rowsMovingOver10": 618,
+      "largestMovers": [
+        {
+          "player": "Ollie Gordon",
+          "rank": "405 -> 601",
+          "shift": -196,
+          "value": "1792 -> 1219"
+        },
+        {
+          "player": "Chimere Dike",
+          "rank": "400 -> 594",
+          "shift": -194,
+          "value": "1802 -> 1236"
+        },
+        {
+          "player": "Jonathon Cooper",
+          "rank": "678 -> 495",
+          "shift": 183,
+          "value": "1251 -> 1323"
+        },
+        {
+          "player": "Chris Jones",
+          "rank": "695 -> 513",
+          "shift": 182,
+          "value": "1204 -> 1299"
+        },
+        {
+          "player": "Jaylen Wright",
+          "rank": "423 -> 604",
+          "shift": -181,
+          "value": "1748 -> 1201"
+        }
+      ]
+    },
+    "_commonRowSetControl": {
+      "commonRows": 786,
+      "OFFENSE-only (every member validated)": {
+        "rowsReordered": 775,
+        "meanAbsRankShift": 62.22,
+        "maxAbsRankShift": 227,
+        "rowsMovingOver10": 652
+      },
+      "all three (B1's full challenger)": {
+        "rowsReordered": 761,
+        "meanAbsRankShift": 51.76,
+        "maxAbsRankShift": 196,
+        "rowsMovingOver10": 616
+      }
+    }
+  }
+}
