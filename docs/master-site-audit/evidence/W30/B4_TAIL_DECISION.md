@@ -193,6 +193,39 @@ explicitly out of B4's scope.
   saturated one, which the repair would immediately undo. It is a
   user-visible symptom of W30-F023 and should be resolved with it.
 
+## Gates
+
+| gate | result |
+|---|---|
+| `tests/canonical/test_percentile_tail_policy.py` | 8 RED before the owner landed → **17 passed / 8 xfailed(strict)** |
+| full `pytest tests/ -q -m "not livedata"` | **6,912 passed / 0 failed**, 8 xfailed, 18 skipped, 278 deselected, 294 subtests (525 s) |
+| `pytest -m livedata` | **253 passed / 0 failed**, 25 skipped, 336 subtests |
+| `vitest run` (frontend) | **2,010 passed / 0 failed**, 121 files — unchanged, the change is backend-only |
+| `npm --prefix frontend run build` | compiled; **all 14 route bundle budgets under** |
+| `ruff check .` | All checks passed |
+| `ruff format --check .` | 1,014 files already formatted |
+| `scripts/check_decision_coercions.py` | clean in the files this change touches |
+| `scripts/audit_status.py` | no drift (21 closed / 19 open / 2 needs_review / 1 deferred) |
+| CI `Validate PR` at exact HEAD | recorded on PR #798 — a doc cannot contain the result of the run that includes it, so the final conclusion is stated there rather than asserted here |
+
+The Python count is **6,912 + 8 xfailed = 6,920** against B3's 6,913 — the
+delta is the seven new non-xfail tests in this file and nothing else. No
+pre-existing test changed state, which is the load-bearing claim: the four
+tests that pin the collapse as intentional
+(`test_coordinate_equivalence.py`, `test_percentile_coordinate_contract.py`,
+`test_valuation_pipeline_stages.py`) and the two B3 corridor
+characterizations all still pass, because production behaviour did not
+move. They were observed to fail under the applied repair — that
+measurement is §"The blocking dependency" — and pass again once it was
+withdrawn.
+
+The first exact-HEAD CI run failed on `ruff format --check` for two
+evidence scripts (my formatting; tests green in the same run) and was
+fixed in `fde9e31bc`. That fix also corrected a real defect it exposed:
+the harness's tautology guard grepped for clamp source-text the
+single-owner refactor had removed, so it would have reported "no clamps
+found" on a tree whose saturation is unchanged. It is now behavioural.
+
 ## What would unblock this
 
 A decision on #794/#795 — specifically whether the corridor may anchor on
