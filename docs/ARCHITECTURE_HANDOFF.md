@@ -17,16 +17,16 @@ state. This file holds **architecture** state.
 | | |
 |---|---|
 | Branch | `claude/dynasty-audit-consolidation-e75vdy` |
-| HEAD | `89404f2ff` (8 commits ahead of `origin/main` @ `4ac9b22`) |
+| HEAD | `051fbfff6` (11 commits ahead of `origin/main` @ `4ac9b22`) |
 | PR | [#776](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/776) — Validate PR **green** |
 | Working tree | clean |
-| Phase | A complete → **B starting** |
+| Phase | **A FORMALLY CLOSED 2026-08-11.** B is authorized-but-not-started — owner gate below. |
 
 ### Measured gates at this HEAD
 
 | gate | result |
 |---|---|
-| `pytest tests/ -q` | 7,001 passed / 0 failed / 25 skipped / 633 subtests (measured at `4ac9b22` pre-repair; re-run in flight at this HEAD) |
+| `pytest tests/ -q` | **7,008 passed / 0 failed** / 25 skipped / 633 subtests (1324s) — authoritative, measured on the quiescent repaired tree. Baseline was 7,001 at `4ac9b22`; the +7 are the new closure-harness tests. |
 | `vitest run` (frontend) | 120 files / 2,004 tests / 0 failed |
 | `ruff format --check .` | 991 files already formatted |
 | `ruff check .` | All checks passed |
@@ -37,6 +37,26 @@ state. This file holds **architecture** state.
 
 Environment: python 3.11.15 in `.venv` (`scripts/setup.sh`), node 22.22.2, vitest 4.1.10.
 The clone must be **unshallowed** (`git fetch --unshallow`) or every git-derived audit signal lies.
+
+### Phase A formal closure — 2026-08-11
+
+All nine exit criteria satisfied and evidenced:
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Claim ledger frozen and committed | `claims-frozen-2026-08-05.json`, 85 claims; ledger now 86 |
+| 2 | Unshallow verdict recorded | 4,878 commits; all 85 claim SHAs resolve; `8b88623f` confirmed NOT an ancestor of main |
+| 3 | Stack answers `/api/status has_data:true` | 1,095 players; `last_scrape: null`; exactly one SUPPRESSED line |
+| 4 | Test figures recorded with toolchain stamp | 7,008 / 0 python, 2,004 / 0 frontend — both above |
+| 5 | WORK_CLAIMS row live | Added; `check_work_claims.py` clean |
+| 6 | #758–763 dispositioned | `docs/BRANCH_DISPOSITION_2026-08-11.md` — all six re-derive, never merge |
+| 7 | Quick wins green or explicitly deferred | 3 landed red→green; W31-F001 explicitly deferred with its prescribed fix refuted |
+| 8 | Zero edits to the concurrent session's file set | Verified by set intersection: empty |
+| 9 | Branch pushed, PR open, CI green | PR #776, Validate PR success |
+
+**Phase B is NOT started.** Owner gate 2026-08-11: no B1-or-later source implementation until
+explicitly authorized; no `promote` / `apply`, production constant change or challenger promotion
+without evidence presented for approval first.
 
 ---
 
