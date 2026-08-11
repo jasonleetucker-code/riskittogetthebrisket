@@ -78,6 +78,31 @@ The general lesson, and the reason the spec insists on it: **the registry is sta
 directions.** `00a3ce2c`'s claims are the sharpest case — a commit whose code half was
 abandoned still marks findings closed. Verify per finding at HEAD before scheduling any repair.
 
+## New defect found this session — /trade was broken for 3+ teams
+
+Not in `findings.json`, because it postdates the audit's reconnaissance: the owner hit it in
+production during this engagement. Full write-up in
+`evidence/W08/TRADE_MULTI_TEAM_CRASH.md`; the short version:
+
+`frontend/app/trade/page.jsx` called `defaultDestination` at nine sites without importing it.
+`49e005b2a` (2026-07-26, "Redesign R4", #552) deleted the import together with the one call site
+it had just removed, and missed the other nine. Because an un-imported free variable compiles to
+a global lookup rather than a link error, `/trade` loaded fine and two-team trades worked
+perfectly — the `ReferenceError` fired only on the 3+-team paths, so the whole multi-team
+feature had been dead for two and a half weeks under green CI.
+
+Two things this says about the test estate, beyond the one-line fix:
+
+- **No E2E spec exercises a multi-team trade.** `journey-trade.spec.js` and the mobile specs are
+  two-team only. That gap is precisely what let a fully broken feature ship.
+- **A production build proves nothing about free variables.** `npm run build` was green before
+  and after; a bundler cannot tell a forgotten import from an intended global.
+
+Reproduced RED and verified GREEN in Chromium at the mobile viewport against the real production
+build (`evidence/W08/trade_multiteam_browser_check.mjs`). WebKit — the owner's actual browser —
+is not installable in this container, so that exact path stays labelled unverified rather than
+claimed.
+
 ## Not done here
 
 - `verify_closure.py --rerun` over the 338 safe reproductions. It needs the full stack
