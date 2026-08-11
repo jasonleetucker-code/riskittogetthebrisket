@@ -17,10 +17,21 @@ state. This file holds **architecture** state.
 | | |
 |---|---|
 | Branch | `claude/dynasty-audit-consolidation-e75vdy` |
-| HEAD | `051fbfff6` (11 commits ahead of `origin/main` @ `4ac9b22`) |
-| PR | [#776](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/776) — Validate PR **green** |
-| Working tree | clean |
-| Phase | **A FORMALLY CLOSED 2026-08-11.** B is authorized-but-not-started — owner gate below. |
+| **Validated implementation HEAD** | `efa18f0e6` — the exact tree that received the full Python suite, full frontend suite, build and lint below |
+| **Validation base** | `origin/main` @ `4ac9b22b2` (the merge-base). `main` has since advanced 5 automated-refresh commits to `73c5e2776`; none is merged here, deliberately — see the B1 input-pinning note |
+| **Post-validation commits** | Correction-pass commits after `efa18f0e6` carry their own targeted gates, recorded per commit. Any that change production or test behavior re-run the suites; documentation-only commits do not |
+| **Handoff document commit** | This file is committed *after* the state it describes, so it cannot contain its own SHA. Read the fields above, not "current HEAD" |
+| PR | [#776](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/776) — Validate PR **green** at the last pushed state |
+| Working tree | clean at each recorded gate |
+| **Model-input snapshot** | Pinned and hashed by `docs/master-site-audit/evidence/W30/b1_denominator_measure.py` — required before any B1 comparison, because `main`'s 2-hourly refreshes rewrite the fit's own CSVs |
+| Phase | **A FORMALLY CLOSED 2026-08-11.** B is NOT started — owner gate below. |
+
+> **Why these fields and not "current HEAD".** A Markdown file committed at one
+> SHA cannot literally contain that SHA, so a field claiming to be "the commit
+> containing this document" is stale the instant it is written, and inviting a
+> reader to trust it is worse than omitting it. What a reader actually needs is
+> *which tree was tested*, *what it was tested against*, and *what has moved
+> since* — which is what the rows above state separately.
 
 ### Measured gates at this HEAD
 
@@ -206,6 +217,14 @@ the value chain.
   or authorize `promote` / `apply`, change production model constants, or promote a challenger
   without first presenting holdout/backtest evidence, expected board impact, risks and the exact
   proposed change for approval. Zero production source files have been modified for B1.
+
+  **Inputs are pinned** (`docs/master-site-audit/evidence/W30/b1_denominator_measure.py`), and
+  that is not ceremony: between the Phase A branch point and 2026-08-11, `main` took 5 automated
+  refresh commits that rewrote 6 of the fit's own CSVs. Any challenger-vs-champion comparison
+  spanning that movement would confound model code with scraper data. The script hashes every
+  fit source, holdout source and model file, records commit + dirty state, and asserts the
+  holdout does not overlap the fit set (verified CLEAN). Re-run it before and after any B1 change
+  and compare snapshots, or the numbers mean nothing.
 - **B2 — W02-F001**: re-derivation, NOT the registry's one-line scope re-route, which its own
   verifier refuted. Never ship the re-route alone (`REPAIR_ROADMAP.md:1492`).
 - **B3** — re-measure Hampel anchor ejection (W02-F002) and corridor-clamp binding (W02-F003)
