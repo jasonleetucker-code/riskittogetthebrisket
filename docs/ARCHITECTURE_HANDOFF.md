@@ -135,6 +135,45 @@ These are load-bearing invariants, not style preferences. Each has an incident b
   dispatch on the resulting commits. Real repair: reroute the prod backend's runtime writes to an
   untracked path (touches `server.py`, currently claimed).
 
+## Competitive expansion addendum (OTC Fantasy + Play For Keeps)
+
+Owner-approved 2026-08-11 as **future product scope and an
+architecture/planning directive** — **NOT** production-implementation
+authorization. CE-01 … CE-16 product code must not begin yet, and did not begin
+during B1.
+
+What is authorized now: discovery, reconciliation, architecture, feature-inventory
+integration, dependency mapping, plan integration. What is not: any
+competitor-derived production feature.
+
+Standing constraints recorded so a later session cannot lose them:
+
+- Current execution priority remains **foundational repair**. If forced to choose,
+  canonical identity beats a competitor page; Team Strength correctness beats a
+  Pick Projector UI; a correct Trade Calculator beats send-to-Sleeper.
+- Minimum new canonical owners when CE work is authorized: `market_trade_ledger`,
+  `market_adp`, `manager_intelligence`, `projection_and_stats`,
+  `league_action_gateway`, `share_renderer` (plus `command_center`,
+  `pick_forecast`). Pages consume; pages do not reimplement methodology.
+- Signal populations stay distinct: Market Trade Ledger (broad market) is NOT the
+  Sharp Ledger (curated managers) is NOT Insider Trading (specific leaguemates).
+  No observation population may be counted twice.
+- Decision plane and mutation plane are separate. A recommendation must never
+  execute as a side effect; every Sleeper write goes through the Action Gateway.
+- Removed scope stays removed: Schedule Generator, Dispersal Draft, standalone
+  Rookie WR model, generic Best Ball suite, article CMS, podcast hosting,
+  automatic trade spam, social network, billing.
+- Manager Scout is fantasy-behavior analysis only — no real-world identity
+  enrichment, external personal-data scraping, financial or psychological
+  profiling.
+- Competitor research boundary: study capabilities and workflows; never copy
+  source, private APIs, copy, branding or protected assets.
+
+**Not yet produced** (the reconciliation pass, deliberately deferred so it could
+not contaminate B1): `docs/competitive/OTC_PFK_FEATURE_AUDIT.md` and
+`docs/competitive/COMPETITIVE_EXPANSION_ARCHITECTURE.md`, plus the CE-01…CE-16
+rows in `OWNER_FEATURE_INVENTORY.md`.
+
 ## Deliberate refusals — do not silently undo
 
 | finding | why |
