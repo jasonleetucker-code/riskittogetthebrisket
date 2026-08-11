@@ -379,6 +379,39 @@ derived from the drift it bounds), **W02-F017 / #796** (confidence-bucket
 correctness is now a live dependency). W30-F023 is tracked as **#797**. Also still open and unchanged by B3: C17's OFFENSE half,
 the IDP master's 1.552× fit-scale claim, and W30-F023.
 
+## W02-F018 (new) — the export bundle does not retain the inputs needed to audit board-over-board behaviour
+
+**OPEN. Found by the corridor dependency pass, 2026-08-11.** It is the
+concrete blocker on closing #794/#795, so it is recorded as its own item
+rather than as a caveat inside them.
+
+`exports/archive/*.zip` carries **2 of the 21 voting sources' CSVs**
+(`idpTradeCalc`, `ktcSfTep`). `build_api_data_contract` reads the other
+19 from the working tree, so rebuilding an archived board reproduces
+roughly 90% of *today's* inputs under a historical filename.
+
+Measured consequence: rebuilding 14 archived exports spanning
+2026-07-14 → 2026-08-10 produced 359 rows and a P90 band of 0.6201 on
+nearly every one. That near-identity reads as remarkable stability and is
+actually contamination. Any cross-board claim derived this way — the
+corridor pass initially derived one, and withdrew it — is unsound.
+
+Why it blocks the corridor decision specifically: every candidate
+replacement whose reference is *external to the board being policed*
+(historical drift distribution, change-point rail) needs a real
+board-over-board distribution to be characterised, and none can be
+recovered from what is retained. The corridor pass had to fabricate a
+reference constant to score its change-point candidate at all, and
+withdrew that too.
+
+Cheap to fix and worth doing before the next corridor pass: archive all
+21 voting-source CSVs in the export bundle, or persist a per-build drift
+summary. Roughly two weeks of genuinely independent boards is enough to
+measure a replacement detector's false-positive rate honestly.
+
+Evidence: `evidence/W02/CD_CORRIDOR_DECISION.md` §6,
+`evidence/W02/cd_hull_historical.txt`.
+
 ## W02-F015 (new) — the corridor anchor is also a voter
 
 **= GitHub issue [#794](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/794).**
@@ -415,6 +448,19 @@ Evidence: `evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md` §2, §9. Pinned as
 a fact by `tests/api/test_market_corridor_characterization.py
 ::test_every_idp_anchor_is_a_voting_source_in_the_blend_it_clamps`.
 
+**CD pass outcome (2026-08-11): CONFIRMED, and stronger than B3 stated.**
+Not merely "the anchor is also a voter" — **no independent anchor is
+constructible from this tree at all.** Exactly one loaded source does not
+vote (`ktc`) and it is offense-only, while the corridor clamps IDP only;
+every source covering IDP votes. The stage-3 median fallback is a median
+over that same chain, so it is a second statistic of the same voters.
+Quantified on the CD pin: all 32 clamps anchor on `idpTradeCalc`, which
+votes on all 32; the anchor's share of the row goes from a median 1/3 in
+the blend to 1.0 after the clamp, because a clamped value is
+`anchor x (1 +/- band)` — a pure function of the anchor. The value move
+itself is currently modest (median 2.0%, max 10.7%). Evidence:
+`evidence/W02/CD_CORRIDOR_DECISION.md` §1.
+
 ## W02-F016 (new) — the corridor band is derived from the drift it bounds
 
 **= GitHub issue [#795](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/795)** — same item, one identity each side.
@@ -440,6 +486,17 @@ rejected.
 
 Evidence: `evidence/W02/B3_MARKET_CORRIDOR_EVIDENCE.md` §7, and the
 comment at the constant itself.
+
+**CD pass outcome (2026-08-11): CONFIRMED as a tautology, not a tuning
+defect.** A percentile threshold cuts the worst 10% of whatever
+distribution it is handed. Scaling every IDP value by f with anchors
+untouched fires the IDENTICAL 32 rows at a flat 9.7% for every f from 1.0
+to 10.0, the band scaling 0.6201 -> 15.2005: a 10x board-wide error is
+invisible. Inverting it, inflating a fraction q of rows 3x gives 100%
+detection at q<=10% and then 50.8% / 25.2% / 12.5% at q = 20/40/80%,
+because capacity is fixed at ~33 rows however much is broken. So the band
+is a fixed-rate outlier trimmer, not a catastrophic-error rail. Evidence:
+`evidence/W02/CD_CORRIDOR_DECISION.md` §2.
 
 ## W02-F017 (new) — confidence-bucket correctness is now a live dependency
 
@@ -469,6 +526,19 @@ bucket ran high 63.9% / medium 45.8% / low 60.7%, i.e. non-monotone in
 confidence. Post-repair it is 8.3 / 10.0 / 9.8%, which is flat rather than
 ordered. A band system that is *meant* to be confidence-graded producing a
 flat outcome is worth understanding before anyone tunes it.
+
+**CD pass outcome (2026-08-11): CONFIRMED incoherent; the recommendation
+is abstention, not tuning.** On the CD pin the bands are ordered
+*backwards* — high 0.6504 (n=36), low 0.6316 (n=174), medium 0.5183
+(n=119) — so a HIGH-confidence row is permitted MORE disagreement than a
+MEDIUM one, and high-confidence rows drift further from the anchor
+(median 0.2071) than medium ones (0.0980). Total spread is 0.1321, so the
+dependency is also doing little work for the complexity it carries. No
+bucket constant was touched: the finding is that a replacement corridor
+should decline to confidence-grade at all until the bucket methodology is
+independently validated, which resolves the dependency by removing it
+rather than by making the rates look attractive. Evidence:
+`evidence/W02/CD_CORRIDOR_DECISION.md` §3.
 
 ## Not done here
 
