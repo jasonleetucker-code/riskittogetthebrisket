@@ -351,6 +351,22 @@ within a day of being written.
   the shipped registry unloadable, which is rewriting history rather than
   annotating it.
 
+### 6.4a Live confirmation — challenger v4, recorded mid-session
+
+While B1.2 was in flight the weekly refit recorded **challenger v4** on
+`main` (`1430c3023`, 2026-08-11 07:40Z). It is not a hypothetical example;
+it is the current lifecycle's own output, and it confirms two of the
+findings above independently:
+
+| field | v4 | what it shows |
+|---|---|---|
+| `holdout.measuredAt` | `2026-08-11T07:40:45Z` | **populated** — confirming §6.4: the field is emitted going forward and the three stored nulls are a historical gap, not a live defect |
+| `trainingInputs` | `DraftSharks, DynastyDaddy, DynastyNerds, Fitzmaurice, KTC, YahooBoone` | **six OFFENSE CSVs only** — while `params` moves all eight constants including GLOBAL 0.112/0.72, IDP 0.085/0.935 and ROOKIE 0.129/0.85. Exactly the provenance gap §6.3 closes |
+| snapshot | unpinned | fit before the §6.2 workflow change merged, so its IDP and ROOKIE scopes trained against an mtime-selected board that the record does not name |
+
+v4's criterion is 758.1873 and it is stored as `challenger`; champion
+remains v2. Nothing was promoted.
+
 ### 6.5 Scope-specific validation — the gate
 
 `src/model_registry/scope_validation.py`. States:

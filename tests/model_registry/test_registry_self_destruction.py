@@ -111,8 +111,48 @@ class TestAnUnreadableRegistryIsNotAnAbsentOne:
         assert reg.champion.applied_at == "UNKNOWN_HISTORICAL_APPLY_TIME"
 
 
-class TestProductionRegistryIsUntouched:
-    def test_the_shipped_registry_still_names_v2_champion(self):
+class TestProductionRegistryIsNotReseeded:
+    """The registry must survive the test suite that exercises seeding.
+
+    The invariant is "no test overwrote production with a fresh seed" — NOT
+    "the registry has exactly N versions". An earlier version of this test
+    asserted the literal list `[1, 2, 3]` and went red the moment the weekly
+    refit recorded challenger v4 on `main` (`1430c3023`), which is the
+    refit doing exactly what ADR-008 designed it to do. A guard that fails
+    on legitimate activity trains people to ignore it, so it is written
+    against the destruction signature instead.
+
+    A destroyed registry has an unmistakable shape: exactly one version,
+    champion v1, producer "seeded from committed constants". Anything with
+    real history is not that, however many challengers have accumulated.
+    """
+
+    def test_the_registry_has_not_been_reset_to_a_seed(self):
         blob = json.loads(PROD_REGISTRY.read_text())
-        assert blob["championVersion"] == 2
-        assert [v["version"] for v in blob["versions"]] == [1, 2, 3]
+        versions = blob.get("versions") or []
+        assert len(versions) > 1, (
+            "the production registry has collapsed to a single version — this "
+            "is the seed shape, which means something reseeded it"
+        )
+        producers = {(v.get("producer") or "") for v in versions}
+        assert any("fit_hill_curve_percentile" in p for p in producers), (
+            "no version was produced by a real fit; the registry looks seeded"
+        )
+
+    def test_it_still_names_a_champion_with_recorded_history(self):
+        blob = json.loads(PROD_REGISTRY.read_text())
+        champion = blob.get("championVersion")
+        assert champion is not None
+        by_version = {v["version"]: v for v in blob.get("versions") or []}
+        assert champion in by_version
+        assert by_version[champion]["status"] == "champion"
+        # The promotion that made it champion must still be recorded — losing
+        # that is the specific harm a reseed causes.
+        assert by_version[champion].get("promotedAt")
+
+    def test_the_historical_versions_survive(self):
+        """v1-v3 are the pre-B1 record. Later versions may legitimately
+        accumulate; these three disappearing would mean history was lost."""
+        blob = json.loads(PROD_REGISTRY.read_text())
+        present = {v["version"] for v in blob.get("versions") or []}
+        assert {1, 2, 3} <= present, f"historical versions missing: {sorted({1, 2, 3} - present)}"
