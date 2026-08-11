@@ -258,6 +258,21 @@ substitute, and that is pinned by
 
 ## 10. Gates
 
-Recorded in the B3 checkpoint report; full Python hard gate, frontend
-suite, build and bundle budgets, ruff, coercion ratchet, audit-status drift
-and exact-HEAD CI.
+Measured at B3 HEAD `c1c6de9c5`, quiescent tree.
+
+| gate | result |
+|---|---|
+| `tests/api/test_market_corridor_characterization.py` + `test_market_corridor_clamp.py` | 7 RED on the cap removal → **46 passed** |
+| full `pytest tests/ -q -x -m "not livedata"` | **6,913 passed / 0 failed**, 278 deselected, 294 subtests (1,371 s = 22m50s) |
+| `vitest run` (frontend) | **2,010 passed / 0 failed**, 121 files — unchanged, the repair is backend-only |
+| `npm --prefix frontend run build` | compiled; **all 14 route bundle budgets under** |
+| `ruff check .` | All checks passed |
+| `ruff format --check .` | 1,009 files already formatted |
+| `scripts/check_decision_coercions.py` | clean in the files this change touches |
+| `scripts/audit_status.py` | no drift (21 closed / 19 open / 2 needs_review / 1 deferred) |
+| CI `Validate PR` on the pushed HEAD | **green** ([run 31490169550](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/31490169550)) |
+
+The Python delta from B2's 6,898 is exactly +15 — the new characterization
+file. No existing test changed state; the seven that went red were
+rewritten in the same commit as the repair, which is the record of what
+the change did.
