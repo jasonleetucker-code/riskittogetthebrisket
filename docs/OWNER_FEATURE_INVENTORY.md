@@ -22,7 +22,12 @@ specification but in no plan bullet.
 | **KEEP — INFRASTRUCTURE/FOUNDATION** | Not a product feature. Everything above it depends on it. |
 | **REMOVE — OWNER DOES NOT WANT** | Out of scope by owner decision. Not backlog. |
 | **ALREADY COMPLETE — VERIFY ONLY** | Believed done. Needs current-HEAD proof, not code. |
+| **KEEP — FUTURE / EVIDENCE-GATED** | Approved in principle, deliberately dormant until evidence justifies it. |
 | **NEEDS OWNER DECISION** | Cannot be resolved from repo, spec, data or methodology. |
+
+**All seven previously-open owner decisions were resolved on 2026-08-11** and are recorded
+inline below plus summarised in §11. No item in this inventory now carries
+NEEDS OWNER DECISION.
 
 **Scope** is S / M / L / XL. **Status** is what the repository actually does at HEAD, not what a
 document claims. Where the registry and the tree disagree, the tree wins and the disagreement is
@@ -67,11 +72,11 @@ build, blocker, backlog item or future feature.
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
 | 2.1 | **Trade calculator** | Value a proposed trade on the canonical board | Existing | Live at `/trade`. **W08-F004 repaired this session** — the search box could not find the current rookie class | — | — | S (done) | ALREADY COMPLETE — VERIFY ONLY |
-| 2.2 | **Package adjustment** | One engine for consolidation premium / multi-asset discount | Existing, duplicated | KTC's published algorithm is ported in `src/trade/ktc_va.py`; a second port lives in `trade_grading.py`; `src/trade/__init__.py` monkeypatches. Parity is deliberate (see 8.1) | C5 | — | **M** | KEEP — EXISTING, CONSOLIDATE |
+| 2.2 | **Package adjustment** | One engine for consolidation premium / multi-asset discount | Existing, duplicated | KTC's published algorithm is ported in `src/trade/ktc_va.py`; a second port lives in `trade_grading.py`; `src/trade/__init__.py` monkeypatches. **OWNER DECISION 2026-08-11 (W08-F003):** KTC's non-monotonicity — where adding a positive-value asset can LOWER an adjusted side total — is **preserved exactly** when displaying the KTC-parity metric, and is never silently "fixed" or clamped. But it is **not** the canonical definition of trade value: our roster-aware, package-aware model is separate and uses our own methodology. The UI must label which is which, and KTC parity must not contaminate canonical package value, roster-aware marginal value, Team Strength/Weakness impact, Golden Upgrades, Perfect Waivers or any other decision model | C5 | — | **M** | KEEP — EXISTING, CONSOLIDATE (two clearly-separated concepts, not one merged engine) |
 | 2.3 | **Trade Finder (arbitrage)** | Find trades where our board and the retail market disagree | Existing, defective | Live at `/arbitrage`. Open: no dominance pruning (W09-F012), gain not normalized by package size (W09-F002), lopsidedness ranked over mutual benefit (W09-F009) | D2 | — | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 2.4 | **Trade Suggestions** | Roster-aware sell-high / buy-low / consolidation proposals | Existing, defective | Returns zero suggestions for 8 of 12 teams with no diagnosis (W09-F001); no DB can ever be proposed (W27-F002) | D2 | — | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
-| 2.5 | **Golden Upgrades** | Find same-position pairs where our model prefers the target but the market prefers the owned player — exploitable market inversion | Existing under another name | The arbitrage finder already computes these semantics. Spec asks for a distinct product surface with GOLDEN/STRONG/MODERATE/MARGINAL labels and tiny-inversion suppression | D3 | D2 | **S on top of D2** | **NEEDS OWNER DECISION** — rename/repair the finder, or build a separate surface? |
-| 2.6 | **Package Builder return-position filters** | Filter generated packages by returned position (QB/RB/WR/TE/DL/LB/DB/PICKS) **during** generation | New | **No Package Builder component exists** in the tree (grep returns nothing). The spec assumes one | D8 | 2.3, 2.4 | **M** | **NEEDS OWNER DECISION** — is this a new surface, or filters on the existing finder/angle pages? |
+| 2.5 | **Golden Upgrades** | Surface owned-player → target pairs where our model prefers the target while the market prefers what you already own, so the swap can improve the model score *and* potentially extract market value | Existing semantics, new surface | The arbitrage finder already computes market inversion. **OWNER DECISION 2026-08-11: KEEP as a distinct user-facing surface, but it must NOT become a second trade/arbitrage/value engine** — it is a specialized *consumer* of canonical infrastructure (values, ownership, package generation, package adjustment, roster-impact simulation, Team Strength/Weakness, market data, confidence). Distinct presentation, not distinct methodology. Criteria: owned by selected team; genuinely substitutable target; model prefers target; market prefers owned; obtainable; inversion meaningful enough to act on | D3 | D2, C1, C5 | **S–M on top of D2** | KEEP — EXISTING, REPAIR/COMPLETE |
+| 2.6 | **Package Builder** | Build trade packages with return-position constraints applied **during** generation, not as a post-filter | New | No Package Builder component exists in the tree. **OWNER DECISION 2026-08-11: BUILD it as a real user-facing feature.** It must use the SAME canonical package-generation engine as Trade Finder / Trade Suggestions — no second package algorithm. Constraints: QB, RB, WR, TE, DL/EDGE, LB, DB, PICKS, honoured intentionally when several are selected. Must respect selected team, ownership, excluded/untouchable players (1.5), package adjustment (2.2), roster impact (1.3), Team Strength/Weakness (1.1/1.2), pick identity (2.7), missing/unpriced state, and league settings | D8 | 2.2, 2.3, 2.7, 1.5 | **L** | KEEP — NEW BUILD |
 | 2.7 | **Stable draft-pick identity** | A pick keeps season + round + original owner + current owner through the whole pipeline | Existing, lossy | 53 of 216 league picks collapse; original-owner identity discarded before the trade calculator (W08-F005) | C6 | — | **L** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 2.8 | **2028/2029 future-pick valuation** | Price far-future picks instead of dropping them | Existing, partial | `config/weights/pick_year_discount.json` covers near years; unpriced picks are honestly excluded and flagged `isUnpriced` rather than zeroed — the correct posture, but they carry no value | D-tier | 2.7 | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
 
@@ -113,6 +118,37 @@ anywhere in the tree.** The specification devotes ~28 sections to it. It is the 
 build in the engagement and the most external-dependency-heavy (65 submitted feeds, transcript
 providers, LLM extraction, cost control, legal/access constraints).
 
+**OWNER DECISION 2026-08-11: KEEP the complete vision, STAGED after the core foundations.** Not
+removed, not deferred indefinitely, and **not started during Phase B**. Build in this order when
+its dependencies are ready — the numbering below maps to the owner's stages:
+
+1. canonical source registry (shows, submitted entries, aliases, network relationships,
+   duplicate feeds; the unresolved entry stays unresolved rather than guessed)
+2. episode discovery (stable IDs/GUIDs, publication time, metadata, dedup, freshness window)
+3. transcript acquisition (official → publisher → legitimate provider/API → official YouTube →
+   permitted audio transcription → unavailable/retry; **never** bypassing paywalls or access
+   controls)
+4. canonical analyst/speaker identity (aliases, affiliations, repeat guests, one analyst across
+   several shows, network dependence)
+5. structured actionable dynasty-take extraction — transaction intent, not sentiment, with
+   NO SIGNAL common ("I like him" → NO SIGNAL; "buying everywhere" → BUY; "great player, too
+   expensive" → SELL; "a second not a first" → CONDITIONAL BUY; "contender hold, rebuilder sell"
+   → CONTEXTUAL; "start him this week" → NO DYNASTY SIGNAL)
+6. deduplication and independence (same analyst on several shows, syndicated duplicates, repeated
+   clips, network correlation, aliases, reposts must not read as independent opinions)
+7. seven-day consensus over unique analysts/shows, independence, diversity, conviction,
+   confidence, price, conditionality and recency — never raw mention count
+8. product surfaces (player profiles, selected-team intelligence, team pages, buy/sell,
+   news/Analyst Pulse with factual news clearly separate)
+9. one bounded ranking input for the whole ecosystem — not 65 source weights; missing podcast
+   information is neutral
+10. personalized team podcast from structured takes (rostered players, trade targets, weaknesses,
+    waiver opportunities, market movement) — never raw transcript concatenation, with
+    traceability back to source takes
+
+All seven rows below are **KEEP — NEW BUILD, staged per the owner decision above**, and none
+begins during Phase B.
+
 | # | Feature | Purpose | New/Existing | Current status | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
 | 5.1 | **Podcast source registry** | Canonical show identity for the 65 submitted entries, incl. alias/duplicate resolution and one unresolved entry that must stay unresolved | New | Nothing | E6 | — | **M** | KEEP — NEW BUILD |
@@ -123,9 +159,9 @@ providers, LLM extraction, cost control, legal/access constraints).
 | 5.6 | **Podcast on player / team / news surfaces** | "Analyst Pulse" beside factual news, kept visibly separate from fact | New | Nothing | E6 | 5.4 | **M** | KEEP — NEW BUILD |
 | 5.7 | **Bounded podcast ranking input** | All podcast intelligence contributes ONE modest, confidence-aware signal — never 65 ranking sources | New | Nothing | E6 | 5.4 | **M** | KEEP — NEW BUILD |
 
-**Recommendation:** this is the correct candidate for deferral or staging if the engagement needs
-scope relief. It is the only major area with zero existing foundation, and every other product in
-this inventory is independent of it.
+The staging is what makes this safe: it is the only major area with zero existing foundation, and
+every other product in this inventory is independent of it, so ordering it last costs nothing
+elsewhere.
 
 ---
 
@@ -137,7 +173,7 @@ this inventory is independent of it.
 | 6.2 | **Power Rankings** | Rank the 12 teams — **a distinct product from Team Strength** (owner ruling: Team Strength may become one input, but they do not merge) | Existing, duplicated | Two engines ranking the same league differently, 10 teams vs 12 (W30-F003) | F1 | 1.1 optional | **M** | KEEP — EXISTING, CONSOLIDATE |
 | 6.3 | **Franchise / ownership history** | All-time records that do not erase franchises | Existing, defective | A hardcoded retired-owner list erases 2 of 10 2024 franchises from every all-time aggregate; history payload self-contradicts (W19-F001/F002) | F2 | — | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 6.4 | **Public league pages** | Standings, champions, records, rivalries, drafts, trades, recaps | Existing, broad | Extensive: `/league` plus franchise, rivalry, weekly, articles, activity routes | F | — | S–M | KEEP — EXISTING, REPAIR/COMPLETE |
-| 6.5 | **Money / Constitution / League Media** | Public surfaces for dues, rules and league media | New | Do not exist (W19-F007) | F | 6.4 | **L** | **NEEDS OWNER DECISION** — genuinely wanted, or spec inertia? |
+| 6.5 | ~~**Money / Constitution / League Media**~~ | Public surfaces for dues, rules and league media | New | Do not exist (W19-F007). **OWNER DECISION 2026-08-11: REMOVED from this engagement's product scope.** No implementation time during this master pass; may be reconsidered as a future project. Must not remain an unresolved defect, blocker, backlog requirement or Phase F obligation. This is a scope decision only — no existing working code is to be deleted for it | ~~F~~ | — | ~~L~~ | **REMOVE — OWNER DEFERRED OUT OF THIS ENGAGEMENT** |
 | 6.6 | **Universal Player Profile** | One canonical page per player: identity, value, history, intelligence, performance, roster context, news | New (as canon) | **No universal profile route exists.** Only `/league/player/[playerId]` (public-league scoped) and `/players/compare`. Player clicks do not route to one canonical profile | F | 7.1, 7.2 | **L** | KEEP — NEW BUILD |
 | 6.7 | **Blended source rank** | The cross-source rank shown on comparison surfaces | Existing, blank | Renders empty on the compare page; either restore or remove honestly | F4 | — | **S** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 6.8 | **Freshness indicators** | Show how old each computed intelligence actually is | Existing, partial | Some surfaces stamp freshness; not systematic (W08-F011) | F4 | — | **S** | KEEP — EXISTING, REPAIR/COMPLETE |
@@ -155,7 +191,7 @@ Not product surfaces, but every product above reads them, so a defect here is a 
 | 7.2 | **Hill curve / percentile→value** | Convert rank to value | Existing, defective | **B1 investigated this session, not implemented.** Fit and serve use different denominators; error is per-scope: OFFENSE +8→25%, GLOBAL +6→14%, **IDP +14→34%**. Non-uniform scope-dependent distortion of the ladder | B1 | — | **L** | KEEP — INFRASTRUCTURE/FOUNDATION |
 | 7.3 | **IDP valuation** | Value defenders correctly from dedicated sources | Existing, defective | W02-F001 (percentile/master mismatch — same root cause family as 7.2), W02-F002 (Hampel ejects the IDP anchor 29.4% of the time) | B2, B3 | 7.2 | **L** | KEEP — INFRASTRUCTURE/FOUNDATION |
 | 7.4 | **Confidence buckets** | Say how trustworthy a value is | Existing, inverted | Bucket *rises* when sources disappear (W03-F004) | B11 | — | **M** | KEEP — INFRASTRUCTURE/FOUNDATION |
-| 7.5 | **Value scale semantics (>9999)** | Decide whether league-adjusted values above 9,999 are legitimate | Existing, undefined | Overlay has no clamp; live values exceed 9,999. **No ADR exists.** Hard prerequisite for Team Strength | B9 | — | **S–M** | **NEEDS OWNER DECISION** — legitimate unbounded range, or defect to clamp? |
+| 7.5 | **Canonical value scale (1–9999)** | Define what the product scale means and where it applies | Existing, undefined | Overlay has no clamp; live league-adjusted values exceed 9,999 (e.g. 10234). **OWNER DECISION 2026-08-11, resolved:** final canonical **individual player and draft-pick** values are a **1–9999 product scale**. Raw provider values keep their native units (0–100, ranks, dollars, 0–9999) and must NOT be mutated to force the range. Internal/intermediate maths may exceed 9999 where useful. **Aggregates are NOT capped** — Team Strength, package totals, roster/portfolio totals and other multi-asset sums may exceed 9999 and must not be clamped merely because individual assets are bounded. B9 must determine WHY league-adjusted individual values currently exceed the range and establish defensible normalization; a bare `min(value, 9999)` is explicitly forbidden where it would compress elite assets into ties, destroy ordering, mask a double application, or hide a scaling defect. Preserve monotonic ordering and elite-end separation | B9 | — | **M** | KEEP — INFRASTRUCTURE/FOUNDATION (decision resolved) |
 | 7.6 | **Source independence / anti-double-counting / leave-one-out** | Stop comparing KTC against a consensus that contains KTC | Existing, circular | W12-F008: KTC sits on both sides of its own comparison; a leave-one-out diagnostic exists but is not used in production | B10 | — | **M** | KEEP — INFRASTRUCTURE/FOUNDATION |
 | 7.7 | **Scoring-profile handling** | Two leagues share rankings only if they genuinely share scoring | Existing, hand-typed | `scoringProfile` is a typed label, not derived from scoring settings (W18-F001) | B6 | — | **M** | KEEP — INFRASTRUCTURE/FOUNDATION |
 | 7.8 | **League-config consistency** | One canonical owner of league settings | Existing, mostly good | `league_registry` is canonical; residual drift in comparison config and per-league roster shapes (W18-F005/F011) | F3 | 7.7 | **S–M** | KEEP — INFRASTRUCTURE/FOUNDATION |
@@ -197,21 +233,26 @@ Not product surfaces, but every product above reads them, so a defect here is a 
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
 | 10.1 | **Hill curve refit lifecycle** | Fit → backtest → validate → promote → monitor → rollback, human-gated | Existing | `src/model_registry/` produces challengers and scores them against holdout boards; **production constants move only via human-run `promote` + `apply` (ADR-008)** | B1 | 7.2 | — | KEEP — INFRASTRUCTURE/FOUNDATION |
-| 10.2 | **Adaptive analyst / source weighting** | Learn which sources predict best | New | Does not exist. Spec says do not activate until evidence and sample size justify it | G | 5.4, 7.10 | **L** | **NEEDS OWNER DECISION** — pursue, or drop as premature? |
+| 10.2 | **Adaptive source weighting** | Learn which sources predict best | New | Does not exist. **OWNER DECISION 2026-08-11: KEEP in the long-term vision but DO NOT ACTIVATE NOW.** Foundational phases continue on static, explicit, defensible weights. Nothing may automatically change production weights off short samples — "five good weeks from Source X, therefore double its weight" is exactly the forbidden behavior. Before any adaptive weight touches production: accumulate history → define outcomes → leakage-safe splits → train → backtest → out-of-sample evaluation → stability measurement → minimum-sample thresholds → beat the static baseline → human approval → deploy behind a model version/flag → monitor → support rollback | G | 5.4, 7.10 | **L** | KEEP — FUTURE / EVIDENCE-GATED |
 
 ---
 
-## Items requiring an owner decision
+## 11. Owner decisions — all resolved 2026-08-11
 
-| # | Item | The question |
-|---|---|---|
-| 2.5 | Golden Upgrades | The arbitrage finder already computes market-inversion semantics. Rename and repair it, or build a separate surface? |
-| 2.6 | Package Builder filters | No Package Builder exists. New surface, or return-position filters on the existing finder/angle pages? |
-| 6.5 | Money / Constitution / League Media | Genuinely wanted, or specification inertia? |
-| 7.5 | Value scale >9999 | Are league-adjusted values above 9,999 legitimate, or a defect to clamp? No ADR exists; **blocks Team Strength**. |
-| 10.2 | Adaptive source weighting | Pursue, or drop as premature? |
-| — | W08-F003 trade meter | Keep KTC parity (a positive asset can lower your side) as an advisory badge, or clamp it? Recorded as a deliberate refusal pending your call. |
-| — | Podcast intelligence (§5) | Seven builds, XL total, zero existing foundation, heaviest external dependencies. Build now, stage, or defer? |
+Nothing in this inventory carries NEEDS OWNER DECISION. These are binding and should not be
+re-asked unless new repository evidence makes the requested behavior impossible or materially
+unsafe, in which case record the contradiction rather than inventing an answer.
+
+| # | Item | Decision | Final classification |
+|---|---|---|---|
+| 2.5 | **Golden Upgrades** | KEEP as a distinct user-facing surface, but as a *consumer* of canonical infrastructure — never a second trade/arbitrage/value engine. Distinct presentation, not distinct methodology | KEEP — EXISTING, REPAIR/COMPLETE |
+| 2.6 | **Package Builder** | BUILD it. Same canonical package-generation engine as Finder/Suggestions; return-position constraints applied during generation; respects exclusions, ownership, package adjustment, roster impact, Team Strength/Weakness, pick identity, unpriced state | KEEP — NEW BUILD |
+| 6.5 | **Money / Constitution / League Media** | REMOVED from this engagement's scope. Not a defect, blocker, backlog item or Phase F obligation. May return as a future project. No existing working code is to be deleted for it | REMOVE — OWNER DEFERRED OUT OF THIS ENGAGEMENT |
+| 7.5 | **Canonical value scale** | Individual player and pick values are a **1–9999 product scale**. Raw provider units stay native. Intermediate maths may exceed it. **Aggregates (Team Strength, package/roster/portfolio totals) are NOT capped.** B9 must find the true cause of >9999 league-adjusted values and normalize defensibly — a bare `min(v, 9999)` is forbidden where it would tie elite assets, destroy ordering, mask double application or hide a scaling defect | RESOLVED — B9 unblocked |
+| 10.2 | **Adaptive source weighting** | KEEP in the vision, DO NOT ACTIVATE. Static explicit weights until the full evidence lifecycle (history → outcomes → leakage-safe splits → train → backtest → out-of-sample → stability → minimum samples → beat static baseline → human approval → flagged deploy → monitor → rollback) is satisfied | KEEP — FUTURE / EVIDENCE-GATED |
+| 2.2 | **W08-F003 / KTC value adjustment** | PRESERVE exact KTC parity as a secondary/advisory metric — do not silently fix or clamp its non-monotonicity. Our canonical roster-aware model stays separate and uses our own methodology. Label the distinction in the UI; parity must not contaminate canonical package value, marginal value, Team Strength/Weakness, Golden Upgrades or Perfect Waivers | KEEP — EXISTING, CONSOLIDATE (two separated concepts) |
+| §5 | **Podcast Intelligence** | KEEP the complete vision, STAGED after core foundations, in the 10-stage order recorded in §5. Not started during Phase B | KEEP — NEW BUILD (staged) |
+| 0.1 | **Schedule Generator** | REMOVED permanently from this engagement. Must not be reintroduced as generator, optimizer, API, page, export or backlog item, and must not be resurrected by later plan regeneration because an old master prompt contained it | REMOVE — OWNER DOES NOT WANT / NOT APPLICABLE |
 
 ---
 
