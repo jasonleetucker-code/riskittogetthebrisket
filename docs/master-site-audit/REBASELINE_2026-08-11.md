@@ -619,6 +619,37 @@ rather than by making the rates look attractive. Evidence:
 
 **CLOSED 2026-08-11 as a corridor dependency.** Nothing in the value path reads a confidence bucket any more, so bucket correctness no longer gates production values; a test asserts bucket value cannot change enforcement. #796 remains open as a *display/metadata* question — it was never tuned here.
 
+## W02-F019 (new) — correlated-source anomalies are covered by nothing
+
+**= GitHub issue [#804](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/804)** — same item, one identity each side.
+
+**Status: open. Pre-existing, and NOT created by the corridor removal.**
+
+Injecting anomalies at the source CSVs and rebuilding the whole pipeline
+(`evidence/W02/cd_upstream_defense.py`), single-source failures are well
+handled — a source at ×5 or ×20 is absorbed by Hampel plus the
+count-aware blend (≤1.7% blend movement), and an anchor source at ×5 is
+caught outright by the declared-range check (0.0%). **Correlated
+multi-source failures are not**: three or four sources moving together
+move the blend by a median 5.7% and a maximum of **48%**, and *neither*
+the retired market corridor *nor* the blend-integrity hull invariant
+fires — both at 0 of 6 victims.
+
+The reason is structural rather than a tuning miss. The hull invariant
+asks whether a blend left the range of its own contributions; if every
+contribution moves together the blend moves with them and stays inside.
+The corridor anchored on `idpTradeCalc`, one of the correlated voters, so
+its band moved too. And there is no independent arbiter to appeal to —
+every IDP-covering source votes in the blend.
+
+Recorded as its own finding so the gap outlives the corridor pass. It
+does **not** reopen W02-F015/F016/F017, does **not** justify restoring
+the corridor (which fired 0/6 in exactly these scenarios), and must not
+be closed by inventing source weights ahead of a measurement of which
+sources actually move together. Limitation on the evidence: 17
+independent **offseason** days; correlated-source behaviour during live
+games is unobserved.
+
 ## Not done here
 
 - `verify_closure.py --rerun` over the 338 safe reproductions. It needs the full stack

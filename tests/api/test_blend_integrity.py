@@ -23,6 +23,17 @@ cannot lie outside the range of its own contributions. Market
 disagreement can never violate that; only a pipeline fault can. And when
 it is violated the row is **flagged, not corrected** — coercing an
 impossible value to a plausible one hides the fault.
+
+Not correcting the value is only half of abstention, though. The other
+half is that the value must stop counting as an ordinary available
+canonical number, which is what ``TestTheViolationActuallyAbstains``
+covers. Detection that stamps metadata and then lets the impossible value
+flow onward unchanged is diagnostics, not fail-closed behaviour.
+
+Both halves reuse mechanisms the platform already has — the row-level
+``anomalyFlags``/``quarantined`` channel and the contract validator's
+hard-error path — rather than a new missing-state system invented for one
+detector.
 """
 
 from __future__ import annotations
@@ -271,6 +282,205 @@ class TestNoCollateralImpact(unittest.TestCase):
             )
         dc._detect_blend_integrity_violations(rows, {})
         self.assertEqual([bool(r.get("blendIntegrityViolation")) for r in rows], [True, True, True])
+
+
+class TestTheViolationActuallyAbstains(unittest.TestCase):
+    """Detection has to *do* something, or it is diagnostics wearing a hat.
+
+    A value proven structurally impossible must not keep counting as an
+    ordinary canonical value merely because we declined to clamp it. The
+    abstention is expressed through the two fail-closed mechanisms this
+    codebase already has, not a third one written for this detector:
+
+    * **row level** — ``anomalyFlags`` → ``_QUARANTINE_FLAGS`` →
+      ``quarantined = True`` + degraded ``confidenceBucket``, which the
+      Consensus Edge scorer, BDVM and the /edge board already honour;
+    * **build level** — an *error* from ``validate_api_data_contract``,
+      which is what the existing ``scripts/validate_api_contract.py`` CI
+      gate exits non-zero on.
+    """
+
+    def _violated_row(self):
+        row = {
+            "displayName": "Impossible DB",
+            "canonicalName": "Impossible DB",
+            "position": "DB",
+            "assetClass": "idp",
+            "canonicalConsensusRank": 10,
+            "rankDerivedValue": 9000,
+            "confidenceBucket": "high",
+            "canonicalSiteValues": {"idpTradeCalc": 1000, "dlfIdp": 2000},
+            "anomalyFlags": [],
+            "sourceRankMeta": {
+                "idpTradeCalc": {"valueContribution": 1000},
+                "dlfIdp": {"valueContribution": 2000},
+            },
+        }
+        dc._detect_blend_integrity_violations([row], {})
+        return row
+
+    def test_the_violation_is_recorded_as_an_anomaly_flag(self):
+        """The stamp alone is invisible to every existing consumer.
+
+        ``blendIntegrityViolation`` is a new key nothing reads. The
+        anomaly-flag channel is the one the platform already routes on.
+        """
+        row = self._violated_row()
+        self.assertIn("blend_integrity_violation", row.get("anomalyFlags") or [])
+
+    def test_the_flag_is_quarantine_level(self):
+        self.assertIn("blend_integrity_violation", dc._QUARANTINE_FLAGS)
+
+    def test_the_row_is_quarantined_and_degraded_by_the_existing_pass(self):
+        """End-to-end through the real quarantine pass, not a stub."""
+        row = self._violated_row()
+        dc._validate_and_quarantine_rows([row])
+        self.assertTrue(row.get("quarantined"), "impossible value stayed un-quarantined")
+        self.assertEqual(row.get("confidenceBucket"), "low")
+
+    def test_the_value_is_still_not_coerced(self):
+        """Abstention is not a licence to substitute a plausible number."""
+        row = self._violated_row()
+        dc._validate_and_quarantine_rows([row])
+        self.assertEqual(row["rankDerivedValue"], 9000)
+        self.assertIs(row["blendIntegrityViolation"]["valueAltered"], False)
+
+    def test_a_representative_decision_engine_withholds(self):
+        """Consensus Edge is row-level, so prove the row-level path lands.
+
+        ``classify`` puts the quarantine branch ahead of every other
+        consideration, so this is the actual production behaviour for a
+        quarantined row rather than a re-implementation of it.
+        """
+        from src.consensus_edge import score as score_mod
+
+        row = self._violated_row()
+        dc._validate_and_quarantine_rows([row])
+        label = score_mod.classify(
+            80.0,
+            90.0,
+            {"conflicted": False},
+            {},
+            has_market_price=True,
+            quarantined=bool(row.get("quarantined")),
+        )
+        self.assertEqual(label["label"], score_mod.WITHHELD)
+
+    def test_healthy_disagreement_is_neither_flagged_nor_quarantined(self):
+        """The false-positive side of the same mechanism."""
+        row = {
+            "displayName": "Contested DB",
+            "canonicalName": "Contested DB",
+            "position": "DB",
+            "assetClass": "idp",
+            "canonicalConsensusRank": 10,
+            "rankDerivedValue": 1500,
+            "confidenceBucket": "high",
+            "canonicalSiteValues": {"idpTradeCalc": 100, "dlfIdp": 9000},
+            "anomalyFlags": [],
+            "sourceRankMeta": {
+                "idpTradeCalc": {"valueContribution": 100},
+                "dlfIdp": {"valueContribution": 9000},
+            },
+        }
+        dc._detect_blend_integrity_violations([row], {})
+        dc._validate_and_quarantine_rows([row])
+        self.assertNotIn("blend_integrity_violation", row.get("anomalyFlags") or [])
+        self.assertFalse(row.get("quarantined"))
+        self.assertEqual(row.get("confidenceBucket"), "high")
+
+
+class TestTheDocumentedOrderingIsTrue(unittest.TestCase):
+    """The comment above the call site describes an order. Pin it.
+
+    It previously claimed the detector ran "after all value-moving
+    passes", which was false — the two-way boost and the Phase 5 pick
+    passes both follow it. The corrected comment is load-bearing, because
+    the reason for the placement is that the hull invariant describes a
+    *blend*, and those later stages replace the blended value with a
+    number computed from a different population.
+    """
+
+    def test_detection_precedes_the_override_passes(self):
+        import inspect
+
+        src = inspect.getsource(dc._compute_unified_rankings)
+        detect = src.index("_detect_blend_integrity_violations(")
+        boost = src.index("_apply_two_way_player_boost(")
+        self.assertLess(detect, boost, "detector moved after the two-way override")
+
+    def test_the_stale_after_all_passes_claim_is_not_asserted(self):
+        """The phrase survives only inside the sentence retracting it.
+
+        A blunt ``assertNotIn`` fails on the correction itself, which is
+        how this test first behaved — the wrong shape for a guard whose
+        job is to stop the *claim* coming back, not the words.
+        """
+        import inspect
+
+        for line in inspect.getsource(dc._compute_unified_rankings).splitlines():
+            if "after all value-moving passes" in line:
+                self.assertIn(
+                    "used to claim",
+                    line,
+                    f"the retracted ordering claim was re-asserted: {line.strip()}",
+                )
+
+
+class TestTheBuildRefusesAnImpossibleBoard(unittest.TestCase):
+    """Build-level half: the existing contract validator, not a new one."""
+
+    def _payload(self, *, violated: bool):
+        row = {
+            "displayName": "X",
+            "canonicalName": "X",
+            "position": "DB",
+            "assetClass": "idp",
+            "canonicalConsensusRank": 1,
+            "rankDerivedValue": 9000,
+        }
+        if violated:
+            row["blendIntegrityViolation"] = {
+                "detected": True,
+                "reason": "blend_outside_contribution_hull",
+                "value": 9000,
+                "contributionMin": 1000,
+                "contributionMax": 2000,
+                "direction": "above",
+                "valueAltered": False,
+                "sourceCount": 2,
+            }
+        return {"playersArray": [row]}
+
+    def test_a_violated_board_is_an_error_not_a_warning(self):
+        """Compare the two reports rather than asserting ``ok`` is False.
+
+        A skeletal payload fails validation for a dozen unrelated
+        structural reasons, so ``ok is False`` on the violated payload
+        would pass whether or not this feature exists. The *delta*
+        between clean and violated is the only part that isolates it.
+        """
+        clean = dc.validate_api_data_contract(self._payload(violated=False))
+        violated = dc.validate_api_data_contract(self._payload(violated=True))
+
+        new_errors = set(violated["errors"]) - set(clean["errors"])
+        self.assertTrue(
+            any("blend" in e.lower() for e in new_errors),
+            f"violation added no blend-integrity error; delta was {new_errors or 'empty'}",
+        )
+        self.assertFalse(violated["ok"])
+        # And it must be an ERROR, not a warning — the CI contract gate
+        # (`scripts/validate_api_contract.py`) exits non-zero on `ok`
+        # alone and ignores warnings entirely.
+        new_warnings = set(violated["warnings"]) - set(clean["warnings"])
+        self.assertFalse(
+            any("blend" in w.lower() for w in new_warnings),
+            "blend integrity was reported as a warning, which the CI gate ignores",
+        )
+
+    def test_a_clean_board_raises_no_blend_error(self):
+        report = dc.validate_api_data_contract(self._payload(violated=False))
+        self.assertFalse([e for e in report["errors"] if "blend" in e.lower()])
 
 
 class TestTailPolicyCompatibility(unittest.TestCase):

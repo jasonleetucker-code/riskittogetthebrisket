@@ -371,6 +371,39 @@ Steps:
     asset-class exemption, no confidence dependency, no tunable band —
     ``_BLEND_HULL_EPSILON`` (1e-9) is float slack, not policy.
 
+    **Not clamping is only half of abstaining.**  The other half is that
+    the value stops counting as an ordinary canonical number, and that is
+    done with the two fail-closed mechanisms this codebase already has
+    rather than a third invented for one detector:
+
+    * **row level** — the detector appends ``blend_integrity_violation``
+      to ``anomalyFlags``, and that flag is in ``_QUARANTINE_FLAGS``, so
+      ``_validate_and_quarantine_rows`` sets ``quarantined = True`` and
+      degrades ``confidenceBucket`` to ``low``.  Consensus Edge then
+      returns ``WITHHELD`` (``score.classify`` puts quarantine ahead of
+      every other branch), BDVM skips the row, and /edge drops it.  All
+      pre-existing behaviour — nothing new consumes the flag.
+    * **build level** — ``validate_api_data_contract`` raises a hard
+      **error**, so ``scripts/validate_api_contract.py`` (the "API data
+      contract check" CI step) exits non-zero and ``contractHealth.ok``
+      is stamped ``False``.  An error rather than a warning or the soft
+      ``degraded`` status because the gate keys on ``ok`` and ignores
+      warnings.  This scan deliberately covers the WHOLE array, not the
+      ``[:1000]`` prefix the per-row shape checks use — the board runs
+      deeper than that cap and the retired corridor did its work at
+      ranks 691-740.
+
+    What it does NOT do: stop a running server publishing the generation.
+    That path already publishes ``invalid`` contracts, and changing it
+    would be a far larger blast radius than this finding.
+
+    **Placement** is after the blend and count-aware aggregation and
+    BEFORE the two-way boost and Phase 5 pick passes — chosen on what the
+    invariant means (a *blend* cannot leave its contributions' range;
+    those later stages are overrides computing from a different
+    population), not on a measured difference.  Both placements flag zero
+    rows on the live board.
+
     REPLACED the market corridor clamp (W02-F015/F016/F017 =
     #794/#795/#796), which is gone along with
     ``_apply_market_corridor_clamp``, ``_market_anchor_for_row``,

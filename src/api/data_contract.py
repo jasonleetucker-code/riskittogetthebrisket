@@ -259,15 +259,29 @@ _NEAR_NAME_VALUE_RATIO_THRESHOLD = 3.0  # flag if max/min value ratio > 3x
 #   "position_source_contradiction" — position family disagrees with source evidence
 #   "unsupported_position"          — position not in _SUPPORTED_BOARD_POSITIONS
 #   "no_valid_source_values"        — no source values > 0 but has derived value
+#   "blend_integrity_violation"     — blended value fell OUTSIDE the range of
+#                                     its own source contributions, which is
+#                                     structurally impossible under correct
+#                                     operation (stamped by
+#                                     ``_detect_blend_integrity_violations``)
 #
 # The legacy ``near_name_value_mismatch`` flag was retired (see
 # ``_validate_and_quarantine_rows`` Check 3 for rationale).  It used to
 # fire here but the underlying rule produced only false positives.
+#
+# ``blend_integrity_violation`` is quarantine-level for the same reason
+# the others are: the row's value cannot be trusted as an ordinary
+# canonical number.  It is deliberately NOT accompanied by a correction —
+# the retired market corridor coerced such rows toward a plausible value
+# and thereby destroyed the evidence of the fault.  Quarantine is how this
+# codebase already says "present but not consumable"; that is the whole
+# mechanism, and no second one was invented for this detector.
 _QUARANTINE_FLAGS = {
     "duplicate_canonical_identity",
     "position_source_contradiction",
     "unsupported_position",
     "no_valid_source_values",
+    "blend_integrity_violation",
 }
 
 # CSV export paths for source enrichment (relative to repo root).
@@ -4677,12 +4691,14 @@ def _parse_pick_tier(name: str) -> tuple[int, str, int] | None:
         return None
 
 
-# ── Market-anchor corridor clamp ────────────────────────────────────────
-# Designated PRIMARY market anchor sources per asset class.  KTC and
-# IDPTC are the deepest retail value boards, so they define "market
-# reality" for each universe.  Other sources can move the final value
-# within the corridor — they just can't pull a player into a rank
-# that contradicts market at a pathological level.
+# ── Blend-integrity detection ───────────────────────────────────────────
+# This section used to be headed "Market-anchor corridor clamp" and to
+# document designated per-asset-class market anchors.  Both the heading
+# and the anchor design are gone with the corridor (#794/#795/#796):
+# nothing here reads an anchor, and the check below does not "keep a
+# player within a corridor" of anything.  It asks one structural
+# question — did a blended value land outside the range of its own
+# contributions — and answers it without changing any value.
 #: Numerical-precision allowance for the blend-integrity check, NOT a
 #: policy band.
 #:
@@ -4805,6 +4821,24 @@ def _detect_blend_integrity_violations(
             "valueAltered": False,
         }
         row["blendIntegrityViolation"] = stamp
+
+        # Abstention, expressed through the channel the platform already
+        # routes on.  ``blendIntegrityViolation`` above is a rich
+        # diagnostic that nothing reads; ``anomalyFlags`` is what
+        # ``_validate_and_quarantine_rows`` consults, and the flag is in
+        # ``_QUARANTINE_FLAGS``, so the row comes out of that pass
+        # ``quarantined`` with a degraded confidence bucket.  Consensus
+        # Edge then Withholds it, BDVM skips it, and /edge drops it —
+        # all pre-existing behaviour for quarantined rows.
+        #
+        # Without this the detector would be diagnostics only: the value
+        # is proven impossible and would still be consumed as an ordinary
+        # canonical number by everything downstream.
+        flags = list(row.get("anomalyFlags") or [])
+        if "blend_integrity_violation" not in flags:
+            flags.append("blend_integrity_violation")
+        row["anomalyFlags"] = flags
+
         legacy_ref = row.get("legacyRef")
         if legacy_ref and legacy_ref in players_by_name:
             pdata = players_by_name[legacy_ref]
@@ -8305,12 +8339,34 @@ def _compute_unified_rankings(
     # back to the live rank and value, which are the single source
     # of truth for every position.
 
-    # Blend-integrity detection: after all value-moving passes, flag any
-    # row whose blended value fell OUTSIDE the range of its own source
-    # contributions.  That is structurally impossible under correct
-    # operation, so it is a pipeline-integrity signal rather than a
-    # disagreement to be corrected — the row is stamped and its value is
-    # left alone.  See ``_detect_blend_integrity_violations``.
+    # Blend-integrity detection: flag any row whose blended value fell
+    # OUTSIDE the range of its own source contributions.  That is
+    # structurally impossible under correct operation, so it is a
+    # pipeline-integrity signal rather than a disagreement to be corrected
+    # — the row is stamped, quarantined, and its value is left alone.
+    # See ``_detect_blend_integrity_violations``.
+    #
+    # WHERE this sits, precisely.  It runs after the blend and the
+    # count-aware aggregation, and BEFORE the two-way-player boost
+    # immediately below and the Phase 5 pick passes further down.  This
+    # comment used to claim it ran "after all value-moving passes", which
+    # is simply false.
+    #
+    # The placement is chosen on what the invariant MEANS, not on a
+    # measured difference.  The invariant says a *blend* cannot leave the
+    # range of the contributions it was blended from; the later stages are
+    # deliberate OVERRIDES that replace the blended value with a number
+    # computed from a different population (the alt-position family's
+    # implied value; the merged rookie pool's value), so the invariant
+    # does not describe their output and asking it there is a category
+    # error.
+    #
+    # Measured on the live board, both placements currently flag ZERO
+    # rows, so this is not a false-positive rate anyone has observed —
+    # Travis Hunter's boosted 4758 lands inside his own (2538, 5637) hull,
+    # and every ranked pick with two contributions sits inside its hull
+    # too.  Stating that plainly rather than claiming the later placement
+    # "would" misfire, which the evidence does not show.
     #
     # This replaced the market-anchor corridor clamp (#794/#795/#796).
     # The clamp coerced values toward a "market anchor" that was itself a
@@ -10010,6 +10066,35 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 warnings.append(
                     f"playersArray[{idx}] canonicalSiteValues missing keys: {', '.join(missing_keys[:6])}"
                 )
+
+    # ── Blend integrity: a hard error, and scanned over the WHOLE array ──
+    # An out-of-hull value is structurally impossible under correct
+    # operation, so a board carrying one is not a board to publish — this
+    # is what makes ``scripts/validate_api_contract.py`` (the "API data
+    # contract check" CI step) exit non-zero, and what stamps
+    # ``contractHealth.ok = False`` on the served payload.
+    #
+    # Deliberately an ERROR rather than a warning or the soft ``degraded``
+    # flag: the CI gate keys on ``ok`` and ignores warnings entirely, so
+    # anything softer would be a note nobody acts on.
+    #
+    # And deliberately NOT bounded by the ``[:1000]`` slice the loop above
+    # uses. That cap is a cost control for per-row shape checks on a
+    # ~1,094-row board, but the corridor this replaced did its work at
+    # ranks 691-740 and the board runs deeper than the cap — a prefix scan
+    # would miss violations exactly where they are most likely.
+    integrity_violations = [
+        str(r.get("displayName") or r.get("canonicalName") or f"index {i}")
+        for i, r in enumerate(players_array)
+        if isinstance(r, dict) and isinstance(r.get("blendIntegrityViolation"), dict)
+    ]
+    if integrity_violations:
+        errors.append(
+            f"blend_integrity_violation:{len(integrity_violations)} row(s) hold a value "
+            f"outside the range of their own source contributions "
+            f"({', '.join(integrity_violations[:6])}"
+            f"{', …' if len(integrity_violations) > 6 else ''})"
+        )
 
     idp_count = 0
     normalized_pos_by_name: dict[str, set[str]] = {}

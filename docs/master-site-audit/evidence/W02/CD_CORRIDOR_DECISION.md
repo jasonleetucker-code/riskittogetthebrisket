@@ -33,6 +33,53 @@ operation. Coercing it to the nearest boundary would convert pipeline
 corruption into a clean, plausible number and destroy the only evidence
 that anything was wrong. The row is stamped and left alone.
 
+### What "abstain" means operationally (corrected 2026-08-11)
+
+The first implementation stamped `blendIntegrityViolation`, set
+`valueAltered: false`, and let the row continue through the pipeline
+unchanged. **That is diagnostics, not abstention** — the value was proven
+structurally impossible and every downstream consumer still read it as an
+ordinary canonical number, because `blendIntegrityViolation` is a key
+nothing consults.
+
+Fixed by routing through the two fail-closed mechanisms the platform
+already has, rather than inventing a third:
+
+| level | mechanism (pre-existing) | effect |
+|---|---|---|
+| row | `anomalyFlags` → `_QUARANTINE_FLAGS` → `quarantined` | Consensus Edge returns `WITHHELD`; BDVM skips the row; /edge drops it; `confidenceBucket` degrades to `low`; mirrored to the legacy dict |
+| build | `validate_api_data_contract` **error** | `scripts/validate_api_contract.py` (the "API data contract check" CI step) exits non-zero; `contractHealth.ok` stamped `False` |
+
+Two deliberate boundaries:
+
+* **Error, not warning, not `degraded`.** The CI gate keys on `ok` and
+  ignores warnings entirely, so anything softer is a note nobody acts on.
+* **It does not stop a running server publishing the generation.** That
+  path already publishes `invalid` contracts; changing it is a far larger
+  blast radius than this finding, and was not in scope.
+
+The build-level scan covers the **whole** `playersArray`, not the
+`[:1000]` prefix the per-row shape checks use — the board is ~1,094 rows
+and the retired corridor did its work at ranks 691-740, so a prefix scan
+would miss violations precisely where they are most likely.
+
+### Placement, stated accurately
+
+The detector runs after the blend and count-aware aggregation and
+**before** the two-way-player boost and the Phase 5 pick passes. A source
+comment previously claimed it ran "after all value-moving passes", which
+was false.
+
+The placement follows from what the invariant means — a *blend* cannot
+leave the range of the contributions it was blended from, while those
+later stages are overrides computing from a different population — and
+**not** from a measured false-positive rate. Measured on the live board
+both placements flag zero rows: Travis Hunter's boosted 4758 sits inside
+his own (2538, 5637) hull, and every ranked pick carrying two
+contributions sits inside its hull. Recorded that way rather than
+claiming the later placement "would" misfire, which the evidence does not
+show.
+
 ### What decided it — the upstream audit (§3)
 
 The decisive measurement, and it corrected my own earlier synthetic
@@ -58,6 +105,14 @@ agreeing on something wrong is indistinguishable from disagreement at the
 blend, and no independent IDP reference exists to arbitrate — every
 IDP-covering source votes. This gap is pre-existing; removal does not
 create it.
+
+**Tracked as [#804](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/804)**
+— correlated-source / shared-lineage anomaly protection. Filed so the gap
+outlives this PR rather than living only in a decision doc. It does not
+reopen #794/#795/#796, does not justify restoring the corridor (which
+fired 0/6 in exactly these scenarios), and must not be closed by
+inventing source weights ahead of a measurement of which sources actually
+move together.
 
 ### Board impact (§6)
 
