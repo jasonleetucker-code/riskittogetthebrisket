@@ -1,7 +1,15 @@
 # B4 §5 — every saturation point and tail assumption in the tree
 
-Read-only trace at the B4 pin (`d1831d062`; integrated main `a89a07ea3`
-plus two documentation-only commits). Nothing here changes production.
+Read-only trace at the B4 pin (integrated main `a89a07ea3` plus
+documentation- and evidence-only commits). Nothing here changes
+production.
+
+**Correction, 2026-08-11**: the blast-radius numbers this trace was written
+alongside were path-gated afterwards — the first pass counted any stamped
+`effectiveRank > N` as saturated, including value-direct sources that never
+reach `percentile_to_value`. See `B4_TAIL_CORRECTION.md` and the corrected
+`b4_tail_report.json`. The clamp inventory below is unaffected: it is a
+source trace, not a population count.
 
 **Headline: there are FOUR independent `p ≤ 1.0` clamps on the percentile
 coordinate, not two.** The finding and B1.2 both named two. A repair at

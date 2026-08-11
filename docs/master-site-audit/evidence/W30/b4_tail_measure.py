@@ -99,7 +99,17 @@ def pin() -> dict:
         "phase": "B4",
         "codeSha": _git("rev-parse", "HEAD"),
         "codeSubject": _git("log", "-1", "--format=%s"),
-        "dirty": bool(_git("status", "--porcelain")),
+        # Not a bare bool. A run necessarily rewrites its own two output
+        # files, so "dirty" is self-referential unless the paths are
+        # enumerated and classified — the pin has to prove the tree is
+        # clean of anything that could change the MEASUREMENT.
+        "dirtyPaths": [
+            ln.split(maxsplit=1)[-1] for ln in _git("status", "--porcelain").splitlines()
+        ],
+        "dirtyIsEvidenceOnly": all(
+            ln.split(maxsplit=1)[-1].startswith("docs/master-site-audit/evidence/")
+            for ln in _git("status", "--porcelain").splitlines()
+        ),
         "mainTip": _git("rev-parse", "origin/main"),
         "commitsAheadOfMain": _git("log", "--oneline", "origin/main..HEAD").splitlines(),
         "board": {
@@ -163,7 +173,14 @@ def reproduce() -> None:
     snap = pin()
     n = snap["tailConstants"]["PERCENTILE_REFERENCE_N"]
     print("== B4 pin ==")
-    print(f"  code   {snap['codeSha'][:9]}  dirty={snap['dirty']}  main tip {snap['mainTip'][:9]}")
+    print(f"  code   {snap['codeSha'][:9]}  main tip {snap['mainTip'][:9]}")
+    if snap["dirtyPaths"]:
+        print(
+            f"  dirty  {len(snap['dirtyPaths'])} path(s), evidence-only="
+            f"{snap['dirtyIsEvidenceOnly']}: {snap['dirtyPaths']}"
+        )
+    else:
+        print("  dirty  none — measured on a clean tree")
     if snap["commitsAheadOfMain"]:
         print(
             f"  ahead of main by {len(snap['commitsAheadOfMain'])} commit(s), documentation only:"
@@ -189,48 +206,105 @@ def reproduce() -> None:
         contract = build_api_data_contract(json.loads(latest_board().read_bytes()))
     rows = contract.get("playersArray") or []
 
-    # ── per-source blast radius ──
+    # ── per-source path mix and blast radius ──
+    #
+    # W30-F023 is a rank → percentile → Hill saturation defect. A stamped
+    # effectiveRank > N is NOT by itself evidence that the source's live
+    # contribution traversed either clamp: value-direct sources
+    # (``_VALUE_BASED_SOURCES``) price from the raw site value and never
+    # reach ``percentile_to_value``. An earlier version of this harness
+    # counted any deep rank as saturated, which inflated the headline and
+    # attributed the collapse to ``idpTradeCalc``, whose live contributions
+    # are value-direct on every row. The primary population is now
+    # path-gated.
+    from src.api.data_contract import _VALUE_BASED_SOURCES
+
     per_source: dict[str, dict] = {}
-    saturated_rows: set[str] = set()
-    total_obs = 0
-    total_sat = 0
+    hill_rows: set[str] = set()
+    hill_obs = hill_sat = direct_obs = direct_deep = 0
+    deepest_hill_served = 0
     for row in rows:
         name = str(row.get("displayName"))
+        served = bool(row.get("canonicalConsensusRank"))
         for key, meta in (row.get("sourceRankMeta") or {}).items():
             if not isinstance(meta, dict):
                 continue
             eff = meta.get("effectiveRank")
             if not isinstance(eff, int):
                 continue
+            path = str(meta.get("valueContributionPath") or "")
             rec = per_source.setdefault(
                 key,
-                {"obs": 0, "sat": 0, "satRanks": set(), "deepest": 0, "pools": set(), "hill": 0},
+                {
+                    "obs": 0,
+                    "direct": 0,
+                    "hill": 0,
+                    "hillSat": 0,
+                    "directDeep": 0,
+                    "fallbackHill": 0,
+                    "satRanks": set(),
+                    "deepest": 0,
+                    "deepestHill": 0,
+                    "pools": set(),
+                },
             )
             rec["obs"] += 1
-            total_obs += 1
             rec["deepest"] = max(rec["deepest"], eff)
             rec["pools"].add(str(meta.get("rankCoordinatePool") or "?"))
-            if meta.get("valueContributionPath") == "rank_hill":
+            if path == "rank_hill":
                 rec["hill"] += 1
-            if eff > n:
-                rec["sat"] += 1
-                total_sat += 1
-                rec["satRanks"].add(eff)
-                saturated_rows.add(name)
+                hill_obs += 1
+                rec["deepestHill"] = max(rec["deepestHill"], eff)
+                if served:
+                    deepest_hill_served = max(deepest_hill_served, eff)
+                # A value-based source on the Hill path fell back — its raw
+                # value was missing, out of range, or the source was
+                # suppressed. Those rows DO take the tail policy.
+                if key in _VALUE_BASED_SOURCES:
+                    rec["fallbackHill"] += 1
+                if eff > n:
+                    rec["hillSat"] += 1
+                    hill_sat += 1
+                    rec["satRanks"].add(eff)
+                    hill_rows.add(name)
+            else:
+                rec["direct"] += 1
+                direct_obs += 1
+                if eff > n:
+                    rec["directDeep"] += 1
+                    direct_deep += 1
 
     print(
-        f"\n== W30-F023 reproduction — {total_sat} of {total_obs} served source-rank "
-        f"observations sit past rank {n} ({100.0 * total_sat / total_obs:.1f}%), "
-        f"touching {len(saturated_rows)} of {len(rows)} board rows =="
+        f"\n== W30-F023 reproduction (PATH-GATED) — {hill_sat} of {hill_obs} "
+        f"rank-Hill observations sit past rank {n} "
+        f"({100.0 * hill_sat / hill_obs:.1f}%), touching {len(hill_rows)} of "
+        f"{len(rows)} board rows =="
     )
     print(
-        f"\n  {'source':<22}{'obs':>6}{'past N':>8}{'%':>7}{'collapsed':>11}"
-        f"{'deepest':>9}  {'pool':<14}{'clamped':>9}{'continuous':>12}{'distortion':>12}"
+        f"  For contrast, {direct_deep} value-direct observations also carry a rank past {n} "
+        f"(of {direct_obs} value-direct observations). Those are NOT part of this defect: "
+        "they price from the raw site value and never reach percentile_to_value."
+    )
+
+    print("\n== path mix per source ==")
+    print(
+        f"  {'source':<22}{'ranks':>7}{'direct':>8}{'hill':>7}{'hill>N':>8}"
+        f"{'fallback':>10}{'collapsed':>11}{'deepest':>9}{'deepHill':>10}  pool"
+    )
+    for key, rec in sorted(per_source.items(), key=lambda kv: (-kv[1]["hillSat"], kv[0])):
+        print(
+            f"  {key:<22}{rec['obs']:>7}{rec['direct']:>8}{rec['hill']:>7}"
+            f"{rec['hillSat']:>8}{rec['fallbackHill']:>10}{len(rec['satRanks']):>11}"
+            f"{rec['deepest']:>9}{rec['deepestHill']:>10}  {sorted(rec['pools'])}"
+        )
+
+    print("\n== the collapse, for rank-Hill observations only ==")
+    print(
+        f"  {'source':<22}{'past N':>8}{'collapsed':>11}{'deepest':>9}  "
+        f"{'curve':<10}{'clamped':>9}{'continuous':>12}{'distortion':>14}"
     )
     payload_sources = {}
-    for key, rec in sorted(per_source.items(), key=lambda kv: -kv[1]["sat"]):
-        if not rec["sat"]:
-            continue
+    for key, rec in sorted(per_source.items(), key=lambda kv: -kv[1]["hillSat"]):
         pool = sorted(rec["pools"])[0]
         try:
             c, s = curve_for_pool(pool)
@@ -239,84 +313,98 @@ def reproduce() -> None:
             c = s = None
             label = "?"
         clamped = cont = dist = pct = None
-        if c is not None:
+        if c is not None and rec["hillSat"]:
             clamped = hill(1.0, c, s)
-            cont = hill((rec["deepest"] - 1.0) / (n - 1.0), c, s)
+            cont = hill((rec["deepestHill"] - 1.0) / (n - 1.0), c, s)
             dist = clamped - cont
             pct = 100.0 * dist / cont if cont else None
-        print(
-            f"  {key:<22}{rec['obs']:>6}{rec['sat']:>8}"
-            f"{100.0 * rec['sat'] / rec['obs']:>6.1f}%{len(rec['satRanks']):>11}"
-            f"{rec['deepest']:>9}  {label:<14}"
-            f"{(f'{clamped:.0f}' if clamped else '—'):>9}"
-            f"{(f'{cont:.0f}' if cont else '—'):>12}"
-            f"{(f'{dist:+.0f} ({pct:+.0f}%)' if dist is not None else '—'):>12}"
-        )
+        if rec["hillSat"]:
+            print(
+                f"  {key:<22}{rec['hillSat']:>8}{len(rec['satRanks']):>11}"
+                f"{rec['deepestHill']:>9}  {label:<10}"
+                f"{clamped:>9.0f}{cont:>12.0f}{f'{dist:+.0f} ({pct:+.0f}%)':>14}"
+            )
         payload_sources[key] = {
-            "observations": rec["obs"],
-            "pastReferenceN": rec["sat"],
-            "pctSaturated": round(100.0 * rec["sat"] / rec["obs"], 2),
+            "stampedRanks": rec["obs"],
+            "valueDirectObservations": rec["direct"],
+            "valueDirectPastN": rec["directDeep"],
+            "rankHillObservations": rec["hill"],
+            "rankHillPastN": rec["hillSat"],
+            "fallbackRankHillObservations": rec["fallbackHill"],
             "distinctRanksCollapsed": len(rec["satRanks"]),
             "deepestRank": rec["deepest"],
+            "deepestRankHillRank": rec["deepestHill"],
             "pool": pool,
             "curve": label,
             "clampedContribution": round(clamped, 1) if clamped else None,
             "continuousContribution": round(cont, 1) if cont else None,
             "absoluteDistortion": round(dist, 1) if dist is not None else None,
             "pctDistortion": round(pct, 1) if pct is not None else None,
-            "rankHillObservations": rec["hill"],
         }
 
-    unaffected = [k for k, r in per_source.items() if not r["sat"]]
-    print(f"\n  sources with ZERO saturated observations: {sorted(unaffected)}")
+    unaffected = [k for k, r in per_source.items() if not r["hillSat"]]
+    print(f"\n  sources with ZERO saturated rank-Hill observations: {sorted(unaffected)}")
 
-    # ── affected rows by position ──
-    print("\n== affected board rows by position ==")
-    by_bucket: dict[str, list[int]] = {}
+    # ── affected rows by position (rank-Hill only) ──
+    print("\n== affected board rows by position (rank-Hill saturation only) ==")
+    by_bucket: dict[str, int] = {}
     pop: dict[str, int] = {}
     for row in rows:
         b = bucket_for(str(row.get("position") or ""), str(row.get("assetClass") or ""))
         pop[b] = pop.get(b, 0) + 1
-        if str(row.get("displayName")) in saturated_rows:
-            by_bucket.setdefault(b, []).append(1)
+        if str(row.get("displayName")) in hill_rows:
+            by_bucket[b] = by_bucket.get(b, 0) + 1
     order = [name for name, _ in POSITION_BUCKETS] + ["picks", "other"]
     for b in order:
         if not pop.get(b):
             continue
-        hit = len(by_bucket.get(b, []))
+        hit = by_bucket.get(b, 0)
         print(f"  {b:<9} {hit:>4} of {pop[b]:>4}  ({100.0 * hit / pop[b]:>5.1f}%)")
 
-    # ── the served range the tail is supposed to cover ──
+    # ── the four distinct rank domains ──
     ranked = [r for r in rows if r.get("canonicalConsensusRank")]
     deepest_served = max((r["canonicalConsensusRank"] for r in ranked), default=0)
-    deepest_source_rank = max((r["deepest"] for r in per_source.values()), default=0)
-    print("\n== what the served range actually is ==")
-    print(f"  board rows carrying a rank        : {len(ranked)}  (deepest {deepest_served})")
-    print(f"  OVERALL_RANK_LIMIT                : {OVERALL_RANK_LIMIT}")
-    print(f"  PERCENTILE_REFERENCE_N            : {_PERCENTILE_REFERENCE_N}")
-    print(f"  deepest effective source rank     : {deepest_source_rank}")
+    deepest_any = max((r["deepest"] for r in per_source.values()), default=0)
+    deepest_hill_any = max((r["deepestHill"] for r in per_source.values()), default=0)
+    print("\n== four rank domains, which candidate C must not conflate ==")
+    print(f"  canonical final-board rank limit        : {OVERALL_RANK_LIMIT}")
+    print(f"  deepest canonical rank actually served  : {deepest_served}  ({len(ranked)} rows)")
+    print(f"  percentile saturation point             : {_PERCENTILE_REFERENCE_N}")
+    print(f"  deepest translated effective rank (any) : {deepest_any}")
+    print(f"  deepest effective rank on the HILL path : {deepest_hill_any}")
     print(
-        "  → the gap between the reference N and the deepest served rank is the region "
-        "this defect flattens"
+        f"  deepest HILL rank consumed by a SERVED row: {deepest_hill_served}"
+        "   <- the boundary a bounded policy would have to respect"
     )
+    if deepest_hill_served > OVERALL_RANK_LIMIT:
+        print(
+            "  !! live rank-Hill evidence for served players extends PAST "
+            f"{OVERALL_RANK_LIMIT}; a policy saturating at the board limit would "
+            "still collapse genuine evidence"
+        )
 
     payload = {
         "pin": snap,
         "clampSites": clamps,
         "totals": {
-            "observations": total_obs,
-            "saturatedObservations": total_sat,
-            "pctSaturated": round(100.0 * total_sat / total_obs, 2),
-            "rowsTouched": len(saturated_rows),
+            "rankHillObservations": hill_obs,
+            "rankHillPastN": hill_sat,
+            "pctRankHillSaturated": round(100.0 * hill_sat / hill_obs, 2),
+            "rowsTouchedByRankHillSaturation": len(hill_rows),
+            "valueDirectObservations": direct_obs,
+            "valueDirectPastN": direct_deep,
             "boardRows": len(rows),
             "rankedRows": len(ranked),
-            "deepestServedRank": deepest_served,
-            "deepestSourceRank": deepest_source_rank,
+            "overallRankLimit": OVERALL_RANK_LIMIT,
+            "deepestServedCanonicalRank": deepest_served,
+            "deepestEffectiveRankAny": deepest_any,
+            "deepestEffectiveRankOnHillPath": deepest_hill_any,
+            "deepestHillRankConsumedByServedRow": deepest_hill_served,
         },
         "bySource": payload_sources,
         "unaffectedSources": sorted(unaffected),
         "byPosition": {
-            b: {"affected": len(by_bucket.get(b, [])), "population": pop.get(b, 0)}
+            b: {"affected": by_bucket.get(b, 0), "population": pop.get(b, 0)}
             for b in order
             if pop.get(b)
         },
