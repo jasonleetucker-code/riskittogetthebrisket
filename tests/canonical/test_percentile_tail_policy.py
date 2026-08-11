@@ -31,16 +31,20 @@ IDP (DB 79.8%, DL/EDGE 75.2%, LB 53.8% of served rows in bucket).
 
 Two things these tests are deliberately careful about.
 
-**They are policy-agnostic.** B4 has not selected a tail policy yet. A test
-that asserted "``p`` may exceed 1.0" would presuppose the continuous
-candidate and would fail under a bounded one that rescales the coordinate
-instead; a test that asserted a specific boundary would presuppose the
-bounded candidate. So what is asserted is the *observable* property both
-must satisfy and the current behaviour does not: **two ranks a source
-genuinely distinguishes must not be priced identically.** Only the
-"change nothing" candidate fails these, which is correct — if B4 concludes
-no repair is warranted, these tests are withdrawn with the conclusion, not
-quietly kept.
+**They are policy-agnostic**, and stayed that way on purpose after the
+policy was chosen. B4 selected *bounded at rank 903*, but a test asserting
+that boundary would pin a decision that is currently blocked and may be
+re-taken when #794/#795 are resolved — a bounded policy at a different
+depth, or the continuous one, would satisfy W30-F023 just as well. A test
+asserting "``p`` may exceed 1.0" would likewise presuppose the continuous
+shape and fail under a bounded one that rescales the coordinate instead.
+
+So what is asserted is the *observable* property every viable candidate
+satisfies and the current behaviour does not: **two ranks a source
+genuinely distinguishes must not be priced identically.** Only "change
+nothing" fails these. The specific boundary is pinned once, where it
+belongs — ``TestTheOwnerIsSingle.test_the_boundary_ships_unset`` — rather
+than being spread across every assertion.
 
 **They call the real canonical functions.** Never a local re-implementation
 of the Hill form. A copied formula here would pass while production stayed

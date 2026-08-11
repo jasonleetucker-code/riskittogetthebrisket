@@ -1,15 +1,24 @@
 {
  "pin": {
   "phase": "B4",
-  "codeSha": "64a29501aa2263a127306b79c4a5c9e1b4ab3fe0",
-  "codeSubject": "evidence(B4): every saturated row is a SERVED row, and 254/1092 understated it",
+  "codeSha": "3d69718e9a07118f460cf7f2a6f2873175db2dab",
+  "codeSubject": "docs(B4): mark the continuation handoff complete with its outcome",
   "dirtyPaths": [
-   "src/api/data_contract.py",
+   "docs/master-site-audit/evidence/W30/b4_board_impact.py",
+   "docs/master-site-audit/evidence/W30/b4_tail_measure.py",
+   "docs/master-site-audit/evidence/W30/b4_tail_report.json",
+   "docs/master-site-audit/evidence/W30/b4_tail_reproduction.txt",
    "tests/canonical/test_percentile_tail_policy.py"
   ],
   "dirtyIsEvidenceOnly": false,
   "mainTip": "93b0a6617567fc837d809e732ba3529278172bb5",
   "commitsAheadOfMain": [
+   "3d69718e9 docs(B4): mark the continuation handoff complete with its outcome",
+   "7b67c8cd5 docs(B4): W30-F023 is BLOCKED \u2014 the tail repair and the B3 corridor are not separable",
+   "93fab7734 refactor(canonical): one owner for the percentile tail, behaviour unchanged",
+   "3d9c36ad7 evidence(B4): criteria declared, then candidates A-D measured on the pin",
+   "468ea89fc test(B4): RED \u2014 distinct live evidence past rank 500 prices as one number",
+   "12409ca7e fix(contract): record valueContributionPath from the branch taken, not re-derive it",
    "64a29501a evidence(B4): every saturated row is a SERVED row, and 254/1092 understated it",
    "2eb9b64b2 docs(B4): single-file continuation handoff for a fresh session",
    "49f86c93f fix(B4): correct the W30-F023 blast radius \u2014 it is path-gated, and smaller",

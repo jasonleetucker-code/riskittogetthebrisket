@@ -151,15 +151,32 @@ def hill(p: float, c: float, s: float) -> float:
     return 9999.0 / (1.0 + (p / c) ** s)
 
 
-def assert_both_clamps_present() -> list[str]:
-    """The measurement is only meaningful while both clamps exist."""
-    src = (ROOT / "src" / "canonical" / "player_valuation.py").read_text(encoding="utf-8")
-    sites = []
-    if "return max(0.0, min(1.0, p))" in src:
-        sites.append("rank_to_percentile")
-    if "p = max(0.0, min(1.0, float(percentile)))" in src:
-        sites.append("percentile_to_value")
-    return sites
+def assert_saturation_still_live() -> list[str]:
+    """The measurement is only meaningful while the tail still saturates.
+
+    Behavioural, not textual. This used to grep ``player_valuation.py`` for
+    two literal clamp expressions — which stopped meaning anything the
+    moment those clamps were replaced by a call to the canonical owner, and
+    would have reported "no clamps found" on a tree where the saturation is
+    entirely unchanged. A source-text probe for a behaviour is only ever
+    correct until the next refactor.
+
+    So it asks the functions instead: do two ranks the sources genuinely
+    distinguish still price identically? If they do not, the counterfactual
+    below is no longer a counterfactual and the run says so.
+    """
+    from src.canonical.player_valuation import percentile_to_value, rank_to_percentile
+    from src.canonical.rank_coordinates import RANK_POOL_SHARED_MARKET, curve_for_pool
+
+    c, s = curve_for_pool(RANK_POOL_SHARED_MARKET)
+    live = []
+    if rank_to_percentile(501.0) == rank_to_percentile(877.0):
+        live.append("rank_to_percentile")
+    if percentile_to_value(1.0, midpoint=c, slope=s) == percentile_to_value(
+        876.0 / 499.0, midpoint=c, slope=s
+    ):
+        live.append("percentile_to_value")
+    return live
 
 
 def reproduce() -> None:
@@ -197,10 +214,13 @@ def reproduce() -> None:
         f"{snap['tailConstants']['OVERALL_RANK_LIMIT']}"
     )
 
-    clamps = assert_both_clamps_present()
-    print(f"\n== saturation points still present in player_valuation.py: {clamps} ==")
+    clamps = assert_saturation_still_live()
+    print(f"\n== saturation still observable at these sites: {clamps} ==")
     if len(clamps) < 2:
-        print("  !! fewer than two clamps found — the counterfactual below may be vacuous")
+        print(
+            "  !! the tail no longer saturates at both sites — the continuous\n"
+            "     counterfactual below is no longer a counterfactual"
+        )
 
     with contextlib.redirect_stdout(io.StringIO()):
         contract = build_api_data_contract(json.loads(latest_board().read_bytes()))
@@ -430,13 +450,9 @@ def reproduce() -> None:
         hit_s = by_bucket_served.get(b, 0)
         pop_s = pop_served.get(b, 0)
         served_cell = (
-            f"{hit_s:>4} of {pop_s:>4} ({100.0 * hit_s / pop_s:>5.1f}%)"
-            if pop_s
-            else f"{'—':>18}"
+            f"{hit_s:>4} of {pop_s:>4} ({100.0 * hit_s / pop_s:>5.1f}%)" if pop_s else f"{'—':>18}"
         )
-        print(
-            f"  {b:<9}{hit:>5} of {pop[b]:>4} ({100.0 * hit / pop[b]:>5.1f}%)   {served_cell}"
-        )
+        print(f"  {b:<9}{hit:>5} of {pop[b]:>4} ({100.0 * hit / pop[b]:>5.1f}%)   {served_cell}")
 
     # ── the four distinct rank domains ──
     ranked = [r for r in rows if r.get("canonicalConsensusRank")]

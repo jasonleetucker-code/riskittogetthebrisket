@@ -133,13 +133,15 @@ def report() -> None:
         vals = sorted(moves.values())
         print(f"\n== rank movement over {len(moves)} rows ranked in BOTH builds ==")
         print(f"  moved at all : {sum(1 for v in vals if v)}")
-        print(f"  min/p10/med/p90/max : {vals[0]} / {vals[len(vals) // 10]} / "
-              f"{vals[len(vals) // 2]} / {vals[9 * len(vals) // 10]} / {vals[-1]}")
+        print(
+            f"  min/p10/med/p90/max : {vals[0]} / {vals[len(vals) // 10]} / "
+            f"{vals[len(vals) // 2]} / {vals[9 * len(vals) // 10]} / {vals[-1]}"
+        )
 
     # ── membership at the served cutoff ──
     rb_set = {nm for nm in names if b_idx[nm].get("canonicalConsensusRank")}
     ra_set = {nm for nm in names if a_idx[nm].get("canonicalConsensusRank")}
-    print(f"\n== membership at the served cutoff ==")
+    print("\n== membership at the served cutoff ==")
     print(f"  served before={len(rb_set)}  after={len(ra_set)}")
     print(f"  promoted into the board: {sorted(ra_set - rb_set)}")
     print(f"  dropped off the board  : {sorted(rb_set - ra_set)}")
@@ -169,7 +171,9 @@ def report() -> None:
             hit[b] += 1
     for b, _ in list(POSITION_BUCKETS) + [("picks", set()), ("other", set())]:
         if pop.get(b):
-            print(f"  {b:<9} {hit.get(b, 0):>4} of {pop[b]:>4}  ({100.0 * hit.get(b, 0) / pop[b]:>5.1f}%)")
+            print(
+                f"  {b:<9} {hit.get(b, 0):>4} of {pop[b]:>4}  ({100.0 * hit.get(b, 0) / pop[b]:>5.1f}%)"
+            )
 
     # ── largest movers ──
     print("\n== largest value movers ==")
@@ -186,8 +190,10 @@ def report() -> None:
     pick_moved = [nm for nm in deltas if str(b_idx[nm].get("assetClass")) == "pick"]
     print(f"\n== pick movement: {len(pick_moved)} pick rows changed value ==")
     for nm in sorted(pick_moved, key=lambda k: -abs(deltas[k]))[:8]:
-        print(f"  {nm:<26}{b_idx[nm].get('rankDerivedValue'):>6} -> "
-              f"{a_idx[nm].get('rankDerivedValue'):>6}  ({deltas[nm]:+5})")
+        print(
+            f"  {nm:<26}{b_idx[nm].get('rankDerivedValue'):>6} -> "
+            f"{a_idx[nm].get('rankDerivedValue'):>6}  ({deltas[nm]:+5})"
+        )
 
     # ── upward movement despite lower raw contributions ──
     #
@@ -238,23 +244,29 @@ def report() -> None:
     print(f"  newly clamped : {len(set(ca) - set(cb))}")
     print(f"  no longer     : {len(set(cb) - set(ca))}")
     for label, coll in (("before", cb), ("after", ca)):
-        print(f"  {label:<7} buckets={dict(Counter(c.get('confidenceBucket') for c in coll.values()))}"
-              f"  direction={dict(Counter(c.get('direction') for c in coll.values()))}"
-              f"  anchors={dict(Counter(c.get('marketSource') for c in coll.values()))}")
+        print(
+            f"  {label:<7} buckets={dict(Counter(c.get('confidenceBucket') for c in coll.values()))}"
+            f"  direction={dict(Counter(c.get('direction') for c in coll.values()))}"
+            f"  anchors={dict(Counter(c.get('marketSource') for c in coll.values()))}"
+        )
     bands_b = sorted(c.get("bandPct") or 0 for c in cb.values())
     bands_a = sorted(c.get("bandPct") or 0 for c in ca.values())
     for label, bands in (("before", bands_b), ("after", bands_a)):
         if bands:
-            print(f"  {label:<7} bandPct min/med/max = {bands[0]:.4f} / "
-                  f"{bands[len(bands) // 2]:.4f} / {bands[-1]:.4f}")
+            print(
+                f"  {label:<7} bandPct min/med/max = {bands[0]:.4f} / "
+                f"{bands[len(bands) // 2]:.4f} / {bands[-1]:.4f}"
+            )
     newly = sorted(set(ca) - set(cb))
     if newly:
         print("  newly-clamped rows:")
         for nm in newly[:12]:
             c = ca[nm]
-            print(f"    {nm:<26}{c.get('direction'):<6}band={c.get('bandPct')}"
-                  f"  anchor={c.get('marketSource')}  sources={a_idx[nm].get('sourceCount')}"
-                  f"  rank={a_idx[nm].get('canonicalConsensusRank')}")
+            print(
+                f"    {nm:<26}{c.get('direction'):<6}band={c.get('bandPct')}"
+                f"  anchor={c.get('marketSource')}  sources={a_idx[nm].get('sourceCount')}"
+                f"  rank={a_idx[nm].get('canonicalConsensusRank')}"
+            )
 
     payload = {
         "saturationRankAfter": TAIL_SATURATION_RANK,
