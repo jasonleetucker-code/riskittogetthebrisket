@@ -983,6 +983,21 @@
           "value": "1748 -> 1201"
         }
       ]
+    },
+    "_commonRowSetControl": {
+      "commonRows": 786,
+      "OFFENSE-only (every member validated)": {
+        "rowsReordered": 775,
+        "meanAbsRankShift": 62.22,
+        "maxAbsRankShift": 227,
+        "rowsMovingOver10": 652
+      },
+      "all three (B1's full challenger)": {
+        "rowsReordered": 761,
+        "meanAbsRankShift": 51.76,
+        "maxAbsRankShift": 196,
+        "rowsMovingOver10": 616
+      }
     }
   }
 }

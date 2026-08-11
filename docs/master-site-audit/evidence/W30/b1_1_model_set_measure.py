@@ -455,7 +455,70 @@ def s39_coherent_model_sets() -> dict:
     out = {}
     for label, curves in sets.items():
         out[label] = _board_impact(curves)
+    out["_commonRowSetControl"] = _common_row_set_control(sets)
     return out
+
+
+def _common_row_set_control(sets: dict[str, dict[str, tuple[float, float]]]) -> dict:
+    """Re-measure both sets over ONE row set scored by all three boards.
+
+    Each entry above is diffed against its own intersection with the
+    champion board, and those intersections are not the same size (799
+    vs 787), because the two candidates price slightly different rows.
+    That is a real objection to comparing the two mean shifts, so this
+    removes it: build all three boards, keep only rows every board
+    priced, and rank within that fixed set.
+    """
+    boards = {label: _board_values(curves) for label, curves in sets.items()}
+    champion_board = _board_values(CHAMPION)
+    common = sorted(set(champion_board).intersection(*(set(b) for b in boards.values())))
+    if not common:
+        return {"commonRows": 0}
+
+    def order(vals: dict[str, float]) -> dict[str, int]:
+        return {n: i for i, n in enumerate(sorted(common, key=lambda k: -vals[k]), 1)}
+
+    base_order = order(champion_board)
+    out: dict = {"commonRows": len(common)}
+    for label, vals in boards.items():
+        alt_order = order(vals)
+        shifts = [abs(alt_order[n] - base_order[n]) for n in common]
+        out[label] = {
+            "rowsReordered": sum(1 for v in shifts if v),
+            "meanAbsRankShift": round(sum(shifts) / len(shifts), 2),
+            "maxAbsRankShift": max(shifts),
+            "rowsMovingOver10": sum(1 for v in shifts if v > 10),
+        }
+    return out
+
+
+def _board_values(curves: dict[str, tuple[float, float]]) -> dict[str, float]:
+    """Board under one curve set. Patches, builds, restores; writes nothing."""
+    import src.canonical.player_valuation as pv
+    from src.api import data_contract as dc
+
+    names = {
+        "GLOBAL": ("HILL_GLOBAL_PERCENTILE_C", "HILL_GLOBAL_PERCENTILE_S"),
+        "OFFENSE": ("HILL_PERCENTILE_C", "HILL_PERCENTILE_S"),
+        "IDP": ("IDP_HILL_PERCENTILE_C", "IDP_HILL_PERCENTILE_S"),
+    }
+    saved = {n: getattr(pv, n) for pair in names.values() for n in pair}
+    try:
+        for scope, (cn, sn) in names.items():
+            c, s = curves[scope]
+            setattr(pv, cn, float(c))
+            setattr(pv, sn, float(s))
+        contract = dc.build_api_data_contract(json.loads(SNAPSHOT.read_text()))
+    finally:
+        for n, v in saved.items():
+            setattr(pv, n, v)
+    vals: dict[str, float] = {}
+    for row in contract.get("playersArray") or []:
+        name = str(row.get("displayName") or row.get("name") or "")
+        v = row.get("rankDerivedValue")
+        if name and isinstance(v, (int, float)) and v > 0:
+            vals[name] = float(v)
+    return vals
 
 
 def _board_impact(curves: dict[str, tuple[float, float]]) -> dict:
@@ -649,6 +712,16 @@ def _print_human(r: dict) -> None:
     if "S39_coherentModelSets" in r:
         print("\n=== §39-§43 — coherent model sets, board impact vs champion ===")
         for label, d in r["S39_coherentModelSets"].items():
+            if label == "_commonRowSetControl":
+                print(f"\n  control — one common row set ({d['commonRows']} rows)")
+                for k, v in d.items():
+                    if k == "commonRows":
+                        continue
+                    print(
+                        f"    {k}: {v['rowsReordered']} reorder, mean {v['meanAbsRankShift']}, "
+                        f"max {v['maxAbsRankShift']}, >10 {v['rowsMovingOver10']}"
+                    )
+                continue
             print(f"\n  {label}")
             print(
                 f"    {d['rowsReordered']}/{d['comparableRows']} rows reorder; "

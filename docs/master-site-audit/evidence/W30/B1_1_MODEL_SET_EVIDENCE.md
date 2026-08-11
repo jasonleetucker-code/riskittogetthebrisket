@@ -209,8 +209,18 @@ So "promote only what is validated" is not the low-risk option it sounds like. I
 option with *more* user-visible disruption and *less* justification for the balance it lands
 on.
 
-(The comparable-row counts differ, 799 vs 787, because the two candidate boards price slightly
-different row sets; each comparison is against its own intersection with the champion board.)
+**Control, because the comparable-row counts differ (799 vs 787).** Each row above is measured
+against its own intersection with the champion board, so the counts are not identical and the
+result could in principle be an artifact of which rows each candidate happens to price.
+Re-measured over the **single** intersection of all three boards — 786 rows scored identically
+for every candidate:
+
+| set | reordered | mean \|shift\| | max | > 10 |
+|---|---|---|---|---|
+| OFFENSE-only | 775 / 786 | **62.22** | 227 | 652 |
+| all three | 761 / 786 | 51.76 | 196 | 616 |
+
+Same conclusion, same margin. The result is not a row-set artifact.
 
 Largest movers under OFFENSE-only — uniformly mid-board offense falling:
 

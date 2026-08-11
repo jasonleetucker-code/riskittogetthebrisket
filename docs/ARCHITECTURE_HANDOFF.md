@@ -24,7 +24,7 @@ state. This file holds **architecture** state.
 | PR | [#776](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/776) — Validate PR **green** at the last pushed state |
 | Working tree | clean at each recorded gate |
 | **Model-input snapshot** | Pinned and hashed by `docs/master-site-audit/evidence/W30/b1_denominator_measure.py` — required before any B1 comparison, because `main`'s 2-hourly refreshes rewrite the fit's own CSVs |
-| Phase | **A FORMALLY CLOSED 2026-08-11.** B is NOT started — owner gate below. |
+| Phase | **A FORMALLY CLOSED 2026-08-11.** B1 authorized and executed to the evidence boundary: coordinate repair merged, challenger measured, **nothing promoted**. B2 and later NOT started — owner gate below. |
 
 > **Why these fields and not "current HEAD".** A Markdown file committed at one
 > SHA cannot literally contain that SHA, so a field claiming to be "the commit
@@ -38,7 +38,7 @@ state. This file holds **architecture** state.
 | gate | result |
 |---|---|
 | `pytest tests/ -q` | **7,038 passed / 0 failed** / 25 skipped / 633 subtests (1533s) — quiescent tree at `0dc0a7778`. Trail: 7,001 at `4ac9b22` → 7,008 at `efa18f0e6` (+7 closure-harness) → 7,026 (+18 when those were rewritten to drive real production logic) → 7,038 (+12 B1 pin-coverage guard). Every delta is accounted for by new tests; no existing test changed state. |
-| `vitest run` (frontend) | **2,007 passed / 0 failed**, 120 files — was 2,004; +3 from the FAAB missing-vs-zero cases |
+| `vitest run` (frontend) | **2,010 passed / 0 failed**, 121 files — trail: 2,004 → 2,007 (+3 FAAB missing-vs-zero) → 2,010 (+3 multi-team trade crash regression) |
 | `ruff format --check .` | 991 files already formatted |
 | `ruff check .` | All checks passed |
 | `scripts/check_decision_coercions.py` | clean — no new coercions, no stale allowances |
@@ -94,6 +94,13 @@ These are load-bearing invariants, not style preferences. Each has an incident b
 7. **A claim is not a measurement.** Reproduction settles closure. `Closes W##-F###` in a commit
    is a claim; the audit harness now labels reruns honestly rather than calling them closed.
 8. **One root cause per commit**, red-before-green, full suites only on a quiescent tree.
+9. **A green build is not evidence a symbol resolves.** Bundlers compile an un-imported free
+   variable to a global lookup, so a missing import is a *runtime* `ReferenceError` on the first
+   call site that executes — not a link error. `/trade` shipped with `defaultDestination` called
+   at nine sites and imported at none; it loaded fine, two-team trades worked, and the entire
+   3+-team feature was dead for two and a half weeks under green CI and a green
+   `npm run build`. Regression tests for this class must **drive the component**, never grep the
+   import. Full write-up: `docs/master-site-audit/evidence/W08/TRADE_MULTI_TEAM_CRASH.md`.
 
 ---
 
@@ -102,10 +109,11 @@ These are load-bearing invariants, not style preferences. Each has an incident b
 | concept | canonical owner | status |
 |---|---|---|
 | Live player value | `src/api/data_contract.py::_compute_unified_rankings` | established |
-| Hill curves / percentile→value | `src/canonical/player_valuation.py` | **denominator defect open — B1** |
+| Hill curves / percentile→value | `src/canonical/player_valuation.py` | **coordinate repaired this session (B1)**; it now owns `PERCENTILE_REFERENCE_N` / `rank_to_percentile` / `training_percentiles` and fit + holdout + serving all consume it. Constants unchanged — challenger measured, not promoted |
 | Player identity | `src/identity/` + `unified_mapper` | defects open (W06 batch — B5) |
 | League registry / scoring | `src/api/league_registry.py`, `src/league_intel/config.py` | profile identity defect open (W18-F001 — B6) |
 | Trade asset eligibility | `frontend/lib/trade-logic.js::isTradeableBoardRow` | **established this session** |
+| Multi-team destination routing | `frontend/lib/trade-logic.js::defaultDestination` | established; **the page stopped importing it in #552 and crashed for 3+ teams until this session** — see rule 9 |
 | FAAB bids | `src/trade/faab_engine.py` | established |
 | Rookie auction optimization | `src/draft/` + `frontend/lib/perfect-draft.js` | established (registry's "missing" is stale) |
 | Closure measurement | `docs/master-site-audit/tools/verify_closure.py` | **repaired this session** |
@@ -251,11 +259,62 @@ the value chain.
   its holdout verdict recorded — and production constants left alone until a human promotes.
   Until then the served error above stands, and must be stated rather than implied fixed.
 
-  **STATUS: INVESTIGATION ONLY — NO IMPLEMENTATION HAS BEGUN.** Owner directive 2026-08-11: do
-  not start B1 (or any later) source implementation until explicitly authorized, and do not run
-  or authorize `promote` / `apply`, change production model constants, or promote a challenger
-  without first presenting holdout/backtest evidence, expected board impact, risks and the exact
-  proposed change for approval. Zero production source files have been modified for B1.
+  **STATUS: COORDINATE REPAIR MERGED. CHALLENGER MEASURED. NOTHING PROMOTED.**
+
+  The fit-side coordinate repair above is **implemented and merged**:
+  `src/canonical/player_valuation.py` now owns `PERCENTILE_REFERENCE_N`, `rank_to_percentile`
+  and `training_percentiles`, and the fitter, `src/model_registry/holdout.py` and
+  `src/api/data_contract.py` all consume it instead of computing their own. The three
+  denominators in the table above are gone; `tests/canonical/test_percentile_coordinate_contract.py`
+  (31 tests) fails if any of them comes back.
+
+  **Production constants are UNCHANGED and still equal registry v2.** The served error in the
+  table above therefore still stands on the live board. That is deliberate: ADR-008 gates
+  constants behind a human `promote` + `apply`, and the evidence does not support one yet.
+
+  Evidence, in order:
+
+  | file | what it establishes |
+  |---|---|
+  | `evidence/W30/b1_denominator_measure.py` | pins and hashes every fit input incl. the board snapshot; holdout/fit overlap verified CLEAN |
+  | `evidence/W30/B1_CHALLENGER_EVIDENCE.md` | the challenger, its constants, its OFFENSE holdout (+42.2%, unanimous), and the board impact (762/787 rows reorder) |
+  | `evidence/W30/b1_1_model_set_measure.py` + `B1_1_MODEL_SET_EVIDENCE.md` | B1.1 — the questions B1 left open |
+
+  **Verdict after B1.1: MORE EVIDENCE REQUIRED.** Do not promote. The five things a later
+  session should not re-derive:
+
+  1. The coordinate is now CONSISTENT. What remains is **coverage**, and for GLOBAL/OFFENSE it
+     is self-inflicted: they stop at p = 0.7996 because `FIT_TOP_N = 400`, while KTC publishes
+     500 rows and IDPTradeCalc 900. IDP's 26% blind tail is the only real one.
+  2. The **p = 1.0 clamp is a live IDP defect** independent of any promotion: 877 of 7,130
+     served observations (12.3%) share one percentile, touching 487 of 1,095 board rows —
+     63.8% of `draftSharksIdp`, 58.2% of `idpShow`, 44.4% of `idpTradeCalc`, and **zero** for
+     every non-IDP source. `OVERALL_RANK_LIMIT = 800` publishes 300 ranks deeper than the
+     coordinate can distinguish.
+  3. **Unanimity and mean disagree.** Every holdout board improves only for c ∈ [0.068, 0.108];
+     below that the three deep boards keep improving while PFKDynasty reverses. The challenger
+     (c = 0.0770) is inside the band but **not at its optimum** — c ≈ 0.068 is unanimous and
+     scores 579.69 against 671.21. Chasing the mean optimum (c ≈ 0.052, 488.77) buys it by
+     giving up unanimity.
+  4. **The IDP master is internally incoherent** — its two sources disagree by ~6× at rank 400,
+     and the shallower one (146 rows, top 29%) votes equally. No setting of this evidence
+     justifies promoting it.
+  5. **Promoting OFFENSE alone churns MORE, not less** (788/799 rows, mean |shift| 63.5, vs
+     762/787 and 51.9 for all three). The intuitive "promote only what is validated" fallback
+     is the higher-disruption option.
+
+  Two pre-existing gaps recorded but **not fixed** (the execution order stopped at evidence):
+
+  * the weekly refit does not pin its snapshot — `RISKIT_FIT_SNAPSHOT` appears nowhere under
+    `.github/`, so `_latest_snapshot()` picks by mtime and the IDP and ROOKIE scopes train on an
+    unrecorded input;
+  * the registry pins 6 inputs for a model set with ≥ 10, scores one scope while promoting four,
+    and leaves `measuredAt` null on every version and `appliedAt` null on a champion that IS
+    applied. The v1 → v2 promotion already moved GLOBAL and IDP with zero out-of-sample
+    evidence.
+
+  Owner directive 2026-08-11 still stands for everything beyond this: no `promote` / `apply`, no
+  production constant change, no B2/B3, no competitive-expansion implementation.
 
   **Inputs are pinned** (`docs/master-site-audit/evidence/W30/b1_denominator_measure.py`), and
   that is not ceremony: between the Phase A branch point and 2026-08-11, `main` took 5 automated
@@ -284,6 +343,10 @@ the value chain.
 | E2E flake root cause (G1b) | Requires independent reproduction; #762's file set is claimed. G1a diagnostics can move earlier once the claim clears. |
 | Prod-only data | `data/rank_history.jsonl` accrual, board-snapshot timer, sharp platform ledger, `data/bdvm/`, `data/intel/` — invisible from this container. 9 findings stay BLOCKED, never "passed". |
 | C01–C43 / U01–U06 trackers | Live and CI-enforced (`scripts/audit_status.py`), still unmapped to W-ids. |
+| Multi-team trade E2E coverage | **No E2E spec exercises a 3+-team trade** — `journey-trade.spec.js` and the mobile specs are two-team only, which is why the crash above survived. Closing it is E2E-track work, not a hotfix. |
+| Mobile/WebKit verification | WebKit is not installable here (`/opt/pw-browsers` is Chromium-only; `mobile-390`/`mobile-430` are local-only projects CI never runs). The trade crash was verified RED→GREEN in Chromium at the mobile viewport; the owner's exact browser path stays **unverified, not claimed**. |
+| Refit snapshot pinning | `RISKIT_FIT_SNAPSHOT` unset in `.github/workflows/refit-hill-curves.yml`. One-line fix, deliberately not made — the execution order stopped at evidence. |
+| Model registry provenance | 6 of ≥10 inputs pinned; one scope scored while four are promoted; `measuredAt` null everywhere; `appliedAt` null on an applied champion. |
 
 ### Off-limits file set (live `claude/bridge-timeout-root-cause` session)
 
