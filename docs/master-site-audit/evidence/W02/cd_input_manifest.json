@@ -1,0 +1,339 @@
+{
+ "codeSha": "7ae86111a1abc51091b2329b7f54a72d689278c4",
+ "reads": [
+  {
+   "path": "CSVs/site_raw/dlfIdp.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3632"
+  },
+  {
+   "path": "CSVs/site_raw/dlfIdp.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/dlfRookieIdp.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/dlfRookieSf.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/dlfSf.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3632"
+  },
+  {
+   "path": "CSVs/site_raw/dlfSf.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/draftSharksIdp.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/draftSharksSf.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/dynastyDaddySf.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/dynastyNerdsSfTep.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/fantasyCalc.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/fantasyNavigatorSf.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/fantasyProsIdp.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3632"
+  },
+  {
+   "path": "CSVs/site_raw/fantasyProsIdp.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/fantasyProsIdp.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3781"
+  },
+  {
+   "path": "CSVs/site_raw/fantasyProsSf.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3632"
+  },
+  {
+   "path": "CSVs/site_raw/fantasyProsSf.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/flockFantasySf.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/flockFantasySfRookies.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/idpShow.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/idpTradeCalc.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/ktc.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/ktcSfTep.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/otcffbSf.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/pfkDynasty.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "CSVs/site_raw/yahooBoone.csv",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:3677"
+  },
+  {
+   "path": "data/scrape_state/dlfIdp_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/dlfRookieIdp_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/dlfRookieSf_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/dlfSf_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/draftSharksIdp_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/draftSharks_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/dynastyDaddySf_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/dynastyNerdsSfTep_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/fantasyCalc_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/fantasyNavigatorSf_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/fantasyProsFitzmaurice_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/fantasyProsIdp_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/fantasyProsSf_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/flockFantasySfRookies_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/flockFantasySf_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/idpShow_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/idpTradeCalc_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/ktcSfTep_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/ktc_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/otcffbSf_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/pfkDynasty_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/scrape_state/yahooBoone_last_success",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:931"
+  },
+  {
+   "path": "data/snapshots/ranks_last.json",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:5089"
+  },
+  {
+   "path": "config/leagues/registry.json",
+   "mode": "r",
+   "caller": "src/api/league_registry.py:236"
+  },
+  {
+   "path": "config/weights/pick_year_discount.json",
+   "mode": "r",
+   "caller": "src/api/data_contract.py:4388"
+  },
+  {
+   "path": "config/weights/te_premium_curve.json",
+   "mode": "r",
+   "caller": "src/league_intel/te_premium.py:303"
+  }
+ ],
+ "writes": [
+  {
+   "path": "data/snapshots/ranks_last.json",
+   "mode": "w",
+   "caller": "src/api/data_contract.py:5117"
+  }
+ ],
+ "network": [
+  {
+   "url": "https://api.sleeper.app/v1/league/1312006700437352448",
+   "caller": "src/api/data_contract.py:6331"
+  }
+ ],
+ "byClass": {
+  "MARKET DATA (must redirect)": [
+   "CSVs/site_raw/dlfIdp.csv",
+   "CSVs/site_raw/dlfRookieIdp.csv",
+   "CSVs/site_raw/dlfRookieSf.csv",
+   "CSVs/site_raw/dlfSf.csv",
+   "CSVs/site_raw/draftSharksIdp.csv",
+   "CSVs/site_raw/draftSharksSf.csv",
+   "CSVs/site_raw/dynastyDaddySf.csv",
+   "CSVs/site_raw/dynastyNerdsSfTep.csv",
+   "CSVs/site_raw/fantasyCalc.csv",
+   "CSVs/site_raw/fantasyNavigatorSf.csv",
+   "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+   "CSVs/site_raw/fantasyProsIdp.csv",
+   "CSVs/site_raw/fantasyProsSf.csv",
+   "CSVs/site_raw/flockFantasySf.csv",
+   "CSVs/site_raw/flockFantasySfRookies.csv",
+   "CSVs/site_raw/idpShow.csv",
+   "CSVs/site_raw/idpTradeCalc.csv",
+   "CSVs/site_raw/ktc.csv",
+   "CSVs/site_raw/ktcSfTep.csv",
+   "CSVs/site_raw/otcffbSf.csv",
+   "CSVs/site_raw/pfkDynasty.csv",
+   "CSVs/site_raw/yahooBoone.csv"
+  ],
+  "STATE/DATA (must redirect or neutralise)": [
+   "data/scrape_state/dlfIdp_last_success",
+   "data/scrape_state/dlfRookieIdp_last_success",
+   "data/scrape_state/dlfRookieSf_last_success",
+   "data/scrape_state/dlfSf_last_success",
+   "data/scrape_state/draftSharksIdp_last_success",
+   "data/scrape_state/draftSharks_last_success",
+   "data/scrape_state/dynastyDaddySf_last_success",
+   "data/scrape_state/dynastyNerdsSfTep_last_success",
+   "data/scrape_state/fantasyCalc_last_success",
+   "data/scrape_state/fantasyNavigatorSf_last_success",
+   "data/scrape_state/fantasyProsFitzmaurice_last_success",
+   "data/scrape_state/fantasyProsIdp_last_success",
+   "data/scrape_state/fantasyProsSf_last_success",
+   "data/scrape_state/flockFantasySfRookies_last_success",
+   "data/scrape_state/flockFantasySf_last_success",
+   "data/scrape_state/idpShow_last_success",
+   "data/scrape_state/idpTradeCalc_last_success",
+   "data/scrape_state/ktcSfTep_last_success",
+   "data/scrape_state/ktc_last_success",
+   "data/scrape_state/otcffbSf_last_success",
+   "data/scrape_state/pfkDynasty_last_success",
+   "data/scrape_state/yahooBoone_last_success",
+   "data/snapshots/ranks_last.json"
+  ],
+  "methodology/config (keep current)": [
+   "config/leagues/registry.json",
+   "config/weights/pick_year_discount.json",
+   "config/weights/te_premium_curve.json"
+  ]
+ }
+}

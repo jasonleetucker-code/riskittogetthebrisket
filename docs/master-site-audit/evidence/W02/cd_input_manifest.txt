@@ -1,0 +1,73 @@
+== inputs a contract build ACTUALLY reads (instrumented, current HEAD) ==
+
+-- MARKET DATA (must redirect) --
+  CSVs/site_raw/dlfIdp.csv                              <- src/api/data_contract.py:3632
+  CSVs/site_raw/dlfIdp.csv                              <- src/api/data_contract.py:3677
+  CSVs/site_raw/dlfRookieIdp.csv                        <- src/api/data_contract.py:3677
+  CSVs/site_raw/dlfRookieSf.csv                         <- src/api/data_contract.py:3677
+  CSVs/site_raw/dlfSf.csv                               <- src/api/data_contract.py:3632
+  CSVs/site_raw/dlfSf.csv                               <- src/api/data_contract.py:3677
+  CSVs/site_raw/draftSharksIdp.csv                      <- src/api/data_contract.py:3677
+  CSVs/site_raw/draftSharksSf.csv                       <- src/api/data_contract.py:3677
+  CSVs/site_raw/dynastyDaddySf.csv                      <- src/api/data_contract.py:3677
+  CSVs/site_raw/dynastyNerdsSfTep.csv                   <- src/api/data_contract.py:3677
+  CSVs/site_raw/fantasyCalc.csv                         <- src/api/data_contract.py:3677
+  CSVs/site_raw/fantasyNavigatorSf.csv                  <- src/api/data_contract.py:3677
+  CSVs/site_raw/fantasyProsFitzmaurice.csv              <- src/api/data_contract.py:3677
+  CSVs/site_raw/fantasyProsIdp.csv                      <- src/api/data_contract.py:3632
+  CSVs/site_raw/fantasyProsIdp.csv                      <- src/api/data_contract.py:3677
+  CSVs/site_raw/fantasyProsIdp.csv                      <- src/api/data_contract.py:3781
+  CSVs/site_raw/fantasyProsSf.csv                       <- src/api/data_contract.py:3632
+  CSVs/site_raw/fantasyProsSf.csv                       <- src/api/data_contract.py:3677
+  CSVs/site_raw/flockFantasySf.csv                      <- src/api/data_contract.py:3677
+  CSVs/site_raw/flockFantasySfRookies.csv               <- src/api/data_contract.py:3677
+  CSVs/site_raw/idpShow.csv                             <- src/api/data_contract.py:3677
+  CSVs/site_raw/idpTradeCalc.csv                        <- src/api/data_contract.py:3677
+  CSVs/site_raw/ktc.csv                                 <- src/api/data_contract.py:3677
+  CSVs/site_raw/ktcSfTep.csv                            <- src/api/data_contract.py:3677
+  CSVs/site_raw/otcffbSf.csv                            <- src/api/data_contract.py:3677
+  CSVs/site_raw/pfkDynasty.csv                          <- src/api/data_contract.py:3677
+  CSVs/site_raw/yahooBoone.csv                          <- src/api/data_contract.py:3677
+
+-- STATE/DATA (must redirect or neutralise) --
+  data/scrape_state/dlfIdp_last_success                 <- src/api/data_contract.py:931
+  data/scrape_state/dlfRookieIdp_last_success           <- src/api/data_contract.py:931
+  data/scrape_state/dlfRookieSf_last_success            <- src/api/data_contract.py:931
+  data/scrape_state/dlfSf_last_success                  <- src/api/data_contract.py:931
+  data/scrape_state/draftSharksIdp_last_success         <- src/api/data_contract.py:931
+  data/scrape_state/draftSharks_last_success            <- src/api/data_contract.py:931
+  data/scrape_state/dynastyDaddySf_last_success         <- src/api/data_contract.py:931
+  data/scrape_state/dynastyNerdsSfTep_last_success      <- src/api/data_contract.py:931
+  data/scrape_state/fantasyCalc_last_success            <- src/api/data_contract.py:931
+  data/scrape_state/fantasyNavigatorSf_last_success     <- src/api/data_contract.py:931
+  data/scrape_state/fantasyProsFitzmaurice_last_success  <- src/api/data_contract.py:931
+  data/scrape_state/fantasyProsIdp_last_success         <- src/api/data_contract.py:931
+  data/scrape_state/fantasyProsSf_last_success          <- src/api/data_contract.py:931
+  data/scrape_state/flockFantasySfRookies_last_success  <- src/api/data_contract.py:931
+  data/scrape_state/flockFantasySf_last_success         <- src/api/data_contract.py:931
+  data/scrape_state/idpShow_last_success                <- src/api/data_contract.py:931
+  data/scrape_state/idpTradeCalc_last_success           <- src/api/data_contract.py:931
+  data/scrape_state/ktcSfTep_last_success               <- src/api/data_contract.py:931
+  data/scrape_state/ktc_last_success                    <- src/api/data_contract.py:931
+  data/scrape_state/otcffbSf_last_success               <- src/api/data_contract.py:931
+  data/scrape_state/pfkDynasty_last_success             <- src/api/data_contract.py:931
+  data/scrape_state/yahooBoone_last_success             <- src/api/data_contract.py:931
+  data/snapshots/ranks_last.json                        <- src/api/data_contract.py:5089
+
+-- methodology/config (keep current) --
+  config/leagues/registry.json                          <- src/api/league_registry.py:236
+  config/weights/pick_year_discount.json                <- src/api/data_contract.py:4388
+  config/weights/te_premium_curve.json                  <- src/league_intel/te_premium.py:303
+
+== WRITES during a build (mutation risk in a replay) ==
+  data/snapshots/ranks_last.json                        <- src/api/data_contract.py:5117  mode=w
+
+== NETWORK during a build (nondeterminism / current-state leak) ==
+  https://api.sleeper.app/v1/league/1312006700437352448  <- src/api/data_contract.py:6331
+
+== summary ==
+  MARKET DATA (must redirect)              22 path(s)
+  STATE/DATA (must redirect or neutralise) 23 path(s)
+  methodology/config (keep current)        3 path(s)
+
+wrote /home/user/riskittogetthebrisket/docs/master-site-audit/evidence/W02/cd_input_manifest.json

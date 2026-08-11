@@ -255,18 +255,34 @@ def cand_hull_abstain(rows):
     return {n: (("flag", None) if d else None) for n, d in cand_hull_invariant(rows).items()}
 
 
+#: Reference median drift, MEASURED from real historical boards.
+#:
+#: WITHDRAWN AND REPLACED. This was `HISTORICAL_BAND * 0.35` — a constant
+#: invented because no stored historical drift distribution was thought to
+#: exist. That premise was wrong: git history retains every per-source CSV,
+#: and `cd_historical_metrics.py` measures the real reference over a
+#: chronological TRAIN split (2026-07-26..08-02, 8 independent days).
+#: A fabricated reference cannot be evidence for a rail whose entire
+#: purpose is to compare against history, so the number now comes from
+#: history or the candidate abstains.
+REFERENCE_MEDIAN_DRIFT: float | None = None
+
+
 def cand_changepoint(rows):
     """Board-level invariant: has the drift distribution SHIFTED?
 
     Not a per-row clamp. Fires one board-level alarm when this board's
-    median drift departs from the reference by more than a factor, which
-    is the thing a self-derived percentile structurally cannot see.
+    median drift departs from a reference measured on EARLIER REAL BOARDS
+    — the thing a self-derived percentile structurally cannot see.
+
+    Abstains entirely when no measured reference is supplied, rather than
+    substituting a guess.
     """
-    if HISTORICAL_BAND is None:
+    if REFERENCE_MEDIAN_DRIFT is None:
         return {r.name: None for r in rows}
     drifts = sorted(abs(r.value - r.anchor) / r.anchor for r in rows if r.anchor)
     med = drifts[len(drifts) // 2] if drifts else 0.0
-    ref = HISTORICAL_BAND * 0.35  # reference median, derived with the band
+    ref = REFERENCE_MEDIAN_DRIFT
     shifted = ref > 0 and (med / ref > 1.5 or med / ref < 0.667)
     return {r.name: (("flag", None) if shifted else None) for r in rows}
 
