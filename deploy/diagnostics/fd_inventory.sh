@@ -232,3 +232,31 @@ sudo -n "${SYSTEMCTL}" list-timers --all --no-pager 2>/dev/null \
 
 echo
 echo "fd_inventory complete (read-only; nothing was modified)."
+
+section "is the FD watch ACTUALLY deployed?"
+# The git template changing proves nothing about production.  The
+# healthcheck executes from /usr/local/lib/riskit/dynasty-healthcheck.sh
+# (see dynasty-healthcheck.service ExecStart), and that copy is installed
+# by deploy/apply_hardening.sh — which is deliberately OPERATOR-RUN and
+# not part of the deploy (tests/deploy/test_hardening_script_stays_operator_run.py).
+# So a normal deploy ships the repo change and leaves the running script
+# untouched.  Check the deployed copy, not the repo.
+INSTALLED_HC="${INSTALLED_HC:-/usr/local/lib/riskit/dynasty-healthcheck.sh}"
+if [[ -r "${INSTALLED_HC}" ]]; then
+  echo "installed: ${INSTALLED_HC}"
+  echo -n "  fd_watch present:   "; grep -q 'fd_watch' "${INSTALLED_HC}" && echo yes || echo "NO — the FD watch is NOT running in production"
+  echo -n "  thresholds:         "
+  grep -oE 'FD_(WARN|CRIT|EMERG)="\$\{FD_[A-Z]+:-[0-9]+\}"' "${INSTALLED_HC}" | tr '\n' ' '; echo
+  echo "  mtime: $(stat -c '%y' "${INSTALLED_HC}" 2>/dev/null)"
+else
+  echo "cannot read ${INSTALLED_HC} (missing, or not readable as $(id -un))"
+fi
+echo "-- timer state --"
+sudo -n "${SYSTEMCTL}" show dynasty-healthcheck.timer \
+  -p ActiveState -p LastTriggerUSec -p NextElapseUSecRealtime -p Unit 2>/dev/null \
+  || echo "(timer not queryable)"
+echo "-- recent fd lines from the healthcheck journal --"
+if [[ -n "${JOURNALCTL}" ]]; then
+  sudo -n "${JOURNALCTL}" -u dynasty-healthcheck --no-pager -o short-iso 2>/dev/null \
+    | grep -i 'fd ' | tail -5 || echo "(none — expected if the watch is not installed yet)"
+fi
