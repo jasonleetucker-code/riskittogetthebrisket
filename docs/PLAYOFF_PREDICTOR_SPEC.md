@@ -12,7 +12,7 @@
 
 ## 1. Owner intent
 
-For every connected/configured dynasty league, the site should automatically understand that league's actual playoff structure and produce, for every team:
+For every connected/configured dynasty league, the site should automatically understand that league's actual regular-season standings rules and playoff structure and produce, for every team:
 
 1. **MAKE PLAYOFFS %** — probability the team qualifies for the championship playoff field.
 2. **EARN BYE %** — probability the team finishes in a seed that receives a first-round playoff bye.
@@ -22,7 +22,7 @@ Recommended secondary outputs, where useful:
 
 - top-seed probability;
 - miss-playoffs probability;
-- expected final regular-season wins;
+- expected final regular-season wins / standings points under the league's actual rules;
 - most-likely seed;
 - median final seed;
 - complete seed probability distribution;
@@ -42,7 +42,7 @@ Current repository code already contains multiple playoff-related implementation
 - `src/public_league/playoff_odds.py` — older/public playoff-odds implementation;
 - `src/ros/championship.py` — separate championship Monte Carlo.
 
-The finished architecture must determine which implementation becomes the canonical owner, migrate any useful behavior into it, and retire/delegate duplicate probability calculations rather than allowing divergent playoff numbers on different pages.
+The finished architecture must determine which implementation becomes the canonical owner, migrate useful behavior into it, and retire/delegate duplicate probability calculations rather than allowing divergent playoff numbers on different pages.
 
 **One concept, one canonical owner applies here.**
 
@@ -50,13 +50,15 @@ No page, Pick Forecast model, Game Day module, contender classifier, public leag
 
 ---
 
-## 3. League settings are authoritative — no universal 6-team / 2-bye assumption
+## 3. League settings are authoritative — no universal assumptions
 
-The predictor must derive the postseason structure from the **requested league's authoritative league settings/configuration**, not from universal defaults or the owner's current home league.
+The predictor must derive regular-season standings rules and postseason structure from the **requested league's authoritative league settings/configuration**, not from universal defaults or the owner's current home league.
 
 At minimum establish, where the host/settings make them knowable:
 
 - number of teams in the league;
+- whether each scoring period includes an extra game/result against the league median or equivalent all-play threshold;
+- how that extra result is recorded in standings;
 - number of championship-playoff berths;
 - number of bye seeds;
 - regular-season end / playoff start;
@@ -65,13 +67,40 @@ At minimum establish, where the host/settings make them knowable:
 - division/wild-card qualification rules if applicable;
 - regular-season tiebreak rules used to establish seeds;
 - playoff reseeding behavior if applicable;
-- any host-specific configuration that changes who qualifies or who receives a bye.
+- any host-specific configuration that changes standings, qualification, seeding, or byes.
 
 Exact Sleeper field mapping must be verified against real league payloads rather than guessed from field names.
 
-If the postseason configuration cannot be demonstrated from authoritative data, the predictor must fail closed as **PLAYOFF FORMAT UNVERIFIED / ODDS UNAVAILABLE** rather than silently assume six playoff teams and two byes.
+If material standings/postseason configuration cannot be demonstrated from authoritative data, the predictor must fail closed as **LEAGUE FORMAT UNVERIFIED / ODDS UNAVAILABLE** rather than silently assume conventional rules.
 
 A structurally known zero is allowed: for a league with **no byes**, `byeOdds = 0` is correct. That is different from missing/unverified bye configuration.
+
+### 3.1 League-median / extra weekly result is first-class standings logic
+
+Many Sleeper leagues, including the owner's primary league, enable an additional weekly result against the league median (`league_average_match` in the observed Sleeper payload). This changes the standings and therefore changes playoff, bye, championship, contender/rebuilder, and Pick Forecast probabilities.
+
+For every simulated regular-season week in a league where the feature is enabled:
+
+1. simulate **all teams' scores for that week as one joint league week**;
+2. determine the league-median threshold using the host-faithful rule for that scoring period;
+3. award each team its normal head-to-head result;
+4. independently award the additional median result according to the host rule;
+5. update the same standings state used for playoff qualification, seeding, byes, and tiebreakers.
+
+Do **not** approximate the median game as an independent fixed-probability coin flip. A team's median result is correlated with its simulated weekly score and with the scores of every other team in that same simulation week. The median threshold must therefore be derived from the simulated league-wide score set for that week.
+
+The implementation must also verify how the host treats:
+
+- ties exactly at the median/threshold;
+- odd vs even league sizes;
+- any setting changes during a season;
+- completed historical weeks and how the extra result appears in the host standings/record fields.
+
+Current standings ingestion must reproduce the host's **actual record to date**, including already-earned median wins/losses. Future simulation must then add only the remaining median results. Do not double-count historical median results if the host's current win/loss fields already include them.
+
+When league median is disabled, the simulator must not award a second weekly result.
+
+A regression suite must include otherwise-identical leagues with median ON vs OFF and prove the resulting expected records, seed distributions, and playoff probabilities can differ.
 
 ---
 
@@ -85,7 +114,9 @@ Conceptual simulation flow:
 + **remaining regular-season schedule**  
 + **team future scoring distributions**  
 + **league scoring/lineup format**  
-→ simulate remaining regular season  
++ **standings rules, including league-median games when enabled**  
+→ simulate each remaining league week jointly  
+→ award head-to-head + any configured extra standings results  
 → apply actual qualification + tiebreak rules  
 → assign seeds/byes  
 → simulate the actual playoff bracket  
@@ -99,7 +130,8 @@ Every simulation run should produce one internally coherent season outcome. A te
 
 The canonical predictor may consume defensible inputs including:
 
-- current wins/losses/ties;
+- current wins/losses/ties or equivalent standings state;
+- current league-median/all-play record component when applicable;
 - points-for and the actual league tiebreak information;
 - remaining schedule;
 - current roster construction;
@@ -127,7 +159,7 @@ For every team, expose the three owner-required headline metrics:
 - `byeProbability`
 - `championshipProbability`
 
-Exact API names may preserve/backward-compat existing fields such as `playoffOdds`, `byeOdds`, and `championshipOdds`; do not fork the contract just for naming preference.
+Exact API names may preserve/backward-compatible existing fields such as `playoffOdds`, `byeOdds`, and `championshipOdds`; do not fork the contract just for naming preference.
 
 Required logical invariants:
 
@@ -140,7 +172,8 @@ Required logical invariants:
 - eliminated teams have 0 playoff/bye/championship probability once elimination is mathematically certain;
 - clinched playoff teams have 100% playoff probability once qualification is mathematically certain;
 - a clinched bye may become 100% only when actual remaining scenarios prove it;
-- a completed season may show factual 0/100 outcomes, but a preseason/no-data state must never manufacture certainty.
+- a completed season may show factual 0/100 outcomes, but a preseason/no-data state must never manufacture certainty;
+- in a median-game league, each completed simulated week must contribute exactly the host-defined number of standings decisions per team (normally one H2H result plus one median result) unless a verified host exception applies.
 
 ---
 
@@ -148,7 +181,7 @@ Required logical invariants:
 
 Do not permanently hard-code `wins then points-for` unless that is verified to reproduce the requested league's actual seeding rules.
 
-The implementation must trace the host's available standings/settings and establish the real qualification/seeding rules.
+The implementation must trace the host's available standings/settings and establish the real qualification/seeding rules, including how median-game results are incorporated into the official record.
 
 Where a host rule cannot be reproduced exactly:
 
@@ -186,6 +219,8 @@ For managed-lineup leagues, do not credit the bench as though best-ball automati
 
 The playoff predictor must consume the same canonical lineup eligibility rules used elsewhere, including Superflex, flex, TE, and hybrid IDP eligibility.
 
+League-median comparison must use the same simulated final weekly team score that the league would use for standings, including best-ball optimization when the league is best ball.
+
 ---
 
 ## 10. Missing-data behavior
@@ -195,6 +230,7 @@ The playoff predictor must consume the same canonical lineup eligibility rules u
 Examples:
 
 - unknown postseason structure ≠ six playoff teams / two byes;
+- unknown median-game setting ≠ disabled;
 - no ROS projection ≠ zero expected points;
 - missing future schedule ≠ zero remaining games;
 - unverified tiebreak ≠ known tiebreak;
@@ -205,7 +241,9 @@ Surface explicit states such as:
 
 - `UNAVAILABLE`;
 - `UNSIMULABLE`;
+- `LEAGUE_FORMAT_UNVERIFIED`;
 - `PLAYOFF_FORMAT_UNVERIFIED`;
+- `STANDINGS_RULE_UNVERIFIED`;
 - `SCHEDULE_INCOMPLETE`;
 - `PARTIAL_ROS_COVERAGE`;
 - `STALE_INPUTS`.
@@ -216,7 +254,7 @@ Surface explicit states such as:
 
 Do not treat a fixed arbitrary simulation count as proof of precision.
 
-Prefer adaptive/convergence-aware simulation or another method that reports the remaining Monte Carlo uncertainty.
+Prefer adaptive/convergence-aware simulation or another method that reports remaining Monte Carlo uncertainty.
 
 Display percentages at a precision justified by the simulation and model quality. The API should preserve enough metadata to audit:
 
@@ -225,7 +263,8 @@ Display percentages at a precision justified by the simulation and model quality
 - probability confidence/error intervals where supported;
 - random seed policy for reproducible test/evaluation runs;
 - model version;
-- source/input snapshot timestamps.
+- source/input snapshot timestamps;
+- league-format/standings-rule fingerprint, including median-game state.
 
 Simulation error is only one uncertainty component. A narrow Monte Carlo interval does not mean the underlying player/team forecast model is perfectly calibrated.
 
@@ -241,6 +280,7 @@ At minimum preserve by league/team/as-of date:
 - Bye %;
 - Championship %;
 - current record/seed;
+- median-game/all-play setting and relevant standings-rule fingerprint;
 - relevant model version;
 - playoff-format fingerprint/settings;
 - ROS/team-strength snapshot version;
@@ -256,7 +296,8 @@ Use leakage-safe historical evaluation to measure:
 - Brier score / log loss or suitable probabilistic scoring rules;
 - calibration curves/reliability diagrams;
 - discrimination versus simple baselines such as current standings or points-for;
-- whether ROS/redraft evidence improves over empirical scoring history alone.
+- whether ROS/redraft evidence improves over empirical scoring history alone;
+- whether league-median ON/OFF leagues are reproduced without format-specific bias.
 
 Do not promote a more complex predictor merely because it sounds more sophisticated. It must beat defensible baselines out of sample.
 
@@ -270,6 +311,7 @@ However:
 
 - playoff/championship probabilities and ROS team strength are correlated descendants, not independent votes;
 - Pick Forecast must model that lineage rather than counting both as separate evidence;
+- league-median results must already be incorporated into the canonical final-standings distribution before Pick Forecast consumes it;
 - playoff outcome should affect **specific expected pick slot/distribution**;
 - dynasty value of that resulting pick/slot remains owned by the canonical dynasty valuation system.
 
@@ -290,7 +332,7 @@ Keep separate:
 - age/window/future-pick position;
 - confidence.
 
-This allows a team to be an aging 2026 title favorite or a non-contending 2026 team with an elite dynasty future without misclassification.
+Because median-game standings affect qualification probability, contender/rebuilder logic must consume the canonical predictor output rather than independently approximating record odds without the median rule.
 
 ---
 
@@ -304,7 +346,9 @@ For each team, the primary presentation should prominently show:
 **Earn Bye** — `XX%`  
 **Win Championship** — `XX%`
 
-Optional drill-down may show expected wins, likely seed, complete seed distribution, top-seed %, uncertainty, remaining schedule strength, and major drivers.
+Optional drill-down may show expected wins/standings record, likely seed, complete seed distribution, top-seed %, uncertainty, remaining schedule strength, and major drivers.
+
+For leagues with an extra median game, the drill-down may also show useful derived context such as projected H2H record, projected median-game record, or the probability of finishing above the median in a given remaining week, but these are explanatory outputs rather than separate prediction engines.
 
 Do not bury the three owner-requested probabilities behind an opaque power score.
 
@@ -317,33 +361,38 @@ Public-safe league/broadcast surfaces may show these probabilities as sports-bro
 Before calling the Playoff Predictor complete:
 
 1. identify the canonical current implementation and eliminate/delegate duplicate probability engines;
-2. prove every active configured league reads its own postseason settings;
+2. prove every active configured league reads its own postseason **and standings** settings;
 3. RED test a league whose playoff field/bye count differs from 6/2 and prove the old default path is wrong;
-4. prove zero-bye leagues emit genuine 0% bye probability rather than unavailable or a default;
-5. test at least two materially different league structures;
-6. verify exact requested-league roster/scoring/schedule/settings ownership — no cross-league chimera;
-7. test probability invariants and aggregate berth/bye/championship totals;
-8. verify completed-season and preseason/unsimulable behavior separately;
-9. verify bracket simulation honors configured playoff size and bye count end to end;
-10. compare the canonical model against simple historical baselines;
-11. archive predictions for future calibration;
-12. measure runtime/cache cost and avoid duplicating expensive simulations for separate surfaces;
-13. run full backend/frontend/livedata/E2E gates and exact-head CI;
-14. document residual unsupported host rules explicitly.
+4. RED test two otherwise-identical leagues with `league_average_match` ON vs OFF and prove the simulator produces different legal standings distributions when scores warrant it;
+5. for median ON, prove each simulated week derives the threshold from that same week's simulated league-wide score set and awards the extra result correctly;
+6. prove historical record-to-date matches the host including already-earned median results, with no double counting when future sims begin;
+7. prove zero-bye leagues emit genuine 0% bye probability rather than unavailable or a default;
+8. test at least two materially different league structures;
+9. verify exact requested-league roster/scoring/schedule/settings ownership — no cross-league chimera;
+10. test probability invariants and aggregate berth/bye/championship totals;
+11. verify completed-season and preseason/unsimulable behavior separately;
+12. verify bracket simulation honors configured playoff size and bye count end to end;
+13. compare the canonical model against simple historical baselines;
+14. archive predictions for future calibration;
+15. measure runtime/cache cost and avoid duplicating expensive simulations for separate surfaces;
+16. run full backend/frontend/livedata/E2E gates and exact-head CI;
+17. document residual unsupported host rules explicitly.
 
 ---
 
-## 17. Current known implementation gap to preserve for future repair
+## 17. Current known implementation gaps to preserve for future repair
 
-At the time this owner requirement was recorded, `src/ros/playoff_sim.py` already exposed playoff, bye, top-seed, seed-distribution, and championship probabilities, but its callable defaults remained `playoff_seeds=6` and `bye_seeds=2`.
+At the time this owner requirement was recorded:
 
-The scheduled per-league cache refresh called the simulator with the league's best-ball flag but did not thread league-specific playoff-seed/bye configuration into that call.
-
-A second `src/ros/championship.py` simulator also duplicated regular-season/bracket simulation and contained six-team assumptions inside its bracket logic.
+- `src/ros/playoff_sim.py` already exposed playoff, bye, top-seed, seed-distribution, and championship probabilities, but its callable defaults remained `playoff_seeds=6` and `bye_seeds=2`;
+- the scheduled per-league cache refresh called the simulator with the league's best-ball flag but did not thread league-specific playoff-seed/bye configuration into that call;
+- `src/ros/championship.py` duplicated regular-season/bracket simulation and contained six-team assumptions inside its bracket logic;
+- the future regular-season loop in `src/ros/playoff_sim.py` updated standings from simulated head-to-head results but did not award an additional weekly league-median result;
+- the owner's observed 2026 Sleeper league payload has `league_average_match: 1` and `playoff_teams: 7`, so both the median-game omission and generic playoff defaults are directly relevant to the primary league rather than theoretical edge cases.
 
 Therefore the target is **not feature creation from zero**. The target is:
 
-> **canonicalize the existing simulation family, derive postseason rules from the requested league, expose the owner-required three probabilities consistently, archive them, and validate their calibration.**
+> **canonicalize the existing simulation family, derive all material standings and postseason rules from the requested league, simulate league-median games when enabled, expose the owner-required three probabilities consistently, archive them, and validate their calibration.**
 
 Reproduce these facts on the implementation baseline before repairing them; current code may evolve before this backlog item is activated.
 
@@ -352,7 +401,8 @@ Reproduce these facts on the implementation baseline before repairing them; curr
 ## 18. Method status
 
 **Product requirement:** OWNER-APPROVED / FINAL DIRECTION.  
-**Exact simulation implementation:** EXISTING BUT REQUIRES CANONICALIZATION, LEAGUE-SETTINGS FIDELITY, AND VALIDATION.  
+**League-median handling:** REQUIRED FIRST-CLASS STANDINGS BEHAVIOR WHEN ENABLED BY THE REQUESTED LEAGUE.  
+**Exact simulation implementation:** EXISTING BUT REQUIRES CANONICALIZATION, LEAGUE-SETTINGS FIDELITY, MEDIAN-GAME SUPPORT, AND VALIDATION.  
 **ROS/redraft model improvements:** EVIDENCE-GATED.  
 **Use in dynasty asset valuation:** PROHIBITED as a direct dynasty-value input.  
 **Use in seasonal intelligence, Pick Forecast, Game Day, public-safe league broadcast, and contender classification:** APPROVED through the canonical predictor with lineage preserved.
