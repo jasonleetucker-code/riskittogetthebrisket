@@ -135,6 +135,15 @@ jobs:
         shell: bash
         env:
           ALLOW_DEFAULT_LOGIN_DEV: "1"
+          # Same policy as pr-validation.yml, and it matters more here:
+          # ``server`` enables its uptime watchdog by default, so every
+          # TestClient probes the live site and its shutdown joins that
+          # thread.  With production's ``/api/`` wedged, this step ran
+          # long enough to burn the job's 20-minute budget — which would
+          # block the very deploy that could fix production.
+          # ``tests/conftest.py`` sets the same default; stated here so
+          # the policy is visible in the workflow.
+          UPTIME_CHECK_ENABLED: "0"
         run: |
           set -Eeuo pipefail
           # Hard gate: real code regressions block the deploy.  Data-
@@ -150,6 +159,8 @@ jobs:
         shell: bash
         env:
           ALLOW_DEFAULT_LOGIN_DEV: "1"
+          # Advisory, but it spends the same job budget.
+          UPTIME_CHECK_ENABLED: "0"
         run: |
           set -Eeuo pipefail
           python -m pytest tests/ -q --tb=short -m livedata
