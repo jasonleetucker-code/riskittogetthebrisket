@@ -26,6 +26,12 @@ For the canonical **Playoff Predictor** requirement — deriving each connected 
 
 That specification treats the existing playoff/championship simulation code as the starting point, requires one canonical probability owner, requires requested-league playoff settings/tiebreak/bracket fidelity, and makes the predictor a reusable seasonal output for public-safe league presentation, Pick Forecast, contender classification, and Game Day without leaking into canonical dynasty value.
 
+For the Brisket Honors eligibility rules tying **League MVP** and **Manager of the Year** to actual competitive success while deliberately keeping **GM of the Year** and performance/rookie/positional awards separate, read:
+
+**[`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`](docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md)**
+
+That specification requires League MVP and Manager of the Year candidates to be on a team currently/finally in the championship playoff field **and** above .500 under the requested league's real standings rules, while preserving Realized Lineup VORP as the player-performance foundation and allowing rebuilding teams to remain eligible for GM of the Year.
+
 For the required repair of historical Trade History grading — separating **Current Grade**, **At-the-Time Grade**, and **How It Aged**, with contemporaneous player/pick snapshots, provenance, fail-closed missing-history behavior, and methodology-consistent aging — read:
 
 **[`docs/TRADE_HISTORY_AGING_SPEC.md`](docs/TRADE_HISTORY_AGING_SPEC.md)**
