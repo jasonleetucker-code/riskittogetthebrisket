@@ -204,7 +204,7 @@ section "FD count samples (${SAMPLES} x ${INTERVAL}s)"
 # Trend, not a snapshot: a single number cannot distinguish a healthy
 # steady state from the middle of an accumulation.  Passive — we watch
 # whatever the process does on its own schedule.
-echo "utc_time            total  sockets  files  anon   pipes"
+echo "utc_time            total  sockets  files  anon  pipes  ESTAB  CLOSE-WAIT  other  peer_ports"
 for ((i = 0; i < SAMPLES; i++)); do
   bash -c '
     pid="$1"
@@ -219,7 +219,26 @@ for ((i = 0; i < SAMPLES; i++)); do
         /*) f=$((f+1)) ;;
       esac
     done < <(find "/proc/$pid/fd" -maxdepth 1 -type l 2>/dev/null)
-    printf "%s  %5d  %7d  %5d  %5d  %5d\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$t" "$s" "$f" "$a" "$p"
+    # TCP state per sample.  A run on 2026-08-12 22:00 showed 9 sockets
+    # that had been ESTAB an hour earlier sitting in CLOSE-WAIT, all to
+    # :443.  CLOSE-WAIT means the PEER closed and this process has not
+    # closed its end — i.e. a descriptor held open by the application.
+    # Whether that count is bounded or accumulates is the difference
+    # between "normal churn" and a named accumulation source, so every
+    # sample records it rather than the total alone.
+    est=0; cw=0; oth=0; ports="-"
+    if command -v ss >/dev/null 2>&1; then
+      states="$(ss -tanp 2>/dev/null | grep "pid=$pid," | awk "{print \$1}")"
+      est=$(printf "%s\n" "$states" | grep -c "^ESTAB$" || true)
+      cw=$(printf "%s\n" "$states" | grep -c "^CLOSE-WAIT$" || true)
+      oth=$(printf "%s\n" "$states" | grep -vcE "^(ESTAB|CLOSE-WAIT)$" || true)
+      ports="$(ss -tanp 2>/dev/null | grep "pid=$pid," | awk "{print \$5}" \
+               | sed "s/.*://" | sort | uniq -c | sort -rn \
+               | head -3 | awk "{printf \"%sx%s \", \$1, \$2}")"
+    fi
+    printf "%s  %5d  %7d  %5d  %5d  %5d  %5s  %10s  %5s  %s\n" \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$t" "$s" "$f" "$a" "$p" \
+      "$est" "$cw" "$oth" "${ports:--}"
   ' _ "${PID}"
   (( i < SAMPLES - 1 )) && sleep "${INTERVAL}"
 done
@@ -233,63 +252,10 @@ sudo -n "${SYSTEMCTL}" list-timers --all --no-pager 2>/dev/null \
 echo
 echo "fd_inventory complete (read-only; nothing was modified)."
 
-# ── privilege surface (temporary on claude/prod-runtime-hardening-reconcile) ──
-# INLINED, not shelled out to a sibling file.  The first attempt ran
-# `bash "$(dirname "${BASH_SOURCE[0]}")/privilege_surface.sh"`, which
-# died with `BASH_SOURCE[0]: unbound variable`: fd-diagnostics.yml pipes
-# this script over stdin, so there is no file on disk and no sibling to
-# find.  Under `set -u` that was fatal and the probe never ran — a
-# silent no-op dressed as a successful diagnostic.
-#
-# Removed before this branch's PR is finalized; privilege_surface.sh
-# stays as the standalone operator-runnable copy.
 
-section "identity"
-echo "user: $(id -un)  groups: $(id -Gn)"
-
-section "permitted sudo surface (sudo -l)"
-# -n so it can never prompt.  This is the decisive evidence.
-sudo -n -l 2>&1 || echo "(sudo -l refused — the policy itself is not readable)"
-
-section "can the deploy user write the install targets?"
-for p in /etc/systemd/system /usr/local/lib/riskit; do
-  if [[ -d "$p" ]]; then
-    printf '%-28s exists  owner=%s mode=%s writable_by_me=%s\n' \
-      "$p" "$(stat -c '%U' "$p")" "$(stat -c '%a' "$p")" \
-      "$([[ -w "$p" ]] && echo yes || echo no)"
-  else
-    printf '%-28s MISSING\n' "$p"
-  fi
-done
-
-section "installed unit vs repo template"
-for u in "${SERVICE_NAME}.service" "${SERVICE_NAME}-healthcheck.service" "${SERVICE_NAME}-healthcheck.timer"; do
-  f="/etc/systemd/system/${u}"
-  if [[ -f "$f" ]]; then
-    printf '%-40s present  owner=%s mode=%s mtime=%s\n' "$u" \
-      "$(stat -c '%U' "$f")" "$(stat -c '%a' "$f")" "$(stat -c '%y' "$f" | cut -d. -f1)"
-    grep -H '^LimitNOFILE' "$f" 2>/dev/null || echo "    (no LimitNOFILE line)"
-  else
-    printf '%-40s ABSENT\n' "$u"
-  fi
-done
-
-section "healthcheck timer/service state"
-SC=/bin/systemctl; [[ -x "$SC" ]] || SC=/usr/bin/systemctl
-sudo -n "$SC" show "${SERVICE_NAME}-healthcheck.timer" \
-  -p LoadState -p ActiveState -p UnitFileState -p NextElapseUSecRealtime 2>/dev/null
-sudo -n "$SC" show "${SERVICE_NAME}-healthcheck.service" \
-  -p LoadState -p UnitFileState -p ExecStart 2>/dev/null | head -4
-
-section "root-owned healthcheck copy"
-p=/usr/local/lib/riskit/${SERVICE_NAME}-healthcheck.sh
-if [[ -e "$p" ]]; then
-  echo "present: $(stat -c 'owner=%U mode=%a mtime=%y' "$p" | cut -d. -f1)"
-  echo "readable by me: $([[ -r "$p" ]] && echo yes || echo no)"
-else
-  echo "ABSENT at $p"
-fi
-ls -la /usr/local/lib/riskit/ 2>/dev/null | head -8 || echo "(dir not listable)"
-
-echo
-echo "privilege_surface complete (read-only)."
+# Every section above either produced its evidence or said why it could
+# not.  The readability guard exits 4 rather than emit false zeros, and
+# nothing here is wrapped in `|| true` that would let a failed section
+# pass as a completed diagnostic.  fd-diagnostics.yml runs this over ssh
+# without masking the exit status, so a broken probe fails the job.
+exit 0

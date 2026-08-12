@@ -79,6 +79,16 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          # The remote script's exit status is the step's exit status.
+          # This is not incidental: the first privilege probe died on
+          # `BASH_SOURCE[0]: unbound variable` AFTER its earlier sections
+          # had printed, and the job still went green — a diagnostic that
+          # answered none of the question it was dispatched for while
+          # reporting success.  `ssh` propagates the remote status and
+          # `set -e` is what turns that into a failed step, so the guard
+          # is that neither is weakened here (no `|| true`, no pipe that
+          # would mask it).
+          #
           # The script is piped in and run from stdin rather than read
           # from the app tree on the host: the host is checked out at
           # whatever revision is DEPLOYED, which will not contain this
