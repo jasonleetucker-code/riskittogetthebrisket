@@ -472,7 +472,7 @@ main() {
   cd "${APP_DIR}"
   [[ -d ".git" ]] || { error "APP_DIR is not a git repository: ${APP_DIR}"; exit 1; }
 
-  local state_dir rollback_target current_rev target_rev
+  local state_dir rollback_target current_rev target_rev reconciler
   state_dir="${DEPLOY_STATE_DIR}"
   mkdir -p "${state_dir}"
 
@@ -513,12 +513,45 @@ main() {
     error "Rollback frontend rebuild failed; backend will still be restarted but frontend state is suspect."
   fi
 
+  # Runtime controls must follow the ROLLBACK revision, not stay on the
+  # failed newer one.  Same shared implementation deploy.sh uses — there
+  # is deliberately one renderer and one installer, because two
+  # subtly-different copies is how the forward and backward paths drift
+  # apart in the first place.  Reconcile BEFORE the restart so the
+  # restored process starts under the restored unit.
+  reconciler="${APP_DIR}/deploy/reconcile-runtime-controls.sh"
+  if [[ -f "${reconciler}" ]]; then
+    # shellcheck source=deploy/reconcile-runtime-controls.sh
+    source "${reconciler}"
+    log "Reconciling runtime controls to the rollback revision."
+    if ! reconcile_runtime_controls "${APP_DIR}"; then
+      error "Runtime control reconciliation failed during rollback."
+      error "Refusing to restart onto unproven runtime state."
+      exit 1
+    fi
+  else
+    # A rollback target old enough to predate the reconciler is a real
+    # possibility, and refusing to roll back at all would be worse than
+    # the drift: last-known-good is the whole point of this script.
+    # Say so loudly rather than implying the controls were converged.
+    warn "Rollback target has no runtime reconciler (${reconciler})."
+    warn "Runtime controls are NOT being converged to this revision; verify them manually."
+  fi
+
   log "Restarting service ${SERVICE_NAME} after rollback."
   sudo -n "${SYSTEMCTL_BIN}" restart "${SERVICE_NAME}"
   if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${SERVICE_NAME}"; then
     error "Service ${SERVICE_NAME} is not active after rollback restart."
     sudo -n "${JOURNALCTL_BIN}" -u "${SERVICE_NAME}" -n 120 --no-pager || true
     exit 1
+  fi
+
+  if declare -F verify_runtime_controls >/dev/null; then
+    log "Verifying LIVE runtime controls after rollback."
+    if ! verify_runtime_controls "${APP_DIR}"; then
+      error "Live runtime controls do not match the rollback revision."
+      exit 1
+    fi
   fi
 
   if [[ -f "${APP_DIR}/deploy/verify-deploy.sh" ]]; then

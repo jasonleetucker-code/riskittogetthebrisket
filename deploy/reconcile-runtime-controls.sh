@@ -28,7 +28,21 @@
 # apply_hardening.sh, and does not touch nginx, backups or uptime
 # monitoring — those are operator-owned and unrelated to this failure.
 
-set -uo pipefail
+# SOURCING MUST NOT CHANGE THE CALLER'S SHELL OPTIONS.
+#
+# deploy.sh and rollback.sh both run under `set -Eeuo pipefail`.  A
+# top-level `set -uo pipefail` here would silently turn errexit OFF for
+# the remainder of whichever script sourced us — every unchecked command
+# in the rest of a production deploy would stop aborting on failure.
+# That is a far worse version of the defect this file exists to fix, and
+# it would be invisible.
+#
+# So there is no global `set` at all.  The two entry points install
+# their own options for the duration of their own call and restore the
+# caller's exactly (see `_rc_with_local_opts`), and everything in
+# between propagates failure explicitly rather than relying on errexit —
+# which is disabled inside any function invoked as a condition anyway,
+# and both entry points are invoked that way.
 
 RECONCILE_CHANGED_UNITS=false
 RECONCILE_ACTIONS=()
@@ -180,11 +194,45 @@ _rc_install_if_different() {
   return 0
 }
 
-# ── the one entry point ──────────────────────────────────────────────
+# ── the two entry points ─────────────────────────────────────────────
+# Both are thin wrappers that scope this file's shell options to their
+# own call and hand the caller back exactly what it had.
+#
+# The obvious implementation — `saved="$(set +o)"` … `eval "${saved}"` —
+# is WRONG here, and wrong in the one direction that matters.  Bash runs
+# command substitutions without errexit unless `inherit_errexit` is set,
+# so `set +o` inside `$( )` always reports `set +o errexit`, and
+# restoring that script turns errexit OFF in a caller that had it on.
+# The restore would silently disarm the rest of a production deploy —
+# precisely the hazard this wrapper exists to prevent.  `$-` is expanded
+# in THIS shell and is authoritative; pipefail has no `$-` letter, so it
+# is read with `[[ -o … ]]`, which is also not a subshell.
+_rc_with_local_opts() {
+  local fn="$1"; shift
+  local saved_flags="$-"
+  local saved_pipefail=off
+  if [[ -o pipefail ]]; then saved_pipefail=on; fi
+
+  set +e            # explicit propagation below; see the header
+  set -u
+  set -o pipefail
+
+  local rc=0
+  "${fn}" "$@" || rc=$?
+
+  case "${saved_flags}" in *e*) set -e ;; *) set +e ;; esac
+  case "${saved_flags}" in *u*) set -u ;; *) set +u ;; esac
+  if [[ "${saved_pipefail}" == "on" ]]; then set -o pipefail; else set +o pipefail; fi
+  return "${rc}"
+}
+
+reconcile_runtime_controls() { _rc_with_local_opts _reconcile_runtime_controls "$@"; }
+verify_runtime_controls()   { _rc_with_local_opts _verify_runtime_controls "$@"; }
+
 # Returns non-zero on any failure. Callers must treat that as fatal:
 # failing closed is the entire contract. Never leaves a partially
 # converged host silently.
-reconcile_runtime_controls() {
+_reconcile_runtime_controls() {
   local repo_dir="${1:-${APP_DIR}}"
   local sysd="${repo_dir}/deploy/systemd"
   local rc=0 staged
@@ -279,7 +327,7 @@ reconcile_runtime_controls() {
 # Verify LIVE state, not repository intent. Desired values are read back
 # from the rendered unit rather than hard-coded, so this cannot pass by
 # agreeing with a constant nobody applied.
-verify_runtime_controls() {
+_verify_runtime_controls() {
   local repo_dir="${1:-${APP_DIR}}"
   local sysd="${repo_dir}/deploy/systemd" rc=0 staged want_soft want_hard
   local SC="${SYSTEMCTL_BIN:-/bin/systemctl}"
