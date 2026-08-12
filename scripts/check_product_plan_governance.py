@@ -33,6 +33,12 @@ KNOWN_LEGACY = {
     "docs/competitive/COMPETITIVE_EXPANSION_DYNASTY_DADDY_ADDENDUM.md",
 }
 
+MASTER_REFERENCES_REQUIRED = {
+    "docs/OWNER_FEATURE_INVENTORY.md",
+    "docs/OWNER_PRODUCT_BACKLOG_SPEC.md",
+    "docs/EXECUTION_PLAN.md",
+}
+
 
 def _read(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf-8")
@@ -54,7 +60,7 @@ def main() -> int:
     status = _read("docs/PLANNING_DOCUMENT_STATUS.md")
     pointer = _read("PRODUCT_PLAN.md")
 
-    for rel in sorted(CANONICAL - {"PRODUCT_PLAN.md", "docs/MASTER_PRODUCT_PLAN.md"}):
+    for rel in sorted(MASTER_REFERENCES_REQUIRED):
         name = Path(rel).name
         if name not in master:
             errors.append(f"master plan does not reference canonical record: {rel}")
@@ -74,14 +80,13 @@ def main() -> int:
     candidate_paths: set[str] = set()
     for path in ROOT.rglob("*.md"):
         rel = path.relative_to(ROOT).as_posix()
-        # Ignore vendored/build trees if they ever appear in the checkout.
         if any(part in {"node_modules", ".git", ".next", ".venv"} for part in path.parts):
             continue
         name = path.name.upper()
         if (
             ("OWNER" in name and ("TODO" in name or "TO-DO" in name or "ADDENDUM" in name))
             or "INTEGRATION_TODO" in name
-            or "COMPETITIVE_EXPANSION" in name and "ADDENDUM" in name
+            or ("COMPETITIVE_EXPANSION" in name and "ADDENDUM" in name)
             or name in {"NEXT_STEPS.MD", "REPAIR_ROADMAP.MD", "UNIMPLEMENTED_BACKLOG.MD"}
         ):
             candidate_paths.add(rel)
