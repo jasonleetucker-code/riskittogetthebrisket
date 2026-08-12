@@ -62,4 +62,10 @@ For the owner-required **Sharp Tracker / Insider Trading experience and performa
 
 That specification treats the current multi-minute Sharp Tracker latency as a high-priority product defect. Five seconds is an absolute failure ceiling rather than a normal target: warm/cached views should feel essentially immediate, expensive Sharp computation belongs off the user request path, stale-but-valid snapshots should be served while refresh happens, and no interactive screen may hide minutes of work behind a spinner. It preserves the distinction between global qualified-Sharp behavior and selected-league Insider behavior while expanding the actionable workflow to exact league settings, canonical team needs, full trade receipts/packages, manager drill-downs, similar-value/possible-return assets, Market Trade Ledger evidence, Trade Desk and Negotiation Coach.
 
+For the owner's explicit policy on **competitor architecture / workflow reuse**, read:
+
+**[`docs/COMPETITOR_REUSE_POLICY.md`](docs/COMPETITOR_REUSE_POLICY.md)**
+
+Publicly observable architecture, workflows, UX patterns, feature concepts, and implementation ideas from free/public sites are fair game to reproduce, adapt, combine, or improve when they are the best fit for Brisket. There is no originality requirement and no requirement to make an architecture different merely because a competitor uses it. This policy supersedes older subordinate wording that said competitor architecture must not be copied.
+
 Do not select implementation work directly from old TODOs, addenda, competitor research, `UNIMPLEMENTED_BACKLOG.md`, or `docs/master-site-audit/NEXT_STEPS.md` / `REPAIR_ROADMAP.md`. Their durable requirements/evidence are subordinate to the hierarchy defined in the Master Product Plan.
