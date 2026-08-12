@@ -14,13 +14,19 @@ For the **site-wide performance mandate that applies to every existing and futur
 
 Speed is a first-class acceptance criterion, not polish. The default product targets are **<=1 second for warm/cached first useful data, <=2 seconds normal production p95 where the architecture permits, and <=5 seconds as the absolute interactive useful-state failure ceiling**. Expensive repeatable computation belongs off the user request path; valid last-known-good data should be served while refresh occurs where safe; and a materially slow feature remains defective even if its functional tests pass.
 
+For the owner-approved permanent **Premium Sports Intelligence** visual direction for Chase Upside, including the reuse-vs-replace treatment of the existing R0/R1 design-system infrastructure, the no-big-bang migration rule, route-by-route rollout order, and the explicit trigger for when Claude Code should begin real implementation, read:
+
+**[`docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md`](docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md)**
+
+Direction A of the Chase Upside Design Lab is the permanent design north star unless the owner explicitly changes it. Do not let this work disappear behind later feature delivery. Begin no-regret migration preparation/inventory while core engineering continues, but do not start the first real production migration milestone until the production-reliability incident is closed, B6 league-configuration/scoring identity is merged and production-verified, and the route/component reuse-vs-replace audit is complete enough to support an incremental design-system foundation. At that trigger, proactively surface that Chase Upside is ready for the next Premium Sports Intelligence migration phase and prepare the appropriately scoped Claude Code prompt rather than a whole-application reskin.
+
 For the approved early-data / future-model direction for ingesting source-native 1QB/Superflex/TE-premium/IDP **dynasty** format variants and eventually normalizing external dynasty rankings to arbitrary league settings, read:
 
 **[`docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md`](docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md)**
 
 That specification explicitly separates **collect/archive alternate-format dynasty observations early** from **do not use them to change production values until the normalization methodology is validated and owner-approved**. It also preserves KTC's Off / TE+ / TE++ / TE+++ ladder as four same-source calibration states, not four independent consensus votes.
 
-For the separate approved use of **redraft / rest-of-season / current-season** rankings and projections in seasonal competitive intelligence — including ROS Strength, playoff/championship probabilities, Pick Forecast inputs, contender/rebuilder classification, Game Day, and lineup/current-season modeling — read:
+For the separate approved use of **redraft / rest-of-season / current-season** rankings and projections in seasonal competitive intelligence — including ROS Strength, playoff/championship odds, Pick Forecast inputs, contender/rebuilder classification, Game Day, and lineup/current-season modeling — read:
 
 **[`docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md`](docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md)**
 
