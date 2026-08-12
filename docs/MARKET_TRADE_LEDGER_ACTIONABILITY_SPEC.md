@@ -274,11 +274,13 @@ Every discovered league must have its own league/format metadata captured from t
 
 ### 19.2 Source lane B — KeepTradeCut recent-trade database
 
-Brisket should also investigate ingesting the public KeepTradeCut Trade Database because it exposes a much broader recent-trade population together with useful format dimensions such as QB setting, PPR, team count, TE premium, starter count and package size.
+The owner reports having received direct permission from KeepTradeCut to use KTC data for this project. Treat **KTC Trade Database ingestion as an authorized acquisition lane**, not as a hypothetical future source that must be rejected merely because generic public terms would otherwise restrict automated collection.
 
-Implementation remains source/permission gated. Before automated acquisition, audit the current Terms/robots/access pattern, rate limits and whether an authorized API, export, partnership or licensing path exists. Do not bypass access controls. If automated collection from the public UI is permitted, keep the collector polite, cached and rate-limited; if it is not permitted, pursue an authorized alternative rather than evasion.
+Implementation must still remain inside the actual scope of the permission granted. Before production collection, preserve/document whatever permission evidence, contact, scope, permitted collection method, rate expectations, attribution requirements, redistribution limits, and revocation/update terms are available. If the grant is ambiguous on a specific method or use, clarify that point rather than assuming broader rights than were granted.
 
-KTC-sourced observations must be labeled as KTC provenance. Do not assume that every KTC trade originated on Sleeper unless the source itself proves the platform.
+Subject to that granted scope, Brisket should ingest KTC's recent-trade population because it provides valuable broad-market coverage and format metadata such as QB setting, PPR, team count, TE premium, starter count and package size.
+
+KTC-sourced observations must be labeled as KTC provenance. Do not assume that every KTC trade originated on Sleeper unless KTC/source metadata proves the platform.
 
 ### 19.3 Source lane C — future authorized sources
 
@@ -350,9 +352,9 @@ Preferred practical sequence:
 
 1. preserve/build the canonical ledger + dedupe schema first;
 2. ingest already-known Sleeper leagues, including the existing Sharp-discovery graph, where permitted;
-3. investigate and, if permitted/authorized, add KTC Trade Database acquisition;
+3. ingest KTC Trade Database data under the owner-confirmed permission and within its granted scope;
 4. run cross-source overlap/dedupe validation before combining source-level volume metrics;
 5. add future authorized sources without changing the canonical ledger contract;
 6. only then promote market-derived models after out-of-sample validation and source-lineage review.
 
-Using both Sleeper-derived and KTC-derived data is preferred when technically and permissibly available because the sources can improve coverage and cross-check each other, **provided the same underlying trade never becomes two independent market observations.**
+Using both Sleeper-derived and KTC-derived data is preferred because the sources can improve coverage and cross-check each other, **provided the same underlying trade never becomes two independent market observations.**
