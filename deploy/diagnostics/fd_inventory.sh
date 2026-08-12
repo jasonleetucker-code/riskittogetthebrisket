@@ -32,7 +32,7 @@
 # already doing on its own schedule and never provokes work.
 #
 # Usage:
-#   sudo -n deploy/diagnostics/fd_inventory.sh [service] [samples] [interval_s]
+#   deploy/diagnostics/fd_inventory.sh [service] [samples] [interval_s]
 #
 # Defaults: dynasty, 10 samples, 30 s apart (a 5-minute window).
 
@@ -72,16 +72,31 @@ if [[ -z "${PID}" || "${PID}" == "0" ]]; then
 fi
 echo "resolved PID=${PID}"
 
+section "who is looking, and who owns the process"
+# The first run of this script failed here, usefully.  It used `sudo -n`
+# for the /proc reads, and the host grants NOPASSWD sudo for exactly four
+# binaries — systemctl, journalctl, install, chown — so `sudo -n cat`
+# and `sudo -n bash` were refused ("sudo: a password is required") and
+# the readability guard stopped the run.
+#
+# sudo was never needed: the service runs as `User=__APP_USER__` and the
+# deploy connects as that same user, so it OWNS the process and can read
+# /proc/PID/* directly.  sudo is now used only for the two allowlisted
+# binaries.  Printing both identities makes that assumption checkable
+# instead of load-bearing-and-invisible.
+echo "ssh user:     $(id -un)"
+echo "process user: $(stat -c '%U' "/proc/${PID}" 2>/dev/null || echo '<unreadable>')"
+
 section "kernel-enforced limits for the running process"
 # systemd's LimitNOFILE is what was CONFIGURED; /proc/PID/limits is what
 # the process actually got.  They can differ.
-sudo -n cat "/proc/${PID}/limits" 2>/dev/null | sed -n '1p;/open files/p'
+cat "/proc/${PID}/limits" 2>/dev/null | sed -n '1p;/open files/p'
 
 section "system-wide file-nr (allocated / free / max)"
 cat /proc/sys/fs/file-nr 2>/dev/null || true
 
 section "process and thread counts"
-printf 'threads: '; sudo -n cat "/proc/${PID}/status" 2>/dev/null | awk '/^Threads:/{print $2}'
+printf 'threads: '; cat "/proc/${PID}/status" 2>/dev/null | awk '/^Threads:/{print $2}'
 printf 'children: '; pgrep -P "${PID}" 2>/dev/null | wc -l
 
 section "readability guard"
@@ -90,7 +105,7 @@ section "readability guard"
 # descriptors", which is not a possible state for a running server.  A
 # zero that means "could not look" must never be presented as a
 # measurement, so establish readability first and stop if it fails.
-_probe="$(sudo -n bash -c 'find "/proc/$1/fd" -maxdepth 1 -type l 2>/dev/null | wc -l' _ "${PID}")"
+_probe="$(bash -c 'find "/proc/$1/fd" -maxdepth 1 -type l 2>/dev/null | wc -l' _ "${PID}")"
 if [[ "${_probe}" -eq 0 ]]; then
   echo "Cannot read /proc/${PID}/fd (permission, or the process exited)." >&2
   echo "Every count below would be a false zero. Stopping." >&2
@@ -102,7 +117,7 @@ section "FD type breakdown"
 # This is the answer we came for.  Every /proc/PID/fd entry is a symlink
 # whose target names its kind: socket:[…], pipe:[…], anon_inode:[…]
 # (epoll, eventfd, inotify, timerfd), /dev/…, or a regular path.
-sudo -n bash -c '
+bash -c '
   pid="$1"
   total=0
   declare -A kinds
@@ -127,7 +142,7 @@ sudo -n bash -c '
 section "regular files held open, by directory"
 # A leak of regular files usually points at one directory. Paths only —
 # never contents.
-sudo -n bash -c '
+bash -c '
   find "/proc/$1/fd" -maxdepth 1 -type l -exec readlink {} \; 2>/dev/null \
     | grep -E "^/" | grep -vE "^/(dev|proc|sys)/" \
     | xargs -r -n1 dirname 2>/dev/null | sort | uniq -c | sort -rn | head -20
@@ -137,10 +152,10 @@ section "sockets owned by this process, by state"
 if command -v ss >/dev/null 2>&1; then
   # -p attributes sockets to the pid; we filter to ours and count states
   # rather than dumping peer addresses.
-  sudo -n ss -tanp 2>/dev/null | grep "pid=${PID}," \
+  ss -tanp 2>/dev/null | grep "pid=${PID}," \
     | awk '{print $1}' | sort | uniq -c | sort -rn
   echo "-- top peer ports (destination), to spot one chatty dependency --"
-  sudo -n ss -tanp 2>/dev/null | grep "pid=${PID}," \
+  ss -tanp 2>/dev/null | grep "pid=${PID}," \
     | awk '{print $5}' | sed 's/.*://' | sort | uniq -c | sort -rn | head -10
 else
   echo "ss not installed"
@@ -148,7 +163,7 @@ fi
 
 section "lsof summary (if installed)"
 if command -v lsof >/dev/null 2>&1; then
-  sudo -n lsof -nP -p "${PID}" 2>/dev/null | awk 'NR>1{print $5}' | sort | uniq -c | sort -rn | head -15
+  lsof -nP -p "${PID}" 2>/dev/null | awk 'NR>1{print $5}' | sort | uniq -c | sort -rn | head -15
 else
   echo "lsof not installed"
 fi
@@ -179,7 +194,7 @@ section "FD count samples (${SAMPLES} x ${INTERVAL}s)"
 # whatever the process does on its own schedule.
 echo "utc_time            total  sockets  files  anon   pipes"
 for ((i = 0; i < SAMPLES; i++)); do
-  sudo -n bash -c '
+  bash -c '
     pid="$1"
     t=0; s=0; f=0; a=0; p=0
     while IFS= read -r link; do
