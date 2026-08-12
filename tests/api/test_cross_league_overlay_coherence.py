@@ -148,6 +148,39 @@ class TestNoChimeraIsEverPublishedAsReady(unittest.TestCase):
             self.assertEqual(block.get("leagueId"), "BBB")
 
 
+class TestTheTransportIsNotTheContract(unittest.TestCase):
+    """``leagueConfig`` is how the overlay carries the requested league's
+    own config across; it must not surface as a contract field, and it
+    must not be a second way for config to reach the block unchecked."""
+
+    def test_league_config_is_consumed_not_echoed(self):
+        from src.api.sleeper_overlay import merge_cross_league_sleeper_block
+
+        block, ready = merge_cross_league_sleeper_block(
+            loaded_sleeper=LOADED_SLEEPER,
+            overlay={**OVERLAY_B, "leagueConfig": LEAGUE_B_TRUTH},
+            requested_league_config=None,
+        )
+        self.assertTrue(ready, "the overlay carried the requested league's own config")
+        self.assertIsNone(block.get("leagueConfig"), "transport field leaked into the block")
+        for field in LEAGUE_SPECIFIC:
+            self.assertEqual(block.get(field), LEAGUE_B_TRUTH[field], field)
+
+    def test_an_overlay_carrying_bare_league_fields_is_still_refused(self):
+        """An overlay that puts scoringSettings at the top level — not
+        under ``leagueConfig`` — must not slip past the ownership check
+        just because the key happens to be spelled right."""
+        from src.api.sleeper_overlay import merge_cross_league_sleeper_block
+
+        block, ready = merge_cross_league_sleeper_block(
+            loaded_sleeper=LOADED_SLEEPER,
+            overlay={**OVERLAY_B, "scoringSettings": {"rec": 9.0}},
+            requested_league_config=None,
+        )
+        self.assertFalse(ready)
+        self.assertIsNone(block.get("scoringSettings"))
+
+
 class TestTheDiagnosticIsNotTheFix(unittest.TestCase):
     """Dropping ``sleeperLoadedLeagueKey`` would hide the chimera, not fix it.
 

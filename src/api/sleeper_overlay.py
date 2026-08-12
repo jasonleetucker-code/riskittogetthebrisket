@@ -1216,6 +1216,12 @@ def merge_cross_league_sleeper_block(
     # only source for those is the requested league's config below.
     for field in LEAGUE_SPECIFIC_SLEEPER_FIELDS:
         block.pop(field, None)
+    # ``leagueConfig`` is how the overlay TRANSPORTS that config; it is
+    # not a contract field, and echoing it would ship a second copy of
+    # the scoring card in every cross-league payload.
+    config_from_overlay = block.pop("leagueConfig", None)
+    if requested_league_config is None:
+        requested_league_config = config_from_overlay
 
     config = requested_league_config if isinstance(requested_league_config, Mapping) else None
     if not config or not config.get("scoringSettings"):
