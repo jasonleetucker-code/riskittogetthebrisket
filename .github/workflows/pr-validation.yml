@@ -187,6 +187,19 @@ jobs:
         shell: bash
         env:
           ALLOW_DEFAULT_LOGIN_DEV: "1"
+          # The hard gate must not depend on the live site being up.
+          # ``server`` enables its uptime watchdog by default, so every
+          # TestClient used to fire a real request at production and its
+          # shutdown joined that thread.  Measured 2026-08-12 during a
+          # production ``/api/`` outage: 6.07s per client, and this job
+          # was killed at its 20-minute budget three times running —
+          # including on a previously-green commit.  An outage must fail
+          # a health check, not time out an unrelated PR.
+          #
+          # ``tests/conftest.py`` sets the same default via
+          # ``setdefault``; this line is here so the CI policy is visible
+          # in the workflow rather than inherited by accident.
+          UPTIME_CHECK_ENABLED: "0"
         run: |
           set -Eeuo pipefail
           # Hard gate: everything EXCEPT data-coupled tests.  A real
@@ -205,6 +218,10 @@ jobs:
         shell: bash
         env:
           ALLOW_DEFAULT_LOGIN_DEV: "1"
+          # Same reason as the hard gate above.  This step is advisory,
+          # but it runs in the same job and so spends the same 20-minute
+          # budget.
+          UPTIME_CHECK_ENABLED: "0"
         run: |
           set -Eeuo pipefail
           python -m pytest tests/ -q --tb=short -m livedata
