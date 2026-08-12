@@ -259,9 +259,7 @@ class TestBothScriptsAgree:
 
     def test_the_rollback_build_status_is_read(self):
         text = ROLLBACK_SH.read_text()
-        assert "build_rc" in text, (
-            "rollback.sh no longer captures its frontend build's exit status"
-        )
+        assert "build_rc" in text, "rollback.sh no longer captures its frontend build's exit status"
 
 
 @pytest.fixture(autouse=True)

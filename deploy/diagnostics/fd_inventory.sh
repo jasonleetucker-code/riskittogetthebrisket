@@ -92,7 +92,14 @@ section "kernel-enforced limits for the running process"
 # the process actually got.  They can differ.
 cat "/proc/${PID}/limits" 2>/dev/null | sed -n '1p;/open files/p'
 
-section "system-wide file-nr (allocated / free / max)"
+section "system-wide file-nr (allocated / unused / max)"
+# The three fields are ALLOCATED, UNUSED-but-allocated, and MAX — not
+# "free".  On modern kernels the middle column is essentially always 0
+# because freed structures are returned immediately rather than kept on a
+# free list, so reading it as "free descriptors remaining" inverts the
+# meaning entirely.  Only the first and third are informative here, and
+# both are system-wide: neither one can show a per-process exhaustion,
+# which is what EMFILE actually was.
 cat /proc/sys/fs/file-nr 2>/dev/null || true
 
 section "process and thread counts"
@@ -161,7 +168,12 @@ else
   echo "ss not installed"
 fi
 
-section "lsof summary (if installed)"
+section "lsof type summary (NOT an FD count)"
+# Cross-check only.  `lsof` lists more than open descriptors — memory
+# mappings (mem), the text segment (txt), cwd and rtd all appear with
+# type REG — so its REG row count is NOT the number of open regular-file
+# descriptors and will exceed it.  /proc/PID/fd above is canonical; this
+# is here to name WHAT is open, not how many.
 if command -v lsof >/dev/null 2>&1; then
   lsof -nP -p "${PID}" 2>/dev/null | awk 'NR>1{print $5}' | sort | uniq -c | sort -rn | head -15
 else
