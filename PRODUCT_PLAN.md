@@ -38,6 +38,12 @@ For **Game Day weekly probability intelligence** — keeping the existing matchu
 
 That specification requires `Win Matchup %` and `Beat Median %` to come from the same league-aware weekly score simulation where possible. In median-game leagues, every simulation draw must simulate the entire league week, derive that draw's median threshold from the league-wide scores, and then determine both the H2H and median outcomes. It also requires historical prediction archives and calibration testing rather than assuming the current matchup formula is already optimal.
 
+For the owner-approved **Upside Report** — the mobile-first weekly league showpiece that upgrades the existing weekly recap into a shareable report driven by an Interestingness Engine, OPOW/DPOW, roster-specific Game Changer impact, meaningful waiver/acquisition stories, playoff movement, a selective MVP Race module, individual matchup-story links, permanent weekly archives and season-yearbook inputs — read:
+
+**[`docs/UPSIDE_REPORT_WEEKLY_SHOWCASE_SPEC.md`](docs/UPSIDE_REPORT_WEEKLY_SHOWCASE_SPEC.md)**
+
+That specification makes the weekly report a presentation/storytelling consumer of canonical scoring, best-ball, replacement/PAR/VORP, Game Day, Playoff Predictor, Awards/Honors, history, transactions and Share Renderer rather than a duplicate engine. AI may write the narrative, but deterministic systems must establish the facts. Categories are adaptive: if nothing genuinely interesting happened, the report omits the category instead of manufacturing a meaningless weekly award.
+
 For the Brisket Honors eligibility rules tying **League MVP** and **Manager of the Year** to actual competitive success while deliberately keeping **GM of the Year** and performance/rookie/positional awards separate, read:
 
 **[`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`](docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md)**
