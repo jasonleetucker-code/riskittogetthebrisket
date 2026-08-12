@@ -233,10 +233,63 @@ sudo -n "${SYSTEMCTL}" list-timers --all --no-pager 2>/dev/null \
 echo
 echo "fd_inventory complete (read-only; nothing was modified)."
 
-# TEMPORARY on claude/prod-runtime-hardening-reconcile: fd-diagnostics.yml
-# pipes THIS file, so appending the privilege probe is how we get its
-# read-only output without adding a second production workflow. Removed
-# before this branch's PR is finalized.
-if [[ -x "$(dirname "${BASH_SOURCE[0]}")/privilege_surface.sh" ]]; then
-  bash "$(dirname "${BASH_SOURCE[0]}")/privilege_surface.sh" "${SERVICE_NAME}"
+# ── privilege surface (temporary on claude/prod-runtime-hardening-reconcile) ──
+# INLINED, not shelled out to a sibling file.  The first attempt ran
+# `bash "$(dirname "${BASH_SOURCE[0]}")/privilege_surface.sh"`, which
+# died with `BASH_SOURCE[0]: unbound variable`: fd-diagnostics.yml pipes
+# this script over stdin, so there is no file on disk and no sibling to
+# find.  Under `set -u` that was fatal and the probe never ran — a
+# silent no-op dressed as a successful diagnostic.
+#
+# Removed before this branch's PR is finalized; privilege_surface.sh
+# stays as the standalone operator-runnable copy.
+
+section "identity"
+echo "user: $(id -un)  groups: $(id -Gn)"
+
+section "permitted sudo surface (sudo -l)"
+# -n so it can never prompt.  This is the decisive evidence.
+sudo -n -l 2>&1 || echo "(sudo -l refused — the policy itself is not readable)"
+
+section "can the deploy user write the install targets?"
+for p in /etc/systemd/system /usr/local/lib/riskit; do
+  if [[ -d "$p" ]]; then
+    printf '%-28s exists  owner=%s mode=%s writable_by_me=%s\n' \
+      "$p" "$(stat -c '%U' "$p")" "$(stat -c '%a' "$p")" \
+      "$([[ -w "$p" ]] && echo yes || echo no)"
+  else
+    printf '%-28s MISSING\n' "$p"
+  fi
+done
+
+section "installed unit vs repo template"
+for u in "${SERVICE_NAME}.service" "${SERVICE_NAME}-healthcheck.service" "${SERVICE_NAME}-healthcheck.timer"; do
+  f="/etc/systemd/system/${u}"
+  if [[ -f "$f" ]]; then
+    printf '%-40s present  owner=%s mode=%s mtime=%s\n' "$u" \
+      "$(stat -c '%U' "$f")" "$(stat -c '%a' "$f")" "$(stat -c '%y' "$f" | cut -d. -f1)"
+    grep -H '^LimitNOFILE' "$f" 2>/dev/null || echo "    (no LimitNOFILE line)"
+  else
+    printf '%-40s ABSENT\n' "$u"
+  fi
+done
+
+section "healthcheck timer/service state"
+SC=/bin/systemctl; [[ -x "$SC" ]] || SC=/usr/bin/systemctl
+sudo -n "$SC" show "${SERVICE_NAME}-healthcheck.timer" \
+  -p LoadState -p ActiveState -p UnitFileState -p NextElapseUSecRealtime 2>/dev/null
+sudo -n "$SC" show "${SERVICE_NAME}-healthcheck.service" \
+  -p LoadState -p UnitFileState -p ExecStart 2>/dev/null | head -4
+
+section "root-owned healthcheck copy"
+p=/usr/local/lib/riskit/${SERVICE_NAME}-healthcheck.sh
+if [[ -e "$p" ]]; then
+  echo "present: $(stat -c 'owner=%U mode=%a mtime=%y' "$p" | cut -d. -f1)"
+  echo "readable by me: $([[ -r "$p" ]] && echo yes || echo no)"
+else
+  echo "ABSENT at $p"
 fi
+ls -la /usr/local/lib/riskit/ 2>/dev/null | head -8 || echo "(dir not listable)"
+
+echo
+echo "privilege_surface complete (read-only)."
