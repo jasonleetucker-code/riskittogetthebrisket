@@ -232,3 +232,11 @@ sudo -n "${SYSTEMCTL}" list-timers --all --no-pager 2>/dev/null \
 
 echo
 echo "fd_inventory complete (read-only; nothing was modified)."
+
+# TEMPORARY on claude/prod-runtime-hardening-reconcile: fd-diagnostics.yml
+# pipes THIS file, so appending the privilege probe is how we get its
+# read-only output without adding a second production workflow. Removed
+# before this branch's PR is finalized.
+if [[ -x "$(dirname "${BASH_SOURCE[0]}")/privilege_surface.sh" ]]; then
+  bash "$(dirname "${BASH_SOURCE[0]}")/privilege_surface.sh" "${SERVICE_NAME}"
+fi
