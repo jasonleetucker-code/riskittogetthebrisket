@@ -59,6 +59,7 @@ import sys
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
+from src.utils.name_clean import is_first_name_variant  # noqa: E402
 from src.utils.name_clean import resolve_idp_position as _resolve_idp_position  # noqa: E402
 from src.utils.age import age_from_birthdate as _age_from_birthdate  # noqa: E402
 from src.utils.owner_names import owner_label as _owner_label  # noqa: E402
@@ -4811,8 +4812,67 @@ async def run(progress_callback=None):
         _by_norm_name[_norm] = _primary
         _merged_name_variants += 1
 
+    # ── Second rung: first-name drift (W06-F001) ─────────────────────
+    #
+    # The pass above merges on ``normalize_lookup_name``, which folds
+    # punctuation and initials but NOT first-name variants: "Matt Hibner"
+    # and "Matthew Hibner" normalize differently, so one human occupied
+    # two rows — a resolved row and an unresolved ghost holding the
+    # vendor votes (6 of them for Hibner, 1 for Jam/Jamarion Miller).
+    #
+    # Repaired at the creation path rather than hidden at render time,
+    # and by a RULE rather than by adding two more names to
+    # ``CANONICAL_NAME_ALIASES``, which would have fixed these two
+    # players and left the next pair to be found by another audit.
+    #
+    # The IDENTITY GATE is what makes this safe, not the name rule.
+    # ``is_first_name_variant`` is deliberately permissive enough to
+    # match "Chris Smith" / "Christian Smith", who may be two people —
+    # so a merge additionally requires that exactly one side carries a
+    # ``_sleeperId`` and the other carries none. Two independently
+    # identified players both have ids, so they can never be fused. An
+    # ambiguous ghost (matching more than one identified row) is left
+    # alone: an explicit ghost is better than a confident wrong merge.
+    _identified = {
+        _n for _n, _e in players_json.items() if isinstance(_e, dict) and _e.get("_sleeperId")
+    }
+    _ghosts = [
+        _n for _n, _e in players_json.items() if isinstance(_e, dict) and not _e.get("_sleeperId")
+    ]
+    _merged_first_name_variants = 0
+    for _ghost in sorted(_ghosts):
+        if _ghost not in players_json:
+            continue
+        _matches = [_n for _n in _identified if is_first_name_variant(_ghost, _n)]
+        if len(_matches) != 1:
+            if len(_matches) > 1 and DEBUG:
+                print(f"  [Dedup] ambiguous first-name ghost {_ghost!r} -> {_matches}; left alone")
+            continue
+        _primary = _matches[0]
+        _p_entry = players_json.get(_primary)
+        _s_entry = players_json.get(_ghost)
+        if not isinstance(_p_entry, dict) or not isinstance(_s_entry, dict):
+            continue
+        for _k, _v in _s_entry.items():
+            if str(_k).startswith("_"):
+                continue
+            if (
+                _k not in _p_entry
+                and isinstance(_v, (int, float))
+                and _v is not None
+                and float(_v) > 0
+            ):
+                _p_entry[_k] = _v
+        players_json[_primary] = _p_entry
+        players_json.pop(_ghost, None)
+        _pos_map.pop(_ghost, None)
+        _player_id_map.pop(_ghost, None)
+        _merged_first_name_variants += 1
+
     if DEBUG and _merged_name_variants:
         print(f"  [Dedup] Merged {_merged_name_variants} punctuation/initial name variants")
+    if DEBUG and _merged_first_name_variants:
+        print(f"  [Dedup] Merged {_merged_first_name_variants} first-name variant ghosts")
 
     # Backfill IDP positions for players that only came in through IDP-specific feeds.
     # This keeps IDP filters/coverage accurate even for deep-tier defenders not rostered.
