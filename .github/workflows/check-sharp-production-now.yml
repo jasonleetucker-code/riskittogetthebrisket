@@ -1,67 +1,17 @@
 name: Check Sharp Production Now
 
-# ┌──────────────────────────────────────────────────────────────────┐
-# │  TEMPORARY INCIDENT BRIDGE — REVERT THIS FILE BEFORE MERGING     │
-# │                                                                  │
-# │  On the branch `claude/prod-reliability-fd-incident` ONLY, this  │
-# │  workflow's body is replaced with the read-only FD inventory for │
-# │  the 2026-08-12 EMFILE incident.  Its normal Sharp-population    │
-# │  check is NOT here.                                              │
-# │                                                                  │
-# │  Why: `workflow_dispatch` resolves the workflow id against the   │
-# │  DEFAULT branch, so a new file that exists only on a feature     │
-# │  branch cannot be dispatched — verified, POST .../dispatches     │
-# │  returns 404 for `fd-diagnostics.yml`.  Dispatching THIS file    │
-# │  with `ref: <branch>` runs the branch's version of it, which is  │
-# │  the only way to get host evidence before the incident PR lands. │
-# │                                                                  │
-# │  `.github/workflows/fd-diagnostics.yml` is the permanent home    │
-# │  and is dispatchable normally once merged.  Restore this file    │
-# │  from `origin/main` before the incident PR is marked ready:      │
-# │                                                                  │
-# │      git checkout origin/main -- \                               │
-# │        .github/workflows/check-sharp-production-now.yml          │
-# └──────────────────────────────────────────────────────────────────┘
-#
-# Read-only, same contract as fd-diagnostics.yml: no restart or reload,
-# no deploy or checkout, no application import, no Sharp, no scraper, no
-# payload build, no environment variables printed.  Note that the
-# ORIGINAL version of this workflow does import the application and build
-# two Sharp market payloads on the host — deliberately not done here,
-# because the process under investigation is the one that ran out of file
-# descriptors and must not be given more work.
-
 on:
   workflow_dispatch:
-    inputs:
-      samples:
-        description: "How many FD-count samples to take"
-        required: false
-        default: "10"
-        type: string
-      interval_seconds:
-        description: "Seconds between samples"
-        required: false
-        default: "30"
-        type: string
 
 permissions:
   contents: read
 
-concurrency:
-  # An FD trend measured across a service restart is not a trend.
-  group: production-deploy
-  cancel-in-progress: false
-
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     environment: production
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
       - name: Configure production SSH
         env:
           DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
@@ -78,24 +28,51 @@ jobs:
           ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
           echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
 
-      - name: Collect FD forensics (read-only)
+      - name: Inspect Sharp routes and population
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
           SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
-          OLD_PID: ${{ inputs.samples }}
-          FIRST_EMFILE: "2026-08-12 16:47:46"
-          LEAD_MIN: ${{ inputs.interval_seconds }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          # Piped in from the runner's checkout rather than read off the
-          # host: the host's tree is at the DEPLOYED revision, which does
-          # not contain this script yet.  Nothing is written on the host.
+          printf -v REMOTE_ENV 'APP_DIR=%q VENV_DIR=%q SERVICE_NAME=%q' "$APP_DIR" "$VENV_DIR" "$SERVICE_NAME"
           ssh -i "$HOME/.ssh/id_ed25519" \
             -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "bash -s -- $(printf %q "$SERVICE_NAME") $(printf %q "$OLD_PID") $(printf %q "$FIRST_EMFILE") $(printf %q "$LEAD_MIN")" \
-            < deploy/diagnostics/fd_forensics.sh
+            "$REMOTE_ENV bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          sudo -n systemctl is-active "$SERVICE_NAME"
+          ALLOW_DEFAULT_LOGIN_DEV=1 "$VENV_DIR/bin/python" - <<'PY'
+          import json
+          import server
+          from src.intel import platform_ledger
+          from src.sharp import service
+
+          service._register_http_routes()
+          market = service.market_payload(
+              window="30d", sort="strength", asset_type="all",
+              platform="all", qualification="all", limit=25,
+          )
+          ffpc = service.market_payload(
+              window="90d", sort="strength", asset_type="all",
+              platform="ffpc", qualification="provisional", limit=25,
+          )
+          print(json.dumps({
+              "routes": sorted(
+                  getattr(route, "path", "")
+                  for route in server.app.routes
+                  if "sharp" in getattr(route, "path", "")
+              ),
+              "coverage": platform_ledger.platform_coverage(),
+              "marketStatus": market.get("status"),
+              "marketAssets": len(market.get("assets") or []),
+              "ffpcStatus": ffpc.get("status"),
+              "ffpcAssets": len(ffpc.get("assets") or []),
+          }, indent=2, sort_keys=True, default=str))
+          PY
+          REMOTE

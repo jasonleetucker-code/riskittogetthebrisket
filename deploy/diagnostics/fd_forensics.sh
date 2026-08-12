@@ -41,8 +41,17 @@ done
 J() { sudo -n "${JOURNALCTL}" "$@" 2>/dev/null; }
 section() { printf '\n===== %s =====\n' "$*"; }
 
-# Journal timestamps are host-local; keep every window in the same
-# vocabulary rather than converting and risking an off-by-two-hours.
+# CORRECTED after the first run.  `date -d` here resolves in the shell's
+# timezone.  When this is piped in over ssh the shell is the HOST's, so
+# it agrees with the journal — but the first run computed a window that
+# selected nothing and every resource-family count came back 0.  A zero
+# that means "wrong window" must not be read as "this family was idle",
+# so the window is now stated explicitly with its offset and the counts
+# below are labelled with the window they were taken over.
+#
+# The `_PID=` queries above are unaffected: they are exact journal-field
+# matches with no time window, which is why the valuable evidence — the
+# 20 lines before the first EMFILE — survived the bug.
 SINCE="$(date -d "${FIRST_EMFILE} -${LEAD_MIN} min" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)"
 UNTIL="$(date -d "${FIRST_EMFILE} +2 min" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)"
 if [[ -z "${SINCE}" ]]; then
@@ -50,7 +59,8 @@ if [[ -z "${SINCE}" ]]; then
   exit 3
 fi
 echo "service=${SERVICE_NAME} old_pid=${OLD_PID}"
-echo "window: ${SINCE}  ->  ${UNTIL}  (local time, ${LEAD_MIN}m lead)"
+echo "window: ${SINCE}  ->  ${UNTIL}  (${LEAD_MIN}m lead; tz=$(date +%Z), journal tz must match)"
+echo "sanity: lines in window = $(J -u "${SERVICE_NAME}" --since "${SINCE}" --until "${UNTIL}" --no-pager | wc -l) (0 means the window is wrong, NOT that the service was idle)"
 
 section "lifetime of the exhausted process"
 # _PID= is an indexed journal field, so this is exact rather than a grep.
