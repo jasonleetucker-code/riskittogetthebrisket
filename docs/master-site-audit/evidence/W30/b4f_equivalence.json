@@ -1,0 +1,42 @@
+{
+ "boundary": 904,
+ "pools": {
+  "shared_market": {
+   "curve": {
+    "midpoint": 0.112,
+    "slope": 0.725
+   },
+   "maxHeadDeviation": 0,
+   "maxHeadDeviationAtRank": null,
+   "tailRanksChanged": 404,
+   "distinctValuesInTailBefore": 1,
+   "distinctValuesInTailAfter": 395,
+   "midpointRankSpace": 55.888
+  },
+  "offense": {
+   "curve": {
+    "midpoint": 0.11,
+    "slope": 1.11
+   },
+   "maxHeadDeviation": 0,
+   "maxHeadDeviationAtRank": null,
+   "tailRanksChanged": 404,
+   "distinctValuesInTailBefore": 1,
+   "distinctValuesInTailAfter": 327,
+   "midpointRankSpace": 54.89
+  },
+  "idp": {
+   "curve": {
+    "midpoint": 0.083,
+    "slope": 1.11
+   },
+   "maxHeadDeviation": 0,
+   "maxHeadDeviationAtRank": null,
+   "tailRanksChanged": 404,
+   "distinctValuesInTailBefore": 1,
+   "distinctValuesInTailAfter": 271,
+   "midpointRankSpace": 41.417
+  }
+ },
+ "headPreserved": true
+}

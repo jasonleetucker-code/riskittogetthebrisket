@@ -36,8 +36,22 @@ import {
 // after the rank→percentile conversion ``p = (r-1)/(N-1)`` and the
 // equivalence ``midpoint_rank = c * (N-1)``, ``slope = s``.  The
 // backend stamps curves in rank form so this renders directly.
-function hillValue(rank, { midpoint, slope }) {
-  const r = Math.max(1, rank);
+//
+// ``saturationRank`` comes from the contract (``hillCurves[*].saturationRank``,
+// stamped from ``src/canonical/tail_policy``), NOT from a constant here.
+// W30-F023 was in part a divergence between these two: serving saturated
+// at the reference population while this chart extrapolated smoothly past
+// it, so the picture disagreed with the board it claimed to explain.  The
+// boundary is read rather than transcribed so that cannot recur — this
+// file must never grow a tail rule of its own.
+function hillValue(rank, { midpoint, slope, saturationRank }) {
+  // ``Number(null)`` is 0 and ``Number.isFinite(0)`` is true, so a
+  // finiteness check alone would accept a missing boundary as rank 0 and
+  // drive the curve to NaN.  The boundary must be a positive rank or it
+  // is treated as absent.
+  const declared = Number(saturationRank);
+  const cap = Number.isFinite(declared) && declared >= 1 ? declared : Infinity;
+  const r = Math.min(Math.max(1, rank), cap);
   const exponent = Math.pow((r - 1) / midpoint, slope);
   return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + exponent))));
 }
@@ -173,6 +187,16 @@ export default function HillCurveExplorer({
     }
     return { ...c, d: linePath(pts), color: i === 0 ? CHART_COLORS.accent : categoricalColor(i) };
   });
+
+  // The rank past which the board stops resolving.  Read off the curves,
+  // never assumed — and only surfaced when the plotted domain actually
+  // reaches it, so the note describes something visible rather than
+  // asserting a boundary off the right-hand edge of the chart.
+  const saturationRank = renderableCurves.reduce((acc, c) => {
+    const v = Number(c?.saturationRank);
+    return Number.isFinite(v) && v > 0 ? (acc === null ? v : Math.min(acc, v)) : acc;
+  }, null);
+  const saturationVisible = saturationRank !== null && xMax > saturationRank;
 
   // Group the scatter by position.  Unknown / excluded groups fall
   // into OTHER which renders in the muted axis colour.
@@ -388,6 +412,20 @@ export default function HillCurveExplorer({
           </span>
         ))}
       </div>
+      {saturationVisible ? (
+        <p
+          style={{
+            margin: "6px 0 0",
+            fontSize: 11,
+            color: CHART_COLORS.axisLabel,
+          }}
+        >
+          Curves stop resolving past rank {saturationRank} — the deepest rank any
+          source has been observed to publish. Beyond it every rank shares the
+          boundary value, on this chart and on the board alike; the flat segment
+          is the policy, not extrapolation.
+        </p>
+      ) : null}
     </div>
   );
 }

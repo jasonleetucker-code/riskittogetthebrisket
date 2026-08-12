@@ -309,20 +309,33 @@ class TestPercentileReferenceClamp:
         """
         assert dc._build_hill_curves_block()["rookie"]["routed"] is False
 
-    def test_pipeline_flattens_every_rank_past_the_reference(self):
+    def test_pipeline_resolves_past_the_reference_and_flattens_at_the_boundary(self):
         """Drive real rows through the pipeline, not a re-implementation.
 
-        A rank-signal source (``dlfSf``) covers 560 players.  Ranks past
-        ``_PERCENTILE_REFERENCE_N`` clamp to p=1.0, so every one of them
-        must receive the *same* contribution from that source — the
-        deep board flattens instead of continuing to decay.
+        **Re-decided by W30-F023.** This test asserted the opposite: that
+        ranks past ``_PERCENTILE_REFERENCE_N`` all receive the *same*
+        contribution, "the deep board flattens instead of continuing to
+        decay". That was an accurate description of the pipeline and it was
+        the defect — the saturation point was the coordinate unit rather
+        than the edge of observed evidence, so 421 of 5,143 rank-Hill
+        observations across 254 served rows collapsed onto one number.
 
-        Constructed so the rank source is the ONLY differentiator: all
-        560 rows carry an identical second source, so any spread left in
-        the tail can only have come from the rank source.
+        The tail is now owned by ``tail_policy`` and saturates at rank 904.
+        So the pipeline must (a) keep resolving between the reference
+        population and the boundary, and (b) flatten past it. Both are
+        asserted, because dropping (b) would let an unbounded
+        extrapolation pass.
+
+        Constructed so the rank source is the ONLY differentiator: every
+        row carries an identical second source, so any spread left in the
+        tail can only have come from the rank source.
         """
+        from src.canonical.tail_policy import TAIL_SATURATION_RANK
+
         n = dc._PERCENTILE_REFERENCE_N
-        total = n + 60
+        # Deep enough to reach PAST the boundary, so both halves of the
+        # policy are observable in one run.
+        total = TAIL_SATURATION_RANK + 60
 
         rows = [_anchor_qb()]
         for i in range(total):
@@ -342,16 +355,27 @@ class TestPercentileReferenceClamp:
         # Read the pre-cap blend: it is stamped on EVERY contributing
         # row, whereas ``rankDerivedValue`` is only stamped inside
         # ``OVERALL_RANK_LIMIT`` (800) and would make this assertion
-        # depend on the rank cap rather than on the percentile clamp.
-        deep_a = got[f"P{n + 10:04d}"]["_blendedValueUncapped"]
-        deep_b = got[f"P{total - 1:04d}"]["_blendedValueUncapped"]
-        assert deep_a == deep_b, "ranks past the reference must not keep decaying"
+        # depend on the rank cap rather than on the tail policy.
+        def blended(rank: int) -> int:
+            return got[f"P{rank - 1:04d}"]["_blendedValueUncapped"]
 
-        # A row inside the reference must still be worth strictly more —
-        # otherwise the clamp has swallowed the whole board, which would
-        # make the assertion above vacuously true.
-        shallow = got["P0009"]["_blendedValueUncapped"]
-        assert shallow > deep_a
+        # (a) between the reference population and the boundary the board
+        #     must keep resolving — this is the W30-F023 repair.
+        assert blended(n + 10) > blended(n + 200) > blended(TAIL_SATURATION_RANK - 5), (
+            "ranks between the reference population and the tail boundary "
+            "collapsed — W30-F023 has regressed"
+        )
+
+        # (b) past the boundary it must flatten — the policy is bounded,
+        #     not an unbounded extrapolation into ranks nothing published.
+        assert blended(TAIL_SATURATION_RANK + 5) == blended(total), (
+            "ranks past the tail boundary kept decaying — the coordinate is "
+            "resolving depths no source has ever published"
+        )
+
+        # A row inside the reference must still be worth strictly more than
+        # a deep one, otherwise (a) could hold vacuously.
+        assert blended(10) > blended(n + 10)
 
 
 # ── Stage 12: multiplicative future-year pick discount ───────────────

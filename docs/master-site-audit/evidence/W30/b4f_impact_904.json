@@ -1,0 +1,740 @@
+{
+ "boundary": 904,
+ "board": "dynasty_data_2026-08-12.json",
+ "rowsCompared": 1094,
+ "valuesChanged": 245,
+ "meanAbsChange": 75.06,
+ "medianAbsChange": 64,
+ "p90AbsChange": 162,
+ "maxAbsChange": 196,
+ "medianRelPct": 3.9116,
+ "p90RelPct": 11.3464,
+ "maxRelPct": 14.4224,
+ "ranksChanged": 402,
+ "medianRankMove": 16,
+ "p10RankMove": 2,
+ "p90RankMove": 60,
+ "maxRankMove": 103,
+ "membership": {
+  "top50": 0,
+  "top100": 0,
+  "top200": 0,
+  "top400": 24,
+  "servedCut": 66,
+  "servedBefore": 740,
+  "servedAfter": 740
+ },
+ "byBucket": {
+  "picks": 30,
+  "WR": 3,
+  "LB": 42,
+  "DL/EDGE": 87,
+  "DB": 69,
+  "RB": 2,
+  "TE": 10,
+  "QB": 2
+ },
+ "attribution": {
+  "direct": 215,
+  "secondOrder": 30,
+  "unexplained": 0,
+  "pickTetherChain": {
+   "rookiesMoved": 36,
+   "rookiesDown": 36,
+   "picksMoved": 30,
+   "picksDown": 30,
+   "pickYears": [
+    "2026"
+   ],
+   "chainHolds": true
+  }
+ },
+ "unexplainedRows": [],
+ "pickRows": [
+  {
+   "name": "2026 Pick 4.07",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -8,
+   "before": 1919,
+   "after": 1911,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 4.08",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -10,
+   "before": 1911,
+   "after": 1901,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 4.09",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -4,
+   "before": 1901,
+   "after": 1897,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 4.10",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -11,
+   "before": 1900,
+   "after": 1889,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 4.11",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -18,
+   "before": 1897,
+   "after": 1879,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 4.12",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -25,
+   "before": 1889,
+   "after": 1864,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.01",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -5,
+   "before": 1866,
+   "after": 1861,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.02",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -8,
+   "before": 1864,
+   "after": 1856,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.03",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -27,
+   "before": 1861,
+   "after": 1834,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.04",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -52,
+   "before": 1856,
+   "after": 1804,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.05",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -35,
+   "before": 1827,
+   "after": 1792,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.06",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -29,
+   "before": 1806,
+   "after": 1777,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.07",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -30,
+   "before": 1804,
+   "after": 1774,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.08",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -39,
+   "before": 1804,
+   "after": 1765,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.09",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -44,
+   "before": 1803,
+   "after": 1759,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.10",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -44,
+   "before": 1801,
+   "after": 1757,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.11",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -53,
+   "before": 1800,
+   "after": 1747,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 5.12",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -57,
+   "before": 1798,
+   "after": 1741,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.01",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -65,
+   "before": 1792,
+   "after": 1727,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.02",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -71,
+   "before": 1774,
+   "after": 1703,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.03",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -82,
+   "before": 1765,
+   "after": 1683,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.04",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -76,
+   "before": 1759,
+   "after": 1683,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.05",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -65,
+   "before": 1741,
+   "after": 1676,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.06",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -36,
+   "before": 1683,
+   "after": 1647,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.07",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -3,
+   "before": 1644,
+   "after": 1641,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.08",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -14,
+   "before": 1641,
+   "after": 1627,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.09",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -21,
+   "before": 1630,
+   "after": 1609,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.10",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -21,
+   "before": 1625,
+   "after": 1604,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.11",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -21,
+   "before": 1604,
+   "after": 1583,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  },
+  {
+   "name": "2026 Pick 6.12",
+   "position": "PICK",
+   "assetClass": "pick",
+   "delta": -8,
+   "before": 1584,
+   "after": 1576,
+   "rank": null,
+   "ownContributionsChanged": [],
+   "mechanism": "rookie repricing -> merged rookie pool -> pick tether (Phase 5.2b)"
+  }
+ ],
+ "corridorScan": {
+  "_apply_market_corridor_clamp": [],
+  "_market_anchor_for_row": [],
+  "_market_anchor_value_for_row": [],
+  "_MARKET_ANCHOR_BY_ASSET_CLASS": [],
+  "_MARKET_ANCHOR_FALLBACKS": [],
+  "_MARKET_CORRIDOR_": []
+ },
+ "integrity": {
+  "tail=None": {
+   "violations": 0,
+   "flagged": 0,
+   "quarantined": 1,
+   "contractStatus": "healthy",
+   "contractOk": true,
+   "blendErrors": []
+  },
+  "tail=904": {
+   "violations": 0,
+   "flagged": 0,
+   "quarantined": 1,
+   "contractStatus": "healthy",
+   "contractOk": true,
+   "blendErrors": []
+  }
+ },
+ "largestMovers": [
+  {
+   "name": "Jimmy Rolder",
+   "position": "LB",
+   "assetClass": "idp",
+   "delta": -196,
+   "before": 1359,
+   "after": 1163,
+   "rank": 611,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Romello Height",
+   "position": "LB",
+   "assetClass": "idp",
+   "delta": -189,
+   "before": 1349,
+   "after": 1160,
+   "rank": 618,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Alohi Gilman",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -185,
+   "before": 1485,
+   "after": 1300,
+   "rank": 576,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Jakobe Thomas",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -184,
+   "before": 1490,
+   "after": 1306,
+   "rank": 548,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Christian Rozeboom",
+   "position": "LB",
+   "assetClass": "idp",
+   "delta": -183,
+   "before": 1486,
+   "after": 1303,
+   "rank": 561,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Jalen Ramsey",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -183,
+   "before": 1356,
+   "after": 1173,
+   "rank": 613,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Javon Bullard",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -181,
+   "before": 1327,
+   "after": 1146,
+   "rank": 635,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Khalil Mack",
+   "position": "DL",
+   "assetClass": "idp",
+   "delta": -179,
+   "before": 1492,
+   "after": 1313,
+   "rank": 542,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Kyler Gordon",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -177,
+   "before": 1485,
+   "after": 1308,
+   "rank": 582,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Jahdae Barron",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -175,
+   "before": 1503,
+   "after": 1328,
+   "rank": 526,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Zaven Collins",
+   "position": "LB",
+   "assetClass": "idp",
+   "delta": -175,
+   "before": 1486,
+   "after": 1311,
+   "rank": 570,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Demario Davis",
+   "position": "LB",
+   "assetClass": "idp",
+   "delta": -171,
+   "before": 1500,
+   "after": 1329,
+   "rank": 530,
+   "ownContributionsChanged": [
+    "dlfIdp",
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Jevon Holland",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -171,
+   "before": 1485,
+   "after": 1314,
+   "rank": 573,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Justin Reid",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -171,
+   "before": 1342,
+   "after": 1171,
+   "rank": 624,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Bryce Boettcher",
+   "position": "LB",
+   "assetClass": "idp",
+   "delta": -170,
+   "before": 1485,
+   "after": 1315,
+   "rank": 578,
+   "ownContributionsChanged": [
+    "dlfRookieIdp",
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Kevin Byard",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -170,
+   "before": 1485,
+   "after": 1315,
+   "rank": 581,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "fantasyProsIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Akeem Davis-Gaither",
+   "position": "LB",
+   "assetClass": "idp",
+   "delta": -169,
+   "before": 1485,
+   "after": 1316,
+   "rank": 575,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Cameron Heyward",
+   "position": "DL",
+   "assetClass": "idp",
+   "delta": -169,
+   "before": 1485,
+   "after": 1316,
+   "rank": 571,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "DeMarcus Lawrence",
+   "position": "DL",
+   "assetClass": "idp",
+   "delta": -168,
+   "before": 1340,
+   "after": 1172,
+   "rank": 626,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Jaishawn Barham",
+   "position": "LB",
+   "assetClass": "idp",
+   "delta": -168,
+   "before": 1490,
+   "after": 1322,
+   "rank": 547,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Coby Bryant",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -167,
+   "before": 1344,
+   "after": 1177,
+   "rank": 622,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Wade Woodaz",
+   "position": "LB",
+   "assetClass": "idp",
+   "delta": -166,
+   "before": 1485,
+   "after": 1319,
+   "rank": 583,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Craig Woodson",
+   "position": "DB",
+   "assetClass": "idp",
+   "delta": -164,
+   "before": 1485,
+   "after": 1321,
+   "rank": 579,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "Joshua Josephs",
+   "position": "DL",
+   "assetClass": "idp",
+   "delta": -163,
+   "before": 1338,
+   "after": 1175,
+   "rank": 627,
+   "ownContributionsChanged": [
+    "draftSharksIdp",
+    "idpShow"
+   ]
+  },
+  {
+   "name": "RJ Maryland",
+   "position": "TE",
+   "assetClass": "offense",
+   "delta": -162,
+   "before": 1644,
+   "after": 1482,
+   "rank": 456,
+   "ownContributionsChanged": [
+    "draftSharks"
+   ]
+  }
+ ]
+}

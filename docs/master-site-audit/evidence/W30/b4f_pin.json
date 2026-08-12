@@ -1,0 +1,285 @@
+{
+ "phase": "B4-final",
+ "codeSha": "63f6b59a9851c1d294b1d92ddbb17f6bb75d6e71",
+ "codeSubject": "chore(idpshow): automated refresh 2026-08-12T04:32:06Z",
+ "mainTip": "63f6b59a9851c1d294b1d92ddbb17f6bb75d6e71",
+ "commitsAheadOfMain": [],
+ "dirtyPaths": [
+  "docs/master-site-audit/evidence/W30/b4f_measure.py"
+ ],
+ "dirtyIsEvidenceOnly": true,
+ "corridorMergeSha": "52d48b6e5cf7a5e09a8bf174b6a5af3d191c8719",
+ "board": {
+  "path": "exports/latest/dynasty_data_2026-08-12.json",
+  "sha256": "87b3ec8abfe4f82ae2772e9fd5861490c64b1f16fecc732f39d89c9b145c1734",
+  "bytes": 835679,
+  "scrapeTimestamp": "2026-08-12T03:13:01.123224",
+  "date": "2026-08-12",
+  "playerCount": 1076
+ },
+ "sourceCsvs": {
+  "dlfIdp.csv": {
+   "sha256": "9bf471c7222ad7d292244f11d72eba58a472a38e61f7b72f809738de8cf98166",
+   "bytes": 3528
+  },
+  "dlfRookieIdp.csv": {
+   "sha256": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+   "bytes": 575
+  },
+  "dlfRookieSf.csv": {
+   "sha256": "b64334a0094d72e81cecf5017a29347654b768ce510579850ed73cb06e91fae4",
+   "bytes": 1114
+  },
+  "dlfSf.csv": {
+   "sha256": "d534e5172bf76e8724559876bac65078135d934de9760a9c28dec65edaaefaac",
+   "bytes": 5845
+  },
+  "draftSharksIdp.csv": {
+   "sha256": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+   "bytes": 22026
+  },
+  "draftSharksRosIdp.csv": {
+   "sha256": "ff865c59ad1f34315e5fad56afcf5d3ad44c02d0984771ad0d483d8f4767f172",
+   "bytes": 12423
+  },
+  "draftSharksRosSf.csv": {
+   "sha256": "4ce69e95e2b3dadfab243d412ffc2653e8d133b943a331788ffda0dab2505add",
+   "bytes": 7274
+  },
+  "draftSharksSf.csv": {
+   "sha256": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+   "bytes": 163609
+  },
+  "dynastyDaddySf.csv": {
+   "sha256": "77b9a517c7d0646bd389443f7537574d639f3909bd76ec54176b6a863b1271b5",
+   "bytes": 8505
+  },
+  "dynastyNerdsSfTep.csv": {
+   "sha256": "fe232d5ef61c73793b663365c8c65906daa38b317666ddcd087f63f1433828d7",
+   "bytes": 10255
+  },
+  "fantasyCalc.csv": {
+   "sha256": "5bfcb97b02e22a2d2801a00207560ee1dfc4ed9f22660e944ad175035abd9004",
+   "bytes": 9144
+  },
+  "fantasyNavigatorSf.csv": {
+   "sha256": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+   "bytes": 17978
+  },
+  "fantasyProsFitzmaurice.csv": {
+   "sha256": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+   "bytes": 8505
+  },
+  "fantasyProsIdp.csv": {
+   "sha256": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+   "bytes": 10513
+  },
+  "fantasyProsSf.csv": {
+   "sha256": "239ff107a1992df90b295dec04560e9c53b655c77c43c25ac6a68de40c1ee478",
+   "bytes": 14003
+  },
+  "flockFantasySf.csv": {
+   "sha256": "31c9923a82417f82cebcb4515b6a5f0bada64469224ad35b98bba38c9a86ba1d",
+   "bytes": 9276
+  },
+  "flockFantasySfRookies.csv": {
+   "sha256": "e1cf340a54a7b2898cf912dfb0a23fe66f37aff0ec9d4cb31d2d43c52c5f9e20",
+   "bytes": 1694
+  },
+  "idpShow.csv": {
+   "sha256": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+   "bytes": 7670
+  },
+  "idpTradeCalc.csv": {
+   "sha256": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+   "bytes": 19660
+  },
+  "ktc.csv": {
+   "sha256": "bf28fc4eb942deed4a7e384e5736ebdf3f33e6b7b58e36a6d15869be0016f95b",
+   "bytes": 9862
+  },
+  "ktcSfTep.csv": {
+   "sha256": "ff67927fe8d53ce521f92cde2f1bf040ba43a24c939c09a3a8a92faa27bab1f9",
+   "bytes": 9869
+  },
+  "otcffbSf.csv": {
+   "sha256": "c1348395d72924bdac742185e1fd50d0c082b658b23d4e320f909a069867203b",
+   "bytes": 10164
+  },
+  "pfkDynasty.csv": {
+   "sha256": "dbeec7c1b0adb640f76af23faa3629c6763daa05c23cea5e0b349a3aede4446b",
+   "bytes": 15210
+  },
+  "yahooBoone.csv": {
+   "sha256": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3",
+   "bytes": 10774
+  }
+ },
+ "sourceRegistry": [
+  {
+   "key": "ktcSfTep",
+   "depth": null,
+   "scope": "overall_offense",
+   "valueDirect": true
+  },
+  {
+   "key": "idpTradeCalc",
+   "depth": null,
+   "scope": "overall_idp",
+   "valueDirect": true
+  },
+  {
+   "key": "dlfSf",
+   "depth": 280,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "dlfRookieSf",
+   "depth": 50,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "dlfIdp",
+   "depth": 185,
+   "scope": "overall_idp",
+   "valueDirect": false
+  },
+  {
+   "key": "dlfRookieIdp",
+   "depth": 50,
+   "scope": "overall_idp",
+   "valueDirect": false
+  },
+  {
+   "key": "idpShow",
+   "depth": 420,
+   "scope": "overall_idp",
+   "valueDirect": false
+  },
+  {
+   "key": "dynastyNerdsSfTep",
+   "depth": 300,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "fantasyCalc",
+   "depth": 450,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "otcffbSf",
+   "depth": 460,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "fantasyNavigatorSf",
+   "depth": 460,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "pfkDynasty",
+   "depth": 460,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "dynastyDaddySf",
+   "depth": 320,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "fantasyProsSf",
+   "depth": 250,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "fantasyProsIdp",
+   "depth": 100,
+   "scope": "overall_idp",
+   "valueDirect": false
+  },
+  {
+   "key": "fantasyProsFitzmaurice",
+   "depth": 350,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "flockFantasySf",
+   "depth": 370,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "flockFantasySfRookies",
+   "depth": 50,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "yahooBoone",
+   "depth": 500,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "draftSharks",
+   "depth": 500,
+   "scope": "overall_offense",
+   "valueDirect": false
+  },
+  {
+   "key": "draftSharksIdp",
+   "depth": 400,
+   "scope": "overall_idp",
+   "valueDirect": false
+  }
+ ],
+ "valueDirectSources": [
+  "idpTradeCalc",
+  "ktcSfTep"
+ ],
+ "championModel": {
+  "modelId": "hill_scope_masters",
+  "version": 2,
+  "status": "champion",
+  "params": {
+   "HILL_GLOBAL_PERCENTILE_C": 0.112,
+   "HILL_GLOBAL_PERCENTILE_S": 0.725,
+   "HILL_PERCENTILE_C": 0.11,
+   "HILL_PERCENTILE_S": 1.11,
+   "IDP_HILL_PERCENTILE_C": 0.083,
+   "IDP_HILL_PERCENTILE_S": 1.11,
+   "HILL_ROOKIE_PERCENTILE_C": 0.153,
+   "HILL_ROOKIE_PERCENTILE_S": 0.885
+  }
+ },
+ "registryVersions": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "tailConstants": {
+  "PERCENTILE_REFERENCE_N": 500,
+  "OVERALL_RANK_LIMIT": 800,
+  "TAIL_SATURATION_RANK": null
+ },
+ "boardShape": {
+  "rows": 1094,
+  "servedRows": 740,
+  "observations": 6316,
+  "rankHillObservations": 5143,
+  "deepestEffectiveRank": 898.0,
+  "deepestRankHillObservation": 876.0,
+  "deepestEffectiveRankOnServedRow": 898.0
+ }
+}

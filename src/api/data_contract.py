@@ -5247,6 +5247,8 @@ def _build_hill_curves_block() -> dict[str, dict[str, Any]]:
         IDP_HILL_PERCENTILE_S,
     )
 
+    from src.canonical.tail_policy import TAIL_SATURATION_RANK  # noqa: PLC0415
+
     ref_n = _PERCENTILE_REFERENCE_N
     denom = max(1, ref_n - 1)
 
@@ -5260,6 +5262,13 @@ def _build_hill_curves_block() -> dict[str, dict[str, Any]]:
             "midpoint": round(float(c) * denom, 4),
             "slope": round(float(s), 4),
             "routed": routed,
+            # The rank past which the coordinate stops resolving. Stamped
+            # so the frontend explorer renders the SAME domain the board
+            # is priced on, rather than transcribing a second tail rule —
+            # a divergence W30-F023 already produced once, with the chart
+            # extrapolating smoothly while serving saturated at 500.
+            # ``None`` means "saturate at ``referenceN``" (pre-B4).
+            "saturationRank": TAIL_SATURATION_RANK,
         }
 
     return {

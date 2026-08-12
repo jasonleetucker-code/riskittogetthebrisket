@@ -151,36 +151,67 @@ class TestClampingIsWhatMakesTailPolicySubstantive:
     "which N", it is "what happens past the reference population".
     """
 
-    def test_ranks_past_the_reference_population_share_one_coordinate(self):
+    def test_ranks_past_the_saturation_boundary_share_one_coordinate(self):
+        """Re-decided by W30-F023 (see the class docstring's amendment).
+
+        Previously asserted that ranks past the *reference population*
+        collapse onto ``p = 1.0``. That was the defect, and pinning it here
+        made this file a second place it had to be repaired.
+
+        The B1.2 argument is unchanged and is what the assertion now
+        states: saturation is a real modelling decision, and it happens
+        somewhere. It just happens at the tail owner's boundary rather
+        than at the coordinate unit.
+        """
+        from src.canonical.tail_policy import TAIL_SATURATION_RANK
+
         n = PERCENTILE_REFERENCE_N
-        collapsed = {rank_to_percentile(r, reference_n=n) for r in (n, n + 20, 700, 899, 5000)}
-        assert collapsed == {1.0}, "the clamp is the mechanism under test"
+        b = TAIL_SATURATION_RANK
+        collapsed = {rank_to_percentile(r, reference_n=n) for r in (b, b + 20, b + 400, 50_000)}
+        assert len(collapsed) == 1, "saturation past the boundary is the mechanism under test"
+
+        # And the span between the unit and the boundary must NOT collapse —
+        # that separation is the entire W30-F023 repair.
+        resolving = {rank_to_percentile(r, reference_n=n) for r in (n, n + 20, 700, b - 1)}
+        assert len(resolving) == 4
 
     def test_equivalence_breaks_exactly_where_the_smaller_universe_clamps(self):
-        """Same curve, two universes; they part company past rank 500."""
+        """Same curve, two universes; they part company at the boundary.
+
+        Amended for W30-F023. The two representations used to diverge at
+        rank 500 because the N=500 one saturated there. With the tail owned
+        centrally, BOTH universes saturate at the same rank — which is the
+        point of having an owner — so the interesting claim is now the
+        opposite one: they agree everywhere the boundary lets them resolve,
+        because the transform is a change of units and nothing else.
+        """
+        from src.canonical.tail_policy import TAIL_SATURATION_RANK
+
         c500 = 0.0770
         c800 = transform_c(c500, from_n=500, to_n=800)
         s = 1.110
 
-        # Inside shared support: indistinguishable.
+        # Inside shared support: indistinguishable, as before.
         for rank in (100, 300, 499):
             assert value_at_rank(rank, c500, s, 500) == pytest.approx(
                 value_at_rank(rank, c800, s, 800), abs=1.0
             )
 
-        # Past it: the N=500 representation is pinned to its p=1 tail while
-        # the N=800 representation keeps resolving deeper ranks.
+        # And now also PAST the old clamp, all the way to the boundary.
+        for rank in (600, 700, 800, TAIL_SATURATION_RANK - 1):
+            assert value_at_rank(rank, c500, s, 500) == pytest.approx(
+                value_at_rank(rank, c800, s, 800), abs=1.0
+            ), f"the two universes disagree at rank {rank} — the transform is not a unit change"
+
+        # Both keep separating ranks the evidence supports...
         tail_500 = {r: value_at_rank(r, c500, s, 500) for r in (500, 600, 700, 800)}
-        assert len(set(tail_500.values())) == 1, "N=500 must collapse its tail"
+        assert len(set(tail_500.values())) == 4, "N=500 must no longer collapse its tail"
+        assert sorted(tail_500.values(), reverse=True) == list(tail_500.values())
 
-        tail_800 = {r: value_at_rank(r, c800, s, 800) for r in (500, 600, 700, 800)}
-        assert len(set(tail_800.values())) == 4, "N=800 must still separate these ranks"
-        assert sorted(tail_800.values(), reverse=True) == list(
-            tail_800.values()
-        ), "deeper rank must not be worth more"
-
-        # And the gap is material, not a rounding artifact.
-        assert tail_500[800] - tail_800[800] > 50
+        # ...and both stop at the same place.
+        b = TAIL_SATURATION_RANK
+        assert value_at_rank(b + 1, c500, s, 500) == value_at_rank(b + 900, c500, s, 500)
+        assert value_at_rank(b + 1, c800, s, 800) == value_at_rank(b + 900, c800, s, 800)
 
 
 class TestTheHoldoutEvaluatorHardCodesTheServingCoordinate:

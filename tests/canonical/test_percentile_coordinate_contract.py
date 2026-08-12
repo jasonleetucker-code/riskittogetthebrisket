@@ -76,8 +76,32 @@ class TestCanonicalOwner:
     def test_the_reference_population_bound(self):
         assert rank_to_percentile(PERCENTILE_REFERENCE_N) == pytest.approx(1.0)
 
-    def test_ranks_past_the_universe_clamp(self):
-        assert rank_to_percentile(PERCENTILE_REFERENCE_N + 250) == 1.0
+    def test_ranks_past_the_universe_no_longer_clamp_at_one(self):
+        """Re-decided by W30-F023, not merely updated.
+
+        This asserted ``rank_to_percentile(750) == 1.0`` — i.e. it pinned
+        the saturation defect as the contract. It was correct when written:
+        the coordinate genuinely stopped at the reference population, and
+        the assertion documented that.
+
+        The tail is now owned by ``tail_policy`` and saturates at rank 904
+        (the deepest rank any source has been observed to publish), so
+        ranks between the reference population and the boundary resolve
+        and ``p`` legitimately exceeds 1.0. Re-asserting ``== 1.0`` here
+        would re-pin the defect from a second file.
+
+        What survives is the real contract: the coordinate is
+        rank-monotonic and stops resolving exactly where the owner says.
+        """
+        from src.canonical.tail_policy import TAIL_SATURATION_RANK
+
+        past_reference = rank_to_percentile(PERCENTILE_REFERENCE_N + 250)
+        assert past_reference > 1.0, "a rank inside the observed domain must still resolve"
+
+        # Past the owner's boundary, and only there, the coordinate stops.
+        assert rank_to_percentile(TAIL_SATURATION_RANK + 1) == rank_to_percentile(
+            TAIL_SATURATION_RANK + 5000
+        )
 
     def test_the_coordinate_is_monotonic(self):
         ps = [rank_to_percentile(r) for r in range(1, 501)]
