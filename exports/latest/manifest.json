@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-12T08:06:36.693770",
+  "generatedAt": "2026-08-12T09:54:49.356143",
   "date": "2026-08-12",
   "files": [
     "dynasty_data.js",
@@ -10,9 +10,10 @@
   ],
   "siteRawCount": 3,
   "siteRawFresh": [
-    "idpTradeCalc.csv",
     "ktc.csv",
     "ktcSfTep.csv"
   ],
-  "siteRawPreserved": []
+  "siteRawPreserved": [
+    "idpTradeCalc.csv"
+  ]
 }
