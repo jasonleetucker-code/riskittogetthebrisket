@@ -1,0 +1,94 @@
+name: FD Diagnostics (read-only)
+
+# Out-of-process file-descriptor evidence for the 2026-08-12 incident.
+#
+# Why a workflow rather than an application endpoint: the incident made
+# the backend unable to answer requests at all, so anything served BY the
+# process is unavailable exactly when it matters.  The evidence has to
+# come from outside it.  The deploy path already holds working SSH to the
+# host, so this reuses that capability and nothing else.
+#
+# READ-ONLY by construction.  It runs one script,
+# deploy/diagnostics/fd_inventory.sh, which reads /proc, asks systemd for
+# properties, lists sockets and greps the journal.  It does not restart
+# or reload anything, does not deploy or checkout, does not import the
+# application, does not run Sharp or a scraper or a payload build, and
+# does not print environment variables or command lines.
+#
+# It also does not PROVOKE work: FD samples are passive observations of
+# whatever the process does on its own schedule, and the timer listing at
+# the end names what could have run during the window without firing any
+# of it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      samples:
+        description: "How many FD-count samples to take"
+        required: false
+        default: "10"
+        type: string
+      interval_seconds:
+        description: "Seconds between samples"
+        required: false
+        default: "30"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never overlap with a deploy — not because this would break one, but
+  # because an FD trend measured across a service restart is not a trend.
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: FD inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Collect FD inventory
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+          SAMPLES: ${{ inputs.samples }}
+          INTERVAL: ${{ inputs.interval_seconds }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The script is piped in and run from stdin rather than read
+          # from the app tree on the host: the host is checked out at
+          # whatever revision is DEPLOYED, which will not contain this
+          # file until the incident PR merges.  Sending the runner's copy
+          # means the diagnostic can run before it ships, and it touches
+          # nothing on disk.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "SERVICE_NAME=$(printf %q "$SERVICE_NAME") bash -s -- $(printf %q "$SERVICE_NAME") $(printf %q "$SAMPLES") $(printf %q "$INTERVAL")" \
+            < deploy/diagnostics/fd_inventory.sh

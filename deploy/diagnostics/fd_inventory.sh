@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+# Read-only file-descriptor evidence for the 2026-08-12 incident.
+#
+# On that date the production FastAPI process stopped answering.  The
+# deploy's own journal capture showed why:
+#
+#     [ERROR] socket.accept() out of system resource
+#     File "/usr/lib/python3.12/asyncio/selector_events.py", line 178,
+#       in _accept_connection
+#     File "/usr/lib/python3.12/socket.py", line 295, in accept
+#     OSError: [Errno 24] Too many open files
+#
+# EMFILE at accept() explains the outside signature exactly: the kernel
+# completes the TCP handshake into the listen backlog, so nginx connects
+# in 0.4 ms, and the application can never accept the connection, so
+# nginx waits its full 300 s proxy_read_timeout for bytes that never
+# come.
+#
+# What is NOT established is WHAT accumulated.  "Descriptor leak" is a
+# hypothesis until this script names the type.  That is the whole job
+# here: inventory, not theory, and no application fix before the
+# inventory says what grows.
+#
+# CONTRACT — this script is READ-ONLY.  It must never:
+#   restart or reload a service, deploy, checkout, or write to the app
+#   tree; import the application; run Sharp, scrapers, or any payload
+#   build; trigger background work; or print environment variables,
+#   command lines, or anything else that can carry a credential.
+#
+# It reads /proc, asks systemd for properties, lists sockets, and greps
+# the journal.  Sampling is passive: it observes whatever the process is
+# already doing on its own schedule and never provokes work.
+#
+# Usage:
+#   sudo -n deploy/diagnostics/fd_inventory.sh [service] [samples] [interval_s]
+#
+# Defaults: dynasty, 10 samples, 30 s apart (a 5-minute window).
+
+set -uo pipefail
+
+SERVICE_NAME="${1:-${SERVICE_NAME:-dynasty}}"
+SAMPLES="${2:-10}"
+INTERVAL="${3:-30}"
+
+SYSTEMCTL=""
+for c in /bin/systemctl /usr/bin/systemctl; do
+  [[ -x "$c" ]] && SYSTEMCTL="$c" && break
+done
+JOURNALCTL=""
+for c in /bin/journalctl /usr/bin/journalctl; do
+  [[ -x "$c" ]] && JOURNALCTL="$c" && break
+done
+
+section() { printf '\n===== %s =====\n' "$*"; }
+
+if [[ -z "${SYSTEMCTL}" ]]; then
+  echo "systemctl not found; cannot resolve the service." >&2
+  exit 2
+fi
+
+section "service identity and limits"
+# ActiveEnterTimestamp dates the CURRENT process: an FD count means
+# nothing without knowing how long it has been accumulating.
+sudo -n "${SYSTEMCTL}" show "${SERVICE_NAME}" \
+  -p MainPID -p LimitNOFILE -p LimitNOFILESoft -p ActiveEnterTimestamp \
+  -p NRestarts -p TasksCurrent -p TasksMax -p MemoryCurrent
+
+PID="$(sudo -n "${SYSTEMCTL}" show "${SERVICE_NAME}" -p MainPID --value)"
+if [[ -z "${PID}" || "${PID}" == "0" ]]; then
+  echo "Service ${SERVICE_NAME} has no MainPID (not running?)." >&2
+  exit 3
+fi
+echo "resolved PID=${PID}"
+
+section "kernel-enforced limits for the running process"
+# systemd's LimitNOFILE is what was CONFIGURED; /proc/PID/limits is what
+# the process actually got.  They can differ.
+sudo -n cat "/proc/${PID}/limits" 2>/dev/null | sed -n '1p;/open files/p'
+
+section "system-wide file-nr (allocated / free / max)"
+cat /proc/sys/fs/file-nr 2>/dev/null || true
+
+section "process and thread counts"
+printf 'threads: '; sudo -n cat "/proc/${PID}/status" 2>/dev/null | awk '/^Threads:/{print $2}'
+printf 'children: '; pgrep -P "${PID}" 2>/dev/null | wc -l
+
+section "readability guard"
+# A denied read of /proc/PID/fd makes `find -type l` yield NOTHING, and
+# every count below would then report 0 — "the process holds no
+# descriptors", which is not a possible state for a running server.  A
+# zero that means "could not look" must never be presented as a
+# measurement, so establish readability first and stop if it fails.
+_probe="$(sudo -n bash -c 'find "/proc/$1/fd" -maxdepth 1 -type l 2>/dev/null | wc -l' _ "${PID}")"
+if [[ "${_probe}" -eq 0 ]]; then
+  echo "Cannot read /proc/${PID}/fd (permission, or the process exited)." >&2
+  echo "Every count below would be a false zero. Stopping." >&2
+  exit 4
+fi
+echo "ok: /proc/${PID}/fd is readable (${_probe} entries on first look)"
+
+section "FD type breakdown"
+# This is the answer we came for.  Every /proc/PID/fd entry is a symlink
+# whose target names its kind: socket:[…], pipe:[…], anon_inode:[…]
+# (epoll, eventfd, inotify, timerfd), /dev/…, or a regular path.
+sudo -n bash -c '
+  pid="$1"
+  total=0
+  declare -A kinds
+  while IFS= read -r link; do
+    tgt="$(readlink "$link" 2>/dev/null)" || continue
+    total=$((total+1))
+    case "$tgt" in
+      socket:*)      k="socket" ;;
+      pipe:*)        k="pipe" ;;
+      anon_inode:*)  k="anon_inode:${tgt#anon_inode:}" ;;
+      /dev/*)        k="dev" ;;
+      /proc/*)       k="proc" ;;
+      /memfd:*)      k="memfd" ;;
+      *)             k="file" ;;
+    esac
+    kinds["$k"]=$(( ${kinds["$k"]:-0} + 1 ))
+  done < <(find "/proc/$pid/fd" -maxdepth 1 -type l 2>/dev/null)
+  echo "total_fds=$total"
+  for k in "${!kinds[@]}"; do printf "  %-28s %s\n" "$k" "${kinds[$k]}"; done | sort -k2 -rn
+' _ "${PID}"
+
+section "regular files held open, by directory"
+# A leak of regular files usually points at one directory. Paths only —
+# never contents.
+sudo -n bash -c '
+  find "/proc/$1/fd" -maxdepth 1 -type l -exec readlink {} \; 2>/dev/null \
+    | grep -E "^/" | grep -vE "^/(dev|proc|sys)/" \
+    | xargs -r -n1 dirname 2>/dev/null | sort | uniq -c | sort -rn | head -20
+' _ "${PID}"
+
+section "sockets owned by this process, by state"
+if command -v ss >/dev/null 2>&1; then
+  # -p attributes sockets to the pid; we filter to ours and count states
+  # rather than dumping peer addresses.
+  sudo -n ss -tanp 2>/dev/null | grep "pid=${PID}," \
+    | awk '{print $1}' | sort | uniq -c | sort -rn
+  echo "-- top peer ports (destination), to spot one chatty dependency --"
+  sudo -n ss -tanp 2>/dev/null | grep "pid=${PID}," \
+    | awk '{print $5}' | sed 's/.*://' | sort | uniq -c | sort -rn | head -10
+else
+  echo "ss not installed"
+fi
+
+section "lsof summary (if installed)"
+if command -v lsof >/dev/null 2>&1; then
+  sudo -n lsof -nP -p "${PID}" 2>/dev/null | awk 'NR>1{print $5}' | sort | uniq -c | sort -rn | head -15
+else
+  echo "lsof not installed"
+fi
+
+section "earliest Errno 24 in the retained journal"
+if [[ -n "${JOURNALCTL}" ]]; then
+  # First occurrence dates the onset; the count and last occurrence say
+  # whether it is over.
+  first="$(sudo -n "${JOURNALCTL}" -u "${SERVICE_NAME}" --no-pager -o short-iso 2>/dev/null \
+    | grep -m1 'Errno 24' || true)"
+  echo "first: ${first:-<none in retained journal>}"
+  last="$(sudo -n "${JOURNALCTL}" -u "${SERVICE_NAME}" --no-pager -o short-iso 2>/dev/null \
+    | grep 'Errno 24' | tail -1 || true)"
+  echo "last:  ${last:-<none>}"
+  cnt="$(sudo -n "${JOURNALCTL}" -u "${SERVICE_NAME}" --no-pager 2>/dev/null \
+    | grep -c 'Errno 24' || true)"
+  echo "count: ${cnt:-0}"
+  echo "-- journal retention window --"
+  sudo -n "${JOURNALCTL}" -u "${SERVICE_NAME}" --no-pager -o short-iso -n 1 2>/dev/null | tail -1
+  sudo -n "${JOURNALCTL}" -u "${SERVICE_NAME}" --no-pager -o short-iso 2>/dev/null | head -1
+else
+  echo "journalctl not found"
+fi
+
+section "FD count samples (${SAMPLES} x ${INTERVAL}s)"
+# Trend, not a snapshot: a single number cannot distinguish a healthy
+# steady state from the middle of an accumulation.  Passive — we watch
+# whatever the process does on its own schedule.
+echo "utc_time            total  sockets  files  anon   pipes"
+for ((i = 0; i < SAMPLES; i++)); do
+  sudo -n bash -c '
+    pid="$1"
+    t=0; s=0; f=0; a=0; p=0
+    while IFS= read -r link; do
+      tgt="$(readlink "$link" 2>/dev/null)" || continue
+      t=$((t+1))
+      case "$tgt" in
+        socket:*) s=$((s+1)) ;;
+        pipe:*) p=$((p+1)) ;;
+        anon_inode:*) a=$((a+1)) ;;
+        /*) f=$((f+1)) ;;
+      esac
+    done < <(find "/proc/$pid/fd" -maxdepth 1 -type l 2>/dev/null)
+    printf "%s  %5d  %7d  %5d  %5d  %5d\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$t" "$s" "$f" "$a" "$p"
+  ' _ "${PID}"
+  (( i < SAMPLES - 1 )) && sleep "${INTERVAL}"
+done
+
+section "scheduled work in the observation window"
+# Correlation without provocation: name the timers that could have run
+# during the samples above.  We do not fire any of them.
+sudo -n "${SYSTEMCTL}" list-timers --all --no-pager 2>/dev/null \
+  | head -25 || true
+
+echo
+echo "fd_inventory complete (read-only; nothing was modified)."
