@@ -1,6 +1,16 @@
-// The one way a SERVER component talks to the FastAPI backend.
+// Bounded backend reads for SERVER-RENDERED pages and metadata.
 //
-// Every server-side caller had the same shape:
+// Scope, stated narrowly because it was overstated once: this covers the
+// server components and metadata functions that read the backend during
+// a render or a build — `app/league/page.jsx` and `app/sitemap.js`
+// today.  It is NOT a consolidation of every frontend-to-backend call.
+// The Next API bridge routes under `app/api/**/route.js` also read
+// `BACKEND_API_URL` and are deliberately untouched: they run per request
+// on behalf of a browser that has its own timeout and retry behaviour,
+// they never run during `next build`, and rewriting them would be a
+// broad proxy change with none of the evidence that motivated this one.
+//
+// Every server-side render caller had the same shape:
 //
 //     try { const res = await fetch(url, {next:{revalidate}}); … }
 //     catch { return null }
@@ -28,21 +38,36 @@
 // returned, because a page that renders differently per failure mode is
 // four render paths nobody tests.
 
-const DEFAULT_TIMEOUT_MS = 8000;
+const DEFAULT_TIMEOUT_MS = 3000;
 
-// 8 s is `VERIFY_CURL_TIMEOUT` from `deploy/verify-deploy.sh` — this
-// repo's already-declared "the backend should have answered by now"
-// budget for the deploy's own probes.  Reused rather than invented so
-// there is one number to move.
+// This is a VISITOR-FACING budget, so it comes from the site's
+// interactive performance standard, not from an operational one:
 //
-// It is deliberately NOT the 20 s that `deploy.yml`'s smoke test allows
-// `/api/public/league`.  That allowance exists because the public-league
-// snapshot is ALWAYS cold right after a restart — the first request
-// kicks a multi-season Sleeper rebuild "that can take minutes" — and the
-// deploy is willing to WAIT for warm because it is verifying, once.  A
-// visitor is not.  When the snapshot is cold the right answer is to give
-// up in seconds and let the client fetch it, which is the path this page
-// already takes on any other failure.
+//   <=1 s  warm/cached target
+//   <=2 s  normal production p95 where architectural
+//   <=3 s  preferred supported cold/useful path
+//   <=5 s  absolute interactive useful-state failure ceiling
+//
+// 3 s is the "cold but still useful" rung, and this fetch is exactly
+// that case: the page has a working client-side fallback, so the cost of
+// giving up early is one extra client round trip, while the cost of
+// waiting is the whole document.  Measured against a hanging backend the
+// document completes in ~3.1 s, inside the 5 s ceiling with room spare.
+//
+// An earlier revision used 8 s, taken from `VERIFY_CURL_TIMEOUT` in
+// `deploy/verify-deploy.sh`.  That was the wrong source: it is a DEPLOY
+// VERIFICATION budget — a machine confirming a release, once, willing to
+// wait — and reusing it here quietly imported an operational tolerance
+// into a human-facing path.  It also blew the 5 s ceiling outright
+// (8.05 s measured).  Deploy and verification budgets stay independent
+// and may be longer; they are not evidence about what a visitor should
+// wait.
+//
+// Same reasoning rules out the 20 s `deploy.yml` allows
+// `/api/public/league`.  That exists because the public-league snapshot
+// is ALWAYS cold after a restart — the first request kicks a
+// multi-season Sleeper rebuild "that can take minutes" — and the deploy
+// polls until warm. A visitor cannot be asked to hold that open.
 //
 // Overridable for an operator who wants to trade latency for SSR
 // coverage on a slow box; not something a page should choose per call.
