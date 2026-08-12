@@ -44,4 +44,16 @@ For the required repair of historical Trade History grading — separating **Cur
 
 That specification explicitly forbids using current values or future snapshots as if they were historical truth, requires first-class historical pick values, and makes the current fixed ±200 aging threshold evidence-gated rather than final methodology.
 
+For the newly approved high-value **AI/front-office feature family** — **Ask Brisket, Roster Path Optimizer, Edge Alerts, Trade Liquidity & Market Depth, Negotiation Coach, and League Truth** — read:
+
+**[`docs/AI_FRONT_OFFICE_INTELLIGENCE_SPEC.md`](docs/AI_FRONT_OFFICE_INTELLIGENCE_SPEC.md)**
+
+Those features are orchestration/decision surfaces over canonical systems, not permission to build duplicate valuation, trade, playoff, manager, market, or roster engines. Ask Brisket's paid-LLM activation is explicitly cost-gated; the retrieval/orchestration architecture may be built independently.
+
+For the expanded **CE-01 Market Trade Ledger / recent real-trades** methodology — format-aware recent trade filtering, exact/near/normalized comps, market liquidity, package realism, negotiation evidence, Market Pulse, and a future evidence-gated Real Trade Market Value signal — read:
+
+**[`docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md`](docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md)**
+
+That specification requires comparable dynasty trades to preserve league-format metadata and recency, forbids naïve raw-trade averages from directly repricing canonical values, and keeps the broad Market ledger separate from Sharp and Insider populations.
+
 Do not select implementation work directly from old TODOs, addenda, competitor research, `UNIMPLEMENTED_BACKLOG.md`, or `docs/master-site-audit/NEXT_STEPS.md` / `REPAIR_ROADMAP.md`. Their durable requirements/evidence are subordinate to the hierarchy defined in the Master Product Plan.
