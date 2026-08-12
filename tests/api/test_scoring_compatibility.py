@@ -63,21 +63,35 @@ SCORING_A = {"rec": 1.0, "pass_td": 4.0, "pass_yd": 0.04, "pass_int": -1.0}
 SCORING_B = {"rec": 0.08, "pass_td": 6.0, "pass_yd": 1 / 30, "pass_int": -4.0}
 
 
+#: Module attributes this fixture swaps out.  Restored wholesale in
+#: ``tearDown`` rather than per-``_install``: ``_install`` is called more
+#: than once in a single test, and a cleanup that re-reads the "original"
+#: at teardown time restores the PREVIOUS STUB instead of the real
+#: function — leaking a patched ``get_league_by_key`` into every later
+#: test in the process.  (That is not hypothetical: it is what this
+#: fixture did when first written, and it broke four unrelated suites
+#: that read the real registry.)
+_PATCHED = ("get_league_by_key", "scoring_fingerprint_for_league")
+
+
 class _RegistryFixture(unittest.TestCase):
     """Patch the registry + a scoring source; never touch the network."""
 
+    def setUp(self):
+        self._originals = {name: getattr(lr, name) for name in _PATCHED if hasattr(lr, name)}
+
+    def tearDown(self):
+        for name, original in self._originals.items():
+            setattr(lr, name, original)
+
     def _install(self, configs: dict, scoring: dict):
-        self._orig_get = lr.get_league_by_key
         lr.get_league_by_key = lambda k: configs.get(str(k or "").lower())
-        self.addCleanup(lambda: setattr(lr, "get_league_by_key", self._orig_get))
         # The fingerprint source is patched by league_id so the test never
         # depends on which transport the repair chooses.
-        if hasattr(lr, "scoring_fingerprint_for_league"):
-            self._orig_fp = lr.scoring_fingerprint_for_league
+        if "scoring_fingerprint_for_league" in self._originals:
             lr.scoring_fingerprint_for_league = lambda cfg: scoring.get(
                 getattr(cfg, "sleeper_league_id", None)
             )
-            self.addCleanup(lambda: setattr(lr, "scoring_fingerprint_for_league", self._orig_fp))
 
 
 class TestCompatibilityIsFactualNotLabelBased(_RegistryFixture):
