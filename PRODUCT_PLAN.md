@@ -8,6 +8,12 @@ For current authorized execution order, read:
 
 **[`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md)**
 
+For the **site-wide performance mandate that applies to every existing and future interactive feature**, read:
+
+**[`docs/GLOBAL_PERFORMANCE_STANDARD.md`](docs/GLOBAL_PERFORMANCE_STANDARD.md)**
+
+Speed is a first-class acceptance criterion, not polish. The default product targets are **<=1 second for warm/cached first useful data, <=2 seconds normal production p95 where the architecture permits, and <=5 seconds as the absolute interactive useful-state failure ceiling**. Expensive repeatable computation belongs off the user request path; valid last-known-good data should be served while refresh occurs where safe; and a materially slow feature remains defective even if its functional tests pass.
+
 For the approved early-data / future-model direction for ingesting source-native 1QB/Superflex/TE-premium/IDP **dynasty** format variants and eventually normalizing external dynasty rankings to arbitrary league settings, read:
 
 **[`docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md`](docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md)**
