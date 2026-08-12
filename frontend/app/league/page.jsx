@@ -13,18 +13,10 @@
 // /api/public/league endpoint.
 
 import { cache } from "react";
+import { connection } from "next/server";
 import LeagueClient from "./LeagueClient.jsx";
+import { fetchBackendJson } from "../../lib/server-backend.js";
 import { DEFAULT_TAB, normalizeTabKey, sectionForTab } from "./tabs.js";
-
-function _backend() {
-  const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
-  try {
-    const u = new URL(base);
-    return `${u.protocol}//${u.host}`;
-  } catch {
-    return "http://127.0.0.1:8000";
-  }
-}
 
 // Fetch ONE public-contract section.  Shape: {contractVersion, league,
 // section, data} — every section response carries the ``league`` block,
@@ -61,17 +53,41 @@ function _backend() {
 // React cache(): ``generateMetadata`` and the page body both await the
 // overview section during one render pass, and de-duping that is the
 // difference between one backend call and two.
+//
+// BUILD INDEPENDENCE (2026-08-12 incident).  `await connection()` is the
+// first thing here, and it is load-bearing rather than decorative.
+//
+// This route is already dynamic — the production build stamps it `ƒ`,
+// server-rendered on demand — but Next still EVALUATES it during
+// `next build` to discover that, and `generateMetadata` runs in the same
+// pass.  So the build issued this fetch.  With the backend accepting
+// connections and never answering, the render hung, Next killed it at
+// its 60 s page-generation limit, retried twice, and failed the build:
+//
+//     Failed to build /league/page: /league after 3 attempts.
+//     Export encountered an error on /league/page: /league, exiting the build.
+//
+// `connection()` aborts the render at THIS line during prerendering, so
+// the fetch is never issued and the build cannot depend on a live
+// FastAPI process. At request time it resolves immediately and costs
+// nothing. That is the mechanism, not a longer timeout — the previous
+// note in this file assumed a dynamic route was already exempt from the
+// build, and it is not.
+//
+// Placed inside `fetchSection` rather than at the top of the page and
+// again in `generateMetadata`: this is the single choke point for every
+// backend call on this route, so a future caller cannot forget it.
+//
+// The fetch itself is bounded by `lib/server-backend.js` (8 s), which is
+// the separate, request-time half of the same incident: a wedged backend
+// must not hold a visitor's connection either.
 const fetchSection = cache(async function fetchSection(section) {
-  const url = `${_backend()}/api/public/league/${encodeURIComponent(section)}`;
-  try {
-    const res = await fetch(url, { next: { revalidate: 60 } });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data || typeof data !== "object" || !data.league) return null;
-    return data;
-  } catch {
-    return null;
-  }
+  await connection();
+  const data = await fetchBackendJson(`/api/public/league/${encodeURIComponent(section)}`, {
+    revalidate: 60,
+  });
+  if (!data || typeof data !== "object" || !data.league) return null;
+  return data;
 });
 
 export async function generateMetadata() {
