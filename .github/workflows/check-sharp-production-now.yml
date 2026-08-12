@@ -78,13 +78,14 @@ jobs:
           ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
           echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
 
-      - name: Collect FD inventory (read-only)
+      - name: Collect FD forensics (read-only)
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
-          SAMPLES: ${{ inputs.samples }}
-          INTERVAL: ${{ inputs.interval_seconds }}
+          OLD_PID: ${{ inputs.samples }}
+          FIRST_EMFILE: "2026-08-12 16:47:46"
+          LEAD_MIN: ${{ inputs.interval_seconds }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -96,5 +97,5 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "bash -s -- $(printf %q "$SERVICE_NAME") $(printf %q "$SAMPLES") $(printf %q "$INTERVAL")" \
-            < deploy/diagnostics/fd_inventory.sh
+            "bash -s -- $(printf %q "$SERVICE_NAME") $(printf %q "$OLD_PID") $(printf %q "$FIRST_EMFILE") $(printf %q "$LEAD_MIN")" \
+            < deploy/diagnostics/fd_forensics.sh
