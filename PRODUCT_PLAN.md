@@ -20,4 +20,10 @@ For the separate approved use of **redraft / rest-of-season / current-season** r
 
 The redraft/ROS domain is intentionally separate from dynasty valuation. Seasonal evidence may improve current-season predictions, but it is prohibited from leaking into canonical dynasty player/pick values or dynasty source consensus.
 
+For the required repair of historical Trade History grading — separating **Current Grade**, **At-the-Time Grade**, and **How It Aged**, with contemporaneous player/pick snapshots, provenance, fail-closed missing-history behavior, and methodology-consistent aging — read:
+
+**[`docs/TRADE_HISTORY_AGING_SPEC.md`](docs/TRADE_HISTORY_AGING_SPEC.md)**
+
+That specification explicitly forbids using current values or future snapshots as if they were historical truth, requires first-class historical pick values, and makes the current fixed ±200 aging threshold evidence-gated rather than final methodology.
+
 Do not select implementation work directly from old TODOs, addenda, competitor research, `UNIMPLEMENTED_BACKLOG.md`, or `docs/master-site-audit/NEXT_STEPS.md` / `REPAIR_ROADMAP.md`. Their durable requirements/evidence are subordinate to the hierarchy defined in the Master Product Plan.
