@@ -24,7 +24,7 @@ For the canonical **Playoff Predictor** requirement — deriving each connected 
 
 **[`docs/PLAYOFF_PREDICTOR_SPEC.md`](docs/PLAYOFF_PREDICTOR_SPEC.md)**
 
-That specification treats the existing playoff/championship simulation code as the starting point, requires one canonical probability owner, requires requested-league playoff settings/tiebreak/bracket fidelity, and makes the predictor a reusable seasonal output for public-safe league presentation, Pick Forecast, contender classification, and Game Day without leaking into canonical dynasty value.
+That specification treats the existing playoff/championship simulation code as the starting point, requires one canonical probability owner, requires requested-league playoff settings/tiebreak/bracket fidelity, and makes the predictor a reusable seasonal output for public-safe league presentation, Pick Forecast, contender classification, and Game Day without leaking into canonical dynasty value. Sleeper/host data is the preferred source of truth for each connected league; the owner's primary league is explicitly confirmed as **7 playoff teams with one #1-seed bye**, with the confirmed rule serving only as a provenanced fallback/regression fixture rather than a universal default.
 
 For the Brisket Honors eligibility rules tying **League MVP** and **Manager of the Year** to actual competitive success while deliberately keeping **GM of the Year** and performance/rookie/positional awards separate, read:
 
