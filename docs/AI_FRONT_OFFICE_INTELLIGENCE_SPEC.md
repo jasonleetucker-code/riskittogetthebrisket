@@ -75,6 +75,8 @@ Potential components include:
 
 Liquidity is informational/advisory. A 6,000-value liquid asset and a 6,000-value illiquid asset remain 6,000 canonical value unless a separately validated market-value model says otherwise.
 
+The broad-market transaction input for this feature is the canonical CE-01 Market Trade Ledger described in `docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md`; do not create another recent-trades store inside Liquidity.
+
 ## 6. Negotiation Coach
 
 Help turn a desirable trade into a realistic offer/counter strategy. It may use canonical value, package economics, Market Trade Ledger comps, Trade Liquidity, selected counterparty roster needs, Manager Scout and historical Insider Trading behavior.
