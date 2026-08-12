@@ -89,6 +89,17 @@
    "docs/master-site-audit/evidence/W18/B6_SCORING_IDENTITY_DESIGN.md",
    "docs/master-site-audit/evidence/W18/b6_validate.py",
    "docs/master-site-audit/evidence/W18/b6-validation.json"
-  ]
+  ],
+  "ownerReviewGaps": {
+   "staleSnapshotProof": "A snapshot proves when it was fetched, not that it is still true. scoring_evidence_state() now returns fresh/stale/missing and only fresh authorizes reuse. SCORING_SNAPSHOT_MAX_AGE_HOURS=6 is DERIVED from the repo's existing scrape-cadence rule (SCRAPE_INTERVAL_HOURS*3 in server.py, and the default in data_contract._SOURCE_MAX_AGE_HOURS), pinned against both by test_the_budget_matches_the_repo_convention. A second independent boundary: a card recorded against a different NFL season is stale however recently it was fetched, because Sleeper leagues chain year to year under new ids. Stale evidence is retained and readable via scoring_settings_for_league; only its authority expires. Same-league requests are structurally unaffected.",
+   "stampCardConsistency": "_contract_scoring_fingerprint no longer prefers the stamp blindly. The card is the evidence and the stamp is a cache of it: agree -> that fingerprint; no stamp -> recompute (the migration path); disagree or a foreign sf* version -> None with a warning; stamp with no card -> None, decided explicitly rather than emerging from lookup order. Memoized on (id(sleeper), id(card), len(card), stamp) because hashing the live 141-key card costs ~85us per call; the memo is an accelerator only."
+  },
+  "hotPathAfterReview": {
+   "note": "Measured on a quiescent process. The pre-review 9.9us/0.3us figures were taken without controlling for the public-league-warmup thread, under which Path.stat() alone reads 882us, so they are not strictly comparable.",
+   "scoringEvidenceStateUs": 15.0,
+   "scoringFingerprintForLeagueUs": 16.6,
+   "contractScoringFingerprintUs": 0.6,
+   "scoringIdentityErrorUs": 31.0
+  }
  }
 }

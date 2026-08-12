@@ -1965,33 +1965,71 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
 # ``tests/api/test_scoring_compatibility.py`` greps this file for the
 # fail-open shape, and a comment reproducing it would blind the check.
 
+#: One-entry memo for ``_contract_scoring_fingerprint`` — see its body.
+_CONTRACT_FINGERPRINT_MEMO: dict[str, tuple[tuple, str | None]] = {}
+
 
 def _contract_scoring_fingerprint(contract: Any) -> str | None:
     """The factual scoring identity of a loaded contract, or ``None``.
 
-    Prefers ``meta.scoringFingerprint`` (stamped at build time) and falls
-    back to recomputing from the contract's own
-    ``sleeper.scoringSettings``.  The fallback is not a
-    backward-compatibility loophole — it derives the answer from the same
-    data the stamp is derived from, so a contract built before the stamp
-    existed is identified iff it actually carries its scoring card.
+    **The contract's own scoring card is the evidence; the stamp is a
+    cache of it.**  That ordering is the whole justification for putting
+    an identity on the contract at all — it can be recomputed from the
+    artifact it describes, unlike a value copied out of config.  So:
+
+    * card present, stamp agrees → that fingerprint;
+    * card present, no stamp → recompute (the migration path: the live
+      board carries 141 scoring keys and identifies immediately);
+    * card present, stamp DISAGREES → ``None``.  A stale, corrupted or
+      hand-edited stamp contradicting the contract's own card is exactly
+      the kind of unverified claim W18-F001 exists to refuse, and a
+      version prefix from older normalization rules cannot be compared
+      at all;
+    * **no card, stamp only → ``None``.**  Decided explicitly rather than
+      left to fall out of the lookup order: a stamp with nothing to check
+      it against is unverifiable, and unverifiable fails closed.  The
+      documented migration policy never depended on this branch — it
+      depended on the card, which every real contract carries.
     """
     if not isinstance(contract, dict):
         return None
-    meta = contract.get("meta")
-    if isinstance(meta, dict):
-        stamped = str(meta.get("scoringFingerprint") or "").strip()
-        if stamped:
-            return stamped
+    meta = contract.get("meta") if isinstance(contract.get("meta"), dict) else {}
+    stamped = str(meta.get("scoringFingerprint") or "").strip()
+
     sleeper = contract.get("sleeper")
     if not isinstance(sleeper, dict):
         return None
+    card = sleeper.get("scoringSettings")
+    # Hashing the card is what makes the stamp checkable, and the live
+    # board's card is 141 keys — ~85 us, on a gate that runs per request.
+    # One memo entry, keyed on the identity and size of the card dict plus
+    # the stamp being checked, so a replaced contract (every scrape swaps
+    # the object) recomputes.  Purely an accelerator: a miss recomputes,
+    # and the comparison it accelerates is unchanged.
+    memo_key = (id(sleeper), id(card), len(card) if isinstance(card, dict) else -1, stamped)
+    cached = _CONTRACT_FINGERPRINT_MEMO.get("k")
+    if cached is not None and cached[0] == memo_key:
+        return cached[1]
     try:
         from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
 
-        return scoring_fingerprint(sleeper.get("scoringSettings"))
+        derived = scoring_fingerprint(card)
     except Exception:  # noqa: BLE001 — a gate must not raise
         return None
+    if not derived:
+        _CONTRACT_FINGERPRINT_MEMO["k"] = (memo_key, None)
+        return None
+    if stamped and stamped != derived:
+        log.warning(
+            "contract scoring identity is self-contradictory: meta stamp %s vs "
+            "its own scoring card %s — refusing to prove compatibility",
+            stamped,
+            derived,
+        )
+        _CONTRACT_FINGERPRINT_MEMO["k"] = (memo_key, None)
+        return None
+    _CONTRACT_FINGERPRINT_MEMO["k"] = (memo_key, derived)
+    return derived
 
 
 def _scoring_identity_error(contract: Any, league_cfg: Any) -> JSONResponse | None:

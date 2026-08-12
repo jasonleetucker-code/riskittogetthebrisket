@@ -40,8 +40,10 @@ def main() -> int:
         out["leagues"][cfg.key] = {
             "scoringProfile": cfg.scoring_profile,
             "scoringFingerprint": league_registry.scoring_fingerprint_for_league(cfg),
+            "evidenceState": league_registry.scoring_evidence_state(cfg),
             "snapshot": str(league_registry.scoring_snapshot_path(cfg.sleeper_league_id)),
         }
+    out["snapshotMaxAgeHours"] = league_registry.SCORING_SNAPSHOT_MAX_AGE_HOURS
 
     keys = list(out["leagues"])
     out["labelsAgree"] = len({v["scoringProfile"] for v in out["leagues"].values()}) == 1

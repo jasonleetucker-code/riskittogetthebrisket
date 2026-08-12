@@ -507,10 +507,40 @@ def get_scoring_profile(key: str | None = None) -> str | None:
 _SCORING_SNAPSHOT_ENV = "LEAGUE_SCORING_SNAPSHOT_DIR"
 _DEFAULT_SCORING_SNAPSHOT_DIR: Path = Path(__file__).resolve().parents[2] / "data" / "leagues"
 
-#: league_id → (snapshot mtime_ns, size, fingerprint).  Re-reading a
-#: small JSON file per request is cheap but not free, and this gate is on
-#: the hot path of ``/api/data``.
-_scoring_fp_cache: dict[str, tuple[int, int, str | None]] = {}
+#: How old a scoring card may be and still prove CURRENT compatibility.
+#:
+#: A snapshot proves "this league had these rules when the fetch last
+#: succeeded" — not "this league still has these rules".  Left unbounded,
+#: a league whose commissioner changed scoring while every later refresh
+#: failed would keep authorizing cross-league ranking reuse forever: the
+#: W18-F001 fail-open reached through time instead of through a label.
+#:
+#: The number is DERIVED, not chosen.  ``scheduled-refresh.yml`` runs
+#: ``42 */2 * * *`` and the post-scrape warm pass writes this snapshot on
+#: that cadence, so it is a scrape-cadence artifact — and this repo already
+#: has one staleness budget for those, stated twice and identically:
+#: ``server.py`` calls the contract stale at ``SCRAPE_INTERVAL_HOURS * 3``
+#: (2 × 3 = 6), and ``data_contract._SOURCE_MAX_AGE_HOURS`` gives every
+#: source on that cadence a 6-hour budget.  Pinned against both in
+#: ``tests/api/test_scoring_compatibility.py`` so it cannot drift away
+#: from what derived it.
+SCORING_SNAPSHOT_MAX_AGE_HOURS: int = 6
+
+#: Three states, deliberately the same vocabulary
+#: ``data_contract._build_source_timestamps`` already uses for source
+#: freshness: a card we can trust, a card we still hold but may no longer
+#: trust, and no card at all.  Only ``fresh`` authorizes ranking reuse;
+#: ``stale`` is retained and readable for diagnostics, because a transient
+#: Sleeper failure should not destroy evidence — it should only stop that
+#: evidence being an unlimited authorization token.
+SCORING_EVIDENCE_FRESH = "fresh"
+SCORING_EVIDENCE_STALE = "stale"
+SCORING_EVIDENCE_MISSING = "missing"
+
+#: league_id → (snapshot mtime_ns, size, (fingerprint, fetchedAt epoch,
+#: season)).  Re-reading a small JSON file per request is cheap but not
+#: free, and this gate is on the hot path of ``/api/data``.
+_scoring_fp_cache: dict[str, tuple[int, int, tuple[str | None, float | None, str]]] = {}
 _scoring_fp_lock = threading.Lock()
 
 
@@ -548,32 +578,43 @@ def write_scoring_snapshot(sleeper_league_id: str, scoring: dict[str, Any], **ex
     return path
 
 
-def scoring_settings_for_league(cfg: LeagueConfig | None) -> dict[str, Any] | None:
-    """A league's ACTUAL scoring card from its snapshot, or ``None``.
-
-    Never raises, never fetches.  ``None`` means "not proven", which is a
-    different statement from "empty".
-    """
+def _read_scoring_snapshot(cfg: LeagueConfig | None) -> dict[str, Any] | None:
+    """The raw snapshot payload, or ``None``.  Never raises, never fetches."""
     if cfg is None or not getattr(cfg, "sleeper_league_id", ""):
         return None
     try:
         raw = json.loads(scoring_snapshot_path(cfg.sleeper_league_id).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    scoring = raw.get("scoringSettings") if isinstance(raw, dict) else None
+    return raw if isinstance(raw, dict) else None
+
+
+def scoring_settings_for_league(cfg: LeagueConfig | None) -> dict[str, Any] | None:
+    """A league's stored scoring card, whatever its age.
+
+    Deliberately NOT freshness-gated: stale evidence is still evidence and
+    stays readable for diagnostics.  What expires is its authority to
+    prove current compatibility — see :func:`scoring_fingerprint_for_league`.
+    """
+    raw = _read_scoring_snapshot(cfg)
+    scoring = raw.get("scoringSettings") if raw else None
     return scoring if isinstance(scoring, dict) else None
 
 
-def scoring_fingerprint_for_league(cfg: LeagueConfig | None) -> str | None:
-    """The factual scoring identity of a configured league, or ``None``."""
-    if cfg is None or not getattr(cfg, "sleeper_league_id", ""):
-        return None
+def _snapshot_cache_entry(cfg: LeagueConfig) -> tuple[str | None, float | None, str] | None:
+    """``(fingerprint, fetched_at_epoch, season)`` for a league's snapshot.
+
+    Cached on ``(mtime_ns, size)`` so the common path is one ``stat()`` plus
+    a dict hit.  Note what is NOT cached: the freshness verdict.  Age is a
+    function of wall clock, so a decision computed while the card was fresh
+    would otherwise keep being served after it went stale.  Only
+    content-derived facts live here.
+    """
     from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
 
     league_id = str(cfg.sleeper_league_id)
-    path = scoring_snapshot_path(league_id)
     try:
-        stat = path.stat()
+        stat = scoring_snapshot_path(league_id).stat()
         stamp = (stat.st_mtime_ns, stat.st_size)
     except OSError:
         with _scoring_fp_lock:
@@ -583,10 +624,81 @@ def scoring_fingerprint_for_league(cfg: LeagueConfig | None) -> str | None:
         cached = _scoring_fp_cache.get(league_id)
         if cached is not None and cached[0] == stamp[0] and cached[1] == stamp[1]:
             return cached[2]
-    fingerprint = scoring_fingerprint(scoring_settings_for_league(cfg))
+
+    raw = _read_scoring_snapshot(cfg) or {}
+    scoring = raw.get("scoringSettings")
+    fetched_at: float | None = None
+    try:
+        fetched_at = datetime.fromisoformat(str(raw.get("fetchedAt"))).timestamp()
+    except (TypeError, ValueError):
+        fetched_at = None
+    entry = (
+        scoring_fingerprint(scoring if isinstance(scoring, dict) else None),
+        fetched_at,
+        str(raw.get("season") or ""),
+    )
     with _scoring_fp_lock:
-        _scoring_fp_cache[league_id] = (stamp[0], stamp[1], fingerprint)
-    return fingerprint
+        _scoring_fp_cache[league_id] = (stamp[0], stamp[1], entry)
+    return entry
+
+
+def _scoring_evidence(cfg: LeagueConfig | None) -> tuple[str, str | None]:
+    """``(state, fingerprint)`` from ONE snapshot read.
+
+    The two public helpers are thin wrappers over this so the common path
+    stats the snapshot once rather than once per question.
+    """
+    if cfg is None or not getattr(cfg, "sleeper_league_id", ""):
+        return SCORING_EVIDENCE_MISSING, None
+    entry = _snapshot_cache_entry(cfg)
+    if entry is None:
+        return SCORING_EVIDENCE_MISSING, None
+    fingerprint, fetched_at, season = entry
+    if not fingerprint:
+        return SCORING_EVIDENCE_MISSING, None
+    if fetched_at is None:
+        return SCORING_EVIDENCE_STALE, None
+    age_hours = (datetime.now(timezone.utc).timestamp() - fetched_at) / 3600.0
+    if age_hours > SCORING_SNAPSHOT_MAX_AGE_HOURS:
+        return SCORING_EVIDENCE_STALE, None
+    if season:
+        try:
+            from src.bdvm.actuals import nfl_projection_season  # noqa: PLC0415
+
+            if str(nfl_projection_season()) != season:
+                return SCORING_EVIDENCE_STALE, None
+        except Exception:  # noqa: BLE001 — a season check must not break the gate
+            pass
+    return SCORING_EVIDENCE_FRESH, fingerprint
+
+
+def scoring_evidence_state(cfg: LeagueConfig | None) -> str:
+    """``"fresh"`` / ``"stale"`` / ``"missing"`` for a league's scoring card.
+
+    ``fresh`` is the only state that proves CURRENT scoring identity.  A
+    card goes stale two independent ways:
+
+    * **age** — older than :data:`SCORING_SNAPSHOT_MAX_AGE_HOURS`, or
+      carrying no readable ``fetchedAt`` at all (an undated card cannot be
+      shown to be recent);
+    * **season** — recorded against a different NFL season than the one we
+      are in.  Sleeper leagues chain year to year under new ids, so a
+      registry entry left pointing at last season's league would otherwise
+      keep fetching a perfectly *fresh* card describing the wrong season.
+      Age alone cannot catch that.
+    """
+    return _scoring_evidence(cfg)[0]
+
+
+def scoring_fingerprint_for_league(cfg: LeagueConfig | None) -> str | None:
+    """The PROVEN-CURRENT scoring identity of a configured league.
+
+    ``None`` whenever the evidence is stale or missing, because this
+    function's answer authorizes cross-league ranking reuse and unproven
+    fails closed.  Callers that want the stored card regardless of age
+    want :func:`scoring_settings_for_league` instead.
+    """
+    return _scoring_evidence(cfg)[1]
 
 
 def refresh_scoring_snapshot(cfg: LeagueConfig | None) -> str | None:

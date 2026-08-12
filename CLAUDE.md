@@ -309,9 +309,23 @@ The single most important architectural rule for multi-league:
     `/api/data` gate would trade a correctness bug for a latency one.
   - per contract — `meta.scoringFingerprint`, derived from the
     contract's OWN `sleeper.scoringSettings` so it can be recomputed
-    from the artifact it describes instead of copied from config.  A
-    contract without the stamp but with its sleeper block is still
-    identified (the gate recomputes); one with neither is unverifiable.
+    from the artifact it describes instead of copied from config.
+
+  **A snapshot proves when it was taken, not that it is still true.**
+  Evidence is `fresh` / `stale` / `missing` (`scoring_evidence_state`) and
+  only `fresh` authorizes reuse.  The budget is
+  `SCORING_SNAPSHOT_MAX_AGE_HOURS = 6`, which is the repo's existing
+  scrape-cadence staleness rule (`SCRAPE_INTERVAL_HOURS * 3`, and the
+  default in `data_contract._SOURCE_MAX_AGE_HOURS`) rather than a new
+  number.  A card from a different NFL season is stale however recently it
+  was fetched — Sleeper leagues chain year to year under new ids.  Stale
+  evidence is retained and readable; only its authority expires.
+
+  **The stamp is a cache of the card, and must agree with it.**  Card +
+  agreeing stamp → that fingerprint; card, no stamp → recompute; card and
+  stamp *disagree*, or the stamp carries a different `sf*` version → fail
+  closed; **stamp with no card → fail closed**, decided explicitly rather
+  than emerging from lookup order.
 
   `league_registry.leagues_share_scoring()` is the single owner of the
   question and every gate routes through
@@ -352,11 +366,19 @@ Contract annotations:
 - `meta.scoringFingerprint` — the FACTUAL identity of the scoring that
   produced these rankings.  This is what compatibility is decided on.
 - `meta.sleeperDataReady` — true iff EVERY league-specific field in the
-  `sleeper` block belongs to the *requested* league.  False when the
-  server served shared rankings without that league's rosters, and false
-  on a cross-league overlay whose own config could not be fetched
-  (W18-F002) — in that case the league-specific fields are ABSENT rather
-  than inherited.  The one merge that can produce this state is
+  `sleeper` block is COMPLETE and belongs to the *requested* league.
+  False when the server served shared rankings without that league's
+  rosters, and false on a cross-league overlay whose own config could not
+  be fetched *or came back partial* (W18-F002) — in that case the
+  league-specific fields are ABSENT rather than inherited.  Complete is
+  defined by what the consumers need, in
+  `sleeper_overlay.league_config_is_complete`: non-empty scoring, a
+  **non-empty** `rosterPositions` (an empty list makes
+  `bdvm/league_config.py` fall through to the registry, and
+  `starter-slots.js` ranks the live list above it, so `[]` means missing),
+  and `leagueSettings` carrying `num_teams > 1` (below that the same
+  builder raises).  No empty-but-present value counts as complete.  The
+  one merge that can produce this state is
   `sleeper_overlay.merge_cross_league_sleeper_block`; do not re-inline it.
 - `meta.sleeperLoadedLeagueKey` — which league the `sleeper` block
   *would* be for, when `sleeperDataReady: false` (diagnostic only).

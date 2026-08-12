@@ -41,7 +41,12 @@ of error as the label, inverted.
 
 from __future__ import annotations
 
+import json
+import os
+import shutil
+import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from src.api import league_registry as lr
 
@@ -182,6 +187,200 @@ class TestTheServerGateDoesNotFailOpen(unittest.TestCase):
             "server.py still short-circuits the compatibility check when the "
             "loaded contract carries no scoring identity, so an unidentified "
             "contract is served for any league",
+        )
+
+
+class TestASnapshotProvesWhenItWasTaken(unittest.TestCase):
+    """W18-F001, owner review gap 1 — staleness is not proof.
+
+    ``refresh_scoring_snapshot`` deliberately leaves the previous snapshot
+    in place when a refresh fails, and that is right: a transient Sleeper
+    blip should not destroy stored evidence. But a snapshot proves *"this
+    league had these rules when the fetch last succeeded"*, NOT *"this
+    league still has these rules"*. If scoring changes and every later
+    refresh fails, an indefinitely stale card would keep authorizing
+    cross-league ranking reuse — the exact fail-open W18-F001 exists to
+    close, arrived at through time instead of through a label.
+
+    The budget is DERIVED, not invented. ``scheduled-refresh.yml`` runs
+    ``42 */2 * * *`` and the warm pass writes this snapshot on that
+    cadence; ``server.py`` calls a contract stale at
+    ``SCRAPE_INTERVAL_HOURS * 3`` (= 6 h) and
+    ``data_contract._SOURCE_MAX_AGE_HOURS`` gives every scrape-cadence
+    source a 6-hour budget. Same artifact class, same number, two
+    independent precedents.
+
+    Three states, matching ``_build_source_timestamps``'s existing
+    vocabulary: fresh / stale / missing.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._prev = os.environ.get("LEAGUE_SCORING_SNAPSHOT_DIR")
+        os.environ["LEAGUE_SCORING_SNAPSHOT_DIR"] = self.tmp
+        lr._scoring_fp_cache.clear()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.addCleanup(lr._scoring_fp_cache.clear)
+        self.addCleanup(self._restore_env)
+
+    def _restore_env(self):
+        if self._prev is None:
+            os.environ.pop("LEAGUE_SCORING_SNAPSHOT_DIR", None)
+        else:
+            os.environ["LEAGUE_SCORING_SNAPSHOT_DIR"] = self._prev
+
+    @staticmethod
+    def _write(league_id: str, scoring: dict, age_hours: float):
+        path = lr.write_scoring_snapshot(league_id, scoring)
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw["fetchedAt"] = (datetime.now(timezone.utc) - timedelta(hours=age_hours)).isoformat()
+        path.write_text(json.dumps(raw), encoding="utf-8")
+        lr._scoring_fp_cache.clear()
+        return path
+
+    def test_a_fresh_snapshot_proves_identity(self):
+        self._write("111", SCORING_A, age_hours=1.0)
+        cfg = _cfg("a", "p", "111")
+        self.assertTrue(lr.scoring_fingerprint_for_league(cfg))
+        self.assertEqual(lr.scoring_evidence_state(cfg), "fresh")
+
+    def test_a_stale_snapshot_does_not_prove_identity(self):
+        """The defect: an old card must stop authorizing reuse."""
+        self._write("111", SCORING_A, age_hours=48.0)
+        cfg = _cfg("a", "p", "111")
+        self.assertEqual(lr.scoring_evidence_state(cfg), "stale")
+        self.assertIsNone(
+            lr.scoring_fingerprint_for_league(cfg),
+            "a 48-hour-old scoring card was still accepted as proof that this "
+            "league's scoring matches another league's today",
+        )
+
+    def test_stale_evidence_is_retained_not_destroyed(self):
+        """Failing closed is not the same as deleting what we know.
+
+        The card must still be readable for diagnostics; only its
+        authority to prove CURRENT compatibility expires.
+        """
+        self._write("111", SCORING_A, age_hours=48.0)
+        cfg = _cfg("a", "p", "111")
+        self.assertEqual(lr.scoring_settings_for_league(cfg), SCORING_A)
+
+    def test_missing_and_stale_are_distinguishable(self):
+        fresh = _cfg("a", "p", "111")
+        stale = _cfg("b", "p", "222")
+        absent = _cfg("c", "p", "333")
+        self._write("111", SCORING_A, age_hours=1.0)
+        self._write("222", SCORING_A, age_hours=48.0)
+        self.assertEqual(
+            [lr.scoring_evidence_state(c) for c in (fresh, stale, absent)],
+            ["fresh", "stale", "missing"],
+        )
+
+    def test_the_budget_matches_the_repo_convention(self):
+        """Pinned so the number cannot drift away from what derived it."""
+        from src.api import data_contract as dc
+
+        import server
+
+        self.assertEqual(lr.SCORING_SNAPSHOT_MAX_AGE_HOURS, server.SCRAPE_INTERVAL_HOURS * 3)
+        self.assertEqual(
+            lr.SCORING_SNAPSHOT_MAX_AGE_HOURS,
+            dc._SOURCE_MAX_AGE_HOURS["ktc"],
+        )
+
+    def test_a_snapshot_from_another_season_never_proves_identity(self):
+        """A second, independent boundary: scoring is a per-season fact.
+
+        Even inside the freshness window, a card stamped with a different
+        season is evidence about a different season's rules.
+        """
+        path = lr.write_scoring_snapshot("111", SCORING_A, season="1999")
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw["fetchedAt"] = datetime.now(timezone.utc).isoformat()
+        path.write_text(json.dumps(raw), encoding="utf-8")
+        lr._scoring_fp_cache.clear()
+        cfg = _cfg("a", "p", "111")
+        self.assertEqual(lr.scoring_evidence_state(cfg), "stale")
+        self.assertIsNone(lr.scoring_fingerprint_for_league(cfg))
+
+
+class TestTheStampMustAgreeWithTheCard(unittest.TestCase):
+    """W18-F001, owner review gap 3 — a stamp is a cache, not an oracle.
+
+    ``meta.scoringFingerprint`` was justified precisely because the
+    contract can prove its identity from the scoring card it carries. A
+    stamp that contradicts that card is a stale, corrupted or hand-edited
+    claim and must not authorize anything.
+    """
+
+    @staticmethod
+    def _contract(stamp, card):
+        out = {"meta": {"leagueKey": "loaded"}, "sleeper": {}}
+        if stamp is not None:
+            out["meta"]["scoringFingerprint"] = stamp
+        if card is not None:
+            out["sleeper"]["scoringSettings"] = card
+        return out
+
+    def test_an_internally_inconsistent_contract_proves_nothing(self):
+        import server
+        from src.league_comparison.sleeper_scoring import scoring_fingerprint
+
+        fp_a = scoring_fingerprint(SCORING_A)
+        contract = self._contract(stamp=fp_a, card=SCORING_B)
+        self.assertIsNone(
+            server._contract_scoring_fingerprint(contract),
+            "a contract whose stamp says A while its own scoring card says B "
+            "was still allowed to prove it was A",
+        )
+
+    def test_an_agreeing_stamp_is_accepted(self):
+        import server
+        from src.league_comparison.sleeper_scoring import scoring_fingerprint
+
+        fp_a = scoring_fingerprint(SCORING_A)
+        self.assertEqual(
+            server._contract_scoring_fingerprint(self._contract(fp_a, SCORING_A)),
+            fp_a,
+        )
+
+    def test_a_card_with_no_stamp_is_accepted(self):
+        """The migration path: pre-stamp contracts identify from the card."""
+        import server
+        from src.league_comparison.sleeper_scoring import scoring_fingerprint
+
+        self.assertEqual(
+            server._contract_scoring_fingerprint(self._contract(None, SCORING_A)),
+            scoring_fingerprint(SCORING_A),
+        )
+
+    def test_a_stamp_with_no_card_proves_nothing(self):
+        """Decided explicitly, not left to fallback order.
+
+        The documented migration policy makes the CARD the thing that
+        keeps existing contracts working — the live board carries 141
+        scoring keys and identifies immediately. A stamp alone cannot be
+        checked against anything, and unverifiable fails closed.
+        """
+        import server
+        from src.league_comparison.sleeper_scoring import scoring_fingerprint
+
+        self.assertIsNone(
+            server._contract_scoring_fingerprint(
+                self._contract(scoring_fingerprint(SCORING_A), None)
+            )
+        )
+
+    def test_a_stamp_from_another_fingerprint_version_fails_closed(self):
+        import server
+        from src.league_comparison.sleeper_scoring import scoring_fingerprint
+
+        real = scoring_fingerprint(SCORING_A)
+        foreign = "sf0:" + real.split(":", 1)[1]
+        self.assertIsNone(
+            server._contract_scoring_fingerprint(self._contract(foreign, SCORING_A)),
+            "a stamp produced under different normalization rules was compared "
+            "as though it were the current version",
         )
 
 

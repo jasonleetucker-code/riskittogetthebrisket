@@ -78,6 +78,9 @@
    "tests/api/test_league_routing.py::test_cross_league_block_never_inherits_config_and_claims_ready",
    "tests/api/test_league_routing.py::test_cross_league_block_is_ready_when_it_owns_its_config"
   ],
-  "independenceNote": "The regression fixture is deliberately NOT the real dynasty_main -> dynasty_new pair. That pair was only reachable because W18-F001 let two differently-scored leagues share a label; after the F001 repair it correctly 503s before the overlay runs, so a test built on it would have evaporated. League A and B in the fixture are genuinely scoring-compatible and differ only in league-specific configuration. Verified still RED for its own reason (no named merge function) after F001 went green."
+  "independenceNote": "The regression fixture is deliberately NOT the real dynasty_main -> dynasty_new pair. That pair was only reachable because W18-F001 let two differently-scored leagues share a label; after the F001 repair it correctly 503s before the overlay runs, so a test built on it would have evaporated. League A and B in the fixture are genuinely scoring-compatible and differ only in league-specific configuration. Verified still RED for its own reason (no named merge function) after F001 went green.",
+  "ownerReviewGaps": {
+   "completeConfigRequired": "ready=True previously needed only a truthy scoringSettings, so a partial Sleeper response (valid scoring, rosterPositions [], leagueSettings {}) published as ready. league_config_is_complete() now decides, traced to the consumers: rosterPositions must be NON-EMPTY (bdvm/league_config.py gates on `if roster_positions and scoring:` so [] falls through to the registry, and frontend/lib/starter-slots.js ranks the live list above the registry, so an empty live list yields an empty lineup), and leagueSettings must carry num_teams > 1 (the same builder raises LeagueConfigError at teams <= 1). No empty-but-present value is legitimately complete. _fetch_league_config returns None on a partial answer instead of passing skeletons downstream."
+  }
  }
 }

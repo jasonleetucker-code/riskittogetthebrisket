@@ -1159,14 +1159,59 @@ LEAGUE_SPECIFIC_SLEEPER_FIELDS: tuple[str, ...] = (
 NFL_WIDE_SLEEPER_FIELDS: tuple[str, ...] = ("positions", "playerIds", "idToPlayer")
 
 
+def league_config_is_complete(config: Mapping[str, Any] | None) -> bool:
+    """Is this enough of a league to publish as READY?
+
+    Readiness means *every* league-specific field represented as ready is
+    complete and belongs to the requested league — so this checks what the
+    consumers actually need, traced rather than assumed:
+
+    * ``src/bdvm/league_config.py`` gates on
+      ``if roster_positions and scoring:``.  An EMPTY ``rosterPositions``
+      fails that and falls through to the registry's advisory settings, so
+      an empty slot list is a MISSING league, not a complete one — and
+      ``frontend/lib/starter-slots.js`` ranks live ``rosterPositions``
+      ABOVE the registry, so an empty live list would beat correct
+      registry settings and yield an empty lineup.
+    * the same builder raises ``LeagueConfigError`` at ``teams <= 1``,
+      reading ``leagueSettings["num_teams"]`` — so a settings blob without
+      a usable team count cannot construct a league either.
+
+    There is no legitimate empty-but-present case here: every Sleeper
+    league has lineup slots and a team count, so their absence means the
+    fetch did not produce them.  Missing must stay missing.
+    """
+    if not isinstance(config, Mapping):
+        return False
+    scoring = config.get("scoringSettings")
+    if not isinstance(scoring, Mapping) or not scoring:
+        return False
+    slots = config.get("rosterPositions")
+    if not isinstance(slots, (list, tuple)) or not slots:
+        return False
+    settings = config.get("leagueSettings")
+    if not isinstance(settings, Mapping) or not settings:
+        return False
+    try:
+        num_teams = int(settings.get("num_teams") or 0)
+    except (TypeError, ValueError):
+        return False
+    return num_teams > 1
+
+
 def _fetch_league_config(sleeper_league_id: str, getter=None) -> dict[str, Any] | None:
     """The requested league's OWN scoring/roster/settings block.
 
     Same league object ``_fetch_league_name`` already reads (memoized per
     build), so this costs no extra round-trip.  Returns ``None`` when the
-    fetch fails or the object carries no scoring card — the caller must
-    then publish an explicitly NOT-ready block rather than inheriting
-    another league's configuration.
+    fetch fails or the league object is not complete enough to stand as
+    that league's configuration — the caller must then publish an
+    explicitly NOT-ready block rather than inheriting another league's.
+
+    Partial is the case worth naming: Sleeper can answer with scoring but
+    no ``roster_positions``/``settings``, and the earlier version of this
+    function passed that through as ``[]``/``{}``, which then published as
+    ready.  A partial answer is a failed answer here.
     """
     info = (getter or _http_get_json)(f"https://api.sleeper.app/v1/league/{sleeper_league_id}")
     if not isinstance(info, dict):
@@ -1174,11 +1219,21 @@ def _fetch_league_config(sleeper_league_id: str, getter=None) -> dict[str, Any] 
     scoring = info.get("scoring_settings")
     if not isinstance(scoring, dict) or not scoring:
         return None
-    return {
+    config = {
         "scoringSettings": dict(scoring),
         "rosterPositions": list(info.get("roster_positions") or []),
         "leagueSettings": dict(info.get("settings") or {}),
     }
+    if not league_config_is_complete(config):
+        log.warning(
+            "sleeper_overlay: league %s returned an incomplete config "
+            "(slots=%d, settings=%d) — cross-league block will publish not-ready",
+            sleeper_league_id,
+            len(config["rosterPositions"]),
+            len(config["leagueSettings"]),
+        )
+        return None
+    return config
 
 
 def merge_cross_league_sleeper_block(
@@ -1223,12 +1278,16 @@ def merge_cross_league_sleeper_block(
     if requested_league_config is None:
         requested_league_config = config_from_overlay
 
-    config = requested_league_config if isinstance(requested_league_config, Mapping) else None
-    if not config or not config.get("scoringSettings"):
+    # Readiness needs a COMPLETE requested-league config, not merely a
+    # truthy scoring card — see ``league_config_is_complete`` for what the
+    # downstream consumers actually require and why no empty-but-present
+    # value counts.  Anything short of complete leaves every
+    # league-specific field absent.
+    if not league_config_is_complete(requested_league_config):
         return block, False
     for field in LEAGUE_SPECIFIC_SLEEPER_FIELDS:
-        if field in config:
-            block[field] = config[field]
+        if field in requested_league_config:
+            block[field] = requested_league_config[field]
     return block, True
 
 

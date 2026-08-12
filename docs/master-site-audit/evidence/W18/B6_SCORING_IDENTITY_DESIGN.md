@@ -94,6 +94,58 @@ reasons.
 
 ---
 
+## Q1a — How long does a snapshot stay proof? (owner review, gap 1)
+
+A snapshot proves **"this league had these rules when the fetch last
+succeeded"** — not "this league still has these rules". `refresh_scoring_snapshot`
+deliberately keeps the previous card when a refresh fails, which is right
+(a transient Sleeper blip should not destroy evidence), but left unbounded
+that turns into W18-F001 reached through time: change a league's scoring,
+have every later refresh fail, and an indefinitely old card keeps
+authorizing cross-league ranking reuse.
+
+**The budget is derived, not chosen.** The snapshot is written by the
+post-scrape warm pass, so it is a scrape-cadence artifact, and this repo
+already has exactly one staleness budget for those — stated twice,
+identically:
+
+* `scheduled-refresh.yml` runs `42 */2 * * *`, and `SCRAPE_INTERVAL_HOURS`
+  is 2;
+* `server.py` calls the loaded contract stale at
+  `SCRAPE_INTERVAL_HOURS * 3` → **6 h**;
+* `data_contract._SOURCE_MAX_AGE_HOURS` gives **6 h** to every source on
+  that cadence (`ktc`, `ktcSfTep`, `idpTradeCalc`, `fantasyCalc`,
+  `otcffbSf`, …), with the docstring reasoning spelled out per source.
+
+`SCORING_SNAPSHOT_MAX_AGE_HOURS = 6` therefore follows the existing
+convention rather than inventing a number, and
+`test_the_budget_matches_the_repo_convention` pins it against both
+precedents so it cannot drift away from what derived it.
+
+**Three states, in the vocabulary the repo already uses** for source
+freshness (`_build_source_timestamps` emits `fresh` / `stale` / `missing`):
+
+| state | meaning | may prove compatibility? | card readable? |
+|---|---|---|---|
+| `fresh` | fetched within the budget, for this season | **yes** | yes |
+| `stale` | too old, undated, or from another season | no | **yes** |
+| `missing` | no snapshot, or unusable content | no | no |
+
+Stale is deliberately not deletion: `scoring_settings_for_league` still
+returns the card for diagnostics, and only `scoring_fingerprint_for_league`
+— the function whose answer authorizes reuse — returns `None`.
+
+**Season is a second, independent boundary.** Sleeper leagues chain year
+to year under new ids, so a registry entry left pointing at last season's
+league would keep fetching a perfectly *fresh* card describing the wrong
+season. Age cannot catch that; comparing the snapshot's recorded season
+against `nfl_projection_season()` can.
+
+**Same-league requests are unaffected**, which is what bounds the blast
+radius: `_scoring_identity_error` short-circuits when the loaded contract's
+league key equals the requested one, so the default league keeps serving
+normally no matter how stale any cross-league evidence gets.
+
 ## Q2 — Where is it stored?
 
 Three places, with one authority each. This is deliberately *not* "pick
@@ -150,6 +202,32 @@ from a second file is a claim.
 Corollary the repair must respect: if `sleeper.scoringSettings` is absent
 or empty on a build, the contract gets **no** fingerprint rather than a
 hash of `{}`. Missing is never zero.
+
+### Q3a — the stamp must agree with the card (owner review, gap 3)
+
+The first implementation *preferred* the stamp and never compared it with
+the card, which quietly gave up the property that justified having a
+contract identity at all. A stamp is a **cache of** the card, so the
+resolution order is now explicit rather than emergent:
+
+| card | stamp | result |
+|---|---|---|
+| present | agrees | that fingerprint |
+| present | absent | recompute — the migration path |
+| present | **disagrees** | **`None`**, and a warning naming both |
+| present | different `sf*` version prefix | `None` — normalizations are not comparable |
+| **absent** | present | **`None`** |
+
+The last row is a decision, not a fallthrough. A stamp with nothing to
+check it against is unverifiable, and unverifiable fails closed. The
+documented migration policy never leaned on that branch: it leaned on the
+card, which every real contract carries — the live board's is 141 keys.
+
+Hashing 141 keys per request costs ~85 µs, so the comparison is memoized
+on `(id(sleeper), id(card), len(card), stamp)` in a single-entry memo.
+That is an accelerator only: a miss recomputes and the comparison it
+accelerates is unchanged, and every scrape swaps the contract object so
+the key changes with it.
 
 ---
 
@@ -281,10 +359,48 @@ withheld while the league's real pick board is untouched — the same
 "unpriced rather than invented" posture `isUnpriced` and
 `assetsUnpricedByBoard` already take elsewhere.
 
-Cost of the gate, measured warm: `scoring_fingerprint_for_league`
-**9.9 µs** (one `stat()` plus a dict hit; the fingerprint is memoized on
-mtime+size), `_contract_scoring_fingerprint` **0.3 µs** on a stamped
-contract. Neither is on the same order as anything else in these
+### Readiness requires a COMPLETE config (owner review, gap 2)
+
+The first implementation gated readiness on a truthy `scoringSettings`
+alone. But `_fetch_league_config` built its block with
+`list(info.get("roster_positions") or [])` and
+`dict(info.get("settings") or {})`, so a partial Sleeper response yielded
+valid scoring beside `rosterPositions: []` and `leagueSettings: {}` — and
+that published as ready.
+
+What "complete" means was traced to the consumers, not assumed:
+
+| field | requirement | why — the consumer |
+|---|---|---|
+| `scoringSettings` | non-empty mapping | BDVM raises without it; it is the whole point |
+| `rosterPositions` | **non-empty** list | `bdvm/league_config.py` gates on `if roster_positions and scoring:`, so `[]` falls through to the registry — i.e. it means *missing*. And `frontend/lib/starter-slots.js` ranks live `rosterPositions` **above** the registry, so an empty live list beats correct registry settings and yields an empty lineup |
+| `leagueSettings` | present **and** `num_teams > 1` | the same builder reads `league_settings["num_teams"]` and raises `LeagueConfigError` at `teams <= 1` |
+
+So there is no legitimate empty-but-present case here: every Sleeper
+league has lineup slots and a team count, and their absence means the
+fetch did not produce them. `league_config_is_complete` is the one place
+that decides, `_fetch_league_config` returns `None` (with a warning) on a
+partial answer rather than passing skeletons downstream, and the merge
+leaves every league-specific field absent when it is not satisfied.
+
+### Cost of the gate
+
+Measured on a **quiescent** process — worth stating, because an earlier
+measurement of this gate was taken while `public-league-warmup` was doing
+network I/O and `Path.stat()` alone read 882 µs under that contention. The
+figures below and the 9.9 µs / 0.3 µs reported before the owner review are
+therefore not strictly comparable; these are the controlled ones.
+
+| call | µs |
+|---|---|
+| `scoring_evidence_state` | 15.0 |
+| `scoring_fingerprint_for_league` | 16.6 |
+| `_contract_scoring_fingerprint` | 0.6 |
+| `_scoring_identity_error` (whole gate) | 31.0 |
+
+The freshness and season checks add ~7 µs over the pre-review fingerprint
+lookup; the stamp/card comparison would have cost ~85 µs per call
+unmemoized. Neither is on the same order as anything else in these
 handlers.
 
 ## Scope note

@@ -148,6 +148,121 @@ class TestNoChimeraIsEverPublishedAsReady(unittest.TestCase):
             self.assertEqual(block.get("leagueId"), "BBB")
 
 
+class TestReadyRequiresACOMPLETEConfig(unittest.TestCase):
+    """W18-F002, owner review gap 2 — truthy scoring is not a whole league.
+
+    The first repair gated readiness on ``config.get("scoringSettings")``
+    alone. But ``_fetch_league_config`` builds its block with
+    ``list(info.get("roster_positions") or [])`` and
+    ``dict(info.get("settings") or {})``, so a partial Sleeper response
+    yields valid scoring beside ``rosterPositions: []`` and
+    ``leagueSettings: {}`` — and that published as ready.
+
+    What the consumers actually require, traced rather than assumed:
+
+    * ``src/bdvm/league_config.py:204`` gates on
+      ``if roster_positions and scoring:`` — an EMPTY list fails that test
+      and silently falls through to the registry's advisory settings, so
+      an empty array is not a complete league, it is a missing one.
+    * the same builder reads ``league_settings["num_teams"]`` and raises
+      ``LeagueConfigError`` at ``teams <= 1``, so ``leagueSettings`` with
+      no team count cannot construct a league either.
+    * ``frontend/lib/starter-slots.js`` puts live ``rosterPositions``
+      ABOVE the registry in its truth ladder, so an empty live list would
+      beat correct registry settings and produce an empty lineup.
+
+    Hence: no empty-but-present value here is legitimately "complete".
+    A Sleeper league always has lineup slots and a team count; their
+    absence means the fetch did not produce them.
+    """
+
+    @staticmethod
+    def _merge(config):
+        from src.api.sleeper_overlay import merge_cross_league_sleeper_block
+
+        return merge_cross_league_sleeper_block(
+            loaded_sleeper=LOADED_SLEEPER,
+            overlay=OVERLAY_B,
+            requested_league_config=config,
+        )
+
+    def test_scoring_without_roster_positions_is_not_ready(self):
+        block, ready = self._merge(
+            {
+                "scoringSettings": {"rec": 1.0},
+                "rosterPositions": [],
+                "leagueSettings": {"num_teams": 10},
+            }
+        )
+        self.assertFalse(ready, "an empty lineup was published as a complete league")
+        for field in LEAGUE_SPECIFIC:
+            self.assertIsNone(block.get(field), field)
+
+    def test_scoring_without_league_settings_is_not_ready(self):
+        block, ready = self._merge(
+            {
+                "scoringSettings": {"rec": 1.0},
+                "rosterPositions": ["QB", "RB"],
+                "leagueSettings": {},
+            }
+        )
+        self.assertFalse(ready, "an empty leagueSettings block was treated as complete")
+        self.assertIsNone(block.get("leagueSettings"))
+
+    def test_league_settings_without_a_team_count_is_not_ready(self):
+        """``num_teams`` is what the consumer actually needs; a settings
+        blob missing it cannot construct a league."""
+        _, ready = self._merge(
+            {
+                "scoringSettings": {"rec": 1.0},
+                "rosterPositions": ["QB", "RB"],
+                "leagueSettings": {"taxi_slots": 5},
+            }
+        )
+        self.assertFalse(ready)
+
+    def test_a_one_team_league_is_not_ready(self):
+        """``league_config`` raises at ``teams <= 1``; do not publish a
+        block it will refuse."""
+        _, ready = self._merge(
+            {
+                "scoringSettings": {"rec": 1.0},
+                "rosterPositions": ["QB", "RB"],
+                "leagueSettings": {"num_teams": 1},
+            }
+        )
+        self.assertFalse(ready)
+
+    def test_malformed_config_is_not_ready(self):
+        for bad in (
+            {
+                "scoringSettings": "not a dict",
+                "rosterPositions": ["QB"],
+                "leagueSettings": {"num_teams": 10},
+            },
+            {
+                "scoringSettings": {"rec": 1.0},
+                "rosterPositions": "QB,RB",
+                "leagueSettings": {"num_teams": 10},
+            },
+            {"scoringSettings": {"rec": 1.0}, "rosterPositions": ["QB"], "leagueSettings": []},
+            "not a mapping at all",
+            [],
+        ):
+            with self.subTest(repr(bad)[:40]):
+                block, ready = self._merge(bad)
+                self.assertFalse(ready)
+                for field in LEAGUE_SPECIFIC:
+                    self.assertIsNone(block.get(field), field)
+
+    def test_a_complete_config_is_ready(self):
+        """Non-vacuity: the strictness must not refuse a real league."""
+        block, ready = self._merge(LEAGUE_B_TRUTH)
+        self.assertTrue(ready)
+        for field in LEAGUE_SPECIFIC:
+            self.assertEqual(block.get(field), LEAGUE_B_TRUTH[field], field)
+
+
 class TestTheTransportIsNotTheContract(unittest.TestCase):
     """``leagueConfig`` is how the overlay carries the requested league's
     own config across; it must not surface as a contract field, and it

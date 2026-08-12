@@ -47,14 +47,17 @@
   "labelsAgree": true,
   "leagues": {
     "dynasty_main": {
+      "evidenceState": "fresh",
       "scoringFingerprint": "sf1:b7ad1575925091f6",
       "scoringProfile": "superflex_tep15_ppr1",
       "snapshot": "/home/user/riskittogetthebrisket/data/leagues/scoring_1312006700437352448.json"
     },
     "dynasty_new": {
+      "evidenceState": "fresh",
       "scoringFingerprint": "sf1:82a5f8ef2bfdb098",
       "scoringProfile": "superflex_tep15_ppr1",
       "snapshot": "/home/user/riskittogetthebrisket/data/leagues/scoring_1320092771247222784.json"
     }
-  }
+  },
+  "snapshotMaxAgeHours": 6
 }
