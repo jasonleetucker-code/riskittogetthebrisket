@@ -170,11 +170,37 @@ verify_frontend_build_manifest() {
     error "Frontend build dir does not exist: ${dist_dir}"
     return 1
   fi
-  local build_manifest="${dist_dir}/build-manifest.json"
-  if [[ ! -f "${build_manifest}" ]]; then
-    error "Missing build-manifest.json at ${build_manifest}"
-    return 1
-  fi
+  # Runtime-critical manifests: the files `next start` opens to boot.
+  #
+  # Checking only manifest-REFERENCED chunks is not enough, and that gap
+  # is what let a failed build pass verification on 2026-08-12.  An
+  # aborted export writes `build-manifest.json` early and never reaches
+  # `prerender-manifest.json`, so the reference walk below found all 52
+  # assets it knew about, reported OK, and the swapped-in build then
+  # crashed the frontend with:
+  #
+  #   Error: ENOENT: no such file or directory,
+  #     open '.../frontend/.next/prerender-manifest.json'
+  #
+  # These six are every root-level artifact a successful build produces
+  # that the server loads at startup.  Presence, not content — this is a
+  # completeness check on the staging dir, not a schema validator.
+  local required_runtime_artifacts=(
+    "BUILD_ID"
+    "build-manifest.json"
+    "app-path-routes-manifest.json"
+    "prerender-manifest.json"
+    "routes-manifest.json"
+    "required-server-files.json"
+  )
+  local artifact
+  for artifact in "${required_runtime_artifacts[@]}"; do
+    if [[ ! -f "${dist_dir}/${artifact}" ]]; then
+      error "Incomplete frontend build: missing ${artifact} in ${dist_dir}"
+      error "This build cannot start; refusing to treat it as usable."
+      return 1
+    fi
+  done
   log "Verifying frontend build manifest references: ${dist_dir}"
   python3 - "${dist_dir}" <<'PY' || return 1
 import json
@@ -343,10 +369,41 @@ maybe_rebuild_frontend_after_rollback() {
   fi
 
   log "Rebuilding rolled-back frontend bundle into staging dir: ${staging_dir}"
+  # The exit status is captured EXPLICITLY, and that is the whole fix for
+  # the 2026-08-12 swap-a-broken-build defect.
+  #
+  # This subshell is identical to the one in deploy.sh, and on the deploy
+  # path `set -e` aborted correctly.  Here it did not, because
+  # `main()` calls this function as `if ! maybe_rebuild_frontend_after_rollback`
+  # — and bash disables errexit for the entire body of a function invoked
+  # as a condition.  So a `npm run build` that exited 1 was discarded and
+  # execution fell through to the verify-and-swap below.  Measured:
+  #
+  #   17:22:19.122  Next.js build worker exited with code: 1
+  #   17:22:19.268  [verify-build] OK: 52 manifest-referenced asset(s)
+  #   17:22:49.577  Rolled-back frontend build swapped into place
+  #   17:22:51.704  Frontend service failed to start
+  #                 ENOENT .next/prerender-manifest.json
+  #
+  # 80 ms between "the build failed" and "verify it anyway", then an
+  # incomplete staging dir replaced the last known-good .next and took
+  # the frontend down for 2.5 minutes on top of the backend outage.
+  #
+  # `|| build_rc=$?` rather than a bare call, so this stays correct
+  # whether or not errexit happens to be active at the call site.  The
+  # two scripts must not be able to diverge on this again.
+  local build_rc=0
   (
     cd "${frontend_dir}"
     NEXT_DIST_DIR="${FRONTEND_STAGING_DIR_NAME}" npm run build
-  )
+  ) || build_rc=$?
+
+  if (( build_rc != 0 )); then
+    error "Rollback frontend build failed (exit ${build_rc}); leaving the live frontend untouched."
+    error "Staging dir ${staging_dir} is incomplete and will NOT be swapped in."
+    rm -rf "${staging_dir}"
+    return 1
+  fi
 
   verify_frontend_build_manifest "${staging_dir}" || return 1
 
@@ -486,4 +543,10 @@ main() {
   log "Rollback complete. Active revision: ${rollback_target}"
 }
 
-main "$@"
+# Run main only when EXECUTED, not when sourced.  Sourcing is how
+# `tests/deploy/test_rollback_frontend_atomicity.py` drives the real
+# functions against a fixture frontend; without this guard, importing
+# them would launch an actual rollback.  No effect on normal execution.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

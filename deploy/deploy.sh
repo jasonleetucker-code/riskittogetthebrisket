@@ -309,11 +309,26 @@ verify_frontend_build_manifest() {
     exit 1
   fi
 
-  local build_manifest="${dist_dir}/build-manifest.json"
-  if [[ ! -f "${build_manifest}" ]]; then
-    error "Missing build-manifest.json at ${build_manifest}"
-    exit 1
-  fi
+  # Runtime-critical manifests — see the same block in rollback.sh for
+  # the incident this comes from.  Kept behaviourally identical to that
+  # copy (the two implementations are required to match); only the
+  # failure verb differs, `exit` here vs `return` there.
+  local required_runtime_artifacts=(
+    "BUILD_ID"
+    "build-manifest.json"
+    "app-path-routes-manifest.json"
+    "prerender-manifest.json"
+    "routes-manifest.json"
+    "required-server-files.json"
+  )
+  local artifact
+  for artifact in "${required_runtime_artifacts[@]}"; do
+    if [[ ! -f "${dist_dir}/${artifact}" ]]; then
+      error "Incomplete frontend build: missing ${artifact} in ${dist_dir}"
+      error "This build cannot start; refusing to treat it as usable."
+      exit 1
+    fi
+  done
 
   log "Verifying frontend build manifest references: ${dist_dir}"
   python3 - "${dist_dir}" <<'PY' || {

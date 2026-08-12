@@ -38,6 +38,29 @@ EnvironmentFile=-__APP_DIR__/.env
 MemoryHigh=2560M
 MemoryMax=3G
 
+# ── File descriptors ────────────────────────────────────────────────
+# This unit set no LimitNOFILE, so the process inherited the distro's
+# 1024 SOFT default (hard 524288) — and 1024 is the number EMFILE is
+# raised against.  On 2026-08-12 the backend hit it: 1,212
+# `OSError: [Errno 24] Too many open files` from `socket.accept()`,
+# after which the kernel kept completing TCP handshakes into the listen
+# backlog while the application answered nothing, so nginx connected in
+# 0.4 ms and waited its full 300 s read timeout.
+#
+# `soft:hard` is systemd's documented syntax for the split (systemd.exec,
+# verified against systemd 255 rather than assumed).  Raising the soft
+# limit and leaving the hard limit alone means the process can open more
+# without granting it a larger ceiling than the host already permitted.
+#
+# 8192 is DEFENCE IN DEPTH, NOT THE FIX.  A healthy process measures
+# ~16 descriptors; 1024 was not a tight budget, it was a floor something
+# managed to reach.  Whatever accumulated is unresolved, and a bigger
+# number buys time to notice rather than removing the failure mode —
+# which is why the minutely healthcheck now reports FD utilisation
+# (deploy/systemd/dynasty-healthcheck.sh) with absolute thresholds far
+# below this limit.
+LimitNOFILE=8192:524288
+
 # ── Sandbox-lite hardening ──────────────────────────────────────────
 # PrivateTmp gives the service (and Playwright browser profiles) an
 # isolated /tmp.  Stronger knobs are deliberately NOT enabled:

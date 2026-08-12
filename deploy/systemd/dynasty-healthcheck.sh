@@ -66,6 +66,88 @@ read_failures() {
     printf '%s' "${n}"
 }
 
+# ── FD utilisation watch (2026-08-12 incident) ───────────────────────
+# The backend exhausted its file descriptors and wedged: `socket.accept()`
+# raised `OSError: [Errno 24] Too many open files` 1,212 times from PID
+# 887292, first at 16:47:46 local.  The kernel kept completing TCP
+# handshakes into the listen backlog, so nginx connected in 0.4 ms and
+# then waited its full 300 s `proxy_read_timeout` for bytes that never
+# came.  Nothing anywhere reported the descriptor count on the way up.
+#
+# This lives HERE, in the existing minutely root-run healthcheck, rather
+# than in a new subsystem or an application endpoint — the whole point is
+# that it must work when the process cannot answer HTTP, which is exactly
+# when an /api/ metric is unavailable.  It runs BEFORE the liveness
+# branch so it reports on every tick, alive or not.
+#
+# It only ever REPORTS.  No restart on a threshold: the liveness rule
+# above is the only thing allowed to restart this service, and adding a
+# second independent restart trigger during an incident repair is how you
+# get a bounce loop nobody predicted.
+#
+# Thresholds are absolute, not a percentage of the limit.  A healthy
+# process measures ~16 descriptors, so 80% of an 8192 soft limit would
+# be a 400x excursion — an alarm that only fires once the situation is
+# already unrecoverable.  256 is ~16x normal: far outside anything this
+# workload does, far below anything that breaks.
+FD_WARN="${FD_WARN:-256}"
+FD_CRIT="${FD_CRIT:-512}"
+FD_EMERG="${FD_EMERG:-768}"
+FD_TIER_FILE="${HEALTH_STATE_DIR}/fd-tier"
+
+fd_watch() {
+    local pid soft total tier prev sockets files anon uptime
+    pid="$(systemctl show "${HEALTH_SERVICE}.service" -p MainPID --value 2>/dev/null)"
+    [[ -n "${pid}" && "${pid}" != "0" ]] || return 0
+
+    # /proc/PID/fd is the canonical count of OPEN DESCRIPTORS.  Deliberately
+    # not lsof: its output also carries memory mappings, cwd and the text
+    # segment, so counting its REG rows answers a different question.
+    total="$(find "/proc/${pid}/fd" -maxdepth 1 -type l 2>/dev/null | wc -l)"
+    # A denied or vanished /proc yields 0 from `find`, and "0 descriptors"
+    # is not a state a running server can be in — report nothing rather
+    # than a false all-clear.
+    (( total > 0 )) || return 0
+
+    # The kernel's soft limit for THIS process, not the unit's declared
+    # value: a drop-in or a manual ulimit can make them differ, and EMFILE
+    # is raised against the kernel's.
+    soft="$(awk '/^Max open files/{print $4}' "/proc/${pid}/limits" 2>/dev/null)"
+    [[ "${soft}" =~ ^[0-9]+$ ]] || soft=0
+
+    if   (( total >= FD_EMERG )); then tier=EMERGENCY
+    elif (( total >= FD_CRIT ));  then tier=CRITICAL
+    elif (( total >= FD_WARN ));  then tier=WARNING
+    else tier=OK
+    fi
+
+    prev="$(cat "${FD_TIER_FILE}" 2>/dev/null || echo OK)"
+    printf '%s\n' "${tier}" > "${FD_TIER_FILE}"
+    [[ "${tier}" == "${prev}" ]] && return 0   # transitions only, not every minute
+
+    if [[ "${tier}" == "OK" ]]; then
+        log "fd: recovered — ${total} descriptors (was ${prev})"
+        return 0
+    fi
+
+    # Only pay for the breakdown when something is actually wrong.  Which
+    # KIND is growing is the question a responder needs answered first,
+    # and it is unrecoverable once the process is gone.
+    sockets=0; files=0; anon=0
+    while IFS= read -r l; do
+        case "$(readlink "$l" 2>/dev/null)" in
+            socket:*)     sockets=$((sockets+1)) ;;
+            anon_inode:*) anon=$((anon+1)) ;;
+            /*)           files=$((files+1)) ;;
+        esac
+    done < <(find "/proc/${pid}/fd" -maxdepth 1 -type l 2>/dev/null)
+    uptime="$(systemctl show "${HEALTH_SERVICE}.service" -p ActiveEnterTimestamp --value 2>/dev/null)"
+
+    log "fd ${tier}: pid=${pid} fds=${total} soft_limit=${soft} used=$(( soft > 0 ? total * 100 / soft : 0 ))% sockets=${sockets} files=${files} anon=${anon} up_since='${uptime}' (report only — not restarting)"
+}
+
+fd_watch || true
+
 # LIVENESS probe: no -f — any HTTP status is proof of life.  rc != 0
 # means curl got no usable HTTP response (connection refused, timeout,
 # empty reply, ...) and only that counts as a liveness failure.
