@@ -1883,9 +1883,9 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Jason",
-    "teamRosStrength": 466.21,
+    "teamRosStrength": 466.32,
     "startingLineupScore": 609.39,
-    "benchDepthScore": 97.36,
+    "benchDepthScore": 98.02,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -2158,12 +2158,12 @@
         "depthContribution": 1.63
       },
       {
-        "playerId": "8132",
-        "canonicalName": "tyler allgeier",
-        "position": "RB",
-        "rosValue": 15.73,
+        "playerId": "13293",
+        "canonicalName": "jakobi lane",
+        "position": "WR",
+        "rosValue": 16.75,
         "depthFactor": 0.65,
-        "depthContribution": 10.22
+        "depthContribution": 10.89
       }
     ],
     "fullRoster": [
@@ -2289,6 +2289,17 @@
         "bye": false
       },
       {
+        "playerId": "13293",
+        "canonicalName": "jakobi lane",
+        "position": "WR",
+        "rosValue": 16.75,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
         "playerId": "12578",
         "canonicalName": "carson schwesinger",
         "position": "LB",
@@ -2339,6 +2350,17 @@
         "rosValue": 5.79,
         "fantasyPositions": [
           "LB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "11646",
+        "canonicalName": "jalen coker",
+        "position": "WR",
+        "rosValue": 13.72,
+        "fantasyPositions": [
+          "WR"
         ],
         "injured": false,
         "bye": false
@@ -2542,17 +2564,6 @@
         "bye": false
       },
       {
-        "playerId": "13417",
-        "canonicalName": "dezhaun stribling",
-        "position": "WR",
-        "rosValue": 9.63,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
         "playerId": "12567",
         "canonicalName": "malaki starks",
         "position": "DB",
@@ -2703,17 +2714,6 @@
         "rosValue": 15.01,
         "fantasyPositions": [
           "RB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "6768",
-        "canonicalName": "tua tagovailoa",
-        "position": "QB",
-        "rosValue": 9.55,
-        "fantasyPositions": [
-          "QB"
         ],
         "injured": false,
         "bye": false
@@ -3755,9 +3755,9 @@
     "ownerId": "831633191830933504",
     "rosterId": 4,
     "teamName": "Collin",
-    "teamRosStrength": 414.76,
+    "teamRosStrength": 414.66,
     "startingLineupScore": 541.62,
-    "benchDepthScore": 82.65,
+    "benchDepthScore": 82.1,
     "positionalCoverageScore": 98.41,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -4006,14 +4006,6 @@
         "depthContribution": 10.95
       },
       {
-        "playerId": "13293",
-        "canonicalName": "jakobi lane",
-        "position": "WR",
-        "rosValue": 16.75,
-        "depthFactor": 0.423,
-        "depthContribution": 7.08
-      },
-      {
         "playerId": "11647",
         "canonicalName": "kimani vidal",
         "position": "RB",
@@ -4026,16 +4018,24 @@
         "canonicalName": "keon coleman",
         "position": "WR",
         "rosValue": 15.78,
-        "depthFactor": 0.275,
-        "depthContribution": 4.33
+        "depthFactor": 0.423,
+        "depthContribution": 6.67
       },
       {
         "playerId": "8676",
         "canonicalName": "rashid shaheed",
         "position": "WR",
         "rosValue": 15.29,
+        "depthFactor": 0.275,
+        "depthContribution": 4.2
+      },
+      {
+        "playerId": "12501",
+        "canonicalName": "matthew golden",
+        "position": "WR",
+        "rosValue": 15.26,
         "depthFactor": 0.179,
-        "depthContribution": 2.73
+        "depthContribution": 2.72
       }
     ],
     "fullRoster": [
@@ -4183,17 +4183,6 @@
         "bye": false
       },
       {
-        "playerId": "13293",
-        "canonicalName": "jakobi lane",
-        "position": "WR",
-        "rosValue": 16.75,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
         "playerId": "13288",
         "canonicalName": "nicholas singleton",
         "position": "RB",
@@ -4301,17 +4290,6 @@
           "DL"
         ],
         "injured": true,
-        "bye": false
-      },
-      {
-        "playerId": "11646",
-        "canonicalName": "jalen coker",
-        "position": "WR",
-        "rosValue": 13.72,
-        "fantasyPositions": [
-          "WR"
-        ],
-        "injured": false,
         "bye": false
       },
       {
@@ -4491,6 +4469,17 @@
         "bye": false
       },
       {
+        "playerId": "13417",
+        "canonicalName": "dezhaun stribling",
+        "position": "WR",
+        "rosValue": 9.63,
+        "fantasyPositions": [
+          "WR"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
         "playerId": "13393",
         "canonicalName": "brent austin",
         "position": "DB",
@@ -4618,6 +4607,17 @@
         "rosValue": 15.18,
         "fantasyPositions": [
           "RB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
+        "playerId": "6768",
+        "canonicalName": "tua tagovailoa",
+        "position": "QB",
+        "rosValue": 9.55,
+        "fantasyPositions": [
+          "QB"
         ],
         "injured": false,
         "bye": false
