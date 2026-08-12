@@ -30,8 +30,8 @@ Authoritative for measured findings/evidence at the pinned code/input state each
 
 Examples:
 
-- `REPAIR_ROADMAP.md` — historical root-cause plan produced from the audit;
-- `NEXT_STEPS.md` — historical session resumption snapshot;
+- `docs/master-site-audit/REPAIR_ROADMAP.md` — historical root-cause plan produced from the audit;
+- `docs/master-site-audit/NEXT_STEPS.md` — historical session resumption snapshot;
 - evidence registry / verification artifacts — measurement records.
 
 Use these to understand/prove defects. Use `EXECUTION_PLAN.md` to determine what to do now.
@@ -52,9 +52,13 @@ The following remain useful provenance but must not be treated as independent fu
 - `docs/OWNER_REQUESTED_TODO.md`
 - `docs/OWNER_FEATURE_ADDENDUM_2026-08-11.md`
 - `docs/SCOPE_COORDINATION_2026-08-11.md`
+- `docs/master-site-audit/NEXT_STEPS.md`
+- `docs/master-site-audit/REPAIR_ROADMAP.md`
+- `docs/competitive/DYNASTY_DADDY_INTEGRATION_TODO.md`
+- `docs/competitive/COMPETITIVE_EXPANSION_DYNASTY_DADDY_ADDENDUM.md`
 - date-stamped owner-action / branch-disposition / session-handoff documents
 - `docs/BLUEPRINT_EXECUTION.md` where it conflicts with newer owner scope
-- competitor-specific implementation TODO/checkpoint files
+- competitor-specific checkpoint files
 - old public-league phase documents where newer Public League Experience v3 requirements supersede them
 
 Their durable requirements were reconciled into the canonical hierarchy. Historical measurements and rationales may still be cited.
