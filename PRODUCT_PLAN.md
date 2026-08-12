@@ -26,6 +26,12 @@ For the canonical **Playoff Predictor** requirement — deriving each connected 
 
 That specification treats the existing playoff/championship simulation code as the starting point, requires one canonical probability owner, requires requested-league playoff settings/tiebreak/bracket fidelity, and makes the predictor a reusable seasonal output for public-safe league presentation, Pick Forecast, contender classification, and Game Day without leaking into canonical dynasty value. Sleeper/host data is the preferred source of truth for each connected league; the owner's primary league is explicitly confirmed as **7 playoff teams with one #1-seed bye**, with the confirmed rule serving only as a provenanced fallback/regression fixture rather than a universal default.
 
+For **Game Day weekly probability intelligence** — keeping the existing matchup-win probability but auditing/calibrating it for maximum defensible accuracy, and adding **Beat League Median %** for leagues with the extra median result — read:
+
+**[`docs/GAME_DAY_PROBABILITY_SPEC.md`](docs/GAME_DAY_PROBABILITY_SPEC.md)**
+
+That specification requires `Win Matchup %` and `Beat Median %` to come from the same league-aware weekly score simulation where possible. In median-game leagues, every simulation draw must simulate the entire league week, derive that draw's median threshold from the league-wide scores, and then determine both the H2H and median outcomes. It also requires historical prediction archives and calibration testing rather than assuming the current matchup formula is already optimal.
+
 For the Brisket Honors eligibility rules tying **League MVP** and **Manager of the Year** to actual competitive success while deliberately keeping **GM of the Year** and performance/rookie/positional awards separate, read:
 
 **[`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`](docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md)**
