@@ -16,6 +16,30 @@ This specification separates two activities:
 1. **EARLY DATA COLLECTION — approved to begin relatively soon.** Archive source-native alternate-format observations now so historical paired data accumulates.
 2. **PRODUCTION LEAGUE NORMALIZATION — future/evidence-gated.** Do not let alternate-format feeds alter canonical production rankings until the normalization model, league-demand model, confidence rules, and validation are ready and separately approved.
 
+### 1.1 Hard invariant — dynasty data only
+
+**Every external ranking/value observation used by this site must be explicitly verified as DYNASTY.** This is a dynasty product. Redraft, rest-of-season, weekly, DFS, best-ball-only, keeper, seasonal, tournament, or other non-dynasty ranking/value feeds must never enter the canonical dynasty source pool merely because they come from a provider we otherwise trust.
+
+This requirement applies to **every provider and every format variant**, including KTC, Dynasty Nerds, IDP Trade Calculator, and any future source.
+
+A source/provider is not globally "dynasty" just because it publishes some dynasty content. If the same site exposes dynasty and redraft products, each endpoint/page/mode must carry an explicit content-type/game-type classification and provenance. The ingestion system must prove that the specific observation is dynasty before accepting it into the dynasty archive.
+
+Required source metadata should therefore include a canonical field such as:
+
+- `gameType = DYNASTY` for eligible observations;
+- explicit non-dynasty classifications such as `REDRAFT`, `REST_OF_SEASON`, `WEEKLY`, `BEST_BALL`, etc. where encountered for diagnostics/quarantine;
+- `UNKNOWN/UNVERIFIED` when the page/feed cannot be proven to be dynasty.
+
+**Only `DYNASTY` observations are eligible for the dynasty ranking/value archive and any downstream canonical valuation use.** `UNKNOWN/UNVERIFIED` fails closed and must not be silently accepted.
+
+Do not infer dynasty status solely from player ages, the presence of rookies/picks, a URL fragment, a familiar provider name, or ranking shape. Prefer explicit provider labeling, documented endpoint semantics, page controls, source metadata, or another reproducible proof.
+
+The early multi-format audit must specifically inspect each source for the risk of accidentally crossing into redraft/non-dynasty modes when toggling 1QB/Superflex, TEP, IDP presets, PPR modes, or other controls.
+
+If a provider offers both dynasty and non-dynasty versions of the same format, archive only the dynasty variant for this system. Non-dynasty data may be ignored or quarantined for diagnostics, but it must not influence dynasty values, source-consensus counts, format-response curves, calibration, confidence, or Consensus Edge.
+
+**Missing is never zero, and unverified is never dynasty.**
+
 ## 2. Timing / sequencing decision
 
 Historical paired format observations have option value that cannot reliably be recreated later. Sources can change rankings, methodology, controls, endpoints, or historical availability. Waiting until universal-league support is being built risks having little historical evidence for how each source responds to format changes.
@@ -42,6 +66,8 @@ Potential dimensions, only when genuinely available, include:
 - PPR / half-PPR / standard or other source-native scoring modes;
 - league-size or roster-format variants where published.
 
+Every capability entry must also declare and verify the source observation's **game type/content type**. Dynasty eligibility is a separate dimension from scoring/lineup format. `SF + TE++` is not enough metadata; it must also be demonstrably a **dynasty** board/value mode.
+
 Do not fabricate variants that a provider does not publish, and do not assume every source exposes the same dimensions.
 
 Capability state must distinguish at least:
@@ -56,6 +82,8 @@ Missing is never zero.
 ## 4. KeepTradeCut is a priority calibration source
 
 KTC is especially valuable because it exposes multiple format controls over the same underlying source family.
+
+All KTC capture described in this section refers **only to KTC's dynasty products/data**. Do not substitute or mix any KTC non-dynasty/seasonal product if one exists now or in the future.
 
 ### 4.1 KTC TE-premium ladder — preserve all four states
 
@@ -96,7 +124,7 @@ Conceptually, the KTC capture matrix may therefore include:
 - Superflex × TE++
 - Superflex × TE+++
 
-Only capture combinations the source actually serves. Preserve the source's own base-format assumptions such as team count and PPR basis.
+Only capture combinations the source actually serves **as dynasty rankings/values**. Preserve the source's own base-format assumptions such as team count and PPR basis.
 
 ### 4.4 Why the KTC ladder is valuable
 
@@ -120,6 +148,8 @@ At minimum preserve:
 - source endpoint/page/mode identifier;
 - retrieval timestamp;
 - source-reported as-of timestamp if available;
+- **game type/content type, with dynasty explicitly verified for every eligible observation**;
+- evidence/provenance used to establish dynasty status;
 - canonical asset identity plus original source identifier/name;
 - native rank;
 - native value if published;
@@ -149,7 +179,7 @@ Never turn format multiplicity into pseudo-consensus.
 
 ## 7. Learn empirical format-response curves, not proprietary formulas
 
-The project may estimate how a source's **published outputs** change across formats. It should not claim to reverse-engineer or reproduce the provider's undisclosed internal formula.
+The project may estimate how a source's **published dynasty outputs** change across dynasty formats. It should not claim to reverse-engineer or reproduce the provider's undisclosed internal formula, and it must never learn a dynasty-format response curve from a dynasty-vs-redraft comparison.
 
 Legitimate questions include:
 
@@ -163,7 +193,7 @@ Expected transformations should be rank/value-curve-sensitive where evidence sup
 
 ## 8. Paired-observation requirement
 
-The highest-value calibration examples are same-source, same-run observations under different native formats.
+The highest-value calibration examples are same-source, same-run **dynasty** observations under different native dynasty formats.
 
 Where possible, scrape all available variants in the same cycle and stamp a common run identifier so paired comparisons are not contaminated by market movement between scrape dates.
 
@@ -182,6 +212,8 @@ Keep four concepts separate:
 **D. Target-league normalized source observation** — the best-supported translation of the native source observation into the user's league, with provenance/confidence.
 
 Do not conflate B and C. One measures provider/market behavior; the other is our independent league structure model.
+
+All A/B observations in this dynasty system must originate from verified dynasty source data.
 
 ## 10. Canonical target-league dimensions
 
@@ -227,6 +259,8 @@ A normalized source observation should preserve a state such as:
 
 Exact production labels can change. The requirement is that modeled/extrapolated observations not masquerade as direct native observations.
 
+A separate dynasty-eligibility gate precedes these format-confidence states. An observation cannot be `NATIVE EXACT` for this system unless its game type is verified dynasty.
+
 ## 13. Do not force every weird scoring rule into every market source
 
 Some unusual scoring rules can be modeled by our projection/fundamental/replacement systems without enough evidence to claim how a particular ranking provider would react.
@@ -244,15 +278,17 @@ Market-vs-fundamental divergence may itself be useful edge information.
 
 Apply the same approach to IDP sources where multiple native modes/presets genuinely exist.
 
-Preserve DL vs EDGE semantics, LB/DB groupings, IDP scoring preset, required IDP starters, flex structure, native rank/value units, and format confidence.
+Preserve DL vs EDGE semantics, LB/DB groupings, IDP scoring preset, required IDP starters, flex structure, native rank/value units, format confidence, and explicit dynasty game-type provenance.
 
 IDP Trade Calculator or another IDP provider remains one source family even if several scoring/format modes are archived.
 
 Do not assume offense and IDP share one format-adjustment curve.
 
+Do not ingest a provider's seasonal/weekly/redraft IDP rankings into the dynasty IDP value pool merely because the provider also publishes dynasty IDP material.
+
 ## 15. Historical archive policy
 
-Alternate-format observations should be append-only/versioned like other historical value snapshots. Do not keep only the latest variant board.
+Alternate-format dynasty observations should be append-only/versioned like other historical value snapshots. Do not keep only the latest variant board.
 
 Preserve enough history to evaluate stability, time variation, player/rank/position-specific effects, direct-vs-modeled translation error, and future out-of-sample backtests.
 
@@ -261,15 +297,17 @@ Preserve enough history to evaluate stability, time variation, player/rank/posit
 When separately authorized, the early capture phase should be deliberately narrow:
 
 1. audit every current ranking/value source;
-2. enumerate verified native format variants;
-3. extend scraper/source metadata to capture those variants;
-4. preserve them in a versioned historical archive with common run IDs;
-5. add coverage/freshness/provenance diagnostics;
-6. prove current production outputs are byte/value-equivalent to the pre-change champion path;
-7. do not route alternate variants into canonical production ranking/value calculations;
-8. do not change production weights;
-9. do not activate any learned format transformation;
-10. measure added runtime/network/storage cost and avoid unnecessary duplicate fetching.
+2. enumerate verified native **dynasty** format variants and explicitly identify/reject non-dynasty modes exposed by the same provider;
+3. establish a game-type/content-type guard so only verified dynasty observations enter the dynasty archive;
+4. extend scraper/source metadata to capture those dynasty variants;
+5. preserve them in a versioned historical archive with common run IDs;
+6. add coverage/freshness/provenance diagnostics, including dynasty-verification status;
+7. prove current production outputs are byte/value-equivalent to the pre-change champion path;
+8. add regression fixtures showing that a redraft/ROS/weekly/best-ball board cannot be accepted merely because it comes from an approved provider;
+9. do not route alternate variants into canonical production ranking/value calculations;
+10. do not change production weights;
+11. do not activate any learned format transformation;
+12. measure added runtime/network/storage cost and avoid unnecessary duplicate fetching.
 
 For sites where access, terms, anti-bot controls, or paid entitlements make alternate scraping inappropriate, record the capability as unavailable/blocked rather than bypassing controls.
 
@@ -277,10 +315,11 @@ For sites where access, terms, anti-bot controls, or paid entitlements make alte
 
 Before any normalized alternate-format observation affects production:
 
+- prove every training/calibration observation is verified dynasty;
 - define the target quantity;
 - pin inputs;
 - create train/validation/OOS splits over time;
-- compare direct native target-format observations against predictions generated from other formats;
+- compare direct native target-format observations against predictions generated from other dynasty formats;
 - measure error by source, position, rank/value region, and target format;
 - test stability across market periods;
 - validate interpolation separately from extrapolation;
@@ -313,6 +352,8 @@ B6 establishes that league compatibility cannot be a hand-entered label. This sp
 
 Do not during the early collection phase:
 
+- ingest redraft, ROS, weekly, DFS, best-ball-only, keeper, seasonal, or other non-dynasty ranking/value data into the dynasty archive or model;
+- assume an ambiguous provider endpoint is dynasty;
 - change the champion board;
 - promote/apply a format-normalization model;
 - invent a universal SF/1QB multiplier;
@@ -325,6 +366,8 @@ Do not during the early collection phase:
 - start universal-league UI simply because the archive exists.
 
 ## 20. Method status
+
+**Dynasty-only source eligibility:** OWNER-DECIDED HARD INVARIANT. NON-DYNASTY OR UNVERIFIED OBSERVATIONS MUST FAIL CLOSED.
 
 **Alternate-format historical collection:** OWNER-APPROVED DIRECTION; IMPLEMENT EARLY AFTER CURRENT URGENT FOUNDATION WORK WHEN EXPLICITLY AUTHORIZED.
 
