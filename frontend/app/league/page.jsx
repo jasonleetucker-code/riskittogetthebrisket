@@ -78,9 +78,11 @@ import { DEFAULT_TAB, normalizeTabKey, sectionForTab } from "./tabs.js";
 // again in `generateMetadata`: this is the single choke point for every
 // backend call on this route, so a future caller cannot forget it.
 //
-// The fetch itself is bounded by `lib/server-backend.js` (8 s), which is
+// The fetch itself is bounded by `lib/server-backend.js` (3 s), which is
 // the separate, request-time half of the same incident: a wedged backend
-// must not hold a visitor's connection either.
+// must not hold a visitor's connection either.  The budget lives there,
+// not here — this comment names it only for orientation, and it said 8 s
+// for one revision after the value moved.
 const fetchSection = cache(async function fetchSection(section) {
   await connection();
   const data = await fetchBackendJson(`/api/public/league/${encodeURIComponent(section)}`, {
