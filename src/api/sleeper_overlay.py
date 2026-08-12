@@ -1192,9 +1192,13 @@ def league_config_is_complete(config: Mapping[str, Any] | None) -> bool:
     settings = config.get("leagueSettings")
     if not isinstance(settings, Mapping) or not settings:
         return False
-    try:
-        num_teams = int(settings.get("num_teams") or 0)
-    except (TypeError, ValueError):
+    # Read the team count; never coerce a missing one into a number.  An
+    # absent ``num_teams`` means this config cannot describe a league, and
+    # ``or 0`` would turn that unknown into a decision input — the exact
+    # missing-is-never-zero rule ``scripts/check_decision_coercions.py``
+    # enforces on this path.
+    num_teams = settings.get("num_teams")
+    if isinstance(num_teams, bool) or not isinstance(num_teams, (int, float)):
         return False
     return num_teams > 1
 
