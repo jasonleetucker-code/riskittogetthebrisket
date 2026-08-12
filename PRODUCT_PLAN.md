@@ -20,6 +20,12 @@ For the separate approved use of **redraft / rest-of-season / current-season** r
 
 The redraft/ROS domain is intentionally separate from dynasty valuation. Seasonal evidence may improve current-season predictions, but it is prohibited from leaking into canonical dynasty player/pick values or dynasty source consensus.
 
+For the canonical **Playoff Predictor** requirement — deriving each connected league's real postseason structure and producing **Make Playoffs %**, **Earn Bye %**, and **Win Championship %** from one league-aware seasonal simulation rather than duplicated or hard-coded 6-team/2-bye logic — read:
+
+**[`docs/PLAYOFF_PREDICTOR_SPEC.md`](docs/PLAYOFF_PREDICTOR_SPEC.md)**
+
+That specification treats the existing playoff/championship simulation code as the starting point, requires one canonical probability owner, requires requested-league playoff settings/tiebreak/bracket fidelity, and makes the predictor a reusable seasonal output for public-safe league presentation, Pick Forecast, contender classification, and Game Day without leaking into canonical dynasty value.
+
 For the required repair of historical Trade History grading — separating **Current Grade**, **At-the-Time Grade**, and **How It Aged**, with contemporaneous player/pick snapshots, provenance, fail-closed missing-history behavior, and methodology-consistent aging — read:
 
 **[`docs/TRADE_HISTORY_AGING_SPEC.md`](docs/TRADE_HISTORY_AGING_SPEC.md)**
