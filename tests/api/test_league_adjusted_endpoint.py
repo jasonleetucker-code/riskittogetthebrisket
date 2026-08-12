@@ -49,6 +49,7 @@ from fastapi.testclient import TestClient
 
 import server
 from src.api import gameplan, league_registry
+from tests.api.scoring_fixture import SCORING_CARD
 from tests.api.test_gameplan_endpoint import _roster
 from tests.api.test_gameplan_endpoint import league  # noqa: F401 — pytest fixture
 
@@ -140,7 +141,10 @@ def _install_contract(
         "playersArray": _ranked(
             list(rows) if rows is not None else _players_array() + [_pick_row()]
         ),
-        "sleeper": {"teams": []},
+        # The contract's own scoring card is its factual identity
+        # (W18-F001); without one it is unverifiable and cannot be
+        # served for any OTHER league, which several tests here do.
+        "sleeper": {"teams": [], "scoringSettings": dict(SCORING_CARD)},
     }
     monkeypatch.setattr(server, "latest_contract_data", stub)
     return stub

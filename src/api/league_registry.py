@@ -44,6 +44,7 @@ import logging
 import os
 import threading
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -489,22 +490,170 @@ def get_scoring_profile(key: str | None = None) -> str | None:
     return cfg.scoring_profile if cfg else None
 
 
-def leagues_share_scoring(key_a: str | None, key_b: str | None) -> bool:
-    """True iff two league keys resolve to the same scoring profile.
+# ── Factual scoring identity (W18-F001) ──────────────────────────────
+#
+# ``scoring_profile`` above is a config/model LABEL and stays one.  What
+# decides whether one league's rankings may be served for another is the
+# league's ACTUAL scoring card, fingerprinted.  The two live leagues both
+# carry ``superflex_tep15_ppr1`` and differ on 35 of 48 shared keys, so
+# the label answered the question wrong in production.
+#
+# The card is read from a SNAPSHOT on disk, never fetched inside a
+# request.  An 8 s Sleeper round-trip in the ``/api/data`` gate would
+# trade a correctness bug for a latency one; snapshots are refreshed off
+# the request path (post-scrape warm + ``scripts/fetch_league_scoring.py``)
+# and a league with no snapshot is UNVERIFIABLE, which fails closed.
 
-    Used by routes that serve rankings (``/api/data``,
-    ``/api/rankings/overrides``) to decide whether the loaded
-    contract's rankings apply to a different requested league.
-    Unknown keys never share scoring — safer to return False and
-    force the caller to surface a ``data_not_ready`` response than
-    to silently serve the default league's pipeline output under
-    the wrong league's name.
+_SCORING_SNAPSHOT_ENV = "LEAGUE_SCORING_SNAPSHOT_DIR"
+_DEFAULT_SCORING_SNAPSHOT_DIR: Path = Path(__file__).resolve().parents[2] / "data" / "leagues"
+
+#: league_id → (snapshot mtime_ns, size, fingerprint).  Re-reading a
+#: small JSON file per request is cheap but not free, and this gate is on
+#: the hot path of ``/api/data``.
+_scoring_fp_cache: dict[str, tuple[int, int, str | None]] = {}
+_scoring_fp_lock = threading.Lock()
+
+
+def scoring_snapshot_dir() -> Path:
+    """Where per-league scoring cards live.  Override for tests."""
+    override = os.getenv(_SCORING_SNAPSHOT_ENV, "").strip()
+    return Path(override) if override else _DEFAULT_SCORING_SNAPSHOT_DIR
+
+
+def scoring_snapshot_path(sleeper_league_id: str) -> Path:
+    """Keyed by Sleeper league id, not by registry key.
+
+    The card is a property of the league on the host, so two registry
+    entries pointing at the same Sleeper league share one snapshot and a
+    registry rename does not orphan it.
+    """
+    return scoring_snapshot_dir() / f"scoring_{str(sleeper_league_id).strip()}.json"
+
+
+def write_scoring_snapshot(sleeper_league_id: str, scoring: dict[str, Any], **extra: Any) -> Path:
+    """Persist a league's scoring card.  Callers run OFF the request path."""
+    path = scoring_snapshot_path(sleeper_league_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "sleeperLeagueId": str(sleeper_league_id),
+        "fetchedAt": datetime.now(timezone.utc).isoformat(),
+        "scoringSettings": dict(scoring or {}),
+    }
+    payload.update({k: v for k, v in extra.items() if v is not None})
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
+    with _scoring_fp_lock:
+        _scoring_fp_cache.pop(str(sleeper_league_id), None)
+    return path
+
+
+def scoring_settings_for_league(cfg: LeagueConfig | None) -> dict[str, Any] | None:
+    """A league's ACTUAL scoring card from its snapshot, or ``None``.
+
+    Never raises, never fetches.  ``None`` means "not proven", which is a
+    different statement from "empty".
+    """
+    if cfg is None or not getattr(cfg, "sleeper_league_id", ""):
+        return None
+    try:
+        raw = json.loads(scoring_snapshot_path(cfg.sleeper_league_id).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    scoring = raw.get("scoringSettings") if isinstance(raw, dict) else None
+    return scoring if isinstance(scoring, dict) else None
+
+
+def scoring_fingerprint_for_league(cfg: LeagueConfig | None) -> str | None:
+    """The factual scoring identity of a configured league, or ``None``."""
+    if cfg is None or not getattr(cfg, "sleeper_league_id", ""):
+        return None
+    from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
+    league_id = str(cfg.sleeper_league_id)
+    path = scoring_snapshot_path(league_id)
+    try:
+        stat = path.stat()
+        stamp = (stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        with _scoring_fp_lock:
+            _scoring_fp_cache.pop(league_id, None)
+        return None
+    with _scoring_fp_lock:
+        cached = _scoring_fp_cache.get(league_id)
+        if cached is not None and cached[0] == stamp[0] and cached[1] == stamp[1]:
+            return cached[2]
+    fingerprint = scoring_fingerprint(scoring_settings_for_league(cfg))
+    with _scoring_fp_lock:
+        _scoring_fp_cache[league_id] = (stamp[0], stamp[1], fingerprint)
+    return fingerprint
+
+
+def refresh_scoring_snapshot(cfg: LeagueConfig | None) -> str | None:
+    """Fetch a league's scoring card from the host and persist it.
+
+    Returns the new fingerprint, or ``None`` on any failure — this runs
+    OFF the request path (post-scrape warm, ``scripts/fetch_league_scoring.py``)
+    and a failure must leave the previous snapshot in place rather than
+    blank it: a stale-but-real card is still a truthful statement about
+    the league, while no card at all takes cross-league requests down.
+    """
+    if cfg is None or not getattr(cfg, "sleeper_league_id", ""):
+        return None
+    try:
+        from src.league_comparison.sleeper_scoring import (  # noqa: PLC0415
+            fetch_league_scoring,
+            scoring_fingerprint,
+        )
+
+        info = fetch_league_scoring(str(cfg.sleeper_league_id), refresh=True)
+        fingerprint = scoring_fingerprint(info.scoring_settings)
+        if not fingerprint:
+            log.warning(
+                "league_registry: %s scoring card is empty or unusable; snapshot not written",
+                cfg.key,
+            )
+            return None
+        write_scoring_snapshot(
+            cfg.sleeper_league_id,
+            info.scoring_settings,
+            leagueKey=cfg.key,
+            leagueName=info.name,
+            season=info.season,
+            scoringFingerprint=fingerprint,
+        )
+        return fingerprint
+    except Exception as exc:  # noqa: BLE001 — never break the warm pass
+        log.warning("league_registry: scoring snapshot refresh failed for %s: %s", cfg.key, exc)
+        return None
+
+
+def leagues_share_scoring(key_a: str | None, key_b: str | None) -> bool:
+    """True iff two league keys are PROVEN to score players identically.
+
+    The one canonical answer to "may the rankings built for league A be
+    served for league B?".  Callers that hold a loaded contract should
+    prefer its own stamped fingerprint over a registry lookup for the
+    loaded side — see ``server.py::_scoring_identity_error``.
+
+    Fails closed in every unproven case: an unknown key, a league with no
+    scoring snapshot, or a snapshot too degenerate to fingerprint.  A
+    ``503 data_not_ready`` is recoverable; one league's board published
+    under another league's name is not visible at all.
+
+    This used to compare ``scoring_profile`` — a hand-typed label — which
+    returned ``True`` for the repo's two live leagues even though their
+    hosts differ on 35 of 48 shared scoring keys (W18-F001).
     """
     cfg_a = get_league_by_key(key_a) if key_a else None
     cfg_b = get_league_by_key(key_b) if key_b else None
     if cfg_a is None or cfg_b is None:
         return False
-    return cfg_a.scoring_profile == cfg_b.scoring_profile
+    fp_a = scoring_fingerprint_for_league(cfg_a)
+    fp_b = scoring_fingerprint_for_league(cfg_b)
+    if not fp_a or not fp_b:
+        return False
+    return fp_a == fp_b
 
 
 def default_league_key() -> str | None:
