@@ -259,3 +259,100 @@ This specification deepens, rather than duplicates:
 **Use for comps, liquidity, package realism, negotiation and Market Pulse:** APPROVED IN PRINCIPLE.  
 **Direct raw-trade modification of canonical player value:** NOT APPROVED.  
 **Real Trade Market Value model:** FUTURE / EVIDENCE-GATED / OWNER PROMOTION REQUIRED.
+
+## 19. Approved multi-source acquisition strategy and cross-source deduplication
+
+The owner explicitly approves pursuing more than one acquisition path instead of waiting for a hypothetical global Sleeper firehose.
+
+### 19.1 Source lane A — known Sleeper-league discovery
+
+Brisket may expand the market sample using the same general discovery pattern already used for the Sharp transaction system: begin with known Sleeper users/accounts for which public identity/league discovery is technically and permissibly available, enumerate the public dynasty leagues that can be proven to belong to those accounts, and ingest completed transactions from those known leagues through Sleeper's league-specific APIs.
+
+This can begin with the existing Sharp population and other already-known/approved Sleeper league IDs, but the resulting transactions belong to the **broad Market Trade Ledger** only if the sampling design says they are broad-market evidence. Sharp-derived transactions must retain provenance identifying the Sharp discovery path so they are not silently counted once as Sharp evidence and again as an independent broad-market vote.
+
+Every discovered league must have its own league/format metadata captured from the host wherever possible. Do not infer SF, TEP, team count, starter depth or scoring from the identity of the user who led us to the league.
+
+### 19.2 Source lane B — KeepTradeCut recent-trade database
+
+Brisket should also investigate ingesting the public KeepTradeCut Trade Database because it exposes a much broader recent-trade population together with useful format dimensions such as QB setting, PPR, team count, TE premium, starter count and package size.
+
+Implementation remains source/permission gated. Before automated acquisition, audit the current Terms/robots/access pattern, rate limits and whether an authorized API, export, partnership or licensing path exists. Do not bypass access controls. If automated collection from the public UI is permitted, keep the collector polite, cached and rate-limited; if it is not permitted, pursue an authorized alternative rather than evasion.
+
+KTC-sourced observations must be labeled as KTC provenance. Do not assume that every KTC trade originated on Sleeper unless the source itself proves the platform.
+
+### 19.3 Source lane C — future authorized sources
+
+The same ledger must support additional authorized sources later, including opted-in Brisket leagues, partner data, other host APIs or licensed datasets, without changing downstream consumer contracts.
+
+### 19.4 One raw archive, one canonical analytical ledger
+
+Preserve every source-native observation append-only in the raw acquisition archive with its own source ID, timestamp, source payload hash and provenance. Then map those observations into canonical **underlying-trade groups** for analytics.
+
+The raw archive may contain two or more observations of the same real-world trade. The analytical ledger must not treat those observations as independent transactions.
+
+### 19.5 Deduplication identity hierarchy
+
+Deduplication must use the strongest available evidence, in descending order:
+
+1. **CONFIRMED SAME HOST TRANSACTION** — same host/platform + league ID + source-native transaction ID. Collapse to one underlying trade.
+2. **CONFIRMED CROSS-SOURCE MATCH** — one source exposes enough identifiers to prove that another source row represents that exact host transaction. Collapse to one underlying trade while preserving both provenance records.
+3. **HIGH-CONFIDENCE CANDIDATE MATCH** — same normalized asset multisets on each side, same transaction date/time within a defensible tolerance, same team count and materially matching format metadata, plus any additional source evidence. Mark as a candidate duplicate, not automatically proven.
+4. **AMBIGUOUS SIMILAR TRADE** — same package/date or similar metadata but no league/transaction identity. Do **not** automatically collapse it; the exact same package can legitimately occur in two different leagues.
+5. **DISTINCT** — sufficient evidence shows separate underlying transactions.
+
+Side orientation must be canonicalized before comparison so A-for-B and B-for-A representations match. Player aliases and draft-pick representations must be resolved through canonical identity before fingerprinting.
+
+### 19.6 Never solve double counting by creating false undercounting
+
+A naïve hash such as `date + Player A + Player B` is prohibited as a final dedupe key because identical trades can occur independently in many leagues on the same day.
+
+If cross-source identity is unresolved, preserve an explicit dedupe state such as:
+
+- `CONFIRMED_UNIQUE`
+- `CONFIRMED_DUPLICATE`
+- `PROBABLE_DUPLICATE`
+- `POSSIBLE_OVERLAP`
+- `UNRESOLVED`
+
+For model/trend calculations that are sensitive to volume, either exclude unresolved overlap from claims that require unique-trade counts, use conservative bounds/sensitivity analysis, or apply an evidence-validated overlap model. Never silently count an uncertain duplicate twice and never silently delete it as though uniqueness were proven.
+
+UI sample counts should distinguish raw observations from estimated/confirmed unique underlying trades when those numbers differ materially.
+
+### 19.7 Sharp overlap and source independence
+
+If a trade is discovered through a Sharp manager's Sleeper league and also appears in KTC or another broad source, it remains **one underlying trade**. Its provenance can say both `SHARP_DISCOVERY` and `KTC_MARKET`, but its transaction volume contribution is one.
+
+Likewise, a trade involving a Sharp manager may legitimately inform both:
+
+- broad-market transaction behavior; and
+- the separate Sharp-behavior feature.
+
+But downstream consensus must know those are two analyses of the same event, not two independent observations. Signal-lineage rules apply.
+
+### 19.8 Coverage reporting
+
+Market Trade Ledger outputs should eventually expose source coverage such as:
+
+- confirmed unique trades;
+- raw source observations;
+- source mix;
+- exact-format count;
+- probable-overlap count;
+- unresolved-overlap count;
+- date coverage;
+- known sampling biases.
+
+A large KTC sample and a smaller Sharp-seeded Sleeper sample should not be presented as a statistically representative sample of all dynasty leagues without evidence that the sampling process supports that claim.
+
+### 19.9 Owner-approved acquisition priority
+
+Preferred practical sequence:
+
+1. preserve/build the canonical ledger + dedupe schema first;
+2. ingest already-known Sleeper leagues, including the existing Sharp-discovery graph, where permitted;
+3. investigate and, if permitted/authorized, add KTC Trade Database acquisition;
+4. run cross-source overlap/dedupe validation before combining source-level volume metrics;
+5. add future authorized sources without changing the canonical ledger contract;
+6. only then promote market-derived models after out-of-sample validation and source-lineage review.
+
+Using both Sleeper-derived and KTC-derived data is preferred when technically and permissibly available because the sources can improve coverage and cross-check each other, **provided the same underlying trade never becomes two independent market observations.**
