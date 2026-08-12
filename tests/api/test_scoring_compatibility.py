@@ -231,7 +231,14 @@ class TestASnapshotProvesWhenItWasTaken(unittest.TestCase):
 
     @staticmethod
     def _write(league_id: str, scoring: dict, age_hours: float):
-        path = lr.write_scoring_snapshot(league_id, scoring)
+        """A snapshot of a given AGE, recording the current season — the
+        shape ``refresh_scoring_snapshot`` actually writes
+        (``season=info.season``).  Recording it here is what keeps these
+        tests measuring age; a card with no season is its own case, and
+        the tests for that are below."""
+        from src.bdvm.actuals import nfl_projection_season
+
+        path = lr.write_scoring_snapshot(league_id, scoring, season=str(nfl_projection_season()))
         raw = json.loads(path.read_text(encoding="utf-8"))
         raw["fetchedAt"] = (datetime.now(timezone.utc) - timedelta(hours=age_hours)).isoformat()
         path.write_text(json.dumps(raw), encoding="utf-8")
@@ -294,14 +301,95 @@ class TestASnapshotProvesWhenItWasTaken(unittest.TestCase):
         Even inside the freshness window, a card stamped with a different
         season is evidence about a different season's rules.
         """
-        path = lr.write_scoring_snapshot("111", SCORING_A, season="1999")
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        raw["fetchedAt"] = datetime.now(timezone.utc).isoformat()
-        path.write_text(json.dumps(raw), encoding="utf-8")
-        lr._scoring_fp_cache.clear()
+        self._write_with_season("111", SCORING_A, season="1999")
         cfg = _cfg("a", "p", "111")
         self.assertEqual(lr.scoring_evidence_state(cfg), "stale")
         self.assertIsNone(lr.scoring_fingerprint_for_league(cfg))
+
+    @staticmethod
+    def _write_with_season(league_id: str, scoring: dict, season):
+        """A snapshot of the given season, dated NOW — so age can never be
+        what any of the season tests below is measuring."""
+        path = lr.write_scoring_snapshot(league_id, scoring)
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw["fetchedAt"] = datetime.now(timezone.utc).isoformat()
+        if season is None:
+            raw.pop("season", None)
+        else:
+            raw["season"] = season
+        path.write_text(json.dumps(raw), encoding="utf-8")
+        lr._scoring_fp_cache.clear()
+        return path
+
+    # ── Season verification must fail closed (owner re-review) ──────
+    #
+    # ``if season:`` skipped the check entirely for an unrecorded season,
+    # and ``except Exception: pass`` swallowed a resolver failure — both
+    # landing on FRESH.  Neither is demonstrably current, and the state
+    # they belong in already exists: the card is present and readable but
+    # cannot be shown to describe this season, which is exactly what the
+    # ``fetched_at is None`` branch three lines up already calls STALE.
+    # No fourth state.
+
+    def test_a_snapshot_with_no_recorded_season_is_not_fresh(self):
+        self._write_with_season("111", SCORING_A, season=None)
+        cfg = _cfg("a", "p", "111")
+        self.assertEqual(
+            lr.scoring_evidence_state(cfg),
+            "stale",
+            "a card whose season was never recorded was treated as proven-current",
+        )
+        self.assertIsNone(lr.scoring_fingerprint_for_league(cfg))
+
+    def test_a_blank_recorded_season_is_not_fresh(self):
+        for blank in ("", "   "):
+            with self.subTest(repr(blank)):
+                self._write_with_season("111", SCORING_A, season=blank)
+                cfg = _cfg("a", "p", "111")
+                self.assertEqual(lr.scoring_evidence_state(cfg), "stale")
+                self.assertIsNone(lr.scoring_fingerprint_for_league(cfg))
+
+    def test_a_failing_season_resolver_is_not_fresh(self):
+        """An unavailable answer is not a passing answer."""
+        import src.bdvm.actuals as actuals
+
+        self._write_with_season("111", SCORING_A, season="2026")
+        cfg = _cfg("a", "p", "111")
+        original = actuals.nfl_projection_season
+
+        def _boom(*_a, **_kw):
+            raise RuntimeError("season resolver unavailable")
+
+        actuals.nfl_projection_season = _boom
+        self.addCleanup(setattr, actuals, "nfl_projection_season", original)
+        lr._scoring_fp_cache.clear()
+        self.assertEqual(
+            lr.scoring_evidence_state(cfg),
+            "stale",
+            "a swallowed season-resolver failure still authorized compatibility",
+        )
+        self.assertIsNone(lr.scoring_fingerprint_for_league(cfg))
+
+    def test_a_matching_season_is_still_fresh(self):
+        """Non-vacuity: the strictness must not refuse a real current card."""
+        from src.bdvm.actuals import nfl_projection_season
+
+        self._write_with_season("111", SCORING_A, season=str(nfl_projection_season()))
+        cfg = _cfg("a", "p", "111")
+        self.assertEqual(lr.scoring_evidence_state(cfg), "fresh")
+        self.assertTrue(lr.scoring_fingerprint_for_league(cfg))
+
+    def test_the_real_snapshot_writer_records_a_season(self):
+        """The repair is only safe if the writer actually supplies one.
+
+        Without this, ``refresh_scoring_snapshot`` could silently start
+        producing permanently-stale cards and every cross-league request
+        would fail closed forever.
+        """
+        import inspect
+
+        src = inspect.getsource(lr.refresh_scoring_snapshot)
+        self.assertIn("season=info.season", src.replace(" ", "").replace("\n", ""))
 
 
 class TestTheStampMustAgreeWithTheCard(unittest.TestCase):

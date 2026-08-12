@@ -43,6 +43,8 @@ def install_scoring_snapshots(tmp_path, monkeypatch, cards: dict[str, Any]) -> N
     no entry is UNVERIFIABLE and every cross-league path involving it
     must fail closed.
     """
+    from src.bdvm.actuals import nfl_projection_season
+
     directory = tmp_path / "league-scoring"
     if directory.exists():
         # Called twice in one test (fixture, then a narrower override)
@@ -51,5 +53,11 @@ def install_scoring_snapshots(tmp_path, monkeypatch, cards: dict[str, Any]) -> N
             stale.unlink()
     monkeypatch.setenv("LEAGUE_SCORING_SNAPSHOT_DIR", str(directory))
     league_registry._scoring_fp_cache.clear()
+    # Record the current season, exactly as ``refresh_scoring_snapshot``
+    # does (``season=info.season``).  A card whose season cannot be
+    # verified is STALE and proves nothing, which is its own test case in
+    # test_scoring_compatibility.py — not the state these routing
+    # fixtures are trying to set up.
+    season = str(nfl_projection_season())
     for league_id, card in cards.items():
-        league_registry.write_scoring_snapshot(league_id, card)
+        league_registry.write_scoring_snapshot(league_id, card, season=season)

@@ -141,6 +141,24 @@ league would keep fetching a perfectly *fresh* card describing the wrong
 season. Age cannot catch that; comparing the snapshot's recorded season
 against `nfl_projection_season()` can.
 
+**Season must be VERIFIED, not merely un-contradicted** (owner re-review).
+The first cut wrote `if season:` around the comparison and swallowed
+resolver errors with `except: pass`, so two cases reached `fresh` without
+any season ever being checked: a snapshot with no recorded season, and a
+current-season resolver that could not answer. Both are "we do not know
+which season this card describes", and an unknown may not be treated as a
+match. They now return **stale** — the same state the undated-card branch
+three lines above already uses, and for the same reason: the card is
+present and readable, it simply cannot prove it is current. No fourth
+state was needed; the existing `fresh` / `stale` / `missing` vocabulary
+already had the right slot.
+
+Safe because the writer supplies one: `refresh_scoring_snapshot` passes
+`season=info.season` from the Sleeper league object, and both live
+snapshots carry `"2026"`. `test_the_real_snapshot_writer_records_a_season`
+pins that, so the strictness cannot silently turn every card
+permanently stale.
+
 **Same-league requests are unaffected**, which is what bounds the blast
 radius: `_scoring_identity_error` short-circuits when the loaded contract's
 league key equals the requested one, so the default league keeps serving

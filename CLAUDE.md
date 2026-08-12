@@ -317,9 +317,12 @@ The single most important architectural rule for multi-league:
   `SCORING_SNAPSHOT_MAX_AGE_HOURS = 6`, which is the repo's existing
   scrape-cadence staleness rule (`SCRAPE_INTERVAL_HOURS * 3`, and the
   default in `data_contract._SOURCE_MAX_AGE_HOURS`) rather than a new
-  number.  A card from a different NFL season is stale however recently it
-  was fetched — Sleeper leagues chain year to year under new ids.  Stale
-  evidence is retained and readable; only its authority expires.
+  number.  Season must be **verified**, not merely un-contradicted: a card
+  from a different NFL season is stale however recently it was fetched
+  (Sleeper leagues chain year to year under new ids), and so is one whose
+  season is unrecorded or whose current-season resolver cannot answer —
+  an unknown may not pass as a match.  Stale evidence is retained and
+  readable; only its authority expires.
 
   **The stamp is a cache of the card, and must agree with it.**  Card +
   agreeing stamp → that fingerprint; card, no stamp → recompute; card and

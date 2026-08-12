@@ -661,14 +661,28 @@ def _scoring_evidence(cfg: LeagueConfig | None) -> tuple[str, str | None]:
     age_hours = (datetime.now(timezone.utc).timestamp() - fetched_at) / 3600.0
     if age_hours > SCORING_SNAPSHOT_MAX_AGE_HOURS:
         return SCORING_EVIDENCE_STALE, None
-    if season:
-        try:
-            from src.bdvm.actuals import nfl_projection_season  # noqa: PLC0415
+    # Season must be VERIFIED, not merely un-contradicted.  An unrecorded
+    # season and a resolver that cannot answer are both "we do not know
+    # which season this card describes", and an unknown may not reach
+    # FRESH — same posture as the undated-card branch above, and the same
+    # state: the card is present and readable, it just cannot prove it is
+    # current.  No fourth state is needed for this.
+    if not season.strip():
+        return SCORING_EVIDENCE_STALE, None
+    try:
+        from src.bdvm.actuals import nfl_projection_season  # noqa: PLC0415
 
-            if str(nfl_projection_season()) != season:
-                return SCORING_EVIDENCE_STALE, None
-        except Exception:  # noqa: BLE001 — a season check must not break the gate
-            pass
+        current_season = str(nfl_projection_season())
+    except Exception as exc:  # noqa: BLE001 — a gate must not raise, but must not pass either
+        log.warning(
+            "league_registry: cannot resolve the current NFL season (%s); "
+            "treating %s's scoring card as stale rather than current",
+            exc,
+            getattr(cfg, "key", "?"),
+        )
+        return SCORING_EVIDENCE_STALE, None
+    if current_season != season.strip():
+        return SCORING_EVIDENCE_STALE, None
     return SCORING_EVIDENCE_FRESH, fingerprint
 
 
@@ -707,8 +721,12 @@ def refresh_scoring_snapshot(cfg: LeagueConfig | None) -> str | None:
     Returns the new fingerprint, or ``None`` on any failure — this runs
     OFF the request path (post-scrape warm, ``scripts/fetch_league_scoring.py``)
     and a failure must leave the previous snapshot in place rather than
-    blank it: a stale-but-real card is still a truthful statement about
-    the league, while no card at all takes cross-league requests down.
+    blank it.  A superseded card remains truthful *historical* evidence of
+    what was observed at its ``fetchedAt``, which is worth keeping for
+    diagnostics; what it no longer carries is authority to prove CURRENT
+    compatibility, and :func:`_scoring_evidence` is what withdraws that.
+    Blanking the file instead would destroy the evidence without
+    strengthening the guarantee.
     """
     if cfg is None or not getattr(cfg, "sleeper_league_id", ""):
         return None
