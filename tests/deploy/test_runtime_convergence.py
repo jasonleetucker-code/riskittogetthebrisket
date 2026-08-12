@@ -134,20 +134,34 @@ class Host:
         self.bin = root / "bin"
         self.state = root / "systemctl-state"
 
-        for d in (self.sysd, self.unit_dir, self.lib_dir, self.proc, self.bin,
-                  self.state / "units"):
+        for d in (
+            self.sysd,
+            self.unit_dir,
+            self.lib_dir,
+            self.proc,
+            self.bin,
+            self.state / "units",
+        ):
             d.mkdir(parents=True, exist_ok=True)
 
-        for name in ("dynasty.service.template", "dynasty-healthcheck.sh",
-                     "dynasty-healthcheck.service", "dynasty-healthcheck.timer"):
+        for name in (
+            "dynasty.service.template",
+            "dynasty-healthcheck.sh",
+            "dynasty-healthcheck.service",
+            "dynasty-healthcheck.timer",
+        ):
             shutil.copy2(SYSD / name, self.sysd / name)
 
         self._write_exe(self.bin / "sudo", FAKE_SUDO)
         self._write_exe(self.bin / "systemctl", FAKE_SYSTEMCTL)
 
         # Production's observed pre-repair state, unless a test changes it.
-        self.set_unit_state("dynasty-healthcheck.timer", LoadState="not-found",
-                            ActiveState="inactive", UnitFileState="")
+        self.set_unit_state(
+            "dynasty-healthcheck.timer",
+            LoadState="not-found",
+            ActiveState="inactive",
+            UnitFileState="",
+        )
         self.set_unit_state("dynasty-healthcheck.service", LoadState="not-found")
         self.set_unit_state(SERVICE_NAME, MainPID=self.MAIN_PID)
         self.set_limits(soft="8192", hard="524288")
@@ -162,8 +176,9 @@ class Host:
         for prop, value in props.items():
             (self.state / "units" / f"{unit}.{prop}").write_text(value + "\n")
 
-    def set_limits(self, *, soft: str, hard: str, proc_soft: str | None = None,
-                   proc_hard: str | None = None) -> None:
+    def set_limits(
+        self, *, soft: str, hard: str, proc_soft: str | None = None, proc_hard: str | None = None
+    ) -> None:
         """Seed what systemd DECLARES and what the kernel reports."""
         self.set_unit_state(SERVICE_NAME, LimitNOFILESoft=soft, LimitNOFILE=hard)
         pid_dir = self.proc / self.MAIN_PID
@@ -202,7 +217,9 @@ class Host:
             """)
         return subprocess.run(
             ["bash", "-c", script],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
             env={**self.env, **(env_extra or {})},
         )
 
@@ -257,8 +274,7 @@ class TestItConvergesTheHost:
         returned — while it still carried the 1024 default that EMFILE
         was raised against."""
         host.backend_unit.write_text(
-            "[Unit]\nDescription=old\n[Service]\n"
-            f"User={APP_USER}\nExecStart=/bin/true\n"
+            "[Unit]\nDescription=old\n[Service]\n" f"User={APP_USER}\nExecStart=/bin/true\n"
         )
         stale = host.backend_unit.read_text()
 
@@ -300,10 +316,15 @@ class TestItConvergesTheHost:
 
     def test_a_converged_host_is_idempotent(self, host):
         host.converge()
-        before = {p: p.read_bytes() for p in
-                  (host.backend_unit, host.watchdog,
-                   host.unit_dir / "dynasty-healthcheck.service",
-                   host.unit_dir / "dynasty-healthcheck.timer")}
+        before = {
+            p: p.read_bytes()
+            for p in (
+                host.backend_unit,
+                host.watchdog,
+                host.unit_dir / "dynasty-healthcheck.service",
+                host.unit_dir / "dynasty-healthcheck.timer",
+            )
+        }
 
         second = host.run("reconcile_runtime_controls")
 
@@ -319,9 +340,7 @@ class TestItConvergesTheHost:
 
         (host.state / "calls.log").unlink()
         host.run("reconcile_runtime_controls")
-        assert "daemon-reload" not in host.calls, (
-            "reloaded systemd with nothing changed"
-        )
+        assert "daemon-reload" not in host.calls, "reloaded systemd with nothing changed"
 
         # ...and it comes BACK when something drifts again.
         (host.state / "calls.log").unlink()
@@ -407,8 +426,10 @@ class TestVerificationReadsLiveStateNotRepositoryIntent:
         host.converge()
         template = host.sysd / "dynasty.service.template"
         template.write_text(
-            "\n".join(ln for ln in template.read_text().splitlines()
-                      if not ln.startswith("LimitNOFILE=")) + "\n"
+            "\n".join(
+                ln for ln in template.read_text().splitlines() if not ln.startswith("LimitNOFILE=")
+            )
+            + "\n"
         )
 
         r = host.run("verify_runtime_controls")
@@ -466,19 +487,21 @@ class TestAFailedRenderIsNeverInstalled:
 
         assert r.returncode != 0, r.stdout
         assert "runtime reconciliation FAILED" in r.stderr
-        assert not broken_sed.backend_unit.exists(), (
-            "a partial render reached the systemd unit directory"
-        )
+        assert (
+            not broken_sed.backend_unit.exists()
+        ), "a partial render reached the systemd unit directory"
         assert not (broken_sed.unit_dir / "dynasty-healthcheck.timer").exists()
         assert not (broken_sed.unit_dir / "dynasty-healthcheck.service").exists()
-        assert f"installing: {broken_sed.unit_dir}" not in r.stdout, (
-            "install was invoked for a unit whose render failed"
-        )
+        assert (
+            f"installing: {broken_sed.unit_dir}" not in r.stdout
+        ), "install was invoked for a unit whose render failed"
 
     def test_a_previously_good_unit_is_not_overwritten_by_a_failed_render(self, broken_sed):
         """Fail closed means the host keeps working, not that it is left
         holding two lines of truncated unit file."""
-        broken_sed.backend_unit.write_text("[Unit]\nDescription=good\n[Service]\nExecStart=/bin/true\n")
+        broken_sed.backend_unit.write_text(
+            "[Unit]\nDescription=good\n[Service]\nExecStart=/bin/true\n"
+        )
         good = broken_sed.backend_unit.read_bytes()
 
         r = broken_sed.run("reconcile_runtime_controls")

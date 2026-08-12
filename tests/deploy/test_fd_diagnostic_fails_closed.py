@@ -94,7 +94,10 @@ def probe(tmp_path):
         }
         return subprocess.run(
             ["bash", str(INVENTORY), "brisket", "2", "0"],
-            capture_output=True, text=True, timeout=120, env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
         )
 
     try:
@@ -119,9 +122,9 @@ class TestRequiredEvidenceCannotDegrade:
         assert "REQUIRED EVIDENCE MISSING" in r.stderr
         assert "service identity and limits" in r.stderr
         assert "fd_inventory INCOMPLETE" in r.stderr
-        assert "fd_inventory complete" not in r.stdout, (
-            "the script claimed completion after a required section failed"
-        )
+        assert (
+            "fd_inventory complete" not in r.stdout
+        ), "the script claimed completion after a required section failed"
 
     def test_a_required_command_that_yields_nothing_also_fails(self, probe):
         """Exit status 0 is not evidence.  A probe that ran and printed
@@ -147,9 +150,9 @@ class TestRequiredEvidenceCannotDegrade:
         lines = [ln.strip() for ln in INVENTORY.read_text().splitlines()]
         assert lines[-1] == "exit 0"
         tail = lines[-12:]
-        assert any("REQUIRED_FAILED[@]}" in ln and "((" in ln for ln in tail), (
-            "the trailing exit 0 is not guarded by the required-evidence check"
-        )
+        assert any(
+            "REQUIRED_FAILED[@]}" in ln and "((" in ln for ln in tail
+        ), "the trailing exit 0 is not guarded by the required-evidence check"
         assert "exit 5" in tail
 
 
@@ -172,8 +175,16 @@ class TestItStaysReadOnly:
     def test_no_state_changing_systemctl_verb_appears(self):
         """The contract in the header, enforced."""
         text = INVENTORY.read_text()
-        for verb in ("restart", "reload", "daemon-reload", "start ", "stop ",
-                     "enable ", "disable ", "kill "):
+        for verb in (
+            "restart",
+            "reload",
+            "daemon-reload",
+            "start ",
+            "stop ",
+            "enable ",
+            "disable ",
+            "kill ",
+        ):
             assert f"systemctl {verb}" not in text
             assert f'SYSTEMCTL}}" {verb}' not in text
 

@@ -52,7 +52,7 @@ class TestTheForwardDeployReconcilesAndThenProves:
         deploy that reports success while the controls are absent."""
         text = DEPLOY.read_text()
         for fn in ("reconcile_runtime_state", "verify_runtime_state"):
-            block = text[text.index(f"{fn}() {{"):]
+            block = text[text.index(f"{fn}() {{") :]
             block = block[: block.index("\n}\n")]
             assert "exit 1" in block, f"{fn} does not fail the deploy"
             assert "warn " not in block, f"{fn} downgrades a missing control to a warning"
@@ -60,7 +60,7 @@ class TestTheForwardDeployReconcilesAndThenProves:
     def test_a_missing_reconciler_is_fatal_not_skipped(self):
         """Forward deploys always come from a revision that has it."""
         text = DEPLOY.read_text()
-        block = text[text.index("reconcile_runtime_state() {"):]
+        block = text[text.index("reconcile_runtime_state() {") :]
         block = block[: block.index("\n}\n")]
         assert "Missing runtime reconciler" in block
         assert "exit 1" in block
@@ -75,21 +75,19 @@ class TestRollbackUsesTheSameImplementation:
         paths drift apart."""
         for script in (DEPLOY, ROLLBACK):
             text = script.read_text()
-            assert "__SERVICE_NAME__/" not in text, (
-                f"{script.name} renders the backend template itself"
-            )
+            assert (
+                "__SERVICE_NAME__/" not in text
+            ), f"{script.name} renders the backend template itself"
             assert "_rc_render_backend_unit()" not in text
             assert "_rc_install_if_different()" not in text
 
     def test_it_reconciles_to_the_rollback_revision_before_restarting(self):
         body = _main_body(ROLLBACK)
-        assert body.index("reconcile_runtime_controls") < body.index(
-            'restart "${SERVICE_NAME}"'
-        )
+        assert body.index("reconcile_runtime_controls") < body.index('restart "${SERVICE_NAME}"')
 
     def test_a_failed_reconciliation_stops_the_rollback(self):
         body = _main_body(ROLLBACK)
-        window = body[body.index("reconcile_runtime_controls"):]
+        window = body[body.index("reconcile_runtime_controls") :]
         window = window[: window.index("Restarting service")]
         assert "exit 1" in window
 
@@ -111,10 +109,7 @@ class TestSourcingCannotDisarmTheCaller:
 
     def test_the_reconciler_sets_no_global_shell_options(self):
         code = re.sub(r"#.*", "", RECONCILER.read_text())
-        top_level = [
-            ln for ln in code.splitlines()
-            if re.match(r"^set\s+[-+]", ln)
-        ]
+        top_level = [ln for ln in code.splitlines() if re.match(r"^set\s+[-+]", ln)]
         assert not top_level, f"global `set` at file scope: {top_level}"
 
     def test_the_callers_options_survive_sourcing_and_both_entry_points(self):
@@ -142,9 +137,7 @@ class TestSourcingCannotDisarmTheCaller:
         r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=60)
         assert r.returncode == 0, r.stdout + r.stderr
         for stage in ("after-source", "after-reconcile", "after-verify"):
-            assert f"{stage}=eup" in r.stdout, (
-                f"{stage} lost a shell option; got:\n{r.stdout}"
-            )
+            assert f"{stage}=eup" in r.stdout, f"{stage} lost a shell option; got:\n{r.stdout}"
 
     def test_the_callers_still_declare_errexit(self):
         """If either script ever drops it, the property above stops
@@ -159,8 +152,8 @@ class TestScopeIsHeld:
         hardening installer stay operator-owned."""
         for script in (DEPLOY, ROLLBACK):
             body = _main_body(script)
-            assert "apply_hardening.sh" not in body, (
-                f"{script.name} runs the full hardening installer"
-            )
+            assert (
+                "apply_hardening.sh" not in body
+            ), f"{script.name} runs the full hardening installer"
             for unrelated in ("nginx", "riskit-backup", "riskit-uptime", "certbot"):
                 assert unrelated not in body, f"{script.name} touches {unrelated}"
