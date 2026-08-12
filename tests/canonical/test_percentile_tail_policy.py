@@ -1,69 +1,60 @@
 """W30-F023 — the percentile tail must not collapse live evidence.
 
-**Status: the defect is UNFIXED and these tests say so.** The classes
-marked ``xfail(strict=True)`` describe the defect and fail today. The
-repair is measured, evidence-supported and one constant away
-(``tail_policy.TAIL_SATURATION_RANK = 903``) but is BLOCKED — applying it
-drives the B3 market corridor onto rows B3's own repair criteria forbid
-it to touch, via the two residuals deliberately left open (#794, #795).
-Full decision: ``docs/master-site-audit/evidence/W30/B4_TAIL_DECISION.md``.
+**Status: FIXED.** ``tail_policy.TAIL_SATURATION_RANK`` is ``904`` and
+these are ordinary regressions. They were ``xfail(strict=True)`` while the
+repair was blocked on the B3 market corridor; #799 removed the corridor
+(merge ``52d48b6e5``, resolving #794/#795/#796), so the dependency is gone
+and the markers came off deliberately rather than by a suite quietly
+turning green — which is what ``strict=True`` was there to force.
 
-``strict=True`` is the point: the day the boundary is set these stop
-failing, and a strict xfail that unexpectedly passes is itself an error.
-So whoever unblocks W30-F023 is forced to come back here and re-decide
-these markers deliberately, rather than finding a suite that quietly went
-green.
+The defect, stated once: ``rank_to_percentile`` saturated ``p`` at 1.0 once
+the rank passed ``PERCENTILE_REFERENCE_N`` (500), so every deeper rank
+received an identical percentile and therefore an identical contribution
+from that source. Measured on the B4-final pin
+(``docs/master-site-audit/evidence/W30/b4f_reproduce.json``, board
+2026-08-12): 421 of 5,143 rank-Hill observations sat past 500, touching
+**254 board rows, all 254 of them served** — 34.32% of the 740 rows the
+board publishes, concentrated in IDP (DL/EDGE 97 rows, DB 87, LB 49).
 
-What IS delivered and green: ``TestTheOwnerIsSingle``. Four independent
-transcriptions of the tail rule became one owner, so serving, fitting and
-holdout scoring can no longer disagree about where the tail is — a
-W30-F008-class repair, behaviour-preserving to the integer on all 1,092
-board rows.
+Three things these tests are deliberately careful about.
 
-The defect, stated once: ``rank_to_percentile`` saturates ``p`` at 1.0 once
-the rank passes ``PERCENTILE_REFERENCE_N`` (500), so every deeper rank
-receives an identical percentile and therefore an identical contribution
-from that source. Measured on the pinned board
-(``docs/master-site-audit/evidence/W30/b4_tail_report.json``): 421 of 5,146
-rank-Hill observations sit past 500, touching **254 board rows, all 254 of
-them served** — 34.3% of the 740 rows the board publishes, concentrated in
-IDP (DB 79.8%, DL/EDGE 75.2%, LB 53.8% of served rows in bucket).
+**They are policy-agnostic except where the boundary is pinned once.**
+What is asserted is the *observable* property every viable candidate
+satisfies and the old behaviour did not: **two ranks a source genuinely
+distinguishes must not be priced identically.** A test asserting "``p``
+may exceed 1.0" would presuppose the continuous shape and fail under a
+bounded policy that rescales the coordinate instead. The specific
+boundary is pinned in exactly one place —
+``TestTheOwnerIsSingle.test_the_boundary_is_the_measured_depth`` — rather
+than spread across every assertion.
 
-Two things these tests are deliberately careful about.
-
-**They are policy-agnostic**, and stayed that way on purpose after the
-policy was chosen. B4 selected *bounded at rank 903*, but a test asserting
-that boundary would pin a decision that is currently blocked and may be
-re-taken when #794/#795 are resolved — a bounded policy at a different
-depth, or the continuous one, would satisfy W30-F023 just as well. A test
-asserting "``p`` may exceed 1.0" would likewise presuppose the continuous
-shape and fail under a bounded one that rescales the coordinate instead.
-
-So what is asserted is the *observable* property every viable candidate
-satisfies and the current behaviour does not: **two ranks a source
-genuinely distinguishes must not be priced identically.** Only "change
-nothing" fails these. The specific boundary is pinned once, where it
-belongs — ``TestTheOwnerIsSingle.test_the_boundary_ships_unset`` — rather
-than being spread across every assertion.
-
-**They call the real canonical functions.** Never a local re-implementation
-of the Hill form. A copied formula here would pass while production stayed
-saturated — which is exactly how
+**They call the real canonical functions.** Never a local
+re-implementation of the Hill form. A copied formula here would pass while
+production stayed saturated — which is exactly how
 ``tests/api/test_percentile_reference_resolution.py:44`` came to hold its
 own copy of the production map.
 
-The boundary numbers come from the B4 pin and are *live evidence depths*,
-not constants to be tuned:
+**The depths are live evidence, not tunable constants.** They come from
+the B4-final pin and the 17-day historical replay
+(``b4f_boundary.json``, ``b4f_historical_sensitivity.json``):
 
-* deepest rank-Hill effective rank consumed by a SERVED row: **877**
-  (``idpShow``), which is past ``OVERALL_RANK_LIMIT`` (800) — so the board
-  limit is not a defensible saturation point for the source-coordinate
-  domain. Different domains.
-* deepest translated effective rank on any path: 899.
+* deepest rank-Hill effective rank on the current board: **876**
+  (``idpShow``), past ``OVERALL_RANK_LIMIT`` (800) — so the board limit is
+  not a defensible saturation point for the source-coordinate domain.
+  Different domains.
+* deepest effective rank ever observed across retained evidence: **904**
+  (``idpTradeCalc``, 2026-07-28), which is where the boundary sits.
 
-See ``docs/master-site-audit/evidence/W30/B4_TAIL_TRACE.md`` for the full
-trace, including the four independent clamps this file's structural test
-exists to collapse into one owner.
+Note the boundary covers *value-direct* ranks even though value-direct
+sources do not normally traverse the curve. That is not slack: the
+value-direct fallback is live code (a suppressed source, an out-of-range
+value or a missing value routes the row to the Hill path), so a boundary
+set at the deepest rank-Hill rank alone would re-saturate the band above
+it the moment that branch takes traffic.
+
+See ``docs/master-site-audit/evidence/W30/B4F_TAIL_FINAL.md`` for the
+decision and ``B4_TAIL_DECISION.md`` for the superseded blocked
+experiment, which is preserved unchanged.
 """
 
 from __future__ import annotations
@@ -84,14 +75,19 @@ from src.canonical.rank_coordinates import (
 
 
 #: Deepest rank-Hill effective rank consumed by a row the board SERVES,
-#: measured on the B4 pin. Evidence really does exist this far down: it is
-#: ``idpShow``'s deepest contribution to a published row.
-DEEPEST_SERVED_RANK_HILL = 877
+#: measured on the B4-final pin. Evidence really does exist this far down:
+#: it is ``idpShow``'s deepest contribution to a published row.
+DEEPEST_SERVED_RANK_HILL = 876
+
+#: The applied boundary. Deepest effective rank across ALL retained
+#: evidence — ``idpTradeCalc`` on 2026-07-28 in the 17-day replay.
+MEASURED_BOUNDARY = 904
 
 #: Ranks the pin proves carry genuine, distinct live evidence past the
-#: saturation point. Every one of these is inside some source's real
-#: coverage on the pinned board.
-LIVE_DEEP_RANKS = (501, 572, 620, 661, 684, 730, 877)
+#: saturation point. Every one of these is some source's deepest rank-Hill
+#: coordinate on the current board, so a policy that cannot separate them
+#: is collapsing evidence that exists.
+LIVE_DEEP_RANKS = (501, 572, 619, 624, 660, 683, 729, 876)
 
 
 def _contribution(rank: float, pool: str = RANK_POOL_SHARED_MARKET) -> int:
@@ -109,21 +105,43 @@ def _contribution(rank: float, pool: str = RANK_POOL_SHARED_MARKET) -> int:
     return percentile_to_value(p, midpoint=c, slope=s)
 
 
-#: Applied to every class asserting the REPAIRED behaviour. See the module
-#: docstring for why these are strict.
-blocked = pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "W30-F023 repair is BLOCKED on the B3 corridor residuals #794/#795 — "
-        "tail_policy.TAIL_SATURATION_RANK is None (pre-B4 saturation). "
-        "See docs/master-site-audit/evidence/W30/B4_TAIL_DECISION.md"
-    ),
-)
-
-
-@blocked
 class TestDistinctEvidenceMustStayDistinct:
-    """Distinct live ranks currently price identically. That is the defect."""
+    """Distinct live ranks must price differently. Was the defect; now green.
+
+    Every assertion here failed under ``TAIL_SATURATION_RANK = None`` and
+    passes under the measured boundary. The RED evidence is recorded in
+    ``b4f_reproduce.json``; re-establish it any time by setting the owner's
+    constant back to ``None``, which is what ``_saturated`` below does.
+    """
+
+    @staticmethod
+    def _saturated(rank: float) -> int:
+        """The same contribution under the PRE-repair policy.
+
+        Used to assert the tests have teeth: an assertion that passes
+        under both policies is not testing the repair.
+        """
+        from src.canonical import tail_policy
+
+        prev = tail_policy.TAIL_SATURATION_RANK
+        tail_policy.TAIL_SATURATION_RANK = None
+        try:
+            return _contribution(rank)
+        finally:
+            tail_policy.TAIL_SATURATION_RANK = prev
+
+    def test_the_repair_is_what_makes_these_pass(self):
+        """RED -> GREEN, asserted in one place rather than assumed.
+
+        Under the old policy ranks 501 and 876 priced identically. If that
+        ever stops being true the rest of this class stops being evidence
+        of anything, so it is checked explicitly instead of trusted.
+        """
+        assert self._saturated(501) == self._saturated(DEEPEST_SERVED_RANK_HILL), (
+            "the pre-repair policy no longer collapses these ranks, so these "
+            "tests would pass with or without the repair"
+        )
+        assert _contribution(501) != _contribution(DEEPEST_SERVED_RANK_HILL)
 
     def test_rank_500_and_501_are_not_one_number(self):
         """The saturation point itself — one rank apart, both real."""
@@ -177,7 +195,6 @@ class TestDistinctEvidenceMustStayDistinct:
         assert len(set(got)) == len(LIVE_DEEP_RANKS)
 
 
-@blocked
 class TestThereIsOneTailOwnerNotFour:
     """``percentile_to_value`` used to re-decide the tail independently.
 
@@ -195,8 +212,10 @@ class TestThereIsOneTailOwnerNotFour:
     * a *bounded* policy rescales so the owner never emits ``p > 1`` — and
       then distinctness must already hold at the owner's own output.
 
-    Today the owner emits exactly 1.0 for every deep rank, so the second
-    branch is taken and fails. That failure IS the defect.
+    The shipped policy is bounded-at-904 expressed as a coordinate
+    ceiling, so the owner DOES emit ``p > 1`` for ranks past
+    ``PERCENTILE_REFERENCE_N`` and the first branch is the live one. Both
+    are kept because the assertion must not presuppose the shape.
     """
 
     def test_percentile_to_value_defers_to_the_coordinate_owner(self):
@@ -286,11 +305,11 @@ class TestTheOwnerIsSingle:
         the failure mode, and exactly what this catches.
         """
         at_none = self._sample(None)
-        at_903 = self._sample(903)
+        at_boundary = self._sample(MEASURED_BOUNDARY)
         assert at_none["rank_to_percentile"] == 1.0
-        assert at_903["rank_to_percentile"] > 1.0
+        assert at_boundary["rank_to_percentile"] > 1.0
         for site in ("percentile_to_value", "holdout_hill", "fit_hill"):
-            assert at_903[site] != at_none[site], (
+            assert at_boundary[site] != at_none[site], (
                 f"{site} did not follow the tail owner — it is still deciding "
                 "the tail for itself"
             )
@@ -302,39 +321,76 @@ class TestTheOwnerIsSingle:
         Asserted under BOTH boundaries so it cannot be an accident of the
         current one.
         """
-        for boundary in (None, 903):
+        for boundary in (None, MEASURED_BOUNDARY):
             got = self._sample(boundary)
             assert got["percentile_to_value"] == round(got["holdout_hill"]), boundary
             assert round(got["holdout_hill"], 6) == round(got["fit_hill"], 6), boundary
 
-    def test_the_boundary_ships_unset(self):
-        """Pre-B4 behaviour is what is deployed, and that is deliberate.
+    def test_the_boundary_is_the_measured_depth(self):
+        """The one place the shipped boundary is pinned.
 
-        Guards the blocked decision: flipping this constant is the whole
-        production change, so it must not happen as a side effect of an
-        unrelated edit.
+        904 is the deepest effective rank observed across all retained
+        evidence (``idpTradeCalc``, 2026-07-28, in the 17-day replay). It
+        is NOT a round number, a headroom margin, or the 903 an earlier
+        round selected from a source comment — that value had no
+        executable definition and was refuted by the replay, which found a
+        rank one deeper.
+
+        Moving it is a production value change and must be a deliberate
+        act with fresh measurement behind it:
+        ``b4f_historical.py --depths``.
         """
         from src.canonical.tail_policy import TAIL_SATURATION_RANK
 
-        assert TAIL_SATURATION_RANK is None, (
-            "the tail boundary was set — that is the W30-F023 production "
-            "change, blocked on the B3 corridor residuals #794/#795"
+        assert TAIL_SATURATION_RANK == MEASURED_BOUNDARY
+
+    def test_the_boundary_covers_every_observed_rank(self):
+        """It must not re-saturate a depth the evidence has actually seen.
+
+        This is the property 903 failed. Read from the recorded replay
+        rather than restated, so the assertion tracks the evidence instead
+        of a number someone typed twice.
+        """
+        import json
+        from pathlib import Path
+
+        replay = (
+            Path(__file__).resolve().parents[2]
+            / "docs/master-site-audit/evidence/W30/b4f_historical_sensitivity.json"
+        )
+        if not replay.is_file():  # pragma: no cover - evidence pruned
+            pytest.skip("historical replay evidence not present")
+        payload = json.loads(replay.read_text())
+        deepest = max(float(d["deepestEffectiveRank"]) for d in payload["days"])
+        assert MEASURED_BOUNDARY >= deepest, (
+            f"boundary {MEASURED_BOUNDARY} is shallower than the deepest observed "
+            f"rank {deepest} — it would re-saturate real evidence"
         )
 
     def test_unset_is_exactly_the_pre_b4_rule(self):
-        """``None`` must reproduce ``min(1.0, p)`` in every universe.
+        """``None`` must still reproduce ``min(1.0, p)`` in every universe.
 
         Not only at the live N=500. The old clamp was relative to the
         caller's declared universe, so a boundary expressed as an absolute
         RANK would silently change behaviour for any caller passing its
-        own ``reference_n`` — the fit and holdout tooling do.
+        own ``reference_n`` — the fit and holdout tooling do. The ``None``
+        path is no longer what production runs, but it is still the
+        documented meaning of ``None`` and the fallback every caller gets
+        if the boundary is ever cleared.
         """
-        for reference_n in (2, 100, 370, 500, 800, 5000):
-            for rank in (1, 2, reference_n // 2, reference_n, reference_n + 1, 99999):
-                expected = max(0.0, min(1.0, (float(rank) - 1.0) / float(reference_n - 1)))
-                assert rank_to_percentile(rank, reference_n=reference_n) == pytest.approx(
-                    expected
-                ), (reference_n, rank)
+        from src.canonical import tail_policy
+
+        prev = tail_policy.TAIL_SATURATION_RANK
+        tail_policy.TAIL_SATURATION_RANK = None
+        try:
+            for reference_n in (2, 100, 370, 500, 800, 5000):
+                for rank in (1, 2, reference_n // 2, reference_n, reference_n + 1, 99999):
+                    expected = max(0.0, min(1.0, (float(rank) - 1.0) / float(reference_n - 1)))
+                    assert rank_to_percentile(rank, reference_n=reference_n) == pytest.approx(
+                        expected
+                    ), (reference_n, rank)
+        finally:
+            tail_policy.TAIL_SATURATION_RANK = prev
 
 
 class TestTheFittedHeadIsUntouched:
@@ -410,7 +466,6 @@ class TestTheFallbackFixtureReallyEntersTheDormantBranch:
         assert {m.get("valueDirectFallbackReason") for m in metas} == {"source_suppressed"}
 
 
-@blocked
 class TestTheFallbackPathTakesTheTailPolicy:
     """A value-direct source that falls back must get the tail too.
 

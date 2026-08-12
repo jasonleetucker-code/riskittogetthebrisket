@@ -198,6 +198,61 @@ the branch taken instead of re-derived. The W30-F023 assertions ship as
 `xfail(strict=True)`, so setting the boundary turns them into errors and
 forces a deliberate re-decision.
 
+---
+
+### VERIFIED FIXED 2026-08-12 — boundary **904**, not 903
+
+Everything above is the *blocked* state and is preserved as written. Two
+things changed it, and the second was not expected.
+
+**The blocker is gone.** #799 (merge `52d48b6e5`) removed the market
+corridor outright, resolving W02-F015/#794, W02-F016/#795 and
+W02-F017/#796. There is no corridor for a tail change to disturb.
+
+**903 was wrong, and it was never measured.** Every occurrence of 903 in
+the tree was prose — a comment at `src/api/source_history.py:353` and a
+docstring sentence in `test_source_history_rank_encodings.py`, whose own
+guard uses 2,000. Nothing computed it. Replaying the 17 compatible
+historical days with current code gives deepest-observed-rank per day of
+784, 785, 898×5, 899, 900×5, 901×2, 903, **904** — the maximum from
+`idpTradeCalc` on 2026-07-28. **903 would have re-saturated a rank the
+evidence has actually seen** (headroom −1). The quantity moves with source
+coverage, so a single board could never have decided it, which is how the
+original number went unchallenged.
+
+The boundary covers value-direct ranks deliberately: the value-direct
+fallback is live code (suppressed source, out-of-range value, or missing
+value routes a row to the curve), so stopping at the deepest rank-Hill
+rank (882) would re-saturate the band above it the moment that branch
+takes traffic. Same reasoning the prior round used to reject 877 — sound
+reasoning, wrong number.
+
+Fresh reproduction on board `dynasty_data_2026-08-12.json`: **421 of 5,143
+rank-Hill observations past 500, touching 254 rows, all 254 served —
+34.32% of the served board** (DL/EDGE 97, DB 87, LB 49). Remeasured, not
+carried over.
+
+Repair: `tail_policy.TAIL_SATURATION_RANK = 904`. Head preserved exactly
+(max deviation **0** at every rank 1–500 on all three routed masters);
+ranks 501–904 go from 1 distinct value to 395/327/271. Board impact: 245
+values changed, median 64 / max 196, **top 50/100/200 membership
+unchanged**, served cut 740 → 740. All 245 movers attributed — 215 direct,
+30 via a *demonstrated* rookie→merged-pool→pick-tether chain (36 rookies
+down, 30 picks down, every one of them 2026, the tethered year), **0
+unexplained**. Blend-integrity detector silent under both policies and on
+all 17 historical days.
+
+The `xfail(strict=True)` markers came off deliberately, which is what they
+were there to force. Four tests elsewhere that pinned the saturated
+behaviour as correct were re-decided with reasoning recorded in each.
+
+Known residual, named: because the boundary is the observed maximum, a
+board on which a source reaches 905 will saturate there. Far smaller than
+W30-F023 and the honest alternative to inventing a margin.
+
+Full evidence: `evidence/W30/B4F_TAIL_FINAL.md`. Superseded blocked
+experiment preserved unchanged at `evidence/W30/B4_TAIL_DECISION.md`.
+
 ## W30-F024 (new) — the model registry could overwrite its own history
 
 **FIXED this session.** `load_or_seed_registry` treated any `RegistryError`

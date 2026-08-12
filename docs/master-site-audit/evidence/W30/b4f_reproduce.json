@@ -1,0 +1,686 @@
+{
+ "pin": {
+  "phase": "B4-final",
+  "codeSha": "63f6b59a9851c1d294b1d92ddbb17f6bb75d6e71",
+  "codeSubject": "chore(idpshow): automated refresh 2026-08-12T04:32:06Z",
+  "mainTip": "63f6b59a9851c1d294b1d92ddbb17f6bb75d6e71",
+  "commitsAheadOfMain": [],
+  "dirtyPaths": [
+   "docs/master-site-audit/evidence/W30/b4f_measure.py",
+   "docs/master-site-audit/evidence/W30/b4f_pin.json"
+  ],
+  "dirtyIsEvidenceOnly": true,
+  "corridorMergeSha": "52d48b6e5cf7a5e09a8bf174b6a5af3d191c8719",
+  "board": {
+   "path": "exports/latest/dynasty_data_2026-08-12.json",
+   "sha256": "87b3ec8abfe4f82ae2772e9fd5861490c64b1f16fecc732f39d89c9b145c1734",
+   "bytes": 835679,
+   "scrapeTimestamp": "2026-08-12T03:13:01.123224",
+   "date": "2026-08-12",
+   "playerCount": 1076
+  },
+  "sourceCsvs": {
+   "dlfIdp.csv": {
+    "sha256": "9bf471c7222ad7d292244f11d72eba58a472a38e61f7b72f809738de8cf98166",
+    "bytes": 3528
+   },
+   "dlfRookieIdp.csv": {
+    "sha256": "53dea29be05656dcafe52d1db4547300d66d5a3bf1a613c8fbbfc9514819b1b5",
+    "bytes": 575
+   },
+   "dlfRookieSf.csv": {
+    "sha256": "b64334a0094d72e81cecf5017a29347654b768ce510579850ed73cb06e91fae4",
+    "bytes": 1114
+   },
+   "dlfSf.csv": {
+    "sha256": "d534e5172bf76e8724559876bac65078135d934de9760a9c28dec65edaaefaac",
+    "bytes": 5845
+   },
+   "draftSharksIdp.csv": {
+    "sha256": "f5fe62320c7e18375c619971791e331bc82bb8edf990d1f5b2d1920bea4dede3",
+    "bytes": 22026
+   },
+   "draftSharksRosIdp.csv": {
+    "sha256": "ff865c59ad1f34315e5fad56afcf5d3ad44c02d0984771ad0d483d8f4767f172",
+    "bytes": 12423
+   },
+   "draftSharksRosSf.csv": {
+    "sha256": "4ce69e95e2b3dadfab243d412ffc2653e8d133b943a331788ffda0dab2505add",
+    "bytes": 7274
+   },
+   "draftSharksSf.csv": {
+    "sha256": "2a656d65e05144798d5ea71ade120133ed5e17ccf0a6f855994f718812399f37",
+    "bytes": 163609
+   },
+   "dynastyDaddySf.csv": {
+    "sha256": "77b9a517c7d0646bd389443f7537574d639f3909bd76ec54176b6a863b1271b5",
+    "bytes": 8505
+   },
+   "dynastyNerdsSfTep.csv": {
+    "sha256": "fe232d5ef61c73793b663365c8c65906daa38b317666ddcd087f63f1433828d7",
+    "bytes": 10255
+   },
+   "fantasyCalc.csv": {
+    "sha256": "5bfcb97b02e22a2d2801a00207560ee1dfc4ed9f22660e944ad175035abd9004",
+    "bytes": 9144
+   },
+   "fantasyNavigatorSf.csv": {
+    "sha256": "45208ef97e0e016d3c8320268856229ebd9c8107f34ef2b972791da1a5ebf445",
+    "bytes": 17978
+   },
+   "fantasyProsFitzmaurice.csv": {
+    "sha256": "a834e5f371c4997034849975309af6cfa2d5bac0f7c22378bb8b76575c345aa2",
+    "bytes": 8505
+   },
+   "fantasyProsIdp.csv": {
+    "sha256": "01a17ce73c2a579fac755505b4cd2d213246cb78df6b6f7b2c7f4ffe4b2df5c4",
+    "bytes": 10513
+   },
+   "fantasyProsSf.csv": {
+    "sha256": "239ff107a1992df90b295dec04560e9c53b655c77c43c25ac6a68de40c1ee478",
+    "bytes": 14003
+   },
+   "flockFantasySf.csv": {
+    "sha256": "31c9923a82417f82cebcb4515b6a5f0bada64469224ad35b98bba38c9a86ba1d",
+    "bytes": 9276
+   },
+   "flockFantasySfRookies.csv": {
+    "sha256": "e1cf340a54a7b2898cf912dfb0a23fe66f37aff0ec9d4cb31d2d43c52c5f9e20",
+    "bytes": 1694
+   },
+   "idpShow.csv": {
+    "sha256": "fbcfc0f16236b046a7c373973e16ceefc4829564c1cb59c007837a43c4d60af0",
+    "bytes": 7670
+   },
+   "idpTradeCalc.csv": {
+    "sha256": "00a43e7aaa6ce0d913beced103baab2d46643da01962d2912c05501817303e0c",
+    "bytes": 19660
+   },
+   "ktc.csv": {
+    "sha256": "bf28fc4eb942deed4a7e384e5736ebdf3f33e6b7b58e36a6d15869be0016f95b",
+    "bytes": 9862
+   },
+   "ktcSfTep.csv": {
+    "sha256": "ff67927fe8d53ce521f92cde2f1bf040ba43a24c939c09a3a8a92faa27bab1f9",
+    "bytes": 9869
+   },
+   "otcffbSf.csv": {
+    "sha256": "c1348395d72924bdac742185e1fd50d0c082b658b23d4e320f909a069867203b",
+    "bytes": 10164
+   },
+   "pfkDynasty.csv": {
+    "sha256": "dbeec7c1b0adb640f76af23faa3629c6763daa05c23cea5e0b349a3aede4446b",
+    "bytes": 15210
+   },
+   "yahooBoone.csv": {
+    "sha256": "27cdfd58e4f4e7db13765590974da1724c6860d7b40916e5ec252ff948b316a3",
+    "bytes": 10774
+   }
+  },
+  "sourceRegistry": [
+   {
+    "key": "ktcSfTep",
+    "depth": null,
+    "scope": "overall_offense",
+    "valueDirect": true
+   },
+   {
+    "key": "idpTradeCalc",
+    "depth": null,
+    "scope": "overall_idp",
+    "valueDirect": true
+   },
+   {
+    "key": "dlfSf",
+    "depth": 280,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "dlfRookieSf",
+    "depth": 50,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "dlfIdp",
+    "depth": 185,
+    "scope": "overall_idp",
+    "valueDirect": false
+   },
+   {
+    "key": "dlfRookieIdp",
+    "depth": 50,
+    "scope": "overall_idp",
+    "valueDirect": false
+   },
+   {
+    "key": "idpShow",
+    "depth": 420,
+    "scope": "overall_idp",
+    "valueDirect": false
+   },
+   {
+    "key": "dynastyNerdsSfTep",
+    "depth": 300,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "fantasyCalc",
+    "depth": 450,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "otcffbSf",
+    "depth": 460,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "fantasyNavigatorSf",
+    "depth": 460,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "pfkDynasty",
+    "depth": 460,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "dynastyDaddySf",
+    "depth": 320,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "fantasyProsSf",
+    "depth": 250,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "fantasyProsIdp",
+    "depth": 100,
+    "scope": "overall_idp",
+    "valueDirect": false
+   },
+   {
+    "key": "fantasyProsFitzmaurice",
+    "depth": 350,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "flockFantasySf",
+    "depth": 370,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "flockFantasySfRookies",
+    "depth": 50,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "yahooBoone",
+    "depth": 500,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "draftSharks",
+    "depth": 500,
+    "scope": "overall_offense",
+    "valueDirect": false
+   },
+   {
+    "key": "draftSharksIdp",
+    "depth": 400,
+    "scope": "overall_idp",
+    "valueDirect": false
+   }
+  ],
+  "valueDirectSources": [
+   "idpTradeCalc",
+   "ktcSfTep"
+  ],
+  "championModel": {
+   "modelId": "hill_scope_masters",
+   "version": 2,
+   "status": "champion",
+   "params": {
+    "HILL_GLOBAL_PERCENTILE_C": 0.112,
+    "HILL_GLOBAL_PERCENTILE_S": 0.725,
+    "HILL_PERCENTILE_C": 0.11,
+    "HILL_PERCENTILE_S": 1.11,
+    "IDP_HILL_PERCENTILE_C": 0.083,
+    "IDP_HILL_PERCENTILE_S": 1.11,
+    "HILL_ROOKIE_PERCENTILE_C": 0.153,
+    "HILL_ROOKIE_PERCENTILE_S": 0.885
+   }
+  },
+  "registryVersions": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "tailConstants": {
+   "PERCENTILE_REFERENCE_N": 500,
+   "OVERALL_RANK_LIMIT": 800,
+   "TAIL_SATURATION_RANK": null
+  },
+  "boardShape": {
+   "rows": 1094,
+   "servedRows": 740,
+   "observations": 6316,
+   "rankHillObservations": 5143,
+   "deepestEffectiveRank": 898.0,
+   "deepestRankHillObservation": 876.0,
+   "deepestEffectiveRankOnServedRow": 898.0
+  }
+ },
+ "boundary": 500,
+ "saturationObservableAt": [
+  "rank_to_percentile",
+  "percentile_to_value"
+ ],
+ "rankHillObservations": 5143,
+ "rankHillPastBoundary": 421,
+ "rankHillPastBoundaryPct": 8.1859,
+ "rowsTouched": 254,
+ "rowsTouchedServed": 254,
+ "rowsTouchedUnserved": 0,
+ "valueDirectObservations": 1173,
+ "valueDirectPastBoundary": 279,
+ "totalRows": 1094,
+ "totalServedRows": 740,
+ "perSourcePathMix": {
+  "ktcSfTep": {
+   "value_direct": 397,
+   "pastBoundary": 0,
+   "deepest": 452.0
+  },
+  "idpTradeCalc": {
+   "value_direct": 776,
+   "pastBoundary": 0,
+   "deepest": 898.0
+  },
+  "dlfSf": {
+   "rank_hill": 275,
+   "pastBoundary": 0,
+   "deepest": 277.0
+  },
+  "dynastyNerdsSfTep": {
+   "rank_hill": 293,
+   "pastBoundary": 0,
+   "deepest": 293.0
+  },
+  "fantasyCalc": {
+   "rank_hill": 353,
+   "pastBoundary": 0,
+   "deepest": 386.0
+  },
+  "otcffbSf": {
+   "rank_hill": 360,
+   "pastBoundary": 0,
+   "deepest": 350.0
+  },
+  "pfkDynasty": {
+   "rank_hill": 364,
+   "pastBoundary": 0,
+   "deepest": 441.0
+  },
+  "dynastyDaddySf": {
+   "rank_hill": 339,
+   "pastBoundary": 0,
+   "deepest": 367.0
+  },
+  "fantasyProsSf": {
+   "rank_hill": 379,
+   "pastBoundary": 0,
+   "deepest": 463.0
+  },
+  "fantasyProsFitzmaurice": {
+   "rank_hill": 295,
+   "pastBoundary": 0,
+   "deepest": 298.0
+  },
+  "flockFantasySf": {
+   "rank_hill": 352,
+   "pastBoundary": 0,
+   "deepest": 408.0
+  },
+  "yahooBoone": {
+   "rank_hill": 361,
+   "pastBoundary": 0,
+   "deepest": 386.0
+  },
+  "draftSharks": {
+   "rank_hill": 359,
+   "pastBoundary": 17,
+   "deepest": 683.0
+  },
+  "fantasyNavigatorSf": {
+   "rank_hill": 343,
+   "pastBoundary": 0,
+   "deepest": 426.0
+  },
+  "dlfIdp": {
+   "rank_hill": 169,
+   "pastBoundary": 23,
+   "deepest": 619.0
+  },
+  "idpShow": {
+   "rank_hill": 315,
+   "pastBoundary": 170,
+   "deepest": 876.0
+  },
+  "fantasyProsIdp": {
+   "rank_hill": 141,
+   "pastBoundary": 3,
+   "deepest": 572.0
+  },
+  "draftSharksIdp": {
+   "rank_hill": 306,
+   "pastBoundary": 193,
+   "deepest": 729.0
+  },
+  "dlfRookieSf": {
+   "rank_hill": 49,
+   "pastBoundary": 0,
+   "deepest": 375.0
+  },
+  "flockFantasySfRookies": {
+   "rank_hill": 61,
+   "pastBoundary": 7,
+   "deepest": 624.0
+  },
+  "dlfRookieIdp": {
+   "rank_hill": 29,
+   "pastBoundary": 8,
+   "deepest": 660.0
+  }
+ },
+ "positionalConcentration": {
+  "rows": {
+   "DL/EDGE": 97,
+   "LB": 49,
+   "DB": 87,
+   "QB": 4,
+   "TE": 11,
+   "WR": 4,
+   "RB": 2
+  },
+  "servedRows": {
+   "DL/EDGE": 97,
+   "LB": 49,
+   "DB": 87,
+   "QB": 4,
+   "TE": 11,
+   "WR": 4,
+   "RB": 2
+  }
+ },
+ "touchedRowNames": [
+  "Aaron Anderson",
+  "Akeem Davis-Gaither",
+  "Akheem Mesidor",
+  "Alex Anzalone",
+  "Alex Highsmith",
+  "Alex Singleton",
+  "Alex Wright",
+  "Alim McNeill",
+  "Alohi Gilman",
+  "Alontae Taylor",
+  "Amani Hooker",
+  "Andrew Mukuba",
+  "Andrew Van Ginkel",
+  "Ashton Gillotte",
+  "Austin Booker",
+  "Azeez Al-Shaair",
+  "B.J. Hill",
+  "Barion Brown",
+  "Baron Browning",
+  "Billy Bowman",
+  "Bobby Okereke",
+  "Bobby Wagner",
+  "Boye Mafe",
+  "Braden Fiske",
+  "Bradley Chubb",
+  "Brandon Dorlus",
+  "Brandon Jones",
+  "Bryan Bresee",
+  "Bryan Cook",
+  "Bryce Boettcher",
+  "Bud Clark",
+  "Budda Baker",
+  "Byron Young",
+  "C.J. Gardner-Johnson",
+  "CJ Donaldson",
+  "Cade Stover",
+  "Caleb Banks",
+  "Calen Bullock",
+  "Calijah Kancey",
+  "Cam Bynum",
+  "Cameron Heyward",
+  "Carl Granderson",
+  "Cashius Howell",
+  "Chamarri Conner",
+  "Chop Robinson",
+  "Chris Jones",
+  "Christen Miller",
+  "Christian Barmore",
+  "Christian Benford",
+  "Christian Elliss",
+  "Christian Gonzalez",
+  "Christian Harris",
+  "Christian Rozeboom",
+  "Coby Bryant",
+  "Cody Barton",
+  "Cole Bishop",
+  "Craig Woodson",
+  "DJ Wonnum",
+  "DaRon Bland",
+  "Dadrion Taylor-Demerson",
+  "Dani Dennis-Sutton",
+  "Danielle Hunter",
+  "Danny Stutsman",
+  "Darius Robinson",
+  "Daron Payne",
+  "David Walker",
+  "Davis Allen",
+  "Dax Hill",
+  "Dayo Odeyingbo",
+  "DeForest Buckner",
+  "DeMarcus Lawrence",
+  "DeShon Elliott",
+  "Dee Winters",
+  "Demario Davis",
+  "Deommodore Lenoir",
+  "Derek Stingley",
+  "Derick Hall",
+  "Derrick Barnes",
+  "Derrick Brown",
+  "Derrick Harmon",
+  "Derwin James",
+  "Devonte Wyatt",
+  "Dexter Lawrence",
+  "Dorance Armstrong",
+  "Dorian Williams",
+  "Dre Greenlaw",
+  "Dru Phillips",
+  "Drue Tranquill",
+  "Ed Oliver",
+  "Elijah Molden",
+  "Emmanuel Henderson",
+  "Eric Wilson",
+  "Evan Williams",
+  "Gabe Jacas",
+  "Garrett Nussmeier",
+  "Genesis Smith",
+  "Geno Stone",
+  "Gervon Dexter",
+  "Grant Delpit",
+  "Harold Landry",
+  "Harold Perkins",
+  "Harrison Wallace",
+  "Henry To'oTo'o",
+  "Ivan Pace",
+  "JT Tuimoloau",
+  "Ja'Quan McMillian",
+  "Jack Kiser",
+  "Jack Sawyer",
+  "Jaden Dugger",
+  "Jadon Canady",
+  "Jaelan Phillips",
+  "Jahdae Barron",
+  "Jaishawn Barham",
+  "Jake Golday",
+  "Jake Tonges",
+  "Jakobe Thomas",
+  "Jalen Pitre",
+  "Jalen Ramsey",
+  "Jalen Redmond",
+  "Jalen Thompson",
+  "Jalyx Hunt",
+  "Jaquan Brisker",
+  "Javon Bullard",
+  "Jaycee Horn",
+  "Jer'Zhan Newton",
+  "Jeremy Chinn",
+  "Jermaine Johnson",
+  "Jevon Holland",
+  "Ji'Ayir Brown",
+  "Jimmy Rolder",
+  "Joe Royer",
+  "Joey Porter",
+  "John Franklin-Myers",
+  "John Michael Gyllenborg",
+  "Jonah Elliss",
+  "Jonah Laulu",
+  "Jonas Sanker",
+  "Jonathan Allen",
+  "Jonathon Cooper",
+  "Jordan Battle",
+  "Jordan Burch",
+  "Jordan Davis",
+  "Josaiah Stewart",
+  "Joseph Ossai",
+  "Josh Cuevas",
+  "Josh Sweat",
+  "Joshua Josephs",
+  "Joshua Metellus",
+  "Josiah Trotter",
+  "Jourdan Lewis",
+  "Julian Love",
+  "Junior Colson",
+  "Justin Fields",
+  "Justin Reid",
+  "Justin Strnad",
+  "K'Lavon Chaisson",
+  "Kaleb Elarms-Orr",
+  "Kam Curl",
+  "Kamari Lassiter",
+  "Kamari Ramsey",
+  "Kamren Kinchens",
+  "Kayden McDonald",
+  "Kayvon Thibodeaux",
+  "Keeanu Benton",
+  "Keionte Scott",
+  "Keisean Nixon",
+  "Keldric Faulk",
+  "Kendal Daniels",
+  "Kenneth Grant",
+  "Kenny Moore",
+  "Kerby Joseph",
+  "Kevin Byard",
+  "Keyron Crawford",
+  "Keyshaun Elliott",
+  "Khalil Mack",
+  "Kool-Aid McKinstry",
+  "Kwity Paye",
+  "Kyle Louis",
+  "Kyler Gordon",
+  "Lathan Ransom",
+  "Leonard Williams",
+  "Lukas Van Ness",
+  "Luke Schoonmaker",
+  "Mack Wilson",
+  "Malachi Lawrence",
+  "Malik Mustapha",
+  "Marcus Jones",
+  "Marcus Mariota",
+  "Marlon Humphrey",
+  "Mason Graham",
+  "Micah McFadden",
+  "Micah Parsons",
+  "Michael Trigg",
+  "Mike Sainristil",
+  "Milton Williams",
+  "Minkah Fitzpatrick",
+  "Montez Sweat",
+  "Mykel Williams",
+  "Myles Murphy",
+  "Nic Scourton",
+  "Nick Herbig",
+  "Nick Martin",
+  "Nnamdi Madubuike",
+  "Nolan Smith",
+  "Odafe Oweh",
+  "Oluwafemi Oladejo",
+  "Omar Speights",
+  "Osa Odighizuwa",
+  "Pat Surtain",
+  "Paulson Adebo",
+  "Pete Werner",
+  "Peter Woods",
+  "Quentin Lake",
+  "Quinyon Mitchell",
+  "R Mason Thomas",
+  "RJ Maryland",
+  "Rashan Gary",
+  "Reed Blankenship",
+  "Riley Leonard",
+  "Riley Moss",
+  "Riley Nowakowski",
+  "Roman Hemby",
+  "Romello Height",
+  "Ronnie Hickman",
+  "Sauce Gardner",
+  "Shemar Stewart",
+  "SirVocea Dennis",
+  "T.J. Watt",
+  "TJ Parker",
+  "Tarheeb Still",
+  "Taron Johnson",
+  "Teddye Buchanan",
+  "Theo Jackson",
+  "Tommy Tremble",
+  "Trent McDuffie",
+  "Trevin Wallace",
+  "Trey Hendrickson",
+  "Treydan Stukes",
+  "Tyler Nubin",
+  "Tyrel Dodson",
+  "Tyson Campbell",
+  "Uchenna Nwosu",
+  "Upton Stout",
+  "Ventrell Miller",
+  "Wade Woodaz",
+  "Walter Nolen",
+  "Xavier McKinney",
+  "Xavier Watts",
+  "Yaya Diaby",
+  "Zach Harrison",
+  "Zach Sieler",
+  "Zakee Wheatley",
+  "Zaven Collins",
+  "Zion Young"
+ ]
+}

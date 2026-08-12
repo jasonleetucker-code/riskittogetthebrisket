@@ -28,62 +28,70 @@ coordinate *unit* rather than a model parameter. Raising the ceiling and
 re-expressing the curve in a universe ``N' = TAIL_SATURATION_RANK`` with
 ``c' = c · (N − 1) / (N' − 1)`` are the *same function* — verified at
 every rank on all three masters in
-``docs/master-site-audit/evidence/W30/b4_candidate_measure.py``. The
+``docs/master-site-audit/evidence/W30/b4_candidate_measure.py``, and
+re-verified against the applied boundary in ``b4f_measure.py
+--equivalence`` (max head deviation **0** at every rank 1..500 on all
+three routed masters, while ranks 501..904 go from one distinct value to
+395 / 327 / 271). The
 ceiling formulation is the one implemented because it touches no
 committed constant, so a tail change cannot smuggle in a refit. Changing
 ``N`` on its own would move ``M`` and genuinely reshape the curve, which
 is why B4 was told not to start there.
 
-Why 903
+Why 904
 -------
 
-Measured, not chosen for roundness. It is the deepest rank ANY source
-publishes, recorded independently of this work at
-``src/api/source_history.py:352-353`` and pinned by
-``tests/api/test_source_history_rank_encodings.py``.
+Measured, and **not** the 903 an earlier round of this work selected.
+
+The boundary answers one question: how deep does source evidence
+actually go? Ranks past it share the curve's tail value, because
+resolving them would state a number no observation supports.
 
 Three depths were candidates and the differences are not cosmetic:
 
-* **500** (the old boundary) collapses 421 of 5,146 rank-Hill
-  observations on the B4 pin, touching 254 board rows — every one of
-  them served.
+* **500** (the old boundary) collapses 421 of 5,143 rank-Hill
+  observations on the B4-final pin, touching 254 board rows — every one
+  of them served, 34.3% of the served board.
 * **800** (``OVERALL_RANK_LIMIT``) is the wrong domain. Board rank and
   source coordinate are different things: ``idpShow`` reaches effective
-  rank 877 on rows the board publishes, so saturating at the board limit
+  rank 876 on rows the board publishes, so saturating at the board limit
   would still collapse genuine evidence.
-* **877** (deepest rank-Hill rank on the pin) has no headroom and would
-  re-saturate the 878..899 band that ``idpTradeCalc`` publishes — a band
-  reachable through the value-direct *fallback* branch, which is live
-  code carrying no live traffic today.
+* **882** (deepest rank-Hill rank ever observed) would re-saturate the
+  band above it that ``idpTradeCalc`` publishes — reachable through the
+  value-direct *fallback* branch, which is live code carrying no live
+  traffic today. Three conditions route a value-direct source to the
+  curve (source suppressed, value outside its declared range, value
+  missing or non-positive), so the boundary has to cover value-direct
+  ranks too.
 
-903 covers the entire published domain and invents nothing beyond it: a
-rank past it has never been observed from any source, so the curve stops
-resolving there rather than stating a value no evidence supports.
+**903 was refuted by measurement.** It had no executable definition
+anywhere in the tree — the only occurrences were a comment at
+``src/api/source_history.py:353`` and prose in a test docstring, and that
+test's actual guard uses 2000. Replaying the 17 compatible historical
+days with current code (``b4f_historical.py``) shows the deepest observed
+effective rank is **904**, from ``idpTradeCalc`` on 2026-07-28. The
+distribution across those days is 784, 785, 898 x5, 899, 900 x5, 901 x2,
+903, 904 — so the quantity moves with source coverage and a single
+board cannot decide it. 903 would have re-saturated a rank the evidence
+has actually seen.
 
-Status: the boundary is NOT applied
-------------------------------------
+904 is the deepest rank observed across all retained evidence. It carries
+no invented headroom: one rank further would already be a number no
+observation supports, which is the same objection that rules out
+unbounded extrapolation.
 
-:data:`TAIL_SATURATION_RANK` ships as ``None`` — pre-B4 behaviour, to the
-integer, on every row. What this module delivers today is the *single
-owner*: four independent transcriptions of one rule became one, so
-serving, fitting and holdout scoring can no longer disagree about where
-the tail is. That is a W30-F008-class repair on its own and it is
-behaviour-preserving.
+Known residual, stated rather than papered over: because the boundary is
+the observed maximum, a future board on which a source reaches 905 will
+saturate at 904. That is a far smaller defect than W30-F023 (which
+collapses everything past 500) and it is the honest position — the
+alternative is inventing a margin. ``b4f_historical.py --depths`` re-runs
+the measurement when that question needs revisiting.
 
-The value repair is one constant away and is deliberately not taken.
-Measured on the B4 pin, setting it to 903 makes the B3 market corridor
-clamp four rows carrying five or more sources and three rows in the top
-third of the IDP board — both of which B3's own repair criteria state it
-must not do — and flips three clamps to direction ``up`` for the first
-time. The mechanism is the two B3 residuals that were explicitly left
-open: the anchor is itself one of the row's voters (#794), and the band
-is the board's own P90 drift so removing the saturation inflation
-narrows it from ~0.63 to ~0.46 and tightens the corridor onto rows it
-never targeted (#795).
+Status: APPLIED
+---------------
 
-So the tail policy and the corridor are not separable on this board, and
-B4's scope forbids reopening B3. Full evidence and the decision are in
-``docs/master-site-audit/evidence/W30/B4_TAIL_DECISION.md``.
+:data:`TAIL_SATURATION_RANK` is ``904``. The former blocker is gone —
+see the constant's own note.
 """
 
 from __future__ import annotations
@@ -91,18 +99,35 @@ from __future__ import annotations
 #: The deepest rank the coordinate resolves. Ranks past it share the
 #: curve's tail value.
 #:
-#: ``None`` means "saturate at the caller's own reference population",
-#: which is the pre-B4 behaviour exactly — and is what ships today.
+#: ``None`` would mean "saturate at the caller's own reference
+#: population", which is the pre-B4 behaviour and is what shipped until
+#: this constant was set.
 #:
-#: **This is deliberately still None.** The measured repair is 903 and the
-#: evidence supports it, but landing it is BLOCKED: it drives the B3
-#: market corridor onto rows B3's own repair criteria forbid it to touch,
-#: through the two residuals that were explicitly left open (#794 anchor/
-#: voter circularity, #795 systemic-drift self-widening). Setting this to
-#: 903 is the entire production change, and it must not be made until that
-#: dependency is decided. See
+#: **Former blocker, now resolved — kept because the history explains the
+#: shape of the repair, not because it still applies.** Between
+#: 2026-08-11 and #799 this constant was pinned at ``None`` even though
+#: the repair was one assignment away: activating it drove the B3 market
+#: corridor onto rows B3's own repair criteria forbade it to touch,
+#: through the two residuals left open as #794 (the corridor's anchor was
+#: itself one of the row's voters) and #795 (its band was the board's own
+#: P90 drift, so removing the saturation inflation narrowed the band and
+#: tightened the corridor onto rows it never targeted).
+#:
+#: PR #799 (merge ``52d48b6e5``) removed the market corridor outright and
+#: replaced it with blend-integrity detection, which changes no value.
+#: #794, #795 and #796 are resolved; there is no corridor for a tail
+#: change to disturb, and the detector is silent under both tail policies
+#: on the current board. The dependency is gone, not waived.
+#:
+#: #804 / W02-F019 (correlated-source anomalies) is a DIFFERENT problem —
+#: several sources being wrong together — and does not touch the
+#: percentile coordinate. It does not block this.
+#:
+#: Evidence for the value 904 is in the module docstring above and in
+#: ``docs/master-site-audit/evidence/W30/B4F_TAIL_FINAL.md``. The
+#: superseded blocked experiment is preserved unchanged at
 #: ``docs/master-site-audit/evidence/W30/B4_TAIL_DECISION.md``.
-TAIL_SATURATION_RANK: int | None = None
+TAIL_SATURATION_RANK: int | None = 904
 
 
 def max_percentile(reference_n: int) -> float:
