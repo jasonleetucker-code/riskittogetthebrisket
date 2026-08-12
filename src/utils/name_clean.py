@@ -733,3 +733,56 @@ def normalize_position_family(pos: str | None) -> str:
         if t_base.startswith(prefix):
             return prefix
     return t
+
+
+# ── First-name variant equivalence (W06-F001) ────────────────────────
+
+#: Shortest first-name prefix that may stand in for a longer name.
+#: Two characters would let "Ty Johnson" absorb "Tyler Johnson", who are
+#: different people; single letters are an INITIAL and belong to the
+#: initial-matching rung, which carries its own guards.
+_MIN_VARIANT_PREFIX = 3
+
+
+def is_first_name_variant(a: object, b: object) -> bool:
+    """Are these two names the same human under first-name drift?
+
+    The board's merge key is a canonical NAME. ``CANONICAL_NAME_ALIASES``
+    carries hand-written pairs (Kenneth→Kenny, Chig→Chigoziem) and had
+    none for Matt↔Matthew or Jam↔Jamarion, so one human occupied two
+    board rows — a resolved row and an unresolved ghost holding stranded
+    vendor votes (W06-F001). Enumerating more pairs would fix those two
+    players and nothing else; this states the RULE instead.
+
+    True only when every one of these holds:
+
+    * both names have at least two parts;
+    * everything after the first name matches exactly (surname AND any
+      middle parts — "Chris Del Rio" is not "Christian Rio");
+    * the first names differ, and the shorter is a strict prefix of the
+      longer;
+    * the shorter first name is at least :data:`_MIN_VARIANT_PREFIX`
+      characters.
+
+    **This is deliberately not sufficient on its own to merge two rows.**
+    "Chris Smith" and "Christian Smith" satisfy it and may well be two
+    people. The caller must additionally establish that only one of them
+    carries an identity — merging a resolved row with an *unidentified*
+    one cannot silently fuse two known players, because two known
+    players both carry ids. A confident wrong merge is worse than the
+    ghost it would have removed, so the rule is the cheap half of the
+    test and the identity gate is the load-bearing half.
+    """
+    a_parts = str(a or "").strip().lower().split()
+    b_parts = str(b or "").strip().lower().split()
+    if len(a_parts) < 2 or len(b_parts) < 2:
+        return False
+    if a_parts[1:] != b_parts[1:]:
+        return False
+    first_a, first_b = a_parts[0], b_parts[0]
+    if first_a == first_b:
+        return False
+    shorter, longer = sorted((first_a, first_b), key=len)
+    if len(shorter) < _MIN_VARIANT_PREFIX:
+        return False
+    return longer.startswith(shorter)

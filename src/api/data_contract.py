@@ -292,6 +292,64 @@ _QUARANTINE_FLAGS = {
 #     name,rank CSVs (lower is better, stamped as a synthetic monotonic
 #     value via _RANK_TO_SYNTHETIC_VALUE so the downstream descending
 #     sort in _compute_unified_rankings produces the correct ordinal)
+# ── Provider-ID column resolution (W06-F009) ─────────────────────────
+#
+# A vendor CSV that ships a Sleeper player id gives ID-grade identity,
+# which survives the vendor/Sleeper name drift that breaks a name join
+# ("Kenneth Gainwell" vs "Kenny Gainwell").  The loader used to find that
+# column by testing the header against a hand-maintained tuple of literal
+# spellings, which failed closed: ``dynastyNerdsSfTep.csv`` ships
+# ``SleeperId`` — a spelling nobody had added — so all 294 of its rows
+# carried no id and the source joined by name only, silently.
+#
+# The root cause is the enumerated-literal list, not the missing entry.
+# Columns are matched on a NORMALIZED token (casefold, drop separators)
+# so every reasonable spelling of the same field resolves, while a
+# different field does not: ``sleeper_id_source`` normalizes to
+# ``sleeperidsource`` and is correctly ignored.  Being conservative here
+# is the point — attaching the wrong id is a confident wrong match, which
+# is worse than the miss it replaces.
+#
+# Measured at the time of the repair: the ID join recovers **0 rows** on
+# the live board (the name cascade already resolved 293 of 294 and the
+# two agreed on all 290 overlaps, zero contradictions).  This buys
+# resilience, not match rate.
+_SLEEPER_ID_TOKENS: frozenset[str] = frozenset(
+    {
+        "sleeperid",
+        "sleeperplayerid",
+    }
+)
+
+
+def _normalize_header_token(column: object) -> str:
+    """Casefold a CSV header and drop separators, for token matching.
+
+    ``"Sleeper Id"``, ``"sleeper_id"``, ``"SleeperId"`` and
+    ``"sleeper-id"`` all become ``"sleeperid"``.  Anything carrying extra
+    words keeps them, so it will not collide with a bare field name.
+    """
+    s = str(column or "").strip().lower()
+    return "".join(ch for ch in s if ch.isalnum())
+
+
+def _pick_provider_id(csvrow: dict[str, Any], tokens: frozenset[str]) -> str:
+    """First non-empty value whose header normalizes into ``tokens``.
+
+    Iteration order follows the row's own key order, so a CSV carrying two
+    accepted spellings resolves deterministically to the first one rather
+    than to whichever the set happened to yield.
+    """
+    if not isinstance(csvrow, dict):
+        return ""
+    for key, value in csvrow.items():
+        if value in (None, ""):
+            continue
+        if _normalize_header_token(key) in tokens:
+            return str(value)
+    return ""
+
+
 _SOURCE_CSV_PATHS: dict[str, Any] = {
     "ktc": "CSVs/site_raw/ktc.csv",
     # KeepTradeCut Superflex + TE Premium (level 2 / "TE++") sub-board.
@@ -3627,12 +3685,6 @@ def _parse_source_csv_cached(
         "3D Value +",
         "boone_value",
     )
-    # Optional Sleeper player-id column (today only pfkDynasty emits
-    # one).  When present it gives ID-grade identity that survives
-    # vendor/Sleeper name-spelling drift ("Kenneth Gainwell" vs
-    # "Kenny Gainwell") — the enrichment tries the ID join before the
-    # canonical-name cascade (Codex review on PR #532).
-    _SLEEPER_ID_ALIASES = ("sleeper_id", "sleeperId", "sleeper_player_id")
 
     def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
         for k in aliases:
@@ -3727,7 +3779,7 @@ def _parse_source_csv_cached(
                                 native_val = nv
                         except (TypeError, ValueError):
                             native_val = None
-                    sid = _pick(csvrow, _SLEEPER_ID_ALIASES).strip()
+                    sid = _pick_provider_id(csvrow, _SLEEPER_ID_TOKENS).strip()
                     csv_lookup.setdefault(key, []).append(
                         (name, synthetic, rank_val, native_val, sid or None)
                     )
@@ -3752,7 +3804,7 @@ def _parse_source_csv_cached(
                                 orig_rank = rv
                         except (TypeError, ValueError):
                             orig_rank = None
-                    sid = _pick(csvrow, _SLEEPER_ID_ALIASES).strip()
+                    sid = _pick_provider_id(csvrow, _SLEEPER_ID_TOKENS).strip()
                     try:
                         csv_lookup.setdefault(key, []).append(
                             (name, int(float(val)), orig_rank, None, sid or None)

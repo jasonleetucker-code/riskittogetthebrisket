@@ -9,12 +9,18 @@ firehoses) keys on a different ID than Sleeper uses.  Without a
 single resolver every integration re-invents the mapping, each
 gets it subtly wrong, and we have N silent miss rates to debug.
 
-The three-layer match ladder (in ``resolve_player``) is:
+The match ladder (in ``resolve_player``) is:
 
+    0. Manual override by Sleeper ID.    confidence=1.00
     1. Exact external ID match.          confidence=1.00
     2. Exact normalized name + team.     confidence=0.98
     3. Exact normalized name + position. confidence=0.93
     4. Fuzzy normalized name only.       confidence=0.75..0.90
+
+The override sits ABOVE the exact-ID match, not below it (W06-F004).
+Below, it could only ever fire for ids Sleeper had never heard of — so
+the one case overrides exist for, "the directory has this player wrong",
+was the one case it could not serve.
 
 Anything below the configured ``min_confidence`` is rejected and
 counted in the unmapped-miss metric so we can observe drift.
@@ -106,10 +112,18 @@ def _load_overrides(path: Path | None = None) -> dict[str, dict[str, Any]]:
         if not isinstance(raw, dict):
             _LOGGER.warning("id_overrides.json root must be a dict; ignoring")
             return {}
-        # Normalize keys to strings.
+        # Normalize keys to strings.  Underscore-prefixed keys are
+        # documentation scaffolding (``_comment``, ``_example_entry_only``
+        # — both shipped in the real file) and must never be treated as
+        # live overrides: the override rung now outranks the directory,
+        # so an example entry would be one edit away from resolving a
+        # player (W06-F004).
         for k, v in raw.items():
+            key = str(k)
+            if key.startswith("_"):
+                continue
             if isinstance(v, dict):
-                _OVERRIDES_CACHE[str(k)] = dict(v)
+                _OVERRIDES_CACHE[key] = dict(v)
         return dict(_OVERRIDES_CACHE)
 
 
@@ -245,6 +259,7 @@ def resolve_player(
     position: str | None = None,
     min_confidence: float = 0.85,
     overrides_path: Path | None = None,
+    _index: dict | None = None,
 ) -> ResolvedPlayer | None:
     """Resolve any subset of ID signals into a canonical player.
 
@@ -256,9 +271,14 @@ def resolve_player(
     Returns ``None`` if no match above ``min_confidence`` is found;
     metrics are bumped either way so coverage can be observed.
 
+    ``_index`` is an internal seam for :func:`resolve_many` to pass a
+    directory index it already built (W06-F007). Callers should leave it
+    unset; it is a pure function of ``players_dir``, so supplying it
+    changes nothing but the cost.
+
     Ladder order:
-      1. ``sleeper_id`` exact.
-      2. Manual override by ``sleeper_id``.
+      1. Manual override by ``sleeper_id`` (merged over the directory).
+      2. ``sleeper_id`` exact.
       3. ``gsis_id`` exact.
       4. ``espn_id`` exact.
       5. Normalized name + team + position.
@@ -266,33 +286,57 @@ def resolve_player(
       7. Fuzzy name only.
     """
     _bump("resolve_attempts")
-    idx = _index_directory(players_dir)
+    idx = _index if _index is not None else _index_directory(players_dir)
     overrides = _load_overrides(overrides_path)
 
-    # 1. Exact Sleeper ID.
+    # 1. Manual override by Sleeper ID — ABOVE the directory (W06-F004).
+    #
+    # This rung used to sit below the exact-ID match, which made it
+    # unreachable for exactly the case it exists to serve: an operator
+    # pins a player BECAUSE the directory has them wrong, and the
+    # directory then won. It only ever fired for ids Sleeper had never
+    # heard of, and the test covering it used such an id, so nothing
+    # caught the inversion.
+    #
+    # The override MERGES over the directory record rather than replacing
+    # it. Replacing was survivable while the rung was unreachable, but
+    # promoted above the directory a partial entry (say ``{"team": "MIA"}``)
+    # would blank the name, position and every other id — turning a
+    # resolved player into an anonymous row. An override says "this field
+    # is wrong", not "forget everything you know".
+    if sleeper_id:
+        sid = str(sleeper_id).strip()
+        if sid and sid in overrides:
+            ov = overrides[sid]
+            base = idx["by_sleeper_id"].get(sid) or {}
+            _bump("resolved_override")
+
+            def _field(name: str, *base_keys: str) -> str:
+                if ov.get(name) not in (None, ""):
+                    return str(ov[name])
+                for bk in base_keys or (name,):
+                    if base.get(bk) not in (None, ""):
+                        return str(base[bk])
+                return ""
+
+            return ResolvedPlayer(
+                sleeper_id=sid,
+                gsis_id=_field("gsis_id"),
+                espn_id=_field("espn_id"),
+                full_name=_field("full_name", "full_name", "search_full_name"),
+                position=_field("position"),
+                team=_field("team"),
+                confidence=1.00,
+                match_method="manual_override",
+            )
+
+    # 2. Exact Sleeper ID.
     if sleeper_id:
         sid = str(sleeper_id).strip()
         if sid and sid in idx["by_sleeper_id"]:
             p = idx["by_sleeper_id"][sid]
             _bump("resolved_exact_id")
             return _to_resolved(p, confidence=1.00, method="sleeper_id")
-
-    # 2. Manual override by Sleeper ID.
-    if sleeper_id:
-        sid = str(sleeper_id).strip()
-        if sid and sid in overrides:
-            ov = overrides[sid]
-            _bump("resolved_override")
-            return ResolvedPlayer(
-                sleeper_id=sid,
-                gsis_id=str(ov.get("gsis_id") or ""),
-                espn_id=str(ov.get("espn_id") or ""),
-                full_name=str(ov.get("full_name") or ""),
-                position=str(ov.get("position") or ""),
-                team=str(ov.get("team") or ""),
-                confidence=1.00,
-                match_method="manual_override",
-            )
 
     # 3. Exact GSIS ID.
     if gsis_id:
@@ -408,9 +452,20 @@ def resolve_many(
 
     Used by nightly jobs (injury feed, nflverse weekly ingest) so
     the mapper's internal index is built once, not per-row.
+
+    W06-F007: that last sentence was false for as long as it existed.
+    ``resolve_player`` re-indexed the entire Sleeper directory on every
+    call, so a batch of N rows walked the ~11k-entry directory N times —
+    the cost this function was written to avoid. The index is a pure
+    function of ``players_dir``, so it is built here and passed down;
+    ``test_resolve_many_returns_what_it_did_before_the_hoist`` pins that
+    the results are identical to the per-row path, because a
+    performance repair that quietly changes identity resolution would be
+    a far worse bug than the one it fixes.
     """
     resolved: list[ResolvedPlayer] = []
     unresolved: list[dict[str, Any]] = []
+    idx = _index_directory(players_dir)
     for row in inputs:
         if not isinstance(row, dict):
             continue
@@ -423,6 +478,7 @@ def resolve_many(
             team=row.get("team"),
             position=row.get("position"),
             min_confidence=min_confidence,
+            _index=idx,
         )
         if got:
             resolved.append(got)

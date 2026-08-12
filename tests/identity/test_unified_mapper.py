@@ -213,3 +213,150 @@ def test_resolve_many_batches_inputs(sleeper_dir):
     assert len(resolved) == 2
     assert len(unresolved) == 1
     assert unresolved[0]["name"] == "Nobody"
+
+
+# ── W06-F004 / W06-F007 ───────────────────────────────────────────────
+
+
+def test_override_beats_the_directory_it_exists_to_override(sleeper_dir, tmp_path):
+    """W06-F004. The override rung sat BELOW the exact-ID rung.
+
+    ``test_manual_override_short_circuits_mapper`` above passes today and
+    always did — but it overrides id ``99999``, which is not in the
+    fixture directory, so it never reaches the contested case. An
+    override for an id the directory ALREADY knows could never fire,
+    which is precisely the case overrides exist for: "the directory has
+    this player wrong, use mine".
+    """
+    overrides_file = tmp_path / "id_overrides.json"
+    overrides_file.write_text(
+        json.dumps({"4017": {"team": "MIA", "position": "TE"}}),
+        encoding="utf-8",
+    )
+    unified_mapper.reload_overrides()
+    got = unified_mapper.resolve_player(
+        sleeper_dir, sleeper_id="4017", overrides_path=overrides_file
+    )
+    assert got is not None
+    assert got.match_method == "manual_override"
+    assert got.team == "MIA"
+    assert got.position == "TE"
+
+
+def test_a_partial_override_does_not_blank_the_rest_of_the_identity(sleeper_dir, tmp_path):
+    """Promoting the override must not DEGRADE a resolved player.
+
+    The override rung built a ResolvedPlayer purely from the override
+    dict, so a partial entry emitted empty strings for everything it did
+    not mention. Below the exact-ID rung that was invisible; above it,
+    it would turn a fully-resolved Josh Allen into a nameless row —
+    trading one identity defect for a worse one. So the override MERGES
+    over the directory record rather than replacing it.
+    """
+    overrides_file = tmp_path / "id_overrides.json"
+    overrides_file.write_text(json.dumps({"4017": {"team": "MIA"}}), encoding="utf-8")
+    unified_mapper.reload_overrides()
+    got = unified_mapper.resolve_player(
+        sleeper_dir, sleeper_id="4017", overrides_path=overrides_file
+    )
+    assert got.team == "MIA"
+    assert got.full_name == "Josh Allen"
+    assert got.position == "QB"
+    assert got.gsis_id == "00-0034857"
+
+
+def test_override_for_an_unknown_id_still_works_verbatim(sleeper_dir, tmp_path):
+    """The original use case must survive the reordering."""
+    overrides_file = tmp_path / "id_overrides.json"
+    overrides_file.write_text(
+        json.dumps({"99999": {"full_name": "Practice Squad Guy", "position": "WR", "team": "SF"}}),
+        encoding="utf-8",
+    )
+    unified_mapper.reload_overrides()
+    got = unified_mapper.resolve_player(
+        sleeper_dir, sleeper_id="99999", overrides_path=overrides_file
+    )
+    assert got.full_name == "Practice Squad Guy"
+    assert got.match_method == "manual_override"
+
+
+def test_scaffolding_keys_are_not_overrides(tmp_path):
+    """The shipped file is all comment/example scaffolding.
+
+    ``_load_overrides`` kept any dict-valued key, so
+    ``_example_entry_only`` was loaded as a live override. Harmless while
+    no sleeper id equals that string — but with the rung promoted above
+    the directory, scaffolding must not be one edit away from resolving
+    a player.
+    """
+    overrides_file = tmp_path / "id_overrides.json"
+    overrides_file.write_text(
+        json.dumps(
+            {
+                "_comment": "prose",
+                "_example_entry_only": {"full_name": "Example Player"},
+                "4017": {"team": "MIA"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    unified_mapper.reload_overrides()
+    loaded = unified_mapper._load_overrides(overrides_file)
+    assert set(loaded) == {"4017"}
+
+
+def test_resolve_many_indexes_the_directory_once(sleeper_dir):
+    """W06-F007. ``resolve_many``'s docstring claimed the index is built
+    once, not per-row. It called ``resolve_player`` per row, and that
+    re-indexed the whole directory every time.
+
+    Asserted by counting real calls rather than by timing, so it cannot
+    flake on a loaded machine.
+    """
+    calls = {"n": 0}
+    original = unified_mapper._index_directory
+
+    def counting(*args, **kwargs):
+        calls["n"] += 1
+        return original(*args, **kwargs)
+
+    unified_mapper._index_directory = counting
+    try:
+        rows = [{"sleeper_id": sid} for sid in ("4017", "9479", "6794")] * 4
+        resolved, unresolved = unified_mapper.resolve_many(sleeper_dir, rows)
+    finally:
+        unified_mapper._index_directory = original
+
+    assert len(resolved) == 12
+    assert unresolved == []
+    assert calls["n"] == 1, f"directory re-indexed {calls['n']}x for {len(rows)} rows"
+
+
+def test_resolve_many_returns_what_it_did_before_the_hoist(sleeper_dir):
+    """The hoist must be behaviour-preserving, not merely faster.
+
+    Compares the batch resolver against per-row ``resolve_player`` calls
+    on the same inputs — including a miss and a name-ladder hit, so the
+    comparison covers more than the exact-ID rung.
+    """
+    rows = [
+        {"sleeper_id": "4017"},
+        {"gsis_id": "00-0039196"},
+        {"name": "Josh Allen", "position": "LB"},
+        {"name": "Nobody At All", "position": "K"},
+    ]
+    batch_resolved, batch_unresolved = unified_mapper.resolve_many(sleeper_dir, rows)
+    one_by_one = [
+        unified_mapper.resolve_player(
+            sleeper_dir,
+            sleeper_id=r.get("sleeper_id"),
+            gsis_id=r.get("gsis_id"),
+            name=r.get("name"),
+            position=r.get("position"),
+        )
+        for r in rows
+    ]
+    assert [r.to_dict() for r in batch_resolved] == [
+        r.to_dict() for r in one_by_one if r is not None
+    ]
+    assert len(batch_unresolved) == sum(1 for r in one_by_one if r is None)
