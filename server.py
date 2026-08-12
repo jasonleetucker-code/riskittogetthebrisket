@@ -3550,12 +3550,16 @@ async def get_data(request: Request):
             #     teams + trades + tradeWindow* on top.  Tagged
             #     "live-merge" so ops can grep for the new path.
             #
-            #   sleeper_matches=False → carry NFL-wide maps from the
-            #     loaded contract, then apply the full overlay
-            #     payload on top (overlay wins on every overlapping
-            #     key).  Existing behaviour, with the upgraded trade
-            #     shape now landing on cross-league /trades too.
+            #   sleeper_matches=False → carry the NFL-wide maps from the
+            #     loaded contract and apply the overlay on top, but take
+            #     the league-SPECIFIC fields (scoringSettings,
+            #     rosterPositions, leagueSettings) from the requested
+            #     league's own config or leave them absent.  Readiness
+            #     follows ownership — see
+            #     ``sleeper_overlay.merge_cross_league_sleeper_block``
+            #     (W18-F002).
             scrubbed = dict(payload_obj) if isinstance(payload_obj, dict) else {}
+            cross_league_ready = True
             if sleeper_matches:
                 overlay_full = {
                     **loaded_sleeper,
@@ -3572,26 +3576,18 @@ async def get_data(request: Request):
                     "overlayFetchedAt": overlay.get("overlayFetchedAt"),
                 }
             else:
-                overlay_full = {
-                    **{
-                        k: loaded_sleeper.get(k)
-                        for k in (
-                            "positions",
-                            "playerIds",
-                            "idToPlayer",
-                            "scoringSettings",
-                            "rosterPositions",
-                            "leagueSettings",
-                        )
-                        if k in loaded_sleeper
-                    },
-                    **overlay,
-                }
+                overlay_full, cross_league_ready = (
+                    _sleeper_overlay.merge_cross_league_sleeper_block(
+                        loaded_sleeper=loaded_sleeper,
+                        overlay=overlay,
+                        requested_league_config=overlay.get("leagueConfig"),
+                    )
+                )
             scrubbed["sleeper"] = overlay_full
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
             meta["scoringProfile"] = league_cfg.scoring_profile
-            meta["sleeperDataReady"] = True
+            meta["sleeperDataReady"] = bool(sleeper_matches or cross_league_ready)
             meta["sleeperSource"] = "overlay"
             if not sleeper_matches:
                 meta["sleeperLoadedLeagueKey"] = loaded_league or None
@@ -11378,31 +11374,22 @@ async def get_terminal(request: Request):
                 },
             )
         # Build a hybrid contract: global rankings + per-league
-        # sleeper.  Carry forward the NFL-wide maps so the terminal
-        # builder can resolve positions/IDs the same as for the
-        # primary league.
-        hybrid_sleeper = {
-            **{
-                k: loaded_sleeper.get(k)
-                for k in (
-                    "positions",
-                    "playerIds",
-                    "idToPlayer",
-                    "scoringSettings",
-                    "rosterPositions",
-                    "leagueSettings",
-                )
-                if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
-            },
-            **overlay,
-        }
+        # sleeper.  The NFL-wide maps carry forward so the terminal
+        # builder resolves positions/IDs the same as for the primary
+        # league; the league-SPECIFIC fields come from the requested
+        # league or not at all (W18-F002).
+        hybrid_sleeper, cross_league_ready = _sleeper_overlay.merge_cross_league_sleeper_block(
+            loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
+            overlay=overlay,
+            requested_league_config=overlay.get("leagueConfig"),
+        )
         contract = {
             **contract,
             "sleeper": hybrid_sleeper,
             "meta": {
                 **loaded_meta,
                 "leagueKey": league_cfg.key,
-                "sleeperDataReady": True,
+                "sleeperDataReady": bool(cross_league_ready),
                 "sleeperSource": "overlay",
                 "sleeperLoadedLeagueKey": loaded_league,
             },
@@ -11592,21 +11579,11 @@ async def post_trade_simulate(request: Request):
                     "leagueKey": league_cfg.key,
                 },
             )
-        hybrid_sleeper = {
-            **{
-                k: loaded_sleeper.get(k)
-                for k in (
-                    "positions",
-                    "playerIds",
-                    "idToPlayer",
-                    "scoringSettings",
-                    "rosterPositions",
-                    "leagueSettings",
-                )
-                if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
-            },
-            **overlay,
-        }
+        hybrid_sleeper, _ = _sleeper_overlay.merge_cross_league_sleeper_block(
+            loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
+            overlay=overlay,
+            requested_league_config=overlay.get("leagueConfig"),
+        )
         contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
 
     # Lens on top of whatever contract the routing above settled on,
@@ -12442,24 +12419,14 @@ async def run_signal_alerts(request: Request):
                         # No data for this league — skip, not a
                         # failure (e.g. Sleeper transient error).
                         continue
-                    hybrid_sleeper = {
-                        **{
-                            k: loaded_sleeper.get(k)
-                            for k in (
-                                "positions",
-                                "playerIds",
-                                "idToPlayer",
-                                "scoringSettings",
-                                "rosterPositions",
-                                "leagueSettings",
-                            )
-                            if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
-                        },
-                        **overlay,
-                    }
+                    hybrid_sleeper, _ = _sleeper_overlay.merge_cross_league_sleeper_block(
+                        loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
+                        overlay=overlay,
+                        requested_league_config=overlay.get("leagueConfig"),
+                    )
                     contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
                 else:
-                    # Different scoring profile — rankings aren't
+                    # Scoring not proven to match — rankings aren't
                     # comparable, skip this league for this run.
                     continue
 

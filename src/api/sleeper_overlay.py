@@ -47,6 +47,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from typing import Any
 
 from src.utils.name_clean import strip_display_suffix
@@ -1145,6 +1146,86 @@ def _fetch_league_name(sleeper_league_id: str, getter=None) -> str | None:
     return str(name) if name else None
 
 
+#: Fields of a Sleeper block that belong to ONE league and may never be
+#: inherited from another (W18-F002).  The NFL-wide maps — ``positions``,
+#: ``playerIds``, ``idToPlayer`` — are deliberately not here: they map
+#: player ids to names for the whole league universe and are genuinely
+#: league-independent.
+LEAGUE_SPECIFIC_SLEEPER_FIELDS: tuple[str, ...] = (
+    "scoringSettings",
+    "rosterPositions",
+    "leagueSettings",
+)
+NFL_WIDE_SLEEPER_FIELDS: tuple[str, ...] = ("positions", "playerIds", "idToPlayer")
+
+
+def _fetch_league_config(sleeper_league_id: str, getter=None) -> dict[str, Any] | None:
+    """The requested league's OWN scoring/roster/settings block.
+
+    Same league object ``_fetch_league_name`` already reads (memoized per
+    build), so this costs no extra round-trip.  Returns ``None`` when the
+    fetch fails or the object carries no scoring card — the caller must
+    then publish an explicitly NOT-ready block rather than inheriting
+    another league's configuration.
+    """
+    info = (getter or _http_get_json)(f"https://api.sleeper.app/v1/league/{sleeper_league_id}")
+    if not isinstance(info, dict):
+        return None
+    scoring = info.get("scoring_settings")
+    if not isinstance(scoring, dict) or not scoring:
+        return None
+    return {
+        "scoringSettings": dict(scoring),
+        "rosterPositions": list(info.get("roster_positions") or []),
+        "leagueSettings": dict(info.get("settings") or {}),
+    }
+
+
+def merge_cross_league_sleeper_block(
+    *,
+    loaded_sleeper: Mapping[str, Any] | None,
+    overlay: Mapping[str, Any] | None,
+    requested_league_config: Mapping[str, Any] | None,
+) -> tuple[dict[str, Any], bool]:
+    """Build the Sleeper block for a league OTHER than the loaded one.
+
+    Returns ``(block, ready)`` where ``ready`` is the value
+    ``meta.sleeperDataReady`` may take.  The invariant:
+
+        ready is true IFF every league-specific field represented as
+        ready belongs to the REQUESTED league.
+
+    Before this existed the merge was inline in a request handler and
+    carried ``scoringSettings`` / ``rosterPositions`` / ``leagueSettings``
+    forward from the loaded league, laid the requested league's teams on
+    top, and stamped ready unconditionally — League B's rosters welded to
+    League A's scoring card and team count, published as though it were
+    League B's own data.  ``useTeam.js`` reads that flag, so the
+    data-not-ready state written precisely for this case never rendered.
+
+    Without the requested league's own configuration the fields are left
+    ABSENT rather than inherited.  Absent is a state the frontend can
+    detect; a plausible wrong value is not.
+    """
+    loaded = dict(loaded_sleeper or {})
+    over = dict(overlay or {})
+    block: dict[str, Any] = {k: loaded[k] for k in NFL_WIDE_SLEEPER_FIELDS if k in loaded}
+    # The overlay is the requested league's own data and wins outright.
+    block.update(over)
+    # Never let an overlay carry a league-specific field implicitly; the
+    # only source for those is the requested league's config below.
+    for field in LEAGUE_SPECIFIC_SLEEPER_FIELDS:
+        block.pop(field, None)
+
+    config = requested_league_config if isinstance(requested_league_config, Mapping) else None
+    if not config or not config.get("scoringSettings"):
+        return block, False
+    for field in LEAGUE_SPECIFIC_SLEEPER_FIELDS:
+        if field in config:
+            block[field] = config[field]
+    return block, True
+
+
 def fetch_sleeper_overlay(
     *,
     sleeper_league_id: str,
@@ -1314,10 +1395,18 @@ def _build_overlay_and_cache(
         getter=fetcher.get,
     )
 
+    # The requested league's OWN scoring/roster/settings, read from the
+    # same league object ``_fetch_league_name`` just used.  This is what
+    # lets a cross-league block be published as ready WITHOUT inheriting
+    # the loaded league's configuration (W18-F002); ``None`` here means
+    # the block will honestly say it is not ready.
+    league_config = _fetch_league_config(sleeper_league_id, getter=fetcher.get)
+
     cutoff_dt = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=int(trade_window_days))
     payload: dict[str, Any] = {
         "leagueId": sleeper_league_id,
         "leagueName": league_name,
+        "leagueConfig": league_config,
         "teams": teams,
         "trades": trades,
         "waivers": waivers,

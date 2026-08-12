@@ -157,6 +157,22 @@ hash of `{}`. Missing is never zero.
 
 They are **unverifiable**, and unverifiable fails closed.
 
+**Measured correction (2026-08-12), after implementation.** This section
+originally predicted a one-refresh-cycle degradation for every existing
+contract. That over-stated it, because of the Q3 fallback: the live
+board on disk (`exports/latest/dynasty_data_2026-08-12.json`) stamps
+neither `meta.scoringProfile` nor `meta.leagueKey`, yet its own
+`sleeper.scoringSettings` block (141 keys) derives
+`sf1:b7ad1575925091f6` — the correct dynasty_main identity. A contract
+carrying its scoring card is therefore identified **immediately**, with
+no rebuild. Only a contract with no sleeper block at all is genuinely
+unverifiable.
+
+What *does* need a refresh is the other side: a league with no
+`data/leagues/scoring_*.json` snapshot yet. `scripts/fetch_league_scoring.py`
+covers that in one command on a fresh deploy, and the post-scrape warm
+pass covers it thereafter.
+
 The blast radius is narrow and worth stating exactly, because "fail
 closed" sounds larger than it is here:
 
@@ -170,8 +186,10 @@ closed" sounds larger than it is here:
   branch for other reasons; `/api/data` and `/api/rankings/overrides`
   gain it.
 * **It self-heals in one scrape cycle.** `scheduled-refresh.yml` runs
-  every 2 h, and the stamp is added at build time, so no migration step,
-  backfill script or operator action is required.
+  every 2 h, and both the stamp and the snapshot are refreshed on that
+  cadence, so no migration step or backfill is required — only
+  `scripts/fetch_league_scoring.py` on a cold deploy that has not
+  scraped yet.
 
 What must *not* happen: treating "no fingerprint" as "compatible", which
 is the live defect (`if loaded_profile and ...`), or synthesising one from
@@ -223,6 +241,51 @@ by the factual scoring fingerprint — never by `scoringProfile`.** The
 label is not an identity, which is the whole of W18-F001.
 
 ---
+
+## Measured outcome on the shipped configuration
+
+`b6_validate.py` in this directory boots the real app against the real
+`config/leagues/registry.json` and the live board, with no fixtures.
+Output pinned in `b6-validation.json`:
+
+| | dynasty_main | dynasty_new |
+|---|---|---|
+| `scoringProfile` | `superflex_tep15_ppr1` | `superflex_tep15_ppr1` |
+| `scoringFingerprint` | `sf1:b7ad1575925091f6` | `sf1:82a5f8ef2bfdb098` |
+
+`labelsAgree: true`, `fingerprintsAgree: false` — the defect, caught.
+
+Endpoint outcomes with dynasty_main's board loaded:
+
+| endpoint | dynasty_main | dynasty_new |
+|---|---|---|
+| `/api/data` | 200, `sleeperDataReady: true` | **503** `data_not_ready` |
+| `/api/terminal` | 200 | **503** `data_not_ready` |
+| `/api/draft-capital` | 200 | 200 (see below) |
+
+`/api/draft-capital` deliberately stays 200 for a foreign league — its
+Sleeper-derived fallback builds that league's own pick board and does not
+need the contract (CLAUDE.md, D-2). What changed is narrower and
+measured in isolated processes (a same-process A/B is invalidated by the
+route's own cache):
+
+| | old gate (labels matched) | new gate |
+|---|---|---|
+| `rookieSource` | `contract` | `none` |
+| rookie rows priced | 40 | 0 |
+| picks emitted | 80 | 80 |
+
+So dynasty_new was being shown 40 rookies priced under 0.08-PPR /
+6-point-TD scoring on a full-PPR / 4-point-TD board. They are now
+withheld while the league's real pick board is untouched — the same
+"unpriced rather than invented" posture `isUnpriced` and
+`assetsUnpricedByBoard` already take elsewhere.
+
+Cost of the gate, measured warm: `scoring_fingerprint_for_league`
+**9.9 µs** (one `stat()` plus a dict hit; the fingerprint is memoized on
+mtime+size), `_contract_scoring_fingerprint` **0.3 µs** on a stamped
+contract. Neither is on the same order as anything else in these
+handlers.
 
 ## Scope note
 

@@ -1,0 +1,60 @@
+{
+  "contract": {
+    "derivedFromOwnSleeperBlock": "sf1:b7ad1575925091f6",
+    "leagueKey": "dynasty_main",
+    "playersArray": 1095,
+    "resolvedByGate": "sf1:b7ad1575925091f6",
+    "scoringProfile": "superflex_tep15_ppr1",
+    "stampedFingerprint": "sf1:b7ad1575925091f6"
+  },
+  "endpoints": {
+    "dynasty_main": {
+      "/api/data?leagueKey=dynasty_main": {
+        "leagueSpecificFieldsPresent": [
+          "leagueSettings",
+          "rosterPositions",
+          "scoringSettings"
+        ],
+        "sleeperDataReady": true,
+        "sleeperIsNull": false,
+        "sleeperLoadedLeagueKey": null,
+        "status": 200
+      },
+      "/api/draft-capital?leagueKey=dynasty_main": {
+        "status": 200
+      },
+      "/api/terminal?leagueKey=dynasty_main": {
+        "status": 200
+      }
+    },
+    "dynasty_new": {
+      "/api/data?leagueKey=dynasty_new": {
+        "error": "data_not_ready",
+        "message": "Rankings are not compatible: league 'dynasty_new' scores players differently from the scoring the loaded rankings were built under.",
+        "status": 503
+      },
+      "/api/draft-capital?leagueKey=dynasty_new": {
+        "status": 200
+      },
+      "/api/terminal?leagueKey=dynasty_new": {
+        "error": "data_not_ready",
+        "message": "Rankings are not compatible: league 'dynasty_new' scores players differently from the scoring the loaded rankings were built under.",
+        "status": 503
+      }
+    }
+  },
+  "fingerprintsAgree": false,
+  "labelsAgree": true,
+  "leagues": {
+    "dynasty_main": {
+      "scoringFingerprint": "sf1:b7ad1575925091f6",
+      "scoringProfile": "superflex_tep15_ppr1",
+      "snapshot": "/home/user/riskittogetthebrisket/data/leagues/scoring_1312006700437352448.json"
+    },
+    "dynasty_new": {
+      "scoringFingerprint": "sf1:82a5f8ef2bfdb098",
+      "scoringProfile": "superflex_tep15_ppr1",
+      "snapshot": "/home/user/riskittogetthebrisket/data/leagues/scoring_1320092771247222784.json"
+    }
+  }
+}

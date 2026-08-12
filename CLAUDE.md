@@ -131,13 +131,51 @@ npm run regression                   # Full pipeline: preflight + tests
 
 The single most important architectural rule for multi-league:
 
-> **Scoring profile controls rankings.  League key controls context.**
+> **Scoring controls rankings.  League key controls context.**
 
-* **`scoringProfile`** (from `config/leagues/registry.json`) is the
-  identifier for "which set of rules produces a player's value".  Two
-  leagues that use identical scoring share ONE ranking pipeline and
-  ONE output.  A single scrape's blended rankings can be served to
-  every league with the same profile — no per-league recompute.
+* **Scoring** decides "which set of rules produces a player's value".
+  Two leagues that use identical scoring share ONE ranking pipeline and
+  ONE output; a single scrape's blended rankings can be served to every
+  such league with no per-league recompute.
+
+  **Which leagues those are is a FACT, not a label** (W18-F001, fixed
+  2026-08-12).  `scoringProfile` in `config/leagues/registry.json` is a
+  hand-typed config/model marker with real consumers (BDVM, the gameplan
+  bundle, draft scarcity) and it stays exactly that.  It is NOT the
+  compatibility identity, because it was measurably wrong: both live
+  leagues carry `superflex_tep15_ppr1` while their hosts differ on 35 of
+  48 shared scoring keys (`rec` 1.0 vs 0.08, `pass_td` 4 vs 6, `pass_yd`
+  0.04 vs 1/30, `pass_int` -1 vs -4, `bonus_rec_te` 0.0 vs 0.5) — so
+  `/api/data?leagueKey=dynasty_new` served dynasty_main's board.
+
+  The identity is `scoring_fingerprint()`
+  (`src/league_comparison/sleeper_scoring.py`), computed over the
+  league's ACTUAL scoring card with key order, numeric form (`1` vs
+  `1.0`) and absent-vs-explicit-zero normalized away and non-numeric
+  metadata excluded.  It returns `None` — never a hash of `{}` — when
+  there is no card, so unproven is distinguishable from proven and
+  **fails closed**.  Deliberately not the pre-existing `_scoring_hash`,
+  which gets all three normalizations wrong and would manufacture false
+  *in*compatibility; that one keeps its league-comparison display
+  consumers.
+
+  Where it lives:
+  - per league — a snapshot at `data/leagues/scoring_<sleeperLeagueId>.json`,
+    refreshed by the post-scrape warm pass and by
+    `scripts/fetch_league_scoring.py` (needed once on a cold deploy).
+    **Never fetched inside a request** — an 8 s Sleeper round-trip in the
+    `/api/data` gate would trade a correctness bug for a latency one.
+  - per contract — `meta.scoringFingerprint`, derived from the
+    contract's OWN `sleeper.scoringSettings` so it can be recomputed
+    from the artifact it describes instead of copied from config.  A
+    contract without the stamp but with its sleeper block is still
+    identified (the gate recomputes); one with neither is unverifiable.
+
+  `league_registry.leagues_share_scoring()` is the single owner of the
+  question and every gate routes through
+  `server.py::_scoring_identity_error`.  Rule for new code: a cache may
+  be keyed by `leagueKey` or by the fingerprint — **never** by
+  `scoringProfile`.
 
 * **`leagueKey`** is the identifier for "which league's rosters,
   teams, managers, draft, and signals".  Anything that depends on
@@ -166,18 +204,26 @@ Fields that follow **leagueKey** (must be per-league):
 Contract annotations:
 - `meta.leagueKey` — which specific league's `sleeper` block is
   stamped here
-- `meta.scoringProfile` — which scoring rules produced these rankings
-- `meta.sleeperDataReady` — true iff `sleeper` block is valid for the
-  *requested* league; false when the server served the shared
-  rankings but doesn't have the requested league's rosters loaded
+- `meta.scoringProfile` — the config/model LABEL the build ran under.
+  Descriptive; decides nothing about compatibility.
+- `meta.scoringFingerprint` — the FACTUAL identity of the scoring that
+  produced these rankings.  This is what compatibility is decided on.
+- `meta.sleeperDataReady` — true iff EVERY league-specific field in the
+  `sleeper` block belongs to the *requested* league.  False when the
+  server served shared rankings without that league's rosters, and false
+  on a cross-league overlay whose own config could not be fetched
+  (W18-F002) — in that case the league-specific fields are ABSENT rather
+  than inherited.  The one merge that can produce this state is
+  `sleeper_overlay.merge_cross_league_sleeper_block`; do not re-inline it.
 - `meta.sleeperLoadedLeagueKey` — which league the `sleeper` block
-  *would* be for, when `sleeperDataReady: false` (diagnostic only)
+  *would* be for, when `sleeperDataReady: false` (diagnostic only).
+  Deleting it would hide a chimera, not prevent one.
 
 Error behavior on endpoints:
-- `/api/data`, `/api/rankings/overrides` — 503 only when scoring
-  profiles genuinely differ.  When they match but sleeper is for a
-  different league, serve shared rankings with `sleeper: null` +
-  `sleeperDataReady: false`.
+- `/api/data`, `/api/rankings/overrides` — 503 when scoring is not
+  PROVEN identical (different fingerprints, or either side unverifiable).
+  When it is proven and sleeper is for a different league, serve shared
+  rankings with `sleeper: null` + `sleeperDataReady: false`.
 - `/api/terminal`, `/api/trade/*`, `/api/angle/*` — 503 whenever the
   loaded contract's `leagueKey` doesn't match the request.  These
   endpoints can't meaningfully work without the specific league's
@@ -193,6 +239,13 @@ Error behavior on endpoints:
     only for pick VALUES, so a foreign-league contract still produces
     a correct board for the requested league — refusing it would
     remove working multi-league functionality to satisfy a table.
+  - Its ROOKIE block is the one part that is scoring-dependent, and it
+    is gated by the same `_scoring_identity_error` as everything else
+    (W18-F001).  Measured on the live board: dynasty_new used to be
+    served 40 rookies priced under dynasty_main's 0.08-PPR / 6-point-TD
+    rules on a full-PPR / 4-point-TD board; it now gets
+    `rookieSource: "none"` with all 80 of its real picks intact.
+    Withholding a value we cannot justify, not refusing the board.
   - This resolves Defect D-2 (`docs/python-coverage-audit.md`), which
     was open between "503 per this table" and "keep the fallback and
     fix the doc".  Fixing the doc is the answer, and this is it.

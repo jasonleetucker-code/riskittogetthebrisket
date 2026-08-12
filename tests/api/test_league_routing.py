@@ -802,6 +802,82 @@ def test_api_data_overlay_layers_fresh_trades_in_baked_shape(shared_scoring_regi
     assert sleeper.get("overlaySource") == "live-merge"
 
 
+def _cross_league_overlay(league_config=None):
+    payload = {
+        "leagueId": "LT",
+        "teams": [{"ownerId": "oB", "name": "Twin Team", "players": ["twin-1"]}],
+        "trades": [],
+        "waivers": [],
+        "overlaySource": "live",
+        "overlayFetchedAt": "2026-08-12T12:00:00+00:00",
+    }
+    if league_config is not None:
+        payload["leagueConfig"] = league_config
+    return payload
+
+
+def test_cross_league_block_never_inherits_config_and_claims_ready(
+    shared_scoring_registry, monkeypatch
+):
+    """W18-F002, end to end through /api/data.
+
+    Twin's teams must never be published beside main's scoring card,
+    roster slots and league settings under ``sleeperDataReady: true``."""
+    monkeypatch.setattr(
+        server._sleeper_overlay,
+        "fetch_sleeper_overlay",
+        lambda **_kw: _cross_league_overlay(),
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        server.latest_contract_data["sleeper"].update(
+            {
+                "positions": {"WR": ["A"]},
+                "rosterPositions": ["QB", "RB", "BN"],
+                "leagueSettings": {"num_teams": 12},
+            }
+        )
+        server._OVERLAY_RESPONSE_CACHE.clear()
+        res = c.get("/api/data?leagueKey=twin")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    sleeper = body["sleeper"]
+    assert sleeper["teams"][0]["ownerId"] == "oB"
+    assert body["meta"]["sleeperDataReady"] is False
+    assert body["meta"]["sleeperLoadedLeagueKey"] == "main"
+    for field in ("scoringSettings", "rosterPositions", "leagueSettings"):
+        assert sleeper.get(field) is None, f"{field} inherited from the loaded league"
+    # NFL-wide maps are league-independent and still reused.
+    assert sleeper["positions"] == {"WR": ["A"]}
+
+
+def test_cross_league_block_is_ready_when_it_owns_its_config(shared_scoring_registry, monkeypatch):
+    """The other half: don't degrade a block that IS the requested
+    league's.  Otherwise the repair costs working functionality."""
+    twin_config = {
+        "scoringSettings": dict(SCORING_CARD),
+        "rosterPositions": ["QB", "RB", "WR", "BN"],
+        "leagueSettings": {"num_teams": 10},
+    }
+    monkeypatch.setattr(
+        server._sleeper_overlay,
+        "fetch_sleeper_overlay",
+        lambda **_kw: _cross_league_overlay(twin_config),
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        server.latest_contract_data["sleeper"].update(
+            {"rosterPositions": ["QB", "RB", "BN"], "leagueSettings": {"num_teams": 12}}
+        )
+        server._OVERLAY_RESPONSE_CACHE.clear()
+        res = c.get("/api/data?leagueKey=twin")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["meta"]["sleeperDataReady"] is True
+    assert body["sleeper"]["leagueSettings"] == {"num_teams": 10}
+    assert body["sleeper"]["rosterPositions"] == ["QB", "RB", "WR", "BN"]
+
+
 def test_api_data_503s_when_scoring_differs(shared_scoring_registry, monkeypatch):
     """'stranger' scores differently → 503; rankings can't be reused."""
     with TestClient(server.app, raise_server_exceptions=True) as c:

@@ -5,8 +5,8 @@
   4,
   5
  ],
- "title": "The cross-league Sleeper overlay stamps sleeperDataReady:true on a chimeric block \u2014 dynasty_new's real teams welded to dynasty_main's scoringSettings, rosterPositions and num_teams \u2014 which un-gates every team-dependent page",
- "status": "Implemented but defective",
+ "title": "The cross-league Sleeper overlay stamps sleeperDataReady:true on a chimeric block — dynasty_new's real teams welded to dynasty_main's scoringSettings, rosterPositions and num_teams — which un-gates every team-dependent page",
+ "status": "Fixed",
  "priority": "P1",
  "size": "S",
  "subsystem": "Sleeper overlay / contract meta",
@@ -34,12 +34,12 @@
    "lines": "83-101"
   }
  ],
- "claimUnderTest": "CLAUDE.md contract annotations: 'meta.sleeperDataReady \u2014 true iff sleeper block is valid for the *requested* league; false when the server served the shared rankings but doesn't have the requested league's rosters loaded' and 'meta.sleeperLoadedLeagueKey \u2014 which league the sleeper block *would* be for, when sleeperDataReady: false (diagnostic only)'.",
- "observed": "On the sleeper_matches=False branch, server.py:3244-3256 carries positions / playerIds / idToPlayer / scoringSettings / rosterPositions / leagueSettings forward from the LOADED league and lays the requested league's overlay (teams, trades, waivers) on top, then unconditionally sets meta.sleeperDataReady = True at :3259. GET /api/data?view=app&leagueKey=dynasty_new returns sleeperDataReady:true AND sleeperLoadedLeagueKey:\"dynasty_main\" simultaneously \u2014 a combination the documented contract says cannot occur. The block reports leagueId 1320092771247222784 and 10 real teams (correct) alongside num_teams 12, 58 roster slots and dynasty_main's 141-key IDP scoring card (all wrong; the real league is 10 teams, 27 slots, 48 keys, no IDP). useTeam.js:84-94 reads the flag: true -> leagueMismatch false -> the data-not-ready state that exists precisely for this case never renders.",
+ "claimUnderTest": "CLAUDE.md contract annotations: 'meta.sleeperDataReady — true iff sleeper block is valid for the *requested* league; false when the server served the shared rankings but doesn't have the requested league's rosters loaded' and 'meta.sleeperLoadedLeagueKey — which league the sleeper block *would* be for, when sleeperDataReady: false (diagnostic only)'.",
+ "observed": "On the sleeper_matches=False branch, server.py:3244-3256 carries positions / playerIds / idToPlayer / scoringSettings / rosterPositions / leagueSettings forward from the LOADED league and lays the requested league's overlay (teams, trades, waivers) on top, then unconditionally sets meta.sleeperDataReady = True at :3259. GET /api/data?view=app&leagueKey=dynasty_new returns sleeperDataReady:true AND sleeperLoadedLeagueKey:\"dynasty_main\" simultaneously — a combination the documented contract says cannot occur. The block reports leagueId 1320092771247222784 and 10 real teams (correct) alongside num_teams 12, 58 roster slots and dynasty_main's 141-key IDP scoring card (all wrong; the real league is 10 teams, 27 slots, 48 keys, no IDP). useTeam.js:84-94 reads the flag: true -> leagueMismatch false -> the data-not-ready state that exists precisely for this case never renders.",
  "reproduction": {
   "command": "bash docs/master-site-audit/evidence/W18/repro.sh   # section R3",
   "expected": "sleeperDataReady:false (per the documented contract) OR a sleeper block whose scoringSettings/rosterPositions/leagueSettings belong to dynasty_new",
-  "actual": "sleeperDataReady:true with num_teams 12, 58 roster slots, rec 0.08 and idp_sack 2.92 \u2014 dynasty_main's values under dynasty_new's leagueId and leagueName",
+  "actual": "sleeperDataReady:true with num_teams 12, 58 roster slots, rec 0.08 and idp_sack 2.92 — dynasty_main's values under dynasty_new's leagueId and leagueName",
   "artifact": "docs/master-site-audit/evidence/W18/scoring-matrix-dynasty_new.csv"
  },
  "numericProof": {
@@ -52,7 +52,7 @@
   "actual": 144,
   "tolerance": 0
  },
- "userImpact": "On /trade, /waivers and /rosters under dynasty_new the starter/bench split comes from sleeper.rosterPositions (frontend/lib/portfolio-insights.js:105), so the user is shown a 21-slot IDP lineup with 3 DL / 3 LB / 3 DB / 1 K starting slots for a league that has none of those positions, plus 37 bench slots for a 17-bench league \u2014 and the 'no roster data yet' banner that would have prevented all of it is suppressed.",
+ "userImpact": "On /trade, /waivers and /rosters under dynasty_new the starter/bench split comes from sleeper.rosterPositions (frontend/lib/portfolio-insights.js:105), so the user is shown a 21-slot IDP lineup with 3 DL / 3 LB / 3 DB / 1 K starting slots for a league that has none of those positions, plus 37 bench slots for a 17-bench league — and the 'no roster data yet' banner that would have prevented all of it is suppressed.",
  "blastRadius": {
   "playersAffected": 1092,
   "routesAffected": 2,
@@ -65,7 +65,19 @@
   "note": "PRIOR-A19-F20 and PRIOR-A21-F05 report the same class (hardcoded league context leaking across leagues) in ROS/public-league; this is the contract-level source those inherit from."
  },
  "whatWorks": "The no-overlay fallback path directly below (server.py:3288-3298) does it correctly: it nulls the sleeper block and sets sleeperDataReady:false. The defect is only on the overlay-succeeded branch.",
- "rootCause": "The overlay merge treats 'we fetched the requested league's rosters' as equivalent to 'the sleeper block is valid for the requested league', but the overlay only supplies teams/trades/waivers \u2014 scoringSettings, rosterPositions and leagueSettings are never overlaid and silently retain the loaded league's values.",
+ "rootCause": "The overlay merge treats 'we fetched the requested league's rosters' as equivalent to 'the sleeper block is valid for the requested league', but the overlay only supplies teams/trades/waivers — scoringSettings, rosterPositions and leagueSettings are never overlaid and silently retain the loaded league's values.",
  "requiredRepair": "On the sleeper_matches=False branch, either drop scoringSettings/rosterPositions/leagueSettings from the carried-forward key list (leaving them absent rather than wrong) and keep sleeperDataReady:false, or fetch the requested league's own config in the overlay so the block is genuinely that league's. Do not stamp sleeperDataReady:true unless every field in the block belongs to the requested league.",
- "dependencies": "W18-F001 \u2014 with a correct scoringProfile this path would 503 before reaching the overlay."
+ "dependencies": "W18-F001 — with a correct scoringProfile this path would 503 before reaching the overlay.",
+ "b6Resolution": {
+  "resolvedAt": "2026-08-12",
+  "resolvedIn": "B6",
+  "resolution": "The cross-league sleeper merge was inline in four request handlers, which is why no test covered it. It is now one named function, src/api/sleeper_overlay.py::merge_cross_league_sleeper_block, with the invariant 'sleeperDataReady is true IFF every league-specific field represented as ready belongs to the requested league'. scoringSettings / rosterPositions / leagueSettings come from the requested league's own config or are left ABSENT; the NFL-wide maps (positions, playerIds, idToPlayer) are genuinely league-independent and still reused.",
+  "howReadyStaysReachable": "fetch_sleeper_overlay now publishes leagueConfig, read from the same Sleeper league object _fetch_league_name already fetched — no extra round-trip. A cross-league block that owns its config is still ready, so the repair does not cost working functionality; only an unfetchable config degrades to not-ready.",
+  "regressionCoverage": [
+   "tests/api/test_cross_league_overlay_coherence.py",
+   "tests/api/test_league_routing.py::test_cross_league_block_never_inherits_config_and_claims_ready",
+   "tests/api/test_league_routing.py::test_cross_league_block_is_ready_when_it_owns_its_config"
+  ],
+  "independenceNote": "The regression fixture is deliberately NOT the real dynasty_main -> dynasty_new pair. That pair was only reachable because W18-F001 let two differently-scored leagues share a label; after the F001 repair it correctly 503s before the overlay runs, so a test built on it would have evaporated. League A and B in the fixture are genuinely scoring-compatible and differ only in league-specific configuration. Verified still RED for its own reason (no named merge function) after F001 went green."
+ }
 }
