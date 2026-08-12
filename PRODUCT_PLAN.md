@@ -44,6 +44,12 @@ For the owner-approved **Upside Report** — the mobile-first weekly league show
 
 That specification makes the weekly report a presentation/storytelling consumer of canonical scoring, best-ball, replacement/PAR/VORP, Game Day, Playoff Predictor, Awards/Honors, history, transactions and Share Renderer rather than a duplicate engine. AI may write the narrative, but deterministic systems must establish the facts. Categories are adaptive: if nothing genuinely interesting happened, the report omits the category instead of manufacturing a meaningless weekly award.
 
+For the owner-approved **Canonical Weekly Power Rankings** — one objective, weekly-updated answer to which teams are strongest right now, consolidating the two existing Power implementations into a schedule-neutral model built from forward-looking ROS competition strength, season and recent all-play performance, team-level realized VORP/PAR and official record — read:
+
+**[`docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md`](docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md)**
+
+That specification explicitly separates Power Rankings from dynasty Team Strength, official standings and Playoff Predictor probability. It excludes future schedule and dynasty market value from the core Power score, requires weekly rank/index movement and immutable historical snapshots, feeds the Upside Report, and requires historical no-lookahead validation against future all-play/neutral-opponent performance before finalizing weights.
+
 For the Brisket Honors eligibility rules tying **League MVP** and **Manager of the Year** to actual competitive success while deliberately keeping **GM of the Year** and performance/rookie/positional awards separate, read:
 
 **[`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`](docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md)**
