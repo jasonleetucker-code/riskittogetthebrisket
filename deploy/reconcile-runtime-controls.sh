@@ -53,6 +53,14 @@ RECONCILE_ACTIONS=()
 # host.  ``SYSTEMCTL_BIN`` / ``INSTALL_BIN`` below are the same seam.
 SYSTEMD_UNIT_DIR="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
 RC_PROC_DIR="${RC_PROC_DIR:-/proc}"
+# The watchdog runs AS root, so its file must be owned BY root and live
+# outside the deploy-user-writable checkout: otherwise a compromised
+# deploy account rewrites what root executes, within a minute.  The
+# default below is the production requirement and nothing on the host
+# overrides it — a test that cannot create root-owned files sets this so
+# it can still exercise the real install/verify path, and a separate
+# test pins the default so the seam cannot quietly weaken the boundary.
+RC_WATCHDOG_OWNER="${RC_WATCHDOG_OWNER:-root:root}"
 
 _rc_log()  { printf '[reconcile] %s\n' "$*"; }
 _rc_warn() { printf '[reconcile][WARN] %s\n' "$*" >&2; }
@@ -272,7 +280,7 @@ _reconcile_runtime_controls() {
     # because production happens to run SERVICE_NAME=dynasty — an
     # accidental coupling that breaks on any other service name.
     _rc_install_if_different "${sysd}/dynasty-healthcheck.sh" \
-      "${RISKIT_LIB_DIR}/dynasty-healthcheck.sh" 0755 "root:root" || rc=1
+      "${RISKIT_LIB_DIR}/dynasty-healthcheck.sh" 0755 "${RC_WATCHDOG_OWNER}" || rc=1
   else
     _rc_err "missing ${sysd}/dynasty-healthcheck.sh"; rc=1
   fi
@@ -411,8 +419,8 @@ _verify_runtime_controls() {
   fi
   owner="$(stat -c '%U:%G' "${installed}")"
   mode="$(stat -c '%a' "${installed}")"
-  if [[ "${owner}" != "root:root" ]]; then
-    _rc_err "${installed} owner=${owner}, expected root:root"; rc=1
+  if [[ "${owner}" != "${RC_WATCHDOG_OWNER}" ]]; then
+    _rc_err "${installed} owner=${owner}, expected ${RC_WATCHDOG_OWNER}"; rc=1
   fi
   if [[ "${mode}" != "755" ]]; then
     _rc_err "${installed} mode=${mode}, expected 755"; rc=1

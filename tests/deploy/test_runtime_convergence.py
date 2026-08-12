@@ -29,7 +29,9 @@ which default to the production paths.
 
 from __future__ import annotations
 
+import grp
 import os
+import pwd
 import shutil
 import subprocess
 import textwrap
@@ -43,6 +45,18 @@ SYSD = REPO / "deploy" / "systemd"
 
 SERVICE_NAME = "brisket"  # deliberately not "dynasty"
 APP_USER = "briskuser"
+
+# The watchdog must be owned by the user that EXECUTES it — root in
+# production.  CI runs as an unprivileged user and cannot create a
+# root-owned file, so the suite tells the reconciler which owner to
+# require rather than skipping the install/verify path that matters.
+# ``TestTheOwnerSeamCannotWeakenProduction`` pins the default at
+# root:root so this cannot silently become the production behaviour.
+WATCHDOG_OWNER = (
+    "root:root"
+    if os.geteuid() == 0
+    else f"{pwd.getpwuid(os.geteuid()).pw_name}:{grp.getgrgid(os.getegid()).gr_name}"
+)
 
 FAKE_SUDO = """#!/usr/bin/env bash
 # Passwordless sudo stand-in.  These tests run as root, so the faithful
@@ -201,6 +215,7 @@ class Host:
             "RC_PROC_DIR": str(self.proc),
             "SYSTEMCTL_BIN": str(self.bin / "systemctl"),
             "INSTALL_BIN": "/usr/bin/install",
+            "RC_WATCHDOG_OWNER": WATCHDOG_OWNER,
             "FAKE_SYSTEMCTL_STATE": str(self.state),
         }
 
@@ -295,7 +310,8 @@ class TestItConvergesTheHost:
         for threshold in ("FD_WARN:-256", "FD_CRIT:-512", "FD_EMERG:-768"):
             assert threshold in text
         stat = host.watchdog.stat()
-        assert (stat.st_uid, stat.st_gid) == (0, 0)
+        owner = f"{pwd.getpwuid(stat.st_uid).pw_name}:{grp.getgrgid(stat.st_gid).gr_name}"
+        assert owner == WATCHDOG_OWNER
         assert oct(stat.st_mode)[-3:] == "755"
 
     def test_absent_healthcheck_units_converge(self, host):
@@ -536,3 +552,21 @@ class TestUnauthorizedPrivilegeIsRefusedBeforeSudo:
         r = host.run_snippet('_rc_sudo /usr/bin/stat -c %U /etc/hostname; echo "rc=$?"')
         assert "rc=126" in r.stdout, r.stdout + r.stderr
         assert "not in the authorized set" in r.stderr
+
+
+class TestTheOwnerSeamCannotWeakenProduction:
+    """The suite sets ``RC_WATCHDOG_OWNER`` so it can run unprivileged.
+    Production must never depend on that: a root-EXECUTED watchdog owned
+    by the deploy user means a compromised checkout rewrites what root
+    runs, within a minute."""
+
+    def test_the_default_is_root_root(self):
+        text = RECONCILER.read_text()
+        assert 'RC_WATCHDOG_OWNER="${RC_WATCHDOG_OWNER:-root:root}"' in text
+
+    def test_neither_deploy_nor_rollback_sets_it(self):
+        for name in ("deploy.sh", "rollback.sh"):
+            script = (REPO / "deploy" / name).read_text()
+            assert (
+                "RC_WATCHDOG_OWNER" not in script
+            ), f"{name} overrides the watchdog owner; production must take the default"
