@@ -588,10 +588,36 @@ def main() -> int:
     ap.add_argument("--boundary", action="store_true")
     ap.add_argument("--equivalence", action="store_true")
     ap.add_argument("--at", type=int, default=500, help="current saturation boundary")
-    ap.add_argument("--candidate", type=int, default=903)
+    ap.add_argument(
+        "--candidate",
+        type=int,
+        default=None,
+        help=(
+            "boundary to prove equivalence for; defaults to the live "
+            "tail_policy.TAIL_SATURATION_RANK so this tool cannot silently "
+            "analyse a superseded value"
+        ),
+    )
     args = ap.parse_args()
     if not any((args.pin, args.reproduce, args.boundary, args.equivalence)):
         ap.error("pass at least one of --pin/--reproduce/--boundary/--equivalence")
+
+    # Same hazard as ``b4f_historical.py``: this defaulted to 903, the
+    # value the 17-day replay refuted, so ``--equivalence`` with no
+    # argument proved the head was preserved for a boundary production
+    # does not serve. Resolved from the canonical owner instead.
+    candidate = args.candidate
+    candidate_source = "--candidate"
+    if candidate is None:
+        from src.canonical.tail_policy import TAIL_SATURATION_RANK
+
+        candidate, candidate_source = TAIL_SATURATION_RANK, "tail_policy.TAIL_SATURATION_RANK"
+    if args.equivalence and candidate is None:
+        ap.error(
+            "--equivalence needs a boundary, and tail_policy.TAIL_SATURATION_RANK "
+            "is None (pre-B4 saturation). Pass --candidate explicitly."
+        )
+
     if args.pin:
         cmd_pin()
     if args.reproduce:
@@ -599,7 +625,8 @@ def main() -> int:
     if args.boundary:
         cmd_boundary()
     if args.equivalence:
-        cmd_equivalence(args.candidate)
+        print(f"   (boundary {candidate} from {candidate_source})")
+        cmd_equivalence(candidate)
     return 0
 
 

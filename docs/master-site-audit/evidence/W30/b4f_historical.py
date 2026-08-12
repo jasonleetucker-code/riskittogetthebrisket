@@ -185,18 +185,57 @@ def compare(base, cand) -> dict:
     }
 
 
+def resolve_candidate(explicit: int | None) -> tuple[int | None, str]:
+    """The boundary to analyse — from the canonical owner, never a literal.
+
+    This argument used to default to ``903``: the value B4 selected before
+    the 17-day replay refuted it (``idpTradeCalc`` reaches 904). Running
+    the tool without ``--candidate`` therefore analysed a **superseded**
+    boundary while labelling its output "the candidate" — the tool would
+    have quietly disagreed with production and said nothing.
+
+    Reading ``tail_policy`` means the default is whatever production
+    actually serves. ``None`` there is the pre-B4 state, which has no
+    candidate to analyse, so the caller is required to name one rather
+    than have a number invented for them.
+    """
+    if explicit is not None:
+        return explicit, "--candidate"
+    from src.canonical.tail_policy import TAIL_SATURATION_RANK
+
+    return TAIL_SATURATION_RANK, "tail_policy.TAIL_SATURATION_RANK"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--depths", action="store_true", help="step 4: historical source depth")
     ap.add_argument("--sensitivity", action="store_true", help="step 13: per-day candidate impact")
-    ap.add_argument("--candidate", type=int, default=903)
+    ap.add_argument(
+        "--candidate",
+        type=int,
+        default=None,
+        help=(
+            "boundary to analyse; defaults to the live "
+            "tail_policy.TAIL_SATURATION_RANK so this tool cannot silently "
+            "analyse a superseded value"
+        ),
+    )
     args = ap.parse_args()
     if not (args.depths or args.sensitivity):
         ap.error("pass --depths and/or --sensitivity")
 
+    candidate, candidate_source = resolve_candidate(args.candidate)
+    if args.sensitivity and candidate is None:
+        ap.error(
+            "--sensitivity needs a boundary to compare against, and "
+            "tail_policy.TAIL_SATURATION_RANK is None (pre-B4 saturation). "
+            "Pass --candidate explicitly."
+        )
+
     days = usable_days()
     print(f"== B4-FINAL historical pass over {len(days)} compatible days ==")
-    print("   CURRENT code + HISTORICAL inputs, leak-guarded, league context pinned\n")
+    print("   CURRENT code + HISTORICAL inputs, leak-guarded, league context pinned")
+    print(f"   candidate boundary {candidate} (from {candidate_source})\n")
 
     rows_out = []
     agg_source_max: dict[str, float] = defaultdict(float)
@@ -215,7 +254,7 @@ def main() -> int:
             rec = {"day": d["day"], "sha": d["sha"], **dep}
             line = f"   {d['day']:<12}{int(dep['deepestEffectiveRank']):>9}{int(dep['deepestRankHill']):>7}"
             if args.sensitivity:
-                cand = build_at(d, dest, args.candidate)
+                cand = build_at(d, dest, candidate)
                 cmp_ = compare(base, cand)
                 rec["impact"] = cmp_
                 line += (
@@ -233,12 +272,17 @@ def main() -> int:
     hist_min = min(r["deepestEffectiveRank"] for r in rows_out)
     print(f"\n   deepest effective rank across all days   {int(hist_max)} (min {int(hist_min)})")
     print(f"   deepest rank-Hill rank across all days   {int(hist_max_hill)}")
-    print(f"   candidate boundary                       {args.candidate}")
-    print(f"   headroom over historical max             {args.candidate - int(hist_max)}")
-    print(
-        f"   any day exceeding the candidate          "
-        f"{[r['day'] for r in rows_out if r['deepestEffectiveRank'] > args.candidate] or 'none'}"
-    )
+    if candidate is None:
+        # --depths against a pre-B4 tree: there is no boundary to score,
+        # and printing "headroom None" would read as a measurement.
+        print("   candidate boundary                       (none — TAIL_SATURATION_RANK is None)")
+    else:
+        print(f"   candidate boundary                       {candidate} (from {candidate_source})")
+        print(f"   headroom over historical max             {candidate - int(hist_max)}")
+        print(
+            f"   any day exceeding the candidate          "
+            f"{[r['day'] for r in rows_out if r['deepestEffectiveRank'] > candidate] or 'none'}"
+        )
 
     print("\n   per-source deepest rank ever observed across these days:")
     for k in sorted(agg_source_max, key=lambda x: -agg_source_max[x])[:8]:
@@ -258,7 +302,10 @@ def main() -> int:
 
     payload = {
         "days": rows_out,
-        "candidate": args.candidate,
+        "candidate": candidate,
+        # Recorded so a reader of the JSON can tell whether the run scored
+        # the live boundary or one supplied on the command line.
+        "candidateSource": candidate_source,
         "historicalDeepest": hist_max,
         "historicalDeepestRankHill": hist_max_hill,
         "perSourceDeepestEver": dict(agg_source_max),
