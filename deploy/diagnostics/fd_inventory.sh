@@ -72,13 +72,18 @@ section() { printf '\n===== %s =====\n' "$*"; }
 
 REQUIRED_FAILED=()
 
+# `rc=$?` must be captured from the CALL, not after an `if` compound:
+# once `if … fi` completes without an else branch, `$?` is the compound's
+# status, which is 0.  The first version read it there and reported every
+# failure as "(exit 0)" — a diagnostic misreporting its own evidence.
 run_required() {
   local label="$1"; shift
   section "${label}"
-  if "$@"; then
+  local rc=0
+  "$@" || rc=$?
+  if (( rc == 0 )); then
     return 0
   fi
-  local rc=$?
   REQUIRED_FAILED+=("${label} (exit ${rc})")
   printf '[REQUIRED EVIDENCE MISSING] %s failed (exit %s)\n' "${label}" "${rc}" >&2
   # Keep going: one broken probe should not hide the others.  The exit
@@ -89,10 +94,11 @@ run_required() {
 run_optional() {
   local label="$1"; shift
   section "${label}"
-  if "$@"; then
-    return 0
+  local rc=0
+  "$@" || rc=$?
+  if (( rc != 0 )); then
+    printf '[optional] %s unavailable (exit %s) — continuing\n' "${label}" "${rc}" >&2
   fi
-  printf '[optional] %s unavailable (exit %s) — continuing\n' "${label}" "$?" >&2
   return 0
 }
 
@@ -165,7 +171,9 @@ run_optional "system-wide file-nr (allocated / unused / max)" \
 
 proc_counts() {
   printf 'threads: '; awk '/^Threads:/{print $2}' "/proc/${PID}/status" 2>/dev/null
-  printf 'children: '; pgrep -P "${PID}" 2>/dev/null | wc -l
+  # `pgrep` exits 1 when there are no children, which is a real answer
+  # (0), not a failure — same distinction as the socket section.
+  printf 'children: '; { pgrep -P "${PID}" 2>/dev/null || true; } | wc -l
 }
 run_optional "process and thread counts" proc_counts
 
@@ -221,8 +229,9 @@ run_required "FD type breakdown" fd_breakdown
 # never contents.  Empty is a legitimate answer (this process holds ~1
 # regular file), so this cannot be required evidence.
 run_optional "regular files held open, by directory" bash -c '
+  # `|| true` on the greps: holding no regular files is a real answer.
   find "/proc/$1/fd" -maxdepth 1 -type l -exec readlink {} \; 2>/dev/null \
-    | grep -E "^/" | grep -vE "^/(dev|proc|sys)/" \
+    | { grep -E "^/" || true; } | { grep -vE "^/(dev|proc|sys)/" || true; } \
     | xargs -r -n1 dirname 2>/dev/null | sort | uniq -c | sort -rn | head -20
 ' _ "${PID}"
 
@@ -235,11 +244,24 @@ socket_states() {
     echo "ss not installed — socket state unavailable on this host"
     return 0
   fi
-  # -p attributes sockets to the pid; we filter to ours and count states
-  # rather than dumping peer addresses.
-  ss -tanp 2>/dev/null | grep "pid=${PID}," | awk '{print $1}' | sort | uniq -c | sort -rn
+  # COULD NOT LOOK vs LOOKED AND FOUND NONE.  Only the first is a broken
+  # probe.  `grep` exits 1 on no matches, and under `pipefail` that makes
+  # the whole pipeline non-zero, so the naive one-liner reported a
+  # process with no TCP sockets as a failed required section.  The live
+  # backend always has sockets so it never fired there — which is exactly
+  # why it has to be handled rather than left to chance.
+  local rows mine
+  rows="$(ss -tanp 2>/dev/null)" || return 1   # the tool itself failed
+  mine="$(printf '%s\n' "${rows}" | grep "pid=${PID}," || true)"
+  if [[ -z "${mine}" ]]; then
+    echo "no TCP sockets attributed to pid ${PID}"
+    return 0
+  fi
+  # -p attributes sockets to the pid; we count states rather than dumping
+  # peer addresses.
+  printf '%s\n' "${mine}" | awk '{print $1}' | sort | uniq -c | sort -rn
   echo "-- top peer ports (destination), to spot one chatty dependency --"
-  ss -tanp 2>/dev/null | grep "pid=${PID}," \
+  printf '%s\n' "${mine}" \
     | awk '{print $5}' | sed 's/.*://' | sort | uniq -c | sort -rn | head -10
   # DESTINATION ADDRESSES, for CLOSE-WAIT only.
   #
@@ -251,7 +273,7 @@ socket_states() {
   # only, deduplicated, capped — and these are the public API endpoints
   # this service calls by design, not user or credential data.
   echo "-- distinct CLOSE-WAIT peers (destination address) --"
-  ss -tanp 2>/dev/null | grep "pid=${PID}," | awk '$1=="CLOSE-WAIT"{print $5}' \
+  printf '%s\n' "${mine}" | awk '$1=="CLOSE-WAIT"{print $5}' \
     | sort | uniq -c | sort -rn | head -8
 }
 run_required "sockets owned by this process, by state" socket_states

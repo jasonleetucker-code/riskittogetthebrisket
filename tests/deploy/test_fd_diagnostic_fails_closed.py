@@ -69,14 +69,36 @@ exit 0
 """
 
 
+# `ss` is stubbed rather than left to the host.  The first version of
+# these tests ran on a box without `ss` at all, took the "not installed"
+# branch every time, and shipped a required section that reported a
+# socket-less process as a broken probe — caught only by CI, where `ss`
+# exists.  SS_MODE makes both branches deterministic everywhere.
+FAKE_SS = r"""#!/usr/bin/env bash
+case "${SS_MODE:-empty}" in
+  fail)  echo "ss: cannot open netlink socket" >&2; exit 1 ;;
+  rows)
+    echo "State  Recv-Q Send-Q Local:Port Peer:Port Process"
+    echo "CLOSE-WAIT 0 0 [::1]:44444 [2606:4700::1]:443 users:((\"python\",pid=${FAKE_PID},fd=9))"
+    echo "ESTAB 0 0 [::1]:44445 [2606:4700::1]:443 users:((\"python\",pid=${FAKE_PID},fd=10))"
+    ;;
+  *)     echo "State  Recv-Q Send-Q Local:Port Peer:Port Process" ;;
+esac
+exit 0
+"""
+
+
 @pytest.fixture
 def probe(tmp_path):
-    """A real child process to inventory, plus a stubbed sudo."""
+    """A real child process to inventory, plus stubbed sudo and ss."""
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     sudo = bin_dir / "sudo"
     sudo.write_text(FAKE_SUDO)
     sudo.chmod(0o755)
+    ss = bin_dir / "ss"
+    ss.write_text(FAKE_SS)
+    ss.chmod(0o755)
 
     child = subprocess.Popen(["sleep", "120"])
     # Give the kernel a moment to publish /proc/<pid>/fd.
@@ -154,6 +176,47 @@ class TestRequiredEvidenceCannotDegrade:
             "REQUIRED_FAILED[@]}" in ln and "((" in ln for ln in tail
         ), "the trailing exit 0 is not guarded by the required-evidence check"
         assert "exit 5" in tail
+
+
+class TestAnEmptyResultIsAnAnswerNotAFailure:
+    """ "Could not look" and "looked and found none" must be
+    distinguishable, and only the first is a broken probe.
+
+    `grep` exits 1 on no matches, and under `pipefail` that made a
+    process with no TCP sockets fail a REQUIRED section.  The live
+    backend always has sockets, so this could only ever be caught
+    somewhere the target had none — which is the whole reason it is
+    pinned rather than left to the host's tooling.
+    """
+
+    def test_a_process_with_no_sockets_still_completes(self, probe):
+        r = probe(SS_MODE="empty")
+
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert "no TCP sockets attributed to pid" in r.stdout
+        assert "REQUIRED EVIDENCE MISSING" not in r.stderr
+
+    def test_a_process_with_sockets_reports_their_states_and_peers(self, probe):
+        r = probe(SS_MODE="rows")
+
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert "CLOSE-WAIT" in r.stdout
+        assert "[2606:4700::1]:443" in r.stdout, "CLOSE-WAIT peer addresses are not reported"
+
+    def test_ss_itself_failing_is_a_required_failure(self, probe):
+        """The tool being broken IS 'could not look'."""
+        r = probe(SS_MODE="fail")
+
+        assert r.returncode == 5, r.stdout + r.stderr
+        assert "sockets owned by this process" in r.stderr
+
+    def test_a_failure_reports_its_real_exit_code(self, probe):
+        """`$?` read after an `if` compound is the compound's status — 0.
+        Reporting every failure as '(exit 0)' is a diagnostic misreading
+        its own evidence."""
+        r = probe(SS_MODE="fail")
+        assert "(exit 0)" not in r.stderr, r.stderr
+        assert "(exit 1)" in r.stderr
 
 
 class TestOptionalEvidenceDegradesExplicitly:
