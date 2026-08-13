@@ -390,7 +390,7 @@ run_optional "watchdog units and installed executable" watchdog_state
 # because what shipped and what is loaded are different claims.
 #
 # Still read-only: `systemctl show` computes nothing and starts nothing.
-WATCHDOG_CONTRACT_SAMPLES="${WATCHDOG_CONTRACT_SAMPLES:-75}"
+WATCHDOG_CONTRACT_WINDOW_S="${WATCHDOG_CONTRACT_WINDOW_S:-150}"
 
 watchdog_timer_contract() {
   local timer="dynasty-healthcheck.timer" svc="dynasty-healthcheck.service"
@@ -404,12 +404,21 @@ watchdog_timer_contract() {
       "$(sudo -n "${SYSTEMCTL}" show "${svc}" -p "${prop}" --value 2>/dev/null)"
   done
 
-  printf '\nsampling %s x 1s (cadence is 60s, so this crosses a boundary)\n\n' \
-    "${WATCHDOG_CONTRACT_SAMPLES}"
-  printf '%-21s %-8s %-10s %-30s %s\n' \
+  # The execution itself is SHORT — a 1 Hz sampler crossed a boundary
+  # without ever landing inside one (run 31677718502).  So poll at 5 Hz
+  # for longer than two periods and print on CHANGE rather than on a
+  # fixed cadence: the transition is a handful of samples wide and a
+  # summary would average it away.  A heartbeat row every 5 s keeps the
+  # steady state visible so a silent probe is distinguishable from a
+  # quiet one.
+  printf '\npolling %ss at 5Hz, printing on change (cadence is 60s)\n\n' \
+    "${WATCHDOG_CONTRACT_WINDOW_S}"
+  printf '%-21s %-8s %-14s %-32s %s\n' \
     utc_time timer.Act svc.Act/Sub next_monotonic last_trigger
-  local i timer_out svc_out t_active next_mono last_trig s_active s_sub
-  for ((i = 0; i < WATCHDOG_CONTRACT_SAMPLES; i++)); do
+  local polls i timer_out svc_out t_active next_mono last_trig s_active s_sub
+  local prev="" cur reason
+  polls=$(( WATCHDOG_CONTRACT_WINDOW_S * 5 ))
+  for ((i = 0; i < polls; i++)); do
     timer_out="$(sudo -n "${SYSTEMCTL}" show "${timer}" \
       -p ActiveState -p NextElapseUSecMonotonic -p LastTriggerUSec 2>/dev/null)"
     svc_out="$(sudo -n "${SYSTEMCTL}" show "${svc}" \
@@ -419,10 +428,18 @@ watchdog_timer_contract() {
     last_trig="$(printf '%s\n' "${timer_out}" | sed -n 's/^LastTriggerUSec=//p')"
     s_active="$(printf '%s\n' "${svc_out}" | sed -n 's/^ActiveState=//p')"
     s_sub="$(printf '%s\n' "${svc_out}" | sed -n 's/^SubState=//p')"
-    printf '%-21s %-8s %-10s %-30s %s\n' \
-      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${t_active:-<empty>}" \
-      "${s_active:-?}/${s_sub:-?}" "${next_mono:-<empty>}" "${last_trig:-<empty>}"
-    sleep 1
+    cur="${t_active}|${next_mono}|${last_trig}|${s_active}|${s_sub}"
+    reason=""
+    [[ "${cur}" != "${prev}" ]] && reason="change"
+    (( i % 25 == 0 )) && reason="${reason:-heartbeat}"
+    if [[ -n "${reason}" ]]; then
+      printf '%-21s %-8s %-14s %-32s %s  [%s]\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${t_active:-<empty>}" \
+        "${s_active:-?}/${s_sub:-?}" "${next_mono:-<empty>}" \
+        "${last_trig:-<empty>}" "${reason}"
+    fi
+    prev="${cur}"
+    sleep 0.2
   done
 }
 run_optional "watchdog timer contract across a firing boundary" watchdog_timer_contract
