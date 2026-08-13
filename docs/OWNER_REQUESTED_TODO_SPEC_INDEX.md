@@ -62,7 +62,7 @@ A feature is not “specified” merely because its name exists in the to-do lis
 | Premium Sports Intelligence | reconciliation §5 |
 | The Upside Report | reconciliation §6.2 |
 | Weekly Power Rankings | reconciliation §6.3 |
-| Awards & Honors | reconciliation §6.4 |
+| Awards & Honors / Player Impact / Fantasy WAR | reconciliation §6.4 + `PLAYER_IMPACT_WAR_MVP_SPEC.md` |
 | Market Trade Ledger / Real Trade Market Value | reconciliation §6.5 |
 | Manager Scout | reconciliation §6.6 |
 | Command Center / Trade Desk / Portfolio | reconciliation §6.7 |
@@ -151,9 +151,11 @@ Create one current-season Power engine distinct from Team Strength, Playoff Pred
 
 **Status:** PLANNED / dependency-gated
 
-Objective institutional awards using realized lineup VORP/replacement baselines, explicit eligibility, postseason/championship awards, MOTY vs GMOTY separation, top races, immutable historical methodology, and no fabricated retro inputs.
+Build objective institutional awards on top of canonical realized scoring and the canonical Player Impact family. Realized Lineup VORP remains the dominance foundation; MVP must additionally use continuous and actual standings-value evidence rather than an arbitrary team-success eligibility shortcut. Postseason/championship awards, MOTY vs GMOTY separation, top races, immutable historical methodology, and no fabricated retro inputs remain required.
 
-**Full binding spec:** reconciliation §6.4.
+**Binding change:** the prior hard player-MVP requirement of playoff-field membership + >.500 is superseded. Player MVP has no hard playoff or >.500 eligibility gate. Team success may be context/tie-break evidence; Manager of the Year may retain team-success eligibility.
+
+**Full binding specs:** reconciliation §6.4 + `PLAYER_IMPACT_WAR_MVP_SPEC.md`.
 
 ## T-NEW-10 — Analyst Intelligence Stance/Freshness Taxonomy
 
@@ -180,6 +182,24 @@ Production observed `NextElapseUSecMonotonic=infinity` while the watchdog onesho
 **Full binding spec:** reconciliation §11.2.
 
 This is post-incident reliability work. It does **not** reopen the formally closed FD/resilience incident.
+
+## T-NEW-13 — Player Impact / Fantasy WAR / Wins Above Bench
+
+**Status:** PLANNED / C-REPLAN DEPENDENCY-GATED  
+**Priority:** major Awards + UPP + Upside Report methodology
+
+Create one canonical player-impact engine with four distinct season metrics:
+
+- **Realized Lineup VORP** — counted best-ball points above a league-level positional replacement expectation;
+- **Fantasy WAR** — actual H2H/league-median standings wins changed versus league replacement;
+- **xWAR** — continuous expected standings wins added versus league replacement using archived no-lookahead league-week probability distributions;
+- **Wins Above Bench (WAB)** — actual standings wins changed when the player is removed and that manager's real remaining roster is fully re-solved under exact best-ball rules.
+
+The same remove-and-re-solve primitive owns **Game Changer Points** for The Upside Report. Counterfactual league-median results must recompute the median using the changed score. Negative impact is valid; missing evidence is unavailable, never zero.
+
+These metrics become first-class player-season statistics on appropriate UPP/history surfaces and deterministic inputs to Awards. MVP must use xWAR + VORP + actual WAR as complementary evidence; do not reduce MVP to a single raw leader or restore the superseded playoff/>.500 eligibility gate. Final deterministic MVP aggregation requires methodology validation and owner approval.
+
+**Full binding spec:** `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md`.
 
 ---
 
