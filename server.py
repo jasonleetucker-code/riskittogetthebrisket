@@ -88,6 +88,18 @@ from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TAR
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
+
+# How long an /api/data request may wait for the live Sleeper overlay
+# before serving the board without it.
+#
+# Sized against the consumer, not a guess: the Next bridge
+# (frontend/app/api/dynasty-data/route.js) aborts on a 4s idle timeout and
+# falls back to an on-disk snapshot, so anything approaching 4s here turns
+# a slow response into a broken page. The overlay is additive — `get_data`
+# already has an `overlay is None` branch that serves the board without
+# live Sleeper data — so a miss costs freshness, not correctness.
+OVERLAY_REQUEST_BUDGET_SEC = 1.5
+_OVERLAY_REQUEST_BUDGET_SEC = OVERLAY_REQUEST_BUDGET_SEC
 PORT = 8000
 HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
@@ -3410,6 +3422,20 @@ async def get_data(request: Request):
                 _sleeper_overlay.fetch_sleeper_overlay,
                 sleeper_league_id=league_cfg.sleeper_league_id,
                 id_to_player=id_to_player if isinstance(id_to_player, dict) else {},
+                # REQUEST PATH: never block the contract on the overlay.
+                #
+                # The boot warm holds the per-league build lock for a
+                # ~47-70-URL Sleeper fetch. Without a budget, a request
+                # landing in that window waits for the whole build. The
+                # Next bridge in front of this aborts after 4s and falls
+                # back to an on-disk snapshot, so that wait did not
+                # degrade the page — it broke it.
+                #
+                # The overlay is additive: the `overlay is None` branch
+                # below already serves the board without live Sleeper
+                # data. Trading it for a fast response is the right call
+                # every time.
+                max_wait_sec=_OVERLAY_REQUEST_BUDGET_SEC,
             )
         except Exception as exc:  # noqa: BLE001
             log.warning(
@@ -4010,6 +4036,18 @@ async def post_rankings_overrides(request: Request):
         the delta onto its cached base contract.
     """
     if not latest_data or not isinstance(latest_data, dict):
+        # Logged because this 503 is INVISIBLE from the outside otherwise,
+        # and it is one of exactly two ways this handler can 503.  The
+        # rotating E2E flake includes runs where
+        # journey-settings-overrides gets a 503 here, and without a log
+        # line the CI backend.log artifact cannot say which branch fired
+        # — which is why that flake has outlived two wrong root causes.
+        # Cheap, and it turns the next failing run into evidence.
+        log.warning(
+            "overrides 503: latest_data missing (type=%s, contract_loaded=%s)",
+            type(latest_data).__name__,
+            latest_contract_data is not None,
+        )
         return JSONResponse(
             status_code=503,
             content={
@@ -4042,6 +4080,13 @@ async def post_rankings_overrides(request: Request):
     loaded_profile = str(loaded_meta.get("scoringProfile") or "")
     sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
     if loaded_profile and loaded_profile != league_cfg.scoring_profile:
+        # The other 503 branch — see the note on the first one.
+        log.warning(
+            "overrides 503: scoring profile mismatch (loaded=%r, requested=%r, league=%r)",
+            loaded_profile,
+            league_cfg.scoring_profile,
+            league_cfg.key,
+        )
         return JSONResponse(
             status_code=503,
             content={

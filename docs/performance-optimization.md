@@ -108,16 +108,32 @@ page-to-page navigations. Root causes, in impact order, all verified in
 source and by measurement before changing anything:
 
 1. **Every page load ran the full ranking pipeline server-side —
-   twice.** The `/settings` default `tepMultiplier: 1.15` makes every
+   twice.** The `/settings` default `tepMultiplier: 1.15` made every
    stock user "customized" (`tepMultiplierIsCustomized` treats any
    finite number as an override), so every `fetchDynastyData` took the
    override path: `GET` base + `POST /api/rankings/overrides?view=delta`,
    and the POST rebuilt the whole pipeline synchronously ON the event
    loop, uncached (~0.75s locally, seconds on prod hardware). The hook
    mounts twice per page (AppShell + page), doubling all of it.
-   *The default was deliberately NOT changed* — posting 1.15 flat is a
-   different valuation than omitting it (ADR-015 basis curve), so the
-   fix is memoization, not semantics.
+   *The default was deliberately NOT changed at the time* — posting 1.15
+   flat is a different valuation than omitting it (ADR-015 basis curve),
+   so the fix was memoization, not semantics.
+
+   > **STALE AS OF 2026-08-06 — tense corrected above, and this matters
+   > beyond bookkeeping.** The default is now `null`, not 1.15
+   > (`frontend/components/useSettings.js:51`, changed by `67caac3b`,
+   > "Make the measured TE-basis curve reachable"), and
+   > `tepMultiplierIsCustomized` returns false for null. **A stock signed-in
+   > user therefore issues NO `POST /api/rankings/overrides` on a normal
+   > page load at all.**
+   >
+   > Read as present tense this paragraph produces a wrong causal model,
+   > and it did: it was used this session to argue that `/rankings` was
+   > blocked on an overrides recompute, which sent a CI-flake investigation
+   > down a dead end. Anything reasoning about what a page load costs
+   > should start from `useSettings.js`, not from here. Pinned by
+   > `frontend/__tests__/bridge-timeout-budgets.test.js`, which fails if
+   > the default stops being null.
 2. **Cold Sleeper overlay rebuild = ~90 sequential HTTP round-trips
    inline on `/api/data`** whenever the 15-min TTL expired (~7 of 8
    windows, since the warm-behind only runs on the 2h scrape cadence),

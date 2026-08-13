@@ -1151,6 +1151,7 @@ def fetch_sleeper_overlay(
     id_to_player: dict[str, str] | None = None,
     trade_window_days: int = 365,
     force_refresh: bool = False,
+    max_wait_sec: float | None = None,
 ) -> dict[str, Any] | None:
     """Return a ``sleeper`` overlay block for a non-loaded league.
 
@@ -1211,7 +1212,39 @@ def fetch_sleeper_overlay(
                 return dict(cached["payload"])
 
     lock = _overlay_build_lock(sleeper_league_id)
-    with lock:
+
+    # BOUNDED wait for request-path callers.
+    #
+    # The boot warm calls this with force_refresh=True, which skips the
+    # cache read above entirely and holds this lock for the whole build —
+    # ~47-70 Sleeper URLs at 8 workers, each with an 8 s timeout. A
+    # request arriving in that window used to block for the REMAINDER of
+    # that build, because `with lock:` waits forever.
+    #
+    # That is how a cold start turned into broken pages: `/api/data` is
+    # called by the Next bridge, which aborts after a 4 s idle timeout and
+    # falls back to an on-disk snapshot. The overlay is decorative — the
+    # caller in server.py already handles `overlay is None` by serving the
+    # board without live Sleeper data — so blocking the entire contract
+    # response on it was never the right trade.
+    #
+    # So: callers that pass a budget get the overlay only if it is
+    # cheaply available, and `None` otherwise. The warm keeps the
+    # unbounded wait (max_wait_sec=None) because it has nothing to race.
+    if max_wait_sec is None:
+        acquired = lock.acquire()
+    else:
+        acquired = lock.acquire(timeout=max(0.0, float(max_wait_sec)))
+    if not acquired:
+        # Someone else is building. Prefer stale over slow: a payload from
+        # the last 30 minutes beats making the caller wait for ~47 URLs.
+        with _CACHE_LOCK:
+            cached = _CACHE.get(sleeper_league_id)
+        if cached and cached.get("payload"):
+            return dict(cached["payload"])
+        return None
+
+    try:
         # Re-check under the lock: another thread may have completed
         # the build while we waited.
         if not force_refresh:
@@ -1224,6 +1257,8 @@ def fetch_sleeper_overlay(
             id_to_player=id_to_player,
             trade_window_days=trade_window_days,
         )
+    finally:
+        lock.release()
 
 
 def _overlay_build_lock(sleeper_league_id: str) -> threading.Lock:

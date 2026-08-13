@@ -269,6 +269,15 @@ function mobileOnly(test, testInfo) {
  *      fail-fasts by design and returns [] (a pipeline/stamping
  *      problem — see frontend/lib/dynasty-data.js).
  *
+ * AMENDED: there is a THIRD cause, and it was the real one. The page's
+ * contract comes from the Next BRIDGE route on the page origin, not from
+ * the backend this probe used to interrogate. That route aborts after a
+ * 4s idle timeout and falls back to an on-disk snapshot; the committed
+ * seed carries no rank stamps, so case (2) is produced by the BRIDGE
+ * while the backend is perfectly healthy. Probing only the backend
+ * reported "the pipeline is not stamping" and sent several
+ * investigations at the wrong subsystem. Both origins are probed below.
+ *
  * Nothing in a screenshot, the a11y snapshot, or `error-context.md`
  * separates them: both render the same empty state.  The second logs a
  * `console.error`, but the spec's own console guard asserts at the END
@@ -281,41 +290,124 @@ function mobileOnly(test, testInfo) {
  * written so it can never itself throw (a broken probe must not
  * replace a real failure message with its own stack).
  */
-async function _diagnoseEmptyBoard(page) {
+/**
+ * Count rank stamps across BOTH encodings.
+ *
+ * The two carry different field names and a payload may have either:
+ * `playersArray` rows use `canonicalConsensusRank`; the legacy `players`
+ * dict uses `_canonicalConsensusRank` (src/api/data_contract.py:8346).
+ *
+ * Checking only the array — which this helper used to do — reports zero
+ * for EVERY healthy `view=app` response, because server.py:2150 pops
+ * `playersArray` from the runtime view by design. That made the "no rank
+ * stamps" branch below fire on every failure regardless of cause, and it
+ * sent multiple investigations at the scrape pipeline, which was never
+ * the problem.
+ */
+/**
+ * Fetch one contract URL and summarise it. Never throws — a broken probe
+ * must not replace a real failure message with its own stack.
+ */
+async function _probeContract(page, url) {
   try {
-    const res = await page.request.get("/api/data?view=app", {
-      timeout: 30_000,
-    });
+    const res = await page.request.get(url, { timeout: 30_000 });
     const status = res.status();
     if (!res.ok()) {
-      return `/api/data?view=app answered ${status} — the board had nothing to render.`;
+      return { ok: false, status, count: 0, stamped: 0, summary: `HTTP ${status}` };
     }
     const body = await res.json();
     const arr = Array.isArray(body?.playersArray) ? body.playersArray : [];
-    const legacy =
-      body && typeof body.players === "object" ? Object.keys(body.players) : [];
+    const legacy = body && typeof body.players === "object" ? Object.keys(body.players) : [];
     const count = arr.length || legacy.length;
-    const stamped = arr.filter(
-      (p) =>
-        p &&
-        p.canonicalConsensusRank !== null &&
-        p.canonicalConsensusRank !== undefined,
+    const stamped = _countRankStamps(body);
+    return {
+      ok: true,
+      status,
+      count,
+      stamped,
+      summary:
+        `HTTP ${status}, playerCount=${body?.playerCount ?? "?"}, ` +
+        `playersArray=${arr.length}, legacyPlayers=${legacy.length}, ` +
+        `rankStamps=${stamped}`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      count: 0,
+      stamped: 0,
+      summary: `probe threw: ${err?.message || err}`,
+    };
+  }
+}
+
+function _countRankStamps(body) {
+  const arr = Array.isArray(body?.playersArray) ? body.playersArray : [];
+  let stamped = arr.filter((p) => p && p.canonicalConsensusRank != null).length;
+  if (stamped === 0 && body?.players && typeof body.players === "object") {
+    stamped = Object.values(body.players).filter(
+      (p) => p && p._canonicalConsensusRank != null,
     ).length;
-    return [
-      `/api/data?view=app: ${status}, playerCount=${body?.playerCount ?? "?"}, `,
-      `playersArray=${arr.length}, legacyPlayers=${legacy.length}, `,
-      `rowsWithCanonicalConsensusRank=${stamped}.`,
-      count === 0
-        ? " => THE PAYLOAD IS EMPTY: the server served no players, so this is a" +
-          " serving/priming problem, not a rendering one."
-        : stamped === 0
-          ? " => PAYLOAD HAS ROWS BUT NO RANK STAMPS: buildRows fail-fasts and" +
-            " returns [] by design. The scrape pipeline is not stamping" +
-            " canonicalConsensusRank — investigate upstream, do NOT add a" +
-            " client-side blend."
-          : " => The payload looks serveable, so the board had data and still" +
-            " did not render it. That points at the client, not the contract.",
-    ].join("");
+  }
+  return stamped;
+}
+
+async function _diagnoseEmptyBoard(page) {
+  try {
+    // Probe BOTH origins, because they are different processes and only
+    // one of them served the page.
+    //
+    // `page.request.get("/api/...")` resolves against `baseURL` (:8000,
+    // FastAPI). The page under test loads from `E2E_PAGE_ORIGIN` (:3000,
+    // Next) and gets its contract from the Next BRIDGE route, which has
+    // its own 4s idle timeout and its own disk fallback
+    // (frontend/app/api/dynasty-data/route.js). So the old single probe
+    // measured a healthy backend while the page had been served something
+    // else entirely — and reported the two as one payload.
+    //
+    // The give-away in the field was a legacyPlayers count that matched
+    // neither on-disk snapshot.
+    // A bare path resolves against `baseURL` (the backend). `pageUrl()`
+    // prefixes the page origin, which is where the bridge lives. In the
+    // prod-smoke topology (nginx fronts both) `pageUrl()` returns the bare
+    // path and the two probes coincide, which is correct there.
+    const backend = await _probeContract(page, "/api/data?view=app");
+    const bridge = await _probeContract(page, pageUrl("/api/dynasty-data?view=app"));
+
+    const lines = [
+      `backend (baseURL) /api/data?view=app -> ${backend.summary}`,
+      `bridge  (page origin) /api/dynasty-data?view=app -> ${bridge.summary}`,
+    ];
+
+    // The page consumes the BRIDGE, so it decides the verdict.
+    const b = bridge;
+    if (!b.ok) {
+      lines.push(
+        ` => THE BRIDGE FAILED (${b.status}). The page never received a contract.` +
+          (backend.ok
+            ? " The backend answered fine, so this is the Next bridge route or the" +
+              " link between them — check its 4s idle timeout and disk fallback," +
+              " not the scrape pipeline."
+            : " The backend also failed, so start there."),
+      );
+    } else if (b.count === 0) {
+      lines.push(" => THE PAYLOAD IS EMPTY: serving/priming problem, not rendering.");
+    } else if (b.stamped === 0) {
+      lines.push(
+        " => ROWS BUT NO RANK STAMPS in the payload the PAGE received." +
+          " buildRows fail-fasts by design." +
+          (backend.stamped > 0
+            ? " The backend's own payload IS stamped, so the bridge served a" +
+              " different (probably on-disk) snapshot — investigate the bridge."
+            : " The backend is unstamped too — investigate the pipeline."),
+      );
+    } else {
+      lines.push(
+        " => The payload looks serveable, so the board had data and still did not" +
+          " render it. That points at the client, not the contract.",
+      );
+    }
+    return lines.join("\n      ");
   } catch (err) {
     return `board diagnostic failed to run: ${err && err.message}`;
   }
@@ -347,7 +439,20 @@ async function gotoRankingsBoard(page, { minRows = 50 } = {}) {
   // wait can see. Attached after goto so it captures the board's fetch.
   const consoleErrors = [];
   page.on("console", (msg) => {
-    if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 300));
+    if (msg.type() !== "error") return;
+    // The URL must be captured HERE or it is gone. Chrome's "Failed to load
+    // resource: the server responded with a status of 502" text does NOT
+    // name the resource — the URL lives only on msg.location(). Recording
+    // msg.text() alone turned a sourceable failure into a mystery: a real
+    // run printed "404, 404, 502, 503, 503, 404, 404" with no way to tell
+    // which endpoint produced which, and sourcing the 502 afterwards took
+    // a full sweep of every bridge route.
+    //
+    // With the URL, that same line reads as what it is: a timing ladder of
+    // one backend stall, each client abort budget firing in turn.
+    const where = msg.location?.() || {};
+    const url = where.url ? ` <- ${where.url}` : "";
+    consoleErrors.push((msg.text() + url).slice(0, 300));
   });
   try {
     await expect(rows.first(), "rankings board should render rows").toBeVisible(
