@@ -160,6 +160,28 @@ and will not be presented as such.
 Dispatched against the post-B6 revision on a warm snapshot (`/api/public/league` warmed 11.9 s →
 7.3 s; `/api/health` quiescent: `scrape_running: false`, `current_step: complete`).
 
+**Result — run 31723231994, head `675e2109`: `31 passed, 1 flaky, 0 hard failures`.** The job exits
+1 only because this repo deliberately sets `failOnFlakyTests`; Playwright's own status for the run
+is *passed, exit 0*, and the harness prints its own banner saying so
+("E2E FLAKY — THIS GREEN WAS EARNED ON A RETRY").
+
+The flaky test and its cause, demonstrated rather than assumed:
+
+- Test: `desktop-1366 › public /league page › deep links via ?tab= query param land on the right tab`.
+- Failure: `TimeoutError: page.waitForFunction: Timeout 15000ms exceeded` at
+  `public-league.spec.js:83` — a 15 s wait for body text after navigating to `/league?tab=…`.
+- Cause: the page cannot render that text until `/api/public/league` returns, and that endpoint
+  measured **11.9 s cold / 7.3 s warm** from outside on this same revision. A 15 s budget over a
+  7–12 s dependency is the flake.
+- **Not a B6 regression**, on four independent grounds: B6's `server.py` hunks do not touch the
+  public-league handlers (10079–10467); the same test family failed **pre-merge** on `f04ee88`
+  (run 31687123688); a **post-B6** scheduled run passed outright (31706782371, head `ce1821fc`,
+  13:48Z); and this run had zero hard failures.
+
+Per ruling R1 this is a known intermittent failure whose cause is demonstrated, so it is **not** a
+stop. It is recorded as a real pre-existing latency defect — `/api/public/league` at 7–12 s — in
+the deferred ledger below.
+
 Prior context, established read-only: the workflow runs **only**
 `tests/e2e/specs/public-league.spec.js` — the public `/league` page. B6's `server.py` diff hunks
 are at ~1890–2245, 3293–3464, 4039, 8924, 11242–11514, 12313–12457; the public-league handlers live
@@ -184,6 +206,7 @@ correctness.
 | id | defect | disposition |
 |---|---|---|
 | `W01-F010` | `/api/scaffold/status` publicly allowlisted, returns absolute production filesystem paths, zero callers. Confirmed **still live**. | B8.1 |
+| — | `/api/public/league` measured **11.9 s cold / 7.3 s warm**, 2.1 MB. This is the demonstrated cause of the recurring `?tab=` / `?owner=` deep-link E2E flake (15 s test budget over a 7–12 s dependency), and it predates B6. | backlog — a latency defect, not a B-phase correctness defect; do not absorb |
 | — | `src/api/rank_history.py:159 _value_from_rank` reconstructs historical values with a *rank-form* Hill family distinct from the live percentile-form masters — mean \|err\| 112.7, max 451 across 740 ranked rows. Feeds trade-history aging and every reconstructed chart. **No phase owns it.** | backlog |
 | `W19-F004` | Half-fixed; per-season awards emission has no `weeksScored > 0` gate and the frontend half is unfixed. | backlog — **do not repair Awards inside B** |
 | — | `tests/conftest.py:11` asserts production rejects `ALLOW_DEFAULT_LOGIN_DEV=1` "by design"; `startup_validation.py:145-167` runs 8 checks, none covering it, so `/api/health.startupChecks` reads `8/8 ok` on a placeholder-password box. | backlog |
