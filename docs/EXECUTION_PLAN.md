@@ -33,6 +33,16 @@ This file answers **what work should happen next**. It does not define long-term
 - W06-F002 refuted by executable evidence; retired near-name rule must not be re-enabled merely to satisfy the old finding.
 - Residual explicitly noted by B5: ghost-row repair takes effect on the next scrape; do not falsely claim a historical/current board changed until that path actually runs.
 
+### B6 — W18 league-configuration correctness
+
+- Submitted for owner review; scope below is the authorization it was executed against.
+- **W18-F001 fixed.** Cross-league ranking reuse is decided by a factual `scoringFingerprint` over the league's actual scoring card, not by the `scoringProfile` label. `scoringProfile` keeps its existing config/model meaning and consumers. Unproven identity fails closed, in both directions. The nominal owner `leagues_share_scoring()` had **zero production callers** — six scattered comparisons in `server.py` (four of them fail-open on a missing loaded label) now route through one gate.
+- **W18-F002 fixed.** The cross-league Sleeper merge has a name and an owner (`sleeper_overlay.merge_cross_league_sleeper_block`). League-specific fields (`scoringSettings`, `rosterPositions`, `leagueSettings`) come from the requested league's own config — published by the overlay from the league object it already fetched — or are left ABSENT with `sleeperDataReady: false`. NFL-wide maps are still reused.
+- Measured on the shipped configuration (`docs/master-site-audit/evidence/W18/b6-validation.json`): both live leagues share the label and differ on 35 of 48 shared scoring keys. `/api/data` and `/api/terminal` for `dynasty_new` now 503 instead of serving `dynasty_main`'s board; `/api/draft-capital` stays 200 and drops only its 40 foreign-priced rookies (`rookieSource: "none"`), keeping all 80 of that league's real picks.
+- **Operational requirement:** `data/leagues/scoring_<sleeperLeagueId>.json` must exist for a league to be provably compatible. The post-scrape warm pass writes it every cycle; on a cold deploy run `scripts/fetch_league_scoring.py` once, or cross-league requests fail closed until the first scrape.
+- Architecture record: `docs/master-site-audit/evidence/W18/B6_SCORING_IDENTITY_DESIGN.md`.
+- W18-F003 was NOT touched — it remains B7.
+
 ---
 
 # 2. NEXT AUTHORIZED FOUNDATION SCOPE

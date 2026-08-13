@@ -6,7 +6,7 @@
   5
  ],
  "title": "scoringProfile is a hand-typed label, not a fact about scoring: dynasty_main and dynasty_new carry the same string while their host scoring differs on 35 of 48 shared keys, so /api/data serves dynasty_main's board verbatim for dynasty_new",
- "status": "Implemented but defective",
+ "status": "Fixed",
  "priority": "P1",
  "size": "M",
  "subsystem": "League registry / rankings routing",
@@ -72,7 +72,35 @@
   "note": "Adjacent to PRIOR-A20-F04 (TE++ basis wrong for dynasty_new) but that finding assumes the shared-profile premise; this one refutes the premise itself."
  },
  "whatWorks": "The 503 gate and the leagues_share_scoring helper are correctly wired and would fire if the labels differed; the mechanism is sound and only its input is unverified.",
- "rootCause": "scoringProfile is authored by hand in registry.json with no derivation from, or check against, the league's actual scoring_settings. src/league_comparison/sleeper_scoring.py already computes a content hash of a scoring dict (_scoring_hash, sha1[:12]) \u2014 the registry does not use it.",
+ "rootCause": "scoringProfile is authored by hand in registry.json with no derivation from, or check against, the league's actual scoring_settings. src/league_comparison/sleeper_scoring.py already computes a content hash of a scoring dict (_scoring_hash, sha1[:12]) — the registry does not use it.",
  "requiredRepair": "Derive the profile identity from a content hash of the league's live scoring_settings (the mechanism already exists in sleeper_scoring._scoring_hash), or add a startup/CI check that every pair of leagues sharing a scoringProfile has byte-identical scoring_settings. Until then dynasty_new must get its own profile string.",
- "dependencies": "Requires one read-only GET per league to api.sleeper.app, which config.py::fetch_live_league already does."
+ "dependencies": "Requires one read-only GET per league to api.sleeper.app, which config.py::fetch_live_league already does.",
+ "b6Resolution": {
+  "resolvedAt": "2026-08-12",
+  "resolvedIn": "B6",
+  "resolution": "Compatibility is now decided by scoring_fingerprint() over the league's actual scoring card, not by the scoringProfile label. scoringProfile keeps its existing config/model meaning and its BDVM / gameplan / draft-scarcity consumers. The required-repair note's first option (promote _scoring_hash) was deliberately NOT taken: that hash treats 1 and 1.0 as different rules and an absent key as different from an explicit 0.0, both of which manufacture FALSE incompatibility. The third option (give dynasty_new its own profile string) was not taken either — it fixes this pair and leaves the next mislabelled pair for the next audit.",
+  "alsoFixed": "The second fail-open path the owner independently verified: four gates in server.py short-circuited the incompatibility check on the loaded identity being truthy, so a contract with no scoring identity was compatible with every league. All six gates (api/data, rankings/overrides, terminal, trade/simulate, draft-capital rookie pool, signal-alerts sweep) now route through server.py::_scoring_identity_error, which fails closed on an unproven identity in either direction.",
+  "measuredOutcome": "dynasty_main sf1:b7ad1575925091f6 vs dynasty_new sf1:82a5f8ef2bfdb098 with identical labels. /api/data and /api/terminal for dynasty_new: 200 serving dynasty_main's board -> 503 data_not_ready. /api/draft-capital stays 200; its rookie block drops from 40 foreign-priced rookies to rookieSource:none with all 80 real picks intact.",
+  "regressionCoverage": [
+   "tests/api/test_scoring_compatibility.py",
+   "tests/api/test_league_routing.py"
+  ],
+  "evidence": [
+   "docs/master-site-audit/evidence/W18/B6_SCORING_IDENTITY_DESIGN.md",
+   "docs/master-site-audit/evidence/W18/b6_validate.py",
+   "docs/master-site-audit/evidence/W18/b6-validation.json"
+  ],
+  "ownerReviewGaps": {
+   "staleSnapshotProof": "A snapshot proves when it was fetched, not that it is still true. scoring_evidence_state() now returns fresh/stale/missing and only fresh authorizes reuse. SCORING_SNAPSHOT_MAX_AGE_HOURS=6 is DERIVED from the repo's existing scrape-cadence rule (SCRAPE_INTERVAL_HOURS*3 in server.py, and the default in data_contract._SOURCE_MAX_AGE_HOURS), pinned against both by test_the_budget_matches_the_repo_convention. A second independent boundary: a card recorded against a different NFL season is stale however recently it was fetched, because Sleeper leagues chain year to year under new ids. Stale evidence is retained and readable via scoring_settings_for_league; only its authority expires. Same-league requests are structurally unaffected.",
+   "stampCardConsistency": "_contract_scoring_fingerprint no longer prefers the stamp blindly. The card is the evidence and the stamp is a cache of it: agree -> that fingerprint; no stamp -> recompute (the migration path); disagree or a foreign sf* version -> None with a warning; stamp with no card -> None, decided explicitly rather than emerging from lookup order. Memoized on (id(sleeper), id(card), len(card), stamp) because hashing the live 141-key card costs ~85us per call; the memo is an accelerator only.",
+   "seasonVerificationFailsClosed": "Owner RE-review: the first freshness cut wrote `if season:` around the comparison and swallowed resolver errors with `except: pass`, so two cases reached FRESH with no season ever checked — a snapshot with no recorded season, and a current-season resolver that could not answer. Both are 'we do not know which season this card describes', and an unknown may not pass as a match. Both now return STALE, which is the same state (and the same reasoning) the undated-card branch three lines above already used: the card is present and readable but cannot prove it is current. No fourth state was invented. Safe because refresh_scoring_snapshot supplies season=info.season and both live snapshots carry '2026'; pinned by test_the_real_snapshot_writer_records_a_season so the strictness cannot silently make every card permanently stale. Two test fixtures that had been relying on the fail-open (they wrote cards with no season) were corrected to record one, matching what the production writer does."
+  },
+  "hotPathAfterReview": {
+   "note": "Measured on a quiescent process. The pre-review 9.9us/0.3us figures were taken without controlling for the public-league-warmup thread, under which Path.stat() alone reads 882us, so they are not strictly comparable.",
+   "scoringEvidenceStateUs": 15.0,
+   "scoringFingerprintForLeagueUs": 16.6,
+   "contractScoringFingerprintUs": 0.6,
+   "scoringIdentityErrorUs": 31.0
+  }
+ }
 }

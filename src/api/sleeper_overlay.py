@@ -47,6 +47,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from typing import Any
 
 from src.utils.name_clean import strip_display_suffix
@@ -1145,6 +1146,155 @@ def _fetch_league_name(sleeper_league_id: str, getter=None) -> str | None:
     return str(name) if name else None
 
 
+#: Fields of a Sleeper block that belong to ONE league and may never be
+#: inherited from another (W18-F002).  The NFL-wide maps — ``positions``,
+#: ``playerIds``, ``idToPlayer`` — are deliberately not here: they map
+#: player ids to names for the whole league universe and are genuinely
+#: league-independent.
+LEAGUE_SPECIFIC_SLEEPER_FIELDS: tuple[str, ...] = (
+    "scoringSettings",
+    "rosterPositions",
+    "leagueSettings",
+)
+NFL_WIDE_SLEEPER_FIELDS: tuple[str, ...] = ("positions", "playerIds", "idToPlayer")
+
+
+def league_config_is_complete(config: Mapping[str, Any] | None) -> bool:
+    """Is this enough of a league to publish as READY?
+
+    Readiness means *every* league-specific field represented as ready is
+    complete and belongs to the requested league — so this checks what the
+    consumers actually need, traced rather than assumed:
+
+    * ``src/bdvm/league_config.py`` gates on
+      ``if roster_positions and scoring:``.  An EMPTY ``rosterPositions``
+      fails that and falls through to the registry's advisory settings, so
+      an empty slot list is a MISSING league, not a complete one — and
+      ``frontend/lib/starter-slots.js`` ranks live ``rosterPositions``
+      ABOVE the registry, so an empty live list would beat correct
+      registry settings and yield an empty lineup.
+    * the same builder raises ``LeagueConfigError`` at ``teams <= 1``,
+      reading ``leagueSettings["num_teams"]`` — so a settings blob without
+      a usable team count cannot construct a league either.
+
+    There is no legitimate empty-but-present case here: every Sleeper
+    league has lineup slots and a team count, so their absence means the
+    fetch did not produce them.  Missing must stay missing.
+    """
+    if not isinstance(config, Mapping):
+        return False
+    scoring = config.get("scoringSettings")
+    if not isinstance(scoring, Mapping) or not scoring:
+        return False
+    slots = config.get("rosterPositions")
+    if not isinstance(slots, (list, tuple)) or not slots:
+        return False
+    settings = config.get("leagueSettings")
+    if not isinstance(settings, Mapping) or not settings:
+        return False
+    # Read the team count; never coerce a missing one into a number.  An
+    # absent ``num_teams`` means this config cannot describe a league, and
+    # ``or 0`` would turn that unknown into a decision input — the exact
+    # missing-is-never-zero rule ``scripts/check_decision_coercions.py``
+    # enforces on this path.
+    num_teams = settings.get("num_teams")
+    if isinstance(num_teams, bool) or not isinstance(num_teams, (int, float)):
+        return False
+    return num_teams > 1
+
+
+def _fetch_league_config(sleeper_league_id: str, getter=None) -> dict[str, Any] | None:
+    """The requested league's OWN scoring/roster/settings block.
+
+    Same league object ``_fetch_league_name`` already reads (memoized per
+    build), so this costs no extra round-trip.  Returns ``None`` when the
+    fetch fails or the league object is not complete enough to stand as
+    that league's configuration — the caller must then publish an
+    explicitly NOT-ready block rather than inheriting another league's.
+
+    Partial is the case worth naming: Sleeper can answer with scoring but
+    no ``roster_positions``/``settings``, and the earlier version of this
+    function passed that through as ``[]``/``{}``, which then published as
+    ready.  A partial answer is a failed answer here.
+    """
+    info = (getter or _http_get_json)(f"https://api.sleeper.app/v1/league/{sleeper_league_id}")
+    if not isinstance(info, dict):
+        return None
+    scoring = info.get("scoring_settings")
+    if not isinstance(scoring, dict) or not scoring:
+        return None
+    config = {
+        "scoringSettings": dict(scoring),
+        "rosterPositions": list(info.get("roster_positions") or []),
+        "leagueSettings": dict(info.get("settings") or {}),
+    }
+    if not league_config_is_complete(config):
+        log.warning(
+            "sleeper_overlay: league %s returned an incomplete config "
+            "(slots=%d, settings=%d) — cross-league block will publish not-ready",
+            sleeper_league_id,
+            len(config["rosterPositions"]),
+            len(config["leagueSettings"]),
+        )
+        return None
+    return config
+
+
+def merge_cross_league_sleeper_block(
+    *,
+    loaded_sleeper: Mapping[str, Any] | None,
+    overlay: Mapping[str, Any] | None,
+    requested_league_config: Mapping[str, Any] | None,
+) -> tuple[dict[str, Any], bool]:
+    """Build the Sleeper block for a league OTHER than the loaded one.
+
+    Returns ``(block, ready)`` where ``ready`` is the value
+    ``meta.sleeperDataReady`` may take.  The invariant:
+
+        ready is true IFF every league-specific field represented as
+        ready belongs to the REQUESTED league.
+
+    Before this existed the merge was inline in a request handler and
+    carried ``scoringSettings`` / ``rosterPositions`` / ``leagueSettings``
+    forward from the loaded league, laid the requested league's teams on
+    top, and stamped ready unconditionally — League B's rosters welded to
+    League A's scoring card and team count, published as though it were
+    League B's own data.  ``useTeam.js`` reads that flag, so the
+    data-not-ready state written precisely for this case never rendered.
+
+    Without the requested league's own configuration the fields are left
+    ABSENT rather than inherited.  Absent is a state the frontend can
+    detect; a plausible wrong value is not.
+    """
+    loaded = dict(loaded_sleeper or {})
+    over = dict(overlay or {})
+    block: dict[str, Any] = {k: loaded[k] for k in NFL_WIDE_SLEEPER_FIELDS if k in loaded}
+    # The overlay is the requested league's own data and wins outright.
+    block.update(over)
+    # Never let an overlay carry a league-specific field implicitly; the
+    # only source for those is the requested league's config below.
+    for field in LEAGUE_SPECIFIC_SLEEPER_FIELDS:
+        block.pop(field, None)
+    # ``leagueConfig`` is how the overlay TRANSPORTS that config; it is
+    # not a contract field, and echoing it would ship a second copy of
+    # the scoring card in every cross-league payload.
+    config_from_overlay = block.pop("leagueConfig", None)
+    if requested_league_config is None:
+        requested_league_config = config_from_overlay
+
+    # Readiness needs a COMPLETE requested-league config, not merely a
+    # truthy scoring card — see ``league_config_is_complete`` for what the
+    # downstream consumers actually require and why no empty-but-present
+    # value counts.  Anything short of complete leaves every
+    # league-specific field absent.
+    if not league_config_is_complete(requested_league_config):
+        return block, False
+    for field in LEAGUE_SPECIFIC_SLEEPER_FIELDS:
+        if field in requested_league_config:
+            block[field] = requested_league_config[field]
+    return block, True
+
+
 def fetch_sleeper_overlay(
     *,
     sleeper_league_id: str,
@@ -1314,10 +1464,18 @@ def _build_overlay_and_cache(
         getter=fetcher.get,
     )
 
+    # The requested league's OWN scoring/roster/settings, read from the
+    # same league object ``_fetch_league_name`` just used.  This is what
+    # lets a cross-league block be published as ready WITHOUT inheriting
+    # the loaded league's configuration (W18-F002); ``None`` here means
+    # the block will honestly say it is not ready.
+    league_config = _fetch_league_config(sleeper_league_id, getter=fetcher.get)
+
     cutoff_dt = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=int(trade_window_days))
     payload: dict[str, Any] = {
         "leagueId": sleeper_league_id,
         "leagueName": league_name,
+        "leagueConfig": league_config,
         "teams": teams,
         "trades": trades,
         "waivers": waivers,

@@ -1890,7 +1890,14 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
             id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
             warmed: list[str] = []
             warm_failed: list[str] = []
+            scoring_refreshed: list[str] = []
             for cfg in _league_registry.active_leagues():
+                # Factual scoring card (W18-F001).  The compatibility
+                # gate reads a snapshot and never fetches inside a
+                # request, so this pass is what keeps it current.  A
+                # failure leaves the previous snapshot alone.
+                if _league_registry.refresh_scoring_snapshot(cfg):
+                    scoring_refreshed.append(cfg.key)
                 try:
                     overlay = _sleeper_overlay.fetch_sleeper_overlay(
                         sleeper_league_id=cfg.sleeper_league_id,
@@ -1910,11 +1917,13 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
                     warm_failed.append(cfg.key)
             if warmed or warm_failed:
                 log.info(
-                    "post-scrape overlay warm: %d warmed, %d failed (warmed=%s failed=%s)",
+                    "post-scrape overlay warm: %d warmed, %d failed "
+                    "(warmed=%s failed=%s scoringSnapshots=%s)",
                     len(warmed),
                     len(warm_failed),
                     warmed,
                     warm_failed,
+                    scoring_refreshed,
                 )
             # Sleeper trending-adds warm (FAAB v2) — global (not
             # per-league), tiny payload, 15-min TTL.  Failure is
@@ -1939,6 +1948,144 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
         ).start()
     except Exception as exc:  # noqa: BLE001
         log.warning("post-scrape overlay warm thread failed to start: %s", exc)
+
+
+# ── Scoring-identity gate (W18-F001) ─────────────────────────────────
+#
+# ONE place decides "may the loaded contract's rankings be served for
+# this league?".  Before this existed the question was answered by six
+# scattered comparisons of the hand-typed ``scoringProfile`` registry
+# label — on /api/data, /api/rankings/overrides, /api/terminal,
+# /api/trade/simulate, /api/draft-capital's rookie pool and the
+# signal-alerts sweep.  Four of them also short-circuited to
+# "compatible" whenever the loaded contract carried no label at all,
+# which is why an unidentified contract could be served for any league.
+#
+# The prose deliberately does not quote that condition verbatim:
+# ``tests/api/test_scoring_compatibility.py`` greps this file for the
+# fail-open shape, and a comment reproducing it would blind the check.
+
+#: One-entry memo for ``_contract_scoring_fingerprint`` — see its body.
+_CONTRACT_FINGERPRINT_MEMO: dict[str, tuple[tuple, str | None]] = {}
+
+
+def _contract_scoring_fingerprint(contract: Any) -> str | None:
+    """The factual scoring identity of a loaded contract, or ``None``.
+
+    **The contract's own scoring card is the evidence; the stamp is a
+    cache of it.**  That ordering is the whole justification for putting
+    an identity on the contract at all — it can be recomputed from the
+    artifact it describes, unlike a value copied out of config.  So:
+
+    * card present, stamp agrees → that fingerprint;
+    * card present, no stamp → recompute (the migration path: the live
+      board carries 141 scoring keys and identifies immediately);
+    * card present, stamp DISAGREES → ``None``.  A stale, corrupted or
+      hand-edited stamp contradicting the contract's own card is exactly
+      the kind of unverified claim W18-F001 exists to refuse, and a
+      version prefix from older normalization rules cannot be compared
+      at all;
+    * **no card, stamp only → ``None``.**  Decided explicitly rather than
+      left to fall out of the lookup order: a stamp with nothing to check
+      it against is unverifiable, and unverifiable fails closed.  The
+      documented migration policy never depended on this branch — it
+      depended on the card, which every real contract carries.
+    """
+    if not isinstance(contract, dict):
+        return None
+    meta = contract.get("meta") if isinstance(contract.get("meta"), dict) else {}
+    stamped = str(meta.get("scoringFingerprint") or "").strip()
+
+    sleeper = contract.get("sleeper")
+    if not isinstance(sleeper, dict):
+        return None
+    card = sleeper.get("scoringSettings")
+    # Hashing the card is what makes the stamp checkable, and the live
+    # board's card is 141 keys — ~85 us, on a gate that runs per request.
+    # One memo entry, keyed on the identity and size of the card dict plus
+    # the stamp being checked, so a replaced contract (every scrape swaps
+    # the object) recomputes.  Purely an accelerator: a miss recomputes,
+    # and the comparison it accelerates is unchanged.
+    memo_key = (id(sleeper), id(card), len(card) if isinstance(card, dict) else -1, stamped)
+    cached = _CONTRACT_FINGERPRINT_MEMO.get("k")
+    if cached is not None and cached[0] == memo_key:
+        return cached[1]
+    try:
+        from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
+        derived = scoring_fingerprint(card)
+    except Exception:  # noqa: BLE001 — a gate must not raise
+        return None
+    if not derived:
+        _CONTRACT_FINGERPRINT_MEMO["k"] = (memo_key, None)
+        return None
+    if stamped and stamped != derived:
+        log.warning(
+            "contract scoring identity is self-contradictory: meta stamp %s vs "
+            "its own scoring card %s — refusing to prove compatibility",
+            stamped,
+            derived,
+        )
+        _CONTRACT_FINGERPRINT_MEMO["k"] = (memo_key, None)
+        return None
+    _CONTRACT_FINGERPRINT_MEMO["k"] = (memo_key, derived)
+    return derived
+
+
+def _scoring_identity_error(contract: Any, league_cfg: Any) -> JSONResponse | None:
+    """``None`` when ``contract``'s rankings may be served for ``league_cfg``.
+
+    Otherwise the ``503 data_not_ready`` this repo already returns for
+    incompatible rankings.
+
+    Fails CLOSED on an unproven identity — either side missing — because
+    the alternative is the live defect: one league's board published
+    verbatim under another league's name with nothing on the response
+    saying so.  The cost is bounded and self-healing: the loaded league's
+    own requests never reach here (same key short-circuits), and the
+    scoring snapshot + contract stamp are both refreshed every scrape.
+    """
+    if not isinstance(contract, dict) or league_cfg is None:
+        return None
+    meta = contract.get("meta") if isinstance(contract.get("meta"), dict) else {}
+    loaded_key = str(meta.get("leagueKey") or "")
+    if loaded_key and loaded_key == league_cfg.key:
+        return None
+
+    loaded_fp = _contract_scoring_fingerprint(contract)
+    try:
+        requested_fp = _league_registry.scoring_fingerprint_for_league(league_cfg)
+    except Exception:  # noqa: BLE001
+        requested_fp = None
+    if loaded_fp and requested_fp and loaded_fp == requested_fp:
+        return None
+
+    if not loaded_fp:
+        reason = (
+            "the loaded contract carries no scoring identity, so its rankings "
+            f"cannot be shown to apply to league {league_cfg.key!r}"
+        )
+    elif not requested_fp:
+        reason = (
+            f"league {league_cfg.key!r} has no verified scoring snapshot, so its "
+            "scoring cannot be compared with the loaded contract's"
+        )
+    else:
+        reason = (
+            f"league {league_cfg.key!r} scores players differently from the "
+            "scoring the loaded rankings were built under"
+        )
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "data_not_ready",
+            "message": f"Rankings are not compatible: {reason}.",
+            "leagueKey": league_cfg.key,
+            "scoringProfile": league_cfg.scoring_profile,
+            "scoringFingerprint": requested_fp,
+            "loadedScoringFingerprint": loaded_fp,
+        },
+    )
 
 
 def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -> None:
@@ -2098,12 +2245,25 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         #
         # This split is the core of the "scoring drives rankings,
         # league drives context" architecture — see CLAUDE.md.
+        #   * ``meta.scoringFingerprint`` — the FACTUAL identity of the
+        #     scoring that produced them (W18-F001).  Derived from the
+        #     contract's OWN ``sleeper.scoringSettings``, i.e. the card
+        #     the scrape actually fetched from the host, and NOT copied
+        #     from the registry: a stamp taken from a second file proves
+        #     only that the second file said so, while this one can be
+        #     recomputed from the artifact it describes.  Absent — never
+        #     a hash of ``{}`` — when the scrape carried no card.
         try:
             _default_cfg = _league_registry.get_default_league()
             if _default_cfg and isinstance(contract_payload, dict):
                 meta_block = contract_payload.setdefault("meta", {})
                 meta_block["leagueKey"] = _default_cfg.key
                 meta_block["scoringProfile"] = _default_cfg.scoring_profile
+                _fp = _contract_scoring_fingerprint(contract_payload)
+                if _fp:
+                    meta_block["scoringFingerprint"] = _fp
+                else:
+                    meta_block.pop("scoringFingerprint", None)
         except Exception:  # noqa: BLE001
             pass
         new_coverage = _compute_served_source_coverage(contract_payload)
@@ -3293,28 +3453,14 @@ async def get_data(request: Request):
             latest_contract_data.get("meta") or {} if isinstance(latest_contract_data, dict) else {}
         )
         loaded_league = str(loaded_meta.get("leagueKey") or "")
-        loaded_profile = str(loaded_meta.get("scoringProfile") or "")
         sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
 
-        # Scoring-profile mismatch → genuinely different data; 503.
-        # Missing loaded_profile means we're running a contract built
-        # before this refactor; treat it as if profiles match (the
-        # rankings are global), and surface sleeper_matches only.
-        if loaded_profile and loaded_profile != league_cfg.scoring_profile:
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "error": "data_not_ready",
-                    "message": (
-                        f"League {league_cfg.key!r} uses scoring profile "
-                        f"{league_cfg.scoring_profile!r}, but the loaded "
-                        f"contract is {loaded_profile!r}.  Rankings are "
-                        "not compatible."
-                    ),
-                    "leagueKey": league_cfg.key,
-                    "scoringProfile": league_cfg.scoring_profile,
-                },
-            )
+        # Scoring mismatch → genuinely different data; 503.  Decided by
+        # the factual fingerprint, not the registry label, and unproven
+        # fails closed (W18-F001).
+        _scoring_err = _scoring_identity_error(latest_contract_data, league_cfg)
+        if _scoring_err is not None:
+            return _scoring_err
 
         view = (request.query_params.get("view") or "").strip().lower()
         startup_view = view in {"startup", "boot", "initial"}
@@ -3442,12 +3588,16 @@ async def get_data(request: Request):
             #     teams + trades + tradeWindow* on top.  Tagged
             #     "live-merge" so ops can grep for the new path.
             #
-            #   sleeper_matches=False → carry NFL-wide maps from the
-            #     loaded contract, then apply the full overlay
-            #     payload on top (overlay wins on every overlapping
-            #     key).  Existing behaviour, with the upgraded trade
-            #     shape now landing on cross-league /trades too.
+            #   sleeper_matches=False → carry the NFL-wide maps from the
+            #     loaded contract and apply the overlay on top, but take
+            #     the league-SPECIFIC fields (scoringSettings,
+            #     rosterPositions, leagueSettings) from the requested
+            #     league's own config or leave them absent.  Readiness
+            #     follows ownership — see
+            #     ``sleeper_overlay.merge_cross_league_sleeper_block``
+            #     (W18-F002).
             scrubbed = dict(payload_obj) if isinstance(payload_obj, dict) else {}
+            cross_league_ready = True
             if sleeper_matches:
                 overlay_full = {
                     **loaded_sleeper,
@@ -3464,26 +3614,18 @@ async def get_data(request: Request):
                     "overlayFetchedAt": overlay.get("overlayFetchedAt"),
                 }
             else:
-                overlay_full = {
-                    **{
-                        k: loaded_sleeper.get(k)
-                        for k in (
-                            "positions",
-                            "playerIds",
-                            "idToPlayer",
-                            "scoringSettings",
-                            "rosterPositions",
-                            "leagueSettings",
-                        )
-                        if k in loaded_sleeper
-                    },
-                    **overlay,
-                }
+                overlay_full, cross_league_ready = (
+                    _sleeper_overlay.merge_cross_league_sleeper_block(
+                        loaded_sleeper=loaded_sleeper,
+                        overlay=overlay,
+                        requested_league_config=overlay.get("leagueConfig"),
+                    )
+                )
             scrubbed["sleeper"] = overlay_full
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
             meta["scoringProfile"] = league_cfg.scoring_profile
-            meta["sleeperDataReady"] = True
+            meta["sleeperDataReady"] = bool(sleeper_matches or cross_league_ready)
             meta["sleeperSource"] = "overlay"
             if not sleeper_matches:
                 meta["sleeperLoadedLeagueKey"] = loaded_league or None
@@ -4039,21 +4181,10 @@ async def post_rankings_overrides(request: Request):
         latest_contract_data.get("meta") or {} if isinstance(latest_contract_data, dict) else {}
     )
     loaded_league = str(loaded_meta.get("leagueKey") or "")
-    loaded_profile = str(loaded_meta.get("scoringProfile") or "")
     sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
-    if loaded_profile and loaded_profile != league_cfg.scoring_profile:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "error": "data_not_ready",
-                "message": (
-                    f"League {league_cfg.key!r} uses scoring profile "
-                    f"{league_cfg.scoring_profile!r}, not {loaded_profile!r}."
-                ),
-                "leagueKey": league_cfg.key,
-                "scoringProfile": league_cfg.scoring_profile,
-            },
-        )
+    _scoring_err = _scoring_identity_error(latest_contract_data, league_cfg)
+    if _scoring_err is not None:
+        return _scoring_err
 
     overrides, warnings = normalize_source_overrides(body)
     tep_multiplier = normalize_tep_multiplier(body)
@@ -8924,12 +9055,13 @@ async def get_draft_capital(request: Request, refresh: str = ""):
         # use them and the dollar ladder is rebuilt over what remains.
         rookie_rows = None
         try:
-            from src.api.league_registry import get_scoring_profile  # noqa: PLC0415
-
             loaded_key = ((latest_contract_data or {}).get("meta") or {}).get("leagueKey")
-            if loaded_key and get_scoring_profile(loaded_key) == get_scoring_profile(
-                league_cfg.key
-            ):
+            # Same scoring-identity question as every other cross-league
+            # gate, so the same owner answers it (W18-F001).  The rookie
+            # pool is a set of VALUES, so serving it for a league whose
+            # scoring was never proven to match is the defect in
+            # miniature — priced rookies under the wrong rules.
+            if loaded_key and _scoring_identity_error(latest_contract_data, league_cfg) is None:
                 from src.trade.angle import _IDP_POSITIONS as _ANGLE_IDP_POSITIONS  # noqa: PLC0415
 
                 pool = _our_rookie_pool(_KTC_TOTAL_PICKS)
@@ -11242,29 +11374,19 @@ async def get_terminal(request: Request):
             )
 
     # Cross-league request: the loaded contract is for a different
-    # league than the one requested.  If the scoring profiles match,
+    # league than the one requested.  If the scoring is PROVEN to match,
     # splice in a live Sleeper overlay (rosters + trades) so the
     # terminal + team widgets actually have data to render.  Only
     # 503 when the overlay fetch fails completely — Sleeper
     # unreachable, invalid league ID, etc.
     loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
     loaded_league = loaded_meta.get("leagueKey")
-    loaded_profile = loaded_meta.get("scoringProfile")
     if loaded_league and loaded_league != league_cfg.key:
-        if loaded_profile and loaded_profile != league_cfg.scoring_profile:
-            # Rankings incompatible; the /api/data 503 path already
-            # explains this shape.  Terminal can't do anything.
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "error": "data_not_ready",
-                    "message": (
-                        f"League {league_cfg.key!r} uses scoring profile "
-                        f"{league_cfg.scoring_profile!r}, not {loaded_profile!r}."
-                    ),
-                    "leagueKey": league_cfg.key,
-                },
-            )
+        # Rankings incompatible; the /api/data 503 path explains this
+        # shape.  Terminal can't do anything.
+        _scoring_err = _scoring_identity_error(contract, league_cfg)
+        if _scoring_err is not None:
+            return _scoring_err
         loaded_sleeper = contract.get("sleeper") or {}
         id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else None
         try:
@@ -11290,31 +11412,22 @@ async def get_terminal(request: Request):
                 },
             )
         # Build a hybrid contract: global rankings + per-league
-        # sleeper.  Carry forward the NFL-wide maps so the terminal
-        # builder can resolve positions/IDs the same as for the
-        # primary league.
-        hybrid_sleeper = {
-            **{
-                k: loaded_sleeper.get(k)
-                for k in (
-                    "positions",
-                    "playerIds",
-                    "idToPlayer",
-                    "scoringSettings",
-                    "rosterPositions",
-                    "leagueSettings",
-                )
-                if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
-            },
-            **overlay,
-        }
+        # sleeper.  The NFL-wide maps carry forward so the terminal
+        # builder resolves positions/IDs the same as for the primary
+        # league; the league-SPECIFIC fields come from the requested
+        # league or not at all (W18-F002).
+        hybrid_sleeper, cross_league_ready = _sleeper_overlay.merge_cross_league_sleeper_block(
+            loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
+            overlay=overlay,
+            requested_league_config=overlay.get("leagueConfig"),
+        )
         contract = {
             **contract,
             "sleeper": hybrid_sleeper,
             "meta": {
                 **loaded_meta,
                 "leagueKey": league_cfg.key,
-                "sleeperDataReady": True,
+                "sleeperDataReady": bool(cross_league_ready),
                 "sleeperSource": "overlay",
                 "sleeperLoadedLeagueKey": loaded_league,
             },
@@ -11468,27 +11581,17 @@ async def post_trade_simulate(request: Request):
 
     # Build the contract this trade sim runs against.  When the
     # request league matches the loaded contract, just use it.
-    # When they differ but the scoring profile matches, splice in
+    # When they differ but the scoring is PROVEN to match, splice in
     # the per-league Sleeper overlay so the resolver can find the
     # user's team in this league's rosters.
     contract = latest_contract_data
     loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
     loaded_league = loaded_meta.get("leagueKey")
-    loaded_profile = loaded_meta.get("scoringProfile")
     if loaded_league and loaded_league != league_cfg.key:
-        if loaded_profile and loaded_profile != league_cfg.scoring_profile:
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "error": "data_not_ready",
-                    "message": (
-                        f"League {league_cfg.key!r} uses scoring profile "
-                        f"{league_cfg.scoring_profile!r}, not {loaded_profile!r}. "
-                        "Trade simulation needs matching rankings."
-                    ),
-                    "leagueKey": league_cfg.key,
-                },
-            )
+        # Trade simulation needs matching rankings.
+        _scoring_err = _scoring_identity_error(contract, league_cfg)
+        if _scoring_err is not None:
+            return _scoring_err
         # Splice in a live overlay for the requested league.
         loaded_sleeper = contract.get("sleeper") or {}
         id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else None
@@ -11514,21 +11617,11 @@ async def post_trade_simulate(request: Request):
                     "leagueKey": league_cfg.key,
                 },
             )
-        hybrid_sleeper = {
-            **{
-                k: loaded_sleeper.get(k)
-                for k in (
-                    "positions",
-                    "playerIds",
-                    "idToPlayer",
-                    "scoringSettings",
-                    "rosterPositions",
-                    "leagueSettings",
-                )
-                if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
-            },
-            **overlay,
-        }
+        hybrid_sleeper, _ = _sleeper_overlay.merge_cross_league_sleeper_block(
+            loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
+            overlay=overlay,
+            requested_league_config=overlay.get("leagueConfig"),
+        )
         contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
 
     # Lens on top of whatever contract the routing above settled on,
@@ -12313,11 +12406,6 @@ async def run_signal_alerts(request: Request):
             if isinstance(latest_contract_data, dict)
             else None
         )
-        loaded_profile = (
-            (latest_contract_data or {}).get("meta", {}).get("scoringProfile")
-            if isinstance(latest_contract_data, dict)
-            else None
-        )
         loaded_sleeper = (
             latest_contract_data.get("sleeper") or {}
             if isinstance(latest_contract_data, dict)
@@ -12348,7 +12436,7 @@ async def run_signal_alerts(request: Request):
                 # for other active leagues we splice in the overlay.
                 if cfg.key == loaded_league:
                     contract = latest_contract_data
-                elif loaded_profile and loaded_profile == cfg.scoring_profile:
+                elif _scoring_identity_error(latest_contract_data, cfg) is None:
                     id_map = (
                         loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
                     )
@@ -12369,24 +12457,14 @@ async def run_signal_alerts(request: Request):
                         # No data for this league — skip, not a
                         # failure (e.g. Sleeper transient error).
                         continue
-                    hybrid_sleeper = {
-                        **{
-                            k: loaded_sleeper.get(k)
-                            for k in (
-                                "positions",
-                                "playerIds",
-                                "idToPlayer",
-                                "scoringSettings",
-                                "rosterPositions",
-                                "leagueSettings",
-                            )
-                            if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
-                        },
-                        **overlay,
-                    }
+                    hybrid_sleeper, _ = _sleeper_overlay.merge_cross_league_sleeper_block(
+                        loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
+                        overlay=overlay,
+                        requested_league_config=overlay.get("leagueConfig"),
+                    )
                     contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
                 else:
-                    # Different scoring profile — rankings aren't
+                    # Scoring not proven to match — rankings aren't
                     # comparable, skip this league for this run.
                     continue
 
