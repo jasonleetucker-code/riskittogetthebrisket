@@ -802,7 +802,7 @@
         "playerId": "12509",
         "canonicalName": "tre harris",
         "position": "WR",
-        "rosValue": 10.76,
+        "rosValue": 10.82,
         "fantasyPositions": [
           "WR"
         ],
@@ -2085,8 +2085,8 @@
     "ownerId": "640377779837296640",
     "rosterId": 4,
     "teamName": "Kanyn",
-    "teamRosStrength": 255.26,
-    "startingLineupScore": 313.76,
+    "teamRosStrength": 255.42,
+    "startingLineupScore": 313.99,
     "benchDepthScore": 107.51,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -2126,8 +2126,8 @@
         "playerId": "11604",
         "canonicalName": "brock bowers",
         "position": "TE",
-        "rosValue": 35.96,
-        "adjustedValue": 35.96,
+        "rosValue": 36.19,
+        "adjustedValue": 36.19,
         "confidence": 0.771,
         "flagged": null
       },
@@ -2318,7 +2318,7 @@
         "playerId": "11604",
         "canonicalName": "brock bowers",
         "position": "TE",
-        "rosValue": 35.96,
+        "rosValue": 36.19,
         "fantasyPositions": [
           "TE"
         ],
@@ -2605,8 +2605,8 @@
     "ownerId": "1202064845743071232",
     "rosterId": 10,
     "teamName": "shayden18",
-    "teamRosStrength": 255.03,
-    "startingLineupScore": 316.79,
+    "teamRosStrength": 254.7,
+    "startingLineupScore": 316.33,
     "benchDepthScore": 94.14,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -2653,22 +2653,22 @@
       },
       {
         "slot": "WR",
-        "playerId": "10229",
-        "canonicalName": "rashee rice",
-        "position": "WR",
-        "rosValue": 35.37,
-        "adjustedValue": 35.37,
-        "confidence": 0.865,
-        "flagged": null
-      },
-      {
-        "slot": "WR",
         "playerId": "8144",
         "canonicalName": "chris olave",
         "position": "WR",
         "rosValue": 35.31,
         "adjustedValue": 35.31,
         "confidence": 0.94,
+        "flagged": null
+      },
+      {
+        "slot": "WR",
+        "playerId": "10229",
+        "canonicalName": "rashee rice",
+        "position": "WR",
+        "rosValue": 34.91,
+        "adjustedValue": 34.91,
+        "confidence": 0.866,
         "flagged": null
       },
       {
@@ -2783,7 +2783,7 @@
         "playerId": "10229",
         "canonicalName": "rashee rice",
         "position": "WR",
-        "rosValue": 35.37,
+        "rosValue": 34.91,
         "fantasyPositions": [
           "WR"
         ],
@@ -3126,8 +3126,8 @@
     "ownerId": "1202075501976375296",
     "rosterId": 6,
     "teamName": "Jhall2002",
-    "teamRosStrength": 240.13,
-    "startingLineupScore": 292.21,
+    "teamRosStrength": 240.25,
+    "startingLineupScore": 292.38,
     "benchDepthScore": 109.66,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
@@ -3137,8 +3137,8 @@
         "playerId": "11563",
         "canonicalName": "bo nix",
         "position": "QB",
-        "rosValue": 36.39,
-        "adjustedValue": 36.39,
+        "rosValue": 36.56,
+        "adjustedValue": 36.56,
         "confidence": 0.891,
         "flagged": null
       },
@@ -3315,7 +3315,7 @@
         "playerId": "11563",
         "canonicalName": "bo nix",
         "position": "QB",
-        "rosValue": 36.39,
+        "rosValue": 36.56,
         "fantasyPositions": [
           "QB"
         ],
