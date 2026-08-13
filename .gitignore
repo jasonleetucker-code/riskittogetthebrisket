@@ -62,6 +62,24 @@ exports/*
 data/ros/sources/*
 !data/ros/sources/.gitkeep
 data/ros/runs/*
+# B8 — per-manager ROS intelligence must not ship through the git
+# channel.  data/ros/team_strength/<league>.json is 78 KB per league of
+# ownerId + benchDepthScore + positionalCoverageScore +
+# healthAvailabilityScore + a full startingLineup with per-player
+# rosValue: a per-rival weakness map, and exactly the payload the
+# rosTeamStrength route now requires a session for.  Publishing it in a
+# public repo every two hours would have made that gate decorative.
+#
+# The comment above already said generated "team-strength" output stays
+# gitignored; these were tracked only because scheduled-refresh.yml
+# force-added the whole of data/ros/, which overrides ignore rules.
+# That force-add is now narrowed to match.
+#
+# Safe on production: deploy.sh uses `git reset --hard`, which discards
+# TRACKED changes and leaves untracked files alone, so the live files
+# persist across deploys and the ROS pipeline keeps rewriting them.
+data/ros/team_strength/*
+!data/ros/team_strength/.gitkeep
 !data/ros/runs/.gitkeep
 data/ros/aggregate/*
 !data/ros/aggregate/.gitkeep
