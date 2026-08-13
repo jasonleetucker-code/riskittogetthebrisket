@@ -193,3 +193,25 @@ class TestScopeIsHeld:
             ), f"{script.name} runs the full hardening installer"
             for unrelated in ("nginx", "riskit-backup", "riskit-uptime", "certbot"):
                 assert unrelated not in body, f"{script.name} touches {unrelated}"
+
+
+class TestBothPathsUseTheCorrectedVerifier:
+    """One verifier, and the timer gate lives inside it.
+
+    If either path grew its own timer check, the #813 failure could come
+    back on one side only — which is the hardest kind to notice.
+    """
+
+    def test_both_scripts_call_the_shared_verifier(self):
+        assert "verify_runtime_state" in _main_body(DEPLOY)
+        assert "verify_runtime_controls" in _main_body(ROLLBACK)
+
+    def test_neither_script_checks_a_timer_property_itself(self):
+        for script in (DEPLOY, ROLLBACK):
+            text = script.read_text()
+            for prop in ("NextElapseUSecMonotonic", "NextElapseUSecRealtime", "LastTriggerUSec"):
+                assert prop not in text, f"{script.name} inspects {prop} itself"
+
+    def test_the_monotonic_predicate_is_defined_once(self):
+        code = RECONCILER.read_text()
+        assert code.count("_rc_monotonic_elapse_is_scheduled()") == 1

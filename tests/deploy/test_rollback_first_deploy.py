@@ -150,7 +150,8 @@ case "${cmd}" in
     printf 'enabled\\n' > "${state}/units/${unit}.UnitFileState"
     if [[ "${now}" == "true" ]]; then
       printf 'active\\n' > "${state}/units/${unit}.ActiveState"
-      printf '1786000000000000\\n' > "${state}/units/${unit}.NextElapseUSecRealtime"
+      printf '\\n' > "${state}/units/${unit}.NextElapseUSecRealtime"
+      printf '2w 3d 2h 8min 32.168902s\\n' > "${state}/units/${unit}.NextElapseUSecMonotonic"
     fi
     svc="${unit%.timer}.service"
     printf 'loaded\\n' > "${state}/units/${svc}.LoadState"
@@ -517,10 +518,12 @@ class TestProductionCannotBeWeakenedByInheritedEnvironment:
 
     An inherited ``RC_WATCHDOG_OWNER`` alone is inert — the values are
     constants unless a harness explicitly sets
-    ``RC_ALLOW_TEST_OVERRIDES=1``.  On the forward path deploy.sh also
-    unsets both, so the override branch is unreachable there.  rollback.sh
-    deliberately does not scrub, because this suite drives it end to end;
-    it relies on the gate plus a warning that lands in the rollback log.
+    ``RC_ALLOW_TEST_OVERRIDES=1``.  BOTH production entry points —
+    deploy.sh and rollback.sh — additionally unset the flag and every
+    override before sourcing, so the override branch is unreachable
+    during a real deploy or rollback.  This suite drives rollback.sh end
+    to end against those production constants and doubles the privileged
+    command layer instead.
     """
 
     def test_an_inherited_override_does_not_reach_the_reconciler(self):
