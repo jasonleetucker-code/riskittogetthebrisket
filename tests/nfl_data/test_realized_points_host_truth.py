@@ -260,6 +260,85 @@ class TestPlayerSpecialTeamsIsNotAnUnvaluedAssetClass:
         ), f"{key!r} is a team-defense rule and this platform values no DST asset"
 
 
+class TestTheCanonicalScorerIsTheOwner:
+    """One active realized-scoring owner, and it is the validated one.
+
+    W18-F003's root cause was two engines with inverted validation: the
+    host-validated dot product had a single non-test caller while the
+    allow-list engine reached every production consumer with no
+    host-truth test at all. The repair is not "map the renamed columns"
+    — it is to make the validated scorer the owner and reduce the other
+    to normalization, so the drift CLASS cannot recur.
+    """
+
+    def test_production_entry_point_delegates_to_the_canonical_scorer(self, dynasty_main_card):
+        from src.league_intel.scorer import score_stat_line
+        from src.nfl_data.realized_points import sleeper_stat_line_from_row
+
+        row = {
+            "passing_yards": 300,
+            "passing_tds": 2,
+            "passing_interceptions": 1,
+            "sacks_suffered": 2,
+            "completions": 25,
+            "attempts": 35,
+            "rushing_yards": 40,
+            "carries": 6,
+            "passing_first_downs": 12,
+            "rushing_first_downs": 3,
+        }
+        produced = compute_weekly_points(row, dynasty_main_card, position="QB")
+        canonical = score_stat_line(
+            sleeper_stat_line_from_row(row, position="QB"), dynasty_main_card
+        )
+        assert produced.fantasy_points == pytest.approx(canonical.total_points, abs=1e-9), (
+            "the production entry point no longer agrees with the canonical scorer — "
+            "a second scoring owner has reappeared"
+        )
+
+    def test_normalization_is_independent_of_scoring(self):
+        """The normalizer must not consult the league's rates.
+
+        Mixing them is what produced the defect: an engine keyed on
+        provider column names treats "column missing" and "rule scores
+        nothing" as the same event, so a vendor rename disappears a live
+        rule in silence.
+        """
+        from src.nfl_data.realized_points import sleeper_stat_line_from_row
+
+        row = {"passing_yards": 300, "passing_interceptions": 2, "receptions": 4}
+        assert sleeper_stat_line_from_row(row, position="WR") == sleeper_stat_line_from_row(
+            row, position="WR"
+        )
+        line = sleeper_stat_line_from_row(row, position="WR")
+        # Stats the row carries are present regardless of whether any
+        # league pays for them.
+        assert line["pass_yd"] == 300
+        assert line["pass_int"] == 2
+        assert line["rec"] == 4
+
+    def test_a_rule_the_line_carries_can_never_be_skipped(self, dynasty_main_card):
+        """The structural guarantee a dot product gives and an allow-list does not."""
+        from src.nfl_data.realized_points import sleeper_stat_line_from_row
+
+        row = {
+            "passing_yards": 300,
+            "passing_interceptions": 3,
+            "sacks_suffered": 2,
+            "fumbles_lost_total": 1,
+        }
+        line = sleeper_stat_line_from_row(row, position="QB")
+        result = compute_weekly_points(row, dynasty_main_card, position="QB")
+        scored_keys = {
+            k for k in line if k in dynasty_main_card and float(dynasty_main_card[k]) != 0.0
+        }
+        # Every such key contributed something the breakdown can show.
+        assert len(result.breakdown) >= len(scored_keys), (
+            f"{len(scored_keys)} paid stats on the line produced only "
+            f"{len(result.breakdown)} breakdown rows"
+        )
+
+
 class TestKickersAreScoredNotSilentlyZeroed:
     """A kicker used to score a well-formed ``0.000`` with no reason.
 
