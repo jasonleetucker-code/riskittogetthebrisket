@@ -618,7 +618,7 @@
    "title": "Two shipped systems give the SAME team opposite contention labels: /phases says \"Win-now\", /api/gameplan says \"rebuild\"",
    "area": "Roster & Trade Intelligence (src/roster_intel/), Terminal aggregation (src/api/terminal.py + GET /api/terminal), Gameplan API (src/api/gameplan.py + GET /api/gameplan), and their frontend surfaces (frontend/lib/portfolio-insights.js, frontend/lib/team-phase.js, frontend/lib/signal-engine.js, frontend/components/terminal/*, frontend/components/TeamPhasePanel.jsx) \u2014 commit 9c5d972",
    "complexity": "Medium",
-   "auditEvidence": "Owner 831633191830933504 (\"Collin\"). Backend: `src/roster_intel/window.py:league_competitiveness` (lines ~300-330) takes the championship-odds percentile; measured live run \u2192 `comp=0.188, mostLikely='rebuild', confidence=0.388` while `lineup_score=673.0` (4th-highest of 12). Frontend: `frontend/lib/team-phase.js:83-90` `if (isHighValue && isYounger) return PHASES.WIN_NOW;` \u2014 measured live: Collin ",
+   "auditEvidence": "Owner owner-b84d236298d2 (\"Collin\"). Backend: `src/roster_intel/window.py:league_competitiveness` (lines ~300-330) takes the championship-odds percentile; measured live run \u2192 `comp=0.188, mostLikely='rebuild', confidence=0.388` while `lineup_score=673.0` (4th-highest of 12). Frontend: `frontend/lib/team-phase.js:83-90` `if (isHighValue && isYounger) return PHASES.WIN_NOW;` \u2014 measured live: Collin ",
    "auditId": "R-3",
    "path": "frontend/lib/team-phase.js",
    "signature": "if (isHighValue && isYounger) return PHASES.WIN_NOW;",
@@ -638,7 +638,7 @@
    "title": "Competitive window ranks 8 of 12 rosters on one scale and 4 on an incomparable other, then presents both in one five-state vocabulary",
    "area": "Roster & Trade Intelligence (src/roster_intel/), Terminal aggregation (src/api/terminal.py + GET /api/terminal), Gameplan API (src/api/gameplan.py + GET /api/gameplan), and their frontend surfaces (frontend/lib/portfolio-insights.js, frontend/lib/team-phase.js, frontend/lib/signal-engine.js, frontend/components/terminal/*, frontend/components/TeamPhasePanel.jsx) \u2014 commit 9c5d972",
    "complexity": "Medium",
-   "auditEvidence": "`data/ros/sims/latest_playoff.json` contains 8 rows for a 12-team league (verified: `len(playoffOdds)==8`; missing ownerIds `{1208452010173538304, 1002085133723299840, 1303549304882892800, 712035316776669184}`). `src/roster_intel/window.py:league_competitiveness` percentiles championshipOdds *over the rows it was given* (`below/ties over len(champ)`), else falls back to `lineupScoreRank` over all ",
+   "auditEvidence": "`data/ros/sims/latest_playoff.json` contains 8 rows for a 12-team league (verified: `len(playoffOdds)==8`; missing ownerIds `{owner-9b939999c520, owner-396ab6a38b0f, owner-81e37a629680, owner-85176a3f8776}`). `src/roster_intel/window.py:league_competitiveness` percentiles championshipOdds *over the rows it was given* (`below/ties over len(champ)`), else falls back to `lineupScoreRank` over all ",
    "auditId": "R-3b",
    "path": "src/ros/trade_deadline.py",
    "signature": "owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))",
@@ -821,5 +821,9 @@
     "result": "no_mechanical_probe"
    }
   }
- ]
+ ],
+ "_sanitized": {
+  "by": "scripts/sanitize_audit_evidence.py",
+  "why": "B8 \u2014 git is a distribution channel. Manager identifiers are deterministic non-reversible pseudonyms and per-manager intelligence values are nulled with their keys kept, so this capture still proves which fields the payload exposed, how many managers it covered and how deep it went. Public league-wide facts (rank, odds, percentile) and the strategy text the findings turn on are preserved."
+ }
 }

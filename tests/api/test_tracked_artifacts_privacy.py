@@ -1,27 +1,51 @@
 """B8 — git is a distribution channel too.
 
-Fixing HTTP access while the same payload ships in a public repository
-is not a boundary.  ``SECURITY.md`` records that everything tracked
-under ``data/`` and ``exports/`` is readable by anyone, so a tracked
-file is a published file.
+Fixing HTTP access while the same payload ships in a public repository is
+not a boundary.  ``SECURITY.md`` records that everything tracked under
+``data/`` and ``exports/`` is readable by anyone, so a tracked file is a
+published file.
 
-This suite inspects the INDEX rather than any one handler, because the
-leak path it guards is not an endpoint: ``scheduled-refresh.yml`` runs
-``git add -f`` over whole directories every two hours, and ``-f``
-overrides ``.gitignore``.  That is how
-``data/ros/team_strength/<league>.json`` came to be published despite
-``.gitignore`` stating that generated team-strength output stays
-ignored — 78 KB per league of ``ownerId`` + ``benchDepthScore`` +
-``positionalCoverageScore`` + ``healthAvailabilityScore`` + a full
-``startingLineup`` with per-player ``rosValue``.  A per-rival weakness
-map, and precisely the payload ``rosTeamStrength`` now requires a
-session for.
+Two leak paths, both closed here.
 
-Deliberately NOT a blanket ban on tracked data.  The repo tracks
-``data/scrape_state/`` and ``exports/`` on purpose — CLAUDE.md records
-that ``git rm --cached`` there would freeze production's source_health
-and that deploy dispatch keys on those commit subjects.  The rule is
-about CONTENT: per-manager decision intelligence, wherever it is.
+**The pipeline channel.**  ``scheduled-refresh.yml`` runs ``git add -f``
+over whole directories every two hours, and ``-f`` overrides
+``.gitignore``.  That is how ``data/ros/team_strength/<league>.json`` came
+to be published despite ``.gitignore`` stating that generated
+team-strength output stays ignored — 78 KB per league of ``ownerId`` +
+``benchDepthScore`` + ``positionalCoverageScore`` +
+``healthAvailabilityScore`` + a full ``startingLineup`` with per-player
+``rosValue``.  A per-rival weakness map, and precisely the payload
+``rosTeamStrength`` now requires a session for.
+
+**The audit-evidence channel.**  This suite previously carried a
+``KNOWN_STATIC_EVIDENCE`` allowlist naming three captures that "DO contain
+real per-manager payloads and are deliberately committed as finding
+provenance".  That is not a resolution — it is the leak, written down.
+Public git audit provenance gets no exception from the privacy boundary,
+so the rule is now:
+
+    Tracked audit evidence may prove the defect, but must itself satisfy
+    the public-Git privacy contract.
+
+Both halves matter.  Deleting the captures would satisfy privacy and
+destroy the ability to understand what was proven, so
+``scripts/sanitize_audit_evidence.py`` pseudonymizes identity and nulls
+per-manager quantities while preserving structure, field names, counts and
+the strategy text the findings turn on.  W20-F002 still reads exactly as
+recorded — a team at ROS strength percentile 100% labelled *Seller* — with
+no real person attached.
+
+That script owns the contract; this suite asserts it.  One definition, so
+the assertion and the repair cannot drift apart.
+
+Deliberately NOT a blanket ban on tracked data, and NOT a ban on
+``ownerId``.  The repo tracks ``data/scrape_state/`` and ``exports/`` on
+purpose — CLAUDE.md records that ``git rm --cached`` there would freeze
+production's source_health and that deploy dispatch keys on those commit
+subjects — and an owner id is the team identifier that legitimately
+appears in public standings, power rankings, playoff odds, award winners
+and trade grades.  The rule is about CONTENT: per-manager decision
+intelligence, wherever it is.
 """
 
 from __future__ import annotations
@@ -29,20 +53,27 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "scripts"))
 
-#: Field names that only appear in per-manager decomposition — a
-#: rival's roster weaknesses or their behavioural tendencies.
-#:
-#: ``ownerId`` is deliberately absent: it is the team identifier, and it
-#: legitimately appears in public standings, power rankings and playoff
-#: odds.  Banning it would fail on genuinely public artifacts and teach
-#: the next reader that the rule is about identifiers rather than about
-#: intelligence.
+from sanitize_audit_evidence import (  # noqa: E402
+    PRIVATE_RECORD_MARKERS,
+    PRIVATE_VALUE_KEYS,
+    _public_league_ids,
+    private_bindings,
+    roster_enumerations,
+)
+
+#: Field names that only appear in per-manager decomposition — a rival's
+#: roster weaknesses or their behavioural tendencies.  Used for the
+#: coarse, fast scan over the pipeline-published channel; the audit tree
+#: gets the structural contract instead.
 PRIVATE_INTELLIGENCE_FIELDS = (
     "benchDepthScore",
     "positionalCoverageScore",
@@ -50,8 +81,19 @@ PRIVATE_INTELLIGENCE_FIELDS = (
     "teamAggression",
 )
 
+#: The directories the refresh pipeline REPUBLISHES.  ``scheduled-refresh.yml``
+#: force-adds these every two hours, so anything here is a live, ongoing
+#: publication of current data — which is the channel B8 closes.
+PUBLISHED_PREFIXES = ("data/", "exports/", "CSVs/")
 
-def _tracked_files() -> list[str]:
+#: Skip genuinely huge artifacts so the sweep stays a test rather than a
+#: batch job.  Nothing above this is a per-manager capture: the largest is
+#: the 12 MB full-contract board, which is players, not managers.
+_MAX_SCAN_BYTES = 40_000_000
+
+
+@lru_cache(maxsize=1)
+def _tracked_files() -> tuple[str, ...]:
     out = subprocess.run(
         ["git", "ls-files", "-z"],
         cwd=REPO,
@@ -59,56 +101,34 @@ def _tracked_files() -> list[str]:
         text=True,
         check=True,
     ).stdout
-    return [p for p in out.split("\0") if p]
+    return tuple(p for p in out.split("\0") if p)
 
 
-#: The directories the refresh pipeline REPUBLISHES.  ``scheduled-refresh.yml``
-#: force-adds these every two hours, so anything here is a live, ongoing
-#: publication of current data — which is the channel B8 closes.
-PUBLISHED_PREFIXES = ("data/", "exports/", "CSVs/")
-
-#: Static audit captures that DO contain real per-manager payloads and are
-#: deliberately committed as finding provenance.  Named rather than silently
-#: excluded, because narrowing a privacy rule without saying so is how the
-#: rule stops meaning anything:
-#:
-#:   docs/master-site-audit/evidence/W17/sec-rosTeamStrength.json  63,686 B
-#:   docs/master-site-audit/evidence/W11/faab-analytics.json       86,899 B
-#:   docs/master-site-audit/findings.json                       2,021,317 B
-#:      (embeds ``numericProof.inputs.ownerId`` in finding records —
-#:       the audit's own database, and the provenance of the findings
-#:       this whole programme is executing against)
-#:
-#: These are one-off snapshots of a past date, not a live feed, and editing
-#: them changes an audit record rather than a product surface — a judgement
-#: about the audit, not a code fix.  Carried in the B-series backlog.
-KNOWN_STATIC_EVIDENCE = (
-    "docs/master-site-audit/evidence/W17/sec-rosTeamStrength.json",
-    "docs/master-site-audit/evidence/W11/faab-analytics.json",
-    "docs/master-site-audit/findings.json",
-)
+@lru_cache(maxsize=None)
+def _read(rel: str) -> str | None:
+    path = REPO / rel
+    try:
+        if not path.is_file() or path.stat().st_size > _MAX_SCAN_BYTES:
+            return None
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
 
 
 def test_no_republished_artifact_carries_per_manager_intelligence():
     """The pipeline-published channel, scanned wholesale.
 
     Scoped to what the refresh workflow force-adds every two hours,
-    because that is the ONGOING publication.  Scanning it wholesale
-    rather than one directory is the point: the next leak will not
-    arrive through the path this test was written for.
+    because that is the ONGOING publication.  Scanning it wholesale rather
+    than one directory is the point: the next leak will not arrive through
+    the path this test was written for.
     """
     offenders: list[tuple[str, list[str]]] = []
     for rel in _tracked_files():
-        if not rel.endswith(".json"):
+        if not rel.endswith(".json") or not rel.startswith(PUBLISHED_PREFIXES):
             continue
-        if not rel.startswith(PUBLISHED_PREFIXES):
-            continue
-        path = REPO / rel
-        try:
-            if path.stat().st_size > 20_000_000:
-                continue
-            body = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
+        body = _read(rel)
+        if body is None:
             continue
         hits = [f for f in PRIVATE_INTELLIGENCE_FIELDS if f in body]
         if hits:
@@ -120,34 +140,180 @@ def test_no_republished_artifact_carries_per_manager_intelligence():
     )
 
 
-def test_the_known_static_evidence_captures_have_not_grown():
-    """The exception is bounded and visible, not a hole.
+def test_no_tracked_file_binds_a_manager_identity_to_their_intelligence():
+    """The contract, over EVERY tracked file, with no allowlist.
 
-    If a NEW documentation file starts carrying real per-manager
-    payloads, this fails — the carve-out covers two named audit
-    captures, not "anything under docs/".
+    This replaces ``KNOWN_STATIC_EVIDENCE``.  Naming the three captures
+    that leaked did not stop them leaking; it recorded that they did and
+    called the matter closed.  A new capture committed tomorrow is now
+    caught by the same rule that caught those three, which is the only
+    version of this test that keeps working after the person who wrote it
+    stops looking.
     """
-    offenders: list[str] = []
+    public_ids = _public_league_ids()
+    offenders: list[tuple[str, list[str]]] = []
     for rel in _tracked_files():
-        if not rel.endswith(".json") or rel.startswith(PUBLISHED_PREFIXES):
+        if not rel.endswith((".json", ".jsonl")):
             continue
-        if rel in KNOWN_STATIC_EVIDENCE:
+        body = _read(rel)
+        if body is None:
             continue
-        path = REPO / rel
         try:
-            body = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        # Field NAMES appear legitimately in findings text and config
-        # baselines.  A real payload is the pairing of the field with a
-        # numeric owner id.
-        if not re.search(r'"ownerId"\s*:\s*"\d{6,}"', body):
-            continue
-        if any(f in body for f in PRIVATE_INTELLIGENCE_FIELDS):
-            offenders.append(rel)
+            docs = (
+                [json.loads(body)]
+                if rel.endswith(".json")
+                else [json.loads(ln) for ln in body.splitlines() if ln.strip()]
+            )
+        except (ValueError, RecursionError):
+            continue  # unparseable is a different problem than a leak
+        reasons: list[str] = []
+        for doc in docs:
+            reasons.extend(private_bindings(doc, public_ids=public_ids))
+        if reasons:
+            offenders.append((rel, sorted(set(reasons))[:6]))
+
     assert not offenders, (
-        "new tracked documentation carries real per-manager payloads: " f"{offenders}"
+        "tracked files bind a real manager identity to that manager's decision "
+        "intelligence. Audit evidence is not exempt — run\n"
+        "    python scripts/sanitize_audit_evidence.py\n"
+        "which pseudonymizes identity and nulls the private quantities while "
+        "keeping the structure and the field names the findings assert:\n"
+        + "\n".join(f"  {rel}: {why}" for rel, why in offenders[:20])
     )
+
+
+def test_no_tracked_file_publishes_the_manager_roster_inline():
+    """Reproduction commands enumerated every manager id in the league.
+
+    ``for id in 1303… 1002… 8316…`` is a machine-readable roster wearing a
+    shell loop.  The command's evidentiary value is its METHOD, which
+    survives pseudonymization, so the ids are rewritten and the command
+    still shows exactly how the finding was reproduced.
+    """
+    public_ids = _public_league_ids()
+    offenders: list[tuple[str, str]] = []
+    for rel in _tracked_files():
+        body = _read(rel)
+        if body is None:
+            continue
+        hits = roster_enumerations(body, public_ids)
+        if hits:
+            offenders.append((rel, hits[0]))
+
+    assert not offenders, (
+        "tracked files enumerate the league's manager roster inline:\n"
+        + "\n".join(f"  {rel}: {sample}…" for rel, sample in offenders[:10])
+    )
+
+
+def test_the_sanitizer_is_idempotent_and_the_tree_is_clean():
+    """The repair converges, and it has already been applied.
+
+    Without this, a sanitizer that changed a file every run would keep the
+    tree churning and the two tests above would still pass.
+    """
+    from sanitize_audit_evidence import discover_targets
+
+    assert discover_targets() == [], (
+        "scripts/sanitize_audit_evidence.py still finds work to do, so the "
+        "committed tree does not satisfy the contract it enforces"
+    )
+
+
+def test_the_contract_can_actually_fail():
+    """Guard against the guard being vacuous.
+
+    Every scan above passes trivially if the detector stopped detecting.
+    Feed it a payload shaped exactly like the leak that started this and
+    require a complaint.
+    """
+    leak = {
+        "teams": [
+            {
+                "ownerId": "900000000000000001",
+                "displayName": "Brent",
+                "teamRosStrength": 645.12,
+                "benchDepthScore": 211.01,
+                "startingLineup": [{"playerId": "4971", "rosValue": 27.16}],
+            }
+        ]
+    }
+    reasons = private_bindings(leak)
+    assert "teamRosStrength" in reasons, "the C1 value check no longer fires"
+    assert "startingLineup" in reasons, "the C2 record check no longer fires"
+
+    # Assembled at runtime, not written out as a literal: three id-shaped
+    # tokens on one source line would make THIS file a roster enumeration
+    # and fail the very scan it exists to exercise. The detector cannot
+    # tell a synthetic id from a real one — which is correct, and is why
+    # the fixture has to be built rather than spelled.
+    enumeration = "for id in " + " ".join(f"9000000000000000{n}" for n in (41, 42, 43)) + "; do"
+    assert roster_enumerations(enumeration), "the roster-enumeration check no longer fires"
+
+
+def test_a_public_payload_is_not_falsely_flagged():
+    """The rule is semantic, not "ban ownerId".
+
+    An award winner and a trade grade are both an ``ownerId`` beside a
+    ``label``, and both are public league facts. If those started failing,
+    the next person would 'fix' it by deleting public product.
+    """
+    award = {"key": "league_mvp", "label": "League MVP", "ownerId": "900000000000000002"}
+    grade = {"transactionId": "900000000000000009", "ownerId": "900000000000000003", "grade": "A+"}
+    standings = {"ownerId": "900000000000000002", "rank": 3, "playoffOdds": 1.0, "wins": 8}
+    for payload in (award, grade, standings):
+        assert not private_bindings(payload), f"public payload wrongly flagged: {payload}"
+
+
+def test_the_evidence_still_proves_its_finding():
+    """Sanitized, not gutted.
+
+    W20-F002 is "a team at ROS strength percentile 100% was labelled
+    Seller". If a future sweep nulls the percentile or the label to make
+    the privacy scan quieter, the finding becomes unreadable and this says
+    so — the reason the sanitizer keeps public odds and strategy text.
+    """
+    path = REPO / "docs/master-site-audit/evidence/W20/ros-trade-deadline.json"
+    if not path.exists():
+        pytest.skip("W20 trade-deadline capture not present")
+    teams = json.loads(path.read_text(encoding="utf-8"))["data"]["teams"]
+    assert len(teams) == 12, f"the capture no longer covers 12 managers ({len(teams)})"
+    proof = [t for t in teams if t.get("rosStrengthPercentile") == 1.0]
+    assert proof, "the strength percentile the finding turns on was nulled"
+    assert proof[0].get("label"), "the label the finding turns on was nulled"
+    assert not re.fullmatch(r"\d{15,20}", str(proof[0].get("ownerId", ""))), (
+        "the capture still carries a real manager id"
+    )
+
+
+@pytest.mark.parametrize(
+    "marker",
+    ("benchDepthScore", "positionalCoverageScore", "healthAvailabilityScore"),
+)
+def test_the_marker_actually_appears_in_the_live_artifact(marker):
+    """Guard against the pipeline scan being vacuous.
+
+    If the producer renames these fields, that scan keeps passing while
+    publishing the same intelligence under new names. This fails loudly
+    instead, on the untracked live file the ROS pipeline writes.
+    """
+    live = REPO / "data/ros/team_strength/latest.json"
+    if not live.exists():
+        pytest.skip("no local ROS team-strength artifact to sample")
+    body = live.read_text(encoding="utf-8", errors="ignore")
+    assert marker in body, (
+        f"{marker!r} no longer appears in the artifact this suite protects — "
+        "the producer's field names changed and the scan is now checking for "
+        "something that cannot occur"
+    )
+
+
+def test_the_private_key_sets_are_not_empty():
+    """A contract over zero field names would pass forever."""
+    assert len(PRIVATE_VALUE_KEYS) >= 15, "the private-value set was emptied out"
+    assert len(PRIVATE_RECORD_MARKERS) >= 4, "the private-record set was emptied out"
+    for expected in ("teamRosStrength", "benchDepthScore", "avgBid", "tradePartnerFitScore"):
+        assert expected in PRIVATE_VALUE_KEYS, f"{expected} dropped out of the contract"
 
 
 def test_the_ros_team_strength_payload_is_not_tracked():
@@ -164,8 +330,8 @@ def test_the_ros_team_strength_payload_is_not_tracked():
         "session for the same payload."
     )
     # The directory itself stays in source control: .gitignore's own
-    # comment says the ROS pipeline keeps the tree so a fresh checkout
-    # has the layout in place.
+    # comment says the ROS pipeline keeps the tree so a fresh checkout has
+    # the layout in place.
     assert "data/ros/team_strength/.gitkeep" in tracked, (
         "the directory placeholder was removed with the payloads; a fresh "
         "checkout would lose the layout the ROS pipeline expects"
@@ -176,35 +342,13 @@ def test_the_refresh_workflow_cannot_re_add_them():
     """``git add -f`` overrides ``.gitignore``.
 
     Ignoring the files is not enough on its own — the two-hourly refresh
-    force-adds whole directories, which is how they became tracked in
-    the first place.
+    force-adds whole directories, which is how they became tracked in the
+    first place.
     """
     workflow = (REPO / ".github/workflows/scheduled-refresh.yml").read_text(encoding="utf-8")
     assert "data/ros/team_strength" in workflow, (
         "scheduled-refresh.yml force-adds data/ros/ wholesale and no longer "
         "excludes team_strength — the next run will re-publish it"
-    )
-
-
-@pytest.mark.parametrize(
-    "marker",
-    ("benchDepthScore", "positionalCoverageScore", "healthAvailabilityScore"),
-)
-def test_the_marker_actually_appears_in_the_live_artifact(marker):
-    """Guard against the guard being vacuous.
-
-    If the producer renames these fields, the scan above keeps passing
-    while publishing the same intelligence under new names.  This fails
-    loudly instead, on the untracked live file the ROS pipeline writes.
-    """
-    live = REPO / "data/ros/team_strength/latest.json"
-    if not live.exists():
-        pytest.skip("no local ROS team-strength artifact to sample")
-    body = live.read_text(encoding="utf-8", errors="ignore")
-    assert marker in body, (
-        f"{marker!r} no longer appears in the artifact this suite protects — "
-        "the producer's field names changed and the scan is now checking for "
-        "something that cannot occur"
     )
 
 
@@ -237,10 +381,10 @@ def test_scan_is_not_silently_empty():
 def test_the_ros_artifacts_still_exist_on_disk():
     """Untracked, not deleted.
 
-    ``src/ros/playoff_sim.py`` reads ``team_strength/latest.json`` from
-    the filesystem, and production's deploy uses ``git reset --hard``,
-    which leaves untracked files alone.  If a future change starts
-    cleaning them, the private ROS surfaces go dark and this says so.
+    ``src/ros/playoff_sim.py`` reads ``team_strength/latest.json`` from the
+    filesystem, and production's deploy uses ``git reset --hard``, which
+    leaves untracked files alone.  If a future change starts cleaning them,
+    the private ROS surfaces go dark and this says so.
     """
     live = REPO / "data/ros/team_strength/latest.json"
     if not live.exists():
