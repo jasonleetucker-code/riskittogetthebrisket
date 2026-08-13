@@ -447,11 +447,24 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C29": (
         "B-2",
         "src/nfl_data/realized_points.py",
-        '"rec": ("receptions", "Rec")',
+        '"rec": (("receptions",), "Rec")',
         OPEN,
         "_SIMPLE_KEYS carries flat 'rec' and no rec_0_4 / rec_5_9 / "
         "rec_10_19 band keys, so the active reception-band rules score "
-        "nothing.",
+        "nothing.\n\n"
+        "SIGNATURE RESPELLED 2026-08-13 (B7), STATUS DELIBERATELY UNCHANGED. "
+        "B7 converted _SIMPLE_KEYS to candidate columns — "
+        '`"rec": ("receptions", "Rec")` became '
+        '`"rec": (("receptions",), "Rec")` — so the old needle stopped '
+        "matching and the probe flipped to signature_absent. That is the "
+        "case this module's own docstring warns about: an absent signature "
+        "means the cited MECHANISM changed, not that the defect is fixed. "
+        "It is not fixed. The six reception-band rules still score nothing; "
+        "what B7 changed is that they are now DECLARED — scoring_coverage "
+        "reports them UNSCORABLE with a reason and describe_gaps surfaces "
+        "them, instead of silently contributing zero. Honest disclosure is "
+        "not scoring, and closing C29 on a respelling would have been "
+        "exactly the unchecked-claim failure this gate exists to prevent.",
     ),
     "C30": (
         "P-1",
