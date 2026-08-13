@@ -247,6 +247,10 @@ _rc_install_if_different() {
 # like "2w 3d 2h 8min 32.168902s" rather than a raw integer.  Every
 # rendering that means "nothing scheduled" is rejected; anything else is
 # a real next-elapse.
+#
+# `infinity` is rejected HERE and handled one level up, in
+# _verify_runtime_controls, because it is the only one of these
+# renderings with a legitimate explanation.
 _rc_monotonic_elapse_is_scheduled() {
   local value="$1"
   [[ -n "${value}" ]] || return 1
@@ -254,6 +258,51 @@ _rc_monotonic_elapse_is_scheduled() {
     0|0s|0us|n/a|infinity) return 1 ;;
   esac
   return 0
+}
+
+# Does the timer carry a RECURRING monotonic schedule, right now, per
+# systemd — not per the unit file in this checkout?
+#
+# `TimersMonotonic` lists the monotonic timer definitions systemd
+# actually loaded — one entry per directive, each on its own line.
+# Measured on production 2026-08-13:
+#
+#   timer.TimersMonotonic  { OnUnitActiveUSec=1min ; next_elapse=2w 3d 7h 19min 55.xxxs }
+#                          { OnBootUSec=3min ; next_elapse=3min }
+#
+# The recurring bases are the two that re-arm from the triggered unit's
+# own activity; `OnBootUSec` alone fires once per boot and would leave a
+# timer that looks enabled and never runs again.  Requiring one of them
+# is what makes "no next activation because it is running right now"
+# separable from "no next activation because there is no schedule".
+#
+# Substring match rather than a parse: the surrounding rendering of this
+# property is a systemd version detail, the base NAME is the contract.
+_rc_timer_has_recurring_monotonic_schedule() {
+  local value="$1"
+  [[ "${value}" == *OnUnitActiveUSec=* || "${value}" == *OnUnitInactiveUSec=* ]]
+}
+
+# Is the triggered unit genuinely EXECUTING at this instant?
+#
+# The healthcheck is `Type=oneshot`, so while its ExecStart runs systemd
+# reports ActiveState=activating / SubState=start, and once it exits,
+# inactive/dead.  `active`+`exited` is a FINISHED oneshot that declared
+# RemainAfterExit — not execution — so it is excluded by name rather
+# than by falling through a wildcard.
+#
+# This is the ONLY thing that can excuse a missing next activation, so
+# it is decided on the service's own live state and never inferred from
+# the timer's.
+_rc_service_is_executing() {
+  local active="$1" sub="$2"
+  case "${active}" in
+    activating|deactivating) return 0 ;;
+  esac
+  case "${sub}" in
+    start|start-pre|start-post|running|reload) return 0 ;;
+  esac
+  return 1
 }
 
 # ── the two entry points ─────────────────────────────────────────────
@@ -485,25 +534,91 @@ _verify_runtime_controls() {
   # LastTriggerUSec is deliberately NOT accepted as a substitute: a past
   # trigger says the timer HAS run, not that another run is scheduled.
   # It is logged as context and never gates.
-  local last_trigger attempt
+  #
+  # AND THE NEXT-ELAPSE IS NOT ALWAYS READABLE, EVEN WHEN HEALTHY.
+  #
+  # While the triggered oneshot is executing there is no next activation
+  # to compute, and systemd answers `NextElapseUSecMonotonic=infinity`.
+  # Observed on production 2026-08-13T06:29:24Z, six seconds after a
+  # LastTriggerUSec of 08:29:18 CEST, on a timer that had been firing
+  # every 60 s for hours.  The #814 gate rejected `infinity` outright, so
+  # it passed only because its read happened to land between firings: a
+  # healthy deploy could be failed by nothing worse than its own timing.
+  # `TimeoutStartSec=90` on the service bounds how long that window can
+  # last, which is far longer than any re-read worth spending on it.
+  #
+  # Sleeping past the execution is therefore the wrong fix.  The state is
+  # DECIDABLE from live systemd properties, so it is decided:
+  #
+  #   finite next-elapse                     → scheduled.  Pass.
+  #   infinity + service executing + the
+  #     timer's recurring monotonic schedule
+  #     still loaded                         → a transition, not a fault.
+  #                                            Pass.
+  #   infinity + service inactive/failed     → nothing is running and
+  #                                            nothing is scheduled. Fail.
+  #   empty / 0 / n-a                        → fail, whatever is running:
+  #                                            those are not transitions.
+  #   recurring monotonic schedule absent    → fail, whatever the
+  #                                            next-elapse says.
+  #
+  # All four facts are re-read TOGETHER each attempt.  Reading them apart
+  # invents its own race: a service that finishes between two reads
+  # yields "infinity" beside "not executing" and fails a timer that just
+  # re-armed correctly.
+  #
+  # The loop RE-READS through a transition rather than accepting it on
+  # sight, and the ordering is deliberate.  A measured healthcheck
+  # execution is ~0.2 s wide, so one re-read almost always lands after
+  # the timer has re-armed and the run passes on a real next-elapse —
+  # the ordinary path never needs the excuse at all.  Only an execution
+  # outlasting the whole bounded window falls through to the transition
+  # branch below, which is the case that branch exists for.
+  #
+  # Re-reading is also why the excuse can stay strict.  Sampling the
+  # host at 5 Hz showed `TimersMonotonic` still carrying
+  # `OnUnitActiveUSec` on every `activating/start` sample, so requiring
+  # it mid-execution is a check the healthy state passes rather than a
+  # second false-negative.  The same capture showed execution does NOT
+  # always report `infinity`: at 07:50:45 the service was executing while
+  # the timer still advertised the PREVIOUS finite next-elapse, systemd
+  # not having recomputed it yet.  That row passes on the finite value,
+  # which is the correct answer for it and another reason the finite
+  # branch is tried first.
+  local last_trigger attempt timers_mono svc_active svc_sub
   last_trigger="$(_rc_sudo "$SC" show "${timer}" -p LastTriggerUSec --value)"
-  # Bounded re-read: defense in depth for a genuine activation-settling
-  # window right after `enable --now`, not the mechanism being relied on.
   for attempt in 1 2 3 4 5; do
     next_mono="$(_rc_sudo "$SC" show "${timer}" -p NextElapseUSecMonotonic --value)"
+    timers_mono="$(_rc_sudo "$SC" show "${timer}" -p TimersMonotonic --value)"
+    svc_active="$(_rc_sudo "$SC" show "${svc}" -p ActiveState --value)"
+    svc_sub="$(_rc_sudo "$SC" show "${svc}" -p SubState --value)"
     if _rc_monotonic_elapse_is_scheduled "${next_mono}"; then break; fi
     (( attempt < 5 )) && sleep 1
   done
 
   _rc_log "watchdog: timer load=${ls_t} active=${as_t} file=${ufs_t}"
-  _rc_log "watchdog: next(monotonic)=${next_mono:-<empty>} next(realtime)=${next_rt:-<empty>} last=${last_trigger:-<never>}; service load=${ls_s}"
+  _rc_log "watchdog: next(monotonic)=${next_mono:-<empty>} next(realtime)=${next_rt:-<empty>} last=${last_trigger:-<never>}; service load=${ls_s} state=${svc_active:-<empty>}/${svc_sub:-<empty>}"
+  _rc_log "watchdog: timers(monotonic)=${timers_mono:-<empty>}"
   [[ "${ls_t}"  == "loaded"  ]] || { _rc_err "${timer} LoadState=${ls_t}";      rc=1; }
   [[ "${ls_s}"  == "loaded"  ]] || { _rc_err "${svc} LoadState=${ls_s}";        rc=1; }
   [[ "${ufs_t}" == "enabled" ]] || { _rc_err "${timer} UnitFileState=${ufs_t}"; rc=1; }
   [[ "${as_t}"  == "active"  ]] || { _rc_err "${timer} ActiveState=${as_t}";    rc=1; }
-  if ! _rc_monotonic_elapse_is_scheduled "${next_mono}"; then
-    _rc_err "${timer} has no future monotonic activation (NextElapseUSecMonotonic='${next_mono:-<empty>}')"
+
+  # Checked unconditionally, not only on the `infinity` branch: a timer
+  # whose recurring schedule is gone runs at most once more and then
+  # never again, and it reports a perfectly finite next-elapse until it
+  # does.  A next-elapse is a symptom; this is the schedule itself.
+  if ! _rc_timer_has_recurring_monotonic_schedule "${timers_mono}"; then
+    _rc_err "${timer} declares no recurring monotonic schedule (TimersMonotonic='${timers_mono:-<empty>}') — it cannot keep firing"
     rc=1
+  elif ! _rc_monotonic_elapse_is_scheduled "${next_mono}"; then
+    if [[ "${next_mono}" == "infinity" ]] \
+       && _rc_service_is_executing "${svc_active}" "${svc_sub}"; then
+      _rc_log "watchdog: no next activation while ${svc} is executing (${svc_active}/${svc_sub}) — recurring schedule intact, accepting"
+    else
+      _rc_err "${timer} has no future monotonic activation (NextElapseUSecMonotonic='${next_mono:-<empty>}', ${svc} ${svc_active:-<empty>}/${svc_sub:-<empty>})"
+      rc=1
+    fi
   fi
 
   # the INSTALLED executable, not the checkout copy.

@@ -209,9 +209,30 @@ class TestBothPathsUseTheCorrectedVerifier:
     def test_neither_script_checks_a_timer_property_itself(self):
         for script in (DEPLOY, ROLLBACK):
             text = script.read_text()
-            for prop in ("NextElapseUSecMonotonic", "NextElapseUSecRealtime", "LastTriggerUSec"):
+            for prop in (
+                "NextElapseUSecMonotonic",
+                "NextElapseUSecRealtime",
+                "LastTriggerUSec",
+                "TimersMonotonic",
+            ):
                 assert prop not in text, f"{script.name} inspects {prop} itself"
 
     def test_the_monotonic_predicate_is_defined_once(self):
         code = RECONCILER.read_text()
         assert code.count("_rc_monotonic_elapse_is_scheduled()") == 1
+
+    def test_the_infinity_transition_helpers_are_defined_once(self):
+        """The `infinity` excuse is the narrowest part of the contract.
+        Two copies is how one of them stays permissive."""
+        code = RECONCILER.read_text()
+        assert code.count("_rc_timer_has_recurring_monotonic_schedule()") == 1
+        assert code.count("_rc_service_is_executing()") == 1
+
+    def test_neither_script_can_excuse_a_missing_activation_itself(self):
+        """Both `infinity` and the executing states are decided in one
+        place.  A script that pattern-matched them itself would be a
+        second contract with no tests behind it."""
+        for script in (DEPLOY, ROLLBACK):
+            text = script.read_text()
+            for token in ("infinity", "activating", "SubState"):
+                assert token not in text, f"{script.name} decides {token!r} itself"
