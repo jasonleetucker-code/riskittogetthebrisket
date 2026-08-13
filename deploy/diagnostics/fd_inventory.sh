@@ -413,29 +413,41 @@ watchdog_timer_contract() {
   # quiet one.
   printf '\npolling %ss at 5Hz, printing on change (cadence is 60s)\n\n' \
     "${WATCHDOG_CONTRACT_WINDOW_S}"
-  printf '%-21s %-8s %-14s %-32s %s\n' \
-    utc_time timer.Act svc.Act/Sub next_monotonic last_trigger
+  # `recurring` is sampled too, not just read once up front.  The
+  # verifier requires the recurring base to be present at the moment it
+  # looks, so whether systemd keeps reporting it WHILE the unit runs is
+  # the difference between a fail-closed check and a new false-negative
+  # in the same 0.2 s window as the old one.
+  printf '%-21s %-8s %-17s %-32s %-9s %s\n' \
+    utc_time timer.Act svc.Act/Sub next_monotonic recurring last_trigger
   local polls i timer_out svc_out t_active next_mono last_trig s_active s_sub
-  local prev="" cur reason
+  local timers_mono recurring prev="" cur reason
   polls=$(( WATCHDOG_CONTRACT_WINDOW_S * 5 ))
   for ((i = 0; i < polls; i++)); do
     timer_out="$(sudo -n "${SYSTEMCTL}" show "${timer}" \
       -p ActiveState -p NextElapseUSecMonotonic -p LastTriggerUSec 2>/dev/null)"
     svc_out="$(sudo -n "${SYSTEMCTL}" show "${svc}" \
       -p ActiveState -p SubState 2>/dev/null)"
+    timers_mono="$(sudo -n "${SYSTEMCTL}" show "${timer}" \
+      -p TimersMonotonic --value 2>/dev/null)"
     t_active="$(printf '%s\n' "${timer_out}" | sed -n 's/^ActiveState=//p')"
     next_mono="$(printf '%s\n' "${timer_out}" | sed -n 's/^NextElapseUSecMonotonic=//p')"
     last_trig="$(printf '%s\n' "${timer_out}" | sed -n 's/^LastTriggerUSec=//p')"
     s_active="$(printf '%s\n' "${svc_out}" | sed -n 's/^ActiveState=//p')"
     s_sub="$(printf '%s\n' "${svc_out}" | sed -n 's/^SubState=//p')"
-    cur="${t_active}|${next_mono}|${last_trig}|${s_active}|${s_sub}"
+    case "${timers_mono}" in
+      *OnUnitActiveUSec=*|*OnUnitInactiveUSec=*) recurring=yes ;;
+      "") recurring=EMPTY ;;
+      *) recurring=NO ;;
+    esac
+    cur="${t_active}|${next_mono}|${last_trig}|${s_active}|${s_sub}|${recurring}"
     reason=""
     [[ "${cur}" != "${prev}" ]] && reason="change"
     (( i % 25 == 0 )) && reason="${reason:-heartbeat}"
     if [[ -n "${reason}" ]]; then
-      printf '%-21s %-8s %-14s %-32s %s  [%s]\n' \
+      printf '%-21s %-8s %-17s %-32s %-9s %s  [%s]\n' \
         "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${t_active:-<empty>}" \
-        "${s_active:-?}/${s_sub:-?}" "${next_mono:-<empty>}" \
+        "${s_active:-?}/${s_sub:-?}" "${next_mono:-<empty>}" "${recurring}" \
         "${last_trig:-<empty>}" "${reason}"
     fi
     prev="${cur}"
