@@ -75,26 +75,61 @@ from src.scoring.sleeper_ingest import KEY_ALIASES as _SLEEPER_KEY_ALIASES
 # Split into simple_keys (direct column read) and bonus_keys
 # (threshold-based boolean).
 
-_SIMPLE_KEYS: dict[str, tuple[str, str]] = {
-    # (stat_row_key, human_label)
-    "pass_yd": ("passing_yards", "Pass Yds"),
-    "pass_td": ("passing_tds", "Pass TD"),
-    "pass_int": ("interceptions", "INT"),
-    "pass_sack": ("sacks", "Sacks Taken"),
-    "rush_yd": ("rushing_yards", "Rush Yds"),
-    "rush_td": ("rushing_tds", "Rush TD"),
-    "rec": ("receptions", "Rec"),
-    "rec_yd": ("receiving_yards", "Rec Yds"),
-    "rec_td": ("receiving_tds", "Rec TD"),
-    "fum_lost": ("fumbles_lost", "Fum Lost"),
+# CORRECTED 2026-08-13 (B7 / W18-F003).  Three of these read columns the
+# 2025 unified nflverse release renamed, and failed exactly the way the
+# IDP block below failed before its own 2026-07-27 correction:
+# ``stat_row.get`` returns None, ``_num`` turns it into 0.0, and the rule
+# is skipped as though the player had recorded nothing.  The offense half
+# was simply missed by that repair.
+#
+# These three are PENALTIES, so the silent skip inflates rather than
+# understates — the same football scored 18.00 points higher spelled the
+# modern way on dynasty_main's card (pass_int -4, pass_sack -1,
+# fum_lost -4), with the INT / Sacks Taken / Fum Lost lines absent from
+# the breakdown entirely.  Measured across 636 host player-weeks: 208
+# points never charged, and 81% of the QB signed error.
+#
+# Now a CANDIDATE TUPLE, the shape ``_IDP_KEYS`` already uses and the
+# shape the comment above that block already claimed both shared.  Live
+# name first so a modern row wins; the retired name is kept second so a
+# backfill over an older season still scores.  This also removes the
+# reason ``src/bdvm/baseline.py::_RAW_ALIASES`` and
+# ``src/nfl_data/actuals_store.py`` each carry a private copy of the same
+# rename — the engine now absorbs it for every caller.
+_SIMPLE_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
+    # (candidate stat_row keys, human_label)
+    "pass_yd": (("passing_yards",), "Pass Yds"),
+    "pass_td": (("passing_tds",), "Pass TD"),
+    "pass_int": (("passing_interceptions", "interceptions"), "INT"),
+    "pass_sack": (("sacks_suffered", "sacks"), "Sacks Taken"),
+    "rush_yd": (("rushing_yards",), "Rush Yds"),
+    "rush_td": (("rushing_tds",), "Rush TD"),
+    "rec": (("receptions",), "Rec"),
+    "rec_yd": (("receiving_yards",), "Rec Yds"),
+    "rec_td": (("receiving_tds",), "Rec TD"),
+    "fum_lost": (("fumbles_lost_total", "fumbles_lost"), "Fum Lost"),
     # ADDED 2026-07-28.  Per-play scoring the engine never read, found
     # by src/nfl_data/scoring_coverage.py.  Both columns are on the
     # unified feed and both rules are live in dynasty_main: pass_cmp at
     # 0.15/completion (1,762 unscored points across 2025) and rush_att
     # at 0.08/carry (1,225).  ``pass_inc`` is the third of this family
     # and is derived rather than read — see below.
-    "pass_cmp": ("completions", "Completions"),
-    "rush_att": ("carries", "Rush Att"),
+    "pass_cmp": (("completions",), "Completions"),
+    "rush_att": (("carries",), "Rush Att"),
+    # ADDED 2026-08-13 (B7 / W18-F003).  PLAYER special teams, landing
+    # with the ``st_``/``kr_yd``/``pr_yd`` reclassification in
+    # scoring_coverage.  These were treated as belonging to an asset
+    # class this platform does not value; they are paid to the RB, WR, TE
+    # and LB it ranks and starts.  Measured over 1,339 host player-weeks
+    # on dynasty_main's card: kr_yd 69 rows / 150.77 pts, pr_yd 29 /
+    # 22.43, st_td 4 / 24.00.
+    #
+    # DST's ``def_kr_yd`` / ``def_pr_yd`` / ``def_st_td`` are a different
+    # rule family for an asset class this board genuinely does not value,
+    # and stay unscored.
+    "kr_yd": (("kickoff_return_yards",), "KR Yds"),
+    "pr_yd": (("punt_return_yards",), "PR Yds"),
+    "st_td": (("special_teams_tds",), "ST TD"),
 }
 
 
@@ -123,12 +158,37 @@ _FIRST_DOWN_BONUS_KEYS: dict[str, str] = {
     "TE": "bonus_fd_te",
 }
 
-#: Columns summed to get a player's total first downs.
+#: Columns summed to get a player's total first downs.  Mirrored by
+#: ``first_down_rate.FIRST_DOWN_COLUMNS``, which uses it as a PRESENCE
+#: check ("does this line supply first downs at all"), so it stays flat.
 _FIRST_DOWN_COLUMNS: tuple[str, ...] = (
     "passing_first_downs",
     "rushing_first_downs",
     "receiving_first_downs",
 )
+
+# ADDED 2026-08-13 (B7 / W18-F003).  The two feeds do not mean the same
+# thing by "first down".  **Sleeper EXCLUDES scoring plays** from
+# ``pass_fd`` / ``rush_fd`` / ``rec_fd``; nflverse's ``*_first_downs``
+# INCLUDE them.  Summing the nflverse columns therefore over-counts by
+# exactly the player's touchdown count in that play type.
+#
+# Host-verified on the golden fixtures, 3/3 exact: Josh Allen 2025 wk14
+# carries ``bonus_fd_qb = 13`` with ``pass_fd 10 + rush_fd 3`` and 4
+# touchdowns, where the raw columns sum to 17.  CMC +2 on 2 TDs; Diggs
+# +0 on 0 TDs.
+#
+# This one is an OVER-charge, opposite in sign to the renamed-column and
+# reception-band defects.  That is why it cannot be deferred: on the
+# measured sample RB net error is ~0% only because these cancel, so
+# repairing the understatements alone would invert RB direction.  The
+# same argument the module header at ``scoring_coverage.py`` makes about
+# partial corrections to relative quantities.
+_FIRST_DOWN_TD_COLUMNS: dict[str, str] = {
+    "passing_first_downs": "passing_tds",
+    "rushing_first_downs": "rushing_tds",
+    "receiving_first_downs": "receiving_tds",
+}
 
 
 # Defensive scoring keys → nflverse ``def_*`` stat columns.  Only
@@ -350,12 +410,13 @@ def compute_weekly_points(
     breakdown: list[tuple[str, float, float]] = []
     total = 0.0
 
-    # Simple keys — direct stat × points.
-    for key, (stat_key, label) in _SIMPLE_KEYS.items():
+    # Simple keys — direct stat × points.  Candidate columns, so a
+    # vendor rename cannot silently drop a live rule (see _SIMPLE_KEYS).
+    for key, (stat_columns, label) in _SIMPLE_KEYS.items():
         pts_per = scoring.get(key, 0.0)
         if pts_per == 0.0:
             continue
-        stat = _num(stat_row.get(stat_key))
+        stat = _first_num(stat_row, stat_columns)
         if stat == 0:
             continue
         contribution = stat * pts_per
@@ -390,7 +451,13 @@ def compute_weekly_points(
     if fd_key:
         fd_rate = scoring.get(fd_key, 0.0)
         if fd_rate != 0.0:
-            first_downs = sum(_num(stat_row.get(c)) for c in _FIRST_DOWN_COLUMNS)
+            # Per play type, and clamped at zero on each pair: a
+            # malformed row must never turn a bonus into a penalty.
+            first_downs = 0.0
+            for fd_col in _FIRST_DOWN_COLUMNS:
+                gained = _num(stat_row.get(fd_col))
+                scoring_plays = _num(stat_row.get(_FIRST_DOWN_TD_COLUMNS[fd_col]))
+                first_downs += max(0.0, gained - scoring_plays)
             if first_downs:
                 contribution = first_downs * fd_rate
                 breakdown.append(("First Downs", first_downs, contribution))

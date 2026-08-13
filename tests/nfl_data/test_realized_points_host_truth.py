@@ -117,62 +117,95 @@ class TestFirstDownBonusMatchesHost:
     """
 
     @pytest.mark.parametrize(
-        ("player_id", "name", "position"),
-        [("4984", "Josh Allen", "QB")],
+        ("player_id", "name", "position", "bonus_key"),
+        [("4984", "Josh Allen", "QB", "bonus_fd_qb")],
     )
-    def test_first_down_count_excludes_touchdowns(self, player_id, name, position):
+    def test_engine_first_down_count_matches_host(
+        self, dynasty_main_card, player_id, name, position, bonus_key
+    ):
         host = json.loads(
             (EVIDENCE / "sleeper_stats_2025_wk14.json").read_text(encoding="utf-8")
         )
         line = host.get(player_id) or {}
         assert line, f"fixture missing {name}"
 
-        host_first_downs = float(line.get("pass_fd", 0)) + float(line.get("rush_fd", 0))
+        host_first_downs = float(line["bonus_fd_qb"])
         touchdowns = float(line.get("pass_td", 0)) + float(line.get("rush_td", 0))
-        # The host's own bonus stat agrees with its own first-down counts.
-        assert float(line["bonus_fd_qb"]) == pytest.approx(host_first_downs, abs=1e-6)
+        # The host's own bonus stat agrees with its own play-type counts,
+        # which is what establishes that it excludes scoring plays.
+        assert host_first_downs == pytest.approx(
+            float(line.get("pass_fd", 0)) + float(line.get("rush_fd", 0)), abs=1e-6
+        )
         assert touchdowns > 0, "fixture must include a scoring player to be meaningful"
 
-        # nflverse spells the same week with TD plays folded in.
+        # The same week as nflverse spells it: first-down columns with TD
+        # plays folded in.  Only first-down inputs, so the breakdown line
+        # under test is isolated.
         nflverse_row = {
             "passing_first_downs": float(line.get("pass_fd", 0)) + float(line.get("pass_td", 0)),
             "rushing_first_downs": float(line.get("rush_fd", 0)) + float(line.get("rush_td", 0)),
+            "passing_tds": float(line.get("pass_td", 0)),
+            "rushing_tds": float(line.get("rush_td", 0)),
         }
-        engine_first_downs = sum(nflverse_row.values())
-
-        assert engine_first_downs == pytest.approx(host_first_downs, abs=1e-6), (
-            f"{name}: engine counts {engine_first_downs:.0f} first downs where the host "
-            f"counts {host_first_downs:.0f} — over by exactly the {touchdowns:.0f} "
-            "touchdowns, because nflverse includes scoring plays and Sleeper does not"
+        result = compute_weekly_points(
+            nflverse_row, {bonus_key: dynasty_main_card[bonus_key]}, position=position
+        )
+        counted = next(
+            (stat for (label, stat, _pts) in result.breakdown if label == "First Downs"),
+            None,
+        )
+        assert counted is not None, "engine emitted no First Downs line"
+        assert counted == pytest.approx(host_first_downs, abs=1e-6), (
+            f"{name}: engine counts {counted:.0f} first downs where the host counts "
+            f"{host_first_downs:.0f} — over by exactly the {touchdowns:.0f} touchdowns, "
+            "because nflverse includes scoring plays and Sleeper does not"
         )
 
 
 class TestCoverageAuditorIsNotFooled:
     """The guard must not be defeated by the defect it exists to catch.
 
-    ``engine_reads_key`` probes with ``_MAXIMAL_ROW``.  That row is
-    written in the engine's own vocabulary, so a rule mapped to a column
-    the feed no longer publishes reads as SCORED — behaviourally true of
-    the probe, factually false of every production row.
+    ``engine_reads_key`` probes with ``_MAXIMAL_ROW``.  While that row
+    was written only in the engine's own vocabulary, a rule mapped to a
+    column the feed no longer published read as SCORED — behaviourally
+    true of the probe, factually false of every production row — and the
+    audit reported an empty gap set.
+
+    The durable requirement is therefore about the PROBE, not about any
+    one key: the probe must be written in the vocabulary the feed ships,
+    so this guard catches the NEXT rename instead of ratifying it. A test
+    asserting "``pass_int`` is not SCORED" would only encode the symptom,
+    and would go false the moment the mapping is repaired.
     """
 
-    @pytest.mark.parametrize("key", ["pass_int", "pass_sack", "fum_lost"])
-    def test_a_rule_mapped_to_a_dead_column_is_not_reported_as_scored(self, key):
-        assert classify(key) is not Coverage.SCORED, (
-            f"{key!r} is classified SCORED, but its column was renamed and no "
-            "production row can satisfy it — the auditor is probing a vocabulary "
-            "the feed does not ship"
+    @pytest.mark.parametrize(("dead", "live"), sorted(RENAMED_COLUMNS.items()))
+    def test_the_probe_row_speaks_the_feeds_vocabulary(self, dead, live):
+        from src.nfl_data.scoring_coverage import _MAXIMAL_ROW
+
+        assert live in _MAXIMAL_ROW, (
+            f"the probe row does not carry {live!r} — the name the live feed "
+            f"publishes — so a rule mapped only to the retired {dead!r} would be "
+            "classified SCORED and no gap would ever be reported"
         )
 
-    def test_the_live_card_reports_the_dead_mappings(self, dynasty_main_card):
-        audit = audit_scoring_settings(dynasty_main_card)
-        surfaced = set(audit[Coverage.GAP]) | set(audit[Coverage.UNSCORABLE])
-        missing = {"pass_int", "pass_sack", "fum_lost"} - surfaced
-        assert not missing, (
-            f"{sorted(missing)} are worth real points on the live card and are "
-            "reported nowhere — not scored, not a gap, not unscorable, so no "
-            "warning reaches /api/league-comparison or Provenance.inputs_complete"
+    @pytest.mark.parametrize("key", ["pass_int", "pass_sack", "fum_lost"])
+    def test_a_repaired_rule_scores_from_the_live_column_alone(
+        self, key, dynasty_main_card
+    ):
+        """SCORED must be earned on a row the feed could actually produce."""
+        column = {
+            "pass_int": "passing_interceptions",
+            "pass_sack": "sacks_suffered",
+            "fum_lost": "fumbles_lost_total",
+        }[key]
+        row = {"passing_yards": 100, column: 2}
+        with_rule = compute_weekly_points(row, {key: dynasty_main_card[key]}, position="QB")
+        without = compute_weekly_points(row, {}, position="QB")
+        assert with_rule.fantasy_points != pytest.approx(without.fantasy_points, abs=1e-6), (
+            f"{key!r} scored nothing from {column!r}, the only spelling the 2025 "
+            "unified release publishes"
         )
+        assert classify(key) is Coverage.SCORED
 
 
 class TestEveryNonzeroRuleIsAccountedFor:

@@ -79,7 +79,24 @@ _MAXIMAL_ROW: dict[str, Any] = {
     "week": 1,
     "passing_yards": 600,
     "passing_tds": 6,
+    # CORRECTED 2026-08-13 (B7 / W18-F003).  These three carried ONLY the
+    # pre-2025 spellings, so the probe asked the engine a question no
+    # production row asks it.  Three rules mapped to columns the unified
+    # release had renamed therefore classified SCORED — behaviourally
+    # true of the probe, factually false of every real row — and `gap`
+    # came back empty, so no warning reached /api/league-comparison or
+    # Provenance.inputs_complete.  The auditor was defeated by exactly
+    # the defect it exists to catch.
+    #
+    # The probe must be written in the vocabulary the FEED ships, not the
+    # one the engine happens to read; that is what makes this guard catch
+    # the NEXT rename rather than ratify it.  Both spellings are present
+    # because the engine legitimately accepts both (candidate columns in
+    # `realized_points._SIMPLE_KEYS`) and a backfill over an older season
+    # still supplies the retired name.
+    "passing_interceptions": 2,
     "interceptions": 2,
+    "sacks_suffered": 3,
     "sacks": 3,
     "completions": 45,
     "attempts": 60,
@@ -95,7 +112,15 @@ _MAXIMAL_ROW: dict[str, Any] = {
     "receiving_tds": 3,
     "receiving_first_downs": 15,
     "receiving_2pt_conversions": 2,
+    "fumbles_lost_total": 2,
     "fumbles_lost": 2,
+    # PLAYER special teams, added with the st_/kr_yd/pr_yd
+    # reclassification.  Without these the probe cannot fire the newly
+    # scored rules and they read as false GAPs — the undersized-row
+    # hazard this row's own docstring warns about.
+    "kickoff_return_yards": 120,
+    "punt_return_yards": 60,
+    "special_teams_tds": 1,
     "def_tackles_solo": 15,
     "def_tackles_with_assist": 8,
     "def_tackle_assists": 8,
@@ -114,8 +139,24 @@ _MAXIMAL_ROW: dict[str, Any] = {
 }
 
 #: Key prefixes belonging to asset classes this platform does not value.
-#: Team defense, kickers and special teams are not tradeable assets on
-#: this board, so their rules are correctly ignored.
+#: Team defense and kickers are not tradeable assets on this board, so
+#: their rules are correctly ignored.
+#
+# CORRECTED 2026-08-13 (B7 / W18-F003).  ``st_``, ``kr_yd`` and ``pr_yd``
+# were in this tuple, which says "an asset class this platform does not
+# value".  They are not: they are paid to the RB, WR, TE and LB this
+# board ranks, values and starts.  Measured over 1,339 host player-weeks
+# on dynasty_main's live card: ``kr_yd`` 69 rows / 150.77 pts,
+# ``st_tkl_solo`` 32 / 49.21, ``pr_yd`` 29 / 22.43, ``st_td`` 4 / 24.00 —
+# earned by K, LB, RB, TE and WR.
+#
+# NOT_APPLICABLE was the most silent state available: it suppresses a key
+# from ``describe_gaps`` AND from ``Provenance.inputGaps``, so these were
+# not scored, not warned about, and not even recorded as unscorable.
+#
+# The DST spellings keep this classification and are listed separately —
+# ``st_`` never matched ``def_st_``, which has its own entry, so the
+# player/DST split is a prefix change and nothing more.
 _NOT_APPLICABLE_PREFIXES: tuple[str, ...] = (
     "pts_allow",
     "yds_allow",
@@ -123,7 +164,6 @@ _NOT_APPLICABLE_PREFIXES: tuple[str, ...] = (
     "fgmiss",
     "xpm",
     "xpmiss",
-    "st_",
     "def_st_",
     "def_3_and_out",
     "def_4_and_stop",
@@ -133,9 +173,11 @@ _NOT_APPLICABLE_PREFIXES: tuple[str, ...] = (
     "def_2pt",
     "def_td",
     "def_pass_def",
+    # Ownership of this one is not settled by any artifact in the tree —
+    # whether a field-goal return is credited to a player or to the team
+    # defense. Left NOT_APPLICABLE rather than guessed; revisit with
+    # evidence rather than by preference.
     "fg_ret_yd",
-    "kr_yd",
-    "pr_yd",
     "blk_kick",
 )
 
@@ -191,6 +233,19 @@ UNSCORABLE_REASONS: dict[str, str] = {
     "pass_int_td": "pick-six thrown is not a column on the weekly feed",
     "idp_blk_kick": "blocked kicks are not a column on the weekly defensive feed",
     "idp_pass_def_3p": "per-game PD threshold; nflverse PD counts are season-aggregated on some releases",
+    # ADDED 2026-08-13 (B7 / W18-F003), with the prefix change above.
+    # These three are PLAYER special-teams rules — real points for
+    # players this board values — but the weekly feed publishes no
+    # special-teams tackle, forced-fumble or fumble-recovery column, so
+    # they are genuinely unscorable rather than a gap. Declared, so they
+    # reach describe_gaps() and Provenance.inputGaps instead of vanishing.
+    #
+    # Their siblings kr_yd / pr_yd / st_td ARE on the feed
+    # (kickoff_return_yards / punt_return_yards / special_teams_tds) and
+    # are now scored, so they must NOT appear here.
+    "st_tkl_solo": "special-teams tackles are not a column on the weekly feed",
+    "st_ff": "special-teams forced fumbles are not a column on the weekly feed",
+    "st_fum_rec": "special-teams fumble recoveries are not a column on the weekly feed",
 }
 
 
