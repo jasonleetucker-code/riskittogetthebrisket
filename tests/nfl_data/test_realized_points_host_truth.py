@@ -258,3 +258,60 @@ class TestPlayerSpecialTeamsIsNotAnUnvaluedAssetClass:
         assert (
             classify(key) is Coverage.NOT_APPLICABLE
         ), f"{key!r} is a team-defense rule and this platform values no DST asset"
+
+
+class TestKickersAreScoredNotSilentlyZeroed:
+    """A kicker used to score a well-formed ``0.000`` with no reason.
+
+    ``config/leagues/registry.json`` gives ``dynasty_main`` ``"K": 1`` as
+    a starting slot, so "what did my kicker score" is a question a user
+    can legitimately ask — and every kicker answered zero. All of it is
+    on the weekly feed, so none of it needed play-by-play.
+    """
+
+    def test_a_real_kicker_week_scores(self, dynasty_main_card):
+        # Two made FGs (20-29 and 30-39) for 65 total yards, three PATs.
+        row = {
+            "fg_made": 2,
+            "fg_made_20_29": 1,
+            "fg_made_30_39": 1,
+            "fg_made_distance": 65,
+            "pat_made": 3,
+            "pat_missed": 0,
+        }
+        result = compute_weekly_points(row, dynasty_main_card, position="K")
+        assert result is not None
+        assert result.fantasy_points > 0, (
+            "a kicker with three PATs and 65 yards of made field goals scored "
+            "zero — the silent 0.000 this repair exists to remove"
+        )
+        expected = 3 * dynasty_main_card["xpm"] + 65 * dynasty_main_card["fgm_yds"]
+        assert result.fantasy_points == pytest.approx(expected, abs=1e-6)
+
+    def test_a_banded_rule_spanning_two_feed_bands_counts_both(self, dynasty_new_card):
+        """``fgm_50p`` means 50+; the feed splits that into 50-59 and 60+."""
+        if not dynasty_new_card.get("fgm_50p"):
+            pytest.skip("fgm_50p is not paid on this card")
+        row = {"fg_made_50_59": 1, "fg_made_60_": 1}
+        result = compute_weekly_points(row, dynasty_new_card, position="K")
+        assert result.fantasy_points == pytest.approx(
+            2 * dynasty_new_card["fgm_50p"], abs=1e-6
+        ), "a 60-yard kick was dropped from a league that pays for 50+"
+
+    @pytest.mark.parametrize("league", ["dynasty_main", "dynasty_new"])
+    def test_kicker_rules_are_no_longer_an_unvalued_asset_class(self, league, request):
+        card = request.getfixturevalue(f"{league}_card")
+        kicker_keys = [
+            k
+            for k, v in card.items()
+            if v
+            and isinstance(v, (int, float))
+            and not isinstance(v, bool)
+            and (k.startswith(("fgm", "fgmiss")) or k in {"xpm", "xpmiss"})
+        ]
+        assert kicker_keys, f"{league} pays no kicker rules; fixture is not meaningful"
+        wrong = [k for k in kicker_keys if classify(k) is Coverage.NOT_APPLICABLE]
+        assert not wrong, (
+            f"{league}: {sorted(wrong)} are still classified as belonging to an asset "
+            "class this platform does not value"
+        )

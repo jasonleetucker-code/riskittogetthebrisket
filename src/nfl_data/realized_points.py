@@ -130,6 +130,39 @@ _SIMPLE_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
     "kr_yd": (("kickoff_return_yards",), "KR Yds"),
     "pr_yd": (("punt_return_yards",), "PR Yds"),
     "st_td": (("special_teams_tds",), "ST TD"),
+    # ADDED 2026-08-13 (B7 / W18-F003).  KICKER.  The engine read no
+    # kicker key at all, so every kicker scored a well-formed 0.000 with
+    # no reason and no flag -- and dynasty_main starts K:1.  Nothing here
+    # needs play-by-play: the weekly feed carries the made/missed bands,
+    # total made-FG distance, and PATs outright.
+    "xpm": (("pat_made",), "XP Made"),
+    "xpmiss": (("pat_missed",), "XP Miss"),
+    "fgm_yds": (("fg_made_distance",), "FG Yds"),
+    "fgmiss": (("fg_missed",), "FG Miss"),
+    "fgm": (("fg_made",), "FG Made"),
+}
+
+#: Distance-banded kicker rules → the feed's own bands.  Separate from
+#: ``_SIMPLE_KEYS`` because a Sleeper band can span more than one nflverse
+#: band: ``fgm_50p`` means 50+, which the feed splits into ``fg_made_50_59``
+#: and ``fg_made_60_``.  Candidate columns pick the FIRST present, so a
+#: sum needs its own structure — getting this wrong would silently drop
+#: every 60-yard kick from a league that pays for 50+.
+_FG_BAND_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
+    "fgm_0_19": (("fg_made_0_19",), "FG 0-19"),
+    "fgm_20_29": (("fg_made_20_29",), "FG 20-29"),
+    "fgm_30_39": (("fg_made_30_39",), "FG 30-39"),
+    "fgm_40_49": (("fg_made_40_49",), "FG 40-49"),
+    "fgm_50_59": (("fg_made_50_59",), "FG 50-59"),
+    "fgm_60p": (("fg_made_60_",), "FG 60+"),
+    "fgm_50p": (("fg_made_50_59", "fg_made_60_"), "FG 50+"),
+    "fgmiss_0_19": (("fg_missed_0_19",), "FG Miss 0-19"),
+    "fgmiss_20_29": (("fg_missed_20_29",), "FG Miss 20-29"),
+    "fgmiss_30_39": (("fg_missed_30_39",), "FG Miss 30-39"),
+    "fgmiss_40_49": (("fg_missed_40_49",), "FG Miss 40-49"),
+    "fgmiss_50_59": (("fg_missed_50_59",), "FG Miss 50-59"),
+    "fgmiss_60p": (("fg_missed_60_",), "FG Miss 60+"),
+    "fgmiss_50p": (("fg_missed_50_59", "fg_missed_60_"), "FG Miss 50+"),
 }
 
 
@@ -417,6 +450,20 @@ def compute_weekly_points(
         if pts_per == 0.0:
             continue
         stat = _first_num(stat_row, stat_columns)
+        if stat == 0:
+            continue
+        contribution = stat * pts_per
+        breakdown.append((label, stat, contribution))
+        total += contribution
+
+    # Distance-banded kicker rules.  SUMMED across the feed's bands, not
+    # first-present, because one Sleeper band can cover several of the
+    # feed's (see _FG_BAND_KEYS).
+    for key, (band_columns, label) in _FG_BAND_KEYS.items():
+        pts_per = scoring.get(key, 0.0)
+        if pts_per == 0.0:
+            continue
+        stat = sum(_num(stat_row.get(col)) for col in band_columns)
         if stat == 0:
             continue
         contribution = stat * pts_per

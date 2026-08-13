@@ -121,6 +121,24 @@ _MAXIMAL_ROW: dict[str, Any] = {
     "kickoff_return_yards": 120,
     "punt_return_yards": 60,
     "special_teams_tds": 1,
+    # KICKER, added with the fgm/fgmiss/xpm/xpmiss reclassification.
+    "pat_made": 6,
+    "pat_missed": 2,
+    "fg_made": 5,
+    "fg_missed": 3,
+    "fg_made_distance": 210,
+    "fg_made_0_19": 1,
+    "fg_made_20_29": 1,
+    "fg_made_30_39": 1,
+    "fg_made_40_49": 1,
+    "fg_made_50_59": 1,
+    "fg_made_60_": 1,
+    "fg_missed_0_19": 1,
+    "fg_missed_20_29": 1,
+    "fg_missed_30_39": 1,
+    "fg_missed_40_49": 1,
+    "fg_missed_50_59": 1,
+    "fg_missed_60_": 1,
     "def_tackles_solo": 15,
     "def_tackles_with_assist": 8,
     "def_tackle_assists": 8,
@@ -157,13 +175,17 @@ _MAXIMAL_ROW: dict[str, Any] = {
 # The DST spellings keep this classification and are listed separately —
 # ``st_`` never matched ``def_st_``, which has its own entry, so the
 # player/DST split is a prefix change and nothing more.
+# CORRECTED 2026-08-13 (B7 / W18-F003), second part: the KICKER family
+# (fgm*, fgmiss*, xpm, xpmiss) also left this tuple.  The engine read no
+# kicker key at all, so every kicker scored a well-formed 0.000 with no
+# reason and no flag, and NOT_APPLICABLE kept that silent -- while
+# config/leagues/registry.json gives dynasty_main "K": 1 as a starting
+# slot, so it is a legitimate question a user can ask.  All of it is on
+# the weekly feed (fg_made_*/fg_missed_*/fg_made_distance/pat_made/
+# pat_missed), so none of it needed play-by-play.
 _NOT_APPLICABLE_PREFIXES: tuple[str, ...] = (
     "pts_allow",
     "yds_allow",
-    "fgm",
-    "fgmiss",
-    "xpm",
-    "xpmiss",
     "def_st_",
     "def_3_and_out",
     "def_4_and_stop",
