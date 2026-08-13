@@ -167,6 +167,67 @@ PUBLIC_SECTION_KEYS: tuple[str, ...] = (
     (OVERVIEW_SECTION,) + tuple(_SECTION_BUILDERS.keys()) + tuple(_LAZY_SECTION_BUILDERS.keys())
 )
 
+# ── The public/private boundary (B8) ──────────────────────────────────
+#
+# Registering a builder above makes a section BUILDABLE.  It does not
+# make it PUBLIC.  These three are per-manager decision intelligence and
+# require a session, per CLAUDE.md §5: proprietary values, edges,
+# targets, weaknesses, forecasts and manager tendencies are private.
+#
+# The boundary is SEMANTIC, not a field-name denylist and not "every ROS
+# section".  ``ownerId`` alone is deliberately not the test — it is the
+# team identifier already visible in public standings.  What makes a
+# payload private is the DECOMPOSITION attached to it: a rival's bench
+# depth and positional holes, their bidding behaviour, or an actionable
+# buy/sell call on their roster.
+#
+# Measured anonymously on production 2026-08-13, which is what set this
+# line rather than the module a builder happens to live in:
+#
+#   rosTeamStrength   61,654 chars — per-owner benchDepthScore,
+#                     positionalCoverageScore, healthAvailabilityScore
+#                     and a full startingLineup with per-player rosValue.
+#                     A per-rival weakness map.
+#   faabAnalytics     87,967 chars — ownerId, teamAggression, recentWins,
+#                     playerHistory.  Manager bidding tendencies, and its
+#                     ONLY consumer is the private /waivers page, so it
+#                     had no public justification at all.
+#   rosTradeDeadline  19,400 chars — per-owner buy/sell/rebuild direction
+#                     with literal strategy text ("Sell aging veterans
+#                     aggressively for picks + youth").
+#
+# rosTradeDeadline currently answers "Insufficient evidence" because the
+# product is preseason.  That is not a safe boundary: it populates real
+# per-manager calls at week 1.  An empty payload today is a timing
+# accident, not a guarantee.
+#
+# Deliberately NOT private, and pinned as public by
+# ``tests/api/test_public_league_privacy_boundary.py`` so a later sweep
+# has to argue with a test rather than quietly shrink the public
+# product: rosChampionship (178 chars, championshipOdds + seeds),
+# rosPlayoffOdds (251), rosPower (5,580, ranking + weights) and
+# playoffOdds (1,686).  Aggregate league-wide outcomes carry no
+# per-manager decomposition — none of them contains a single private
+# marker.
+PRIVATE_INTELLIGENCE_SECTIONS: frozenset[str] = frozenset(
+    {
+        "rosTeamStrength",
+        "faabAnalytics",
+        "rosTradeDeadline",
+    }
+)
+
+
+def is_private_intelligence_section(section: str) -> bool:
+    """Does this section require a session?
+
+    One predicate so the JSON route, the CSV route and any future
+    representation cannot drift apart — an alternate representation of
+    a private payload is still the private payload.
+    """
+    return str(section or "").strip() in PRIVATE_INTELLIGENCE_SECTIONS
+
+
 # Subset of ``PUBLIC_SECTION_KEYS`` that have matching CSV exporters
 # in ``src/public_league/csv_export.py::export_section``.  The CSV
 # route handler gates on THIS tuple, not ``PUBLIC_SECTION_KEYS``,

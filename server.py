@@ -9384,7 +9384,10 @@ from src.public_league import (  # noqa: E402 — grouped after route block abov
     build_public_snapshot,
     build_section_payload,
 )
-from src.public_league.public_contract import assert_public_payload_safe  # noqa: E402 — grouped with public-league block
+from src.public_league.public_contract import (  # noqa: E402 — grouped with public-league block
+    assert_public_payload_safe,
+    is_private_intelligence_section,
+)
 from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS  # noqa: E402 — grouped with public-league block
 from src.public_league import snapshot_store as public_snapshot_store  # noqa: E402 — grouped with public-league block
 from src.public_league import csv_export as public_csv_export  # noqa: E402 — grouped with public-league block
@@ -9739,8 +9742,119 @@ except Exception as _exc:  # noqa: BLE001
     logging.warning("Public league snapshot load at startup failed: %s", _exc)
 
 
-def _public_league_id() -> str:
-    """Return the current public-facing league id.
+def _is_truthy_flag(value: Any) -> bool:
+    """``?flag=1|true|yes|on`` — and nothing else.
+
+    ``bool("0")`` is True, which is why this exists.
+    """
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _authorized_force_refresh(request: Request, refresh: Any) -> bool:
+    """May THIS caller force a public-snapshot rebuild? (B8)
+
+    Two defects in one line.  ``force_refresh=bool(refresh)`` treated any
+    non-empty string as true, so ``?refresh=0`` — the spelling a caller
+    uses to say NO — forced a rebuild.  And nothing checked who was
+    asking, so an anonymous caller could skip the cache on every request
+    and drive an unbounded number of full snapshot rebuilds, each one an
+    O(seasons x weeks) walk plus Sleeper round-trips.  The only remaining
+    bound was the rate limiter, whose key is caller-controlled.
+
+    So: parse the flag honestly, and require a session to act on it.
+    An anonymous ``?refresh=1`` is IGNORED rather than refused — the
+    public page keeps working, it just reads the cache like everyone
+    else.  Refusing would break a public URL to fix an abuse surface.
+
+    This is deliberately a REQUEST-level authorization check and not a
+    new auth system.  The future ``Sync Sleeper / Refresh League Data``
+    action on /league is exactly the authorized caller this admits: it
+    will hold a session, so it gets a real refresh through the same
+    ``_get_public_snapshot(force_refresh=True)`` path, with the existing
+    single-flight and failure-cooldown dedupe still doing their work.
+    Nothing here forecloses that feature; it is what makes it safe.
+    """
+    if not _is_truthy_flag(refresh):
+        return False
+    return bool(_is_authenticated(request))
+
+
+def _public_section_access_error(section: str, request: Request) -> JSONResponse | None:
+    """``None`` when ``section`` may be served to THIS caller.
+
+    Registering a builder makes a section buildable, not public.  Three
+    of them are per-manager decision intelligence (see
+    ``public_contract.PRIVATE_INTELLIGENCE_SECTIONS``) and need a
+    session; the rest are league-wide facts and stay open.
+
+    One predicate for every representation.  The ``.csv`` route serves
+    the same payload through a different door, and a boundary enforced
+    on one door is not a boundary.
+    """
+    if not is_private_intelligence_section(section):
+        return None
+    if _is_authenticated(request):
+        return None
+    return JSONResponse(
+        status_code=401,
+        content={
+            "error": "auth_required",
+            "message": (
+                f"{section!r} contains manager-specific intelligence and " "requires a session."
+            ),
+            "section": section,
+        },
+    )
+
+
+def _public_section_league_error(section: str, league_key: str) -> JSONResponse | None:
+    """``None`` when a ``leagueKey`` may be honoured for this request.
+
+    The section routes accepted no ``leagueKey`` at all and always
+    resolved the registry default, so a caller asking for a second
+    league got the FIRST league's payload, byte for byte, with nothing
+    on the response saying so — measured on production for
+    ``faabAnalytics``, which ``ManualAddDrop.jsx`` requests with an
+    explicit ``?leagueKey=``.
+
+    The public-league product is single-league today, so the honest
+    answer to "give me the other league" is a refusal, not a silent
+    substitution.  Unknown keys 400 like every other league-aware route;
+    a known-but-not-public league is told so explicitly.
+    """
+    requested = str(league_key or "").strip()
+    if not requested:
+        return None
+    # Alias-aware, and returns None rather than raising on an unknown
+    # key — the same resolver every other league-aware route uses.
+    cfg = _league_registry.get_league_by_key(requested)
+    if cfg is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "unknown_league",
+                "message": f"Unknown leagueKey: {requested!r}.",
+            },
+        )
+    public_id = str(_league_registry.get_sleeper_league_id() or "").strip()
+    if public_id and str(cfg.sleeper_league_id).strip() != public_id:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "league_not_public",
+                "message": (
+                    f"League {cfg.key!r} has no public-league snapshot. The "
+                    "public league product covers one league; refusing rather "
+                    "than serving another league's payload."
+                ),
+                "leagueKey": cfg.key,
+            },
+        )
+    return None
+
+
+def _public_league_id(league_key: str | None = None) -> str:
+    """Return the public-facing Sleeper league id.
 
     Routes through the league registry (``league_registry``) so that
     the ID comes from ``config/leagues/registry.json`` when present
@@ -9748,7 +9862,17 @@ def _public_league_id() -> str:
     Returns empty string when no league is configured — callers that
     immediately hit Sleeper should treat that as "no snapshot
     available" rather than calling ``/league/`` with an empty path.
+
+    ``league_key`` (B8) resolves a SPECIFIC league instead of the
+    default, alias-aware, empty string when unknown.  The public-league
+    routes took no league at all and always resolved the default, which
+    is how a request for one league was answered with another league's
+    payload; making the identity nameable here is what lets the callers
+    above refuse rather than silently substitute.
     """
+    if league_key:
+        cfg = _league_registry.get_league_by_key(league_key)
+        return str(getattr(cfg, "sleeper_league_id", "") or "").strip()
     sid = _league_registry.get_sleeper_league_id()
     return (sid or "").strip()
 
@@ -10116,7 +10240,7 @@ async def get_public_league_metrics():
 
 
 @app.get("/api/public/league")
-async def get_public_league(refresh: str = ""):
+async def get_public_league(request: Request, refresh: str = ""):
     """Full public league contract — every section + league header.
 
     This endpoint is intentionally separate from /api/data.  It never
@@ -10130,7 +10254,7 @@ async def get_public_league(refresh: str = ""):
         # (potentially heavy per-section CPU) both run in the worker so
         # the event loop is never starved — see the ``run_in_threadpool``
         # note on the section endpoint below.
-        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
         # Serve pre-encoded bytes for the current (snapshot, private
         # contract) generation — see _PUBLIC_CONTRACT_BYTES_CACHE.
         # ``?refresh=1`` bypasses the read (still repopulates).
@@ -10173,6 +10297,7 @@ async def get_public_league_matchup(
     season: str,
     week: int,
     matchup_id: int,
+    request: Request,
     refresh: str = "",
 ):
     """Per-matchup public recap — full lineups, scoring, pre-week standings.
@@ -10182,7 +10307,7 @@ async def get_public_league_matchup(
     """
 
     def _build():
-        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
         recap = public_matchup_recap.build_matchup_recap(
             snapshot,
             season,
@@ -10238,12 +10363,12 @@ async def get_public_league_matchup(
 
 
 @app.get("/api/public/league/matchups")
-async def list_public_league_matchups(refresh: str = ""):
+async def list_public_league_matchups(request: Request, refresh: str = ""):
     """Index endpoint — every (season, week, matchup_id) that has a
     scored pair.  Useful for sitemap generation + the index landing."""
 
     def _build():
-        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
         payload = {
             "seasonsCovered": snapshot.season_ids,
             "matchups": public_matchup_recap.list_matchups(snapshot),
@@ -10267,12 +10392,12 @@ async def list_public_league_matchups(refresh: str = ""):
 
 
 @app.get("/api/public/league/player/{player_id}")
-async def get_public_league_player(player_id: str, refresh: str = ""):
+async def get_public_league_player(player_id: str, request: Request, refresh: str = ""):
     """Public player-journey view: every trade, waiver, weekly starter
     slot, per-manager scoring summary for a given Sleeper player_id."""
 
     def _build():
-        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
         journey = public_player_journey.build_player_journey(snapshot, player_id)
         if journey is None:
             return None
@@ -10318,13 +10443,13 @@ async def get_public_league_player(player_id: str, refresh: str = ""):
 
 
 @app.get("/api/public/league/players")
-async def list_public_league_players(refresh: str = ""):
+async def list_public_league_players(request: Request, refresh: str = ""):
     """Index endpoint — every player who appears on a roster or in a
     transaction in the 2-season window.  Lightweight so the frontend
     can build a player-autocomplete."""
 
     def _build():
-        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
         payload = {
             "seasonsCovered": snapshot.season_ids,
             "players": public_player_journey.list_players_with_activity(snapshot),
@@ -10350,9 +10475,11 @@ async def list_public_league_players(refresh: str = ""):
 @app.get("/api/public/league/{section}.csv")
 async def get_public_league_section_csv(
     section: str,
+    request: Request,
     owner: str = "",
     kind: str = "",
     refresh: str = "",
+    leagueKey: str = "",
 ):
     """CSV download for any public-league section.
 
@@ -10371,7 +10498,9 @@ async def get_public_league_section_csv(
     if section == "hall_of_fame":
         # Hall of Fame is a derived projection of the history section.
         def _build_hof():
-            snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+            snapshot = _get_public_snapshot(
+                force_refresh=_authorized_force_refresh(request, refresh)
+            )
             history_payload = build_section_payload(snapshot, "history")
             assert_public_payload_safe(history_payload)
             return public_csv_export.export_hall_of_fame(history_payload["data"])
@@ -10401,9 +10530,17 @@ async def get_public_league_section_csv(
                 "availableSections": list(PUBLIC_SECTION_KEYS) + ["hall_of_fame"],
             },
         )
+    _league_err = _public_section_league_error(section, leagueKey)
+    if _league_err is not None:
+        return _league_err
+    _access_err = _public_section_access_error(section, request)
+    if _access_err is not None:
+        return _access_err
 
     try:
-        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+        snapshot = await run_in_threadpool(
+            _get_public_snapshot, force_refresh=_authorized_force_refresh(request, refresh)
+        )
         if section in _HEAVY_SECTION_KEYS and not kind and not owner:
             # Reuse the single-flighted / cached payload, then serialize to
             # CSV in the worker.
@@ -10465,7 +10602,13 @@ async def get_public_league_section_csv(
 
 
 @app.get("/api/public/league/{section}")
-async def get_public_league_section(section: str, owner: str = "", refresh: str = ""):
+async def get_public_league_section(
+    section: str,
+    request: Request,
+    owner: str = "",
+    refresh: str = "",
+    leagueKey: str = "",
+):
     """Single public-league section JSON payload.
 
     ``section`` must be one of ``PUBLIC_SECTION_KEYS``.  When the
@@ -10486,11 +10629,19 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
                 "availableSections": list(PUBLIC_SECTION_KEYS),
             },
         )
+    _league_err = _public_section_league_error(section, leagueKey)
+    if _league_err is not None:
+        return _league_err
+    _access_err = _public_section_access_error(section, request)
+    if _access_err is not None:
+        return _access_err
 
     try:
         # Snapshot fetch is blocking (network I/O) — offload it.  Its
         # ``generated_at`` is the cache key for the heavy path below.
-        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=bool(refresh))
+        snapshot = await run_in_threadpool(
+            _get_public_snapshot, force_refresh=_authorized_force_refresh(request, refresh)
+        )
         if section in _HEAVY_SECTION_KEYS:
             # playoffOdds: single-flight + memoize, coordinated on the loop
             # so concurrent waiters don't occupy threadpool workers.  Heavy
