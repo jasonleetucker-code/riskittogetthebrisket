@@ -369,6 +369,64 @@ watchdog_state() {
 }
 run_optional "watchdog units and installed executable" watchdog_state
 
+# ── optional: the timer contract ACROSS a firing boundary ───────────
+# `watchdog_state` above reads the timer once.  One read cannot see the
+# state that matters here: while the triggered oneshot is executing,
+# systemd has no next activation to report and answers
+# `NextElapseUSecMonotonic=infinity`.  A verifier that samples once
+# therefore passes or fails on where its read landed relative to a
+# 60-second cadence.
+#
+# So this samples the whole tuple every second for longer than one
+# period, which guarantees crossing at least one boundary, and prints
+# every sample rather than a summary — the transition IS the evidence.
+#
+# `TimersMonotonic` is the property that distinguishes "no next
+# activation because the unit is running right now" from "no next
+# activation because this timer has no recurring schedule": it lists the
+# monotonic timer definitions systemd actually loaded, so it is present
+# for a healthy timer whatever its momentary next-elapse says.  It is
+# read live rather than inferred from the unit file in the repository,
+# because what shipped and what is loaded are different claims.
+#
+# Still read-only: `systemctl show` computes nothing and starts nothing.
+WATCHDOG_CONTRACT_SAMPLES="${WATCHDOG_CONTRACT_SAMPLES:-75}"
+
+watchdog_timer_contract() {
+  local timer="dynasty-healthcheck.timer" svc="dynasty-healthcheck.service"
+  local prop
+  for prop in Unit TimersMonotonic TimersCalendar AccuracyUSec RandomizedDelayUSec; do
+    printf '%-30s %s\n' "timer.${prop}" \
+      "$(sudo -n "${SYSTEMCTL}" show "${timer}" -p "${prop}" --value 2>/dev/null)"
+  done
+  for prop in Type TimeoutStartUSec ActiveState SubState Result; do
+    printf '%-30s %s\n' "service.${prop}" \
+      "$(sudo -n "${SYSTEMCTL}" show "${svc}" -p "${prop}" --value 2>/dev/null)"
+  done
+
+  printf '\nsampling %s x 1s (cadence is 60s, so this crosses a boundary)\n\n' \
+    "${WATCHDOG_CONTRACT_SAMPLES}"
+  printf '%-21s %-8s %-10s %-30s %s\n' \
+    utc_time timer.Act svc.Act/Sub next_monotonic last_trigger
+  local i timer_out svc_out t_active next_mono last_trig s_active s_sub
+  for ((i = 0; i < WATCHDOG_CONTRACT_SAMPLES; i++)); do
+    timer_out="$(sudo -n "${SYSTEMCTL}" show "${timer}" \
+      -p ActiveState -p NextElapseUSecMonotonic -p LastTriggerUSec 2>/dev/null)"
+    svc_out="$(sudo -n "${SYSTEMCTL}" show "${svc}" \
+      -p ActiveState -p SubState 2>/dev/null)"
+    t_active="$(printf '%s\n' "${timer_out}" | sed -n 's/^ActiveState=//p')"
+    next_mono="$(printf '%s\n' "${timer_out}" | sed -n 's/^NextElapseUSecMonotonic=//p')"
+    last_trig="$(printf '%s\n' "${timer_out}" | sed -n 's/^LastTriggerUSec=//p')"
+    s_active="$(printf '%s\n' "${svc_out}" | sed -n 's/^ActiveState=//p')"
+    s_sub="$(printf '%s\n' "${svc_out}" | sed -n 's/^SubState=//p')"
+    printf '%-21s %-8s %-10s %-30s %s\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${t_active:-<empty>}" \
+      "${s_active:-?}/${s_sub:-?}" "${next_mono:-<empty>}" "${last_trig:-<empty>}"
+    sleep 1
+  done
+}
+run_optional "watchdog timer contract across a firing boundary" watchdog_timer_contract
+
 # ── required: the trend ─────────────────────────────────────────────
 # A single number cannot distinguish a healthy steady state from the
 # middle of an accumulation.  Passive — we watch whatever the process
