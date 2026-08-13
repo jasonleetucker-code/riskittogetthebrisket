@@ -2,7 +2,7 @@
   "contract": {
     "derivedFromOwnSleeperBlock": "sf1:b7ad1575925091f6",
     "leagueKey": "dynasty_main",
-    "playersArray": 1095,
+    "playersArray": 1094,
     "resolvedByGate": "sf1:b7ad1575925091f6",
     "scoringProfile": "superflex_tep15_ppr1",
     "stampedFingerprint": "sf1:b7ad1575925091f6"
@@ -44,6 +44,7 @@
     }
   },
   "fingerprintsAgree": false,
+  "fingerprintsComparable": true,
   "labelsAgree": true,
   "leagues": {
     "dynasty_main": {

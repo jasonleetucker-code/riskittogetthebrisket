@@ -33,6 +33,34 @@ from src.api import league_registry  # noqa: E402
 from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: E402
 
 
+def scoring_agreement(leagues: dict) -> dict:
+    """Do these leagues share scoring — and could the question be asked?
+
+    ``scoring_fingerprint_for_league`` returns ``None`` for a league whose
+    snapshot is stale, missing, or recorded against another NFL season.
+    Those are the fail-closed states W18-F001 introduced, and folding them
+    into a set makes two of them collapse: ``len({None, None}) == 1``
+    published ``fingerprintsAgree: true`` for two leagues neither of which
+    could be identified.  Measured on the real registry 2026-08-13T09:39Z,
+    both live leagues ``stale``/``null`` beside a ``true``.
+
+    So comparability is reported separately from agreement, and agreement
+    is ``None`` — never ``False`` — when the question could not be asked.
+    ``False`` would assert a proven DIFFERENCE, which is a different claim
+    from "unverifiable" and equally untrue here.  Same missing-is-never-
+    zero rule the product applies to ``dollarValue`` and
+    ``budgetHeadroomAtP75``, applied to the evidence.
+    """
+    values = list(leagues.values())
+    fingerprints = [v.get("scoringFingerprint") for v in values]
+    comparable = bool(fingerprints) and all(bool(f) for f in fingerprints)
+    return {
+        "labelsAgree": len({v.get("scoringProfile") for v in values}) == 1,
+        "fingerprintsComparable": comparable,
+        "fingerprintsAgree": (len(set(fingerprints)) == 1) if comparable else None,
+    }
+
+
 def main() -> int:
     out: dict = {"leagues": {}, "endpoints": {}, "contract": {}}
 
@@ -46,8 +74,7 @@ def main() -> int:
     out["snapshotMaxAgeHours"] = league_registry.SCORING_SNAPSHOT_MAX_AGE_HOURS
 
     keys = list(out["leagues"])
-    out["labelsAgree"] = len({v["scoringProfile"] for v in out["leagues"].values()}) == 1
-    out["fingerprintsAgree"] = len({v["scoringFingerprint"] for v in out["leagues"].values()}) == 1
+    out.update(scoring_agreement(out["leagues"]))
 
     server._is_authenticated = lambda request: True  # noqa: SLF001
 

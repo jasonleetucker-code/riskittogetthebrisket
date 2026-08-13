@@ -349,8 +349,13 @@ identically, never across leagues that merely share a profile label:
 - Injury-impact calculations (position-based, not league-based)
 
 Fields that follow **leagueKey** (must be per-league):
-- `sleeper.teams`, `sleeper.leagueId`, `sleeper.positions`,
-  `sleeper.scoringSettings`
+- `sleeper.teams`, `sleeper.leagueId`, `sleeper.rosterPositions`,
+  `sleeper.scoringSettings`, `sleeper.leagueSettings` — the exact tuple
+  `sleeper_overlay.LEAGUE_SPECIFIC_SLEEPER_FIELDS` enforces (W18-F002).
+  NOT `sleeper.positions`, which this list named until 2026-08-13: that
+  field is the playerId → NFL-position map `buildRows` reads, and a
+  player's position does not depend on which league is asking. It is
+  NFL-wide, alongside `sleeper.playerIds` / `sleeper.idToPlayer`
 - Draft capital (per-team auction budgets, pick ownership)
 - Public-league snapshots / standings / matchups
 - Terminal aggregates (team portfolio, roster movers)

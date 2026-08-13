@@ -528,3 +528,110 @@ class TestFingerprintStability(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheB6EvidenceArtifactCannotClaimUnverifiedAgreement(unittest.TestCase):
+    """Two leagues neither of which can be identified do NOT "agree".
+
+    Found in owner review on 2026-08-13, in W18-F001's own evidence
+    file.  ``b6_validate.py`` computed
+
+        fingerprintsAgree = len({fp for each league}) == 1
+
+    and ``scoring_fingerprint_for_league`` returns ``None`` for a league
+    whose snapshot is stale, missing, or recorded against another NFL
+    season — exactly the fail-closed states F001 introduced.  Two
+    ``None``s collapse to the one-element set ``{None}``, so the
+    artifact published ``fingerprintsAgree: true`` when the truth was
+    "neither league could be identified at all".
+
+    Reproduced on the real registry: a run at 2026-08-13T09:39Z recorded
+    ``evidenceState: "stale"`` and ``scoringFingerprint: null`` for both
+    live leagues beside ``fingerprintsAgree: true``.
+
+    That is the same missing-is-never-zero rule this repo enforces on
+    ``dollarValue`` / ``budgetHeadroomAtP75`` / ``assetsUnpricedByBoard``,
+    applied to the evidence rather than the product: an unproven identity
+    must never be reported as a positive finding, and "unverifiable" must
+    not read as "compatible".  ``False`` would be no better — it asserts
+    a proven DIFFERENCE — so comparability is reported separately and
+    agreement is ``None`` when the question could not be asked.
+    """
+
+    @staticmethod
+    def _agreement(leagues):
+        import importlib.util
+        from pathlib import Path
+
+        path = (
+            Path(__file__).resolve().parents[2]
+            / "docs"
+            / "master-site-audit"
+            / "evidence"
+            / "W18"
+            / "b6_validate.py"
+        )
+        spec = importlib.util.spec_from_file_location("b6_validate_probe", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.scoring_agreement(leagues)
+
+    def test_two_unverifiable_fingerprints_do_not_agree(self):
+        got = self._agreement(
+            {
+                "dynasty_main": {
+                    "scoringProfile": "superflex_tep15_ppr1",
+                    "scoringFingerprint": None,
+                },
+                "dynasty_new": {
+                    "scoringProfile": "superflex_tep15_ppr1",
+                    "scoringFingerprint": None,
+                },
+            }
+        )
+        self.assertFalse(got["fingerprintsComparable"])
+        self.assertIsNone(
+            got["fingerprintsAgree"],
+            "two unidentifiable leagues were reported as having agreeing scoring",
+        )
+        # The label half is still a fact and must keep being reported.
+        self.assertTrue(got["labelsAgree"])
+
+    def test_one_missing_fingerprint_is_not_comparable_either(self):
+        got = self._agreement(
+            {
+                "a": {"scoringProfile": "p", "scoringFingerprint": "sf1:aaaa"},
+                "b": {"scoringProfile": "p", "scoringFingerprint": None},
+            }
+        )
+        self.assertFalse(got["fingerprintsComparable"])
+        self.assertIsNone(got["fingerprintsAgree"])
+
+    def test_two_verified_and_equal_fingerprints_agree(self):
+        """Fail-closed must not mean permanently unanswerable."""
+        got = self._agreement(
+            {
+                "a": {"scoringProfile": "p", "scoringFingerprint": "sf1:aaaa"},
+                "b": {"scoringProfile": "p", "scoringFingerprint": "sf1:aaaa"},
+            }
+        )
+        self.assertTrue(got["fingerprintsComparable"])
+        self.assertTrue(got["fingerprintsAgree"])
+
+    def test_two_verified_and_different_fingerprints_disagree(self):
+        """The live case: same label, materially different cards."""
+        got = self._agreement(
+            {
+                "dynasty_main": {
+                    "scoringProfile": "superflex_tep15_ppr1",
+                    "scoringFingerprint": "sf1:b7ad1575925091f6",
+                },
+                "dynasty_new": {
+                    "scoringProfile": "superflex_tep15_ppr1",
+                    "scoringFingerprint": "sf1:82a5f8ef2bfdb098",
+                },
+            }
+        )
+        self.assertTrue(got["labelsAgree"])
+        self.assertTrue(got["fingerprintsComparable"])
+        self.assertFalse(got["fingerprintsAgree"])
