@@ -17,11 +17,10 @@ working branch for provenance and only the validated GREEN head merges.
 
 | # | unit | status |
 |---|---|---|
-| 0 | **B7.0** — residual B6 evidence closure + preflight | IN PROGRESS |
-| 1 | B7 — realized-points correctness (RED commit → GREEN head) | not started |
-| 2 | B8.1 — mechanical boundary fixes | not started |
-| 3 | B8.2 — boundary policy + classification | not started |
-| 4 | B9a — overlay ceiling, published formula, one canonical value | not started |
+| 0 | **B7.0** — residual B6 evidence closure + preflight | **COMPLETE** (merged in #819) |
+| 1 | B7 — realized-points correctness (RED commit → GREEN head) | **MERGED AND VERIFIED** (#820, `af761fc`) |
+| 2 | B8 — privacy / distribution / refresh boundary | IN PROGRESS |
+| 3 | B9a — overlay ceiling, published formula, one canonical value | not started |
 | 5 | B9b — threshold unit registry | not started |
 | 6 | B10-T1 — scraper KTC dedupe | not started |
 | 7 | B10-T2 — declare provenance (board byte-identical) | not started |
@@ -278,3 +277,102 @@ Recorded because they changed planning decisions:
   nginx routes `location /api/` to the backend (`chaseupside-proxy.conf:54`), and production
   `/api/dynasty-data?leagueKey=dynasty_new` returns FastAPI's 401. Verified. It is a **latent**
   bypass reachable in dev/E2E, fixed in B8.1 on that basis — not a live leak.
+
+---
+
+# B7 — Realized-points correctness · **MERGED AND VERIFIED**
+
+| | |
+|---|---|
+| findings | `W18-F003`, `W18-F004`, new `B7-N1`…`B7-N7` |
+| RED | `f740d81` — 13 failed / 5 passed; retained as branch provenance, never merged alone (ruling R3) |
+| validated head | `0875da5344113c7b0b975101423f50cebda15b5f` |
+| validation | PR Validation run **31738127750**, job **94574620384**, SUCCESS |
+| local regression | **7144 passed / 18 skipped / 0 failed** (whole repo) |
+| merge commit | `af761fc394ae37316b64b3ebf8d84dd36beae57c` |
+| parents | `037865c` + `0875da5` — second parent **is** the validated head |
+| main advancement at merge | 6 commits, data/exports/CSVs only, **zero file overlap** |
+
+**Root cause.** Two scorers with inverted validation: `score_stat_line` was host-validated
+(1,339 player-weeks, max |Δ| 0.0050) with one non-test caller, while `compute_weekly_points`
+reached every consumer with **no host-truth test at all**.
+
+**Repairs.** Renamed nflverse columns via candidate tuples (18.00-pt swing — penalties never
+charged); first-down bonus over-charging by exactly each player's TD count; the coverage auditor
+that probed the engine's vocabulary instead of the feed's; player special teams misclassified as
+an unvalued asset class; kicker scoring (`0.000` → **11.48** on a real week, with `fgm_50p`
+summing two feed bands); the Sleeper fallback writing combined tackles into the solo slot.
+
+**Architecture (ruling R4).** `compute_weekly_points` is now **normalize → `score_stat_line`**.
+The normalizer is deliberately scoring-independent — that separation is what removes the drift
+*class*, because an allow-list keyed on vendor columns cannot distinguish "column missing" from
+"rule scores nothing". Competing scorers left alone per the scope amendment; the goal is one
+**active** canonical scorer.
+
+**W18-F004** shipped with it by necessity: `players_dir` read two keys the contract never
+carried, so every request answered `unmapped_player`; and scoring came from the *loaded* contract
+rather than the requested league (the W18-F002 shape on a route B6 did not enumerate).
+
+**Refused a false closure.** The audit drift gate reported C29's signature gone. The defect was
+untouched — my refactor respelled its probe string. Signature updated, status left **OPEN**.
+
+**Coverage effect.** `dynasty_main` scored 34 → 46, unscorable 8 → 11, gaps 0 *earned*;
+`dynasty_new` 13 → 22 and now discloses its unscorable rules (previously: nothing).
+
+---
+
+# B8 — Privacy / distribution / refresh boundary · IN PROGRESS
+
+## Section classification, decided on measured content
+
+| section | verdict | measured anonymously on prod |
+|---|---|---|
+| `rosTeamStrength` | **private** | 61,654 B — per-owner `benchDepthScore`, `positionalCoverageScore`, `healthAvailabilityScore`, full `startingLineup` |
+| `faabAnalytics` | **private** | 87,967 B — `teamAggression`, `recentWins`, `playerHistory`; **only consumer is the private `/waivers`** |
+| `rosTradeDeadline` | **private** | 19,400 B — per-owner buy/sell/rebuild + strategy text |
+| `rosChampionship` | public | 178 B — odds + seeds, no `ownerId` |
+| `rosPlayoffOdds` | public | 251 B — odds + seeds |
+| `rosPower` | public | 5,580 B — ranking + weights, zero private markers |
+| `playoffOdds` | public | 1,686 B — owners + odds, zero private markers |
+
+`ownerId` alone is **not** the test — it is the team identifier already in public standings. The
+private thing is the decomposition attached to it. `rosTradeDeadline` currently answers
+"Insufficient evidence" only because it is **preseason**; it populates real per-manager calls at
+week 1, so it is closed now rather than when the data arrives.
+
+## Repairs
+
+- **One predicate**, `public_contract.is_private_intelligence_section`, enforced by both the JSON
+  and `.csv` routes — an alternate representation is the same payload, and a boundary enforced on
+  one door is not a boundary.
+- **League scoping.** `/{section}` took no `leagueKey` and always resolved the default, so a
+  request for one league was answered with another's, byte-identical, unstamped. Unknown keys now
+  400; a known-but-not-public league gets an explicit `league_not_public` refusal rather than a
+  silent substitution. `_public_league_id(league_key)` makes the identity nameable.
+- **Force refresh.** `force_refresh=bool(refresh)` carried two defects: `bool("0")` is `True`, so
+  `?refresh=0` forced a rebuild; and nothing checked who was asking. Now one honest flag parser
+  plus a session check across **9 call sites**. An anonymous `?refresh=1` is *ignored*, not
+  refused — the public page keeps working. The future authenticated **Sync Sleeper / Refresh
+  League Data** action is exactly the caller this admits, and is test-pinned.
+- **Git channel.** `data/ros/team_strength/{latest,dynasty_new}.json` — 78 KB per league of the
+  same payload the HTTP route now gates — were republished every 2 h because
+  `scheduled-refresh.yml` force-adds `data/ros/` and `git add -f` overrides `.gitignore`.
+  Untracked (kept on disk), `.gitignore` narrowed, and the force-add now unstages them. Safe on
+  prod: `deploy.sh` uses `git reset --hard`, which leaves untracked files alone, and the ROS
+  pipeline keeps rewriting them. `.gitkeep` preserves the layout a fresh checkout needs.
+
+## Named exception — NOT silently narrowed
+
+Three tracked files carry real per-manager payloads and are **deliberately committed audit
+provenance**, not a live feed:
+
+```
+docs/master-site-audit/evidence/W17/sec-rosTeamStrength.json     63,686 B
+docs/master-site-audit/evidence/W11/faab-analytics.json          86,899 B
+docs/master-site-audit/findings.json                          2,021,317 B  (numericProof.inputs.ownerId)
+```
+
+Editing them changes an **audit record**, not a product surface — a judgement about the audit
+rather than a code fix. They are named in `KNOWN_STATIC_EVIDENCE` and a second test fails if any
+*new* documentation file starts carrying real per-manager payloads, so the carve-out is bounded
+and visible. **Backlog item for owner decision.**
