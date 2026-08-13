@@ -35,6 +35,7 @@ from __future__ import annotations
 import grp
 import os
 import pwd
+import re
 import shutil
 import subprocess
 import textwrap
@@ -112,7 +113,12 @@ case "${cmd}" in
     printf 'enabled\\n' > "${state}/units/${unit}.UnitFileState"
     if [[ "${now}" == "true" ]]; then
       printf 'active\\n' > "${state}/units/${unit}.ActiveState"
-      printf '1786000000000000\\n' > "${state}/units/${unit}.NextElapseUSecRealtime"
+      # A monotonic-base timer (OnBootSec/OnUnitActiveSec) leaves the
+      # REALTIME field empty and populates the MONOTONIC one, pretty-
+      # printed as a timespan.  Measured on production 2026-08-13.
+      printf '\\n' > "${state}/units/${unit}.NextElapseUSecRealtime"
+      printf '2w 3d 2h 8min 32.168902s\\n' > "${state}/units/${unit}.NextElapseUSecMonotonic"
+      printf 'Thu 2026-08-13 04:16:02 CEST\\n' > "${state}/units/${unit}.LastTriggerUSec"
     fi
     svc="${unit%.timer}.service"
     if [[ -f "${SYSTEMD_UNIT_DIR}/${svc}" ]]; then
@@ -558,3 +564,115 @@ class TestUnauthorizedPrivilegeIsRefusedBeforeSudo:
         r = host.run_snippet('_rc_sudo /usr/bin/stat -c %U /etc/hostname; echo "rc=$?"')
         assert "rc=126" in r.stdout, r.stdout + r.stderr
         assert "not in the authorized set" in r.stderr
+
+
+class TestTheTimerGateReadsTheRightNextElapseProperty:
+    """The #813 deploy failed here, on a perfectly scheduled watchdog.
+
+    systemd exposes two next-elapse properties and populates the one
+    matching the timer's BASE.  ``dynasty-healthcheck.timer`` ships
+    ``OnBootSec`` + ``OnUnitActiveSec`` — both MONOTONIC — so
+    ``NextElapseUSecRealtime`` is empty by construction and
+    ``NextElapseUSecMonotonic`` carries the schedule.  Measured on
+    production 2026-08-13, an hour into the timer firing every 60 s:
+
+        timer.NextElapseUSecRealtime    (empty)
+        timer.NextElapseUSecMonotonic   2w 3d 2h 8min 32.168902s
+        timer.LastTriggerUSec           Thu 2026-08-13 04:16:02 CEST
+
+    So this was never a first-activation race — the realtime field never
+    becomes non-empty for this unit.
+    """
+
+    def test_realtime_zero_with_a_monotonic_next_passes(self, host):
+        host.converge()
+        host.set_unit_state(
+            "dynasty-healthcheck.timer",
+            NextElapseUSecRealtime="0",
+            NextElapseUSecMonotonic="2w 3d 2h 8min 32.168902s",
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert "live runtime controls verified" in r.stdout
+
+    def test_realtime_empty_with_a_monotonic_next_passes(self, host):
+        """Production's actual shape."""
+        host.converge()
+        host.set_unit_state(
+            "dynasty-healthcheck.timer",
+            NextElapseUSecRealtime="",
+            NextElapseUSecMonotonic="2w 3d 2h 8min 32.168902s",
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode == 0, r.stdout + r.stderr
+
+    def test_no_monotonic_next_fails_after_the_bounded_retry(self, host):
+        """The retry is defense in depth for an activation-settling
+        window, not a way to eventually accept nothing."""
+        host.converge()
+        host.set_unit_state(
+            "dynasty-healthcheck.timer",
+            NextElapseUSecRealtime="",
+            NextElapseUSecMonotonic="0",
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no future monotonic activation" in r.stderr
+
+    def test_an_empty_monotonic_next_also_fails(self, host):
+        host.converge()
+        host.set_unit_state(
+            "dynasty-healthcheck.timer",
+            NextElapseUSecRealtime="",
+            NextElapseUSecMonotonic="",
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no future monotonic activation" in r.stderr
+
+    def test_loaded_enabled_active_is_not_enough_without_a_future_run(self, host):
+        """A timer can be all three and still have nothing scheduled."""
+        host.converge()
+        host.set_unit_state(
+            "dynasty-healthcheck.timer",
+            LoadState="loaded",
+            ActiveState="active",
+            UnitFileState="enabled",
+            NextElapseUSecMonotonic="0",
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no future monotonic activation" in r.stderr
+
+    def test_a_past_trigger_is_not_accepted_as_future_scheduling(self, host):
+        """LastTriggerUSec says the timer HAS run, not that it WILL."""
+        host.converge()
+        host.set_unit_state(
+            "dynasty-healthcheck.timer",
+            NextElapseUSecMonotonic="0",
+            LastTriggerUSec="Thu 2026-08-13 04:16:02 CEST",
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0, "a past trigger was accepted as proof of future scheduling"
+
+    def test_the_verifier_never_gates_on_the_realtime_property(self):
+        """Read as code: the realtime value may be logged, never tested."""
+        code = re.sub(r"#.*", "", RECONCILER.read_text())
+        gating = [
+            ln
+            for ln in code.splitlines()
+            if "NextElapseUSecRealtime" in ln and ("rc=1" in ln or "_rc_err" in ln)
+        ]
+        assert not gating, f"realtime property still gates: {gating}"

@@ -240,6 +240,22 @@ _rc_install_if_different() {
   return 0
 }
 
+
+# Is there a FUTURE monotonic activation?
+#
+# systemd pretty-prints timespan properties, so a scheduled value looks
+# like "2w 3d 2h 8min 32.168902s" rather than a raw integer.  Every
+# rendering that means "nothing scheduled" is rejected; anything else is
+# a real next-elapse.
+_rc_monotonic_elapse_is_scheduled() {
+  local value="$1"
+  [[ -n "${value}" ]] || return 1
+  case "${value}" in
+    0|0s|0us|n/a|infinity) return 1 ;;
+  esac
+  return 0
+}
+
 # ── the two entry points ─────────────────────────────────────────────
 # Both are thin wrappers that scope this file's shell options to their
 # own call and hand the caller back exactly what it had.
@@ -435,18 +451,60 @@ _verify_runtime_controls() {
 
   # watchdog units must be loaded, enabled and ACTIVE.
   local timer="dynasty-healthcheck.timer" svc="dynasty-healthcheck.service"
-  local ls_t as_t ufs_t next ls_s
+  local ls_t as_t ufs_t next_rt next_mono ls_s
   ls_t="$(_rc_sudo "$SC" show "${timer}" -p LoadState --value)"
   as_t="$(_rc_sudo "$SC" show "${timer}" -p ActiveState --value)"
   ufs_t="$(_rc_sudo "$SC" show "${timer}" -p UnitFileState --value)"
-  next="$(_rc_sudo "$SC" show "${timer}" -p NextElapseUSecRealtime --value)"
+  next_rt="$(_rc_sudo "$SC" show "${timer}" -p NextElapseUSecRealtime --value)"
   ls_s="$(_rc_sudo "$SC" show "${svc}" -p LoadState --value)"
-  _rc_log "watchdog: timer load=${ls_t} active=${as_t} file=${ufs_t} next=${next:-none}; service load=${ls_s}"
+
+  # THE SCHEDULED-NEXT PROPERTY IS THE MONOTONIC ONE.
+  #
+  # systemd's Timer interface exposes two next-elapse properties, and
+  # which one it populates follows the timer's BASE:
+  #
+  #   NextElapseUSecRealtime   — next CLOCK_REALTIME/calendar event.
+  #                              Empty when the unit has no OnCalendar.
+  #   NextElapseUSecMonotonic  — next CLOCK_MONOTONIC event, i.e. what
+  #                              OnBootSec / OnUnitActiveSec produce.
+  #
+  # dynasty-healthcheck.timer ships OnBootSec=3min + OnUnitActiveSec=1min,
+  # both monotonic, so the realtime field is empty by construction.
+  # Measured on production 2026-08-13, an hour into the timer firing
+  # every 60 s without interruption:
+  #
+  #   timer.NextElapseUSecRealtime    (empty)
+  #   timer.NextElapseUSecMonotonic   2w 3d 2h 8min 32.168902s
+  #   timer.LastTriggerUSec           Thu 2026-08-13 04:16:02 CEST
+  #
+  # So gating on the realtime field was not a first-activation race — it
+  # is simply the wrong property, and it never becomes non-empty for this
+  # timer.  It failed the #813 deploy against a perfectly scheduled
+  # watchdog.
+  #
+  # LastTriggerUSec is deliberately NOT accepted as a substitute: a past
+  # trigger says the timer HAS run, not that another run is scheduled.
+  # It is logged as context and never gates.
+  local last_trigger attempt
+  last_trigger="$(_rc_sudo "$SC" show "${timer}" -p LastTriggerUSec --value)"
+  # Bounded re-read: defense in depth for a genuine activation-settling
+  # window right after `enable --now`, not the mechanism being relied on.
+  for attempt in 1 2 3 4 5; do
+    next_mono="$(_rc_sudo "$SC" show "${timer}" -p NextElapseUSecMonotonic --value)"
+    if _rc_monotonic_elapse_is_scheduled "${next_mono}"; then break; fi
+    (( attempt < 5 )) && sleep 1
+  done
+
+  _rc_log "watchdog: timer load=${ls_t} active=${as_t} file=${ufs_t}"
+  _rc_log "watchdog: next(monotonic)=${next_mono:-<empty>} next(realtime)=${next_rt:-<empty>} last=${last_trigger:-<never>}; service load=${ls_s}"
   [[ "${ls_t}"  == "loaded"  ]] || { _rc_err "${timer} LoadState=${ls_t}";      rc=1; }
   [[ "${ls_s}"  == "loaded"  ]] || { _rc_err "${svc} LoadState=${ls_s}";        rc=1; }
   [[ "${ufs_t}" == "enabled" ]] || { _rc_err "${timer} UnitFileState=${ufs_t}"; rc=1; }
   [[ "${as_t}"  == "active"  ]] || { _rc_err "${timer} ActiveState=${as_t}";    rc=1; }
-  [[ -n "${next}" && "${next}" != "0" ]] || { _rc_err "${timer} has no next activation"; rc=1; }
+  if ! _rc_monotonic_elapse_is_scheduled "${next_mono}"; then
+    _rc_err "${timer} has no future monotonic activation (NextElapseUSecMonotonic='${next_mono:-<empty>}')"
+    rc=1
+  fi
 
   # the INSTALLED executable, not the checkout copy.
   local installed="${RISKIT_LIB_DIR:-/usr/local/lib/riskit}/dynasty-healthcheck.sh"
