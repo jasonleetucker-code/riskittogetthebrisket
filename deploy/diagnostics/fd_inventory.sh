@@ -315,9 +315,59 @@ journal_errno24() {
   echo "count: ${cnt:-0}"
   echo "-- journal retention window --"
   sudo -n "${JOURNALCTL}" -u "${SERVICE_NAME}" --no-pager -o short-iso -n 1 2>/dev/null | tail -1
-  sudo -n "${JOURNALCTL}" -u "${SERVICE_NAME}" --no-pager -o short-iso 2>/dev/null | head -1
+  # `head -1` closes the pipe on a journal that is still streaming, so
+  # journalctl dies of SIGPIPE and `pipefail` reports 141 — a spurious
+  # non-zero on a section that printed its evidence correctly.  Read the
+  # whole stream and take the first line in the shell instead, so the
+  # status reflects the journal, not the reader.
+  local oldest rc=0
+  oldest="$(sudo -n "${JOURNALCTL}" -u "${SERVICE_NAME}" --no-pager -o short-iso 2>/dev/null)" || rc=$?
+  printf '%s\n' "${oldest}" | sed -n '1p'
+  # A journalctl that genuinely failed still degrades this optional
+  # section; only the reader's SIGPIPE is gone.
+  return "${rc}"
 }
 run_optional "earliest Errno 24 in the retained journal" journal_errno24
+
+# ── optional: the watchdog, read directly ───────────────────────────
+# The DEPLOY gate verifies these; this reads them independently so the
+# two are not the same statement twice.
+#
+# Both NextElapse properties are printed, deliberately.  The unit ships
+# `OnBootSec` + `OnUnitActiveSec`, which are MONOTONIC bases, so
+# systemd computes `NextElapseUSecMonotonic`; `NextElapseUSecRealtime`
+# is the CALENDAR next-elapse and is zero for a timer with no calendar
+# event.  Reading only the realtime field is how a correctly scheduled
+# timer reads as "no next activation".
+watchdog_state() {
+  local timer="dynasty-healthcheck.timer" svc="dynasty-healthcheck.service"
+  local prop
+  for prop in LoadState ActiveState UnitFileState \
+              NextElapseUSecRealtime NextElapseUSecMonotonic LastTriggerUSec; do
+    printf '%-26s %s\n' "timer.${prop}" \
+      "$(sudo -n "${SYSTEMCTL}" show "${timer}" -p "${prop}" --value 2>/dev/null)"
+  done
+  printf '%-26s %s\n' "service.LoadState" \
+    "$(sudo -n "${SYSTEMCTL}" show "${svc}" -p LoadState --value 2>/dev/null)"
+
+  local installed="${RISKIT_LIB_DIR:-/usr/local/lib/riskit}/dynasty-healthcheck.sh"
+  if [[ -r "${installed}" ]]; then
+    printf '%-26s %s\n' "watchdog.path" "${installed}"
+    printf '%-26s %s\n' "watchdog.owner" "$(stat -c '%U:%G' "${installed}")"
+    printf '%-26s %s\n' "watchdog.mode" "$(stat -c '%a' "${installed}")"
+    local th
+    for th in 'FD_WARN:-256' 'FD_CRIT:-512' 'FD_EMERG:-768'; do
+      if grep -q "${th}" "${installed}"; then
+        printf '%-26s %s\n' "watchdog.${th%%:*}" "present (${th#*:-})"
+      else
+        printf '%-26s %s\n' "watchdog.${th%%:*}" "MISSING"
+      fi
+    done
+  else
+    printf '%-26s %s\n' "watchdog.path" "${installed} (unreadable)"
+  fi
+}
+run_optional "watchdog units and installed executable" watchdog_state
 
 # ── required: the trend ─────────────────────────────────────────────
 # A single number cannot distinguish a healthy steady state from the
