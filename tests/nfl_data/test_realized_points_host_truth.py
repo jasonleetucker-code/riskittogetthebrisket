@@ -85,9 +85,7 @@ class TestRenamedColumnsStillScore:
         )
         assert expected_penalty < 0
 
-        assert live_pts.fantasy_points == pytest.approx(
-            legacy_pts.fantasy_points, abs=1e-6
-        ), (
+        assert live_pts.fantasy_points == pytest.approx(legacy_pts.fantasy_points, abs=1e-6), (
             "the same football scored differently depending on how the feed spells "
             f"its columns: legacy={legacy_pts.fantasy_points:.2f} "
             f"live={live_pts.fantasy_points:.2f}; the live row is missing "
@@ -99,12 +97,10 @@ class TestRenamedColumnsStillScore:
         """A rule the card pays for must respond to the column the feed ships."""
         row = {"passing_yards": 100, live: 2}
         scored = compute_weekly_points(row, dynasty_main_card, position="QB")
-        baseline = compute_weekly_points(
-            {"passing_yards": 100}, dynasty_main_card, position="QB"
-        )
-        assert scored.fantasy_points != pytest.approx(baseline.fantasy_points, abs=1e-6), (
-            f"{live!r} changed nothing — the engine only reads the retired {dead!r}"
-        )
+        baseline = compute_weekly_points({"passing_yards": 100}, dynasty_main_card, position="QB")
+        assert scored.fantasy_points != pytest.approx(
+            baseline.fantasy_points, abs=1e-6
+        ), f"{live!r} changed nothing — the engine only reads the retired {dead!r}"
 
 
 class TestFirstDownBonusMatchesHost:
@@ -123,9 +119,7 @@ class TestFirstDownBonusMatchesHost:
     def test_engine_first_down_count_matches_host(
         self, dynasty_main_card, player_id, name, position, bonus_key
     ):
-        host = json.loads(
-            (EVIDENCE / "sleeper_stats_2025_wk14.json").read_text(encoding="utf-8")
-        )
+        host = json.loads((EVIDENCE / "sleeper_stats_2025_wk14.json").read_text(encoding="utf-8"))
         line = host.get(player_id) or {}
         assert line, f"fixture missing {name}"
 
@@ -189,9 +183,7 @@ class TestCoverageAuditorIsNotFooled:
         )
 
     @pytest.mark.parametrize("key", ["pass_int", "pass_sack", "fum_lost"])
-    def test_a_repaired_rule_scores_from_the_live_column_alone(
-        self, key, dynasty_main_card
-    ):
+    def test_a_repaired_rule_scores_from_the_live_column_alone(self, key, dynasty_main_card):
         """SCORED must be earned on a row the feed could actually produce."""
         column = {
             "pass_int": "passing_interceptions",
@@ -263,6 +255,6 @@ class TestPlayerSpecialTeamsIsNotAnUnvaluedAssetClass:
     def test_dst_special_teams_stays_not_applicable(self, key, dynasty_main_card):
         if not dynasty_main_card.get(key):
             pytest.skip(f"{key} is not paid on this card")
-        assert classify(key) is Coverage.NOT_APPLICABLE, (
-            f"{key!r} is a team-defense rule and this platform values no DST asset"
-        )
+        assert (
+            classify(key) is Coverage.NOT_APPLICABLE
+        ), f"{key!r} is a team-defense rule and this platform values no DST asset"
