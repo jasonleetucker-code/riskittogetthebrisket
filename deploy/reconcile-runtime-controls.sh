@@ -69,13 +69,12 @@ RECONCILE_ACTIONS=()
 # unless the harness explicitly opts in with RC_ALLOW_TEST_OVERRIDES=1.
 # A stray RC_WATCHDOG_OWNER on its own therefore does nothing at all.
 #
-# deploy.sh goes further and scrubs the flag and every override before
-# sourcing this file, so on the forward path an inherited environment
-# cannot reach the override branch even in principle.  rollback.sh does
-# NOT scrub, because the suite drives that script end to end and needs
-# the gate; it relies on the gate plus the loud warning below.  Stated
-# rather than glossed: a rollback that inherited RC_ALLOW_TEST_OVERRIDES=1
-# AND RC_WATCHDOG_OWNER could use them, and would say so in its log.
+# BOTH production entry points — deploy.sh and rollback.sh — go further
+# and scrub the flag and every override before sourcing this file, so no
+# combination of exported variables can reach the override branch during
+# a real deploy or rollback.  The gate exists for direct/unit testing of
+# these functions; the end-to-end suites double the privileged commands
+# instead and let production constants stand.
 _RC_PROD_SYSTEMD_UNIT_DIR="/etc/systemd/system"
 _RC_PROD_PROC_DIR="/proc"
 # The watchdog is EXECUTED by root, so its file is owned by root and

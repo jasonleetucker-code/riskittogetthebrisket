@@ -594,6 +594,16 @@ main() {
   target_rev="$(git rev-parse --short "${rollback_target}")"
   log "Rolling back from ${current_rev} to ${rollback_target} (${target_rev})."
 
+  # rollback.sh is a PRODUCTION entry point, so the runtime-control
+  # contract must not be reachable from an inherited environment here
+  # either.  Scrubbing before anything sources the reconciler means no
+  # combination of exported variables can activate its test seams during
+  # a real rollback — not even one that would announce itself.  The
+  # suite adapts to this rather than the other way round: it doubles the
+  # PRIVILEGED COMMANDS (sudo/install/systemctl) and lets the reconciler
+  # run against the production constants.
+  unset RC_ALLOW_TEST_OVERRIDES RC_WATCHDOG_OWNER SYSTEMD_UNIT_DIR RC_PROC_DIR
+
   trap cleanup_runtime_reconciler EXIT
   preserve_runtime_reconciler
 
