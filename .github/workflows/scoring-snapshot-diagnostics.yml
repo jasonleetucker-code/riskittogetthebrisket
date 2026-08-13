@@ -1,0 +1,101 @@
+name: Scoring Snapshot Diagnostics (read-only)
+
+# B7.0 preflight evidence for the B-series foundation program.
+#
+# Answers two questions that are genuinely unobservable from outside the
+# production host:
+#
+#   1. What is the state of ``data/leagues/scoring_<id>.json``?  B6
+#      (#810, W18-F001) decides cross-league ranking reuse from that
+#      snapshot, ``docs/EXECUTION_PLAN.md`` calls it an operational
+#      requirement, and nothing verified it.  The directory is
+#      gitignored and is NOT among the paths scheduled-refresh.yml
+#      force-adds, and both fail-closed branches ("proven different"
+#      and "no verified snapshot") produce the identical public
+#      response — so the HTTP surface cannot distinguish them.
+#
+#   2. Is the canonical board-history recorder actually scheduled?
+#      ``src/snapshots/board_store.py`` states every day it is not
+#      running is evidence that cannot be recovered later, and names
+#      the exact failure this checks for: timer pairs that ship but are
+#      never installed while the deploy reports success.
+#
+# Reuses the deploy path's existing SSH capability and nothing else, and
+# pipes the script in over stdin rather than reading it from the app
+# tree — the host is checked out at whatever revision is DEPLOYED, so
+# the runner's copy is what makes the diagnostic runnable before it
+# ships.
+#
+# Stages 1-3 are read-only.  Stage 4 (the B6 validator) REFRESHES the
+# scoring snapshots as a documented side effect, so it is opt-in and
+# runs last; stage 1 is the authoritative pre-refresh evidence either
+# way.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_validator:
+        description: >-
+          Run docs/master-site-audit/evidence/W18/b6_validate.py after the
+          read-only stages.  It REFRESHES data/leagues/scoring_*.json, so
+          leave this off if you only want to observe current state.
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never overlap a deploy: a snapshot age measured across a service
+  # restart plus its startup scrape is not the age the request path saw.
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: Scoring snapshot inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Collect scoring-snapshot inventory
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          RUN_VALIDATOR: ${{ inputs.run_validator && '1' || '0' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The remote script's exit status is this step's exit status —
+          # no `|| true`, no masking pipe.  A diagnostic that reports
+          # success while answering nothing is the failure mode the FD
+          # inventory was rewritten to avoid.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") SERVICE_NAME=$(printf %q "$SERVICE_NAME") RUN_VALIDATOR=$(printf %q "$RUN_VALIDATOR") bash -s" \
+            < deploy/diagnostics/scoring_snapshot_inventory.sh

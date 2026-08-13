@@ -35,11 +35,27 @@ This file answers **what work should happen next**. It does not define long-term
 
 ### B6 — W18 league-configuration correctness
 
-- Submitted for owner review; scope below is the authorization it was executed against.
+- **MERGED AND VERIFIED.** PR #810 merged 2026-08-13T11:16:43Z as merge commit
+  `5c699afe6f325a7dab34f8c413a00f85c0bb7bf6`, whose second parent is the exact CI-validated head
+  `e453889aed0c1f3ca0378c408d7b8b37985e3309` (run 31688810982, 24/24 steps). Deployed by run
+  31694791900. Scope below is the authorization it was executed against.
+- Production verification recorded in `docs/master-site-audit/B_SERIES_EXECUTION_LEDGER.md` §B7.0.
+  The load-bearing live observation is public and unauthenticated: `/api/draft-capital` answers
+  `rookieSource: "none"` for `dynasty_new` while keeping all 80 of its real picks, and
+  `ours_filtered` for `dynasty_main` — the gate withholding a value it cannot justify without
+  refusing the board. Independently, the two leagues' live Sleeper cards still fingerprint
+  `sf1:b7ad1575925091f6` vs `sf1:82a5f8ef2bfdb098` (35 of 48 shared keys differ) under one
+  identical `scoringProfile` label, both recorded against the current NFL season.
 - **W18-F001 fixed.** Cross-league ranking reuse is decided by a factual `scoringFingerprint` over the league's actual scoring card, not by the `scoringProfile` label. `scoringProfile` keeps its existing config/model meaning and consumers. Unproven identity fails closed, in both directions. The nominal owner `leagues_share_scoring()` had **zero production callers** — six scattered comparisons in `server.py` (four of them fail-open on a missing loaded label) now route through one gate.
 - **W18-F002 fixed.** The cross-league Sleeper merge has a name and an owner (`sleeper_overlay.merge_cross_league_sleeper_block`). League-specific fields (`scoringSettings`, `rosterPositions`, `leagueSettings`) come from the requested league's own config — published by the overlay from the league object it already fetched — or are left ABSENT with `sleeperDataReady: false`. NFL-wide maps are still reused.
 - Measured on the shipped configuration (`docs/master-site-audit/evidence/W18/b6-validation.json`): both live leagues share the label and differ on 35 of 48 shared scoring keys. `/api/data` and `/api/terminal` for `dynasty_new` now 503 instead of serving `dynasty_main`'s board; `/api/draft-capital` stays 200 and drops only its 40 foreign-priced rookies (`rookieSource: "none"`), keeping all 80 of that league's real picks.
 - **Operational requirement:** `data/leagues/scoring_<sleeperLeagueId>.json` must exist for a league to be provably compatible. The post-scrape warm pass writes it every cycle; on a cold deploy run `scripts/fetch_league_scoring.py` once, or cross-league requests fail closed until the first scrape.
+  This requirement is now **verifiable**: dispatch the read-only `Scoring Snapshot Diagnostics`
+  workflow (`.github/workflows/scoring-snapshot-diagnostics.yml`). It exists because the state was
+  otherwise unobservable — `data/leagues/` is gitignored and is not among the paths
+  `scheduled-refresh.yml` force-adds, and both fail-closed branches ("proven different scoring" and
+  "no verified snapshot") produce byte-identical public responses. The same run reports whether the
+  canonical board-history recorder is scheduled.
 - Architecture record: `docs/master-site-audit/evidence/W18/B6_SCORING_IDENTITY_DESIGN.md`.
 - W18-F003 was NOT touched — it remains B7.
 
