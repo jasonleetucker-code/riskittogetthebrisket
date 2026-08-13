@@ -1,10 +1,10 @@
 # Risk It To Get The Brisket — Current Execution Plan
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD  
-**Last reconciled:** 2026-08-12  
-**Companion:** `docs/MASTER_PRODUCT_PLAN.md`
+**Last reconciled:** 2026-08-13  
+**Companions:** `docs/MASTER_PRODUCT_PLAN.md`, `docs/OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md`
 
-This file answers **what work should happen next**. It does not define long-term product intent; that lives in the Master Product Plan, Feature Inventory, and Product Backlog Spec.
+This file answers **what work should happen next**. It does not define long-term product intent; that lives in the Master Product Plan, Feature Inventory, Product Backlog Spec, and the owner feature-spec reconciliation.
 
 > A feature being approved in the long-term plan does **not** authorize beginning it here.
 
@@ -85,10 +85,28 @@ The broader dependency direction remains:
 - **B8** security/public-boundary correctness;
 - **B9** canonical individual 1–9999 value-scale semantics/normalization;
 - **B10** source independence / anti-circularity / leave-one-out;
-- **B11** confidence semantics;
-- then canonical C-series foundations such as Team Strength, Team Weakness, Acquisition History, historical value snapshots, package methodology, and stable pick identity according to dependencies/evidence.
+- **B11** confidence semantics.
 
-Exact boundaries must be confirmed against current findings and owner authorization at each checkpoint rather than inferred from this shorthand.
+Exact B-phase boundaries must be confirmed against current findings and owner authorization at each checkpoint rather than inferred from this shorthand.
+
+## HARD GATE AFTER B11 — REPLAN C BEFORE IMPLEMENTATION
+
+**Binding owner decision:** there is **no automatic B11 → C1 transition**.
+
+When B11 is completed/accepted:
+
+1. **STOP. Do not begin C1.**
+2. Put Claude Code in **Plan Mode only**.
+3. Re-read the actual repository/product state at that time, including all current/partial/planned features and all owner-requested additions made during B.
+4. Completely **rewrite the C-series execution plan** rather than inheriting the current shorthand C ordering.
+5. Build the dependency graph first: prerequisites, shared root causes, consolidation/retirement opportunities, parallelizable work, migration/backfill needs, and safe PR boundaries.
+6. For every material C feature/phase, specify in detail: user outcome, canonical owner, inputs/outputs, method, identity/provenance, uncertainty/confidence, freshness/historical semantics, degraded behavior, UI/UX, performance, dependencies, non-scope, tests/backtests, production verification, and exact done criteria.
+7. Explicitly reconcile every newer owner feature recorded in `docs/OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md` and any later addenda into the C dependency plan; do not let a one-line backlog label stand in for a product specification.
+8. Produce a proposed canonical **C-Series Execution Plan**.
+9. Jason + ChatGPT review that proposal and may reorder, combine, split, expand, or reject methodology.
+10. Only explicit owner approval authorizes C1 implementation.
+
+The current shorthand C direction—Team Strength, Team Weakness, Acquisition History, historical value snapshots, package methodology, stable pick identity, etc.—is a dependency hint only until this hard-gate replanning pass occurs.
 
 ---
 
@@ -99,7 +117,7 @@ The following are approved future scope but are **not authorized merely by being
 - Public League Experience v3 implementation;
 - Brisket Honors / Awards & Honors v2 implementation;
 - Market Trade Ledger / Real Trade Market Value;
-- Pick Forecast;
+- Pick Forecast / Canonical Owned Future Pick Projection & Valuation;
 - Manager Scout;
 - Command Center / Trade Desk / Portfolio;
 - Analyst Intelligence podcast + YouTube expansion;
@@ -107,6 +125,7 @@ The following are approved future scope but are **not authorized merely by being
 - Game Day Command Center;
 - Share Renderer;
 - PAR/Stats/ADP/Draft Room/Lineup Intelligence;
+- Premium Sports Intelligence migration except when its explicit migration gate is satisfied and separately authorized;
 - competitive CE-01–CE-21 expansion;
 - large X analyst feed;
 - adaptive source weighting.
@@ -117,7 +136,7 @@ They may be read during foundation work to avoid architectural contradictions, b
 
 # 5. SAFE HOTFIXES / OWNER DEFECTS
 
-Owner-requested live defects such as the Admin `fmtPassExpiry` crash, temporary-password end-to-end repair, and Trade Calculator UX/correctness defects remain real work. Schedule them at a safe product-hotfix checkpoint or when one directly blocks the active phase; do not mix unrelated UI/product changes into a tightly scoped model/root-cause pass.
+Owner-requested live defects such as the Admin `fmtPassExpiry` crash, temporary-password end-to-end repair, Trade Calculator UX/correctness defects, public-League missing-data-as-zero defects, and narrow deployment/reliability follow-ups remain real work. Schedule them at a safe product-hotfix checkpoint or when one directly blocks the active phase; do not mix unrelated UI/product changes into a tightly scoped model/root-cause pass.
 
 ---
 
@@ -127,8 +146,9 @@ At every owner-approved checkpoint:
 
 1. update completed/accepted phase state here;
 2. record the exact next authorized scope only after owner decision;
-3. leave later approved product scope in `MASTER_PRODUCT_PLAN.md` rather than copying it here;
+3. leave later approved product scope in `MASTER_PRODUCT_PLAN.md` and detailed owner specs rather than copying every implementation detail here;
 4. never let a stale phase statement in `ARCHITECTURE_HANDOFF.md`, an old audit roadmap, or a session capture override this file;
-5. if current code/evidence disproves this execution state, reconcile the document before beginning another phase.
+5. if current code/evidence disproves this execution state, reconcile the document before beginning another phase;
+6. when owner intent is more detailed than a shorthand backlog row, use `OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md` plus later owner addenda as the detailed intent layer.
 
 This file should stay short enough that a new implementation session can understand the current sequence in minutes.
