@@ -17,11 +17,18 @@
 # PRIVILEGE.  Nothing here needs new sudo. The deploy user already holds
 # NOPASSWD for exactly systemctl, journalctl, install and chown, which is
 # precisely the set this needs: `install` writes the root-owned files and
-# `systemctl` reloads/enables/starts. The security property that matters
-# is preserved — the root-EXECUTED watchdog keeps running from a
-# root:root 0755 copy under RISKIT_LIB_DIR, outside the deploy-user-
-# writable checkout, so a compromised checkout still cannot rewrite what
-# root executes.
+# `systemctl` reloads/enables/starts.
+#
+# What that does and does not buy, stated precisely: keeping the
+# root-EXECUTED watchdog as a root:root 0755 copy under RISKIT_LIB_DIR,
+# outside the deploy-user-writable checkout, means an ordinary edit to
+# the checkout does not become the script root runs, and it preserves
+# the intended ownership/execution layout. It is NOT an OS security
+# boundary around the deploy identity: that identity holds NOPASSWD root
+# `install` and `systemctl` on this host, so code already running as it
+# is not contained by this arrangement. `_rc_sudo` constrains what THIS
+# reconciler will do, not what that identity can do. Tightening the
+# production deploy sudo scope is separate, backlogged work.
 #
 # SCOPE.  Only the controls this incident requires: the backend unit, the
 # watchdog executable, and the watchdog service+timer. It does NOT run
@@ -47,20 +54,52 @@
 RECONCILE_CHANGED_UNITS=false
 RECONCILE_ACTIONS=()
 
-# Locations, overridable so the suite can exercise the REAL functions
-# against a temporary root instead of reimplementing their logic.
-# Production defaults are the production paths; nothing sets these on the
-# host.  ``SYSTEMCTL_BIN`` / ``INSTALL_BIN`` below are the same seam.
-SYSTEMD_UNIT_DIR="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
-RC_PROC_DIR="${RC_PROC_DIR:-/proc}"
-# The watchdog runs AS root, so its file must be owned BY root and live
-# outside the deploy-user-writable checkout: otherwise a compromised
-# deploy account rewrites what root executes, within a minute.  The
-# default below is the production requirement and nothing on the host
-# overrides it — a test that cannot create root-owned files sets this so
-# it can still exercise the real install/verify path, and a separate
-# test pins the default so the seam cannot quietly weaken the boundary.
-RC_WATCHDOG_OWNER="${RC_WATCHDOG_OWNER:-root:root}"
+# TEST SEAMS, AND WHY PRODUCTION IGNORES THEM.
+#
+# The suite needs to drive the real functions against a temporary root
+# rather than reimplement them, which means the unit directory, /proc
+# and the required watchdog owner have to be redirectable.  Reading them
+# straight from the environment (`${VAR:-default}`) made the production
+# contract configurable by anything that happened to be exported into a
+# deploy — and for the owner that is worse than cosmetic, because
+# install and verification both read the same variable and would agree
+# with each other while requiring something other than root:root.
+#
+# So production is NOT parameterised: the values below are constants
+# unless the harness explicitly opts in with RC_ALLOW_TEST_OVERRIDES=1.
+# A stray RC_WATCHDOG_OWNER on its own therefore does nothing at all.
+#
+# deploy.sh goes further and scrubs the flag and every override before
+# sourcing this file, so on the forward path an inherited environment
+# cannot reach the override branch even in principle.  rollback.sh does
+# NOT scrub, because the suite drives that script end to end and needs
+# the gate; it relies on the gate plus the loud warning below.  Stated
+# rather than glossed: a rollback that inherited RC_ALLOW_TEST_OVERRIDES=1
+# AND RC_WATCHDOG_OWNER could use them, and would say so in its log.
+_RC_PROD_SYSTEMD_UNIT_DIR="/etc/systemd/system"
+_RC_PROD_PROC_DIR="/proc"
+# The watchdog is EXECUTED by root, so its file is owned by root and
+# kept outside the deploy-user-writable checkout.  That keeps ordinary
+# edits to the checkout from becoming the root-executed script and
+# preserves the intended ownership/execution layout.  It is not, by
+# itself, containment of a compromised deploy identity — that identity
+# already holds NOPASSWD root `install` and `systemctl` on this host.
+_RC_PROD_WATCHDOG_OWNER="root:root"
+
+if [[ "${RC_ALLOW_TEST_OVERRIDES:-0}" == "1" ]]; then
+  # Loud on purpose.  deploy.sh scrubs this flag outright, so it can only
+  # be reached from a harness — but "only a harness sets it" is a claim,
+  # and a claim belongs in the log where an operator can falsify it.
+  printf '[reconcile][WARN] TEST OVERRIDES ACTIVE — runtime paths and the required\n' >&2
+  printf '[reconcile][WARN] watchdog owner are NOT the production constants.\n' >&2
+  SYSTEMD_UNIT_DIR="${SYSTEMD_UNIT_DIR:-${_RC_PROD_SYSTEMD_UNIT_DIR}}"
+  RC_PROC_DIR="${RC_PROC_DIR:-${_RC_PROD_PROC_DIR}}"
+  RC_WATCHDOG_OWNER="${RC_WATCHDOG_OWNER:-${_RC_PROD_WATCHDOG_OWNER}}"
+else
+  SYSTEMD_UNIT_DIR="${_RC_PROD_SYSTEMD_UNIT_DIR}"
+  RC_PROC_DIR="${_RC_PROD_PROC_DIR}"
+  RC_WATCHDOG_OWNER="${_RC_PROD_WATCHDOG_OWNER}"
+fi
 
 _rc_log()  { printf '[reconcile] %s\n' "$*"; }
 _rc_warn() { printf '[reconcile][WARN] %s\n' "$*" >&2; }

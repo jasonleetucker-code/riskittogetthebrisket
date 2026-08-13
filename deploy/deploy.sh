@@ -792,6 +792,14 @@ ensure_systemd_service() {
 runtime_reconciler_path() { printf '%s/deploy/reconcile-runtime-controls.sh' "${APP_DIR}"; }
 
 reconcile_runtime_state() {
+  # Production never takes the reconciler's test seams from the
+  # environment.  Scrubbing them before the source is what makes "an
+  # inherited variable cannot weaken the watchdog owner, the unit
+  # directory or /proc" a fact rather than a convention — install and
+  # verification both read those values, so an override would leave them
+  # agreeing with each other about the wrong thing.
+  unset RC_ALLOW_TEST_OVERRIDES RC_WATCHDOG_OWNER SYSTEMD_UNIT_DIR RC_PROC_DIR
+
   local reconciler; reconciler="$(runtime_reconciler_path)"
   if [[ ! -f "${reconciler}" ]]; then
     error "Missing runtime reconciler: ${reconciler}"

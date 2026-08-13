@@ -83,21 +83,57 @@ class TestRollbackUsesTheSameImplementation:
 
     def test_it_reconciles_to_the_rollback_revision_before_restarting(self):
         body = _main_body(ROLLBACK)
-        assert body.index("reconcile_runtime_controls") < body.index('restart "${SERVICE_NAME}"')
+        assert body.index("reconcile_runtime_state_for_rollback") < body.index(
+            'restart "${SERVICE_NAME}"'
+        )
+
+    def test_it_preserves_the_implementation_before_the_checkout(self):
+        """The first rollback past this change goes to a revision that
+        does not contain the reconciler, and that is precisely when the
+        host is carrying the newer controls.  Looking for it in the
+        checked-out tree finds nothing exactly when it matters."""
+        body = _main_body(ROLLBACK)
+        assert body.index("preserve_runtime_reconciler") < body.index("git checkout --force")
 
     def test_a_failed_reconciliation_stops_the_rollback(self):
-        body = _main_body(ROLLBACK)
-        window = body[body.index("reconcile_runtime_controls") :]
-        window = window[: window.index("Restarting service")]
-        assert "exit 1" in window
+        text = ROLLBACK.read_text()
+        block = text[text.index("reconcile_runtime_state_for_rollback() {") :]
+        block = block[: block.index("\n}\n")]
+        assert "exit 1" in block
 
-    def test_a_rollback_target_without_the_reconciler_says_so(self):
-        """Refusing to roll back at all would be worse than the drift —
-        last-known-good is this script's whole job — but the operator
-        must not be left thinking the controls were converged."""
+    def test_a_target_that_cannot_be_reconciled_is_fatal_not_a_warning(self):
+        """This replaces a test that blessed warn-and-continue.  A target
+        missing the runtime artifacts cannot be converged by anything
+        here, and restarting onto controls belonging to the revision
+        being rolled back FROM is the failure being fixed."""
+        text = ROLLBACK.read_text()
+        block = text[text.index("reconcile_runtime_state_for_rollback() {") :]
+        block = block[: block.index("\n}\n")]
+        assert "missing runtime artifacts" in block
+        assert "Manual intervention required" in block
+        assert "Refusing to restart" in block
+
+    def test_the_only_surviving_warn_path_is_when_no_implementation_exists(self):
+        """Neither side has the reconciler — nothing this mechanism
+        installs can be inconsistent with the target, and refusing would
+        break last-known-good for revisions that never had the contract.
+        It must still not claim convergence."""
+        text = ROLLBACK.read_text()
+        block = text[text.index("reconcile_runtime_state_for_rollback() {") :]
+        block = block[: block.index("\n}\n")]
+        assert "No runtime reconciler in either the current or the target revision" in block
+        assert "NOT converged and are NOT verified" in block
+
+    def test_rollback_does_not_claim_convergence_it_did_not_perform(self):
         body = _main_body(ROLLBACK)
-        assert "NOT being converged" in body
-        assert "verify them manually" in body
+        assert 'RUNTIME_CONTROLS_RECONCILED}" == "true"' in body
+        assert "runtime controls reconciled and verified" in body
+        assert "Runtime controls were NOT reconciled or verified" in body
+
+    def test_the_preserved_copy_is_cleaned_up(self):
+        text = ROLLBACK.read_text()
+        assert "trap cleanup_runtime_reconciler EXIT" in text
+        assert "rm -rf" in text[text.index("cleanup_runtime_reconciler() {") :][:300]
 
 
 class TestSourcingCannotDisarmTheCaller:

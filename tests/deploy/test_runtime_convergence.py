@@ -22,9 +22,12 @@ real init system:
 binaries writing to a real (temporary) filesystem tree, so ownership and
 mode assertions mean what they say.
 
-The unit directory, ``/proc`` and the library directory are redirected
-through ``SYSTEMD_UNIT_DIR`` / ``RC_PROC_DIR`` / ``RISKIT_LIB_DIR``,
-which default to the production paths.
+The unit directory, ``/proc``, the library directory and the required
+watchdog owner are redirected through ``SYSTEMD_UNIT_DIR`` /
+``RC_PROC_DIR`` / ``RISKIT_LIB_DIR`` / ``RC_WATCHDOG_OWNER`` — all of
+which the reconciler ignores unless the harness sets
+``RC_ALLOW_TEST_OVERRIDES=1``.  Production takes constants, and
+``tests/deploy/test_rollback_first_deploy.py`` pins that.
 """
 
 from __future__ import annotations
@@ -50,8 +53,9 @@ APP_USER = "briskuser"
 # production.  CI runs as an unprivileged user and cannot create a
 # root-owned file, so the suite tells the reconciler which owner to
 # require rather than skipping the install/verify path that matters.
-# ``TestTheOwnerSeamCannotWeakenProduction`` pins the default at
-# root:root so this cannot silently become the production behaviour.
+# ``TestProductionCannotBeWeakenedByInheritedEnvironment`` (in
+# test_rollback_first_deploy.py) pins that production takes root:root
+# regardless of what is exported.
 WATCHDOG_OWNER = (
     "root:root"
     if os.geteuid() == 0
@@ -215,6 +219,8 @@ class Host:
             "RC_PROC_DIR": str(self.proc),
             "SYSTEMCTL_BIN": str(self.bin / "systemctl"),
             "INSTALL_BIN": "/usr/bin/install",
+            # Production ignores these unless the harness opts in.
+            "RC_ALLOW_TEST_OVERRIDES": "1",
             "RC_WATCHDOG_OWNER": WATCHDOG_OWNER,
             "FAKE_SYSTEMCTL_STATE": str(self.state),
         }
@@ -552,21 +558,3 @@ class TestUnauthorizedPrivilegeIsRefusedBeforeSudo:
         r = host.run_snippet('_rc_sudo /usr/bin/stat -c %U /etc/hostname; echo "rc=$?"')
         assert "rc=126" in r.stdout, r.stdout + r.stderr
         assert "not in the authorized set" in r.stderr
-
-
-class TestTheOwnerSeamCannotWeakenProduction:
-    """The suite sets ``RC_WATCHDOG_OWNER`` so it can run unprivileged.
-    Production must never depend on that: a root-EXECUTED watchdog owned
-    by the deploy user means a compromised checkout rewrites what root
-    runs, within a minute."""
-
-    def test_the_default_is_root_root(self):
-        text = RECONCILER.read_text()
-        assert 'RC_WATCHDOG_OWNER="${RC_WATCHDOG_OWNER:-root:root}"' in text
-
-    def test_neither_deploy_nor_rollback_sets_it(self):
-        for name in ("deploy.sh", "rollback.sh"):
-            script = (REPO / "deploy" / name).read_text()
-            assert (
-                "RC_WATCHDOG_OWNER" not in script
-            ), f"{name} overrides the watchdog owner; production must take the default"
