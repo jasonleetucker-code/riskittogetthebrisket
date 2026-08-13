@@ -443,6 +443,100 @@ maybe_rebuild_frontend_after_rollback() {
   fi
 }
 
+# ── runtime controls across a revision change ───────────────────────
+# THE FIRST-DEPLOY PROBLEM.  The reconciler ships in the same change
+# that starts reconciling runtime controls, so the very first rollback
+# past it goes to a revision that does not contain it.  Looking for the
+# implementation in the checked-out tree therefore finds nothing exactly
+# when it matters most: the failed deploy has already installed the
+# NEWER unit and watchdog, and restoring old code while leaving newer
+# runtime controls in place is precisely the drift this whole change
+# exists to prevent.
+#
+# So the implementation is taken from the revision that is RUNNING when
+# the rollback starts, copied out before the checkout, and executed
+# against the rollback target's own templates.  One implementation, the
+# newest one available, applied to the target's artifacts.
+#
+# The copy lives outside APP_DIR deliberately: sourcing it from a path
+# `git checkout` can rewrite mid-run would mean the file could change
+# under the very step meant to survive the revision change.
+RUNTIME_RECONCILER_COPY=""
+RUNTIME_RECONCILER_TMPDIR=""
+RUNTIME_CONTROLS_RECONCILED=false
+
+preserve_runtime_reconciler() {
+  local src="${APP_DIR}/deploy/reconcile-runtime-controls.sh"
+  if [[ ! -f "${src}" ]]; then
+    log "Current revision carries no runtime reconciler; none to preserve."
+    return 0
+  fi
+  if ! RUNTIME_RECONCILER_TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/riskit-rollback-XXXXXX")"; then
+    error "Could not create a temporary directory to preserve the runtime reconciler."
+    exit 1
+  fi
+  if ! cp "${src}" "${RUNTIME_RECONCILER_TMPDIR}/reconcile-runtime-controls.sh"; then
+    error "Could not preserve the runtime reconciler from the current revision."
+    exit 1
+  fi
+  RUNTIME_RECONCILER_COPY="${RUNTIME_RECONCILER_TMPDIR}/reconcile-runtime-controls.sh"
+  log "Preserved the current revision's runtime reconciler outside the checkout."
+}
+
+cleanup_runtime_reconciler() {
+  [[ -n "${RUNTIME_RECONCILER_TMPDIR}" ]] && rm -rf "${RUNTIME_RECONCILER_TMPDIR}"
+  return 0
+}
+
+reconcile_runtime_state_for_rollback() {
+  local impl="${RUNTIME_RECONCILER_COPY}"
+  # Fall back to the target's own copy only when nothing was preserved,
+  # i.e. the running revision predated the reconciler entirely.
+  if [[ -z "${impl}" && -f "${APP_DIR}/deploy/reconcile-runtime-controls.sh" ]]; then
+    impl="${APP_DIR}/deploy/reconcile-runtime-controls.sh"
+  fi
+
+  if [[ -z "${impl}" ]]; then
+    # Neither side has the implementation, so nothing this mechanism
+    # installs can be inconsistent with the target.  Refusing here would
+    # break last-known-good rollback for revisions that never had the
+    # contract, which is a worse outcome than the risk.  It is stated
+    # rather than implied: this rollback does NOT claim runtime
+    # convergence.
+    warn "No runtime reconciler in either the current or the target revision."
+    warn "Runtime controls were NOT converged and are NOT verified — check them manually."
+    RUNTIME_CONTROLS_RECONCILED=false
+    return 0
+  fi
+
+  # The preserved implementation can only reconcile a target that still
+  # carries the artifacts it renders.  A target without them cannot be
+  # converged by anything here, and restarting onto runtime state that
+  # belongs to a different revision is the failure mode being fixed.
+  local sysd="${APP_DIR}/deploy/systemd" missing=() f
+  for f in dynasty.service.template dynasty-healthcheck.sh \
+           dynasty-healthcheck.service dynasty-healthcheck.timer; do
+    [[ -f "${sysd}/${f}" ]] || missing+=("${f}")
+  done
+  if (( ${#missing[@]} > 0 )); then
+    error "Rollback target is missing runtime artifacts: ${missing[*]}"
+    error "Runtime controls cannot be reconciled to this revision, and the"
+    error "installed controls may belong to the revision being rolled back FROM."
+    error "Refusing to restart. Manual intervention required."
+    exit 1
+  fi
+
+  # shellcheck source=deploy/reconcile-runtime-controls.sh
+  source "${impl}"
+  log "Reconciling runtime controls to the rollback revision."
+  if ! reconcile_runtime_controls "${APP_DIR}"; then
+    error "Runtime control reconciliation failed during rollback."
+    error "Refusing to restart onto unproven runtime state."
+    exit 1
+  fi
+  RUNTIME_CONTROLS_RECONCILED=true
+}
+
 prepare_python_runtime() {
   local req_file
   req_file="$(canonical_requirements_file)"
@@ -500,6 +594,19 @@ main() {
   target_rev="$(git rev-parse --short "${rollback_target}")"
   log "Rolling back from ${current_rev} to ${rollback_target} (${target_rev})."
 
+  # rollback.sh is a PRODUCTION entry point, so the runtime-control
+  # contract must not be reachable from an inherited environment here
+  # either.  Scrubbing before anything sources the reconciler means no
+  # combination of exported variables can activate its test seams during
+  # a real rollback — not even one that would announce itself.  The
+  # suite adapts to this rather than the other way round: it doubles the
+  # PRIVILEGED COMMANDS (sudo/install/systemctl) and lets the reconciler
+  # run against the production constants.
+  unset RC_ALLOW_TEST_OVERRIDES RC_WATCHDOG_OWNER SYSTEMD_UNIT_DIR RC_PROC_DIR
+
+  trap cleanup_runtime_reconciler EXIT
+  preserve_runtime_reconciler
+
   git checkout --force "${rollback_target}"
   git reset --hard "${rollback_target}"
 
@@ -513,12 +620,22 @@ main() {
     error "Rollback frontend rebuild failed; backend will still be restarted but frontend state is suspect."
   fi
 
+  reconcile_runtime_state_for_rollback
+
   log "Restarting service ${SERVICE_NAME} after rollback."
   sudo -n "${SYSTEMCTL_BIN}" restart "${SERVICE_NAME}"
   if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${SERVICE_NAME}"; then
     error "Service ${SERVICE_NAME} is not active after rollback restart."
     sudo -n "${JOURNALCTL_BIN}" -u "${SERVICE_NAME}" -n 120 --no-pager || true
     exit 1
+  fi
+
+  if [[ "${RUNTIME_CONTROLS_RECONCILED}" == "true" ]]; then
+    log "Verifying LIVE runtime controls after rollback."
+    if ! verify_runtime_controls "${APP_DIR}"; then
+      error "Live runtime controls do not match the rollback revision."
+      exit 1
+    fi
   fi
 
   if [[ -f "${APP_DIR}/deploy/verify-deploy.sh" ]]; then
@@ -540,7 +657,12 @@ main() {
     mkdir -p "$(dirname "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}")"
     printf '%s\n' "${rollback_target}" > "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
   fi
-  log "Rollback complete. Active revision: ${rollback_target}"
+  if [[ "${RUNTIME_CONTROLS_RECONCILED}" == "true" ]]; then
+    log "Rollback complete. Active revision: ${rollback_target} (runtime controls reconciled and verified)."
+  else
+    log "Rollback complete. Active revision: ${rollback_target}"
+    warn "Runtime controls were NOT reconciled or verified for this revision."
+  fi
 }
 
 # Run main only when EXECUTED, not when sourced.  Sourcing is how

@@ -250,3 +250,29 @@ Every step is independently reversible:
   existing deploy/ conventions (`set -Eeuo pipefail`, quoted
   expansions).
 - Full Python test suite run once to prove no app code changed.
+
+## Backlog: tighten the production deploy sudo scope
+
+Filed 2026-08-13 out of the #813 review, and deliberately NOT done in
+that PR — it is a sudoers redesign, not an incident repair.
+
+The deploy identity holds NOPASSWD sudo for `systemctl`, `journalctl`,
+`install` and `chown`, unrestricted in their arguments.  That is what
+makes automatic runtime reconciliation possible without new privilege,
+and it is also the limit of what the arrangement proves:
+
+- keeping the root-EXECUTED watchdog as a `root:root 0755` copy under
+  `/usr/local/lib/riskit/`, outside the deploy-user-writable checkout,
+  stops an ordinary edit to the checkout from becoming the script root
+  runs, and preserves the intended ownership/execution layout;
+- it is **not** an OS security boundary around the deploy identity.
+  Anything already running as that identity can call
+  `sudo install`/`sudo systemctl` directly.
+  `deploy/reconcile-runtime-controls.sh::_rc_sudo` constrains what *that
+  script* will do; it constrains nothing else.
+
+Do not describe the current design as containment of a compromised
+deploy account.  Narrowing the sudoers rules — argument-constrained
+`install` destinations, a fixed unit allowlist for `systemctl` — is the
+work that would change that, and it belongs in its own change with its
+own rollback plan.
