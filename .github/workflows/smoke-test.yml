@@ -70,6 +70,14 @@ jobs:
         shell: bash
         env:
           ALLOW_DEFAULT_LOGIN_DEV: "1"
+          # Same policy as pr-validation.yml / deploy.yml.  This job has
+          # the tightest budget (10 minutes) and its whole purpose is to
+          # notice breakage, so it must not be the thing an outage
+          # silences: ``server`` enables its uptime watchdog by default,
+          # every TestClient then probes the live site, and its shutdown
+          # joins that thread.  ``tests/conftest.py`` sets the same
+          # default; stated here so the policy is visible.
+          UPTIME_CHECK_ENABLED: "0"
         run: |
           set -Eeuo pipefail
           # Hard-gate on code tests only, matching pr-validation.yml.

@@ -4,17 +4,23 @@
 // manager + matchup + player indexes from the backend so every
 // deep-linked page (franchise, rivalry, matchup recap, player
 // journey) gets its own entry.  Falls back to just the static routes
-// if the backend is unreachable at build time.
+// if the backend gives no usable answer at build time.
+//
+// That fallback used to cover only an UNREACHABLE backend.  The three
+// fetches below ran unbounded, so a backend that accepted connections
+// and never answered — the 2026-08-12 file-descriptor exhaustion — left
+// them pending rather than falling back, three times in sequence.  This
+// route stays statically generated (`revalidate` 10 m); what changed is
+// that each fetch now has a bounded budget, so "no usable answer"
+// includes silence and the documented fallback actually happens.
+//
+// Deliberately NOT given the `connection()` treatment that
+// `app/league/page.jsx` got: a sitemap is legitimately static, and
+// forcing it to render per request to fix a timeout would be a product
+// change dressed as a repair.  A build during an outage emits the static
+// routes only, for one revalidate window.
 
-function _backend() {
-  const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
-  try {
-    const u = new URL(base);
-    return `${u.protocol}//${u.host}`;
-  } catch {
-    return "http://127.0.0.1:8000";
-  }
-}
+import { fetchBackendJson } from "../lib/server-backend.js";
 
 function _origin() {
   return (
@@ -25,15 +31,7 @@ function _origin() {
 }
 
 async function _fetchJson(path) {
-  try {
-    const res = await fetch(`${_backend()}${path}`, {
-      next: { revalidate: 600 },
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
+  return fetchBackendJson(path, { revalidate: 600 });
 }
 
 export default async function sitemap() {

@@ -309,11 +309,26 @@ verify_frontend_build_manifest() {
     exit 1
   fi
 
-  local build_manifest="${dist_dir}/build-manifest.json"
-  if [[ ! -f "${build_manifest}" ]]; then
-    error "Missing build-manifest.json at ${build_manifest}"
-    exit 1
-  fi
+  # Runtime-critical manifests — see the same block in rollback.sh for
+  # the incident this comes from.  Kept behaviourally identical to that
+  # copy (the two implementations are required to match); only the
+  # failure verb differs, `exit` here vs `return` there.
+  local required_runtime_artifacts=(
+    "BUILD_ID"
+    "build-manifest.json"
+    "app-path-routes-manifest.json"
+    "prerender-manifest.json"
+    "routes-manifest.json"
+    "required-server-files.json"
+  )
+  local artifact
+  for artifact in "${required_runtime_artifacts[@]}"; do
+    if [[ ! -f "${dist_dir}/${artifact}" ]]; then
+      error "Incomplete frontend build: missing ${artifact} in ${dist_dir}"
+      error "This build cannot start; refusing to treat it as usable."
+      exit 1
+    fi
+  done
 
   log "Verifying frontend build manifest references: ${dist_dir}"
   python3 - "${dist_dir}" <<'PY' || {
@@ -763,6 +778,59 @@ ensure_systemd_service() {
   log "Frontend systemd unit ExecStart binary resolved to: ${frontend_exec_bin}"
 }
 
+# ── runtime controls ────────────────────────────────────────────────
+# ONE implementation, shared with rollback.sh.  `ensure_systemd_service`
+# above answers "does a unit exist"; this answers "is the installed unit
+# the one THIS revision requires", which is a different question and the
+# one a green deploy of #812 got wrong — it left production on soft
+# LimitNOFILE 1024 and dynasty-healthcheck.timer at LoadState=not-found
+# while both shipped in Git.
+#
+# Ordering is load-bearing: reconcile (and daemon-reload) BEFORE
+# restart_service, so the restart starts the process under the new unit
+# and the new limits actually reach it.
+runtime_reconciler_path() { printf '%s/deploy/reconcile-runtime-controls.sh' "${APP_DIR}"; }
+
+reconcile_runtime_state() {
+  # Production never takes the reconciler's test seams from the
+  # environment.  Scrubbing them before the source is what makes "an
+  # inherited variable cannot weaken the watchdog owner, the unit
+  # directory or /proc" a fact rather than a convention — install and
+  # verification both read those values, so an override would leave them
+  # agreeing with each other about the wrong thing.
+  unset RC_ALLOW_TEST_OVERRIDES RC_WATCHDOG_OWNER SYSTEMD_UNIT_DIR RC_PROC_DIR
+
+  local reconciler; reconciler="$(runtime_reconciler_path)"
+  if [[ ! -f "${reconciler}" ]]; then
+    error "Missing runtime reconciler: ${reconciler}"
+    error "This revision cannot prove its required runtime controls are installed."
+    exit 1
+  fi
+  # shellcheck source=deploy/reconcile-runtime-controls.sh
+  source "${reconciler}"
+  log "Reconciling runtime controls from ${APP_DIR}"
+  if ! reconcile_runtime_controls "${APP_DIR}"; then
+    error "Runtime control reconciliation failed; refusing to continue the deploy."
+    exit 1
+  fi
+}
+
+# After the restart, because /proc/<MainPID>/limits is only true of the
+# process that is actually running.  A mismatch is fatal: "the template
+# says 8192" is exactly the claim that was false in production.
+verify_runtime_state() {
+  if ! declare -F verify_runtime_controls >/dev/null; then
+    error "Runtime reconciler was never sourced; cannot verify live controls."
+    exit 1
+  fi
+  log "Verifying LIVE runtime controls (systemd + /proc + watchdog)"
+  if ! verify_runtime_controls "${APP_DIR}"; then
+    error "Live runtime controls do not match this revision."
+    error "Repository intent is not deployment success — failing the deploy."
+    exit 1
+  fi
+}
+
 restart_service() {
   require_command systemctl
   # NOTE: the frontend (dynasty-frontend) is restarted by
@@ -1047,8 +1115,10 @@ main() {
   prepare_python_runtime
   maybe_build_frontend
   ensure_systemd_service
+  reconcile_runtime_state
   deploy_frontend_atomic
   restart_service
+  verify_runtime_state
   reconcile_source_history
   verify_deploy
   record_success_state

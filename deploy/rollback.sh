@@ -170,11 +170,37 @@ verify_frontend_build_manifest() {
     error "Frontend build dir does not exist: ${dist_dir}"
     return 1
   fi
-  local build_manifest="${dist_dir}/build-manifest.json"
-  if [[ ! -f "${build_manifest}" ]]; then
-    error "Missing build-manifest.json at ${build_manifest}"
-    return 1
-  fi
+  # Runtime-critical manifests: the files `next start` opens to boot.
+  #
+  # Checking only manifest-REFERENCED chunks is not enough, and that gap
+  # is what let a failed build pass verification on 2026-08-12.  An
+  # aborted export writes `build-manifest.json` early and never reaches
+  # `prerender-manifest.json`, so the reference walk below found all 52
+  # assets it knew about, reported OK, and the swapped-in build then
+  # crashed the frontend with:
+  #
+  #   Error: ENOENT: no such file or directory,
+  #     open '.../frontend/.next/prerender-manifest.json'
+  #
+  # These six are every root-level artifact a successful build produces
+  # that the server loads at startup.  Presence, not content — this is a
+  # completeness check on the staging dir, not a schema validator.
+  local required_runtime_artifacts=(
+    "BUILD_ID"
+    "build-manifest.json"
+    "app-path-routes-manifest.json"
+    "prerender-manifest.json"
+    "routes-manifest.json"
+    "required-server-files.json"
+  )
+  local artifact
+  for artifact in "${required_runtime_artifacts[@]}"; do
+    if [[ ! -f "${dist_dir}/${artifact}" ]]; then
+      error "Incomplete frontend build: missing ${artifact} in ${dist_dir}"
+      error "This build cannot start; refusing to treat it as usable."
+      return 1
+    fi
+  done
   log "Verifying frontend build manifest references: ${dist_dir}"
   python3 - "${dist_dir}" <<'PY' || return 1
 import json
@@ -343,10 +369,41 @@ maybe_rebuild_frontend_after_rollback() {
   fi
 
   log "Rebuilding rolled-back frontend bundle into staging dir: ${staging_dir}"
+  # The exit status is captured EXPLICITLY, and that is the whole fix for
+  # the 2026-08-12 swap-a-broken-build defect.
+  #
+  # This subshell is identical to the one in deploy.sh, and on the deploy
+  # path `set -e` aborted correctly.  Here it did not, because
+  # `main()` calls this function as `if ! maybe_rebuild_frontend_after_rollback`
+  # — and bash disables errexit for the entire body of a function invoked
+  # as a condition.  So a `npm run build` that exited 1 was discarded and
+  # execution fell through to the verify-and-swap below.  Measured:
+  #
+  #   17:22:19.122  Next.js build worker exited with code: 1
+  #   17:22:19.268  [verify-build] OK: 52 manifest-referenced asset(s)
+  #   17:22:49.577  Rolled-back frontend build swapped into place
+  #   17:22:51.704  Frontend service failed to start
+  #                 ENOENT .next/prerender-manifest.json
+  #
+  # 80 ms between "the build failed" and "verify it anyway", then an
+  # incomplete staging dir replaced the last known-good .next and took
+  # the frontend down for 2.5 minutes on top of the backend outage.
+  #
+  # `|| build_rc=$?` rather than a bare call, so this stays correct
+  # whether or not errexit happens to be active at the call site.  The
+  # two scripts must not be able to diverge on this again.
+  local build_rc=0
   (
     cd "${frontend_dir}"
     NEXT_DIST_DIR="${FRONTEND_STAGING_DIR_NAME}" npm run build
-  )
+  ) || build_rc=$?
+
+  if (( build_rc != 0 )); then
+    error "Rollback frontend build failed (exit ${build_rc}); leaving the live frontend untouched."
+    error "Staging dir ${staging_dir} is incomplete and will NOT be swapped in."
+    rm -rf "${staging_dir}"
+    return 1
+  fi
 
   verify_frontend_build_manifest "${staging_dir}" || return 1
 
@@ -384,6 +441,100 @@ maybe_rebuild_frontend_after_rollback() {
   if [[ -d "${old_dir}" ]]; then
     ( rm -rf "${old_dir}" ) >/dev/null 2>&1 &
   fi
+}
+
+# ── runtime controls across a revision change ───────────────────────
+# THE FIRST-DEPLOY PROBLEM.  The reconciler ships in the same change
+# that starts reconciling runtime controls, so the very first rollback
+# past it goes to a revision that does not contain it.  Looking for the
+# implementation in the checked-out tree therefore finds nothing exactly
+# when it matters most: the failed deploy has already installed the
+# NEWER unit and watchdog, and restoring old code while leaving newer
+# runtime controls in place is precisely the drift this whole change
+# exists to prevent.
+#
+# So the implementation is taken from the revision that is RUNNING when
+# the rollback starts, copied out before the checkout, and executed
+# against the rollback target's own templates.  One implementation, the
+# newest one available, applied to the target's artifacts.
+#
+# The copy lives outside APP_DIR deliberately: sourcing it from a path
+# `git checkout` can rewrite mid-run would mean the file could change
+# under the very step meant to survive the revision change.
+RUNTIME_RECONCILER_COPY=""
+RUNTIME_RECONCILER_TMPDIR=""
+RUNTIME_CONTROLS_RECONCILED=false
+
+preserve_runtime_reconciler() {
+  local src="${APP_DIR}/deploy/reconcile-runtime-controls.sh"
+  if [[ ! -f "${src}" ]]; then
+    log "Current revision carries no runtime reconciler; none to preserve."
+    return 0
+  fi
+  if ! RUNTIME_RECONCILER_TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/riskit-rollback-XXXXXX")"; then
+    error "Could not create a temporary directory to preserve the runtime reconciler."
+    exit 1
+  fi
+  if ! cp "${src}" "${RUNTIME_RECONCILER_TMPDIR}/reconcile-runtime-controls.sh"; then
+    error "Could not preserve the runtime reconciler from the current revision."
+    exit 1
+  fi
+  RUNTIME_RECONCILER_COPY="${RUNTIME_RECONCILER_TMPDIR}/reconcile-runtime-controls.sh"
+  log "Preserved the current revision's runtime reconciler outside the checkout."
+}
+
+cleanup_runtime_reconciler() {
+  [[ -n "${RUNTIME_RECONCILER_TMPDIR}" ]] && rm -rf "${RUNTIME_RECONCILER_TMPDIR}"
+  return 0
+}
+
+reconcile_runtime_state_for_rollback() {
+  local impl="${RUNTIME_RECONCILER_COPY}"
+  # Fall back to the target's own copy only when nothing was preserved,
+  # i.e. the running revision predated the reconciler entirely.
+  if [[ -z "${impl}" && -f "${APP_DIR}/deploy/reconcile-runtime-controls.sh" ]]; then
+    impl="${APP_DIR}/deploy/reconcile-runtime-controls.sh"
+  fi
+
+  if [[ -z "${impl}" ]]; then
+    # Neither side has the implementation, so nothing this mechanism
+    # installs can be inconsistent with the target.  Refusing here would
+    # break last-known-good rollback for revisions that never had the
+    # contract, which is a worse outcome than the risk.  It is stated
+    # rather than implied: this rollback does NOT claim runtime
+    # convergence.
+    warn "No runtime reconciler in either the current or the target revision."
+    warn "Runtime controls were NOT converged and are NOT verified — check them manually."
+    RUNTIME_CONTROLS_RECONCILED=false
+    return 0
+  fi
+
+  # The preserved implementation can only reconcile a target that still
+  # carries the artifacts it renders.  A target without them cannot be
+  # converged by anything here, and restarting onto runtime state that
+  # belongs to a different revision is the failure mode being fixed.
+  local sysd="${APP_DIR}/deploy/systemd" missing=() f
+  for f in dynasty.service.template dynasty-healthcheck.sh \
+           dynasty-healthcheck.service dynasty-healthcheck.timer; do
+    [[ -f "${sysd}/${f}" ]] || missing+=("${f}")
+  done
+  if (( ${#missing[@]} > 0 )); then
+    error "Rollback target is missing runtime artifacts: ${missing[*]}"
+    error "Runtime controls cannot be reconciled to this revision, and the"
+    error "installed controls may belong to the revision being rolled back FROM."
+    error "Refusing to restart. Manual intervention required."
+    exit 1
+  fi
+
+  # shellcheck source=deploy/reconcile-runtime-controls.sh
+  source "${impl}"
+  log "Reconciling runtime controls to the rollback revision."
+  if ! reconcile_runtime_controls "${APP_DIR}"; then
+    error "Runtime control reconciliation failed during rollback."
+    error "Refusing to restart onto unproven runtime state."
+    exit 1
+  fi
+  RUNTIME_CONTROLS_RECONCILED=true
 }
 
 prepare_python_runtime() {
@@ -443,6 +594,19 @@ main() {
   target_rev="$(git rev-parse --short "${rollback_target}")"
   log "Rolling back from ${current_rev} to ${rollback_target} (${target_rev})."
 
+  # rollback.sh is a PRODUCTION entry point, so the runtime-control
+  # contract must not be reachable from an inherited environment here
+  # either.  Scrubbing before anything sources the reconciler means no
+  # combination of exported variables can activate its test seams during
+  # a real rollback — not even one that would announce itself.  The
+  # suite adapts to this rather than the other way round: it doubles the
+  # PRIVILEGED COMMANDS (sudo/install/systemctl) and lets the reconciler
+  # run against the production constants.
+  unset RC_ALLOW_TEST_OVERRIDES RC_WATCHDOG_OWNER SYSTEMD_UNIT_DIR RC_PROC_DIR
+
+  trap cleanup_runtime_reconciler EXIT
+  preserve_runtime_reconciler
+
   git checkout --force "${rollback_target}"
   git reset --hard "${rollback_target}"
 
@@ -456,12 +620,22 @@ main() {
     error "Rollback frontend rebuild failed; backend will still be restarted but frontend state is suspect."
   fi
 
+  reconcile_runtime_state_for_rollback
+
   log "Restarting service ${SERVICE_NAME} after rollback."
   sudo -n "${SYSTEMCTL_BIN}" restart "${SERVICE_NAME}"
   if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${SERVICE_NAME}"; then
     error "Service ${SERVICE_NAME} is not active after rollback restart."
     sudo -n "${JOURNALCTL_BIN}" -u "${SERVICE_NAME}" -n 120 --no-pager || true
     exit 1
+  fi
+
+  if [[ "${RUNTIME_CONTROLS_RECONCILED}" == "true" ]]; then
+    log "Verifying LIVE runtime controls after rollback."
+    if ! verify_runtime_controls "${APP_DIR}"; then
+      error "Live runtime controls do not match the rollback revision."
+      exit 1
+    fi
   fi
 
   if [[ -f "${APP_DIR}/deploy/verify-deploy.sh" ]]; then
@@ -483,7 +657,18 @@ main() {
     mkdir -p "$(dirname "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}")"
     printf '%s\n' "${rollback_target}" > "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
   fi
-  log "Rollback complete. Active revision: ${rollback_target}"
+  if [[ "${RUNTIME_CONTROLS_RECONCILED}" == "true" ]]; then
+    log "Rollback complete. Active revision: ${rollback_target} (runtime controls reconciled and verified)."
+  else
+    log "Rollback complete. Active revision: ${rollback_target}"
+    warn "Runtime controls were NOT reconciled or verified for this revision."
+  fi
 }
 
-main "$@"
+# Run main only when EXECUTED, not when sourced.  Sourcing is how
+# `tests/deploy/test_rollback_frontend_atomicity.py` drives the real
+# functions against a fixture frontend; without this guard, importing
+# them would launch an actual rollback.  No effect on normal execution.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

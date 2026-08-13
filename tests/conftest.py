@@ -11,6 +11,29 @@ import pytest
 # production rejects ALLOW_DEFAULT_LOGIN_DEV=1 by design.
 os.environ.setdefault("ALLOW_DEFAULT_LOGIN_DEV", "1")
 
+# ── The suite does not depend on the live site being up ───────────────
+# ``server`` reads UPTIME_CHECK_ENABLED at import (production default
+# True) and its lifespan runs ``check_uptime_once`` — a blocking
+# ``urlopen`` against UPTIME_CHECK_URL — on a worker thread the shutdown
+# then joins.  Every ``TestClient`` therefore made a real request to
+# production and every ``__exit__`` waited on it.
+#
+# Measured 2026-08-12, while production's ``/api/`` was accepting
+# connections and not answering: 6.07s per TestClient, of which startup
+# was 0.009s.  Two tests went 12.59s → 1.94s with the watchdog off.  The
+# whole ``PR Validation`` job stopped fitting in its 20-minute budget and
+# was killed three times — including on a previously-green commit — so a
+# production outage read as a broken pull request instead of failing
+# anything honestly.
+#
+# ``setdefault``, not an assignment: a test that wants the watchdog sets
+# the variable itself, and the production default is untouched.  The
+# boundary is here rather than a pytest sniff inside ``server`` — product
+# code must not behave differently because it suspects it is under test.
+# ``.github/workflows/pr-validation.yml`` states it again in the
+# unit-test step so the CI policy is visible rather than inherited.
+os.environ.setdefault("UPTIME_CHECK_ENABLED", "0")
+
 # ── Sleeper league context isolation ──────────────────────────────────
 # ``src/api/data_contract.py::_resolve_league_context`` reads the
 # operator's Sleeper league to derive the roster count (rookie-pick
