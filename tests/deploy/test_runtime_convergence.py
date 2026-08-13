@@ -70,6 +70,15 @@ FAKE_SUDO = """#!/usr/bin/env bash
 exec "$@"
 """
 
+# What production's systemd reports for the loaded monotonic schedule.
+# Two entries, one per timer directive in dynasty-healthcheck.timer, each
+# printed on its own line by `systemctl show --value`.  The recurring one
+# is OnUnitActiveUSec; OnBootUSec fires once per boot and re-arms nothing.
+FAKE_TIMERS_MONOTONIC = (
+    "{ OnBootUSec=3min ; next_elapse=Thu 2026-08-13 08:39:21 CEST }\n"
+    "{ OnUnitActiveUSec=1min ; next_elapse=Thu 2026-08-13 08:39:21 CEST }"
+)
+
 FAKE_SYSTEMCTL = """#!/usr/bin/env bash
 # Minimal systemctl state machine.  State lives in $FAKE_SYSTEMCTL_STATE.
 set -uo pipefail
@@ -94,6 +103,10 @@ case "${cmd}" in
     done
     f="${state}/units/${unit}.${prop}"
     if [[ -f "${f}" ]]; then cat "${f}"; else printf '\\n'; fi
+    # One-step transition: a `.next` file makes THIS read return the
+    # current value and every later read return the queued one, so a
+    # test can model a state that resolves while the verifier re-reads.
+    if [[ -f "${f}.next" ]]; then mv "${f}.next" "${f}"; fi
     exit 0
     ;;
   enable)
@@ -119,10 +132,14 @@ case "${cmd}" in
       printf '\\n' > "${state}/units/${unit}.NextElapseUSecRealtime"
       printf '2w 3d 2h 8min 32.168902s\\n' > "${state}/units/${unit}.NextElapseUSecMonotonic"
       printf 'Thu 2026-08-13 04:16:02 CEST\\n' > "${state}/units/${unit}.LastTriggerUSec"
+      printf '%s\\n' "${FAKE_TIMERS_MONOTONIC}" > "${state}/units/${unit}.TimersMonotonic"
     fi
     svc="${unit%.timer}.service"
     if [[ -f "${SYSTEMD_UNIT_DIR}/${svc}" ]]; then
       printf 'loaded\\n' > "${state}/units/${svc}.LoadState"
+      # A Type=oneshot triggered unit at rest between firings.
+      printf 'inactive\\n' > "${state}/units/${svc}.ActiveState"
+      printf 'dead\\n'     > "${state}/units/${svc}.SubState"
     fi
     exit 0
     ;;
@@ -200,6 +217,11 @@ class Host:
         for prop, value in props.items():
             (self.state / "units" / f"{unit}.{prop}").write_text(value + "\n")
 
+    def queue_unit_state(self, unit: str, **props: str) -> None:
+        """Value the NEXT read of this property switches to."""
+        for prop, value in props.items():
+            (self.state / "units" / f"{unit}.{prop}.next").write_text(value + "\n")
+
     def set_limits(
         self, *, soft: str, hard: str, proc_soft: str | None = None, proc_hard: str | None = None
     ) -> None:
@@ -229,6 +251,7 @@ class Host:
             "RC_ALLOW_TEST_OVERRIDES": "1",
             "RC_WATCHDOG_OWNER": WATCHDOG_OWNER,
             "FAKE_SYSTEMCTL_STATE": str(self.state),
+            "FAKE_TIMERS_MONOTONIC": FAKE_TIMERS_MONOTONIC,
         }
 
     def run(self, func: str, env_extra: dict[str, str] | None = None):
@@ -676,3 +699,232 @@ class TestTheTimerGateReadsTheRightNextElapseProperty:
             if "NextElapseUSecRealtime" in ln and ("rc=1" in ln or "_rc_err" in ln)
         ]
         assert not gating, f"realtime property still gates: {gating}"
+
+
+class TestTheInfinityTransitionIsDecidedNotSlept:
+    """A running watchdog has no next activation, and that is not a fault.
+
+    While the ``Type=oneshot`` healthcheck executes, systemd has nothing
+    to compute a next elapse from and answers ``infinity``.  Observed on
+    production 2026-08-13T06:29:24Z, six seconds after a LastTriggerUSec
+    of 08:29:18 CEST, on a timer that had been firing every 60 s for
+    hours::
+
+        timer.NextElapseUSecMonotonic   infinity
+        service.ActiveState/SubState    activating/start
+
+    The #814 gate rejected ``infinity`` outright, so a healthy deploy
+    could be failed by where its read landed in the cadence.  Waiting it
+    out is the wrong fix — ``TimeoutStartSec=90`` bounds the window at
+    far longer than any deploy should sleep — so the state is decided
+    from live properties instead.
+
+    The excuse is narrow by construction: ``infinity`` passes ONLY while
+    the triggered unit is genuinely executing AND the timer's recurring
+    monotonic schedule is still loaded.  Neither is inferred from the
+    unit file in this checkout.
+    """
+
+    EXECUTING = {"ActiveState": "activating", "SubState": "start"}
+    AT_REST = {"ActiveState": "inactive", "SubState": "dead"}
+    FAILED = {"ActiveState": "failed", "SubState": "failed"}
+    # A schedule with no recurring base: fires once per boot, then never.
+    BOOT_ONLY = "{ OnBootUSec=3min ; next_elapse=Thu 2026-08-13 08:39:21 CEST }"
+
+    @staticmethod
+    def _seed(host, *, next_mono, service, timers_monotonic=FAKE_TIMERS_MONOTONIC):
+        host.converge()
+        host.set_unit_state(
+            "dynasty-healthcheck.timer",
+            NextElapseUSecRealtime="",
+            NextElapseUSecMonotonic=next_mono,
+            TimersMonotonic=timers_monotonic,
+        )
+        host.set_unit_state("dynasty-healthcheck.service", **service)
+
+    # 1 ─────────────────────────────────────────────────────────────────
+    def test_finite_next_with_the_service_at_rest_passes(self, host):
+        """The steady state: between firings, nothing is running."""
+        self._seed(host, next_mono="2w 3d 2h 8min 32.168902s", service=self.AT_REST)
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert "live runtime controls verified" in r.stdout
+
+    # 2 ─────────────────────────────────────────────────────────────────
+    def test_infinity_while_the_service_executes_passes(self, host):
+        """Production's observed transition, reproduced verbatim."""
+        self._seed(host, next_mono="infinity", service=self.EXECUTING)
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert "live runtime controls verified" in r.stdout
+        assert "no next activation while" in r.stdout, (
+            "the transition passed silently — a reader cannot tell this run "
+            "from one with a real next elapse"
+        )
+
+    # 3 ─────────────────────────────────────────────────────────────────
+    def test_infinity_with_the_service_inactive_fails(self, host):
+        """Nothing running and nothing scheduled is a dead watchdog."""
+        self._seed(host, next_mono="infinity", service=self.AT_REST)
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no future monotonic activation" in r.stderr
+        assert "inactive/dead" in r.stderr
+
+    # 4 ─────────────────────────────────────────────────────────────────
+    def test_infinity_with_the_service_failed_fails(self, host):
+        """A failed unit is emphatically not 'currently executing'."""
+        self._seed(host, next_mono="infinity", service=self.FAILED)
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no future monotonic activation" in r.stderr
+
+    # 5 ─────────────────────────────────────────────────────────────────
+    def test_infinity_while_executing_without_a_recurring_schedule_fails(self, host):
+        """Executing excuses a missing next elapse only if another one
+        is coming.  With no recurring base, this run is the last one."""
+        self._seed(
+            host,
+            next_mono="infinity",
+            service=self.EXECUTING,
+            timers_monotonic=self.BOOT_ONLY,
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no recurring monotonic schedule" in r.stderr
+
+    # 6 ─────────────────────────────────────────────────────────────────
+    def test_zero_next_with_the_service_inactive_fails(self, host):
+        self._seed(host, next_mono="0", service=self.AT_REST)
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no future monotonic activation" in r.stderr
+
+    # 7 ─────────────────────────────────────────────────────────────────
+    def test_empty_next_with_the_service_inactive_fails(self, host):
+        self._seed(host, next_mono="", service=self.AT_REST)
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no future monotonic activation" in r.stderr
+
+    # 8 ─────────────────────────────────────────────────────────────────
+    def test_a_past_trigger_does_not_independently_create_a_pass(self, host):
+        """A recent LastTriggerUSec is the most tempting wrong answer:
+        it is present, it looks like health, and it says only that the
+        timer HAS run.  Paired here with the strongest possible context —
+        a live recurring schedule — so nothing but the executing check
+        can be what fails it."""
+        self._seed(host, next_mono="infinity", service=self.AT_REST)
+        host.set_unit_state(
+            "dynasty-healthcheck.timer",
+            LastTriggerUSec="Thu 2026-08-13 08:38:21 CEST",
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0, "a past trigger was accepted as proof of future scheduling"
+
+    # 9 ─────────────────────────────────────────────────────────────────
+    def test_zero_next_while_executing_still_fails(self, host):
+        """Only `infinity` is a transition.  A zero next-elapse is not
+        excused by a running service — that pairing is not something a
+        healthy timer produces, and widening the excuse to cover it would
+        make the gate unfalsifiable during any execution."""
+        self._seed(host, next_mono="0", service=self.EXECUTING)
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no future monotonic activation" in r.stderr
+
+    # 10 ────────────────────────────────────────────────────────────────
+    def test_a_finite_next_does_not_excuse_a_missing_recurring_schedule(self, host):
+        """The schedule is checked whatever the next-elapse says: a timer
+        that lost its recurring base reports a perfectly finite next
+        elapse right up until the last time it ever fires."""
+        self._seed(
+            host,
+            next_mono="2w 3d 2h 8min 32.168902s",
+            service=self.AT_REST,
+            timers_monotonic=self.BOOT_ONLY,
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no recurring monotonic schedule" in r.stderr
+
+    # 11 ────────────────────────────────────────────────────────────────
+    def test_a_transition_that_resolves_passes_on_the_real_next_elapse(self, host):
+        """The ordinary case must not need the excuse at all.
+
+        A real execution is ~0.2 s wide, so by the time the verifier
+        re-reads, the timer has re-armed.  This models exactly that: the
+        first read sees the transition, the next sees a live next-elapse.
+        It must pass as branch A — silently, on the real value — rather
+        than as an accepted transition, because that is what keeps the
+        common path off `TimersMonotonic`'s behaviour mid-execution,
+        which was never captured.
+        """
+        self._seed(host, next_mono="infinity", service=self.EXECUTING)
+        host.queue_unit_state(
+            "dynasty-healthcheck.timer",
+            NextElapseUSecMonotonic="2w 3d 2h 8min 32.168902s",
+        )
+        host.queue_unit_state(
+            "dynasty-healthcheck.service", ActiveState="inactive", SubState="dead"
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert "live runtime controls verified" in r.stdout
+        assert (
+            "no next activation while" not in r.stdout
+        ), "passed via the transition excuse when a real next-elapse was available"
+
+    # 12 ────────────────────────────────────────────────────────────────
+    def test_executing_with_a_stale_finite_next_elapse_passes(self, host):
+        """Executing does not imply `infinity`, which is easy to get
+        backwards.  Observed on the host at 2026-08-13T07:50:45Z: the
+        service was `activating/start` while the timer still advertised
+        the PREVIOUS finite next-elapse, systemd not having recomputed
+        it yet.  A gate keyed on 'executing means no next elapse' would
+        have been wrong about that row; a finite value is a finite
+        value."""
+        self._seed(host, next_mono="2w 3d 7h 42min 14.209473s", service=self.EXECUTING)
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert "no next activation while" not in r.stdout
+
+    # 13 ────────────────────────────────────────────────────────────────
+    def test_an_empty_timers_monotonic_fails(self, host):
+        """Missing is never healthy: a systemd that reports no monotonic
+        timers at all has not told us the schedule is fine."""
+        self._seed(
+            host,
+            next_mono="2w 3d 2h 8min 32.168902s",
+            service=self.AT_REST,
+            timers_monotonic="",
+        )
+
+        r = host.run("verify_runtime_controls")
+
+        assert r.returncode != 0
+        assert "no recurring monotonic schedule" in r.stderr

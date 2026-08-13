@@ -49,9 +49,11 @@
 # statement is the verdict on the accumulator.
 #
 # Usage:
-#   deploy/diagnostics/fd_inventory.sh [service] [samples] [interval_s]
+#   deploy/diagnostics/fd_inventory.sh \
+#     [service] [samples] [interval_s] [watchdog_window_s]
 #
-# Defaults: dynasty, 10 samples, 30 s apart (a 5-minute window).
+# Defaults: dynasty, 10 samples, 30 s apart (a 5-minute window), and no
+# watchdog boundary sampling (see WATCHDOG_CONTRACT_WINDOW_S below).
 
 set -uo pipefail
 
@@ -390,7 +392,16 @@ run_optional "watchdog units and installed executable" watchdog_state
 # because what shipped and what is loaded are different claims.
 #
 # Still read-only: `systemctl show` computes nothing and starts nothing.
-WATCHDOG_CONTRACT_WINDOW_S="${WATCHDOG_CONTRACT_WINDOW_S:-150}"
+#
+# OPT-IN, and OFF by default.  The window is wall-clock time this script
+# spends doing nothing else, so a default of "long enough to cross two
+# boundaries" would add two and a half minutes to every FD inventory —
+# and to every test that runs this script.  The static properties above
+# print regardless; only the sampling loop is gated.  A zero window says
+# so out loud rather than skipping silently, because a section that
+# prints nothing and a section that was not asked to run must not read
+# the same.
+WATCHDOG_CONTRACT_WINDOW_S="${WATCHDOG_CONTRACT_WINDOW_S:-${4:-0}}"
 
 watchdog_timer_contract() {
   local timer="dynasty-healthcheck.timer" svc="dynasty-healthcheck.service"
@@ -413,6 +424,14 @@ watchdog_timer_contract() {
   # quiet one.
   printf '\npolling %ss at 5Hz, printing on change (cadence is 60s)\n\n' \
     "${WATCHDOG_CONTRACT_WINDOW_S}"
+  if (( WATCHDOG_CONTRACT_WINDOW_S <= 0 )); then
+    printf '\nboundary sampling NOT REQUESTED (window=%ss).  Pass a window as\n' \
+      "${WATCHDOG_CONTRACT_WINDOW_S}"
+    printf 'the 4th argument (>= 130s crosses two firings) to observe the\n'
+    printf 'infinity/executing transition.\n'
+    return 0
+  fi
+
   # `recurring` is sampled too, not just read once up front.  The
   # verifier requires the recurring base to be present at the moment it
   # looks, so whether systemd keeps reporting it WHILE the unit runs is
