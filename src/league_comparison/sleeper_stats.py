@@ -74,7 +74,17 @@ _FIELD_MAP: dict[str, str] = {
     # "def_*".  The realized-points engine reads from def_* columns.
     "idp_tkl_solo": "def_tackles_solo",
     "idp_tkl_ast": "def_tackle_assists",
-    "idp_tkl": "def_tackles",
+    # ``idp_tkl`` is DELIBERATELY NOT MAPPED (2026-08-13, B7 / W18-F003).
+    # It used to become ``def_tackles``, and the two do not mean the same
+    # thing: Sleeper's ``idp_tkl`` is COMBINED tackles, while
+    # ``realized_points._tackle_view`` reads a published ``def_tackles``
+    # as the pre-2025 gamebook SOLO total.  Writing combined into the
+    # solo slot inflated both — a 5-solo/3-assist line became solo 8,
+    # combined 11 — on every row that reached the engine through this
+    # fallback path.
+    #
+    # Nothing is lost by dropping it: ``_tackle_view`` derives combined
+    # as solo + assists, and both of those map correctly above.
     "idp_tkl_loss": "def_tackles_for_loss",
     "idp_sack": "def_sacks",
     "idp_sack_yd": "def_sack_yards",
