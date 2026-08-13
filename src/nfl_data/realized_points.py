@@ -65,6 +65,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from src.league_intel.scorer import score_stat_line as _score_stat_line
 from src.scoring.sleeper_ingest import KEY_ALIASES as _SLEEPER_KEY_ALIASES
 
 
@@ -75,26 +76,94 @@ from src.scoring.sleeper_ingest import KEY_ALIASES as _SLEEPER_KEY_ALIASES
 # Split into simple_keys (direct column read) and bonus_keys
 # (threshold-based boolean).
 
-_SIMPLE_KEYS: dict[str, tuple[str, str]] = {
-    # (stat_row_key, human_label)
-    "pass_yd": ("passing_yards", "Pass Yds"),
-    "pass_td": ("passing_tds", "Pass TD"),
-    "pass_int": ("interceptions", "INT"),
-    "pass_sack": ("sacks", "Sacks Taken"),
-    "rush_yd": ("rushing_yards", "Rush Yds"),
-    "rush_td": ("rushing_tds", "Rush TD"),
-    "rec": ("receptions", "Rec"),
-    "rec_yd": ("receiving_yards", "Rec Yds"),
-    "rec_td": ("receiving_tds", "Rec TD"),
-    "fum_lost": ("fumbles_lost", "Fum Lost"),
+# CORRECTED 2026-08-13 (B7 / W18-F003).  Three of these read columns the
+# 2025 unified nflverse release renamed, and failed exactly the way the
+# IDP block below failed before its own 2026-07-27 correction:
+# ``stat_row.get`` returns None, ``_num`` turns it into 0.0, and the rule
+# is skipped as though the player had recorded nothing.  The offense half
+# was simply missed by that repair.
+#
+# These three are PENALTIES, so the silent skip inflates rather than
+# understates — the same football scored 18.00 points higher spelled the
+# modern way on dynasty_main's card (pass_int -4, pass_sack -1,
+# fum_lost -4), with the INT / Sacks Taken / Fum Lost lines absent from
+# the breakdown entirely.  Measured across 636 host player-weeks: 208
+# points never charged, and 81% of the QB signed error.
+#
+# Now a CANDIDATE TUPLE, the shape ``_IDP_KEYS`` already uses and the
+# shape the comment above that block already claimed both shared.  Live
+# name first so a modern row wins; the retired name is kept second so a
+# backfill over an older season still scores.  This also removes the
+# reason ``src/bdvm/baseline.py::_RAW_ALIASES`` and
+# ``src/nfl_data/actuals_store.py`` each carry a private copy of the same
+# rename — the engine now absorbs it for every caller.
+_SIMPLE_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
+    # (candidate stat_row keys, human_label)
+    "pass_yd": (("passing_yards",), "Pass Yds"),
+    "pass_td": (("passing_tds",), "Pass TD"),
+    "pass_int": (("passing_interceptions", "interceptions"), "INT"),
+    "pass_sack": (("sacks_suffered", "sacks"), "Sacks Taken"),
+    "rush_yd": (("rushing_yards",), "Rush Yds"),
+    "rush_td": (("rushing_tds",), "Rush TD"),
+    "rec": (("receptions",), "Rec"),
+    "rec_yd": (("receiving_yards",), "Rec Yds"),
+    "rec_td": (("receiving_tds",), "Rec TD"),
+    "fum_lost": (("fumbles_lost_total", "fumbles_lost"), "Fum Lost"),
     # ADDED 2026-07-28.  Per-play scoring the engine never read, found
     # by src/nfl_data/scoring_coverage.py.  Both columns are on the
     # unified feed and both rules are live in dynasty_main: pass_cmp at
     # 0.15/completion (1,762 unscored points across 2025) and rush_att
     # at 0.08/carry (1,225).  ``pass_inc`` is the third of this family
     # and is derived rather than read — see below.
-    "pass_cmp": ("completions", "Completions"),
-    "rush_att": ("carries", "Rush Att"),
+    "pass_cmp": (("completions",), "Completions"),
+    "rush_att": (("carries",), "Rush Att"),
+    # ADDED 2026-08-13 (B7 / W18-F003).  PLAYER special teams, landing
+    # with the ``st_``/``kr_yd``/``pr_yd`` reclassification in
+    # scoring_coverage.  These were treated as belonging to an asset
+    # class this platform does not value; they are paid to the RB, WR, TE
+    # and LB it ranks and starts.  Measured over 1,339 host player-weeks
+    # on dynasty_main's card: kr_yd 69 rows / 150.77 pts, pr_yd 29 /
+    # 22.43, st_td 4 / 24.00.
+    #
+    # DST's ``def_kr_yd`` / ``def_pr_yd`` / ``def_st_td`` are a different
+    # rule family for an asset class this board genuinely does not value,
+    # and stay unscored.
+    "kr_yd": (("kickoff_return_yards",), "KR Yds"),
+    "pr_yd": (("punt_return_yards",), "PR Yds"),
+    "st_td": (("special_teams_tds",), "ST TD"),
+    # ADDED 2026-08-13 (B7 / W18-F003).  KICKER.  The engine read no
+    # kicker key at all, so every kicker scored a well-formed 0.000 with
+    # no reason and no flag -- and dynasty_main starts K:1.  Nothing here
+    # needs play-by-play: the weekly feed carries the made/missed bands,
+    # total made-FG distance, and PATs outright.
+    "xpm": (("pat_made",), "XP Made"),
+    "xpmiss": (("pat_missed",), "XP Miss"),
+    "fgm_yds": (("fg_made_distance",), "FG Yds"),
+    "fgmiss": (("fg_missed",), "FG Miss"),
+    "fgm": (("fg_made",), "FG Made"),
+}
+
+#: Distance-banded kicker rules → the feed's own bands.  Separate from
+#: ``_SIMPLE_KEYS`` because a Sleeper band can span more than one nflverse
+#: band: ``fgm_50p`` means 50+, which the feed splits into ``fg_made_50_59``
+#: and ``fg_made_60_``.  Candidate columns pick the FIRST present, so a
+#: sum needs its own structure — getting this wrong would silently drop
+#: every 60-yard kick from a league that pays for 50+.
+_FG_BAND_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
+    "fgm_0_19": (("fg_made_0_19",), "FG 0-19"),
+    "fgm_20_29": (("fg_made_20_29",), "FG 20-29"),
+    "fgm_30_39": (("fg_made_30_39",), "FG 30-39"),
+    "fgm_40_49": (("fg_made_40_49",), "FG 40-49"),
+    "fgm_50_59": (("fg_made_50_59",), "FG 50-59"),
+    "fgm_60p": (("fg_made_60_",), "FG 60+"),
+    "fgm_50p": (("fg_made_50_59", "fg_made_60_"), "FG 50+"),
+    "fgmiss_0_19": (("fg_missed_0_19",), "FG Miss 0-19"),
+    "fgmiss_20_29": (("fg_missed_20_29",), "FG Miss 20-29"),
+    "fgmiss_30_39": (("fg_missed_30_39",), "FG Miss 30-39"),
+    "fgmiss_40_49": (("fg_missed_40_49",), "FG Miss 40-49"),
+    "fgmiss_50_59": (("fg_missed_50_59",), "FG Miss 50-59"),
+    "fgmiss_60p": (("fg_missed_60_",), "FG Miss 60+"),
+    "fgmiss_50p": (("fg_missed_50_59", "fg_missed_60_"), "FG Miss 50+"),
 }
 
 
@@ -123,12 +192,37 @@ _FIRST_DOWN_BONUS_KEYS: dict[str, str] = {
     "TE": "bonus_fd_te",
 }
 
-#: Columns summed to get a player's total first downs.
+#: Columns summed to get a player's total first downs.  Mirrored by
+#: ``first_down_rate.FIRST_DOWN_COLUMNS``, which uses it as a PRESENCE
+#: check ("does this line supply first downs at all"), so it stays flat.
 _FIRST_DOWN_COLUMNS: tuple[str, ...] = (
     "passing_first_downs",
     "rushing_first_downs",
     "receiving_first_downs",
 )
+
+# ADDED 2026-08-13 (B7 / W18-F003).  The two feeds do not mean the same
+# thing by "first down".  **Sleeper EXCLUDES scoring plays** from
+# ``pass_fd`` / ``rush_fd`` / ``rec_fd``; nflverse's ``*_first_downs``
+# INCLUDE them.  Summing the nflverse columns therefore over-counts by
+# exactly the player's touchdown count in that play type.
+#
+# Host-verified on the golden fixtures, 3/3 exact: Josh Allen 2025 wk14
+# carries ``bonus_fd_qb = 13`` with ``pass_fd 10 + rush_fd 3`` and 4
+# touchdowns, where the raw columns sum to 17.  CMC +2 on 2 TDs; Diggs
+# +0 on 0 TDs.
+#
+# This one is an OVER-charge, opposite in sign to the renamed-column and
+# reception-band defects.  That is why it cannot be deferred: on the
+# measured sample RB net error is ~0% only because these cancel, so
+# repairing the understatements alone would invert RB direction.  The
+# same argument the module header at ``scoring_coverage.py`` makes about
+# partial corrections to relative quantities.
+_FIRST_DOWN_TD_COLUMNS: dict[str, str] = {
+    "passing_first_downs": "passing_tds",
+    "rushing_first_downs": "rushing_tds",
+    "receiving_first_downs": "receiving_tds",
+}
 
 
 # Defensive scoring keys → nflverse ``def_*`` stat columns.  Only
@@ -320,6 +414,122 @@ def _tackle_view(stat_row: dict[str, Any]) -> tuple[float, float, float]:
     return solo, assists, solo + assists
 
 
+#: Per-game tackle-volume thresholds, on COMBINED tackles.
+_IDP_TACKLE_THRESHOLDS: tuple[tuple[str, int, str], ...] = (
+    ("idp_tkl_5p", 5, "5+ Tkl"),
+    ("idp_tkl_10p", 10, "10+ Tkl"),
+)
+
+#: Yardage thresholds.  Sleeper publishes these as COUNTS on its own
+#: stat line (``rush_40p: 1.0``), which is why the normalizer emits 1.0
+#: rather than the qualifying yardage.
+_YARDAGE_THRESHOLDS: tuple[tuple[str, str, int, str], ...] = (
+    ("bonus_pass_yd_300", "passing_yards", 300, "300+ Pass"),
+    ("bonus_pass_yd_400", "passing_yards", 400, "400+ Pass"),
+    ("bonus_rush_yd_100", "rushing_yards", 100, "100+ Rush"),
+    ("bonus_rush_yd_200", "rushing_yards", 200, "200+ Rush"),
+    ("bonus_rec_yd_100", "receiving_yards", 100, "100+ Rec"),
+    ("bonus_rec_yd_200", "receiving_yards", 200, "200+ Rec"),
+)
+
+#: Two-point conversions.
+_TWO_PT_KEYS: tuple[tuple[str, str, str], ...] = (
+    ("pass_2pt", "passing_2pt_conversions", "Pass 2pt"),
+    ("rush_2pt", "rushing_2pt_conversions", "Rush 2pt"),
+    ("rec_2pt", "receiving_2pt_conversions", "Rec 2pt"),
+)
+
+#: Sleeper scoring key → the label the breakdown shows.  Assembled from
+#: the mapping tables plus the derived rules that have no table.
+_SLEEPER_KEY_LABELS: dict[str, str] = {
+    **{k: label for k, (_cols, label) in _SIMPLE_KEYS.items()},
+    **{k: label for k, (_cols, label) in _FG_BAND_KEYS.items()},
+    **{k: label for k, (_cols, label) in _IDP_KEYS.items()},
+    **dict(_IDP_TACKLE_KEYS),
+    **{k: label for (k, _t, label) in _IDP_TACKLE_THRESHOLDS},
+    **{k: label for (k, _c, _t, label) in _YARDAGE_THRESHOLDS},
+    **{k: label for (k, _c, label) in _TWO_PT_KEYS},
+    "pass_inc": "Incompletions",
+    "bonus_rec_te": "TE Rec Bonus",
+    **{k: "First Downs" for k in _FIRST_DOWN_BONUS_KEYS.values()},
+}
+
+
+def sleeper_stat_line_from_row(
+    stat_row: dict[str, Any],
+    *,
+    position: str | None = None,
+) -> dict[str, float]:
+    """Normalize a provider stat row into a SLEEPER-KEYED stat line.
+
+    This is the source→canonical half of realized scoring, and it is
+    deliberately **scoring-independent**: normalization is about DATA,
+    scoring is about RULES, and mixing them is what produced W18-F003.
+    An allow-list scorer keyed on provider column names skips a rule in
+    silence the moment a vendor renames a column, because a missing
+    column and a rule that scores nothing are the same thing to it.
+
+    Emitting the host's own vocabulary removes that failure mode
+    structurally: after this, a missing key is a missing STAT, and the
+    canonical scorer's dot product cannot drop a rule the line carries.
+    Sleeper's real stat lines already publish the derived keys this
+    emits — ``bonus_fd_qb: 13.0``, ``pass_inc: 6.0``, ``rush_40p: 1.0``
+    are all stats on the host's wire format, not scorer inventions.
+
+    Only NONZERO stats are emitted, matching what the host publishes and
+    keeping the breakdown to events that happened.
+    """
+    line: dict[str, float] = {}
+    pos = (position or str(stat_row.get("position") or "")).upper()
+
+    def _put(key: str, value: float) -> None:
+        if value:
+            line[key] = value
+
+    for key, (columns, _label) in _SIMPLE_KEYS.items():
+        _put(key, _first_num(stat_row, columns))
+
+    # Banded kicker rules are SUMMED: one Sleeper band can span several
+    # of the feed's (``fgm_50p`` covers 50-59 and 60+).
+    for key, (columns, _label) in _FG_BAND_KEYS.items():
+        _put(key, sum(_num(stat_row.get(col)) for col in columns))
+
+    # Incompletions — derived. nflverse publishes attempts and
+    # completions; Sleeper charges the difference.  Clamped so a
+    # malformed row can never award points for a penalty rule.
+    _put("pass_inc", max(0.0, _num(stat_row.get("attempts")) - _num(stat_row.get("completions"))))
+
+    # Position-scoped rules.  The rate lives on a position-specific KEY,
+    # so the position decision belongs here, in normalization.
+    if pos == "TE":
+        _put("bonus_rec_te", _num(stat_row.get("receptions")))
+    fd_key = _FIRST_DOWN_BONUS_KEYS.get(pos)
+    if fd_key:
+        first_downs = 0.0
+        for fd_col in _FIRST_DOWN_COLUMNS:
+            gained = _num(stat_row.get(fd_col))
+            scoring_plays = _num(stat_row.get(_FIRST_DOWN_TD_COLUMNS[fd_col]))
+            first_downs += max(0.0, gained - scoring_plays)
+        _put(fd_key, first_downs)
+
+    if _is_idp_position(pos):
+        for key, (columns, _label) in _IDP_KEYS.items():
+            _put(key, _first_num(stat_row, columns))
+        solo, assists, combined = _tackle_view(stat_row)
+        for (key, _label), stat in zip(_IDP_TACKLE_KEYS, (solo, assists, combined)):
+            _put(key, stat)
+        for key, threshold, _label in _IDP_TACKLE_THRESHOLDS:
+            _put(key, 1.0 if combined >= threshold else 0.0)
+
+    for key, column, threshold, _label in _YARDAGE_THRESHOLDS:
+        _put(key, 1.0 if _num(stat_row.get(column)) >= threshold else 0.0)
+
+    for key, column, _label in _TWO_PT_KEYS:
+        _put(key, _num(stat_row.get(column)))
+
+    return line
+
+
 def compute_weekly_points(
     stat_row: dict[str, Any] | None,
     scoring_settings: dict[str, Any] | None,
@@ -328,9 +538,24 @@ def compute_weekly_points(
 ) -> RealizedPoints | None:
     """Return realized fantasy points for one player-week.
 
-    ``position`` lets us apply position-specific bonuses (e.g.
-    ``bonus_rec_te`` adds per-reception points to TEs only).
-    Missing position → only applies position-agnostic rules.
+    Two stages, and the split is the point (B7 / W18-F003):
+
+    1. :func:`sleeper_stat_line_from_row` normalizes the provider row
+       into the host's own stat vocabulary;
+    2. ``src.league_intel.scorer.score_stat_line`` — the canonical
+       scorer, validated against Sleeper's own ``players_points`` over
+       1,339 player-weeks at max |Δ| 0.0050 — scores it.
+
+    Before this, the two engines were inverted: the host-validated one
+    had a single non-test caller and the allow-list one reached every
+    production consumer while having no host-truth test at all.  A dot
+    product over ``stat_line ∩ scoring_settings`` cannot silently skip a
+    live rule; an allow-list keyed on vendor column names does exactly
+    that, which is what W18-F003 measured.
+
+    ``position`` still matters, but only to NORMALIZATION: it selects
+    which position-scoped key a stat lands on (``bonus_fd_qb`` vs
+    ``bonus_fd_rb``), and whether IDP rules apply at all.
     """
     if not stat_row:
         return None
@@ -343,148 +568,32 @@ def compute_weekly_points(
             fantasy_points=0.0,
             breakdown=[("no_scoring_settings", 0.0, 0.0)],
         )
+
     scoring = {str(k): _num(v) for k, v in scoring_settings.items()}
+    # Alias rates are copied onto the canonical key the normalizer emits.
+    # Sleeper ships several spellings for one IDP rule and a league card
+    # may carry either; the canonical scorer matches on key equality, so
+    # the reconciliation has to happen before it runs.
     for alias, canonical in _SCORING_KEY_ALIASES.items():
         if alias in scoring and canonical not in scoring:
             scoring[canonical] = scoring[alias]
-    breakdown: list[tuple[str, float, float]] = []
-    total = 0.0
 
-    # Simple keys — direct stat × points.
-    for key, (stat_key, label) in _SIMPLE_KEYS.items():
-        pts_per = scoring.get(key, 0.0)
-        if pts_per == 0.0:
-            continue
-        stat = _num(stat_row.get(stat_key))
-        if stat == 0:
-            continue
-        contribution = stat * pts_per
-        breakdown.append((label, stat, contribution))
-        total += contribution
+    stat_line = sleeper_stat_line_from_row(stat_row, position=position)
+    result = _score_stat_line(stat_line, scoring)
 
-    # Incompletions — derived, not a column.  nflverse publishes
-    # attempts and completions; Sleeper charges the difference.  Guarded
-    # against a negative result so a malformed row can never award
-    # points for a penalty rule (dynasty_main pays -0.22/incompletion).
-    inc_rate = scoring.get("pass_inc", 0.0)
-    if inc_rate != 0.0:
-        incompletions = _num(stat_row.get("attempts")) - _num(stat_row.get("completions"))
-        if incompletions > 0:
-            contribution = incompletions * inc_rate
-            breakdown.append(("Incompletions", incompletions, contribution))
-            total += contribution
-
-    # Position-specific bonus rec (TE premium).
-    pos = (position or str(stat_row.get("position") or "")).upper()
-    te_bonus = scoring.get("bonus_rec_te", 0.0)
-    if pos == "TE" and te_bonus:
-        recs = _num(stat_row.get("receptions"))
-        if recs:
-            breakdown.append(("TE Rec Bonus", recs, recs * te_bonus))
-            total += recs * te_bonus
-
-    # Position-scoped first-down bonus.  See _FIRST_DOWN_BONUS_KEYS for
-    # why all three columns are summed and why this is keyed on position
-    # rather than play type.
-    fd_key = _FIRST_DOWN_BONUS_KEYS.get(pos)
-    if fd_key:
-        fd_rate = scoring.get(fd_key, 0.0)
-        if fd_rate != 0.0:
-            first_downs = sum(_num(stat_row.get(c)) for c in _FIRST_DOWN_COLUMNS)
-            if first_downs:
-                contribution = first_downs * fd_rate
-                breakdown.append(("First Downs", first_downs, contribution))
-                total += contribution
-
-    # IDP keys — only fire for defensive positions.  Sleeper's
-    # stacked-scoring stance: a sack on a solo tackle credits
-    # ``idp_sack`` + ``idp_sack_yd`` + ``idp_hit`` + ``idp_tkl_loss``
-    # + ``idp_tkl_solo`` simultaneously when each category is set on
-    # the league.  Each ``def_*`` column on the nflverse defensive
-    # stat row tracks one event-stat independently, so iterating each
-    # _IDP_KEYS entry separately produces the correct stacked total
-    # without any explicit "stack bonus" logic.
-    if _is_idp_position(pos):
-        for key, (stat_keys, label) in _IDP_KEYS.items():
-            pts_per = scoring.get(key, 0.0)
-            if pts_per == 0.0:
-                continue
-            stat = _first_num(stat_row, stat_keys)
-            if stat == 0:
-                continue
-            contribution = stat * pts_per
-            breakdown.append((label, stat, contribution))
-            total += contribution
-
-        # Tackles come from _tackle_view, not a column read — nflverse
-        # publishes no combined-tackle column, and its ``solo`` column
-        # is unassisted-only.  See the note above _IDP_KEYS.
-        tackle_stats = _tackle_view(stat_row)
-        for (key, label), stat in zip(_IDP_TACKLE_KEYS, tackle_stats):
-            pts_per = scoring.get(key, 0.0)
-            if pts_per == 0.0 or stat == 0:
-                continue
-            contribution = stat * pts_per
-            breakdown.append((label, stat, contribution))
-            total += contribution
-
-        # Per-game tackle-volume thresholds (Sleeper exposes these
-        # as ``idp_tkl_5p`` and ``idp_tkl_10p`` for ≥5 and ≥10 combined
-        # tackles in a single game).  Read off the per-game combined
-        # tackle count.
-        for key, thresh, label in [
-            ("idp_tkl_5p", 5, "5+ Tkl"),
-            ("idp_tkl_10p", 10, "10+ Tkl"),
-        ]:
-            pts_per = scoring.get(key, 0.0)
-            if pts_per == 0.0:
-                continue
-            # Sleeper's 5+/10+ thresholds are on COMBINED tackles, which
-            # is the third element of the view.  This previously read
-            # ``def_tackles`` — the gamebook solo count pre-2025, and
-            # absent entirely after, so the bonus stopped firing.
-            tkls = tackle_stats[2]
-            if tkls >= thresh:
-                breakdown.append((label, tkls, pts_per))
-                total += pts_per
-
-    # Threshold bonuses.
-    for key, (stat_key, thresh, label) in [
-        ("bonus_pass_yd_300", ("passing_yards", 300, "300+ Pass")),
-        ("bonus_pass_yd_400", ("passing_yards", 400, "400+ Pass")),
-        ("bonus_rush_yd_100", ("rushing_yards", 100, "100+ Rush")),
-        ("bonus_rush_yd_200", ("rushing_yards", 200, "200+ Rush")),
-        ("bonus_rec_yd_100", ("receiving_yards", 100, "100+ Rec")),
-        ("bonus_rec_yd_200", ("receiving_yards", 200, "200+ Rec")),
-    ]:
-        pts_per = scoring.get(key, 0.0)
-        if pts_per == 0.0:
-            continue
-        stat = _num(stat_row.get(stat_key))
-        if stat >= thresh:
-            breakdown.append((label, stat, pts_per))
-            total += pts_per
-
-    # 2-point conversions (Sleeper tracks these separately in some
-    # dumps; we tolerate absence).
-    for key, stat_key, label in [
-        ("pass_2pt", "passing_2pt_conversions", "Pass 2pt"),
-        ("rush_2pt", "rushing_2pt_conversions", "Rush 2pt"),
-        ("rec_2pt", "receiving_2pt_conversions", "Rec 2pt"),
-    ]:
-        pts_per = scoring.get(key, 0.0)
-        if pts_per == 0.0:
-            continue
-        stat = _num(stat_row.get(stat_key))
-        if stat:
-            contribution = stat * pts_per
-            breakdown.append((label, stat, contribution))
-            total += contribution
+    # Breakdown keeps its human labels; an unlabelled key falls back to
+    # its scoring key rather than being dropped, so a rule that moves the
+    # total can never be missing from the audit trail.
+    breakdown: list[tuple[str, float, float]] = [
+        (_SLEEPER_KEY_LABELS.get(c.scoring_key, c.scoring_key), c.raw_stat, c.awarded_points)
+        for c in result.components
+        if c.awarded_points
+    ]
 
     return RealizedPoints(
         season=season,
         week=week,
-        fantasy_points=total,
+        fantasy_points=result.total_points,
         breakdown=breakdown,
     )
 

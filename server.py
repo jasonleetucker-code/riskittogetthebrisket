@@ -12046,10 +12046,41 @@ async def get_player_realized(sleeper_id: str, request: Request):
     except LeagueResolutionError as err:
         return err.json_response()
 
-    # Pull the Sleeper scoring settings from the overlay or primary
-    # contract — whichever belongs to this league.
-    sleeper_block = (latest_contract_data or {}).get("sleeper") or {}
-    scoring_settings = sleeper_block.get("scoringSettings") or {}
+    # Scoring settings for the REQUESTED league.
+    #
+    # This used to read ``latest_contract_data["sleeper"]["scoringSettings"]``
+    # unconditionally — the LOADED league's card — so asking about a
+    # player in a second league scored their weeks under the first
+    # league's rules and stamped the answer with the requested
+    # ``leagueKey``. That is the W18-F002 shape (requested-league
+    # identity over another league's config) on a route B6 did not
+    # enumerate.
+    #
+    # The per-league snapshot is the right owner. It is deliberately not
+    # freshness-gated here: freshness governs whether one league's
+    # RANKINGS may be reused for another, and this is not that question
+    # — it is "what are this league's own scoring rules", where a stored
+    # card is the best available answer and a stale one is still that
+    # league's. The contract is used only when it demonstrably belongs
+    # to the requested league.
+    scoring_settings = _league_registry.scoring_settings_for_league(league_cfg) or {}
+    if not scoring_settings:
+        _loaded_meta = (latest_contract_data or {}).get("meta") or {}
+        if str(_loaded_meta.get("leagueKey") or "") == league_cfg.key:
+            scoring_settings = ((latest_contract_data or {}).get("sleeper") or {}).get(
+                "scoringSettings"
+            ) or {}
+    if not scoring_settings:
+        return JSONResponse(
+            content={
+                "sleeperId": sleeper_id,
+                "leagueKey": league_cfg.key,
+                "reason": "no_scoring_settings_for_league",
+                "weeks": [],
+                "totalPoints": 0.0,
+                "weekCount": 0,
+            }
+        )
 
     # Fetch weekly stats via nfl_data_ingest (already flag-gated —
     # returns [] when nfl_data_ingest is off).  We scope to the
@@ -12076,7 +12107,25 @@ async def get_player_realized(sleeper_id: str, request: Request):
     # Find this player's GSIS via the unified mapper, then filter.
     from src.identity import unified_mapper as _um
 
-    players_dir = sleeper_block.get("players") or sleeper_block.get("playerDict")
+    # The MASTER Sleeper player directory — ``{player_id: {gsis_id,
+    # full_name, position, ...}}``, which is what ``resolve_player``
+    # indexes.
+    #
+    # This used to read ``sleeper_block["players"]`` / ``["playerDict"]``.
+    # The contract's sleeper block has NEITHER key (it carries
+    # ``idToPlayer`` / ``playerIds`` / ``positions``), so ``players_dir``
+    # was always ``None`` and every request returned
+    # ``reason: "unmapped_player"`` — a well-formed 200 that answered
+    # nothing, for every player, always. ``idToPlayer`` could not have
+    # substituted either: it is ``{id: name}`` and carries no
+    # ``gsis_id``, which is the join key the weekly stat rows use.
+    #
+    # ``fetch_nfl_players`` is the existing process-cached full dump
+    # (~5 MB once per process, ``{}`` on any failure), so this adds no
+    # new download path and no second cache.
+    from src.public_league.sleeper_client import fetch_nfl_players as _fetch_nfl_players
+
+    players_dir = _fetch_nfl_players()
     resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
     if resolved is None or not resolved.gsis_id:
         return JSONResponse(

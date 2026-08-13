@@ -55,7 +55,12 @@ def test_translate_stats_maps_idp_keys():
             "idp_int": 1,
         }
     )
-    assert out["def_tackles"] == 6
+    # ``idp_tkl`` must NOT become ``def_tackles``.  Sleeper's idp_tkl is
+    # COMBINED; ``realized_points._tackle_view`` reads a published
+    # ``def_tackles`` as the pre-2025 gamebook SOLO total, so the old
+    # mapping wrote combined into the solo slot and inflated both.
+    # Combined is derived from solo + assists, which map correctly.
+    assert "def_tackles" not in out
     assert out["def_tackles_solo"] == 4
     assert out["def_tackle_assists"] == 2
     assert out["def_sacks"] == 1

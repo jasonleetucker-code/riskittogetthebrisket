@@ -543,16 +543,16 @@
    "auditEvidence": "`src/nfl_data/realized_points.py:78-99 _SIMPLE_KEYS` has no entry for `rec_0_4`/`rec_5_9`/`rec_10_19`/`rec_20_29`/`rec_30_39`/`rec_40p`, and `compute_weekly_points` (`:323-420`) has no other branch for them. The live league card carries all six at nonzero rates: `rec_0_4=0.17, rec_5_9=0.42, rec_10_19=0.67, rec_20_29=0.92, rec_30_39=1.17, rec_40p=1.92` (exports/latest/dynasty_data_2026-08-04.json \u2192",
    "auditId": "B-2",
    "path": "src/nfl_data/realized_points.py",
-   "signature": "\"rec\": (\"receptions\", \"Rec\")",
+   "signature": "\"rec\": ((\"receptions\",), \"Rec\")",
    "status": "open",
-   "verifiedBy": "_SIMPLE_KEYS carries flat 'rec' and no rec_0_4 / rec_5_9 / rec_10_19 band keys, so the active reception-band rules score nothing.",
+   "verifiedBy": "_SIMPLE_KEYS carries flat 'rec' and no rec_0_4 / rec_5_9 / rec_10_19 band keys, so the active reception-band rules score nothing.\n\nSIGNATURE RESPELLED 2026-08-13 (B7), STATUS DELIBERATELY UNCHANGED. B7 converted _SIMPLE_KEYS to candidate columns \u2014 `\"rec\": (\"receptions\", \"Rec\")` became `\"rec\": ((\"receptions\",), \"Rec\")` \u2014 so the old needle stopped matching and the probe flipped to signature_absent. That is the case this module's own docstring warns about: an absent signature means the cited MECHANISM changed, not that the defect is fixed. It is not fixed. The six reception-band rules still score nothing; what B7 changed is that they are now DECLARED \u2014 scoring_coverage reports them UNSCORABLE with a reason and describe_gaps surfaces them, instead of silently contributing zero. Honest disclosure is not scoring, and closing C29 on a respelling would have been exactly the unchecked-claim failure this gate exists to prevent.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
     "result": "signature_present",
     "path": "src/nfl_data/realized_points.py",
-    "needle": "\"rec\": (\"receptions\", \"Rec\")"
+    "needle": "\"rec\": ((\"receptions\",), \"Rec\")"
    }
   },
   {
