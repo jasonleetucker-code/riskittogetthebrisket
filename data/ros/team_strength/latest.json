@@ -1531,6 +1531,17 @@
         "bye": false
       },
       {
+        "playerId": "7610",
+        "canonicalName": "trey lance",
+        "position": "QB",
+        "rosValue": 2.38,
+        "fantasyPositions": [
+          "QB"
+        ],
+        "injured": false,
+        "bye": false
+      },
+      {
         "playerId": "11742",
         "canonicalName": "cedric gray",
         "position": "LB",
@@ -3412,17 +3423,6 @@
         "fantasyPositions": [
           "DL",
           "LB"
-        ],
-        "injured": false,
-        "bye": false
-      },
-      {
-        "playerId": "7610",
-        "canonicalName": "trey lance",
-        "position": "QB",
-        "rosValue": 2.38,
-        "fantasyPositions": [
-          "QB"
         ],
         "injured": false,
         "bye": false
