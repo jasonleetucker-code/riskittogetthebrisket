@@ -141,6 +141,53 @@ is opt-in and ordered last — stage 1's pre-read is the authoritative "before" 
 This also makes B6's own stated operational requirement verifiable for the first time;
 `docs/EXECUTION_PLAN.md` previously asserted it with no mechanism.
 
+## B7.0-2b — RESULT: both residuals CLOSED with direct production evidence
+
+Diagnostic run **31725087238** (job 94535586970), SUCCESS, read-only stages only.
+
+**Residual 1 — which fail-closed branch `dynasty_new` takes. ANSWERED: proven-different.**
+Both snapshots exist and are **FRESH**, read before anything refreshed them:
+
+| | `dynasty_main` | `dynasty_new` |
+|---|---|---|
+| mtime (UTC) | 2026-08-13T17:33:17Z | 2026-08-13T17:33Z |
+| age vs 6.0 h budget | **0.04 h** | **0.04 h** |
+| recorded season | **2026** (current) | **2026** (current) |
+| fingerprint | `sf1:b7ad1575925091f6` | `sf1:82a5f8ef2bfdb098` |
+| scoring keys | 141 / 85 nonzero | 48 / 41 nonzero |
+| verdict | FRESH | FRESH |
+
+So the warm pass **is** writing snapshots on every cycle, and `dynasty_new`'s refusal is the
+"**proven different fingerprints**" branch — not "no verified snapshot". Both fingerprints match
+the values measured independently from the live Sleeper API earlier in B7.0, from a completely
+different vantage point. B6's operational requirement is satisfied on production and now has a
+standing verification mechanism.
+
+**Residual 2 — the board-history recorder (ruling R2). ANSWERED: already running.**
+
+```
+dynasty-board-snapshot.timer  installed=yes  enabled  active
+    LastTriggerUSec = 2026-08-13 09:12:51 CEST   Result=success
+    NextElapse      = 2026-08-14 09:11:06 CEST
+data/board_history.sqlite     2,846,720 bytes   tables: board_history, meta
+    rows = 8,749   days = 8   range 2026-08-06 .. 2026-08-13  (~1,092-1,095/day)
+```
+
+(The `.service` unit reading `disabled`/`inactive` is correct for a timer-activated oneshot: the
+timer is enabled and active, the service runs on trigger and exits. `Result=success`,
+`ExecMainStatus=0`.)
+
+> **Correction to the reconnaissance, and it materially improves B10.** The recon reported
+> "`data/board_history.sqlite` does not exist on this checkout" and concluded that **B10-T3 would
+> be unfalsifiable against the past**. That was true of the *container's clone* and false of
+> *production*: the recorder has been running since at least 2026-08-06 and holds **8 days of
+> canonical-scale history**. B10-T3 therefore has a real historical baseline to measure against,
+> and R2's "start the recorder" is already satisfied — what remains is capturing the **immutable
+> pre-B10 snapshot**, which is now a copy rather than a bootstrap.
+
+**B7.0 verdict: B6 correctness CONFIRMED, not contradicted.** Per ruling R1, recorded and
+continuing immediately into B7.
+
 ## B7.0-3 — Board-history recorder (ruling R2)
 
 The recorder is **already implemented**: `src/snapshots/board_store.py` +
