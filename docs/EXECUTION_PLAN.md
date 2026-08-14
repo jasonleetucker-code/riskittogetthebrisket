@@ -2,9 +2,9 @@
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD  
 **Last reconciled:** 2026-08-13  
-**Companions:** `docs/MASTER_PRODUCT_PLAN.md`, `docs/OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md`
+**Companions:** `docs/MASTER_PRODUCT_PLAN.md`, `docs/OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md`, `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`, `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md`
 
-This file answers **what work should happen next**. It does not define long-term product intent; that lives in the Master Product Plan, Feature Inventory, Product Backlog Spec, and the owner feature-spec reconciliation.
+This file answers **what work should happen next**. It does not define long-term product intent; that lives in the Master Product Plan, Feature Inventory, Product Backlog Spec, owner feature-spec reconciliation, and feature-specific binding addenda.
 
 > A feature being approved in the long-term plan does **not** authorize beginning it here.
 
@@ -97,16 +97,53 @@ When B11 is completed/accepted:
 
 1. **STOP. Do not begin C1.**
 2. Put Claude Code in **Plan Mode only**.
-3. Re-read the actual repository/product state at that time, including all current/partial/planned features and all owner-requested additions made during B.
-4. Completely **rewrite the C-series execution plan** rather than inheriting the current shorthand C ordering.
-5. Build the dependency graph first: prerequisites, shared root causes, consolidation/retirement opportunities, parallelizable work, migration/backfill needs, and safe PR boundaries.
-6. For every material C feature/phase, specify in detail: user outcome, canonical owner, inputs/outputs, method, identity/provenance, uncertainty/confidence, freshness/historical semantics, degraded behavior, UI/UX, performance, dependencies, non-scope, tests/backtests, production verification, and exact done criteria.
-7. Explicitly reconcile every newer owner feature recorded in `docs/OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md` and any later addenda into the C dependency plan; do not let a one-line backlog label stand in for a product specification.
-8. Produce a proposed canonical **C-Series Execution Plan**.
-9. Jason + ChatGPT review that proposal and may reorder, combine, split, expand, or reject methodology.
-10. Only explicit owner approval authorizes C1 implementation.
+3. Re-read the actual repository/product/production state at that time, including all current, partial, planned, newly discussed, and owner-requested features added during B.
+4. Read and apply `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` in full.
+5. Build an exhaustive **C-Series Scope Manifest** before ordering phases. The manifest must reconcile every approved feature from the Master Product Plan, Feature Inventory, Product Backlog Spec, owner reconciliation + appendix, owner to-do/index, feature-specific specs, Premium design records, the Trade Calculator/Market Evidence expansion, CE backlog, and every later owner addendum.
+6. Completely **rewrite the C-series execution plan** rather than inheriting the old shorthand C ordering.
+7. Build the dependency graph first: canonical owners, prerequisites, shared root causes, consolidation/retirement opportunities, parallelizable lanes, migrations/backfills, data/licensing constraints, performance budgets, rollout/rollback, and safe PR boundaries.
+8. Prefer shared foundations that unlock many consumers over page-by-page implementation. Do not build duplicate value, pick, history, lineup, package, probability, analyst, or recommendation engines for convenience.
+9. Explicitly honor the hard owner requirement that **every valid supported draft pick through 2029 has a finite non-missing canonical value** and cross-surface parity before C can complete.
+10. Explicitly include `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md` in C scope, including real-trade database/comparables, amount-to-even/equalizers, analytics, sharing, and mobile parity.
+11. For every material C feature/phase, specify in detail: user outcome, canonical owner, inputs/outputs, method, identity/provenance, uncertainty/confidence, freshness/historical semantics, degraded behavior, UI/UX, mobile/desktop behavior, accessibility, performance, dependencies, non-scope, migrations/backfills, tests/backtests, exact-head CI, deployment, production verification, observability, rollback, and exact done criteria.
+12. Optimize the execution plan for **critical-path efficiency**: parallelize only genuinely independent/non-overlapping work, use CI/deploy wait time for read-only reconnaissance, and avoid unstable UI work that would be rebuilt after a shared contract changes.
+13. Produce one proposed canonical **C-Series Execution Plan** with an explicit dependency DAG, PR/deploy boundaries, parallel lanes, and final completion audit.
+14. Jason + ChatGPT review that proposal and may reorder, combine, split, expand, or reject methodology.
+15. Only explicit owner approval authorizes C1 implementation.
 
 The current shorthand C direction—Team Strength, Team Weakness, Acquisition History, historical value snapshots, package methodology, stable pick identity, etc.—is a dependency hint only until this hard-gate replanning pass occurs.
+
+### C execution / deployment standard after approval
+
+Once the owner approves the post-B C plan, C should proceed continuously without routine permission pauses **provided** each phase stays within the approved boundaries and no genuine owner decision is encountered.
+
+Use one coordinated program, **not one giant PR**:
+
+- RED/evidence → canonical implementation → focused tests → broad regression/backtest as applicable;
+- exact-head CI on the final candidate SHA;
+- merge only the validated head;
+- deploy through the normal production path;
+- production smoke/E2E/data-contract verification proportional to risk;
+- mobile/desktop proof for relevant user-facing features;
+- record completion evidence and rollback path;
+- then allow dependent phases to treat the capability as complete.
+
+A page rendering or a unit test passing is not completion. A feature must be real-data connected, reachable, correct, performant, deployed, and production-verified.
+
+### C completion hard gate
+
+Before declaring C complete, run the dedicated completion audit in `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`.
+
+There may be **no silent deferrals**. Every approved feature must be either:
+
+- implemented, deployed, production-verified, and ready for confident use; or
+- explicitly changed/removed/deferred by a new owner decision because a concrete external blocker makes implementation impossible or unsound.
+
+Without explicit owner disposition, “planned later”, “mostly done”, “backend only”, “desktop only” where parity is required, “flagged off”, “mocked”, “unpriced”, “tests pass but production not verified”, and similar states are **not C-complete**.
+
+Only after the final audit passes may Claude state:
+
+**`C-SERIES COMPLETE — EVERY APPROVED FEATURE DEPLOYED, PRODUCTION-VERIFIED, AND READY FOR CONFIDENT USE`**
 
 ---
 
@@ -118,6 +155,8 @@ The following are approved future scope but are **not authorized merely by being
 - Brisket Honors / Awards & Honors v2 implementation;
 - Market Trade Ledger / Real Trade Market Value;
 - Pick Forecast / Canonical Owned Future Pick Projection & Valuation;
+- complete canonical draft-pick values through 2029;
+- mature Trade Calculator / real-trade database / comparable-trade / market-evidence expansion;
 - Manager Scout;
 - Command Center / Trade Desk / Portfolio;
 - Analyst Intelligence podcast + YouTube expansion;
@@ -149,6 +188,6 @@ At every owner-approved checkpoint:
 3. leave later approved product scope in `MASTER_PRODUCT_PLAN.md` and detailed owner specs rather than copying every implementation detail here;
 4. never let a stale phase statement in `ARCHITECTURE_HANDOFF.md`, an old audit roadmap, or a session capture override this file;
 5. if current code/evidence disproves this execution state, reconcile the document before beginning another phase;
-6. when owner intent is more detailed than a shorthand backlog row, use `OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md` plus later owner addenda as the detailed intent layer.
+6. when owner intent is more detailed than a shorthand backlog row, use `OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md`, `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`, feature-specific specs, and later owner addenda as the detailed intent layer.
 
 This file should stay short enough that a new implementation session can understand the current sequence in minutes.
