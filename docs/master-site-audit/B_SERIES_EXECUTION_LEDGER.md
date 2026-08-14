@@ -24,8 +24,8 @@ working branch for provenance and only the validated GREEN head merges.
 | 5 | B9b — threshold unit registry | **MERGED** (#824, partial by design — §B9b) |
 | 6 | B10-T1 — scraper KTC dedupe | **SATISFIED, nothing to remove** — §B10-T2 |
 | 7 | B10-T2 — declare provenance (board byte-identical) | **MERGED** (#825, `e015814`) |
-| 8 | B10-T3 — family-aware aggregation | **NOT STARTED** — the unit that moves values |
-| 9 | B11 — confidence axes | **NOT STARTED** — recon recorded, §B11 |
+| 8 | B10-T3 — family-aware aggregation | **MERGED** (T3a #827 `2098cad`, T3b #831 `f0ab9e7`) |
+| 9 | B11 — confidence axes | **NOT COMPLETE** — one consistency fix landed, §B11 |
 
 ---
 
@@ -781,3 +781,67 @@ re-measuring.
   those to be re-gated deliberately against the new named dimensions, not silently moved by
   a presentation change.
 - `identityConfidence` / `marketConfidence` — the misleading-name half of the ruling.
+
+---
+
+# B11 — Defensible confidence · **NOT COMPLETE** (one consistency fix landed)
+
+## What landed
+
+`_compute_confidence_bucket` now receives `independentSourceCount` (post-Hampel,
+post-family-collapse) instead of the raw post-Hampel key count. Its `n >= 2` gate is a
+corroboration statement — "more than one opinion agrees" — so it must count opinions the
+way the blend does after B10-T3b. Before this, the two disagreed on **512 rows**, including
+**59 of the 102 HIGH rows**, which claimed more independent corroboration than the board
+had actually used.
+
+**Measured effect: none. 0 values, 0 ranks, 0 labels.** Recorded as such rather than
+implied to be a repair.
+
+## Why it is inert, and why that matters more than the fix
+
+I predicted 11 `high → medium` demotions and got zero. Chasing the discrepancy is what
+produced the real shape of B11:
+
+**The count is used ONLY as a `>= 2` gate.**
+
+```
+n >= 2  ->  percentile_spread decides high / medium
+n >= 1  ->  low
+n == 0  ->  none
+```
+
+So going from 14 keys to 12 families changes nothing; only a row dropping from 2 keys to
+1 family could move, and there is exactly **1** such non-pick row on the live board.
+
+**What actually decides the bucket is the spread — and the spread is still measured across
+correlated sources on 478 of 893 non-pick rows.** Two members of one family agreeing
+inflates apparent agreement, and agreement is the whole signal. That is the substantive
+defect, and it will move labels when fixed.
+
+The fix is kept anyway: it removes a live contradiction between B10 and B11 (blend counts
+families, confidence counted keys), it is provably harmless, and leaving it would make the
+next pass rediscover it.
+
+## What B11 still owes
+
+| item | status |
+|---|---|
+| spread measured over correlated sources (478 rows) | **not started** — the substantive one |
+| freshness as an input | **not an input at all** |
+| coverage as an input | **not an input at all** |
+| missing / degraded / stale / conflicting as distinct states | **not started** — all collapse to `low`/`none` |
+| `none` on a PRICED row (24 rows) | **not started** — "unranked" label on a ranked row |
+| rename `identityConfidence` (means "player id resolved") | **not started** |
+| rename/remove `marketConfidence` (a bounded dispersion metric) | **not started** |
+| deliberate re-gating of any decision engine consuming confidence | **not started** |
+
+## Monotonicity — still open, re-measured post-T3b
+
+Removing `dlfSf` raises the bucket on **26 rows and lowers it on 0**; removing
+`fantasyProsSf` raises 23 and lowers 11. Deleting evidence can still only help, because the
+bucket is decided on the spread of whatever sources remain and nothing knows the evidence
+base got smaller.
+
+The authorising figure of "192 of 683" remains larger than anything measurable today and
+should not be quoted without re-measuring.
