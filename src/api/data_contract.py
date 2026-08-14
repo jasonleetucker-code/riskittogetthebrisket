@@ -8519,8 +8519,28 @@ def _compute_unified_rankings(
                 is_slot_specific=is_slot_specific,
             )
         else:
+            # INDEPENDENT evidence, not raw source keys (B11).
+            #
+            # ``_compute_confidence_bucket``'s ``n >= 2`` gate is a
+            # corroboration statement — "more than one opinion agrees" —
+            # so it has to count opinions the way the blend now does.
+            # B10-T3b collapsed each provider family to one vote; leaving
+            # confidence on the key count made the two disagree on 512
+            # rows, including **59 of the 102 HIGH rows**, which claimed
+            # more independent corroboration than the board had actually
+            # used.
+            #
+            # The spread inputs are deliberately unchanged: they are
+            # already computed over the post-Hampel set, and re-deriving
+            # them here would be a second change riding along with this
+            # one.  That leaves a known gap — the spread can still be
+            # measured across two members of one family — recorded for
+            # the rest of B11 rather than fixed silently here.
+            independent_n = row.get("independentSourceCount")
+            if not isinstance(independent_n, int) or independent_n <= 0:
+                independent_n = len(effective_source_ranks)
             bucket, label = _compute_confidence_bucket(
-                len(effective_source_ranks),
+                independent_n,
                 source_rank_spread,
                 percentile_spread=percentile_spread,
             )
