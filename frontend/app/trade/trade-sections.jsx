@@ -29,8 +29,10 @@ import {
 import { PlayerImage } from "@/components/ui";
 import {
   defaultDestination,
-  displayValue,
   effectiveValue,
+  formatBoardValue,
+  isUnpricedBoardRow,
+  unpricedAssetsOnSide,
   getPlayerEdge,
 } from "@/lib/trade-logic";
 import styles from "./trade.module.css";
@@ -115,7 +117,7 @@ function SearchResultRow({ row, settings, onPick, keyPrefix }) {
           <span className="muted">
             {row.blendedSourceRank != null ? `#${row.blendedSourceRank.toFixed(1)}` : "—"}
             {" · "}
-            {Math.round(displayValue(row, settings)).toLocaleString()}
+            {formatBoardValue(row, settings)}
           </span>
         </div>
       </div>
@@ -606,7 +608,11 @@ function AssetRow({
                 valueOverrides[row.name] != null ? " overridden" : ""
               }`}
               value={valueOverrides[row.name] != null ? valueOverrides[row.name] : ""}
-              placeholder={Math.round(effectiveValue(row, valueMode, settings))}
+              placeholder={
+                isUnpricedBoardRow(row)
+                  ? "—"
+                  : String(Math.round(effectiveValue(row, valueMode, settings)))
+              }
               onChange={(e) => onSetValueOverride(row.name, e.target.value)}
               onBlur={(e) => {
                 if (e.target.value === "") onClearValueOverride(row.name);
@@ -691,10 +697,12 @@ function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOver
           </span>
           <span className={styles.assetMeta}>
             {asset.pos} · from Side {sides[fromSideIdx]?.label || "?"} ·{" "}
-            {Math.round(
-              valueOverrides[asset.name] ??
-                effectiveValue(asset, valueMode, settings),
-            ).toLocaleString()}
+            {valueOverrides[asset.name] == null && isUnpricedBoardRow(asset)
+              ? "not priced"
+              : Math.round(
+                  valueOverrides[asset.name] ??
+                    effectiveValue(asset, valueMode, settings),
+                ).toLocaleString()}
           </span>
         </div>
       </div>
@@ -732,6 +740,12 @@ export function SideCard({
   canRemoveTeam,
 }) {
   const showResults = isFocused && (sideQuery || "").trim().length > 0;
+  // Assets the board declined to price contribute 0 to this side's
+  // total — a legitimate arithmetic neutral inside the sum, but not
+  // something a published total may stay quiet about. 282 of 1,094 live
+  // rows are unpriced; without this the side reads as a complete
+  // valuation of pieces we never valued.
+  const unpriced = unpricedAssetsOnSide(side.assets);
 
   return (
     <Panel className={isMySide ? styles.mySide : undefined}>
@@ -769,6 +783,16 @@ export function SideCard({
               Raw {Math.round(total.raw).toLocaleString()}
             </div>
           )}
+          {unpriced.length ? (
+            <div
+              className={styles.sideTotalMeta}
+              title={`The board has no value for ${unpriced
+                .map((r) => r.name)
+                .join(", ")}. They are counted as 0 in this total, which is not the same as being worth 0.`}
+            >
+              Incomplete — {unpriced.length} unpriced
+            </div>
+          ) : null}
         </div>
       </div>
 

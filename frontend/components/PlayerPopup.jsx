@@ -946,7 +946,18 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
           {/* ── Primary value — the live blended rankDerivedValue with
               no post-blend adjustments. ── */}
           <div className={styles.valueRow}>
-            <StatTile bare label="Our Value" value={Math.round(values.full || 0).toLocaleString()} />
+            {/* MISSING IS NEVER ZERO: 282 of 1,094 live rows carry no
+                board value.  Rendering "0" there claims we priced the
+                asset and found it worthless. */}
+            <StatTile
+              bare
+              label="Our Value"
+              value={
+                Number(values.full) > 0
+                  ? Math.round(Number(values.full)).toLocaleString()
+                  : "not priced"
+              }
+            />
             {injury && injury.impact?.appliedDiscountPct > 0 && (
               <StatTile
                 bare
@@ -994,7 +1005,10 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
                 }
               >
                 <Icon name={chainOpen ? "chevron-down" : "chevron-right"} size={10} />
-                Value chain — how we got {Math.round(values.full || 0).toLocaleString()}
+                Value chain — how we got{" "}
+                {Number(values.full) > 0
+                  ? Math.round(Number(values.full)).toLocaleString()
+                  : "no value"}
                 {!chainOpen && (
                   <span className={styles.quietNote}>
                     {valueChain.length} stage{valueChain.length !== 1 ? "s" : ""}

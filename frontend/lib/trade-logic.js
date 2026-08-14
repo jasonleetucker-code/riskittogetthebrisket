@@ -191,22 +191,58 @@ export function sideTotal(side, valueMode, settings = null) {
 }
 
 /**
- * Resolve the value to *display* for a player row, including the
- * Apply Scoring Fit adjustment when the global toggle is on.
+ * Resolve the value to *display* for a player row.
  *
- * Use this anywhere a row's "Our Value" number is shown (picker
- * cells, sort comparators, headers).  Don't use ``effectiveValue``
- * directly for display — it also applies the pick-year discount
- * which is trade-math-only, not display.
+ * Use this anywhere a row's "Our Value" number is shown (picker cells,
+ * sort comparators, headers).  Don't use ``effectiveValue`` directly for
+ * display — that one is trade math, and it answers a different question.
  *
- * Returns 0 when no value is available.
+ * **Returns `null` when the board declined to price the row**, which is
+ * not the same statement as zero and must not render as one.  282 of
+ * 1,094 rows on the live board carry `rankDerivedValue: null`; a `0`
+ * there reads as "we priced this asset and it is worth nothing", and it
+ * sorts alongside genuinely worthless assets. `formatBoardValue` is the
+ * companion that turns the null into an em dash.
+ *
+ * This used to return `0`, which was correct for the arithmetic it was
+ * originally written beside and wrong the moment it reached a label.
  */
 export function displayValue(row, _settings = null) {
-  if (!row) return 0;
+  if (!row) return null;
   const fromValues = Number(row.values?.full);
   if (Number.isFinite(fromValues) && fromValues > 0) return fromValues;
   const fromRdv = Number(row.rankDerivedValue);
-  return Number.isFinite(fromRdv) ? fromRdv : 0;
+  return Number.isFinite(fromRdv) && fromRdv > 0 ? fromRdv : null;
+}
+
+/**
+ * A board value as text, with the unpriced case spelled out.
+ *
+ * One formatter so "not priced" cannot render as "0" on one surface and
+ * "—" on another.
+ */
+export function formatBoardValue(row, settings = null) {
+  const value = displayValue(row, settings);
+  return value == null ? "—" : Math.round(value).toLocaleString();
+}
+
+/**
+ * The assets on a side the board declined to price.
+ *
+ * ``effectiveValue`` deliberately keeps returning 0 for these: inside
+ * ``sideTotal`` that is a legitimate arithmetic neutral, and dropping
+ * the row instead would silently shrink the piece count that Value
+ * Adjustment is computed from.
+ *
+ * What is NOT legitimate is publishing the resulting gap and verdict
+ * without saying which pieces contributed nothing because nobody priced
+ * them. That is what this is for — the caller reports incompleteness
+ * rather than the arithmetic hiding it.
+ */
+export function unpricedAssetsOnSide(side) {
+  return (side || []).filter(
+    (row) => row?.customValue == null && isUnpricedBoardRow(row),
+  );
 }
 
 /** Descending-sorted effective values for a side. */
