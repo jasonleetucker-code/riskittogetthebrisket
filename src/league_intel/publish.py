@@ -201,12 +201,28 @@ def build_league_adjusted_payload(
             warnings.append("ranking incoherent; overlay suppressed")
             factors = {}
         else:
+            # Read the EXPERIMENTAL rank/tier, not the canonical ones.
+            #
+            # ``adjusted_rows`` stopped writing canonical fields when this
+            # methodology was rejected for canonical promotion (2026-08-14,
+            # see docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md) —
+            # the rows it returns now carry the canonical value and rank
+            # untouched, with the adjusted ordering under its own names.
+            # This publisher is the experimental board's publisher, so the
+            # experimental ordering is exactly what it wants; reading the
+            # canonical names here would silently publish the market
+            # ordering under an "adjusted" label.
+            from src.league_intel.overlay import (  # noqa: PLC0415 - avoid import cycle
+                EXPERIMENTAL_RANK_FIELD,
+                EXPERIMENTAL_TIER_FIELD,
+            )
+
             for r in ranked:
                 name = _row_key(r)
                 if not name:
                     continue
-                rank = r.get("canonicalConsensusRank")
-                tier = r.get("canonicalTierId")
+                rank = r.get(EXPERIMENTAL_RANK_FIELD)
+                tier = r.get(EXPERIMENTAL_TIER_FIELD)
                 if isinstance(rank, int):
                     ranks[name] = rank
                 if isinstance(tier, int):
