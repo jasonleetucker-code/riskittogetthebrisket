@@ -1175,3 +1175,30 @@ Frontend suite: 125 files, 2044 tests, green.
 Prettier reports pre-existing style warnings on all three touched files on `main` as well;
 the repo runs no prettier gate, and reformatting them would bury this diff in unrelated
 churn. Not touched.
+
+---
+
+# B-SERIES COMPLETION AUDIT — PASS
+
+Run against `main` @ `460c9f9` and production after the `62f5a39` deploy. Full matrix:
+[`B_SERIES_COMPLETION_AUDIT.md`](B_SERIES_COMPLETION_AUDIT.md). Executable checks:
+`evidence/B-completion/audit.py` (20 checks, all PASS), output in `results.md`.
+
+Worth recording about the audit itself: **its first run reported five failures, and all five
+were the checks being wrong.** A substring search matched the comment documenting a removal;
+a stamp was looked for in `data_contract.py` when it correctly lives in `server.py`; a
+memorised family count was stale; a unit assertion would have failed the very discipline
+B9b established (`percentilePoints` is right for a gap between percentiles); and a
+`valueMode` match landed on a comment saying the component deliberately takes none. The
+corrections are in the script. An audit that reports false failures is worse than no audit.
+
+**Verdict: PASS — C-Series may begin.**
+
+One PARTIAL, stated rather than waved through: the board-history recorder is
+non-deterministic (`rankChange` differs on 740 rows between two builds of identical code).
+Pre-existing, reproduces on `main` before B11, touches no decision surface, does not block C.
+
+Three naming defects are left open **deliberately** — `confidenceBucket: "none"` on 24
+priced rows, `identityConfidence`, `marketConfidence`. Each is a rename with its own consumer
+blast radius and none changes a number; folding them into a confidence-methodology change
+would have been the silent scope drift the ruling forbids.
