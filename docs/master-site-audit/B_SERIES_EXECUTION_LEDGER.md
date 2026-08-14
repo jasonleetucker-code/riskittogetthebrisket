@@ -376,3 +376,100 @@ Editing them changes an **audit record**, not a product surface — a judgement 
 rather than a code fix. They are named in `KNOWN_STATIC_EVIDENCE` and a second test fails if any
 *new* documentation file starts carrying real per-manager payloads, so the carve-out is bounded
 and visible. **Backlog item for owner decision.**
+
+---
+
+## SUPERSEDED — the `KNOWN_STATIC_EVIDENCE` carve-out above
+
+The section immediately preceding this one describes an allowlist that named three tracked
+captures and accepted them. **The owner rejected that resolution**, and it is not what shipped.
+The ruling: *public Git audit provenance does not get an exception from the B8 privacy boundary*,
+and *`KNOWN_STATIC_EVIDENCE` is not sufficient resolution if it merely blesses known privacy
+leaks.*
+
+What shipped instead: `scripts/sanitize_audit_evidence.py` owns one contract in one place —
+
+* **C1 (values)** no manager identity bound to a private per-manager QUANTITY
+* **C2 (records)** no manager identity bound to a private per-manager STRUCTURE
+
+Identity becomes a deterministic non-reversible pseudonym; private quantities are nulled **with
+their keys kept**, because the field's presence is what the findings assert and its magnitude is
+the intelligence. Nulling matters even after pseudonymization: rank, playoff odds and championship
+odds are public, so a raw decomposition table can be re-identified by joining on them.
+
+Evidence survives — W20-F002 still reads exactly as recorded, a team at ROS strength percentile
+100% labelled *Seller*, with no real person attached. Verified key-path-identical and
+player-names-intact on the three largest captures (101,305 / 3,091 / 2,373 paths).
+
+Scope was measured: a first pass banned every manager id in the audit tree, pulled in 40+ files
+including 5.8 MB player-board captures, and had no privacy content. The shipped contract clears
+W19 award labels and W22 trade grades — an `ownerId` beside a `label` is public league fact —
+while catching all **14** real violations, 11 more than the allowlist named.
+
+`tests/api/test_tracked_artifacts_privacy.py` drops the allowlist and asserts the contract over
+every tracked file.
+
+---
+
+# #822 — Canonical value uniformity · **MERGED AND SERVER-VERIFIED**
+
+An out-of-band incident that interrupted the B-series: **player values differed between mobile
+and desktop.**
+
+**Root cause.** A device-local `localStorage` setting selected a non-canonical methodology, and
+that methodology **wrote the canonical field**. Three mechanisms had to line up.
+
+**RED provenance** — `04b8b6d`, retained. A neutral GitHub runner reproduced the mechanism from a
+clean checkout.
+
+**Correction to the record.** `9,991 → 12,489` was a **synthetic `1.25` worst-case fixture**, not
+observed production behaviour. Measured live: QB factor **1.018366**, Josh Allen **9,991 →
+~10,175**, with finding W07-F008 independently recording 10,171. The ±25% cap has never bound on
+live data. The defect was real; its magnitude was overstated in an earlier checkpoint.
+
+**Methodology decision: C — no trustworthy league-aware canonical methodology yet.** Rejected on
+seven measured defects (current-roster-state input, ordinal log-rank driver, arbitrary 0.5
+reference, position-wide scalars, no scale renormalisation, no staleness detection, no
+double-count guard against already-Superflex/TE++ sources) *and* on the absence of the required
+outcome evidence. Full record: `docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md`.
+
+**Device-local paths closed** — four, not the two originally reported: `valuationMode`,
+`siteWeights`, `tepMultiplier`, `tepNativeMultiplier`. The latter two were found by the audit.
+Three further settings (`rosSourceOverrides`, `rosTepBoost`, `leagueFormat`) have **no consumer
+anywhere** — dead, recorded.
+
+**Consumer audit** — `docs/valuation/CANONICAL_VALUE_CONSUMER_AUDIT.md`. Zero ambiguous active
+consumers. Canonical aliases (`values.overall` / `finalAdjusted` / `displayValue`) confirmed exact
+on 1,092 rows and now pinned.
+
+**Protections** — invariants A–H in `test_canonical_ownership_protections.py` +
+`test_canonical_value_invariance.py`.
+
+**Evidence**
+
+| item | value |
+|---|---|
+| validated head | `dfe03bf` |
+| CI run / check | 31759842909 / 94643642809 — SUCCESS |
+| merge commit | `daa711e` (second parent = `dfe03bf`) |
+| main advancement | automated data/export refreshes only; zero source overlap |
+| backend | 7432 passed / 43 skipped / 0 failed |
+| frontend | 2025 passed / 123 files |
+| focused | 691 passed |
+| production | backend restarted 01:44:59Z (after the 01:32Z merge); `/api/health` ok, `contract_ok` true; `/league` 200; `/rankings` 307→login; `/api/data` 401 |
+
+**Verification boundary, stated rather than papered over.** Server-side canonical uniformity is
+merged, deployed and production-verified. The **authenticated rendered desktop/mobile parity
+check remains owner-verifiable** because this execution environment lacks login credentials. The
+stronger architectural invariant is already proven at the authority layer: clients cannot obtain
+different canonical boards from the server based on the retired device-local settings. If rendered
+values are ever reported to still differ, that is a **new** client/cache/bundle-version finding,
+not a reopening of #822.
+
+**Deferred** — `board_history` league/scoring-fingerprint enrichment · build/revision diagnostics ·
+manual `CACHE_VERSION` residual hole · a future outcome-validated league-aware canonical
+methodology · a future properly non-canonical Custom Mix redesign.
+
+**New standing requirement recorded for B9:** every valid dynasty rookie draft pick **through the
+2029 class** must have a real canonical value, derived from the canonical pick methodology, with
+missing ≠ zero, cross-surface parity, and automated completeness regression. Not yet audited.
