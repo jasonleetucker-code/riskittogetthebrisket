@@ -2339,6 +2339,75 @@ def get_ranking_source_keys() -> list[str]:
 #         KeepTradeCut as a data source).
 
 
+#: Registry position of each source key, which IS the declared
+#: precedence inside a correlation group.  It already encodes the right
+#: heads without a second list to keep in step: ``ktcSfTep`` is
+#: registered before ``fantasyNavigatorSf`` (the board before the
+#: republisher), ``fantasyProsSf`` before ``fantasyProsFitzmaurice``
+#: (the consensus panel before the expert inside it), and every vendor's
+#: main board before its rookie-specialty board.
+def _source_precedence(key: str) -> int:
+    for i, src in enumerate(_RANKING_SOURCES):
+        if str(src.get("key") or "") == key:
+            return i
+    return len(_RANKING_SOURCES)
+
+
+def collapse_to_independent_families(
+    pairs: "list[tuple[str, float, bool]]",
+) -> "tuple[list[tuple[str, float, bool]], dict[str, str]]":
+    """One vote per provider family — a SELECTION, never an average.
+
+    ``pairs`` is ``(source_key, value, is_anchor_source)`` for the
+    sources that survived Hampel on one row.  Returns the surviving
+    pairs plus ``{superseded_key: winning_key}`` for provenance.
+
+    WHY SELECTION AND NOT AVERAGING
+    --------------------------------
+    A correlation group is a binary assertion: *these are not
+    independent votes*.  Averaging a family's members quietly re-admits
+    the derived one at 50% — which for ``fantasyProsFitzmaurice`` inside
+    the ``fantasyProsSf`` consensus is exactly the nested-consensus
+    prohibition, and for ``fantasyNavigatorSf`` inside ``ktc`` re-admits
+    a republication of the anchor at half weight.  Averaging also
+    manufactures a number no source published.
+
+    Part of the intra-family spread is our own encoding artifact rather
+    than two opinions: ``ktcSfTep`` votes value-direct
+    (``raw / site_max x 9999``) while ``fantasyNavigatorSf`` votes
+    rank -> percentile -> Hill, so averaging them averages an encoding
+    difference into the board's anchor.
+
+    If a family member genuinely carries independent signal, the repair
+    is to UNDECLARE the group, not to half-count it.
+
+    Precedence is registry order (``_source_precedence``), and only
+    among members actually present on this row — so an IDP row where
+    ``dlfSf`` is out of scope is decided by ``dlfIdp``, and a rookie row
+    carrying both the main and rookie board is decided by the main one,
+    matching the vendor's current opinion rather than a pre-draft
+    artifact.
+    """
+    best: dict[str, tuple[int, tuple[str, float, bool]]] = {}
+    for key, value, is_anchor in pairs:
+        group = correlation_group_for(key)
+        rank = _source_precedence(key)
+        current = best.get(group)
+        if current is None or rank < current[0]:
+            best[group] = (rank, (key, value, is_anchor))
+
+    winners = {group: entry for group, (_r, entry) in best.items()}
+    winning_keys = {entry[0] for entry in winners.values()}
+    superseded = {
+        key: winners[correlation_group_for(key)][0]
+        for key, _v, _a in pairs
+        if key not in winning_keys
+    }
+    # Preserve the caller's ordering; only membership changes.
+    kept = [pair for pair in pairs if pair[0] in winning_keys]
+    return kept, superseded
+
+
 def correlation_group_for(key: str) -> str:
     """Return the correlation-group id for ``key``.
 
@@ -7957,6 +8026,46 @@ def _compute_unified_rankings(
                     meta = row_source_meta[row_idx].get(sk, {})
                     meta["hampelDropped"] = True
         players_array[row_idx]["droppedSources"] = list(hampel_dropped_keys)
+
+        # ── One vote per provider family (B10-T3b) ──
+        #
+        # Runs AFTER Hampel deliberately: Hampel's verdicts are about
+        # whether a source got THIS player wrong, and it should judge
+        # the raw observation set.  Collapsing first would change
+        # rejection decisions about unrelated sources.
+        #
+        # A SELECTION, never an average — see
+        # ``collapse_to_independent_families``.  ``_source_precedence``
+        # is registry order, which already declares the heads.
+        surviving = [(k, v, a) for k, v, a in all_value_pairs if k not in set(hampel_dropped_keys)]
+        family_kept, family_superseded = collapse_to_independent_families(surviving)
+        if family_superseded:
+            kept_keys = {k for k, _v, _a in family_kept}
+            all_values = [v for k, v, _a in family_kept]
+            cross_market_values = [v for k, v, a in family_kept if a]
+            subgroup_values = [v for k, v, a in family_kept if not a]
+            all_weights = [blend_weight_by_source.get(k, 1.0) for k, _v, _a in family_kept]
+            cross_market_weights = [
+                blend_weight_by_source.get(k, 1.0) for k, _v, a in family_kept if a
+            ]
+            subgroup_weights = [
+                blend_weight_by_source.get(k, 1.0) for k, _v, a in family_kept if not a
+            ]
+            for sk, winner in family_superseded.items():
+                meta = row_source_meta[row_idx].get(sk, {})
+                # The observation is kept and still readable — it did not
+                # vote, which is a different statement from it not existing.
+                meta["contributedToBlend"] = False
+                meta["supersededBy"] = winner
+            del kept_keys
+
+        # Three counts, named for what they each mean.  ``sourceCount``
+        # (stamped elsewhere) stays the raw matched-key count, because it
+        # answers a COVERAGE question — "did the scrape reach this row".
+        # These two answer independence questions and must not be
+        # conflated with it.
+        players_array[row_idx]["effectiveSourceCount"] = len(surviving)
+        players_array[row_idx]["independentSourceCount"] = len(family_kept)
 
         # Coverage diagnostic (2026-04-20 override): soft-fallback
         # values used to be injected into the blend as "just past the

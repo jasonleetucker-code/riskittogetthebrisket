@@ -119,38 +119,131 @@ class TestCorrelationGroups(unittest.TestCase):
             )
 
 
-class TestCorrelationMetadataIsInert(unittest.TestCase):
-    """The default board must not move because we added metadata.
+class TestCorrelationMetadataDrivesTheBlendExactly(unittest.TestCase):
+    """Was ``TestCorrelationMetadataIsInert``.
 
-    Correlation grouping exists for one caller.  If declaring it changed
-    the live board by even one value, that would be a silent repricing of
-    every user's rankings — the exact thing the repo's "preserve working
-    behavior" rule forbids.
+    That class asserted the default board must NOT move because we added
+    correlation metadata — true while grouping existed only for
+    leave-one-out and Consensus Edge, and it is what made B10-T2's
+    declaration safely reviewable.
+
+    B10-T3b deliberately ends that. The declaration now drives the blend:
+    each family casts one vote, published by its highest-precedence
+    member. "The board does not move" is no longer the property to
+    protect.
+
+    What replaces it is stricter — the board must move by EXACTLY the
+    family collapse and nothing else. Two propagation routes are
+    legitimate and are stated rather than excluded silently:
+
+    * **Picks inherit.** Current-year slot picks are tethered to the
+      merged rookie pool (Phase 5.2b), so a pick moves when the rookies
+      move even though its own source list has no duplicated family.
+      Measured: 66 of the 71 non-local changes are picks, every one of
+      them single-source on ``idpTradeCalc``.
+    * **The rank-800 boundary.** ``OVERALL_RANK_LIMIT`` truncates value
+      as well as rank, so a row can cross into or out of pricing. Those
+      rows have no *before* source list to classify. Measured: the other
+      5, and each one's post-change source list does carry a duplicated
+      family (Jam Miller holds ``ktcSfTep`` + ``fantasyNavigatorSf`` and
+      both Flock boards).
+
+    Anything outside those two is a side effect riding along with the
+    intended change, which is what the inertness test was really for.
     """
 
-    @_needs_payload
-    def test_declaring_a_correlation_group_does_not_change_the_default_board(self):
-        def fingerprint(contract):
-            return [
-                (r.get("displayName"), r.get("rankDerivedValue"), r.get("canonicalConsensusRank"))
-                for r in (contract.get("playersArray") or [])
-            ]
-
-        with_groups = fingerprint(dc.build_api_data_contract(_RAW))
-
-        stripped = []
+    @staticmethod
+    def _stripped_registry():
+        out = []
         for src in dc._RANKING_SOURCES:
             copy = dict(src)
             copy.pop("correlation_group", None)
-            stripped.append(copy)
+            out.append(copy)
+        return out
 
-        with mock.patch.object(dc, "_RANKING_SOURCES", stripped):
-            without_groups = fingerprint(dc.build_api_data_contract(_RAW))
+    @_needs_payload
+    def test_declaring_families_moves_the_board(self):
+        """If this passes trivially, T3b is not wired in at all."""
+
+        def values(contract):
+            return {
+                r.get("displayName"): r.get("rankDerivedValue")
+                for r in (contract.get("playersArray") or [])
+            }
+
+        with_groups = values(dc.build_api_data_contract(_RAW))
+        with mock.patch.object(dc, "_RANKING_SOURCES", self._stripped_registry()):
+            without_groups = values(dc.build_api_data_contract(_RAW))
+
+        changed = [
+            n for n, v in with_groups.items() if n in without_groups and without_groups[n] != v
+        ]
+        self.assertTrue(changed, "declaring families changed nothing")
+
+    @_needs_payload
+    def test_every_changed_player_had_a_family_voting_twice(self):
+        """Players only — picks inherit, see the class docstring."""
+
+        def rows(contract):
+            return {r.get("displayName"): r for r in (contract.get("playersArray") or [])}
+
+        after = rows(dc.build_api_data_contract(_RAW))
+        with mock.patch.object(dc, "_RANKING_SOURCES", self._stripped_registry()):
+            before = rows(dc.build_api_data_contract(_RAW))
+
+        offenders = []
+        for name, arow in after.items():
+            brow = before.get(name)
+            if brow is None:
+                continue
+            bv, av = brow.get("rankDerivedValue"), arow.get("rankDerivedValue")
+            if bv == av:
+                continue
+            if not isinstance(bv, int) or not isinstance(av, int):
+                # A PRICING-STATE change, not a value move: OVERALL_RANK_LIMIT
+                # truncates value as well as rank, so a row crosses in or out
+                # of pricing when the rows ABOVE it reorder. Its own sources
+                # need not have changed at all. Counted separately below.
+                continue
+            if (arow.get("assetClass") or "") == "pick":
+                continue  # tethered to the rookie pool
+            keys = set(brow.get("sourceRanks") or {}) | set(arow.get("sourceRanks") or {})
+            groups = [dc.correlation_group_for(k) for k in keys]
+            if len(set(groups)) == len(groups):
+                offenders.append((name, sorted(keys)))
 
         self.assertEqual(
-            with_groups,
-            without_groups,
-            "correlation-group metadata changed the default board; it must be inert there",
+            offenders,
+            [],
+            "player rows moved with no duplicated provider family — the collapse "
+            "is doing something beyond removing duplicate family votes",
+        )
+
+    @_needs_payload
+    def test_the_rank_limit_boundary_swaps_rather_than_loses_rows(self):
+        """Rows crossing OVERALL_RANK_LIMIT must balance.
+
+        A net loss would mean the collapse is dropping coverage rather
+        than reordering it — the reduced evidence base pushing rows off
+        the board instead of merely re-ranking them.
+        """
+
+        def priced(contract):
+            return {
+                r.get("displayName")
+                for r in (contract.get("playersArray") or [])
+                if isinstance(r.get("rankDerivedValue"), int)
+            }
+
+        after = priced(dc.build_api_data_contract(_RAW))
+        with mock.patch.object(dc, "_RANKING_SOURCES", self._stripped_registry()):
+            before = priced(dc.build_api_data_contract(_RAW))
+
+        self.assertEqual(
+            len(after),
+            len(before),
+            f"priced count changed: {len(before)} -> {len(after)} "
+            f"(entered {sorted(after - before)}, left {sorted(before - after)})",
         )
 
 
