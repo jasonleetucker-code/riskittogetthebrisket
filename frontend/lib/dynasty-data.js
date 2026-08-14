@@ -276,6 +276,7 @@ export const RANKING_SOURCES = [
     // converts ranks to synthetic monotonic values for sort purposes;
     // the UI must render sourceOriginalRanks.dlfSf, never the synthetic.
     key: "dlfSf",
+    correlationGroup: "dlf",
     displayName: "Dynasty League Football Superflex",
     columnLabel: "DLF SF",
     scope: "overall_offense",
@@ -302,6 +303,7 @@ export const RANKING_SOURCES = [
     // DLF's ORDERING remains intact.  Synthetic "2026 Pick R.SS" rows
     // appended during CSV enrichment also nudge rookie pick values.
     key: "dlfRookieSf",
+    correlationGroup: "dlf",
     displayName: "Dynasty League Football Rookie SF",
     columnLabel: "DLF RK",
     scope: "overall_offense",
@@ -332,6 +334,7 @@ export const RANKING_SOURCES = [
     // backbone (typically ~30-50), correctly calibrating DLF against
     // the retail offense market.
     key: "dlfIdp",
+    correlationGroup: "dlf",
     displayName: "Dynasty League Football IDP",
     columnLabel: "DLF IDP",
     scope: "overall_idp",
@@ -352,6 +355,7 @@ export const RANKING_SOURCES = [
     // pick-slot value (most rookie drafts prioritize offensive
     // prospects at the top).
     key: "dlfRookieIdp",
+    correlationGroup: "dlf",
     displayName: "Dynasty League Football Rookie IDP",
     columnLabel: "DLF RK-IDP",
     scope: "overall_idp",
@@ -573,6 +577,7 @@ export const RANKING_SOURCES = [
     // no TE premium baked in.  The frontend `settings.tepMultiplier`
     // boost applies to its blended contribution.
     key: "fantasyProsSf",
+    correlationGroup: "fantasyPros",
     displayName: "FantasyPros Dynasty Superflex",
     columnLabel: "FP SF",
     scope: "overall_offense",
@@ -594,6 +599,7 @@ export const RANKING_SOURCES = [
     // registered source.  Mirrors the backend `_RANKING_SOURCES`
     // entry in src/api/data_contract.py.
     key: "fantasyProsIdp",
+    correlationGroup: "fantasyPros",
     displayName: "FantasyPros Dynasty IDP",
     columnLabel: "FP IDP",
     scope: "overall_idp",
@@ -625,6 +631,7 @@ export const RANKING_SOURCES = [
     // the shared Hill curve.  Mirrors the backend
     // ``_SOURCE_CSV_PATHS["fantasyProsFitzmaurice"].signal = "rank"``.
     key: "fantasyProsFitzmaurice",
+    correlationGroup: "fantasyPros",
     displayName: "FantasyPros / Pat Fitzmaurice SF-TEP",
     columnLabel: "Fitzmaurice",
     scope: "overall_offense",
@@ -643,6 +650,7 @@ export const RANKING_SOURCES = [
     // Flock Fantasy Dynasty Superflex rankings — expert consensus.
     // Standard SF — no TE premium.  tepMultiplier boost applies.
     key: "flockFantasySf",
+    correlationGroup: "flockFantasy",
     displayName: "Flock Fantasy Superflex",
     columnLabel: "FF",
     scope: "overall_offense",
@@ -666,6 +674,7 @@ export const RANKING_SOURCES = [
     // scale-for-top-rookie.  Pick nudging is not wired for this source;
     // dlfRookieSf already stamps synthetic "2026 Pick R.SS" rows.
     key: "flockFantasySfRookies",
+    correlationGroup: "flockFantasy",
     displayName: "Flock Fantasy Rookie SF",
     columnLabel: "Flock RK",
     scope: "overall_offense",
@@ -734,6 +743,7 @@ export const RANKING_SOURCES = [
     // top TEs like Brock Bowers).  Lockstep with
     // src/api/data_contract.py::_RANKING_SOURCES.
     key: "draftSharks",
+    correlationGroup: "draftSharks",
     displayName: "Draft Sharks Dynasty",
     columnLabel: "DS",
     scope: "overall_offense",
@@ -755,6 +765,7 @@ export const RANKING_SOURCES = [
     // (e.g. Carson Schwesinger = 44 as IDP rank 1, not the IDP-
     // only-page rescaled 81).
     key: "draftSharksIdp",
+    correlationGroup: "draftSharks",
     displayName: "Draft Sharks IDP Dynasty",
     columnLabel: "DS IDP",
     scope: "overall_idp",

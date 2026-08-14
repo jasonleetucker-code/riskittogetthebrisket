@@ -1189,6 +1189,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # preventing false 1-src flags on fringe offense players
         # that DLF SF was never going to list.
         "key": "dlfSf",
+        "correlation_group": "dlf",
         "display_name": "Dynasty League Football Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1226,6 +1227,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # weight scales contribution down so the rookie board never
         # overwhelms the veteran-rich retail/expert blend.
         "key": "dlfRookieSf",
+        "correlation_group": "dlf",
         "display_name": "Dynasty League Football Rookie SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1268,6 +1270,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # the best IDP in the shared market (typically ~30-50), which
         # correctly calibrates DLF against the retail offense market.
         "key": "dlfIdp",
+        "correlation_group": "dlf",
         "display_name": "Dynasty League Football IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
         "position_group": None,
@@ -1299,6 +1302,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # translated against IDPTC's ladder.  depth=50 matches the
         # typical export size.
         "key": "dlfRookieIdp",
+        "correlation_group": "dlf",
         "display_name": "Dynasty League Football Rookie IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
         "position_group": None,
@@ -1558,6 +1562,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # ``settings.tepMultiplier`` boost applies to its blended
         # contribution.
         "key": "fantasyProsSf",
+        "correlation_group": "fantasyPros",
         "display_name": "FantasyPros Dynasty Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1585,6 +1590,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # ``_expected_sources_for_position`` not to expect this
         # source for players ranked deeper than ~125 (depth * 1.25).
         "key": "fantasyProsIdp",
+        "correlation_group": "fantasyPros",
         "display_name": "FantasyPros Dynasty IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
         "position_group": None,
@@ -1630,6 +1636,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # TE premium directly via the TEP Value column, so the global
         # TEP multiplier MUST NOT compound.
         "key": "fantasyProsFitzmaurice",
+        "correlation_group": "fantasyPros",
         "display_name": "FantasyPros / Pat Fitzmaurice SF-TEP",
         "column_label": "Fitzmaurice",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1649,6 +1656,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # `settings.tepMultiplier` boost applies to its blended
         # contribution for TE-position players.
         "key": "flockFantasySf",
+        "correlation_group": "flockFantasy",
         "display_name": "Flock Fantasy Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1678,6 +1686,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # rookie pick tethering pass (Phase 11) blends Flock's rookie
         # values into picks via the merged rookie pool.
         "key": "flockFantasySfRookies",
+        "correlation_group": "flockFantasy",
         "display_name": "Flock Fantasy Rookie SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1752,6 +1761,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # non-TEP multiplier — which inflated every TE's DS
         # contribution and pushed top TEs like Brock Bowers too high.)
         "key": "draftSharks",
+        "correlation_group": "draftSharks",
         "display_name": "Draft Sharks Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "extra_scopes": [],
@@ -1790,6 +1800,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # 2026 baseline.  depth=400 because IDP depth in the DS
         # export is smaller than offense.
         "key": "draftSharksIdp",
+        "correlation_group": "draftSharks",
         "display_name": "Draft Sharks IDP Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
         "extra_scopes": [],
