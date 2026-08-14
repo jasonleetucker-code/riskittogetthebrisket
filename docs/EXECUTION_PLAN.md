@@ -59,6 +59,36 @@ This file answers **what work should happen next**. It does not define long-term
 - Architecture record: `docs/master-site-audit/evidence/W18/B6_SCORING_IDENTITY_DESIGN.md`.
 - W18-F003 was NOT touched — it remains B7.
 
+### B7 — realized-points correctness
+
+- **MERGED AND VERIFIED.** PR #820 (`af761fc`). Validated head `0875da5`, run 31738127750.
+- W18-F003 fixed; W18-F004 shipped with it by necessity.
+
+### B8 — privacy / distribution / refresh boundary
+
+- **MERGED.** PR #821 (`053f9e5`), 2026-08-14T03:09:30Z. Validated head `0cc95b9`, run 31764984203.
+- W01-F010 and the W22 family closed on BOTH distribution channels (HTTP and git).
+
+### B9 — canonical player value semantics
+
+- **MERGED.** Two units.
+- **B9a** — `offenseOnlyRankDerivedValue` retired: a second full run of
+  `_compute_unified_rankings` whose output three engines substituted into `displayValue` /
+  `modelValue` per TRADE. 491 of 507 comparable rows disagreed, up to 21.87%. Canonical
+  board byte-identical after removal; contract build 0.62 s → 0.49 s. Closes W29-F001
+  (W29-F002's overlay half closed by #822).
+- **B9a** — the 1–9999 scale is now a contract the validator enforces. The last path that
+  let the rejected league-aware methodology own `rankDerivedValue` published 10,160 on the
+  real factor set and 12,471 at the cap; `apply_valuation_factors` deleted.
+- **B9b** — threshold semantic units. W29-F005 closed: the "Seller cash-out" predicate
+  compared 0–9999 against 0–100 and could not fire for any of 1,093 rows; it now fires for
+  19. Four thresholds registered in `config/thresholds.json` with `unit` + `derivedFrom`.
+  **Partial by design** — four BOARD-RELATIVE constants are classified and registered but
+  not converted, because each changes which assets a recommendation surface offers. See
+  `docs/valuation/THRESHOLD_UNIT_REGISTRY.md`.
+
+---
+
 ---
 
 # 2. NEXT AUTHORIZED FOUNDATION SCOPE

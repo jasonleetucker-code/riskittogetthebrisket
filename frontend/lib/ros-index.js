@@ -62,6 +62,12 @@
  */
 
 import { normalizePlayerNameKey } from "@/lib/player-name-match";
+import {
+  ROS_ELITE_PERCENTILE,
+  ROS_STRONG_PERCENTILE,
+  ROS_DEPTH_BAND_LOW_PERCENTILE,
+  ROS_SELLER_PERCENTILE_GAP,
+} from "./thresholds";
 
 /**
  * Pick a winner when two ROS rows collapse to one key.
@@ -115,6 +121,9 @@ export function buildRosIndex(players) {
     if (!key) continue;
     const entry = {
       rosValue: p.rosValue,
+      // Standing within the WHOLE ROS pool, stamped by the backend.
+      // Never recomputed here — the response is truncated to `limit`.
+      rosPercentile: p.rosPercentile ?? null,
       rosRank: p.rosRankOverall,
       rosRankPosition: p.rosRankPosition,
       confidence: p.confidence,
@@ -148,4 +157,83 @@ export function rosEntryForRow(index, row) {
     if (hit) return hit;
   }
   return null;
+}
+
+// ── Context tags — the ONE implementation ────────────────────────────
+//
+// `PlayerPopup.jsx` and `RosTradeFitPanel.jsx` each carried a verbatim
+// copy of this classifier, and one of them still carried the comment
+// "Stays in sync via the parity test (PR-future)" — a parity test that
+// was never written. Duplicating it is what let W29-F005 survive review
+// three times (twice here, once in `src/ros/tags.py`).
+//
+// The Python owner is `src/ros/tags.py::tags_for_player`; this mirrors
+// it and `tests/ros/test_tag_parity.py` fails the build when the two
+// disagree. Same mirror+parity mechanism as the ranking-source registry
+// and `frontend/lib/thresholds.js`.
+//
+// Every strength gate is a STANDING within the ROS pool, not a level of
+// the raw 0-100 `rosValue` index. See the B9b note in thresholds.js for
+// what the absolute constants measured before the conversion.
+
+const _IDP_TAG_POSITIONS = new Set(["DL", "DE", "DT", "EDGE", "LB", "DB", "S", "CB"]);
+const _VET_AGE_BY_POS = {
+  QB: 32, RB: 26, WR: 29, TE: 30,
+  DL: 30, DE: 30, DT: 30, EDGE: 30, LB: 29, DB: 29, S: 29, CB: 29,
+};
+
+/**
+ * Context tags for one player.
+ *
+ * `rosPercentile` and `dynastyPercentile` are 0-100 with 100 = best,
+ * each measured within its OWN population. No tags without
+ * `rosPercentile`: every gate is a standing, and a standing cannot be
+ * derived from one player. Returning none is the honest answer.
+ */
+export function tagsForPlayer({
+  position,
+  age,
+  rosValue,
+  rosPercentile,
+  rosRank,
+  dynastyPercentile,
+  volatilityFlag,
+}) {
+  const tags = [];
+  if (rosValue == null || rosValue <= 0) return tags;
+  if (rosPercentile == null) return tags;
+
+  const pos = String(position || "").toUpperCase().split("/")[0];
+  const isIdp = _IDP_TAG_POSITIONS.has(pos);
+  const isStrong = rosPercentile >= ROS_STRONG_PERCENTILE;
+  const isElite = rosPercentile >= ROS_ELITE_PERCENTILE;
+  const isStarterCaliber = rosRank != null && rosRank <= 100;
+  const isTopIdp = isIdp && rosRank != null && rosRank <= 50;
+  const vetAge = _VET_AGE_BY_POS[pos];
+  const veteran = age != null && vetAge != null && age >= vetAge;
+  const young = age != null && age <= 24;
+
+  if (veteran && isStrong) tags.push("Win-now target");
+  if (isElite && isStarterCaliber && !isIdp) tags.push("Contender upgrade");
+  if (
+    veteran &&
+    isStrong &&
+    dynastyPercentile != null &&
+    rosPercentile - dynastyPercentile >= ROS_SELLER_PERCENTILE_GAP
+  ) {
+    tags.push("Seller cash-out");
+  }
+  if (young && !isStrong) tags.push("Rebuilder hold");
+  if (veteran && isStrong && !isStarterCaliber) tags.push("Avoid unless contending");
+  if (
+    !isStarterCaliber &&
+    rosPercentile >= ROS_DEPTH_BAND_LOW_PERCENTILE &&
+    rosPercentile < ROS_STRONG_PERCENTILE
+  ) {
+    tags.push("Depth spike option");
+  }
+  if (volatilityFlag && isStarterCaliber) tags.push("Best-ball boost");
+  if (isTopIdp) tags.push("IDP contender target");
+  if (!isStrong && !young) tags.push("Injury/bye cover");
+  return tags;
 }

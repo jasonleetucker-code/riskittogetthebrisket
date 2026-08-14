@@ -83,6 +83,30 @@
       "unit": "rows",
       "appliesTo": "display",
       "derivedFrom": "Page-level UX choice: items per /edge premium panel, applied AFTER the ratio gate and the top-250 filter."
+    },
+    "ROS_ELITE_PERCENTILE": {
+      "value": 95,
+      "unit": "percentile",
+      "appliesTo": "rosPercentile (rank of rosValue within the full ROS pool, 100 = best)",
+      "derivedFrom": "Measured 2026-08-14 over the live ROS aggregate (1,031 players with a positive rosValue) and corroborated across all 893 historical aggregates from 2026-04-28 to 2026-08-14. REPLACES the absolute gate rosValue >= 80, which selected 2 of 1,031 players (0.19%) and never more than 3 in any historical aggregate. The 0-100 rosValue is a STRENGTH INDEX, not a percentile: its median is 9.15 and its 99th percentile is 59.41, so a constant written to mean 'elite' sat far above the top 1%. The percentile form states the intended population directly - the top 5% - and cannot drift when the index's distribution moves."
+    },
+    "ROS_STRONG_PERCENTILE": {
+      "value": 75,
+      "unit": "percentile",
+      "appliesTo": "rosPercentile",
+      "derivedFrom": "Measured 2026-08-14 over the live ROS aggregate (1,031 players with a positive rosValue) and corroborated across all 893 historical aggregates from 2026-04-28 to 2026-08-14. REPLACES the absolute gate rosValue >= 60, which selected 9 of 1,031 (0.87%). Its complement is load-bearing and was the clearer defect: 'Injury/bye cover' fires when NOT strong, so it applied to 99.13% of the pool - a label carrying no information. Top 25% is the intended 'strong rest-of-season starter' population."
+    },
+    "ROS_DEPTH_BAND_LOW_PERCENTILE": {
+      "value": 40,
+      "unit": "percentile",
+      "appliesTo": "rosPercentile",
+      "derivedFrom": "Measured 2026-08-14 over the live ROS aggregate (1,031 players with a positive rosValue) and corroborated across all 893 historical aggregates from 2026-04-28 to 2026-08-14. REPLACES the lower edge of the absolute band 30 <= rosValue < 60 ('Depth spike option'). The band's upper edge is ROS_STRONG_PERCENTILE, so the two stay adjacent by construction instead of by two constants that can drift apart."
+    },
+    "ROS_SELLER_PERCENTILE_GAP": {
+      "value": 25,
+      "unit": "percentilePoints",
+      "appliesTo": "rosPercentile - dynastyPercentile",
+      "derivedFrom": "W29-F005. The 'Seller cash-out' predicate was dynastyValue < rosValue * 0.7, comparing a 0-9999 dynasty board value against a 0-100 ROS index. Measured: the right-hand side maxes at 60.8 while the board's minimum priced value is 1,134, so 0 of 1,093 rows could ever satisfy it and the tag had never rendered. The concept - 'the dynasty market has not caught up to current ROS strength' - is a comparison of STANDINGS, so both sides are now percentiles of their own population and the gap is in percentile points. 25 points is one quartile: the player must stand a full quartile better in the ROS pool than on the dynasty board. NOT calibrated against outcomes - no outcome evidence exists for these labels - so this is an intent mapping, and it is recorded as one."
     }
   }
 }

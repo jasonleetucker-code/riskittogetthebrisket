@@ -19,10 +19,10 @@ working branch for provenance and only the validated GREEN head merges.
 |---|---|---|
 | 0 | **B7.0** — residual B6 evidence closure + preflight | **COMPLETE** (merged in #819) |
 | 1 | B7 — realized-points correctness (RED commit → GREEN head) | **MERGED AND VERIFIED** (#820, `af761fc`) |
-| 2 | B8 — privacy / distribution / refresh boundary | IN PROGRESS |
-| 3 | B9a — overlay ceiling, published formula, one canonical value | not started |
-| 5 | B9b — threshold unit registry | not started |
-| 6 | B10-T1 — scraper KTC dedupe | not started |
+| 2 | B8 — privacy / distribution / refresh boundary | **MERGED** (#821, `053f9e5`) |
+| 3 | B9a — one canonical value + the scale contract | **MERGED** |
+| 5 | B9b — threshold unit registry | **MERGED** (partial — §B9b) |
+| 6 | B10-T1 — scraper KTC dedupe | not started — **premise corrected, see §B10** |
 | 7 | B10-T2 — declare provenance (board byte-identical) | not started |
 | 8 | B10-T3 — family-aware aggregation | not started |
 | 9 | B11 — confidence axes | not started |
@@ -321,7 +321,10 @@ untouched — my refactor respelled its probe string. Signature updated, status 
 
 ---
 
-# B8 — Privacy / distribution / refresh boundary · IN PROGRESS
+# B8 — Privacy / distribution / refresh boundary · **MERGED**
+
+Merged 2026-08-14T03:09:30Z as `053f9e5` (#821). Validated head `0cc95b9`,
+PR Validation run **31764984203** — SUCCESS.
 
 ## Section classification, decided on measured content
 
@@ -473,3 +476,154 @@ methodology · a future properly non-canonical Custom Mix redesign.
 **New standing requirement recorded for B9:** every valid dynasty rookie draft pick **through the
 2029 class** must have a real canonical value, derived from the canonical pick methodology, with
 missing ≠ zero, cross-surface parity, and automated completeness regression. Not yet audited.
+
+---
+
+# B9 — Canonical player value semantics · **MERGED**
+
+Two merge units, both GREEN at merge. Findings closed: `W29-F001`, `W29-F002` (overlay half
+closed earlier by #822), `W29-F005`.
+
+## B9a-1 — one canonical dynasty value per asset
+
+**Root cause.** `build_api_data_contract` ran `_compute_unified_rankings` a **second time**
+with every IDP-scoped source disabled and stamped the result on each row as
+`offenseOnlyRankDerivedValue`. Three engines substituted it whenever the trade in front of
+them contained no defender: `suggestions.py` into `displayValue`, `finder.py` into
+`modelValue`, `trade_simulator.py` into the resolved asset value **and the manager's entire
+untraded roster**.
+
+The switch was **per trade, not per league** (`trade_simulator.py:209`), so one player
+carried two unlabelled numbers in one league on one day.
+
+**Measured before removal** (2026-08-14 contract, 1,093 rows): 605 rows carried it, 507
+comparable, **491 disagreeing**, up to **21.87%**. Picks moved most — 2026 Pick 2.06:
+3,224 → 2,519 — because `idpTradeCalc` is a full-roster calculator, so dropping it changes
+the count-aware blend, the Hampel filter, the single-source haircut and the pick anchor set
+for **every** row. The mechanism was never "exclude IDP calibration from IDP-free trades";
+it was a wholesale second board.
+
+**Correction to the recorded finding.** W29-F001 and `VALUE_FLOW_MAP.md` §4 both attribute
+Travis Hunter's spread to the offense-only board "never seeing the two-way boost". It saw
+it. `_apply_two_way_player_boost` runs on the pre-pass; what degrades is its *input* — the
+alt-position ladder needs ≥3 priced IDP rows, and on an IDP-disabled board there are none,
+so the boost collapses to its single-source `idpTradeCalc` branch. 5,637 is a one-source
+alt-family value; 4,401 is the multi-source blend.
+
+**Repair.** Removed, not deprecated — a ready-made second canonical board on every row is
+what let three engines wire it in without anyone deciding to. An IDP-free view **filters the
+asset universe or names its lens; it does not reprice the assets**.
+`suggestions._trade_is_idp_free` survives as exactly that, a universe predicate, and says so.
+
+**Evidence.** Canonical board **byte-identical** — 0 values moved, 0 ranks changed
+(`board_diff.py --expect-no-value-change`). Contract build **0.62 s → 0.49 s** median: a
+duplicate pipeline pass gone.
+
+## B9a-2 — the scale is a contract, and it is enforced
+
+**Root cause.** #822 ruled the rejected league-aware methodology may not own a canonical
+field, and closed the engine gate. One path was left: `POST /api/rankings/overrides?view=delta`
+with `valuation_mode: "leagueAdjusted"` handed factors to `build_rankings_delta_payload`,
+whose `apply_valuation_factors` multiplied them into `rankDerivedValue`. The ±25% bound is
+on the **factor**, never on the **product**.
+
+| factor | max canonical value on the wire | rows > 9999 |
+|---|---|---|
+| 1.018366 (the real measured set) | 10,160 | 2 |
+| 1.25 (the cap) | 12,471 | 16 |
+
+9,999 is the Hill **asymptote** — numbers the curve defining the scale cannot produce.
+
+**Repair.** Ignored, not refused (the engine gate's convergence rule).
+`apply_valuation_factors` and the `valuation_factors` parameter **deleted**, so there is no
+seam to re-thread. Two consequences, both improvements: asking for the lens no longer
+narrows scope (no 503 on league mismatch), and the response is cacheable again.
+
+**Enforcement.** `methodology.formula` published `scaleMin`/`scaleMax` and nothing verified
+them. `validate_api_data_contract` now checks `rankDerivedValue` **and the `values.*`
+aliases** against `DISPLAY_SCALE_MIN`/`MAX`, imported from `src/canonical/player_valuation.py`
+rather than restated — so the block that publishes the range and the check that enforces it
+read one constant. An **error**, not a warning, because `scripts/validate_api_contract.py`
+gates on `ok`; whole array, not the `[:1000]` prefix, because a ceiling breach lands at the
+top of the board. Verified non-vacuous: injecting 12,471 into one row, or one alias, turns
+the gate red.
+
+## B9b — threshold semantic units
+
+Full classification: `docs/valuation/THRESHOLD_UNIT_REGISTRY.md`.
+
+**The defect class.** A threshold is a number *plus a scale*; drop the scale and the number
+keeps working while its meaning drifts.
+
+**W29-F005, and it was worse than recorded.** The "Seller cash-out" predicate compared a
+0–9999 board value against a 0–100 ROS index (`dynastyValue < rosValue * 0.7`): RHS maxes at
+60.8, the board's floor is 1,134, so **0 of 1,093 rows** could fire and the tag had never
+rendered. Its unit test passed — on `dynasty_value=40`, an input the board cannot produce.
+*A test with no unit discipline validated a predicate with an empty solution set.*
+
+The undocumented half: the same classifier gated "strong"/"elite" on `rosValue >= 60`/`>= 80`
+as if the index were a percentile. Measured across **all 893 historical aggregates
+(2026-04-28 → 2026-08-14)**, that index has median 9.15 and p99 **59.41** — so `>= 60` sat
+above the 99th percentile, selecting 0.87%, and its complement labelled **99.13%** of the
+pool "Injury/bye cover".
+
+**Repair.** Four thresholds registered in `config/thresholds.json` with `unit` +
+`derivedFrom`, converted to percentile units. Measured effect:
+
+| tag | before | after |
+|---|---|---|
+| Seller cash-out | **0** (unreachable) | 19 (1.84%) |
+| Injury/bye cover | 99.13% | 55.87% |
+| Contender upgrade | 2 players | 47 (4.56%) |
+
+Structural, because triplication is what let it survive review three times: `rosPercentile`
+stamped server-side over the **whole** pool (the endpoint truncates to `limit`, so a client
+standing would be a standing within the top half); `canonicalPercentile` stamped on contract
+rows for the same reason; **one** classifier in `frontend/lib/ros-index.js` mirroring
+`src/ros/tags.py`, with the parity test a JS comment had promised as "PR-future" and that was
+never written. All nine tags now have a reachability test.
+
+**Not closed, and specified rather than attempted:** four BOARD-RELATIVE constants
+(`MIN_RELEVANT_VALUE`, `MIN_ACTIONABLE_VALUE`, `MIN_WAIVER_VALUE`, the `>= 7000` contender
+gate) are classified and registered but not converted — each changes which assets a
+recommendation surface offers, which needs its own before/after measurement.
+
+---
+
+# Deferred defect ledger — additions
+
+| id | defect | disposition |
+|---|---|---|
+| — | `inferValueBundle` coerces an unpriced row to **0** (`frontend/lib/dynasty-data.js`). The rationale on the function is sound as far as it goes — it replaced a fallback that put a *composite-scale* number into board-scale sums — and 0 is neutral **in a sum**. It is not neutral in a sort, minimum, average or display, where it asserts "worth nothing". `MISSING IS NEVER ZERO` wants `null`. Blast radius: trade sums, portfolio, movers, team-phase, CSV export. | **must-fix-before-C candidate** — measure, then convert |
+| — | The consolidation search still restricts all-offense give-pairs to offense targets. Its only stated justification was avoiding a value-scale flip, which no longer exists. Removing it widens the recommendation universe — a product decision. | owner decision |
+| — | KTC-native constants duplicated across `src/trade/market_value_adjustment.py` and `src/trade/ktc_va.py` — one concept, two owners. | backlog |
+
+---
+
+# B10 — reconnaissance only, NOT started
+
+Recorded because it **corrects the authorising premise**, which should not be discovered
+twice.
+
+**The "ktc ≈ 1.3 + ktcSfTep ≈ 1.0 → 2.3 vs IDPTC 1.0" double-count does not exist on
+current main.** Measured on `_RANKING_SOURCES`: there is **no `ktc` source key**. There is
+one KTC-family entry, `ktcSfTep`, at weight **1.00**, and **all 21 sources are 1.00** —
+consistent with CLAUDE.md's "all 1.0 by policy". Any B10 plan resting on the 2.3 figure is
+resting on a stale reading.
+
+**The real structure**, and it is still a genuine independence problem:
+
+* `correlationGroup` is **`None` on all 21 sources** — no provider family is declared
+  anywhere, so nothing downstream *can* deduplicate by family.
+* Providers contributing more than one source key: **DLF ×4**, **FantasyPros ×3**,
+  **Flock ×2**, **DraftSharks ×2**.
+* The nested-consensus case the owner ruled on is live and measurable:
+  `fantasyProsSf` (544 players, an expert **consensus**) and `fantasyProsFitzmaurice`
+  (299 players, **one expert inside that panel**) are both `overall_offense`, both weight
+  1.00. Measured: Fitzmaurice is **100% contained** in the consensus board, Pearson
+  **r = 0.9297**, median |rank diff| 12. Declarative provenance, not inferred from the
+  correlation: the source's own display name is "FantasyPros / Pat Fitzmaurice SF-TEP".
+
+Per the owner's ruling, family lineage must be **declarative**, so the correlation above is
+corroboration, not the basis. B10-T2 (declare provenance, board byte-identical) is the next
+unit and has not been started.

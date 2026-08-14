@@ -10,7 +10,7 @@ import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
 import { useNews } from "@/components/useNews";
 import { lookupPlayerDigest, lookupPlayerNews } from "@/lib/player-name-match";
-import { buildRosIndex, rosEntryForRow } from "@/lib/ros-index";
+import { buildRosIndex, rosEntryForRow, tagsForPlayer } from "@/lib/ros-index";
 import { buildPlayerMetaIndex } from "@/lib/news-filters";
 import { timeAgo } from "@/lib/news-service";
 import { useTeam } from "@/components/useTeam";
@@ -92,29 +92,6 @@ const _ROS_TAG_TONE = {
 };
 const _VET_AGE = { QB: 32, RB: 26, WR: 29, TE: 30, DL: 30, DE: 30, DT: 30, EDGE: 30, LB: 29, DB: 29, S: 29, CB: 29 };
 
-function _tagsForPlayer({ position, age, rosValue, rosRank, dynastyValue, volatilityFlag }) {
-  const tags = [];
-  if (rosValue == null || rosValue <= 0) return tags;
-  const pos = String(position || "").toUpperCase().split("/")[0];
-  const isIdp = ["DL", "DE", "DT", "EDGE", "LB", "DB", "S", "CB"].includes(pos);
-  const isStrong = rosValue >= 60;
-  const isElite = rosValue >= 80;
-  const isStarterCaliber = rosRank != null && rosRank <= 100;
-  const isTopIdp = isIdp && rosRank != null && rosRank <= 50;
-  const veteran = age != null && _VET_AGE[pos] != null && age >= _VET_AGE[pos];
-  const young = age != null && age <= 24;
-  if (veteran && isStrong) tags.push("Win-now target");
-  if (isElite && isStarterCaliber && !isIdp) tags.push("Contender upgrade");
-  if (veteran && isStrong && dynastyValue != null && dynastyValue < rosValue * 0.7) tags.push("Seller cash-out");
-  if (young && !isStrong) tags.push("Rebuilder hold");
-  if (veteran && isStrong && !isStarterCaliber) tags.push("Avoid unless contending");
-  if (!isStarterCaliber && rosValue >= 30 && rosValue < 60) tags.push("Depth spike option");
-  if (volatilityFlag && isStarterCaliber) tags.push("Best-ball boost");
-  if (isTopIdp) tags.push("IDP contender target");
-  if (!isStrong && !young) tags.push("Injury/bye cover");
-  return tags;
-}
-
 function RosContextSection({ row }) {
   const { settings } = useSettings();
   const enabled = settings?.showRosTags !== false;
@@ -139,13 +116,13 @@ function RosContextSection({ row }) {
       </div>
     );
   }
-  const dynastyValue = row.values?.full ?? row.rankDerivedValue ?? null;
-  const tags = _tagsForPlayer({
+  const tags = tagsForPlayer({
     position: row.pos,
     age: row.age,
     rosValue: ros.rosValue,
+    rosPercentile: ros.rosPercentile,
     rosRank: ros.rosRank,
-    dynastyValue,
+    dynastyPercentile: row.canonicalPercentile ?? null,
     volatilityFlag: ros.volatilityFlag,
   });
   return (

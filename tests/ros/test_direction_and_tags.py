@@ -107,6 +107,27 @@ class TestClassifyTeam(unittest.TestCase):
 
 
 class TestTagsForPlayer(unittest.TestCase):
+    """Converted to percentile units by B9b.
+
+    These cases used to pass ``ros_value`` levels (70, 85, 40) against
+    absolute gates.  Measured over the live ROS aggregate and all 893
+    historical ones, that index has median 9.15 and 99th percentile
+    59.41 — so ``ros_value=70`` is not "a strong player", it is above
+    anything all but a handful of players reach, and the gates it
+    exercised selected 0.87% and 0.19% of the pool.
+
+    The sharpest example was ``test_seller_cash_out_dynasty_lag``, which
+    passed ``dynasty_value=40`` to satisfy ``40 < 70 * 0.7``.  A dynasty
+    board value of 40 cannot occur: the board runs 1–9999 and its lowest
+    priced row is 1,134.  The test constructed an impossible input to
+    make a predicate pass that could not fire for any of the 1,093 real
+    rows (W29-F005), and it did so for as long as the tag existed.  A
+    unit on the fixture would have caught it at zero cost.
+
+    Reachability against realistic inputs now lives in
+    ``tests/ros/test_tag_parity.py``.
+    """
+
     def test_no_ros_value_no_tags(self):
         tags = tags_for_player(
             canonical_name="X",
@@ -120,12 +141,20 @@ class TestTagsForPlayer(unittest.TestCase):
         tags = tags_for_player(canonical_name="X", position="QB", age=25, ros_value=0)
         self.assertEqual(tags, [])
 
+    def test_no_standing_no_tags(self):
+        """A level without a population is not a standing."""
+        tags = tags_for_player(
+            canonical_name="X", position="QB", age=33, ros_value=70, ros_percentile=None
+        )
+        self.assertEqual(tags, [])
+
     def test_win_now_target_for_strong_vet(self):
         tags = tags_for_player(
             canonical_name="Veteran QB",
             position="QB",
             age=33,
             ros_value=70,
+            ros_percentile=90,
         )
         self.assertIn("Win-now target", tags)
 
@@ -135,17 +164,20 @@ class TestTagsForPlayer(unittest.TestCase):
             position="WR",
             age=27,
             ros_value=85,
+            ros_percentile=99,
             ros_rank_overall=10,
         )
         self.assertIn("Contender upgrade", tags)
 
     def test_seller_cash_out_dynasty_lag(self):
+        """Both sides are now standings in their own population."""
         tags = tags_for_player(
             canonical_name="Aging Stud",
             position="WR",
             age=30,
             ros_value=70,
-            dynasty_value=40,  # 40 < 70 * 0.7
+            ros_percentile=95,
+            dynasty_percentile=60,  # a 35-point gap, threshold is 25
         )
         self.assertIn("Seller cash-out", tags)
 
@@ -155,6 +187,7 @@ class TestTagsForPlayer(unittest.TestCase):
             position="WR",
             age=22,
             ros_value=40,
+            ros_percentile=50,
         )
         self.assertIn("Rebuilder hold", tags)
 
@@ -164,6 +197,7 @@ class TestTagsForPlayer(unittest.TestCase):
             position="LB",
             age=27,
             ros_value=80,
+            ros_percentile=98,
             ros_rank_overall=20,
         )
         self.assertIn("IDP contender target", tags)
@@ -172,17 +206,43 @@ class TestTagsForPlayer(unittest.TestCase):
         # Every tag the classifier can emit should have a description.
         all_tags_emitted = set()
         for params in [
-            {"position": "QB", "age": 33, "ros_value": 70},
-            {"position": "WR", "age": 27, "ros_value": 85, "ros_rank_overall": 10},
-            {"position": "WR", "age": 30, "ros_value": 70, "dynasty_value": 40},
-            {"position": "WR", "age": 22, "ros_value": 40},
-            {"position": "LB", "age": 27, "ros_value": 80, "ros_rank_overall": 20},
+            {"position": "QB", "age": 33, "ros_value": 70, "ros_percentile": 90},
+            {
+                "position": "WR",
+                "age": 27,
+                "ros_value": 85,
+                "ros_percentile": 99,
+                "ros_rank_overall": 10,
+            },
+            {
+                "position": "WR",
+                "age": 30,
+                "ros_value": 70,
+                "ros_percentile": 95,
+                "dynasty_percentile": 60,
+            },
+            {"position": "WR", "age": 22, "ros_value": 40, "ros_percentile": 50},
+            {
+                "position": "LB",
+                "age": 27,
+                "ros_value": 80,
+                "ros_percentile": 98,
+                "ros_rank_overall": 20,
+            },
             {
                 "position": "RB",
                 "age": 30,
                 "ros_value": 65,
+                "ros_percentile": 85,
                 "volatility_flag": True,
                 "ros_rank_overall": 50,
+            },
+            {
+                "position": "WR",
+                "age": 28,
+                "ros_value": 20,
+                "ros_percentile": 55,
+                "ros_rank_overall": 400,
             },
         ]:
             tags = tags_for_player(canonical_name="X", **params)
@@ -190,6 +250,9 @@ class TestTagsForPlayer(unittest.TestCase):
         descriptions = tag_descriptions()
         for tag in all_tags_emitted:
             self.assertIn(tag, descriptions, f"missing description for {tag}")
+        # The classifier emits nine tags; a fixture set that exercises
+        # fewer would pass this test while leaving one undescribed.
+        self.assertEqual(len(all_tags_emitted), 9, sorted(all_tags_emitted))
 
 
 if __name__ == "__main__":

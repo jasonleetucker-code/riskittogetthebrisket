@@ -126,13 +126,32 @@ async def get_player_values(limit: int = 500) -> JSONResponse:
     if not payload:
         return JSONResponse({"aggregatedAt": None, "players": [], "error": "no_aggregate"})
     players = payload.get("players") or []
+
+    # ``rosPercentile`` is stamped HERE, over the whole pool, because
+    # this is the only place the whole pool exists.  The response is
+    # truncated to ``limit`` (500 by default) immediately below, so a
+    # client that ranked what it received would be measuring a standing
+    # within the top half of the board and calling it a percentile.
+    #
+    # It exists because the ROS context tags gate on STANDING, not on
+    # the raw 0-100 ``rosValue`` index — whose median is 9.15 and whose
+    # 99th percentile is 59.41, so the old ``rosValue >= 60`` "strong"
+    # gate selected 0.87% of the pool and its complement labelled 99.13%
+    # of players "Injury/bye cover" (B9b).
+    from src.ros.tags import ros_percentiles  # noqa: PLC0415 — avoids an import cycle
+
+    percentiles = ros_percentiles([p.get("rosValue") for p in players])
+    stamped = [
+        {**p, "rosPercentile": pct} for p, pct in zip(players, percentiles) if isinstance(p, dict)
+    ]
+
     return JSONResponse(
         {
             "aggregatedAt": payload.get("aggregatedAt"),
             "league": payload.get("league"),
             "playerCount": payload.get("playerCount") or len(players),
             "sourceCount": payload.get("sourceCount"),
-            "players": players[: max(1, min(limit, len(players)))],
+            "players": stamped[: max(1, min(limit, len(stamped)))],
         }
     )
 

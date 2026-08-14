@@ -166,3 +166,26 @@ export const EDGE_PREMIUM_LIMIT = 10;
 // frontend trusts the backend's cap and never imports or
 // re-declares it — this keeps a single source of truth and prevents
 // a parallel ranking engine from sneaking back in.
+
+// ── ROS context tags (B9b) ───────────────────────────────────────────────────
+// These replaced absolute gates on `rosValue`, a 0-100 STRENGTH INDEX that the
+// old constants treated as if it were a percentile. Measured 2026-08-14 over
+// 1,031 players and corroborated across all 893 historical aggregates back to
+// 2026-04-28: the index's median is 9.15 and its 99th percentile is 59.41, so
+// `rosValue >= 80` ("elite") selected 2 players and `>= 60` ("strong") selected
+// 9 — while the complement of "strong" labelled 99.13% of the pool
+// "Injury/bye cover". A percentile states the intended population directly and
+// cannot drift when the index's distribution moves.
+//
+// `rosPercentile` is stamped by the backend over the WHOLE pool. Do not
+// recompute it here: /api/ros/player-values truncates to `limit` (500), so a
+// standing computed from the response is a standing within the top half.
+export const ROS_ELITE_PERCENTILE = 95;
+export const ROS_STRONG_PERCENTILE = 75;
+export const ROS_DEPTH_BAND_LOW_PERCENTILE = 40;
+
+// Percentile POINTS, not a percentile: the gap between a player's ROS standing
+// and their dynasty standing. W29-F005 — the predicate was
+// `dynastyValue < rosValue * 0.7`, comparing a 0-9999 board value against the
+// 0-100 index, so it could not fire for any of the 1,093 rows and never had.
+export const ROS_SELLER_PERCENTILE_GAP = 25;

@@ -8281,6 +8281,20 @@ def _compute_unified_rankings(
         row["canonicalConsensusRank"] = overall_rank
         row["canonicalTierId"] = _tier_id_from_rank(overall_rank)
         row["sourceCount"] = len(source_ranks)
+        # STANDING on the canonical board — 0-100, 100 = best (B9b).
+        #
+        # Published here because this is where the ranked pool exists.
+        # A consumer holding one row cannot compute it, and one holding a
+        # truncated board would compute a standing within the part it
+        # received and call it a percentile.  It is the scale-stable
+        # companion to ``rankDerivedValue``: a value means nothing
+        # without the distribution behind it, which is the defect class
+        # B9b exists to close.
+        row["canonicalPercentile"] = (
+            round(100.0 * (total_ranked - overall_rank) / (total_ranked - 1), 4)
+            if total_ranked > 1
+            else 100.0
+        )
 
         dropped_set = set(row.get("droppedSources") or [])
         effective_source_ranks = {k: v for k, v in source_ranks.items() if k not in dropped_set}
@@ -9677,6 +9691,12 @@ def build_api_data_contract(
 _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "canonicalConsensusRank",
     "rankDerivedValue",
+    # Override-sensitive for the same reason the two fields above are:
+    # a standing is a function of the board, and re-weighting sources
+    # re-orders it.  Omitting it would merge an overridden rank and
+    # value onto the DEFAULT board's percentile — a row disagreeing with
+    # itself, which is the defect class B9 closes.
+    "canonicalPercentile",
     "sourceRanks",
     "sourceRankMeta",
     "sourceOriginalRanks",

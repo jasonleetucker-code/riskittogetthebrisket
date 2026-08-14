@@ -6,7 +6,7 @@
 // only, gated by ``settings.showRosTradePanel``.
 
 import { useEffect, useState } from "react";
-import { buildRosIndex, rosEntryForRow } from "@/lib/ros-index";
+import { buildRosIndex, rosEntryForRow, tagsForPlayer } from "@/lib/ros-index";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const _cache = { data: null, fetchedAt: 0, inflight: null };
@@ -58,30 +58,6 @@ const LABEL_COLOR = {
 // Pure tag classifier — mirrors src/ros/tags.py::tags_for_player so
 // the trade-calc can label players without a backend round-trip per
 // row.  Stays in sync via the parity test (PR-future).
-function tagsForPlayer({ position, age, rosValue, rosRank, dynastyValue, volatilityFlag }) {
-  const tags = [];
-  if (rosValue == null || rosValue <= 0) return tags;
-  const pos = String(position || "").toUpperCase().split("/")[0];
-  const isIdp = ["DL", "DE", "DT", "EDGE", "LB", "DB", "S", "CB"].includes(pos);
-  const isStrong = rosValue >= 60;
-  const isElite = rosValue >= 80;
-  const isStarterCaliber = rosRank != null && rosRank <= 100;
-  const isTopIdp = isIdp && rosRank != null && rosRank <= 50;
-  const VET_AGE = { QB: 32, RB: 26, WR: 29, TE: 30, DL: 30, DE: 30, DT: 30, EDGE: 30, LB: 29, DB: 29, S: 29, CB: 29 };
-  const veteran = age != null && VET_AGE[pos] != null && age >= VET_AGE[pos];
-  const young = age != null && age <= 24;
-  if (veteran && isStrong) tags.push("Win-now target");
-  if (isElite && isStarterCaliber && !isIdp) tags.push("Contender upgrade");
-  if (veteran && isStrong && dynastyValue != null && dynastyValue < rosValue * 0.7) tags.push("Seller cash-out");
-  if (young && !isStrong) tags.push("Rebuilder hold");
-  if (veteran && isStrong && !isStarterCaliber) tags.push("Avoid unless contending");
-  if (!isStarterCaliber && rosValue >= 30 && rosValue < 60) tags.push("Depth spike option");
-  if (volatilityFlag && isStarterCaliber) tags.push("Best-ball boost");
-  if (isTopIdp) tags.push("IDP contender target");
-  if (!isStrong && !young) tags.push("Injury/bye cover");
-  return tags;
-}
-
 export default function RosTradeFitPanel({ sides, settings }) {
   const [directions, setDirections] = useState({ teams: [] });
   const [valuesByName, setValuesByName] = useState(() => new Map());
@@ -123,8 +99,9 @@ export default function RosTradeFitPanel({ sides, settings }) {
         position: row?.pos,
         age: row?.age,
         rosValue: ros.rosValue,
+        rosPercentile: ros.rosPercentile,
         rosRank: ros.rosRank,
-        dynastyValue: row?.values?.full ?? row?.rankDerivedValue ?? null,
+        dynastyPercentile: row?.canonicalPercentile ?? null,
         volatilityFlag: ros.volatilityFlag,
       });
       return { name, position: row?.pos, age: row?.age, ros, tags };
