@@ -74,7 +74,27 @@ class TestCorrelationGroups(unittest.TestCase):
         )
 
     def test_an_independent_source_expands_to_only_itself(self):
-        self.assertEqual(dc.expand_correlation_groups(["dlfSf"]), {"dlfSf"})
+        # ``fantasyCalc`` is a genuinely single-board provider.
+        #
+        # This used to name ``dlfSf``, which stopped being true rather
+        # than stopped being tested: B10-T2 declared DLF's four boards
+        # (SF, rookie SF, IDP, rookie IDP) as one provider family, and
+        # measured 52 players that DLF was voting on more than once.
+        # The property under test is unchanged — an independent source
+        # expands to itself — so it needs a source that is still one.
+        self.assertEqual(dc.expand_correlation_groups(["fantasyCalc"]), {"fantasyCalc"})
+
+    def test_a_declared_family_member_expands_to_the_whole_family(self):
+        """The companion the suite lacked.
+
+        Without it, declaring a family could quietly stop propagating and
+        only the singleton case above would notice — which is the
+        direction that does NOT fail closed.
+        """
+        self.assertEqual(
+            dc.expand_correlation_groups(["dlfSf"]),
+            {"dlfSf", "dlfRookieSf", "dlfIdp", "dlfRookieIdp"},
+        )
 
     def test_an_unknown_key_passes_through_rather_than_raising(self):
         # A caller naming a retired source should get a board without it,
