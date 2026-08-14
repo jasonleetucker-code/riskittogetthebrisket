@@ -389,12 +389,12 @@ class TestDeviceLocalStateCannotSelectAMethodology:
         values. Removed, not disabled — a greyed-out control implies the
         choice still exists."""
         page = (REPO / "frontend/app/rankings/page.jsx").read_text(encoding="utf-8")
-        assert 'label="Value basis"' not in page, (
-            "the Market / My league selector is still rendered on /rankings"
-        )
-        assert '{ value: "leagueAdjusted"' not in page, (
-            "the rankings page still offers leagueAdjusted as a choice"
-        )
+        assert (
+            'label="Value basis"' not in page
+        ), "the Market / My league selector is still rendered on /rankings"
+        assert (
+            '{ value: "leagueAdjusted"' not in page
+        ), "the rankings page still offers leagueAdjusted as a choice"
 
     def test_the_engine_gate_never_serves_the_withdrawn_lens(self):
         """``_valuation_scoped_contract`` is the single place the lens
@@ -402,12 +402,12 @@ class TestDeviceLocalStateCannotSelectAMethodology:
         A stored ``leagueAdjusted`` is ignored, not refused."""
         src = (REPO / "server.py").read_text(encoding="utf-8")
         fn = src.split("async def _valuation_scoped_contract", 1)[-1].split("\ndef ", 1)[0]
-        assert "adjusted_contract" not in fn, (
-            "the engine gate still applies the league-adjusted overlay"
-        )
-        assert '"leagueAdjusted"' not in fn.split("requested ==", 1)[-1].split("return", 1)[-1], (
-            "the engine gate can still answer with the leagueAdjusted mode"
-        )
+        assert (
+            "adjusted_contract" not in fn
+        ), "the engine gate still applies the league-adjusted overlay"
+        assert (
+            '"leagueAdjusted"' not in fn.split("requested ==", 1)[-1].split("return", 1)[-1]
+        ), "the engine gate can still answer with the leagueAdjusted mode"
 
 
 class TestTheExperimentalLensIsIsolated:

@@ -325,9 +325,9 @@ def test_the_engines_see_ONE_board_whichever_mode_is_asked_for(
         rows = (res.json().get("contract") or {}).get("playersArray") or []
         return {r.get("displayName"): r.get("rankDerivedValue") for r in rows}
 
-    assert _values(market) == _values(asked), (
-        "the requested mode still changes the numbers an engine reads"
-    )
+    assert _values(market) == _values(
+        asked
+    ), "the requested mode still changes the numbers an engine reads"
 
 
 def test_the_withdrawn_lens_is_never_even_computed(league, monkeypatch):  # noqa: F811

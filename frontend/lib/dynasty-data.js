@@ -1902,6 +1902,16 @@ async function _fetchValuationOverlayNetwork() {
  *
  * Copy-on-write: untouched rows are returned by reference.
  */
+/**
+ * Where the experimental league-aware number goes on the client.
+ * Must stay identical to ``EXPERIMENTAL_VALUE_FIELD`` in
+ * ``src/league_intel/overlay.py`` — the server and client appliers
+ * disagreeing about a field name is how the server ended up scaling
+ * ``rankDerivedValue`` while leaving ``values.*`` at market.
+ */
+export const EXPERIMENTAL_LEAGUE_ADJUSTED_VALUE =
+  "experimentalLeagueAdjustedValue";
+
 export function applyValuationOverlay(baseContract, overlay) {
   if (!baseContract || !overlay) return baseContract;
   const factors = overlay.factors;
@@ -1950,14 +1960,16 @@ export function applyValuationOverlay(baseContract, overlay) {
       if (!f && !hasRank) return row;
       const next = { ...row };
       if (f) {
-        next.rankDerivedValue = scale(row.rankDerivedValue, f);
-        if (row.values && typeof row.values === "object") {
-          // All four aliases are identical on live rows; keep them so.
-          next.values = { ...row.values };
-          for (const k of ["overall", "finalAdjusted", "displayValue"]) {
-            if (row.values[k] != null) next.values[k] = scale(row.values[k], f);
-          }
-        }
+        // WITHDRAWN 2026-08-14 — mirrors src/league_intel/overlay.py.
+        // The canonical value and its aliases are left alone; the
+        // adjusted number goes to its own field. This path is currently
+        // unreachable (`leagueAdjusted` is false), but a client applier
+        // that still overwrote canonical would be a loaded gun pointed at
+        // the invariant the rest of this change establishes.
+        next[EXPERIMENTAL_LEAGUE_ADJUSTED_VALUE] = scale(
+          row.rankDerivedValue,
+          f,
+        );
       }
       if (hasRank) {
         next.canonicalConsensusRank = ranks[key];
@@ -1986,9 +1998,11 @@ export function applyValuationOverlay(baseContract, overlay) {
       }
       const next = { ...row };
       if (f) {
-        next.rankDerivedValue = scale(row.rankDerivedValue, f);
-        if (row._finalAdjusted != null)
-          next._finalAdjusted = scale(row._finalAdjusted, f);
+        // Same rule on the legacy dict path — canonical untouched.
+        next[EXPERIMENTAL_LEAGUE_ADJUSTED_VALUE] = scale(
+          row.rankDerivedValue,
+          f,
+        );
       }
       if (hasRank) {
         next._canonicalConsensusRank = ranks[name];
@@ -2028,6 +2042,31 @@ export async function fetchDynastyData(opts = {}) {
   const tepCustomized = tepMultiplierIsCustomized(tepMultiplier);
   const tepNativeCustomized =
     tepNativeMultiplierIsCustomized(tepNativeMultiplier);
+
+  // CUSTOM MIX DISABLED 2026-08-14 — enforced SERVER-SIDE, deliberately.
+  //
+  // `siteWeights`, `tepMultiplier` and `tepNativeMultiplier` all live in
+  // `next_settings_v2` in localStorage, are never server-synced, and all
+  // three ride this override path — which returned the recomputed board
+  // under `rankDerivedValue` (it is in `_DELTA_PLAYER_FIELDS`). Two
+  // devices with different stored settings therefore rendered different
+  // canonical values for one player, exactly as `valuationMode` did.
+  //
+  // The withdrawal lives in `normalize_source_overrides`, NOT here. The
+  // client may still post its stored mix; the server ignores it, serves
+  // the canonical board and says why in `warnings`. That is the point:
+  // canonical value is authority-owned, so the guarantee cannot depend on
+  // every client agreeing to stop asking — including stale bundles and
+  // direct callers, which a client-side flag would not cover.
+  //
+  // Narrower than `valuationMode` was: server-side engines read
+  // `latest_contract_data` and never saw the override board, and neither
+  // history writer runs on this path — so trade math and recorded history
+  // were already canonical-safe. The exposure was the /rankings display.
+  //
+  // The LEAGUE-DERIVED TE premium is unaffected and still applies: the
+  // server derives it from the league's own Sleeper `bonus_rec_te`. Only
+  // the user's manual override is withdrawn.
   const customized = sitesCustomized || tepCustomized || tepNativeCustomized;
 
   // WITHDRAWN 2026-08-14 — one canonical methodology. `readValuationMode`
