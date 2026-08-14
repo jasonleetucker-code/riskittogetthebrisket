@@ -36,6 +36,7 @@ from fastapi.testclient import TestClient
 
 import server
 from src.api import gameplan, league_registry
+from tests.api.scoring_fixture import SCORING_CARD, install_scoring_snapshots
 
 # ── Fixture league ───────────────────────────────────────────────────
 # 4 teams x 14 players over 7 starter slots.  Three properties are
@@ -191,6 +192,13 @@ def league(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
     league_registry.reload_registry()
+    # ``main`` and ``side`` genuinely score the same — the suites using
+    # this fixture cross between them on purpose, and since W18-F001 that
+    # is decided by the factual card rather than the shared ``prof_a``
+    # label.  Without this every cross-league request fails closed.
+    install_scoring_snapshots(
+        tmp_path, monkeypatch, {"L-MAIN": SCORING_CARD, "L-SIDE": SCORING_CARD}
+    )
 
     from src.api import user_kv
 

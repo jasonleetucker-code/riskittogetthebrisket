@@ -27,6 +27,14 @@ from fastapi.testclient import TestClient
 
 import server
 from src.api import league_registry
+from tests.api.scoring_fixture import (
+    OTHER_SCORING_CARD,
+    SCORING_CARD,
+    install_scoring_snapshots,
+)
+
+
+_install_scoring_snapshots = install_scoring_snapshots
 
 
 @pytest.fixture
@@ -68,6 +76,11 @@ def two_league_registry(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
     league_registry.reload_registry()
+    # main and side score identically — this fixture's cross-league tests
+    # are about routing, not about scoring compatibility.
+    _install_scoring_snapshots(
+        tmp_path, monkeypatch, {"L-MAIN": SCORING_CARD, "L-SIDE": SCORING_CARD}
+    )
 
     # Isolate user_kv to a temp file so the PUT paths don't leak.
     from src.api import user_kv
@@ -94,11 +107,15 @@ def two_league_registry(tmp_path, monkeypatch):
     league_registry.reload_registry()
 
 
-def _install_contract_for_league(monkeypatch, league_key: str):
+def _install_contract_for_league(monkeypatch, league_key: str, *, scoring=SCORING_CARD):
     """Put a stub contract in ``latest_contract_data`` stamped for
     ``league_key``.  Minimal enough to pass the initial guards on
     routes like /api/trade/simulate that bail on missing
     ``playersArray``.
+
+    ``scoring=None`` produces an UNIDENTIFIED contract — one carrying no
+    scoring card at all, the pre-W18-F001 shape that used to be treated
+    as compatible with every league.
 
     **Must be called INSIDE the TestClient context** so the
     ``app.lifespan`` startup can't overwrite ``latest_contract_data``
@@ -109,11 +126,14 @@ def _install_contract_for_league(monkeypatch, league_key: str):
     alerts tests (tests/api/test_signal_alerts.py) for the same
     pattern + rationale.
     """
+    sleeper = {"teams": [{"ownerId": "oA", "name": "Team A", "players": []}]}
+    if scoring is not None:
+        sleeper["scoringSettings"] = dict(scoring)
     stub = {
         "meta": {"leagueKey": league_key},
         "players": {"stub": {"name": "Stub"}},
         "playersArray": [{"name": "Stub"}],
-        "sleeper": {"teams": [{"ownerId": "oA", "name": "Team A", "players": []}]},
+        "sleeper": sleeper,
     }
     monkeypatch.setattr(server, "latest_contract_data", stub)
     return stub
@@ -188,14 +208,21 @@ def test_api_data_rejects_unknown_league(two_league_registry, monkeypatch):
     assert res.json()["error"] == "unknown_league"
 
 
-def test_api_data_returns_200_with_nulled_sleeper_for_legacy_stub(two_league_registry, monkeypatch):
-    """Legacy test: the stub contract in this fixture doesn't stamp
-    ``meta.scoringProfile``, which means the endpoint can't enforce
-    profile matching.  In that case the pre-refactor behavior applies
-    — same-scoring-profile pass-through is assumed, sleeper is
-    nulled for the non-matching league.  Upgrading the stub to
-    include a profile would push this into the ``stranger`` (503)
-    path; see ``test_api_data_503s_when_scoring_profile_differs``."""
+def test_api_data_returns_200_with_nulled_sleeper_for_compatible_league(
+    two_league_registry, monkeypatch
+):
+    """Proven-compatible scoring, different league → rankings, no sleeper.
+
+    ``main`` and ``side`` carry identical scoring cards in this fixture,
+    so the shared board is legitimately servable; the sleeper block is
+    nulled because rosters are a leagueKey property.  The 503 path is
+    ``test_api_data_503s_when_scoring_differs``.
+
+    This test used to assert the same 200 for a contract stamping NO
+    scoring identity at all, on the reasoning that a gate with nothing to
+    compare should assume compatibility.  That was W18-F001's fail-open;
+    ``test_api_data_503s_for_an_unidentified_contract`` now pins the
+    opposite."""
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract_for_league(monkeypatch, "main")
         monkeypatch.setattr(server, "latest_data_bytes", None)
@@ -207,6 +234,47 @@ def test_api_data_returns_200_with_nulled_sleeper_for_legacy_stub(two_league_reg
     assert body["sleeper"] is None
     assert body["meta"]["leagueKey"] == "side"
     assert body["meta"]["sleeperDataReady"] is False
+
+
+def test_api_data_503s_for_an_unidentified_contract(two_league_registry, monkeypatch):
+    """W18-F001: no scoring identity is UNPROVEN, not compatible.
+
+    A contract carrying no scoring card cannot be shown to apply to any
+    other league, so it is refused for one — while still serving its own
+    league normally, which is what bounds the blast radius of failing
+    closed to genuine cross-league requests."""
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main", scoring=None)
+        monkeypatch.setattr(server, "latest_data_bytes", None)
+        monkeypatch.setattr(server, "latest_data_gzip_bytes", None)
+        monkeypatch.setattr(server, "latest_data_etag", None)
+        cross = c.get("/api/data?leagueKey=side")
+        own = c.get("/api/data?leagueKey=main")
+    assert cross.status_code == 503, cross.text
+    body = cross.json()
+    assert body["error"] == "data_not_ready"
+    assert body["leagueKey"] == "side"
+    assert body["loadedScoringFingerprint"] is None
+    assert own.status_code == 200, own.text
+
+
+def test_api_data_503s_when_the_requested_league_has_no_snapshot(
+    two_league_registry, tmp_path, monkeypatch
+):
+    """The other unproven direction: an identified contract, but the
+    requested league's own scoring was never observed."""
+    _install_scoring_snapshots(tmp_path, monkeypatch, {"L-MAIN": SCORING_CARD})
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main")
+        monkeypatch.setattr(server, "latest_data_bytes", None)
+        monkeypatch.setattr(server, "latest_data_gzip_bytes", None)
+        monkeypatch.setattr(server, "latest_data_etag", None)
+        res = c.get("/api/data?leagueKey=side")
+    assert res.status_code == 503, res.text
+    body = res.json()
+    assert body["error"] == "data_not_ready"
+    assert body["scoringFingerprint"] is None
+    assert body["loadedScoringFingerprint"]
 
 
 def test_api_data_compact_view_serves_precomputed_bytes(two_league_registry, monkeypatch):
@@ -356,20 +424,33 @@ def shared_scoring_registry(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
     league_registry.reload_registry()
+    # The labels above are what the fixture is NAMED for, but they no
+    # longer decide anything (W18-F001).  The cards do: main and twin
+    # score identically, stranger does not.
+    _install_scoring_snapshots(
+        tmp_path,
+        monkeypatch,
+        {"LM": SCORING_CARD, "LT": SCORING_CARD, "LS": OTHER_SCORING_CARD},
+    )
     # Bypass the private-api middleware — separately tested in
     # test_private_auth.py.  Without this, /api/data + /api/terminal
-    # 401 before the scoring-profile logic can run.
+    # 401 before the scoring-compatibility logic can run.
     monkeypatch.setattr(server, "_is_authenticated", lambda request: True)
     yield
     league_registry.reload_registry()
 
 
-def _install_contract_with_profile(monkeypatch, league_key: str, profile: str):
+def _install_contract_with_profile(
+    monkeypatch, league_key: str, profile: str, *, scoring=SCORING_CARD
+):
+    sleeper = {"teams": [{"ownerId": "oA", "name": "Team A", "players": []}]}
+    if scoring is not None:
+        sleeper["scoringSettings"] = dict(scoring)
     stub = {
         "meta": {"leagueKey": league_key, "scoringProfile": profile},
         "players": {"stub": {"name": "Stub"}},
         "playersArray": [{"name": "Stub"}],
-        "sleeper": {"teams": [{"ownerId": "oA", "name": "Team A", "players": []}]},
+        "sleeper": sleeper,
     }
     monkeypatch.setattr(server, "latest_contract_data", stub)
     # Skip the pre-serialized bytes path so our hand-edited sleeper
@@ -721,10 +802,84 @@ def test_api_data_overlay_layers_fresh_trades_in_baked_shape(shared_scoring_regi
     assert sleeper.get("overlaySource") == "live-merge"
 
 
-def test_api_data_503s_when_scoring_profile_differs(shared_scoring_registry, monkeypatch):
-    """Loaded contract is superflex_tep15_ppr1.  Requesting the
-    'stranger' league (standard_1qb_ppr1) must 503 — rankings
-    genuinely can't be reused across different scoring."""
+def _cross_league_overlay(league_config=None):
+    payload = {
+        "leagueId": "LT",
+        "teams": [{"ownerId": "oB", "name": "Twin Team", "players": ["twin-1"]}],
+        "trades": [],
+        "waivers": [],
+        "overlaySource": "live",
+        "overlayFetchedAt": "2026-08-12T12:00:00+00:00",
+    }
+    if league_config is not None:
+        payload["leagueConfig"] = league_config
+    return payload
+
+
+def test_cross_league_block_never_inherits_config_and_claims_ready(
+    shared_scoring_registry, monkeypatch
+):
+    """W18-F002, end to end through /api/data.
+
+    Twin's teams must never be published beside main's scoring card,
+    roster slots and league settings under ``sleeperDataReady: true``."""
+    monkeypatch.setattr(
+        server._sleeper_overlay,
+        "fetch_sleeper_overlay",
+        lambda **_kw: _cross_league_overlay(),
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        server.latest_contract_data["sleeper"].update(
+            {
+                "positions": {"WR": ["A"]},
+                "rosterPositions": ["QB", "RB", "BN"],
+                "leagueSettings": {"num_teams": 12},
+            }
+        )
+        server._OVERLAY_RESPONSE_CACHE.clear()
+        res = c.get("/api/data?leagueKey=twin")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    sleeper = body["sleeper"]
+    assert sleeper["teams"][0]["ownerId"] == "oB"
+    assert body["meta"]["sleeperDataReady"] is False
+    assert body["meta"]["sleeperLoadedLeagueKey"] == "main"
+    for field in ("scoringSettings", "rosterPositions", "leagueSettings"):
+        assert sleeper.get(field) is None, f"{field} inherited from the loaded league"
+    # NFL-wide maps are league-independent and still reused.
+    assert sleeper["positions"] == {"WR": ["A"]}
+
+
+def test_cross_league_block_is_ready_when_it_owns_its_config(shared_scoring_registry, monkeypatch):
+    """The other half: don't degrade a block that IS the requested
+    league's.  Otherwise the repair costs working functionality."""
+    twin_config = {
+        "scoringSettings": dict(SCORING_CARD),
+        "rosterPositions": ["QB", "RB", "WR", "BN"],
+        "leagueSettings": {"num_teams": 10},
+    }
+    monkeypatch.setattr(
+        server._sleeper_overlay,
+        "fetch_sleeper_overlay",
+        lambda **_kw: _cross_league_overlay(twin_config),
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        server.latest_contract_data["sleeper"].update(
+            {"rosterPositions": ["QB", "RB", "BN"], "leagueSettings": {"num_teams": 12}}
+        )
+        server._OVERLAY_RESPONSE_CACHE.clear()
+        res = c.get("/api/data?leagueKey=twin")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["meta"]["sleeperDataReady"] is True
+    assert body["sleeper"]["leagueSettings"] == {"num_teams": 10}
+    assert body["sleeper"]["rosterPositions"] == ["QB", "RB", "WR", "BN"]
+
+
+def test_api_data_503s_when_scoring_differs(shared_scoring_registry, monkeypatch):
+    """'stranger' scores differently → 503; rankings can't be reused."""
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
         res = c.get("/api/data?leagueKey=stranger")
@@ -733,10 +888,40 @@ def test_api_data_503s_when_scoring_profile_differs(shared_scoring_registry, mon
     assert body["error"] == "data_not_ready"
     assert body["leagueKey"] == "stranger"
     assert body["scoringProfile"] == "standard_1qb_ppr1"
+    # Both sides identified — this is a proven MISMATCH, not an
+    # unverifiable one, and the response says which.
+    assert body["scoringFingerprint"]
+    assert body["loadedScoringFingerprint"]
+    assert body["scoringFingerprint"] != body["loadedScoringFingerprint"]
+
+
+def test_api_data_503s_when_only_the_label_matches(shared_scoring_registry, tmp_path, monkeypatch):
+    """The live defect, in miniature (W18-F001).
+
+    ``twin`` carries the SAME ``scoringProfile`` label as ``main``.  Give
+    it a genuinely different scoring card — which is the repo's real
+    situation, where both live leagues are labelled
+    ``superflex_tep15_ppr1`` and differ on 35 of 48 shared keys — and the
+    board must be refused despite the matching label."""
+    _install_scoring_snapshots(
+        tmp_path, monkeypatch, {"LM": SCORING_CARD, "LT": OTHER_SCORING_CARD}
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        res = c.get("/api/data?leagueKey=twin")
+    assert res.status_code == 503, res.text
+    assert res.json()["error"] == "data_not_ready"
+    assert league_registry.get_scoring_profile("twin") == league_registry.get_scoring_profile(
+        "main"
+    )
 
 
 def test_registry_helpers_share_scoring(shared_scoring_registry):
-    """Unit-level check on the registry helpers themselves."""
+    """Unit-level check on the registry helpers themselves.
+
+    ``leagues_share_scoring`` answers from the factual cards; the profile
+    label is still readable and still means what it always meant, it just
+    no longer decides this."""
     assert league_registry.leagues_share_scoring("main", "twin") is True
     assert league_registry.leagues_share_scoring("main", "stranger") is False
     assert league_registry.leagues_share_scoring("main", "unknown") is False

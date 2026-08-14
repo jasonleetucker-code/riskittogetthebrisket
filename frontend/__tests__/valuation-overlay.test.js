@@ -12,7 +12,11 @@
  *  3. A version mismatch must refuse outright, not half-apply.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { applyValuationOverlay, buildRows } from "@/lib/dynasty-data";
+import {
+  EXPERIMENTAL_LEAGUE_ADJUSTED_VALUE,
+  applyValuationOverlay,
+  buildRows,
+} from "@/lib/dynasty-data";
 
 const STAMP = "2026-07-27T05:14:44";
 
@@ -95,13 +99,18 @@ const OVERLAY = {
 };
 
 describe("applyValuationOverlay — playersArray path", () => {
-  it("scales value and every alias that mirrors it", () => {
+  it("writes the experimental field and leaves canonical + every alias alone", () => {
+    // WITHDRAWN 2026-08-14. This used to assert the lens scaled
+    // `rankDerivedValue` and all three aliases. That is the defect: an
+    // unvalidated methodology owning the canonical field is how a
+    // localStorage value changed a player's canonical value.
     const out = applyValuationOverlay(baseArrayContract(), OVERLAY);
     const rise = out.data.playersArray.find((r) => r.displayName === "Rise");
-    expect(rise.rankDerivedValue).toBe(5300);
-    expect(rise.values.overall).toBe(5300);
-    expect(rise.values.finalAdjusted).toBe(5300);
-    expect(rise.values.displayValue).toBe(5300);
+    expect(rise[EXPERIMENTAL_LEAGUE_ADJUSTED_VALUE]).toBe(5300);
+    expect(rise.rankDerivedValue).toBe(5000);
+    expect(rise.values.overall).toBe(5000);
+    expect(rise.values.finalAdjusted).toBe(5000);
+    expect(rise.values.displayValue).toBe(5000);
   });
 
   it("leaves values.raw alone — the toggle changes Our Value, never Raw", () => {
@@ -142,8 +151,10 @@ describe("applyValuationOverlay — legacy dict path (THE DEFAULT)", () => {
   it("writes the underscored rank key AND the un-underscored value key", () => {
     const out = applyValuationOverlay(baseLegacyContract(), OVERLAY);
     const rise = out.data.players.Rise;
-    // The asymmetry that makes this the highest-risk bug in the feature.
-    expect(rise.rankDerivedValue).toBe(5300);
+    // The asymmetry that made this the highest-risk bug in the feature.
+    // Canonical value now survives; only the rank keys still move.
+    expect(rise[EXPERIMENTAL_LEAGUE_ADJUSTED_VALUE]).toBe(5300);
+    expect(rise.rankDerivedValue).toBe(5000);
     expect(rise._canonicalConsensusRank).toBe(1);
     expect(rise._canonicalTierId).toBe(1);
   });
@@ -151,7 +162,8 @@ describe("applyValuationOverlay — legacy dict path (THE DEFAULT)", () => {
   it("moves value and rank together", () => {
     const out = applyValuationOverlay(baseLegacyContract(), OVERLAY);
     const fall = out.data.players.Fall;
-    expect(fall.rankDerivedValue).toBe(4888);
+    expect(fall[EXPERIMENTAL_LEAGUE_ADJUSTED_VALUE]).toBe(4888);
+    expect(fall.rankDerivedValue).toBe(5200);
     expect(fall._canonicalConsensusRank).toBe(2);
   });
 

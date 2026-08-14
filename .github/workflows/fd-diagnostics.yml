@@ -33,6 +33,14 @@ on:
         required: false
         default: "30"
         type: string
+      watchdog_window_seconds:
+        description: >-
+          Seconds to poll the watchdog timer/service tuple at 5Hz, to
+          observe the infinity-while-executing transition. 0 = off
+          (static properties still print). >=130 crosses two firings.
+        required: false
+        default: "0"
+        type: string
 
 permissions:
   contents: read
@@ -76,6 +84,7 @@ jobs:
           SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
           SAMPLES: ${{ inputs.samples }}
           INTERVAL: ${{ inputs.interval_seconds }}
+          WATCHDOG_WINDOW: ${{ inputs.watchdog_window_seconds }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -100,5 +109,5 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "SERVICE_NAME=$(printf %q "$SERVICE_NAME") bash -s -- $(printf %q "$SERVICE_NAME") $(printf %q "$SAMPLES") $(printf %q "$INTERVAL")" \
+            "SERVICE_NAME=$(printf %q "$SERVICE_NAME") bash -s -- $(printf %q "$SERVICE_NAME") $(printf %q "$SAMPLES") $(printf %q "$INTERVAL") $(printf %q "$WATCHDOG_WINDOW")" \
             < deploy/diagnostics/fd_inventory.sh

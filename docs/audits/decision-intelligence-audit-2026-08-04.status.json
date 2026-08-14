@@ -543,16 +543,16 @@
    "auditEvidence": "`src/nfl_data/realized_points.py:78-99 _SIMPLE_KEYS` has no entry for `rec_0_4`/`rec_5_9`/`rec_10_19`/`rec_20_29`/`rec_30_39`/`rec_40p`, and `compute_weekly_points` (`:323-420`) has no other branch for them. The live league card carries all six at nonzero rates: `rec_0_4=0.17, rec_5_9=0.42, rec_10_19=0.67, rec_20_29=0.92, rec_30_39=1.17, rec_40p=1.92` (exports/latest/dynasty_data_2026-08-04.json \u2192",
    "auditId": "B-2",
    "path": "src/nfl_data/realized_points.py",
-   "signature": "\"rec\": (\"receptions\", \"Rec\")",
+   "signature": "\"rec\": ((\"receptions\",), \"Rec\")",
    "status": "open",
-   "verifiedBy": "_SIMPLE_KEYS carries flat 'rec' and no rec_0_4 / rec_5_9 / rec_10_19 band keys, so the active reception-band rules score nothing.",
+   "verifiedBy": "_SIMPLE_KEYS carries flat 'rec' and no rec_0_4 / rec_5_9 / rec_10_19 band keys, so the active reception-band rules score nothing.\n\nSIGNATURE RESPELLED 2026-08-13 (B7), STATUS DELIBERATELY UNCHANGED. B7 converted _SIMPLE_KEYS to candidate columns \u2014 `\"rec\": (\"receptions\", \"Rec\")` became `\"rec\": ((\"receptions\",), \"Rec\")` \u2014 so the old needle stopped matching and the probe flipped to signature_absent. That is the case this module's own docstring warns about: an absent signature means the cited MECHANISM changed, not that the defect is fixed. It is not fixed. The six reception-band rules still score nothing; what B7 changed is that they are now DECLARED \u2014 scoring_coverage reports them UNSCORABLE with a reason and describe_gaps surfaces them, instead of silently contributing zero. Honest disclosure is not scoring, and closing C29 on a respelling would have been exactly the unchecked-claim failure this gate exists to prevent.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
     "result": "signature_present",
     "path": "src/nfl_data/realized_points.py",
-    "needle": "\"rec\": (\"receptions\", \"Rec\")"
+    "needle": "\"rec\": ((\"receptions\",), \"Rec\")"
    }
   },
   {
@@ -618,7 +618,7 @@
    "title": "Two shipped systems give the SAME team opposite contention labels: /phases says \"Win-now\", /api/gameplan says \"rebuild\"",
    "area": "Roster & Trade Intelligence (src/roster_intel/), Terminal aggregation (src/api/terminal.py + GET /api/terminal), Gameplan API (src/api/gameplan.py + GET /api/gameplan), and their frontend surfaces (frontend/lib/portfolio-insights.js, frontend/lib/team-phase.js, frontend/lib/signal-engine.js, frontend/components/terminal/*, frontend/components/TeamPhasePanel.jsx) \u2014 commit 9c5d972",
    "complexity": "Medium",
-   "auditEvidence": "Owner 831633191830933504 (\"Collin\"). Backend: `src/roster_intel/window.py:league_competitiveness` (lines ~300-330) takes the championship-odds percentile; measured live run \u2192 `comp=0.188, mostLikely='rebuild', confidence=0.388` while `lineup_score=673.0` (4th-highest of 12). Frontend: `frontend/lib/team-phase.js:83-90` `if (isHighValue && isYounger) return PHASES.WIN_NOW;` \u2014 measured live: Collin ",
+   "auditEvidence": "Owner owner-b84d236298d2 (\"Collin\"). Backend: `src/roster_intel/window.py:league_competitiveness` (lines ~300-330) takes the championship-odds percentile; measured live run \u2192 `comp=0.188, mostLikely='rebuild', confidence=0.388` while `lineup_score=673.0` (4th-highest of 12). Frontend: `frontend/lib/team-phase.js:83-90` `if (isHighValue && isYounger) return PHASES.WIN_NOW;` \u2014 measured live: Collin ",
    "auditId": "R-3",
    "path": "frontend/lib/team-phase.js",
    "signature": "if (isHighValue && isYounger) return PHASES.WIN_NOW;",
@@ -638,7 +638,7 @@
    "title": "Competitive window ranks 8 of 12 rosters on one scale and 4 on an incomparable other, then presents both in one five-state vocabulary",
    "area": "Roster & Trade Intelligence (src/roster_intel/), Terminal aggregation (src/api/terminal.py + GET /api/terminal), Gameplan API (src/api/gameplan.py + GET /api/gameplan), and their frontend surfaces (frontend/lib/portfolio-insights.js, frontend/lib/team-phase.js, frontend/lib/signal-engine.js, frontend/components/terminal/*, frontend/components/TeamPhasePanel.jsx) \u2014 commit 9c5d972",
    "complexity": "Medium",
-   "auditEvidence": "`data/ros/sims/latest_playoff.json` contains 8 rows for a 12-team league (verified: `len(playoffOdds)==8`; missing ownerIds `{1208452010173538304, 1002085133723299840, 1303549304882892800, 712035316776669184}`). `src/roster_intel/window.py:league_competitiveness` percentiles championshipOdds *over the rows it was given* (`below/ties over len(champ)`), else falls back to `lineupScoreRank` over all ",
+   "auditEvidence": "`data/ros/sims/latest_playoff.json` contains 8 rows for a 12-team league (verified: `len(playoffOdds)==8`; missing ownerIds `{owner-9b939999c520, owner-396ab6a38b0f, owner-81e37a629680, owner-85176a3f8776}`). `src/roster_intel/window.py:league_competitiveness` percentiles championshipOdds *over the rows it was given* (`below/ties over len(champ)`), else falls back to `lineupScoreRank` over all ",
    "auditId": "R-3b",
    "path": "src/ros/trade_deadline.py",
    "signature": "owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))",
@@ -821,5 +821,9 @@
     "result": "no_mechanical_probe"
    }
   }
- ]
+ ],
+ "_sanitized": {
+  "by": "scripts/sanitize_audit_evidence.py",
+  "why": "B8 \u2014 git is a distribution channel. Manager identifiers are deterministic non-reversible pseudonyms and per-manager intelligence values are nulled with their keys kept, so this capture still proves which fields the payload exposed, how many managers it covered and how deep it went. Public league-wide facts (rank, odds, percentile) and the strategy text the findings turn on are preserved."
+ }
 }

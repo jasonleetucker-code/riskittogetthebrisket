@@ -2609,6 +2609,15 @@ def normalize_tep_native_multiplier(raw: Any) -> float | None:
     return None
 
 
+#: Custom Mix (user source weighting) is disabled: it recomputed the
+#: board through the canonical pipeline and returned it under
+#: ``rankDerivedValue``, so two devices with different localStorage held
+#: two canonical values for one player.  A module constant rather than an
+#: env flag because this is a product decision with a written rationale,
+#: not an operational toggle — and because a test can assert on it.
+_SOURCE_OVERRIDES_DISABLED: bool = True
+
+
 def normalize_source_overrides(
     raw: Any,
 ) -> tuple[dict[str, dict[str, Any]], list[str]]:
@@ -2652,6 +2661,27 @@ def normalize_source_overrides(
     out: dict[str, dict[str, Any]] = {}
 
     if raw is None:
+        return out, warnings
+
+    # CUSTOM MIX DISABLED 2026-08-14 — one canonical board.
+    #
+    # Closed HERE, at the one function every override body passes
+    # through, rather than at the route: the client no longer sends
+    # overrides, but a stale bundle or a direct caller still can, and a
+    # user-weighted board returned under ``rankDerivedValue`` (which is
+    # in ``_DELTA_PLAYER_FIELDS``) is a second canonical truth however it
+    # was requested.
+    #
+    # The request is answered, not refused — the endpoint still serves
+    # the canonical board with the league-derived TE premium applied, and
+    # says in ``warnings`` why the weights were ignored. Refusing would
+    # break /rankings for anyone whose device still posts a stored mix.
+    if _SOURCE_OVERRIDES_DISABLED:
+        warnings.append(
+            "custom source weighting is disabled; serving the canonical "
+            "consensus board (see docs/valuation/"
+            "LEAGUE_AWARE_METHODOLOGY_REJECTION.md)"
+        )
         return out, warnings
     if not isinstance(raw, dict):
         warnings.append(f"Top-level overrides must be an object; got {type(raw).__name__}")

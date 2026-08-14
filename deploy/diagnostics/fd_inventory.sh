@@ -49,9 +49,11 @@
 # statement is the verdict on the accumulator.
 #
 # Usage:
-#   deploy/diagnostics/fd_inventory.sh [service] [samples] [interval_s]
+#   deploy/diagnostics/fd_inventory.sh \
+#     [service] [samples] [interval_s] [watchdog_window_s]
 #
-# Defaults: dynasty, 10 samples, 30 s apart (a 5-minute window).
+# Defaults: dynasty, 10 samples, 30 s apart (a 5-minute window), and no
+# watchdog boundary sampling (see WATCHDOG_CONTRACT_WINDOW_S below).
 
 set -uo pipefail
 
@@ -368,6 +370,110 @@ watchdog_state() {
   fi
 }
 run_optional "watchdog units and installed executable" watchdog_state
+
+# ── optional: the timer contract ACROSS a firing boundary ───────────
+# `watchdog_state` above reads the timer once.  One read cannot see the
+# state that matters here: while the triggered oneshot is executing,
+# systemd has no next activation to report and answers
+# `NextElapseUSecMonotonic=infinity`.  A verifier that samples once
+# therefore passes or fails on where its read landed relative to a
+# 60-second cadence.
+#
+# So this samples the whole tuple every second for longer than one
+# period, which guarantees crossing at least one boundary, and prints
+# every sample rather than a summary — the transition IS the evidence.
+#
+# `TimersMonotonic` is the property that distinguishes "no next
+# activation because the unit is running right now" from "no next
+# activation because this timer has no recurring schedule": it lists the
+# monotonic timer definitions systemd actually loaded, so it is present
+# for a healthy timer whatever its momentary next-elapse says.  It is
+# read live rather than inferred from the unit file in the repository,
+# because what shipped and what is loaded are different claims.
+#
+# Still read-only: `systemctl show` computes nothing and starts nothing.
+#
+# OPT-IN, and OFF by default.  The window is wall-clock time this script
+# spends doing nothing else, so a default of "long enough to cross two
+# boundaries" would add two and a half minutes to every FD inventory —
+# and to every test that runs this script.  The static properties above
+# print regardless; only the sampling loop is gated.  A zero window says
+# so out loud rather than skipping silently, because a section that
+# prints nothing and a section that was not asked to run must not read
+# the same.
+WATCHDOG_CONTRACT_WINDOW_S="${WATCHDOG_CONTRACT_WINDOW_S:-${4:-0}}"
+
+watchdog_timer_contract() {
+  local timer="dynasty-healthcheck.timer" svc="dynasty-healthcheck.service"
+  local prop
+  for prop in Unit TimersMonotonic TimersCalendar AccuracyUSec RandomizedDelayUSec; do
+    printf '%-30s %s\n' "timer.${prop}" \
+      "$(sudo -n "${SYSTEMCTL}" show "${timer}" -p "${prop}" --value 2>/dev/null)"
+  done
+  for prop in Type TimeoutStartUSec ActiveState SubState Result; do
+    printf '%-30s %s\n' "service.${prop}" \
+      "$(sudo -n "${SYSTEMCTL}" show "${svc}" -p "${prop}" --value 2>/dev/null)"
+  done
+
+  # The execution itself is SHORT — a 1 Hz sampler crossed a boundary
+  # without ever landing inside one (run 31677718502).  So poll at 5 Hz
+  # for longer than two periods and print on CHANGE rather than on a
+  # fixed cadence: the transition is a handful of samples wide and a
+  # summary would average it away.  A heartbeat row every 5 s keeps the
+  # steady state visible so a silent probe is distinguishable from a
+  # quiet one.
+  printf '\npolling %ss at 5Hz, printing on change (cadence is 60s)\n\n' \
+    "${WATCHDOG_CONTRACT_WINDOW_S}"
+  if (( WATCHDOG_CONTRACT_WINDOW_S <= 0 )); then
+    printf '\nboundary sampling NOT REQUESTED (window=%ss).  Pass a window as\n' \
+      "${WATCHDOG_CONTRACT_WINDOW_S}"
+    printf 'the 4th argument (>= 130s crosses two firings) to observe the\n'
+    printf 'infinity/executing transition.\n'
+    return 0
+  fi
+
+  # `recurring` is sampled too, not just read once up front.  The
+  # verifier requires the recurring base to be present at the moment it
+  # looks, so whether systemd keeps reporting it WHILE the unit runs is
+  # the difference between a fail-closed check and a new false-negative
+  # in the same 0.2 s window as the old one.
+  printf '%-21s %-8s %-17s %-32s %-9s %s\n' \
+    utc_time timer.Act svc.Act/Sub next_monotonic recurring last_trigger
+  local polls i timer_out svc_out t_active next_mono last_trig s_active s_sub
+  local timers_mono recurring prev="" cur reason
+  polls=$(( WATCHDOG_CONTRACT_WINDOW_S * 5 ))
+  for ((i = 0; i < polls; i++)); do
+    timer_out="$(sudo -n "${SYSTEMCTL}" show "${timer}" \
+      -p ActiveState -p NextElapseUSecMonotonic -p LastTriggerUSec 2>/dev/null)"
+    svc_out="$(sudo -n "${SYSTEMCTL}" show "${svc}" \
+      -p ActiveState -p SubState 2>/dev/null)"
+    timers_mono="$(sudo -n "${SYSTEMCTL}" show "${timer}" \
+      -p TimersMonotonic --value 2>/dev/null)"
+    t_active="$(printf '%s\n' "${timer_out}" | sed -n 's/^ActiveState=//p')"
+    next_mono="$(printf '%s\n' "${timer_out}" | sed -n 's/^NextElapseUSecMonotonic=//p')"
+    last_trig="$(printf '%s\n' "${timer_out}" | sed -n 's/^LastTriggerUSec=//p')"
+    s_active="$(printf '%s\n' "${svc_out}" | sed -n 's/^ActiveState=//p')"
+    s_sub="$(printf '%s\n' "${svc_out}" | sed -n 's/^SubState=//p')"
+    case "${timers_mono}" in
+      *OnUnitActiveUSec=*|*OnUnitInactiveUSec=*) recurring=yes ;;
+      "") recurring=EMPTY ;;
+      *) recurring=NO ;;
+    esac
+    cur="${t_active}|${next_mono}|${last_trig}|${s_active}|${s_sub}|${recurring}"
+    reason=""
+    [[ "${cur}" != "${prev}" ]] && reason="change"
+    (( i % 25 == 0 )) && reason="${reason:-heartbeat}"
+    if [[ -n "${reason}" ]]; then
+      printf '%-21s %-8s %-17s %-32s %-9s %s  [%s]\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${t_active:-<empty>}" \
+        "${s_active:-?}/${s_sub:-?}" "${next_mono:-<empty>}" "${recurring}" \
+        "${last_trig:-<empty>}" "${reason}"
+    fi
+    prev="${cur}"
+    sleep 0.2
+  done
+}
+run_optional "watchdog timer contract across a firing boundary" watchdog_timer_contract
 
 # ── required: the trend ─────────────────────────────────────────────
 # A single number cannot distinguish a healthy steady state from the

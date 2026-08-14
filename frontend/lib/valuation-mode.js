@@ -34,18 +34,33 @@ import { SETTINGS_KEY } from "@/lib/trade-logic";
 export const MARKET = "market";
 export const LEAGUE_ADJUSTED = "leagueAdjusted";
 
-/** The board the user has selected, or `market` when unknowable. */
+/**
+ * The board a request should be answered from.
+ *
+ * WITHDRAWN 2026-08-14 — always `MARKET`, which is now simply "the one
+ * canonical board".
+ *
+ * This used to read `valuationMode` out of `next_settings_v2` in
+ * localStorage. That is device-local and never server-synced, so one
+ * account on two devices held two answers to "which methodology am I
+ * looking at", and the lens overwrote `rankDerivedValue` in place — so
+ * the same player rendered different values on phone and desktop with
+ * nothing in the payload naming which was which. Measured on the live
+ * overlay: +1.8% for QBs, up to +9.8% for DL.
+ *
+ * The league-aware methodology was evaluated for promotion to canonical
+ * and rejected on the evidence (see
+ * `docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md`). With one
+ * methodology there is nothing to select, so the setting is inert rather
+ * than removed: reading it and ignoring it is what makes an old phone
+ * with `leagueAdjusted` stored converge automatically, with no migration
+ * step and no user cleanup.
+ *
+ * Kept as a function, not inlined to a constant, because it is the one
+ * seam a future *validated* methodology re-opens.
+ */
 export function readValuationMode() {
-  if (typeof window === "undefined") return MARKET;
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return MARKET;
-    const parsed = JSON.parse(raw);
-    return parsed?.valuationMode === LEAGUE_ADJUSTED ? LEAGUE_ADJUSTED : MARKET;
-  } catch {
-    // A corrupt settings blob must not take down a trade request.
-    return MARKET;
-  }
+  return MARKET;
 }
 
 /**

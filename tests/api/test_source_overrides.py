@@ -26,10 +26,12 @@ from __future__ import annotations
 
 import unittest
 from typing import Any
+from unittest import mock
 from unittest.mock import patch
 
 import json
 
+from src.api import data_contract as _data_contract
 from src.api.data_contract import (
     _DELTA_PLAYER_FIELDS,
     _RANKING_SOURCES,
@@ -201,8 +203,47 @@ def _by_name(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
+class TestCustomMixIsDisabled(unittest.TestCase):
+    """Custom Mix was withdrawn from canonical ownership on 2026-08-14.
+
+    ``siteWeights`` / ``tepMultiplier`` / ``tepNativeMultiplier`` live in
+    ``next_settings_v2`` in localStorage, are never server-synced, and all
+    three recomputed the board and returned it under ``rankDerivedValue``.
+    Two devices, two canonical values for one player.
+
+    Closed in ``normalize_source_overrides`` — the one function every
+    override body passes through — rather than at the route, because a
+    stale bundle or a direct caller can still post one.
+    """
+
+    def test_a_posted_source_mix_is_ignored(self) -> None:
+        out, warnings = normalize_source_overrides(
+            {"ktcSfTep": {"include": False}, "dlfSf": {"weight": 3.0}}
+        )
+        self.assertEqual(out, {}, "a custom source mix still reaches the pipeline")
+        self.assertTrue(
+            any("disabled" in w for w in warnings),
+            "the response does not say why the weights were ignored",
+        )
+
+    def test_it_is_answered_rather_than_refused(self) -> None:
+        """Refusing would break /rankings for anyone whose device still
+        posts a stored mix. The canonical board is served instead."""
+        out, warnings = normalize_source_overrides({"ktcSfTep": {"include": False}})
+        self.assertEqual(out, {})
+        self.assertTrue(warnings)
+
+
+@mock.patch.object(_data_contract, "_SOURCE_OVERRIDES_DISABLED", False)
 class TestNormalizeSourceOverrides(unittest.TestCase):
-    """Input validation + shape normalization for the override map."""
+    """Input validation + shape normalization for the override map.
+
+    The parser is retained and still covered even though Custom Mix is
+    disabled: deleting it would mean rebuilding — and re-reviewing — the
+    validation when the feature returns as an explicitly non-canonical
+    analytical board. The class patches the gate off so these exercise
+    the parser rather than the withdrawal.
+    """
 
     def test_empty_input_returns_empty(self) -> None:
         out, warnings = normalize_source_overrides(None)
@@ -799,7 +840,14 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
             self.assertNotIn("tep_multiplier", w)
         self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 1.15}), 1.15)
 
+    @mock.patch.object(_data_contract, "_SOURCE_OVERRIDES_DISABLED", False)
     def test_tep_multiplier_alongside_legacy_overrides(self) -> None:
+        """Parser-level: the two fields are extracted independently.
+
+        Gate patched off so this exercises the extraction rather than the
+        Custom Mix withdrawal — the live behaviour is pinned by
+        ``TestCustomMixIsDisabled``.
+        """
         body = {"tep_multiplier": 1.2, "ktcSfTep": {"include": False}}
         overrides, warnings = normalize_source_overrides(body)
         self.assertEqual(overrides, {"ktcSfTep": {"include": False}})

@@ -213,28 +213,32 @@
   ],
   "sample": {
    "from": {
-    "ownerId": "473973924808355840",
-    "name": "Ty",
+    "ownerId": "owner-394d60448008",
+    "name": "Manager 69",
     "strategy": "balanced",
     "gives": [
      "James Cook",
      "Josh Hines-Allen"
     ],
-    "gain": 2479.7
+    "gain": null
    },
    "to": {
-    "ownerId": "1002085133723299840",
-    "name": "Brent",
+    "ownerId": "owner-396ab6a38b0f",
+    "name": "Manager 98",
     "strategy": "contender",
     "gives": [
      "Harold Fannin"
     ],
-    "gain": 1906.0
+    "gain": null
    },
    "marketFairnessPct": 10.9,
    "fairnessBasis": "model_clearing",
    "doublePositive": true,
    "minGain": 1906.0
   }
+ },
+ "_sanitized": {
+  "by": "scripts/sanitize_audit_evidence.py",
+  "why": "B8 \u2014 git is a distribution channel. Manager identifiers are deterministic non-reversible pseudonyms and per-manager intelligence values are nulled with their keys kept, so this capture still proves which fields the payload exposed, how many managers it covered and how deep it went. Public league-wide facts (rank, odds, percentile) and the strategy text the findings turn on are preserved."
  }
 }

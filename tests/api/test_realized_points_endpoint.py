@@ -108,3 +108,128 @@ def test_the_filter_finds_real_weeks_on_the_live_file():
     assert (
         len(_filter(rows, gsis)) > 0
     ), "the filter matched no weeks for a GSIS id taken from the data itself"
+
+
+# ── The route itself (W18-F004 / B7) ──────────────────────────────────
+#
+# Everything above exercises a COPY of the endpoint's filter. The
+# docstring says that copy is "kept in one place so this test and
+# server.py cannot drift apart silently" — but a copy is precisely the
+# thing that can drift, and while it sat here two other defects lived in
+# the real handler untested:
+#
+#   * ``players_dir`` read ``sleeper_block["players"]`` / ``["playerDict"]``.
+#     The contract's sleeper block has neither key, so the directory was
+#     always ``None`` and EVERY request returned ``unmapped_player`` — a
+#     well-formed 200 answering nothing, for every player, always.
+#   * ``scoring_settings`` came from the LOADED contract rather than the
+#     REQUESTED league, so a player in a second league was scored under
+#     the first league's rules and stamped with the requested leagueKey.
+#
+# These call the real route.
+
+
+@pytest.fixture
+def realized_client(tmp_path, monkeypatch):
+    """A two-league app with per-league scoring snapshots installed."""
+    import json as _json
+
+    from fastapi.testclient import TestClient
+
+    import server
+    from src.api import league_registry
+    from tests.api.scoring_fixture import (
+        OTHER_SCORING_CARD,
+        SCORING_CARD,
+        install_scoring_snapshots,
+    )
+
+    path = tmp_path / "registry.json"
+    path.write_text(
+        _json.dumps(
+            {
+                "defaultLeagueKey": "main",
+                "leagues": [
+                    {
+                        "key": "main",
+                        "displayName": "Main",
+                        "sleeperLeagueId": "L-MAIN",
+                        "active": True,
+                        "rosterSettings": {"teamCount": 12},
+                    },
+                    {
+                        "key": "side",
+                        "displayName": "Side",
+                        "sleeperLeagueId": "L-SIDE",
+                        "active": True,
+                        "rosterSettings": {"teamCount": 10},
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+    # The two leagues score DIFFERENTLY — that is the point.
+    install_scoring_snapshots(
+        tmp_path, monkeypatch, {"L-MAIN": SCORING_CARD, "L-SIDE": OTHER_SCORING_CARD}
+    )
+    monkeypatch.setattr(server, "_is_authenticated", lambda request: True)
+    monkeypatch.setattr(server, "_get_auth_session", lambda request: {"username": "t"})
+
+    # One player, one week, one reception — enough to tell the two cards
+    # apart (rec 1.0 vs 0.08).
+    monkeypatch.setattr(
+        "src.nfl_data.ingest.fetch_weekly_stats",
+        lambda years: [
+            {
+                "player_id": "00-0000001",
+                "season": 2025,
+                "week": 1,
+                "position": "WR",
+                "receptions": 10,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "src.public_league.sleeper_client.fetch_nfl_players",
+        lambda: {
+            "999": {
+                "player_id": "999",
+                "gsis_id": "00-0000001",
+                "full_name": "Test Player",
+                "position": "WR",
+                "team": "BUF",
+            }
+        },
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        yield c
+    league_registry.reload_registry()
+
+
+def test_the_route_resolves_a_player_instead_of_answering_unmapped(realized_client):
+    body = realized_client.get("/api/player/999/realized?leagueKey=main").json()
+    assert body.get("reason") != "unmapped_player", (
+        "the route still cannot resolve a player — players_dir is not the "
+        "master Sleeper directory"
+    )
+    assert body.get("gsisId") == "00-0000001"
+    assert body.get("weekCount"), "resolved the player but matched no weeks"
+
+
+def test_each_league_is_scored_under_its_own_card(realized_client):
+    """The requested league's rules, not the loaded contract's."""
+    main = realized_client.get("/api/player/999/realized?leagueKey=main").json()
+    side = realized_client.get("/api/player/999/realized?leagueKey=side").json()
+
+    assert main["leagueKey"] == "main"
+    assert side["leagueKey"] == "side"
+    # 10 receptions at rec 1.0 vs rec 0.08 — 10.0 against 0.8.
+    assert main["totalPoints"] == pytest.approx(10.0, abs=1e-6)
+    assert side["totalPoints"] == pytest.approx(0.8, abs=1e-6)
+    assert main["totalPoints"] != side["totalPoints"], (
+        "both leagues scored identically — the route is using one league's "
+        "card for the other, which is the W18-F002 shape on this route"
+    )

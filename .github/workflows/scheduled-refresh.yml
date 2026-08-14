@@ -566,6 +566,20 @@ jobs:
               git add -A -- "$p"
             fi
           done
+          # B8 — `git add -f` OVERRIDES .gitignore, which is how
+          # data/ros/team_strength/*.json came to be tracked in a public
+          # repo every two hours despite .gitignore saying generated
+          # team-strength output stays ignored.  Those files are 78 KB
+          # per league of per-manager weakness intelligence (ownerId,
+          # benchDepthScore, positionalCoverageScore, full lineups), and
+          # the rosTeamStrength route now requires a session for exactly
+          # that payload — leaving the git copy would make the gate
+          # decorative.
+          #
+          # Unstaged rather than removed: the files must keep existing on
+          # the runner and on production, where the ROS pipeline reads
+          # them from disk.  This only stops them entering a commit.
+          git reset -q -- 'data/ros/team_strength/*.json' || true
           if git diff --cached --quiet; then
             echo "No data changes to commit"
           else

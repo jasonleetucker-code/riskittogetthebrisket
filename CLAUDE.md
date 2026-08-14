@@ -1,5 +1,132 @@
 # CLAUDE.md — Risk It To Get The Brisket
 
+## What this document is — and is not
+
+**CLAUDE.md is the technical operating / runbook document.** It describes how
+the system is built, where the canonical owners live, which invariants the code
+must hold, and how to run and validate it.
+
+**It is NOT the authoritative product roadmap, and NOT the product-methodology
+source of truth.** Nothing here authorizes a feature.
+
+> **Mandatory startup rule for any material product, architecture, model, or
+> feature-planning work: start at [`PRODUCT_PLAN.md`](PRODUCT_PLAN.md) and
+> follow the canonical hierarchy defined in
+> [`docs/MASTER_PRODUCT_PLAN.md`](docs/MASTER_PRODUCT_PLAN.md).**
+
+| Question | Canonical record |
+|---|---|
+| Where do I start? | `PRODUCT_PLAN.md` |
+| What are we building, and which record wins? | `docs/MASTER_PRODUCT_PLAN.md` |
+| What does an approved feature actually mean? | `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` |
+| Does a feature exist / is it defective / evidence-gated? | `docs/OWNER_FEATURE_INVENTORY.md` |
+| **What am I authorized to implement right now?** | `docs/EXECUTION_PLAN.md` |
+| Canonical owners, boundaries, technical invariants | `docs/ARCHITECTURE_HANDOFF.md`, current ADRs, live code |
+| What defect was measured, with what evidence? | `docs/master-site-audit/` |
+| Which records are legacy vs canonical? | `docs/PLANNING_DOCUMENT_STATUS.md` |
+| Who is editing what right now? | `docs/WORK_CLAIMS.md` |
+
+**If this file conflicts with that hierarchy, the hierarchy wins**, per the
+precedence rules in `MASTER_PRODUCT_PLAN.md` §2. One nuance from those rules is
+worth repeating here because this document is the one most likely to describe
+implementation: *existing implementation behavior does not override a newer
+owner product decision merely because that is how the site currently behaves* —
+and equally, live code or executable evidence can prove a status claim in any
+document, including this one, stale.
+
+This file deliberately **points to** the canonical records rather than
+reproducing them. A second copy of the roadmap is a second roadmap, and it will
+drift.
+
+## Governance invariants every implementation session must hold
+
+Stated here because they bind code, not just product decisions. The full
+methodology lives in `MASTER_PRODUCT_PLAN.md` §3 — read it before designing
+anything that touches these.
+
+- **ONE CONCEPT, ONE CANONICAL OWNER.** Pages and features consume canonical
+  systems; they never reimplement them. If the canonical owner is defective,
+  repair it — a page-local workaround becomes a second owner. (§3.1 lists the
+  ~25 concepts that require one.)
+- **MISSING IS NEVER ZERO.** No projection ≠ 0 points. No FAAB history ≠ $0. No
+  trade comps ≠ no market value. Missing historical value ≠ today's value.
+  Unresolved identity ≠ best fuzzy guess. Unverified game type ≠ dynasty. Every
+  decision surface preserves explicit missing / insufficient / stale /
+  unavailable states. (§3.2)
+- **Signal independence — no double counting.** A body of evidence affects a
+  conclusion once. KTC, a consensus containing KTC, and a Monte Carlo centered
+  on that consensus are correlated descendants, not independent votes. Declare
+  population, overlap, correlation group, sample size, freshness, coverage,
+  missing behavior and provenance before adding a signal. (§3.3)
+- **Champion ≠ challenger.** Evaluation is not activation. Nothing self-promotes.
+  (§3.4)
+- **Model evaluation does not authorize production promotion.** The sequence is
+  fit → backtest → validate → compare → human approval → promote → monitor →
+  rollback. See also the Hill-curve registry rules below, which are this
+  invariant made executable.
+- **Pinned inputs and provenance for every model experiment.** Code SHA, source
+  hashes, board/snapshot hash, model version, scoring config, timestamp. Never
+  compare across refreshed inputs and attribute the difference to code. (§3.5)
+- **Public `/league` vs private decision intelligence is a semantic boundary**,
+  not a field-name denylist. Factual and retrospective content is public;
+  proprietary values, edges, targets, weaknesses, forecasts and manager
+  tendencies are private. (§5)
+- **Recommendations and execution are separate.** A model recommendation never
+  silently mutates a league. Mutations need auth, explicit league/team, preview
+  or confirmation, idempotency, and an audit trail. (§3.6)
+
+## Source-domain boundaries — which evidence may touch which answer
+
+Two evidence domains, deliberately separated. Full methodology in
+`docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md` and
+`docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md` (both land with PR #809; read them
+before ingesting anything new).
+
+**Dynasty valuation lane.** Every external ranking/value observation that
+reaches canonical dynasty player/pick value must be **explicitly verified as
+DYNASTY**. Redraft, rest-of-season, weekly, DFS and best-ball-only boards must
+never enter the dynasty pool, consensus counts, source weights, format curves,
+calibration or Consensus Edge — including when they come from a provider we
+otherwise trust, and including when the same provider publishes both. Game type
+is proven per endpoint/feed, never inferred from player ages, a URL fragment, or
+a familiar provider name. **Unverified game type fails closed:** `UNKNOWN` is
+not `DYNASTY`.
+
+**Seasonal intelligence lane.** Verified redraft / ROS / current-season
+rankings and projections are *allowed and encouraged* for current-season
+questions — ROS strength, playoff and championship probability, Pick Forecast
+inputs, contender/rebuilder classification, Game Day, lineup intelligence. That
+evidence stays separate from canonical dynasty valuation. A feature combining
+long-horizon value with current-season outlook keeps the components separately
+named and separately sourced before synthesis.
+
+**Multi-format dynasty archive.** Future ingestion preserves source-native
+dynasty 1QB / Superflex / TEP / IDP variants rather than flattening them.
+KTC's Off / TE+ / TE++ / TE+++ are **same-source calibration states of one
+provider, not four independent votes** — KTC applies them algorithmically from
+one base crowd value, so counting them four times in consensus would
+manufacture agreement out of one opinion. Collecting or archiving alternate
+boards does **not** authorize using them to alter production values; that is
+separately evidence-gated and owner-approved.
+
+## Trade History — three distinct questions
+
+Full methodology in `docs/TRADE_HISTORY_AGING_SPEC.md` (lands with PR #809).
+Not currently authorized for implementation. The guardrails that must survive
+any future work:
+
+- **Current Grade** — this trade evaluated with today's canonical values and
+  today's canonical trade methodology.
+- **At-the-Time Grade** — the closest valid snapshot **at or before** the trade
+  timestamp. Never a future snapshot presented as contemporaneous truth.
+- **How It Aged** — the difference between the two, measured with the **same
+  trade methodology on both timestamps**. Comparing one quantity then against a
+  different quantity now measures the methodology, not the aging.
+- A missing historical value is **not** the player's current value, and picks
+  need first-class historical values rather than a current-value substitute.
+- Provenance and coverage are explicit; the current fixed ±200 aging threshold
+  is evidence-gated, not finished methodology.
+
 ## Project Overview
 
 Dynasty fantasy football valuation and trade calculator platform. Ingests external rankings sources (DLF, KTC, FantasyCalc, DynastyDaddy, etc.), normalizes them to a canonical scale, and serves a web UI for trade analysis and rankings.
@@ -131,19 +258,90 @@ npm run regression                   # Full pipeline: preflight + tests
 
 The single most important architectural rule for multi-league:
 
-> **Scoring profile controls rankings.  League key controls context.**
+> **Scoring controls rankings.  League key controls context.**
 
-* **`scoringProfile`** (from `config/leagues/registry.json`) is the
-  identifier for "which set of rules produces a player's value".  Two
-  leagues that use identical scoring share ONE ranking pipeline and
-  ONE output.  A single scrape's blended rankings can be served to
-  every league with the same profile — no per-league recompute.
+* **Scoring** decides "which set of rules produces a player's value".
+  Two leagues that use identical scoring share ONE ranking pipeline and
+  ONE output; a single scrape's blended rankings can be served to every
+  such league with no per-league recompute.
+
+  **Which leagues those are is a FACT, not a label.** Three distinct
+  identities, and conflating the first two is W18-F001:
+
+  | concept | what it is | what it may decide |
+  |---|---|---|
+  | `scoringProfile` | a hand-authored config/model **label** in `config/leagues/registry.json` | model/config identity for its existing consumers (BDVM, the gameplan bundle, draft scarcity). **Never** cross-league ranking compatibility |
+  | factual scoring identity | derived/validated from the league's **actual valuation-affecting scoring configuration** | whether two leagues may share scoring-dependent rankings |
+  | `leagueKey` | ownership identity — rosters, teams, managers, draft, signals | everything that depends on who-owns-what |
+
+  Matching profile labels alone are **insufficient**, and unverifiable
+  compatibility **fails closed**. The canonical requirement is
+  `docs/MASTER_PRODUCT_PLAN.md` §4.10 ("League scoring-profile
+  identity"); this file does not restate it.
+
+  Why it is not academic: both live leagues carry
+  `superflex_tep15_ppr1` while their hosts differ on 35 of 48 shared
+  scoring keys (`rec` 1.0 vs 0.08, `pass_td` 4 vs 6, `pass_yd` 0.04 vs
+  1/30, `pass_int` -1 vs -4, `bonus_rec_te` 0.0 vs 0.5), so
+  `/api/data?leagueKey=dynasty_new` served dynasty_main's board.
+
+  **Status — the mechanism below is B6/W18-F001, implemented in PR #810
+  and in owner review; it is not on `main` yet.** Treat the invariant
+  above as canonical and the field/API shape below as the shape under
+  review. `docs/EXECUTION_PLAN.md` is authoritative for its status.
+
+  The identity is `scoring_fingerprint()`
+  (`src/league_comparison/sleeper_scoring.py`), computed over the
+  league's ACTUAL scoring card with key order, numeric form (`1` vs
+  `1.0`) and absent-vs-explicit-zero normalized away and non-numeric
+  metadata excluded.  It returns `None` — never a hash of `{}` — when
+  there is no card, so unproven is distinguishable from proven and
+  **fails closed**.  Deliberately not the pre-existing `_scoring_hash`,
+  which gets all three normalizations wrong and would manufacture false
+  *in*compatibility; that one keeps its league-comparison display
+  consumers.
+
+  Where it lives:
+  - per league — a snapshot at `data/leagues/scoring_<sleeperLeagueId>.json`,
+    refreshed by the post-scrape warm pass and by
+    `scripts/fetch_league_scoring.py` (needed once on a cold deploy).
+    **Never fetched inside a request** — an 8 s Sleeper round-trip in the
+    `/api/data` gate would trade a correctness bug for a latency one.
+  - per contract — `meta.scoringFingerprint`, derived from the
+    contract's OWN `sleeper.scoringSettings` so it can be recomputed
+    from the artifact it describes instead of copied from config.
+
+  **A snapshot proves when it was taken, not that it is still true.**
+  Evidence is `fresh` / `stale` / `missing` (`scoring_evidence_state`) and
+  only `fresh` authorizes reuse.  The budget is
+  `SCORING_SNAPSHOT_MAX_AGE_HOURS = 6`, which is the repo's existing
+  scrape-cadence staleness rule (`SCRAPE_INTERVAL_HOURS * 3`, and the
+  default in `data_contract._SOURCE_MAX_AGE_HOURS`) rather than a new
+  number.  Season must be **verified**, not merely un-contradicted: a card
+  from a different NFL season is stale however recently it was fetched
+  (Sleeper leagues chain year to year under new ids), and so is one whose
+  season is unrecorded or whose current-season resolver cannot answer —
+  an unknown may not pass as a match.  Stale evidence is retained and
+  readable; only its authority expires.
+
+  **The stamp is a cache of the card, and must agree with it.**  Card +
+  agreeing stamp → that fingerprint; card, no stamp → recompute; card and
+  stamp *disagree*, or the stamp carries a different `sf*` version → fail
+  closed; **stamp with no card → fail closed**, decided explicitly rather
+  than emerging from lookup order.
+
+  `league_registry.leagues_share_scoring()` is the single owner of the
+  question and every gate routes through
+  `server.py::_scoring_identity_error`.  Rule for new code: a cache may
+  be keyed by `leagueKey` or by the fingerprint — **never** by
+  `scoringProfile`.
 
 * **`leagueKey`** is the identifier for "which league's rosters,
   teams, managers, draft, and signals".  Anything that depends on
   who-owns-what in Sleeper is league-scoped.
 
-Fields that follow **scoring profile** (global across same-scoring leagues):
+Fields that follow **scoring** — global across leagues *proven* to score
+identically, never across leagues that merely share a profile label:
 - `players`, `playersArray`, `sources`, `rankings`, `poolAudit`
 - Rank history, source-value history, edge signals
 - Player metadata (position, Sleeper ID, news)
@@ -151,8 +349,13 @@ Fields that follow **scoring profile** (global across same-scoring leagues):
 - Injury-impact calculations (position-based, not league-based)
 
 Fields that follow **leagueKey** (must be per-league):
-- `sleeper.teams`, `sleeper.leagueId`, `sleeper.positions`,
-  `sleeper.scoringSettings`
+- `sleeper.teams`, `sleeper.leagueId`, `sleeper.rosterPositions`,
+  `sleeper.scoringSettings`, `sleeper.leagueSettings` — the exact tuple
+  `sleeper_overlay.LEAGUE_SPECIFIC_SLEEPER_FIELDS` enforces (W18-F002).
+  NOT `sleeper.positions`, which this list named until 2026-08-13: that
+  field is the playerId → NFL-position map `buildRows` reads, and a
+  player's position does not depend on which league is asking. It is
+  NFL-wide, alongside `sleeper.playerIds` / `sleeper.idToPlayer`
 - Draft capital (per-team auction budgets, pick ownership)
 - Public-league snapshots / standings / matchups
 - Terminal aggregates (team portfolio, roster movers)
@@ -166,18 +369,34 @@ Fields that follow **leagueKey** (must be per-league):
 Contract annotations:
 - `meta.leagueKey` — which specific league's `sleeper` block is
   stamped here
-- `meta.scoringProfile` — which scoring rules produced these rankings
-- `meta.sleeperDataReady` — true iff `sleeper` block is valid for the
-  *requested* league; false when the server served the shared
-  rankings but doesn't have the requested league's rosters loaded
+- `meta.scoringProfile` — the config/model LABEL the build ran under.
+  Descriptive; decides nothing about compatibility.
+- `meta.scoringFingerprint` — the FACTUAL identity of the scoring that
+  produced these rankings.  This is what compatibility is decided on.
+- `meta.sleeperDataReady` — true iff EVERY league-specific field in the
+  `sleeper` block is COMPLETE and belongs to the *requested* league.
+  False when the server served shared rankings without that league's
+  rosters, and false on a cross-league overlay whose own config could not
+  be fetched *or came back partial* (W18-F002) — in that case the
+  league-specific fields are ABSENT rather than inherited.  Complete is
+  defined by what the consumers need, in
+  `sleeper_overlay.league_config_is_complete`: non-empty scoring, a
+  **non-empty** `rosterPositions` (an empty list makes
+  `bdvm/league_config.py` fall through to the registry, and
+  `starter-slots.js` ranks the live list above it, so `[]` means missing),
+  and `leagueSettings` carrying `num_teams > 1` (below that the same
+  builder raises).  No empty-but-present value counts as complete.  The
+  one merge that can produce this state is
+  `sleeper_overlay.merge_cross_league_sleeper_block`; do not re-inline it.
 - `meta.sleeperLoadedLeagueKey` — which league the `sleeper` block
-  *would* be for, when `sleeperDataReady: false` (diagnostic only)
+  *would* be for, when `sleeperDataReady: false` (diagnostic only).
+  Deleting it would hide a chimera, not prevent one.
 
 Error behavior on endpoints:
-- `/api/data`, `/api/rankings/overrides` — 503 only when scoring
-  profiles genuinely differ.  When they match but sleeper is for a
-  different league, serve shared rankings with `sleeper: null` +
-  `sleeperDataReady: false`.
+- `/api/data`, `/api/rankings/overrides` — 503 when scoring is not
+  PROVEN identical (different fingerprints, or either side unverifiable).
+  When it is proven and sleeper is for a different league, serve shared
+  rankings with `sleeper: null` + `sleeperDataReady: false`.
 - `/api/terminal`, `/api/trade/*`, `/api/angle/*` — 503 whenever the
   loaded contract's `leagueKey` doesn't match the request.  These
   endpoints can't meaningfully work without the specific league's
@@ -193,6 +412,13 @@ Error behavior on endpoints:
     only for pick VALUES, so a foreign-league contract still produces
     a correct board for the requested league — refusing it would
     remove working multi-league functionality to satisfy a table.
+  - Its ROOKIE block is the one part that is scoring-dependent, and it
+    is gated by the same `_scoring_identity_error` as everything else
+    (W18-F001).  Measured on the live board: dynasty_new used to be
+    served 40 rookies priced under dynasty_main's 0.08-PPR / 6-point-TD
+    rules on a full-PPR / 4-point-TD board; it now gets
+    `rookieSource: "none"` with all 80 of its real picks intact.
+    Withholding a value we cannot justify, not refusing the board.
   - This resolves Defect D-2 (`docs/python-coverage-audit.md`), which
     was open between "503 per this table" and "keep the fallback and
     fix the doc".  Fixing the doc is the answer, and this is it.
@@ -1164,8 +1390,42 @@ param for GET) and answers from the corresponding board:
 
 Mechanism, in one place: `server.py::_valuation_scoped_contract` fetches the
 league's factors and hands the engine a contract whose `playersArray` rows are
-already repriced (`src/league_intel/overlay.py`). No engine knows the feature
-exists, because every engine reads exactly one value — `rankDerivedValue`.
+already repriced (`src/league_intel/overlay.py`). No engine has to know the
+feature exists, because the engines take their input from one field —
+`rankDerivedValue`.
+
+**The governing invariant, stated carefully.** This section used to read "every
+engine reads exactly one value — `rankDerivedValue`", full stop. That is too
+absolute, and `docs/master-site-audit/VALUE_FLOW_MAP.md` §4 splits it:
+
+| claim | verdict |
+|---|---|
+| One function computes the board | holds — `_compute_unified_rankings`, bit-reproducible |
+| No frontend ranking engine | holds |
+| Every engine *reads* `rankDerivedValue` | holds |
+| Every engine *serves* `rankDerivedValue` | **fails** |
+| One number per player per session | **fails** |
+
+The invariant to design against is therefore:
+
+> **Canonical player value has one owner, and every downstream engine and
+> surface consumes that canonical value — unless it is deliberately showing an
+> explicitly named alternate concept, in which case the name travels with the
+> number.**
+
+Serving a different quantity under the canonical field name is a defect, not an
+alternate opinion. Measured violations exist today and are open findings, not
+intended architecture: `suggestions.py::_serialize_player` writes
+`offense_only_value` into `displayValue` for IDP-free trades (W29-F001 — 19 of
+51 asset legs disagree with the board; Travis Hunter 5,637 on `/trade` vs 4,401
+on `/rankings`, because the offense-only board never saw the two-way boost), and
+the same offense-only value rides through `overlay.adjusted_rows` unscaled while
+the response is still stamped `leagueAdjusted` (W29-F002). Repair those when
+authorized; do not write them up here as though they were the design.
+
+The rule this yields for new work: **existing implementation behavior does not
+become canonical architecture merely because it ships.** When code and the
+canonical product architecture disagree, the code is the defect.
 
 Four rules that are load-bearing:
 
