@@ -1,7 +1,7 @@
 # Risk It To Get The Brisket — Master Product Plan
 
 **Status:** CANONICAL FRONT DOOR FOR PRODUCT DIRECTION  
-**Owner direction reconciled through:** 2026-08-12  
+**Owner direction reconciled through:** 2026-08-14  
 **Purpose:** Give every future Claude/ChatGPT/Codex session one place to answer: *What are we building? What are we not building? What does each feature mean? What is private vs public? What comes next? Which document wins if records disagree?*
 
 > **Start here for every material product, roadmap, architecture, or implementation-planning task.**
@@ -227,6 +227,7 @@ Required products include:
 - Golden Upgrades as a consumer, not a second engine;
 - Package Builder using the shared package-generation engine;
 - Trade Finder and Trade Suggestions repairs/consolidation;
+- **Best Trade to Send Each Team**: exactly one mutually defensible player-only offer per league opponent, with equal player counts on both sides, a win for the selected team on the canonical calculator, and an even-or-better result for the opponent on at least one fully covered external market calculator (KTC or IDP Trade Calculator); uncovered/missing external assets cannot qualify as approval; rank qualifying offers by our roster benefit/edge, opponent fit and plausibility, external acceptability, and asset quality rather than by maximum calculator exploit; recommendation only, never silent sending;
 - multi-team draft-pick destination correctness;
 - trade equalizer suggestions ranked by **post-active-Value-Adjustment gap**, without double-applying VA;
 - acquisition/holding-period history;
