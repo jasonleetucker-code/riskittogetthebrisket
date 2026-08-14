@@ -1,595 +1,294 @@
-# Risk It To Get The Brisket — Master Product Plan
+# Chase Upside — Master Product Plan
 
-**Status:** CANONICAL FRONT DOOR FOR PRODUCT DIRECTION  
-**Owner direction reconciled through:** 2026-08-12  
-**Purpose:** Give every future Claude/ChatGPT/Codex session one place to answer: *What are we building? What are we not building? What does each feature mean? What is private vs public? What comes next? Which document wins if records disagree?*
+**Status:** CANONICAL FRONT DOOR FOR LONG-RANGE PRODUCT DIRECTION  
+**Owner direction synchronized through:** 2026-08-14  
+**Current product name:** **Chase Upside**  
+**Repository/history note:** `riskittogetthebrisket`, “Risk It To Get The Brisket”, and “Brisket” remain valid legacy repository/league/history identifiers where the code or historical record requires them.
 
-> **Start here for every material product, roadmap, architecture, or implementation-planning task.**
->
-> This file is the single front door. It does not duplicate every audit artifact or implementation detail. It tells you which subordinate record is canonical for each question and prevents old capture documents from becoming competing roadmaps.
+> Start here for every material product, roadmap, feature, architecture-direction, or implementation-planning task.  
+> **Use `docs/EXECUTION_PLAN.md` for what is authorized now. This file does not itself authorize starting a phase.**
 
 ---
 
 # 1. PRODUCT NORTH STAR
 
-Risk It To Get The Brisket is not merely a dynasty calculator. It is intended to become a deeply integrated, explainable, league-aware **dynasty decision-intelligence platform**.
+Chase Upside is an integrated, explainable, roster-aware **dynasty fantasy-football decision-intelligence platform** — not merely a rankings page, trade calculator, or league dashboard.
 
-The private product should increasingly answer:
+For an important player, roster, league, trade, waiver move, draft choice, or weekly decision, the product should progressively answer:
 
-1. **What is happening?**
-2. **Why does it matter?**
-3. **What should I do?**
-4. **What happens to my roster if I do it?**
-5. **What has the real dynasty market paid?**
-6. **What are strong managers doing?**
-7. **What does this league manager tend to do?**
-8. **What do analysts, news, projections, and fundamentals say?**
-9. **Can I execute the action from the app safely?**
+1. What is happening?
+2. Why is it happening?
+3. What does the dynasty market think?
+4. What do strong managers, analysts, news, projections, and fundamentals imply?
+5. How does this exact league change the answer?
+6. How does this exact roster change the answer?
+7. What should the user actually do next?
+8. Can Chase Upside help execute, track, explain, or revisit that action safely?
 
-The public league product has a different mission:
+A useful shorthand:
 
-> **Public `/league` = League Museum + Sports Network + Game Day.**  
-> **Private authenticated app = Front Office + War Room.**
+> KTC tells the user what the market thinks an asset is worth. Chase Upside should tell the user whether **this user, with this roster, in this league** should buy, sell, hold, stash, claim, bid, draft, target, trade away, or otherwise act on that asset — and why.
 
-Public pages should maximize league history, identity, rivalry, live-game entertainment, records, awards, storytelling, and shareability **without exposing competitive decision intelligence**.
+The product-quality order is:
+
+**Correctness → reliability → performance → explainability → presentation.**
+
+Public and private products have different missions:
+
+- **Authenticated/private Chase Upside:** Front Office + War Room + decision intelligence.
+- **Public `/league`:** League Museum + Sports Network + Game Day — factual, retrospective, competitive, entertaining, shareable, but without leaking proprietary decision intelligence.
 
 ---
 
-# 2. DOCUMENT HIERARCHY — WHICH RECORD ANSWERS WHICH QUESTION
+# 2. AUTHORITY / DOCUMENT PRECEDENCE
 
-The product plan is intentionally split by responsibility. Multiple documents are acceptable; multiple competing sources of truth are not.
+Multiple documents are useful only when each has one job. They must not become competing roadmaps.
+
+## 2.1 Core authority
 
 | Question | Canonical record |
 |---|---|
-| What is the overall product direction and which document wins? | **`docs/MASTER_PRODUCT_PLAN.md`** (this file) |
-| What features exist, are planned, removed, defective, or evidence-gated? | **`docs/OWNER_FEATURE_INVENTORY.md`** |
-| What does an approved feature actually mean; what UX/methodology/public-private behavior was decided? | **`docs/OWNER_PRODUCT_BACKLOG_SPEC.md`** plus the detailed reconciled requirements in this file |
-| What is the current authorized execution sequence/checkpoint? | **`docs/EXECUTION_PLAN.md`** |
-| What are the canonical owners/system boundaries and technical invariants? | **`docs/ARCHITECTURE_HANDOFF.md`**, current ADRs, and live code evidence |
-| What defects were measured and what evidence supports them? | **`docs/master-site-audit/`** |
-| What competitor ideas/research informed approved scope? | **`docs/competitive/`** — research input only, never an independent execution roadmap |
-| Who is editing what right now? | **`docs/WORK_CLAIMS.md`** |
+| Where do I start? | `PRODUCT_PLAN.md` |
+| What is the long-range product direction and which policy wins? | **`docs/MASTER_PRODUCT_PLAN.md`** (this file) |
+| What work / phase is authorized now? | **`docs/EXECUTION_PLAN.md` — only current sequencing/authorization record** |
+| Which planning records are active, supplemental, evidence, or historical? | `docs/PLANNING_DOCUMENT_STATUS.md` |
+| How was the planning layer synchronized? | `docs/PRODUCT_DIRECTION_SYNC_MANIFEST.md` |
+| What is the exhaustive discussion-derived feature coverage ledger? | `docs/OWNER_MASTER_FEATURE_BACKLOG_2026-08-13.md` |
+| What does newer owner intent require in detail? | `docs/OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md` + Appendix + feature-specific binding specs |
+| What older detailed feature intent remains active where not superseded? | `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` |
+| What compact owner requests remain durable? | `docs/OWNER_REQUESTED_TODO.md` + `docs/OWNER_REQUESTED_TODO_SPEC_INDEX.md` |
+| How must the eventual C-series be replanned, executed, deployed, and closed? | `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` |
+| What are technical operating rules? | `CLAUDE.md`, current ADRs, live code, architecture records |
+| What was measured at a pinned historical state? | `docs/master-site-audit/` and other evidence records |
 
-## Precedence when records conflict
+## 2.2 Precedence when records conflict
 
-Use this order:
+Use this order for **product intent and direction**:
 
-1. **Most recent explicit owner instruction.**
-2. **This `MASTER_PRODUCT_PLAN.md`.**
-3. **`OWNER_PRODUCT_BACKLOG_SPEC.md` for intended feature behavior/methodology.**
-4. **`OWNER_FEATURE_INVENTORY.md` for feature existence/status/classification/dependency.**
-5. **Current canonical ADR/architecture decisions.**
-6. **`EXECUTION_PLAN.md` for sequencing and current authorization.**
-7. **Verified audit evidence/findings for defect facts.**
-8. **Older addenda, capture lists, checkpoints, roadmaps, and session handoffs.**
-9. **Existing implementation behavior.**
+1. most recent explicit owner instruction;
+2. this Master Product Plan;
+3. binding current feature-specific owner specs / reconciliation / later owner addenda;
+4. `OWNER_PRODUCT_BACKLOG_SPEC.md` where not superseded;
+5. approved C-Series Execution Plan once one is created after the B→C gate;
+6. current ADRs/architecture decisions for implementation mechanics;
+7. dated inventories, evidence, research, old roadmaps, old session captures, and PR prose.
 
-Important nuance: live code or executable evidence may prove a *status statement* stale. Existing code does **not** override a newer owner product decision merely because that is how the site currently behaves.
+Use **`EXECUTION_PLAN.md` alone** to answer “what may we implement next?” A long-range feature being approved does not authorize beginning it.
+
+Verified repository/runtime evidence controls what is **actually implemented**. It may prove a status sentence stale, but existing behavior does not silently override newer owner intent merely because the code currently behaves that way.
 
 ---
 
 # 3. GLOBAL PRODUCT / MODEL INVARIANTS
 
-These apply to every future feature unless an explicit later owner decision supersedes them.
+These apply across the product unless a later explicit owner decision supersedes them.
 
 ## 3.1 One concept, one canonical owner
 
-Pages and features consume canonical systems; they do not independently reimplement them.
+Pages are consumers. They do not create local alternative truths for player identity, asset value, pick identity/value, league configuration, realized scoring, Team Strength, Team Weakness, lineup assignment, replacement/PAR/VORP, package generation, trade simulation, projection/probability, history, Analyst Intelligence, Sharp cohort, manager evidence, or confidence.
 
-Canonical ownership is required for at least:
-
-- player identity;
-- pick identity;
-- league settings/scoring identity;
-- canonical player value;
-- canonical pick value;
-- historical value snapshots;
-- Team Strength;
-- Team Weakness / Need Priority;
-- replacement level / PAR;
-- package generation;
-- package/market adjustment semantics;
-- trade simulation;
-- trade decision synthesis;
-- acquisition history;
-- projections;
-- realized scoring;
-- ADP;
-- broad-market transactions;
-- Sharp transactions/cohort;
-- Analyst Intelligence;
-- manager intelligence;
-- public-information classification;
-- league actions/mutations;
-- share rendering;
-- confidence/coverage;
-- provenance.
-
-If a canonical owner is defective, repair it. Do not create a page-local workaround that becomes a second owner.
+If a canonical owner is defective, repair or replace that owner deliberately. Do not make a page-local workaround that quietly becomes a second engine.
 
 ## 3.2 Missing is never zero
 
-No FAAB history ≠ $0. No projection ≠ 0 points. No trade comps ≠ zero market value. No Sharp activity ≠ dislike. No analyst take ≠ neutral/sell. Unobserved manager behavior ≠ never. Unknown pick forecast ≠ late pick. Missing historical value ≠ today's value. Unresolved player identity ≠ best fuzzy guess.
+Unavailable, stale, unsupported, partial, unpriced, unproven, or unobserved is not zero and not certainty. The product must preserve explicit missing/degraded states.
 
-Every decision surface must preserve explicit missing/insufficient/unsupported/stale/unavailable states.
+Examples: no projection ≠ 0 points; no trade comps ≠ $0 market value; no analyst take ≠ HOLD; unknown scoring compatibility ≠ compatible; missing assignment data ≠ an empty legitimate lineup; missing historical value ≠ today's value.
 
-## 3.3 Signal lineage / independence
+## 3.3 Provenance, freshness, confidence, and independence are first-class
 
-A body of evidence normally affects a final conclusion **once**. KTC, a consensus that contains KTC, Monte Carlo centered on canonical value, and an edge score derived from the same board are correlated descendants — not four independent votes.
+Every meaningful signal should be able to say what population it represents, when it was observed, how much coverage exists, what source/family produced it, and whether another displayed signal is merely a descendant of the same evidence.
 
-Before adding any signal, identify:
+Repeated, syndicated, cross-platform, or derived copies of one thesis do not become independent votes.
 
-- observation population;
-- overlap with existing signals;
-- correlation group;
-- sample size;
-- freshness;
-- coverage;
-- missing behavior;
-- provenance.
+## 3.4 Facts and opinions remain distinct
 
-## 3.4 Champion is not challenger
+News/factual status is not an analyst recommendation. Market behavior is not a projection. A simulator centered on canonical value is not an independent valuation source. Descriptive roster exposure is not automatically a trade penalty.
 
-Evaluation is not production activation. Fit → backtest → validate → compare → owner/human approval → promote/apply → monitor → rollback. No model or weight silently self-promotes.
+## 3.5 Historical truth is immutable/versioned
 
-## 3.5 Pinned inputs for methodological comparisons
+Trade-time values, acquisition history, weekly reports, prediction snapshots, award seasons, model versions, and historical rankings must be reconstructable from the methodology/input state that produced them. Today's model must not silently rewrite yesterday's fact.
 
-Record code SHA, source hashes, board/snapshot hash, model version, scoring configuration, and timestamp. Do not compare outputs across refreshed inputs and attribute the difference to code.
+## 3.6 Expensive work belongs off the interactive path
 
-## 3.6 Recommendation and execution are separate
+Prefer:
 
-AI/model recommendations must never silently execute league actions. Mutations require canonical auth/authorization, explicit league/team, appropriate preview/confirmation, idempotency, error handling, and an audit trail.
+**acquire → normalize → background expensive work → materialize/index/cache → serve fast → refresh asynchronously**.
 
-## 3.7 Owner overlays are not global value rules
+Last-known-good/stale-while-revalidate behavior is a product feature when it is defensible. Slow or failed refreshes should not unnecessarily blank valid prior data.
 
-- Minnesota Vikings players are effectively untouchable for the owner's personalized recommendations.
-- Starting-QB + primary-backup QB handcuffs are intentional and should not be broken solely for diversification.
+## 3.7 Model promotion is human-governed
 
-These personalize decisions. They do not change canonical league-wide player values.
+**collect → provenance/history → train challenger → backtest → out-of-sample validate → compare with production → stability/calibration review → explicit approval → promote → monitor → rollback**.
+
+No production model or weight silently self-promotes.
+
+## 3.8 Recommendations and execution are separate
+
+An AI/model recommendation never silently mutates the league. Mutations require the canonical authorization path, explicit league/team context, appropriate preview/confirmation, idempotency/error handling, and an audit trail.
 
 ---
 
-# 4. MASTER FEATURE MAP
+# 4. BINDING CONFLICT RESOLUTIONS
 
-`OWNER_FEATURE_INVENTORY.md` remains the exhaustive row-level ledger. This section defines the unified product families so isolated ideas cannot drift into parallel systems.
+These are explicitly synchronized so older documents cannot accidentally reverse them.
 
-## 4.1 Canonical roster intelligence
+## 4.1 One canonical player-value methodology today
 
-### Team Strength
+PR #822 evaluated the existing league-aware valuation lens and **rejected it as canonical** under the outcome-evidence bar. Current production therefore has **one canonical player-value methodology**. Experimental league-adjusted outputs may remain as research/diagnostic artifacts, but they may not overwrite canonical value, rank, or tier and there is no user-selectable “Market vs My League” canonical basis.
 
-**Goal:** one canonical answer to “How strong is this dynasty roster?” based on the meaningful upper roster, not a raw sum of every bench asset.
+This is not a permanent rejection of league-aware valuation as a product goal. A future replacement must earn promotion through evidence and the human-governed model lifecycle.
 
-Owner-approved initial roster-value groups:
+## 4.2 Every valid supported pick through 2029 must have value by C completion
 
-- QB: top 3
-- RB: top 3
-- WR: top 5
-- TE: top 3
-- DL/EDGE: top 5
-- LB: top 5
-- DB: top 5
+Older wording that allowed valid 2028/2029 picks to remain indefinitely unpriced is superseded.
 
-Use canonical league-adjusted player values and the league's real positional model. Team Strength is dynasty roster strength; it is **not** Power Ranking, Playoff Odds, or ROS production.
+By C completion, **every valid league-supported draft-pick asset through the 2029 rookie class must have a finite, non-missing canonical Chase Upside value**.
 
-**Method status:** product definition approved; implementation must prove/consolidate competing existing strength notions before becoming canonical.
+Unknown exact slot is handled with a documented generic/future-pick value or probability distribution with uncertainty/provenance. When the exact slot becomes known, the same stable owned-pick identity transitions to exact-slot valuation without duplicate assets or double counting. Mobile, desktop, APIs, exports, Rankings, Trade, ownership, and history must agree.
 
-### Team Weakness / Need Priority
+Missing source evidence still must never be represented as zero.
 
-One canonical starting-slot weakness model. Existing owner thresholds include:
+## 4.3 Player MVP has no hard playoff / >.500 eligibility gate
 
-- QB1 Top 12; QB2 another Top 24;
-- RB1 Top 12; RB2 Top 24;
-- WR1 Top 12; WR2 Top 24; WR3 Top 36;
-- TE1 Top 12; TE2 Top 24;
-- IDP thresholds derive from required slots × league size;
-- FLEX/Superflex thresholds derive from actual league configuration and must avoid double counting already allocated players.
+The later Player Impact / Fantasy WAR / MVP specification supersedes older player-MVP eligibility wording. Player MVP has **no hard playoff-field or >.500 requirement**. Team success may be context/tie-break evidence. Manager of the Year may use appropriately validated team-success eligibility. Player, manager, and GM/executive awards remain conceptually distinct.
 
-Need Priority must agree with the canonical lineup/assignment solve. An `urgentNeed` flag that contradicts the actual roster solve is a defect, not an alternate opinion.
+## 4.4 Exact KTC Value Adjustment is an advisory market lens
 
-### Roster-aware trade simulation
+Exact KTC-style Value Adjustment remains a trusted market/consolidation lens and may preserve real KTC non-monotonic behavior in parity mode. It is **not canonical player value**, not Team Strength, and not roster marginal impact.
 
-Apply a proposed transaction to real before/after rosters, rerank/reassign, and expose:
+Do not invent “Our VA” merely to have one. A proprietary package scalar must have a defined target and prove incremental information beyond raw canonical equity + KTC VA + before→apply→rerank→after roster impact.
 
-- positional promotions/displacements;
-- Team Strength before/after;
-- weaknesses fixed;
-- weaknesses created;
-- meaningful lineup/depth changes;
-- value-weighted NFL-team exposure before/after (informational only).
+## 4.5 Team Strength, Power Rankings, Playoff Predictor, and Standings are different truths
 
-Do not reduce this to outgoing-value minus incoming-value.
+- **Team Strength:** dynasty roster/asset strength.
+- **Power Rankings:** current-season team quality/performance.
+- **Playoff Predictor:** future playoff/championship probabilities using schedule and uncertainty.
+- **Standings:** official realized outcomes.
 
-### Dropability / cut candidates
+None may quietly substitute for another.
 
-FLEX/Superflex make droppability set-dependent. Use the canonical lineup/matching/displacement machinery rather than naïve per-position counts. A candidate is droppable only after accounting for the remaining roster's ability to fill required/flex slots.
+## 4.6 Product name
 
-### Untouchable / excluded-player control
-
-One user-level exclusion mechanism consumed by Trade Finder, Suggestions, Package Builder, Golden Upgrades, waiver/drop optimizers, and relevant draft tools. Do not implement per-page exclusion lists.
+The product is **Chase Upside**. Legacy repository, league, infrastructure, historical artifact, and code identifiers should not be blindly renamed when their identity is operational or historical.
 
 ---
 
-## 4.2 Trade decision system
+# 5. CURRENT FOUNDATION PROGRAM
 
-Detailed canonical requirements live in `OWNER_PRODUCT_BACKLOG_SPEC.md` §§1–2.
+`EXECUTION_PLAN.md` owns authorization; this is only the synchronized high-level dependency state.
 
-The unified architecture is:
+As of this synchronization:
 
-**canonical asset values** + **exact KTC Value Adjustment as an advisory market-consolidation lens** + **canonical before→apply→rerank→after roster marginal impact** + **future independent evidence** → **one Analyze Trade decision owner**.
-
-Required products include:
-
-- two-team and 3+ team Trade Calculator reliability;
-- exact KTC-parity Value Adjustment, visibly secondary/advisory;
-- Analyze Trade;
-- Second Opinions tally;
-- Monte Carlo re-audit before treating its percentage as meaningful;
-- Golden Upgrades as a consumer, not a second engine;
-- Package Builder using the shared package-generation engine;
-- Trade Finder and Trade Suggestions repairs/consolidation;
-- multi-team draft-pick destination correctness;
-- trade equalizer suggestions ranked by **post-active-Value-Adjustment gap**, without double-applying VA;
-- acquisition/holding-period history;
-- **Your Cost Basis** on outgoing assets;
-- value-weighted NFL-team exposure before/after.
-
-Cost basis is informational and must not introduce sunk-cost bias.
+- **B4** percentile-tail saturation — complete/accepted (#805).
+- **B5** canonical player identity — complete/accepted (#806).
+- **B6** league/scoring identity correctness — merged/verified (#810; operational verification #819).
+- **B7** realized-scoring correctness — merged (#820).
+- **B8** public/private distribution boundary — merged (#821).
+- **Out-of-band canonical-value correction** — #822 merged; one canonical value methodology restored and the unvalidated league lens withdrawn from canonical serving.
+- Remaining Fast Lane dependency order: **B9a → B9b → B10 → B11**.
+- After B11: **STOP. No automatic C1.** Apply the hard B→C replan gate in `EXECUTION_PLAN.md` and `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`.
 
 ---
 
-## 4.3 Picks / draft assets
+# 6. FEATURE SCOPE / PRODUCT FAMILIES
 
-Future picks are first-class assets with stable season + round + original owner + current owner identity.
+This file deliberately does not duplicate the exhaustive feature ledger. The full union is `OWNER_MASTER_FEATURE_BACKLOG_2026-08-13.md` plus the active detailed specs classified by `PLANNING_DOCUMENT_STATUS.md`.
 
-Keep separate:
+Every approved feature must be mapped to one of the canonical product families below or explicitly identified as a new family during reconciliation.
 
-- generic market value of a round/year pick;
-- specific pick forecast/distribution;
-- current ownership;
-- historical acquisition/lineage;
-- market comps.
+## 6.1 Canonical asset / valuation foundation
 
-CE-02 Pick Forecast is private decision intelligence. Public `/league` may show factual pick ownership but not internal projection distributions/expected values.
+Player identity; stable pick identity; canonical player/pick value; source-native observations; normalization; scoring/league identity; provenance/freshness/confidence; value/history snapshots; acquisition/cost-basis/asset lineage; source independence and anti-circularity.
 
-Far-future picks (including 2028/2029 where configured) remain explicitly unpriced if defensible valuation does not exist; never convert missing to zero.
+## 6.2 Roster / lineup / player-impact foundation
 
----
+Exact best-ball/lineup assignment; replacement; PAR/VORP; Team Strength; Team Weakness; roster displacement; Dropability; before/after roster application; Player Impact including Realized Lineup VORP, WAR, xWAR, Wins Above Bench, and Game Changer primitives.
 
-## 4.4 Waivers / FAAB / rookie draft
+## 6.3 Trade decision system
 
-### FAAB
+Trade Calculator; two-team and 3+ team correctness; raw value vs exact KTC VA; Analyze Trade; Second Opinions; Monte Carlo uncertainty; equalizers/amount-to-even; Trade Finder; Suggestions; Package Builder; Golden Upgrades; Trade Desk; shareable trades; real-trade database/comparables; market evidence and trade history/aging.
 
-Preserve the conceptual separation already established:
+Binding detailed expansion: `TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md`.
 
-- **objective ceiling:** what the player is worth in league-budget terms;
-- **recommended bid:** what this specific team should bid given balance, roster/drop side, timing, and market-clearing evidence.
+## 6.4 Waiver / FAAB / rookie-draft system
 
-One canonical FAAB engine. Do not recreate bidding math in the frontend. Historical own-league bids and broader crowd/market bids are different populations and remain distinct. Zero-dollar claims are real observations; missing history is not zero.
+FAAB objective ceiling vs recommended bid; own-league and broader market evidence; Perfect Waivers; roster-aware drops; protected/untouchable assets and intentional QB handcuff policy; Perfect Draft / Draft Room; stable real picks and complete future-pick valuation.
 
-### Perfect Waivers
+## 6.5 Market / Sharp / Analyst / Manager intelligence
 
-Build a whole-roster optimizer answering “Which *combination* of adds and drops should I make?” rather than ranking free agents independently. Reuse canonical dropability/lineup matching, Team Strength/Weakness, canonical player values, and FAAB. Include an explicit stop rule when no additional transaction improves the roster enough to justify it.
+Retail market, real-trade market, Sharp cohort/transactions/roster %, specific-manager evidence, Podcast/YouTube Analyst Intelligence, news/facts, central Buy/Sell, Consensus Edge, source-family/thesis dedupe, stance/freshness/context semantics, and future X ingestion only when justified.
 
-### Perfect Draft
+## 6.6 Universal Player Profile
 
-Keep the existing combination/budget optimizer and its matching/displacement foundations. Preserve the requirement for a pre-auction snapshot so future backtesting is actually possible. A manager's recommended maximum bid can never exceed remaining budget. Do not reintroduce per-team rookie-slot assumptions that the auction format does not have.
+One progressively disclosed player truth surface composed from canonical identity/value, source provenance, history, market, fundamentals, projections/stats/PAR/impact, roster context, Sharp/manager/analyst intelligence, news, acquisition history, and public-safe historical content.
 
----
+## 6.7 Seasonal competition / simulation
 
-## 4.5 Market / Sharp / Analyst / Manager intelligence
+ROS/current-season projection, Playoff Predictor, Weekly Power Rankings, Game Day Command Center, current-window context, standings/league-median simulation, pregame/live probability, calibration archives, and exact custom scoring/best-ball semantics.
 
-Keep the populations distinct:
+## 6.8 Public League Experience
 
-- **KTC / retail crowd** — broad retail/crowd market;
-- **Market Trade Ledger (CE-01)** — real broad-market completed transactions;
-- **Sharp Ledger / Sharp cohort** — curated high-skill manager behavior;
-- **Insider / Manager Scout (CE-03)** — specific league-manager behavior;
-- **Analyst Intelligence** — structured opinions from podcast + YouTube (future X only if economics justify it);
-- **BDVM** — independent fundamentals/projections;
-- **Canonical** — the site's conclusion.
+Public League v3, league history/longevity, Franchise Passports, rivalries, records, Player Journeys, trade/draft history, public-safe power/playoff/game-day, Upside Report, Awards & Honors, Hall/Ring, yearbooks/wrapped, public draft/game broadcast, sharing — while protecting proprietary decision intelligence.
 
-### Sharp systems
+## 6.9 Front-office orchestration / presentation
 
-Sharp Tracker and Sharp Roster Percentage must share the same canonical Sharp cohort. Roster % denominator rules, source coverage, sample size, freshness, and deduplication must remain explicit. The 7/14/30-day views must not double-count the same transaction/observation merely because it appears in multiple windows.
+Command Center, Trade Desk, Portfolio, personalized feed/push, Compare/personal rankings, Share Renderer, Premium Sports Intelligence visual system, responsive/mobile parity, accessibility, and consistent fast-loading contracts.
 
-### Analyst Intelligence
+## 6.10 Model / continuous-improvement infrastructure
 
-Detailed taxonomy, cross-platform dedupe, price context, direction-vs-confidence separation, event/type-aware freshness, historical validation, and bounded Consensus Edge use are in `OWNER_PRODUCT_BACKLOG_SPEC.md` §4.
-
-Important reconciliation from owner capture records:
-
-- transcript retention and signal validity are separate;
-- a ~7-day discovery window is not universal 7-day voting permission;
-- injury/pregame/game-specific takes may expire immediately when the underlying event occurs or assumptions change;
-- no universal Sunday reset; use the affected player's actual event timeline;
-- older intelligence can remain visible as historical context after it stops voting;
-- freshness modifies a signal and does not become another vote.
-
-### Central Buy/Sell
-
-One canonical reconciled verdict owner. Existing page/ticker/feature emitters must ultimately consume it rather than maintain independent threshold sets. Homepage rule: BUY may be global; SELL only players on the selected fantasy roster.
+Human-governed challenger lifecycle, archival/backtest datasets, no-lookahead validation, adaptive weighting only after evidence, calibration, model-version provenance, performance/observability, deployment verification, and rollback.
 
 ---
 
-## 4.6 Universal Player Profile
+# 7. PERSONALIZATION VS GLOBAL TRUTH
 
-Detailed spec: `OWNER_PRODUCT_BACKLOG_SPEC.md` §8.
+User/team policies — such as protected assets, intentional starting-QB + primary-backup handcuffs, team-specific trade-away preferences, selected-team context, or personal rankings — belong in explicit personalization/action layers.
 
-Every player click should converge on one canonical profile with progressive disclosure across identity, canonical value/rank/tier/confidence, market, BDVM/fundamentals, projections/stats/PAR, roster context, acquisition/holding periods, Sharp, Insider, Analyst Intelligence, and factual news.
-
-Public-safe player pages expose league journey/history and facts but not private decision intelligence.
+They do not silently rewrite the global canonical market value. A personalized recommendation may say “do not move this player” while the player's canonical value remains unchanged.
 
 ---
 
-## 4.7 Public League Experience v3
+# 8. PERFORMANCE / UX BASELINE
 
-Detailed spec: `OWNER_PRODUCT_BACKLOG_SPEC.md` §§9–10.
+Unless a stricter feature contract exists:
 
-The public league experience must actively **remove/privatize** edge as well as add entertainment.
+- warm/cached first useful state: **≤1 s** target;
+- normal production p95: **≤2 s** where reasonable;
+- preferred cold useful state: **≤3 s**;
+- **≤5 s** is an absolute useful-state failure ceiling, not a target;
+- local interaction response: **<250 ms**;
+- visible acknowledgement/loading state: **<100 ms**;
+- no indefinite spinner hiding a long operation;
+- mobile and desktop must consume the same canonical truth and methodology.
 
-Private examples:
-
-- detailed ROS/team-strength internals;
-- Buyer/Seller Trade Deadline recommendations;
-- Pick Forecast probabilities/expected values;
-- proprietary Draft Capital dollar valuation/effective auction power/trade simulator;
-- manager tendencies/exploitation intelligence;
-- Buy/Sell, roster weaknesses, trade targets, canonical edge conclusions.
-
-Public-safe examples:
-
-- standings, scores, rosters, factual pick ownership;
-- completed trades/draft history;
-- sanitized Power, Luck, Streaks, public playoff/championship odds;
-- Franchise Passports;
-- Rivalries and Rivalry Receipts;
-- Player Journeys;
-- records/milestones;
-- Hall of Fame / Ring of Honor;
-- Championship Paths;
-- Brisket Wrapped / Season Yearbooks;
-- On This Day / This Week in League History;
-- Trade Trees;
-- Draft Class Reunions;
-- Game of the Week;
-- Bad Beat / Miracle Win cards;
-- public Pick'em;
-- public-safe Draft broadcast;
-- public Game Day / League RedZone-style experience;
-- shareable cards.
-
-Historical truth comes before historical glitter: retired franchises, complete reconstructable seasons, “all-time” semantics, scoring/ownership coverage, and season labels must be correct first.
-
-### Brisket Honors / Awards & Honors v2
-
-Use **Realized Lineup VORP** for player awards: only actual fantasy starts contribute; bench production contributes zero award value; negative VORP remains negative; replacement baseline comes from the broader available player pool through one canonical season/format-specific replacement owner.
-
-Awards include MVP, OPOY, DPOY, OROY, DROY, positional awards, Postseason MVP, Championship MVP, Best Offense, Best Defense, All-Brisket First/Second Team, top-five award races, player/franchise trophy cabinets, and objective secondary honors where data supports them.
-
-2024 and 2025 are explicitly approved for retroactive inaugural awards using the same methodology adopted for the first live 2026 awards.
-
-Manager of the Year and GM/Executive of the Year must remain conceptually distinct and historically tested before inaugural finalization. Detailed initial formulas and validation requirements live in `OWNER_PRODUCT_BACKLOG_SPEC.md` §10.5.
+Premium Sports Intelligence is the approved visual north star, but UI migration must not get ahead of unstable contracts or delay correctness foundations. Build reusable components so the final migration does not require reimplementing business logic.
 
 ---
 
-## 4.8 Game Day
+# 9. C-SERIES END STATE
 
-CE-20 is approved, not vague optional scope.
+C is not “the roadmap was executed.” C is complete only when the exhaustive post-B C Scope Manifest is closed under the standards in `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`.
 
-One canonical best-ball-aware matchup projection/win-probability engine should power private and public-safe views. A provisionally filled best-ball slot is not final while remaining roster outcomes can displace it. Exact custom scoring matters; unsupported projected scoring components remain uncertain or are estimated only via defensible historical conditional models.
+Every owner-approved capability must be implemented at the correct architectural layer, connected to real canonical data, reachable to the intended user, deployed, performant, mobile/desktop capable where required, observable, reversible, and production-verified strongly enough for confident use.
 
-Archive pregame/in-game predictions and measure calibration/error without leakage. Start with a useful low-cost V1; paid second-by-second data is optional only if usage justifies cost.
+There are no silent “later” buckets at C completion. A genuine external blocker requires an explicit owner disposition before C can be declared complete.
 
-Private Game Day may include personalized actionable intelligence. Public Game Day remains broadcast/entertainment information.
+The reserved completion phrase may be used only after the final audit passes:
 
----
-
-## 4.9 Competitive expansion — unified CE roadmap
-
-Approved concepts from OTC Fantasy, Play For Keeps, and Dynasty Daddy are one roadmap, not three independent competitor roadmaps.
-
-- **CE-01** Market Trade Ledger / Trade Database
-- **CE-02** Pick Forecast
-- **CE-03** Manager Scout
-- **CE-04** Dynasty Command Center
-- **CE-05** Trade Desk
-- **CE-06** Dynasty Portfolio
-- **CE-07** Market ADP
-- **CE-08** Projections & Stats Hub
-- **CE-09** Replacement Value / PAR
-- **CE-10** Share Renderer / Team Cards
-- **CE-11** Sleeper Action Gateway
-- **CE-12** Lineup Intelligence
-- **CE-13** Draft Room
-- **CE-14** Market Pulse
-- **CE-14A** Personal Rankings Overlay
-- **CE-15** Portfolio Trade Campaign — no automatic bulk spam
-- **CE-16** Trade Polls — optional/future
-- **CE-17** League Format / Utilization Lab
-- **CE-18** Trade Trees / Asset Lineage
-- **CE-19** Waiver Market / FAAB Market Ledger
-- **CE-20** Game Day Command Center
-- **CE-21** Dynasty Season Recap / Wrapped
-
-Dynasty Daddy-derived enrichments to CE-03/04/06/09/11/12/13/14A/15 and Universal Player Profile remain approved, but must extend existing canonical owners rather than become competitor-copy engines.
-
-Competitor research identifies useful user jobs. Never copy branding/design architecture or use unauthorized/private APIs/content.
+> **`C-SERIES COMPLETE — EVERY APPROVED FEATURE DEPLOYED, PRODUCTION-VERIFIED, AND READY FOR CONFIDENT USE`**
 
 ---
 
-## 4.10 Valuation / scoring / confidence foundations
+# 10. MAINTENANCE RULE
 
-### Canonical individual value scale
+When owner intent materially changes:
 
-Final canonical individual player and draft-pick values are a **1–9999 product scale**. Raw provider values remain in their native units. Intermediate math and multi-asset/team/portfolio aggregates may exceed 9999. Do not solve out-of-range individual values with a blind clamp that creates elite ties or hides a scaling defect.
+1. update the detailed canonical spec that owns the behavior;
+2. update the owner feature/backlog ledger if scope/status changes;
+3. update this Master Product Plan only when long-range direction, precedence, product families, or a global invariant changes;
+4. update `EXECUTION_PLAN.md` only when current authorization/sequence changes;
+5. update `PRODUCT_DIRECTION_SYNC_MANIFEST.md` when a new planning/direction record is introduced or reclassified;
+6. preserve historical evidence rather than rewriting it to pretend it always agreed.
 
-### TE premium
-
-Two mandatory TE starters and unusual scoring require evidence, not a blanket 1.15 multiplier. Audit actual scoring, flex demand, replacement scarcity, TE production, every source's basis, KTC TEP++ behavior, and player/rank-dependent uplift where data exists. Native TEP/TE++ inputs must not receive duplicate premium adjustments.
-
-### Realized scoring
-
-One exact-scoring owner. Every nonzero league scoring rule must be either supported/mapped or explicitly reported as uncovered. Missing scoring categories must not silently become zero. Player special teams (`kr_yd`, `pr_yd`, supported `st_*`) belong to the individual player where the host rules do; distinguish them from DST `def_*` scoring.
-
-### League scoring-profile identity
-
-Scoring-profile identity must be derived/validated from actual host scoring configuration, not merely a hand-authored label. Requested-league Sleeper payloads must never combine one league's teams with another league's scoring settings/roster positions and then claim data readiness.
-
-### Confidence
-
-Confidence, coverage, source count, disagreement, freshness, quarantine/anomaly state, and missingness are separate concepts. A player must not become “more confident” because sources disappeared. Any final confidence buckets require empirical validation and honest coverage semantics.
-
-### Source independence
-
-Leave-one-out and lineage-aware comparisons are required where a source is compared with a consensus that may contain that same source. Do not praise agreement created by self-inclusion.
-
-### Historical value snapshots / provenance
-
-Persist model/version/as-of/config provenance and historical board snapshots so acquisition value, backtests, model comparisons, and analyst/market validation can reconstruct what was known at the time. Never backfill a past value using a future snapshot while presenting it as contemporaneous truth.
-
----
-
-## 4.11 Additional owner-requested requirements reconciled from capture files
-
-These are not separate roadmaps anymore; they are part of this master plan:
-
-- **Admin:** fix `fmtPassExpiry` runtime crash; make temporary-password access work end-to-end with owner-selected validity hours and fail-closed expiry/revocation.
-- **Trade manual overrides:** visually silent; one top-level Reset Values; removal clears temporary override; canonical truth unchanged.
-- **Trade equalizer:** candidate closeness uses the same active post-VA package math shown by the calculator.
-- **Establish The Run dynasty source:** research is preserved but **PAUSED**; do not buy access or implement until owner explicitly resumes it.
-- **Individual special teams scoring:** player return/special-teams production must be correctly attributed and backtested.
-- **League-specific player fit / college translation:** complete validated NFL player-specific scoring-fit work first; then investigate prospect translation from statistical profiles without directly converting raw college fantasy points into dynasty value. Use shrinkage/stability/OOS validation and keep scoring fit separate from scarcity/market value.
-- **X/Twitter Analyst Intelligence:** future/cost-gated only; official/authorized API, no scraping.
-
----
-
-# 5. PUBLIC / PRIVATE GOVERNANCE
-
-Every material feature must declare one of:
-
-- **PUBLIC**
-- **PRIVATE**
-- **PUBLIC-SAFE / PRIVATE-INTELLIGENCE SPLIT**
-
-Public classification is semantic, not a field-name game.
-
-Canonical classes:
-
-1. **FACTUAL:** public — scores, standings, rosters, completed transactions, factual pick ownership.
-2. **RETROSPECTIVE:** public — records, awards, rivalry history, realized production.
-3. **BROADCAST-DERIVED:** potentially public-safe — sanitized Power, luck/streaks, matchup stories, public probabilities.
-4. **DECISION INTELLIGENCE:** private — proprietary values, edges, targets, weaknesses, Buy/Sell, pick forecasts, manager tendencies, negotiation/trade recommendations.
-
-A denylist of suspicious JSON keys is a useful secondary defense. It is not the policy.
-
----
-
-# 6. EXPLICIT REMOVED / REJECTED / PAUSED SCOPE
-
-Do not resurrect without a new owner decision:
-
-- Fantasy Schedule Generator — removed / not applicable.
-- Full dispersal-draft system — not approved.
-- Standalone rookie-WR model just because a competitor offers one — not approved.
-- Generic best-ball suite — not approved; Game Day's best-ball modeling is league-specific.
-- Generic article/media CMS — not strategy.
-- Social-network/community platform — not approved.
-- Automatic bulk trade spam — not approved.
-- Competitor branding/design copies — never.
-- Money / Constitution / generic League Media — removed/deferred from the current engagement.
-
-Paused, preserve but do not act:
-
-- Establish The Run paid dynasty source until owner explicitly resumes.
-- Large X analyst feed until cost/value economics justify it.
-
----
-
-# 7. CURRENT EXECUTION VS LONG-TERM SCOPE
-
-The fact that a feature appears in this plan **does not authorize immediate implementation**.
-
-Current sequencing and owner checkpoints live in `docs/EXECUTION_PLAN.md`.
-
-Foundation correctness precedes attractive product expansion. A future feature may be read now so current architecture does not contradict it, but it may not be started until its dependencies and owner authorization are satisfied.
-
----
-
-# 8. HISTORICAL / CAPTURE DOCUMENT GOVERNANCE
-
-The following kinds of documents remain useful evidence/history but are **not independent future-scope authorities** after this reconciliation:
-
-- `UNIMPLEMENTED_BACKLOG.md`;
-- `docs/master-site-audit/NEXT_STEPS.md`;
-- `docs/master-site-audit/REPAIR_ROADMAP.md`;
-- date-stamped branch/session disposition/handoff records;
-- `docs/OWNER_REQUESTED_TODO.md`;
-- `docs/OWNER_FEATURE_ADDENDUM_2026-08-11.md`;
-- `docs/SCOPE_COORDINATION_2026-08-11.md`;
-- competitor checkpoint/TODO files.
-
-Their durable owner requirements have been reconciled into this plan, `OWNER_FEATURE_INVENTORY.md`, and/or `OWNER_PRODUCT_BACKLOG_SPEC.md`. Their historical measurements may still be valuable. If one contains a requirement that appears missing from the canonical plan, treat that as **documentation drift to reconcile**, not permission to implement directly from the old file.
-
-`docs/master-site-audit/` remains authoritative for its *measured historical evidence* at the pinned commit/input it names. It is not the current product roadmap.
-
----
-
-# 9. NEW-IDEA INTAKE RULE — PREVENT FUTURE DRIFT
-
-When the owner introduces a new idea or changes an existing one:
-
-1. identify whether it extends an existing canonical feature or creates a truly new concept;
-2. record the owner decision in the appropriate existing detailed spec rather than creating another permanent standalone roadmap;
-3. update `OWNER_FEATURE_INVENTORY.md` status/dependencies when necessary;
-4. update this master plan only when the feature family, precedence, public/private rule, removed scope, or major owner direction changes;
-5. update `EXECUTION_PLAN.md` only when sequencing/authorization changes;
-6. temporary/date-stamped capture documents must be reconciled into the canonical records before being considered closed;
-7. do not let a competitor research document become a parallel backlog.
-
-A useful idea is not “saved” merely because it exists somewhere in `docs/`. It is saved when it is represented in the canonical plan/spec/inventory hierarchy.
-
----
-
-# 10. IMPLEMENTATION DISCIPLINE
-
-When a backlog item becomes active:
-
-**investigate → reproduce → RED when executable defect → identify canonical owner/root cause → minimal canonical repair/build → GREEN → measure downstream effects → broad gates → exact-head CI → owner checkpoint → STOP.**
-
-For exploratory/modeling work, define the target and validation criteria before selecting a candidate. Do not invent a RED test or a convenient coefficient just to satisfy process.
-
-Every material checkpoint should report:
-
-- exact scope;
-- methodology;
-- files changed;
-- before/after measurements;
-- downstream effects;
-- tests/gates;
-- PR and exact head SHA;
-- residuals/limitations;
-- production-policy decisions still requiring owner approval;
-- explicit stop condition.
-
-A green test suite proves implementation consistency. It does not by itself prove product methodology is correct.
-
----
-
-# 11. RECONCILIATION STATUS — 2026-08-12
-
-This master pass intentionally reconciles the previously competing planning streams:
-
-- owner feature inventory;
-- detailed owner product backlog specification;
-- owner-requested TODO list;
-- owner feature addendum;
-- scope-coordination capture;
-- OTC Fantasy / Play For Keeps competitive scope;
-- Dynasty Daddy CE-17–CE-21 addendum/enrichments;
-- older unimplemented backlog;
-- master-site-audit repair roadmap / next-steps snapshots;
-- recent Public League v3, Acquisition Cost Basis, Analyst Intelligence, Game Day, and Brisket Honors decisions.
-
-The canonical future direction is now **Master Plan → Feature Inventory + Detailed Backlog Spec → Architecture → Execution authorization**.
-
-Do not create another “master list” beside this one. Extend this hierarchy instead.
+A one-line TODO, stale inventory row, competitor screenshot, old roadmap, old PR description, or current implementation quirk cannot independently redefine Chase Upside.
