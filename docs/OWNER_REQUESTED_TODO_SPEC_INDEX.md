@@ -47,8 +47,10 @@ A feature is not “specified” merely because its name exists in the to-do lis
 | Individual special-teams scoring | reconciliation §4.5; B7 scope |
 | Player-specific scoring fit / prospect translation | existing backlog + reconciliation §7 model governance |
 | CE-01–CE-21 competitive expansion | reconciliation §10; reconcile through canonical owners |
-| Team Strength | reconciliation §4.6 |
+| Team Strength | reconciliation §4.6 + #839 canonical Meaningful Roster Core invariant |
 | Team Weakness | reconciliation §4.7 |
+| Roster Age-Value Portfolio / Young Core Index | #838 + `OWNER_REQUESTED_TODO.md` binding decisions 47–50; primary score consumes #839 |
+| Canonical Meaningful Roster Core / 1.5× starter-demand rule | #839 + `OWNER_REQUESTED_TODO.md` binding decisions 47–49 |
 | Trade Finder / Suggestions / Golden Upgrades / Package Builder | reconciliation §4.9 |
 | 3-team trades | reconciliation §4.12 |
 | Waivers / FAAB / Perfect Waivers / Dropability | reconciliation §4.13 |
@@ -260,6 +262,30 @@ Original Decision mode must be no-lookahead: no current values, later performanc
 Historical-event/snapshot retention required for future exact replay should be introduced early enough in C's dependency DAG that the evidence is actually preserved before this product depends on it.
 
 **Full binding spec:** `docs/trade/HISTORICAL_TRADE_REPLAY_AS_OF_ANALYSIS_SPEC.md`.
+
+## T-NEW-18 — Roster Age-Value Portfolio / Young Core Index
+
+**Status:** PLANNED / C-REPLAN DEPENDENCY-GATED  
+**Priority:** roster-intelligence product built on canonical Team Strength foundations
+
+Add a team-profile Age & Value / Roster Window that shows how meaningful canonical player value is distributed by age overall and by QB/RB/WR/TE/DL-EDGE/LB/DB. Include value-weighted core age, age/value graph or distribution, league-relative rank/percentile, position-group profiles, and a transparent 0–100 league-relative Young Core Index rewarding meaningful value plus position-appropriate youth. Low-value young bench depth must not dominate.
+
+Canonical dynasty player value already embeds age expectations, so this feature is a **roster-construction descriptor**, not a second age-adjusted valuation. Use canonical My League values unchanged, authoritative DOB/age, explicit missing-age states, and exclude draft picks from player-age math. Primary calculations must consume T-NEW-19 / #839; full-roster age/value is secondary context. Historical trend views depend on historical value snapshots.
+
+**Tracking / binding spec:** #838 plus `OWNER_REQUESTED_TODO.md` decisions 47–50.
+
+## T-NEW-19 — Canonical Meaningful Roster Core / Universal 1.5× Starter Demand
+
+**Status:** BINDING C-SERIES ROSTER FOUNDATION  
+**Priority:** establish with Team Strength before downstream roster-value consumers
+
+Create one canonical selector for any product claim that collapses an entire fantasy roster into dynasty roster value/strength or a derivative. Dedicated position meaningful depth is `ceil(1.5 × actual dedicated starter slots)` from the requested league configuration. **Superflex is always QB demand:** add real Superflex count to QB starter demand before applying 1.5×. Regular offensive FLEX and defensive/IDP FLEX each create `ceil(1.5 × real flex slots)` after dedicated cores are selected, and are filled by the **highest-valued remaining legally eligible players**. Each player may count once.
+
+All Team Strength, team-profile roster value/strength, T-NEW-18, roster-aware trade before/after impact, Analyze Trade roster marginal impact, league-relative roster-quality rankings, and future whole-team dynasty-value consumers must call this same owner. A separately labeled full-roster asset-capital total may exist, but must not masquerade as Team Strength. Missing/unpriced values stay explicit.
+
+Validation must derive slot counts from live league configuration, cover offensive FLEX, IDP FLEX, and Superflex-as-QB fixtures, prove no double counting, and audit/remove raw-sum or page-local alternatives.
+
+**Tracking / binding spec:** #839 plus `OWNER_REQUESTED_TODO.md` decisions 47–49.
 
 ---
 
