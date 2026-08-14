@@ -1,0 +1,36 @@
+{
+  "_comment": "Parameters for the multi-axis confidence gate (B11). Loaded by src/api/confidence.py, which contains no numeric literal that decides a level. Deliberately NOT in config/thresholds.json: that registry exists to keep frontend/lib/thresholds.js in step with the backend, and tests/api/test_threshold_parity.py requires every entry to be exported from the JS. B11 forbids frontend confidence math, so mirroring these would plant client-side exactly the constants that must not exist there - which is the same defect #725 removed CONFIDENCE_SPREAD_HIGH / CONFIDENCE_SPREAD_MEDIUM for. The derivation discipline of that registry is kept: every entry records unit and derivedFrom, and tests/api/test_confidence_gate.py refuses one that does not.",
+  "version": "2026-08-14.v1",
+  "parameters": {
+    "INDEPENDENCE_HIGH_FAMILIES": {
+      "value": 5,
+      "unit": "independentEvidenceFamilies",
+      "appliesTo": "count of B10 correlation-group heads contributing to the blend",
+      "derivedFrom": "The count-aware blend's OWN top rung, not a new number. _mean_median_blend drops one extreme value per side once k >= 5 ('n >= 5 so trimming never reduces the statistic below a 3-source core'), so five independent families is the smallest panel where the published value is robust to a single outlying opinion in either direction. Below it the blend is repeating what a small panel said. Measured on the 2026-08-14 board: 476 of 709 non-pick rows carrying evidence reach it."
+    },
+    "INDEPENDENCE_MEDIUM_FAMILIES": {
+      "value": 3,
+      "unit": "independentEvidenceFamilies",
+      "appliesTo": "count of B10 correlation-group heads contributing to the blend",
+      "derivedFrom": "The blend's next rung down: n=3-4 takes an UNTRIMMED mean-median, n=2 is a plain mean and n=1 a passthrough. Three is therefore the smallest panel where a single dissenting family can be outvoted rather than averaged in at half the answer. Directly satisfies the owner ruling that 'excellent agreement between only one or two evidence families should not automatically become HIGH confidence' - two families cannot exceed LOW on this axis at all."
+    },
+    "EVIDENCE_SHARE_HIGH": {
+      "value": 0.75,
+      "unit": "shareOfEvidence",
+      "appliesTo": "coverage / freshness / applicability / agreement share axes",
+      "derivedFrom": "One declared sufficiency ladder applied to every share-shaped axis, so the gate carries one policy number instead of four separately-invented cutoffs: an axis is HIGH when at least three quarters of the relevant evidence satisfies it. A stated PRIOR, not a fit - recorded as such. Distribution check on the 2026-08-14 board (709 non-pick rows with evidence): coverage p25 0.750 / median 0.917; freshness p25 0.750 / median 0.909; agreement p25 0.636 / median 0.800. The line falls inside the body of all three rather than at a tail, so it discriminates instead of saturating."
+    },
+    "EVIDENCE_SHARE_MEDIUM": {
+      "value": 0.5,
+      "unit": "shareOfEvidence",
+      "appliesTo": "coverage / freshness / applicability / agreement share axes",
+      "derivedFrom": "The same ladder's lower rung: a simple majority of the relevant evidence. Below half, most of what could have spoken either did not, is stale, needed an approximation, or disagrees - which is LOW by construction rather than by calibration."
+    },
+    "AGREEMENT_VALUE_RATIO": {
+      "value": 0.15,
+      "unit": "relativeValueRatio",
+      "appliesTo": "|valueContribution - rankDerivedValue| / mean(valueContribution, rankDerivedValue)",
+      "derivedFrom": "Set to the board's existing declared line for a MATERIAL relative value gap - PREMIUM_SUMMARY_VALUE_RATIO in config/thresholds.json, the p70 of |marketGapValueRatio| across the 414 two-sided rows on the 2026-08-05 board - and measured with the SAME symmetric mean normalisation _compute_market_gap uses, so 0.15 means the same size of disagreement in both places. Given its own entry rather than importing that one so confidence and the /edge premium panels can diverge deliberately instead of by accident. Behaviour check on the 2026-08-14 board: the within-tolerance share falls with depth (median 1.000 in the top 100, 0.917 at 101-200, 0.750 at 201-800), i.e. it does not become mechanically easier where the Hill curve flattens."
+    }
+  }
+}

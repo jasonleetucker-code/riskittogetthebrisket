@@ -667,13 +667,23 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
         # Delta must be strictly smaller than full.
         self.assertLess(delta_bytes, full_bytes)
         # A generous cap to catch regressions: on the fixture the
-        # delta must fit in 55KB (the full contract is ~30KB but
-        # includes playersArray + legacy dict).  In production the
-        # delta is ~1.25MB vs ~4MB full.  The ratio matters more
-        # than the absolute bound; assert both.  (Bumped 50KB → 55KB
-        # 2026-07-29: the weighted-blend audit added the per-source
-        # ``appliedWeight`` stamp, +25 bytes on this fixture.)
-        self.assertLess(delta_bytes, 55_000)
+        # delta must fit in 60KB (the full contract is ~30KB but
+        # includes playersArray + legacy dict).  The ratio matters more
+        # than the absolute bound; assert both.
+        #
+        # Bumped 50KB → 55KB 2026-07-29: the weighted-blend audit added
+        # the per-source ``appliedWeight`` stamp, +25 bytes on this
+        # fixture.
+        #
+        # Bumped 55KB → 60KB by B11: the confidence gate publishes its
+        # axes and reasons per row.  This fixture has few rows and a lot
+        # of per-row confidence prose, so it exaggerates the cost —
+        # measured on the real 2026-08-14 board the production delta goes
+        # 3.864 → 4.136 MB raw and **314.3 → 334.1 KB over the wire**
+        # (+6.3%), which is what the user pays.  ``confidenceMetrics``
+        # was deliberately left OFF the payload to hold it there; the
+        # reasons already carry its numbers in readable form.
+        self.assertLess(delta_bytes, 60_000)
         self.assertLess(delta_bytes / full_bytes, 0.60)
 
     def test_delta_carries_all_override_sensitive_fields(self) -> None:

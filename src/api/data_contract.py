@@ -28,6 +28,15 @@ from src.canonical.player_valuation import (  # noqa: E402  — grouped with its
 )
 from src.data_models.contracts import utc_now_iso
 
+#: B11 — the single owner of "how good is the evidence behind this value".
+#: This module ASSEMBLES the evidence; it decides no confidence level.
+from src.api.confidence import (  # noqa: E402  — grouped with its siblings
+    FamilyEvidence,
+    assess_confidence,
+    assess_pick_confidence,
+    gate_parameter as _confidence_gate_parameter,
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 #: Verified cross-universe name collisions — players whose display name
@@ -99,38 +108,29 @@ _IDP_SIGNAL_KEYS = {
 # All source signal keys — used to detect which source(s) a player has
 _ALL_SIGNAL_KEYS = _OFFENSE_SIGNAL_KEYS | _IDP_SIGNAL_KEYS
 
-# ── Confidence bucket thresholds ────────────────────────────────────────────
-# Buckets describe how much trust a consumer should place in a player's
-# unified rank.  Determined by source count and source agreement.
+# ── Confidence: RETIRED HERE, OWNED BY src/api/confidence.py (B11) ──────────
 #
-# Agreement is measured in *percentile* space rather than absolute
-# ordinal ranks so IDP players aren't unfairly bucketed as "low" just
-# because IDP sources have smaller pools.  Example: an IDP with ranks
-# [52, 62, 148, 151, 1] across sources has an absolute spread of 150
-# (far above the legacy 80 threshold), but a percentile spread of
-# ~0.16 because each rank lives inside a much smaller pool — the
-# sources are actually in broad tier-agreement.  The offense-only
-# absolute thresholds used to fire "low" on well-covered IDP rows.
+# There used to be four constants at this spot — ``_CONFIDENCE_PERCENTILE_
+# HIGH/MEDIUM`` (0.08 / 0.20) and an absolute-ordinal fallback pair
+# (30 / 80) — bucketing a row on ``max(percentile) − min(percentile)``
+# across its contributing sources, behind an ``n >= 2`` count gate.
 #
-# Rules (evaluated top-to-bottom, first match wins):
-#   "high"   — 2+ sources AND percentileSpread <= 0.08   (within 8%)
-#   "medium" — 2+ sources AND percentileSpread <= 0.20   (within 20%)
-#   "low"    — single source, OR percentileSpread > 0.20, OR no
-#              percentile signal and absolute spread > 80
-#   "none"   — player did not receive a unified rank
+# Deleted rather than re-tuned.  A range can only preserve or narrow when
+# an observation is removed, so under "narrower ⇒ more confident"
+# **deleting evidence promoted a row**.  PR #833 recorded the failed
+# repair: re-basing the same statistic onto independent evidence moved 60
+# rows the WRONG way (A.J. Brown medium → high) purely because collapsing
+# his FantasyPros family removed one endpoint.  The input population was
+# never the defect; the statistic was, and a threshold pair around it
+# could not be anything but a different-sized version of the same bug.
 #
-# The 0.20 medium ceiling aligns with the
-# ``suspicious_disagreement`` flag threshold — anything worse than
-# 20% percentile spread is by definition widely-disagreed coverage,
-# which is exactly the "low" bucket.
-_CONFIDENCE_PERCENTILE_HIGH = 0.08
-_CONFIDENCE_PERCENTILE_MEDIUM = 0.20
-# Legacy absolute-ordinal fallback for callers that don't pass a
-# percentile spread (older tests, third-party consumers).  Kept at
-# the pre-fix thresholds so their existing expectations still hold.
-_CONFIDENCE_SPREAD_HIGH = 30
-_CONFIDENCE_SPREAD_MEDIUM = 80
-
+# ``src/api/confidence.py`` owns the replacement outright — five axes over
+# B10 provider families, combined by bottleneck, parameterised from
+# ``config/confidence/gate_v1.json``.  ``sourceRankPercentileSpread`` is
+# still computed and still published: it remains a useful diagnostic and
+# it still drives ``hasSourceDisagreement``.  It no longer decides
+# confidence.
+#
 # ── Trimmed percentile spread ────────────────────────────────────────────────
 # With this many sources or more, ``_percentile_rank_spread`` ignores the
 # single most extreme percentile on EACH side before taking max-minus-min.
@@ -1998,37 +1998,37 @@ def _scope_eligible(pos: str, scope: str, position_group: str | None) -> bool:
     return False
 
 
-def _compute_confidence_bucket(
-    source_count: int,
-    source_rank_spread: float | None,
-    percentile_spread: float | None = None,
-) -> tuple[str, str]:
-    """Return (confidenceBucket, confidenceLabel) for a ranked player.
+def _source_freshness_flags() -> dict[str, bool | None]:
+    """Per-source ``fresh?`` for the B11 confidence gate.
 
-    When ``percentile_spread`` is supplied (the normal path via
-    :func:`_compute_unified_rankings`), buckets are decided off the
-    percentile signal so IDP players with small source pools are
-    judged on the same agreement scale as offense players with
-    large pools.  Falls back to the legacy absolute-ordinal spread
-    for callers that only have ``source_rank_spread`` handy.
+    Tri-state, reduced from the same ``staleness`` string the payload's
+    ``dataFreshness.sourceTimestamps`` block publishes, so confidence and
+    the freshness panel cannot disagree about whether a source is
+    current:
 
-    See threshold constants above for the decision rules.
+      ``True``   inside its declared ``maxAgeHours`` budget
+      ``False``  measured, and past it
+      ``None``   could not be observed — a CSV we never found, or a
+                 source with no path registered at all
+
+    ``None`` is not ``False`` and neither is ``True``: an unmeasurable
+    source must not read like one we measured and found current.  The
+    gate counts only ``True`` toward the freshness share and reports the
+    unknowns separately.
+
+    Costs one ``os.stat`` per registered source, so callers resolve it
+    ONCE per build and pass the map down — never per row.
     """
-    if source_count >= 2:
-        if percentile_spread is not None:
-            if percentile_spread <= _CONFIDENCE_PERCENTILE_HIGH:
-                return "high", "High — multi-source, tight agreement"
-            if percentile_spread <= _CONFIDENCE_PERCENTILE_MEDIUM:
-                return "medium", "Medium — multi-source, moderate spread"
-        elif source_rank_spread is not None:
-            if source_rank_spread <= _CONFIDENCE_SPREAD_HIGH:
-                return "high", "High — multi-source, tight agreement"
-            if source_rank_spread <= _CONFIDENCE_SPREAD_MEDIUM:
-                return "medium", "Medium — multi-source, moderate spread"
-    # Single source or wide disagreement
-    if source_count >= 1:
-        return "low", "Low — single source or wide disagreement"
-    return "none", "None — unranked"
+    flags: dict[str, bool | None] = {}
+    for key, entry in _build_source_timestamps().items():
+        staleness = str((entry or {}).get("staleness") or "")
+        if staleness == "fresh":
+            flags[key] = True
+        elif staleness == "stale":
+            flags[key] = False
+        else:
+            flags[key] = None
+    return flags
 
 
 def _compute_anomaly_flags(
@@ -5148,6 +5148,41 @@ _TWO_WAY_PLAYERS: dict[str, str] = {
 }
 
 
+def _restate_confidence_after_override(
+    players_array: list[dict[str, Any]],
+    confidence_inputs: dict[int, tuple[list[FamilyEvidence], set[str]]],
+    pre_override_values: dict[int, Any],
+) -> list[str]:
+    """Re-run the confidence gate on rows a post-blend override moved.
+
+    The gate's agreement axis compares each family's contribution to the
+    PUBLISHED value, so a stamp taken before an override describes a
+    number the row no longer carries.  Rather than special-casing the one
+    override that exists today, this asks the general question — did
+    ``rankDerivedValue`` change since the gate ran? — so any future
+    post-blend pass is covered by construction.
+
+    Returns the canonical names it re-stated, for the caller's log.
+    """
+    restated: list[str] = []
+    for row_idx, (evidence, eligible) in confidence_inputs.items():
+        row = players_array[row_idx]
+        current = row.get("rankDerivedValue")
+        if current == pre_override_values.get(row_idx):
+            continue
+        assessment = assess_confidence(
+            evidence,
+            eligible_families=eligible,
+            consensus_value=current,
+        )
+        row["confidenceBucket"] = assessment.overall
+        row["confidenceLabel"] = assessment.label
+        row["confidenceAxes"] = dict(assessment.axes)
+        row["confidenceReasons"] = list(assessment.reasons)
+        restated.append(str(row.get("canonicalName") or row.get("displayName") or row_idx))
+    return restated
+
+
 def _apply_two_way_player_boost(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
@@ -7108,6 +7143,14 @@ def _compute_unified_rankings(
     # Hoisted above Phase 1: the coordinate-pool bookkeeping in the
     # translation passes needs to look a source definition up by key.
     src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in active_sources}
+    # ``correlation_group_for`` scans the registry, and the B11 gate asks
+    # per (row, source).  Resolved once here over the WHOLE registry —
+    # not just the active subset — so a key that survives in cached data
+    # after its source is disabled still resolves to its own family.
+    family_by_key: dict[str, str] = {
+        str(s.get("key") or ""): correlation_group_for(str(s.get("key") or ""))
+        for s in _RANKING_SOURCES
+    }
 
     # ── Phase 0: Build IDP backbone from the designated backbone source ──
     # The first enabled source with scope=overall_idp and is_backbone=True
@@ -7171,6 +7214,13 @@ def _compute_unified_rankings(
     row_source_ranks: dict[int, dict[str, int]] = {}
     row_source_meta: dict[int, dict[str, dict[str, Any]]] = {}
     source_pool_sizes: dict[str, int] = {}
+    # row_eligible_families[row_idx] = every provider family that COULD
+    # have covered this row.  Filled in Phase 3 beside softFallbackCount
+    # (same eligibility test) and read by the B11 confidence gate.
+    row_eligible_families: dict[int, set[str]] = {}
+    # The gate's inputs, kept per row so a post-blend override that moves
+    # a value can re-state the confidence that describes it.
+    row_confidence_inputs: dict[int, tuple[list[FamilyEvidence], set[str]]] = {}
     # For backbone assertion: remember the actual ladder depth used
     backbone_depth = backbone.depth
     shared_market_ladder = backbone.shared_idp_ladder()
@@ -8081,10 +8131,20 @@ def _compute_unified_rankings(
         # didn't rank this player" without that signal touching the
         # math.
         fallback_count = 0
+        # The COVERAGE DENOMINATOR for B11 confidence: every provider
+        # family that could have covered this row, whether or not it did.
+        # Seeded from the families that actually voted so the covered set
+        # is a subset by construction, then widened by the eligibility
+        # test below — which is the same test ``softFallbackCount`` uses,
+        # walked once for both answers.
+        #
+        # Denominating coverage on what COULD have spoken rather than on
+        # what did is what stops deleting evidence from reading as a
+        # tidier panel: an eligible family that stops covering a row is
+        # missing evidence for as long as it stays eligible.
+        eligible_families: set[str] = {family_by_key.get(k, k) for k in source_ranks}
         for src in active_sources:
             skey = str(src.get("key") or "")
-            if skey in source_ranks:
-                continue
             # Rookie-translation sources are deliberately excluded from
             # picks in the Phase 1 ordinal pass (see the matching skip
             # earlier in this function and ``_expected_sources_for_position``).
@@ -8101,9 +8161,13 @@ def _compute_unified_rankings(
                 continue
             if source_pool_sizes.get(skey, 0) <= 0:
                 continue
+            eligible_families.add(family_by_key.get(skey, skey))
+            if skey in source_ranks:
+                continue
             fallback_count += 1
 
         players_array[row_idx]["softFallbackCount"] = fallback_count
+        row_eligible_families[row_idx] = eligible_families
 
         # Framework step 5 + 7–8.  Gating rule (2026-04-20):
         #   - IDP rows: keep the anchor/subgroup split.  IDPTC is the
@@ -8400,6 +8464,9 @@ def _compute_unified_rankings(
     # the denominator of a row's consensus percentile.
     total_ranked = min(len(row_normalized), OVERALL_RANK_LIMIT)
 
+    # One stat pass for the whole board.  The B11 gate asks per row.
+    fresh_by_source = _source_freshness_flags()
+
     for overall_idx, (norm_val, row_idx) in enumerate(row_normalized[:OVERALL_RANK_LIMIT]):
         row = players_array[row_idx]
         overall_rank = overall_idx + 1
@@ -8512,38 +8579,82 @@ def _compute_unified_rankings(
         # Picks get their own confidence logic (CV-based on raw values),
         # because rank-spread is dominated by flat-value regions in
         # R3-R6 and KTC's per-slot synth bleeds in as fake agreement.
+        # Family-aware since B11 — see ``assess_pick_confidence``.
         if row.get("assetClass") == "pick":
             is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
-            bucket, label = _compute_pick_confidence(
+            bucket, label = assess_pick_confidence(
                 row.get("canonicalSiteValues") or {},
                 is_slot_specific=is_slot_specific,
             )
+            row["confidenceAxes"] = None
+            row["confidenceReasons"] = None
         else:
-            # INDEPENDENT evidence, not raw source keys (B11).
+            # ── B11: the multi-axis gate ──
             #
-            # ``_compute_confidence_bucket``'s ``n >= 2`` gate is a
-            # corroboration statement — "more than one opinion agrees" —
-            # so it has to count opinions the way the blend now does.
-            # B10-T3b collapsed each provider family to one vote; leaving
-            # confidence on the key count made the two disagree on 512
-            # rows, including **59 of the 102 HIGH rows**, which claimed
-            # more independent corroboration than the board had actually
-            # used.
+            # The retired rule was ``max(percentile) − min(percentile)``
+            # behind an ``n >= 2`` count gate.  A range can only narrow
+            # when an observation is removed, so "narrower ⇒ more
+            # confident" meant deleting evidence promoted a row — the
+            # failure #833 recorded and could not fix by feeding the same
+            # statistic a better population.
             #
-            # The spread inputs are deliberately unchanged: they are
-            # already computed over the post-Hampel set, and re-deriving
-            # them here would be a second change riding along with this
-            # one.  That leaves a known gap — the spread can still be
-            # measured across two members of one family — recorded for
-            # the rest of B11 rather than fixed silently here.
-            independent_n = row.get("independentSourceCount")
-            if not isinstance(independent_n, int) or independent_n <= 0:
-                independent_n = len(effective_source_ranks)
-            bucket, label = _compute_confidence_bucket(
-                independent_n,
-                source_rank_spread,
-                percentile_spread=percentile_spread,
+            # ``src/api/confidence.py`` owns the replacement outright:
+            # five axes over B10 family HEADS, combined by bottleneck.
+            # Everything this loop does here is ASSEMBLE the evidence —
+            # no level is decided in this file.
+            row_is_te = str(row.get("position") or "").strip().upper() == "TE"
+            evidence: list[FamilyEvidence] = []
+            for skey in effective_source_ranks:
+                smeta = effective_source_meta.get(skey) or {}
+                # Family-superseded members are not independent evidence;
+                # B10-T3b already excluded them from the blend.
+                if smeta.get("contributedToBlend") is False:
+                    continue
+                method = str(smeta.get("method") or "")
+                src_def = src_by_key.get(skey, {})
+                evidence.append(
+                    FamilyEvidence(
+                        family=family_by_key.get(skey, skey),
+                        source_key=skey,
+                        value_contribution=smeta.get("valueContribution"),
+                        fresh=fresh_by_source.get(skey),
+                        # ADR-015 lifts a non-TEP source's TE row onto the
+                        # TE++ basis the board is anchored on.  A measured
+                        # conversion, not a native observation.
+                        format_native=(not row_is_te) or bool(src_def.get("is_tep_premium")),
+                        # An approximating translation — rookie ladder or
+                        # backbone fallback — is a guess at where the
+                        # source would have placed the player.
+                        directly_observed=(
+                            method != TRANSLATION_FALLBACK
+                            and not method.startswith("rookie_ladder_translation")
+                        ),
+                    )
+                )
+            # Kept so a LATER post-blend override that moves this row's
+            # value can re-state its confidence against the value that
+            # actually shipped.  See ``_restate_confidence_after_override``.
+            row_confidence_inputs[row_idx] = (
+                evidence,
+                row_eligible_families.get(row_idx, set()),
             )
+            assessment = assess_confidence(
+                evidence,
+                eligible_families=row_eligible_families.get(row_idx, set()),
+                consensus_value=derived,
+            )
+            bucket = assessment.overall
+            label = assessment.label
+            row["confidenceAxes"] = dict(assessment.axes)
+            row["confidenceReasons"] = list(assessment.reasons)
+            # ``assessment.metrics`` is deliberately NOT stamped.  It is
+            # the arithmetic behind the reasons, and the reasons already
+            # carry the numbers a reader needs ("11 of 12 families price
+            # within 15% of the published value").  Publishing both cost
+            # +220 KB raw / +15 KB gzip per contract for a block nothing
+            # renders, on the payload CLAUDE.md's performance rules name
+            # first.  It stays on the assessment object for tests and
+            # in-process auditors.
         row["confidenceBucket"] = bucket
         row["confidenceLabel"] = label
 
@@ -8665,7 +8776,29 @@ def _compute_unified_rankings(
     # entry, compute the alt-family's implied value from the already-
     # loaded IDP source synthetic ranks and replace rankDerivedValue
     # with max(offense_value, alt_family_value).
+    pre_override_values = {
+        row_idx: players_array[row_idx].get("rankDerivedValue") for row_idx in row_confidence_inputs
+    }
     _apply_two_way_player_boost(players_array, players_by_name)
+    # ── Confidence describes the value that SHIPPED (B11) ──
+    #
+    # The gate's agreement axis asks how many families price within a
+    # material relative gap of ``rankDerivedValue``.  Every post-blend
+    # OVERRIDE therefore invalidates the answer it was given, because the
+    # override replaces the blended number with one computed from a
+    # different population — and no source published the result.
+    #
+    # Found on Travis Hunter, the whole of ``_TWO_WAY_PLAYERS``: the boost
+    # lifts him from the offense blend's ~2,900 to 4,758 (the alt-family
+    # value), leaving all eleven of his families 24-56% BELOW the
+    # published value while the row still claimed high agreement.  The
+    # retired percentile-spread rule never touched the value, so this
+    # coupling is new with the gate and is fixed here rather than left as
+    # a stale stamp.
+    #
+    # Written as a general guard over "did the value move", not as a
+    # special case for the boost table, so a future override inherits it.
+    _restate_confidence_after_override(players_array, row_confidence_inputs, pre_override_values)
 
     # Offense calibration is deliberately never applied to live values.
     # The offense market is already priced by the blend of KTC / DLF /
@@ -9716,42 +9849,83 @@ def build_api_data_contract(
                 "weight 0 removes the source entirely."
             ),
         },
-        # What the LIVE path actually decides on.
+        # What the LIVE path actually decides on (B11).
         #
-        # This block published the legacy absolute-ordinal rule
-        # ("sourceRankSpread <= 30 / <= 80") long after
-        # ``_compute_unified_rankings`` switched to the percentile
-        # signal, so 251 of the 788 bucketed rows on the pinned
-        # 2026-07-30 contract — 31.9% — carried a bucket that
-        # contradicted the rule published beside them.  Anyone applying
-        # the published rule to the published spread got a different
-        # answer than the board, on a third of the field.
-        #
-        # The absolute rule is not dead — it is the fallback for callers
-        # that hold only ``source_rank_spread`` — so it is published
-        # too, labelled as the fallback rather than as the rule.
-        "confidenceBuckets": {
-            "high": (
-                f"2+ sources, sourceRankPercentileSpread <= " f"{_CONFIDENCE_PERCENTILE_HIGH}"
+        # Published from the gate's OWN parameters and axis list, not
+        # restated.  The previous version of this block described a rule
+        # the code had already stopped using — the absolute-ordinal
+        # "sourceRankSpread <= 30 / <= 80" — and so contradicted the
+        # published bucket on 251 of 788 rows, 31.9% of the field.
+        # Deriving the description from the same file that decides is
+        # what stops that recurring.
+        "confidenceGate": {
+            "owner": "src/api/confidence.py",
+            "unitOfEvidence": (
+                "the B10 provider family (correlation group), never the source "
+                "key: a second observation from an already-represented family "
+                "is not an input to any axis"
             ),
-            "medium": (
-                f"2+ sources, sourceRankPercentileSpread <= " f"{_CONFIDENCE_PERCENTILE_MEDIUM}"
+            "combination": (
+                "BOTTLENECK — the overall level is the weakest axis.  Nothing "
+                "averages, so a large source count cannot compensate for stale, "
+                "inapplicable, thin or disagreeing evidence"
             ),
-            "low": (
-                f"single source, or sourceRankPercentileSpread > "
-                f"{_CONFIDENCE_PERCENTILE_MEDIUM}"
-            ),
-            "none": "player did not receive a unified rank",
-            "signal": "sourceRankPercentileSpread",
-            "fallbackRule": {
-                "appliesWhen": (
-                    "caller supplied only sourceRankSpread (absolute ordinal); "
-                    "NOT the live /api/data path"
+            "axes": {
+                "independence": (
+                    f"how many independent families voted; high at "
+                    f"{int(_confidence_gate_parameter('INDEPENDENCE_HIGH_FAMILIES'))}+, "
+                    f"medium at "
+                    f"{int(_confidence_gate_parameter('INDEPENDENCE_MEDIUM_FAMILIES'))}+"
                 ),
-                "high": f"2+ sources, sourceRankSpread <= {_CONFIDENCE_SPREAD_HIGH}",
-                "medium": f"2+ sources, sourceRankSpread <= {_CONFIDENCE_SPREAD_MEDIUM}",
-                "low": f"single source or sourceRankSpread > {_CONFIDENCE_SPREAD_MEDIUM}",
+                "coverage": (
+                    "share of the ELIGIBLE families that actually covered this "
+                    "asset — the denominator is what could have spoken, so a "
+                    "family that stops covering a row registers as missing "
+                    "evidence rather than as a tidier panel"
+                ),
+                "freshness": (
+                    "share of contributing families inside their declared "
+                    "maxAgeHours budget; unknown freshness is not fresh"
+                ),
+                "applicability": (
+                    "share of contributing families that reached this asset "
+                    "without an approximating translation.  Degraded one level "
+                    "when most of the evidence needed ADR-015's TE-premium "
+                    "basis conversion — a measured correction, so it costs a "
+                    "level rather than the axis"
+                ),
+                "agreement": (
+                    f"share of contributing families pricing within "
+                    f"{_confidence_gate_parameter('AGREEMENT_VALUE_RATIO')} "
+                    "relative of rankDerivedValue, using the same symmetric "
+                    "mean normalisation as marketGapValueRatio"
+                ),
             },
+            "shareLadder": {
+                "high": _confidence_gate_parameter("EVIDENCE_SHARE_HIGH"),
+                "medium": _confidence_gate_parameter("EVIDENCE_SHARE_MEDIUM"),
+            },
+            "none": "no evidence family covers this asset",
+            "perRowFields": [
+                "confidenceBucket",
+                "confidenceLabel",
+                "confidenceAxes",
+                "confidenceReasons",
+            ],
+            "picks": (
+                "picks keep their own coefficient-of-variation rule "
+                "(assess_pick_confidence) because rank spread on picks is "
+                "dominated by the flat-value regions in R3-R6 — but it is "
+                "family-aware, so two members of one provider cast one vote"
+            ),
+            "retired": (
+                "max(percentile) - min(percentile) bucketed at 0.08 / 0.20.  A "
+                "range can only narrow when an observation is removed, so "
+                "deleting evidence promoted a row (#833).  "
+                "sourceRankPercentileSpread is still published as a diagnostic "
+                "and still drives hasSourceDisagreement; it no longer decides "
+                "confidence"
+            ),
         },
         "anomalyFlags": [
             "offense_as_idp",
@@ -9876,8 +10050,22 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "isSingleSource",
     "isStructurallySingleSource",
     "hasSourceDisagreement",
+    # Override-sensitive because disabling a source removes a family
+    # (and re-weighting to 0 removes it entirely).  Absent from this
+    # list until B11 despite landing with B10-T3b — a delta merge left
+    # the DEFAULT board's independence counts sitting next to an
+    # overridden rank, which is the same self-disagreement
+    # ``canonicalPercentile`` was added here to prevent.
+    "effectiveSourceCount",
+    "independentSourceCount",
     "confidenceBucket",
     "confidenceLabel",
+    # The gate's reasoning travels with its verdict.  A bucket without
+    # its axes is the "score = 0.7134" the B11 ruling rejects, and a
+    # delta that refreshed the bucket while leaving the axes behind
+    # would publish an explanation of a board the row is no longer on.
+    "confidenceAxes",
+    "confidenceReasons",
     "marketGapDirection",
     "marketGapMagnitude",
     "marketGapValueRatio",
