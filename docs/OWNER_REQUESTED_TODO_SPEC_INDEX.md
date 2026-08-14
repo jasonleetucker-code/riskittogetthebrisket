@@ -1,7 +1,7 @@
 # Chase Upside — Owner To-Do Specification Index
 
 **Status:** BINDING COMPANION TO `docs/OWNER_REQUESTED_TODO.md`  
-**Date:** 2026-08-13
+**Date:** 2026-08-13; amended 2026-08-14
 
 `OWNER_REQUESTED_TODO.md` remains the compact durable tracking ledger. This file prevents a short row in that ledger from being mistaken for a complete implementation prompt.
 
@@ -38,6 +38,7 @@ A feature is not “specified” merely because its name exists in the to-do lis
 | Trade Monte Carlo audit | reconciliation §4.8 + binding Monte Carlo decisions in `OWNER_REQUESTED_TODO.md` |
 | Trade Second Opinions | reconciliation §4.8 + `OWNER_REQUESTED_TODO.md` |
 | Analyze Trade / Trade Desk | reconciliation §4.8–4.10 and §6.7 |
+| Historical Trade Replay / As-Of Team Fit | `trade/HISTORICAL_TRADE_REPLAY_AS_OF_ANALYSIS_SPEC.md` |
 | Trade equalizer suggestions | reconciliation §4.8 |
 | Trade Calculator / Real-Trade Database / market analytics expansion | `TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md` |
 | Every valid draft pick through 2029 has canonical value | `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §10 + `TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md` TC-19–TC-22 |
@@ -240,6 +241,25 @@ The post-B C replan must build an exhaustive scope manifest from every canonical
 C is not complete while any approved feature is missing, partial, disconnected, mock-only, unverified in production, materially too slow, mobile-incomplete where parity is required, or carrying contradictory canonical truth. A genuinely impossible external blocker requires explicit owner disposition before the final completion state can be claimed.
 
 **Full binding spec and final completion phrase:** `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`.
+
+## T-NEW-17 — Historical Trade Replay / As-Of Team Fit
+
+**Status:** PLANNED / C-REPLAN DEPENDENCY-GATED  
+**Priority:** major Trade History / Trade Desk decision-review capability
+
+When a completed trade is reopened from Trade History, default to a historical replay/as-of mode rather than evaluating it against today's already-changed roster. Reconstruct the participating roster(s) immediately before the trade, apply the trade exactly once, and compare the immediate-after state with the same canonical Team Strength/Weakness, roster marginal-impact, and Analyze Trade machinery used for live decisions.
+
+Provide three explicitly separate lenses:
+
+- **Original Decision / At the Time** — only evidence available at the transaction timestamp;
+- **Outcome Since** — what actually happened afterward;
+- **Today's View** — how the original package looks with current information.
+
+Original Decision mode must be no-lookahead: no current values, later performance/injuries, later roster moves, later pick outcomes, later analyst takes, or other hindsight inputs may leak backward. Historical state/value/projection coverage must expose fidelity/provenance such as EXACT, NEAREST PRIOR, RECONSTRUCTED, PARTIAL, or UNAVAILABLE. Missing evidence never becomes zero, neutral, or today's value. Older trades from before this feature existed should be replayable retroactively wherever event/snapshot evidence permits, with honest degradation where it does not.
+
+Historical-event/snapshot retention required for future exact replay should be introduced early enough in C's dependency DAG that the evidence is actually preserved before this product depends on it.
+
+**Full binding spec:** `docs/trade/HISTORICAL_TRADE_REPLAY_AS_OF_ANALYSIS_SPEC.md`.
 
 ---
 
