@@ -1108,3 +1108,70 @@ map inline. Replaced with the property that is actually true and worth pinning: 
 membership is resolved through the declared owner and nowhere else**, and no provider
 family is named as a literal inside the blend. A guard that survives the change it was
 written to catch is worse than no guard — it reads as evidence.
+
+---
+
+# `inferValueBundle` missing-as-zero — RESOLVED
+
+The last must-review-before-C item. Reviewed as its own unit, as required.
+
+## What the coerced zero actually is
+
+`inferValueBundle` maps a missing board value to `0`, and both materializers stamp
+`values.full = Math.round(backendValue || 0)`. On the live board **282 of 1,094 rows** carry
+`rankDerivedValue: null` — the backend says so explicitly and even publishes the count as
+`rowsUnpricedByBoard: 282`.
+
+Every semantic use, traced:
+
+| use | verdict |
+|---|---|
+| `sideTotal` / Value Adjustment arithmetic | **legitimate.** 0 is a neutral element here, and dropping the row instead would shrink the piece count VA is a function of — a different and worse distortion |
+| `displayValue` → trade search result, "Our Value" tile, value-chain header | **defect.** Rendered `0`, which claims we priced the asset and found it worthless |
+| value-override input placeholder | **defect.** Suggested `0` as the number to beat |
+| multi-team incoming-asset meta | **defect.** Same |
+| side total → gap → verdict → TradeMeter | **defect of omission.** The arithmetic was defensible; publishing the verdict without saying which pieces contributed nothing because nobody priced them was not |
+| waiver add pool (`buildCandidatePool`) | **clean** — filters `rowValue <= 0` |
+| waiver DROP list (`rosterRows`) | **clean** — same filter, so an unvalued player is never recommended as a cut |
+| draft rookie-pool sort (`readBlendedValue`) | **clean enough** — 0 sinks the row and reaches no label |
+| ranking surfaces | **not reachable** — unpriced rows carry no `canonicalConsensusRank`, so they are off the ranked board entirely |
+
+## The finding that mattered most
+
+`isUnpricedBoardRow` was added for exactly this (audit finding W08-F006) and its own
+docstring says unpriced rows "are labelled instead, at the chip".
+
+**It had no production consumer at all.** Only the test directory imported it. The predicate
+shipped; the label never did. An audit finding can be closed by a function that is never
+called, and nothing in the suite notices — the tests exercised the predicate directly.
+
+## The repair
+
+Missingness preserved **separately from** the arithmetic, which is the shape the governance
+rule permits — not a blanket replacement of every `|| 0`:
+
+- `effectiveValue` still returns 0, and now says in its docstring that this is the bounded
+  neutral element and where the missingness lives instead;
+- `displayValue` returns **`null`** for an unpriced row, and `formatBoardValue` is the one
+  formatter that turns it into an em dash, so "not priced" cannot render as "0" on one
+  surface and "—" on another;
+- `unpricedAssetsOnSide` drives an explicit **"Incomplete — N unpriced"** line on the side
+  total, naming the assets in its tooltip;
+- the override placeholder and the multi-team asset meta say "—" / "not priced";
+- the player popup reads "not priced" rather than "0", and its value chain says "no value"
+  rather than "how we got 0";
+- a manual `customValue` makes an asset priced again — the board has no number, the user
+  supplied one, and reporting that as missing would be its own lie.
+
+Pinned by `frontend/__tests__/unpriced-is-not-zero.test.js`, including the sort case the
+ruling asked for by name: an unpriced asset sorts last because it is **unknown**, not
+because it lost a comparison to 12. A `0` produces the same order there by accident and the
+wrong one the moment a low-valued priced row exists.
+
+Frontend suite: 125 files, 2044 tests, green.
+
+## Boundary, stated
+
+Prettier reports pre-existing style warnings on all three touched files on `main` as well;
+the repo runs no prettier gate, and reformatting them would bury this diff in unrelated
+churn. Not touched.
