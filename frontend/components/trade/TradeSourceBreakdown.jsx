@@ -34,26 +34,28 @@ import {
   SOURCE_VENDOR_LABELS,
   vendorForSource,
 } from "@/lib/dynasty-data";
-import {
-  effectiveValue,
-  valueAdjustmentFromSideArrays,
-} from "@/lib/trade-logic";
+import { valueAdjustmentFromSideArrays } from "@/lib/trade-logic";
+import { resolveVendorAssetValue, summariseSide } from "@/lib/second-opinions";
 
 const KTC_RAW_NATIVE_VENDORS = new Set(["ktcSfTep"]);
 
-export default function TradeSourceBreakdown({
-  sides,
-  settings,
-  valueMode = "full",
-}) {
-  // When ON (default), pieces uncovered by a vendor's sub-boards
-  // are imputed with our blended canonical value via
-  // ``effectiveValue`` — the same value the main fairness bar
-  // uses.  Lets every vendor render a complete opinion on the
-  // trade so side totals are directly comparable.  Imputed cells
-  // get an italic style + dotted underline + tooltip explaining
-  // the substitution.  Power-user mode (toggle OFF) shows raw
-  // vendor coverage with zero-fill, the previous behavior.
+// NOTE: this component deliberately takes NO ``valueMode``.
+//
+// It used to, and passed it to ``effectiveValue`` for the
+// uncovered-asset fallback — so flipping the Trade Calculator's
+// display toggle to "Raw" swapped the fallback onto the legacy scraper
+// composite while every vendor number beside it stayed canonical.
+// Measured: rawComposite/canonical runs 0.266-2.082 across 805 rows.
+// A user's diagnostic selection may not change the unit system the
+// arithmetic runs in, so the basis is owned by
+// ``lib/second-opinions.js`` and nothing here can override it.
+export default function TradeSourceBreakdown({ sides, settings }) {
+  // When ON (default), pieces a vendor does not cover are filled with
+  // our CANONICAL value — explicitly, via ``resolveVendorAssetValue``,
+  // never through a display mode.  Imputed cells get an italic style +
+  // dotted underline + tooltip.  Toggle OFF for strict "what does this
+  // vendor literally say" mode, which now reports the uncovered pieces
+  // as unresolved rather than summing them as zeros.
   const [imputeUncovered, setImputeUncovered] = useState(true);
 
   const rows = useMemo(() => {
@@ -92,97 +94,37 @@ export default function TradeSourceBreakdown({
         // case where only one sub-board covers a given player.
         const mainSubs = subs.filter((s) => !s.needsRookieTranslation);
         const rookieSubs = subs.filter((s) => s.needsRookieTranslation);
-        // Per-source value resolution.
-        //
-        // For KTC's TE++ board, the V13 Value Adjustment formula and
-        // its empirical suppression thresholds (V13_SUPPRESS_RAW_DIFF,
-        // V13_SUPPRESS_SAME_SIDE_RAW_DIFF) were calibrated against
-        // KTC's raw 0-9999 piece values.  Feeding the formula the
-        // canonical Hill-blended ``valueContribution`` instead would
-        // mis-fire VA — sometimes suppressing a real VA, sometimes
-        // inventing one — and the per-source KTC row would disagree
-        // with what keeptradecut.com displays for the same trade.
-        //
-        // Read the raw scrape from ``row.rawSourceValues.ktcSfTep``
-        // so TE rows feed the V13 formula the actual KTC TE++ value
-        // straight from keeptradecut.com.  Post PR #406 the canonical
-        // ``canonicalSites.ktcSfTep`` stamp matches the raw scrape
-        // (KTC is in ``_TE_BLANKET_KTC_EXEMPT_KEYS`` and the scraper-
-        // side ×1.15 has been removed), so the two paths agree — the
-        // canonical fallback stays in place for legacy fixtures and
-        // as a defense against any future canonical-pipeline drift.
-        //
-        // For every other vendor we keep the Hill-normalized
-        // ``valueContribution``: rank-signal sources DO carry their
-        // vendor-native number in ``sourceNativeValues`` (FC crowd
-        // value, OTC 0-100, ...), but those live on per-vendor scales
-        // that would break this component's cross-vendor 0-9999
-        // ratios — natives are display/tooltip data, not math inputs.
-        // The ``canonicalSites`` slot for these sources is a synthetic
-        // 100,000+ rank-encoded number, equally unusable here.
+        // Per-asset value resolution lives in ``lib/second-opinions.js``,
+        // which returns a BASIS with every number and refuses to return a
+        // quantity it cannot justify.  KTC is the one vendor whose covered
+        // assets use its own native values (V13 VA was calibrated on
+        // them), and it is therefore the one vendor we will not impute
+        // into — canonical and KTC-native are not interchangeable
+        // (median ratio 1.091, drifting 0.947 at the top of the board to
+        // 1.142 in the tail, range 0.400-1.491).
         const useRawNative = KTC_RAW_NATIVE_VENDORS.has(vendor);
-        const sourceValueForRow = (row, sub) => {
-          if (useRawNative) {
-            const raw = Number(row.rawSourceValues?.[sub.key]);
-            if (Number.isFinite(raw) && raw > 0) return raw;
-            const native = Number(row.canonicalSites?.[sub.key]);
-            if (Number.isFinite(native) && native > 0) return native;
-          }
-          const vc = Number(row.sourceRankMeta?.[sub.key]?.valueContribution);
-          return Number.isFinite(vc) && vc > 0 ? vc : 0;
-        };
-        const averageCovered = (row, sourceList) => {
-          let sum = 0;
-          let covered = 0;
-          for (const sub of sourceList) {
-            const v = sourceValueForRow(row, sub);
-            if (v > 0) {
-              sum += v;
-              covered += 1;
-            }
-          }
-          return covered > 0 ? sum / covered : 0;
-        };
-        // Per-piece value resolution.  Both players and picks go
-        // through ``averageCovered`` which returns 0 for any sub-
-        // board that doesn't rank this piece.  When the vendor
-        // genuinely doesn't cover a piece (e.g. DLF on draft picks,
-        // KTC pre-V13 on IDP) the imputeUncovered toggle decides:
-        //   ON  → fall back to our blended value via effectiveValue
-        //          (the same value the main fairness bar uses), so
-        //          every vendor produces a complete opinion the
-        //          user can compare across rows.
-        //   OFF → contribute 0, the strict "what does this vendor
-        //          literally say?" mode for power-user diagnostics.
-        // Imputed pieces are tracked in ``imputedFlags`` so the UI
-        // can italicize + underline the cells that include
-        // imputation.
-        const fallbackForRow = (row) =>
-          imputeUncovered
-            ? Math.max(0, Number(effectiveValue(row, valueMode, settings)) || 0)
-            : 0;
-        const sideValuesAndFlags = assetsBySide.map((assets) =>
-          assets.map((row) => {
-            const mainAvg = averageCovered(row, mainSubs);
-            if (mainAvg > 0) return { value: mainAvg, imputed: false };
-            const rookieAvg = averageCovered(row, rookieSubs);
-            if (rookieAvg > 0) return { value: rookieAvg, imputed: false };
-            const fb = fallbackForRow(row);
-            return { value: fb, imputed: fb > 0 };
-          }),
+        const sideSummaries = assetsBySide.map((assets) =>
+          summariseSide(
+            assets.map((row) =>
+              resolveVendorAssetValue({
+                row,
+                mainSubs,
+                rookieSubs,
+                useKtcNative: useRawNative,
+                impute: imputeUncovered,
+              }),
+            ),
+          ),
         );
-        const sideValues = sideValuesAndFlags.map((side) =>
-          side.map((p) => p.value),
-        );
-        const imputedCounts = sideValuesAndFlags.map(
-          (side) => side.filter((p) => p.imputed).length,
-        );
+        const sideValues = sideSummaries.map((s) => s.values);
+        const imputedCounts = sideSummaries.map((s) => s.imputed);
+        const nativeCounts = sideSummaries.map((s) => s.native);
+        const unresolvedCounts = sideSummaries.map((s) => s.unresolved);
+        const incomplete = sideSummaries.some((s) => s.incomplete);
         const rawTotals = sideValues.map((vs) =>
           vs.reduce((sum, v) => sum + v, 0),
         );
-        const coverage = sideValues.map(
-          (vs) => vs.filter((v) => v > 0).length,
-        );
+        const coverage = nativeCounts.map((n, i) => n + imputedCounts[i]);
         // Skip vendors that touch zero pieces across the whole trade
         // (this can still happen when imputation is OFF and the
         // vendor covers nothing — keep the empty-rows diagnostic
@@ -205,8 +147,7 @@ export default function TradeSourceBreakdown({
           .reduce((max, v) => Math.max(max, v), 0);
         const rawMargin = adjustedTotals[winnerIdx] - runnerUp;
         const winnerTotal = adjustedTotals[winnerIdx];
-        const marginPct =
-          winnerTotal > 0 ? (rawMargin / winnerTotal) * 100 : 0;
+        const marginPct = winnerTotal > 0 ? (rawMargin / winnerTotal) * 100 : 0;
         const tied = rawMargin < 1;
 
         // Display label: use SOURCE_VENDOR_LABELS for multi-board
@@ -233,6 +174,9 @@ export default function TradeSourceBreakdown({
           adjustedTotals,
           coverage,
           imputedCounts,
+          nativeCounts,
+          unresolvedCounts,
+          incomplete,
           winnerIdx: tied ? null : winnerIdx,
           winnerLabel: tied ? "Even" : sides[winnerIdx]?.label || "?",
           marginPct,
@@ -242,7 +186,7 @@ export default function TradeSourceBreakdown({
     // ``settings`` is kept in the dep list for memo invalidation
     // when source weights / overrides change downstream.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sides, settings, valueMode, imputeUncovered]);
+  }, [sides, settings, imputeUncovered]);
 
   // Empty-rows diagnostic — historically this branch returned null,
   // which made it impossible to distinguish "card not rendering at
@@ -270,8 +214,8 @@ export default function TradeSourceBreakdown({
             style={{ fontSize: "0.72rem" }}
           >
             VA-adjusted totals on the 0-9999 value scale, summed per vendor.
-            Sub-boards (e.g. DLF SF + DLF RK) roll up into one row; margin
-            shows winner's edge as a percent.
+            Sub-boards (e.g. DLF SF + DLF RK) roll up into one row; margin shows
+            winner's edge as a percent.
           </span>
         </span>
         <label
@@ -399,21 +343,21 @@ export default function TradeSourceBreakdown({
                               : "var(--cyan)",
                     }}
                   >
-                    {row.winnerIdx === null
-                      ? "Even"
-                      : `Side ${row.winnerLabel}`}
+                    {row.incomplete
+                      ? "Incomplete"
+                      : row.winnerIdx === null
+                        ? "Even"
+                        : `Side ${row.winnerLabel}`}
                   </td>
                   <td
                     style={{
                       textAlign: "right",
                       fontFamily: "var(--mono)",
                       color:
-                        row.winnerIdx === null
-                          ? "var(--muted)"
-                          : "var(--text)",
+                        row.winnerIdx === null ? "var(--muted)" : "var(--text)",
                     }}
                   >
-                    {row.winnerIdx === null
+                    {row.incomplete || row.winnerIdx === null
                       ? "—"
                       : `${row.marginPct.toFixed(1)}%`}
                   </td>
