@@ -2,7 +2,7 @@
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD  
 **Last reconciled:** 2026-08-13  
-**Companions:** `docs/MASTER_PRODUCT_PLAN.md`, `docs/OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md`, `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`, `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md`
+**Companions:** `docs/MASTER_PRODUCT_PLAN.md`, `docs/OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md`, `docs/OWNER_MASTER_FEATURE_BACKLOG_2026-08-13.md`, `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`, `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md`
 
 This file answers **what work should happen next**. It does not define long-term product intent; that lives in the Master Product Plan, Feature Inventory, Product Backlog Spec, owner feature-spec reconciliation, and feature-specific binding addenda.
 
@@ -99,7 +99,7 @@ When B11 is completed/accepted:
 2. Put Claude Code in **Plan Mode only**.
 3. Re-read the actual repository/product/production state at that time, including all current, partial, planned, newly discussed, and owner-requested features added during B.
 4. Read and apply `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` in full.
-5. Build an exhaustive **C-Series Scope Manifest** before ordering phases. The manifest must reconcile every approved feature from the Master Product Plan, Feature Inventory, Product Backlog Spec, owner reconciliation + appendix, owner to-do/index, feature-specific specs, Premium design records, the Trade Calculator/Market Evidence expansion, CE backlog, and every later owner addendum.
+5. Build an exhaustive **C-Series Scope Manifest** before ordering phases. The manifest must reconcile every approved feature from the Master Product Plan, Feature Inventory, Product Backlog Spec, owner reconciliation + appendix, owner to-do/index, the **100-item Owner Master Feature Backlog**, feature-specific specs, Premium design records, the Trade Calculator/Market Evidence expansion, CE backlog, and every later owner addendum.
 6. Completely **rewrite the C-series execution plan** rather than inheriting the old shorthand C ordering.
 7. Build the dependency graph first: canonical owners, prerequisites, shared root causes, consolidation/retirement opportunities, parallelizable lanes, migrations/backfills, data/licensing constraints, performance budgets, rollout/rollback, and safe PR boundaries.
 8. Prefer shared foundations that unlock many consumers over page-by-page implementation. Do not build duplicate value, pick, history, lineup, package, probability, analyst, or recommendation engines for convenience.
@@ -188,6 +188,6 @@ At every owner-approved checkpoint:
 3. leave later approved product scope in `MASTER_PRODUCT_PLAN.md` and detailed owner specs rather than copying every implementation detail here;
 4. never let a stale phase statement in `ARCHITECTURE_HANDOFF.md`, an old audit roadmap, or a session capture override this file;
 5. if current code/evidence disproves this execution state, reconcile the document before beginning another phase;
-6. when owner intent is more detailed than a shorthand backlog row, use `OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md`, `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`, feature-specific specs, and later owner addenda as the detailed intent layer.
+6. when owner intent is more detailed than a shorthand backlog row, use `OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md`, `OWNER_MASTER_FEATURE_BACKLOG_2026-08-13.md`, `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`, feature-specific specs, and later owner addenda as the detailed intent layer.
 
 This file should stay short enough that a new implementation session can understand the current sequence in minutes.
