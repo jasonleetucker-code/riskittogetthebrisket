@@ -1,7 +1,7 @@
-# Chase Upside — Owner Master Feature Backlog (100-Item Discussion Ledger)
+# Chase Upside — Owner Master Feature Backlog (101-Item Discussion Ledger)
 
 **Status:** BINDING SCOPE INPUT FOR THE POST-B C-SERIES REPLAN  
-**Recorded:** 2026-08-13  
+**Recorded:** 2026-08-13; amended 2026-08-14  
 **Purpose:** preserve the owner's accumulated feature discussions in repository form so the future C-series cannot lose requirements that were previously captured only in conversation/backlog form.
 
 This is a **scope ledger**, not a standalone implementation specification and not an authorization to start C early. Detailed specs, canonical ownership, dependency order, and exact done criteria live in the feature-specific docs and must be reconciled under `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`.
@@ -152,8 +152,14 @@ The detailed binding behavior for 71–100 is in `TRADE_CALCULATOR_MARKET_EVIDEN
 
 ---
 
-# M. C-series zero-loss rule
+# M. Historical Trade Replay / as-of decision review
 
-This 100-item ledger is **not the whole Chase Upside product**. It is one binding source of owner intent that must be unioned with the broader Feature Inventory, Product Backlog Spec, Owner Feature Reconciliation/Appendix, feature-specific specs, Premium design direction, and every later owner addendum.
+101. **Historical Trade Replay / As-Of Team Fit** — A completed trade opened from Trade History must default to a historical replay context rather than evaluating the already-completed package against today's roster. Reconstruct the participating roster(s) immediately before the transaction, apply the trade once to produce the immediate-after state, and run the future canonical Team Fit / Analyze Trade machinery over those as-of states. Provide three explicitly separate lenses: **Original Decision / At the Time**, **Outcome Since**, and **Today's View**. Original Decision mode may use only information available as of the trade timestamp; current values, later performance/injuries, later pick outcomes, later roster moves, and other hindsight data may not leak backward. Historical values/projections/roster state must carry fidelity/provenance such as exact, nearest-prior, reconstructed, partial, or unavailable; missing evidence never becomes zero or today's value. Older trades made before this feature existed should be replayable retroactively where transaction/snapshot evidence permits, with honest degraded states where it does not. The Trade History `Open in Calculator` workflow must be time-context-aware on desktop and mobile. **Binding detailed spec:** `docs/trade/HISTORICAL_TRADE_REPLAY_AS_OF_ANALYSIS_SPEC.md`.
+
+---
+
+# N. C-series zero-loss rule
+
+This 101-item ledger is **not the whole Chase Upside product**. It is one binding source of owner intent that must be unioned with the broader Feature Inventory, Product Backlog Spec, Owner Feature Reconciliation/Appendix, feature-specific specs, Premium design direction, and every later owner addendum.
 
 Before C1, the C-Series Scope Manifest must include or explicitly map every row above. By C completion, no row may remain silently missing/partial/disconnected. See `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` for the binding completion standard.
