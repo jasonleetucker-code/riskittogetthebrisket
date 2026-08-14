@@ -73,23 +73,26 @@ class TestTheTwoSidesAreDifferentBodiesOfEvidence:
     def test_no_consensus_source_shares_a_family_with_a_retail_source(self):
         """The invariant, asserted over the live board.
 
-        Stated as a property of the SIDES rather than as "fantasyNavigatorSf
-        is excluded", so declaring a future retail-derived source into the
-        family is enough to protect the signal — no second edit here.
+        Stated as a property of the SIDES the function actually forms —
+        not as "fantasyNavigatorSf is excluded" — so declaring a future
+        retail-derived source into the family is enough to protect the
+        signal, with no second edit here.
         """
         contract = _contract()
-        retail_families = {correlation_group_for(k) for k in _retail_source_keys()}
+        retail_side = frozenset(expand_correlation_groups(_retail_source_keys()))
+        retail_families = {correlation_group_for(k) for k in retail_side}
 
         offenders: list[tuple[str, list[str]]] = []
         for row in contract["playersArray"]:
             source_ranks = row.get("sourceRanks") or {}
-            if not (set(source_ranks) & set(_retail_source_keys())):
+            if not (set(source_ranks) & retail_side):
                 continue
+            # Whatever the function does NOT put on the retail side is,
+            # by construction, its consensus side.
             leaked = [
                 key
                 for key in source_ranks
-                if key not in _retail_source_keys()
-                and correlation_group_for(key) in retail_families
+                if key not in retail_side and correlation_group_for(key) in retail_families
             ]
             if leaked:
                 offenders.append((str(row.get("displayName")), leaked))
@@ -116,12 +119,30 @@ class TestTheSplitIsTakenOverFamilies:
     def test_the_derived_source_is_priced_with_retail_not_against_it(self):
         direction, magnitude = _compute_market_gap(self.SOURCE_RANKS, self.META)
 
-        # Retail side = mean(9000, 8800) = 8900; consensus = 5000.
-        # If the derived source had stayed on the consensus side the
-        # consensus mean would be mean(8800, 5000) = 6900 and the gap
-        # would be much smaller.
+        # Retail side = mean(9000, 8800) = 8900; consensus = 5000. The
+        # gap is relative to the mean of the two sides, not to either one.
+        retail_mean, consensus_mean = 8900.0, 5000.0
+        expected = abs(retail_mean - consensus_mean) / ((retail_mean + consensus_mean) / 2.0)
+
         assert direction == "retail_premium"
-        assert magnitude == pytest.approx(abs(8900.0 - 5000.0) / 5000.0, rel=1e-6)
+        assert magnitude == pytest.approx(expected, rel=1e-6)
+
+    def test_leaving_the_derived_source_on_the_consensus_side_understates_the_gap(self):
+        """The defect, kept as a live comparison rather than a memory.
+
+        Same row, same numbers, split the old way: the consensus mean
+        becomes mean(8800, 5000) = 6900 and the reported disagreement
+        shrinks by more than half — because retail is now sitting on both
+        sides of a comparison drawn to measure disagreement with itself.
+        """
+        old_split, old_magnitude = _compute_market_gap(
+            self.SOURCE_RANKS, self.META, retail_keys=frozenset({"ktcSfTep"})
+        )
+        _, new_magnitude = _compute_market_gap(self.SOURCE_RANKS, self.META)
+
+        assert old_split == "retail_premium"
+        assert old_magnitude is not None and new_magnitude is not None
+        assert old_magnitude < new_magnitude / 2
 
     def test_a_row_with_only_the_derived_source_has_no_consensus_side(self):
         """`fantasyNavigatorSf` alone is a retail reading, not a consensus.
