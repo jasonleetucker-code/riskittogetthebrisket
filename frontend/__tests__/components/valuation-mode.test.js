@@ -40,9 +40,17 @@ describe("readValuationMode", () => {
     expect(readValuationMode()).toBe(MARKET);
   });
 
-  it("reads the persisted lens", () => {
+  it("ignores a persisted lens — a device may not pick a methodology", () => {
+    // WITHDRAWN 2026-08-14. This used to assert the stored value was
+    // honoured, which is precisely the defect: `next_settings_v2` is
+    // device-local and never server-synced, so one account on two
+    // devices held two answers, and the lens overwrote the canonical
+    // field. See docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md.
+    //
+    // Read-and-ignore rather than deleted, so an old phone with
+    // `leagueAdjusted` stored converges with no migration step.
     setSettings({ valuationMode: LEAGUE_ADJUSTED });
-    expect(readValuationMode()).toBe(LEAGUE_ADJUSTED);
+    expect(readValuationMode()).toBe(MARKET);
   });
 
   it("treats anything unrecognised as market", () => {
@@ -72,12 +80,9 @@ describe("withValuationMode", () => {
     expect(withValuationMode({ roster: ["A"] })).toEqual({ roster: ["A"] });
   });
 
-  it("adds the lens when the adjusted board is selected", () => {
+  it("adds no lens even when one is stored", () => {
     setSettings({ valuationMode: LEAGUE_ADJUSTED });
-    expect(withValuationMode({ roster: ["A"] })).toEqual({
-      roster: ["A"],
-      valuation_mode: LEAGUE_ADJUSTED,
-    });
+    expect(withValuationMode({ roster: ["A"] })).toEqual({ roster: ["A"] });
   });
 
   it("never mutates the caller's body", () => {
@@ -106,19 +111,19 @@ describe("withValuationMode", () => {
 });
 
 describe("applyValuationModeParam", () => {
-  it("returns the mode so callers can key a cache on it", () => {
-    // THE POINT of the return value: /api/terminal caches by
-    // (team, window, league). A cache keyed without the board serves
-    // the stale market payload for the full TTL after the user
-    // switches, which looks exactly like the toggle not working.
+  it("always reports the canonical board and adds no param", () => {
+    // The return value still exists because /api/terminal keys its cache
+    // on it. With one methodology it is constant — but keeping the seam
+    // means a future validated methodology re-opens in one place rather
+    // than re-threading six call sites.
     const params = new URLSearchParams();
     expect(applyValuationModeParam(params)).toBe(MARKET);
     expect(params.toString()).toBe("");
 
     setSettings({ valuationMode: LEAGUE_ADJUSTED });
-    const adjusted = new URLSearchParams();
-    expect(applyValuationModeParam(adjusted)).toBe(LEAGUE_ADJUSTED);
-    expect(adjusted.get("valuationMode")).toBe(LEAGUE_ADJUSTED);
+    const stored = new URLSearchParams();
+    expect(applyValuationModeParam(stored)).toBe(MARKET);
+    expect(stored.get("valuationMode")).toBeNull();
   });
 
   it("leaves other params untouched", () => {

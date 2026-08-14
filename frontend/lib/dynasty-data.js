@@ -2030,7 +2030,12 @@ export async function fetchDynastyData(opts = {}) {
     tepNativeMultiplierIsCustomized(tepNativeMultiplier);
   const customized = sitesCustomized || tepCustomized || tepNativeCustomized;
 
-  const leagueAdjusted = opts.valuationMode === "leagueAdjusted";
+  // WITHDRAWN 2026-08-14 — one canonical methodology. `readValuationMode`
+  // now always answers `market`, so callers that still pass a mode get
+  // the canonical board. Kept as a named constant rather than deleted so
+  // the composition branches below stay readable and a future validated
+  // methodology has one flag to flip.
+  const leagueAdjusted = false;
 
   // Default path (no overrides): fetch + cache the base contract.
   // The backend will derive tep_multiplier from the operator's

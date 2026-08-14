@@ -358,27 +358,83 @@ class TestInvariantD_ResponsiveEqualityOfTransport:
         )
 
 
-class TestTheDeviceLocalOwnershipDefect:
-    """The setting that selects the lens is device-local and unsynced.
+class TestDeviceLocalStateCannotSelectAMethodology:
+    """The original defect, stated as the contract that replaced it.
 
-    This is not a style point: it is what turns "a lens exists" into "two
-    devices disagree". Pinned as a fact about the storage model so the
-    repair has to address ownership, not just naming.
+    ``valuationMode`` lived in ``next_settings_v2`` in localStorage,
+    never server-synced, and the lens it selected overwrote
+    ``rankDerivedValue`` — so one account on two devices rendered two
+    numbers for one player under one field name.
+
+    The repair is not "sync the setting". It is that there is only one
+    methodology, so nothing device-local has a methodology to select. The
+    setting is read and IGNORED rather than removed, which is what makes
+    an old phone converge with no migration step.
     """
 
-    def test_valuation_mode_is_not_server_owned(self):
-        """RED: there is no server-side owner of the user's valuation lens.
-
-        ``next_settings_v2`` is written and read only through
-        ``localStorage`` (``useSettings.js:203,244``;
-        ``valuation-mode.js:41``), so the same account on two devices
-        holds two independent answers to "which board am I looking at".
-        """
-        settings = (REPO / "frontend/components/useSettings.js").read_text(encoding="utf-8")
-        synced = any(marker in settings for marker in ("/api/user/", "user_kv", "syncSettings"))
-        assert synced, (
-            "valuationMode is persisted only in localStorage. Until some "
-            "server-side or URL-explicit owner exists, two devices belonging "
-            "to one user can render different numbers for one player with "
-            "nothing reconciling them."
+    def test_the_client_no_longer_reads_a_stored_valuation_mode(self):
+        src = (REPO / "frontend/lib/valuation-mode.js").read_text(encoding="utf-8")
+        body = src.split("export function readValuationMode()", 1)[-1].split("\n}", 1)[0]
+        assert "localStorage" not in body, (
+            "readValuationMode still reads localStorage — a device-local value "
+            "can again decide which methodology a user sees"
         )
+        assert "LEAGUE_ADJUSTED" not in body, (
+            "readValuationMode can still answer leagueAdjusted; under the "
+            "current ruling there is one canonical methodology"
+        )
+
+    def test_there_is_no_user_facing_valuation_basis_control(self):
+        """A control that selects a methodology is how one player got two
+        values. Removed, not disabled — a greyed-out control implies the
+        choice still exists."""
+        page = (REPO / "frontend/app/rankings/page.jsx").read_text(encoding="utf-8")
+        assert 'label="Value basis"' not in page, (
+            "the Market / My league selector is still rendered on /rankings"
+        )
+        assert '{ value: "leagueAdjusted"' not in page, (
+            "the rankings page still offers leagueAdjusted as a choice"
+        )
+
+    def test_the_engine_gate_never_serves_the_withdrawn_lens(self):
+        """``_valuation_scoped_contract`` is the single place the lens
+        ever reached an engine, so it is the single place it is closed.
+        A stored ``leagueAdjusted`` is ignored, not refused."""
+        src = (REPO / "server.py").read_text(encoding="utf-8")
+        fn = src.split("async def _valuation_scoped_contract", 1)[-1].split("\ndef ", 1)[0]
+        assert "adjusted_contract" not in fn, (
+            "the engine gate still applies the league-adjusted overlay"
+        )
+        assert '"leagueAdjusted"' not in fn.split("requested ==", 1)[-1].split("return", 1)[-1], (
+            "the engine gate can still answer with the leagueAdjusted mode"
+        )
+
+
+class TestTheExperimentalLensIsIsolated:
+    """It may exist. It may not own a canonical field."""
+
+    def test_the_overlay_writes_only_experimental_field_names(self):
+        _, adjusted = _apply()
+        allen = adjusted["Josh Allen"]
+        assert allen[overlay.EXPERIMENTAL_VALUE_FIELD] == round(9991 * 1.25)
+        assert allen[CANONICAL_FIELD] == 9991
+        for banned in overlay.CANONICAL_VALUE_FIELDS:
+            if banned == CANONICAL_FIELD:
+                continue
+            values = allen.get("values") or {}
+            if banned in values:
+                assert values[banned] == 9991, (
+                    f"values.{banned} moved with the experimental lens; the "
+                    "canonical aliases must agree with the canonical value"
+                )
+
+    def test_the_experimental_field_name_cannot_be_mistaken_for_canonical(self):
+        for name in (
+            overlay.EXPERIMENTAL_VALUE_FIELD,
+            overlay.EXPERIMENTAL_RANK_FIELD,
+            overlay.EXPERIMENTAL_TIER_FIELD,
+        ):
+            assert name.startswith("experimental"), (
+                f"{name} does not announce itself as experimental, so a "
+                "consumer could read it as canonical"
+            )

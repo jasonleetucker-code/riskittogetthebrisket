@@ -77,7 +77,6 @@ import {
   Movement,
   PageHeader,
   Panel,
-  SegmentedControl,
   Select,
   SkeletonTable,
   StatTile,
@@ -262,7 +261,6 @@ export default function RankingsPage() {
   const { loading, error, rows, rawData } = useDynastyData();
   const {
     settings,
-    hydrated: settingsHydrated,
     update: updateSetting,
     updateSiteWeight,
     resetSiteWeights,
@@ -1343,21 +1341,21 @@ export default function RankingsPage() {
         description="Unified dynasty board — offense + IDP blended by consensus rank."
         actions={
           <>
-            <SegmentedControl
-              label="Value basis"
-              // null until settings hydrate: before that ``settings`` is
-              // SETTINGS_DEFAULTS, so highlighting "Market" would assert
-              // a value basis this device may not be on. Unchecked for
-              // one frame beats confidently wrong — the highlight is the
-              // only thing telling the user which board the numbers came
-              // from.
-              value={settingsHydrated ? settings.valuationMode || "market" : null}
-              onChange={(v) => updateSetting("valuationMode", v)}
-              options={[
-                { value: "market", label: "Market" },
-                { value: "leagueAdjusted", label: "My league" },
-              ]}
-            />
+            {/*
+              The "Value basis" Market / My league control was REMOVED on
+              2026-08-14. There is one canonical methodology, so there is
+              nothing to choose between, and a control that selects a
+              methodology is exactly how one player came to have two
+              values: the setting lived in localStorage, never synced, and
+              the lens overwrote the canonical field — so phone and
+              desktop disagreed with nothing on screen saying which was
+              which. Its own comment admitted the highlight was "the only
+              thing telling the user which board the numbers came from".
+
+              Removed rather than disabled: a greyed-out control implies
+              the choice still exists. See
+              docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md.
+            */}
             <CustomMixBadge rankingsOverride={rawData?.rankingsOverride} />
             {copyStatus && (
               <span className={styles.resultCount}>{copyStatus}</span>

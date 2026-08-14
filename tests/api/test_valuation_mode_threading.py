@@ -138,15 +138,31 @@ def _rows():
     ]
 
 
-def test_factors_are_applied_multiplicatively_and_the_board_is_re_ranked():
+def test_factors_are_applied_multiplicatively_under_experimental_names():
+    """The arithmetic still happens; it just no longer owns canonical.
+
+    Rewritten 2026-08-14. This used to assert the factor landed in
+    ``rankDerivedValue``, which is exactly the defect that let a
+    device-local setting change a player's canonical value. The
+    multiplication and the re-rank are unchanged — only where they are
+    written moved.
+    """
     rows = _rows()
     out = _overlay.adjusted_rows(rows, {"C": 2.0})
     assert out is not None
     by_name = {r["displayName"]: r for r in out}
-    assert by_name["C"]["rankDerivedValue"] == 6000
+
+    assert by_name["C"][_overlay.EXPERIMENTAL_VALUE_FIELD] == 6000
+    # C overtook A, so the EXPERIMENTAL ranks moved with the values.
+    assert (
+        by_name["C"][_overlay.EXPERIMENTAL_RANK_FIELD]
+        < by_name["A"][_overlay.EXPERIMENTAL_RANK_FIELD]
+    )
+
+    # ...and the canonical value and rank are exactly what they were.
+    assert by_name["C"]["rankDerivedValue"] == 3000
     assert by_name["A"]["rankDerivedValue"] == 5000
-    # C overtook A, so the ranks must have moved with the values.
-    assert by_name["C"]["canonicalConsensusRank"] < by_name["A"]["canonicalConsensusRank"]
+    assert by_name["C"]["canonicalConsensusRank"] == 3
 
 
 def test_the_callers_rows_are_never_mutated():
@@ -264,101 +280,92 @@ def test_an_unrecognised_mode_degrades_to_market_rather_than_erroring(
     assert res.json()["valuationMode"] == "market"
 
 
-def test_asking_for_the_lens_gets_the_lens(league, monkeypatch):  # noqa: F811
-    """Non-vacuity for everything below: the adjusted path must actually
-    engage on this fixture, or the degradation tests prove nothing."""
-    with TestClient(server.app, raise_server_exceptions=True) as c:
-        _install_contract(monkeypatch)
-        res = c.get("/api/terminal?valuationMode=leagueAdjusted")
-    assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["valuationMode"] == "leagueAdjusted", body.get("valuationNote")
-    assert "valuationNote" not in body
-
-
-def test_the_engines_see_different_numbers_under_the_two_lenses(
+def test_asking_for_the_lens_gets_the_canonical_board_and_is_told_so(
     league,  # noqa: F811
     monkeypatch,
 ):
-    """The point of the whole change. Same request, two lenses, and the
-    values the engine reads must actually differ — otherwise every stamp
-    above is decoration on an identical board."""
-    # The client is entered for the app lifespan the league fixture
-    # needs, not to issue a request — the comparison is on the board
-    # itself, which is what every engine reads.
-    with TestClient(server.app, raise_server_exceptions=True):
-        stub = _install_contract(monkeypatch)
-        overlay = gameplan.get_league_adjusted_values("main", "prof_a", stub)
-    factors = overlay["factors"]
-    assert factors, "fixture produced no factors; the comparison would be vacuous"
+    """WITHDRAWN 2026-08-14 — one canonical methodology.
 
-    adjusted = _overlay.adjusted_contract(stub, factors)
-    assert adjusted is not None
-    market_values = {r["displayName"]: r["rankDerivedValue"] for r in stub["playersArray"]}
-    lens_values = {r["displayName"]: r["rankDerivedValue"] for r in adjusted["playersArray"]}
-    assert market_values != lens_values
+    This used to assert the adjusted path engaged. The methodology was
+    evaluated for canonical promotion and rejected on the evidence (see
+    docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md), so an engine
+    request may no longer be answered from it.
+
+    Ignored, not refused: a stored ``leagueAdjusted`` on someone's phone
+    must converge to the canonical answer silently. Refusing would turn
+    an obsolete localStorage value into a broken page for a user who
+    never chose anything.
+    """
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract(monkeypatch)
+        res = c.get("/api/terminal?valuationMode=leagueAdjusted")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["valuationMode"] == "market"
+    assert body["valuationNote"] == "league_adjusted_withdrawn: not_canonical"
 
 
-def test_a_missing_roster_snapshot_serves_market_and_names_the_reason(
+def test_the_engines_see_ONE_board_whichever_mode_is_asked_for(
     league,  # noqa: F811
     monkeypatch,
 ):
-    """Refusing outright would take down working engines to protect an
-    optional lens. Serving market *silently* is the failure this change
-    exists to remove. So: market board, explicit note."""
+    """The inverse of the test this replaces, and the whole point now.
 
-    def _boom(*args, **kwargs):
-        raise gameplan.GameplanUnavailable("no_rosters", "no roster snapshot on disk")
+    The old assertion was that the two lenses produced *different*
+    numbers. That difference is exactly what a device-local localStorage
+    value could select between, so it is now the thing being forbidden.
+    """
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract(monkeypatch)
+        market = c.get("/api/terminal")
+        asked = c.get("/api/terminal?valuationMode=leagueAdjusted")
+    assert market.status_code == 200 and asked.status_code == 200
 
-    monkeypatch.setattr(gameplan, "get_league_adjusted_values", _boom)
+    def _values(res):
+        rows = (res.json().get("contract") or {}).get("playersArray") or []
+        return {r.get("displayName"): r.get("rankDerivedValue") for r in rows}
+
+    assert _values(market) == _values(asked), (
+        "the requested mode still changes the numbers an engine reads"
+    )
+
+
+def test_the_withdrawn_lens_is_never_even_computed(league, monkeypatch):  # noqa: F811
+    """Cheaper and stronger than the three degradation tests it replaces.
+
+    Those asserted that a missing roster snapshot / an exception / an
+    empty factor set each degraded to market with a named note. None of
+    those paths is reachable now, because the overlay is not invoked at
+    all — so the guarantee is upgraded from "degrades correctly" to
+    "never runs". If this fails, the withdrawal leaked.
+    """
+    called: list[str] = []
+
+    def _tripwire(*args, **kwargs):
+        called.append("invoked")
+        raise AssertionError("the withdrawn overlay was computed for an engine request")
+
+    monkeypatch.setattr(gameplan, "get_league_adjusted_values", _tripwire)
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract(monkeypatch)
         res = c.get("/api/terminal?valuationMode=leagueAdjusted")
     assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["valuationMode"] == "market"
-    assert body["valuationNote"] == "league_adjusted_unavailable: no_rosters"
-    assert any("league_adjusted_unavailable" in w for w in body.get("warnings") or [])
-
-
-def test_an_overlay_that_blows_up_still_serves_a_board(league, monkeypatch):  # noqa: F811
-    def _boom(*args, **kwargs):
-        raise RuntimeError("something unforeseen")
-
-    monkeypatch.setattr(gameplan, "get_league_adjusted_values", _boom)
-    with TestClient(server.app, raise_server_exceptions=True) as c:
-        _install_contract(monkeypatch)
-        res = c.get("/api/terminal?valuationMode=leagueAdjusted")
-    assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["valuationMode"] == "market"
-    assert body["valuationNote"] == "league_adjusted_unavailable: overlay_error"
-
-
-def test_an_overlay_that_moves_nobody_reports_market(league, monkeypatch):  # noqa: F811
-    """ "Adjusted" and "adjusted by exactly nothing" are the same board.
-    Claiming the lens for a board identical to market would make the
-    stamp meaningless."""
-    monkeypatch.setattr(gameplan, "get_league_adjusted_values", lambda *a, **k: {"factors": {}})
-    with TestClient(server.app, raise_server_exceptions=True) as c:
-        _install_contract(monkeypatch)
-        res = c.get("/api/terminal?valuationMode=leagueAdjusted")
-    assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["valuationMode"] == "market"
-    assert body["valuationNote"] == "league_adjusted_unavailable: no_op"
+    assert not called, "the overlay engine ran despite being withdrawn"
 
 
 # ── 3. The shared global is never mutated ───────────────────────────────
 
 
-def test_serving_the_lens_leaves_the_loaded_contract_untouched(league, monkeypatch):  # noqa: F811
+def test_requesting_the_lens_leaves_the_loaded_contract_untouched(
+    league,  # noqa: F811
+    monkeypatch,
+):
     with TestClient(server.app, raise_server_exceptions=True) as c:
         stub = _install_contract(monkeypatch)
         before = copy.deepcopy(stub)
         res = c.get("/api/terminal?valuationMode=leagueAdjusted")
         assert res.status_code == 200, res.text
-        assert res.json()["valuationMode"] == "leagueAdjusted"
+        assert res.json()["valuationMode"] == "market"
         assert server.latest_contract_data == before
 
 
