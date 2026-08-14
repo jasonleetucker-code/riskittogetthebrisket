@@ -1,7 +1,7 @@
 # Risk It To Get The Brisket — Owner Product Backlog Specification
 
 **Status:** AUTHORITATIVE PRODUCT-SPEC COMPANION TO `docs/OWNER_FEATURE_INVENTORY.md`  
-**Owner direction captured through:** 2026-08-12  
+**Owner direction captured through:** 2026-08-14  
 **Purpose:** Preserve not merely *what* the owner wants built, but *what the feature is supposed to mean*, its methodology, canonical dependencies, public/private posture, non-scope, missing-data behavior, validation requirements, and already-resolved owner decisions.
 
 > `OWNER_FEATURE_INVENTORY.md` remains the scope/status inventory. This document is the detailed implementation intent. A one-line inventory entry must never be treated as permission to invent methodology that is specified here.
@@ -137,6 +137,59 @@ Cost basis is **informational**. Do not penalize a rational sale merely because 
 **KEEP — NEW BUILD.** Must use the same canonical package-generation engine as Trade Finder, Trade Suggestions and Golden Upgrades.
 
 Return-position filters/constraints are applied *during generation*, not as a post-filter. Support QB/RB/WR/TE/DL-EDGE/LB/DB/PICKS and intentional multi-selection. Respect ownership, selected team, untouchables/exclusions, unpriced state, pick identity, league settings and roster impact.
+
+## 2.3 Best Trade to Send Each Team
+
+**KEEP — NEW BUILD. PRIVATE DECISION INTELLIGENCE.** For every other team in the selected league, generate and display **exactly one best trade to send that opponent**.
+
+This is a specialized consumer of the same canonical package-generation, valuation, roster-impact and external-market comparison infrastructure used elsewhere. It must **not** create a second trade finder, second value model or page-local package algorithm.
+
+### Hard qualification rules
+
+A candidate trade qualifies only when **all** of the following are true:
+
+1. **Players only.** No draft picks may appear on either side.
+2. **Equal player counts.** The number of players sent must equal the number received: 1-for-1, 2-for-2, 3-for-3, etc. No unequal-count consolidation packages qualify for this feature.
+3. **Canonical win for us.** From the selected user's/team's perspective, the site's canonical trade calculator/decision economics must grade the trade as a win. A merely even or losing canonical result does not qualify.
+4. **Externally defensible for them.** The opponent must grade **even or better** on at least one approved external market calculator: **KeepTradeCut (KTC)** or **IDP Trade Calculator**.
+5. **Whole-package native coverage.** An external calculator counts only when it can meaningfully/native-value every asset in the proposed package. Missing, unsupported, imputed-through-our-own-values, or partially covered assets may not be treated as an external win/even result.
+6. **One result per opponent.** Return the single highest-ranked qualifying trade for each other team. If no candidate satisfies the hard rules with adequate data/coverage, explicitly show **No qualifying trade found** rather than weakening the constraints or fabricating approval.
+
+### What “best” means
+
+Do **not** simply maximize the discrepancy between our calculator and an external calculator. Among qualifying candidates, rank for a strong, plausible, mutually defensible offer using a transparent multi-factor objective that includes:
+
+- improvement to our real roster after the trade: Team Strength, starting-lineup impact, weakness fixed/created, replacement/displacement and asset quality;
+- magnitude/confidence of our canonical edge;
+- opponent roster fit: whether the incoming players address their actual needs and come from positions where we can reasonably deal;
+- opponent external-market acceptability: how comfortably KTC or IDP Trade Calculator says they are even/winning, with source and margin shown;
+- plausibility / trade shape, avoiding absurd calculator-only exploits;
+- dynasty asset quality, liquidity and tier preservation when otherwise close;
+- untouchable/excluded-player controls and other explicit owner overlays.
+
+The feature should prefer **the best trade we would actually want to send and they could rationally accept**, not the mathematically largest exploit.
+
+### UX / explanation
+
+For each opponent show at minimum:
+
+- opponent/team;
+- players we send;
+- players we receive;
+- canonical result for us and margin;
+- which external calculator qualifies the opponent, their result/margin there, and coverage status;
+- concise **Why this helps us** explanation;
+- concise **Why they may accept** explanation based on their roster and the qualifying external market view;
+- key roster-impact facts where material;
+- confidence/coverage and any important caveat.
+
+The league view should make it easy to scan all opponents and may sort by **Best Opportunity**, but must still preserve one result per opponent.
+
+### Recommendation vs execution
+
+This feature recommends/drafts an offer only. It must never silently send trades. Any future send action must go through the canonical league-action gateway with explicit user confirmation.
+
+**Method status:** OWNER-DECIDED PRODUCT REQUIREMENT; EXACT RANKING WEIGHTS REQUIRE VALIDATION AGAINST PLAUSIBILITY/ROSTER-IMPACT EXAMPLES BEFORE PRODUCTION.
 
 ---
 
@@ -517,7 +570,6 @@ Do not create awards such as “Comeback Player” unless the data truly measure
 Create a canonical Award Ledger preserving season, award key, winner, top-five finalists, VORP/metric, franchise credit, methodology version, scoring-config fingerprint, input coverage and finalized timestamp.
 
 For the inaugural system, backfill 2024/2025 with the approved 2026 methodology. Future methodology changes should be explicit/versioned rather than accidental consequences of changing a helper function.
-
 ## 10.11 Coverage gates
 
 Awards require sufficient player scoring, starter attribution, position resolution and week coverage. Missing historical scoring must not silently become zero. If a season lacks defensible coverage, mark the award unavailable/insufficient rather than fabricating a winner.
