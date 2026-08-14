@@ -39,6 +39,9 @@ A feature is not “specified” merely because its name exists in the to-do lis
 | Trade Second Opinions | reconciliation §4.8 + `OWNER_REQUESTED_TODO.md` |
 | Analyze Trade / Trade Desk | reconciliation §4.8–4.10 and §6.7 |
 | Trade equalizer suggestions | reconciliation §4.8 |
+| Trade Calculator / Real-Trade Database / market analytics expansion | `TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md` |
+| Every valid draft pick through 2029 has canonical value | `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §10 + `TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md` TC-19–TC-22 |
+| C-Series final zero-loss completion / deployment contract | `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` |
 | ETR source research | owner-paused in `OWNER_REQUESTED_TODO.md`; no implementation until explicit resume |
 | Individual special-teams scoring | reconciliation §4.5; B7 scope |
 | Player-specific scoring fit / prospect translation | existing backlog + reconciliation §7 model governance |
@@ -200,6 +203,43 @@ The same remove-and-re-solve primitive owns **Game Changer Points** for The Upsi
 These metrics become first-class player-season statistics on appropriate UPP/history surfaces and deterministic inputs to Awards. MVP must use xWAR + VORP + actual WAR as complementary evidence; do not reduce MVP to a single raw leader or restore the superseded playoff/>.500 eligibility gate. Final deterministic MVP aggregation requires methodology validation and owner approval.
 
 **Full binding spec:** `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md`.
+
+## T-NEW-14 — Trade Calculator / Real-Trade Database / Market-Evidence Expansion
+
+**Status:** PLANNED / C-REPLAN DEPENDENCY-GATED  
+**Priority:** major Trade Desk / market-intelligence product expansion
+
+Implement the owner-captured competitor-inspired workflow set as Chase Upside-native functionality: two-sided package composition, explicit raw totals versus Value Adjustment, favored-side and amount-to-even output, player/pick equalizer suggestions, shareable URLs, recent accepted trades, searchable Dynasty Trade Database, comparable-trade matching with league-format tags, stacked total-value visualization, consistent asset identity across analytics, multi-asset historical trends, Quick Facts, value dispersion, historical value span, 30-day riser/faller context, explainers, mobile parity, announcement/support/footer capabilities, and the final product-parity audit.
+
+**Full binding spec:** `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md`.
+
+This is not permission to copy KeepTradeCut branding or proprietary code/data. Reuse strong publicly observable product concepts while preserving Chase Upside canonical calculations and Premium Sports Intelligence design.
+
+## T-NEW-15 — Hard Canonical Pick-Value Completeness Through 2029
+
+**Status:** NON-NEGOTIABLE C COMPLETION REQUIREMENT  
+**Priority:** canonical foundation + cross-surface correctness
+
+By C completion, every valid league-supported draft-pick asset through the 2029 rookie class must exist and have a finite, non-missing canonical Chase Upside value. This includes every supported round, every real owned pick, exact slots when known, and documented generic/future representations while slot is unknown.
+
+Missing source evidence is never represented as zero and is not permission to drop a valid pick. Unknown-slot picks use a defensible modeled/distribution value with explicit provenance and uncertainty until the same owned identity transitions to exact-slot valuation.
+
+Automated completeness census and parity tests must prove Rankings, Trade Calculator, Analyze Trade, Trade Finder/Suggestions/Package Builder, Draft Capital/Pick Forecast, ownership, history, APIs, exports, mobile, and desktop resolve the same canonical pick value. Package adjustment may change trade evaluation but may never overwrite the pick's canonical value.
+
+**Full binding specs:** `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §10 and `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md` TC-19–TC-22.
+
+This supersedes older planning language that allowed supported 2028/2029 picks to remain unpriced indefinitely.
+
+## T-NEW-16 — C-Series Zero-Loss Completion / Deployment Contract
+
+**Status:** BINDING C-SERIES GOVERNANCE  
+**Priority:** required before C1 and at final C closeout
+
+The post-B C replan must build an exhaustive scope manifest from every canonical owner record and every later approved feature/addendum, order work by dependencies and shared foundations, parallelize only non-conflicting lanes, use exact-head CI → merge → deploy → production verification for each dependent milestone, and forbid silent deferral.
+
+C is not complete while any approved feature is missing, partial, disconnected, mock-only, unverified in production, materially too slow, mobile-incomplete where parity is required, or carrying contradictory canonical truth. A genuinely impossible external blocker requires explicit owner disposition before the final completion state can be claimed.
+
+**Full binding spec and final completion phrase:** `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`.
 
 ---
 
