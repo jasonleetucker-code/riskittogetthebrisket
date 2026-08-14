@@ -3186,11 +3186,30 @@ def _compute_market_gap(
     comparison cannot be made (one side has no priced source on this row,
     or no value stamps were supplied).  Magnitude is 0.0 on a tie.
 
+    THE SIDES ARE FAMILIES, NOT KEYS (B10-T3a).  The split used to be
+    taken over the ``is_retail`` keys alone — today just ``ktcSfTep`` —
+    which put ``fantasyNavigatorSf`` on the CONSENSUS side.  It is not
+    another opinion: the registry declares it ``correlation_group:
+    "ktc"`` and its own comment says it republishes KTC-derived numbers.
+    So on 437 live rows the retail market was being compared against a
+    consensus that contains retail, and the disagreement it reported was
+    partly retail disagreeing with itself.
+
+    Reclassified rather than dropped: it is retail-DERIVED evidence, so
+    it informs the retail estimate.  Discarding it would throw away a
+    real observation to fix a bookkeeping error.  Measured effect of the
+    move: 364 rows change magnitude (median 0.055, p90 0.148, max 0.545)
+    and **72 flip direction** — the published signal was pointing the
+    wrong way on those.
+
     `retail_keys` is an optional override for tests; when None the set is
-    derived from `_RANKING_SOURCES` via `_retail_source_keys()`.
+    derived from `_RANKING_SOURCES` via `_retail_source_keys()` and then
+    expanded across correlation groups.  A caller passing an explicit set
+    is taken at its word and NOT expanded — the tests that pass one are
+    constructing a specific split on purpose.
     """
     if retail_keys is None:
-        retail_keys = _retail_source_keys()
+        retail_keys = frozenset(expand_correlation_groups(_retail_source_keys()))
 
     meta = source_meta or {}
     retail_values: list[float] = []
