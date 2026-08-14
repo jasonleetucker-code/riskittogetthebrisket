@@ -1,160 +1,263 @@
-# Risk It To Get The Brisket — Current Execution Plan
+# Chase Upside — Current Execution Plan
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD  
-**Last reconciled:** 2026-08-12  
-**Companion:** `docs/MASTER_PRODUCT_PLAN.md`
+**Last reconciled:** 2026-08-14  
+**This file alone answers:** **What implementation work is authorized next?**  
+**Companions:** `docs/MASTER_PRODUCT_PLAN.md`, `docs/PLANNING_DOCUMENT_STATUS.md`, `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
-This file answers **what work should happen next**. It does not define long-term product intent; that lives in the Master Product Plan, Feature Inventory, and Product Backlog Spec.
-
-> A feature being approved in the long-term plan does **not** authorize beginning it here.
+> Long-range approval is not current authorization. A feature may be fully specified and still be forbidden to begin until this file places it in the active sequence.
 
 ---
 
-# 1. CURRENT FOUNDATION PROGRAM
+# 1. FOUNDATION PROGRAM — COMPLETED / ACCEPTED THROUGH B8
 
-## Completed / accepted
+## B4 — percentile-tail saturation
 
-### B4 — W30-F023 percentile-tail saturation
-
-- VERIFIED FIXED / ACCEPTED.
-- Canonical tail saturation boundary: **904**.
+- **COMPLETE / ACCEPTED.**
 - PR #805 merged.
-- No Hill promotion/refit authorized or performed.
-- Do not reopen B4 absent new evidence.
-- Future nonblocking safeguard: advisory detection if effective observed source rank exceeds the canonical boundary, rather than silently accumulating 905+ saturation.
+- Canonical tail saturation boundary: 904.
+- No Hill promotion/refit was authorized merely by B4.
 
-### B5 — W06 canonical player identity
+## B5 — canonical player identity
 
+- **COMPLETE / ACCEPTED.**
 - PR #806 merged.
-- W06-F001 fixed — ghost-row creation path.
-- W06-F004 fixed — ID override precedence/merge semantics.
-- W06-F007 fixed — directory index hoisted for batch resolution.
-- W06-F009 fixed — SleeperId alias-token handling.
-- W06-F002 refuted by executable evidence; retired near-name rule must not be re-enabled merely to satisfy the old finding.
-- Residual explicitly noted by B5: ghost-row repair takes effect on the next scrape; do not falsely claim a historical/current board changed until that path actually runs.
+- Identity repairs remain the canonical player-identity foundation; do not create per-feature alias/matching engines.
 
-### B6 — W18 league-configuration correctness
+## B6 — league configuration / scoring identity
 
-- **MERGED AND VERIFIED.** PR #810 merged 2026-08-13T11:16:43Z as merge commit
-  `5c699afe6f325a7dab34f8c413a00f85c0bb7bf6`, whose second parent is the exact CI-validated head
-  `e453889aed0c1f3ca0378c408d7b8b37985e3309` (run 31688810982, 24/24 steps). Deployed by run
-  31694791900. Scope below is the authorization it was executed against.
-- Production verification recorded in `docs/master-site-audit/B_SERIES_EXECUTION_LEDGER.md` §B7.0.
-  The load-bearing live observation is public and unauthenticated: `/api/draft-capital` answers
-  `rookieSource: "none"` for `dynasty_new` while keeping all 80 of its real picks, and
-  `ours_filtered` for `dynasty_main` — the gate withholding a value it cannot justify without
-  refusing the board. Independently, the two leagues' live Sleeper cards still fingerprint
-  `sf1:b7ad1575925091f6` vs `sf1:82a5f8ef2bfdb098` (35 of 48 shared keys differ) under one
-  identical `scoringProfile` label, both recorded against the current NFL season.
-- **W18-F001 fixed.** Cross-league ranking reuse is decided by a factual `scoringFingerprint` over the league's actual scoring card, not by the `scoringProfile` label. `scoringProfile` keeps its existing config/model meaning and consumers. Unproven identity fails closed, in both directions. The nominal owner `leagues_share_scoring()` had **zero production callers** — six scattered comparisons in `server.py` (four of them fail-open on a missing loaded label) now route through one gate.
-- **W18-F002 fixed.** The cross-league Sleeper merge has a name and an owner (`sleeper_overlay.merge_cross_league_sleeper_block`). League-specific fields (`scoringSettings`, `rosterPositions`, `leagueSettings`) come from the requested league's own config — published by the overlay from the league object it already fetched — or are left ABSENT with `sleeperDataReady: false`. NFL-wide maps are still reused.
-- Measured on the shipped configuration (`docs/master-site-audit/evidence/W18/b6-validation.json`): both live leagues share the label and differ on 35 of 48 shared scoring keys. `/api/data` and `/api/terminal` for `dynasty_new` now 503 instead of serving `dynasty_main`'s board; `/api/draft-capital` stays 200 and drops only its 40 foreign-priced rookies (`rookieSource: "none"`), keeping all 80 of that league's real picks.
-- **Operational requirement:** `data/leagues/scoring_<sleeperLeagueId>.json` must exist for a league to be provably compatible. The post-scrape warm pass writes it every cycle; on a cold deploy run `scripts/fetch_league_scoring.py` once, or cross-league requests fail closed until the first scrape.
-  This requirement is now **verifiable**: dispatch the read-only `Scoring Snapshot Diagnostics`
-  workflow (`.github/workflows/scoring-snapshot-diagnostics.yml`). It exists because the state was
-  otherwise unobservable — `data/leagues/` is gitignored and is not among the paths
-  `scheduled-refresh.yml` force-adds, and both fail-closed branches ("proven different scoring" and
-  "no verified snapshot") produce byte-identical public responses. The same run reports whether the
-  canonical board-history recorder is scheduled.
-- Architecture record: `docs/master-site-audit/evidence/W18/B6_SCORING_IDENTITY_DESIGN.md`.
-- W18-F003 was NOT touched — it remains B7.
+- **MERGED / VERIFIED.**
+- PR #810 merged.
+- B7.0 operational/evidence closure merged in PR #819.
+- Cross-league scoring compatibility is a factual property of actual scoring settings, not a shared hand-authored `scoringProfile` label.
+- Missing/unverified compatibility fails closed.
+- Cross-league Sleeper data may not mix one league's teams with another league's scoring/roster/settings and claim ready.
+- Detailed evidence remains in `docs/master-site-audit/B_SERIES_EXECUTION_LEDGER.md` and the W18 evidence records.
 
----
+## B7 — realized-points scoring correctness
 
-# 2. NEXT AUTHORIZED FOUNDATION SCOPE
+- **MERGED.**
+- PR #820 merged.
+- Realized scoring is required to speak the live data vocabulary, distinguish scored/unscorable/gap states honestly, and keep player special teams distinct from DST scoring.
+- Subsequent feature work must consume the canonical realized-scoring path rather than recreate scoring locally.
 
-## B6 — League configuration / league-context correctness
+## B8 — privacy / public-distribution boundary
 
-**Scope chosen by owner:**
+- **MERGED.**
+- PR #821 merged.
+- Public-vs-private is a semantic boundary enforced across HTTP and repository/distribution surfaces, not merely a field-name denylist.
+- Per-manager proprietary decomposition, strategy, roster intelligence, FAAB intelligence, and similar private decision evidence cannot leak merely because a builder can produce it.
+- Public facts/products that were deliberately retained public must not be accidentally over-gated.
 
-- **W18-F001** — scoring-profile identity is hand-authored rather than validated/derived from actual league scoring settings.
-- **W18-F002** — cross-league Sleeper overlay can combine requested-league teams with another league's scoringSettings/rosterPositions/leagueSettings and incorrectly stamp `sleeperDataReady:true`.
+## Out-of-band canonical-value correctness — PR #822
 
-Treat these as one league-configuration root-cause family.
-
-Required posture:
-
-1. reproduce both defects on current code/current host data;
-2. establish RED coverage for the actual erroneous contracts;
-3. identify the canonical owner of league scoring/config identity;
-4. repair the root cause, not specific league-name exceptions;
-5. scoring-profile equivalence must reflect actual scoring configuration, not merely matching strings;
-6. no requested-league Sleeper block may contain another league's config fields and claim ready;
-7. validate every configured league against its own host settings;
-8. measure downstream behavior on `/api/data`, rankings/overrides, roster/team consumers, trade/waiver/draft contexts as relevant;
-9. run normal broad gates and exact-head CI;
-10. STOP for owner review.
-
-**Explicit B6 non-scope:** W18-F003 realized-points scoring correctness. Do not mix the scoring-engine repair into B6.
+- **MERGED / BINDING INPUT TO B9.**
+- The previous league-aware valuation lens was evaluated and **rejected as canonical** under the current evidence bar.
+- Production returns to **one canonical player-value methodology** across devices/surfaces.
+- Experimental adjusted values may remain research/diagnostic outputs but must not overwrite canonical value/rank/tier.
+- The user-selectable/device-local “Market vs My League” canonical methodology split is not part of the current product.
+- This is not a permanent rejection of league-aware valuation as a goal; any replacement must earn promotion through evidence and explicit approval.
 
 ---
 
-# 3. QUEUED NEXT — NOT AUTOMATIC AUTHORIZATION
+# 2. ACTIVE AUTHORIZED FAST-LANE SEQUENCE
 
-## B7 — Realized-points correctness
+The owner-authorized B-Series Fast Lane continues in dependency order. Complete each merge unit on a validated exact head; do not opportunistically begin unrelated product features between units.
 
-W18-F003 belongs here as an independent scoring-engine root cause. It has an NFL Week 1 urgency and should follow B6 without unnecessary delay, but B6 completion does not itself authorize starting B7.
+## NEXT — B9a: canonical individual 1–9999 value semantics
 
-Known W18-F003 evidence to revalidate on current HEAD includes:
+**Status:** AUTHORIZED NEXT FOUNDATION UNIT.
 
-- reception-distance scoring rules not represented correctly;
-- renamed nflverse mappings for interception/sack/fumble-lost data;
-- missing kicker scoring;
-- requirement that every nonzero league scoring key be mapped or explicitly declared uncoverable rather than silently scored as zero.
+Primary purpose: make the canonical value contract internally honest and cross-surface invariant before normalizing individual sources around it.
 
-Also reconcile the owner-requested individual special-teams requirement (`kr_yd`, `pr_yd`, supported `st_*`) when the realized-scoring work reaches the appropriate scope. Player special-teams scoring and DST `def_*` scoring must remain distinct.
+At minimum reconcile/prove:
 
-## Subsequent foundation direction
+- one canonical player-value methodology, incorporating the #822 decision;
+- declared 1–9999 semantics versus Hill asymptote/ceiling behavior;
+- canonical value/rank/tier aliases and transport parity;
+- compact/array/legacy representations must not disagree;
+- missing/unpriced/sentinel states must not masquerade as finite canonical values;
+- no device-local or persisted setting may silently change canonical methodology;
+- downstream consumers must not serve an alternate quantity under canonical field names;
+- exact producer/consumer ownership of canonical value is explicit and testable.
 
-The broader dependency direction remains:
+**Do not absorb B9b source-normalization policy into B9a merely because both touch values.** B9a establishes what the canonical unit/contract means; B9b establishes how source observations map into it.
 
-- **B8** security/public-boundary correctness;
-- **B9** canonical individual 1–9999 value-scale semantics/normalization;
-- **B10** source independence / anti-circularity / leave-one-out;
-- **B11** confidence semantics;
-- then canonical C-series foundations such as Team Strength, Team Weakness, Acquisition History, historical value snapshots, package methodology, and stable pick identity according to dependencies/evidence.
+## THEN — B9b: source scale normalization / market baseline ownership
 
-Exact boundaries must be confirmed against current findings and owner authorization at each checkpoint rather than inferred from this shorthand.
+**Status:** AUTHORIZED AFTER B9a PASSES.
+
+Reconcile/prove at least:
+
+- source-native value vs rank observations;
+- per-source scale semantics and conversion ownership;
+- `siteWeights` / source-weight canonical ownership;
+- TE-basis handling and double-count prevention;
+- dynasty-format/source-domain validation;
+- source range/normalization behavior;
+- historical/provenance stamps required to reconstruct the normalized observation;
+- missing source evidence remains missing rather than a zero vote.
+
+B9b must consume the canonical unit semantics B9a establishes rather than defining a second scale implicitly.
+
+## THEN — B10: source independence / anti-circularity / leave-one-out
+
+**Status:** AUTHORIZED AFTER B9b PASSES.
+
+The exact implementation may retain the approved tranche structure from the B-Series ledger, but the end state must establish:
+
+- no source/thesis/correlation family gets counted multiple times merely through mirrors, derivatives, cross-platform copies, or same-provider variants;
+- anchor/market evidence cannot secretly vote and then independently judge the result as though it were external;
+- correlation/provenance families are explicit;
+- leave-one-out / sensitivity measurements exist where required;
+- source-family-aware aggregation is validated against pinned before/after history rather than plausibility alone.
+
+## THEN — B11: confidence semantics
+
+**Status:** AUTHORIZED AFTER B10 PASSES.
+
+Confidence must be a truthful statement about evidence quality/coverage/disagreement/uncertainty — not a decorative score and not a duplicate direction signal.
+
+At minimum separate:
+
+- direction / value conclusion;
+- coverage / sample size;
+- source independence;
+- freshness;
+- disagreement/dispersion;
+- model/measurement uncertainty;
+- unsupported/unavailable state.
+
+Confidence must not become high merely because correlated sources repeat the same underlying opinion.
 
 ---
 
-# 4. PRODUCT WORK THAT MUST NOT PREEMPT FOUNDATIONS
+# 3. EXACT-HEAD / MERGE / DEPLOY RULE FOR THE REMAINDER OF B
 
-The following are approved future scope but are **not authorized merely by being listed**:
+For every B9a→B11 merge unit:
 
-- Public League Experience v3 implementation;
-- Brisket Honors / Awards & Honors v2 implementation;
-- Market Trade Ledger / Real Trade Market Value;
-- Pick Forecast;
+1. re-read current `main` and the exact approved scope;
+2. reproduce/measure the live defect or contract gap before changing production behavior;
+3. establish RED or equivalent falsifiable evidence before GREEN where applicable;
+4. repair the canonical owner rather than consumers individually;
+5. run focused tests + required broad regression/backtest/contract gates;
+6. validate the **exact final head SHA**;
+7. merge only that validated head;
+8. deploy through the normal production path where the unit changes production;
+9. perform risk-proportional production verification;
+10. record the evidence in the appropriate ledger/spec;
+11. continue to the next authorized Fast Lane unit only if no genuine owner decision or blocker was uncovered.
+
+A green test on an earlier SHA is not evidence for a later head.
+
+---
+
+# 4. HARD GATE AFTER B11 — NO AUTOMATIC C1
+
+**Binding owner decision:** there is **no automatic B11 → C1 transition**.
+
+After B11 is completed/accepted:
+
+1. **STOP. Do not begin an inherited/old C1.**
+2. Put Claude Code in **Plan Mode only**.
+3. Read `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` in full.
+4. Re-read actual current `main`, production state, canonical contracts, all owner scope/spec records, all later addenda, and relevant evidence.
+5. Build and commit the exhaustive **C-Series Scope Manifest** — one row for every owner-approved feature/capability, including existing-but-partial/duplicated/unreachable systems.
+6. Reconcile at minimum the Master Product Plan, Owner Master Feature Backlog, owner reconciliation + appendix, Product Backlog Spec, Owner Requested TODO + index, Player Impact spec, Trade Calculator Market Evidence expansion, Premium Sports Intelligence records, CE-01–CE-21, and every later owner addition made before the gate.
+7. Build the dependency DAG first: canonical owners, prerequisites, shared foundations, duplicate-engine consolidation/retirement, migrations/backfills, data/licensing blockers, performance budgets, public/private boundaries, safe parallel lanes, PR boundaries, rollout/rollback, production proof.
+8. Optimize total delivery time by building shared foundations once and parallelizing only genuinely independent/non-overlapping work.
+9. Explicitly carry the hard owner requirement that **every valid supported pick through 2029 has a finite non-missing canonical value by C completion**.
+10. Produce a proposed canonical **C-Series Execution Plan**.
+11. Jason + ChatGPT review it and may reorder, combine, split, expand, or reject methodology.
+12. **Only explicit owner approval authorizes C implementation.**
+
+The old shorthand C ordering is dependency evidence only, not an implementation queue.
+
+---
+
+# 5. C EXECUTION STANDARD AFTER OWNER APPROVAL
+
+Once the post-B C plan is approved, C should proceed continuously within its approved boundaries without routine permission pauses unless a genuine owner decision is discovered.
+
+Use one coordinated program, **not one giant PR**:
+
+- evidence/RED → canonical implementation → focused validation → broad gates/backtest where applicable;
+- exact-head CI;
+- merge validated head only;
+- deploy through normal production path;
+- production smoke/E2E/data-contract verification proportional to risk;
+- mobile + desktop proof for relevant product surfaces;
+- performance/degraded-state/accessibility/observability proof;
+- record completion evidence + rollback;
+- then allow dependent phases to treat the capability as complete.
+
+A page rendering or unit test passing is not product completion.
+
+---
+
+# 6. PRODUCT WORK THAT MUST NOT PREEMPT B FOUNDATIONS
+
+The following are approved long-range scope but are **not authorized merely by appearing here** before the B→C gate:
+
+- canonical owned future-pick projection/value and complete pick values through 2029;
+- mature Trade Calculator / Trade Desk / real-trade database / comparable-trade expansion;
+- Team Strength / Team Weakness / roster-impact canonicalization beyond B needs;
+- Market Trade Ledger;
 - Manager Scout;
-- Command Center / Trade Desk / Portfolio;
+- Perfect Waivers / mature FAAB product;
 - Analyst Intelligence podcast + YouTube expansion;
+- central Buy/Sell / mature Consensus Edge;
 - Universal Player Profile expansion;
-- Game Day Command Center;
+- Playoff / Power / Game Day expansions;
+- Player Impact / WAR / xWAR / WAB;
+- Awards & Honors;
+- The Upside Report;
+- Public League Experience v3 expansion;
+- Command Center / Portfolio;
 - Share Renderer;
-- PAR/Stats/ADP/Draft Room/Lineup Intelligence;
-- competitive CE-01–CE-21 expansion;
+- PAR/Stats/ADP/Utilization/Draft Room/Lineup Intelligence;
+- Premium Sports Intelligence migration except when its explicit migration gate is reached and separately authorized;
+- CE-01–CE-21 reconciled expansion;
 - large X analyst feed;
-- adaptive source weighting.
+- adaptive source weighting / learned production weighting.
 
-They may be read during foundation work to avoid architectural contradictions, but not opportunistically implemented.
-
----
-
-# 5. SAFE HOTFIXES / OWNER DEFECTS
-
-Owner-requested live defects such as the Admin `fmtPassExpiry` crash, temporary-password end-to-end repair, and Trade Calculator UX/correctness defects remain real work. Schedule them at a safe product-hotfix checkpoint or when one directly blocks the active phase; do not mix unrelated UI/product changes into a tightly scoped model/root-cause pass.
+They may be read during foundation work to avoid architectural contradictions. Do not opportunistically implement them inside B9a–B11.
 
 ---
 
-# 6. EXECUTION UPDATE RULE
+# 7. SAFE HOTFIXES / OWNER DEFECTS
 
-At every owner-approved checkpoint:
+Real production defects and narrow reliability/security emergencies may be handled at a safe checkpoint when they are urgent or directly block the active phase. Keep them narrowly scoped and do not use a hotfix as a vehicle for unrelated feature work.
 
-1. update completed/accepted phase state here;
-2. record the exact next authorized scope only after owner decision;
-3. leave later approved product scope in `MASTER_PRODUCT_PLAN.md` rather than copying it here;
-4. never let a stale phase statement in `ARCHITECTURE_HANDOFF.md`, an old audit roadmap, or a session capture override this file;
-5. if current code/evidence disproves this execution state, reconcile the document before beginning another phase.
+Examples include authenticated/admin correctness, Trade Calculator correctness, public-League missing-data-as-zero defects, deployment/reliability regressions, and security/privacy faults.
 
-This file should stay short enough that a new implementation session can understand the current sequence in minutes.
+---
+
+# 8. C COMPLETION HARD GATE
+
+Before C can be declared complete, run the dedicated completion audit in `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`.
+
+There may be **no silent deferrals**. Every approved C-scope feature must be either:
+
+- implemented at the correct canonical layer, real-data connected, reachable, deployed, performant, production-verified, mobile-complete where required, observable, and ready for confident use; or
+- explicitly changed/removed/deferred by a new owner decision because a concrete external blocker makes implementation impossible or unsound.
+
+Without explicit owner disposition, “planned later”, “mostly done”, “backend only”, “desktop only” where parity is required, “flagged off”, “mocked”, “unpriced valid pick”, or “tests pass but production was not verified” is **not complete**.
+
+Only after the final audit passes may Claude state:
+
+> **`C-SERIES COMPLETE — EVERY APPROVED FEATURE DEPLOYED, PRODUCTION-VERIFIED, AND READY FOR CONFIDENT USE`**
+
+---
+
+# 9. EXECUTION UPDATE RULE
+
+At every completed/accepted checkpoint:
+
+1. update this file to remove any stale “next” phase;
+2. record the exact next authorized scope;
+3. keep detailed long-range feature intent in the Master Product Plan / active detailed specs instead of duplicating it here;
+4. never let `CLAUDE.md`, `ARCHITECTURE_HANDOFF.md`, B-Series ledger prose, an old roadmap, PR description, or session capture override this file for current authorization;
+5. if current code/evidence disproves this execution state, reconcile this file before beginning another unit.
+
+This document must stay short enough that a fresh implementation session can identify the current authorization in minutes.
