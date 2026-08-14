@@ -1,4 +1,4 @@
-# Chase Upside — Owner Master Feature Backlog (104-Item Discussion Ledger)
+# Chase Upside — Owner Master Feature Backlog (106-Item Discussion Ledger)
 
 **Status:** BINDING SCOPE INPUT FOR THE POST-B C-SERIES REPLAN  
 **Recorded:** 2026-08-13; amended 2026-08-14  
@@ -166,8 +166,15 @@ The detailed binding behavior for 71–100 is in `TRADE_CALCULATOR_MARKET_EVIDEN
 
 ---
 
-# O. C-series zero-loss rule
+# O. Owner additions — 2026-08-14 roster age/value and canonical meaningful core
 
-This 104-item ledger is **not the whole Chase Upside product**. It is one binding source of owner intent that must be unioned with the broader Feature Inventory, Product Backlog Spec, Owner Feature Reconciliation/Appendix, feature-specific specs, Premium design direction, and every later owner addendum.
+105. **Roster Age-Value Portfolio / Young Core Index** — Add a compact Age & Value / Roster Window module to every fantasy-team profile/home page showing how meaningful canonical roster value is distributed by age overall and by QB/RB/WR/TE/DL-EDGE/LB/DB. Include value-weighted core age, age-value distribution/graph, league-relative rank/percentile, position-group age/value profiles, and a transparent league-relative **Young Core Index** that rewards meaningful value plus position-appropriate youth. Low-value young bench depth must not make a roster look artificially young. Canonical player value already contains age expectations, so this feature must **not** create or feed back a second age-adjusted player valuation. Draft picks have no player age and are excluded from age math. Historical value snapshots may later support trend views such as getting younger while retaining core value. Primary calculations consume #106; full-roster age/value is secondary context. **Tracking:** #838.
+106. **Canonical Meaningful Roster Core / universal 1.5× starter-demand rule** — Replace hard-coded QB3/RB3/WR5/TE3/DL5/LB5/DB5 team-value selection and raw full-roster sums with one league-config-driven canonical core wherever the product claims whole-team dynasty roster value/strength or a derivative. For each dedicated position, meaningful depth is `ceil(1.5 × real dedicated starter slots)`. **Superflex is always treated as QB demand:** add real Superflex starters to dedicated QB demand before applying 1.5×. Regular offensive FLEX and defensive/IDP FLEX are separate: meaningful flex count is `ceil(1.5 × real flex slots)` and, after dedicated cores are chosen, those slots are filled by the **highest-valued remaining legally eligible players**. Every player may count once. Use canonical My League value and explicit missing/unpriced states. Team Strength, team-profile roster value, #105, roster-aware trade before/after impact, Analyze Trade roster impact, league-relative roster-quality rankings, and future whole-team dynasty-value consumers all use this same owner. A separately labeled full-roster asset-capital total may still sum every asset, but it must not masquerade as Team Strength. **Tracking:** #839.
+
+---
+
+# P. C-series zero-loss rule
+
+This 106-item ledger is **not the whole Chase Upside product**. It is one binding source of owner intent that must be unioned with the broader Feature Inventory, Product Backlog Spec, Owner Feature Reconciliation/Appendix, feature-specific specs, Premium design direction, and every later owner addendum.
 
 Before C1, the C-Series Scope Manifest must include or explicitly map every row above. By C completion, no row may remain silently missing/partial/disconnected. See `C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` for the binding completion standard.
