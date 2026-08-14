@@ -7465,37 +7465,30 @@ async def _valuation_scoped_contract(
     block differs.
     """
     source = base if base is not None else latest_contract_data
-    if _requested_valuation_mode(request, body) != "leagueAdjusted":
-        return source, "market", None
-    if not source or not latest_contract_data:
-        return source, "market", "league_adjusted_unavailable: no_contract"
 
-    try:
-        overlay = await run_in_threadpool(
-            _gameplan.get_league_adjusted_values,
-            league_cfg.key,
-            league_cfg.scoring_profile,
-            latest_contract_data,
-        )
-    except _gameplan.GameplanUnavailable as exc:
-        log.warning(
-            "league-adjusted engine board unavailable for %s: %s", league_cfg.key, exc.detail
-        )
-        return source, "market", f"league_adjusted_unavailable: {exc.reason}"
-    except Exception as exc:  # noqa: BLE001
-        log.warning("league-adjusted engine board failed for %s: %r", league_cfg.key, exc)
-        return source, "market", "league_adjusted_unavailable: overlay_error"
-
-    raw_factors = overlay.get("factors") if isinstance(overlay, dict) else None
-    factors = {
-        str(k): float(v) for k, v in (raw_factors or {}).items() if isinstance(v, (int, float))
-    }
-    from src.league_intel.overlay import adjusted_contract as _adjusted_contract
-
-    adjusted = _adjusted_contract(source, factors)
-    if adjusted is None:
-        return source, "market", "league_adjusted_unavailable: no_op"
-    return adjusted, "leagueAdjusted", None
+    # WITHDRAWN 2026-08-14 — one canonical methodology, server-owned.
+    #
+    # This is the single place the league-adjusted lens ever reached an
+    # engine, so it is the single place to close it.  The lens was
+    # evaluated for promotion to canonical and rejected under the
+    # outcome-evidence bar (see
+    # ``docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md``), and an
+    # unvalidated methodology may not answer an engine request.
+    #
+    # Closing it HERE rather than at the nine call sites is deliberate:
+    # every caller keeps its ``valuation_mode`` plumbing and keeps
+    # stamping the mode it was actually served, so responses stay
+    # self-describing and a future validated methodology has one seam to
+    # re-open instead of nine to re-thread.
+    #
+    # The request is IGNORED, not refused.  A stored ``leagueAdjusted``
+    # on someone's phone must converge to the canonical answer silently —
+    # refusing would turn an obsolete localStorage value into a broken
+    # page for a user who never chose anything.
+    requested = _requested_valuation_mode(request, body)
+    if requested == "leagueAdjusted":
+        return source, "market", "league_adjusted_withdrawn: not_canonical"
+    return source, "market", None
 
 
 def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
