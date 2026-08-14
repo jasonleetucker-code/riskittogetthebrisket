@@ -89,6 +89,33 @@ This file answers **what work should happen next**. It does not define long-term
 
 ---
 
+### B10 — source independence / anti-circularity · IN PROGRESS
+
+- **T1 (scraper KTC dedupe) — SATISFIED, nothing to remove.** The authorising premise
+  ("ktc ≈1.3 + ktcSfTep ≈1.0 → ≈2.3 vs IDPTC 1.0") does not describe canonical
+  aggregation: there is no `ktc` entry in `_RANKING_SOURCES`, the KTC family votes
+  canonically once through `ktcSfTep`, and all 21 sources are weight 1.00. The `1.3` is
+  `LEGACY_COMPOSITE_SITE_WEIGHTS` in `Dynasty Scraper.py`, scoped to `_composite`.
+- **T2 (declare provenance) — MERGED.** PR #825 (`e015814`). 19 of 21 sources declared no
+  family, so each counted as independent. **21 source keys → 13 provider families.**
+  FantasyPros votes twice on 299 rows (`fantasyProsFitzmaurice` is one expert 100%
+  contained in the `fantasyProsSf` consensus panel, r = 0.9297), Flock on 70, DLF on 52.
+  Board provably inert: 0 values moved, 0 ranks changed.
+- **T3 (family-aware aggregation) — NOT STARTED.** This is the unit that moves values: it
+  decides how many votes a family gets and re-derives n-sensitive aggregation against the
+  independent family count. Needs an immutable pre-change baseline and the movement
+  envelope check before anything ships.
+
+### B11 — confidence semantics · NOT STARTED
+
+Reconnaissance recorded in the ledger. `_compute_confidence_bucket` reads exactly two
+inputs — source count and percentile spread. Freshness, coverage, independence and
+missingness are not inputs at all. **The monotonicity defect is confirmed and strict:**
+removing `dlfSf` raises the bucket on 26 rows and lowers it on 0. The recorded "192 of 683"
+figure is larger than today's measurement and should not be quoted without re-measuring.
+
+---
+
 ---
 
 # 2. NEXT AUTHORIZED FOUNDATION SCOPE

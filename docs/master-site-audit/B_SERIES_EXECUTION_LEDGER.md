@@ -20,12 +20,12 @@ working branch for provenance and only the validated GREEN head merges.
 | 0 | **B7.0** — residual B6 evidence closure + preflight | **COMPLETE** (merged in #819) |
 | 1 | B7 — realized-points correctness (RED commit → GREEN head) | **MERGED AND VERIFIED** (#820, `af761fc`) |
 | 2 | B8 — privacy / distribution / refresh boundary | **MERGED** (#821, `053f9e5`) |
-| 3 | B9a — one canonical value + the scale contract | **MERGED** |
-| 5 | B9b — threshold unit registry | **MERGED** (partial — §B9b) |
-| 6 | B10-T1 — scraper KTC dedupe | not started — **premise corrected, see §B10** |
-| 7 | B10-T2 — declare provenance (board byte-identical) | not started |
-| 8 | B10-T3 — family-aware aggregation | not started |
-| 9 | B11 — confidence axes | not started |
+| 3 | B9a — one canonical value + the scale contract | **MERGED** (#824, `2e0d098`) |
+| 5 | B9b — threshold unit registry | **MERGED** (#824, partial by design — §B9b) |
+| 6 | B10-T1 — scraper KTC dedupe | **SATISFIED, nothing to remove** — §B10-T2 |
+| 7 | B10-T2 — declare provenance (board byte-identical) | **MERGED** (#825, `e015814`) |
+| 8 | B10-T3 — family-aware aggregation | **NOT STARTED** — the unit that moves values |
+| 9 | B11 — confidence axes | **NOT STARTED** — recon recorded, §B11 |
 
 ---
 
@@ -481,6 +481,12 @@ missing ≠ zero, cross-surface parity, and automated completeness regression. N
 
 # B9 — Canonical player value semantics · **MERGED**
 
+PR **#824**, merged 2026-08-14 as `2e0d098`, second parent `f0bb846` — the exact
+CI-validated head (PR Validation run **31787773048**, job 94734341688, SUCCESS).
+Local on that head: backend **7476 passed / 60 skipped / 0 failed**, frontend
+**2025 passed / 123 files**. Main advanced only by automated data refreshes; no source
+overlap.
+
 Two merge units, both GREEN at merge. Findings closed: `W29-F001`, `W29-F002` (overlay half
 closed earlier by #822), `W29-F005`.
 
@@ -627,3 +633,151 @@ resting on a stale reading.
 Per the owner's ruling, family lineage must be **declarative**, so the correlation above is
 corroboration, not the basis. B10-T2 (declare provenance, board byte-identical) is the next
 unit and has not been started.
+
+---
+
+# B10-T2 — Declare provider families · **MERGED**
+
+Declares which sources share a provider. Changes nothing about how they are counted —
+that is T3, and keeping the two apart is what makes each reviewable: a declaration with a
+provably nil board effect is reviewed on whether it is TRUE, an aggregation change on what
+it MOVES.
+
+## What was undeclared
+
+19 of 21 sources declared no `correlation_group`, so `correlation_group_for` defaulted each
+to its own key and every one counted as an independent opinion. Measured on the tracked
+2026-08-14 CSVs:
+
+| provider | boards | rows it votes on more than once |
+|---|---|---|
+| FantasyPros | `fantasyProsSf`, `fantasyProsIdp`, `fantasyProsFitzmaurice` | **299** |
+| Flock Fantasy | `flockFantasySf`, `flockFantasySfRookies` | 70 |
+| DLF | `dlfSf`, `dlfRookieSf`, `dlfIdp`, `dlfRookieIdp` | 52 |
+
+**21 source keys → 13 independent provider families.**
+
+FantasyPros is the owner's nested-consensus ruling made concrete: `fantasyProsSf` is a
+544-player expert **consensus** and `fantasyProsFitzmaurice` is **one expert inside that
+panel** — 299 players, **100% contained**, Pearson **r = 0.9297**, median |rank diff| 12.
+
+Lineage is **declarative**: the source's own `display_name` is "FantasyPros / Pat
+Fitzmaurice SF-TEP". The correlation corroborates and is not the basis, per the rule that
+family ownership must never be inferred from output similarity.
+
+## Inertness
+
+* `board_diff.py --expect-no-value-change`: **0 values moved, 0 ranks changed**
+* **structural** — a test asserts `_compute_unified_rankings`' source contains neither
+  `correlation_group` nor `expand_correlation_groups`, so the blend cannot start consulting
+  families as a side effect of declaring one more provider
+* **live output** — the only consumers are leave-one-out and Consensus Edge, and
+  `consensus_edge` defaults `False` (`src/api/feature_flags.py:296`)
+
+## Correction to the authorising premise — do not re-derive
+
+B10 was scoped around "ktc ≈1.3 + ktcSfTep ≈1.0 → ≈2.3 vs IDPTC 1.0". That does not
+describe canonical aggregation on this tree:
+
+* no `ktc` entry in `_RANKING_SOURCES`; the KTC family votes canonically **once**, through
+  `ktcSfTep`, at weight **1.00**;
+* **all 21 sources are weight 1.00**;
+* the `1.3` is real but is `LEGACY_COMPOSITE_SITE_WEIGHTS` in `Dynasty Scraper.py`, scoped
+  by its own docstring to `_composite` and pick-row blending;
+* `ktc` appears in `canonicalSiteValues` (464 rows, the same rows as `ktcSfTep`) but is not
+  a registered source, so it casts no vote — verified, not taken from the docstring.
+
+**B10-T1 (scraper KTC dedupe) is therefore satisfied for canonical aggregation**: there is
+no canonical KTC double-vote to remove. The `1.3` still shapes `_composite`, which reaches
+users only through the UI's explicit "Raw" value mode and the finder's legacy no-contract
+path — recorded, not absorbed.
+
+## Test changed, not weakened
+
+`test_fair_value.py::test_an_independent_source_expands_to_only_itself` named `dlfSf` as
+its independent example. That **stopped being true** rather than stopped being tested. It
+now names `fantasyCalc`, and a companion test covers the direction that does not fail
+closed: a declared member must expand to the whole family.
+
+## Validation
+
+| gate | result |
+|---|---|
+| board inertness | 0 values moved, 0 ranks changed |
+| backend, whole repo | **7483 passed / 60 skipped / 0 failed** |
+| frontend | **2025 passed / 123 files** |
+| ruff | clean |
+
+---
+
+# B11 — reconnaissance, measured on current main (2026-08-14)
+
+Read-only. Not started as a merge unit.
+
+## The computation, in full
+
+`data_contract._compute_confidence_bucket(source_count, source_rank_spread, percentile_spread)`
+reads **exactly two things**: how many sources ranked the row, and how far apart they are.
+
+```
+source_count >= 2 and percentile_spread <= 0.08  -> high
+source_count >= 2 and percentile_spread <= 0.20  -> medium
+source_count >= 1                                -> low
+otherwise                                        -> none
+```
+
+Not inputs, at all: **freshness**, **coverage**, **independence** (it counts raw source
+keys, so a provider contributing three keys counts as three votes — B10's defect leaking
+into B11), **missingness**, **degraded state**, **staleness**.
+
+## Live distribution (1,093 rows)
+
+| bucket | rows |
+|---|---|
+| low | 441 |
+| none | 305 |
+| medium | 243 |
+| high | 104 |
+
+305 rows carry `none`; **24 of them are PRICED**. A priced row with `none` confidence is
+the "unknown rendered as a confidence level" case — the label is
+`"None — unranked"` on a row that is, in fact, ranked and priced. 18 more carry
+`"None — generic tier suppressed in favor of slot-specific picks"`, which is a *suppression*
+state wearing the same word as *no evidence*.
+
+## The monotonicity defect — CONFIRMED, and it is strict
+
+Rebuilt the whole board with one source disabled and compared buckets row by row:
+
+| source removed | confidence ROSE | fell | unchanged |
+|---|---|---|---|
+| `dlfSf` | **26** | **0** | 1,067 |
+| `fantasyProsSf` | 20 | 9 | 1,064 |
+| `yahooBoone` | 13 | 6 | 1,074 |
+
+`dlfSf` is the pure case: deleting a source **can only help**. Examples — A.J. Brown
+`medium → high`, Cam Ward `medium → high`, Blake Corum `low → medium`, all by *removing*
+evidence.
+
+The mechanism is immediate from the formula: the bucket is decided on the **spread** of the
+sources that remain, so dropping a disagreeing source narrows the spread and promotes the
+row. Nothing in the calculation knows that the evidence base got smaller.
+
+`B.J. Hill` goes `none → low` when `fantasyProsSf` or `yahooBoone` is removed — a row
+gaining a confidence label because a source disappeared.
+
+**Note on the authorising figure.** The prompt records "192 of 683 rows". Today's
+measurement is smaller (26 of 1,093 for the cleanest case). The *direction and mechanism
+are identical and confirmed*; the magnitude is not, and should not be quoted as 192 without
+re-measuring.
+
+## Not yet measured
+
+- The staleness claim ("feeds ~186.9 h old still accounted for 76 of 102 High rows").
+  `dataFreshness` on the built contract did not expose a per-source `stale` map in the shape
+  probed, so the coupling was not tested. Freshness is definitionally not an input to the
+  bucket, so the *structural* claim holds regardless; the row count does not.
+- Which decision engines consume `confidenceBucket` as a gate. The owner ruling requires
+  those to be re-gated deliberately against the new named dimensions, not silently moved by
+  a presentation change.
+- `identityConfidence` / `marketConfidence` — the misleading-name half of the ruling.
