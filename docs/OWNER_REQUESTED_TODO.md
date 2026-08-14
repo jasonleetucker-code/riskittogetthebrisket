@@ -23,6 +23,7 @@ This file is the durable repository record for owner-requested live defects, UX 
 | Future paid source / owner-paused | #801 | Rankings / Establish The Run | Preserve the researched ETR Dynasty SF/TEP source plan, but **do not purchase access, implement the source, or spend additional work on it until the owner explicitly resumes it**. If resumed, use one ETR dynasty lineage, authorized paid access, native SF/TEP semantics, provenance, and pre-production board-impact validation. | PAUSED |
 | P0/P1 scoring correctness | #802 | League scoring / individual special teams | Fix player-level special-teams scoring so `kr_yd`, `pr_yd`, and supported `st_*` categories are credited to the actual RB/WR/DB/etc. rather than incorrectly treated as non-player DST scoring. Distinguish player ST from `def_*` DST keys, source historical return/ST data, preserve explicit UNSCORABLE/MISSING states, and rerun 2025 realized-points/league-adjusted backtests. | TODO |
 | P1 valuation methodology | #803 | League-specific player fit / college translation | Complete validated **player-specific** league-scoring fit from historical NFL performance versus a versioned standard-market baseline, then investigate college/prospect translation from the same statistical profile—including kick/punt return production—without directly converting raw college fantasy points into dynasty value. Use stability/shrinkage/OOS validation, separate scoring fit from scarcity/market value, and preserve provenance/confidence. | TODO |
+| Planned product / cost-control | #829 | Weekly Report Studio / pregame + postgame + graphics | Make **Manual External AI** the default weekly-report generation path: site prepares one complete deterministic pregame or postgame package, owner copies it into ChatGPT/Claude, imports the versioned structured response, validates/previews, then publishes. No manual report writing and **zero site-side LLM/API calls** in the default mode. Preserve optional explicit On-Demand API and disabled-by-default Automatic API modes through the same schema/validator/renderer. Weekly graphics use deterministic Premium Sports Intelligence templates rather than routine generative-image calls. Detailed binding design: `docs/WEEKLY_REPORT_STUDIO_MANUAL_AI_ARCHITECTURE_2026-08-14.md`. | PLANNED |
 | Approved competitive expansion | CE-17–CE-21 | Dynasty Daddy-derived additions | Preserve approved League Format / Utilization Lab, Trade Trees / Asset Lineage, Waiver Market / FAAB Market Ledger, Game Day Command Center and Dynasty Season Recap / Wrapped, plus recorded enrichments to CE-03/04/06/09/11/12/13/14A/15 and Universal Player Profile. Reconcile through canonical owners rather than competitor-copy engines. | PLANNED |
 
 ### Binding owner decisions
@@ -73,6 +74,15 @@ This file is the durable repository record for owner-requested live defects, UX 
 44. **League-specific player fit must become genuinely player-specific where evidence supports it:** score historical player performance under both this league and a transparent/versioned standard-market baseline, isolate stable differential fit from generic position generosity, and use sample-size/stability/shrinkage/forward-validation guards. Do not manufacture a per-player multiplier where the data says only a position-level effect is trustworthy.
 45. **College production is a prospect scoring-style signal, not direct dynasty value:** for prospects, score the same college production under standard and Brisket rules—including returns when available—to measure profile fit, but only promote that signal if historical drafted-player cohorts show it transfers to NFL league-fit or future production without temporal leakage.
 46. **Keep value lineages separate:** generic dynasty market value, Superflex/roster scarcity, exact league-scoring fit, college/prospect fit, scouting/draft capital and later roster marginal impact are related inputs with different meanings; do not collapse or double-count them as independent votes.
+47. **Weekly Report Studio defaults to Manual External AI:** preparing an eligible week must not automatically call an LLM. The default path is deterministic package preparation -> external AI generation by the owner -> structured import -> validation -> preview -> publish.
+48. **No manual report writing is required:** the manual part is only triggering/copying/importing the AI generation; the owner should not have to compose the prose.
+49. **Manual External AI means zero site-side AI credits:** while that mode is selected, no report scheduler, readiness event, background job, or page action other than an explicitly selected API mode may invoke a paid site-side LLM.
+50. **One logical generation per stage:** a full eligible week should normally be represented by one pregame package and one postgame package, not six separate matchup workflows. Deterministic chunking is allowed only when provider context limits require it.
+51. **Provider-neutral structured import is mandatory:** ChatGPT, Claude, or another external provider should return the same versioned report schema. Wrong-week, wrong-stage, malformed, duplicate, or unsafe imports fail closed before publication.
+52. **All generation modes share one pipeline:** optional On-Demand API and future Automatic API must use the same canonical data package, structured output schema, validator, preview, renderer, and publish path as Manual External AI; API modes may not become parallel report engines.
+53. **Automatic API is disabled by default:** scheduled generation and recurring credit spend require an explicit later owner enablement. Report eligibility alone is never authorization to spend AI credits.
+54. **Routine weekly graphics are deterministic templates, not generative images:** use the Premium Sports Intelligence/share-rendering system for layout and branding; AI may provide bounded headline/subheadline/storyline/caption fields only.
+55. **AI narrates canonical facts; it does not own league truth:** standings, scores, projections, best-ball/custom-scoring outputs, rivalry/history, playoff context and other facts come from canonical site owners. Imported narrative copy cannot mutate canonical factual state.
 
 ### Podcast / YouTube intelligence freshness and expiration policy
 
@@ -101,6 +111,28 @@ Implementation requirements:
 - Do not silently convert `expired`, `superseded`, `stale` or `insufficiently current` into zero-quality evidence. Preserve the state explicitly for audit/history even when the active vote is removed.
 - Player Profile intelligence, news blurbs, team-specific intelligence and the personalized podcast may use older non-voting material as context when clearly labeled; current recommendation surfaces must use only currently valid active intelligence.
 - The exact time constants are defaults to validate, not sacred hard-coded truths. The architecture must make them configurable by take type and season/volatility mode so evidence can later refine them without rebuilding ingestion.
+
+### Weekly Report Studio / manual external AI scope summary
+
+The authoritative design is `docs/WEEKLY_REPORT_STUDIO_MANUAL_AI_ARCHITECTURE_2026-08-14.md` and issue #829.
+
+The eventual product must use the canonical flow:
+
+`DATA -> PACKAGE -> EXTERNAL AI -> IMPORT -> VALIDATE -> RENDER -> PUBLISH`
+
+At minimum:
+
+- **Manual External AI is the default** and makes zero site-side LLM/API calls;
+- one pregame package can produce the week overview, Game of the Week, all matchup previews, players/storylines to watch, public-safe standings/playoff/rivalry context and graphic copy;
+- one postgame package can produce the weekly recap, Game of the Week recap, all matchup recaps, superlatives, upset/bad-beat/miracle stories, standings/playoff movement and graphic copy;
+- the site precomputes objective facts from canonical owners rather than asking AI to rediscover league truth;
+- external output uses a strict versioned provider-neutral structured schema, preferably JSON;
+- import validates identity/schema/required IDs/field constraints and fails closed before publication;
+- preview and publication are separate; imported drafts cannot partially corrupt the currently published week;
+- On-Demand API is optional and explicit; Automatic API is optional, disabled by default, and requires later owner enablement;
+- every mode uses the same package/schema/validator/render/publish pipeline;
+- weekly graphics are rendered deterministically through the Premium Sports Intelligence/share-rendering system rather than routine generative-image calls;
+- existing weekly/narrative/report code must be reconciled and reused where appropriate so this becomes one coherent report system rather than a parallel stack.
 
 ### Game Day Command Center scope summary
 
@@ -135,4 +167,4 @@ The authoritative design is in `docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08
 
 ### Execution ordering
 
-Do not mix these unrelated UI/auth/product requirements into the currently isolated foundational repair. Immediate defects (#779-#781) should be picked up at the next safe product-hotfix checkpoint unless one blocks required verification. #782-#786 are approved scope but must enter their natural dependency checkpoints. CE-20/#789 must begin only after scoring correctness, canonical best-ball assignment, projection-source/custom-stat modeling and prediction-history foundations are ready. #790 should be audited at the next appropriate trade/model checkpoint; #791 is a small UX addition; #792 is dependency-gated until canonical value/package/Team Strength/Weakness/roster-impact foundations are trustworthy. #800 is a trade-correctness defect for the next safe Trade Calculator checkpoint. **#801 is PAUSED by owner and must not consume spend or engineering time until explicitly resumed. #802 is a scoring-correctness dependency for any exact historical league-scoring claim. #803 follows the canonical scoring/league-configuration foundations and must incorporate #802 before promoting a league-fit signal.** CE-17–CE-21 remain future competitive expansion after their dependencies. #788 stays long-term/cost-gated.
+Do not mix these unrelated UI/auth/product requirements into the currently isolated foundational repair. Immediate defects (#779-#781) should be picked up at the next safe product-hotfix checkpoint unless one blocks required verification. #782-#786 are approved scope but must enter their natural dependency checkpoints. CE-20/#789 must begin only after scoring correctness, canonical best-ball assignment, projection-source/custom-stat modeling and prediction-history foundations are ready. #790 should be audited at the next appropriate trade/model checkpoint; #791 is a small UX addition; #792 is dependency-gated until canonical value/package/Team Strength/Weakness/roster-impact foundations are trustworthy. #800 is a trade-correctness defect for the next safe Trade Calculator checkpoint. **#801 is PAUSED by owner and must not consume spend or engineering time until explicitly resumed. #802 is a scoring-correctness dependency for any exact historical league-scoring claim. #803 follows the canonical scoring/league-configuration foundations and must incorporate #802 before promoting a league-fit signal. #829 belongs at the natural Public League Experience v3 / weekly storytelling / Game Day / share-renderer checkpoint after its canonical weekly data inputs are trustworthy; when that checkpoint begins, Manual External AI is the default and automatic AI-credit spend remains disabled unless the owner later opts in.** CE-17–CE-21 remain future competitive expansion after their dependencies. #788 stays long-term/cost-gated.
