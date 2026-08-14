@@ -281,9 +281,9 @@ def test_the_evidence_still_proves_its_finding():
     proof = [t for t in teams if t.get("rosStrengthPercentile") == 1.0]
     assert proof, "the strength percentile the finding turns on was nulled"
     assert proof[0].get("label"), "the label the finding turns on was nulled"
-    assert not re.fullmatch(r"\d{15,20}", str(proof[0].get("ownerId", ""))), (
-        "the capture still carries a real manager id"
-    )
+    assert not re.fullmatch(
+        r"\d{15,20}", str(proof[0].get("ownerId", ""))
+    ), "the capture still carries a real manager id"
 
 
 @pytest.mark.parametrize(
