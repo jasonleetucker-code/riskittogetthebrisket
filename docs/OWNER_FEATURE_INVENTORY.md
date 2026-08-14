@@ -15,6 +15,11 @@ player-profile, ticker, TEP, trade-exposure, Dynasty Daddy, X-feed, Game Day, Mo
 Second Opinions and Analyze Trade requirements. Where older wording in this file conflicts with
 §13's explicit owner clarification, the newer §13 decision controls.
 
+**2026-08-14 owner-scope addition:** Trade products now include **2.9 Best Trade to Send Each Team**,
+a private one-best-offer-per-opponent generator with binding player-only, equal-player-count,
+canonical-win-for-us and externally-even-or-better-for-them constraints. The detailed methodology
+lives in `OWNER_PRODUCT_BACKLOG_SPEC.md` §2.3.
+
 ## How to read this
 
 **Classification** is exactly one of:
@@ -84,6 +89,7 @@ build, blocker, backlog item or future feature.
 | 2.6 | **Package Builder** | Build trade packages with return-position constraints applied **during** generation, not as a post-filter | New | No Package Builder component exists in the tree. **OWNER DECISION 2026-08-11: BUILD it as a real user-facing feature.** It must use the SAME canonical package-generation engine as Trade Finder / Trade Suggestions — no second package algorithm. Constraints: QB, RB, WR, TE, DL/EDGE, LB, DB, PICKS, honoured intentionally when several are selected. Must respect selected team, ownership, excluded/untouchable players (1.5), package adjustment (2.2), roster impact (1.3), Team Strength/Weakness (1.1/1.2), pick identity (2.7), missing/unpriced state, and league settings | D8 | 2.2, 2.3, 2.7, 1.5 | **L** | KEEP — NEW BUILD |
 | 2.7 | **Stable draft-pick identity** | A pick keeps season + round + original owner + current owner through the whole pipeline | Existing, lossy | 53 of 216 league picks collapse; original-owner identity discarded before the trade calculator (W08-F005) | C6 | — | **L** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 2.8 | **2028/2029 future-pick valuation** | Price far-future picks instead of dropping them | Existing, partial | `config/weights/pick_year_discount.json` covers near years; unpriced picks are honestly excluded and flagged `isUnpriced` rather than zeroed — the correct posture, but they carry no value | D-tier | 2.7 | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
+| 2.9 | **Best Trade to Send Each Team** | For every other league team, surface exactly one best mutually defensible player-only offer: same number of players each way, no picks, canonical win for the selected team, and opponent even/winning on KTC or IDP Trade Calculator | New | **OWNER DECISION 2026-08-14: BUILD.** No dedicated surface exists. Must consume the same canonical package-generation/trade infrastructure as Finder/Suggestions/Package Builder. An external calculator only qualifies a candidate with whole-package native coverage; missing/unsupported/imputed assets cannot create a fake opponent win/even. Rank qualifying candidates by our roster benefit/edge, opponent roster fit/plausibility, external acceptability and asset quality — not maximum calculator exploit. Exactly one result per opponent; explicitly show no qualifying trade if none satisfies the hard rules. Recommendation only; never silently send | D8 / CE-05 | 2.2, 2.3, 2.4, 1.1, 1.2, 1.3, 1.5, 7.1 | **M–L** | KEEP — NEW BUILD |
 
 ---
 
