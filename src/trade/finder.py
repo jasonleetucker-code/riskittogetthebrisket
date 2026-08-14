@@ -167,7 +167,6 @@ class Asset:
     is_pick: bool = False
     source_count: int = 0  # Number of valuation sources
     market_rank: int | None = None  # 1-based rank WITHIN this asset's market
-    offense_only_model_value: int | None = None  # model_value excluding IDP sources
     market_source: str | None = None  # "ktcSfTep" | "ktc" | "idpTradeCalc"
 
     @property
@@ -234,8 +233,6 @@ class TradeCandidate:
         return sorted(seen)
 
     def to_dict(self) -> dict[str, Any]:
-        trade_has_idp = any(a.position in IDP_POSITIONS for a in [*self.give, *self.receive])
-
         def _asset_dict(a: Asset) -> dict[str, Any]:
             d: dict[str, Any] = {
                 "name": a.name,
@@ -245,9 +242,6 @@ class TradeCandidate:
                 "ktcValue": a.ktc_value,
                 "ktcRank": a.ktc_rank,
             }
-            if not trade_has_idp and a.offense_only_model_value is not None:
-                d["modelValue"] = a.offense_only_model_value
-                d["modelValueFull"] = a.model_value
             return d
 
         return {
@@ -475,24 +469,6 @@ def build_asset_pool(
             model = board_values.get(name)
             if model is None or model < 1:
                 continue
-            # Offense-only board value.  ``_offenseOnlyFinalAdjusted`` is
-            # mirrored from ``offenseOnlyRankDerivedValue`` — the output of
-            # the IDP-disabled run of ``_compute_unified_rankings``
-            # (data_contract.py) — so it is on the BOARD scale, the same
-            # scale as ``model`` here.  ``_score_trade`` substitutes one
-            # for the other inside a single subtraction, so sharing a
-            # scale is the correctness requirement, and it is met.
-            #
-            # Corrected 2026-07-29 audit: this branch previously forced
-            # ``oo_raw = None`` on the reasoning that "the board has no
-            # offense-only variant".  It does — measured over 522 assets
-            # carrying both, median ``_offenseOnlyFinalAdjusted /
-            # rankDerivedValue`` = 0.994 (p10 0.893, p90 1.015), i.e. the
-            # same scale.  The composite, by contrast, runs 1.131× the
-            # board.  So the two branches had their scales exactly
-            # backwards: the offense-only feature was dead on the live
-            # path, and the fallback below was the one mixing scales.
-            oo_raw = _int_or_none(pdata.get("_offenseOnlyFinalAdjusted"))
         else:
             # Legacy path: raw scraper composite.
             model = _int_or_none(pdata.get("_finalAdjusted"))
@@ -504,19 +480,6 @@ def build_asset_pool(
                 model = _int_or_none(pdata.get("_composite"))
             if model is None or model < 1:
                 continue
-
-            # No offense-only value on this path.  The only producer of
-            # ``_offenseOnlyFinalAdjusted`` is the contract builder, which
-            # mirrors the BOARD-scale ``offenseOnlyRankDerivedValue`` into
-            # it — while ``model`` here is the COMPOSITE-scale scraper
-            # value, measured at 1.131× the board.  ``_score_trade``
-            # substitutes one for the other inside one subtraction, so
-            # reading it here understated every all-offense give/receive
-            # leg by ~12% whenever a caller passed a contract-built
-            # players dict without the contract itself.  Degrading to
-            # "unavailable" is the honest behaviour on this path — the
-            # rationale that used to sit on the board branch above.
-            oo_raw = None
 
             if source_count == 1:
                 model = int(model * _LEGACY_SINGLE_SOURCE_DISCOUNT)
@@ -571,7 +534,6 @@ def build_asset_pool(
                 market_value=market_value,
                 is_pick=is_pick,
                 source_count=source_count,
-                offense_only_model_value=oo_raw if oo_raw is not None and oo_raw >= 1 else None,
                 market_source=market_source,
             )
         )
@@ -680,14 +642,11 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     # documenting a world the filter had deleted.  Removed rather than
     # left as dead code.
 
-    # Use offense-only model values when neither side has IDP players.
-    # This excludes IDP source calibration from trade scoring so that
-    # an all-offense trade isn't influenced by IDP-relative rankings.
-    trade_has_idp = any(a.position in IDP_POSITIONS for a in [*give, *receive])
-
+    # One canonical value per asset.  ``_mv`` used to substitute a
+    # second, IDP-disabled board whenever neither side held a defender
+    # (W29-F001), so an asset's model value depended on the composition
+    # of the trade it appeared in.
     def _mv(a: Asset) -> int:
-        if not trade_has_idp and a.offense_only_model_value is not None:
-            return a.offense_only_model_value
         return a.model_value
 
     give_model = sum(_mv(a) for a in give)

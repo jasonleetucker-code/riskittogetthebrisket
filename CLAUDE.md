@@ -1403,8 +1403,8 @@ absolute, and `docs/master-site-audit/VALUE_FLOW_MAP.md` §4 splits it:
 | One function computes the board | holds — `_compute_unified_rankings`, bit-reproducible |
 | No frontend ranking engine | holds |
 | Every engine *reads* `rankDerivedValue` | holds |
-| Every engine *serves* `rankDerivedValue` | **fails** |
-| One number per player per session | **fails** |
+| Every engine *serves* `rankDerivedValue` | holds (B9a) |
+| One number per player per session | holds (B9a) |
 
 The invariant to design against is therefore:
 
@@ -1414,14 +1414,40 @@ The invariant to design against is therefore:
 > number.**
 
 Serving a different quantity under the canonical field name is a defect, not an
-alternate opinion. Measured violations exist today and are open findings, not
-intended architecture: `suggestions.py::_serialize_player` writes
-`offense_only_value` into `displayValue` for IDP-free trades (W29-F001 — 19 of
-51 asset legs disagree with the board; Travis Hunter 5,637 on `/trade` vs 4,401
-on `/rankings`, because the offense-only board never saw the two-way boost), and
-the same offense-only value rides through `overlay.adjusted_rows` unscaled while
-the response is still stamped `leagueAdjusted` (W29-F002). Repair those when
-authorized; do not write them up here as though they were the design.
+alternate opinion. **Both measured violations are now fixed** (B9a — W29-F001,
+W29-F002).
+
+The mechanism was a SECOND CANONICAL BOARD. `build_api_data_contract` ran
+`_compute_unified_rankings` a second time with every IDP-scoped source disabled
+and stamped the result on each row as `offenseOnlyRankDerivedValue`; three
+engines then substituted it whenever the trade in front of them happened to
+contain no defender — `suggestions.py` into `displayValue`, `finder.py` into
+`modelValue`, `trade_simulator.py` into the resolved asset value *and* the
+manager's entire untraded roster. The switch was **per trade, not per league**,
+so one player carried two unlabelled numbers in one league on one day.
+
+Measured on the 2026-08-14 contract before removal: 605 rows carried it, 507
+were comparable, and **491 of those disagreed** — up to 21.87%. The
+disagreement was never confined to defenders; **picks moved most** (2026 Pick
+2.06: 3,224 → 2,519), because `idpTradeCalc` is a full-roster calculator and
+dropping it changes the count-aware blend, the Hampel filter, the single-source
+haircut and the pick anchor set for every row.
+
+Removed rather than deprecated — a ready-made second canonical board on every
+row is what let three engines wire it in without anyone deciding to. The
+canonical board is byte-identical after removal (0 values moved, 0 ranks
+changed, `scripts/board_diff.py --expect-no-value-change`), and the contract
+build lost a duplicate pipeline pass (0.62 s → 0.49 s median).
+
+An IDP-free view **filters the asset universe or names its lens; it does not
+reprice the assets.** `suggestions._trade_is_idp_free` survives as exactly that
+— a universe predicate — and its docstring says so. Pinned by
+`tests/api/test_one_canonical_value_per_asset.py`, which asserts the invariant
+(same asset, same value, whatever else is in the trade) plus a structural guard
+that neither engine's asset type can carry a second board again.
+
+W29-F002's overlay half was closed separately by #822: `overlay.adjusted_rows`
+now writes `experimentalLeagueAdjustedValue` and never a canonical field.
 
 The rule this yields for new work: **existing implementation behavior does not
 become canonical architecture merely because it ships.** When code and the

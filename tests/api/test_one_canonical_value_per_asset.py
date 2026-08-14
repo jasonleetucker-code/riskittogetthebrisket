@@ -217,7 +217,7 @@ class TestTheSimulatorValuesAnAssetTheSameWay:
 class TestSuggestionsServeTheCanonicalValue:
     """``displayValue`` is a canonical field name (W29-F001)."""
 
-    def test_display_value_is_the_board_value_in_an_idp_free_trade(self):
+    def test_display_value_is_the_board_value(self):
         player = suggestions.PlayerAsset(
             name="Wideout",
             position="WR",
@@ -225,28 +225,36 @@ class TestSuggestionsServeTheCanonicalValue:
             calibrated_value=4000,
             source_count=4,
             team="KC",
-            offense_only_value=2500,
         )
 
-        serialized = suggestions._serialize_player(player, offense_only=True)
+        assert suggestions._serialize_player(player)["displayValue"] == 4000
 
-        assert serialized["displayValue"] == 4000, (
-            "displayValue carried the offense-only board. Two different value "
-            "concepts under one canonical field name."
-        )
+    def test_the_asset_type_cannot_carry_a_second_board_value(self):
+        """Structural, because the field was the mechanism.
+
+        ``_serialize_player`` no longer takes a mode argument and
+        ``PlayerAsset`` no longer has a slot for a second board, so the
+        substitution cannot be reintroduced by flipping a flag — it would
+        take re-adding the field, which fails here.
+        """
+        import dataclasses
+        import inspect
+
+        fields = {f.name for f in dataclasses.fields(suggestions.PlayerAsset)}
+        assert not [f for f in fields if "offense_only" in f]
+        assert "offense_only" not in inspect.signature(suggestions._serialize_player).parameters
 
 
 class TestTheFinderServesTheCanonicalValue:
     """``modelValue`` is the finder's canonical field."""
 
-    def test_model_value_is_the_board_value_in_an_idp_free_trade(self):
+    def test_model_value_is_the_board_value(self):
         asset = finder.Asset(
             name="Wideout",
             position="WR",
             team="KC",
             model_value=4000,
             market_value=4100,
-            offense_only_model_value=2500,
         )
         result = finder.TradeCandidate(
             give=[asset],
@@ -257,9 +265,17 @@ class TestTheFinderServesTheCanonicalValue:
             receive_ktc_total=0,
         ).to_dict()
 
-        assert result["give"][0]["modelValue"] == 4000, (
-            "modelValue carried the offense-only board when the trade had no IDP asset."
+        assert result["give"][0]["modelValue"] == 4000
+        assert "modelValueFull" not in result["give"][0], (
+            "modelValueFull existed only to carry the canonical value alongside "
+            "the offense-only one that had displaced it."
         )
+
+    def test_the_asset_type_cannot_carry_a_second_board_value(self):
+        import dataclasses
+
+        fields = {f.name for f in dataclasses.fields(finder.Asset)}
+        assert not [f for f in fields if "offense_only" in f]
 
 
 class TestTheContractPublishesOneCanonicalBoard:

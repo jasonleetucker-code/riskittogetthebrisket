@@ -225,37 +225,33 @@ class TestUnpricedCountUsesTheCompositeScale:
         assert (res.get("metadata") or {}).get("assetsUnpricedByBoard") == 1
 
 
-class TestOffenseOnlyValueIsBoardScale:
-    """2026-07-29 audit.  ``_offenseOnlyFinalAdjusted`` is mirrored from
-    ``offenseOnlyRankDerivedValue`` (data_contract.py) — the IDP-disabled
-    run of the SAME pipeline — so it is BOARD-scale, measured at median
-    0.994x ``rankDerivedValue`` over 522 live assets.  The two branches
-    had their scales backwards: the board path discarded it as though the
-    board had no offense-only variant, and the composite path consumed it
-    alongside a 1.131x-scale model value.
+class TestTheOffenseOnlyBoardIsRetired:
+    """B9a / W29-F001.  There is one canonical board.
+
+    This class replaces ``TestOffenseOnlyValueIsBoardScale``, which pinned
+    the SCALE agreement between the blended board and a second,
+    IDP-disabled board that the finder substituted whenever a trade held
+    no defender.  That second board was retired under the owner's B9
+    ruling — one canonical dynasty value per asset — so a test that both
+    boards agree in scale has nothing left to compare.
+
+    What replaces it is the stronger statement: a stale
+    ``_offenseOnlyFinalAdjusted`` key surviving in a cached or
+    hand-built players dict must not resurrect the substitution.  The
+    producer is gone, but old payloads outlive their producers.
     """
 
-    def test_board_path_now_carries_the_offense_only_value(self):
+    def test_a_stale_offense_only_key_does_not_reprice_the_asset(self):
         players = {"Star WR": _player(9000, ktc=9000)}
         players["Star WR"]["_offenseOnlyFinalAdjusted"] = 4100
         board = board_values_from_contract(_contract({"Star WR": 4321}))
         pool = build_asset_pool(players, market_top_n=0, board_values=board)
-        assert [a.offense_only_model_value for a in pool] == [4100]
+        assert [a.model_value for a in pool] == [4321]
 
-    def test_legacy_path_refuses_the_cross_scale_value(self):
-        """On the composite path ``model_value`` is composite-scale, so
-        consuming a board-scale offense-only value inside the same
-        subtraction understated all-offense legs by ~12%.  Degrade to
-        unavailable instead."""
-        players = {"Star WR": _player(9000, ktc=9000)}
-        players["Star WR"]["_offenseOnlyFinalAdjusted"] = 4100
-        pool = build_asset_pool(players, market_top_n=0)
-        assert [a.offense_only_model_value for a in pool] == [None]
-        assert [a.model_value for a in pool] == [9000]
-
-    def test_all_offense_trade_scores_off_the_offense_only_board(self):
-        """End-to-end: with no IDP asset on either side, ``_score_trade``
-        must consume the offense-only values, not the blended ones."""
+    def test_an_all_offense_trade_scores_off_the_canonical_board(self):
+        """The case that used to diverge: two assets tied on the canonical
+        board and separated only by the offense-only one.  They must now
+        score as the tie they are."""
         players = {
             "Mine": _player(6000, ktc=6000),
             "Theirs": _player(6000, ktc=6000),
@@ -264,10 +260,7 @@ class TestOffenseOnlyValueIsBoardScale:
         players["Theirs"]["_offenseOnlyFinalAdjusted"] = 5900
         board = board_values_from_contract(_contract({"Mine": 5200, "Theirs": 5200}))
         pool = {a.name: a for a in build_asset_pool(players, market_top_n=0, board_values=board)}
-        # Blended board values tie; the offense-only board does not.
-        assert pool["Mine"].model_value == pool["Theirs"].model_value
-        assert pool["Mine"].offense_only_model_value == 5000
-        assert pool["Theirs"].offense_only_model_value == 5900
+        assert pool["Mine"].model_value == pool["Theirs"].model_value == 5200
 
 
 class TestBoardDeltaSignIsHonest:
