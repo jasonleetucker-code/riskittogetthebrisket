@@ -1346,16 +1346,36 @@ Two consequences worth knowing before touching this:
   position alone and never reads the consensus value, so it composes exactly
   against any board — including one the user re-weighted. Absolute values would
   carry the default board's numbers into a board the server never computed.
-- **The two overlays are composed SERVER-SIDE, never on the client.** With
-  source overrides active the valuation overlay's ranks are the ranks of
-  `default_consensus × factor`, but the correct answer is
-  `overridden_consensus × factor` — a board the client cannot construct because
-  it never had the overridden consensus in the first place. So
-  `POST /api/rankings/overrides?view=delta` accepts `valuation_mode` and
-  computes it, and asking for the lens is what narrows that response's scope
-  from scoring-profile to leagueKey (it 503s on a league mismatch exactly like
-  `/api/valuation/league-adjusted`). The full view refuses the field explicitly
-  rather than ignoring it, which would return a market board labelled adjusted.
+- **The server-side composition is GONE (B9a).** `POST /api/rankings/overrides`
+  used to accept `valuation_mode` and multiply the league factors into
+  `rankDerivedValue` after the override pipeline, so the endpoint could serve a
+  board that was both re-weighted and league-adjusted. The arithmetic was right
+  — `overridden_consensus × factor` is a board the client cannot construct — but
+  #822 rejected that methodology for promotion to canonical and ruled it **may
+  not own a canonical field**, and this path was the one place still writing it.
+
+  It also breached the scale. The ±25% bound is applied to the **factor**
+  (`league_intel/adjustment.py`), never to the **product**, so canonical values
+  left their declared 1–9999 range: measured on the 2026-08-14 board, **10,160**
+  under the real factor set and **12,471** at the cap, both published under
+  `rankDerivedValue`. 9,999 is the Hill **asymptote**, so those are numbers the
+  curve defining the scale cannot produce.
+
+  The request is now **ignored, not refused** — the same convergence rule the
+  engine gate uses, so a stored `leagueAdjusted` on someone's phone quietly
+  returns to the canonical answer. `meta.valuationMode` is always `"market"`
+  with `valuationNote: "league_adjusted_withdrawn: not_canonical"`.
+  `apply_valuation_factors` and the `valuation_factors` parameter are **deleted**
+  rather than left unreferenced, so there is no seam to re-thread by accident.
+
+  Two consequences: asking for the lens **no longer narrows scope** (nothing
+  league-scoped is computed, so no 503 on a league mismatch), and the response
+  is **cacheable** again (the memo excluded it only because gameplan freshness
+  was unseeable). The full and delta views now answer identically.
+
+  Pinned by `tests/api/test_canonical_value_scale_contract.py` (the scale is a
+  contract on every published path, plus the structural absence of the seam) and
+  `tests/api/test_league_adjusted_endpoint.py` §4.
 
 Regression tests: `frontend/__tests__/valuation-overlay.test.js` (both
 materializer key sets — the legacy dict uses `_canonicalConsensusRank` but
@@ -1363,36 +1383,50 @@ materializer key sets — the legacy dict uses `_canonicalConsensusRank` but
 `tests/league_intel/test_publish.py` (caller-row isolation, dense contiguous
 ranks, anchor-slot-pick exclusion).
 
-### The lens reaches the engines: `valuation_mode`
+### `valuation_mode`: accepted, ignored, and stamped
 
-The overlay above is for the *client* to multiply onto a board it holds.
-That covers `/rankings` and nothing else — every engine (trade suggestions,
-the arbitrage finder, angles, waivers, the terminal, the simulator) runs
-server-side off `latest_contract_data` and never saw it. Switching the board
-changed the rankings page and left the trade advice market-priced, with no
-field on any response saying which was which.
+**The lens is WITHDRAWN everywhere.** It was never deleted from the request
+surface, and that is deliberate — read on.
 
-Every league-scoped engine endpoint now accepts `valuation_mode`
-(`"market"` | `"leagueAdjusted"`; body field for POST, `valuationMode` query
-param for GET) and answers from the corresponding board:
+The history matters because the shape is a scar from it. The overlay is for the
+*client* to multiply onto a board it holds, which covered `/rankings` and
+nothing else: every engine (trade suggestions, the arbitrage finder, angles,
+waivers, the terminal, the simulator) runs server-side off
+`latest_contract_data` and never saw it, so switching the board changed the
+rankings page and left the trade advice market-priced with no field saying
+which was which. The repair threaded `valuation_mode` through every
+league-scoped engine endpoint, via one mechanism —
+`server.py::_valuation_scoped_contract` handed the engine a repriced contract,
+so no engine had to know the feature existed.
 
-| endpoint | wired | note |
-|---|---|---|
-| `POST /api/trade/suggestions` | yes | |
-| `POST /api/trade/finder` | yes | our side only — the market anchor stays retail, else the arbitrage gap closes itself |
-| `POST /api/angle/find`, `/api/angle/packages` | yes | same asymmetry |
-| `POST /api/trade/simulate` | yes | |
-| `POST /api/waiver/suggestions` | yes | no UI caller — `/waivers` computes client-side from contract rows, which already carry the lens |
-| `POST /api/waiver/faab-recommend` | yes | a bid is derived from a value |
-| `GET /api/terminal` | yes | applies on top of the cross-league hybrid contract |
-| `POST /api/trade/simulate-mc` | n/a | values arrive in the request body; the client already sends whichever board it holds |
-| `GET /api/draft-capital` | n/a | `compute_scarcity` has no `PICK` key, so picks carry factor 1.0 and the lens is a no-op for the pick board itself. Its `rookieKtcValue` IS a player value and does move under the lens — `/draft` therefore stays market-priced and says so via `ValueBasisNote` rather than being threaded |
+Then #822 evaluated that methodology for promotion to canonical and **rejected
+it** on seven measured defects (current-roster-state input, an ordinal
+log-rank driver, an underived `0.5` reference constant, position-wide scalars,
+no scale renormalisation, no staleness detection, no double-count guard) and on
+the absence of the outcome evidence a replacement would need. Full record:
+`docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md`.
 
-Mechanism, in one place: `server.py::_valuation_scoped_contract` fetches the
-league's factors and hands the engine a contract whose `playersArray` rows are
-already repriced (`src/league_intel/overlay.py`). No engine has to know the
-feature exists, because the engines take their input from one field —
-`rankDerivedValue`.
+So today, at every one of those endpoints plus
+`POST /api/rankings/overrides` (closed later, in B9a):
+
+* the field is still **parsed** — `_requested_valuation_mode`;
+* the request is **ignored, never refused**. A stored `leagueAdjusted` in
+  someone's `localStorage` must converge to the canonical answer silently;
+  refusing would turn an obsolete client-side value into a broken page for a
+  user who never chose anything;
+* the response is stamped `valuationMode: "market"` with
+  `valuationNote: "league_adjusted_withdrawn: not_canonical"`, because
+  "this is the market board" and "this field is missing" must not read the same.
+
+`_valuation_scoped_contract` is the single seam where the lens ever reached an
+engine, which is why it is the single place it is closed — pinned by
+`tests/api/test_canonical_value_invariance.py`. `src/league_intel/overlay.py`
+still computes the board, but writes only `experimentalLeagueAdjustedValue` /
+`…Rank` / `…Tier` and is forbidden from touching `CANONICAL_VALUE_FIELDS`.
+
+Rule for new code: **do not re-thread `valuation_mode` into anything.** A
+future validated league-aware methodology re-opens one seam deliberately, and
+renormalising onto the 1–9999 scale is part of what it has to earn.
 
 **The governing invariant, stated carefully.** This section used to read "every
 engine reads exactly one value — `rankDerivedValue`", full stop. That is too
@@ -1403,8 +1437,8 @@ absolute, and `docs/master-site-audit/VALUE_FLOW_MAP.md` §4 splits it:
 | One function computes the board | holds — `_compute_unified_rankings`, bit-reproducible |
 | No frontend ranking engine | holds |
 | Every engine *reads* `rankDerivedValue` | holds |
-| Every engine *serves* `rankDerivedValue` | **fails** |
-| One number per player per session | **fails** |
+| Every engine *serves* `rankDerivedValue` | holds (B9a) |
+| One number per player per session | holds (B9a) |
 
 The invariant to design against is therefore:
 
@@ -1414,14 +1448,40 @@ The invariant to design against is therefore:
 > number.**
 
 Serving a different quantity under the canonical field name is a defect, not an
-alternate opinion. Measured violations exist today and are open findings, not
-intended architecture: `suggestions.py::_serialize_player` writes
-`offense_only_value` into `displayValue` for IDP-free trades (W29-F001 — 19 of
-51 asset legs disagree with the board; Travis Hunter 5,637 on `/trade` vs 4,401
-on `/rankings`, because the offense-only board never saw the two-way boost), and
-the same offense-only value rides through `overlay.adjusted_rows` unscaled while
-the response is still stamped `leagueAdjusted` (W29-F002). Repair those when
-authorized; do not write them up here as though they were the design.
+alternate opinion. **Both measured violations are now fixed** (B9a — W29-F001,
+W29-F002).
+
+The mechanism was a SECOND CANONICAL BOARD. `build_api_data_contract` ran
+`_compute_unified_rankings` a second time with every IDP-scoped source disabled
+and stamped the result on each row as `offenseOnlyRankDerivedValue`; three
+engines then substituted it whenever the trade in front of them happened to
+contain no defender — `suggestions.py` into `displayValue`, `finder.py` into
+`modelValue`, `trade_simulator.py` into the resolved asset value *and* the
+manager's entire untraded roster. The switch was **per trade, not per league**,
+so one player carried two unlabelled numbers in one league on one day.
+
+Measured on the 2026-08-14 contract before removal: 605 rows carried it, 507
+were comparable, and **491 of those disagreed** — up to 21.87%. The
+disagreement was never confined to defenders; **picks moved most** (2026 Pick
+2.06: 3,224 → 2,519), because `idpTradeCalc` is a full-roster calculator and
+dropping it changes the count-aware blend, the Hampel filter, the single-source
+haircut and the pick anchor set for every row.
+
+Removed rather than deprecated — a ready-made second canonical board on every
+row is what let three engines wire it in without anyone deciding to. The
+canonical board is byte-identical after removal (0 values moved, 0 ranks
+changed, `scripts/board_diff.py --expect-no-value-change`), and the contract
+build lost a duplicate pipeline pass (0.62 s → 0.49 s median).
+
+An IDP-free view **filters the asset universe or names its lens; it does not
+reprice the assets.** `suggestions._trade_is_idp_free` survives as exactly that
+— a universe predicate — and its docstring says so. Pinned by
+`tests/api/test_one_canonical_value_per_asset.py`, which asserts the invariant
+(same asset, same value, whatever else is in the trade) plus a structural guard
+that neither engine's asset type can carry a second board again.
+
+W29-F002's overlay half was closed separately by #822: `overlay.adjusted_rows`
+now writes `experimentalLeagueAdjustedValue` and never a canonical field.
 
 The rule this yields for new work: **existing implementation behavior does not
 become canonical architecture merely because it ships.** When code and the

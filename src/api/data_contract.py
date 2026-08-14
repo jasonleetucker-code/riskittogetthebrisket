@@ -10,10 +10,21 @@ import re
 import statistics
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable
 
 from src.canonical.player_valuation import (
     PERCENTILE_REFERENCE_N as _CANONICAL_PERCENTILE_REFERENCE_N,
+)
+
+#: The canonical value scale, imported rather than restated.
+#: ``DISPLAY_SCALE_MAX`` is the numerator of the Hill family the board is
+#: built from (``V(p) = 9999 / (1 + (p/c)^s)``), i.e. its ASYMPTOTE — so
+#: it is the one owner of "how high a canonical value can go", and both
+#: the published ``methodology.formula`` block and the contract validator
+#: read it from here.  A second literal would be a second scale.
+from src.canonical.player_valuation import (  # noqa: E402  — grouped with its sibling
+    DISPLAY_SCALE_MAX as _CANONICAL_VALUE_MAX,
+    DISPLAY_SCALE_MIN as _CANONICAL_VALUE_MIN,
 )
 from src.data_models.contracts import utc_now_iso
 
@@ -8270,6 +8281,20 @@ def _compute_unified_rankings(
         row["canonicalConsensusRank"] = overall_rank
         row["canonicalTierId"] = _tier_id_from_rank(overall_rank)
         row["sourceCount"] = len(source_ranks)
+        # STANDING on the canonical board — 0-100, 100 = best (B9b).
+        #
+        # Published here because this is where the ranked pool exists.
+        # A consumer holding one row cannot compute it, and one holding a
+        # truncated board would compute a standing within the part it
+        # received and call it a percentile.  It is the scale-stable
+        # companion to ``rankDerivedValue``: a value means nothing
+        # without the distribution behind it, which is the defect class
+        # B9b exists to close.
+        row["canonicalPercentile"] = (
+            round(100.0 * (total_ranked - overall_rank) / (total_ranked - 1), 4)
+            if total_ranked > 1
+            else 100.0
+        )
 
         dropped_set = set(row.get("droppedSources") or [])
         effective_source_ranks = {k: v for k, v in source_ranks.items() if k not in dropped_set}
@@ -9317,42 +9342,31 @@ def build_api_data_contract(
     # the DB-tagged row.
     _strip_mismatched_family_tags(players_array)
 
-    # Pre-pass: compute offense-only values by disabling all IDP-scoped
-    # sources.  The result is stored as ``offenseOnlyRankDerivedValue``
-    # on each row and used by trade evaluation endpoints when none of
-    # the players in a trade are IDP (DL/LB/DB).  The main pass below
-    # then overwrites ``rankDerivedValue`` with the full-source board.
-    # Skipped on delta/override builds since those don't feed the
-    # trade evaluation path.
-    if not source_overrides and not _for_delta:
-        _idp_off_overrides: dict[str, dict[str, Any]] = {
-            src["key"]: {"include": False}
-            for src in _RANKING_SOURCES
-            if src.get("scope") in (SOURCE_SCOPE_OVERALL_IDP, SOURCE_SCOPE_POSITION_IDP)
-        }
-        if _idp_off_overrides:
-            # Use shallow copies of both rows and legacy dicts so the
-            # pre-pass never stamps canonicalConsensusRank /
-            # sourceRankMeta / _canonicalConsensusRank etc. onto the
-            # originals.  The main pass below must see unmodified state.
-            _pa_copy = [dict(r) for r in players_array]
-            _pbn_copy = {
-                k: dict(v) if isinstance(v, dict) else v for k, v in players_by_name.items()
-            }
-            _compute_unified_rankings(
-                _pa_copy,
-                _pbn_copy,
-                csv_index=csv_index,
-                source_overrides=_idp_off_overrides,
-                tep_multiplier=tep_multiplier_effective,
-                tep_native_multiplier=tep_native_multiplier_effective,
-                tep_native_correction=tep_native_correction,
-                tep_multiplier_is_override=(tep_multiplier_source == "override"),
-            )
-            for _orig, _copy in zip(players_array, _pa_copy):
-                _rdv = _copy.get("rankDerivedValue")
-                if isinstance(_rdv, (int, float)) and _rdv > 0:
-                    _orig["offenseOnlyRankDerivedValue"] = int(_rdv)
+    # ONE CANONICAL BOARD.  There used to be a pre-pass here that ran
+    # ``_compute_unified_rankings`` a SECOND time with every IDP-scoped
+    # source disabled and stamped the result as
+    # ``offenseOnlyRankDerivedValue``, which the trade engines then
+    # substituted whenever a trade happened to contain no defender.
+    #
+    # It was a second canonical board: same function, same scale, and on
+    # the 2026-08-14 contract 491 of the 507 comparable rows disagreed
+    # with canonical by up to 21.87%.  The disagreement was not confined
+    # to defenders — PICKS moved most (2026 Pick 2.06: 3,224 → 2,519),
+    # which is what shows the mechanism was never "exclude IDP
+    # calibration from IDP-free trades".  Disabling a source changes the
+    # count-aware blend, the Hampel filter, the single-source haircut and
+    # the pick anchor set for EVERY row, because ``idpTradeCalc`` is a
+    # full-roster calculator that prices offense and picks too.
+    #
+    # Removed rather than deprecated: leaving a ready-made second
+    # canonical board on every row is what let three separate engines
+    # wire it into ``displayValue`` / ``modelValue`` without anyone
+    # deciding to.  An IDP-free view filters the asset universe or names
+    # its lens; it does not reprice the assets.  See W29-F001 / W29-F002
+    # and ``tests/api/test_one_canonical_value_per_asset.py``.
+    #
+    # Also removes a full second run of the ranking pipeline from every
+    # non-delta contract build.
 
     # Compute unified rankings: all sources, all positions, one board.
     # The CSV index lets the ranker stamp a per-row ``sourceAudit``
@@ -9412,18 +9426,6 @@ def build_api_data_contract(
     # delta payload drops the legacy ``players`` dict entirely.
     if not _for_delta:
         _mirror_trust_to_legacy(players_array, players_by_name)
-        # Mirror offenseOnlyRankDerivedValue to the legacy players dict so
-        # the trade finder (which reads from the players dict) can use it.
-        for _row in players_array:
-            _ordv = _row.get("offenseOnlyRankDerivedValue")
-            if not isinstance(_ordv, int):
-                continue
-            _legacy_ref = _row.get("legacyRef")
-            if not _legacy_ref or _legacy_ref not in players_by_name:
-                continue
-            _pdata = players_by_name[_legacy_ref]
-            if isinstance(_pdata, dict):
-                _pdata["_offenseOnlyFinalAdjusted"] = _ordv
 
     data_source = data_source or {}
     generated_at = utc_now_iso()
@@ -9510,8 +9512,11 @@ def build_api_data_contract(
             ),
             "referenceN": _PERCENTILE_REFERENCE_N,
             "scopeMasters": "see the hillCurves contract block for per-scope (c, s)",
-            "scaleMin": 1,
-            "scaleMax": 9999,
+            # Published from the same constants the validator enforces, so
+            # the contract cannot advertise a range the board is not held
+            # to (B9a).
+            "scaleMin": _CANONICAL_VALUE_MIN,
+            "scaleMax": _CANONICAL_VALUE_MAX,
         },
         "idpTranslation": {
             "description": (
@@ -9686,6 +9691,12 @@ def build_api_data_contract(
 _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "canonicalConsensusRank",
     "rankDerivedValue",
+    # Override-sensitive for the same reason the two fields above are:
+    # a standing is a function of the board, and re-weighting sources
+    # re-orders it.  Omitting it would merge an overridden rank and
+    # value onto the DEFAULT board's percentile — a row disagreeing with
+    # itself, which is the defect class B9 closes.
+    "canonicalPercentile",
     "sourceRanks",
     "sourceRankMeta",
     "sourceOriginalRanks",
@@ -9735,51 +9746,6 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
 )
 
 
-def apply_valuation_factors(
-    rows: list[dict[str, Any]],
-    factors: Mapping[str, float] | None,
-    *,
-    anchor_year: int | None = None,
-) -> int:
-    """Multiply ``rankDerivedValue`` by a per-player factor and re-rank.
-
-    Mutates ``rows`` IN PLACE and returns how many rows were re-valued.
-    Callers must therefore own ``rows`` — never hand this
-    ``latest_contract_data``'s list.  ``build_rankings_delta_payload``
-    owns a freshly-built contract, which is why it can.
-
-    This exists so the rankings-override endpoint can serve a board that
-    is BOTH re-weighted and league-adjusted.  The client cannot compose
-    those two: the overlay's ranks are the ranks of
-    ``default_consensus x factor``, while the correct answer is the rank
-    of ``overridden_consensus x factor`` — a board the server had never
-    computed.  Computing it here is the fix that unblocks the
-    combination rather than continuing to refuse it.
-
-    Ranking goes through :func:`compact_ranks_and_tiers`, the one
-    ranker, so an adjusted board is ranked by exactly the same rules as
-    the default one.
-    """
-    if not factors:
-        return 0
-    moved = 0
-    for row in rows:
-        name = str(row.get("displayName") or row.get("canonicalName") or "").strip()
-        factor = factors.get(name)
-        base = row.get("rankDerivedValue")
-        if factor and isinstance(base, (int, float)) and base > 0:
-            row["rankDerivedValue"] = int(round(float(base) * float(factor)))
-            moved += 1
-    if not moved:
-        return 0
-    compact_ranks_and_tiers(
-        rows,
-        anchor_year=anchor_year if anchor_year is not None else current_rookie_draft_year(),
-        copy_rows=False,
-    )
-    return moved
-
-
 def build_rankings_delta_payload(
     raw_payload: dict[str, Any],
     *,
@@ -9787,7 +9753,6 @@ def build_rankings_delta_payload(
     source_overrides: dict[str, dict[str, Any]] | None = None,
     tep_multiplier: float | None = None,
     tep_native_multiplier: float | None = None,
-    valuation_factors: Mapping[str, float] | None = None,
 ) -> dict[str, Any]:
     """Build a compact delta contract for the rankings-override endpoint.
 
@@ -9833,17 +9798,15 @@ def build_rankings_delta_payload(
         _for_delta=True,
     )
 
-    # League-adjusted composition.  Applied AFTER the override pipeline
-    # has produced the re-weighted board, so the factors land on the
-    # user's own consensus values and the re-rank is over that board —
-    # not over the default one.  ``full`` is freshly built and owned by
-    # this call, so mutating its rows is safe.
-    valuation_adjusted_count = 0
-    if valuation_factors:
-        valuation_adjusted_count = apply_valuation_factors(
-            full.get("playersArray") or [],
-            valuation_factors,
-        )
+    # NO league-adjusted composition.  This used to multiply per-player
+    # factors into ``rankDerivedValue`` here so the endpoint could serve
+    # a board that was both re-weighted and league-adjusted.  #822
+    # rejected that methodology for promotion to canonical and ruled it
+    # may not own a canonical field; B9a closed this last path, where the
+    # ±25% bound sat on the FACTOR and never on the PRODUCT, so canonical
+    # values left their declared 1-9999 range (measured: 10,160 on the
+    # real factor set, 12,471 at the cap).  See
+    # ``tests/api/test_canonical_value_scale_contract.py``.
 
     delta_players: list[dict[str, Any]] = []
     active_ids: list[str] = []
@@ -9877,16 +9840,6 @@ def build_rankings_delta_payload(
         "dataSource": full.get("dataSource"),
         "playerCount": full.get("playerCount"),
     }
-    if valuation_factors is not None:
-        # Stamped whether or not anything moved.  "the lens was applied
-        # and moved nothing" and "the lens was never applied" are
-        # different states, and a client that cannot tell them apart
-        # will render one as the other.
-        payload["valuationAdjustment"] = {
-            "applied": True,
-            "adjustedCount": valuation_adjusted_count,
-            "factorCount": len(valuation_factors),
-        }
     warnings = full.get("warnings")
     if warnings:
         payload["warnings"] = list(warnings)
@@ -10185,6 +10138,53 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             f"outside the range of their own source contributions "
             f"({', '.join(integrity_violations[:6])}"
             f"{', …' if len(integrity_violations) > 6 else ''})"
+        )
+
+    # ── Scale contract (B9a) ──
+    #
+    # ``methodology.formula`` PUBLISHES ``scaleMin: 1`` / ``scaleMax: 9999``,
+    # and the expression it publishes clamps to that range — but nothing
+    # verified the board honoured it.  9,999 is the Hill ASYMPTOTE, so a
+    # canonical value above it is not an unusually good asset; it is a
+    # number the curve that defines the scale cannot produce.
+    #
+    # It was reachable.  ``POST /api/rankings/overrides?view=delta`` with
+    # ``valuation_mode: "leagueAdjusted"`` multiplied a per-position factor
+    # into ``rankDerivedValue`` with the ±25% bound on the FACTOR and never
+    # on the PRODUCT — 10,160 on the real factor set, 12,471 at the cap.
+    # That path is gone; this is what makes its return visible instead of
+    # silent, whatever future code introduces it.
+    #
+    # An ERROR, not a warning, for the same reason blend integrity is one:
+    # ``scripts/validate_api_contract.py`` gates on ``ok`` and ignores
+    # warnings.  Whole array, not the ``[:1000]`` prefix the shape checks
+    # use — the top of the board is exactly where a ceiling breach lands.
+    # The ALIASES are checked too: ``values.*`` are exact copies of the
+    # canonical value, so an alias out of range is the same defect wearing
+    # a different field name.
+    out_of_scale: list[str] = []
+    for i, row in enumerate(players_array):
+        if not isinstance(row, dict):
+            continue
+        label = str(row.get("displayName") or row.get("canonicalName") or f"index {i}")
+        candidates = [("rankDerivedValue", row.get("rankDerivedValue"))]
+        row_values = row.get("values")
+        if isinstance(row_values, dict):
+            candidates.extend(
+                (f"values.{k}", row_values.get(k))
+                for k in ("overall", "finalAdjusted", "displayValue")
+            )
+        for field, value in candidates:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                continue
+            if not (_CANONICAL_VALUE_MIN <= value <= _CANONICAL_VALUE_MAX):
+                out_of_scale.append(f"{label}.{field}={value}")
+    if out_of_scale:
+        errors.append(
+            f"canonical_value_out_of_scale:{len(out_of_scale)} value(s) outside "
+            f"{_CANONICAL_VALUE_MIN}..{_CANONICAL_VALUE_MAX} "
+            f"({', '.join(out_of_scale[:6])}"
+            f"{', …' if len(out_of_scale) > 6 else ''})"
         )
 
     idp_count = 0

@@ -154,15 +154,23 @@ def test_prime_latest_payload_clears_memo(overrides_env):
     assert server._OVERRIDES_RESPONSE_CACHE == {}
 
 
-def test_league_adjusted_requests_bypass_cache(overrides_env, monkeypatch):
+def test_league_adjusted_requests_are_now_memoized_like_any_other(overrides_env, monkeypatch):
+    """Was ``test_league_adjusted_requests_bypass_cache``.
+
+    The bypass existed for a real reason: the lens's factors came from
+    the gameplan module, whose freshness this cache cannot see, so
+    memoizing a response built from them could serve a board keyed to a
+    roster snapshot that had since moved.
+
+    B9a withdrew the lens from this endpoint, so there are no factors
+    and nothing unseeable left to exclude. ``valuation_mode`` is part of
+    the canonical body JSON, so a request carrying it keys separately
+    from one that does not — which is what the differing
+    ``valuationNote`` needs — and both are cacheable.
+    """
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_data(monkeypatch)
         calls = _count_builds(monkeypatch)
-        monkeypatch.setattr(
-            server._gameplan,
-            "get_league_adjusted_values",
-            lambda *a, **k: {"factors": {"QB": 1.1}},
-        )
 
         body = {"tep_multiplier": 1.15, "valuation_mode": "leagueAdjusted"}
         r1 = c.post("/api/rankings/overrides?view=delta", json=body)
@@ -170,5 +178,6 @@ def test_league_adjusted_requests_bypass_cache(overrides_env, monkeypatch):
 
     assert r1.status_code == 200, r1.text
     assert r2.status_code == 200, r2.text
-    assert calls["n"] == 2, "leagueAdjusted path must not be memoized"
-    assert not server._OVERRIDES_RESPONSE_CACHE, "no slot may be written for leagueAdjusted"
+    assert r1.content == r2.content
+    assert calls["n"] == 1, "the second identical request rebuilt instead of hitting the memo"
+    assert server._OVERRIDES_RESPONSE_CACHE, "no slot was written"

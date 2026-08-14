@@ -4217,49 +4217,30 @@ async def post_rankings_overrides(request: Request):
         valuation_mode = str(raw_mode or "").strip()
     want_league_adjusted = valuation_mode == "leagueAdjusted"
 
-    valuation_factors: dict[str, float] | None = None
+    # WITHDRAWN, on this path too (B9a).
+    #
+    # #822 rejected the league-aware methodology for promotion to
+    # canonical and ruled it may no longer own a canonical field.  It
+    # closed the engine gate (``_valuation_scoped_contract``) and moved
+    # ``league_intel.overlay`` onto ``experimentalLeagueAdjusted*``
+    # names — but this path was left composing factors into
+    # ``rankDerivedValue`` itself, via
+    # ``data_contract.apply_valuation_factors``.  The ±25% bound is
+    # applied to the FACTOR and never to the PRODUCT, so the canonical
+    # field left its own declared 1–9999 range: measured on the
+    # 2026-08-14 board, the real factor set published 10,160 and the
+    # factor cap published 12,471, both under the canonical field name.
+    #
+    # Ignored rather than refused, exactly as the engine gate does: a
+    # stored ``leagueAdjusted`` on someone's phone must converge to the
+    # canonical answer silently.  The composition helper is deleted
+    # rather than left unreferenced, so there is no seam to re-thread by
+    # accident; a future *validated* methodology re-opens one seam
+    # deliberately, and renormalising onto the scale is part of what it
+    # would have to earn.
     valuation_note: str | None = None
-    if want_league_adjusted and delta_view:
-        if not sleeper_matches:
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "error": "data_not_ready",
-                    "message": (
-                        f"League-adjusted values need league {league_cfg.key!r}'s "
-                        f"rosters; the server holds {loaded_league or 'none'!r}."
-                    ),
-                    "leagueKey": league_cfg.key,
-                },
-            )
-        try:
-            overlay = await run_in_threadpool(
-                _gameplan.get_league_adjusted_values,
-                league_cfg.key,
-                league_cfg.scoring_profile,
-                latest_contract_data,
-            )
-            raw_factors = overlay.get("factors") if isinstance(overlay, dict) else None
-            valuation_factors = {
-                str(k): float(v)
-                for k, v in (raw_factors or {}).items()
-                if isinstance(v, (int, float))
-            }
-        except _gameplan.GameplanUnavailable as exc:
-            # Scarcity is unmeasurable without a roster snapshot. Serve
-            # the overridden market board and SAY SO rather than
-            # silently presenting it as league-adjusted — the whole
-            # point of this endpoint is that the user can tell which
-            # board they are looking at.
-            valuation_factors = None
-            valuation_note = f"league_adjusted_unavailable: {exc.reason}"
-            log.warning("league-adjusted overlay unavailable for overrides: %s", exc.detail)
-    elif want_league_adjusted and not delta_view:
-        # The full view is a legacy compatibility surface; composing
-        # there would mean maintaining two composition paths for one
-        # behaviour. Refuse explicitly instead of quietly ignoring the
-        # field, which would return a market board labelled as adjusted.
-        valuation_note = "league_adjusted_requires_delta_view"
+    if want_league_adjusted:
+        valuation_note = "league_adjusted_withdrawn: not_canonical"
 
     # Snapshot the shared globals ONCE on the event loop.  The worker
     # thread below must not re-read them mid-build: a concurrent scrape
@@ -4286,7 +4267,6 @@ async def post_rankings_overrides(request: Request):
                 source_overrides=overrides if overrides else None,
                 tep_multiplier=tep_multiplier,
                 tep_native_multiplier=tep_native_multiplier,
-                valuation_factors=valuation_factors,
             )
         else:
             contract_payload = build_api_data_contract(
@@ -4320,7 +4300,9 @@ async def post_rankings_overrides(request: Request):
             # asked for leagueAdjusted and silently got market is the
             # failure mode this whole change exists to remove, so the
             # answer travels with the payload instead of being inferred.
-            meta["valuationMode"] = "leagueAdjusted" if valuation_factors else "market"
+            # Only one board is canonical now, so this is unconditional
+            # rather than derived from whether factors were applied.
+            meta["valuationMode"] = "market"
             if valuation_note:
                 meta["valuationNote"] = valuation_note
                 contract_payload.setdefault("warnings", []).append(valuation_note)
@@ -4337,13 +4319,17 @@ async def post_rankings_overrides(request: Request):
     # ── Response memo ────────────────────────────────────────────────
     # Cache key: everything that can change the response body.  The
     # canonical body JSON covers overrides + tep knobs + any unknown
-    # keys (which produce per-body warnings).  ``valuation_mode``
-    # requests are excluded: their factors come from the gameplan
-    # module whose freshness this cache cannot see.  Entries are
+    # keys (which produce per-body warnings), and it includes
+    # ``valuation_mode``, so a request carrying the withdrawn lens keys
+    # separately from one that does not — which is what the differing
+    # ``valuationNote`` needs.  ``valuation_mode`` requests used to be
+    # excluded because their factors came from the gameplan module whose
+    # freshness this cache cannot see; with the lens withdrawn there are
+    # no factors and nothing unseeable left to exclude.  Entries are
     # versioned on ``latest_data_etag`` (the contract generation) and
     # rebuilt in place when stale; ``_prime_latest_payload`` clears the
     # whole dict on scrape promotion.
-    cacheable = not want_league_adjusted and contract_version is not None
+    cacheable = contract_version is not None
     cache_key = None
     if cacheable:
         canonical_body = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
