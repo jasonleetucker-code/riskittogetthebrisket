@@ -1281,6 +1281,78 @@ Operational surfaces (post-merge additions):
   backend-stamped ranks untouched. Tests:
   ``frontend/__tests__/components/DraftBoardSort.test.jsx``.
 
+### Confidence — one owner, five axes, a bottleneck (B11)
+
+``src/api/confidence.py`` is the ONLY place a ``confidenceBucket`` is
+decided. ``data_contract.py`` assembles the evidence and decides no
+level; there is **no frontend confidence math**, which is why the gate's
+parameters live in ``config/confidence/gate_v1.json`` and are
+deliberately NOT mirrored into ``frontend/lib/thresholds.js`` — the
+parity test would require the JS export, and that is exactly the
+client-side constant #725 removed.
+
+Confidence answers **"how good is the evidence behind this value"**, and
+the unit of evidence is the **B10 provider family**, never the source
+key.
+
+| axis | question | HIGH needs |
+|---|---|---|
+| independence | how many correlation-group heads voted | ≥ 5 families |
+| coverage | how many of the **eligible** families actually did | ≥ 75% |
+| freshness | how many of those are inside their ``maxAgeHours`` budget | ≥ 75% |
+| applicability | how many reached the row without approximation, on this board's TE++ basis | ≥ 75% |
+| agreement | how many price within 15% relative of ``rankDerivedValue`` | ≥ 75% |
+
+**Overall = the WEAKEST axis.** Nothing averages, so a large source count
+cannot buy freshness, applicability, coverage or agreement.
+
+Four things are load-bearing and easy to undo by accident:
+
+* **5 / 3 families are the BLEND's own rungs**, not new numbers.
+  ``_mean_median_blend`` trims one extreme per side at k ≥ 5, so five
+  families is the smallest panel whose published value survives one
+  outlying opinion in either direction; 3-4 is the untrimmed rung, 2 a
+  plain mean, 1 a passthrough. Two families therefore cannot exceed LOW.
+* **Coverage's DENOMINATOR is what COULD have been observed.** A family
+  that stops covering a row stays eligible, so its silence is permanent
+  missing evidence. This is what makes deleting evidence unable to
+  promote a row — MISSING IS NEVER ZERO applied to confidence.
+* **A duplicate family member is not an input to any axis.**
+  ``assess_confidence`` RAISES on a repeated family rather than
+  averaging or ignoring it. Collapsing a family is therefore an exact
+  identity on confidence, which is invariants 1 and 2 discharged
+  structurally rather than by calibration.
+* **Agreement is measured in VALUE space**, against ``rankDerivedValue``,
+  with the same symmetric mean normalisation ``marketGapValueRatio``
+  uses. Consequence: any post-blend OVERRIDE that moves a value
+  invalidates the stamp taken before it, which is why
+  ``_restate_confidence_after_override`` re-runs the gate on rows whose
+  value changed (found on Travis Hunter, whose two-way boost left all
+  eleven families 24-56% below the published number while the row
+  claimed high agreement).
+
+RETIRED: ``max(percentile) − min(percentile)`` bucketed at 0.08 / 0.20.
+A range can only narrow when an observation is removed, so deleting
+evidence promoted rows — and re-basing the same statistic onto
+independent evidence reproduced the failure (60 rows, wrong direction;
+#833). ``sourceRankPercentileSpread`` is still computed, still published
+and still drives ``hasSourceDisagreement``; it no longer decides
+confidence. Do not reintroduce a range as the deciding statistic.
+
+Picks keep their own coefficient-of-variation rule
+(``assess_pick_confidence``) because rank spread on picks is dominated by
+the flat-value regions in R3-R6 — but it is family-aware, and its
+independence bar is 2 markets rather than 5 because the pick population
+only HAS 2-4 families (KTC + IDPTC).
+
+Per-row fields: ``confidenceBucket`` / ``confidenceLabel`` /
+``confidenceAxes`` / ``confidenceReasons``. ``metrics`` stays on the
+assessment object and off the payload (the reasons already carry its
+numbers, and publishing both cost +15 KB gzip for a block nothing
+renders). Full record: ``docs/master-site-audit/B_SERIES_EXECUTION_LEDGER.md``
+§B11; distribution evidence in
+``docs/master-site-audit/evidence/B11/``.
+
 ### Single Source of Truth: Rankings Override Path
 Custom source configurations (user-toggled sources or custom weights) flow through the **SAME** canonical pipeline as the default board. There is no frontend ranking engine, period — not even a fallback. `buildRows` is a pure materializer.
 

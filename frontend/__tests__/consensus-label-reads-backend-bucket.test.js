@@ -8,14 +8,18 @@
  * `sourceRankSpread <= CONFIDENCE_SPREAD_HIGH`, a frontend copy of
  * `_CONFIDENCE_SPREAD_HIGH = 30`.
  *
- * That constant mirrors a rule the backend RETIRED.
- * `_confidence_bucket` in `data_contract.py` decides off the
- * PERCENTILE spread on the normal `_compute_unified_rankings` path and
- * falls back to the absolute ordinal only for callers that have
- * nothing else. The percentile signal exists so an IDP player ranked
- * by 4 sources is judged on the same agreement scale as an offense
- * player ranked by 14; re-imposing an absolute ordinal cap on the
- * client undoes exactly that.
+ * That constant mirrored a rule the backend had already RETIRED, and the
+ * backend has since retired the replacement too. Confidence is now
+ * decided by `src/api/confidence.py` — five axes over provider families
+ * (independence, coverage, freshness, applicability, agreement),
+ * combined by bottleneck, with agreement measured in VALUE space (B11).
+ * No spread of any kind decides it, so a client-side ordinal cap is now
+ * two generations behind the rule it claims to mirror.
+ *
+ * The property this file pins is what survives every one of those
+ * changes: the client renders the backend's verdict and computes none of
+ * its own. The specific numbers below are from the 2026-07-30 measurement
+ * that motivated the fix; they are history, not the current board.
  *
  * Measured on the pinned 2026-07-30 contract:
  *

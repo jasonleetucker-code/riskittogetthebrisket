@@ -16,7 +16,6 @@ import unittest
 from src.api.data_contract import (
     OVERALL_RANK_LIMIT,
     _RANKING_SOURCES,
-    _compute_confidence_bucket,
     _compute_anomaly_flags,
     _compute_market_gap,
     build_api_data_contract,
@@ -119,38 +118,45 @@ def _build_and_find(payload, player_name):
 # ── Confidence bucket unit tests ─────────────────────────────────────────────
 
 
-class TestConfidenceBucket(unittest.TestCase):
-    def test_high_bucket(self):
-        bucket, label = _compute_confidence_bucket(2, 20.0)
-        self.assertEqual(bucket, "high")
-        self.assertIn("High", label)
+class TestTheSpreadStatisticIsGoneFromThisModule(unittest.TestCase):
+    """``_compute_confidence_bucket`` was deleted by B11.
 
-    def test_high_boundary(self):
-        bucket, _ = _compute_confidence_bucket(2, 30.0)
-        self.assertEqual(bucket, "high")
+    It bucketed a row on ``max(percentile) − min(percentile)`` behind an
+    ``n >= 2`` count gate.  A range can only narrow when an observation
+    is removed, so deleting evidence promoted a row — the failure #833
+    recorded and could not fix by feeding the same statistic a better
+    input population.  The unit tests that used to live here pinned the
+    two cutoffs; their replacement is ``tests/api/test_confidence_gate.py``,
+    which pins BEHAVIOUR under changing evidence sets instead.
 
-    def test_medium_bucket(self):
-        bucket, label = _compute_confidence_bucket(2, 50.0)
-        self.assertEqual(bucket, "medium")
-        self.assertIn("Medium", label)
+    This class remains so a future re-introduction is a test failure
+    rather than a quiet second owner of confidence.
+    """
 
-    def test_medium_boundary(self):
-        bucket, _ = _compute_confidence_bucket(2, 80.0)
-        self.assertEqual(bucket, "medium")
+    def test_the_retired_function_is_not_importable(self):
+        import src.api.data_contract as dc
 
-    def test_low_bucket_wide_spread(self):
-        bucket, label = _compute_confidence_bucket(2, 100.0)
-        self.assertEqual(bucket, "low")
-        self.assertIn("Low", label)
+        self.assertFalse(
+            hasattr(dc, "_compute_confidence_bucket"),
+            "the retired max-minus-min confidence rule is back in data_contract",
+        )
 
-    def test_low_bucket_single_source(self):
-        bucket, _ = _compute_confidence_bucket(1, None)
-        self.assertEqual(bucket, "low")
+    def test_the_retired_threshold_constants_are_not_back(self):
+        import src.api.data_contract as dc
 
-    def test_none_bucket_zero_sources(self):
-        bucket, label = _compute_confidence_bucket(0, None)
-        self.assertEqual(bucket, "none")
-        self.assertIn("unranked", label.lower())
+        for name in (
+            "_CONFIDENCE_PERCENTILE_HIGH",
+            "_CONFIDENCE_PERCENTILE_MEDIUM",
+            "_CONFIDENCE_SPREAD_HIGH",
+            "_CONFIDENCE_SPREAD_MEDIUM",
+        ):
+            with self.subTest(constant=name):
+                self.assertFalse(hasattr(dc, name))
+
+    def test_confidence_has_exactly_one_owner(self):
+        from src.api.confidence import assess_confidence
+
+        self.assertTrue(callable(assess_confidence))
 
 
 # ── Anomaly flag unit tests ──────────────────────────────────────────────────
@@ -498,7 +504,18 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         self.assertEqual(meth["version"], contract["contractVersion"])
         self.assertEqual(meth["overallRankLimit"], OVERALL_RANK_LIMIT)
         self.assertIn("formula", meth)
-        self.assertIn("confidenceBuckets", meth)
+        # ``confidenceBuckets`` was replaced by ``confidenceGate`` (B11).
+        # Renamed rather than rewritten in place: the old block described
+        # a max-minus-min rule that no longer exists, and a consumer
+        # reading the old key must fail loudly instead of silently
+        # believing a threshold pair that is gone.
+        self.assertNotIn("confidenceBuckets", meth)
+        self.assertIn("confidenceGate", meth)
+        self.assertEqual(meth["confidenceGate"]["owner"], "src/api/confidence.py")
+        self.assertEqual(
+            sorted(meth["confidenceGate"]["axes"]),
+            ["agreement", "applicability", "coverage", "freshness", "independence"],
+        )
         self.assertIn("anomalyFlags", meth)
         self.assertIsInstance(meth["sources"], list)
         # ktc + ktcSfTep + idpTradeCalc + dlfIdp + idpShow + dlfSf +
@@ -756,19 +773,28 @@ class TestEdgeCaseFixtures(_SecondOffenseSourceMixin, unittest.TestCase):
         self.assertTrue(row["isSingleSource"])
         self.assertEqual(row["confidenceBucket"], "low")
 
-    def test_high_confidence_consensus_asset(self):
-        """Multi-source with tight agreement = high confidence.
+    def test_two_agreeing_sources_are_not_high_confidence(self):
+        """Tight agreement between TWO families is not enough (B11).
 
-        Uses two overall_offense sources (ktc + ktcMirror) because KTC
-        and idpTradeCalc have disjoint scopes under the scope-aware
-        ranking pipeline.
+        This used to assert ``high``: the retired rule reached its top
+        bucket on any two sources whose spread was small, which is the
+        owner ruling's stated failure — "excellent agreement between only
+        one or two evidence families should not automatically become HIGH
+        confidence".
+
+        Two families is also below the count-aware blend's own rungs:
+        n=2 is a plain mean, so the published value is whatever those two
+        said, with nothing to be robust against.  The axes say so
+        explicitly rather than the bucket saying it silently.
         """
         payload = _payload_with_players(
             _make_player("Consensus QB", "QB", ktc=9000, sibling=8900),
         )
         row = _build_and_find(payload, "Consensus QB")
         self.assertFalse(row["isSingleSource"])
-        self.assertEqual(row["confidenceBucket"], "high")
+        self.assertEqual(row["confidenceAxes"]["agreement"], "high")
+        self.assertEqual(row["confidenceAxes"]["independence"], "low")
+        self.assertEqual(row["confidenceBucket"], "low")
         self.assertFalse(row["quarantined"])
 
     def test_all_trust_fields_present_on_ranked_player(self):
@@ -865,20 +891,23 @@ class TestTrustMirrorToLegacy(_SecondOffenseSourceMixin, unittest.TestCase):
         self.assertIsInstance(legacy_entry["quarantined"], bool)
         self.assertIn("confidenceBucket", legacy_entry)
 
-    def test_multi_source_high_confidence_mirrored(self):
-        """A multi-source player with tight agreement gets 'high' mirrored.
+    def test_the_legacy_dict_mirrors_whatever_the_gate_decided(self):
+        """The mirror must carry the gate's verdict, not its own.
 
-        Uses two overall_offense sources (ktc + ktcMirror) via the mixin
-        because KTC and idpTradeCalc have disjoint scopes and cannot
-        both rank a QB under the scope-aware pipeline.
+        Two identical source values used to mirror ``high`` (spread 0).
+        Under B11 two families cannot exceed ``low`` however closely they
+        agree — what this test pins is that the legacy dict says the same
+        thing ``playersArray`` does, which is the property that made this
+        test worth having.
         """
         payload = _payload_with_players(
             _make_player("Dual QB", "QB", ktc=8000, sibling=8000),
         )
         contract = build_api_data_contract(payload)
         legacy_entry = contract["players"]["Dual QB"]
-        # With equal values across two sources, spread=0 → high confidence
-        self.assertEqual(legacy_entry["confidenceBucket"], "high")
+        row = next(r for r in contract["playersArray"] if r["canonicalName"] == "Dual QB")
+        self.assertEqual(legacy_entry["confidenceBucket"], row["confidenceBucket"])
+        self.assertEqual(legacy_entry["confidenceBucket"], "low")
         self.assertFalse(legacy_entry["isSingleSource"])
 
 

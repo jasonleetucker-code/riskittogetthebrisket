@@ -87,22 +87,27 @@ export function actionLabel(row) {
   // `confidenceBucket` is the BACKEND's answer to exactly this
   // question, and it is the only agreement test applied here. There
   // used to be a second one — `sourceRankSpread <= 30`, a frontend copy
-  // of `_CONFIDENCE_SPREAD_HIGH` — layered on top of it. That constant
-  // mirrors a rule the backend RETIRED: `_confidence_bucket` decides
-  // off the PERCENTILE spread on the normal `_compute_unified_rankings`
-  // path, and falls back to the absolute ordinal only for callers that
-  // have nothing else. The percentile signal exists so an IDP player
-  // ranked by 4 sources is judged on the same agreement scale as an
-  // offense player ranked by 14; re-imposing an absolute ordinal cap
-  // undoes precisely that.
+  // of a backend constant that had already been retired once. Measured
+  // on the pinned 2026-07-30 contract: of the 111 rows the backend
+  // called high-confidence, multi-source and undisputed, the extra
+  // check suppressed "Consensus asset" on **54** — nearly half — with
+  // ordinal spreads running to 486 on rows the backend was confident
+  // about.
   //
-  // Measured on the pinned 2026-07-30 contract: of the 111 rows the
-  // backend calls high-confidence, multi-source and undisputed, the
-  // extra check suppressed "Consensus asset" on **54** — nearly half —
-  // with ordinal spreads running to 486 on rows the backend is
-  // confident about. Recomputing a backend verdict on the client is
-  // also the thing this codebase's "no frontend ranking engine, period"
-  // rule exists to prevent.
+  // Since B11 the backend decides confidence with `src/api/confidence.js`'s
+  // Python sibling — five axes over provider families, combined by
+  // bottleneck, agreement measured in VALUE space — so NO spread of any
+  // kind decides it, and there is nothing here to mirror even if someone
+  // wanted to. Recomputing a backend verdict on the client is the thing
+  // this codebase's "no frontend ranking engine, period" rule exists to
+  // prevent; B11 extends it explicitly to confidence.
+  //
+  // The gate is deliberately less saturated than the rule it replaced:
+  // 253 rows are high-confidence on the 2026-08-14 board against 102
+  // before, because the retired percentile spread grew mechanically with
+  // depth and produced a cliff at rank 100 with no evidentiary basis.
+  // The widening here is that fix arriving, not a regression — do not
+  // add a filter to hold the old row count.
   //
   // `hasSourceDisagreement` stays: it is a backend stamp too, off the
   // percentile signal, and it is what keeps "Consensus asset" and

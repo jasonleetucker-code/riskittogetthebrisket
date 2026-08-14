@@ -882,3 +882,229 @@ one is model work with its own validation burden and is not attempted here.
 
 Recorded rather than shipped: nothing merged from this attempt. The board is byte-identical
 to the post-#832 state (0 values, 0 ranks, 0 labels).
+
+---
+
+# B11 — RESOLVED. The multi-axis confidence gate
+
+The redesign the section above said was needed. Implemented, measured, shipped.
+
+## What was wrong, restated precisely
+
+Confidence was `max(percentile) − min(percentile)` over a row's contributing sources,
+bucketed at 0.08 / 0.20, behind an `n >= 2` count gate. Two faults:
+
+1. **A range can only narrow when an observation is removed.** Under "narrower ⇒ more
+   confident", deleting evidence promoted a row. That is the monotonicity failure, and
+   re-basing the same statistic onto independent evidence reproduced it (60 rows, wrong
+   direction, A.J. Brown `medium → high`).
+2. **One axis wearing two hats** — a count and a dispersion — with nothing asking whether
+   the evidence was independent, current, applicable to this board's format, or anywhere
+   near complete. A large source count silently compensated for all four.
+
+## The replacement
+
+`src/api/confidence.py` is the single owner. Five axes over **B10 provider families**,
+combined by **bottleneck** — the overall level is the weakest axis. Nothing averages, so a
+strong axis cannot buy a weak one. That is the owner ruling ("a huge source count must not
+compensate for poor freshness / applicability / independent-family coverage / severe
+disagreement") written as arithmetic instead of as a weighting.
+
+| axis | question | HIGH requires |
+|---|---|---|
+| independence | how many B10 correlation-group heads voted | ≥ 5 families |
+| coverage | how many of the **eligible** families actually did | ≥ 75% |
+| freshness | how many of those are inside their `maxAgeHours` budget | ≥ 75% |
+| applicability | how many reached the row without approximation, on this board's TE basis | ≥ 75% |
+| agreement | how many price within 15% relative of `rankDerivedValue` | ≥ 75% |
+
+Every parameter is in `config/confidence/gate_v1.json` with a unit and a derivation; the
+module contains no numeric literal that decides a level.
+
+## Every number is derived from something already declared
+
+- **5 / 3 families** — the count-aware blend's OWN rungs. `_mean_median_blend` trims one
+  extreme per side at k ≥ 5, so five families is the smallest panel where the published
+  value is robust to a single outlying opinion in either direction; n = 3-4 is the
+  untrimmed rung, n = 2 a plain mean, n = 1 a passthrough. Two families therefore cannot
+  exceed LOW, which is the owner ruling on "excellent agreement between only one or two
+  evidence families" enforced structurally.
+- **0.75 / 0.50** — one sufficiency ladder for all four share axes rather than four
+  separately-invented cutoffs. A stated prior, recorded as one. Distribution check on the
+  live board puts it inside the body of all four (coverage p25 0.750 / median 0.917;
+  freshness p25 0.750 / median 0.909; agreement p25 0.636 / median 0.800).
+- **0.15 relative value** — the board's existing declared line for a MATERIAL relative
+  value gap (`PREMIUM_SUMMARY_VALUE_RATIO`, p70 of `|marketGapValueRatio|`), measured with
+  the SAME symmetric mean normalisation `_compute_market_gap` uses so it means the same
+  size of disagreement in both places. Its own registry entry so the two can diverge
+  deliberately rather than by accident.
+
+## Why the monotonicity invariants hold
+
+- **Duplicates cannot create confidence, and removing them cannot promote (invariants 1
+  and 2)** — an exact IDENTITY, not a bound. Every axis is computed over family heads, so
+  a second observation from a represented family is not an input to anything.
+  `assess_confidence` **refuses** a duplicate family rather than averaging or ignoring it,
+  because both of those are ways for a duplicate to matter after all. This is the A.J.
+  Brown case: he is HIGH whether or not FantasyPros also published a Fitzmaurice row.
+- **Removing real evidence cannot pay (invariant 3)** — `coverage`'s DENOMINATOR is what
+  COULD have been observed, not what was. A family that stops covering a row stays
+  eligible, so its silence is registered as missing evidence permanently. MISSING IS NEVER
+  ZERO applied to confidence: an absent eligible source is explicit missingness, not a
+  neutral non-event. Confidence can still rise when the departed evidence was stale or
+  inapplicable — the ruling permits that — and the reason is then on the row.
+- **No axis is a range.** Pinned by a test that moves an interior family while holding the
+  extremes, which a range cannot notice.
+
+## Agreement moved from rank space to value space, and that is load-bearing
+
+A family agrees when its `valueContribution` is within 15% relative of the published value.
+Value is the right currency for the same reason it was right for the market gap: it is what
+the blend itself compares sources in.
+
+Checked for the opposite bias before adopting — value-space agreement could have become
+mechanically easier where the Hill curve flattens. It does not: the within-tolerance share
+FALLS with depth (median 1.000 in the top 100, 0.917 at 101-200, 0.750 at 201-800).
+
+It also catches disagreement the percentile statistic structurally could not. Jalen Carter
+(DL, rank 239) has a percentile spread of **0.0412** — comfortably inside the retired HIGH
+band — while `draftSharksIdp` prices him **26% below** consensus. He is now LOW, limited by
+agreement, with the disagreement named on the row.
+
+## A defect this change created, found and fixed
+
+`_apply_two_way_player_boost` runs AFTER the ranking loop and replaces `rankDerivedValue`
+with the alt-position family's value. The retired rule never read the value, so this
+coupling is **new with the gate**. Travis Hunter's boost lifts him from the offense blend's
+~2,900 to 4,758, leaving all eleven of his families 24-56% BELOW the published number while
+the pre-boost stamp still claimed high agreement.
+
+Fixed by `_restate_confidence_after_override`, written as a general guard over "did the
+value move since the gate ran" rather than as a special case for the boost table, so any
+future post-blend pass inherits it. Travis Hunter now reads
+`Low — limited by agreement · 0 of 11 families price within 15% of the published value`,
+which is an honest description of a deliberate override no source published.
+
+## Picks
+
+Picks keep their own coefficient-of-variation gate — rank spread on picks is dominated by
+the flat-value regions in R3-R6 — but it is now **family-aware**: `dlfSf` and `dlfIdp` are
+one declared family and were counted as two corroborating opinions. Measured before
+changing it: **0 of 144 live pick rows** carry two members of one family, so this closes
+the hole rather than moving a number, and it is pinned so it cannot open again quietly.
+
+**Named boundary, not an exemption that leaked:** 24 pick rows are HIGH on 2 evidence
+families. Picks' eligible population only HAS 2-4 families (KTC + IDPTC are the two real
+pick markets), so the 5-family bar — derived from the *player* blend's trimming rung — does
+not apply to them.
+
+## OLD vs NEW distribution
+
+Full audit and the reproducing script:
+`docs/master-site-audit/evidence/B11/confidence-distribution.md` + `audit.py`.
+
+Both sides measured over the **same pinned payload** — the 2026-08-14T17:41 export — with
+the OLD side built from a worktree at the pre-B11 commit. Pinning it is the point: a
+scheduled refresh landed mid-review, and comparing across refreshed inputs would have
+measured the scrape rather than the gate. (For the record: on the earlier 16:32 export the
+same code gives 257 / 354 / 177 / 306, so the shape is a property of the gate and the
+counts move by a handful of rows with the data, as they should.)
+
+| bucket | OLD | NEW | delta |
+|---|---:|---:|---:|
+| high | 102 | 253 | +151 |
+| medium | 245 | 357 | +112 |
+| low | 441 | 178 | −263 |
+| none | 306 | 306 | 0 |
+
+upgraded **428** · downgraded **77** · unchanged **589**
+
+The OLD board was saturated, and the shape shows it. By depth (high/medium/low):
+
+| band | OLD | NEW |
+|---|---|---|
+| 001-100 | 61/38/1 | 79/20/1 |
+| 101-200 | 10/65/25 | 58/35/7 |
+| 201-400 | 15/41/144 | 72/106/22 |
+| 401-800 | 16/101/223 | 44/196/100 |
+
+Ranks 101-200 carried 10% HIGH against the top 100's 61% — a cliff with no evidentiary
+basis, produced by the percentile spread growing mechanically with depth. NEW declines
+monotonically with depth, which is what "confidence in a value" should do.
+
+Checks the ruling asked for specifically:
+
+- rows upgraded with fewer than 3 independent families: **0**
+- PLAYER rows reaching HIGH with fewer than 5 independent families: **0** (structurally
+  impossible — the independence axis caps them)
+- rows upgraded that are missing at least one eligible family: 196 — all constrained by the
+  coverage axis, all with the gap named on the row
+- 77 rows were downgraded; every one names its binding axis. The clearest are the OLD
+  board's own defects: Ashton Gillotte (DL, rank 672) was HIGH on **1 family and 20%
+  coverage**; RJ Maryland (TE, rank 509) was HIGH on 2 families.
+
+## Downstream consumers — a deliberate widening, stated
+
+`frontend/lib/edge-helpers.js` gates four surfaces on `confidenceBucket === "high"`
+(Consensus asset label, /edge consensus section, arbitrage eligibility). Those surfaces now
+see 253 qualifying rows instead of 102. That is the intended consequence of the OLD gate
+being saturated rather than an accidental blast radius, and no threshold in
+`edge-helpers.js` was touched to compensate — re-aiming a display filter to preserve its
+old row count would be tuning the answer to the previous wrong question.
+
+## Board integrity
+
+`rankDerivedValue` moved on **0 of 1094 rows**; `canonicalConsensusRank` moved on **0**;
+**no non-confidence field changed at all**. Confidence is not value, verified on the whole
+board rather than asserted.
+
+Payload cost: production delta 3.864 → 4.136 MB raw, **314.3 → 334.1 KB over the wire**
+(+6.3%) for the axes and reasons. `confidenceMetrics` was deliberately left OFF the payload
+to hold it there — the reasons already carry its numbers in readable form.
+
+Observed and **not** caused by this change: `rankChange` differs between two back-to-back
+builds of identical code on 740 rows. The rank-history recorder writes a snapshot each
+build and the next build diffs against it. Named here because it is the one thing a
+board-diff of this change shows, and it would otherwise read as B11 movement.
+
+## What B11 no longer owes
+
+| item | status |
+|---|---|
+| spread measured over correlated sources | **resolved** — the statistic is retired, not re-based |
+| freshness as an input | **shipped** — its own axis |
+| coverage as an input | **shipped** — its own axis, denominated on eligible families |
+| applicability as an input | **shipped** — its own axis |
+| missing / stale / conflicting as distinct states | **shipped** — distinct axes + published reasons |
+| duplicate evidence cannot inflate confidence | **shipped** — an identity, pinned |
+| removing evidence cannot promote for mechanical reasons | **shipped** — coverage denominator |
+| explainable rather than a bare score | **shipped** — `confidenceAxes` + `confidenceReasons` |
+| one canonical owner, no frontend confidence math | **shipped** — gate parameters are deliberately NOT mirrored to `thresholds.js` |
+
+Still open, and deliberately out of B11's scope — naming rather than fixing, because each
+is a rename with its own consumer blast radius:
+
+| item | status |
+|---|---|
+| `none` on a PRICED row (24 rows) | **open** — "unranked" label on a ranked row |
+| rename `identityConfidence` (means "player id resolved") | **open** |
+| rename/remove `marketConfidence` (a bounded dispersion metric) | **open** |
+
+## A stale B10 guard, found by B11 and repaired
+
+`test_source_provenance.py::test_the_canonical_blend_does_not_read_correlation_group`
+asserted that `_compute_unified_rankings` contains no mention of `correlation_group`. That
+was the right guard for **B10-T2**, whose entire reviewability rested on declaring families
+while moving no value.
+
+**B10-T3b retired that property on purpose** — 455 values moved, with its own before/after
+envelope — and the guard did not notice, because T3b reached the family through a helper:
+`collapse_to_independent_families` calls `correlation_group_for` internally, so the literal
+string never appeared in the caller. It stayed green for two merges while describing a
+property that had stopped holding.
+
+B11 tripped it only because the confidence gate needs a family per source and resolves the
+map inline. Replaced with the property that is actually true and worth pinning: **family
+membership is resolved through the declared owner and nowhere else**, and no provider
+family is named as a literal inside the blend. A guard that survives the change it was
+written to catch is worse than no guard — it reads as evidence.

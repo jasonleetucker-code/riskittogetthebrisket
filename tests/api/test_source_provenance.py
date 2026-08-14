@@ -132,18 +132,56 @@ class TestEveryMultiBoardProviderIsDeclared:
         assert len(_groups()) == 13
 
 
-class TestTheDeclarationIsInertOnTheBoard:
-    """T2 changes no value. Its whole reviewability rests on that."""
+class TestTheDeclarationHasOneConsumerPath:
+    """T2 was inert. T3b deliberately stopped being.
 
-    def test_the_canonical_blend_does_not_read_correlation_group(self):
-        """Structural, because the byte-identical board diff is a
-        measurement of one input and this is a property of the code.
+    This class used to assert that ``_compute_unified_rankings`` contains
+    no mention of ``correlation_group`` at all — the right guard for T2,
+    whose entire reviewability rested on declaring families while moving
+    no value.
 
-        If the blend ever starts consulting the family, that is B10-T3 —
-        a deliberate aggregation change with its own before/after
-        envelope — and it must not arrive as a side effect of declaring
-        one more provider.
+    **T3b retired that property on purpose** (455 values moved, its own
+    before/after envelope), and this guard did not notice, because T3b
+    reached the family through a helper: ``collapse_to_independent_
+    families`` calls ``correlation_group_for`` internally, so the literal
+    string never appeared in the caller. A guard that survives the change
+    it was written to catch is worse than no guard — it reads as evidence
+    of a property that stopped holding.
+
+    What replaces it is the property that IS true and IS worth pinning:
+    the blend reads family membership from the declared owner and from
+    nowhere else. B11 added a second call site (the confidence gate needs
+    a family per source), which is exactly the kind of arrival the old
+    guard existed to flag — so the guard now checks lineage, not silence.
+    """
+
+    def test_family_membership_comes_only_from_the_declared_owner(self):
+        """No second list, no inline mapping, no re-derivation.
+
+        Every way the blend learns which family a source belongs to must
+        route through ``correlation_group_for`` / ``expand_correlation_
+        groups`` / ``collapse_to_independent_families``. A dict literal
+        mapping keys to providers inside this function would be a second
+        declaration, and it would drift.
         """
         src = inspect.getsource(data_contract._compute_unified_rankings)
-        assert "correlation_group" not in src
-        assert "expand_correlation_groups" not in src
+        sanctioned = (
+            "correlation_group_for",
+            "expand_correlation_groups",
+            "collapse_to_independent_families",
+        )
+        for line in src.splitlines():
+            code = line.split("#", 1)[0]
+            if "correlation_group" not in code:
+                continue
+            assert any(
+                name in code for name in sanctioned
+            ), f"family membership resolved outside the declared owner: {line.strip()!r}"
+
+    def test_the_registry_is_the_only_place_a_family_is_named(self):
+        """A provider name hard-coded in the pipeline is a second registry."""
+        src = inspect.getsource(data_contract._compute_unified_rankings)
+        for family in KNOWN_MULTI_BOARD_PROVIDERS:
+            assert (
+                f'"{family}"' not in src and f"'{family}'" not in src
+            ), f"provider family {family!r} is named inside the blend rather than declared"
