@@ -1997,11 +1997,9 @@ export default function TradePage() {
             defaultCollapsed
             mountCollapsedChildren={false}
           >
-          <TradeSourceBreakdown
-            sides={sides}
-            settings={settings}
-            valueMode={valueMode}
-          />
+          {/* No valueMode: Second Opinions owns its own comparison
+              basis and must not inherit a display toggle. */}
+          <TradeSourceBreakdown sides={sides} settings={settings} />
           <RosTradeFitPanel sides={sides} settings={settings} />
           <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
 
