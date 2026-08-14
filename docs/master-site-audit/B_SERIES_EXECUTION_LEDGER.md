@@ -845,3 +845,40 @@ base got smaller.
 
 The authorising figure of "192 of 683" remains larger than anything measurable today and
 should not be quoted without re-measuring.
+
+## B11 — the spread cannot be fixed by re-basing it (measured, reverted)
+
+The obvious next step after the count fix was to compute the percentile spread over
+independent evidence too — one member per provider family — since the spread is what
+actually decides HIGH vs MEDIUM and it was being measured across correlated sources on
+478 of 893 non-pick rows.
+
+**It was implemented, measured, and reverted.** The measurement is why.
+
+| effect | measured |
+|---|---|
+| rows flipping bucket | **60** |
+| direction | **PROMOTIONS** — e.g. A.J. Brown `medium → high` |
+
+The cause is structural, not a bug in the attempt. The spread is `max − min`, so **removing
+any source can only narrow it**. Dropping a family's duplicate members therefore *tightens*
+the apparent agreement and promotes the row — which is precisely the monotonicity defect
+B11 exists to cure, reproduced by the fix meant to address it.
+
+**The statistic is the defect, not its input.** `max − min` measures the width of whatever
+set it is handed; it cannot distinguish "these sources genuinely agree" from "there are
+fewer sources left to disagree". Re-basing it onto independent evidence makes confidence
+*more* wrong, not less: 60 rows would have gained HIGH on strictly less evidence.
+
+So the remaining B11 work is a **redesign, not a patch**, and it matches the owner ruling
+directly: HIGH must require *sufficient independent family evidence* AND *acceptable
+freshness* AND *tight agreement* AND *adequate coverage* — a multi-axis gate where the
+evidence count constrains the ceiling, rather than a single spread threshold behind an
+`n >= 2` door.
+
+A dispersion measure that does not shrink when you delete data (a variance or IQR-style
+statistic normalised by n, rather than a range) is likely part of the answer, but choosing
+one is model work with its own validation burden and is not attempted here.
+
+Recorded rather than shipped: nothing merged from this attempt. The board is byte-identical
+to the post-#832 state (0 values, 0 ranks, 0 labels).
