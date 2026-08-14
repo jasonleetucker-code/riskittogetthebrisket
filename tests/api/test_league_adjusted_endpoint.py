@@ -453,19 +453,26 @@ def test_an_empty_players_array_is_a_clean_noop(league, monkeypatch):  # noqa: F
     assert body["playerCount"] == 0
 
 
-# ── 4. Server-side composition on POST /api/rankings/overrides ───────
+# ── 4. The withdrawn lens on POST /api/rankings/overrides ────────────
 #
-# Custom source weights + the league lens used to be refused. The
-# refusal was correct — the overlay's ranks belong to the un-overridden
-# board — but it meant a user with any custom weight silently lost the
-# lens. The composition now happens server-side.
+# This section used to pin SERVER-SIDE COMPOSITION: custom source
+# weights combined with the league lens, composed on the server because
+# the client cannot (the overlay's ranks belong to the un-overridden
+# board). #822 then rejected the league-aware methodology for promotion
+# to canonical and ruled it may not own a canonical field, closing the
+# engine gate and moving the overlay onto experimental field names.
 #
-# The scope consequence is the subtle part and is what these pin:
-# rankings follow the SCORING PROFILE and are shared across leagues,
-# but scarcity is measured from ONE league's rosters. So asking for the
-# lens narrows a shared response into a league-scoped one, and the
-# endpoint has to start enforcing the stricter rule for that request
-# only.
+# This path was left composing factors straight into
+# ``rankDerivedValue``, with the +/-25% bound on the FACTOR and never on
+# the PRODUCT — so canonical values left their declared 1-9999 range
+# (measured on the 2026-08-14 board: 10,160 on the real factor set,
+# 12,471 at the cap). B9a closed it, and these tests now pin the
+# withdrawal instead of the composition.
+#
+# The scope consequence inverted with it. Asking for the lens used to
+# narrow a scoring-profile-scoped response into a league-scoped one and
+# 503 on a mismatch. With nothing league-scoped left to compute, the
+# request no longer narrows anything, so it no longer 503s.
 
 
 def _raw_payload() -> dict:
@@ -473,10 +480,7 @@ def _raw_payload() -> dict:
 
     ``POST /api/rankings/overrides`` reads ``server.latest_data`` (the
     pre-contract scrape), not ``latest_contract_data`` — it re-runs the
-    whole pipeline rather than patching the built board. The player
-    names must match the league fixture's roster, or the scarcity
-    factors key off nothing and every composition assertion passes
-    vacuously against an empty adjustment.
+    whole pipeline rather than patching the built board.
     """
     players: dict[str, dict] = {}
     for row in _players_array():
@@ -517,13 +521,14 @@ def test_overrides_without_the_lens_stay_scoring_profile_scoped(league, monkeypa
     assert res.json()["meta"]["valuationMode"] == "market"
 
 
-def test_asking_for_the_lens_narrows_the_scope_to_one_league(league, monkeypatch):  # noqa: F811
-    """The same request that succeeds above must 503 once the lens is
-    requested — scarcity from `main`'s rosters is not `side`'s answer.
+def test_asking_for_the_lens_no_longer_narrows_the_scope(league, monkeypatch):  # noqa: F811
+    """Was a 503.
 
-    This is the assertion that makes the composition safe. Without it
-    the endpoint would happily hand league B a board priced by league
-    A's roster shape, which is worse than the refusal it replaced.
+    The 503 existed because scarcity measured from `main`'s rosters is
+    not `side`'s answer, so asking for the lens turned a shareable
+    response into a league-scoped one. Nothing league-scoped is computed
+    any more, so the request is simply ignored and the shared board is
+    served — the same convergence rule the engine gate uses.
     """
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract(monkeypatch, league_key="main")
@@ -536,35 +541,14 @@ def test_asking_for_the_lens_narrows_the_scope_to_one_league(league, monkeypatch
                 "valuation_mode": "leagueAdjusted",
             },
         )
-    assert res.status_code == 503
-    body = res.json()
-    assert body["error"] == "data_not_ready"
-    assert body["leagueKey"] == "side"
-
-
-def test_the_composed_board_is_stamped_as_league_adjusted(league, monkeypatch):  # noqa: F811
-    with TestClient(server.app, raise_server_exceptions=True) as c:
-        _install_contract(monkeypatch)
-        _install_raw(monkeypatch)
-        res = _post(c, {"ktcSfTep": {"include": False}, "valuation_mode": "leagueAdjusted"})
     assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["meta"]["valuationMode"] == "leagueAdjusted"
-    assert body["valuationAdjustment"]["applied"] is True
-    assert body["valuationAdjustment"]["adjustedCount"] > 0, (
-        "the lens was requested and reported applied but moved nothing — "
-        "either the fixture is starved or the factors never reached the board"
-    )
+    assert res.json()["meta"]["valuationMode"] == "market"
 
 
-def test_a_missing_roster_snapshot_degrades_to_market_and_says_so(
+def test_the_lens_request_is_answered_with_the_canonical_board_and_says_so(
     league,  # noqa: F811
     monkeypatch,
 ):
-    """Without rosters there is no measurable scarcity. Serving the
-    overridden market board is right; presenting it AS league-adjusted
-    is not. The response has to disclose which one the caller got."""
-    monkeypatch.setattr(gameplan, "load_team_strength_snapshot", lambda key=None: None)
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract(monkeypatch)
         _install_raw(monkeypatch)
@@ -572,13 +556,39 @@ def test_a_missing_roster_snapshot_degrades_to_market_and_says_so(
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["meta"]["valuationMode"] == "market"
-    assert "league_adjusted_unavailable" in body["meta"]["valuationNote"]
-    assert any("league_adjusted_unavailable" in w for w in body.get("warnings") or [])
+    assert body["meta"]["valuationNote"] == "league_adjusted_withdrawn: not_canonical"
+    assert any("league_adjusted_withdrawn" in w for w in body.get("warnings") or [])
+    assert (
+        "valuationAdjustment" not in body
+    ), "the payload still advertises an adjustment block for a withdrawn lens"
 
 
-def test_the_full_view_refuses_the_lens_rather_than_ignoring_it(league, monkeypatch):  # noqa: F811
-    """A silently-dropped field would return a market board labelled as
-    adjusted. Say no instead."""
+def test_the_lens_request_never_reaches_the_roster_snapshot(league, monkeypatch):  # noqa: F811
+    """Withdrawal is structural, not conditional.
+
+    If the handler still consulted the gameplan module it would only be
+    one edit from re-applying what it found — and it would pay a roster
+    load on a request whose answer cannot depend on it.
+    """
+    calls: list = []
+
+    def _boom(*args, **kwargs):
+        calls.append(args)
+        raise AssertionError("the withdrawn lens loaded a roster snapshot")
+
+    monkeypatch.setattr(gameplan, "get_league_adjusted_values", _boom)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract(monkeypatch)
+        _install_raw(monkeypatch)
+        res = _post(c, {"ktcSfTep": {"include": False}, "valuation_mode": "leagueAdjusted"})
+    assert res.status_code == 200, res.text
+    assert not calls
+
+
+def test_the_full_view_answers_the_same_way_as_the_delta_view(league, monkeypatch):  # noqa: F811
+    """The two views used to disagree — delta composed, full refused
+    with ``league_adjusted_requires_delta_view``. With the lens
+    withdrawn there is one answer, so there is one note."""
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract(monkeypatch)
         _install_raw(monkeypatch)
@@ -590,4 +600,4 @@ def test_the_full_view_refuses_the_lens_rather_than_ignoring_it(league, monkeypa
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["meta"]["valuationMode"] == "market"
-    assert body["meta"]["valuationNote"] == "league_adjusted_requires_delta_view"
+    assert body["meta"]["valuationNote"] == "league_adjusted_withdrawn: not_canonical"
