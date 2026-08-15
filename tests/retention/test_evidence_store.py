@@ -449,3 +449,146 @@ def test_an_unparseable_instant_is_refused_not_stored(db):
     assert result["action"] == "skipped"
     assert result["reason"] == "unparseable_observed_at"
     assert evidence_store.scoring_card_observations("111", path=db) == []
+
+
+# ── contradicting evidence, and reads that must not fail open ────────
+
+
+def test_a_different_card_at_the_same_instant_is_a_conflict_not_a_duplicate(db):
+    """Two different cards for one instant is CONTRADICTING evidence: at
+    most one can be true and the store cannot tell which.
+
+    Reporting "duplicate" while discarding a different reading is the
+    quiet loss this module exists to prevent — and the old code returned
+    the hash of the card it had just thrown away.
+    """
+    _observe(db, "111", CARD_A, JAN01)
+    result = _observe(db, "111", CARD_B, JAN01)
+
+    assert result["action"] == "conflict"
+    assert result["reason"] == "different_card_at_same_instant"
+    # The hash actually on file, never the one we declined.
+    assert result["cardHash"] == evidence_store.card_hash(CARD_A)
+    assert result["rejectedCardHash"] == evidence_store.card_hash(CARD_B)
+
+
+def test_a_rejected_conflict_leaves_no_orphan_payload(db):
+    """The payload write and the observation write land together or not
+    at all — a committed payload with no observation is a distinct card
+    nobody ever saw, and coverage() would count it."""
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_B, JAN01)
+
+    cov = evidence_store.coverage(path=db)
+    assert cov["scoringCards"]["observations"] == 1
+    assert cov["scoringCards"]["distinctCards"] == 1
+
+
+def test_a_missing_payload_blocks_a_bracket_instead_of_being_skipped(db):
+    """THE fail-open case. An INNER JOIN made an observation with no
+    payload VANISH — so dropping the middle of a disagreeing A / B / A
+    left the endpoints agreeing, and an indeterminate question was
+    answered `reconstructed` with more confidence than the evidence
+    supports."""
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_B, FEB01)
+    _observe(db, "111", CARD_A, MAR01)
+
+    # Simulate the payload for CARD_B going missing.
+    conn = evidence_store.connect(db)
+    try:
+        conn.execute(
+            "DELETE FROM scoring_card_payloads WHERE card_hash = ?",
+            (evidence_store.card_hash(CARD_B),),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    answer = evidence_store.scoring_card_at(
+        "111", "2026-02-15T00:00:00+00:00", accept=evidence_store.ACCEPT_ANY, path=db
+    )
+    assert answer is None, "a bracket must not close over an unreadable observation"
+
+
+def test_an_observation_with_a_missing_payload_is_still_reported(db):
+    """It happened.  Dropping it from the evidence list would make the
+    gap it leaves look like a period nobody sampled."""
+    _observe(db, "111", CARD_A, JAN01)
+    conn = evidence_store.connect(db)
+    try:
+        conn.execute("DELETE FROM scoring_card_payloads")
+        conn.commit()
+    finally:
+        conn.close()
+
+    rows = evidence_store.scoring_card_observations("111", path=db)
+    assert len(rows) == 1
+    assert rows[0]["payloadMissing"] is True
+    # ...and it cannot be served as an answer.
+    assert evidence_store.scoring_card_at("111", JAN01, path=db) is None
+
+
+def test_a_later_fingerprint_fills_in_a_missing_one(db):
+    """The fingerprint is a property of the card's CONTENT, so a later
+    observation supplying one is new information — not a duplicate to
+    discard."""
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_A, JAN02, scoring_fingerprint="sf1:abc123")
+
+    answer = evidence_store.scoring_card_at("111", JAN02, path=db)
+    assert answer["scoringFingerprint"] == "sf1:abc123"
+
+
+def test_an_existing_fingerprint_is_never_overwritten(db):
+    _observe(db, "111", CARD_A, JAN01, scoring_fingerprint="sf1:abc123")
+    _observe(db, "111", CARD_A, JAN02, scoring_fingerprint="sf1:DIFFERENT")
+
+    answer = evidence_store.scoring_card_at("111", JAN01, path=db)
+    assert answer["scoringFingerprint"] == "sf1:abc123"
+
+
+# ── accept is validated, never silently misread ──────────────────────
+
+
+def test_a_misspelled_fidelity_raises_rather_than_reading_as_no_evidence(db):
+    """Returning None for a typo is indistinguishable from the store
+    genuinely having nothing — the exact confusion this module exists to
+    remove."""
+    _observe(db, "111", CARD_A, JAN01)
+
+    for bad in (("Exact",), ("exact ",), ("axect",)):
+        with pytest.raises(ValueError):
+            evidence_store.scoring_card_at("111", JAN01, accept=bad, path=db)
+
+
+def test_a_bare_string_accept_is_refused(db):
+    """``FIDELITY_EXACT in "exact"`` is True by SUBSTRING, so a bare
+    string would quietly behave like a tuple — and ``accept="nearest"``
+    would match nothing while looking deliberate."""
+    _observe(db, "111", CARD_A, JAN01)
+
+    with pytest.raises(TypeError):
+        evidence_store.scoring_card_at("111", JAN01, accept="exact", path=db)
+
+
+def test_an_empty_accept_is_legal_and_returns_nothing(db):
+    _observe(db, "111", CARD_A, JAN01)
+
+    assert evidence_store.scoring_card_at("111", JAN01, accept=(), path=db) is None
+
+
+# ── the schema memo cannot outlive the file ──────────────────────────
+
+
+def test_a_vanished_database_is_recreated_rather_than_written_into_the_void(db):
+    """The per-process memo says "schema already created HERE".  That
+    stops being true if the file is removed by a restore or a cleanup,
+    and a stale memo would skip creation and let every later write fail
+    while the process reported success."""
+    _observe(db, "111", CARD_A, JAN01)
+    db.unlink()
+
+    result = _observe(db, "111", CARD_A, JAN02)
+    assert result["action"] == "recorded"
+    assert len(evidence_store.scoring_card_observations("111", path=db)) == 1

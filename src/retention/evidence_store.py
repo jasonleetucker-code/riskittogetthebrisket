@@ -72,12 +72,25 @@ FIDELITY IS EXPLICIT, AND ``exact`` IS THE STRICT DEFAULT
 ``nearest_prior``  only a prior observation exists, or the bracketing
                    pair DISAGREE so the instant is genuinely
                    indeterminate.  Bounded by ``coverageGapEndsAt``.
-``unavailable``    ``None``.  Nothing supports an answer.
+``unavailable``    ``None``.  Nothing supports an answer — including the
+                   case where an observation IS there but its payload is
+                   not, because an observation whose card is unknown
+                   cannot be served and must not be silently skipped
+                   over either.
 
 What no argument ever produces is today's card returned for a historical
 date it has no bearing on.  ``nearest_prior`` looks strictly backwards,
 and a later observation can only contribute as one endpoint of an
 *agreeing* bracket — never as a standalone answer about the past.
+
+CONTRADICTING EVIDENCE IS REFUSED, NOT ABSORBED
+───────────────────────────────────────────────
+Two DIFFERENT cards reported for one instant is not a replay: at most
+one can be true and this store cannot tell which.  ``observe_scoring_card``
+returns ``action: "conflict"`` and writes nothing, reporting the hash
+actually on file plus the one it declined.  Quietly keeping whichever
+arrived first — while calling it a "duplicate" — is precisely the silent
+loss this module exists to prevent.
 
 DESIGN TAKEN FROM ``src/snapshots/board_store.py``
 ──────────────────────────────────────────────────
@@ -235,6 +248,16 @@ def _ensure_schema(path: Path) -> None:
 
 def connect(path: Path | None = None) -> sqlite3.Connection:
     target = path or DB_PATH
+    # The memo says "this process has already created the schema HERE".
+    # It stops being true if the file goes away — a restore, a botched
+    # cleanup, a wiped volume — and a stale memo would then skip schema
+    # creation and let every subsequent write fail against an empty
+    # database while the process reported success.  Re-checking existence
+    # is one stat() per connect and turns silent evidence loss into a
+    # recreated store.
+    if _SETUP_DONE.get(str(target)) and not target.exists():
+        with _SETUP_LOCK:
+            _SETUP_DONE.pop(str(target), None)
     _ensure_schema(target)
     return sqlite3.connect(str(target), timeout=5.0)
 
@@ -350,15 +373,58 @@ def observe_scoring_card(
 
     conn = connect(path)
     try:
+        # One transaction for the whole observation.  The payload write
+        # and the observation write must land together or not at all:
+        # committing the payload alone leaves an orphan row that
+        # ``coverage()`` counts as a distinct card nobody observed, and
+        # committing the observation alone would leave it pointing at a
+        # payload that is not there.
+        conn.execute("BEGIN IMMEDIATE")
+
+        # Is this instant already claimed, and by WHAT?  Asked before
+        # writing, because "already recorded" and "recorded as something
+        # ELSE" are different facts and only one of them is a replay.
+        existing = conn.execute(
+            """
+            SELECT card_hash FROM scoring_card_observations
+             WHERE sleeper_league_id = ? AND observed_at = ?
+            """,
+            (league_id, stamp),
+        ).fetchone()
+
+        if existing is not None and str(existing[0]) != digest:
+            # CONFLICT, not a duplicate.  Two different cards reported
+            # for one instant is contradicting evidence: at most one can
+            # be true and this store cannot tell which.  Refuse the
+            # write rather than silently keeping whichever arrived
+            # first, and say so — an append-only evidence store that
+            # reports "duplicate" while discarding a DIFFERENT reading
+            # is exactly the quiet loss this module exists to prevent.
+            conn.rollback()
+            return {
+                "action": "conflict",
+                "reason": "different_card_at_same_instant",
+                # The hash actually on file, never the one we declined.
+                "cardHash": str(existing[0]),
+                "rejectedCardHash": digest,
+                "observedAt": stamp,
+            }
+
         # Content first: an observation must never reference a payload
-        # that is not there.  DO NOTHING preserves the original
-        # first_recorded_at and the fingerprint recorded with it.
+        # that is not there.  The fingerprint is FILLED IN when it was
+        # missing and never overwritten — it is a property of the card's
+        # content, so a later observation that supplies one is new
+        # information, while a conflicting one is a caller bug we must
+        # not silently adopt.
         conn.execute(
             """
             INSERT INTO scoring_card_payloads (
                 card_hash, scoring_json, scoring_fingerprint, first_recorded_at
             ) VALUES (?, ?, ?, ?)
-            ON CONFLICT(card_hash) DO NOTHING
+            ON CONFLICT(card_hash) DO UPDATE SET
+                scoring_fingerprint = COALESCE(
+                    scoring_card_payloads.scoring_fingerprint, excluded.scoring_fingerprint
+                )
             """,
             (
                 digest,
@@ -377,11 +443,11 @@ def observe_scoring_card(
             (league_id, stamp, digest, str(season) if season is not None else None, now),
         )
         inserted = cur.rowcount == 1
-        conn.commit()
         total = conn.execute(
             "SELECT COUNT(*) FROM scoring_card_observations WHERE sleeper_league_id = ?",
             (league_id,),
         ).fetchone()[0]
+        conn.commit()
     finally:
         conn.close()
 
@@ -393,19 +459,29 @@ def observe_scoring_card(
     }
 
 
+# LEFT JOIN, deliberately.  An INNER JOIN makes an observation whose
+# payload row is missing VANISH from the result — and vanishing does not
+# fail safe, it fails OPEN: drop the middle observation of a
+# disagreeing A / B / A sequence and the surviving endpoints agree, so a
+# question that should have been indeterminate is answered
+# ``reconstructed`` with more confidence than the evidence supports.
+# That is the invent-continuity defect again, arriving through a
+# different door.  With the LEFT JOIN the observation still bounds the
+# bracket; its NULL payload is what stops it being used as an answer.
+_BRACKET_SIDE_SQL = """
+    SELECT o.observed_at, o.card_hash, o.season,
+           p.scoring_json, p.scoring_fingerprint
+      FROM scoring_card_observations o
+      LEFT JOIN scoring_card_payloads p ON p.card_hash = o.card_hash
+     WHERE o.sleeper_league_id = ?
+"""
+
+
 def _observation_at_or_before(
     conn: sqlite3.Connection, league_id: str, when: str
 ) -> tuple[Any, ...] | None:
     return conn.execute(
-        """
-        SELECT o.observed_at, o.card_hash, o.season,
-               p.scoring_json, p.scoring_fingerprint
-          FROM scoring_card_observations o
-          JOIN scoring_card_payloads p ON p.card_hash = o.card_hash
-         WHERE o.sleeper_league_id = ? AND o.observed_at <= ?
-         ORDER BY o.observed_at DESC
-         LIMIT 1
-        """,
+        f"{_BRACKET_SIDE_SQL} AND o.observed_at <= ? ORDER BY o.observed_at DESC LIMIT 1",
         (league_id, when),
     ).fetchone()
 
@@ -414,15 +490,7 @@ def _observation_at_or_after(
     conn: sqlite3.Connection, league_id: str, when: str
 ) -> tuple[Any, ...] | None:
     return conn.execute(
-        """
-        SELECT o.observed_at, o.card_hash, o.season,
-               p.scoring_json, p.scoring_fingerprint
-          FROM scoring_card_observations o
-          JOIN scoring_card_payloads p ON p.card_hash = o.card_hash
-         WHERE o.sleeper_league_id = ? AND o.observed_at >= ?
-         ORDER BY o.observed_at ASC
-         LIMIT 1
-        """,
+        f"{_BRACKET_SIDE_SQL} AND o.observed_at >= ? ORDER BY o.observed_at ASC LIMIT 1",
         (league_id, when),
     ).fetchone()
 
@@ -470,6 +538,21 @@ def scoring_card_at(
     earlier date — that substitution, missing = current, is the one this
     tranche exists to prevent.
     """
+    # Validate ``accept`` rather than letting an unrecognised value fall
+    # through as "no evidence".  A typo — ``("Exact",)``, ``("exact ",)``
+    # — would otherwise return ``None`` while an exact observation sat
+    # right there, which is indistinguishable from the store genuinely
+    # having nothing.  A bare string is rejected for the same reason:
+    # ``FIDELITY_EXACT in "exact"`` is True by substring, so
+    # ``accept="exact"`` would silently behave like a tuple.
+    if isinstance(accept, str) or not isinstance(accept, (tuple, list, set, frozenset)):
+        raise TypeError(f"accept must be a tuple of fidelity names, got {type(accept).__name__}")
+    unknown = sorted(set(accept) - set(ACCEPT_ANY))
+    if unknown:
+        raise ValueError(
+            f"unknown fidelity name(s) in accept: {unknown}; known: {list(ACCEPT_ANY)}"
+        )
+
     league_id = str(sleeper_league_id or "").strip()
     if not league_id or not when:
         return None
@@ -482,20 +565,42 @@ def scoring_card_at(
 
     conn = connect(path)
     try:
+        # ONE snapshot for both endpoints.  In autocommit each SELECT
+        # gets its own read view, so a write landing between them could
+        # produce a bracket whose two halves never coexisted — the
+        # store would report ``reconstructed`` for a pairing that was
+        # never true at any instant.  An explicit read transaction makes
+        # the bracket a consistent observation of the evidence.
+        conn.execute("BEGIN")
         prior = _observation_at_or_before(conn, league_id, when)
         later = _observation_at_or_after(conn, league_id, when)
+        conn.rollback()
     finally:
         conn.close()
 
     if prior is not None and str(prior[0]) == str(when):
-        return _answer(league_id, prior, FIDELITY_EXACT) if FIDELITY_EXACT in accept else None
+        if FIDELITY_EXACT not in accept or prior[3] is None:
+            # A payload we cannot read is an observation whose CARD is
+            # unknown.  That is not an exact answer, and it is not a
+            # licence to fall through to a weaker one either: something
+            # WAS observed here, so a nearest-prior reaching back past
+            # it would be answering around known-missing evidence.
+            return None
+        return _answer(league_id, prior, FIDELITY_EXACT)
 
     if prior is None:
         # Nothing before it.  A later observation alone says nothing
         # about an earlier date, however recent or however matching.
         return None
 
-    bracketed = later is not None and later[1] == prior[1]
+    # A bracket needs two READABLE endpoints that agree.  An endpoint
+    # whose payload is missing can neither agree nor be served, so it
+    # blocks the bracket instead of being skipped over — being skipped
+    # is what would let a disagreeing A / B / A collapse into an
+    # agreeing A / A.
+    bracketed = (
+        later is not None and later[1] == prior[1] and prior[3] is not None and later[3] is not None
+    )
     if bracketed:
         if FIDELITY_RECONSTRUCTED not in accept:
             return None
@@ -505,7 +610,7 @@ def scoring_card_at(
         out["bracketGapHours"] = _gap_hours(prior[0], later[0])
         return out
 
-    if FIDELITY_NEAREST_PRIOR not in accept:
+    if FIDELITY_NEAREST_PRIOR not in accept or prior[3] is None:
         return None
     out = _answer(league_id, prior, FIDELITY_NEAREST_PRIOR)
     out["coverageGapStartsAt"] = prior[0]
@@ -533,9 +638,10 @@ def scoring_card_observations(
         rows = conn.execute(
             f"""
             SELECT o.sleeper_league_id, o.observed_at, o.card_hash, o.season,
-                   p.scoring_fingerprint
+                   p.scoring_fingerprint,
+                   CASE WHEN p.card_hash IS NULL THEN 1 ELSE 0 END
               FROM scoring_card_observations o
-              JOIN scoring_card_payloads p ON p.card_hash = o.card_hash
+              LEFT JOIN scoring_card_payloads p ON p.card_hash = o.card_hash
               {where}
              ORDER BY o.sleeper_league_id, o.observed_at
             """,
@@ -550,6 +656,11 @@ def scoring_card_observations(
             "cardHash": r[2],
             "season": r[3],
             "scoringFingerprint": r[4],
+            # An observation whose payload is gone is still an
+            # observation — it happened.  Reporting it as missing beats
+            # dropping it from the evidence list, which would make the
+            # gap it leaves look like a period nobody sampled.
+            "payloadMissing": bool(r[5]),
         }
         for r in rows
     ]

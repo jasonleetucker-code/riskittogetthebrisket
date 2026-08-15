@@ -17,15 +17,19 @@ STATES, AND WHY THERE ARE FOUR
              observation is older than the budget.  Something ran once
              and has stopped.
 ``missing``  the store does not exist at all.  Nothing has ever run.
-``unknown``  the probe could not answer — an unreadable file, a
-             corrupt store, a budget that cannot be evaluated because
-             the stream carries no timestamp.
+``unknown``  the probe could not answer.  A store that EXISTS but holds
+             zero rows lands here, as does an unreadable or partly
+             unreadable store, a stream carrying no usable timestamp,
+             a stamp dated ahead of this host's clock, and a probe that
+             raised.
 
-``missing`` and ``unknown`` are deliberately distinct from a store that
-exists and holds zero rows, and none of the four is ever reported as
-``ok``.  **Missing is never zero**: "the recorder never ran", "the
-recorder ran and found nothing", and "I could not tell" have different
-fixes, and collapsing them is how a dead stream reads as a healthy one.
+``missing`` and ``unknown`` are deliberately distinct, and **neither is
+ever ``ok``**.  "The recorder never ran", "the recorder ran and found
+nothing" and "I could not tell" have different fixes, and collapsing
+them is how a dead stream reads as a healthy one.  **Missing is never
+zero**: an empty store is the absence of evidence, not evidence of
+absence, so it is reported as ``unknown`` rather than as a healthy store
+with a count of nought.
 
 NOT A DECISION INPUT
 ────────────────────
@@ -68,6 +72,13 @@ STATE_OK = "ok"
 STATE_STALE = "stale"
 STATE_MISSING = "missing"
 STATE_UNKNOWN = "unknown"
+
+# How far a stamp may sit ahead of this host's clock before we stop
+# believing it.  Small, because the only legitimate source of a future
+# stamp is clock skew between the writer and the prober; anything larger
+# is a corrupt or fabricated date, and treating it as fresh would let a
+# dead stream grade ``ok``.
+CLOCK_SKEW_TOLERANCE_H = 1.0
 
 
 def _now() -> datetime:
@@ -149,17 +160,31 @@ def artifact_stamp(path: Path) -> tuple[str | None, str]:
 
 
 def _newest_dated(files: list[Path]) -> tuple[Path | None, str | None, str]:
-    """The newest artifact by its own stamp, not by mtime."""
-    best: tuple[str, Path, str] | None = None
+    """The newest artifact by its own stamp, not by mtime.
+
+    Filename-dated artifacts are considered FIRST, as a group.  Mixing
+    the two sources in one max() defeats the whole anti-mtime defence:
+    a single undated sibling — ``identity_report_latest.json``, a stray
+    editor backup — carries a fresh mtime and outranks every genuinely
+    dated artifact, so a collector that halted in April reads as
+    current.  Only when NOTHING is dated do we fall back to mtime, and
+    the returned source says which happened.
+    """
+    dated = [(s, f) for f, s in ((f, stamp_from_name(f.name)) for f in files) if s]
+    if dated:
+        stamp, path = max(dated, key=lambda pair: pair[0])
+        return path, stamp, "filename"
+
+    by_mtime: tuple[str, Path] | None = None
     for f in files:
         stamp, source = artifact_stamp(f)
-        if stamp is None:
+        if stamp is None or source != "mtime":
             continue
-        if best is None or stamp > best[0]:
-            best = (stamp, f, source)
-    if best is None:
+        if by_mtime is None or stamp > by_mtime[0]:
+            by_mtime = (stamp, f)
+    if by_mtime is None:
         return None, None, "unavailable"
-    return best[1], best[0], best[2]
+    return by_mtime[1], by_mtime[0], "mtime"
 
 
 def _grade(
@@ -179,6 +204,13 @@ def _grade(
     age = age_hours(last_observed)
     if age is None:
         return STATE_UNKNOWN, None
+    if age < -CLOCK_SKEW_TOLERANCE_H:
+        # A stamp AHEAD of this host's clock yields a negative age, and a
+        # negative age satisfies any budget — so a stream stopped in
+        # March grades ``ok`` if one artifact is dated next year.  That
+        # is a watchdog bypass, and the honest reading is that we cannot
+        # tell how old the evidence is, not that it is fresh.
+        return STATE_UNKNOWN, age
     return (STATE_OK if age <= budget_h else STATE_STALE), age
 
 
@@ -252,14 +284,28 @@ def _probe_crowd_faab(data_dir: Path) -> dict[str, Any]:
         if stamp and (newest_stamp is None or str(stamp) > newest_stamp):
             newest_stamp = str(stamp)
 
-    if unreadable and not newest_stamp:
+    # ANY unreadable accumulator degrades the stream, not only the case
+    # where every one of them is unreadable.  A corrupt file sitting
+    # beside a healthy one is lost crowd evidence from a ~5-day rolling
+    # window that cannot be re-fetched — grading that ``ok`` because a
+    # sibling still parses is the same "some of it works" reasoning the
+    # tranche exists to remove.  It is ``unknown`` rather than ``stale``
+    # because the question is not how old the evidence is; it is that
+    # part of it cannot be read at all.
+    if unreadable:
         return _stream(
             "C1-RET-01",
             "KTC crowd-FAAB rolling window",
             state=STATE_UNKNOWN,
             budget_h=SCRAPE_BUDGET_H,
+            last_observed=newest_stamp,
+            age_h=age_hours(newest_stamp),
             primary_store=str(faab_dir),
-            detail=f"accumulator files present but unreadable: {', '.join(unreadable)}",
+            detail=(
+                f"{len(unreadable)} of {len(files)} accumulator file(s) unreadable: "
+                f"{', '.join(unreadable)}"
+            ),
+            extra={"files": len(files), "rows": total_rows, "unreadable": unreadable},
         )
 
     state, age = _grade(
@@ -605,16 +651,27 @@ def _probe_playerctx_history(data_dir: Path) -> dict[str, Any]:
     )
 
 
-_PROBES = (
-    _probe_crowd_faab,
-    _probe_board_history,
-    _probe_rank_history,
-    _probe_scoring_cards,
-    _probe_trending,
-    _probe_league_events,
-    _probe_identity_reports,
-    _probe_playerctx_history,
+# (stream id, probe).  The id is declared HERE rather than recovered
+# from the probe's return value, because a probe that raises has no
+# return value — and a crashed probe that reported its function name
+# instead of its C1-RET id made ``--require C1-RET-04`` fail with
+# "unknown stream id" (exit 1) instead of the correct "this stream is
+# unhealthy" (exit 2).  A crash must degrade the stream, never erase it
+# from the report.
+_PROBES: tuple[tuple[str, Any], ...] = (
+    ("C1-RET-01", _probe_crowd_faab),
+    ("C1-RET-02", _probe_board_history),
+    ("C1-RET-03", _probe_rank_history),
+    ("C1-RET-04", _probe_scoring_cards),
+    ("C1-RET-05", _probe_trending),
+    ("C1-RET-06", _probe_league_events),
+    ("C1-RET-07", _probe_identity_reports),
+    ("C1-RET-08", _probe_playerctx_history),
 )
+
+#: Every stream this checker knows about.  ``--require`` validates
+#: against it, so the list cannot drift from what is actually probed.
+STREAM_IDS: tuple[str, ...] = tuple(sid for sid, _ in _PROBES)
 
 
 def retention_health(*, data_dir: Path | None = None) -> dict[str, Any]:
@@ -625,13 +682,17 @@ def retention_health(*, data_dir: Path | None = None) -> dict[str, Any]:
     """
     root = data_dir or DATA_DIR
     streams: list[dict[str, Any]] = []
-    for probe in _PROBES:
+    for stream_id, probe in _PROBES:
         try:
-            streams.append(probe(root))
+            result = probe(root)
+            # A probe that returns the wrong id would silently rename a
+            # stream out of every --require list.  The declared id wins.
+            result["id"] = stream_id
+            streams.append(result)
         except Exception as exc:  # noqa: BLE001
             streams.append(
                 _stream(
-                    getattr(probe, "__name__", "unknown"),
+                    stream_id,
                     "probe failed",
                     state=STATE_UNKNOWN,
                     budget_h=0.0,

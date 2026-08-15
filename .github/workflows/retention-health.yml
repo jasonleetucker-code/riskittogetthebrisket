@@ -64,9 +64,19 @@ permissions:
   contents: read
 
 concurrency:
-  # Never overlap a deploy: a stream's age measured across a service
-  # restart plus its startup scrape is not the age production saw.
-  group: production-deploy
+  # Its OWN group, deliberately.  Sharing `production-deploy` (as the
+  # first version did, copied from the scoring-snapshot diagnostic)
+  # means a deploy queued ahead of the nightly can supersede it —
+  # GitHub keeps only the newest PENDING run per group — so the
+  # watchdog silently produces NO signal on exactly the days something
+  # changed.  A watchdog that can be cancelled into silence has the
+  # same failure mode as one that cannot fail.
+  #
+  # The deploy-overlap concern that motivated the shared group does not
+  # apply here: this probe reads files under gitignored `data/`, which a
+  # deploy never rewrites, so there is no restart-plus-startup-scrape
+  # window to measure across.
+  group: retention-health
   cancel-in-progress: false
 
 jobs:

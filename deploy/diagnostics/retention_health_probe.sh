@@ -83,6 +83,20 @@ if [[ ! -f scripts/retention_health.py ]]; then
     exit 1
 fi
 
+# REQUIRE reaches the checker through an intentionally unquoted
+# expansion (it is a LIST), so every token must be validated as a stream
+# id first.  Without this, REQUIRE='-h' expands to `--require -h`, which
+# argparse consumes as the help flag: the checker prints usage and exits
+# 0 having checked NOTHING, and the watchdog goes green.  Any argparse
+# flag would do; the general fix is to refuse anything that is not a
+# stream id.
+for token in ${REQUIRE}; do
+    if [[ "${token}" != "ALL" && ! "${token}" =~ ^C1-RET-[0-9]+$ ]]; then
+        log "ERROR: refusing REQUIRE token '${token}' — expected a C1-RET-nn id or ALL"
+        exit 1
+    fi
+done
+
 ARGS=()
 [[ -n "${DATA_DIR}" ]] && ARGS+=(--data-dir "${DATA_DIR}")
 

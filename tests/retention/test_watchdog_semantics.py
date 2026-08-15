@@ -253,3 +253,32 @@ def test_a_partly_typoed_require_does_not_check_the_valid_half(empty_data):
 
     assert result.returncode == EXIT_CANNOT_RUN
     assert "C1-RET-99" in result.stderr
+
+
+def test_an_argparse_flag_cannot_be_injected_through_require(empty_data):
+    """REQUIRE reaches the checker through an intentionally unquoted
+    expansion, so a token that is not a stream id must be refused.
+    ``REQUIRE='-h'`` expanded to ``--require -h``, which argparse
+    consumed as the help flag: usage printed, exit 0, NOTHING checked,
+    watchdog green."""
+    result = _run(empty_data, event_name="workflow_dispatch", require="-h")
+
+    assert result.returncode == EXIT_CANNOT_RUN
+    assert "refusing REQUIRE token" in result.stdout
+
+
+def test_injection_is_refused_even_alongside_a_valid_id(empty_data):
+    result = _run(empty_data, event_name="workflow_dispatch", require="C1-RET-01 --json")
+
+    assert result.returncode == EXIT_CANNOT_RUN
+
+
+def test_the_watchdog_does_not_share_a_concurrency_group_with_deploys(empty_data):
+    """GitHub keeps only the newest PENDING run per group, so sharing
+    `production-deploy` let a queued deploy supersede the nightly — the
+    watchdog produced NO signal on exactly the days something changed."""
+    import yaml
+
+    cfg = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    assert cfg["concurrency"]["group"] != "production-deploy"
+    assert cfg["concurrency"]["cancel-in-progress"] is False

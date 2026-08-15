@@ -180,7 +180,9 @@ def test_a_probe_failure_does_not_blind_the_other_streams(data_dir, monkeypatch)
     def boom(_root):
         raise RuntimeError("probe exploded")
 
-    monkeypatch.setattr(health, "_PROBES", (boom, health._probe_crowd_faab))
+    monkeypatch.setattr(
+        health, "_PROBES", (("C1-RET-04", boom), ("C1-RET-01", health._probe_crowd_faab))
+    )
     report = health.retention_health(data_dir=data_dir)
 
     assert len(report["streams"]) == 2
@@ -188,6 +190,96 @@ def test_a_probe_failure_does_not_blind_the_other_streams(data_dir, monkeypatch)
     assert report["streams"][1]["id"] == "C1-RET-01"
 
 
+def test_a_crashed_probe_keeps_its_stream_id(data_dir, monkeypatch):
+    """A crash must degrade the stream, never erase it from the report.
+
+    The id came from the probe's function NAME, so a crashed probe
+    reported ``_probe_scoring_cards`` — and ``--require C1-RET-04`` then
+    failed with "unknown stream id" (exit 1, the check could not run)
+    instead of exit 2 (this stream is unhealthy).  A crash silently
+    downgraded itself out of the required set.
+    """
+
+    def boom(_root):
+        raise RuntimeError("probe exploded")
+
+    monkeypatch.setattr(health, "_PROBES", (("C1-RET-04", boom),))
+    report = health.retention_health(data_dir=data_dir)
+
+    assert report["streams"][0]["id"] == "C1-RET-04"
+    assert report["streams"][0]["state"] == health.STATE_UNKNOWN
+
+
+def test_the_declared_stream_ids_match_what_is_probed(data_dir):
+    """STREAM_IDS is what --require validates against, so it must not
+    drift from the probes."""
+    report = health.retention_health(data_dir=data_dir)
+
+    assert list(health.STREAM_IDS) == [s["id"] for s in report["streams"]]
+
+
 def test_report_is_json_serialisable(data_dir):
     """The CLI's --json mode and any CI consumer depend on it."""
     json.dumps(health.retention_health(data_dir=data_dir))
+
+
+# ── further watchdog bypasses found by adversarial review ────────────
+
+
+def test_a_future_dated_stamp_does_not_grade_ok(data_dir):
+    """A stamp ahead of this host's clock yields a NEGATIVE age, and a
+    negative age satisfies any budget — so a stream stopped in March
+    graded `ok` if one artifact was dated next year."""
+    hist = data_dir / "playerctx" / "history"
+    hist.mkdir(parents=True)
+    (hist / "playerctx_2027-01-01.json").write_text("{}", encoding="utf-8")
+
+    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-08"]
+    assert stream["state"] == health.STATE_UNKNOWN
+    assert stream["ageHours"] < 0
+
+
+def test_a_small_clock_skew_is_still_ok(data_dir):
+    """Writer and prober clocks differ; a few minutes ahead is skew, not
+    a corrupt date."""
+    faab = data_dir / "faab"
+    faab.mkdir()
+    (faab / "crowd_history_dynasty_main.json").write_text(
+        json.dumps({"updatedAt": _iso(-0.1), "rows": [{"id": "1"}]}), encoding="utf-8"
+    )
+    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-01"]
+
+    assert stream["state"] == health.STATE_OK
+
+
+def test_one_corrupt_accumulator_degrades_the_whole_stream(data_dir):
+    """A corrupt file beside a healthy one is lost crowd evidence from a
+    ~5-day rolling window that cannot be re-fetched.  Grading it `ok`
+    because a sibling still parses is "some of it works" reasoning."""
+    faab = data_dir / "faab"
+    faab.mkdir()
+    (faab / "crowd_history_dynasty_main.json").write_text(
+        json.dumps({"updatedAt": _iso(1), "rows": [{"id": "1"}]}), encoding="utf-8"
+    )
+    (faab / "crowd_history_dynasty_new.json").write_text("{truncated", encoding="utf-8")
+
+    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-01"]
+    assert stream["state"] == health.STATE_UNKNOWN
+    # And the corruption is NAMED, not merely reflected in a state.
+    assert "unreadable" in stream["detail"]
+    assert stream["unreadable"] == ["crowd_history_dynasty_new.json"]
+
+
+def test_an_undated_sibling_cannot_outrank_a_dated_artifact(data_dir):
+    """The anti-mtime defence, defeated by its own fallback: a single
+    undated file carries a fresh mtime and outranked every genuinely
+    dated artifact, so a collector halted in April read as current."""
+    ident = data_dir / "identity"
+    ident.mkdir()
+    (ident / "identity_report_20260420T194828Z.json").write_text("{}", encoding="utf-8")
+    (ident / "identity_report_latest.json").write_text("{}", encoding="utf-8")  # fresh mtime
+
+    stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-07"]
+    assert stream["stampSource"] == "filename"
+    assert stream["state"] == health.STATE_STALE
+    assert stream["ageHours"] > 2000

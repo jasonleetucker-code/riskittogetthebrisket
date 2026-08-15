@@ -168,9 +168,29 @@ in:
 | fidelity | supported by |
 |---|---|
 | `exact` | an observation **at that instant** — never "the endpoints matched" |
-| `reconstructed` | the observations immediately before and after both exist and **agree**; `bracketGapHours` states how wide the unobserved span is |
+| `reconstructed` | the observations immediately before and after both exist, are both **readable**, and **agree**; `bracketGapHours` states how wide the unobserved span is |
 | `nearest_prior` | only a prior observation exists, **or** the bracketing pair disagree so the instant is genuinely indeterminate; bounded by `coverageGapEndsAt` |
-| *(none)* | `None` |
+| *(none)* | `None` — including when an observation is there but its payload is not |
+
+An unknown fidelity name in `accept` **raises** rather than returning `None`: a
+typo that reads as "no evidence" is indistinguishable from the store genuinely
+having nothing, which is the confusion this whole surface exists to remove. A
+bare string is refused for the same reason — `"exact" in "exact"` is true by
+substring, so `accept="exact"` would quietly behave like a tuple.
+
+**Contradicting evidence is refused, not absorbed.** Two different cards
+reported for one instant is not a replay: at most one can be true and the store
+cannot tell which. `observe_scoring_card` returns `action: "conflict"`, writes
+nothing, and reports the hash actually on file alongside the one it declined.
+
+**Reads take one snapshot and cannot fail open.** Both bracket endpoints are
+read inside one transaction, so a write landing mid-read cannot produce a
+bracket whose halves never coexisted. The payload join is a `LEFT JOIN`
+deliberately: an inner join made an observation with a missing payload *vanish*,
+and vanishing fails **open** — drop the middle of a disagreeing A / B / A and
+the surviving endpoints agree, turning an indeterminate question into a
+confident `reconstructed`. That is the invent-continuity defect arriving through
+a different door.
 
 **There is deliberately no gap threshold anywhere in the module.** A "gaps under
 N hours bridge" rule would be a magic number standing in for a cadence guarantee
@@ -328,7 +348,27 @@ one about production.
 | `ok` | observed inside its freshness budget |
 | `stale` | the store exists and has content, but the newest observation is past budget — something ran once and stopped |
 | `missing` | the store does not exist. Nothing has ever run |
-| `unknown` | the probe could not answer — unreadable file, corrupt store, or a store that exists and holds **zero rows** |
+| `unknown` | the probe could not answer: a store that exists and holds **zero rows**, an unreadable **or partly unreadable** store, a stamp dated **ahead of the probe host's clock**, or a probe that raised |
+
+Three of those `unknown` cases were watchdog bypasses found by adversarial
+review of the fix itself, and each graded `ok` before:
+
+- **a future-dated stamp** yields a *negative* age, and a negative age satisfies
+  any budget — so a stream stopped in March graded healthy if one artifact was
+  dated next year. Tolerance is `CLOCK_SKEW_TOLERANCE_H = 1.0`, small because
+  the only legitimate future stamp is writer/prober clock skew.
+- **one corrupt accumulator beside a healthy one** graded `ok` and did not even
+  mention the corruption. Lost crowd evidence from a ~5-day rolling window
+  cannot be re-fetched; "some of it parses" is not health.
+- **an undated sibling file** (`identity_report_latest.json`, an editor backup)
+  carries a fresh mtime and outranked every genuinely dated artifact — defeating
+  the anti-mtime defence through its own fallback. Filename-dated artifacts are
+  now considered first *as a group*; mtime is consulted only when nothing is
+  dated.
+
+A crashed probe keeps its `C1-RET` id. It used to report its function name, so
+`--require C1-RET-04` failed with "unknown stream id" (exit 1) instead of exit 2
+— a crash silently downgraded itself out of the required set.
 
 **Missing is never zero.** "The recorder never ran", "the recorder ran and found
 nothing", and "I could not tell" have different fixes, and collapsing them is
@@ -363,6 +403,20 @@ Manual `workflow_dispatch` keeps three modes: report-only (empty `require`),
 selected streams, or `ALL`. A narrowing `require` passed to a *scheduled* run is
 logged and ignored — the watchdog cannot be quietly scoped down to a stream that
 happens to be fine.
+
+Two further ways the watchdog could be silenced, both closed:
+
+- **Argparse injection.** `REQUIRE` reaches the checker through an intentionally
+  unquoted expansion because it is a *list*, so `REQUIRE='-h'` became
+  `--require -h`, which argparse consumed as the help flag: usage printed, exit
+  **0**, nothing checked. Every token is now validated as `C1-RET-nn` or `ALL`
+  before it is passed on.
+- **Concurrency cancellation.** The job shared the `production-deploy`
+  concurrency group, and GitHub keeps only the newest *pending* run per group —
+  so a deploy queued ahead of the nightly could supersede it, producing no
+  signal on exactly the days something changed. It now has its own group. The
+  deploy-overlap concern that motivated sharing does not apply: this probe reads
+  files under gitignored `data/`, which a deploy never rewrites.
 
 Pinned by `tests/retention/test_watchdog_semantics.py`, which executes the probe
 against a temporary data directory and asserts the exit codes for every mode,

@@ -41,6 +41,7 @@ from src.retention.health import (  # noqa: E402
     STATE_OK,
     STATE_STALE,
     STATE_UNKNOWN,
+    STREAM_IDS,
     retention_health,
 )
 
@@ -96,7 +97,12 @@ def main() -> int:
             f"missing={counts[STATE_MISSING]}  unknown={counts[STATE_UNKNOWN]}"
         )
 
-    known = {s.get("id") for s in report["streams"]}
+    # Validate against the DECLARED stream list, not against whatever
+    # the probes happened to return.  A probe that crashes still reports
+    # its own id, but keying the check on the declaration means a future
+    # probe failure can never turn "this stream is unhealthy" (exit 2)
+    # into "unknown stream id" (exit 1).
+    known = set(STREAM_IDS) | {s.get("id") for s in report["streams"]}
     if args.require is None:
         failing = [s for s in report["streams"] if s.get("state") != STATE_OK]
     else:

@@ -17,8 +17,8 @@
 #   discarded.  Losing the box loses the history permanently, which is
 #   what makes them state and not cache:
 #
-#   * data/retention/evidence.sqlite     — scoring-card intervals +
-#     Sleeper trending series (C1-RET-04, C1-RET-05)
+#   * data/retention/evidence.sqlite     — per-observation scoring-card
+#     history + Sleeper trending series (C1-RET-04, C1-RET-05)
 #   * data/retention/league_events.sqlite — our own leagues'
 #     transactions (C1-RET-06).  PRIVATE: real managers, real trades.
 #     On-box like the session cookies; it may reach the off-box mirror
