@@ -53,7 +53,7 @@ this mission's definition, a requirement is safely mapped only when — among ot
 if an old PR is later closed.** By that standard AUDIT 1's "0 unmapped" was false for roughly 134 capabilities
 that existed in exactly one source, most of them on unmerged branches.
 
-**Resolution:** `docs/C_SERIES_SCOPE_MANIFEST.md` (157 rows) plus
+**Resolution:** `docs/C_SERIES_SCOPE_MANIFEST.md` (163 rows) plus
 `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md`. Every source entry resolves to a disposition. **Unexplained
 unmapped: 0** — and now genuinely so, because the 25 branch-only specifications were promoted onto `main`.
 
@@ -355,6 +355,27 @@ It is now folded into all four records the addendum itself names as required —
 Feature Inventory, the Product Backlog Spec's dependency chain, and the C-series sequencing — plus manifest rows
 `C2-AGE-01`, `C2-AGE-02`, `C2-AGE-03` and `C7-AGE-01`. Its own sequencing instruction is honoured: it sits
 after/with the Team Strength and Team Weakness foundations it consumes, not before them.
+
+**Six more landed the same way, on the planning PRs rather than on `main`** (#839 Canonical Meaningful Roster
+Core, #840 Competitive Posture, #841 posture-aware picks, #842 Use Team Context, #843 roster capacity /
+forced-drop analysis, plus the topology supersession). All are promoted to `main` and mapped —
+`C2-CORE-01`, `C7-POST-01`, `C7-PICKGEN-01`, `C3-CTX-01`, `C3-CAP-01`, `C3-TOPO-01`.
+
+**Two of them supersede rules this reconciliation had already recorded, and the newer instruction wins:**
+
+1. **Best Trade's `players only / no draft picks` rule is WITHDRAWN** (#841). Picks are valid generated-trade
+   assets when both teams' strategic positions make them mutually beneficial — never as generic equalizer
+   filler, never inserted cosmetically, never to make raw totals line up.
+2. **Best Trade's exact-equal-player-count rule is WITHDRAWN** (#841/#842), replaced by
+   `abs(players_A − players_B) <= 1`, with picks excluded from the count.
+
+Everything else in the #835 spec stands: the protection layer, LOCK/EXCLUDE, the shared constraint owner,
+fail-closed behaviour, the honest no-result state, ranking for mutual defensibility over maximum exploit, and
+recommendation ≠ execution. The external-qualification rule gains one requirement — a pick-inclusive package
+needs a defined qualification path before shipping, and a source that cannot natively evaluate the full package
+is marked incomplete rather than treated as approval. **This strengthens D9's conclusion rather than weakening
+it:** the honesty constraint is about coverage, and pick-inclusive packages are exactly where coverage gets
+harder.
 
 Two of its guardrails are worth repeating because they are easy to violate while building it: **it describes
 roster construction and must not alter player value** — canonical dynasty value already embeds age — and

@@ -4,6 +4,22 @@
 > post-B master reconciliation (`docs/POST_B_RECONCILIATION_2026-08-14.md`). No content was changed.
 > Its C-Series phase placement and completion evidence live in
 > `docs/C_SERIES_SCOPE_MANIFEST.md`.
+>
+> **TWO OF ITS BEST TRADE HARD RULES ARE SUPERSEDED BY NEWER OWNER DECISIONS (2026-08-14, #841/#842):**
+>
+> 1. **The `players only / no draft picks` rule is WITHDRAWN.** Picks are valid generated-trade assets when
+>    their inclusion makes the trade more mutually beneficial given both teams' actual strategic position —
+>    never as generic equalizer filler. See `docs/trade/TRADE_FINDER_POSTURE_AWARE_PICKS_ADDENDUM_2026-08-14.md`.
+> 2. **The exact-equal-player-count rule is WITHDRAWN**, replaced by a topology constraint:
+>    `abs(players_A − players_B) <= 1`. Picks do not count as players for that calculation. 1v1, 2v1, 1v2,
+>    3v2 and 2v3 are allowed; 3v1, 1v3, 4v2 and 2v4 are not. See
+>    `docs/trade/TRADE_CONTEXT_AND_TOPOLOGY_SUPERSESSION_2026-08-14.md`.
+>
+> **Everything else in this document stands unchanged** — the protection layer, LOCK/EXCLUDE, the shared
+> constraint owner, fail-closed behaviour, the honest no-result state, ranking for mutual defensibility rather
+> than maximum exploit, and recommendation ≠ execution. The external-qualification rule now additionally
+> requires a defined qualification path for **pick-inclusive** packages before shipping; an external source
+> that cannot natively evaluate the full package is marked incomplete, never treated as approval.
 
 
 **Status:** OWNER-APPROVED PRODUCT REQUIREMENT  

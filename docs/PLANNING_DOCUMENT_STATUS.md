@@ -69,6 +69,26 @@ Detailed owner-approved behaviour. Binding within their subject; they do not aut
 - `docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md` — CE-01; **carries the only third-party data-use permission record in the repository, at §19.2** *(from PR #809)*
 - `docs/trade/ANALYZE_TRADE_TODO.md`, `docs/trade/MC_AUDIT_TODO.md`, `docs/trade/SECOND_OPINIONS_TODO.md`, `docs/trade/TRADE_DECISION_SYNTHESIS_PLAN.md` — partially resolved working records
 
+### Later 2026-08-14 trade addenda — binding, and superseding
+
+These landed on the planning PRs while the post-B reconciliation was being written. They are the newest owner
+intent in the repository and win over anything older they contradict.
+
+- `docs/OWNER_FEATURE_ADDENDUM_2026-08-14_TRADE_FINDER_POSTURE_AWARE_PICKS.md` +
+  `docs/trade/TRADE_FINDER_POSTURE_AWARE_PICKS_ADDENDUM_2026-08-14.md` — **#841. Withdraws the generated-trade
+  `no draft picks` rule.** Picks are valid when both teams' strategic positions make them mutually beneficial,
+  never as filler. → manifest `C7-PICKGEN-01`
+- `docs/OWNER_FEATURE_ADDENDUM_2026-08-14_TRADE_CONTEXT_AND_TOPOLOGY.md` +
+  `docs/trade/TRADE_CONTEXT_AND_TOPOLOGY_SUPERSESSION_2026-08-14.md` — **#841/#842. Withdraws the
+  exact-equal-player-count rule** in favour of `abs(players_A − players_B) <= 1` with picks excluded from the
+  count, and establishes the shared **Use Team Context** toggle, ON by default. → `C3-TOPO-01`, `C3-CTX-01`
+- `docs/trade/ANALYZE_TRADE_COMPETITIVE_POSTURE_ADDENDUM_2026-08-14.md` — **#840.** PUSH / RETOOL / REBUILD /
+  HOLD posture from canonical evidence. → `C7-POST-01`
+- `docs/trade/ROSTER_CAPACITY_FORCED_DROP_TRADE_ANALYSIS_ADDENDUM_2026-08-14.md` — **#843.** Evaluate against the
+  final legal post-trade roster, never the intermediate over-limit state. → `C3-CAP-01`
+- **#839 Canonical Meaningful Roster Core** (universal `ceil(1.5 × real starter demand)` rule, Superflex counted
+  as real QB demand) is recorded in `docs/OWNER_REQUESTED_TODO.md` and → `C2-CORE-01`
+
 ### Valuation, sources, seasonal
 - `docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md` *(#809)*
 - `docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md` *(#809)*

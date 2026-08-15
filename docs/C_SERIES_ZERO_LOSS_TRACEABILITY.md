@@ -34,6 +34,7 @@ specifications onto `main` rather than merely citing them.
 | D | `docs/MASTER_PRODUCT_PLAN.md` | main | 99 named capabilities | yes |
 | E | `docs/WEEKLY_REPORT_STUDIO_…` + `docs/FAAB_MARKET_SIGNAL_…` | main (unregistered) | 58 | yes — now registered |
 | E2 | `docs/OWNER_FEATURE_ADDENDUM_2026-08-14_AGE_VALUE_PORTFOLIO.md` (#838) | main (landed mid-reconciliation) | 6 required outputs | yes — now registered |
+| E3 | #839 Meaningful Roster Core · #840 Competitive Posture · #841 posture-aware picks · #842 Use Team Context · #843 roster capacity — six addenda | **PR branches (landed mid-reconciliation)** | 6 documents, 2 supersessions | **yes — promoted** |
 | F | PR #816 — 104-ledger + 17 T-NEW + reconciliation lists | **branch only** | 245 | **yes — promoted** |
 | G | PR #816 — feature-spec appendix | **branch only** | 40 | **yes — promoted** |
 | H | PR #835 — trade-generation preferences | **branch only** | 3 families (~40 sub-reqs) | **yes — promoted** |
@@ -169,6 +170,32 @@ explicitly downstream of snapshot foundations and explicitly not a blocker on th
 The addendum names four documents it must be folded into before the roadmap counts as reconciled — the Master
 Product Plan, the Feature Inventory, the Product Backlog Spec and the C-series sequencing record. All four are
 updated in this change.
+
+---
+
+## E3 — The 2026-08-14 trade addenda (#839–#843)
+
+Six documents that landed on PRs #816 and #835 **after** this reconciliation's census was taken. They are the
+newest owner intent in the repository, so under the precedence rule they win over anything older they
+contradict — including two rules this reconciliation had already recorded as Best Trade hard rules.
+
+| requirement | destination | disposition |
+|---|---|---|
+| #839 Canonical Meaningful Roster Core — one selector, `ceil(1.5 × real starter demand)`, Superflex counted as real QB demand, FLEX as highest-valued remaining eligible depth | `C2-CORE-01` | IMPLEMENT |
+| #840 Competitive Posture — PUSH / RETOOL / REBUILD / HOLD | `C7-POST-01` | IMPLEMENT |
+| #841 Posture-aware pick generation; **withdraws `no draft picks`** | `C7-PICKGEN-01`, `C7-BEST-TRADE` | IMPLEMENT + **SUPERSEDES** |
+| #841/#842 Topology `abs(players_A − players_B) <= 1`; **withdraws exact-equal-player-count** | `C3-TOPO-01`, `C7-BEST-TRADE` | IMPLEMENT + **SUPERSEDES** |
+| #842 Use Team Context toggle, ON by default; OFF is Asset-Only | `C3-CTX-01` | IMPLEMENT |
+| #843 Roster capacity / forced-drop analysis against the final legal roster | `C3-CAP-01` | IMPLEMENT |
+
+The ledger on #816 also grew 104 → 106 rows (adding #838 age-value and #839 meaningful core). **The 104-row copy
+promoted to `main` by this PR is the version that was audited**; rows 105 and 106 are captured here and in the
+Feature Inventory as rows 1.6 and 1.7, so nothing is lost by the ledger being one revision behind.
+
+**#816's own `OWNER_REQUESTED_TODO.md` renumbers binding decisions 47–50 to the roster-core content**, which
+collides with `main`'s decisions 47–65 (#829 and #830). `main`'s intake ledger is canonical and #816's fork of it
+was deliberately not imported — this is a second instance of the same numbering hazard as the CE collision, and
+it is why the intake ledger has exactly one home.
 
 ---
 
@@ -357,7 +384,7 @@ faithfully at a lower resolution. → `C3-CON-02`.
 |---|---|
 | Raw source entries enumerated | ≈926 |
 | Distinct capability identities | ≈357 |
-| Manifest rows | 157 |
+| Manifest rows | 163 |
 | **Source entries with no destination** | **0** |
 | Capabilities that existed in exactly one source | ≈134 (38%) — all now on `main` |
 | Duplicate clusters resolved | 4 |
