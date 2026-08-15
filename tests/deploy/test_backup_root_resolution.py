@@ -164,7 +164,10 @@ def test_an_unreadable_candidate_root_refuses_rather_than_certifying_an_older_on
     assert result.returncode == 1, out
     assert "NOT READABLE" in out, out
     assert "refusing to certify an older one" in out, out
-    assert str(stale) not in out.split("NOT READABLE")[-1], out
+    # The stale candidate is still LOGGED — every candidate examined is,
+    # so the refusal is legible. What must not happen is proving it.
+    assert f"proving generation: {stale}" not in out, out
+    assert "proven for every artifact" not in out, out
 
 
 def test_a_generation_without_a_pointer_is_still_found(tmp_path):
