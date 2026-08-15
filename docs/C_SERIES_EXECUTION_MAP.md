@@ -2,7 +2,8 @@
 
 **Status:** CANONICAL ACTIVE — the bounded-unit decomposition of the C-Series census
 **Created:** 2026-08-15
-**Decomposes:** `docs/C_SERIES_SCOPE_MANIFEST.md` (153 rows)
+**Decomposes:** `docs/C_SERIES_SCOPE_MANIFEST.md` (**163 rows** — 142 C-phase, 14 completed
+foundations, 7 explicitly out of scope)
 **Binding methodology inputs:** `docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md`,
 `docs/PROJECTION_ENSEMBLE_PLAN_2026-08-15.md` (PR #853)
 **Authorization:** **THIS FILE AUTHORIZES NOTHING.** `docs/EXECUTION_PLAN.md` alone
@@ -13,7 +14,7 @@ answers "what may I build now?" Today that answer is **C1A unit 1 only**.
 # 0. What this file is, and what it is not
 
 The manifest is a **census** — it proves nothing is lost. This file is the
-**decomposition** — it turns 153 census rows into bounded units a session can
+**decomposition** — it turns 163 census rows into bounded units a session can
 actually execute, in an order that does not require improvising architecture
 halfway through.
 
@@ -385,7 +386,11 @@ never directly modify canonical dynasty `rankDerivedValue`.**
 calibration policy's dependency principle binds this entire phase.
 
 ### C7-U1 — Analyze Trade + Trade Desk · **rows** `C7-DESK-01` (CE-05) · **deps** C3-U1, C3-U3, C3-U5
-### C7-U2 — Best Trade to Send Each Team / Golden Upgrades · **rows** `C7-GOLD-01` · **deps** C3-U1, C2-U4
+### C7-U2 — Best Trade to Send Each Team / Golden Upgrades · **rows** `C7-BEST-TRADE` `C7-GOLD-01` · **deps** C3-U1, C3-U3, C3-U6, C7-U4, C2-U4
+  — topology superseded 2026-08-14 (#841/#842): the `no draft picks` and exact-equal-player-count
+  rules are **WITHDRAWN**. Picks are valid when posture makes them mutually beneficial, never as
+  filler; player counts may differ by at most one and picks do not count as players. A source that
+  cannot natively evaluate a pick-inclusive package is marked **incomplete, never approval**
   — **do not tune around a temporary Team Strength formula**
 ### C7-U3 — Package Builder · **rows** `C7-PKGB-01` · **deps** C3-U1, C3-U3
 ### C7-U4 — Competitive Posture + posture-aware pick generation · **rows** `C7-POST-01` `C7-PICKGEN-01` (#840, #841) · **deps** C2-U4, C5-U3
@@ -408,6 +413,9 @@ calibration policy's dependency principle binds this entire phase.
 ### C8-U1 — Performance · **rows** `C8-PERF-01` … `C8-PERF-05` · **deps** C0-U2 · **parallel-safe**
 ### C8-U2 — Premium design system + route migration · **rows** `C8-PSI-01` `C8-PSI-02` `C8-PSI-03` · **deps** C0-U3
   — route migration is **parallel-conditional**: only after each route's data contract stabilizes
+### C8-U3 — Accessibility instrumentation · **rows** `C8-A11Y-01` · **deps** C8-U2 · **lane** `psi`
+  — a structural ratchet exists today but no axe-core. **CI gate:** automated a11y checks per route,
+  axe in CI — accessibility that is not measured in CI regresses silently
 
 ### C9-U1 — Public history correctness · **rows** `C9-HIST-01` `C9-HIST-02`
 ### C9-U2 — Awards · **rows** `C9-AWARD-01` `C9-AWARD-02` — awards may not exist before games are played
@@ -415,6 +423,9 @@ calibration policy's dependency principle binds this entire phase.
 ### C9-U4 — Reports · **rows** `C9-UR-01` `C9-UR-02` `C9-WRS-01` · **deps** C5-U1
 ### C9-U5 — Season Recap / Wrapped · **rows** `C9-RECAP-01` (CE-21) · **deps** C9-U1
 ### C9-U6 — League Truth public view · **rows** `C9-TRUTH-01` · **deps** F-U1 (privacy boundary)
+### C9-U7 — Public League Experience v3 · **rows** `C9-V3-01` · **deps** C9-U1, C8-U2
+  — 29 modules live on the old UX; six hubs, Franchise Passport, storytelling. The widest single
+  migration in C9, so it follows the design system rather than racing it
 
 **All of C9 is gated by the public/private semantic boundary**: factual and
 retrospective content is public; proprietary values, edges, targets, weaknesses,
@@ -440,6 +451,22 @@ forecasts and manager tendencies are private.
 - These **HOLD today**. They are not work; they are properties every later unit
   must not break, each already pinned by a test. Any unit that touches them
   inherits their regression suite as an additional CI gate.
+
+### X-U1 — Explicitly out of scope (NO implementation unit)
+- **rows** `X-01` … `X-07`
+- **kind** neither INFRA nor PRODUCT — these are **dispositions**, recorded so they are not
+  silently re-added by a later session that mistakes absence for an oversight.
+- `X-01` Schedule generator — OWNER-REJECTED
+- `X-02` Money / dues / Constitution / League Media — OWNER-REJECTED
+- `X-03` Establish The Run paid source — **OWNER-PAUSED**; research preserved, do not purchase or
+  implement until the owner resumes. Paused is not rejected, and it is not authorization either.
+- `X-04` Canonical Data Mode offline build — SUPERSEDED; the live contract is the single source of truth
+- `X-05` League-aware valuation overlay as canonical — OWNER-REJECTED on seven measured defects; may
+  not own a canonical field
+- `X-06` `src/api/opportunity_stats.py` usage-signal engine — SUPERSEDED by `src/consensus_edge/opportunity.py`
+- `X-07` "Link any Sleeper account" general onboarding — NOT-PRODUCT-SCOPE today
+- **the closing check** `C10-U1`'s zero-loss re-audit must confirm every one of these is still absent
+  from the product, not quietly reintroduced under another name.
 
 ### F-U2 — External permission records (OWNER-DECISION)
 - **rows** `F-EXT-01` (KTC) `F-EXT-02` (IDPTC) `F-EXT-03` (credentialed/paywall posture)
@@ -599,10 +626,9 @@ approved IDP projection source candidate — `C5-PROJ-A`), **FantasyPros IDP**, 
 
 ---
 
-
 # 20. Appendix — every manifest row, explicitly
 
-Mechanically checkable: each of the 153 ids appears exactly once.
+Derived from `docs/C_SERIES_SCOPE_MANIFEST.md` §4, not hand-listed. All **163** ids appear exactly once; `scripts/check_planning_integrity.py` recomputes both sets and fails CI on any drift.
 
 | row | unit |
 |---|---|
@@ -617,18 +643,6 @@ Mechanically checkable: each of the 153 ids appears exactly once.
 | `C0-GOV-09` | C0-U1 |
 | `C0-PERF-01` | C0-U2 |
 | `C0-PSI-01` | C0-U3 |
-| `C1-ACQ-01` | C1-U8 |
-| `C1-ACQ-02` | C1-U8 |
-| `C1-ACQ-03` | C1-U8 |
-| `C1-CONF-01` | C1-U5 |
-| `C1-HIST-01` | C1-U4 |
-| `C1-HIST-02` | C1-U4 |
-| `C1-HIST-03` | C1-U4 |
-| `C1-ID-01` | C1-U2 |
-| `C1-ID-02` | C1-U3 |
-| `C1-PICK-01` | C1-U6 |
-| `C1-PICK-02` | C1-U6 |
-| `C1-PICK-03` | C1-U7 |
 | `C1-RET-01` | C1-U1 |
 | `C1-RET-02` | C1-U1 |
 | `C1-RET-03` | C1-U1 |
@@ -637,8 +651,121 @@ Mechanically checkable: each of the 153 ids appears exactly once.
 | `C1-RET-06` | C1-U1 |
 | `C1-RET-07` | C1-U1 |
 | `C1-RET-08` | C1-U1 |
+| `C1-ID-01` | C1-U2 |
+| `C1-ID-02` | C1-U3 |
+| `C1-PICK-01` | C1-U6 |
+| `C1-PICK-02` | C1-U6 |
+| `C1-PICK-03` | C1-U7 |
+| `C1-HIST-01` | C1-U4 |
+| `C1-HIST-02` | C1-U4 |
+| `C1-HIST-03` | C1-U4 |
+| `C1-ACQ-01` | C1-U8 |
+| `C1-ACQ-02` | C1-U8 |
+| `C1-ACQ-03` | C1-U8 |
+| `C1-CONF-01` | C1-U5 |
 | `C1-SRC-01` | C1-U9 |
 | `C1-SRC-02` | C1-U9 |
+| `C2-LINE-01` | C2-U1 |
+| `C2-REPL-01` | C2-U2 |
+| `C2-STR-01` | C2-U4 |
+| `C2-WEAK-01` | C2-U5 |
+| `C2-CORE-01` | C2-U6 |
+| `C2-SIM-01` | C2-U3 |
+| `C2-DROP-01` | C2-U8 |
+| `C2-GP-01` | C2-U10 |
+| `C2-AGE-01` | C2-U7 |
+| `C2-AGE-02` | C2-U7 |
+| `C2-AGE-03` | C2-U7 |
+| `C2-EXP-01` | C2-U9 |
+| `C3-PKG-01` | C3-U1 |
+| `C3-VA-01` | C3-U2 |
+| `C3-VA-02` | C3-U2 |
+| `C3-CON-01` | C3-U3 |
+| `C3-CON-02` | C3-U3 |
+| `C3-CON-03` | C3-U3 |
+| `C3-XMKT-01` | C3-U6 |
+| `C3-EQ-01` | C3-U6 |
+| `C3-CTX-01` | C3-U8 |
+| `C3-CAP-01` | C3-U4 |
+| `C3-TOPO-01` | C3-U8 |
+| `C3-CALC-01` | C3-U5 |
+| `C3-CALC-02` | C3-U5 |
+| `C3-CALC-03` | C3-U5 |
+| `C3-MC-01` | C3-U7 |
+| `C3-REPLAY-01` | C3-U9 |
+| `C3-AGE-01` | C3-U9 |
+| `C4-MTL-01` | C4-U3 |
+| `C4-MTL-02` | C4-U3 |
+| `C4-MTL-03` | C4-U3 |
+| `C4-KTC-01` | C4-U3 |
+| `C4-FAAB-01` | C4-U4 |
+| `C4-FAAB-02` | C4-U4 |
+| `C4-SHARP-01` | C4-U2 |
+| `C4-SHARP-02` | C4-U2 |
+| `C4-SHARP-03` | C4-U2 |
+| `C4-INS-01` | C4-U6 |
+| `C4-WAIV-01` | C4-U5 |
+| `C4-SRC-01` | C4-U1 |
+| `C4-SRC-02` | C4-U1 |
+| `C4-SRC-03` | C4-U1 |
+| `C5-POW-01` | C5-U4 |
+| `C5-PLAY-01` | C5-U3 |
+| `C5-GD-01` | C5-U2 |
+| `C5-GD-02` | C5-U2 |
+| `C5-WAR-01` | C5-U5 |
+| `C5-ROS-01` | C5-U1 |
+| `C5-BDVM-01` | C5-U7 |
+| `C5-FIT-01` | C5-U8 |
+| `C5-ST-01` | C5-U6 |
+| `C6-ANA-01` | C6-U2 |
+| `C6-POD-01` | C6-U3 |
+| `C6-YT-01` | C6-U3 |
+| `C6-X-01` | C6-U3 |
+| `C6-FRESH-01` | C6-U2 |
+| `C6-SIG-01` | C6-U1 |
+| `C6-SIG-02` | C6-U1 |
+| `C6-MGR-01` | C6-U4 |
+| `C6-UPP-01` | C6-U6 |
+| `C6-EDGE-01` | C6-U5 |
+| `C7-BEST-TRADE` | C7-U2 |
+| `C7-POST-01` | C7-U4 |
+| `C7-PICKGEN-01` | C7-U4 |
+| `C7-GOLD-01` | C7-U2 |
+| `C7-PKGB-01` | C7-U3 |
+| `C7-DESK-01` | C7-U1 |
+| `C7-GATE-01` | C7-U11 |
+| `C7-WAIV-01` | C7-U5 |
+| `C7-DRAFT-01` | C7-U6 |
+| `C7-DRAFT-02` | C7-U6 |
+| `C7-ALERT-01` | C7-U10 |
+| `C7-AI-01` | C7-U9 |
+| `C7-AI-02` | C7-U9 |
+| `C7-AI-03` | C7-U9 |
+| `C7-AI-04` | C7-U9 |
+| `C7-AI-05` | C7-U9 |
+| `C7-AGE-01` | C7-U7 |
+| `C7-CMD-01` | C7-U7 |
+| `C7-CE-01` | C7-U8 |
+| `C8-PSI-01` | C8-U2 |
+| `C8-PSI-02` | C8-U2 |
+| `C8-PSI-03` | C8-U2 |
+| `C8-PERF-01` | C8-U1 |
+| `C8-PERF-02` | C8-U1 |
+| `C8-PERF-03` | C8-U1 |
+| `C8-PERF-04` | C8-U1 |
+| `C8-PERF-05` | C8-U1 |
+| `C8-A11Y-01` | C8-U3 |
+| `C9-AWARD-01` | C9-U2 |
+| `C9-AWARD-02` | C9-U2 |
+| `C9-HIST-01` | C9-U1 |
+| `C9-HIST-02` | C9-U1 |
+| `C9-SHARE-01` | C9-U3 |
+| `C9-WRS-01` | C9-U4 |
+| `C9-UR-01` | C9-U4 |
+| `C9-UR-02` | C9-U4 |
+| `C9-V3-01` | C9-U7 |
+| `C9-RECAP-01` | C9-U5 |
+| `C9-TRUTH-01` | C9-U6 |
 | `C10-CLOSE-01` | C10-U1 |
 | `C10-CLOSE-02` | C10-U2 |
 | `C10-CLOSE-03` | C10-U4 |
@@ -647,115 +774,24 @@ Mechanically checkable: each of the 153 ids appears exactly once.
 | `C10-CLOSE-06` | C10-U4 |
 | `C10-CLOSE-07` | C10-U4 |
 | `C10-ML-01` | C10-U3 |
-| `C2-AGE-01` | C2-U7 |
-| `C2-AGE-02` | C2-U7 |
-| `C2-AGE-03` | C2-U7 |
-| `C2-CORE-01` | C2-U6 |
-| `C2-DROP-01` | C2-U8 |
-| `C2-EXP-01` | C2-U9 |
-| `C2-GP-01` | C2-U10 |
-| `C2-LINE-01` | C2-U1 |
-| `C2-REPL-01` | C2-U2 |
-| `C2-SIM-01` | C2-U3 |
-| `C2-STR-01` | C2-U4 |
-| `C2-WEAK-01` | C2-U5 |
-| `C3-AGE-01` | C3-U9 |
-| `C3-CALC-01` | C3-U5 |
-| `C3-CALC-02` | C3-U5 |
-| `C3-CALC-03` | C3-U5 |
-| `C3-CAP-01` | C3-U4 |
-| `C3-CON-01` | C3-U3 |
-| `C3-CON-02` | C3-U3 |
-| `C3-CON-03` | C3-U3 |
-| `C3-CTX-01` | C3-U8 |
-| `C3-EQ-01` | C3-U6 |
-| `C3-MC-01` | C3-U7 |
-| `C3-PKG-01` | C3-U1 |
-| `C3-REPLAY-01` | C3-U9 |
-| `C3-TOPO-01` | C3-U8 |
-| `C3-VA-01` | C3-U2 |
-| `C3-VA-02` | C3-U2 |
-| `C3-XMKT-01` | C3-U6 |
-| `C4-FAAB-01` | C4-U4 |
-| `C4-FAAB-02` | C4-U4 |
-| `C4-INS-01` | C4-U6 |
-| `C4-KTC-01` | C4-U3 |
-| `C4-MTL-01` | C4-U3 |
-| `C4-MTL-02` | C4-U3 |
-| `C4-MTL-03` | C4-U3 |
-| `C4-SHARP-01` | C4-U2 |
-| `C4-SHARP-02` | C4-U2 |
-| `C4-SHARP-03` | C4-U2 |
-| `C4-SRC-01` | C4-U1 |
-| `C4-SRC-02` | C4-U1 |
-| `C4-SRC-03` | C4-U1 |
-| `C4-WAIV-01` | C4-U5 |
-| `C5-BDVM-01` | C5-U7 |
-| `C5-FIT-01` | C5-U8 |
-| `C5-GD-01` | C5-U2 |
-| `C5-GD-02` | C5-U2 |
-| `C5-PLAY-01` | C5-U3 |
-| `C5-POW-01` | C5-U4 |
-| `C5-ROS-01` | C5-U1 |
-| `C5-ST-01` | C5-U6 |
-| `C5-WAR-01` | C5-U5 |
-| `C6-ANA-01` | C6-U2 |
-| `C6-EDGE-01` | C6-U5 |
-| `C6-FRESH-01` | C6-U2 |
-| `C6-MGR-01` | C6-U4 |
-| `C6-POD-01` | C6-U3 |
-| `C6-SIG-01` | C6-U1 |
-| `C6-SIG-02` | C6-U1 |
-| `C6-UPP-01` | C6-U6 |
-| `C6-X-01` | C6-U3 |
-| `C6-YT-01` | C6-U3 |
-| `C7-AGE-01` | C7-U7 |
-| `C7-AI-01` | C7-U9 |
-| `C7-AI-02` | C7-U9 |
-| `C7-AI-03` | C7-U9 |
-| `C7-AI-04` | C7-U9 |
-| `C7-AI-05` | C7-U9 |
-| `C7-ALERT-01` | C7-U10 |
-| `C7-CE-01` | C7-U8 |
-| `C7-CMD-01` | C7-U7 |
-| `C7-DESK-01` | C7-U1 |
-| `C7-DRAFT-01` | C7-U6 |
-| `C7-DRAFT-02` | C7-U6 |
-| `C7-GATE-01` | C7-U11 |
-| `C7-GOLD-01` | C7-U2 |
-| `C7-PICKGEN-01` | C7-U4 |
-| `C7-PKGB-01` | C7-U3 |
-| `C7-POST-01` | C7-U4 |
-| `C7-WAIV-01` | C7-U5 |
-| `C8-PERF-01` | C8-U1 |
-| `C8-PERF-02` | C8-U1 |
-| `C8-PERF-03` | C8-U1 |
-| `C8-PERF-04` | C8-U1 |
-| `C8-PERF-05` | C8-U1 |
-| `C8-PSI-01` | C8-U2 |
-| `C8-PSI-02` | C8-U2 |
-| `C8-PSI-03` | C8-U2 |
-| `C9-AWARD-01` | C9-U2 |
-| `C9-AWARD-02` | C9-U2 |
-| `C9-HIST-01` | C9-U1 |
-| `C9-HIST-02` | C9-U1 |
-| `C9-RECAP-01` | C9-U5 |
-| `C9-SHARE-01` | C9-U3 |
-| `C9-TRUTH-01` | C9-U6 |
-| `C9-UR-01` | C9-U4 |
-| `C9-UR-02` | C9-U4 |
-| `C9-WRS-01` | C9-U4 |
-| `F-CONF-01` | F-U1 |
-| `F-EXT-01` | F-U2 |
-| `F-EXT-02` | F-U2 |
-| `F-EXT-03` | F-U2 |
-| `F-FAAB-01` | F-U1 |
-| `F-MISS-01` | F-U1 |
-| `F-PRIV-01` | F-U1 |
-| `F-ROS-01` | F-U1 |
-| `F-SCORE-01` | F-U1 |
-| `F-SCORE-02` | F-U1 |
-| `F-SRC-01` | F-U1 |
 | `F-VAL-01` | F-U1 |
 | `F-VAL-02` | F-U1 |
 | `F-VAL-03` | F-U1 |
+| `F-CONF-01` | F-U1 |
+| `F-SRC-01` | F-U1 |
+| `F-SCORE-01` | F-U1 |
+| `F-SCORE-02` | F-U1 |
+| `F-PRIV-01` | F-U1 |
+| `F-MISS-01` | F-U1 |
+| `F-FAAB-01` | F-U1 |
+| `F-ROS-01` | F-U1 |
+| `F-EXT-01` | F-U2 |
+| `F-EXT-02` | F-U2 |
+| `F-EXT-03` | F-U2 |
+| `X-01` | X-U1 |
+| `X-02` | X-U1 |
+| `X-03` | X-U1 |
+| `X-04` | X-U1 |
+| `X-05` | X-U1 |
+| `X-06` | X-U1 |
+| `X-07` | X-U1 |
