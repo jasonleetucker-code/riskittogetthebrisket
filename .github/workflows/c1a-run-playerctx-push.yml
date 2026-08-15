@@ -1,0 +1,105 @@
+name: C1A run the playerctx history push (bounded)
+
+# Starts the player-context retention pusher ONCE, using the deploy account's
+# already-permitted `systemctl` path, and reports what it actually published.
+#
+# C1-RET-08 has never published: the pusher refused before ssh ran whenever the
+# nominal -i target was absent, exited 0, and the weekly timer reported success
+# while two dated snapshots sat unpushed. That guard now selects an identity
+# instead of aborting, so this proves the repaired path end to end rather than
+# waiting a week to find out.
+#
+# THIS ONE MUTATES: a successful run commits the dated snapshots to `main`.
+# That is the point — local snapshots are not the acceptance criterion, the
+# off-box copies are. Dispatch-only, never scheduled.
+#
+# It publishes DATED SNAPSHOT FILES only; `git add -f` names each file
+# explicitly, so the multi-MB caches sitting one directory up cannot be swept in.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c1a-run-playerctx-push
+  cancel-in-progress: false
+
+jobs:
+  push:
+    name: Publish the pending player-context snapshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Start the unit and report what it published
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") SERVICE_NAME=$(printf %q "$SERVICE_NAME") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          UNIT="${SERVICE_NAME}-playerctx-history.service"
+          say() { printf '[playerctx-push] %s\n' "$*"; }
+
+          say "BEFORE — snapshots on disk vs tracked in git"
+          ls -1 "${APP_DIR}/data/playerctx/history"/snapshot_*.json 2>/dev/null \
+            | sed 's/^/[playerctx-push]   on-disk: /' || say "  none on disk"
+          before_tracked="$(git -C "${APP_DIR}" ls-files -- data/playerctx/history | wc -l | tr -d ' ')"
+          say "  tracked in this checkout: ${before_tracked}"
+
+          say "starting ${UNIT} once"
+          sudo -n systemctl start "${UNIT}" || true
+
+          for p in Result ExecMainStatus ExecMainExitTimestamp; do
+            printf '[playerctx-push]   %-22s %s\n' "$p" \
+              "$(sudo -n systemctl show "${UNIT}" -p "$p" --value || true)"
+          done
+
+          say "journal"
+          sudo -n journalctl -u "${UNIT}" -n 60 --no-pager 2>&1 | sed 's/^/[journal] /' || true
+
+          # The acceptance criterion is the OFF-BOX copy, so ask the remote —
+          # not the local working tree, which a push does not change.
+          say "AFTER — what origin/main now carries"
+          git -C "${APP_DIR}" fetch --quiet origin main || true
+          git -C "${APP_DIR}" ls-tree -r --name-only origin/main -- data/playerctx/history \
+            | sed 's/^/[playerctx-push]   on origin\/main: /' || true
+          published="$(git -C "${APP_DIR}" ls-tree -r --name-only origin/main -- data/playerctx/history | wc -l | tr -d ' ')"
+          say "published on origin/main: ${published}"
+
+          RESULT="$(sudo -n systemctl show "${UNIT}" -p Result --value || echo unknown)"
+          STATUS="$(sudo -n systemctl show "${UNIT}" -p ExecMainStatus --value || echo 1)"
+          say "Result=${RESULT} ExecMainStatus=${STATUS}"
+          # Exit 0 is no longer sufficient evidence — that is precisely the
+          # failure being repaired. Require the snapshots to actually exist
+          # off-box.
+          [[ "${RESULT}" == "success" && "${STATUS}" == "0" ]]
+          [[ "${published}" -gt 0 ]] || { echo "[playerctx-push][ERR] nothing published to origin/main" >&2; exit 1; }
+          REMOTE
