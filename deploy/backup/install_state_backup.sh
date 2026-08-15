@@ -133,7 +133,17 @@ state_backup_enable() {
 # ── standalone entry point ────────────────────────────────────────────────
 # Sourced by apply_hardening.sh (which calls the functions itself, in its own
 # sequence); executed directly for the bounded install.
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+#
+# `${BASH_SOURCE[0]:-$0}`, not `${BASH_SOURCE[0]}`. When bash reads a script
+# from STDIN — `ssh host bash -s < script`, which is how every workflow in this
+# repo delivers one to production — BASH_SOURCE is EMPTY, and `set -u` makes
+# referencing element 0 fatal. The first production run died here, before any
+# privileged call, having installed nothing.
+#
+# Defaulting to $0 gives the right answer in all three modes: piped (unset ->
+# $0 -> equal -> run), executed by path (equal -> run), sourced (the file path
+# vs the parent's name -> not equal -> define only).
+if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then
     APP_DIR="${APP_DIR:-/home/dynasty/trade-calculator}"
     RISKIT_LIB_DIR="${RISKIT_LIB_DIR:-/usr/local/lib/riskit}"
 
